@@ -1,6 +1,6 @@
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "functions/penalty.h"
+#include "functions/penalty.cuh"
 #include "random/rng.cuh"
 #include "test_utils.h"
 

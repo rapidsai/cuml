@@ -27,7 +27,7 @@
 #include <matrix/matrix.h>
 #include <stats/mean.h>
 #include <stats/sum.h>
-#include "penalty.h"
+#include "penalty.cuh"
 
 namespace MLCommon {
 namespace Functions {

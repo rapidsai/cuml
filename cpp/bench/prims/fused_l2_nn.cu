@@ -15,7 +15,7 @@
  */
 
 #include <common/cudart_utils.h>
-#include <distance/fused_l2_nn.h>
+#include <distance/fused_l2_nn.cuh>
 #include <linalg/norm.h>
 #include <random/rng.cuh>
 #include <limits>

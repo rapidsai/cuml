@@ -32,7 +32,7 @@
 #include "linalg/binary_op.h"
 #include "linalg/cublas_wrappers.h"
 #include "sparse/batched/csr.h"
-#include "timeSeries/arima_helpers.h"
+#include "timeSeries/arima_helpers.cuh"
 
 namespace ML {
 

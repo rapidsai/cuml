@@ -16,7 +16,7 @@
 
 #include "cuml/tsa/stationarity.h"
 
-#include "../../src_prims/timeSeries/stationarity.h"
+#include "../../src_prims/timeSeries/stationarity.cuh"
 #include "common/cumlHandle.hpp"
 
 namespace ML {

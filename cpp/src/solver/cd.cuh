@@ -18,9 +18,9 @@
 
 #include <common/cudart_utils.h>
 #include <cuda_utils.h>
-#include <functions/linearReg.h>
-#include <functions/penalty.h>
-#include <functions/softThres.h>
+#include <functions/linearReg.cuh>
+#include <functions/penalty.cuh>
+#include <functions/softThres.cuh>
 #include <linalg/add.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/eltwise.h>

@@ -23,7 +23,7 @@
 #include <linalg/norm.h>
 #include <matrix/math.h>
 #include <matrix/matrix.h>
-#include "sign.h"
+#include "sign.cuh"
 
 namespace MLCommon {
 namespace Functions {

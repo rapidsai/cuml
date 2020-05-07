@@ -28,8 +28,8 @@
 #include <matrix/matrix.h>
 #include <stats/mean.h>
 #include <stats/sum.h>
-#include "penalty.h"
-#include "sigmoid.h"
+#include "penalty.cuh"
+#include "sigmoid.cuh"
 
 namespace MLCommon {
 namespace Functions {

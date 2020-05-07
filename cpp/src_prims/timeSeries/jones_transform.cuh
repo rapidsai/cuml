@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
-* @file jones_transform.h
+* @file jones_transform.cuh
 * @brief Transforms params to induce stationarity/invertability.
 * reference: Jones(1980) 
 */

@@ -35,7 +35,7 @@
 #include "linalg/batched/matrix.h"
 #include "linalg/matrix_vector_op.h"
 #include "metrics/batched/information_criterion.h"
-#include "timeSeries/arima_helpers.h"
+#include "timeSeries/arima_helpers.cuh"
 
 namespace ML {
 
