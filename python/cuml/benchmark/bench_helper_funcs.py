@@ -177,10 +177,10 @@ def _build_treelite_classifier(m, data, args, tmpdir):
 def _treelite_fil_accuracy_score(y_true, y_pred):
     """Function to get correct accuracy for FIL (returns class index)"""
     # convert the input if necessary
-    y_pred1 = (y_pred.copy_to_host() if cuda.devicearray.is_cuda_ndarray(y_pred)
-               else y_pred)
-    y_true1 = (y_true.copy_to_host() if cuda.devicearray.is_cuda_ndarray(y_true)
-               else y_true)
+    y_pred1 = (y_pred.copy_to_host() if
+               cuda.devicearray.is_cuda_ndarray(y_pred) else y_pred)
+    y_true1 = (y_true.copy_to_host() if
+               cuda.devicearray.is_cuda_ndarray(y_true) else y_true)
 
     y_pred_binary = input_utils.convert_dtype(y_pred1 > 0.5, np.int32)
     return cuml.metrics.accuracy_score(y_true1, y_pred_binary)
