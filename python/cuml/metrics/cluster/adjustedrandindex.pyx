@@ -34,9 +34,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     double adjustedRandIndex(cumlHandle &handle,
                              int *y,
                              int *y_hat,
-                             int n,
-                             int lower_class_range,
-                             int upper_class_range)
+                             int n)
 
 
 def adjusted_rand_score(labels_true, labels_pred, handle=None,
@@ -73,18 +71,9 @@ def adjusted_rand_score(labels_true, labels_pred, handle=None,
                             convert_to_dtype=(cp.int32 if convert_dtype
                                               else None))
 
-    min_val_y = cp.nanmin(labels_true)
-    lower_class_range = cp.nanmin(labels_pred) \
-        if min_val_y > cp.nanmin(labels_pred) else cp.nanmin(labels_true)
-    max_val_y = cp.nanmax(labels_true)
-    upper_class_range = cp.nanmax(labels_pred) \
-        if max_val_y < cp.nanmax(labels_pred) else cp.nanmax(labels_true)
-
     rand_score = adjustedRandIndex(handle_[0],
                                    <int*><uintptr_t> labels_true.ptr,
                                    <int*><uintptr_t> labels_pred.ptr,
-                                   <int> n_rows,
-                                   <int> lower_class_range,
-                                   <int> upper_class_range)
+                                   <int> n_rows)
 
     return rand_score
