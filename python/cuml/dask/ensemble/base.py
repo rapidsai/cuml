@@ -10,7 +10,19 @@ from dask.distributed import wait
 
 class BaseRandomForestModel(object):
 
-    def _create_the_model(self, model_func, **kwargs):
+    def _create_model(self, model_func,
+                      unsupported_sklearn_params, **kwargs):
+
+        for key, vals in unsupported_sklearn_params.items():
+            if vals is not None:
+                raise TypeError(
+                    "The Scikit-learn variable",
+                    key,
+                    " is not supported in cuML,"
+                    " please read the cuML documentation for"
+                    " more information",
+                )
+
         n_workers = len(self.workers)
         if self.n_estimators < n_workers:
             raise ValueError(
@@ -101,7 +113,7 @@ class BaseRandomForestModel(object):
 
     def _get_params(self, deep):
         model_params = list()
-        for n, worker in enumerate(self.workers):
+        for idx, worker in enumerate(self.workers):
             model_params.append(
                 self.client.submit(
                     _func_get_params,
@@ -117,18 +129,15 @@ class BaseRandomForestModel(object):
             params_of_each_model.append(model_params[i].result())
         return params_of_each_model
 
-    def _set_params(self, worker_numb, **params):
+    def _set_params(self, **params):
         model_params = list()
-        if worker_numb is None:
-            worker_numb = [posi for posi in range(len(self.workers))]
-        workers = [worker for worker in self.workers]
-        for i in worker_numb:
+        for idx, worker in enumerate(self.workers):
             model_params.append(
                 self.client.submit(
                     _func_set_params,
-                    self.rfs[workers[i]],
+                    self.rfs[worker],
                     **params,
-                    workers=[workers[i]]
+                    workers=[worker]
                 )
             )
         wait(model_params)

@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-import random
-
 from cuml.dask.common import raise_exception_from_futures
 from cuml.ensemble import RandomForestClassifier as cuRFC
 from cuml.dask.common.input_utils import DistributedDataHandler
@@ -158,26 +156,17 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             "class_weight": class_weight,
         }
 
-        for key, vals in unsupported_sklearn_params.items():
-            if vals is not None:
-                raise TypeError(
-                    "The Scikit-learn variable",
-                    key,
-                    " is not supported in cuML,"
-                    " please read the cuML documentation for"
-                    " more information",
-                )
-
         self.n_estimators = n_estimators
         self.n_estimators_per_worker = list()
         self.num_classes = 2
-
+        self.local_model = None
         self.client = default_client() if client is None else client
         if workers is None:
             workers = self.client.has_what().keys()  # Default to all workers
         self.workers = workers
-        self._create_the_model(
-            model_func=RandomForestClassifier._func_build_rf,
+        self._create_model(
+            model_func=RandomForestClassifier._construct_rf,
+            unsupported_sklearn_params=unsupported_sklearn_params,
             max_depth=max_depth,
             n_streams=n_streams,
             max_features=max_features,
@@ -195,7 +184,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             dtype=dtype)
 
     @staticmethod
-    def _func_build_rf(
+    def _construct_rf(
         n_estimators,
         seed,
         **kwargs
@@ -207,7 +196,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         )
 
     @staticmethod
-    def _predict_model_on_cpu(model, X, convert_dtype, r):
+    def _predict_model_on_cpu(model, X, convert_dtype):
         return model._predict_get_all(X, convert_dtype)
 
     def print_summary(self):
@@ -259,6 +248,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
 
         """
         self.num_classes = len(y.unique())
+        self.local_model = None
         self._fit(model=self.rfs,
                   dataset=(X, y),
                   convert_dtype=convert_dtype)
@@ -341,7 +331,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         return preds
 
     def predict_using_fil(self, X, delayed, **kwargs):
-        self.local_model = self._concat_treelite_models()
+        if self.local_model is None:
+            self.local_model = self._concat_treelite_models()
+
         return self._predict_using_fil(X=X,
                                        delayed=delayed,
                                        **kwargs)
@@ -378,7 +370,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                     self.rfs[w],
                     X_Scattered,
                     convert_dtype,
-                    random.random(),
                     workers=[w],
                 )
             )
@@ -490,7 +481,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         """
         return self._get_params(deep)
 
-    def set_params(self, worker_numb=None, **params):
+    def set_params(self, **params):
         """
         Sets the value of parameters required to
         configure this estimator, it functions similar to
@@ -510,5 +501,4 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             number of workers in the cluster. The values passed in the list
             should range from : 0 to len(workers present in the client) - 1.
         """
-        return self._set_params(**params,
-                                worker_numb=worker_numb)
+        return self._set_params(**params)
