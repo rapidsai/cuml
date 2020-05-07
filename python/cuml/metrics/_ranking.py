@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -92,8 +92,6 @@ def _binary_roc_auc_score(y_true, y_score):
     mask = cp.empty(sorted_score.shape, dtype=cp.bool_)
     mask[0] = True
     mask[1:] = sorted_score[1:] != sorted_score[:-1]
-
-    mask = mask.astype('int32')
     group = cp.cumsum(mask, dtype=cp.int32)
 
     sum_ones = cp.sum(ones)
@@ -101,8 +99,8 @@ def _binary_roc_auc_score(y_true, y_score):
 
     num = int(group[-1])
 
-    tps = cp.zeros(num).astype('float32')  # true positives
-    fps = cp.zeros(num).astype('float32')  # false positives
+    tps = cp.zeros(num, dtype='float32')  # true positives
+    fps = cp.zeros(num, dtype='float32')  # false positives
 
     update_counter_kernel = cp.RawKernel(r'''
         extern "C" __global__
@@ -117,7 +115,7 @@ def _binary_roc_auc_score(y_true, y_score):
     ''', 'update_counter')
 
     N = ones.shape[0]
-    tpb = 128
+    tpb = 256
     bpg = math.ceil(N/tpb)
     update_counter_kernel((bpg,), (tpb,),
                           (group, ones, tps, N))  # grid, block and arguments
