@@ -17,9 +17,8 @@
 set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
-cmake_policy(SET CMP0079 NEW)
 
-project(CUML VERSION 0.12.0 LANGUAGES CXX CUDA)
+project(CUML VERSION 0.14.0 LANGUAGES C CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -67,6 +66,8 @@ option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)"
 
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
+option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
+
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 
 option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
@@ -77,6 +78,8 @@ option(LINE_INFO "Enable lineinfo in nvcc" OFF)
 
 option(NVTX "Enable nvtx markers" OFF)
 
+set(BUILD_RPATH_USE_ORIGIN "Whether to use relative paths for the build RPATH." TRUE)
+
 set(PARALLEL_LEVEL "" CACHE STRING
     "Sub-projects parallel level for compilation. Currently only affects FAISS" )
 
@@ -85,8 +88,42 @@ set(GPU_ARCHS "" CACHE STRING
     Pass 'ALL' if you want to compile for all supported GPU architectures.
     Empty string means to auto-detect the GPUs on the current system")
 
-set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
-    "Ignore any libs added implicitly from the CMAKE_INSTALL_DIR")
+
+##############################################################################
+# - Conda environment detection ----------------------------------------------
+
+# conda-build conda package building detection
+if("$ENV{CONDA_BUILD}" STREQUAL "1")
+    message(STATUS "Detected conda-build call, CMAKE_PREFIX_PATH unchanged.")
+
+# otherwise detecting conda environment
+else("$ENV{CONDA_BUILD}" STREQUAL "1")
+
+  if(DETECT_CONDA_ENV)
+
+    if(DEFINED ENV{CONDA_PREFIX})
+      set(CMAKE_PREFIX_PATH "$ENV{CONDA_PREFIX};${CMAKE_PREFIX_PATH}")
+
+      message(STATUS "Detected Conda environment, CMAKE_PREFIX_PATH set to: ${CMAKE_PREFIX_PATH}")
+
+      if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+        message(STATUS "No CMAKE_INSTALL_PREFIX argument detected, setting to: $ENV{CONDA_PREFIX}")
+        set (CMAKE_INSTALL_PREFIX $ENV{CONDA_PREFIX})
+
+      endif (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+
+    else(DEFINED ENV{CONDA_PREFIX})
+      message(STATUS "No Conda environment detected, CMAKE_PREFIX_PATH set to: ${CMAKE_PREFIX_PATH}")
+
+    endif(DEFINED ENV{CONDA_PREFIX})
+
+  else(DETECT_CONDA_ENV)
+    message(STATUS "No Conda detection being used")
+
+  endif(DETECT_CONDA_ENV)
+
+endif("$ENV{CONDA_BUILD}" STREQUAL "1")
+
 
 ##############################################################################
 # - Set options based on user defined one  -----------------------------------
@@ -107,7 +144,9 @@ endif(NOT BUILD_CUML_CPP_LIBRARY)
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
-find_package(CUDA 9.0 REQUIRED)
+# todo: change for FindCUDAToolkit when CMake 3.17 is the minimum required
+# https://github.com/rapidsai/cuml/issues/2194
+find_package(CUDA 10.0 REQUIRED)
 
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
   find_package(OpenMP)
@@ -139,8 +178,7 @@ set(CUML_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
 ##############################################################################
 # - Compiler Options  --------------------------------------------------------
 
-# TODO: Update to c++14, github issue
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(CMAKE_CUDA_HOST_COMPILER)
@@ -163,7 +201,7 @@ endif(OPENMP_FOUND)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
 
 if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++11")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++14")
 endif(${CMAKE_VERSION} VERSION_LESS "3.17.0")
 
 if(LINE_INFO)
@@ -244,8 +282,10 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
+  ${SPDLOG_DIR}/src/spdlog/include
   ${TREELITE_DIR}/include
-  ${TREELITE_DIR}/include/fmt)
+  ${TREELITE_DIR}/include/fmt
+  ${RAFT_DIR}/cpp/include)
 
 set(CUML_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
@@ -267,6 +307,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
     src/common/cuML_comms_impl.cpp
+    src/common/logger.cpp
     src/common/nvtx.cu
     src/comms/cuML_comms_test.cpp
     src/datasets/make_blobs.cu
@@ -277,7 +318,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/fil/infer.cu
     src/glm/glm.cu
     src/holtwinters/holtwinters.cu
-    src/kalman_filter/lkf_py.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
     src/metrics/metrics.cu
@@ -320,6 +360,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
   # same as above, but for protobuf library
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
+
 endif(BUILD_CUML_CPP_LIBRARY)
 
 ##############################################################################
@@ -385,7 +426,7 @@ endif(BUILD_CUML_BENCH)
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------
 
-# include(cmake/doxygen.cmake)
-# add_doxygen_target(IN_DOXYFILE src_prims/Doxyfile.in
-#   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
-#   CWD ${CMAKE_CURRENT_BINARY_DIR})
+include(cmake/doxygen.cmake)
+add_doxygen_target(IN_DOXYFILE Doxyfile.in
+  OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+  CWD ${CMAKE_CURRENT_BINARY_DIR})

@@ -112,7 +112,6 @@ void linearRegLoss(math_t *input, int n_rows, int n_cols, const math_t *labels,
   }
 }
 
-/** @} */
 };  // namespace Functions
 };  // namespace MLCommon
 // end namespace ML

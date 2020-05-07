@@ -49,8 +49,8 @@ class BaseDecomposition(BaseEstimator):
 class DecompositionSyncFitMixin(object):
 
     @staticmethod
-    def _func_fit(m, dfs, M, N, partsToRanks, rank, transform):
-        return m.fit(dfs, M, N, partsToRanks, rank, transform)
+    def _func_fit(m, dfs, M, N, partsToRanks, rank, _transform):
+        return m.fit(dfs, M, N, partsToRanks, rank, _transform)
 
     def _fit(self, X, _transform=False):
         """
@@ -62,7 +62,7 @@ class DecompositionSyncFitMixin(object):
 
         """
 
-        X = self.client.persist(X)
+        n_cols = X.shape[1]
 
         data = DistributedDataHandler.create(data=X, client=self.client)
         self.datatype = data.datatype
@@ -73,9 +73,8 @@ class DecompositionSyncFitMixin(object):
         data.calculate_parts_to_sizes(comms)
 
         total_rows = data.total_rows
-        n_cols = X.shape[1]
 
-        models = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
+        models = dict([(data.worker_info[wf[0]]["rank"], self.client.submit(
             self._create_model,
             comms.sessionId,
             self._model_func,
@@ -87,11 +86,11 @@ class DecompositionSyncFitMixin(object):
 
         pca_fit = dict([(wf[0], self.client.submit(
             DecompositionSyncFitMixin._func_fit,
-            models[data.worker_info[wf[0]]["r"]],
+            models[data.worker_info[wf[0]]["rank"]],
             wf[1],
             total_rows, n_cols,
-            data.parts_to_sizes[data.worker_info[wf[0]]["r"]],
-            data.worker_info[wf[0]]["r"],
+            data.parts_to_sizes[data.worker_info[wf[0]]["rank"]],
+            data.worker_info[wf[0]]["rank"],
             _transform,
             pure=False,
             workers=[wf[0]]))
@@ -115,6 +114,8 @@ class DecompositionSyncFitMixin(object):
                                                   data.gpu_futures,
                                                   pca_fit)
             return to_output(out_futures, self.datatype)
+
+        return self
 
         return self
 

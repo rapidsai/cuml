@@ -17,6 +17,9 @@
 #include "common_kernel.cuh"
 #include "cub/cub.cuh"
 
+namespace ML {
+namespace DecisionTree {
+
 template <typename T>
 struct MSEGain {
   static HDI T exec(const T parent_best_metric, const unsigned int total,
@@ -1044,3 +1047,6 @@ __global__ void best_split_gather_regression_mae_minmax_kernel(
     d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
   }
 }
+
+}  // namespace DecisionTree
+}  // namespace ML

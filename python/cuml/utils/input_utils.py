@@ -138,7 +138,8 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
         elif order == 'C':
             X_m = CumlArray(data=cuml.utils.numba_utils.row_matrix(X))
 
-    elif cuda.is_cuda_array(X) or isinstance(X, np.ndarray):
+    elif hasattr(X, "__array_interface__") or \
+            hasattr(X, "__cuda_array_interface__"):
         X_m = CumlArray(data=X)
 
         if deepcopy:
@@ -307,7 +308,7 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True):
             return CumlArray(data=X_m)
 
     else:
-        raise TypeError("Received unsupported input type " % type(X))
+        raise TypeError("Received unsupported input type: %s" % type(X))
 
     return X
 
