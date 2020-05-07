@@ -33,6 +33,8 @@ from cuml.dask.common.utils import get_client
 from cuml.dask.common.dask_df_utils import to_dask_cudf
 from cuml.dask.common.dask_arr_utils import validate_dask_array
 from cuml.dask.common.part_utils import _extract_partitions
+from cuml.dask.common import raise_exception_from_futures
+
 from dask.distributed import wait
 from dask.distributed import default_client
 from toolz import first
@@ -255,3 +257,8 @@ def to_dask_cupy(futures, dtype=None, shapes=None, client=None):
             objs.append(obj)
 
     return da.concatenate(objs, axis=0)
+
+
+def wait_and_raise_from_futures(futures):
+    wait(futures)
+    raise_exception_from_futures(futures)
