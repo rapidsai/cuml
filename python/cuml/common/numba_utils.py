@@ -17,11 +17,8 @@
 # DEPRECATED: to be removed once full migration to CumlArray is done
 # remaining usages: blobs.pyx, regression.pyx
 
-import cupy as cp
-import numpy as np
 import rmm
 
-from cuml.common import with_cupy_rmm
 from numba import cuda
 from numba.cuda.cudadrv.driver import driver
 
