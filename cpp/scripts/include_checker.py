@@ -21,7 +21,8 @@ import subprocess
 import argparse
 
 
-IncludeRegex = re.compile(r"\s*#include\s*(\S+)")
+# file names could (in theory) contain simple white-space
+IncludeRegex = re.compile(r"(\s*#include\s*)([\"<])([\S ]+)([\">])")
 
 
 def parse_args():
@@ -30,6 +31,8 @@ def parse_args():
     argparser.add_argument("--regex", type=str,
                            default=r"[.](cu|cuh|h|hpp|hxx|cpp)$",
                            help="Regex string to filter in sources")
+    argparser.add_argument("--inplace", action="store_true", required=False,
+                           help="If set, perform the required changes inplace.")
     argparser.add_argument("dirs", type=str, nargs="*",
                            help="List of dirs where to find sources")
     args = argparser.parse_args()
@@ -48,21 +51,44 @@ def list_all_source_file(file_regex, srcdirs):
     return all_files
 
 
-def check_includes_in(src):
+def check_includes_in(src, inplace):
     errs = []
     dir = os.path.dirname(src)
-    for line_number, line in enumerate(open(src)):
+    with open(src) as file_obj:
+        lines = list(enumerate(file_obj))
+    for line_number, line in lines:
         match = IncludeRegex.search(line)
         if match is None:
             continue
-        val = match.group(1)
-        inc_file = val[1:-1]  # strip out " or <
+        val_type = match.group(2)  # " or <
+        inc_file = match.group(3)
         full_path = os.path.join(dir, inc_file)
         line_num = line_number + 1
-        if val[0] == "\"" and not os.path.exists(full_path):
-            errs.append("Line:%d use #include <...>" % line_num)
-        elif val[0] == "<" and os.path.exists(full_path):
-            errs.append("Line:%d use #include \"...\"" % line_num)
+        if val_type == "\"" and not os.path.exists(full_path):
+            if inplace:
+                new_line, n = IncludeRegex.subn(r"\1<\3>", line)
+                assert n == 1, "inplace only handles one include match per line"
+                errs.append((line_number, new_line))
+            else:
+                errs.append("Line:%d use #include <...>" % line_num)
+        elif val_type == "<" and os.path.exists(full_path):
+            if inplace:
+                new_line, n = IncludeRegex.subn(r'\1"\3"', line)
+                assert n == 1, "inplace only handles one include match per line"
+                errs.append((line_number, new_line))
+            else:
+                errs.append("Line:%d use #include \"...\"" % line_num)
+
+    if inplace and len(errs) > 0:
+        print("File: {}. Changing lines {}".format(
+            src, ', '.join(str(x[0]) for x in errs)))
+        for line_number, replacement in errs:
+            lines[line_number] = (line_number, replacement)
+        with open(src, 'w') as out_file:
+            for _, new_line in lines:
+                out_file.write(new_line)
+        errs = []
+
     return errs
 
 
@@ -71,7 +97,7 @@ def main():
     all_files = list_all_source_file(args.regex_compiled, args.dirs)
     all_errs = {}
     for f in all_files:
-        errs = check_includes_in(f)
+        errs = check_includes_in(f, args.inplace)
         if len(errs) > 0:
             all_errs[f] = errs
     if len(all_errs) == 0:
