@@ -21,9 +21,9 @@
 #include <linalg/norm.h>
 #include <matrix/math.h>
 #include <matrix/matrix.h>
-#include <stats/mean.h>
-#include <stats/mean_center.h>
-#include <stats/stddev.h>
+#include <stats/mean.cuh>
+#include <stats/mean_center.cuh>
+#include <stats/stddev.cuh>
 #include "common/cumlHandle.hpp"
 #include "ml_utils.h"
 

@@ -17,7 +17,7 @@
 #include <cuda_utils.h>
 #include <common/cumlHandle.hpp>
 #include "distance/distance.cuh"
-#include "score/scores.h"
+#include "score/scores.cuh"
 
 namespace ML {
 namespace Metrics {

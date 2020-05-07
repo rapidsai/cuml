@@ -18,7 +18,7 @@
 #include <thrust/device_vector.h>
 #include "cuda_utils.h"
 #include "random/rng.cuh"
-#include "stats/weighted_mean.h"
+#include "stats/weighted_mean.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

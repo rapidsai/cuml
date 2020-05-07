@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include "linalg/eltwise.h"
 #include "random/rng.cuh"
-#include "stats/sum.h"
+#include "stats/sum.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

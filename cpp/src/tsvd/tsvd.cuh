@@ -27,9 +27,9 @@
 #include <linalg/transpose.h>
 #include <matrix/math.h>
 #include <matrix/matrix.h>
-#include <stats/mean.h>
-#include <stats/stddev.h>
-#include <stats/sum.h>
+#include <stats/mean.cuh>
+#include <stats/stddev.cuh>
+#include <stats/sum.cuh>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include "common/allocatorAdapter.hpp"

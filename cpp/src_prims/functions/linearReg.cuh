@@ -25,8 +25,8 @@
 #include <linalg/transpose.h>
 #include <matrix/math.h>
 #include <matrix/matrix.h>
-#include <stats/mean.h>
-#include <stats/sum.h>
+#include <stats/mean.cuh>
+#include <stats/sum.cuh>
 #include "penalty.cuh"
 
 namespace MLCommon {

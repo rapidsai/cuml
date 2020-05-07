@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
-* @file adjustedRandIndex.h
+* @file adjustedRandIndex.cuh
 * @brief The adjusted Rand index is the corrected-for-chance version of the Rand index.
 * Such a correction for chance establishes a baseline by using the expected similarity 
 * of all pair-wise comparisons between clusterings specified by a random model.
@@ -27,7 +27,7 @@
 #include <linalg/map_then_reduce.h>
 #include <linalg/reduce.h>
 #include <math.h>
-#include <stats/histogram.h>
+#include <stats/histogram.cuh>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>

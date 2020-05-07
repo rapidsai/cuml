@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include "cuda_utils.h"
 #include "random/rng.cuh"
-#include "stats/mean.h"
+#include "stats/mean.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

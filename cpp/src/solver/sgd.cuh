@@ -30,8 +30,8 @@
 #include <linalg/unary_op.h>
 #include <matrix/math.h>
 #include <matrix/matrix.h>
-#include <stats/mean.h>
-#include <stats/mean_center.h>
+#include <stats/mean.cuh>
+#include <stats/mean_center.cuh>
 #include "common/cumlHandle.hpp"
 #include "glm/preprocess.cuh"
 #include "learning_rate.h"

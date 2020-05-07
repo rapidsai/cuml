@@ -23,7 +23,7 @@
 #include "random/permute.h"
 #include "random/rng.cuh"
 #include "randomforest_impl.h"
-#include "score/scores.h"
+#include "score/scores.cuh"
 
 namespace ML {
 /**

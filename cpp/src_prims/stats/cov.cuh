@@ -16,10 +16,9 @@
 
 #pragma once
 
-#include "cuda_utils.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/gemm.h"
-#include "mean_center.h"
+#include "mean_center.cuh"
 
 namespace MLCommon {
 namespace Stats {

@@ -35,7 +35,7 @@
 #include "linalg/cublas_wrappers.h"
 #include "linalg/matrix_vector_op.h"
 #include "linalg/reduce.h"
-#include "stats/mean.h"
+#include "stats/mean.cuh"
 
 namespace MLCommon {
 
