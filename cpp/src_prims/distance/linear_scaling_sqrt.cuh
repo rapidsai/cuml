@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cutlass/gemm/linear_scaling.h>
-#include <distance/fragment_sqrt.h>
+#include <distance/fragment_sqrt.cuh>
 
 namespace MLCommon {
 namespace Distance {

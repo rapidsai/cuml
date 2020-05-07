@@ -18,9 +18,9 @@
 
 #include <common/cudart_utils.h>
 #include <cuda_utils.h>
-#include <functions/hinge.h>
-#include <functions/linearReg.h>
-#include <functions/logisticReg.h>
+#include <functions/hinge.cuh>
+#include <functions/linearReg.cuh>
+#include <functions/logisticReg.cuh>
 #include <linalg/add.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/eltwise.h>

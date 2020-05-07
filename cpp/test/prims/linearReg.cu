@@ -1,6 +1,6 @@
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "functions/linearReg.h"
+#include "functions/linearReg.cuh"
 #include "random/rng.cuh"
 #include "test_utils.h"
 

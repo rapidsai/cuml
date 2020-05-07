@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
-* @file stationarity.h
+* @file stationarity.cuh
 * @brief Compute the recommended trend parameter for a batched series.
 * Reference: 'Testing the null hypothesis of stationarity against the
 * alternative of a unit root', Kwiatkowski et al. 1992.
