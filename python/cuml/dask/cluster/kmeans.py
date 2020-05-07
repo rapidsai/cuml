@@ -268,8 +268,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
                                          sample_weight=sample_weight,
                                          n_dims=1,
                                          delayed=False,
-                                         output_futures=True,
-)
+                                         output_futures=True)
 
         return -1 * cp.sum(cp.asarray(
             self.client.compute(scores, sync=True))*-1.0)
