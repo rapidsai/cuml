@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <functions/linearReg.h>
 #include <functions/penalty.h>
@@ -30,7 +31,7 @@
 #include <matrix/math.h>
 #include <matrix/matrix.h>
 #include "common/cumlHandle.hpp"
-#include "glm/preprocess.h"
+#include "glm/preprocess.cuh"
 #include "ml_utils.h"
 #include "shuffle.h"
 

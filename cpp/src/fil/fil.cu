@@ -37,49 +37,41 @@ namespace fil {
 using namespace MLCommon;
 namespace tl = treelite;
 
-void dense_node_init(dense_node_t* n, float output, float thresh, int fid,
+void dense_node_init(dense_node_t* n, val_t output, float thresh, int fid,
                      bool def_left, bool is_leaf) {
-  dense_node dn(output, thresh, fid, def_left, is_leaf);
-  n->bits = dn.bits;
-  n->val = dn.val;
+  *n = dense_node(output, thresh, fid, def_left, is_leaf);
 }
 
-void dense_node_decode(const dense_node_t* n, float* output, float* thresh,
+void dense_node_decode(const dense_node_t* n, val_t* output, float* thresh,
                        int* fid, bool* def_left, bool* is_leaf) {
   dense_node dn(*n);
-  *output = dn.output();
+  *output = dn.output<val_t>();
   *thresh = dn.thresh();
   *fid = dn.fid();
   *def_left = dn.def_left();
   *is_leaf = dn.is_leaf();
 }
 
-inline void sparse_node_init_inline(sparse_node_t* node, float output,
+inline void sparse_node_init_inline(sparse_node_t* node, val_t output,
                                     float thresh, int fid, bool def_left,
                                     bool is_leaf, int left_index) {
   sparse_node n(output, thresh, fid, def_left, is_leaf, left_index);
-  node->bits = n.bits;
-  node->val = n.val;
-  node->left_idx = n.left_idx;
+
+  *node = sparse_node_t(n, n);
 }
 
-void sparse_node_init(sparse_node_t* node, float output, float thresh, int fid,
+void sparse_node_init(sparse_node_t* node, val_t output, float thresh, int fid,
                       bool def_left, bool is_leaf, int left_index) {
   sparse_node_init_inline(node, output, thresh, fid, def_left, is_leaf,
                           left_index);
 }
 
 /** sparse_node_decode extracts individual members from node */
-void sparse_node_decode(const sparse_node_t* node, float* output, float* thresh,
+void sparse_node_decode(const sparse_node_t* node, val_t* output, float* thresh,
                         int* fid, bool* def_left, bool* is_leaf,
                         int* left_index) {
-  sparse_node n(*node);
-  *output = n.output();
-  *thresh = n.thresh();
-  *fid = n.fid();
-  *def_left = n.def_left();
-  *is_leaf = n.is_leaf();
-  *left_index = n.left_index();
+  dense_node_decode(node, output, thresh, fid, def_left, is_leaf);
+  *left_index = sparse_node(*node).left_index();
 }
 
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
@@ -87,26 +79,28 @@ __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 /** performs additional transformations on the array of forest predictions
     (preds) of size n; the transformations are defined by output, and include
     averaging (multiplying by inv_num_trees), adding global_bias (always done),
-    sigmoid and applying threshold. in case of predict_proba, skips threshold
-    and fills in the converse probability */
+    sigmoid and applying threshold. in case of complement_proba,
+    fills in the complement probability */
 __global__ void transform_k(float* preds, size_t n, output_t output,
                             float inv_num_trees, float threshold,
-                            float global_bias, bool predict_proba) {
+                            float global_bias, bool complement_proba) {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
   if (i >= n) return;
+  if (complement_proba && i % 2 != 0) return;
 
-  float result = preds[predict_proba ? i * 2 : i];
+  float result = preds[i];
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
   result += global_bias;
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
-  if ((output & output_t::THRESHOLD) && !predict_proba) {
+  // will not be done on INT_CLASS_LABEL because the whole kernel will not run
+  if ((output & output_t::CLASS) != 0) {
     result = result > threshold ? 1.0f : 0.0f;
   }
   // sklearn outputs numpy array in 'C' order, with the number of classes being last dimension
   // that is also the default order, so we should use the same one
-  if (predict_proba) {
-    preds[i * 2] = 1.f - result;
-    preds[i * 2 + 1] = result;
+  if (complement_proba) {
+    preds[i] = 1.0f - result;
+    preds[i + 1] = result;
   } else
     preds[i] = result;
 }
@@ -131,6 +125,8 @@ struct forest {
     output_ = params->output;
     threshold_ = params->threshold;
     global_bias_ = params->global_bias;
+    leaf_payload_type_ = params->leaf_payload_type;
+    num_classes_ = params->num_classes;
     init_max_shm();
   }
 
@@ -146,17 +142,76 @@ struct forest {
     params.data = data;
     params.num_rows = num_rows;
     params.max_shm = max_shm_;
-    params.num_output_classes = predict_proba ? 2 : 1;
+    params.num_classes = num_classes_;
+    params.leaf_payload_type = leaf_payload_type_;
+
+    /**
+    The binary classification / regression (FLOAT_SCALAR) predict_proba() works as follows
+      (always 2 outputs):
+    RAW: output the sum of tree predictions
+    AVG is set: divide by the number of trees (averaging)
+    SIGMOID is set: apply sigmoid
+    CLASS is set: ignored
+    write the output of the previous stages and its complement
+
+    The binary classification / regression (FLOAT_SCALAR) predict() works as follows
+      (always 1 output):
+    RAW (no values set): output the sum of tree predictions
+    AVG is set: divide by the number of trees (averaging)
+    SIGMOID is set: apply sigmoid
+    CLASS is set: apply threshold (equivalent to choosing best class)
+    
+    The multi-class classification / regression (INT_CLASS_LABEL) predict_proba() works as follows
+      (always num_classes outputs):
+    RAW (no values set): output class votes
+    AVG is set: divide by the number of trees (averaging, output class probability)
+    SIGMOID is set: apply sigmoid
+    CLASS is set: ignored
+    
+    The multi-class classification / regression (INT_CLASS_LABEL) predict() works as follows
+      (always 1 output):
+    RAW (no values set): output the label of the class with highest probability, else output label 0.
+    AVG is set: ignored
+    SIGMOID is set: ignored
+    CLASS is set: ignored
+    */
+    output_t ot = output_;
+    bool complement_proba = false, do_transform = global_bias_ != 0.0f;
+
+    if (leaf_payload_type_ == leaf_value_t::FLOAT_SCALAR) {
+      if (predict_proba) {
+        params.num_outputs = 2;
+        ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
+        complement_proba = true;
+        do_transform = true;
+      } else {
+        params.num_outputs = 1;
+        if (ot != output_t::RAW) do_transform = true;
+      }
+    } else if (leaf_payload_type_ == leaf_value_t::INT_CLASS_LABEL) {
+      if (predict_proba) {
+        params.num_outputs = num_classes_;
+        ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
+        if (ot != output_t::RAW) do_transform = true;
+      } else {
+        params.num_outputs = 1;
+        // moot since choosing best class and all transforms are monotonic
+        // also, would break current code
+        do_transform = false;
+      }
+    }
 
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
     infer(params, stream);
 
-    // Transform the output if necessary.
-    if (output_ != output_t::RAW || global_bias_ != 0.0f || predict_proba) {
-      transform_k<<<ceildiv(int(num_rows), FIL_TPB), FIL_TPB, 0, stream>>>(
-        preds, num_rows, output_, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
-        threshold_, global_bias_, predict_proba);
+    if (do_transform) {
+      size_t num_values_to_transform =
+        (size_t)num_rows * (size_t)params.num_outputs;
+      transform_k<<<ceildiv(num_values_to_transform, (size_t)FIL_TPB), FIL_TPB,
+                    0, stream>>>(preds, num_values_to_transform, ot,
+                                 num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
+                                 threshold_, global_bias_, complement_proba);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
@@ -172,6 +227,8 @@ struct forest {
   output_t output_ = output_t::RAW;
   float threshold_ = 0.5;
   float global_bias_ = 0;
+  leaf_value_t leaf_payload_type_ = leaf_value_t::FLOAT_SCALAR;
+  int num_classes_ = 0;
 };
 
 struct dense_forest : forest {
@@ -286,12 +343,27 @@ void check_params(const forest_params_t* params, bool dense) {
       ASSERT(false,
              "algo should be ALGO_AUTO, NAIVE, TREE_REORG or BATCH_TREE_REORG");
   }
+  switch (params->leaf_payload_type) {
+    case leaf_value_t::FLOAT_SCALAR:
+      /* params->num_classes is ignored in this case, since the user might call
+         predict_proba() on regression. Hence, no point checking the range of
+         an ignored variable */
+      break;
+    case leaf_value_t::INT_CLASS_LABEL:
+      ASSERT(params->num_classes >= 2,
+             "num_classes >= 2 is required for "
+             "leaf_payload_type == INT_CLASS_LABEL");
+      break;
+    default:
+      ASSERT(false,
+             "leaf_payload_type should be FLOAT_SCALAR or INT_CLASS_LABEL");
+  }
   // output_t::RAW == 0, and doesn't have a separate flag
   output_t all_set =
-    output_t(output_t::AVG | output_t::SIGMOID | output_t::THRESHOLD);
+    output_t(output_t::AVG | output_t::SIGMOID | output_t::CLASS);
   if ((params->output & ~all_set) != 0) {
     ASSERT(false,
-           "output should be a combination of RAW, AVG, SIGMOID and THRESHOLD");
+           "output should be a combination of RAW, AVG, SIGMOID and CLASS");
   }
 }
 
@@ -387,11 +459,53 @@ inline void adjust_threshold(float* pthreshold, int* tl_left, int* tl_right,
   }
 }
 
+/** if the vector consists of zeros and a single one, return the position
+for the one (assumed class label). Else, asserts false.
+If the vector contains a NAN, asserts false */
+int find_class_label_from_one_hot(tl::tl_float* vector, int len) {
+  bool found_label = false;
+  int out;
+  for (int i = 0; i < len; ++i) {
+    if (vector[i] == 1.0f) {
+      ASSERT(!found_label, "label vector contains multiple 1.0f");
+      out = i;
+      found_label = true;
+    } else {
+      ASSERT(vector[i] == 0.0f,
+             "label vector contains values other than 0.0 and 1.0");
+    }
+  }
+  ASSERT(found_label, "did not find 1.0f in vector");
+  return out;
+}
+
+template <typename fil_node_t>
+void tl2fil_leaf_payload(fil_node_t* fil_node, const tl::Tree::Node& tl_node,
+                         const forest_params_t& forest_params) {
+  auto vec = tl_node.leaf_vector();
+  switch (forest_params.leaf_payload_type) {
+    case leaf_value_t::INT_CLASS_LABEL:
+      ASSERT(vec.size() == forest_params.num_classes,
+             "inconsistent number of classes in treelite leaves");
+      fil_node->val.idx = find_class_label_from_one_hot(&vec[0], vec.size());
+      break;
+    case leaf_value_t::FLOAT_SCALAR:
+      fil_node->val.f = tl_node.leaf_value();
+      ASSERT(tl_node.leaf_vector().size() == 0,
+             "some but not all treelite leaves have leaf_vector()");
+      break;
+    default:
+      ASSERT(false, "internal error: invalid leaf_payload_type");
+  };
+}
+
 void node2fil_dense(std::vector<dense_node_t>* pnodes, int root, int cur,
-                    const tl::Tree& tree, const tl::Tree::Node& node) {
+                    const tl::Tree& tree, const tl::Tree::Node& node,
+                    const forest_params_t& forest_params) {
   if (node.is_leaf()) {
-    dense_node_init(&(*pnodes)[root + cur], node.leaf_value(), 0, 0, false,
+    dense_node_init(&(*pnodes)[root + cur], val_t{.f = NAN}, NAN, 0, false,
                     true);
+    tl2fil_leaf_payload(&(*pnodes)[root + cur], node, forest_params);
     return;
   }
 
@@ -402,19 +516,24 @@ void node2fil_dense(std::vector<dense_node_t>* pnodes, int root, int cur,
   bool default_left = node.default_left();
   float threshold = node.threshold();
   adjust_threshold(&threshold, &tl_left, &tl_right, &default_left, node);
-  dense_node_init(&(*pnodes)[root + cur], 0, threshold, node.split_index(),
-                  default_left, false);
+  dense_node_init(&(*pnodes)[root + cur], val_t{.f = 0}, threshold,
+                  node.split_index(), default_left, false);
   int left = 2 * cur + 1;
-  node2fil_dense(pnodes, root, left, tree, tl_node_at(tree, tl_left));
-  node2fil_dense(pnodes, root, left + 1, tree, tl_node_at(tree, tl_right));
+  node2fil_dense(pnodes, root, left, tree, tl_node_at(tree, tl_left),
+                 forest_params);
+  node2fil_dense(pnodes, root, left + 1, tree, tl_node_at(tree, tl_right),
+                 forest_params);
 }
 
 void tree2fil_dense(std::vector<dense_node_t>* pnodes, int root,
-                    const tl::Tree& tree) {
-  node2fil_dense(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)));
+                    const tl::Tree& tree,
+                    const forest_params_t& forest_params) {
+  node2fil_dense(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)),
+                 forest_params);
 }
 
-int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree) {
+int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree,
+                    const forest_params_t& forest_params) {
   typedef std::pair<const tl::Tree::Node*, int> pair_t;
   std::stack<pair_t> stack;
   int root = pnodes->size();
@@ -443,7 +562,7 @@ int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree) {
       int left = pnodes->size() - root;
       pnodes->push_back(sparse_node_t());
       pnodes->push_back(sparse_node_t());
-      sparse_node_init_inline(&(*pnodes)[root + cur], 0, threshold,
+      sparse_node_init_inline(&(*pnodes)[root + cur], val_t{.f = 0}, threshold,
                               node->split_index(), default_left, false, left);
 
       // push child nodes into the stack
@@ -454,11 +573,23 @@ int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree) {
     }
 
     // leaf node
-    sparse_node_init_inline(&(*pnodes)[root + cur], node->leaf_value(), 0, 0,
-                            false, true, 0);
+    sparse_node_init(&(*pnodes)[root + cur], val_t{.f = NAN}, NAN, 0, false,
+                     true, 0);
+    tl2fil_leaf_payload(&(*pnodes)[root + cur], *node, forest_params);
   }
 
   return root;
+}
+
+size_t tl_leaf_vector_size(const tl::Model& model) {
+  const tl::Tree& tree = model.trees[0];
+  int node_key;
+  for (node_key = tree_root(tree); !tl_node_at(tree, node_key).is_leaf();
+       node_key = tl_node_at(tree, node_key).cright())
+    ;
+  const tl::Tree::Node& node = tl_node_at(tree, node_key);
+  if (node.has_leaf_vector()) return node.leaf_vector().size();
+  return 0;
 }
 
 // tl2fil_common is the part of conversion from a treelite model
@@ -470,15 +601,27 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   params->threshold = tl_params->threshold;
 
   // fill in forest-dependent params
+  params->depth = max_depth(model);  // also checks for cycles
+
+  // assuming either all leaves use the .leaf_vector() or all leaves use .leaf_value()
+  size_t leaf_vec_size = tl_leaf_vector_size(model);
+  if (leaf_vec_size > 0) {
+    ASSERT(leaf_vec_size == model.num_output_group,
+           "treelite model inconsistent");
+    params->num_classes = leaf_vec_size;
+    params->leaf_payload_type = leaf_value_t::INT_CLASS_LABEL;
+  } else {
+    params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
+    params->num_classes = 0;  // ignored
+  }
+
   params->num_cols = model.num_feature;
-  ASSERT(model.num_output_group == 1,
-         "multi-class classification not supported");
   const tl::ModelParam& param = model.param;
   ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
   params->global_bias = param.global_bias;
   params->output = output_t::RAW;
   if (tl_params->output_class) {
-    params->output = output_t(params->output | output_t::THRESHOLD);
+    params->output = output_t(params->output | output_t::CLASS);
   }
   // "random forest" in treelite means tree output averaging
   if (model.random_forest_flag) {
@@ -491,7 +634,6 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
            param.pred_transform.c_str());
   }
   params->num_trees = model.trees.size();
-  params->depth = max_depth(model);
 }
 
 // uses treelite model with additional tl_params to initialize FIL params
@@ -504,7 +646,8 @@ void tl2fil_dense(std::vector<dense_node_t>* pnodes, forest_params_t* params,
   int num_nodes = forest_num_nodes(params->num_trees, params->depth);
   pnodes->resize(num_nodes, dense_node_t{0, 0});
   for (int i = 0; i < model.trees.size(); ++i) {
-    tree2fil_dense(pnodes, i * tree_num_nodes(params->depth), model.trees[i]);
+    tree2fil_dense(pnodes, i * tree_num_nodes(params->depth), model.trees[i],
+                   *params);
   }
 }
 
@@ -517,7 +660,7 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<sparse_node_t>* pnodes,
 
   // convert the nodes
   for (int i = 0; i < model.trees.size(); ++i) {
-    int root = tree2fil_sparse(pnodes, model.trees[i]);
+    int root = tree2fil_sparse(pnodes, model.trees[i], *params);
     ptrees->push_back(root);
   }
   params->num_nodes = pnodes->size();
@@ -561,9 +704,9 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
     }
   }
 
+  forest_params_t params;
   switch (storage_type) {
     case storage_type_t::DENSE: {
-      forest_params_t params;
       std::vector<dense_node_t> nodes;
       tl2fil_dense(&nodes, &params, model_ref, tl_params);
       init_dense(handle, pforest, nodes.data(), &params);
@@ -573,7 +716,6 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
       break;
     }
     case storage_type_t::SPARSE: {
-      forest_params_t params;
       std::vector<int> trees;
       std::vector<sparse_node_t> nodes;
       tl2fil_sparse(&trees, &nodes, &params, model_ref, tl_params);
