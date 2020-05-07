@@ -18,7 +18,7 @@ import numpy as np
 
 from cuml.common.cuda import nvtx_range_push, nvtx_range_pop
 from cuml.utils import has_scipy
-import cuml.logger as logger
+import cuml.common.logger as logger
 
 
 def _fd_fprime(x, f, h):

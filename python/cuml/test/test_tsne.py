@@ -21,7 +21,7 @@ from cuml.manifold import TSNE
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn import datasets
 
-import cuml.logger as logger
+import cuml.common.logger as logger
 
 
 dataset_names = ['digits', 'boston', 'iris', 'breast_cancer',

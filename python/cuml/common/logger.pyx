@@ -97,7 +97,7 @@ def set_level(level):
 
     .. code-block:: python
 
-        import cuml.logger as logger
+        import cuml.common.logger as logger
 
         # regular usage of setting a logging level for all subsequent logs
         # in this case, it will enable all logs upto and including `info()`
@@ -148,7 +148,7 @@ def set_pattern(pattern):
 
     .. code-block:: python
 
-        import cuml.logger as logger
+        import cuml.common.logger as logger
 
         # regular usage of setting a logging pattern for all subsequent logs
         logger.set_pattern("--> [%H-%M-%S] %v")
@@ -186,7 +186,7 @@ def should_log_for(level):
 
     .. code-block:: python
 
-        import cuml.logger as logger
+        import cuml.common.logger as logger
         if logger.should_log_for(LEVEL_INFO):
             # which could waste precious CPU cycles
             my_message = construct_message()
@@ -209,7 +209,7 @@ def trace(msg):
 
     .. code-block:: python
 
-        import cuml.logger as logger
+        import cuml.common.logger as logger
         logger.trace("Hello world! This is a trace message")
 
     Parameters
@@ -230,7 +230,7 @@ def debug(msg):
 
     .. code-block:: python
 
-        import cuml.logger as logger
+        import cuml.common.logger as logger
         logger.debug("Hello world! This is a debug message")
 
     Parameters
@@ -251,7 +251,7 @@ def info(msg):
 
     .. code-block:: python
 
-        import cuml.logger as logger
+        import cuml.common.logger as logger
         logger.info("Hello world! This is a info message")
 
     Parameters
@@ -272,7 +272,7 @@ def warn(msg):
 
     .. code-block:: python
 
-        import cuml.logger as logger
+        import cuml.common.logger as logger
         logger.warn("Hello world! This is a warning message")
 
     Parameters
@@ -293,7 +293,7 @@ def error(msg):
 
     .. code-block:: python
 
-        import cuml.logger as logger
+        import cuml.common.logger as logger
         logger.error("Hello world! This is a error message")
 
     Parameters
@@ -314,7 +314,7 @@ def critical(msg):
 
     .. code-block:: python
 
-        import cuml.logger as logger
+        import cuml.common.logger as logger
         logger.critical("Hello world! This is a critical message")
 
     Parameters

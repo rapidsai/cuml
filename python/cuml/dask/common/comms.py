@@ -22,7 +22,7 @@ from .comms_utils import inject_comms_on_handle, \
     inject_comms_on_handle_coll_only, is_ucx_enabled
 from .utils import parse_host_port
 from cuml.common.handle import Handle
-import cuml.logger as logger
+import cuml.common.logger as logger
 
 from dask.distributed import get_worker, default_client
 
