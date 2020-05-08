@@ -63,17 +63,19 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
   Index_ nBatches =
     (Index_)ceildiv<size_t>(estimated_memory, max_mbytes_per_batch * 1000000);
   size_t MAX_LABEL = (size_t)std::numeric_limits<Index_>::max();
-  // n_rows * n_rows_per_batch < MAX_LABEL => n_rows * (n_rows / nBatches) < MAX_LABEL
+  // n_rows * n_rows_per_batch < MAX_LABEL
+  // => n_rows * (n_rows / nBatches) < MAX_LABEL
   // => nBatches >= n_rows * n_rows / MAX_LABEL
   Index_ nBatchesPrec =
     (Index_)ceildiv<size_t>((size_t)n_rows * n_rows, MAX_LABEL);
-  if (nBatchesPrec >= 4 * nBatches) {
-    CUML_LOG_WARN(
-      "Due to precision limitations of the index type (%d bytes) "
-      "we need to use %ld batches, but you have memory for %ld batches. "
-      "Consider upgrading the index type (output label type).",
-      (int)sizeof(Index_), (size_t)nBatchesPrec, (size_t)nBatches);
-  }
+  // at some point, if nBatchesPrec is larger than nBatches
+  // (or larger by a given factor) and we know that there are clear
+  // performance benefits of using a smaller number of batches,
+  // we should probably warn the user.
+  // In the latest benchmarks, it seems like using int64 indexing and batches
+  // that are much larger than 2.10^9 points (the limit for int32), doesn't
+  // actually improve performance, even when using >16.10^9 points per batch.
+  // Much larger batches than 16.10^9 do not currently fit on GPU architectures
   if (sizeof(Index_) > sizeof(int) &&
       (size_t)n_rows * ceildiv<Index_>(n_rows, nBatches) <
         std::numeric_limits<int>::max()) {
@@ -83,7 +85,12 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
       "index type for better performance.",
       (int)sizeof(Index_), (int)sizeof(int));
   }
-  return std::max({(Index_)1, nBatchesPrec, nBatches});
+  if (nBatchesPrec > nBatches) {
+    nBatches = nBatchesPrec;
+    // we have to re-adjust memory estimation here
+    estimated_memory = nBatches * (estimated_memory / n_rows);
+  }
+  return max((Index_)1, nBatches);
 }
 
 template <typename T, typename Index_ = int>
