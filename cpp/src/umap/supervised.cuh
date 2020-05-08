@@ -108,7 +108,7 @@ void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
 
 		  if((cur_col != last_col && last_col != -1) || start_idx == stop_idx-1) {
 			  prod = prod * n > 1.0; // simulate transpose being zero
-			  vals[write_idx] = (sum - prod) + prod;
+			  vals[write_idx] = (sum - prod);
 			  prod = cur_val;
 			  sum = cur_val;
 			  n = 0;

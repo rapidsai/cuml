@@ -32,8 +32,6 @@
 
 #include <cuda_runtime.h>
 
-#pragma once
-
 namespace UMAPAlgo {
 
 namespace Optimize {
@@ -174,6 +172,7 @@ void optimize_params(T *input, int n_rows, const T *labels, T *coef,
 
   } while (tol_grads < 2 && num_iters < max_epochs);
 }
+
 
 void find_params_ab(UMAPParams *params,
                     std::shared_ptr<deviceAllocator> d_alloc,

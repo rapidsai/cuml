@@ -692,7 +692,7 @@ void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
 
   CUDA_CHECK(cudaMemsetAsync(row_counts.data(), 0, m * sizeof(T), stream));
 
-  coo_row_count<32>(rows, nnz, row_counts.data(), stream);
+  coo_row_count<256>(rows, nnz, row_counts.data(), stream);
 
   // create csr compressed row index from row counts
   thrust::device_ptr<T> row_counts_d =
