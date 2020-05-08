@@ -18,8 +18,8 @@
 
 #include <common/cudart_utils.h>
 #include <float.h>
-#include <linalg/eltwise.cuh>
 #include <math.h>
+#include <linalg/eltwise.cuh>
 #define restrict __restrict__
 
 namespace ML {

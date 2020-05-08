@@ -17,9 +17,9 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
 #include <common/cumlHandle.hpp>
 #include <common/host_buffer.hpp>
+#include <cuda_utils.cuh>
 #include "dbscan/common.cuh"
 #include "pack.h"
 

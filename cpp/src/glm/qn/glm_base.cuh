@@ -17,8 +17,8 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <linalg/matrix_vector_op.cuh>
 #include <glm/qn/simple_mat.cuh>
+#include <linalg/matrix_vector_op.cuh>
 #include <vector>
 #include "cuda_utils.cuh"
 #include "linalg/add.cuh"

@@ -17,10 +17,10 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
 #include <cuml/random_projection/rproj_c.h>
-#include <random/rng.cuh>
 #include <common/cumlHandle.hpp>
+#include <cuda_utils.cuh>
+#include <random/rng.cuh>
 #include "sys/time.h"
 
 const int TPB_X = 256;

@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
 #include <cub/cub.cuh>
+#include <cuda_utils.cuh>
 #include "common/device_buffer.hpp"
 #include "ml_utils.h"
 #include "selection/kselection.cuh"

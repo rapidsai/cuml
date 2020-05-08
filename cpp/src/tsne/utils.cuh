@@ -32,9 +32,9 @@
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
 
+#include <sys/time.h>
 #include <random/rng.cuh>
 #include <stats/sum.cuh>
-#include <sys/time.h>
 
 #include <sys/time.h>
 #include <unistd.h>

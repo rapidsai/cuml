@@ -15,8 +15,8 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
 #include <gtest/gtest.h>
+#include <cuda_utils.cuh>
 #include <random/rng.cuh>
 #include <stats/histogram.cuh>
 #include "test_utils.h"

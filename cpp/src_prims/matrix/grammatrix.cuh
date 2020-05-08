@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <distance/distance.cuh>
 #include <linalg/cublas_wrappers.h>
+#include <distance/distance.cuh>
 #include <linalg/gemm.cuh>
 
 namespace MLCommon {

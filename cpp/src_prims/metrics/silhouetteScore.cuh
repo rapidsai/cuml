@@ -15,13 +15,13 @@
  */
 
 #include <common/cudart_utils.h>
-#include <distance/distance.cuh>
-#include <linalg/binary_op.cuh>
 #include <math.h>
 #include <algorithm>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
+#include <distance/distance.cuh>
 #include <iostream>
+#include <linalg/binary_op.cuh>
 #include <numeric>
 #include "common/device_buffer.hpp"
 #include "cuda_utils.cuh"

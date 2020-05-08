@@ -15,10 +15,10 @@
  */
 
 #include <gtest/gtest.h>
-#include <score/scores.cuh>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <score/scores.cuh>
 #include <vector>
 #include "datasets/digits.h"
 #include "tsne/tsne.cu"

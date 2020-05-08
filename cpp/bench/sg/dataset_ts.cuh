@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
 #include <common/cumlHandle.hpp>
+#include <cuda_utils.cuh>
 #include <cuml/cuml.hpp>
 
 #include <random/rng.cuh>

@@ -17,11 +17,11 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
 #include <limits.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/permutation_iterator.h>
 #include <cub/cub.cuh>
+#include <cuda_utils.cuh>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "cuml/svm/svm_parameter.h"

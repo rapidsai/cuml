@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.cuh>
 #include <gtest/gtest.h>
 #include <metrics/trustworthiness.h>
+#include <cuda_utils.cuh>
 #include <vector>
 
 using namespace MLCommon;

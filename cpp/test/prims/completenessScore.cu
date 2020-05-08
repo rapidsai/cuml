@@ -15,10 +15,10 @@
  */
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <metrics/completenessScore.cuh>
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
+#include <metrics/completenessScore.cuh>
 #include <random>
 #include "test_utils.h"
 

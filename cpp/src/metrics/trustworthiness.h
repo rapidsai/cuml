@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <distance/distance.cuh>
 #include <common/cumlHandle.hpp>
+#include <distance/distance.cuh>
 
 namespace ML {
 namespace Metrics {

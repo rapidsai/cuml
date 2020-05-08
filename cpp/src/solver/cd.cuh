@@ -17,12 +17,12 @@
 #pragma once
 
 #include <common/cudart_utils.h>
+#include <linalg/cublas_wrappers.h>
 #include <cuda_utils.cuh>
 #include <functions/linearReg.cuh>
 #include <functions/penalty.cuh>
 #include <functions/softThres.cuh>
 #include <linalg/add.cuh>
-#include <linalg/cublas_wrappers.h>
 #include <linalg/eltwise.cuh>
 #include <linalg/gemm.cuh>
 #include <linalg/multiply.cuh>
