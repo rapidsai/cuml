@@ -18,7 +18,7 @@
 #include "distance/algo1.cuh"
 #include "distance/distance_fragment_multiply_add.cuh"
 #include "linalg/custom_accum.h"
-#include "linalg/eltwise2d.h"
+#include "linalg/eltwise2d.cuh"
 #include "linalg/gemm.cuh"
 
 #include <cutlass/shape.h>

@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <metrics/trustworthiness.h>
+#include <metrics/trustworthiness.cuh>
 #include <cuda_utils.cuh>
 #include <vector>
 

@@ -21,7 +21,7 @@
 #include "datasets/digits.h"
 
 #include <cuml/manifold/umapparams.h>
-#include <metrics/trustworthiness.h>
+#include <metrics/trustworthiness.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/neighbors/knn.hpp>
