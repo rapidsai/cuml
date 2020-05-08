@@ -33,7 +33,7 @@
 #include "linalg/init.h"
 #include "linalg/map_then_reduce.cuh"
 #include "linalg/unary_op.cuh"
-#include "matrix/matrix.h"
+#include "matrix/matrix.cuh"
 #include "ws_util.cuh"
 
 namespace ML {

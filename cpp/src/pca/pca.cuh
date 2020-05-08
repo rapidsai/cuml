@@ -21,8 +21,8 @@
 #include <linalg/eig.h>
 #include <linalg/eltwise.h>
 #include <linalg/transpose.h>
-#include <matrix/math.h>
-#include <matrix/matrix.h>
+#include <matrix/math.cuh>
+#include <matrix/matrix.cuh>
 #include <stats/cov.cuh>
 #include <stats/mean.cuh>
 #include <stats/mean_center.cuh>

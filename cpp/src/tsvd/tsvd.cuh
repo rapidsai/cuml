@@ -25,8 +25,8 @@
 #include <linalg/gemm.h>
 #include <linalg/rsvd.h>
 #include <linalg/transpose.h>
-#include <matrix/math.h>
-#include <matrix/matrix.h>
+#include <matrix/math.cuh>
+#include <matrix/matrix.cuh>
 #include <stats/mean.cuh>
 #include <stats/stddev.cuh>
 #include <stats/sum.cuh>

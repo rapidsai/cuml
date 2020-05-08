@@ -16,7 +16,7 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "matrix/matrix.h"
+#include "matrix/matrix.cuh"
 #include "random/rng.cuh"
 #include "test_utils.h"
 

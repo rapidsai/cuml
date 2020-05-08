@@ -21,8 +21,8 @@
 #include <linalg/add.h>
 #include <linalg/eltwise.h>
 #include <linalg/norm.h>
-#include <matrix/math.h>
-#include <matrix/matrix.h>
+#include <matrix/math.cuh>
+#include <matrix/matrix.cuh>
 #include "sign.cuh"
 
 namespace MLCommon {

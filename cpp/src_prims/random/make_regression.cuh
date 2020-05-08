@@ -29,7 +29,7 @@
 #include "linalg/init.h"
 #include "linalg/qr.h"
 #include "linalg/transpose.h"
-#include "matrix/matrix.h"
+#include "matrix/matrix.cuh"
 #include "permute.cuh"
 #include "rng.cuh"
 

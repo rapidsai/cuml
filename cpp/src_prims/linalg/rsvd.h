@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "../matrix/math.h"
-#include "../matrix/matrix.h"
+#include "../matrix/math.cuh"
+#include "../matrix/matrix.cuh"
 #include "../random/rng.cuh"
 #include "cublas_wrappers.h"
 #include "cuda_utils.h"

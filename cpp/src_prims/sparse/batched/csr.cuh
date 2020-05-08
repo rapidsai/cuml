@@ -41,7 +41,7 @@
 #include "common/device_buffer.hpp"
 #include "linalg/batched/matrix.h"
 #include "linalg/cusolver_wrappers.h"
-#include "matrix/matrix.h"
+#include "matrix/matrix.cuh"
 
 namespace MLCommon {
 namespace Sparse {

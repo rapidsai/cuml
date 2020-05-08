@@ -24,8 +24,8 @@
 #include "cusolver_wrappers.h"
 #include "eig.h"
 #include "gemm.h"
-#include "matrix/math.h"
-#include "matrix/matrix.h"
+#include "matrix/math.cuh"
+#include "matrix/matrix.cuh"
 #include "transpose.h"
 
 namespace MLCommon {

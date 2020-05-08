@@ -26,8 +26,8 @@
 #include "common/host_buffer.hpp"
 #include "cuml/svm/svm_parameter.h"
 #include "linalg/init.h"
-#include "matrix/grammatrix.h"
-#include "matrix/matrix.h"
+#include "matrix/grammatrix.cuh"
+#include "matrix/matrix.cuh"
 #include "ml_utils.h"
 
 namespace ML {

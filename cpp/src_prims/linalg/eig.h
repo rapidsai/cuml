@@ -22,7 +22,7 @@
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 #include "cusolver_wrappers.h"
-#include "matrix/matrix.h"
+#include "matrix/matrix.cuh"
 
 namespace MLCommon {
 namespace LinAlg {

@@ -22,7 +22,7 @@
 #include "label/classlabels.cuh"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/unary_op.cuh"
-#include "matrix/kernelfactory.h"
+#include "matrix/kernelfactory.cuh"
 #include "smosolver.cuh"
 #include "svc_impl.cuh"
 

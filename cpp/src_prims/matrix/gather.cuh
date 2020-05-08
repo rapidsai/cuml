@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include "cuda_utils.h"
-
 namespace MLCommon {
 namespace Matrix {
 

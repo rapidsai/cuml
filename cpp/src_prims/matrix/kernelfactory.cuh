@@ -18,8 +18,8 @@
 
 #include <common/cudart_utils.h>
 #include <cuml/matrix/kernelparams.h>
-#include "grammatrix.h"
-#include "kernelmatrices.h"
+#include "grammatrix.cuh"
+#include "kernelmatrices.cuh"
 
 namespace MLCommon {
 namespace Matrix {
