@@ -24,6 +24,7 @@ from cuml.dask.common.base import DelayedPredictionMixin, \
 from cuml.dask.ensemble.base import \
     BaseRandomForestModel
 from dask.distributed import default_client
+from cuml.fil.fil import TreeliteModel as tl
 
 
 class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
@@ -123,7 +124,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         seed=None,
         **kwargs
     ):
-
         super(RandomForestClassifier, self).__init__(client=client,
                                                      verbose=verbose,
                                                      **kwargs)
@@ -135,6 +135,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             n_estimators=n_estimators,
             base_seed=seed,
             **kwargs)
+
 
     @staticmethod
     def _construct_rf(
@@ -160,7 +161,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
 
     def fit(self, X, y, convert_dtype=False):
         """
-        Fit the input data with a Random Forest classifier
+        Fit the input data with a Random Forest classifier.
 
         IMPORTANT: X is expected to be partitioned with at least one partition
         on each Dask worker being used by the forest (self.workers).
@@ -205,6 +206,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         self._fit(model=self.rfs,
                   dataset=(X, y),
                   convert_dtype=convert_dtype)
+
         return self
 
     def predict(self, X, output_class=True, algo='auto', threshold=0.5,
