@@ -16,7 +16,7 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "linalg/strided_reduction.h"
+#include "linalg/strided_reduction.cuh"
 #include "random/rng.cuh"
 #include "reduce.cuh"
 #include "test_utils.h"

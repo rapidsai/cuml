@@ -26,7 +26,7 @@
 
 #include "linalg/cusolver_wrappers.h"
 
-#include "linalg/reduce.h"
+#include "linalg/reduce.cuh"
 
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>

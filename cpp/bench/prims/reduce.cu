@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <linalg/reduce.h>
+#include <linalg/reduce.cuh>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {

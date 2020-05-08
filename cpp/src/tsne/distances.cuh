@@ -17,7 +17,7 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <linalg/eltwise.h>
+#include <linalg/eltwise.cuh>
 #include <selection/knn.cuh>
 #include "sparse/coo.cuh"
 

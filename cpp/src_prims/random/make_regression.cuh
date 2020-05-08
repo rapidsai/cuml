@@ -24,7 +24,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 
 #include <common/cudart_utils.h>
-#include "linalg/add.h"
+#include "linalg/add.cuh"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/init.h"
 #include "linalg/qr.h"

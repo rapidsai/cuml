@@ -23,7 +23,7 @@
 #include <linalg/binary_op.cuh>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/map_then_reduce.cuh>
-#include <linalg/norm.h>
+#include <linalg/norm.cuh>
 #include <linalg/ternary_op.cuh>
 #include <linalg/unary_op.cuh>
 #include <common/cumlHandle.hpp>

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "linalg/reduce.h"
+#include "linalg/reduce.cuh"
 
 namespace MLCommon {
 namespace LinAlg {

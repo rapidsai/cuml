@@ -23,7 +23,7 @@
 #include <vector>
 
 #include <common/cudart_utils.h>
-#include "add.h"
+#include "add.cuh"
 #include "linalg/batched/matrix.h"
 #include "linalg_naive.h"
 #include "test_utils.h"

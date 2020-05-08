@@ -21,7 +21,7 @@
 
 #include "sparse/coo.cuh"
 
-#include "linalg/add.h"
+#include "linalg/add.cuh"
 
 #include "linalg/transpose.h"
 #include "random/rng.cuh"

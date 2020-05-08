@@ -17,7 +17,7 @@
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <iostream>
-#include "linalg/reduce_rows_by_key.h"
+#include "linalg/reduce_rows_by_key.cuh"
 #include "random/rng.cuh"
 #include "test_utils.h"
 

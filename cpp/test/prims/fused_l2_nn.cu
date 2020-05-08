@@ -18,7 +18,7 @@
 #include <cuda_utils.h>
 #include <distance/fused_l2_nn.cuh>
 #include <gtest/gtest.h>
-#include <linalg/norm.h>
+#include <linalg/norm.cuh>
 #include <random/rng.cuh>
 #include "test_utils.h"
 

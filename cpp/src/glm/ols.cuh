@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <linalg/add.h>
+#include <linalg/add.cuh>
 #include <linalg/gemv.h>
-#include <linalg/lstsq.h>
-#include <linalg/norm.h>
-#include <linalg/subtract.h>
+#include <linalg/lstsq.cuh>
+#include <linalg/norm.cuh>
+#include <linalg/subtract.cuh>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
 #include <stats/mean.cuh>

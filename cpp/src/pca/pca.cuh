@@ -18,8 +18,8 @@
 
 #include <cuda_utils.h>
 #include <linalg/cublas_wrappers.h>
-#include <linalg/eig.h>
-#include <linalg/eltwise.h>
+#include <linalg/eig.cuh>
+#include <linalg/eltwise.cuh>
 #include <linalg/transpose.h>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>

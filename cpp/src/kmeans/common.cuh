@@ -19,10 +19,10 @@
 #include <distance/fused_l2_nn.cuh>
 #include <linalg/binary_op.cuh>
 #include <linalg/matrix_vector_op.cuh>
-#include <linalg/mean_squared_error.h>
-#include <linalg/reduce.h>
-#include <linalg/reduce_cols_by_key.h>
-#include <linalg/reduce_rows_by_key.h>
+#include <linalg/mean_squared_error.cuh>
+#include <linalg/reduce.cuh>
+#include <linalg/reduce_cols_by_key.cuh>
+#include <linalg/reduce_rows_by_key.cuh>
 #include <matrix/gather.cuh>
 #include <random/permute.cuh>
 #include <random/rng.cuh>

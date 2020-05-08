@@ -22,7 +22,7 @@
 namespace MLCommon {
 namespace LinAlg {
 
-// Kernel (based on norm.h) to perform reductions along the coalesced dimension
+// Kernel (based on norm.cuh) to perform reductions along the coalesced dimension
 // of the matrix, i.e. reduce along rows for row major or reduce along columns
 // for column major layout. Kernel does an inplace reduction adding to original
 // values of dots.

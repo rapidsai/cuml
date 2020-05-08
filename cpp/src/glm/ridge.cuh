@@ -17,11 +17,11 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <linalg/add.h>
+#include <linalg/add.cuh>
 #include <linalg/gemm.h>
-#include <linalg/norm.h>
-#include <linalg/subtract.h>
-#include <linalg/svd.h>
+#include <linalg/norm.cuh>
+#include <linalg/subtract.cuh>
+#include <linalg/svd.cuh>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
 #include <stats/mean.cuh>

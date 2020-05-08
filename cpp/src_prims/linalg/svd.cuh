@@ -22,7 +22,7 @@
 #include "cublas_wrappers.h"
 #include "cuda_utils.h"
 #include "cusolver_wrappers.h"
-#include "eig.h"
+#include "eig.cuh"
 #include "gemm.h"
 #include "matrix/math.cuh"
 #include "matrix/matrix.cuh"
@@ -103,7 +103,7 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
   updateHost(&dev_info, devInfo.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   ASSERT(dev_info == 0,
-         "svd.h: svd couldn't converge to a solution. "
+         "svd.cuh: svd couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
 }
 

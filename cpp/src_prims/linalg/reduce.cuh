@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "coalesced_reduction.h"
+#include "coalesced_reduction.cuh"
 #include "cuda_utils.h"
-#include "strided_reduction.h"
+#include "strided_reduction.cuh"
 
 namespace MLCommon {
 namespace LinAlg {

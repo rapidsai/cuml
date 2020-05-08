@@ -18,9 +18,9 @@
 
 #include <common/cudart_utils.h>
 #include <cuda_utils.h>
-#include <linalg/add.h>
-#include <linalg/eltwise.h>
-#include <linalg/norm.h>
+#include <linalg/add.cuh>
+#include <linalg/eltwise.cuh>
+#include <linalg/norm.cuh>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
 #include "sign.cuh"

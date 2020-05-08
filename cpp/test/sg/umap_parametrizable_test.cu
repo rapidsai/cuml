@@ -26,7 +26,7 @@
 #include <cuml/cuml.hpp>
 #include <cuml/neighbors/knn.hpp>
 
-#include "linalg/reduce_rows_by_key.h"
+#include "linalg/reduce_rows_by_key.cuh"
 #include "random/make_blobs.cuh"
 
 #include "common/device_buffer.hpp"

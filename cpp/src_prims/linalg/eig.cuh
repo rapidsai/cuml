@@ -20,7 +20,6 @@
 #include <cuda_runtime_api.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
-#include "cuda_utils.h"
 #include "cusolver_wrappers.h"
 #include "matrix/matrix.cuh"
 
@@ -65,7 +64,7 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
   updateHost(&dev_info, d_dev_info.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   ASSERT(dev_info == 0,
-         "eig.h: eigensolver couldn't converge to a solution. "
+         "eig.cuh: eigensolver couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
 }
 
@@ -128,7 +127,7 @@ void eigSelDC(math_t *in, int n_rows, int n_cols, int n_eig_vals,
   updateHost(&dev_info, d_dev_info.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   ASSERT(dev_info == 0,
-         "eig.h: eigensolver couldn't converge to a solution. "
+         "eig.cuh: eigensolver couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
 
   if (memUsage == OVERWRITE_INPUT) {
