@@ -29,7 +29,7 @@ namespace Bench {
 namespace SVM {
 
 template <typename D>
-struct Params {
+struct SvcParams {
   DatasetParams data;
   BlobsParams blobs;
   MLCommon::Matrix::KernelParams kernel;
@@ -40,15 +40,15 @@ struct Params {
 template <typename D>
 class SVC : public BlobsFixture<D, D> {
  public:
-  SVC(const std::string& name, const Params<D>& p)
+  SVC(const std::string& name, const SvcParams<D>& p)
     : BlobsFixture<D, D>(name, p.data, p.blobs),
       kernel(p.kernel),
       model(p.model),
       svm_param(p.svm_param) {
-    //std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
-    //std::ostringstream oss;
-    //oss << name << "/" << kernel_names[kernel.kernel] << p.data;
-    //this->SetName(oss.str().c_str());
+    std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
+    std::ostringstream oss;
+    oss << name << "/" << kernel_names[kernel.kernel] << p.data;
+    this->SetName(oss.str().c_str());
   }
 
  protected:
@@ -75,12 +75,12 @@ class SVC : public BlobsFixture<D, D> {
 };
 
 template <typename D>
-std::vector<Params<D>> getInputs() {
+std::vector<SvcParams<D>> getInputs() {
   struct Triplets {
     int nrows, ncols, nclasses;
   };
-  std::vector<Params<D>> out;
-  Params<D> p;
+  std::vector<SvcParams<D>> out;
+  SvcParams<D> p;
 
   p.data.rowMajor = false;
 
@@ -118,8 +118,8 @@ std::vector<Params<D>> getInputs() {
   return out;
 }
 
-ML_BENCH_REGISTER(Params<float>, SVC<float>, "blobs", getInputs<float>());
-ML_BENCH_REGISTER(Params<double>, SVC<double>, "blobs", getInputs<double>());
+ML_BENCH_REGISTER(SvcParams<float>, SVC<float>, "blobs", getInputs<float>());
+ML_BENCH_REGISTER(SvcParams<double>, SVC<double>, "blobs", getInputs<double>());
 
 }  // namespace SVM
 }  // namespace Bench

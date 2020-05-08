@@ -29,7 +29,7 @@ namespace Bench {
 namespace SVM {
 
 template <typename D>
-struct Params {
+struct SvrParams {
   DatasetParams data;
   RegressionParams regression;
   MLCommon::Matrix::KernelParams kernel;
@@ -40,15 +40,15 @@ struct Params {
 template <typename D>
 class SVR : public RegressionFixture<D> {
  public:
-  SVR(const std::string& name, const Params<D>& p)
+  SVR(const std::string& name, const SvrParams<D>& p)
     : RegressionFixture<D>(name, p.data, p.regression),
       kernel(p.kernel),
       model(p.model),
       svm_param(p.svm_param) {
-    //std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
-    //std::ostringstream oss;
-    //oss << name << "/" << kernel_names[kernel.kernel] << p.data;
-    //this->SetName(oss.str().c_str());
+    std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
+    std::ostringstream oss;
+    oss << name << "/" << kernel_names[kernel.kernel] << p.data;
+    this->SetName(oss.str().c_str());
   }
 
  protected:
@@ -75,12 +75,12 @@ class SVR : public RegressionFixture<D> {
 };
 
 template <typename D>
-std::vector<Params<D>> getInputs() {
+std::vector<SvrParams<D>> getInputs() {
   struct Triplets {
     int nrows, ncols, n_informative;
   };
-  std::vector<Params<D>> out;
-  Params<D> p;
+  std::vector<SvrParams<D>> out;
+  SvrParams<D> p;
 
   p.data.rowMajor = false;
 
@@ -99,7 +99,7 @@ std::vector<Params<D>> getInputs() {
     ML::SVM::svmModel<D>{0, 0, 0, nullptr, nullptr, nullptr, 0, nullptr};
 
   std::vector<Triplets> rowcols = {
-    {2000, 2, 2}, {100, 10000, 10}, {2000, 200, 200}};
+    {2000, 2, 2}, {100, 10000, 10}, {3000, 200, 200}};
 
   std::vector<MLCommon::Matrix::KernelParams> kernels{
     MLCommon::Matrix::KernelParams{MLCommon::Matrix::LINEAR, 3, 1, 0},
@@ -120,8 +120,9 @@ std::vector<Params<D>> getInputs() {
   return out;
 }
 
-ML_BENCH_REGISTER(Params<float>, SVR<float>, "regression", getInputs<float>());
-ML_BENCH_REGISTER(Params<double>, SVR<double>, "regression",
+ML_BENCH_REGISTER(SvrParams<float>, SVR<float>, "regression",
+                  getInputs<float>());
+ML_BENCH_REGISTER(SvrParams<double>, SVR<double>, "regression",
                   getInputs<double>());
 
 }  // namespace SVM
