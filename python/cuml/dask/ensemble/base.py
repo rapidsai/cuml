@@ -99,9 +99,8 @@ class BaseRandomForestModel(object):
         last_worker = w
         all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
-        for n in range(len(self.workers)):
-            all_tl_mod_handles = [model._tl_model_handles(pbuf_bytes)
-                                  for pbuf_bytes in mod_bytes]
+        all_tl_mod_handles = [model._tl_model_handles(pbuf_bytes)
+                              for pbuf_bytes in mod_bytes]
 
         model._concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
