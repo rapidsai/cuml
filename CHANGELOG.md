@@ -77,6 +77,7 @@
 - PR #2201: Re-enabling UMAP repro tests
 - PR #2196: Updates to benchmarks. Moving notebook
 - PR #2205: Use timeout to add 2 hour hard limit to dask tests
+- PR #2220: Final refactoring of all src_prims header files following rules as specified in #1675
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
