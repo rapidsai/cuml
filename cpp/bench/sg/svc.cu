@@ -97,7 +97,7 @@ std::vector<SvcParams<D>> getInputs() {
     ML::SVM::svmModel<D>{0, 0, 0, nullptr, nullptr, nullptr, 0, nullptr};
 
   std::vector<Triplets> rowcols = {
-    {5000, 2, 2}, {100, 10000, 2}, {1000, 1000, 2}};
+    {50000, 2, 2}, {2048, 100000, 2}, {50000, 1000, 2}};
 
   std::vector<MLCommon::Matrix::KernelParams> kernels{
     MLCommon::Matrix::KernelParams{MLCommon::Matrix::LINEAR, 3, 1, 0},
@@ -109,6 +109,8 @@ std::vector<SvcParams<D>> getInputs() {
     p.data.nrows = rc.nrows;
     p.data.ncols = rc.ncols;
     p.data.nclasses = rc.nclasses;
+    // Limit the number of iterations for large tests
+    p.svm_param.max_iter = (rc.nrows > 10000) ? 20 : 100;
     for (auto kernel : kernels) {
       p.kernel = kernel;
       p.kernel.gamma = 1.0 / rc.ncols;
