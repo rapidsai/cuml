@@ -98,7 +98,7 @@ __global__ void set_sigmas_kernel(int n, T *sigmas, T *rhos, T *mid,
 }
 
 template <int TPB_X, typename T>
-__global__ void find_sigma_single_iter2(const T *knn_dists, int n, T *psum,
+__global__ void find_sigma_single_iter2(const T *knn_dists, int n, double *psum,
                                         T *hi, T *mid, T *lo, T *sigmas,
                                         int n_neighbors, T target) {
   // row-based dense matrix- single thread per row
@@ -133,7 +133,7 @@ __global__ void find_sigma_single_iter2(const T *knn_dists, int n, T *psum,
 }
 
 template <int TPB_X, typename T>
-__global__ void find_sigma_single_iter(const T *knn_dists, int n, T *psum,
+__global__ void find_sigma_single_iter(const T *knn_dists, int n, double *psum,
                                        T *mid, T *sigmas, T *rhos,
                                        int n_neighbors, T target) {
   int idx = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -143,7 +143,7 @@ __global__ void find_sigma_single_iter(const T *knn_dists, int n, T *psum,
 
   if (fabsf(psum[row] - target) < SMOOTH_K_TOLERANCE) return;
 
-  T d = knn_dists[idx] - rhos[row];
+  double d = knn_dists[idx] - rhos[row];
   atomicAdd(psum + row, d > 0.0 ? exp(-(d / mid[row])) : 1.0);
 }
 
@@ -291,7 +291,7 @@ void smooth_knn_dist(int n, const int64_t *knn_indices, const T *knn_dists,
     local_connectivity);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  MLCommon::device_buffer<T> psums(d_alloc, stream, n);
+  MLCommon::device_buffer<double> psums(d_alloc, stream, n);
   MLCommon::device_buffer<T> hi_buffer(d_alloc, stream, n);
 
   T *hi = hi_buffer.data();
@@ -306,7 +306,7 @@ void smooth_knn_dist(int n, const int64_t *knn_indices, const T *knn_dists,
 
   T target = log2f(n_neighbors) * bandwidth;
   for (int iter = 0; iter < n_iter; iter++) {
-    CUDA_CHECK(cudaMemsetAsync(psums.data(), 0, n * sizeof(T), stream));
+    CUDA_CHECK(cudaMemsetAsync(psums.data(), 0, n * sizeof(double), stream));
 
     int neighbors = MLCommon::ceildiv(n * n_neighbors, TPB_X);
     find_sigma_single_iter<TPB_X, T><<<neighbors, TPB_X, 0, stream>>>(
