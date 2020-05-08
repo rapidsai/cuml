@@ -28,7 +28,7 @@
 #include <cuml/common/logger.hpp>
 #include <string>
 #include "optimize_batch_kernel.cuh"
-#include "random/rng_impl.h"
+#include "random/rng_impl.cuh"
 #include "sparse/coo.cuh"
 
 #pragma once

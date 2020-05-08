@@ -17,7 +17,7 @@
 #include "cuda_utils.h"
 #define LEAF 0xFFFFFFFF
 #define PUSHRIGHT 0x00000001
-#include "stats/minmax.h"
+#include "stats/minmax.cuh"
 
 namespace ML {
 namespace DecisionTree {
