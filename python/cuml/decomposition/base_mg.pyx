@@ -33,11 +33,12 @@ from cython.operator cimport dereference as deref
 
 from cuml.common.array import CumlArray
 
-
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_dev_array, zeros
+from cuml.common import input_to_cuml_array
+from cuml.common.opg_data_utils_mg cimport *
 
 cdef extern from "cumlprims/opg/matrix/data.hpp" \
                  namespace "MLCommon::Matrix":
@@ -137,12 +138,21 @@ class BaseDecompositionMG(object):
         self._set_output_type(X)
 
         arr_interfaces = []
-        for arr in X:
-            X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
-                input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
-            arr_interfaces.append({"obj": X_m,
-                                   "data": input_ptr,
-                                   "shape": (n_rows, self.n_cols)})
+        # for arr in X:
+        #    X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
+        #        input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
+        #    arr_interfaces.append({"obj": X_m,
+        #                           "data": input_ptr,
+        #                           "shape": (n_rows, self.n_cols)})
+        for i in range(len(input_data)):
+            if i == 0:
+                check_dtype = [np.float32, np.float64]
+            else:
+                check_dtype = self.dtype
+
+            X_m, _, self.n_cols, _ = \
+                input_to_cuml_array(input_data[i], check_dtype=check_dtype)
+            arr_interfaces.append(X_m)
 
         n_total_parts = len(X)
         cdef RankSizePair **rank_size_pair = <RankSizePair**> \
