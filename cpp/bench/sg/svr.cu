@@ -85,7 +85,7 @@ std::vector<SvrParams<D>> getInputs() {
   p.data.rowMajor = false;
 
   p.regression.shuffle = true;  // better to shuffle when n_informative < ncols
-  p.regression.seed = 12345ULL;
+  p.regression.seed = 1378ULL;
   p.regression.effective_rank = -1;  // dataset generation will be faster
   p.regression.bias = 0;
   p.regression.tail_strength = 0.5;  // unused when effective_rank = -1
@@ -94,12 +94,12 @@ std::vector<SvrParams<D>> getInputs() {
   // svmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity,
   //              epsilon, svmType})
   p.svm_param = ML::SVM::svmParameter{
-    1, 200, 1000, 100, 1e-3, CUML_LEVEL_INFO, 0.1, ML::SVM::EPSILON_SVR};
+    1, 200, 200, 100, 1e-3, CUML_LEVEL_INFO, 0.1, ML::SVM::EPSILON_SVR};
   p.model =
     ML::SVM::svmModel<D>{0, 0, 0, nullptr, nullptr, nullptr, 0, nullptr};
 
   std::vector<Triplets> rowcols = {
-    {2000, 2, 2}, {100, 10000, 10}, {3000, 200, 200}};
+    {50000, 2, 2}, {1024, 10000, 10}, {3000, 200, 200}};
 
   std::vector<MLCommon::Matrix::KernelParams> kernels{
     MLCommon::Matrix::KernelParams{MLCommon::Matrix::LINEAR, 3, 1, 0},
@@ -111,6 +111,8 @@ std::vector<SvrParams<D>> getInputs() {
     p.data.nrows = rc.nrows;
     p.data.ncols = rc.ncols;
     p.regression.n_informative = rc.n_informative;
+    // Limit the number of iterations for large tests
+    p.svm_param.max_iter = (rc.nrows > 10000) ? 50 : 200;
     for (auto kernel : kernels) {
       p.kernel = kernel;
       p.kernel.gamma = 1.0 / rc.ncols;
