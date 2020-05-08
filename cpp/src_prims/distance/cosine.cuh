@@ -16,7 +16,7 @@
 
 #pragma once
 #include "distance/algo1.cuh"
-#include "distance/distance_fragment_multiply_add.h"
+#include "distance/distance_fragment_multiply_add.cuh"
 #include "linalg/eltwise2d.h"
 
 namespace MLCommon {

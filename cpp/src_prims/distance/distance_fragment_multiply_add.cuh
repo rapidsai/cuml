@@ -15,7 +15,7 @@
  */
 
 #pragma once
-
+#include "cuda_utils.cuh"
 #include <cutlass/fragment.h>
 #include <cutlass/shape.h>
 

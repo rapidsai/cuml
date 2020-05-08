@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "distance/distance_fragment_multiply_add.h"
+#include "distance/distance_fragment_multiply_add.cuh"
 #include "distance/distance_tile_traits.h"
 
 #include <cutlass/fragment.h>

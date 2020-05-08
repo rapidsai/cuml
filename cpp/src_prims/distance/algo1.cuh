@@ -17,9 +17,9 @@
 #pragma once
 
 #include "distance/distance_epilogue.cuh"
-#include "distance/distance_epilogue_functor.h"
+#include "distance/distance_epilogue_functor.cuh"
 #include "distance/distance_epilogue_traits.h"
-#include "distance/distance_fragment_multiply_add.h"
+#include "distance/distance_fragment_multiply_add.cuh"
 #include "linalg/gemm.cuh"
 #include "linalg/norm.cuh"
 
