@@ -26,7 +26,7 @@ from libc.stdint cimport uintptr_t
 import cudf
 
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_dev_array
+from cuml.common import input_to_dev_array
 import cuml.common.handle
 cimport cuml.common.cuda
 

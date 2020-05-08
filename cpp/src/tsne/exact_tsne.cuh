@@ -17,7 +17,7 @@
 
 #include <common/cudart_utils.h>
 #include <cuml/common/logger.hpp>
-#include "exact_kernels.h"
+#include "exact_kernels.cuh"
 #include "utils.h"
 
 namespace ML {

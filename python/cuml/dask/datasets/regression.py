@@ -18,10 +18,10 @@ import dask.array as da
 import numpy as np
 import cupy as cp
 
-from cuml.utils import with_cupy_rmm
 from cuml.dask.datasets.utils import _get_X
 from cuml.dask.datasets.utils import _get_labels
 from cuml.dask.datasets.utils import _create_delayed
+from cuml.common import with_cupy_rmm
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.utils import get_client
 
