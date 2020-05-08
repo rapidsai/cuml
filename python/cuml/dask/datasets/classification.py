@@ -158,7 +158,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         than the number of workers)
     Returns
     -------
-    X : dask.array backed by CuPy arrayof shape [n_samples, n_features]
+    X : dask.array backed by CuPy array of shape [n_samples, n_features]
         The generated samples.
     y : dask.array backed by CuPy array of shape [n_samples]
         The integer labels for class membership of each sample.
