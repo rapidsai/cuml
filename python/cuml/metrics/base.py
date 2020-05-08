@@ -41,17 +41,13 @@ class RegressorMixin:
             R^2 of self.predict(X) wrt. y.
         """
         from cuml.metrics.regression import r2_score
-        from cuml.utils import input_to_dev_array
-
-        X_m = input_to_dev_array(X)[0]
-        y_m = input_to_dev_array(y)[0]
 
         if hasattr(self, 'handle'):
             handle = self.handle
         else:
             handle = None
-        return r2_score(y_m,
-                        cuda.to_device(self.predict(X_m)),
+        return r2_score(y,
+                        cuda.to_device(self.predict(X)),
                         handle=handle)
 
 
