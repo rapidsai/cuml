@@ -19,7 +19,7 @@ import numbers
 from collections.abc import Iterable
 import cupy as cp
 import numpy as np
-from cuml.utils import with_cupy_rmm
+from cuml.common import with_cupy_rmm
 from cuml.datasets.utils import _create_rs_generator
 
 
