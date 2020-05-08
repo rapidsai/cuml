@@ -22,6 +22,7 @@ import numpy as np
 from numba import cuda
 from copy import deepcopy
 
+from cuml.common import input_to_cuml_array
 from cuml.common import input_to_dev_array
 from cuml.common import input_to_host_array
 from cuml.common import has_cupy
