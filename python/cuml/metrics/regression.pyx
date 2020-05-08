@@ -27,7 +27,7 @@ from libc.stdint cimport uintptr_t
 import cuml.common.handle
 from cuml.common.handle cimport cumlHandle
 from cuml.metrics cimport regression
-from cuml.utils import input_to_dev_array, input_to_cuml_array
+from cuml.utils import input_to_cuml_array
 
 from cuml.utils.memory_utils import with_cupy_rmm
 
@@ -61,18 +61,17 @@ def r2_score(y, y_hat, convert_dtype=False, handle=None):
     handle = cuml.common.handle.Handle() if handle is None else handle
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
-    cdef uintptr_t y_ptr
-    cdef uintptr_t y_hat_ptr
+    y_m, n_rows, _, ytype = \
+        input_to_cuml_array(y, check_dtype=[np.float32, np.float64],
+                            check_cols=1)
+    cdef uintptr_t y_ptr = y_m.ptr
 
-    y_m, y_ptr, n_rows, _, ytype = \
-        input_to_dev_array(y, check_dtype=[np.float32, np.float64],
-                           check_cols=1)
-
-    y_m2, y_hat_ptr, _, _, _ = \
-        input_to_dev_array(y_hat, check_dtype=ytype,
-                           convert_to_dtype=(ytype if convert_dtype
-                                             else None),
-                           check_rows=n_rows, check_cols=1)
+    y_m2, *_ = \
+        input_to_cuml_array(y_hat, check_dtype=ytype,
+                            convert_to_dtype=(ytype if convert_dtype
+                                              else None),
+                            check_rows=n_rows, check_cols=1)
+    cdef uintptr_t y_hat_ptr = y_m2.ptr
 
     cdef float result_f32
     cdef double result_f64
