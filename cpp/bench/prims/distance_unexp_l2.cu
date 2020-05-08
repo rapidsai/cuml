@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "distance_common.h"
+#include "distance_common.cuh"
 
 namespace MLCommon {
 namespace Bench {
