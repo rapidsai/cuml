@@ -20,7 +20,7 @@ from cuml.preprocessing import LabelEncoder
 from cudf import DataFrame, Series
 from cudf.core import GenericIndex
 
-from cuml.utils import with_cupy_rmm
+from cuml.common import with_cupy_rmm
 import warnings
 
 

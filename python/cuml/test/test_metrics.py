@@ -49,7 +49,7 @@ from cuml.metrics import confusion_matrix
 from sklearn.metrics.regression import mean_absolute_error as sklearn_mae
 from sklearn.metrics.regression import mean_squared_log_error as sklearn_msle
 
-from cuml.utils import has_scipy
+from cuml.common import has_scipy
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])

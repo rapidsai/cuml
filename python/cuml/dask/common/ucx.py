@@ -14,7 +14,7 @@
 #
 
 from .comms_utils import is_ucx_enabled
-from cuml.utils.import_utils import has_ucp
+from cuml.common.import_utils import has_ucp
 
 if is_ucx_enabled() and has_ucp():
     import ucp

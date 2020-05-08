@@ -22,8 +22,8 @@ import numpy as np
 from numba import cuda
 from copy import deepcopy
 
-from cuml.utils import input_to_dev_array, input_to_host_array, has_cupy
-from cuml.utils.input_utils import convert_dtype, check_numba_order
+from cuml.common import input_to_dev_array, input_to_host_array, has_cupy
+from cuml.common.input_utils import convert_dtype, check_numba_order
 
 test_dtypes_all = [
     np.float16, np.float32, np.float64,
