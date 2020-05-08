@@ -18,7 +18,7 @@
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <linalg/cusolver_wrappers.h>
-#include <matrix/matrix.h>
+#include <matrix/matrix.cuh>
 #include <test_utils.h>
 #include "ml_utils.h"
 #include "solver/cd.cuh"

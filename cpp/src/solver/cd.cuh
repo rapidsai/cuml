@@ -28,8 +28,8 @@
 #include <linalg/multiply.h>
 #include <linalg/subtract.h>
 #include <linalg/unary_op.cuh>
-#include <matrix/math.h>
-#include <matrix/matrix.h>
+#include <matrix/math.cuh>
+#include <matrix/matrix.cuh>
 #include "common/cumlHandle.hpp"
 #include "glm/preprocess.cuh"
 #include "ml_utils.h"

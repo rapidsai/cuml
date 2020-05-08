@@ -22,8 +22,8 @@
 #include <linalg/norm.h>
 #include <linalg/subtract.h>
 #include <linalg/svd.h>
-#include <matrix/math.h>
-#include <matrix/matrix.h>
+#include <matrix/math.cuh>
+#include <matrix/matrix.cuh>
 #include <stats/mean.cuh>
 #include <stats/mean_center.cuh>
 #include <stats/stddev.cuh>

@@ -31,7 +31,7 @@
 #include "linalg/batched/matrix.h"
 #include "linalg/binary_op.cuh"
 #include "linalg/cublas_wrappers.h"
-#include "sparse/batched/csr.h"
+#include "sparse/batched/csr.cuh"
 #include "timeSeries/arima_helpers.cuh"
 
 namespace ML {

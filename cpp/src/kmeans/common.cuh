@@ -23,7 +23,7 @@
 #include <linalg/reduce.h>
 #include <linalg/reduce_cols_by_key.h>
 #include <linalg/reduce_rows_by_key.h>
-#include <matrix/gather.h>
+#include <matrix/gather.cuh>
 #include <random/permute.cuh>
 #include <random/rng.cuh>
 #include <random>

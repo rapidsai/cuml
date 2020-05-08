@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <cuda_utils.h>
 #include <distance/distance.cuh>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/gemm.h>
