@@ -60,7 +60,6 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
                         check_dtype=False, convert_to_dtype=False,
                         check_cols=False, check_rows=False,
                         fail_on_order=False):
-
     """
     Convert input X to CumlArray.
 
@@ -80,10 +79,11 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
     X : cuDF.DataFrame, cuDF.Series, numba array, NumPy array or any
         cuda_array_interface compliant array like CuPy or pytorch.
 
-    order: string (default: 'F')
-        Whether to return a F-major or C-major array. Used to check the order
-        of the input. If fail_on_order=True method will raise ValueError,
-        otherwise it will convert X to be of order `order`.
+    order: 'F', 'C' or 'K' (default: 'F')
+        Whether to return a F-major ('F'),  C-major ('C') array or Keep ('K')
+        the order of X. Used to check the order of the input. If
+        fail_on_order=True, the method will raise ValueError,
+        otherwise it will convert X to be of order `order` if needed.
 
     deepcopy: boolean (default: False)
         Set to True to always return a deep copy of X.
@@ -133,10 +133,10 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
                              " which are not supported by cuML.")
 
     if isinstance(X, cudf.DataFrame):
-        if order == 'F':
+        if order == 'K':
             X_m = CumlArray(data=X.as_gpu_matrix(order='F'))
-        elif order == 'C':
-            X_m = CumlArray(data=cuml.utils.numba_utils.row_matrix(X))
+        else:
+            X_m = CumlArray(data=X.as_gpu_matrix(order=order))
 
     elif hasattr(X, "__array_interface__") or \
             hasattr(X, "__cuda_array_interface__"):
@@ -164,10 +164,14 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
     # Checks based on parameters
 
     n_rows = X_m.shape[0]
+
     if len(X_m.shape) > 1:
         n_cols = X_m.shape[1]
     else:
         n_cols = 1
+
+    if n_cols == 1 or n_rows == 1:
+        order = 'K'
 
     if check_cols:
         if n_cols != check_cols:
@@ -181,7 +185,7 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
                              " rows but got " + str(n_rows) +
                              " rows.")
 
-    if X_m.order != order:
+    if order != 'K' and X_m.order != order:
         if fail_on_order:
             raise ValueError("Expected " + order_to_str(order) +
                              " major order, but got the opposite.")
