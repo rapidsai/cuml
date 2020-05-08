@@ -23,14 +23,14 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
-#include <linalg/map_then_reduce.cuh>
-#include <linalg/reduce.cuh>
 #include <math.h>
-#include <stats/histogram.cuh>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
+#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
+#include <linalg/map_then_reduce.cuh>
+#include <linalg/reduce.cuh>
+#include <stats/histogram.cuh>
 #include "contingencyMatrix.cuh"
 
 namespace MLCommon {

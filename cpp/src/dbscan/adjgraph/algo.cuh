@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 #include <common/allocatorAdapter.hpp>
 #include <common/cumlHandle.hpp>
+#include <cuda_utils.cuh>
 #include "../common.cuh"
 #include "pack.h"
 

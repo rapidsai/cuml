@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <gtest/gtest.h>
@@ -24,6 +23,7 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
 #include <cub/cub.cuh>
+#include <cuda_utils.cuh>
 #include <cuml/common/logger.hpp>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svr.hpp>

@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
 #include <cuml/manifold/umapparams.h>
 #include <common/fast_int_div.cuh>
+#include <cuda_utils.cuh>
 
 namespace UMAPAlgo {
 namespace SimplSetEmbed {

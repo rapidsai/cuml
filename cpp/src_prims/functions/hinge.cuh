@@ -16,14 +16,14 @@
 
 #pragma once
 
+#include <linalg/cublas_wrappers.h>
+#include <linalg/transpose.h>
 #include <cuda_utils.cuh>
 #include <linalg/add.cuh>
-#include <linalg/cublas_wrappers.h>
 #include <linalg/eltwise.cuh>
 #include <linalg/gemm.cuh>
 #include <linalg/matrix_vector_op.cuh>
 #include <linalg/subtract.cuh>
-#include <linalg/transpose.h>
 #include <linalg/unary_op.cuh>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>

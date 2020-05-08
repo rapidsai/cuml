@@ -17,21 +17,21 @@
 #pragma once
 
 #include <common/cudart_utils.h>
+#include <linalg/cublas_wrappers.h>
+#include <linalg/transpose.h>
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
 #include <cuda_utils.cuh>
 #include <linalg/binary_op.cuh>
-#include <linalg/cublas_wrappers.h>
 #include <linalg/eig.cuh>
 #include <linalg/eltwise.cuh>
 #include <linalg/gemm.cuh>
 #include <linalg/rsvd.cuh>
-#include <linalg/transpose.h>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
 #include <stats/mean.cuh>
 #include <stats/stddev.cuh>
 #include <stats/sum.cuh>
-#include <thrust/device_vector.h>
-#include <thrust/execution_policy.h>
 #include "common/allocatorAdapter.hpp"
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"

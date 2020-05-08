@@ -15,7 +15,6 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <treelite/c_api.h>
@@ -23,6 +22,7 @@
 #include <treelite/tree.h>
 #include <cmath>
 #include <cstdio>
+#include <cuda_utils.cuh>
 #include <limits>
 #include <memory>
 #include <utility>

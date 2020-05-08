@@ -21,11 +21,11 @@
 #include <vector>
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
 #include <cuml/random_projection/rproj_c.h>
 #include <linalg/cublas_wrappers.h>
 #include <sparse/cusparse_wrappers.h>
 #include <common/cumlHandle.hpp>
+#include <cuda_utils.cuh>
 #include "rproj_utils.cuh"
 
 namespace ML {

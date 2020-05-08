@@ -15,8 +15,8 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
 #include <gtest/gtest.h>
+#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include "cache/cache.cuh"

@@ -15,13 +15,13 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
 #include <gtest/gtest.h>
 #include <sys/stat.h>
 #include <test_utils.h>
 #include <treelite/c_api.h>
 #include <treelite/c_api_runtime.h>
 #include <cstdlib>
+#include <cuda_utils.cuh>
 #include <fstream>
 #include <iostream>
 #include <limits>

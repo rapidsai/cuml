@@ -18,8 +18,8 @@
 */
 #pragma once
 
-#include <cuda_utils.cuh>
 #include <stdlib.h>
+#include <cuda_utils.cuh>
 #include "cuml/svm/svm_parameter.h"
 #include "ml_utils.h"
 #include "selection/kselection.cuh"

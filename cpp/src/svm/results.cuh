@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
 #include <math.h>
+#include <cuda_utils.cuh>
 #include <iostream>
 #include <limits>
 #include <memory>

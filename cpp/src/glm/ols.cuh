@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <linalg/add.cuh>
 #include <linalg/gemv.h>
+#include <linalg/add.cuh>
 #include <linalg/lstsq.cuh>
 #include <linalg/norm.cuh>
 #include <linalg/subtract.cuh>

@@ -16,17 +16,17 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
 #include <linalg/cublas_wrappers.h>
+#include <linalg/transpose.h>
+#include <cuda_utils.cuh>
+#include <cuml/cuml.hpp>
 #include <linalg/eig.cuh>
 #include <linalg/eltwise.cuh>
-#include <linalg/transpose.h>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
 #include <stats/cov.cuh>
 #include <stats/mean.cuh>
 #include <stats/mean_center.cuh>
-#include <cuml/cuml.hpp>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "ml_utils.h"

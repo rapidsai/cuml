@@ -15,9 +15,9 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include <cuda_utils.cuh>
 #include "cuml/ensemble/randomforest.hpp"
 #include "ml_utils.h"
 

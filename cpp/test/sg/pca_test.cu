@@ -15,9 +15,9 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
 #include <gtest/gtest.h>
 #include <linalg/cublas_wrappers.h>
+#include <cuda_utils.cuh>
 #include <vector>
 #include "ml_utils.h"
 #include "pca/pca.cuh"

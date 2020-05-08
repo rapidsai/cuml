@@ -17,8 +17,8 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
 #include <math.h>
+#include <cuda_utils.cuh>
 #include <iostream>
 #include <limits>
 #include <string>
