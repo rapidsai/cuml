@@ -144,8 +144,8 @@ def test_weighted_kmeans(nrows, ncols, nclusters,
 
     sk_kmeans = cluster.KMeans(random_state=random_state,
                                n_clusters=nclusters)
-    sk_kmeans.fit(X.copy_to_host(), sample_weight=wt)
-    sk_score = sk_kmeans.score(X.copy_to_host())
+    sk_kmeans.fit(cp.asnumpy(X), sample_weight=wt)
+    sk_score = sk_kmeans.score(cp.asnumpy(X))
 
     assert abs(cu_score - sk_score) <= cluster_std * 1.5
 
