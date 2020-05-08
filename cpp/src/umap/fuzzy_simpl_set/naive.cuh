@@ -107,9 +107,8 @@ __global__ void find_sigma_single_iter2(const T *knn_dists, int n, double *psum,
 
   T cur_psum = psum[row];
 
-  if (fabsf(cur_psum - target) < SMOOTH_K_TOLERANCE) {
+  if (fabsf(cur_psum - target) < SMOOTH_K_TOLERANCE)
     return;
-  }
 
   T cur_hi = hi[row];
   T cur_mid = mid[row];
@@ -118,17 +117,14 @@ __global__ void find_sigma_single_iter2(const T *knn_dists, int n, double *psum,
   if (cur_psum > target) {
     cur_hi = cur_mid;
     cur_mid = (cur_lo + cur_hi) / 2.0;
+    hi[row] = cur_hi;
   } else {
     cur_lo = cur_mid;
-    if (cur_hi == MAX_FLOAT)
-      cur_mid *= 2;
-    else
-      cur_mid = (cur_lo + cur_hi) / 2.0;
+    cur_mid = (cur_hi == MAX_FLOAT) ? cur_mid * 2 : (cur_lo + cur_hi) / 2.0;
+    lo[row] = cur_lo;
   }
 
-  hi[row] = cur_hi;
   mid[row] = cur_mid;
-  lo[row] = cur_lo;
   sigmas[row] = cur_mid;
 }
 
@@ -143,7 +139,7 @@ __global__ void find_sigma_single_iter(const T *knn_dists, int n, double *psum,
 
   if (fabsf(psum[row] - target) < SMOOTH_K_TOLERANCE) return;
 
-  double d = knn_dists[idx] - rhos[row];
+  T d = knn_dists[idx] - rhos[row];
   atomicAdd(psum + row, d > 0.0 ? exp(-(d / mid[row])) : 1.0);
 }
 
@@ -251,6 +247,7 @@ void smooth_knn_dist(int n, const int64_t *knn_indices, const T *knn_dists,
                      T local_connectivity,
                      std::shared_ptr<deviceAllocator> d_alloc,
                      cudaStream_t stream, T bandwidth = 1.0, int n_iter = 64) {
+
   MLCommon::device_buffer<T> dist_means_dev(d_alloc, stream, n_neighbors);
   MLCommon::device_buffer<T> full_dist_means(d_alloc, stream, n);
   MLCommon::device_buffer<T> total_nonzero(d_alloc, stream, n);
