@@ -92,19 +92,30 @@ void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
 
 	  T prod = 1.0;
 	  T sum = 0.0;
+	  T n = 0.0;
 
 	  for(int cur_idx = start_idx; cur_idx < stop_idx; cur_idx++) {
 		  int cur_col = cols[cur_idx];
 		  int cur_val = vals[cur_idx];
 
+		  bool write_idx = 0.0;
+		  if(start_idx == stop_idx-1 && n == 0.0) {
+			  write_idx = cur_idx;
+		  } else{
+			  write_idx = cur_idx-1;
+		  }
+
 		  if((cur_col != last_col && last_col != -1) || start_idx == stop_idx-1) {
-			  vals[cur_idx-1] = (sum - prod) + prod;
+			  prod = prod * n > 1.0; // simulate transpose being zero
+			  vals[write_idx] = (sum - prod) + prod;
 			  prod = cur_val;
 			  sum = cur_val;
+			  n = 0;
 		  } else {
-			  vals[cur_idx-1] = 0.0;
+			  vals[write_idx] = 0.0;
 			  prod *= cur_val;
 			  sum *= cur_val;
+			  n += 1.0;
 		  }
 	  }
   }, stream);

@@ -358,10 +358,15 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
   MLCommon::device_buffer<int> out_row_ind(d_alloc, stream, out->n_rows);
   sorted_coo_to_csr(out, out_row_ind.data(), d_alloc, stream);
 
+  // Could compute degree, maybe?
+
   int *cols = out->cols();
   int *rows = out->rows();
   T *vals = out->vals();
 
+  /**
+   * Performing a rolling (w*X+X.T) + ((1-w)*X*X.T)
+   */
   MLCommon::Sparse::csr_row_op(
 		  out_row_ind.data(), out->n_rows, out->nnz,
 		  [cols, rows, vals, set_op_mix_ratio] __device__(int row, int start_idx, int stop_idx) {
@@ -375,14 +380,22 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
 		  int cur_col = cols[cur_idx];
 		  int cur_val = vals[cur_idx];
 
+		  bool write_idx = 0.0;
+		  if(start_idx == stop_idx-1 && n == 0.0) {
+			  write_idx = cur_idx;
+		  } else{
+			  write_idx = cur_idx-1;
+		  }
+
 		  if((cur_col != last_col && last_col != -1) || start_idx == stop_idx-1) {
-			  vals[cur_idx-1] = set_op_mix_ratio *
+			  prod = prod * n > 1.0; // simulate transpose being zero
+			  vals[write_idx] = set_op_mix_ratio *
 					  (sum - prod) + (1.0 - set_op_mix_ratio) * prod;
 			  prod = cur_val;
 			  sum = cur_val;
 			  n = 1;
 		  } else {
-			  vals[cur_idx-1] = 0.0;
+			  vals[write_idx] = 0.0;
 			  prod *= cur_val;
 			  sum *= cur_val;
 			  n += 1;
@@ -390,6 +403,7 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
 	  }
   }, stream);
 }
+
 }  // namespace Naive
 }  // namespace FuzzySimplSet
 };  // namespace UMAPAlgo
