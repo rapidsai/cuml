@@ -87,39 +87,41 @@ void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
   T *vals = out_coo->vals();
 
   MLCommon::Sparse::csr_row_op(
-		  row_ind.data(), out_coo->n_rows, in_coo->nnz,
-		  [cols, rows, vals] __device__(int row, int start_idx, int stop_idx) {
-	  int last_col = -1;
+    row_ind.data(), out_coo->n_rows, in_coo->nnz,
+    [cols, rows, vals] __device__(int row, int start_idx, int stop_idx) {
+      int last_col = -1;
 
-	  T prod = 1.0;
-	  T sum = 0.0;
-	  T n = 0.0;
+      T prod = 1.0;
+      T sum = 0.0;
+      T n = 0.0;
 
-	  for(int cur_idx = start_idx; cur_idx < stop_idx; cur_idx++) {
-		  int cur_col = cols[cur_idx];
-		  int cur_val = vals[cur_idx];
+      for (int cur_idx = start_idx; cur_idx < stop_idx; cur_idx++) {
+        int cur_col = cols[cur_idx];
+        int cur_val = vals[cur_idx];
 
-		  bool write_idx = 0.0;
-		  if(start_idx == stop_idx-1 && n == 0.0) {
-			  write_idx = cur_idx;
-		  } else{
-			  write_idx = cur_idx-1;
-		  }
+        bool write_idx = 0.0;
+        if (start_idx == stop_idx - 1 && n == 0.0) {
+          write_idx = cur_idx;
+        } else {
+          write_idx = cur_idx - 1;
+        }
 
-		  if((cur_col != last_col && last_col != -1) || start_idx == stop_idx-1) {
-			  prod = prod * n > 1.0; // simulate transpose being zero
-			  vals[write_idx] = (sum - prod);
-			  prod = cur_val;
-			  sum = cur_val;
-			  n = 0;
-		  } else {
-			  vals[write_idx] = 0.0;
-			  prod *= cur_val;
-			  sum *= cur_val;
-			  n += 1.0;
-		  }
-	  }
-  }, stream);
+        if ((cur_col != last_col && last_col != -1) ||
+            start_idx == stop_idx - 1) {
+          prod = prod * n > 1.0;  // simulate transpose being zero
+          vals[write_idx] = (sum - prod);
+          prod = cur_val;
+          sum = cur_val;
+          n = 0;
+        } else {
+          vals[write_idx] = 0.0;
+          prod *= cur_val;
+          sum *= cur_val;
+          n += 1.0;
+        }
+      }
+    },
+    stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -283,19 +285,6 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
                 params->target_n_neighbors, params, d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
-    CUML_LOG_DEBUG("Target kNN Graph");
-    std::stringstream ss1, ss2;
-    ss1 << MLCommon::arr2Str(y_knn_indices.data(),
-                             rgraph_coo->n_rows * params->target_n_neighbors,
-                             "knn_indices", stream);
-    CUML_LOG_DEBUG("%s", ss1.str().c_str());
-    ss2 << MLCommon::arr2Str(y_knn_dists.data(),
-                             rgraph_coo->n_rows * params->target_n_neighbors,
-                             "knn_dists", stream);
-    CUML_LOG_DEBUG("%s", ss2.str().c_str());
-  }
-
   /**
    * Compute fuzzy simplicial set
    */
@@ -305,13 +294,6 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
                                y_knn_dists.data(), params->target_n_neighbors,
                                &ygraph_coo, params, d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
-
-  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
-    CUML_LOG_DEBUG("Target Fuzzy Simplicial Set");
-    std::stringstream ss;
-    ss << ygraph_coo;
-    CUML_LOG_DEBUG(ss.str().c_str());
-  }
 
   /**
    * Compute general simplicial set intersection.

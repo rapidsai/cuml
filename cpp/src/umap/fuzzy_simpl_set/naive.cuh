@@ -23,10 +23,9 @@
 #include <common/cudart_utils.h>
 #include "cuda_utils.h"
 
-
+#include "linalg/reduce.h"
 #include "sparse/coo.h"
 #include "stats/mean.h"
-#include "linalg/reduce.h"
 
 #include <cuda_runtime.h>
 
@@ -44,7 +43,6 @@ static const float MIN_FLOAT = std::numeric_limits<float>::min();
 
 static const float SMOOTH_K_TOLERANCE = 1e-5;
 static const float MIN_K_DIST_SCALE = 1e-3;
-
 
 /**
  * Computes a continuous version of the distance to the kth nearest neighbor.
@@ -81,61 +79,51 @@ static const float MIN_K_DIST_SCALE = 1e-3;
  */
 
 template <int TPB_X, typename T>
-__global__ void set_sigmas_kernel(int n, T *sigmas,
-		T *rhos, T *mid, T *mean_dists, T mean_dist, T target) {
+__global__ void set_sigmas_kernel(int n, T *sigmas, T *rhos, T *mid,
+                                  T *mean_dists, T mean_dist, T target) {
+  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  if (row >= n) return;
 
-	int row = (blockIdx.x * TPB_X) + threadIdx.x;
-	if(row >= n) return;
+  T cur_mid = mid[row];
 
-	T cur_mid = mid[row];
-
-	// depends only on the row
-	if (rhos[row] > 0.0) {
-	  T ith_distances_mean = mean_dists[row];
-	  if (cur_mid < MIN_K_DIST_SCALE * ith_distances_mean)
-		sigmas[row] = MIN_K_DIST_SCALE * ith_distances_mean;
-	} else {
-	  if (cur_mid < MIN_K_DIST_SCALE * mean_dist)
-		sigmas[row] = MIN_K_DIST_SCALE * mean_dist;
-	}
+  // depends only on the row
+  if (rhos[row] > 0.0) {
+    T ith_distances_mean = mean_dists[row];
+    if (cur_mid < MIN_K_DIST_SCALE * ith_distances_mean)
+      sigmas[row] = MIN_K_DIST_SCALE * ith_distances_mean;
+  } else {
+    if (cur_mid < MIN_K_DIST_SCALE * mean_dist)
+      sigmas[row] = MIN_K_DIST_SCALE * mean_dist;
+  }
 }
 
-
 template <int TPB_X, typename T>
-__global__ void find_sigma_single_iter2(
-	const T *knn_dists,
-	int n,
-	T *psum,
-	T *hi,
-	T *mid,
-	T *lo,
-	T *sigmas,
-	int n_neighbors,
-	T target) {
+__global__ void find_sigma_single_iter2(const T *knn_dists, int n, T *psum,
+                                        T *hi, T *mid, T *lo, T *sigmas,
+                                        int n_neighbors, T target) {
+  // row-based dense matrix- single thread per row
+  int row = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if (row >= n) return;
 
-	// row-based dense matrix- single thread per row
-	int row = (blockIdx.x * blockDim.x) + threadIdx.x;
-	if(row >= n) return;
+  T cur_psum = psum[row];
 
-	T cur_psum = psum[row];
+  if (fabsf(cur_psum - target) < SMOOTH_K_TOLERANCE) {
+    return;
+  }
 
-	if(fabsf(cur_psum - target) < SMOOTH_K_TOLERANCE) {
-		return;
-	}
-
-	T cur_hi = hi[row];
-	T cur_mid = mid[row];
-	T cur_lo = lo[row];
+  T cur_hi = hi[row];
+  T cur_mid = mid[row];
+  T cur_lo = lo[row];
 
   if (cur_psum > target) {
-	cur_hi = cur_mid;
-	cur_mid = (cur_lo + cur_hi) / 2.0;
+    cur_hi = cur_mid;
+    cur_mid = (cur_lo + cur_hi) / 2.0;
   } else {
-	cur_lo = cur_mid;
-	if (cur_hi == MAX_FLOAT)
-	  cur_mid *= 2;
-	else
-	  cur_mid = (cur_lo + cur_hi) / 2.0;
+    cur_lo = cur_mid;
+    if (cur_hi == MAX_FLOAT)
+      cur_mid *= 2;
+    else
+      cur_mid = (cur_lo + cur_hi) / 2.0;
   }
 
   hi[row] = cur_hi;
@@ -144,73 +132,56 @@ __global__ void find_sigma_single_iter2(
   sigmas[row] = cur_mid;
 }
 
-
 template <int TPB_X, typename T>
-__global__ void find_sigma_single_iter(
-	const T *knn_dists,
-	int n,
-	T *psum,
-	T *mid,
-	T *sigmas,
-	T *rhos,
-	int n_neighbors,
-	T target) {
+__global__ void find_sigma_single_iter(const T *knn_dists, int n, T *psum,
+                                       T *mid, T *sigmas, T *rhos,
+                                       int n_neighbors, T target) {
+  int idx = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if (idx >= n * n_neighbors) return;
 
-	int idx = (blockIdx.x * blockDim.x) + threadIdx.x;
-	if(idx >= n * n_neighbors) return;
+  int row = idx / n_neighbors;
 
-	int row = idx / n_neighbors;
+  if (fabsf(psum[row] - target) < SMOOTH_K_TOLERANCE) return;
 
-	if(fabsf(psum[row] - target) < SMOOTH_K_TOLERANCE)
-		return;
-
-	T d = knn_dists[idx] - rhos[row];
-	atomicAdd(psum + row, d > 0.0 ? exp(-(d/mid[row])) : 1.0);
+  T d = knn_dists[idx] - rhos[row];
+  atomicAdd(psum + row, d > 0.0 ? exp(-(d / mid[row])) : 1.0);
 }
 
 template <int TPB_X, typename T>
 __global__ void smooth_knn_dist_kernel(
-	const T *knn_dists,
-	int n,
-	T *means,
-	T *total_nonzero_arr,
-	T *start_nonzero_arr,
-	T mean_dist,
-	T *sigmas,
-	T *rhos,  // Size of n, iniitalized to zeros
-	int n_neighbors, T local_connectivity = 1.0) {
+  const T *knn_dists, int n, T *means, T *total_nonzero_arr,
+  T *start_nonzero_arr, T mean_dist, T *sigmas,
+  T *rhos,  // Size of n, iniitalized to zeros
+  int n_neighbors, T local_connectivity = 1.0) {
+  // row-based dense matrix- single thread per row
+  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  int i =
+    row * n_neighbors;  // each thread processes one row of the dist matrix
 
-	// row-based dense matrix- single thread per row
-	int row = (blockIdx.x * TPB_X) + threadIdx.x;
-	int i =
-	row * n_neighbors;  // each thread processes one row of the dist matrix
+  if (row >= n) return;
 
-	if (row >= n) return;
+  int total_nonzero = total_nonzero_arr[row];
 
-	int total_nonzero = total_nonzero_arr[row];
+  // depends only on the row
+  if (total_nonzero >= local_connectivity) {
+    int start_nonzero = start_nonzero_arr[row];
+    int index = floor(local_connectivity);
+    T interpolation = local_connectivity - index;
 
-	// depends only on the row
-	if (total_nonzero >= local_connectivity) {
-		int start_nonzero = start_nonzero_arr[row];
-		int index = floor(local_connectivity);
-		T interpolation = local_connectivity - index;
+    if (index > 0) {
+      T penult = knn_dists[i + start_nonzero + (index - 1)];
+      rhos[row] = penult;
 
-	  if (index > 0) {
-		T penult = knn_dists[i + start_nonzero + (index - 1)];
-		rhos[row] = penult;
-
-		if (interpolation > SMOOTH_K_TOLERANCE) {
-		  T ult = knn_dists[i + start_nonzero + index];
-		  rhos[row] +=
-			interpolation * (ult - penult);
-		}
-	  } else
-		rhos[row] = interpolation * knn_dists[i + start_nonzero];
-	} else if (total_nonzero > 0)
-	  // we assume columns are sorted such that max nonzero will
-      // be the last column
-	  rhos[row] = knn_dists[i + (n_neighbors-1)];
-
+      if (interpolation > SMOOTH_K_TOLERANCE) {
+        T ult = knn_dists[i + start_nonzero + index];
+        rhos[row] += interpolation * (ult - penult);
+      }
+    } else
+      rhos[row] = interpolation * knn_dists[i + start_nonzero];
+  } else if (total_nonzero > 0)
+    // we assume columns are sorted such that max nonzero will
+    // be the last column
+    rhos[row] = knn_dists[i + (n_neighbors - 1)];
 }
 
 /**
@@ -248,7 +219,6 @@ __global__ void compute_membership_strength_kernel(
     int64_t cur_knn_ind = knn_indices[idx];
 
     if (cur_knn_ind != -1) {
-
       T cur_rho = rhos[row];
       T cur_sigma = sigmas[row];
 
@@ -281,31 +251,27 @@ void smooth_knn_dist(int n, const int64_t *knn_indices, const T *knn_dists,
                      T local_connectivity,
                      std::shared_ptr<deviceAllocator> d_alloc,
                      cudaStream_t stream, T bandwidth = 1.0, int n_iter = 64) {
-
   MLCommon::device_buffer<T> dist_means_dev(d_alloc, stream, n_neighbors);
   MLCommon::device_buffer<T> full_dist_means(d_alloc, stream, n);
   MLCommon::device_buffer<T> total_nonzero(d_alloc, stream, n);
   MLCommon::device_buffer<T> start_nonzero(d_alloc, stream, n);
 
   // perform column-wise mean
-  MLCommon::LinAlg::reduce<T>(full_dist_means.data(), knn_dists, n_neighbors, n, 0.0f,
-              true, true, stream,
-              false, MLCommon::Nop<T, int>(), MLCommon::Sum<T>(),
-              [n_neighbors] __device__ (T in) { return in / n_neighbors; });
+  MLCommon::LinAlg::reduce<T>(
+    full_dist_means.data(), knn_dists, n_neighbors, n, 0.0f, true, true, stream,
+    false, MLCommon::Nop<T, int>(), MLCommon::Sum<T>(),
+    [n_neighbors] __device__(T in) { return in / n_neighbors; });
 
-  MLCommon::LinAlg::reduce<T>(total_nonzero.data(), knn_dists, n_neighbors, n, 0.0f,
-              true, true, stream,
-              false, [] __device__ (T val, int idx) { return val > 0.0 ? 1.0 : 0.0; },
-              MLCommon::Sum<T>(),
-              MLCommon::Nop<T>());
+  MLCommon::LinAlg::reduce<T>(
+    total_nonzero.data(), knn_dists, n_neighbors, n, 0.0f, true, true, stream,
+    false, [] __device__(T val, int idx) { return val > 0.0 ? 1.0 : 0.0; },
+    MLCommon::Sum<T>(), MLCommon::Nop<T>());
 
-  MLCommon::LinAlg::reduce<T>(start_nonzero.data(), knn_dists, n_neighbors, n, MAX_FLOAT,
-              true, true, stream,
-              false, [] __device__ (T val, int idx) {
-	  	  	  	  return val > 0.0 ? T(idx) : MAX_FLOAT; },
-              [] __device__ (T a, T b) {
-	  	  	  		  return a < b ? a : b; },
-              MLCommon::Nop<T>());
+  MLCommon::LinAlg::reduce<T>(
+    start_nonzero.data(), knn_dists, n_neighbors, n, MAX_FLOAT, true, true,
+    stream, false,
+    [] __device__(T val, int idx) { return val > 0.0 ? T(idx) : MAX_FLOAT; },
+    [] __device__(T a, T b) { return a < b ? a : b; }, MLCommon::Nop<T>());
 
   MLCommon::Stats::mean(dist_means_dev.data(), knn_dists, 1, n_neighbors * n,
                         false, false, stream);
@@ -320,9 +286,10 @@ void smooth_knn_dist(int n, const int64_t *knn_indices, const T *knn_dists,
   int rows = MLCommon::ceildiv(n, TPB_X);
 
   smooth_knn_dist_kernel<TPB_X><<<rows, TPB_X, 0, stream>>>(
-    knn_dists, n, full_dist_means.data(), total_nonzero.data(), start_nonzero.data(),
-    mean_dist, sigmas, rhos, n_neighbors, local_connectivity);
-	CUDA_CHECK(cudaPeekAtLastError());
+    knn_dists, n, full_dist_means.data(), total_nonzero.data(),
+    start_nonzero.data(), mean_dist, sigmas, rhos, n_neighbors,
+    local_connectivity);
+  CUDA_CHECK(cudaPeekAtLastError());
 
   MLCommon::device_buffer<T> psums(d_alloc, stream, n);
   MLCommon::device_buffer<T> hi_buffer(d_alloc, stream, n);
@@ -331,35 +298,27 @@ void smooth_knn_dist(int n, const int64_t *knn_indices, const T *knn_dists,
   T *mid = total_nonzero.data();
   T *lo = start_nonzero.data();
 
-  MLCommon::LinAlg::unaryOp<T>(hi, hi, n, [] __device__(T input) { return MAX_FLOAT; }, stream);
-  MLCommon::LinAlg::unaryOp<T>(mid, mid, n, [] __device__(T input) { return 1.0; }, stream);
+  MLCommon::LinAlg::unaryOp<T>(
+    hi, hi, n, [] __device__(T input) { return MAX_FLOAT; }, stream);
+  MLCommon::LinAlg::unaryOp<T>(
+    mid, mid, n, [] __device__(T input) { return 1.0; }, stream);
   CUDA_CHECK(cudaMemsetAsync(lo, 0, n * sizeof(T), stream));
 
   T target = log2f(n_neighbors) * bandwidth;
-	for (int iter = 0; iter < n_iter; iter++) {
+  for (int iter = 0; iter < n_iter; iter++) {
+    CUDA_CHECK(cudaMemsetAsync(psums.data(), 0, n * sizeof(T), stream));
 
-		CUDA_CHECK(cudaMemsetAsync(psums.data(), 0, n * sizeof(T), stream));
+    int neighbors = MLCommon::ceildiv(n * n_neighbors, TPB_X);
+    find_sigma_single_iter<TPB_X, T><<<neighbors, TPB_X, 0, stream>>>(
+      knn_dists, n, psums.data(), mid, sigmas, rhos, n_neighbors, target);
 
-		int neighbors = MLCommon::ceildiv(n*n_neighbors, TPB_X);
-		find_sigma_single_iter<TPB_X, T><<<neighbors, TPB_X, 0, stream>>>(
-			knn_dists, n,
-			psums.data(), mid, sigmas, rhos,
-			n_neighbors, target);
+    find_sigma_single_iter2<TPB_X, T><<<rows, TPB_X, 0, stream>>>(
+      knn_dists, n, psums.data(), hi, mid, lo, sigmas, n_neighbors, target);
+  }
 
-		find_sigma_single_iter2<TPB_X, T><<<rows, TPB_X, 0, stream>>>(
-			knn_dists, n,
-			psums.data(), hi, mid, lo, sigmas,
-			n_neighbors, target);
-	}
-
-	set_sigmas_kernel<TPB_X, T><<<rows, TPB_X, 0, stream>>>(n, sigmas, rhos, mid,
-			full_dist_means.data(), mean_dist, target);
-	CUDA_CHECK(cudaPeekAtLastError());
-//
-//	std::cout << MLCommon::arr2Str(rhos, n, "rhos", stream) << std::endl;
-//	std::cout << MLCommon::arr2Str(sigmas, n, "sigmas", stream) << std::endl;
-
-
+  set_sigmas_kernel<TPB_X, T><<<rows, TPB_X, 0, stream>>>(
+    n, sigmas, rhos, mid, full_dist_means.data(), mean_dist, target);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 /**
@@ -434,40 +393,43 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
    * Performing a rolling (w*X+X.T) + ((1-w)*X*X.T)
    */
   MLCommon::Sparse::csr_row_op(
-		  out_row_ind.data(), out->n_rows, out->nnz,
-		  [cols, rows, vals, set_op_mix_ratio] __device__(int row, int start_idx, int stop_idx) {
-	  int last_col = -1;
+    out_row_ind.data(), out->n_rows, out->nnz,
+    [cols, rows, vals, set_op_mix_ratio] __device__(int row, int start_idx,
+                                                    int stop_idx) {
+      int last_col = -1;
 
-	  T prod = 1.0;
-	  T sum = 0.0;
-	  int n = 0.0;
+      T prod = 1.0;
+      T sum = 0.0;
+      int n = 0.0;
 
-	  for(int cur_idx = start_idx; cur_idx < stop_idx; cur_idx++) {
-		  int cur_col = cols[cur_idx];
-		  int cur_val = vals[cur_idx];
+      for (int cur_idx = start_idx; cur_idx < stop_idx; cur_idx++) {
+        int cur_col = cols[cur_idx];
+        int cur_val = vals[cur_idx];
 
-		  bool write_idx = 0.0;
-		  if(start_idx == stop_idx-1 && n == 0.0) {
-			  write_idx = cur_idx;
-		  } else{
-			  write_idx = cur_idx-1;
-		  }
+        bool write_idx = 0.0;
+        if (start_idx == stop_idx - 1 && n == 0.0) {
+          write_idx = cur_idx;
+        } else {
+          write_idx = cur_idx - 1;
+        }
 
-		  if((cur_col != last_col && last_col != -1) || start_idx == stop_idx-1) {
-			  prod = prod * n > 1.0; // simulate transpose being zero
-			  vals[write_idx] = set_op_mix_ratio *
-					  (sum - prod) + (1.0 - set_op_mix_ratio) * prod;
-			  prod = cur_val;
-			  sum = cur_val;
-			  n = 1;
-		  } else {
-			  vals[write_idx] = 0.0;
-			  prod *= cur_val;
-			  sum *= cur_val;
-			  n += 1;
-		  }
-	  }
-  }, stream);
+        if ((cur_col != last_col && last_col != -1) ||
+            start_idx == stop_idx - 1) {
+          prod = prod * n > 1.0;  // simulate transpose being zero
+          vals[write_idx] =
+            set_op_mix_ratio * (sum - prod) + (1.0 - set_op_mix_ratio) * prod;
+          prod = cur_val;
+          sum = cur_val;
+          n = 1;
+        } else {
+          vals[write_idx] = 0.0;
+          prod *= cur_val;
+          sum *= cur_val;
+          n += 1;
+        }
+      }
+    },
+    stream);
 }
 
 }  // namespace Naive

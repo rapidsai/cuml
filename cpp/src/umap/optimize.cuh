@@ -173,7 +173,6 @@ void optimize_params(T *input, int n_rows, const T *labels, T *coef,
   } while (tol_grads < 2 && num_iters < max_epochs);
 }
 
-
 void find_params_ab(UMAPParams *params,
                     std::shared_ptr<deviceAllocator> d_alloc,
                     cudaStream_t stream) {
