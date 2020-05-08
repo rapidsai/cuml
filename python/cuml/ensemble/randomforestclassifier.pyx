@@ -320,7 +320,7 @@ class RandomForestClassifier(Base):
         cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
-            self.model_pbuf_bytes = self._get_protobuf_bytes()
+            model_pbuf_bytes = self._get_protobuf_bytes()
             params_t = <uintptr_t> self.rf_forest
             rf_forest = \
                 <RandomForestMetaData[float, int]*>params_t
@@ -331,9 +331,12 @@ class RandomForestClassifier(Base):
                 state["rf_params"] = rf_forest.rf_params
             else:
                 state["rf_params64"] = rf_forest64.rf_params
+        else:
+            model_pbuf_bytes = bytearray()
         state['n_cols'] = self.n_cols
         state["verbose"] = self.verbose
-        state["model_pbuf_bytes"] = self.model_pbuf_bytes
+        state["model_pbuf_bytes"] = model_pbuf_bytes
+        state["treelite_handle"] = None
 
         return state
 
@@ -366,6 +369,10 @@ class RandomForestClassifier(Base):
                 free(<RandomForestMetaData[double, int]*><uintptr_t>
                      self.rf_forest64)
 
+        if self.treelite_handle:
+            tl.free_treelite_model(self.treelite_handle)
+            self.treelite_handle = None
+
     def _reset_forest_data(self):
         # Only if model is fitted before
         # Clears the data of the forest to prepare for next fit
@@ -389,11 +396,17 @@ class RandomForestClassifier(Base):
                              " please read the documentation")
 
     def _obtain_treelite_handle(self):
+        """Either return a pre-built treelite_handle representing this model
+        or build a new one. Caller does not have to free, as the destructor
+        will clean up self.treelite_handle."""
+        if self.treelite_handle:
+            return self.treelite_handle # Use cached version
+
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
         if self.num_classes > 2:
-            raise NotImplementedError("Pickling for multi-class "
+            raise NotImplementedError("Serialization for multi-class "
                                       "classification models is currently not "
                                       "implemented. Please check cuml issue "
                                       "#1679 for more information.")
@@ -402,16 +415,17 @@ class RandomForestClassifier(Base):
         with cython.boundscheck(False):
             model_pbuf_vec.assign(& model_pbuf_mv[0],
                                   & model_pbuf_mv[model_pbuf_mv.shape[0]])
-        if self.treelite_handle is None:
-            task_category = CLASSIFICATION_MODEL
-            build_treelite_forest(
-                & cuml_model_ptr,
-                rf_forest,
-                <int> self.n_cols,
-                <int> task_category,
-                model_pbuf_vec)
-            mod_ptr = <uintptr_t> cuml_model_ptr
-            self.treelite_handle = ctypes.c_void_p(mod_ptr).value
+
+        task_category = CLASSIFICATION_MODEL
+        build_treelite_forest(
+            & cuml_model_ptr,
+            rf_forest,
+            <int> self.n_cols,
+            <int> task_category,
+            model_pbuf_vec)
+        mod_ptr = <uintptr_t> cuml_model_ptr
+        self.treelite_handle = ctypes.c_void_p(mod_ptr).value
+
         return self.treelite_handle
 
     def _get_protobuf_bytes(self):
@@ -512,7 +526,10 @@ class RandomForestClassifier(Base):
     TODO : Move functions duplicated in the RF classifier and regressor
            to a shared file. Cuml issue #1854 has been created to track this.
     """
-    def _tl_model_handles(self, model_bytes):
+    def _alloc_and_build_tl_from_protobuf(self, model_bytes):
+        """Creates a treelite model from the protobuf format model_bytes
+        and returns its TreeliteHandle.
+        The caller must free the resulting model."""
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
@@ -526,12 +543,12 @@ class RandomForestClassifier(Base):
 
         return ctypes.c_void_p(mod_handle).value
 
-    def _concatenate_treelite_handle(self, treelite_handle):
+    def _concatenate_treelite_handles(self, treelite_handles):
         cdef ModelHandle concat_model_handle = NULL
         cdef vector[ModelHandle] *model_handles \
             = new vector[ModelHandle]()
         cdef uintptr_t mod_ptr
-        for i in treelite_handle:
+        for i in treelite_handles:
             mod_ptr = <uintptr_t>i
             model_handles.push_back((
                 <ModelHandle> mod_ptr))
@@ -539,11 +556,15 @@ class RandomForestClassifier(Base):
         concat_model_handle = concatenate_trees(deref(model_handles))
         cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
         self.treelite_handle = concat_model_ptr
-        cdef vector[unsigned char] pbuf_mod_info = \
-            save_model(<ModelHandle> concat_model_ptr)
-        cdef unsigned char[::1] pbuf_mod_view = \
-            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+
+        # XXX Do we need this pbuf_bytes? It seems like we're already
+        # on the client side by then and the treelite model is sufficient
+        # cdef vector[unsigned char] pbuf_mod_info = \
+        #     save_model(<ModelHandle> concat_model_ptr)
+        # cdef unsigned char[::1] pbuf_mod_view = \
+        #     <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
+        # self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+
         return self
 
     def fit(self, X, y, convert_dtype=False):
@@ -692,13 +713,15 @@ class RandomForestClassifier(Base):
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
 
-        build_treelite_forest(& cuml_model_ptr,
-                              rf_forest,
-                              <int> n_cols,
-                              <int> num_classes,
-                              <vector[unsigned char] &> self.model_pbuf_bytes)
-        mod_ptr = <uintptr_t> cuml_model_ptr
-        treelite_handle = ctypes.c_void_p(mod_ptr).value
+        # XXX Can we just use _obtain_treelite_handle here?
+        if not self.treelite_handle:
+            build_treelite_forest(& cuml_model_ptr,
+                                  rf_forest,
+                                  <int> n_cols,
+                                  <int> num_classes,
+                                  <vector[unsigned char] &> self.model_pbuf_bytes)
+            mod_ptr = <uintptr_t> cuml_model_ptr
+            self.treelite_handle = ctypes.c_void_p(mod_ptr).value
 
         storage_type = \
             _check_fil_parameter_validity(depth=self.max_depth,
@@ -707,7 +730,7 @@ class RandomForestClassifier(Base):
 
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_handle,
+            fil_model.load_from_randomforest(self.treelite_handle,
                                              output_class=output_class,
                                              threshold=threshold,
                                              algo=algo,
@@ -715,7 +738,7 @@ class RandomForestClassifier(Base):
 
         preds = tl_to_fil_model.predict(X, output_type=out_type,
                                         predict_proba=predict_proba)
-        tl.free_treelite_model(treelite_handle)
+
         return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):

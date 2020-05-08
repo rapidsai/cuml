@@ -25,6 +25,7 @@ from cuml.dask.common.input_utils import DistributedDataHandler, \
 from dask.distributed import default_client, wait
 from cuml.dask.common.base import DelayedPredictionMixin, \
     DelayedPredictionProbaMixin
+from cuml.fil.fil import TreeliteModel as tl
 
 from uuid import uuid1
 
@@ -174,6 +175,7 @@ class RandomForestClassifier(DelayedPredictionMixin,
         self.n_estimators = n_estimators
         self.n_estimators_per_worker = list()
         self.num_classes = 2
+        self.local_model = None
 
         self.client = default_client() if client is None else client
         if workers is None:
@@ -330,19 +332,27 @@ class RandomForestClassifier(DelayedPredictionMixin,
                 (self.rfs[w]))
         mod_bytes = self.client.compute(model_protobuf_futures, sync=True)
         last_worker = w
-        all_tl_mod_handles = []
-        model = self.rfs[last_worker].result()
-        for n in range(len(self.workers)):
-            all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
 
-        model._concatenate_treelite_handle(
-            treelite_handle=all_tl_mod_handles)
+        # XXX is there a way to avoid retransmitting the protobuf here?
+        # Merge all worker models into a single one and
+        combined_model = self.rfs[last_worker].result()
+        try:
+            all_tl_mods = [combined_model._alloc_and_build_tl_from_protobuf(mb)
+                           for mb in mod_bytes]
 
-        self.local_model = model
+            combined_model._concatenate_treelite_handles(
+                treelite_handles=all_tl_mods)
+
+        finally:
+            # Make sure we free the memory from cython-allocated objects
+            for treelite_handle in all_tl_mods:
+                tl.free_treelite_model(treelite_handle)
+
+        self.local_model = combined_model
 
     def fit(self, X, y, convert_dtype=False):
         """
-        Fit the input data with a Random Forest classifier
+        Fit the input data with a Random Forest classifier.
 
         IMPORTANT: X is expected to be partitioned with at least one partition
         on each Dask worker being used by the forest (self.workers).
@@ -383,6 +393,8 @@ class RandomForestClassifier(DelayedPredictionMixin,
 
         """
         self.num_classes = len(y.unique())
+        self.local_model = None  # Any old model is no longer valid
+
         data = DistributedDataHandler.create((X, y), client=self.client)
         self.datatype = data.datatype
         futures = list()
@@ -482,8 +494,10 @@ class RandomForestClassifier(DelayedPredictionMixin,
                            threshold=0.5, num_classes=2,
                            convert_dtype=False, predict_model="GPU",
                            delayed=True, fil_sparse_format='auto'):
+        if not self.local_model:
+            self._concat_treelite_models()
+        # Otherwise, use existing cached model
 
-        self._concat_treelite_models()
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
 
