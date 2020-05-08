@@ -19,6 +19,7 @@
 
 #include "random/rng.h"
 
+#include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>

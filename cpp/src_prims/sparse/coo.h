@@ -27,6 +27,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/scan.h>
 
+#include <common/cudart_utils.h>
 #include <cuda_runtime.h>
 #include "cuda_utils.h"
 

@@ -17,6 +17,40 @@
 include(ExternalProject)
 
 ##############################################################################
+# - raft - (header only) -----------------------------------------------------
+
+# Only cloned if RAFT_PATH env variable is not defined
+
+if(DEFINED ENV{RAFT_PATH})
+  message(STATUS "RAFT_PATH environment variable detected.")
+  message(STATUS "RAFT_DIR set to $ENV{RAFT_PATH}")
+  set(RAFT_DIR ENV{RAFT_PATH})
+
+  ExternalProject_Add(raft
+    DOWNLOAD_COMMAND  ""
+    SOURCE_DIR        ${RAFT_DIR}
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND     ""
+    INSTALL_COMMAND   "")
+
+else(DEFINED ENV{RAFT_PATH})
+  message(STATUS "RAFT_PATH environment variable NOT detected, cloning RAFT")
+  set(RAFT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
+
+  ExternalProject_Add(raft
+    GIT_REPOSITORY    https://github.com/rapidsai/raft.git
+    GIT_TAG           b58f97f2b5382a633e43daec31b26adf52e19a3b
+    PREFIX            ${RAFT_DIR}
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND     ""
+    INSTALL_COMMAND   "")
+
+  # Redefining RAFT_DIR so it coincides with the one inferred by env variable.
+  set(RAFT_DIR ${RAFT_DIR}/src/raft/ CACHE STRING "Path to RAFT repo")
+endif(DEFINED ENV{RAFT_PATH})
+
+
+##############################################################################
 # - cub - (header only) ------------------------------------------------------
 
 set(CUB_DIR ${CMAKE_CURRENT_BINARY_DIR}/cub CACHE STRING "Path to cub repo")
@@ -61,7 +95,7 @@ set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
   "Path to FAISS source directory")
 ExternalProject_Add(faiss
   GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
-  GIT_TAG           v1.6.1
+  GIT_TAG           v1.6.2
   CONFIGURE_COMMAND LIBS=-pthread
                     CPPFLAGS=-w
                     LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
@@ -77,8 +111,11 @@ ExternalProject_Add(faiss
   INSTALL_COMMAND   make -s install > /dev/null
   UPDATE_COMMAND    ""
   BUILD_IN_SOURCE   1)
+
 ExternalProject_Get_Property(faiss install_dir)
+
 add_library(faisslib STATIC IMPORTED)
+
 set_property(TARGET faisslib PROPERTY
   IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
 
@@ -100,15 +137,18 @@ ExternalProject_Add(treelite
                       ${TREELITE_DIR}/lib/libtreelite_runtime.so
     UPDATE_COMMAND    ""
     PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch || true)
+
 add_library(dmlclib STATIC IMPORTED)
 add_library(treelitelib STATIC IMPORTED)
 add_library(treelite_runtimelib SHARED IMPORTED)
+
 set_property(TARGET dmlclib PROPERTY
   IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdmlc.a)
 set_property(TARGET treelitelib PROPERTY
   IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
 set_property(TARGET treelite_runtimelib PROPERTY
   IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
+
 add_dependencies(dmlclib treelite)
 add_dependencies(treelitelib treelite)
 add_dependencies(treelite_runtimelib treelite)
@@ -132,14 +172,20 @@ ExternalProject_Add(googletest
   BUILD_BYPRODUCTS  ${GTEST_DIR}/lib/libgtest.a
                     ${GTEST_DIR}/lib/libgtest_main.a
   UPDATE_COMMAND    "")
+
 add_library(gtestlib STATIC IMPORTED)
 add_library(gtest_mainlib STATIC IMPORTED)
+
 set_property(TARGET gtestlib PROPERTY
   IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest.a)
 set_property(TARGET gtest_mainlib PROPERTY
   IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest_main.a)
+
 add_dependencies(gtestlib googletest)
 add_dependencies(gtest_mainlib googletest)
+
+##############################################################################
+# - googlebench ---------------------------------------------------------------
 
 set(GBENCH_DIR ${CMAKE_CURRENT_BINARY_DIR}/benchmark CACHE STRING
   "Path to google benchmark repo")
@@ -167,6 +213,10 @@ set_property(TARGET benchmarklib PROPERTY
 # after `project_a`, please add the dependency add_dependencies(project_b project_a)
 # This allows the cloning to happen sequentially, enhancing the printing at
 # compile time, helping significantly to troubleshoot build issues.
+
+# TODO: Change to using build.sh and make targets instead of this
+
+add_dependencies(cub raft)
 add_dependencies(cutlass cub)
 add_dependencies(spdlog cutlass)
 add_dependencies(faiss spdlog)

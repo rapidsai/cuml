@@ -68,7 +68,7 @@ struct DecisionTreeParams {
   /**
    * Minimum impurity decrease required for spliting a node. If the impurity decrease is below this value, node is leafed out. Default is 0.0
    */
-  float min_impurity_decrease;
+  float min_impurity_decrease = 0.0f;
 };
 
 /**
@@ -80,10 +80,13 @@ struct DecisionTreeParams {
  * @param[in] cfg_n_bins: number of bins; default 8
  * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
  * @param[in] cfg_min_rows_per_node: min. rows per node; default 2
+ * @param[in] cfg_min_impurity_decrease: split a node only if its reduction in
+ *                                       impurity is more than this value
  * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
  * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
+ * @param[in] cfg_shuffle_features: whether to shuffle features or not
  */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      int cfg_max_leaves = -1, float cfg_max_features = 1.0f,
@@ -141,7 +144,7 @@ typedef TreeMetaDataNode<float, int> TreeClassifierF;
 typedef TreeMetaDataNode<double, int> TreeClassifierD;
 
 /**
- * @defgroup Decision Tree Classifier - Fit function
+ * @defgroup DecisionTreeClassifierFit Fit functions
  * @brief Build (i.e., fit, train) Decision Tree classifier for input data.
  * @param[in] handle: cumlHandle
  * @param[in, out] tree: CPU pointer to TreeMetaDataNode. User allocated.
@@ -158,7 +161,8 @@ typedef TreeMetaDataNode<double, int> TreeClassifierD;
  *    allowing us to construct trees without rearranging the actual dataset.
  * @param[in] n_sampled_rows: number of training samples, after sampling.
  *    If using decision tree directly over the whole dataset: n_sampled_rows = nrows
- * @param[in] n_unique_labels: #unique label values. Number of categories of classification.
+ * @param[in] n_unique_labels: number of unique label values. Number of
+ *                             categories of classification.
  * @param[in] tree_params: Decision Tree training hyper parameter struct.
  * @{
  */
@@ -177,7 +181,7 @@ void decisionTreeClassifierFit(const ML::cumlHandle &handle,
 /** @} */
 
 /**
- * @defgroup Decision Tree Classifier - Predict function
+ * @defgroup DecisionTreeClassifierPredict Predict functions
  * @brief Predict target feature for input data; n-ary classification for
  *   single feature supported. Inference of trees is CPU only for now.
  * @param[in] handle: cumlHandle (currently unused; API placeholder)
@@ -212,7 +216,7 @@ typedef TreeMetaDataNode<float, float> TreeRegressorF;
 typedef TreeMetaDataNode<double, double> TreeRegressorD;
 
 /**
- * @defgroup Decision Tree Regressor - Fit function
+ * @defgroup DecisionTreeRegressorFit Fit functions
  * @brief Build (i.e., fit, train) Decision Tree regressor for input data.
  * @param[in] handle: cumlHandle
  * @param[in, out] tree: CPU pointer to TreeMetaDataNode. User allocated.
@@ -243,7 +247,7 @@ void decisionTreeRegressorFit(const ML::cumlHandle &handle,
 /** @} */
 
 /**
- * @defgroup Decision Tree Regressor - Predict function
+ * @defgroup DecisionTreeRegressorPredict Predict functions
  * @brief Predict target feature for input data; regression for single feature supported.
  *   Inference of trees is CPU only for now.
  * @param[in] handle: cumlHandle (currently unused; API placeholder)

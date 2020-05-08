@@ -276,7 +276,7 @@ def test_umap_fit_transform_against_fit_and_transform():
     assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_diff_input)
 
 
-@pytest.mark.parametrize('n_components', [2, 13])
+@pytest.mark.parametrize('n_components', [21, 25, 50])
 @pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
 def test_umap_fit_transform_reproducibility(n_components, random_state):
 
@@ -315,12 +315,11 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
     if random_state is not None:
         assert mean_diff < 1.0
     else:
-        assert mean_diff > 1.0
+        assert mean_diff > 0.5
 
 
-@pytest.mark.parametrize('n_components', [2, 25])
+@pytest.mark.parametrize('n_components', [21, 25, 50])
 @pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
-@pytest.mark.xfail(reason="test intermittently fails")
 def test_umap_transform_reproducibility(n_components, random_state):
 
     n_samples = 5000
@@ -364,7 +363,7 @@ def test_umap_transform_reproducibility(n_components, random_state):
     if random_state is not None:
         assert mean_diff < 1.0
     else:
-        assert mean_diff > 1.0
+        assert mean_diff > 0.5
 
 
 def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
@@ -411,8 +410,6 @@ def test_exp_decay_params():
 
 
 @pytest.mark.parametrize('n_neighbors', [5, 15])
-@pytest.mark.skip(reason="v0.14: Consistently failing in CUDA 10.2. "
-                         "Need to investigate. ")
 def test_umap_knn_parameters(n_neighbors):
     data, labels = datasets.make_blobs(
         n_samples=2000, n_features=10, centers=5, random_state=0)

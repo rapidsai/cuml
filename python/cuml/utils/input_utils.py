@@ -308,7 +308,7 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True):
             return CumlArray(data=X_m)
 
     else:
-        raise TypeError("Received unsupported input type " % type(X))
+        raise TypeError("Received unsupported input type: %s" % type(X))
 
     return X
 

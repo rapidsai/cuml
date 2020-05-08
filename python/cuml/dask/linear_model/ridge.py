@@ -109,6 +109,7 @@ class Ridge(BaseEstimator,
         self.local_model = list(models.values())[0].result()
         self.coef_ = self.local_model.coef_
         self.intercept_ = self.local_model.intercept_
+        return self
 
     def predict(self, X, delayed=True):
         """
