@@ -149,6 +149,10 @@ class UMAPTest : public ::testing::Test {
     xformed_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
       handle, X_d.data(), xformed.data(), n_samples, n_features,
       umap_params.n_components, umap_params.n_neighbors);
+
+
+    std::cout << "ALL DONE xform test!" << std::endl;
+
   }
 
   void fitTest() {
@@ -184,6 +188,10 @@ class UMAPTest : public ::testing::Test {
     fit_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
       handle, X_d.data(), embeddings.data(), n_samples, n_features,
       umap_params.n_components, umap_params.n_neighbors);
+
+
+    std::cout << "ALL DONE fit test!" << std::endl;
+
   }
 
   void supervisedTest() {
@@ -221,6 +229,10 @@ class UMAPTest : public ::testing::Test {
     supervised_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
       handle, X_d.data(), embeddings.data(), n_samples, n_features,
       umap_params.n_components, umap_params.n_neighbors);
+
+
+    std::cout << "ALL DONE!" << std::endl;
+
   }
 
   void fitWithKNNTest() {
@@ -248,13 +260,13 @@ class UMAPTest : public ::testing::Test {
 
     MLCommon::device_buffer<int64_t> knn_indices(
       handle.getDeviceAllocator(), handle.getStream(),
-      n_samples * umap_params.n_components);
+      n_samples * umap_params.n_neighbors);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     MLCommon::device_buffer<float> knn_dists(
       handle.getDeviceAllocator(), handle.getStream(),
-      n_samples * umap_params.n_components);
+      n_samples * umap_params.n_neighbors);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
@@ -280,6 +292,10 @@ class UMAPTest : public ::testing::Test {
     fit_with_knn_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
       handle, X_d.data(), embeddings.data(), n_samples, n_features,
       umap_params.n_components, umap_params.n_neighbors);
+
+
+    std::cout << "ALL DONE knn test!" << std::endl;
+
   }
 
   void SetUp() override {
@@ -474,6 +490,9 @@ class UMAPParametrizableTest : public ::testing::Test {
       ASSERT_TRUE(
         are_equal(e1, e2, n_samples * umap_params.n_components, alloc, stream));
     }
+
+
+    std::cout << "ALL DONE!" << std::endl;
   }
 
   void SetUp() override {

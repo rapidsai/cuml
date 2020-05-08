@@ -330,8 +330,6 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
 
   dim3 grid_nnz(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
 
-  CUML_LOG_DEBUG("Executing fuzzy simplicial set");
-
   /**
    * Allocate workspace for fuzzy simplicial set.
    */

@@ -454,6 +454,8 @@ template <typename Type>
 struct Sum {
   HDI Type operator()(Type a, Type b) { return a + b; }
 };
+
+
 /** @} */
 
 /**
