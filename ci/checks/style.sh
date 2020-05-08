@@ -66,7 +66,6 @@ else
 fi
 
 # Check for a consistent code format
-# TODO: keep adding more dirs when we add more source folders in cuml
 FORMAT=`python cpp/scripts/run-clang-format.py 2>&1`
 FORMAT_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
@@ -81,5 +80,29 @@ if [ "$FORMAT_RETVAL" != "0" ]; then
 else
   echo -e "\n\n>>>> PASSED: clang format check\n\n"
 fi
+
+# clang-tidy checkFORMAT=`python cpp/scripts/run-clang-format.py 2>&1`
+function setup_and_run_clang_tidy() {
+    mkdir cpp/build && \
+        cd cpp/build && \
+        cmake .. && \
+        cd ../.. && \
+        python cpp/scripts/run-clang-tidy.py
+}
+TIDY=`setup_and_run_clang_tidy 2>&1`
+TIDY_RETVAL=$?
+if [ "$RETVAL" = "0" ]; then
+  RETVAL=$TIDY_RETVAL
+fi
+
+# Output results if failure otherwise show pass
+if [ "$TIDY_RETVAL" != "0" ]; then
+  echo -e "\n\n>>>> FAILED: clang tidy check; begin output\n\n"
+  echo -e "$TIDY"
+  echo -e "\n\n>>>> FAILED: clang tidy check; end output\n\n"
+else
+  echo -e "\n\n>>>> PASSED: clang tidy check\n\n"
+fi
+
 
 exit $RETVAL
