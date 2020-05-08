@@ -20,6 +20,7 @@ from cuml.common.opg_data_utils_mg cimport *
 from libc.stdlib cimport malloc, free
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 
+
 def build_data_t(arys):
     """
     Function to create a floatData_t** or doubleData_t** from a list of
