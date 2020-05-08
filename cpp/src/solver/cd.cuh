@@ -24,8 +24,8 @@
 #include <linalg/add.cuh>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/eltwise.cuh>
-#include <linalg/gemm.h>
-#include <linalg/multiply.h>
+#include <linalg/gemm.cuh>
+#include <linalg/multiply.cuh>
 #include <linalg/subtract.cuh>
 #include <linalg/unary_op.cuh>
 #include <matrix/math.cuh>

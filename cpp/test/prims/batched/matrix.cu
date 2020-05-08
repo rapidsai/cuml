@@ -24,7 +24,7 @@
 
 #include <common/cudart_utils.h>
 #include "add.cuh"
-#include "linalg/batched/matrix.h"
+#include "linalg/batched/matrix.cuh"
 #include "linalg_naive.h"
 #include "test_utils.h"
 

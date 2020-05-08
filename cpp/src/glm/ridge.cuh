@@ -18,7 +18,7 @@
 
 #include <common/cudart_utils.h>
 #include <linalg/add.cuh>
-#include <linalg/gemm.h>
+#include <linalg/gemm.cuh>
 #include <linalg/norm.cuh>
 #include <linalg/subtract.cuh>
 #include <linalg/svd.cuh>

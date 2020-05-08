@@ -16,7 +16,7 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "linalg/power.h"
+#include "linalg/power.cuh"
 #include "random/rng.cuh"
 #include "test_utils.h"
 

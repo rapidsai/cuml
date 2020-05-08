@@ -16,7 +16,7 @@
 
 #pragma once
 #include "linalg/custom_accum.h"
-#include "linalg/gemm.h"
+#include "linalg/gemm.cuh"
 
 #include <type_traits>
 

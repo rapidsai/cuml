@@ -22,7 +22,7 @@
 #include <linalg/cublas_wrappers.h>
 #include <linalg/eig.cuh>
 #include <linalg/eltwise.cuh>
-#include <linalg/gemm.h>
+#include <linalg/gemm.cuh>
 #include <linalg/rsvd.cuh>
 #include <linalg/transpose.h>
 #include <matrix/math.cuh>

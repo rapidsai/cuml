@@ -20,7 +20,7 @@
 #include "distance/distance_epilogue_functor.h"
 #include "distance/distance_epilogue_traits.h"
 #include "distance/distance_fragment_multiply_add.h"
-#include "linalg/gemm.h"
+#include "linalg/gemm.cuh"
 #include "linalg/norm.cuh"
 
 #include <cutlass/gemm/gemm_epilogue_traits.h>

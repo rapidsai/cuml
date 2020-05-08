@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 #include "cuda_utils.h"
-#include "linalg/gemm.h"
+#include "linalg/gemm.cuh"
 #include "random/rng.cuh"
 #include "test_utils.h"
 

@@ -39,7 +39,7 @@
 
 #include <common/cudart_utils.h>
 #include "common/device_buffer.hpp"
-#include "linalg/batched/matrix.h"
+#include "linalg/batched/matrix.cuh"
 #include "linalg/cusolver_wrappers.h"
 #include "matrix/matrix.cuh"
 

@@ -18,7 +18,7 @@
 
 #include <common/cudart_utils.h>
 #include <cuda_utils.h>
-#include <linalg/gemm.h>
+#include <linalg/gemm.cuh>
 #include <cub/cub.cuh>
 #include "cache/cache.cuh"
 #include "cache/cache_util.cuh"
