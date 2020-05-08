@@ -19,10 +19,10 @@ import numpy as np
 
 from rmm import DeviceBuffer
 from cudf.core import Buffer, Series, DataFrame
-from cuml.utils import with_cupy_rmm
-from cuml.utils.memory_utils import _get_size_from_shape
-from cuml.utils.memory_utils import _order_to_strides
-from cuml.utils.memory_utils import _strides_to_order
+from cuml.common.memory_utils import with_cupy_rmm
+from cuml.common.memory_utils import _get_size_from_shape
+from cuml.common.memory_utils import _order_to_strides
+from cuml.common.memory_utils import _strides_to_order
 from numba import cuda
 
 

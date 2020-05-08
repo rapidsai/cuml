@@ -33,6 +33,7 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import input_to_cuml_array
 
+
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
     cdef void cdFit(cumlHandle& handle,
