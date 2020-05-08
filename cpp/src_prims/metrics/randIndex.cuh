@@ -46,7 +46,7 @@
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 
 namespace MLCommon {
 namespace Metrics {

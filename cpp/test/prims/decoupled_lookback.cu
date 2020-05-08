@@ -16,7 +16,7 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "decoupled_lookback.cuh"
 #include "test_utils.h"
 

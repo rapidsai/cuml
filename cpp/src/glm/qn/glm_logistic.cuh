@@ -17,7 +17,7 @@
 #pragma once
 
 #include <glm/qn/simple_mat.cuh>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "glm/qn/glm_base.cuh"
 #include "linalg/binary_op.cuh"
 

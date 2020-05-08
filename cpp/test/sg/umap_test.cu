@@ -31,7 +31,7 @@
 #include "umap/runner.cuh"
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 
 #include <iostream>
 #include <vector>

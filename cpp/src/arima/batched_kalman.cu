@@ -27,7 +27,7 @@
 #include <common/cudart_utils.h>
 #include "common/cumlHandle.hpp"
 #include "common/nvtx.hpp"
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "linalg/batched/matrix.cuh"
 #include "linalg/binary_op.cuh"
 #include "linalg/cublas_wrappers.h"

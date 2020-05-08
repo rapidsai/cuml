@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include <gtest/gtest.h>
 #include <score/scores.cuh>
 #include <iostream>

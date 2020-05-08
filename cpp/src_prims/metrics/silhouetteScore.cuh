@@ -24,7 +24,7 @@
 #include <iostream>
 #include <numeric>
 #include "common/device_buffer.hpp"
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "linalg/eltwise.cuh"
 #include "linalg/map_then_reduce.cuh"
 #include "linalg/matrix_vector_op.cuh"

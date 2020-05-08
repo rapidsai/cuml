@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "random/rng.cuh"
 #include "stats/minmax.cuh"
 #include "test_utils.h"

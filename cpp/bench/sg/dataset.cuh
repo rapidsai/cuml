@@ -17,7 +17,7 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include <linalg/transpose.h>
 #include <random/make_blobs.cuh>
 #include <random/make_regression.cuh>

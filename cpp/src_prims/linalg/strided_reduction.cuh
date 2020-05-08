@@ -18,7 +18,7 @@
 
 #include <cub/cub.cuh>
 #include <type_traits>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "linalg/unary_op.cuh"
 
 namespace MLCommon {

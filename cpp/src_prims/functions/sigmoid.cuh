@@ -17,7 +17,7 @@
 #pragma once
 
 #include <linalg/unary_op.cuh>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 
 namespace MLCommon {
 namespace Functions {

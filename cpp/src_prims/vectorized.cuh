@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuda_fp16.h>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 
 namespace MLCommon {
 

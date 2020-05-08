@@ -20,7 +20,7 @@
 #include "../matrix/matrix.cuh"
 #include "../random/rng.cuh"
 #include "cublas_wrappers.h"
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "cusolver_wrappers.h"
 #include "eig.cuh"
 #include "gemm.cuh"

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <gtest/gtest.h>

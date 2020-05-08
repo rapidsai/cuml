@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 #include <common/allocatorAdapter.hpp>

@@ -15,7 +15,7 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include <cuml/matrix/kernelparams.h>
 #include <gtest/gtest.h>
 #include <iostream>

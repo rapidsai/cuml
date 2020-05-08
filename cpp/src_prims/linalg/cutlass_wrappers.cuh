@@ -27,7 +27,7 @@
 #include <cutlass/gemm/thread_multiply_add.h>
 #include <cutlass/util/platform.h>
 #include "cublas_wrappers.h"
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 
 namespace MLCommon {
 namespace LinAlg {

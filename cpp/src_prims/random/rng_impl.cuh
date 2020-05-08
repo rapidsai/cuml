@@ -18,7 +18,7 @@
 
 #include <curand_kernel.h>
 #include <stdint.h>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 
 namespace MLCommon {
 namespace Random {

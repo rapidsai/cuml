@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <cub/cub.cuh>
 #include <limits>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 
 namespace MLCommon {
 namespace LinAlg {

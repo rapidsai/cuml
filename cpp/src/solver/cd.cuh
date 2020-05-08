@@ -17,7 +17,7 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include <functions/linearReg.cuh>
 #include <functions/penalty.cuh>
 #include <functions/softThres.cuh>

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/eig.cuh>
 #include <linalg/eltwise.cuh>

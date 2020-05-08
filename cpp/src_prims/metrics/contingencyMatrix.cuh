@@ -20,7 +20,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 #include <cub/cub.cuh>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 
 namespace MLCommon {
 namespace Metrics {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #define LEAF 0xFFFFFFFF
 #define PUSHRIGHT 0x00000001
 #include "stats/minmax.cuh"

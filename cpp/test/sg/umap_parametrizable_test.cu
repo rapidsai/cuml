@@ -32,7 +32,7 @@
 #include "common/device_buffer.hpp"
 #include "umap/runner.cuh"
 
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 
 #include <iostream>
 #include <vector>

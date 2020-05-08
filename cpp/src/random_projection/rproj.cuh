@@ -21,7 +21,7 @@
 #include <vector>
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include <cuml/random_projection/rproj_c.h>
 #include <linalg/cublas_wrappers.h>
 #include <sparse/cusparse_wrappers.h>

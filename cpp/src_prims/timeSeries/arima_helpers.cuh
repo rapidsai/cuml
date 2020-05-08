@@ -19,7 +19,7 @@
 #include <cuda_runtime.h>
 
 #include <common/cudart_utils.h>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "cuml/tsa/arima_common.h"
 #include "linalg/batched/matrix.cuh"
 #include "linalg/matrix_vector_op.cuh"

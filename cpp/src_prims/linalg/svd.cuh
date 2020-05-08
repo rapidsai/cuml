@@ -20,7 +20,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
 #include "cublas_wrappers.h"
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "cusolver_wrappers.h"
 #include "eig.cuh"
 #include "gemm.cuh"

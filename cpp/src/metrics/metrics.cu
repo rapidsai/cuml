@@ -16,7 +16,7 @@
 
 // #include "metrics.h"
 #include <cuml/metrics/metrics.hpp>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "metrics/adjustedRandIndex.cuh"
 #include "metrics/klDivergence.cuh"
 #include "metrics/randIndex.cuh"

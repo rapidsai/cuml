@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include <cuml/manifold/umapparams.h>
 #include <common/fast_int_div.cuh>
 
