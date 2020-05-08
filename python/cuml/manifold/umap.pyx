@@ -37,7 +37,7 @@ from cupy.sparse import csr_matrix as cp_csr_matrix,\
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_cuml_array, zeros, with_cupy_rmm, has_scipy
 from cuml.common.array import CumlArray
 
@@ -431,7 +431,7 @@ class UMAP(Base):
         if has_scipy():
             from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
         else:
-            from cuml.utils.import_utils import DummyClass
+            from cuml.common.import_utils import DummyClass
             csr_matrix = DummyClass
             coo_matrix = DummyClass
             csc_matrix = DummyClass

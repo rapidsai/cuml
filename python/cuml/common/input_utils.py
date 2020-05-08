@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-import cuml.utils.numba_utils
-
 import copy
 import cudf
 import cupy as cp
@@ -25,7 +23,7 @@ import warnings
 from collections import namedtuple
 from collections.abc import Collection
 
-from cuml.utils import rmm_cupy_ary
+from cuml.common import rmm_cupy_ary
 from numba import cuda
 
 
@@ -133,10 +131,7 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
                              " which are not supported by cuML.")
 
     if isinstance(X, cudf.DataFrame):
-        if order == 'F':
-            X_m = CumlArray(data=X.as_gpu_matrix(order='F'))
-        elif order == 'C':
-            X_m = CumlArray(data=cuml.utils.numba_utils.row_matrix(X))
+        X_m = CumlArray(data=X.as_gpu_matrix(order=order))
 
     elif hasattr(X, "__array_interface__") or \
             hasattr(X, "__cuda_array_interface__"):
@@ -397,10 +392,7 @@ def input_to_host_array(X, order='F', deepcopy=False,
 
     if isinstance(X, cudf.DataFrame):
         dtype = np.dtype(X[X.columns[0]]._column.dtype)
-        if order == 'F':
-            X_m = X.as_gpu_matrix(order='F')
-        elif order == 'C':
-            X_m = cuml.utils.numba_utils.row_matrix(X)
+        X_m = X.as_gpu_matrix(order=order)
         X_m = X_m.copy_to_host()
 
     elif (isinstance(X, cudf.Series)):
