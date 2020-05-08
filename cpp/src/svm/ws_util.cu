@@ -16,7 +16,7 @@
 
 #include "ml_utils.h"
 
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include <limits.h>
 #include <cub/cub.cuh>
 

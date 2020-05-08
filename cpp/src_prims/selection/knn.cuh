@@ -17,7 +17,7 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 
 #include "distance/distance.cuh"
 #include "label/classlabels.cuh"

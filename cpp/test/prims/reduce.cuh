@@ -16,7 +16,7 @@
 
 #include <cublas_v2.h>
 #include <thrust/device_vector.h>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/unary_op.cuh"
 

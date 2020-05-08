@@ -19,7 +19,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <random>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "metrics/entropy.cuh"
 #include "test_utils.h"
 

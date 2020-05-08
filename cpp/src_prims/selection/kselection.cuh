@@ -18,7 +18,7 @@
 
 #include <stdlib.h>
 #include <limits>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 
 namespace MLCommon {
 namespace Selection {

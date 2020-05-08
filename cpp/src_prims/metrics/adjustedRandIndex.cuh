@@ -23,7 +23,7 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include <linalg/map_then_reduce.cuh>
 #include <linalg/reduce.cuh>
 #include <math.h>

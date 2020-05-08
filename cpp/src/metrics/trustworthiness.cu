@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include <common/cumlHandle.hpp>
 #include "distance/distance.cuh"
 #include "score/scores.cuh"

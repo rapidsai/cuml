@@ -20,7 +20,7 @@
 #include <linalg/matrix_vector_op.cuh>
 #include <glm/qn/simple_mat.cuh>
 #include <vector>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "linalg/add.cuh"
 #include "linalg/binary_op.cuh"
 #include "linalg/cublas_wrappers.h"

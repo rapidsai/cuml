@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "linalg/matrix_vector_op.cuh"
 #include "vectorized.cuh"
 

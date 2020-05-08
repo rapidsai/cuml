@@ -21,7 +21,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <memory>
 #include "common/device_buffer.hpp"
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "linalg/eltwise.cuh"
 
 namespace MLCommon {

@@ -17,7 +17,7 @@
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include "common/grid_sync.cuh"
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

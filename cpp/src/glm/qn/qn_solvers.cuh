@@ -40,7 +40,7 @@
  *
  */
 
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include <cuml/common/logger.hpp>
 #include <glm/qn/qn_linesearch.cuh>
 #include <glm/qn/qn_util.cuh>

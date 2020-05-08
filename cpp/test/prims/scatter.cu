@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <random>
 #include "common/scatter.cuh"
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "random/rng.cuh"
 #include "test_utils.h"
 

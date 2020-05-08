@@ -18,7 +18,7 @@
 #include <common/cudart_utils.h>
 #include <stdio.h>
 #include <cmath>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "curand_wrappers.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/cusolver_wrappers.h"
