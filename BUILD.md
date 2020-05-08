@@ -51,6 +51,40 @@ $ ./build.sh prims --allgpuarch        # build the ML prims tests for all suppor
 $ ./build.sh cuml --singlegpu          # build the cuML python package without MNMG algorithms
 ```
 
+To run the C++ unit tests (optional), from the repo root:
+
+```bash
+$ cd cpp/build
+$ ./test/ml # Single GPU algorithm tests
+$ ./test/ml_mg # Multi GPU algorithm tests, if --singlegpu was not used
+$ ./test/prims # ML Primitive function tests
+```
+
+If you want a list of the available C++ tests:
+```bash
+$ ./test/ml --gtest_list_tests # Single GPU algorithm tests
+$ ./test/ml_mg --gtest_list_tests # Multi GPU algorithm tests
+$ ./test/prims --gtest_list_tests # ML Primitive function tests
+```
+
+
+To run all Python tests, including multiGPU algorithms, from the repo root:
+```bash
+$ cd python
+$ pytest -v
+```
+
+If only the single GPU algos want to be run, then:
+
+```bash
+$ pytest --ignore=cuml/test/dask --ignore=cuml/test/test_nccl.py
+```
+
+If you want a list of the available Python tests:
+```bash
+$ pytest cuML/test --collect-only
+```
+
 ### Manual Process
 
 Once dependencies are present, follow the steps below:
@@ -146,6 +180,14 @@ To run Python tests (optional):
 ```bash
 $ pytest -v
 ```
+
+
+If only the single GPU algos want to be run, then:
+
+```bash
+$ pytest --ignore=cuml/test/dask --ignore=cuml/test/test_nccl.py
+```
+
 
 If you want a list of the available tests:
 ```bash
