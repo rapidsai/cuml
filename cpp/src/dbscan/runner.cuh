@@ -118,7 +118,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
   // partition the temporary workspace needed for different stages of dbscan.
 
-  Index_ adjlen = 0;
+  Index_ maxadjlen = 0;
   Index_ curradjlen = 0;
   char* temp = (char*)workspace;
   bool* adj = (bool*)temp;
@@ -168,9 +168,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     start_time = curTimeMillis();
     // Running AdjGraph
     ML::PUSH_RANGE("Trace::Dbscan::AdjGraph");
-    if (curradjlen > adjlen || adj_graph.data() == NULL) {
-      adjlen = curradjlen;
-      adj_graph.resize(adjlen, stream);
+    if (curradjlen > maxadjlen || adj_graph.data() == NULL) {
+      maxadjlen = curradjlen;
+      adj_graph.resize(maxadjlen, stream);
     }
 
     AdjGraph::run<Index_>(handle, adj, vd, adj_graph.data(), curradjlen,
