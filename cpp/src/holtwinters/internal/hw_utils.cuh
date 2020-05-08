@@ -25,7 +25,7 @@
 #include "common/device_buffer.hpp"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/cusolver_wrappers.h"
-#include "linalg/eltwise.h"
+#include "linalg/eltwise.cuh"
 
 #define IDX(n, m, N) (n + (m) * (N))
 

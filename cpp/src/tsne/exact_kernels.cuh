@@ -18,7 +18,7 @@
 
 #include <common/cudart_utils.h>
 #include <float.h>
-#include <linalg/eltwise.h>
+#include <linalg/eltwise.cuh>
 #include <math.h>
 #define restrict __restrict__
 

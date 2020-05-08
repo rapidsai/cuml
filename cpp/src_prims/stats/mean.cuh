@@ -18,7 +18,7 @@
 
 #include <cub/cub.cuh>
 #include "cuda_utils.h"
-#include "linalg/eltwise.h"
+#include "linalg/eltwise.cuh"
 
 namespace MLCommon {
 namespace Stats {

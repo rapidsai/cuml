@@ -22,10 +22,10 @@
 #include "cublas_wrappers.h"
 #include "cuda_utils.h"
 #include "cusolver_wrappers.h"
-#include "eig.h"
+#include "eig.cuh"
 #include "gemm.h"
 #include "qr.h"
-#include "svd.h"
+#include "svd.cuh"
 #include "transpose.h"
 
 namespace MLCommon {

@@ -23,7 +23,7 @@
 
 #include <cuml/common/logger.hpp>
 #include "common/cumlHandle.hpp"
-#include "linalg/norm.h"
+#include "linalg/norm.cuh"
 
 #include <cuda_runtime.h>
 #include <cuml/cuml.hpp>

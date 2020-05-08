@@ -25,7 +25,7 @@
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "cuml/svm/svm_parameter.h"
-#include "linalg/add.h"
+#include "linalg/add.cuh"
 #include "linalg/init.h"
 #include "linalg/unary_op.cuh"
 #include "ml_utils.h"

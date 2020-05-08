@@ -17,9 +17,9 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include "linalg/eltwise.h"
+#include "linalg/eltwise.cuh"
 #include "linalg/power.h"
-#include "linalg/subtract.h"
+#include "linalg/subtract.cuh"
 #include "stats/mean.cuh"
 
 #include <memory>

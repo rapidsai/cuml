@@ -21,12 +21,12 @@
 #include <functions/linearReg.cuh>
 #include <functions/penalty.cuh>
 #include <functions/softThres.cuh>
-#include <linalg/add.h>
+#include <linalg/add.cuh>
 #include <linalg/cublas_wrappers.h>
-#include <linalg/eltwise.h>
+#include <linalg/eltwise.cuh>
 #include <linalg/gemm.h>
 #include <linalg/multiply.h>
-#include <linalg/subtract.h>
+#include <linalg/subtract.cuh>
 #include <linalg/unary_op.cuh>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>

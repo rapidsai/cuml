@@ -20,14 +20,14 @@
 #include "cublas_wrappers.h"
 #include "cuda_utils.h"
 #include "cusolver_wrappers.h"
-#include "eig.h"
+#include "eig.cuh"
 #include "gemm.h"
 #include "gemv.h"
 #include "matrix/math.cuh"
 #include "matrix/matrix.cuh"
 #include "qr.h"
 #include "random/rng.cuh"
-#include "svd.h"
+#include "svd.cuh"
 #include "transpose.h"
 
 namespace MLCommon {

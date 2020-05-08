@@ -18,7 +18,7 @@
 
 #include <common/cudart_utils.h>
 #include <linalg/gemm.h>
-#include <linalg/norm.h>
+#include <linalg/norm.cuh>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
 #include <stats/mean.cuh>

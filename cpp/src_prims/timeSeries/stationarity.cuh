@@ -34,7 +34,7 @@
 #include "cuml/common/cuml_allocator.hpp"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/matrix_vector_op.cuh"
-#include "linalg/reduce.h"
+#include "linalg/reduce.cuh"
 #include "stats/mean.cuh"
 
 namespace MLCommon {

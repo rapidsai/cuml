@@ -17,7 +17,7 @@
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include "cuda_utils.h"
-#include "linalg/svd.h"
+#include "linalg/svd.cuh"
 #include "matrix/matrix.cuh"
 #include "random/rng.cuh"
 #include "test_utils.h"

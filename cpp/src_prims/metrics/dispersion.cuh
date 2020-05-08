@@ -22,7 +22,7 @@
 #include <memory>
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
-#include "linalg/eltwise.h"
+#include "linalg/eltwise.cuh"
 
 namespace MLCommon {
 namespace Metrics {

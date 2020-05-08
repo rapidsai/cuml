@@ -16,8 +16,8 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "add.h"
-#include "linalg/add.h"
+#include "add.cuh"
+#include "linalg/add.cuh"
 #include "random/rng.cuh"
 #include "test_utils.h"
 

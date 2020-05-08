@@ -21,12 +21,12 @@
 #include <functions/hinge.cuh>
 #include <functions/linearReg.cuh>
 #include <functions/logisticReg.cuh>
-#include <linalg/add.h>
+#include <linalg/add.cuh>
 #include <linalg/cublas_wrappers.h>
-#include <linalg/eltwise.h>
+#include <linalg/eltwise.cuh>
 #include <linalg/gemv.h>
-#include <linalg/norm.h>
-#include <linalg/subtract.h>
+#include <linalg/norm.cuh>
+#include <linalg/subtract.cuh>
 #include <linalg/unary_op.cuh>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>

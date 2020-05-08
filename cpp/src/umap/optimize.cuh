@@ -21,9 +21,9 @@
 #include "common/device_buffer.hpp"
 
 #include <common/cudart_utils.h>
-#include "linalg/add.h"
+#include "linalg/add.cuh"
 #include "linalg/binary_op.cuh"
-#include "linalg/eltwise.h"
+#include "linalg/eltwise.cuh"
 #include "linalg/multiply.h"
 #include "linalg/power.h"
 #include "linalg/unary_op.cuh"
