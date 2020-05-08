@@ -21,7 +21,7 @@
 #include <linalg/binary_op.cuh>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/eltwise.cuh>
-#include <linalg/gemm.h>
+#include <linalg/gemm.cuh>
 #include <linalg/subtract.cuh>
 #include <linalg/transpose.h>
 #include <matrix/math.cuh>

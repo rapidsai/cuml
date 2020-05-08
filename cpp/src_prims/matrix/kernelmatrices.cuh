@@ -18,7 +18,7 @@
 
 #include <cuda_utils.h>
 #include <distance/distance.cuh>
-#include <linalg/gemm.h>
+#include <linalg/gemm.cuh>
 #include <matrix/grammatrix.cuh>
 
 namespace MLCommon {

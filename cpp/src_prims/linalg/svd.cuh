@@ -23,7 +23,7 @@
 #include "cuda_utils.h"
 #include "cusolver_wrappers.h"
 #include "eig.cuh"
-#include "gemm.h"
+#include "gemm.cuh"
 #include "matrix/math.cuh"
 #include "matrix/matrix.cuh"
 #include "transpose.h"

@@ -27,7 +27,7 @@
 #include "linalg/add.cuh"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/init.h"
-#include "linalg/qr.h"
+#include "linalg/qr.cuh"
 #include "linalg/transpose.h"
 #include "matrix/matrix.cuh"
 #include "permute.cuh"

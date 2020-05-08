@@ -17,7 +17,7 @@
 #pragma once
 
 #include "linalg/cublas_wrappers.h"
-#include "linalg/gemm.h"
+#include "linalg/gemm.cuh"
 #include "mean_center.cuh"
 
 namespace MLCommon {

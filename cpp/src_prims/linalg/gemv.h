@@ -18,7 +18,6 @@
 
 #include <cublas_v2.h>
 #include "cublas_wrappers.h"
-#include "cuda_utils.h"
 
 namespace MLCommon {
 namespace LinAlg {

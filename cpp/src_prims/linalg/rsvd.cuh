@@ -23,8 +23,8 @@
 #include "cuda_utils.h"
 #include "cusolver_wrappers.h"
 #include "eig.cuh"
-#include "gemm.h"
-#include "qr.h"
+#include "gemm.cuh"
+#include "qr.cuh"
 #include "svd.cuh"
 #include "transpose.h"
 

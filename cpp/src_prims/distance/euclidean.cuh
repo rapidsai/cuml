@@ -19,7 +19,7 @@
 #include "distance/distance_fragment_multiply_add.h"
 #include "linalg/custom_accum.h"
 #include "linalg/eltwise2d.h"
-#include "linalg/gemm.h"
+#include "linalg/gemm.cuh"
 
 #include <cutlass/shape.h>
 #include <type_traits>

@@ -20,7 +20,7 @@
 #include <linalg/add.cuh>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/eltwise.cuh>
-#include <linalg/gemm.h>
+#include <linalg/gemm.cuh>
 #include <linalg/matrix_vector_op.cuh>
 #include <linalg/subtract.cuh>
 #include <linalg/transpose.h>
