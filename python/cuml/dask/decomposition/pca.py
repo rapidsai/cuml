@@ -101,9 +101,10 @@ class PCA(BaseDecomposition,
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
-    svd_solver : 'full'
-        Only Full algorithm is supported since it's significantly faster on GPU
-        then the other solvers including randomized SVD.
+    svd_solver : 'full' or 'qr'
+        The solver to use for PCA
+        'full' computes the EigenDecomposition of the input covariance matrix
+        'qr' computes SVD of the input matrix using QR decomposition
     verbose : bool
         Whether to print debug spews
     whiten : boolean (default = False)
@@ -112,6 +113,12 @@ class PCA(BaseDecomposition,
         Whitening allows each component to have unit variance and removes
         multi-collinearity. It might be beneficial for downstream
         tasks like LinearRegression where correlated features cause problems.
+    iterated_power : int (default = 15)
+        Used when `svd_solver=qr`. The more iterations, the more accurate, but
+        slower.
+    tol : float (default = 1e-7)
+        Used when `svd_solver=qr`. Smaller tolerance can increase accuracy,
+        but but will slow down the algorithm's convergence.
 
 
     Attributes
