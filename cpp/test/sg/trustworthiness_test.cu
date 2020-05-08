@@ -15,8 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include <metrics/trustworthiness.cuh>
 #include <cuda_utils.cuh>
+#include <metrics/trustworthiness.cuh>
 #include <vector>
 
 using namespace MLCommon;
