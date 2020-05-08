@@ -54,8 +54,8 @@ struct DbscanInputs {
 };
 
 template <typename T, typename IdxT>
-::std::ostream& operator<<(::std::ostream& os,
-                           const DbscanInputs<T, IdxT>& dims) {
+::std::ostream &operator<<(::std::ostream &os,
+                           const DbscanInputs<T, IdxT> &dims) {
   return os;
 }
 
@@ -183,7 +183,7 @@ struct DBScan2DArrayInputs {
 
 template <typename T>
 class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
-  protected:
+ protected:
   void basicTest() {
     cumlHandle handle;
 
@@ -197,16 +197,16 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     MLCommon::copy(labels_ref, params.out, params.n_out, handle.getStream());
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    dbscanFit(handle, inputs, (int)params.n_row, 2, params.eps,
-              params.min_pts, labels);
+    dbscanFit(handle, inputs, (int)params.n_row, 2, params.eps, params.min_pts,
+              labels);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     score = adjustedRandIndex(handle, labels_ref, labels, (int)params.n_out);
 
     if (score < 1.0) {
-      auto str = arr2Str(labels_ref, params.n_out, "labels_ref",
-                         handle.getStream());
+      auto str =
+        arr2Str(labels_ref, params.n_out, "labels_ref", handle.getStream());
       CUML_LOG_DEBUG("y: %s", str.c_str());
       str = arr2Str(labels, params.n_row, "labels", handle.getStream());
       CUML_LOG_DEBUG("y_hat: %s", str.c_str());
@@ -222,7 +222,7 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     CUDA_CHECK(cudaFree(inputs));
   }
 
-  protected:
+ protected:
   DBScan2DArrayInputs<T> params;
   int *labels, *labels_ref;
   T *inputs;
@@ -238,15 +238,8 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
 // and the two points to the very right are not reachable from it
 // So there should be one cluster (the plus/star on the left)
 // and two noise points
-const std::vector<float> test2d1_f = {
-  0, 0,
-  1, 0,
-  1, 1,
-  1, -1,
-  2, 0,
-  3, 0,
-  4, 0
-};
+const std::vector<float> test2d1_f = {0,  0, 1, 0, 1, 1, 1,
+                                      -1, 2, 0, 3, 0, 4, 0};
 const std::vector<double> test2d1_d(test2d1_f.begin(), test2d1_f.end());
 const std::vector<int> test2d1_l = {0, 0, 0, 0, 0, -1, -1};
 
@@ -257,18 +250,8 @@ const std::vector<int> test2d1_l = {0, 0, 0, 0, 0, -1, -1};
 //   .     .
 // There are 2 core-points but they are not reachable from each other
 // So there should be two clusters, both in the form of a plus/star
-const std::vector<float> test2d2_f = {
-  0, 0,
-  1, 0,
-  1, 1,
-  1, -1,
-  2, 0,
-  3, 0,
-  4, 0,
-  4, 1,
-  4, -1,
-  5, 0
-};
+const std::vector<float> test2d2_f = {0, 0, 1, 0, 1, 1, 1, -1, 2, 0,
+                                      3, 0, 4, 0, 4, 1, 4, -1, 5, 0};
 const std::vector<double> test2d2_d(test2d2_f.begin(), test2d2_f.end());
 const std::vector<int> test2d2_l = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1};
 
@@ -284,35 +267,27 @@ const std::vector<int> test2d2_l = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1};
 // as it will depend on the order in which we process the core-points.
 // Note that there are 9 input points, but only 8 labels for this reason
 const std::vector<float> test2d3_f = {
-  0, 0,
-  1, 0,
-  1, 1,
-  1, -1,
-  3, 0,
-  3, 1,
-  3, -1,
-  4, 0,
-  2, 0,
+  0, 0, 1, 0, 1, 1, 1, -1, 3, 0, 3, 1, 3, -1, 4, 0, 2, 0,
 };
 const std::vector<double> test2d3_d(test2d3_f.begin(), test2d3_f.end());
 const std::vector<int> test2d3_l = {0, 0, 0, 0, 1, 1, 1, 1};
 
 const std::vector<DBScan2DArrayInputs<float>> inputs2d_f = {
   {test2d1_f.data(), test2d1_l.data(), test2d1_f.size() / 2, test2d1_l.size(),
-    1.1f, 4},
+   1.1f, 4},
   {test2d2_f.data(), test2d2_l.data(), test2d2_f.size() / 2, test2d2_l.size(),
-    1.1f, 4},
+   1.1f, 4},
   {test2d3_f.data(), test2d3_l.data(), test2d3_f.size() / 2, test2d3_l.size(),
-    1.1f, 4},
+   1.1f, 4},
 };
 
 const std::vector<DBScan2DArrayInputs<double>> inputs2d_d = {
   {test2d1_d.data(), test2d1_l.data(), test2d1_d.size() / 2, test2d1_l.size(),
-    1.1, 4},
+   1.1, 4},
   {test2d2_d.data(), test2d2_l.data(), test2d2_d.size() / 2, test2d2_l.size(),
-    1.1, 4},
+   1.1, 4},
   {test2d3_d.data(), test2d3_l.data(), test2d3_d.size() / 2, test2d3_l.size(),
-    1.1, 4},
+   1.1, 4},
 };
 
 typedef Dbscan2DSimple<float> Dbscan2DSimple_F;
