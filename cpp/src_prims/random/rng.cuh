@@ -26,7 +26,7 @@
 #include "common/cub_wrappers.cuh"
 #include "common/scatter.cuh"
 #include "cuda_utils.h"
-#include "rng_impl.h"
+#include "rng_impl.cuh"
 
 namespace MLCommon {
 namespace Random {

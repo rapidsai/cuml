@@ -21,7 +21,7 @@
 #include <limits>
 #include "cuda_utils.h"
 #include "random/rng.cuh"
-#include "stats/minmax.h"
+#include "stats/minmax.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

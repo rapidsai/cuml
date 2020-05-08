@@ -20,7 +20,7 @@
 #include <cuml/common/logger.hpp>
 #include "common_kernel.cuh"
 #include "random/rng.cuh"
-#include "stats/minmax.h"
+#include "stats/minmax.cuh"
 
 namespace ML {
 namespace DecisionTree {

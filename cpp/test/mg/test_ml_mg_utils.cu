@@ -20,7 +20,7 @@
 #include <test_utils.h>
 #include <iostream>
 #include <vector>
-#include "ml_mg_utils.h"
+#include "ml_mg_utils.cuh"
 
 namespace ML {
 

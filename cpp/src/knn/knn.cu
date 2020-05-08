@@ -19,7 +19,7 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 
-#include "ml_mg_utils.h"
+#include "ml_mg_utils.cuh"
 
 #include "label/classlabels.cuh"
 #include "selection/knn.cuh"
