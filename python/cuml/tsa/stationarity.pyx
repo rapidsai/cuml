@@ -26,7 +26,7 @@ from libc.stdint cimport uintptr_t
 
 import cuml
 from cuml.common.handle cimport cumlHandle
-from cuml.utils.input_utils import input_to_dev_array
+from cuml.common.input_utils import input_to_dev_array
 
 
 cdef extern from "cuml/tsa/stationarity.h" namespace "ML":

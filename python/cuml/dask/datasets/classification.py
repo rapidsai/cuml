@@ -20,8 +20,8 @@ from cuml.datasets.utils import _create_rs_generator
 from cuml.dask.datasets.utils import _get_X
 from cuml.dask.datasets.utils import _get_labels
 from cuml.dask.datasets.utils import _create_delayed
-from cuml.utils import with_cupy_rmm
 from cuml.dask.common.utils import get_client
+from cuml.common import with_cupy_rmm
 
 import dask.array as da
 

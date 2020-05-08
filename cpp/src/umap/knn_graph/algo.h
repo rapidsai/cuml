@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
 #include <cuml/manifold/umapparams.h>
 #include <iostream>
 #include "linalg/unary_op.h"
