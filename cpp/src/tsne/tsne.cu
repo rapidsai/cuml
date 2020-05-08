@@ -18,11 +18,11 @@
 #include <cuml/manifold/tsne.h>
 #include <cuml/common/logger.hpp>
 #include "distances.h"
-#include "exact_kernels.h"
+#include "exact_kernels.cuh"
 #include "utils.h"
 
-#include "barnes_hut.h"
-#include "exact_tsne.h"
+#include "barnes_hut.cuh"
+#include "exact_tsne.cuh"
 
 namespace ML {
 

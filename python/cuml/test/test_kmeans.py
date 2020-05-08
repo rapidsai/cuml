@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -79,8 +79,8 @@ def test_n_init_cluster_consistency(random_state):
 @pytest.mark.parametrize('ncols', [25])
 @pytest.mark.parametrize('nclusters', [2, 5])
 @pytest.mark.parametrize('random_state', [i for i in range(0, 10, 2)])
-def test_kmeans_sequential_plus_plus_init(nrows, ncols, nclusters,
-                                          random_state):
+def test_traditional_kmeans_plus_plus_init(nrows, ncols, nclusters,
+                                           random_state):
 
     # Using fairly high variance between points in clusters
     cluster_std = 1.0
@@ -105,6 +105,45 @@ def test_kmeans_sequential_plus_plus_init(nrows, ncols, nclusters,
                             n_clusters=nclusters)
     kmeans.fit(X.copy_to_host())
     sk_score = kmeans.score(X.copy_to_host())
+
+    assert abs(cu_score - sk_score) <= cluster_std * 1.5
+
+
+@pytest.mark.parametrize('nrows', [100, 500])
+@pytest.mark.parametrize('ncols', [25])
+@pytest.mark.parametrize('nclusters', [5, 10])
+@pytest.mark.parametrize('max_weight', [10])
+@pytest.mark.parametrize('random_state', [i for i in range(5)])
+def test_weighted_kmeans(nrows, ncols, nclusters,
+                         max_weight, random_state):
+
+    # Using fairly high variance between points in clusters
+    cluster_std = 1.0
+    np.random.seed(random_state)
+
+    # set weight per sample to be from 1 to max_weight
+    wt = np.random.randint(1, high=max_weight, size=nrows)
+
+    X, y = make_blobs(nrows,
+                      ncols,
+                      nclusters,
+                      cluster_std=cluster_std,
+                      shuffle=False,
+                      random_state=0)
+
+    cuml_kmeans = cuml.KMeans(init="k-means++",
+                              n_clusters=nclusters,
+                              n_init=10,
+                              random_state=random_state,
+                              output_type='numpy')
+
+    cuml_kmeans.fit(X, sample_weight=wt)
+    cu_score = cuml_kmeans.score(X)
+
+    sk_kmeans = cluster.KMeans(random_state=random_state,
+                               n_clusters=nclusters)
+    sk_kmeans.fit(X.copy_to_host(), sample_weight=wt)
+    sk_score = sk_kmeans.score(X.copy_to_host())
 
     assert abs(cu_score - sk_score) <= cluster_std * 1.5
 
@@ -191,6 +230,7 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
 
     cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'],
                               random_state=12,
+                              n_init=10,
                               output_type='numpy')
 
     X, y = pat[0]

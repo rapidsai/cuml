@@ -11,6 +11,7 @@
 - PR #2067: python: wrap logging interface in cython
 - PR #2083: Added dtype, order, and use_full_low_rank to MNMG `make_regression`
 - PR #2074: SG and MNMG `make_classification`
+- PR #2057: Weighted k-means
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
@@ -24,6 +25,7 @@
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
+- PR #1985: C++ UMAP parametrizable tests
 - PR #2005: Adding missing algorithms to cuml benchmarks and notebook
 - PR #2016: Add capability to setup.py and build.sh to fully clean all cython build files and artifacts
 - PR #2044: A cuda-memcheck helper wrapper for devs
@@ -64,12 +66,18 @@
 - PR #2156: Add Docker 19 support to local gpuci build
 - PR #2124: Expand tutorial docs and sample notebook
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
+- PR #2186: Refactor cython code to build OPG structs in common utils file
+- PR #2180: Add fully single GPU singlegpu python build
 - PR #2187: CMake improvements to manage conda environment dependencies
 - PR #2185: Add has_sklearn function and use it in datasets/classification.
 - PR #2193: Order-independent local shuffle in `cuml.dask.make_regression`
+- PR #2184: Refoctor headers for holtwinters, rproj, tsvd, tsne, umap
+- PR #2199: Remove unncessary notebooks
 - PR #2195: Separating fit and transform calls in SG, MNMG PCA to save transform array memory consumption
+- PR #2201: Re-enabling UMAP repro tests
 - PR #2132: Add SVM C++ benchmarks
 - PR #2196: Updates to benchmarks. Moving notebook
+- PR #2205: Use timeout to add 2 hour hard limit to dask tests
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -102,9 +110,11 @@
 - PR #2162: Use stream in transpose prim
 - PR #2165: Fit function test correction
 - PR #2166: Fix handling of temp file in RF pickling
+- PR #2176: C++: fix for adjusted rand index when input array is all zeros
 - PR #2179: Fix clang tools version in libcuml recipe
 - PR #2183: Fix RAFT in nightly package
 - PR #2191: Fix placement of SVM parameter documentation and add examples
+- PR #2217: Fix opg_utils naming to fix singlegpu build
 
 # cuML 0.13.0 (Date TBD)
 
