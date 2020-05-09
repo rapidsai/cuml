@@ -336,13 +336,15 @@ class RandomForestClassifier(DelayedPredictionMixin,
         # XXX is there a way to avoid retransmitting the protobuf here?
         # Merge all worker models into a single one and
         combined_model = self.rfs[last_worker].result()
+        all_tl_mods = []
         try:
             all_tl_mods = [combined_model._alloc_and_build_tl_from_protobuf(mb)
                            for mb in mod_bytes]
+            del mod_bytes # Clear to save memory
+            del model_protobuf_futures
 
             combined_model._concatenate_treelite_handles(
                 treelite_handles=all_tl_mods)
-
         finally:
             # Make sure we free the memory from cython-allocated objects
             for treelite_handle in all_tl_mods:

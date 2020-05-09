@@ -343,16 +343,15 @@ class RandomForestRegressor(Base):
         self.__dict__.update(state)
 
     def __del__(self):
-        if self.n_cols:
-            if self.dtype == np.float32:
-                free(<RandomForestMetaData[float, float]*><uintptr_t>
-                     self.rf_forest)
-            else:
-                free(<RandomForestMetaData[double, double]*><uintptr_t>
-                     self.rf_forest64)
+        self._reset_forest_data()
 
     def _reset_forest_data(self):
         if self.n_cols:
+            free_trees_array(<RandomForestMetaData[float, float]*><uintptr_t>
+                             self.rf_forest)
+            free_trees_array(<RandomForestMetaData[double, double]*><uintptr_t>
+                             self.rf_forest64)
+
             # Only if the model is fitted before
             # Clears the data of the forest to prepare for next fit
             free(<RandomForestMetaData[float, float]*><uintptr_t>
