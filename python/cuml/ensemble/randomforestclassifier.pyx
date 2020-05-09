@@ -302,6 +302,8 @@ class RandomForestClassifier(Base):
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
                           "random_seed is set")
+        self.rf_forest = None
+        self.rf_forest64 = None
         self.model_pbuf_bytes = bytearray()
 
     """
@@ -327,10 +329,8 @@ class RandomForestClassifier(Base):
             params_t64 = <uintptr_t> self.rf_forest64
             rf_forest64 = \
                 <RandomForestMetaData[double, int]*>params_t64
-            if self.dtype == np.float32:
-                state["rf_params"] = rf_forest.rf_params
-            else:
-                state["rf_params64"] = rf_forest64.rf_params
+            state["rf_params"] = rf_forest.rf_params
+            state["rf_params64"] = rf_forest64.rf_params
         else:
             model_pbuf_bytes = bytearray()
         state['n_cols'] = self.n_cols
@@ -348,14 +348,14 @@ class RandomForestClassifier(Base):
             new RandomForestMetaData[float, int]()
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
+
         self.n_cols = state['n_cols']
         if self.n_cols:
-            if state["dtype"] == np.float32:
-                rf_forest.rf_params = state["rf_params"]
-                state["rf_forest"] = <uintptr_t>rf_forest
-            else:
-                rf_forest64.rf_params = state["rf_params64"]
-                state["rf_forest64"] = <uintptr_t>rf_forest64
+            rf_forest.rf_params = state["rf_params"]
+            state["rf_forest"] = <uintptr_t>rf_forest
+
+            rf_forest64.rf_params = state["rf_params64"]
+            state["rf_forest64"] = <uintptr_t>rf_forest64
 
         self.model_pbuf_bytes = state["model_pbuf_bytes"]
         self.__dict__.update(state)
@@ -375,11 +375,11 @@ class RandomForestClassifier(Base):
                              self.rf_forest)
             free_trees_array(<RandomForestMetaData[double, int]*><uintptr_t>
                              self.rf_forest64)
-
             free(<RandomForestMetaData[float, int]*><uintptr_t>
                  self.rf_forest)
             free(<RandomForestMetaData[double, int]*><uintptr_t>
                  self.rf_forest64)
+            self.n_cols = None
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
