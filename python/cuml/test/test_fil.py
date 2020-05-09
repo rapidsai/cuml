@@ -20,7 +20,9 @@ import os
 from cuml import ForestInference
 from cuml.test.utils import array_equal, unit_param, \
     quality_param, stress_param
-from cuml.utils.import_utils import has_treelite, has_xgboost, has_lightgbm
+from cuml.common.import_utils import has_treelite
+from cuml.common.import_utils import has_xgboost
+from cuml.common.import_utils import has_lightgbm
 
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import GradientBoostingClassifier, \
@@ -312,7 +314,8 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
 
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
-    assert fil_mse == pytest.approx(skl_mse, 1e-4)
+    # if fil is better than skl, no need to fail the test
+    assert fil_mse <= skl_mse * (1. + 1e-7) + 1e-4
     assert array_equal(fil_preds, skl_preds)
 
 

@@ -18,9 +18,9 @@ import cudf
 import dask_cudf
 import pandas as pd
 
-import scipy.stats as stats
-
 import numpy as np
+
+from cuml.common import has_scipy
 
 from cuml.dask.common import utils as dask_utils
 
@@ -30,13 +30,14 @@ from cuml.test.utils import unit_param, quality_param, stress_param
 
 from sklearn.neighbors import KNeighborsClassifier
 
-from cuml.neighbors.nearest_neighbors_mg import \
-    NearestNeighborsMG as cumlNN
-
 from cuml.test.utils import array_equal
 
 
 def predict(neigh_ind, _y, n_neighbors):
+    if has_scipy():
+        import scipy.stats as stats
+    else:
+        raise RuntimeError('Scipy is needed to run predict()')
 
     neigh_ind = neigh_ind.astype(np.int64)
 
@@ -200,6 +201,8 @@ def test_default_n_neighbors(cluster):
 
     try:
         from cuml.dask.neighbors import NearestNeighbors as daskNN
+        from cuml.neighbors.nearest_neighbors_mg import \
+            NearestNeighborsMG as cumlNN
 
         from sklearn.datasets import make_blobs
 

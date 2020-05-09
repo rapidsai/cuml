@@ -16,12 +16,12 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <vector>
 #include "common/device_buffer.hpp"
 #include "permute.h"
 #include "rng.h"
-#include "utils.h"
 
 namespace MLCommon {
 namespace Random {

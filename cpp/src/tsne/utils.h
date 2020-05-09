@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,11 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include <cuml/common/logger.hpp>
 #include "common/cumlHandle.hpp"
 #include "linalg/norm.h"
 
 #include <cuda_runtime.h>
-#include <cuda_utils.h>
 #include <cuml/cuml.hpp>
 
 #include <thrust/device_ptr.h>
@@ -74,20 +74,20 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
 // To silence warnings
 
 #define START_TIMER                                                         \
-  if (verbose) {                                                            \
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {                   \
     gettimeofday(&timecheck, NULL);                                         \
     start = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000; \
   }
 
 #define END_TIMER(add_onto)                                               \
-  if (verbose) {                                                          \
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {                 \
     gettimeofday(&timecheck, NULL);                                       \
     end = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000; \
     add_onto += (end - start);                                            \
   }
 
 #define PRINT_TIMES                                                           \
-  if (verbose) {                                                              \
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {                     \
     double total =                                                            \
       (SymmetrizeTime + DistancesTime + NormalizeTime + PerplexityTime +      \
        BoundingBoxKernel_time + ClearKernel1_time + TreeBuildingKernel_time + \
@@ -95,7 +95,7 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
        RepulsionTime + Reduction_time + attractive_time +                     \
        IntegrationKernel_time) /                                              \
       100.0;                                                                  \
-    printf(                                                                   \
+    CUML_LOG_DEBUG(                                                           \
       "SymmetrizeTime = %.lf (%.lf)\n"                                        \
       "DistancesTime = %.lf (%.lf)\n"                                         \
       "NormalizeTime = %.lf (%.lf)\n"                                         \
@@ -110,7 +110,7 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
       "Reduction_time  = %.lf (%.lf)\n"                                       \
       "attractive_time  = %.lf (%.lf)\n"                                      \
       "IntegrationKernel_time = %.lf (%.lf)\n"                                \
-      "TOTAL TIME = %.lf\n\n",                                                \
+      "TOTAL TIME = %.lf",                                                    \
       SymmetrizeTime, SymmetrizeTime / total, DistancesTime,                  \
       DistancesTime / total, NormalizeTime, NormalizeTime / total,            \
       PerplexityTime, PerplexityTime / total, BoundingBoxKernel_time,         \

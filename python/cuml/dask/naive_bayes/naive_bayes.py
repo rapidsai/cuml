@@ -22,7 +22,7 @@ from dask.distributed import wait
 import dask.array
 
 
-from cuml.utils import with_cupy_rmm
+from cuml.common import with_cupy_rmm
 
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
@@ -31,7 +31,7 @@ from cuml.dask.common.func import reduce
 from cuml.dask.common.func import tree_reduce
 
 from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.utils import rmm_cupy_ary
+from cuml.common import rmm_cupy_ary
 
 from cuml.naive_bayes import MultinomialNB as MNB
 
@@ -58,7 +58,7 @@ class MultinomialNB(BaseEstimator,
     from dask_cuda import LocalCUDACluster
     from dask.distributed import Client
 
-    from cuml.dask.common import to_sp_dask_array
+    from cuml.dask.common import to_sparse_dask_array
 
     from cuml.dask.naive_bayes import MultinomialNB
 
@@ -75,7 +75,7 @@ class MultinomialNB(BaseEstimator,
     cv = CountVectorizer()
     xformed = cv.fit_transform(twenty_train.data).astype(cp.float32)
 
-    X = to_sp_dask_array(xformed, client)
+    X = to_sparse_dask_array(xformed, client)
     y = dask.array.from_array(twenty_train.target, asarray=False,
                           fancy=False).astype(cp.int32)
 

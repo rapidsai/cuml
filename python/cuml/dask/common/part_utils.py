@@ -13,17 +13,18 @@
 # limitations under the License.
 #
 
+import numpy as np
 from collections import OrderedDict
 
 from functools import reduce
 from tornado import gen
-from collections import Sequence
+from collections.abc import Sequence
 from dask.distributed import futures_of, default_client, wait
 from toolz import first
 
 from dask.array.core import Array as daskArray
-from dask_cudf.core import DataFrame as dcDataFrame
-from dask_cudf.core import Series as dcSeries
+from dask_cudf.core import DataFrame as daskDataFrame
+from dask_cudf.core import Series as daskSeries
 
 from cuml.dask.common.utils import parse_host_port
 
@@ -128,11 +129,10 @@ def _extract_partitions(dask_obj, client=None):
 
     client = default_client() if client is None else client
 
-    # dask_cudf.dataframe or dask_cudf.series or dask.array
-    if (isinstance(dask_obj, dcDataFrame) or
-            isinstance(dask_obj, daskArray) or
-            isinstance(dask_obj, dcSeries)):
-        parts = futures_of(client.persist(dask_obj))
+    # dask.dataframe or dask.array
+    if isinstance(dask_obj, (daskDataFrame, daskArray, daskSeries)):
+        persisted = client.persist(dask_obj)
+        parts = futures_of(persisted)
 
     # iterable of dask collections (need to colocate them)
     elif isinstance(dask_obj, Sequence):
@@ -140,12 +140,13 @@ def _extract_partitions(dask_obj, client=None):
         # n partitions of them as (X1, y1), (X2, y2)...
         # and asking client to compute a single future for
         # each tuple in the list
-        parts = [d.to_delayed().ravel() if isinstance(d, daskArray)
-                 else d.to_delayed() for d in dask_obj]
-        parts = client.compute([p for p in zip(*parts)])
+        dela = [np.asarray(d.to_delayed()) for d in dask_obj]
 
-    else:
-        raise TypeError("Unsupported dask_obj type: " + type(dask_obj))
+        # TODO: ravel() is causing strange behavior w/ delayed Arrays which are
+        # not yet backed by futures. Need to investigate this behavior.
+        # ref: https://github.com/rapidsai/cuml/issues/2045
+        raveled = [d.flatten() for d in dela]
+        parts = client.compute([p for p in zip(*raveled)])
 
     yield wait(parts)
 
