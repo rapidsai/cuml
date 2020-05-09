@@ -85,10 +85,14 @@ fi
 # NOTE:
 #   explicitly pass GPU_ARCHS flag to avoid having to evaluate gpu archs
 # because there's no GPU on the CI machine where this script runs!
+# NOTE:
+#   also, sync all dependencies as they'll be needed by clang-tidy to find
+# relevant headers
 function setup_and_run_clang_tidy() {
     mkdir cpp/build && \
         cd cpp/build && \
         cmake -DGPU_ARCHS=ALL .. && \
+        make benchmark && \
         cd ../.. && \
         python cpp/scripts/run-clang-tidy.py
 }
