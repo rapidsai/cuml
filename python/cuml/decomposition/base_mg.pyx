@@ -32,6 +32,7 @@ from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
 from cuml.common.array import CumlArray
+import cuml.common.opg_data_utils_mg as opg
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
@@ -135,7 +136,7 @@ class BaseDecompositionMG(object):
         :return: self
         """
 
-        self._set_output_type(X)
+        self._set_output_type(X[0])
 
         arr_interfaces = []
         # for arr in X:
@@ -144,15 +145,18 @@ class BaseDecompositionMG(object):
         #    arr_interfaces.append({"obj": X_m,
         #                           "data": input_ptr,
         #                           "shape": (n_rows, self.n_cols)})
-        for i in range(len(input_data)):
+        for i in range(len(X)):
             if i == 0:
                 check_dtype = [np.float32, np.float64]
             else:
                 check_dtype = self.dtype
 
             X_m, _, self.n_cols, _ = \
-                input_to_cuml_array(input_data[i], check_dtype=check_dtype)
+                input_to_cuml_array(X[i], check_dtype=check_dtype)
             arr_interfaces.append(X_m)
+
+        cdef uintptr_t data = opg.build_data_t(arr_interfaces)
+        X_arg = <size_t>data
 
         n_total_parts = len(X)
         cdef RankSizePair **rank_size_pair = <RankSizePair**> \
@@ -180,7 +184,7 @@ class BaseDecompositionMG(object):
                 arr_interfaces, p2r, rank, arg_rank_size_pair, n_total_parts,
                 decomp_params)
         else:
-            self._call_fit(arr_interfaces, p2r, rank, arg_rank_size_pair,
+            self._call_fit(X_arg, p2r, rank, arg_rank_size_pair,
                            n_total_parts, decomp_params)
 
         for idx in range(n_total_parts):

@@ -98,7 +98,7 @@ class PCAMG(PCA, BaseDecompositionMG):
     def __init__(self, **kwargs):
         super(PCAMG, self).__init__(**kwargs)
 
-    def _call_fit(self, arr_interfaces, p2r, rank, arg_rank_size_pair,
+    def _call_fit(self, X, p2r, rank, arg_rank_size_pair,
                   n_total_parts, arg_params):
 
         cdef uintptr_t comp_ptr = self._components_.ptr
@@ -116,12 +116,12 @@ class PCAMG(PCA, BaseDecompositionMG):
         cdef paramsPCA *params = <paramsPCA*><size_t>arg_params
 
         if self.dtype == np.float32:
-            data = self._build_dataFloat(arr_interfaces)
+            # data = self._build_dataFloat(arr_interfaces)
 
             fit(handle_[0],
                 <RankSizePair**><size_t>arg_rank_size_pair,
                 <size_t> n_total_parts,
-                <floatData_t**> data,
+                <floatData_t**><size_t>X,
                 <float*> comp_ptr,
                 <float*> explained_var_ptr,
                 <float*> explained_var_ratio_ptr,
@@ -131,12 +131,12 @@ class PCAMG(PCA, BaseDecompositionMG):
                 deref(params),
                 False)
         else:
-            data = self._build_dataDouble(arr_interfaces)
+            # data = self._build_dataDouble(arr_interfaces)
 
             fit(handle_[0],
                 <RankSizePair**><size_t>arg_rank_size_pair,
                 <size_t> n_total_parts,
-                <doubleData_t**> data,
+                <doubleData_t**><size_t>X,
                 <double*> comp_ptr,
                 <double*> explained_var_ptr,
                 <double*> explained_var_ratio_ptr,
