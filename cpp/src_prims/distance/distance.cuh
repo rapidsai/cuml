@@ -21,7 +21,7 @@
 #include "common/device_buffer.hpp"
 #include "distance/cosine.cuh"
 #include "distance/euclidean.cuh"
-#include "distance/l1.h"
+#include "distance/l1.cuh"
 
 namespace MLCommon {
 namespace Distance {
