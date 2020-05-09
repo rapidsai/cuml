@@ -96,6 +96,8 @@ fi
 #   also, sync all dependencies as they'll be needed by clang-tidy to find
 # relevant headers
 function setup_and_run_clang_tidy() {
+    local LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
     mkdir cpp/build && \
         cd cpp/build && \
         cmake -DGPU_ARCHS=70 \
@@ -104,6 +106,7 @@ function setup_and_run_clang_tidy() {
         make treelite && \
         cd ../.. && \
         python cpp/scripts/run-clang-tidy.py
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 }
 TIDY=`setup_and_run_clang_tidy 2>&1`
 TIDY_RETVAL=$?
