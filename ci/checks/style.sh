@@ -81,11 +81,14 @@ else
   echo -e "\n\n>>>> PASSED: clang format check\n\n"
 fi
 
-# clang-tidy checkFORMAT=`python cpp/scripts/run-clang-format.py 2>&1`
+# clang-tidy check
+# NOTE:
+#   explicitly pass GPU_ARCHS flag to avoid having to evaluate gpu archs
+# because there's no GPU on the CI machine where this script runs!
 function setup_and_run_clang_tidy() {
     mkdir cpp/build && \
         cd cpp/build && \
-        cmake .. && \
+        cmake -DGPU_ARCHS=ALL .. && \
         cd ../.. && \
         python cpp/scripts/run-clang-tidy.py
 }
