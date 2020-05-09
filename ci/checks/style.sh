@@ -6,7 +6,7 @@
 
 # Ignore errors and set path
 set +e
-PATH=/conda/bin:$PATH
+export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
 
 # Activate common conda env
 source activate gdf
