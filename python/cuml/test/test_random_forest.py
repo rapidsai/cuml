@@ -1,3 +1,4 @@
+
 # Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -542,7 +543,7 @@ def test_rf_memory_leakage(small_clf, fil_sparse_format, n_iter):
     # Warmup. Some modules that are used in RF allocate space on the device
     # and consume memory. This is to make sure that the allocation is done
     # before the first call to get_memory_info.
-    base_model = curfc(handle=handle)
+    base_model = curfc(handle=handle, max_depth=15, n_estimators=100)
     base_model.fit(X_train, y_train)
     handle.sync()  # just to be sure
     free_mem = cuda.current_context().get_memory_info()[0]
@@ -565,6 +566,53 @@ def test_rf_memory_leakage(small_clf, fil_sparse_format, n_iter):
 
     for i in range(n_iter):
         test_for_memory_leak()
+
+
+@pytest.mark.memleak
+@pytest.mark.parametrize('estimator_type', ['classification', 'regression'])
+def test_rf_host_memory_leak(large_clf, estimator_type):
+    import gc
+    import os
+
+    try:
+        import psutil
+    except ImportError:
+        pytest.skip("psutil not installed")
+
+    process = psutil.Process(os.getpid())
+
+    X, y = large_clf
+    X = X.astype(np.float32)
+
+    if estimator_type == 'classification':
+        base_model = curfc(max_depth=10,
+                           n_estimators=100,
+                           seed=123)
+        y = y.astype(np.int32)
+    else:
+        base_model = curfr(max_depth=10,
+                           n_estimators=100,
+                           seed=123)
+        y = y.astype(np.float32)
+
+    base_model.fit(X, y)
+    gc.collect()
+    initial_baseline_mem = process.memory_info().rss
+
+    for i in range(5):
+        rep_baseline_mem = 0
+        gc.collect()
+        rep_baseline_mem = process.memory_info().rss
+        base_model.fit(X, y)
+        gc.collect()
+        final_mem = process.memory_info().rss
+        # print("rep: %10.1f kb    initial %10.1f kb" %
+        #       ((final_mem - rep_baseline_mem)/1e3,
+        #        (final_mem - initial_baseline_mem)/1e3))
+
+    # Some tiny allocations may occur, but we shuld not leak
+    # without bounds, which previously happened
+    assert (final_mem - initial_baseline_mem) < 2e6
 
 
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])

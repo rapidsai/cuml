@@ -230,6 +230,14 @@ void null_trees_ptr(RandomForestMetaData<T, L>*& forest) {
 }
 
 template <class T, class L>
+void free_trees_array(RandomForestMetaData<T, L>* forest) {
+  if (forest->trees != nullptr) {
+    delete[] forest->trees;
+    forest->trees = nullptr;
+  }
+}
+
+template <class T, class L>
 void _print_rf(const RandomForestMetaData<T, L>* forest, bool summary) {
   ML::PatternSetter _("%v");
   if (!forest || !forest->trees) {
@@ -767,6 +775,11 @@ template void null_trees_ptr<float, int>(RandomForestClassifierF*& forest);
 template void null_trees_ptr<double, int>(RandomForestClassifierD*& forest);
 template void null_trees_ptr<float, float>(RandomForestRegressorF*& forest);
 template void null_trees_ptr<double, double>(RandomForestRegressorD*& forest);
+
+template void free_trees_array<float, int>(RandomForestClassifierF* forest);
+template void free_trees_array<double, int>(RandomForestClassifierD* forest);
+template void free_trees_array<float, float>(RandomForestRegressorF* forest);
+template void free_trees_array<double, double>(RandomForestRegressorD* forest);
 
 template void build_treelite_forest<float, int>(
   ModelHandle* model, const RandomForestMetaData<float, int>* forest,

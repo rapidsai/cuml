@@ -114,6 +114,9 @@ template <class T, class L>
 void null_trees_ptr(RandomForestMetaData<T, L>*& forest);
 
 template <class T, class L>
+void free_trees_array(RandomForestMetaData<T, L>* forest);
+
+template <class T, class L>
 void print_rf_summary(const RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>

@@ -361,13 +361,7 @@ class RandomForestClassifier(Base):
         self.__dict__.update(state)
 
     def __del__(self):
-        if self.n_cols:
-            if self.dtype == np.float32:
-                free(<RandomForestMetaData[float, int]*><uintptr_t>
-                     self.rf_forest)
-            else:
-                free(<RandomForestMetaData[double, int]*><uintptr_t>
-                     self.rf_forest64)
+        self._reset_forest_data()
 
         if self.treelite_handle:
             tl.free_treelite_model(self.treelite_handle)
@@ -377,6 +371,11 @@ class RandomForestClassifier(Base):
         # Only if model is fitted before
         # Clears the data of the forest to prepare for next fit
         if self.n_cols:
+            free_trees_array(<RandomForestMetaData[float, int]*><uintptr_t>
+                             self.rf_forest)
+            free_trees_array(<RandomForestMetaData[double, int]*><uintptr_t>
+                             self.rf_forest64)
+
             free(<RandomForestMetaData[float, int]*><uintptr_t>
                  self.rf_forest)
             free(<RandomForestMetaData[double, int]*><uintptr_t>
