@@ -17,9 +17,9 @@
 import cupy as cp
 import math
 
-from cuml.utils import rmm_cupy_ary
+from cuml.common import rmm_cupy_ary
 
-from cuml.utils import cuda_kernel_factory
+from cuml.common import cuda_kernel_factory
 
 
 map_kernel_str = r'''
