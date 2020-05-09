@@ -14,6 +14,7 @@ cd $WORKSPACE
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 conda install -c rapidsai \
+      "lapack" \
       "ucx-py=${MINOR_VERSION}"
 
 # Run flake8 and get results/return code
