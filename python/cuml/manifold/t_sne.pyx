@@ -33,7 +33,7 @@ from cuml.common.handle cimport cumlHandle
 import cuml.common.logger as logger
 
 from cuml.common.array import CumlArray
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 import rmm
 
 from libcpp cimport bool

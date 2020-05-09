@@ -33,9 +33,10 @@ from cuml.common.base import Base
 from cuml.common.cuda import nvtx_range_wrap
 from cuml.common.handle cimport cumlHandle
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
-from cuml.utils import has_scipy
-from cuml.utils.input_utils import input_to_cuml_array, input_to_host_array
 import cuml.common.logger as logger
+from cuml.common import has_scipy
+from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.input_utils import input_to_host_array
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":

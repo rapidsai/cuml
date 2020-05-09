@@ -25,7 +25,7 @@ from sklearn import metrics
 import cuml.metrics
 import cuml.decomposition
 import cuml.naive_bayes
-from cuml.utils.import_utils import has_umap
+from cuml.common.import_utils import has_umap
 import numpy as np
 import tempfile
 
@@ -40,7 +40,7 @@ from cuml.benchmark.bench_helper_funcs import (
     _build_treelite_classifier,
     _treelite_fil_accuracy_score,
 )
-from cuml.utils.import_utils import has_treelite
+from cuml.common.import_utils import has_treelite
 
 if has_treelite():
     import treelite
@@ -190,7 +190,7 @@ def _labels_to_int_hook(data):
 
 def _treelite_format_hook(data):
     """Helper function converting data into treelite format"""
-    from cuml.utils.import_utils import has_treelite
+    from cuml.common.import_utils import has_treelite
 
     if has_treelite():
         import treelite

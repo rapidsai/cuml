@@ -22,7 +22,7 @@ import dask.array as da
 
 from collections.abc import Sequence
 
-from cuml.utils.memory_utils import with_cupy_rmm
+from cuml.common.memory_utils import with_cupy_rmm
 
 from collections import OrderedDict
 from cudf.core import DataFrame, Series

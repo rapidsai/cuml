@@ -23,7 +23,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from cuml.utils import rmm_cupy_ary
+from cuml.common import rmm_cupy_ary
 from dask.dataframe import from_delayed
 from dask.distributed import default_client
 

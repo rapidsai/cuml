@@ -31,9 +31,8 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common import CumlArray
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array
 import cuml.common.logger as logger
-
+from cuml.common import input_to_cuml_array
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 

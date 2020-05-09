@@ -29,7 +29,7 @@ from cuml.dask.common.comms import worker_state
 from cuml.dask.common.utils import raise_exception_from_futures
 
 from dask.distributed import wait
-from cuml.utils.memory_utils import with_cupy_rmm
+from cuml.common.memory_utils import with_cupy_rmm
 
 import cuml.common.logger as logger
 

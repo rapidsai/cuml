@@ -41,7 +41,7 @@ import cuml.common.logger as logger
 
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.fil.fil import TreeliteModel as tl
-from cuml.utils import input_to_cuml_array, input_to_dev_array, \
+from cuml.common import input_to_cuml_array, input_to_dev_array, \
     zeros, get_cudf_column_ptr
 from cython.operator cimport dereference as deref
 

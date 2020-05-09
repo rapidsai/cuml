@@ -19,7 +19,7 @@ from cuml.datasets.classification import make_classification \
 from cuml.datasets.utils import _create_rs_generator
 from cuml.dask.datasets.blobs import _get_X
 from cuml.dask.datasets.blobs import _get_labels
-from cuml.utils import with_cupy_rmm
+from cuml.common import with_cupy_rmm
 
 from dask.distributed import default_client
 import dask.array as da

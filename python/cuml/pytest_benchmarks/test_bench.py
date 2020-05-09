@@ -16,7 +16,7 @@ Requires pytest-benchmark, which is not currently installed by default.
 """
 
 from cuml.benchmark import datagen, algorithms
-from cuml.utils.import_utils import has_pytest_benchmark
+from cuml.common.import_utils import has_pytest_benchmark
 import pytest
 
 

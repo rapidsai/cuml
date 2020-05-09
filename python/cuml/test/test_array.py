@@ -25,7 +25,7 @@ from copy import deepcopy
 from numba import cuda
 from cudf.core.buffer import Buffer
 from cuml.common.array import CumlArray
-from cuml.utils.memory_utils import _get_size_from_shape
+from cuml.common.memory_utils import _get_size_from_shape
 from rmm import DeviceBuffer
 
 test_input_types = [

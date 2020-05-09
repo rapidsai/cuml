@@ -36,8 +36,8 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
-from cuml.utils import input_to_cuml_array
 import cuml.common.logger as logger
+from cuml.common import input_to_cuml_array
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
