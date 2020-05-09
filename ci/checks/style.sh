@@ -91,7 +91,9 @@ fi
 function setup_and_run_clang_tidy() {
     mkdir cpp/build && \
         cd cpp/build && \
-        cmake -DGPU_ARCHS=ALL .. && \
+        cmake -DGPU_ARCHS=ALL \
+              -DBLAS_LIBRARIES=${CONDA_PREFIX}/lib/libopenblas.so.0 \
+              .. && \
         make benchmark && \
         cd ../.. && \
         python cpp/scripts/run-clang-tidy.py
