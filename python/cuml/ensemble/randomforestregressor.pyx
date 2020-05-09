@@ -397,7 +397,8 @@ class RandomForestRegressor(Base):
 
     def _get_protobuf_bytes(self):
         """
-        Returns the self.model_pbuf_bytes.
+        Returns protobuf-serialized version of model as bytearray.
+
         Cuml RF model gets converted to treelite protobuf bytes by:
             1. converting the cuml RF model to a treelite model. The treelite
             models handle (pointer) is returned
@@ -517,11 +518,7 @@ class RandomForestRegressor(Base):
         concat_model_handle = concatenate_trees(deref(model_handles))
         cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
         self.treelite_handle = concat_model_ptr
-        cdef vector[unsigned char] pbuf_mod_info = \
-            save_model(<ModelHandle> concat_model_ptr)
-        cdef unsigned char[::1] pbuf_mod_view = \
-            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+
         return self
 
     def fit(self, X, y, convert_dtype=False):
