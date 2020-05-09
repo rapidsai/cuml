@@ -108,6 +108,8 @@ struct RandomForestMetaData {
   DecisionTree::TreeMetaDataNode<T, L>* trees;
   RF_params rf_params;
   //TODO can add prepare, train time, if needed
+
+  RandomForestMetaData() : trees(nullptr) {}
 };
 
 template <class T, class L>

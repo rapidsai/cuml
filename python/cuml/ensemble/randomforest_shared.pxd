@@ -104,6 +104,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef vector[unsigned char] save_model_protobuf(ModelHandle) except +
 
+    cdef void null_trees_ptr[T, L](RandomForestMetaData[T, L]*&) except +
     cdef void free_trees_array[T, L](RandomForestMetaData[T, L]*) except +
     cdef void print_rf_summary[T, L](RandomForestMetaData[T, L]*) except +
     cdef void print_rf_detailed[T, L](RandomForestMetaData[T, L]*) except +
