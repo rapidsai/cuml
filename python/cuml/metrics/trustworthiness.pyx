@@ -26,8 +26,9 @@ import warnings
 from numba import cuda
 
 from libc.stdint cimport uintptr_t
+import cuml.common.handle
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array
 
 cdef extern from "metrics/trustworthiness_c.h" namespace "MLCommon::Distance":
@@ -102,11 +103,8 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                            convert_to_dtype=(np.float32 if convert_dtype
                                              else None))
 
-    cdef cumlHandle* handle_ = <cumlHandle*>0
-    if handle is None:
-        handle_ = <cumlHandle*><size_t>(new cumlHandle())
-    else:
-        handle_ = <cumlHandle*><size_t>handle.getHandle()
+    handle = cuml.common.handle.Handle() if handle is None else handle
+    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
     if metric == 'euclidean':
         res = trustworthiness_score[float, euclidean](handle_[0],

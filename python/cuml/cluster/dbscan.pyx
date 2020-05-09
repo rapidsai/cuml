@@ -30,7 +30,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 
 from collections import defaultdict
 
@@ -44,7 +44,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         int min_pts,
                         int *labels,
                         size_t max_mbytes_per_batch,
-                        bool verbose) except +
+                        int verbosity) except +
 
     cdef void dbscanFit(cumlHandle& handle,
                         double *input,
@@ -54,7 +54,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         int min_pts,
                         int *labels,
                         size_t max_mbytes_per_batch,
-                        bool verbose) except +
+                        int verbosity) except +
 
     cdef void dbscanFit(cumlHandle& handle,
                         float *input,
@@ -64,7 +64,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         int min_pts,
                         int64_t *labels,
                         size_t max_mbytes_per_batch,
-                        bool verbose) except +
+                        int verbosity) except +
 
     cdef void dbscanFit(cumlHandle& handle,
                         double *input,
@@ -74,7 +74,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         int min_pts,
                         int64_t *labels,
                         size_t max_mbytes_per_batch,
-                        bool verbose) except +
+                        int verbosity) except +
 
 
 class DBSCAN(Base):
@@ -181,7 +181,6 @@ class DBSCAN(Base):
         self.eps = eps
         self.min_samples = min_samples
         self.max_mbytes_per_batch = max_mbytes_per_batch
-        self.verbose = verbose
 
         # internal array attributes
         self._labels_ = None  # accessed via estimator.labels_
@@ -236,7 +235,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int*> labels_ptr,
                           <size_t>self.max_mbytes_per_batch,
-                          <bool>self.verbose)
+                          <int> self.verbosity)
             else:
                 dbscanFit(handle_[0],
                           <float*>input_ptr,
@@ -246,7 +245,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int64_t*> labels_ptr,
                           <size_t>self.max_mbytes_per_batch,
-                          <bool>self.verbose)
+                          <int> self.verbosity)
 
         else:
             if out_dtype is "int32" or out_dtype is np.int32:
@@ -258,7 +257,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int*> labels_ptr,
                           <size_t> self.max_mbytes_per_batch,
-                          <bool>self.verbose)
+                          <int> self.verbosity)
             else:
                 dbscanFit(handle_[0],
                           <double*>input_ptr,
@@ -268,7 +267,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int64_t*> labels_ptr,
                           <size_t> self.max_mbytes_per_batch,
-                          <bool>self.verbose)
+                          <int> self.verbosity)
 
         # make sure that the `dbscanFit` is complete before the following
         # delete call happens

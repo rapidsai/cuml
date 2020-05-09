@@ -13,19 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import dask
+import math
 
-import cudf
-
-from cuml.dask.common import extract_ddf_partitions, \
-    raise_exception_from_futures, workers_to_parts
+from cuml.dask.common import raise_exception_from_futures
+from cuml.dask.common.base import DelayedPredictionMixin
+from cuml.dask.common.input_utils import DistributedDataHandler, \
+    concatenate
 from cuml.ensemble import RandomForestRegressor as cuRFR
 
 from dask.distributed import default_client, wait
-from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.input_utils import DistributedDataHandler
 
-import math
-import random
 from uuid import uuid1
 
 
@@ -277,21 +275,18 @@ class RandomForestRegressor(DelayedPredictionMixin):
         )
 
     @staticmethod
-    def _fit(model, X_df_list, y_df_list, r):
-        if len(X_df_list) != len(y_df_list):
-            raise ValueError("X (%d) and y (%d) partition list sizes unequal" %
-                             len(X_df_list), len(y_df_list))
-        if len(X_df_list) == 1:
-            X_df = X_df_list[0]
-            y_df = y_df_list[0]
-        else:
-            X_df = cudf.concat(X_df_list)
-            y_df = cudf.concat(y_df_list)
-        return model.fit(X_df, y_df)
+    def _fit(model, input_data, convert_dtype):
+        X = concatenate([item[0] for item in input_data])
+        y = concatenate([item[1] for item in input_data])
+        return model.fit(X, y, convert_dtype)
 
     @staticmethod
     def _print_summary(model):
         model.print_summary()
+
+    @staticmethod
+    def _get_protobuf_bytes(model):
+        return model._get_protobuf_bytes()
 
     @staticmethod
     def _predict_cpu(model, X, convert_dtype):
@@ -325,23 +320,24 @@ class RandomForestRegressor(DelayedPredictionMixin):
         to create a single model. The concatenated model is then converted to
         bytes format.
         """
-
-        mod_bytes = []
+        model_protobuf_futures = list()
         for w in self.workers:
-            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
+            model_protobuf_futures.append(
+                dask.delayed(RandomForestRegressor._get_protobuf_bytes)
+                (self.rfs[w]))
+        mod_bytes = self.client.compute(model_protobuf_futures, sync=True)
         last_worker = w
         all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
         for n in range(len(self.workers)):
             all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
 
-        concat_model_handle = model._concatenate_treelite_handle(
+        model._concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
-        model._concatenate_model_bytes(concat_model_handle)
 
         self.local_model = model
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the input data with a Random Forest regression model
 
@@ -367,45 +363,30 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Features of training examples.
-
-        y : dask_cudf.Dataframe
-            Dense matrix (floats or doubles) of shape (n_samples, 1)
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+            Distributed dense matrix (floats or doubles) of shape
+            (n_samples, n_features).
+        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
             Labels of training examples.
-            y must be partitioned the same way as X
+            **y must be partitioned the same way as X**
+        convert_dtype : bool, optional (default = False)
+            When set to True, the fit method will, when necessary, convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
         """
-        c = default_client()
-
-        X_futures = workers_to_parts(c.sync(extract_ddf_partitions, X))
-        y_futures = workers_to_parts(c.sync(extract_ddf_partitions, y))
-
-        X_partition_workers = [w for w, xc in X_futures.items()]
-        y_partition_workers = [w for w, xc in y_futures.items()]
-
-        if set(X_partition_workers) != set(self.workers) or \
-           set(y_partition_workers) != set(self.workers):
-            raise ValueError("""
-              X is not partitioned on the same workers expected by RF\n
-              X workers: %s\n
-              y workers: %s\n
-              RF workers: %s
-            """ % (str(X_partition_workers),
-                   str(y_partition_workers),
-                   str(self.workers)))
-
+        data = DistributedDataHandler.create((X, y), client=self.client)
+        self.datatype = data.datatype
         futures = list()
-        for w, xc in X_futures.items():
+        for idx, (worker, worker_data) in \
+                enumerate(data.worker_to_parts.items()):
             futures.append(
-                c.submit(
+                self.client.submit(
                     RandomForestRegressor._fit,
-                    self.rfs[w],
-                    xc,
-                    y_futures[w],
-                    random.random(),
-                    workers=[w],
-                )
+                    self.rfs[worker],
+                    worker_data,
+                    convert_dtype,
+                    workers=[worker],
+                    pure=False)
             )
 
         wait(futures)
@@ -475,9 +456,9 @@ class RandomForestRegressor(DelayedPredictionMixin):
                            convert_dtype=True, fil_sparse_format='auto',
                            delayed=True):
         self._concat_treelite_models()
-        data = DistributedDataHandler.single(X, client=self.client)
-        self.datatype = data.datatype
 
+        data = DistributedDataHandler.create(X, client=self.client)
+        self.datatype = data.datatype
         kwargs = {"convert_dtype": convert_dtype,
                   "predict_model": predict_model, "algo": algo,
                   "fil_sparse_format": fil_sparse_format}

@@ -29,7 +29,7 @@ from cuml.dask.common.comms import worker_state
 from cuml.dask.common.utils import raise_exception_from_futures
 
 from dask.distributed import wait
-from cuml.utils.memory_utils import with_cupy_rmm
+from cuml.common.memory_utils import with_cupy_rmm
 
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -124,7 +124,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         """
 
-        data = DistributedDataHandler.single(X, client=self.client)
+        data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
 
         comms = CommsContext(comms_p2p=False, verbose=self.verbose)
