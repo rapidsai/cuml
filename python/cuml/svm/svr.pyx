@@ -32,7 +32,7 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.metrics import r2_score
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 from libcpp cimport bool
 from cuml.svm.svm_base import SVMBase
 import cuml.common.logger as logger

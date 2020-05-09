@@ -22,8 +22,8 @@
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.common.array import CumlArray
-from cuml.utils import input_to_cuml_array
 import cuml.common.logger as logger
+from cuml.common import input_to_cuml_array
 
 import numpy as np
 import cupy as cp
@@ -37,7 +37,7 @@ from cython.operator cimport dereference as deref
 from cuml.common.handle cimport cumlHandle
 from libcpp.vector cimport vector
 
-from cuml.utils import with_cupy_rmm
+from cuml.common import with_cupy_rmm
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
