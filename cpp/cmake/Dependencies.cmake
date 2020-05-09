@@ -219,8 +219,10 @@ set_property(TARGET benchmarklib PROPERTY
 add_dependencies(cub raft)
 add_dependencies(cutlass cub)
 add_dependencies(spdlog cutlass)
-add_dependencies(faiss spdlog)
+add_dependencies(googletest spdlog)
+add_dependencies(benchmark googletest)
+# NOTE! only add newer dependencies from here onwards!
+#       DO NOT modify the above as they are assumed for CI's clang-tidy check
+add_dependencies(faiss benchmark)
 add_dependencies(faisslib faiss)
 add_dependencies(treelite faiss)
-add_dependencies(googletest treelite)
-add_dependencies(benchmark googletest)
