@@ -13,7 +13,7 @@ source activate gdf
 cd $WORKSPACE
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
-conda install -c rapidsai \
+conda install -c rapidsai -c anaconda \
       "lapack" \
       "openblas" \
       "ucx-py=${MINOR_VERSION}"
@@ -98,7 +98,7 @@ fi
 function setup_and_run_clang_tidy() {
     mkdir cpp/build && \
         cd cpp/build && \
-        cmake -DGPU_ARCHS=ALL \
+        cmake -DGPU_ARCHS=70 \
               -DBLAS_LIBRARIES=${CONDA_PREFIX}/lib/libopenblas.so.0 \
               .. && \
         make treelite && \
