@@ -20,11 +20,11 @@
 #include <cuda_utils.cuh>
 #include <iostream>
 #include <vector>
-#include "random/rng_impl.h"
+#include "random/rng_impl.cuh"
 
 #include "cuml/neighbors/knn.hpp"
 
-#include <random/make_blobs.h>
+#include <random/make_blobs.cuh>
 
 namespace ML {
 
