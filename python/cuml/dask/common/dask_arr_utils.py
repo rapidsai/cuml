@@ -20,14 +20,14 @@ import cupyx
 import cudf
 import dask
 
-from cuml.utils.memory_utils import with_cupy_rmm
+from cuml.common.memory_utils import with_cupy_rmm
 
 from cuml.dask.common.dask_df_utils import to_dask_cudf
 from dask.distributed import default_client
 
 from cuml.dask.common.part_utils import _extract_partitions
 
-from cuml.utils import rmm_cupy_ary, has_scipy
+from cuml.common import rmm_cupy_ary, has_scipy
 
 
 def validate_dask_array(darray, client=None):
@@ -55,7 +55,7 @@ def _conv_array_to_sparse(arr):
     if has_scipy():
         from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
     else:
-        from cuml.utils.import_utils import dummy_function_always_false \
+        from cuml.common.import_utils import dummy_function_always_false \
             as scipy_sparse_isspmatrix
     if scipy_sparse_isspmatrix(arr):
         ret = \

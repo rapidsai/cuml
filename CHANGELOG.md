@@ -76,7 +76,9 @@
 - PR #2195: Separating fit and transform calls in SG, MNMG PCA to save transform array memory consumption
 - PR #2201: Re-enabling UMAP repro tests
 - PR #2196: Updates to benchmarks. Moving notebook
+- PR #2210: Updating KNN tests to evaluate multiple index partitions
 - PR #2205: Use timeout to add 2 hour hard limit to dask tests
+- PR #2214: Remove utils folder and refactor to common folder
 - PR #2220: Final refactoring of all src_prims header files following rules as specified in #1675
 
 ## Bug Fixes
@@ -115,6 +117,8 @@
 - PR #2183: Fix RAFT in nightly package
 - PR #2191: Fix placement of SVM parameter documentation and add examples
 - PR #2217: Fix opg_utils naming to fix singlegpu build
+- PR #2223: Fix bug in ARIMA C++ benchmark
+- PR #2224: Temporary fix for CI until new Dask version is released
 
 # cuML 0.13.0 (Date TBD)
 
@@ -132,6 +136,7 @@
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
+- PR #1814: ROC AUC score implementation with cupy
 - PR #1767: Single GPU decomposition models configurable output
 - PR #1646: Using FIL to predict in MNMG RF
 - PR #1778: Make cuML Handle picklable
