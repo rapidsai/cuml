@@ -120,7 +120,7 @@ void _fit(const cumlHandle &handle,
   }
   ML::POP_RANGE();
 
-  ML::PUSH_RANGE("umap::simplicial_set")
+  ML::PUSH_RANGE("umap::simplicial_set");
   COO<T> rgraph_coo(d_alloc, stream);
   FuzzySimplSet::run<TPB_X, T>(n, knn_indices, knn_dists, k, &rgraph_coo,
                                params, d_alloc, stream);
