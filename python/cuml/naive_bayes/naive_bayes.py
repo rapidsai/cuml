@@ -26,7 +26,8 @@ from cuml.common import with_cupy_rmm
 
 import warnings
 
-from cuml.common import cuda_kernel_factory, has_scipy
+from cuml.common.import_utils import has_scipy
+from cuml.common.kernel_utils import cuda_kernel_factory
 
 from cuml.prims.label import make_monotonic
 from cuml.prims.label import check_labels
