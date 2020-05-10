@@ -171,9 +171,6 @@ class CumlArray(Buffer):
     def __reduce_ex__(self, protocol):
         return self.__class__, (self.to_output('numpy'),)
 
-    def __reduce__(self, protocol):
-        return self.__class__, (self.to_output('numpy'),)
-
     def __len__(self):
         return self.shape[0]
 
