@@ -168,7 +168,7 @@ class CumlArray(Buffer):
     def __setitem__(self, slice, value):
         cp.asarray(self).__setitem__(slice, value)
 
-    def __reduce__(self):
+    def __reduce_ex__(self, protocol):
         return self.__class__, (self.to_output('numpy'),)
 
     def __len__(self):
