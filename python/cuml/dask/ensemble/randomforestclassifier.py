@@ -18,8 +18,7 @@ import numpy as np
 
 from cuml.dask.common.base import BaseEstimator
 from cuml.ensemble import RandomForestClassifier as cuRFC
-from cuml.dask.common.input_utils import DistributedDataHandler, \
-    wait_and_raise_from_futures
+from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.base import DelayedPredictionMixin, \
     DelayedPredictionProbaMixin
 from cuml.dask.ensemble.base import \
@@ -105,6 +104,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     workers : optional, list of strings
         Dask addresses of workers to use for computation.
         If None, all available Dask workers will be used.
+    seed : int (default = None)
+        Base seed for the random number generator. Unseeded by default. Does
+        not currently fully guarantee the exact same results.
 
     Examples
     ---------
@@ -118,6 +120,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         client=None,
         verbose=False,
         n_estimators=10,
+        seed=None,
         **kwargs
     ):
 
@@ -130,6 +133,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             client=client,
             workers=workers,
             n_estimators=n_estimators,
+            base_seed=seed,
             **kwargs)
 
     @staticmethod
@@ -323,10 +327,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                 )
             )
 
-        wait_and_raise_from_futures(futures)
-
+        rslts = self.client.gather(futures, errors="raise")
         indexes = np.zeros(len(futures), dtype=np.int32)
-        rslts = [pred_rslts.result() for pred_rslts in futures]
         pred = list()
 
         for i in range(len(X)):
@@ -436,15 +438,5 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         Parameters
         -----------
         params : dict of new params.
-        worker_numb : list (default = None)
-            If worker_numb is `None`, then the parameters will be set for all
-            the workers. If it is not `None` then a list of worker numbers
-            for whom the model parameter values have to be set should be
-            passed.
-            ex. worker_numb = [0], will only update the parameters for
-            the model present in the first worker.
-            The values passed into the list should not be greater than the
-            number of workers in the cluster. The values passed in the list
-            should range from : 0 to len(workers present in the client) - 1.
         """
         return self._set_params(**params)
