@@ -169,7 +169,10 @@ class CumlArray(Buffer):
         cp.asarray(self).__setitem__(slice, value)
 
     def __reduce_ex__(self, protocol):
-        return self.__class__, (self.to_output('numpy'),)
+        data = self.to_output('numpy')
+        if protocol >= 5:
+            data = pickle.PickleBuffer(data)
+        return self.__class__, (data,)
 
     def __len__(self):
         return self.shape[0]
