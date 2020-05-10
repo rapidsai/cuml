@@ -16,6 +16,7 @@
 
 import cupy as cp
 import numpy as np
+import pickle
 
 from rmm import DeviceBuffer
 from cudf.core import Buffer, Series, DataFrame
