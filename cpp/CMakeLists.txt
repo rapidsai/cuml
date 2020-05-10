@@ -67,7 +67,7 @@ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies"
 
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 
-option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
+option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" OFF)
 
 option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 
