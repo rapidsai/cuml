@@ -20,9 +20,6 @@ from cuml.dask.ensemble.base import \
     BaseRandomForestModel
 from cuml.dask.common.base import BaseEstimator
 
-from cuml.dask.common.input_utils import \
-    wait_and_raise_from_futures
-
 
 class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
                             BaseEstimator):
@@ -109,6 +106,9 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     workers : optional, list of strings
         Dask addresses of workers to use for computation.
         If None, all available Dask workers will be used.
+    seed : int (default = None)
+        Base seed for the random number generator. Unseeded by default. Does
+        not currently fully guarantee the exact same results.
 
     """
 
@@ -118,6 +118,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         client=None,
         verbose=False,
         n_estimators=10,
+        seed=None,
         **kwargs
     ):
 
@@ -129,6 +130,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             client=client,
             workers=workers,
             n_estimators=n_estimators,
+            base_seed=seed,
             **kwargs
         )
 
@@ -283,9 +285,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
                 )
             )
 
-        wait_and_raise_from_futures(futures)
-
-        rslts = [pred_rslts.result() for pred_rslts in futures]
+        rslts = self.client.gather(futures, errors="raise")
         pred = list()
 
         for i in range(len(X)):

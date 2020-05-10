@@ -19,9 +19,8 @@ class BaseRandomForestModel(object):
                       client,
                       workers,
                       n_estimators,
+                      base_seed,
                       **kwargs):
-
-        self.n_estimators = n_estimators
 
         self.client = default_client() if client is None else client
         if workers is None:
@@ -31,22 +30,24 @@ class BaseRandomForestModel(object):
         self.local_model = None
 
         n_workers = len(self.workers)
-        if self.n_estimators < n_workers:
+        if n_estimators < n_workers:
             raise ValueError(
                 "n_estimators cannot be lower than number of dask workers."
             )
 
-        n_est_per_worker = math.floor(self.n_estimators / n_workers)
+        n_est_per_worker = math.floor(n_estimators / n_workers)
 
         self.n_estimators_per_worker = \
             [n_est_per_worker for i in range(n_workers)]
-        remaining_est = self.n_estimators - (n_est_per_worker * n_workers)
+        remaining_est = n_estimators - (n_est_per_worker * n_workers)
 
         for i in range(remaining_est):
             self.n_estimators_per_worker[i] = (
                 self.n_estimators_per_worker[i] + 1
             )
-        seeds = [0]
+        if base_seed is None:
+            base_seed = 0
+        seeds = [base_seed]
         for i in range(1, len(self.n_estimators_per_worker)):
             sd = self.n_estimators_per_worker[i-1] + seeds[i-1]
             seeds.append(sd)
@@ -122,8 +123,7 @@ class BaseRandomForestModel(object):
                     workers=[worker]
                 )
             )
-        wait_and_raise_from_futures(model_params)
-        params_of_each_model = [params.result() for params in model_params]
+        params_of_each_model = self.client.gather(model_params, errors="raise")
         return params_of_each_model
 
     def _set_params(self, **params):
