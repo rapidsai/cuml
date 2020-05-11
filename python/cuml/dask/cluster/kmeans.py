@@ -126,8 +126,6 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             sample_weight *= scale
         return sample_weight
 
-
-
     @with_cupy_rmm
     def fit(self, X, sample_weight=None):
         """

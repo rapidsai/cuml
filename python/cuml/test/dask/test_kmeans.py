@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import numpy as np
 import cupy as cp
 import pytest
 

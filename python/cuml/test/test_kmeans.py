@@ -27,8 +27,6 @@ from sklearn import cluster
 from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
 
-import cupy as cp
-
 
 dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
 
