@@ -33,7 +33,7 @@ enum solver {
   COV_EIG_DQ,
   COV_EIG_JACOBI,
   RANDOMIZED,
-  SVQ_QR_DQ
+  SVQ_QR_DQ,
 };
 
 enum lr_type {

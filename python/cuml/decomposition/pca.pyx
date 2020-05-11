@@ -297,7 +297,7 @@ class PCA(Base):
             # 'arpack': NOT_SUPPORTED,
             # 'randomized': NOT_SUPPORTED,
             'jacobi': COV_EIG_JACOBI,
-            'qr': SVD_QR_DQ, # only in multi-GPU
+            'qr': SVD_QR_DQ,
         }
         if algorithm not in algo_map:
             msg = "algorithm {!r} is not supported"
