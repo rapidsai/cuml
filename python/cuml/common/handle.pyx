@@ -44,7 +44,6 @@ cdef class Handle:
         stream = cuml.cuda.Stream()
         handle = cuml.Handle()
         handle.setStream(stream)
-        handle.enableRMM()   # Enable RMM as the device-side allocator
 
         # call ML algos here
 

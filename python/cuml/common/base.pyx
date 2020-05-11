@@ -150,7 +150,6 @@ class Base:
         stream = cuml.cuda.Stream()
         handle = cuml.Handle()
         handle.setStream(stream)
-        handle.enableRMM()   # Enable RMM as the device-side allocator
 
         algo = MyAlgo(handle=handle)
         algo.fit(...)
