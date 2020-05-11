@@ -260,5 +260,10 @@ def to_dask_cupy(futures, dtype=None, shapes=None, client=None):
 
 
 def wait_and_raise_from_futures(futures):
+    """
+    Returns the collected futures after all the futures
+    have finished and do not indicate any exceptions.
+    """
     wait(futures)
     raise_exception_from_futures(futures)
+    return futures
