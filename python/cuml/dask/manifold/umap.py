@@ -19,7 +19,7 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 
 class UMAP(BaseEstimator,
            DelayedTransformMixin):
-    def __init__(self, model, client=None, **kwargs):
+    def __init__(self, model, client=None, verbose=False, **kwargs):
         """Uniform Manifold Approximation and Projection
         Finds a low dimensional embedding of the data that approximates
         an underlying manifold.
@@ -90,8 +90,8 @@ class UMAP(BaseEstimator,
         https://arxiv.org/abs/1802.03426
 
         """
-        super(UMAP, self).__init__(client, **kwargs)
-        self.local_model = model
+        super(UMAP, self).__init__(client=client, verbose=verbose,
+                                   model=model, **kwargs)
 
     def transform(self, X, convert_dtype=True):
         """
