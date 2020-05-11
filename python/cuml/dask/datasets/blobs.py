@@ -26,6 +26,8 @@ from cuml.dask.datasets.utils import _get_labels
 from cuml.dask.datasets.utils import _create_delayed
 from cuml.dask.common.utils import get_client
 
+import math
+
 import cuml.common.logger as logger
 
 

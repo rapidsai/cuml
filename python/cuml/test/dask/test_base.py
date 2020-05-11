@@ -41,7 +41,6 @@ def test_getattr(cluster):
                       centers=2,
                       n_parts=2,
                       cluster_std=0.01,
-                      verbose=False,
                       random_state=10)
 
     wait(X)
