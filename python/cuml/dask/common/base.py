@@ -44,12 +44,21 @@ class BaseEstimator(object):
 
         self.local_model = model
 
-    @staticmethod
-    def load(file, client=None, verbose=False, **kwargs):
+    @classmethod
+    def load(cls, file, client=None, verbose=False, **kwargs):
         model = pickle.load(file)
-        model.client = get_client(client)
-        model.kwargs = kwargs
-        model.verbose = verbose
+
+        if isinstance(model, Base):
+            # If serialized model is single GPU, create new
+            # dist model
+            model = cls.__init__(client=client,
+                                 verbose=verbose,
+                                 model=model,
+                                 **kwargs)
+        else:
+            model.client = get_client(client)
+            model.kwargs = kwargs
+            model.verbose = verbose
         return model
 
     def __getstate__(self):
@@ -69,14 +78,14 @@ class BaseEstimator(object):
         return local_model
 
     @property.setter
-    def model(self, value, to_worker=True):
+    def model(self, value, to_workers=True):
         """
         Parameters
         ----------
         value : a local model to scatter to Dask cluster
         """
         self.local_model = self.client.scatter([value]) \
-            if to_worker else value
+            if to_workers else value
 
     @staticmethod
     @dask.delayed
