@@ -151,7 +151,7 @@ class ARIMA(Base):
 
     Parameters
     ----------
-    y : dataframe or array-like (device or host)
+    endog : dataframe or array-like (device or host)
         The time series data, assumed to have each time series in columns.
         Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
         Numba device ndarray, cuda array interface compliant array like CuPy.
@@ -212,7 +212,7 @@ class ARIMA(Base):
     """
 
     def __init__(self,
-                 y,
+                 endog,
                  order: Tuple[int, int, int] = (1, 1, 1),
                  seasonal_order: Tuple[int, int, int, int]
                  = (0, 0, 0, 0),
@@ -228,7 +228,7 @@ class ARIMA(Base):
 
         # Initialize base class
         super().__init__(handle, verbose, output_type)
-        self._set_output_type(y)
+        self._set_output_type(endog)
 
         # Set the ARIMA order
         cdef ARIMAOrder cpp_order
@@ -262,7 +262,7 @@ class ARIMA(Base):
 
         # Get device array. Float64 only for now.
         self._d_y, self.n_obs, self.batch_size, self.dtype \
-            = input_to_cuml_array(y, check_dtype=np.float64)
+            = input_to_cuml_array(endog, check_dtype=np.float64)
 
         if self.n_obs < d + s * D + 1:
             raise ValueError("ERROR: Number of observations too small for the"

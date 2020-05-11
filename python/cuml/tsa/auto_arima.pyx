@@ -127,7 +127,7 @@ class AutoARIMA(Base):
 
     Parameters
     ----------
-    y : dataframe or array-like (device or host)
+    endog : dataframe or array-like (device or host)
         The time series data, assumed to have each time series in columns.
         Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
         Numba device ndarray, cuda array interface compliant array like CuPy.
@@ -151,19 +151,20 @@ class AutoARIMA(Base):
     Journal of Statistical Software 27, https://doi.org/10.18637/jss.v027.i03
     """
 
-    def __init__(self, y,
+    def __init__(self,
+                 endog,
                  handle=None,
                  verbosity=logger.LEVEL_INFO,
                  output_type=None):
         # Initialize base class
         super().__init__(handle, output_type=output_type, verbosity=verbosity)
-        self._set_output_type(y)
+        self._set_output_type(endog)
 
         logger.set_level(self.verbosity)
 
         # Get device array. Float64 only for now.
         self._d_y, self.n_obs, self.batch_size, self.dtype \
-            = input_to_cuml_array(y, check_dtype=np.float64)
+            = input_to_cuml_array(endog, check_dtype=np.float64)
 
     def search(self,
                s=None,

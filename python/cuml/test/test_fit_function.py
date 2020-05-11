@@ -38,7 +38,7 @@ def test_fit_function(dataset, model_name):
 
     if model_name in ['SparseRandomProjection', 'GaussianRandomProjection']:
         model = models[model_name](n_components=2)
-    elif model_name == 'ExponentialSmoothing':
+    elif model_name in {'ARIMA', 'AutoARIMA', 'ExponentialSmoothing'}:
         model = models[model_name](endog=np.zeros((10,)))
     else:
         if n_pos_args_constr == 1:
