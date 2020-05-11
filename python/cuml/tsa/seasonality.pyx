@@ -29,10 +29,7 @@ from cuml.common.base import _input_to_type
 from cuml.common.handle cimport cumlHandle
 from cuml.utils.input_utils import input_to_host_array, input_to_cuml_array
 
-# TODO: the following tests would be nice to have:
-# - CH (Canova & Hansen, 1995)
-# - OCSB (Osborn, Chui, Smith & Birchenhall, 1988)
-# - HEGY? (Hylleberg, Engle, Granger & Yoo, 1990)
+# TODO: #2234 and #2235
 
 
 def python_seas_test(y, batch_size, n_obs, s, threshold=0.64):

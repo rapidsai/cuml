@@ -53,14 +53,13 @@ void cumulative_sum_helper(const bool* mask, int* cumul, int mask_size,
                                 mask_size, stream);
 
   // Allocate temporary storage
-  void* d_temp_storage = allocator->allocate(temp_storage_bytes, stream);
+  MLCommon::device_buffer<uint8_t> temp_storage(allocator, stream,
+                                                temp_storage_bytes);
+  void* d_temp_storage = (void*)temp_storage.data();
 
   // Execute the scan
   cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, mask, cumul,
                                 mask_size, stream);
-
-  // Deallocate temporary storage
-  allocator->deallocate(d_temp_storage, temp_storage_bytes, stream);
 }
 
 /**
