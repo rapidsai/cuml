@@ -24,7 +24,7 @@ extern "C" {
 enum cumlHoltWintersSeasonal_t { ADDITIVE, MULTIPLICATIVE };
 
 /**
-             * Provides buffer sizes for HoltWinters algorithm
+             * @brief Provides buffer sizes for HoltWinters algorithm
              * @param[in] n
              *            n_samples in time-series
              * @param[in] batch_size
@@ -44,7 +44,6 @@ enum cumlHoltWintersSeasonal_t { ADDITIVE, MULTIPLICATIVE };
              * @param[out] season_coef_shift
              *             pointer which will hold the offset to season array
              * @return CUML_SUCCESS on success and other corresponding flags upon any failures.
-             * @{
   */
 cumlError_t cumlHoltWinters_buffer_size(int n, int batch_size, int frequency,
                                         int *start_leveltrend_len,
@@ -52,10 +51,10 @@ cumlError_t cumlHoltWinters_buffer_size(int n, int batch_size, int frequency,
                                         int *components_len, int *error_len,
                                         int *leveltrend_coef_shift,
                                         int *season_coef_shift);
-/** @} */
 
 /**
-             * Fits a HoltWinters model
+             * @defgroup HoltWinterFit Training methods
+             * @brief Fits a HoltWinters model
              * @param[in] handle
              *            cuml handle to use across the algorithm
              * @param[in] n
@@ -72,13 +71,13 @@ cumlError_t cumlHoltWinters_buffer_size(int n, int batch_size, int frequency,
              *            the error tolerance value for optimization
              * @param[in] data
              *            device pointer to the data to fit on
-             * @param[out] level_d
+             * @param[out] level_ptr
              *             device pointer to array which will hold level components
-             * @param[out] trend_d
+             * @param[out] trend_ptr
              *             device pointer to array which will hold trend components
-             * @param[out] season_d
+             * @param[out] season_ptr
              *             device pointer to array which will hold season components
-             * @param[out] error_d
+             * @param[out] SSE_error_ptr
              *             device pointer to array which will hold training SSE error
              * @return CUML_SUCCESS on success and other corresponding flags upon any failures.
              * @{
@@ -98,7 +97,8 @@ cumlError_t cumlHoltWintersDp_fit(cumlHandle_t handle, int n, int batch_size,
 /** @} */
 
 /**
-             * Forecasts future points from fitted HoltWinters model
+             * @defgroup HoltWinterForecast Forecast methods
+             * @brief Forecasts future points from fitted HoltWinters model
              * @param[in] handle
              *            cuml handle to use across the algorithm
              * @param[in] n

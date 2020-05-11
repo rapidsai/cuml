@@ -6,7 +6,7 @@ enough to build the docs.
 ## For building locally:
 ```
 # From project root:
-conda create env --name docs -f conda_environments/builddocs_py35.yml
+conda create env --name docs -f conda/environments/builddocs_py37.yml
 source activate docs
 cd python
 python setup.py install

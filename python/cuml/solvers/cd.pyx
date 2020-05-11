@@ -30,8 +30,10 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+from cuml.common import get_cudf_column_ptr
+from cuml.common import get_dev_array_ptr
+from cuml.common import input_to_dev_array
+from cuml.common import zeros
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
@@ -98,26 +100,38 @@ class CD(Base):
     Examples
     ---------
     .. code-block:: python
+
         import numpy as np
         import cudf
         from cuml.solvers import CD as cumlCD
+
         cd = cumlCD(alpha=0.0)
+
         X = cudf.DataFrame()
         X['col1'] = np.array([1,1,2,2], dtype = np.float32)
         X['col2'] = np.array([1,2,2,3], dtype = np.float32)
+
         y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
+
         reg = cd.fit(X,y)
+
         print("Coefficients:")
         print(reg.coef_)
         print("intercept:")
         print(reg.intercept_)
+
         X_new = cudf.DataFrame()
         X_new['col1'] = np.array([3,2], dtype = np.float32)
         X_new['col2'] = np.array([5,5], dtype = np.float32)
+
         preds = cd.predict(X_new)
+
         print(preds)
+
     Output:
+
     .. code-block:: python
+
         Coefficients:
                     0 1.0019531
                     1 1.9980469

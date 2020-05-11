@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,9 @@
 
 #include <common/cumlHandle.hpp>
 #include <cuML_comms.hpp>
+#include <cuml/common/logger.hpp>
 
-#include <utils.h>
+#include <common/cudart_utils.h>
 
 #define MPI_CHECK(call)                                                     \
   do {                                                                      \
@@ -36,19 +37,16 @@
     }                                                                       \
   } while (0)
 
-//@todo adapt logging infrastructure for MPI_CHECK_NO_THROW once available:
-//https://github.com/rapidsai/cuml/issues/100
-#define MPI_CHECK_NO_THROW(call)                                              \
-  do {                                                                        \
-    int status = call;                                                        \
-    if (MPI_SUCCESS != status) {                                              \
-      int mpi_error_string_lenght = 0;                                        \
-      char mpi_error_string[MPI_MAX_ERROR_STRING];                            \
-      MPI_Error_string(status, mpi_error_string, &mpi_error_string_lenght);   \
-      std::fprintf(stderr,                                                    \
-                   "ERROR: MPI call='%s' at file=%s line=%d failed with %s ", \
-                   #call, __FILE__, __LINE__, mpi_error_string);              \
-    }                                                                         \
+#define MPI_CHECK_NO_THROW(call)                                            \
+  do {                                                                      \
+    int status = call;                                                      \
+    if (MPI_SUCCESS != status) {                                            \
+      int mpi_error_string_lenght = 0;                                      \
+      char mpi_error_string[MPI_MAX_ERROR_STRING];                          \
+      MPI_Error_string(status, mpi_error_string, &mpi_error_string_lenght); \
+      CUML_LOG_ERROR("MPI call='%s' at file=%s line=%d failed with %s ",    \
+                     #call, __FILE__, __LINE__, mpi_error_string);          \
+    }                                                                       \
   } while (0)
 
 #define NCCL_CHECK(call)                                                       \
@@ -58,16 +56,13 @@
            ncclGetErrorString(status));                                        \
   } while (0)
 
-//@todo adapt logging infrastructure for NCCL_CHECK_NO_THROW once available:
-//https://github.com/rapidsai/cuml/issues/100
-#define NCCL_CHECK_NO_THROW(call)                                              \
-  do {                                                                         \
-    ncclResult_t status = call;                                                \
-    if (ncclSuccess != status) {                                               \
-      std::fprintf(stderr,                                                     \
-                   "ERROR: NCCL call='%s' at file=%s line=%d failed with %s ", \
-                   #call, __FILE__, __LINE__, ncclGetErrorString(status));     \
-    }                                                                          \
+#define NCCL_CHECK_NO_THROW(call)                                 \
+  do {                                                            \
+    ncclResult_t status = call;                                   \
+    if (status != ncclSuccess) {                                  \
+      CUML_LOG_ERROR("NCCL call='%s' failed. Reason:%s\n", #call, \
+                     ncclGetErrorString(status));                 \
+    }                                                             \
   } while (0)
 
 namespace ML {
@@ -91,6 +86,9 @@ size_t getDatatypeSize(const cumlMPICommunicator_impl::datatype_t datatype) {
       return sizeof(float);
     case MLCommon::cumlCommunicator::DOUBLE:
       return sizeof(double);
+    default:
+      // Execution should never reach here. This takes care of compiler warning.
+      return 0;
   }
 }
 
@@ -113,6 +111,9 @@ MPI_Datatype getMPIDatatype(
       return MPI_FLOAT;
     case MLCommon::cumlCommunicator::DOUBLE:
       return MPI_DOUBLE;
+    default:
+      // Execution should never reach here. This takes care of compiler warning.
+      return MPI_DOUBLE;
   }
 }
 
@@ -125,6 +126,9 @@ MPI_Op getMPIOp(const cumlMPICommunicator_impl::op_t op) {
     case MLCommon::cumlCommunicator::MIN:
       return MPI_MIN;
     case MLCommon::cumlCommunicator::MAX:
+      return MPI_MAX;
+    default:
+      // Execution should never reach here. This takes care of compiler warning.
       return MPI_MAX;
   }
 }
@@ -149,6 +153,9 @@ ncclDataType_t getNCCLDatatype(
       return ncclFloat;
     case MLCommon::cumlCommunicator::DOUBLE:
       return ncclDouble;
+    default:
+      // Execution should never reach here. This takes care of compiler warning.
+      return ncclDouble;
   }
 }
 
@@ -161,6 +168,9 @@ ncclRedOp_t getNCCLOp(const cumlMPICommunicator_impl::op_t op) {
     case MLCommon::cumlCommunicator::MIN:
       return ncclMin;
     case MLCommon::cumlCommunicator::MAX:
+      return ncclMax;
+    default:
+      // Execution should never reach here. This takes care of compiler warning.
       return ncclMax;
   }
 }
@@ -365,7 +375,7 @@ void cumlMPICommunicator_impl::reducescatter(const void* sendbuff,
 
 MLCommon::cumlCommunicator::status_t cumlMPICommunicator_impl::syncStream(
   cudaStream_t stream) const {
-#ifndef HAVE_NCCL
+#ifdef HAVE_NCCL
   cudaError_t cudaErr;
   ncclResult_t ncclErr, ncclAsyncErr;
   while (1) {
@@ -397,6 +407,7 @@ MLCommon::cumlCommunicator::status_t cumlMPICommunicator_impl::syncStream(
   }
 #else
   CUDA_CHECK(cudaStreamSynchronize(stream));
+  return status_t::commStatusSuccess;
 #endif
 }
 }  // end namespace ML

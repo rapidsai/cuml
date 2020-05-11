@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,17 @@
  * limitations under the License.
  */
 
-#include "svm_api.h"
 #include <cuml/cuml_api.h>
+#include <cuml/matrix/kernelparams.h>
+#include <cuml/svm/svm_api.h>
+#include <cuml/svm/svc.hpp>
 #include <tuple>
 #include "common/cumlHandle.hpp"
-#include "matrix/kernelparams.h"
-#include "svc.hpp"
-#include "svm_model.h"
-#include "svm_parameter.h"
 
 cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
                          int n_cols, float *labels, float C, float cache_size,
                          int max_iter, int nochange_steps, float tol,
-                         int verbose, cumlSvmKernelType kernel, int degree,
+                         int verbosity, cumlSvmKernelType kernel, int degree,
                          float gamma, float coef0, int *n_support, float *b,
                          float **dual_coefs, float **x_support,
                          int **support_idx, int *n_classes,
@@ -37,7 +35,7 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
   param.max_iter = max_iter;
   param.nochange_steps = nochange_steps;
   param.tol = tol;
-  param.verbose = verbose;
+  param.verbosity = verbosity;
 
   MLCommon::Matrix::KernelParams kernel_param;
   kernel_param.kernel = (MLCommon::Matrix::KernelType)kernel;
@@ -78,7 +76,7 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
 cumlError_t cumlDpSvcFit(cumlHandle_t handle, double *input, int n_rows,
                          int n_cols, double *labels, double C,
                          double cache_size, int max_iter, int nochange_steps,
-                         double tol, int verbose, cumlSvmKernelType kernel,
+                         double tol, int verbosity, cumlSvmKernelType kernel,
                          int degree, double gamma, double coef0, int *n_support,
                          double *b, double **dual_coefs, double **x_support,
                          int **support_idx, int *n_classes,
@@ -89,7 +87,7 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle, double *input, int n_rows,
   param.max_iter = max_iter;
   param.nochange_steps = nochange_steps;
   param.tol = tol;
-  param.verbose = verbose;
+  param.verbosity = verbosity;
 
   MLCommon::Matrix::KernelParams kernel_param;
   kernel_param.kernel = (MLCommon::Matrix::KernelType)kernel;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,16 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <common/cudart_utils.h>
 #include <cuml/tree/flatnode.h>
+#include <cuml/common/logger.hpp>
 #include "common_kernel.cuh"
 #include "random/rng.h"
 #include "stats/minmax.h"
+
+namespace ML {
+namespace DecisionTree {
 
 /*This functions does feature subsampling.
  *The default is reshuffling of a feature list at ever level followed by random start index in the reshuffled vector for each node.
@@ -176,3 +182,146 @@ unsigned int getQuesColumn(const unsigned int *colids, const int colstart_local,
   }
   return col;
 }
+template <typename T, typename L>
+void convert_scatter_to_gather(const unsigned int *flagsptr,
+                               const unsigned int *sample_cnt,
+                               const int n_nodes, const int n_rows,
+                               unsigned int *nodecount, unsigned int *nodestart,
+                               unsigned int *samplelist,
+                               std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
+  CUDA_CHECK(cudaMemsetAsync(nodestart, 0, (n_nodes + 1) * sizeof(unsigned int),
+                             tempmem->stream));
+  CUDA_CHECK(cudaMemsetAsync(nodecount, 0, (n_nodes + 1) * sizeof(unsigned int),
+                             tempmem->stream));
+
+  int nthreads = 128;
+  int nblocks = MLCommon::ceildiv(n_rows, nthreads);
+  fill_counts<<<nblocks, nthreads, 0, tempmem->stream>>>(flagsptr, sample_cnt,
+                                                         n_rows, nodecount);
+
+  void *d_temp_storage = (void *)(tempmem->temp_cub_buffer->data());
+  cub::DeviceScan::ExclusiveSum(d_temp_storage, tempmem->temp_cub_bytes,
+                                nodecount, nodestart, n_nodes + 1,
+                                tempmem->stream);
+  CUDA_CHECK(cudaGetLastError());
+  unsigned int *h_nodestart = (unsigned int *)(tempmem->h_split_binidx->data());
+  MLCommon::updateHost(h_nodestart, nodestart + n_nodes, 1, tempmem->stream);
+  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+  CUDA_CHECK(cudaMemsetAsync(nodecount, 0, n_nodes * sizeof(unsigned int),
+                             tempmem->stream));
+  CUDA_CHECK(cudaMemsetAsync(
+    samplelist, 0, h_nodestart[0] * sizeof(unsigned int), tempmem->stream));
+  build_list<<<nblocks, nthreads, 0, tempmem->stream>>>(
+    flagsptr, nodestart, n_rows, nodecount, samplelist);
+  CUDA_CHECK(cudaGetLastError());
+}
+template <typename T, typename L>
+void print_convertor(unsigned int *d_nodecount, unsigned int *d_nodestart,
+                     unsigned int *d_samplelist, int n_nodes,
+                     std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
+  unsigned int *nodecount = (unsigned int *)(tempmem->h_split_colidx->data());
+  unsigned int *nodestart = (unsigned int *)(tempmem->h_split_binidx->data());
+  unsigned int *samplelist = (unsigned int *)(tempmem->h_parent_metric->data());
+  MLCommon::updateHost(nodecount, d_nodecount, n_nodes + 1, tempmem->stream);
+  MLCommon::updateHost(nodestart, d_nodestart, n_nodes + 1, tempmem->stream);
+  CUDA_CHECK(cudaDeviceSynchronize());
+  ML::PatternSetter _("%v");
+  CUML_LOG_DEBUG("Full sample list size %u", nodestart[n_nodes]);
+  MLCommon::updateHost(samplelist, d_samplelist, nodestart[n_nodes],
+                       tempmem->stream);
+  CUDA_CHECK(cudaDeviceSynchronize());
+
+  {
+    std::stringstream ss;
+    ss << "Printing node count\n";
+    for (int i = 0; i < n_nodes + 1; i++) {
+      ss << nodecount[i] << " ";
+    }
+    CUML_LOG_DEBUG(ss.str().c_str());
+  }
+  {
+    std::stringstream ss;
+    ss << "Printing node start\n";
+    for (int i = 0; i < n_nodes + 1; i++) {
+      ss << nodestart[i] << " ";
+    }
+    CUML_LOG_DEBUG(ss.str().c_str());
+  }
+  {
+    std::stringstream ss;
+    ss << "Printing sample list\n";
+    for (int i = 0; i < n_nodes; i++) {
+      ss << "Node id " << i << " --> ";
+      for (int j = nodestart[i]; j < nodestart[i + 1]; j++) {
+        ss << samplelist[j] << " ";
+      }
+    }
+    CUML_LOG_DEBUG(ss.str().c_str());
+  }
+}
+
+template <typename T, typename L>
+void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
+                 int n_nodes, std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
+  CUDA_CHECK(cudaDeviceSynchronize());
+  ML::PatternSetter _("%v");
+  CUML_LOG_DEBUG(
+    "Node format --> (colid, quesval, best_metric, prediction, left_child) ");
+  int *h_nodelist = (int *)(tempmem->h_outgain->data());
+  if (nodelist != nullptr) {
+    MLCommon::updateHost(h_nodelist, nodelist, n_nodes, tempmem->stream);
+    CUDA_CHECK(cudaDeviceSynchronize());
+  }
+  for (int i = 0; i < n_nodes; i++) {
+    int nodeid = i;
+    if (nodelist != nullptr) nodeid = h_nodelist[i];
+    SparseTreeNode<T, L> &node = sparsenodes[nodeid];
+    std::stringstream ss;
+    ss << "Node id " << i << " --> (" << node.colid << " ," << node.quesval
+       << " ," << node.best_metric_val << ", ";
+    ss << node.prediction << " ," << node.left_child_id << " )";
+    if (gain != nullptr) ss << "  gain -->" << gain[i];
+    CUML_LOG_DEBUG(ss.str().c_str());
+  }
+}
+
+template <typename T, typename L>
+void make_split_gather(const T *data, unsigned int *nodestart,
+                       unsigned int *samplelist, const int n_nodes,
+                       const int nrows, const int *nodelist, int *new_nodelist,
+                       unsigned int *nodecount, int *counter,
+                       unsigned int *flagsptr,
+                       const SparseTreeNode<T, L> *d_sparsenodes,
+                       std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
+  CUDA_CHECK(cudaMemsetAsync(
+    nodecount, 0, (2 * n_nodes + 1) * sizeof(unsigned int), tempmem->stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(counter, 0, sizeof(unsigned int), tempmem->stream));
+  CUDA_CHECK(cudaMemsetAsync(flagsptr, LEAF, nrows * sizeof(unsigned int),
+                             tempmem->stream));
+  int nthreads = 128;
+  int nblocks = MLCommon::ceildiv(nrows, nthreads);
+  split_nodes_compute_counts_kernel<<<n_nodes, 64, sizeof(SparseTreeNode<T, L>),
+                                      tempmem->stream>>>(
+    data, d_sparsenodes, nodestart, samplelist, nrows, nodelist, new_nodelist,
+    nodecount, counter, flagsptr);
+  CUDA_CHECK(cudaGetLastError());
+  void *d_temp_storage = (void *)(tempmem->temp_cub_buffer->data());
+  int *h_counter = tempmem->h_counter->data();
+  MLCommon::updateHost(h_counter, counter, 1, tempmem->stream);
+  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+  cub::DeviceScan::ExclusiveSum(d_temp_storage, tempmem->temp_cub_bytes,
+                                nodecount, nodestart, h_counter[0] + 1,
+                                tempmem->stream);
+  CUDA_CHECK(cudaGetLastError());
+  CUDA_CHECK(cudaMemsetAsync(samplelist, 0, h_counter[0] * sizeof(unsigned int),
+                             tempmem->stream));
+  CUDA_CHECK(cudaMemsetAsync(nodecount, 0, h_counter[0] * sizeof(unsigned int),
+                             tempmem->stream));
+  build_list<<<nblocks, nthreads, 0, tempmem->stream>>>(
+    flagsptr, nodestart, nrows, nodecount, samplelist);
+  CUDA_CHECK(cudaGetLastError());
+}
+
+}  // namespace DecisionTree
+}  // namespace ML

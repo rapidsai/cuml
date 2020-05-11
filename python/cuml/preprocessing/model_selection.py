@@ -21,6 +21,8 @@ import warnings
 from numba import cuda
 from typing import Union
 
+from cuml.common import rmm_cupy_ary
+
 
 def train_test_split(
     X,
@@ -58,7 +60,6 @@ def train_test_split(
 
     Examples
     --------
-
     .. code-block:: python
 
         import cudf
@@ -172,11 +173,11 @@ def train_test_split(
 
     if shuffle:
         if random_state is None or isinstance(random_state, int):
-            idxs = cp.arange(X.shape[0])
+            idxs = rmm_cupy_ary(cp.arange, X.shape[0])
             random_state = cp.random.RandomState(seed=random_state)
 
         elif isinstance(random_state, cp.random.RandomState):
-            idxs = cp.arange(X.shape[0])
+            idxs = rmm_cupy_ary(cp.arange, X.shape[0])
 
         elif isinstance(random_state, np.random.RandomState):
             idxs = np.arange(X.shape[0])
@@ -198,7 +199,7 @@ def train_test_split(
             X = cp.asarray(X)[idxs]
 
         if isinstance(y, cudf.DataFrame) or isinstance(y, cudf.Series):
-            y = y.iloc[idxs].reset_index(drop=True)
+            y = y.iloc[idxs]
 
         elif cuda.is_cuda_array(y):
             if cuda.devicearray.is_cuda_ndarray(y):
@@ -224,14 +225,14 @@ def train_test_split(
         if train_size is None:
             train_size = X.shape[0] - test_size
 
-    if cuda.is_cuda_array(X):
+    if cuda.is_cuda_array(X) or isinstance(X, cp.sparse.csr_matrix):
         X_train = X[0:train_size]
         y_train = y[0:train_size]
     elif isinstance(X, cudf.DataFrame):
         X_train = X.iloc[0:train_size]
         y_train = y.iloc[0:train_size]
 
-    if cuda.is_cuda_array(y):
+    if cuda.is_cuda_array(y) or isinstance(X, cp.sparse.csr_matrix):
         X_test = X[-1 * test_size:]
         y_test = y[-1 * test_size:]
     elif isinstance(y, cudf.DataFrame):

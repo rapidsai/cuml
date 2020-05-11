@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 #include <cuml/cuml.hpp>
 #include "sparse/coo.h"
-#include "sparse/nvgraph_wrappers.h"
 
 #include "sparse/spectral.h"
 
@@ -39,9 +38,10 @@ namespace Spectral {
 
 void fit_clusters(const cumlHandle &handle, int *rows, int *cols, float *vals,
                   int nnz, int n, int n_clusters, float eigen_tol, int *out) {
-  MLCommon::Spectral::fit_clusters(rows, cols, vals, nnz, n, n_clusters,
-                                   eigen_tol, out, handle.getDeviceAllocator(),
-                                   handle.getStream());
+  const auto &impl = handle.getImpl();
+  MLCommon::Spectral::fit_clusters(
+    impl.getcusparseHandle(), rows, cols, vals, nnz, n, n_clusters, eigen_tol,
+    out, handle.getDeviceAllocator(), handle.getStream());
 }
 
 /***
@@ -58,9 +58,11 @@ void fit_clusters(const cumlHandle &handle, int *rows, int *cols, float *vals,
 void fit_clusters(const cumlHandle &handle, long *knn_indices, float *knn_dists,
                   int m, int n_neighbors, int n_clusters, float eigen_tol,
                   int *out) {
-  MLCommon::Spectral::fit_clusters(
-    knn_indices, knn_dists, m, n_neighbors, n_clusters, eigen_tol, out,
-    handle.getDeviceAllocator(), handle.getStream());
+  const auto &impl = handle.getImpl();
+  MLCommon::Spectral::fit_clusters(impl.getcusparseHandle(), knn_indices,
+                                   knn_dists, m, n_neighbors, n_clusters,
+                                   eigen_tol, out, handle.getDeviceAllocator(),
+                                   handle.getStream());
 }
 
 /***
@@ -76,9 +78,10 @@ void fit_clusters(const cumlHandle &handle, long *knn_indices, float *knn_dists,
    */
 void fit_clusters(const cumlHandle &handle, float *X, int m, int n,
                   int n_neighbors, int n_clusters, float eigen_tol, int *out) {
-  MLCommon::Spectral::fit_clusters(X, m, n, n_neighbors, n_clusters, eigen_tol,
-                                   out, handle.getDeviceAllocator(),
-                                   handle.getStream());
+  const auto &impl = handle.getImpl();
+  MLCommon::Spectral::fit_clusters(
+    impl.getcusparseHandle(), X, m, n, n_neighbors, n_clusters, eigen_tol, out,
+    handle.getDeviceAllocator(), handle.getStream());
 }
 
 /**
@@ -96,9 +99,10 @@ void fit_clusters(const cumlHandle &handle, float *X, int m, int n,
    */
 void fit_embedding(const cumlHandle &handle, int *rows, int *cols, float *vals,
                    int nnz, int n, int n_components, float *out) {
-  MLCommon::Spectral::fit_embedding(rows, cols, vals, nnz, n, n_components, out,
-                                    handle.getDeviceAllocator(),
-                                    handle.getStream());
+  const auto &impl = handle.getImpl();
+  MLCommon::Spectral::fit_embedding(
+    impl.getcusparseHandle(), rows, cols, vals, nnz, n, n_components, out,
+    handle.getDeviceAllocator(), handle.getStream());
 }
 
 /***
@@ -115,9 +119,10 @@ void fit_embedding(const cumlHandle &handle, int *rows, int *cols, float *vals,
 void fit_embedding(const cumlHandle &handle, long *knn_indices,
                    float *knn_dists, int m, int n_neighbors, int n_components,
                    float *out) {
+  const auto &impl = handle.getImpl();
   MLCommon::Spectral::fit_embedding(
-    knn_indices, knn_dists, m, n_neighbors, n_components, out,
-    handle.getDeviceAllocator(), handle.getStream());
+    impl.getcusparseHandle(), knn_indices, knn_dists, m, n_neighbors,
+    n_components, out, handle.getDeviceAllocator(), handle.getStream());
 }
 
 /***
@@ -133,9 +138,10 @@ void fit_embedding(const cumlHandle &handle, long *knn_indices,
    */
 void fit_embedding(const cumlHandle &handle, float *X, int m, int n,
                    int n_neighbors, int n_components, float *out) {
-  MLCommon::Spectral::fit_embedding(X, m, n, n_neighbors, n_components, out,
-                                    handle.getDeviceAllocator(),
-                                    handle.getStream());
+  const auto &impl = handle.getImpl();
+  MLCommon::Spectral::fit_embedding(
+    impl.getcusparseHandle(), X, m, n, n_neighbors, n_components, out,
+    handle.getDeviceAllocator(), handle.getStream());
 }
 
 }  // namespace Spectral

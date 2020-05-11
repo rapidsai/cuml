@@ -15,3 +15,4 @@
 #
 
 from cuml.dask.datasets.blobs import make_blobs
+from cuml.dask.datasets.regression import make_regression

@@ -1,4 +1,4 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,12 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import inspect
 
-
+import cupy as cp
 import numpy as np
 import pandas as pd
 from copy import deepcopy
 
+from numba import cuda
 from numbers import Number
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
 
@@ -104,7 +106,7 @@ def normalize_clusters(a0, b0, n_clusters):
 
 def to_nparray(x):
     if isinstance(x, Number):
-        return np.array([x])
+        return np.asarray([x])
     elif isinstance(x, pd.DataFrame):
         return x.values
     elif isinstance(x, cudf.DataFrame):
@@ -113,7 +115,9 @@ def to_nparray(x):
         return x.to_pandas().values
     elif isinstance(x, DeviceNDArray):
         return x.copy_to_host()
-    return np.array(x)
+    elif isinstance(x, cp.ndarray):
+        return cp.asnumpy(x)
+    return np.asarray(x)
 
 
 def clusters_equal(a0, b0, n_clusters, tol=1e-4):
@@ -163,3 +167,103 @@ def quality_param(*args, **kwargs):
 
 def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
+
+
+class ClassEnumerator:
+    """Helper class to automatically pick up every models classes in a module.
+    Filters out classes not inheriting from cuml.Base.
+
+    Parameters
+    ----------
+    module: python module (ex: cuml.linear_regression)
+        The module for which to retrieve models.
+    exclude_classes: list of classes (optional)
+        Those classes will be filtered out from the retrieved models.
+    custom_constructors: dictionary of {class_name: lambda}
+        Custom constructors to use instead of the default one.
+        ex: {'LogisticRegression': lambda: cuml.LogisticRegression(handle=1)}
+    """
+    def __init__(self, module, exclude_classes=None, custom_constructors=None):
+        self.module = module
+        self.exclude_classes = exclude_classes or []
+        self.custom_constructors = custom_constructors or []
+
+    def _get_classes(self):
+        return inspect.getmembers(self.module, inspect.isclass)
+
+    def get_models(self):
+        """Picks up every models classes from self.module.
+        Filters out classes not inheriting from cuml.Base.
+
+        Returns
+        -------
+        models: dictionary of {class_name: class|class_constructor}
+            Dictionary of models in the module, except when a
+            custom_constructor is specified, in that case the value is the
+            specified custom_constructor.
+        """
+        classes = self._get_classes()
+        models = {name: cls for name, cls in classes
+                  if cls not in self.exclude_classes and
+                  issubclass(cls, cuml.Base)}
+        models.update(self.custom_constructors)
+        return models
+
+
+def get_classes_from_package(package):
+    modules = [m for name, m in inspect.getmembers(package, inspect.ismodule)]
+    classes = [ClassEnumerator(module).get_models() for module in modules]
+    return {k: v for dictionary in classes for k, v in dictionary.items()}
+
+
+def generate_random_labels(random_generation_lambda, seed=1234, as_cupy=False):
+    """
+    Generates random labels to act as ground_truth and predictions for tests.
+
+    Parameters
+    ----------
+    random_generation_lambda : lambda function [numpy.random] -> ndarray
+        A lambda function used to generate labels for either y_true or y_pred
+        using a seeded numpy.random object.
+    seed : int
+        Seed for the numpy.random object.
+    as_cupy : bool
+        Choose return type of y_true and y_pred.
+        True: returns Cupy ndarray
+        False: returns Numba cuda DeviceNDArray
+
+    Returns
+    -------
+    y_true, y_pred, np_y_true, np_y_pred : tuple
+        y_true : Numba cuda DeviceNDArray or Cupy ndarray
+            Random target values.
+        y_pred : Numba cuda DeviceNDArray or Cupy ndarray
+            Random predictions.
+        np_y_true : Numpy ndarray
+            Same as y_true but as a numpy ndarray.
+        np_y_pred : Numpy ndarray
+            Same as y_pred but as a numpy ndarray.
+    """
+    rng = np.random.RandomState(seed)  # makes it reproducible
+    a = random_generation_lambda(rng)
+    b = random_generation_lambda(rng)
+
+    if as_cupy:
+        return cp.array(a), cp.array(b), a, b
+    else:
+        return cuda.to_device(a), cuda.to_device(b), a, b
+
+
+def score_labeling_with_handle(func, ground_truth, predictions, use_handle,
+                               dtype=np.int32):
+    """Test helper to standardize inputs between sklearn and our prims metrics.
+
+    Using this function we can pass python lists as input of a test just like
+    with sklearn as well as an option to use handle with our metrics.
+    """
+    a = cp.array(ground_truth, dtype=dtype)
+    b = cp.array(predictions, dtype=dtype)
+
+    handle, stream = get_handle(use_handle)
+
+    return func(a, b, handle=handle)

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,63 +15,41 @@
 #
 
 
-import cudf
-import cupy as cp
 import dask.array as da
-import math
-import numpy as np
-import pandas as pd
 
-from dask import delayed
-from dask.dataframe import from_delayed
-from dask.distributed import default_client
-
-from sklearn.datasets import make_blobs as skl_make_blobs
-
-from uuid import uuid1
+from cuml.datasets.blobs import _get_centers
+from cuml.datasets.blobs import make_blobs as sg_make_blobs
+from cuml.common import with_cupy_rmm
+from cuml.datasets.utils import _create_rs_generator
+from cuml.dask.datasets.utils import _get_X
+from cuml.dask.datasets.utils import _get_labels
+from cuml.dask.datasets.utils import _create_delayed
+from cuml.dask.common.utils import get_client
 
 
-def create_local_data(m, n, centers, cluster_std, random_state,
-                      dtype, type):
-    X, y = skl_make_blobs(m, n, centers=centers, cluster_std=cluster_std,
-                          random_state=random_state)
+def _create_local_data(m, n, centers, cluster_std, shuffle, random_state,
+                       order, dtype):
 
-    if type == 'array':
-        X = cp.asarray(X.astype(dtype))
-        y = cp.asarray(y.astype(dtype)).reshape(m, 1)
-
-    elif type == 'dataframe':
-        X = cudf.DataFrame.from_pandas(pd.DataFrame(X.astype(dtype)))
-        y = cudf.DataFrame.from_pandas(pd.DataFrame(y))
-
-    else:
-        raise ValueError('type must be array or dataframe')
+    X, y = sg_make_blobs(m, n, centers=centers,
+                         cluster_std=cluster_std,
+                         random_state=random_state,
+                         shuffle=shuffle,
+                         order=order,
+                         dtype=dtype)
 
     return X, y
 
 
-def get_meta(df):
-    ret = df.iloc[:0]
-    return ret
-
-
-def get_X(t):
-    return t[0]
-
-
-def get_labels(t):
-    return t[1]
-
-
-def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
-               center_box=(-10, 10), random_state=None, verbose=False,
-               dtype=np.float32, output='dataframe'):
-
+@with_cupy_rmm
+def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
+               n_parts=None, center_box=(-10, 10), shuffle=True,
+               random_state=None, return_centers=False, verbose=False,
+               order='F', dtype='float32', client=None):
     """
-    Makes labeled dask.Dataframe and dask_cudf.Dataframes containing blobs
+    Makes labeled Dask-Cupy arrays containing blobs
     for a randomly generated set of centroids.
 
-    This function calls `make_blobs` from Scikitlearn on each Dask worker
+    This function calls `make_blobs` from `cuml.datasets` on each Dask worker
     and aggregates them into a single Dask Dataframe.
 
     For more information on Scikit-learn's `make_blobs:
@@ -80,96 +58,104 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     Parameters
     ----------
 
-    nrows : int
+    n_samples : int
         number of rows
-    ncols : int
+    n_features : int
         number of features
-    n_centers : int (default = 8)
-        number of centers to generate
+    centers : int or array of shape [n_centers, n_features],
+        optional (default=None) The number of centers to generate, or the fixed
+        center locations. If n_samples is an int and centers is None, 3 centers
+        are generated. If n_samples is array-like, centers must be either None
+        or an array of length equal to the length of n_samples.
+    cluster_std : float (default = 1.0)
+         standard deviation of points around centroid
     n_parts : int (default = None)
         number of partitions to generate (this can be greater
         than the number of workers)
-    cluster_std : float (default = 1.0)
-         standard deviation of points around centroid
     center_box : tuple (int, int) (default = (-10, 10))
          the bounding box which constrains all the centroids
     random_state : int (default = None)
          sets random seed (or use None to reinitialize each time)
+    return_centers : bool, optional (default=False)
+        If True, then return the centers of each cluster
     verbose : bool (default = False)
          enables / disables verbose printing.
-    dtype : dtype (default = np.float32)
-         datatype to generate
-    output : str (default = 'dataframe')
-         whether to generate dask array or
-         dask dataframe output. Default will be array in the future.
+    shuffle : bool (default=False)
+              Shuffles the samples on each worker.
+    order: str, optional (default='F')
+        The order of the generated samples
+    dtype : str, optional (default='float32')
+        Dtype of the generated samples
+    client : dask.distributed.Client (optional)
+             Dask client to use
 
     Returns
     -------
-         (dask.Dataframe for X, dask.Series for labels)
+    X : dask.array backed by CuPy array of shape [n_samples, n_features]
+        The input samples.
+    y : dask.array backed by CuPy array of shape [n_samples]
+        The output values.
+    centers : dask.array backed by CuPy array of shape
+        [n_centers, n_features], optional
+        The centers of the underlying blobs. It is returned only if
+        return_centers is True.
     """
 
-    client = default_client()
+    client = get_client(client=client)
 
-    workers = list(client.has_what().keys())
+    generator = _create_rs_generator(random_state=random_state)
+
+    workers = list(client.scheduler_info()['workers'].keys())
 
     n_parts = n_parts if n_parts is not None else len(workers)
     parts_workers = (workers * n_parts)[:n_parts]
-    rows_per_part = math.ceil(nrows/n_parts)
 
-    if not isinstance(centers, np.ndarray):
-        centers = np.random.uniform(center_box[0], center_box[1],
-                                    size=(centers, ncols)).astype(np.float32)
+    centers, n_centers = _get_centers(generator, centers, center_box,
+                                      n_samples, n_features,
+                                      dtype)
+
+    rows_per_part = max(1, int(n_samples / n_parts))
+
+    worker_rows = [rows_per_part] * n_parts
+
+    if rows_per_part == 1:
+        worker_rows[-1] += n_samples % n_parts
+    else:
+        worker_rows[-1] += n_samples % rows_per_part
+
+    worker_rows = tuple(worker_rows)
 
     if verbose:
-        print("Generating %d samples across %d partitions on "
-              "%d workers (total=%d samples)" %
-              (math.ceil(nrows/len(workers)), n_parts, len(workers), nrows))
+        print("Generating %s samples across %d partitions on "
+              "%d workers (total=%d samples)" % ','.join(worker_rows),
+              n_parts, len(workers), n_samples)
 
-    key = str(uuid1())
-    # Create dfs on each worker (gpu)
+    seeds = generator.randint(n_samples, size=len(parts_workers))
+    parts = [client.submit(_create_local_data,
+                           part_rows,
+                           n_features,
+                           centers,
+                           cluster_std,
+                           shuffle,
+                           int(seeds[idx]),
+                           order,
+                           dtype,
+                           pure=False,
+                           workers=[parts_workers[idx]])
+             for idx, part_rows in enumerate(worker_rows)]
 
-    parts = []
-    worker_rows = []
-    rows_so_far = 0
-    for idx, worker in enumerate(parts_workers):
-        if rows_so_far+rows_per_part <= nrows:
-            rows_so_far += rows_per_part
-            worker_rows.append(rows_per_part)
-        else:
-            worker_rows.append((int(nrows) - rows_so_far))
-
-        parts.append(client.submit(create_local_data, worker_rows[idx], ncols,
-                                   centers, cluster_std, random_state, dtype,
-                                   output,
-                                   key="%s-%s" % (key, idx),
-                                   workers=[worker]))
-
-    x_key = str(uuid1())
-    y_key = str(uuid1())
-
-    X = [client.submit(get_X, f, key="%s-%s" % (x_key, idx))
+    X = [client.submit(_get_X, f, pure=False)
          for idx, f in enumerate(parts)]
-    y = [client.submit(get_labels, f, key="%s-%s" % (y_key, idx))
+    y = [client.submit(_get_labels, f, pure=False)
          for idx, f in enumerate(parts)]
 
-    if output == 'dataframe':
+    X_del = _create_delayed(X, dtype, worker_rows, n_features)
+    y_del = _create_delayed(y, dtype, worker_rows)
 
-        meta_X = client.submit(get_meta, X[0]).result()
-        X = from_delayed(X, meta=meta_X)
+    X_final = da.concatenate(X_del, axis=0)
+    y_final = da.concatenate(y_del, axis=0)
 
-        meta_y = client.submit(get_meta, y[0]).result()
-        y = from_delayed(y, meta=meta_y)
-
-    elif output == 'array':
-
-        X = [da.from_delayed(delayed(chunk), shape=(worker_rows[idx], ncols),
-                             dtype=dtype)
-             for idx, chunk in enumerate(X)]
-        y = [da.from_delayed(delayed(chunk), shape=(worker_rows[idx], 1),
-                             dtype=dtype)
-             for idx, chunk in enumerate(y)]
-
-        X = da.concatenate(X, axis=0)
-        y = da.concatenate(y, axis=0)
-
-    return X, y
+    if return_centers:
+        return X_final, y_final, centers
+    else:
+        return X_final, y_final
