@@ -27,9 +27,9 @@ from libc.stdint cimport uintptr_t
 import cuml.common.handle
 from cuml.common.handle cimport cumlHandle
 from cuml.metrics cimport regression
-from cuml.utils import input_to_dev_array, input_to_cuml_array
+from cuml.common import input_to_dev_array, input_to_cuml_array
 
-from cuml.utils.memory_utils import with_cupy_rmm
+from cuml.common.memory_utils import with_cupy_rmm
 
 
 def r2_score(y, y_hat, convert_dtype=False, handle=None):

@@ -19,15 +19,14 @@ import math
 
 import numpy as np
 import cupy as cp
-import scipy.sparse
 
 import cupy.prof
 
-from cuml.utils import with_cupy_rmm
+from cuml.common import with_cupy_rmm
 
 import warnings
 
-from cuml.utils import cuda_kernel_factory
+from cuml.common import cuda_kernel_factory, has_scipy
 
 from cuml.prims.label import make_monotonic
 from cuml.prims.label import check_labels
@@ -241,10 +240,15 @@ class MultinomialNB(object):
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     @with_cupy_rmm
     def _partial_fit(self, X, y, sample_weight=None, _classes=None):
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.common.import_utils import dummy_function_always_false \
+                    as scipy_sparse_isspmatrix
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
             X = cp.asarray(X, X.dtype)
-        elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
+        elif scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
@@ -349,9 +353,15 @@ class MultinomialNB(object):
 
         """
 
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.common.import_utils import dummy_function_always_false \
+                    as scipy_sparse_isspmatrix
+
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
             X = cp.asarray(X, X.dtype)
-        elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
+        elif scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
@@ -385,9 +395,15 @@ class MultinomialNB(object):
             they appear in the attribute classes_.
         """
 
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.common.import_utils import dummy_function_always_false \
+                    as scipy_sparse_isspmatrix
+
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
             X = cp.asarray(X, X.dtype)
-        elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
+        elif scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)

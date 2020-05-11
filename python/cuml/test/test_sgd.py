@@ -16,63 +16,102 @@
 import numpy as np
 import pytest
 
+import cudf
+
 from cuml.solvers import SGD as cumlSGD
-from cuml.test.utils import unit_param, quality_param, \
-    stress_param
 
 from sklearn.datasets.samples_generator import make_blobs
 from sklearn.model_selection import train_test_split
-from sklearn import datasets
 
 
 @pytest.mark.parametrize('lrate', ['constant', 'invscaling', 'adaptive'])
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('loss', ['hinge', 'log', 'squared_loss'])
-@pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
-                         stress_param('blobs')])
-def test_svd(datatype, lrate, penalty, loss, name):
+@pytest.mark.parametrize('datatype', ["dataframe", "numpy"])
+def test_sgd(dtype, lrate, penalty, loss, datatype):
 
-    if name == 'blobs':
-        X, y = make_blobs(n_samples=500000,
-                          n_features=1000, random_state=0)
-        X = X.astype(datatype)
-        y = y.astype(datatype)
-        X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                            train_size=0.8)
+    X, y = make_blobs(n_samples=100,
+                      n_features=3,
+                      centers=2,
+                      random_state=0)
+    X = X.astype(dtype)
+    y = y.astype(dtype)
 
-    elif name == 'iris':
-        iris = datasets.load_iris()
-        X = (iris.data).astype(datatype)
-        y = (iris.target).astype(datatype)
-        X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                            train_size=0.8)
+    if loss == "hinge" or loss == "squared_loss":
+        y[y == 0] = -1
 
-    else:
-        X_train = np.array([[-1, -1], [-2, -1], [1, 1], [2, 1]],
-                           dtype=datatype)
-        y_train = np.array([1, 1, 2, 2], dtype=datatype)
-        X_test = np.array([[3.0, 5.0], [2.0, 5.0]]).astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        train_size=0.8)
+
+    if datatype == "dataframe":
+        X_train = cudf.DataFrame.from_gpu_matrix(X_train)
+        X_test = cudf.DataFrame.from_gpu_matrix(X_test)
+        y_train = cudf.Series(y_train)
 
     cu_sgd = cumlSGD(learning_rate=lrate, eta0=0.005, epochs=2000,
                      fit_intercept=True, batch_size=4096,
                      tol=0.0, penalty=penalty, loss=loss)
 
     cu_sgd.fit(X_train, y_train)
-    cu_pred = cu_sgd.predict(X_test).to_array()
-    print("cuML predictions : ", cu_pred)
+    cu_pred = cu_sgd.predict(X_test)
+
+    if datatype == "dataframe":
+        assert isinstance(cu_pred, cudf.Series)
+        cu_pred = cu_pred.to_array()
+
+    else:
+        assert isinstance(cu_pred, np.ndarray)
+
+    if loss == "log":
+        cu_pred[cu_pred < 0.5] = 0
+        cu_pred[cu_pred >= 0.5] = 1
+    elif loss == "squared_loss":
+        cu_pred[cu_pred < 0] = -1
+        cu_pred[cu_pred >= 0] = 1
+
+    # Adjust for squared loss (we don't need to test for high accuracy,
+    # just that the loss function tended towards the expected classes.
+    assert np.array_equal(cu_pred, y_test)
 
 
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-def test_svd_default(datatype):
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('datatype', ["dataframe", "numpy"])
+def test_sgd_default(dtype, datatype):
 
-    X_train = np.array([[-1, -1], [-2, -1], [1, 1], [2, 1]],
-                       dtype=datatype)
-    y_train = np.array([1, 1, 2, 2], dtype=datatype)
-    X_test = np.array([[3.0, 5.0], [2.0, 5.0]]).astype(datatype)
+    X, y = make_blobs(n_samples=100,
+                      n_features=3,
+                      centers=2,
+                      random_state=0)
+    X = X.astype(dtype)
+    y = y.astype(dtype)
+
+    # Default loss is squared_loss
+    y[y == 0] = -1
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        train_size=0.8)
+
+    if datatype == "dataframe":
+        X_train = cudf.DataFrame.from_gpu_matrix(X_train)
+        X_test = cudf.DataFrame.from_gpu_matrix(X_test)
+        y_train = cudf.Series(y_train)
 
     cu_sgd = cumlSGD()
 
     cu_sgd.fit(X_train, y_train)
-    cu_pred = cu_sgd.predict(X_test).to_array()
-    print("cuML predictions : ", cu_pred)
+    cu_pred = cu_sgd.predict(X_test)
+
+    if datatype == "dataframe":
+        assert isinstance(cu_pred, cudf.Series)
+        cu_pred = cu_pred.to_array()
+
+    else:
+        assert isinstance(cu_pred, np.ndarray)
+
+    # Adjust for squared loss (we don't need to test for high accuracy,
+    # just that the loss function tended towards the expected classes.
+    cu_pred[cu_pred < 0] = -1
+    cu_pred[cu_pred >= 0] = 1
+
+    assert np.array_equal(cu_pred, y_test)

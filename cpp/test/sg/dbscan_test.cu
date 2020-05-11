@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <vector>
@@ -87,8 +88,7 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    score = adjustedRandIndex(handle, labels_ref, labels, params.n_row, 0,
-                              params.n_centers - 1);
+    score = adjustedRandIndex(handle, labels_ref, labels, params.n_row);
 
     if (score < 1.0) {
       auto str = arr2Str(labels_ref, 25, "labels_ref", handle.getStream());

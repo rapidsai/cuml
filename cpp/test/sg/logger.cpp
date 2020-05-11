@@ -17,9 +17,18 @@
 #include <gtest/gtest.h>
 #include <cuml/common/logger.hpp>
 
+namespace ML {
+
 TEST(Logger, Test) {
   CUML_LOG_CRITICAL("This is a critical message");
   CUML_LOG_ERROR("This is an error message");
   CUML_LOG_WARN("This is a warning message");
   CUML_LOG_INFO("This is an info message");
+
+  Logger::get().setLevel(CUML_LEVEL_WARN);
+  ASSERT_EQ(CUML_LEVEL_WARN, Logger::get().getLevel());
+  Logger::get().setLevel(CUML_LEVEL_INFO);
+  ASSERT_EQ(CUML_LEVEL_INFO, Logger::get().getLevel());
 }
+
+}  // namespace ML

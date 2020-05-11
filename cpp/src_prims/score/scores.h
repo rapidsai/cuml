@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include "linalg/eltwise.h"
 #include "linalg/power.h"
 #include "linalg/subtract.h"
