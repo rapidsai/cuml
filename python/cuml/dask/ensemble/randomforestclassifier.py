@@ -25,7 +25,6 @@ from cuml.dask.common.base import DelayedPredictionMixin, \
 from cuml.dask.ensemble.randomforestcommon import \
     BaseRandomForestModel
 
-
 class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                              DelayedPredictionProbaMixin):
 
@@ -207,7 +206,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         )
 
     @staticmethod
-    def _predict_model_on_cpu(model, X, convert_dtype, r):
+    def _predict_model_on_cpu(model, X, convert_dtype):
         return model._predict_get_all(X, convert_dtype)
 
     def print_summary(self):

@@ -11,6 +11,8 @@
 - PR #2067: python: wrap logging interface in cython
 - PR #2083: Added dtype, order, and use_full_low_rank to MNMG `make_regression`
 - PR #2074: SG and MNMG `make_classification`
+- PR #2127: Added order to SG `make_blobs`, and switch from C++ to cupy based implementation
+- PR #2057: Weighted k-means
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
@@ -24,6 +26,7 @@
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
+- PR #1985: C++ UMAP parametrizable tests
 - PR #2005: Adding missing algorithms to cuml benchmarks and notebook
 - PR #2016: Add capability to setup.py and build.sh to fully clean all cython build files and artifacts
 - PR #2044: A cuda-memcheck helper wrapper for devs
@@ -47,6 +50,7 @@
 - PR #2080: Improved import of sparse FIL forests from treelite
 - PR #2090: Upgrade C++ build to C++14 standard
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
+- PR #2128: Update Dask RF code to reduce the time required for GPU predict to run
 - PR #2125: Build infrastructure to use RAFT
 - PR #2131: Update Dask RF fit to use DistributedDataHandler
 - PR #2055: Update the metrics notebook to use important cuML models
@@ -64,8 +68,20 @@
 - PR #2178: Reduce duplicated code in RF
 - PR #2124: Expand tutorial docs and sample notebook
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
+- PR #2186: Refactor cython code to build OPG structs in common utils file
+- PR #2180: Add fully single GPU singlegpu python build
+- PR #2187: CMake improvements to manage conda environment dependencies
 - PR #2185: Add has_sklearn function and use it in datasets/classification.
 - PR #2193: Order-independent local shuffle in `cuml.dask.make_regression`
+- PR #2184: Refoctor headers for holtwinters, rproj, tsvd, tsne, umap
+- PR #2199: Remove unncessary notebooks
+- PR #2195: Separating fit and transform calls in SG, MNMG PCA to save transform array memory consumption
+- PR #2201: Re-enabling UMAP repro tests
+- PR #2196: Updates to benchmarks. Moving notebook
+- PR #2210: Updating KNN tests to evaluate multiple index partitions
+- PR #2205: Use timeout to add 2 hour hard limit to dask tests
+- PR #2214: Remove utils folder and refactor to common folder
+- PR #2225: input_to_cuml_array keep order option, test updates and cleanup
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -98,9 +114,14 @@
 - PR #2162: Use stream in transpose prim
 - PR #2165: Fit function test correction
 - PR #2166: Fix handling of temp file in RF pickling
+- PR #2176: C++: fix for adjusted rand index when input array is all zeros
 - PR #2179: Fix clang tools version in libcuml recipe
 - PR #2183: Fix RAFT in nightly package
 - PR #2191: Fix placement of SVM parameter documentation and add examples
+- PR #2217: Fix opg_utils naming to fix singlegpu build
+- PR #2223: Fix bug in ARIMA C++ benchmark
+- PR #2224: Temporary fix for CI until new Dask version is released
+- PR #2228: Update to use __reduce_ex__ in CumlArray to override cudf.Buffer
 
 # cuML 0.13.0 (Date TBD)
 
@@ -118,6 +139,7 @@
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
+- PR #1814: ROC AUC score implementation with cupy
 - PR #1767: Single GPU decomposition models configurable output
 - PR #1646: Using FIL to predict in MNMG RF
 - PR #1778: Make cuML Handle picklable

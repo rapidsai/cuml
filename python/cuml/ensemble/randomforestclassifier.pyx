@@ -46,8 +46,8 @@ from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
     _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.fil.fil import TreeliteModel as tl
-from cuml.utils import input_to_cuml_array, rmm_cupy_ary
-from cuml.utils import get_cudf_column_ptr, zeros
+from cuml.common import input_to_cuml_array, rmm_cupy_ary
+from cuml.common import get_cudf_column_ptr, zeros
 
 from numba import cuda
 
@@ -492,7 +492,7 @@ class RandomForestClassifier(BaseRandomForestModel):
         X_ptr = X_m.ptr
         y_ptr = y_m.ptr
         cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
+            <cumlHandle*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
@@ -981,11 +981,11 @@ class RandomForestClassifier(BaseRandomForestModel):
         """
         Prints the summary of the forest used to train and test the model
         """
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
 
-        cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
+        cdef RandomForestMetaData[double, int] *rf_forest64 = \
+            <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
             print_rf_summary(rf_forest64)
@@ -997,11 +997,11 @@ class RandomForestClassifier(BaseRandomForestModel):
         Prints the detailed information about the forest used to
         train and test the Random Forest model
         """
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
 
-        cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
+        cdef RandomForestMetaData[double, int] *rf_forest64 = \
+            <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
             print_rf_detailed(rf_forest64)

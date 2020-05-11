@@ -107,7 +107,7 @@ class BaseRandomForestModel(Base):
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = handle.getNumInternalStreams()
         self.seed = seed
-        self.model_pbuf_bytes = []
+        self.model_pbuf_bytes = bytearray()
        # if self.model_type == curfr:
        # print have a check for the random forest meta data in init
     """
