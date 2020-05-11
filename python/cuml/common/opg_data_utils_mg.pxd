@@ -24,7 +24,7 @@
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
-from cuml.utils.cython_utils import *
+from cuml.common.cython_utils import *
 from cython.operator cimport dereference as deref
 
 
