@@ -16,7 +16,7 @@
 
 import cupy as cp
 import numpy as np
-from cuml.common import with_cupy_rmm
+from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common import input_to_cuml_array
 import math
 
