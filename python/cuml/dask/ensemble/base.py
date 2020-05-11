@@ -2,8 +2,8 @@ import dask
 import math
 
 from cuml.dask.common.input_utils import DistributedDataHandler, \
-    wait_and_raise_from_futures, concatenate
-from dask.distributed import default_client
+    concatenate
+from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
 
 
 class BaseRandomForestModel(object):
@@ -22,28 +22,12 @@ class BaseRandomForestModel(object):
                       base_seed,
                       **kwargs):
 
-        self.client = default_client() if client is None else client
-        if workers is None:
-            workers = self.client.has_what().keys()
-        self.workers = workers
-
+        self.client = get_client(client)
+        self.workers = self.client.scheduler_info()['workers'].keys()
         self.local_model = None
 
-        n_workers = len(self.workers)
-        if n_estimators < n_workers:
-            raise ValueError(
-                "n_estimators cannot be lower than number of dask workers."
-            )
-
-        n_est_per_worker = math.floor(n_estimators / n_workers)
-
         self.n_estimators_per_worker = \
-            [n_est_per_worker for i in range(n_workers)]
-        remaining_est = n_estimators - (n_est_per_worker * n_workers)
-        for i in range(remaining_est):
-            self.n_estimators_per_worker[i] = (
-                self.n_estimators_per_worker[i] + 1
-            )
+            self._estimators_per_worker(n_estimators)
         if base_seed is None:
             base_seed = 0
         seeds = [base_seed]
@@ -64,6 +48,23 @@ class BaseRandomForestModel(object):
         }
 
         wait_and_raise_from_futures(list(self.rfs.values()))
+
+    def _estimators_per_worker(self, n_estimators):
+        n_workers = len(self.workers)
+        if n_estimators < n_workers:
+            raise ValueError(
+                "n_estimators cannot be lower than number of dask workers."
+            )
+
+        n_est_per_worker = math.floor(n_estimators / n_workers)
+        n_estimators_per_worker = \
+            [n_est_per_worker for i in range(n_workers)]
+        remaining_est = n_estimators - (n_est_per_worker * n_workers)
+        for i in range(remaining_est):
+            n_estimators_per_worker[i] = (
+                n_estimators_per_worker[i] + 1
+            )
+        return n_estimators_per_worker
 
     def _fit(self, model, dataset, convert_dtype):
         data = DistributedDataHandler.create(dataset, client=self.client)

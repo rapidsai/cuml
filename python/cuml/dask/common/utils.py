@@ -19,7 +19,7 @@ import numba.cuda
 import random
 import time
 
-from dask.distributed import default_client
+from dask.distributed import default_client, wait
 
 from cuml.utils import device_of_gpu_matrix
 
@@ -143,6 +143,16 @@ def raise_exception_from_futures(futures):
         raise RuntimeError("%d of %d worker jobs failed: %s" % (
             len(errs), len(futures), ", ".join(map(str, errs))
             ))
+
+
+def wait_and_raise_from_futures(futures):
+    """
+    Returns the collected futures after all the futures
+    have finished and do not indicate any exceptions.
+    """
+    wait(futures)
+    raise_exception_from_futures(futures)
+    return futures
 
 
 def raise_mg_import_exception():
