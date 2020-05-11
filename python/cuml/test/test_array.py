@@ -25,7 +25,7 @@ from copy import deepcopy
 from numba import cuda
 from cudf.core.buffer import Buffer
 from cuml.common.array import CumlArray
-from cuml.utils.memory_utils import _get_size_from_shape
+from cuml.common.memory_utils import _get_size_from_shape
 from rmm import DeviceBuffer
 
 test_input_types = [
@@ -404,7 +404,7 @@ def test_deepcopy(input_type):
 def create_input(input_type, dtype, shape, order):
     float_dtypes = [np.float16, np.float32, np.float64]
     if dtype in float_dtypes:
-        rand_ary = np.random.random(shape)
+        rand_ary = cp.random.random(shape)
     else:
         rand_ary = cp.random.randint(100, size=shape)
 
