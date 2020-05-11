@@ -19,7 +19,6 @@ import pytest
 import cudf
 import cupy as cp
 import numpy as np
-import pandas as pd
 
 from cuml.common import input_to_cuml_array
 from cuml.common import input_to_dev_array
