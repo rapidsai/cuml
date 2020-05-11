@@ -51,6 +51,9 @@ from sklearn.metrics.regression import mean_squared_log_error as sklearn_msle
 
 from cuml.common import has_scipy
 
+from cuml.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
+
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('use_handle', [True, False])
@@ -592,3 +595,51 @@ def test_confusion_matrix_random_weights(n_samples, dtype, weights_dtype):
     cm = confusion_matrix(y_true, y_pred, sample_weight=sample_weight)
     ref = sk_confusion_matrix(y_true, y_pred, sample_weight=sample_weight)
     cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
+
+
+def test_roc_auc_score():
+    y_true = np.array([0, 0, 1, 1])
+    y_pred = np.array([0.1, 0.4, 0.35, 0.8])
+    assert_almost_equal(roc_auc_score(y_true, y_pred),
+                        sklearn_roc_auc_score(y_true, y_pred))
+
+    y_true = np.array([0, 0, 1, 1, 0])
+    y_pred = np.array([0.8, 0.4, 0.4, 0.8, 0.8])
+    assert_almost_equal(roc_auc_score(y_true, y_pred),
+                        sklearn_roc_auc_score(y_true, y_pred))
+
+
+@pytest.mark.parametrize('n_samples', [50, 500000])
+@pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
+def test_roc_auc_score_random(n_samples, dtype):
+
+    y_true, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 2, n_samples).astype(dtype))
+
+    y_pred, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 1000, n_samples).astype(dtype))
+
+    auc = roc_auc_score(y_true, y_pred)
+    skl_auc = sklearn_roc_auc_score(y_true, y_pred)
+    assert_almost_equal(auc, skl_auc)
+
+
+def test_roc_auc_score_at_limits():
+    y_true = np.array([0., 0., 0.], dtype=np.float)
+    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+
+    err_msg = ("roc_auc_score cannot be used when "
+               "only one class present in y_true. ROC AUC score "
+               "is not defined in that case.")
+
+    with pytest.raises(ValueError, match=err_msg):
+        roc_auc_score(y_true, y_pred)
+
+    y_true = np.array([0., 0.5, 1.0], dtype=np.float)
+    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+
+    err_msg = ("Continuous format of y_true  "
+               "is not supported by roc_auc_score")
+
+    with pytest.raises(ValueError, match=err_msg):
+        roc_auc_score(y_true, y_pred)
