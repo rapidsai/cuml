@@ -75,7 +75,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   ARIMAOrder order_after_prep = {order.p, 0,       order.q, order.P,
                                  0,       order.Q, order.s, order.k};
   std::vector<double> loglike = std::vector<double>(batch_size);
-  /// TODO: use device loglike to avoid useless copy
+  /// TODO: use device loglike to avoid useless copy ; part of #2233
   batched_loglike(handle, d_y_prep, batch_size, n_obs - diff_obs,
                   order_after_prep, params, loglike.data(), d_vs, false, true,
                   MLE, 0, num_steps, d_y_fc);
@@ -268,7 +268,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
   ARIMAParams<double> Tparams;
 
   if (method != MLE && fc_steps) {
-    /// TODO: warning
+    /// TODO: add warning when solving #2232
     method = MLE;
   }
 
