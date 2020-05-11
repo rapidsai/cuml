@@ -16,13 +16,14 @@
 
 import cupy as cp
 import numpy as np
+import pickle
 
 from rmm import DeviceBuffer
 from cudf.core import Buffer, Series, DataFrame
-from cuml.utils import with_cupy_rmm
-from cuml.utils.memory_utils import _get_size_from_shape
-from cuml.utils.memory_utils import _order_to_strides
-from cuml.utils.memory_utils import _strides_to_order
+from cuml.common.memory_utils import with_cupy_rmm
+from cuml.common.memory_utils import _get_size_from_shape
+from cuml.common.memory_utils import _order_to_strides
+from cuml.common.memory_utils import _strides_to_order
 from numba import cuda
 
 
@@ -168,8 +169,11 @@ class CumlArray(Buffer):
     def __setitem__(self, slice, value):
         cp.asarray(self).__setitem__(slice, value)
 
-    def __reduce__(self):
-        return self.__class__, (self.to_output('numpy'),)
+    def __reduce_ex__(self, protocol):
+        data = self.to_output('numpy')
+        if protocol >= 5:
+            data = pickle.PickleBuffer(data)
+        return self.__class__, (data,)
 
     def __len__(self):
         return self.shape[0]

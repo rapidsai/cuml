@@ -255,10 +255,20 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     gpu_res.setCudaMallocWarning(false);
     gpu_res.setDefaultStream(device, stream);
 
-    faiss::gpu::bruteForceKnn(
-      &gpu_res, faiss::METRIC_L2, input[i], rowMajorIndex, sizes[i],
-      search_items, rowMajorQuery, n, D, k, all_D.data() + (i * k * n),
-      all_I.data() + (i * k * n));
+    faiss::gpu::GpuDistanceParams args;
+    args.metric = faiss::METRIC_L2;
+    args.k = k;
+    args.dims = D;
+    args.vectors = input[i];
+    args.vectorsRowMajor = rowMajorIndex;
+    args.numVectors = sizes[i];
+    args.queries = search_items;
+    args.queriesRowMajor = rowMajorQuery;
+    args.numQueries = n;
+    args.outDistances = all_D.data() + (i * k * n);
+    args.outIndices = all_I.data() + (i * k * n);
+
+    bfKnn(&gpu_res, args);
 
     CUDA_CHECK(cudaPeekAtLastError());
   }
@@ -278,6 +288,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     userStream);
 
   if (translations == nullptr) delete id_ranges;
+
+  CUDA_CHECK(cudaStreamSynchronize(userStream));
 };
 
 template <typename IntType = int,
@@ -367,6 +379,7 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
   LabelType pred = 0;
   for (int j = 0; j < n_neighbors; j++) {
     int64_t neighbor_idx = knn_indices[i + j];
+    int n = neighbor_idx;
     pred += labels[neighbor_idx];
   }
 
@@ -533,17 +546,17 @@ void knn_regress(ValType *out, const int64_t *knn_indices,
                  const std::vector<ValType *> &y, size_t n_labels,
                  size_t n_rows, int k, cudaStream_t user_stream,
                  cudaStream_t *int_streams = nullptr, int n_int_streams = 0) {
-  dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
-  dim3 blk(TPB_X, 1, 1);
-
   /**
    * Vote average regression value
    */
   for (int i = 0; i < y.size(); i++) {
     cudaStream_t stream =
       select_stream(user_stream, int_streams, n_int_streams, i);
-    regress_avg_kernel<<<grid, blk, 0, stream>>>(
+
+    regress_avg_kernel<<<ceildiv(n_rows, (size_t)TPB_X), TPB_X, 0, stream>>>(
       out, knn_indices, y[i], n_labels, n_rows, k, y.size(), i);
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaPeekAtLastError());
   }
 }

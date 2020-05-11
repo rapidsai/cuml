@@ -19,7 +19,7 @@ import dask.delayed
 from dask.distributed import default_client
 import numpy as np
 import cupy as cp
-from cuml.utils import with_cupy_rmm
+from cuml.common import with_cupy_rmm
 from cuml.dask.datasets.blobs import _get_X
 from cuml.dask.datasets.blobs import _get_labels
 from cuml.dask.common.input_utils import DistributedDataHandler
@@ -107,7 +107,7 @@ def _data_from_multivariate_normal(client, rs, covar, chunksizes, n_features,
     return da.concatenate(data_dela, axis=0)
 
 
-def _dask_f_order_shuffle(part, n_samples, seed, features_indices):
+def _dask_shuffle(part, n_samples, seed, features_indices):
     X, y = part[0], part[1]
     local_rs = cp.random.RandomState(seed=seed)
     samples_indices = local_rs.permutation(n_samples)
@@ -119,13 +119,13 @@ def _dask_f_order_shuffle(part, n_samples, seed, features_indices):
     return X, y
 
 
-def _f_order_shuffle(client, rs, X, y, chunksizes, n_features,
-                     features_indices, n_targets, dtype):
+def _shuffle(client, rs, X, y, chunksizes, n_features,
+             features_indices, n_targets, dtype):
     data_ddh = DistributedDataHandler.create(data=(X, y), client=client)
 
     chunk_seeds = rs.permutation(len(chunksizes))
 
-    shuffled = [client.submit(_dask_f_order_shuffle, part,
+    shuffled = [client.submit(_dask_shuffle, part,
                               chunksizes[idx],
                               chunk_seeds[idx], features_indices,
                               workers=[w], pure=False)
@@ -451,21 +451,9 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
     # Randomly permute samples and features
     if shuffle:
         features_indices = np.random.permutation(n_features)
-        if order == 'F':
-            X, y = _f_order_shuffle(client, rs, X, y, data_chunksizes,
-                                    n_features, features_indices,
-                                    n_targets, dtype)
-
-        elif order == 'C':
-            samples_indices = np.random.permutation(n_samples)
-
-            X = X[samples_indices, :]
-            y = y[samples_indices, :]
-
-            X = X[:, features_indices]
-
-            X = X.rechunk((data_chunksizes, -1))
-            y = y.rechunk((data_chunksizes, -1))
+        X, y = _shuffle(client, rs, X, y, data_chunksizes,
+                        n_features, features_indices,
+                        n_targets, dtype)
 
         ground_truth = ground_truth[features_indices, :]
 

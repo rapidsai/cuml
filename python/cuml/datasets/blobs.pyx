@@ -25,7 +25,7 @@ import numpy as np
 from collections.abc import Sequence
 
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_dev_array_ptr, zeros, input_to_dev_array
+from cuml.common import get_dev_array_ptr, zeros, input_to_dev_array
 
 from libcpp cimport bool
 from libc.stdint cimport uint64_t, uintptr_t

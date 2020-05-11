@@ -33,10 +33,10 @@ from cuml.common import logger
 from cuml.common.array import CumlArray as cumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+from cuml.common.input_utils import input_to_cuml_array
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
-from cuml.utils.input_utils import input_to_cuml_array
 
 
 # TODO:
