@@ -20,16 +20,19 @@
 # cython: language_level = 3
 
 import cuml
-import cuml.common.handle
 import cuml.common.cuda
-import inspect
+import cuml.common.handle
 import cuml.common.logger as logger
+import inspect
 
-from cudf.core import Series, DataFrame
+from cudf.core import Series as cuSeries
+from cudf.core import DataFrame as cuDataFrame
 from cuml.common.array import CumlArray
 from cupy import ndarray as cupyArray
 from numba.cuda import devicearray as numbaArray
 from numpy import ndarray as numpyArray
+from pandas import DataFrame as pdDataFrame
+from pandas import Series as pdSeries
 
 
 class Base:
@@ -297,8 +300,10 @@ class Base:
 _input_type_to_str = {
     numpyArray: 'numpy',
     cupyArray: 'cupy',
-    Series: 'cudf',
-    DataFrame: 'cudf'
+    cuSeries: 'cudf',
+    cuDataFrame: 'cudf',
+    pdSeries: 'numpy',
+    pdDataFrame: 'numpy'
 }
 
 
