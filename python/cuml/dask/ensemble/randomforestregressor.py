@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import dask
+import math
 
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.base import DelayedPredictionMixin
@@ -21,7 +23,6 @@ from cuml.dask.ensemble.randomforestcommon import \
     BaseRandomForestModel
 
 from dask.distributed import default_client, wait
-
 
 class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
     """
