@@ -45,8 +45,12 @@ class BaseEstimator(object):
         self.local_model = model
 
     @classmethod
-    def load(cls, file, client=None, verbose=False, **kwargs):
-        model = pickle.load(file)
+    def load(cls, file, client=None, verbose=False, pickle_args={}, **kwargs):
+        """
+        Convenience function to load a saved cuml model into a distributed
+        model.
+        """
+        model = pickle.load(file, **pickle_args)
 
         if isinstance(model, Base):
             # If serialized model is single GPU, create new
