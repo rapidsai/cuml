@@ -274,7 +274,7 @@ def input_to_host_array(X, order='F', deepcopy=False,
     X_m = ary_tuple.array.to_output('numpy')
 
     return inp_array(array=X_m,
-                     pointer=X_m.__array_interface__['data'][0].ptr,
+                     pointer=X_m.__array_interface__['data'][0],
                      n_rows=ary_tuple.n_rows,
                      n_cols=ary_tuple.n_cols,
                      dtype=ary_tuple.dtype)
