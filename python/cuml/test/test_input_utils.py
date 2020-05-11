@@ -17,16 +17,16 @@
 import pytest
 
 import cudf
+import cupy as cp
 import numpy as np
-
-from numba import cuda
-from copy import deepcopy
+import pandas as pd
 
 from cuml.common import input_to_cuml_array
 from cuml.common import input_to_dev_array
 from cuml.common import input_to_host_array
 from cuml.common import has_cupy
 from cuml.common.input_utils import convert_dtype
+from numba import cuda as nbcuda
 
 
 ###############################################################################
@@ -45,7 +45,7 @@ test_dtypes_acceptable = [
 ]
 
 test_input_types = [
-    'numpy', 'numba', 'cupy', 'dataframe'
+    'numpy', 'numba', 'cupy', 'cudf', 'pandas'
 ]
 
 test_num_rows = [1, 100]
@@ -129,7 +129,7 @@ def test_convert_matrix_order_cuml_array(dtype, input_type, from_order,
                                                 order=to_order)
 
     if to_order == 'K':
-        if input_type == 'dataframe':
+        if input_type in ['cudf', 'pandas']:
             assert conv_data.order == 'F'
         else:
             assert conv_data.order == from_order
@@ -191,9 +191,8 @@ def test_dtype_check(dtype, check_dtype, input_type, order):
         pytest.xfail("float16 not yet supported by numba/cuDF.from_gpu_matrix")
 
     if dtype in [np.uint8, np.uint16, np.uint32, np.uint64]:
-        if input_type == 'dataframe':
-            pytest.xfail("unsigned int types not yet supported by \
-                         cuDF")
+        if input_type in ['cudf', 'pandas']:
+            pytest.xfail("unsigned int types not yet supported")
 
     input_data, real_data = get_input(input_type, 10, 10, dtype, order=order)
 
@@ -225,7 +224,7 @@ def test_convert_input_dtype(from_dtype, to_dtype, input_type, num_rows,
         pytest.xfail("float16 not yet supported by numba/cuDF.from_gpu_matrix")
 
     if from_dtype in [np.uint8, np.uint16, np.uint32, np.uint64]:
-        if input_type == 'dataframe':
+        if input_type == 'cudf':
             pytest.xfail("unsigned int types not yet supported by \
                          cuDF")
         elif not has_cupy():
@@ -243,10 +242,12 @@ def test_convert_input_dtype(from_dtype, to_dtype, input_type, num_rows,
 
     if input_type == 'numpy':
         np.testing.assert_equal(converted_data, real_data)
-    elif input_type != 'dataframe':
-        np.testing.assert_equal(converted_data.copy_to_host(), real_data)
-    else:
+    elif input_type == 'cudf':
         np.testing.assert_equal(converted_data.as_matrix(), real_data)
+    elif input_type == 'pandas':
+        np.testing.assert_equal(converted_data.to_numpy(), real_data)
+    else:
+        np.testing.assert_equal(converted_data.copy_to_host(), real_data)
 
 
 ###############################################################################
@@ -262,48 +263,29 @@ def check_numpy_order(ary, order):
 
 
 def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
-    if has_cupy:
-        import cupy as cp
-        rand_mat = (cp.random.rand(nrows, ncols)*10)
-        rand_mat = cp.array(rand_mat, order=order).astype(dtype)
+    rand_mat = (cp.random.rand(nrows, ncols) * 10)
+    rand_mat = cp.array(rand_mat, order=order).astype(dtype)
 
-        if type == 'numpy':
-            result = np.array(cp.asnumpy(rand_mat), order=order)
+    if type == 'numpy':
+        result = np.array(cp.asnumpy(rand_mat), order=order)
 
-        if type == 'cupy':
-            result = rand_mat
+    if type == 'cupy':
+        result = rand_mat
 
-        if type == 'numba':
-            result = cuda.as_cuda_array(rand_mat)
+    if type == 'numba':
+        result = nbcuda.as_cuda_array(rand_mat)
 
-        if type == 'dataframe':
-            X_df = cudf.DataFrame()
-            result = X_df.from_gpu_matrix(cuda.as_cuda_array(rand_mat))
+    if type == 'cudf':
+        result = cudf.DataFrame()
+        result = result.from_gpu_matrix(nbcuda.as_cuda_array(rand_mat))
 
-        if out_dtype:
-            return result, np.array(cp.asnumpy(rand_mat).astype(out_dtype),
-                                    order=order)
-        else:
-            return result, np.array(cp.asnumpy(rand_mat), order=order)
+    if type == 'pandas':
+        result = cudf.DataFrame()
+        result = result.from_gpu_matrix(nbcuda.as_cuda_array(rand_mat))
+        result = result.to_pandas()
 
+    if out_dtype:
+        return result, np.array(cp.asnumpy(rand_mat).astype(out_dtype),
+                                order=order)
     else:
-        rand_mat = (np.random.rand(nrows, ncols)*10)
-        rand_mat = np.array(rand_mat, order=order).astype(dtype)
-
-        if type == 'numpy':
-            result = deepcopy(rand_mat)
-
-        if type == 'cupy':
-            result = None
-
-        if type == 'numba':
-            result = cuda.to_device(rand_mat)
-
-        if type == 'dataframe':
-            X_df = cudf.DataFrame()
-            result = X_df.from_gpu_matrix(cuda.to_device(rand_mat))
-
-        if out_dtype:
-            return result, rand_mat.astype(out_dtype)
-        else:
-            return result, rand_mat
+        return result, np.array(cp.asnumpy(rand_mat), order=order)

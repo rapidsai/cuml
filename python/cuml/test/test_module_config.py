@@ -23,15 +23,30 @@ import numpy as np
 
 from numba.cuda import is_cuda_array, as_cuda_array
 
-global_input_types = [
+
+###############################################################################
+#                                    Parameters                               #
+###############################################################################
+
+global_input_configs = [
     'numpy', 'numba', 'cupy', 'cudf'
+]
+
+global_input_types = [
+    'numpy', 'numba', 'cupy', 'cudf', 'pandas'
 ]
 
 test_output_types = {
     'numpy': np.ndarray,
     'cupy': cp.ndarray,
-    'cudf': cudf.Series
+    'cudf': cudf.Series,
+    'pandas': np.ndarray
 }
+
+
+###############################################################################
+#                                    Tests                                    #
+###############################################################################
 
 
 @pytest.mark.parametrize('input_type', global_input_types)
@@ -50,7 +65,7 @@ def test_default_global_output_type(input_type):
         assert isinstance(res, test_output_types[input_type])
 
 
-@pytest.mark.parametrize('global_type', global_input_types)
+@pytest.mark.parametrize('global_type', global_input_configs)
 @pytest.mark.parametrize('input_type', global_input_types)
 def test_global_output_type(global_type, input_type):
     dataset = get_small_dataset(input_type)
@@ -68,8 +83,8 @@ def test_global_output_type(global_type, input_type):
         assert isinstance(res, test_output_types[global_type])
 
 
-@pytest.mark.parametrize('global_type', global_input_types)
-@pytest.mark.parametrize('context_type', global_input_types)
+@pytest.mark.parametrize('global_type', global_input_configs)
+@pytest.mark.parametrize('context_type', global_input_configs)
 def test_output_type_context_mgr(global_type, context_type):
     dataset = get_small_dataset('numba')
 
@@ -100,6 +115,11 @@ def test_output_type_context_mgr(global_type, context_type):
     cuml.set_global_output_type('input')
 
 
+###############################################################################
+#                           Utility Functions                                 #
+###############################################################################
+
+
 def get_small_dataset(output_type):
     ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
     ary = cp.asarray(ary)
@@ -112,6 +132,9 @@ def get_small_dataset(output_type):
 
     elif output_type == 'numpy':
         return cp.asnumpy(ary)
+
+    elif output_type == 'pandas':
+        return cudf.DataFrame.from_gpu_matrix(as_cuda_array(ary)).to_pandas()
 
     else:
         return cudf.DataFrame.from_gpu_matrix(as_cuda_array(ary))
