@@ -83,42 +83,6 @@ cdef extern from "cumlprims/opg/tsvd.hpp" namespace "ML::TSVD::opg":
                             paramsTSVD &prms,
                             bool verbose) except +
 
-    cdef void transform(cumlHandle& handle,
-                        RankSizePair **rank_sizes,
-                        size_t n_parts,
-                        floatData_t **input,
-                        float *components,
-                        floatData_t **trans_input,
-                        paramsTSVD &prms,
-                        bool verbose) except +
-
-    cdef void transform(cumlHandle& handle,
-                        RankSizePair **rank_sizes,
-                        size_t n_parts,
-                        doubleData_t **input,
-                        double *components,
-                        doubleData_t **trans_input,
-                        paramsTSVD &prms,
-                        bool verbose) except +
-
-    cdef void inverse_transform(cumlHandle& handle,
-                                RankSizePair **rank_sizes,
-                                size_t n_parts,
-                                floatData_t **trans_input,
-                                float *components,
-                                floatData_t **input,
-                                paramsTSVD &prms,
-                                bool verbose) except +
-
-    cdef void inverse_transform(cumlHandle& handle,
-                                RankSizePair **rank_sizes,
-                                size_t n_parts,
-                                doubleData_t **trans_input,
-                                double *components,
-                                doubleData_t **input,
-                                paramsTSVD &prms,
-                                bool verbose) except +
-
 
 class TSVDMG(TruncatedSVD, BaseDecompositionMG):
 

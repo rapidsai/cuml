@@ -27,7 +27,7 @@ import cuml
 from cuml.common.array import CumlArray as cumlArray
 from cuml.common.base import _input_to_type
 from cuml.common.handle cimport cumlHandle
-from cuml.utils.input_utils import input_to_host_array, input_to_cuml_array
+from cuml.common.input_utils import input_to_host_array, input_to_cuml_array
 
 # TODO: #2234 and #2235
 

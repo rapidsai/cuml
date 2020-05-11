@@ -16,12 +16,17 @@
 
 from distutils.sysconfig import get_python_lib
 from pathlib import Path
+from pprint import pprint
 from setuptools import find_packages
 from setuptools import setup
 from setuptools.extension import Extension
 from setuputils import clean_folder
-from setuputils import get_submodule_dependencies
+from setuputils import clone_repo_if_needed
+from setuputils import get_environment_option
+from setuputils import get_cli_option
+from setuputils import use_raft_package
 
+import glob
 import numpy
 import os
 import shutil
@@ -46,21 +51,29 @@ install_requires = [
 ]
 
 ##############################################################################
+# - Print of build options used by setup.py  --------------------------------
+
+cuda_home = get_environment_option("CUDA_HOME")
+libcuml_path = get_environment_option('CUML_BUILD_PATH')
+raft_path = get_environment_option('RAFT_PATH')
+
+clean_artifacts = get_cli_option('clean')
+single_gpu_build = get_cli_option('--singlegpu')
+
+##############################################################################
 # - Dependencies include and lib folder setup --------------------------------
 
-CUDA_HOME = os.environ.get("CUDA_HOME", False)
-if not CUDA_HOME:
-    CUDA_HOME = (
-        os.popen('echo "$(dirname $(dirname $(which nvcc)))"').read().strip()
-    )
-cuda_include_dir = os.path.join(CUDA_HOME, "include")
-cuda_lib_dir = os.path.join(CUDA_HOME, "lib64")
+if not cuda_home:
+    cuda_home = str(Path(shutil.which('nvcc')).parent.parent)
+    print("-- Using nvcc to detect CUDA, found at " + str(cuda_home))
+cuda_include_dir = os.path.join(cuda_home, "include")
+cuda_lib_dir = os.path.join(cuda_home, "lib64")
 
 ##############################################################################
 # - Clean target -------------------------------------------------------------
 
-if "clean" in sys.argv:
-    print("Cleaning all Python and Cython build artifacts...")
+if clean_artifacts:
+    print("-- Cleaning all Python and Cython build artifacts...")
 
     treelite_path = ""
     libcuml_path = ""
@@ -68,10 +81,12 @@ if "clean" in sys.argv:
     try:
         setup_file_path = str(Path(__file__).parent.absolute())
         shutil.rmtree(setup_file_path + '/.pytest_cache', ignore_errors=True)
-        shutil.rmtree(setup_file_path + '/external_repositories',
+        shutil.rmtree(setup_file_path + '/_external_repositories',
                       ignore_errors=True)
         shutil.rmtree(setup_file_path + '/cuml.egg-info', ignore_errors=True)
         shutil.rmtree(setup_file_path + '/__pycache__', ignore_errors=True)
+
+        os.remove(setup_file_path + '/cuml/raft')
 
         clean_folder(setup_file_path + '/cuml')
         shutil.rmtree(setup_file_path + '/build')
@@ -90,28 +105,17 @@ if "clean" in sys.argv:
         sys.exit(0)
 
 ##############################################################################
-# - Cloning dependencies if needed -------------------------------------------
+# - Cloning RAFT and dependencies if needed ----------------------------------
 
-subrepos = [
-    'treelite'
-]
+# Use RAFT repository in cuml.raft
 
-# We check if there is a libcuml++ build folder, by default in cpp/build
-# or in CUML_BUILD_PATH env variable. Otherwise setup.py will clone the
-# dependencies defined in cpp/cmake/Dependencies.cmake
-if os.environ.get('CUML_BUILD_PATH', False):
-    libcuml_path = '../' + os.environ.get('CUML_BUILD_PATH')
-else:
-    libcuml_path = '../cpp/build/'
+use_raft_package(raft_path, libcuml_path)
 
-found_cmake_repos = get_submodule_dependencies(subrepos,
-                                               libcuml_path=libcuml_path)
+# Use treelite from the libcuml build folder, otherwise clone it
+# Needed until there is a treelite distribution
 
-if found_cmake_repos:
-    treelite_path = os.path.join(libcuml_path,
-                                 'treelite/src/treelite/include')
-else:
-    treelite_path = 'external_repositories/treelite/include'
+treelite_path, _ = clone_repo_if_needed('treelite', libcuml_path)
+treelite_path = os.path.join(treelite_path, "include")
 
 
 ##############################################################################
@@ -134,7 +138,9 @@ include_dirs = ['../cpp/src',
                 os.path.dirname(sysconfig.get_path("include"))]
 
 # Exclude multigpu components that use libcumlprims if --singlegpu is used
-exc_list = []
+cython_exc_list = []
+python_exc_list = []
+
 if "--multigpu" in sys.argv:
     warnings.warn("Flag --multigpu is deprecated. By default cuML is"
                   "built with multi GPU support. To disable it use the flag"
@@ -142,15 +148,14 @@ if "--multigpu" in sys.argv:
     sys.argv.remove('--multigpu')
 
 if "--singlegpu" in sys.argv:
-    exc_list.append('cuml/cluster/kmeans_mg.pyx')
-    exc_list.append('cuml/decomposition/base_mg.pyx')
-    exc_list.append('cuml/decomposition/pca_mg.pyx')
-    exc_list.append('cuml/decomposition/tsvd_mg.pyx')
-    exc_list.append('cuml/linear_model/base_mg.pyx')
-    exc_list.append('cuml/linear_model/ridge_mg.pyx')
-    exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
-    exc_list.append('cuml/neighbors/nearest_neighbors_mg.pyx')
+    cython_exc_list = glob.glob('cuml/*/*_mg.pyx')
+    cython_exc_list = cython_exc_list + glob.glob('cuml/*/*_mg.pxd')
+    cython_exc_list.append('cuml/nccl/nccl.pyx')
 
+    print('--singlegpu: excluding the following Cython components:')
+    pprint(cython_exc_list)
+
+    python_exc_list = ["*.dask", "*.dask.*"]
 else:
     libs.append('cumlprims')
     libs.append('cumlcomms')
@@ -162,6 +167,9 @@ else:
 cmdclass = dict()
 cmdclass.update(versioneer.get_cmdclass())
 cmdclass["build_ext"] = build_ext
+
+if not libcuml_path:
+    libcuml_path = '../cpp/build/'
 
 extensions = [
     Extension("*",
@@ -179,7 +187,7 @@ for e in extensions:
     # TODO: this exclude is not working, need to research way to properly
     # exclude files for parallel build. See issue
     # https://github.com/rapidsai/cuml/issues/2037
-    # e.exclude = exc_list
+    # e.exclude = cython_exc_list
     e.cython_directives = dict(
         profile=False, language_level=3, embedsignature=True
     )
@@ -188,7 +196,7 @@ if "--singlegpu" in sys.argv:
     print("Full cythonization in parallel is not supported for singlegpu " +
           "target for now.")
     extensions = cythonize(extensions,
-                           exclude=exc_list)
+                           exclude=cython_exc_list)
     sys.argv.remove('--singlegpu')
 
 ##############################################################################
@@ -206,7 +214,8 @@ setup(name='cuml',
       author="NVIDIA Corporation",
       setup_requires=['cython'],
       ext_modules=extensions,
-      packages=find_packages(include=['cuml', 'cuml.*']),
+      packages=find_packages(include=['cuml', 'cuml.*'],
+                             exclude=python_exc_list),
       install_requires=install_requires,
       license="Apache",
       cmdclass=cmdclass,

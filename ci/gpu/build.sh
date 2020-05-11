@@ -64,6 +64,12 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "lightgbm"
 
 
+# Install contextvars on Python 3.6
+py_ver=$(python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
+if [ "$py_ver" == "3.6" ];then
+    conda install contextvars
+fi
+
 # Install the master version of dask, distributed, and dask-ml
 logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
 pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
@@ -128,7 +134,9 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
 
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak"
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask
+
+timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
 
 ################################################################################
 # TEST - Run GoogleTest for ml-prims
