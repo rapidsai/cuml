@@ -30,7 +30,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 
 from collections import defaultdict
 
@@ -235,7 +235,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int*> labels_ptr,
                           <size_t>self.max_mbytes_per_batch,
-                          <int> self.logging_level)
+                          <int> self.verbosity)
             else:
                 dbscanFit(handle_[0],
                           <float*>input_ptr,
@@ -245,7 +245,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int64_t*> labels_ptr,
                           <size_t>self.max_mbytes_per_batch,
-                          <int> self.logging_level)
+                          <int> self.verbosity)
 
         else:
             if out_dtype is "int32" or out_dtype is np.int32:
@@ -257,7 +257,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int*> labels_ptr,
                           <size_t> self.max_mbytes_per_batch,
-                          <int> self.logging_level)
+                          <int> self.verbosity)
             else:
                 dbscanFit(handle_[0],
                           <double*>input_ptr,
@@ -267,7 +267,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int64_t*> labels_ptr,
                           <size_t> self.max_mbytes_per_batch,
-                          <int> self.logging_level)
+                          <int> self.verbosity)
 
         # make sure that the `dbscanFit` is complete before the following
         # delete call happens

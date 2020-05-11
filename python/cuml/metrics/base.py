@@ -41,7 +41,7 @@ class RegressorMixin:
             R^2 of self.predict(X) wrt. y.
         """
         from cuml.metrics.regression import r2_score
-        from cuml.utils import input_to_dev_array
+        from cuml.common import input_to_dev_array
 
         X_m = input_to_dev_array(X)[0]
         y_m = input_to_dev_array(y)[0]
@@ -76,7 +76,7 @@ class ClassifierMixin:
             Accuracy of self.predict(X) wrt. y (fraction where y == pred_y)
         """
         from cuml.metrics.accuracy import accuracy_score
-        from cuml.utils import input_to_dev_array
+        from cuml.common import input_to_dev_array
 
         X_m = input_to_dev_array(X)[0]
         y_m = input_to_dev_array(y)[0]

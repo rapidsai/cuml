@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <rmm/rmm.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
+#include <rmm/mr/device/default_memory_resource.hpp>
 
 namespace ML {
 
@@ -32,11 +32,7 @@ namespace ML {
  */
 class rmmAllocatorAdapter : public ML::deviceAllocator {
  public:
-  rmmAllocatorAdapter() : _rmmInitialized(rmmIsInitialized(NULL)) {
-    if (!_rmmInitialized) {
-      CUML_LOG_WARN("rmm is not yet initialized!");
-    }
-  }
+  rmmAllocatorAdapter() {}
 
   /**
    * @brief asynchronosly allocate n bytes that can be used after all work in
@@ -47,18 +43,7 @@ class rmmAllocatorAdapter : public ML::deviceAllocator {
    */
   virtual void* allocate(std::size_t n, cudaStream_t stream) {
     void* ptr = 0;
-    if (!_rmmInitialized) {
-      CUDA_CHECK(cudaMalloc(&ptr, n));
-    } else {
-      rmmError_t rmmStatus = RMM_ALLOC(&ptr, n, stream);
-      if (RMM_SUCCESS != rmmStatus || 0 == ptr) {
-        std::ostringstream msg;
-        msg << "RMM allocation of " << n
-            << " byte failed: " << rmmGetErrorString(rmmStatus) << std::endl;
-        ;
-        throw MLCommon::Exception(msg.str());
-      }
-    }
+    ptr = rmm::mr::get_default_resource()->allocate(n, stream);
     return ptr;
   }
 
@@ -71,21 +56,10 @@ class rmmAllocatorAdapter : public ML::deviceAllocator {
    * @param[in] stream    the stream to use for the asynchronous free
    */
   virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) {
-    if (!_rmmInitialized) {
-      CUDA_CHECK_NO_THROW(cudaFree(p));
-    } else {
-      rmmError_t rmmStatus = RMM_FREE(p, stream);
-      if (RMM_SUCCESS != rmmStatus) {
-        CUML_LOG_ERROR("rmmFree: Failed to free pointer=%llx of size=%lu B!",
-                       (size_t)p, n);
-      }
-    }
+    rmm::mr::get_default_resource()->deallocate(p, n, stream);
   }
 
   virtual ~rmmAllocatorAdapter() {}
-
- private:
-  const bool _rmmInitialized;
 };
 
 }  // end namespace ML

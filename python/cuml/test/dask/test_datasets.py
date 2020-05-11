@@ -22,7 +22,8 @@ import cupy as cp
 
 from dask.distributed import Client
 
-from cuml.dask.datasets import make_blobs
+from cuml.dask.datasets.blobs import make_blobs
+from cuml.dask.common.input_utils import DistributedDataHandler
 
 from cuml.test.utils import unit_param, quality_param, stress_param
 
@@ -40,45 +41,42 @@ from cuml.dask.common.part_utils import _extract_partitions
                                     quality_param(100),
                                     stress_param(1000)])
 @pytest.mark.parametrize("order", ['F', 'C'])
-@pytest.mark.parametrize("output", ['array', 'dataframe'])
 def test_make_blobs(nrows,
                     ncols,
                     centers,
                     cluster_std,
                     dtype,
                     nparts,
-                    cluster,
                     order,
-                    output):
+                    cluster):
 
     c = Client(cluster)
     try:
+        nrows = int(nrows)
         X, y = make_blobs(nrows, ncols,
                           centers=centers,
                           cluster_std=cluster_std,
                           dtype=dtype,
                           n_parts=nparts,
-                          output=output,
-                          order=order)
+                          order=order,
+                          client=c)
 
-        assert X.npartitions == nparts
-        assert y.npartitions == nparts
+        assert len(X.chunks[0]) == nparts
+        assert len(y.chunks[0]) == nparts
 
-        X_local = X.compute()
+        assert X.shape == (nrows, ncols)
+        assert y.shape == (nrows, )
+
         y_local = y.compute()
+        assert len(cp.unique(y_local)) == centers
 
-        assert X_local.shape == (nrows, ncols)
+        X_ddh = DistributedDataHandler.create(data=X, client=c)
+        X_first = X_ddh.gpu_futures[0][1].result()
 
-        if output == 'dataframe':
-            assert len(y_local[0].unique()) == centers
-            assert X_local.dtypes.unique() == [dtype]
-            assert y_local.shape == (nrows, 1)
-
-        elif output == 'array':
-            import cupy as cp
-            assert len(cp.unique(y_local)) == centers
-            assert y_local.dtype == dtype
-            assert y_local.shape == (nrows, )
+        if order == 'F':
+            assert X_first.flags['F_CONTIGUOUS']
+        elif order == 'C':
+            assert X_first.flags['C_CONTIGUOUS']
 
     finally:
         c.close()
@@ -96,14 +94,14 @@ def test_make_blobs(nrows,
 @pytest.mark.parametrize('noise', [1.0])
 @pytest.mark.parametrize('shuffle', [True, False])
 @pytest.mark.parametrize('coef', [True, False])
-@pytest.mark.parametrize('random_state', [None, 1234])
-@pytest.mark.parametrize('n_parts', [unit_param(1),
-                         stress_param(3)])
+@pytest.mark.parametrize('n_parts', [4, 23])
+@pytest.mark.parametrize('order', ['F', 'C'])
+@pytest.mark.parametrize('use_full_low_rank', [True, False])
 def test_make_regression(n_samples, n_features, n_informative,
                          n_targets, bias, effective_rank,
                          tail_strength, noise, shuffle,
-                         coef, random_state, n_parts,
-                         cluster):
+                         coef, n_parts, order,
+                         use_full_low_rank, cluster):
     c = Client(cluster)
     try:
         from cuml.dask.datasets import make_regression
@@ -113,7 +111,9 @@ def test_make_regression(n_samples, n_features, n_informative,
                                  n_targets=n_targets, bias=bias,
                                  effective_rank=effective_rank, noise=noise,
                                  shuffle=shuffle, coef=coef,
-                                 random_state=random_state, n_parts=n_parts)
+                                 n_parts=n_parts,
+                                 use_full_low_rank=use_full_low_rank,
+                                 order=order)
 
         if coef:
             out, values, coefs = result
@@ -153,6 +153,27 @@ def test_make_regression(n_samples, n_features, n_informative,
                 "Unexpected number of informative features"
 
             assert test2, "Unexpectedly incongruent outputs"
+
+        data_ddh = DistributedDataHandler.create(data=(out, values),
+                                                 client=c)
+        out_part, value_part = data_ddh.gpu_futures[0][1].result()
+
+        if coef:
+            coefs_ddh = DistributedDataHandler.create(data=coefs,
+                                                      client=c)
+            coefs_part = coefs_ddh.gpu_futures[0][1].result()
+        if order == 'F':
+            assert out_part.flags['F_CONTIGUOUS']
+            if n_targets > 1:
+                assert value_part.flags['F_CONTIGUOUS']
+                if coef:
+                    assert coefs_part.flags['F_CONTIGUOUS']
+        elif order == 'C':
+            assert out_part.flags['C_CONTIGUOUS']
+            if n_targets > 1:
+                assert value_part.flags['C_CONTIGUOUS']
+                if coef:
+                    assert coefs_part.flags['C_CONTIGUOUS']
 
     finally:
         c.close()

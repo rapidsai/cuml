@@ -23,6 +23,7 @@
 #include "datasets/digits.h"
 #include "tsne/tsne.cu"
 
+#include <common/cudart_utils.h>
 #include "cuda_utils.h"
 
 #include <cuml/common/cuml_allocator.hpp>

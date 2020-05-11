@@ -36,7 +36,7 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
@@ -60,28 +60,6 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                      double *mu,
                      double *noise_vars,
                      const paramsPCA &prms) except +
-
-    cdef void pcaFitTransform(cumlHandle& handle,
-                              float *input,
-                              float *trans_input,
-                              float *components,
-                              float *explained_var,
-                              float *explained_var_ratio,
-                              float *singular_vals,
-                              float *mu,
-                              float *noise_vars,
-                              const paramsPCA &prms) except +
-
-    cdef void pcaFitTransform(cumlHandle& handle,
-                              double *input,
-                              double *trans_input,
-                              double *components,
-                              double *explained_var,
-                              double *explained_var_ratio,
-                              double *singular_vals,
-                              double *mu,
-                              double *noise_vars,
-                              const paramsPCA &prms) except +
 
     cdef void pcaInverseTransform(cumlHandle& handle,
                                   float *trans_input,
@@ -370,28 +348,6 @@ class PCA(Base):
 
         """
 
-        self.fit_transform(X)
-
-        return self
-
-    def fit_transform(self, X, y=None):
-        """
-        Fit the model with X and apply the dimensionality reduction on X.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-          training data (floats or doubles), where n_samples is the number of
-          samples, and n_features is the number of features.
-          Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-          ndarray, cuda array interface compliant array like CuPy
-
-        y : ignored
-
-        Returns
-        -------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
-        """
         self._set_output_type(X)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
@@ -424,40 +380,54 @@ class PCA(Base):
         cdef uintptr_t noise_vars_ptr = \
             self._noise_variance_.ptr
 
-        _trans_input_ = CumlArray.zeros((params.n_rows, params.n_components),
-                                        dtype=self.dtype)
-        cdef uintptr_t t_input_ptr = _trans_input_.ptr
-
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if self.dtype == np.float32:
-            pcaFitTransform(handle_[0],
-                            <float*> input_ptr,
-                            <float*> t_input_ptr,
-                            <float*> comp_ptr,
-                            <float*> explained_var_ptr,
-                            <float*> explained_var_ratio_ptr,
-                            <float*> singular_vals_ptr,
-                            <float*> _mean_ptr,
-                            <float*> noise_vars_ptr,
-                            deref(params))
+            pcaFit(handle_[0],
+                   <float*> input_ptr,
+                   <float*> comp_ptr,
+                   <float*> explained_var_ptr,
+                   <float*> explained_var_ratio_ptr,
+                   <float*> singular_vals_ptr,
+                   <float*> _mean_ptr,
+                   <float*> noise_vars_ptr,
+                   deref(params))
         else:
-            pcaFitTransform(handle_[0],
-                            <double*> input_ptr,
-                            <double*> t_input_ptr,
-                            <double*> comp_ptr,
-                            <double*> explained_var_ptr,
-                            <double*> explained_var_ratio_ptr,
-                            <double*> singular_vals_ptr,
-                            <double*> _mean_ptr,
-                            <double*> noise_vars_ptr,
-                            deref(params))
+            pcaFit(handle_[0],
+                   <double*> input_ptr,
+                   <double*> comp_ptr,
+                   <double*> explained_var_ptr,
+                   <double*> explained_var_ratio_ptr,
+                   <double*> singular_vals_ptr,
+                   <double*> _mean_ptr,
+                   <double*> noise_vars_ptr,
+                   deref(params))
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
         self.handle.sync()
 
-        out_type = self._get_output_type(X)
-        return _trans_input_.to_output(out_type)
+        return self
+
+    def fit_transform(self, X, y=None):
+        """
+        Fit the model with X and apply the dimensionality reduction on X.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+          training data (floats or doubles), where n_samples is the number of
+          samples, and n_features is the number of features.
+          Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+          ndarray, cuda array interface compliant array like CuPy
+
+        y : ignored
+
+        Returns
+        -------
+        X_new : cuDF DataFrame, shape (n_samples, n_components)
+        """
+
+        return self.fit(X).transform(X)
 
     def inverse_transform(self, X, convert_dtype=False):
         """
@@ -607,7 +577,7 @@ class PCA(Base):
         # following transfers start
         self.handle.sync()
 
-        return X_m.to_output(out_type)
+        return t_input_data.to_output(out_type)
 
     def get_param_names(self):
         return ["copy", "iterated_power", "n_components", "svd_solver", "tol",

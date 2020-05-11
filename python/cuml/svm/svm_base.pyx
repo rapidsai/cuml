@@ -31,7 +31,7 @@ from libc.stdint cimport uintptr_t
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 from libcpp cimport bool
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
@@ -313,7 +313,7 @@ class SVMBase(Base):
         param.max_iter = self.max_iter
         param.nochange_steps = self.nochange_steps
         param.tol = self.tol
-        param.verbosity = self.logging_level
+        param.verbosity = self.verbosity
         param.epsilon = self.epsilon
         param.svmType = self.svmType
         return param
