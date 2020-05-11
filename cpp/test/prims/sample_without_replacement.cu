@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <set>
 #include <vector>
@@ -66,6 +67,7 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
   }
 
   void TearDown() override {
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(in));
     CUDA_CHECK(cudaFree(wts));

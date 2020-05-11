@@ -104,11 +104,10 @@ def test_allreduce(cluster):
 
         dfs = [client.submit(func_test_allreduce, cb.sessionId,
                              random.random(), workers=[w])
-               for wid, w in zip(range(len(cb.worker_addresses)),
-                                 cb.worker_addresses)]
-        wait(dfs)
+               for w in cb.worker_addresses]
+        wait(dfs, timeout=5)
 
-        assert all(list(map(lambda x: x.result(), dfs)))
+        assert all([x.result() for x in dfs])
 
     finally:
         cb.destroy()
@@ -116,8 +115,9 @@ def test_allreduce(cluster):
 
 
 @pytest.mark.ucx
-@pytest.mark.parametrize("n_trials", [5])
-@pytest.mark.skip("ucx functionality available in cuML 0.12+")
+@pytest.mark.parametrize("n_trials", [1, 5])
+@pytest.mark.skip("Skipping to unblock GH CI, see issue "
+                  "https://github.com/rapidsai/dask-cuda/issues/288")
 def test_send_recv(n_trials, ucx_cluster):
 
     client = Client(ucx_cluster)
@@ -132,10 +132,9 @@ def test_send_recv(n_trials, ucx_cluster):
                              n_trials,
                              random.random(),
                              workers=[w])
-               for wid, w in zip(range(len(cb.worker_addresses)),
-                                 cb.worker_addresses)]
+               for w in cb.worker_addresses]
 
-        wait(dfs)
+        wait(dfs, timeout=5)
 
         assert(list(map(lambda x: x.result(), dfs)))
 
@@ -146,7 +145,8 @@ def test_send_recv(n_trials, ucx_cluster):
 
 @pytest.mark.ucx
 @pytest.mark.parametrize("n_trials", [5])
-@pytest.mark.skip("ucx functionality available in cuML 0.12+")
+@pytest.mark.skip(reason="This has stopped working at some point and the "
+                         "feature is not yet being used.")
 def test_recv_any_rank(n_trials, ucx_cluster):
 
     client = Client(ucx_cluster)
@@ -161,14 +161,13 @@ def test_recv_any_rank(n_trials, ucx_cluster):
                              n_trials,
                              random.random(),
                              workers=[w])
-               for wid, w in zip(range(len(cb.worker_addresses)),
-                                 cb.worker_addresses)]
+               for w in cb.worker_addresses]
 
-        wait(dfs)
+        wait(dfs, timeout=5)
 
-        result = list(map(lambda x: x.result(), dfs))
+        result = [x.result() for x in dfs]
 
-        assert(result)
+        assert result
 
     finally:
         cb.destroy()

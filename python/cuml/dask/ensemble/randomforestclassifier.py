@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,20 +14,24 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions, \
-    raise_exception_from_futures, workers_to_parts
-from cuml.ensemble import RandomForestClassifier as cuRFC
-import cudf
-
-from dask.distributed import default_client, wait
+import dask
 import math
 import random
-import numpy as np
+
+from cuml.dask.common import raise_exception_from_futures
+from cuml.ensemble import RandomForestClassifier as cuRFC
+from cuml.dask.common.input_utils import DistributedDataHandler, \
+    concatenate
+from dask.distributed import default_client, wait
+from cuml.dask.common.base import DelayedPredictionMixin, \
+    DelayedPredictionProbaMixin
 
 from uuid import uuid1
 
 
-class RandomForestClassifier:
+class RandomForestClassifier(DelayedPredictionMixin,
+                             DelayedPredictionProbaMixin):
+
     """
     Experimental API implementing a multi-GPU Random Forest classifier
     model which fits multiple decision tree classifiers in an
@@ -35,10 +39,10 @@ class RandomForestClassifier:
     (possibly on different nodes).
 
     Currently, this API makes the following assumptions:
-     * The set of Dask workers used between instantiation, fit,
-       and predict are all consistent
-     * Training data comes in the form of cuDF dataframes,
-       distributed so that each worker has at least one partition.
+    * The set of Dask workers used between instantiation, fit,
+    and predict are all consistent
+    * Training data comes in the form of cuDF dataframes,
+    distributed so that each worker has at least one partition.
 
     Future versions of the API will support more flexible data
     distribution and additional input types.
@@ -62,62 +66,59 @@ class RandomForestClassifier:
     n_estimators : int (default = 10)
                    total number of trees in the forest (not per-worker)
     handle : cuml.Handle
-             If it is None, a new one is created just for this class.
-    split_criterion: The criterion used to split nodes.
-                     0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
-                     2 and 3 not valid for classification
-                     (default = 0)
+        If it is None, a new one is created just for this class.
+    split_criterion : The criterion used to split nodes.
+        0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
+        2 and 3 not valid for classification
+        (default = 0)
     split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE
-                 (default = 1)
-                 the algorithm to determine how nodes are split in the tree.
-    split_criterion: The criterion used to split nodes.
-                     0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
-                     2 and 3 not valid for classification
-                     (default = 0)
+        (default = 1)
+        the algorithm to determine how nodes are split in the tree.
+    split_criterion : The criterion used to split nodes.
+        0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
+        2 and 3 not valid for classification
+        (default = 0)
     bootstrap : boolean (default = True)
-                Control bootstrapping.
-                If set, each tree in the forest is built
-                on a bootstrapped sample with replacement.
-                If false, sampling without replacement is done.
+        Control bootstrapping.
+        If set, each tree in the forest is built
+        on a bootstrapped sample with replacement.
+        If false, sampling without replacement is done.
     bootstrap_features : boolean (default = False)
-                         Control bootstrapping for features.
-                         If features are drawn with or without replacement
+        Control bootstrapping for features.
+        If features are drawn with or without replacement
     rows_sample : float (default = 1.0)
-                  Ratio of dataset rows used while fitting each tree.
+        Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = -1)
-                Maximum tree depth. Unlimited (i.e, until leaves are pure),
-                if -1.
+        Maximum tree depth. Unlimited (i.e, until leaves are pure), if -1.
     max_leaves : int (default = -1)
-                 Maximum leaf nodes per tree. Soft constraint. Unlimited,
-                 if -1.
-    max_features : float (default = 1.0)
-                   Ratio of number of features (columns) to consider
-                   per node split.
-    n_bins :  int (default = 8)
-              Number of bins used by the split algorithm.
+        Maximum leaf nodes per tree. Soft constraint. Unlimited, if -1.
+    max_features : float (default = 'auto')
+        Ratio of number of features (columns) to consider
+        per node split.
+    n_bins : int (default = 8)
+        Number of bins used by the split algorithm.
     min_rows_per_node : int (default = 2)
-                        The minimum number of samples (rows) needed
-                        to split a node.
+        The minimum number of samples (rows) needed to split a node.
     quantile_per_tree : boolean (default = False)
-                        Whether quantile is computed for individual RF trees.
-                        Only relevant for GLOBAL_QUANTILE split_algo.
+        Whether quantile is computed for individual RF trees.
+        Only relevant for GLOBAL_QUANTILE split_algo.
     n_streams : int (default = 4 )
-                Number of parallel streams used for forest building
+        Number of parallel streams used for forest building
     workers : optional, list of strings
-              Dask addresses of workers to use for computation.
-              If None, all available Dask workers will be used.
+        Dask addresses of workers to use for computation.
+        If None, all available Dask workers will be used.
 
     Examples
     ---------
     For usage examples, please see the RAPIDS notebooks repository:
-    https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/random_forest_demo_mnmg.ipynb
+    https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/random_forest_mnmg_demo.ipynb
     """
 
     def __init__(
         self,
         n_estimators=10,
         max_depth=-1,
-        max_features=1.0,
+        max_features="auto",
         n_bins=8,
         split_algo=1,
         split_criterion=0,
@@ -142,7 +143,8 @@ class RandomForestClassifier:
         random_state=None,
         warm_start=None,
         class_weight=None,
-        workers=None
+        workers=None,
+        client=None
     ):
 
         unsupported_sklearn_params = {
@@ -171,10 +173,11 @@ class RandomForestClassifier:
 
         self.n_estimators = n_estimators
         self.n_estimators_per_worker = list()
+        self.num_classes = 2
 
-        c = default_client()
+        self.client = default_client() if client is None else client
         if workers is None:
-            workers = c.has_what().keys()  # Default to all workers
+            workers = self.client.has_what().keys()  # Default to all workers
         self.workers = workers
 
         n_workers = len(workers)
@@ -203,7 +206,7 @@ class RandomForestClassifier:
 
         key = str(uuid1())
         self.rfs = {
-            worker: c.submit(
+            worker: self.client.submit(
                 RandomForestClassifier._func_build_rf,
                 self.n_estimators_per_worker[n],
                 max_depth,
@@ -272,28 +275,72 @@ class RandomForestClassifier:
             max_leaves=max_leaves,
             n_streams=n_streams,
             quantile_per_tree=quantile_per_tree,
-            seed=seed,
-            gdf_datatype=dtype,
+            seed=seed
         )
 
     @staticmethod
-    def _fit(model, X_df_list, y_df_list, r):
-        if len(X_df_list) != len(y_df_list):
-            raise ValueError("X (%d) and y (%d) partition list sizes unequal" %
-                             len(X_df_list), len(y_df_list))
-        if len(X_df_list) == 1:
-            X_df = X_df_list[0]
-            y_df = y_df_list[0]
-        else:
-            X_df = cudf.concat(X_df_list)
-            y_df = cudf.concat(y_df_list)
-        return model.fit(X_df, y_df)
+    def _fit(model, input_data, convert_dtype):
+        X = concatenate([item[0] for item in input_data])
+        y = concatenate([item[1] for item in input_data])
+        return model.fit(X, y, convert_dtype)
 
     @staticmethod
-    def _predict(model, X, r):
-        return model._predict_get_all(X)
+    def _get_protobuf_bytes(model):
+        return model._get_protobuf_bytes()
 
-    def fit(self, X, y):
+    @staticmethod
+    def _predict_cpu(model, X, convert_dtype, r):
+        return model._predict_get_all(X, convert_dtype)
+
+    @staticmethod
+    def _print_summary(model):
+        model.print_summary()
+
+    def print_summary(self):
+        """
+        Print the summary of the forest used to train and test the model.
+        """
+        futures = list()
+        workers = self.workers
+
+        for n, w in enumerate(workers):
+            futures.append(
+                self.client.submit(
+                    RandomForestClassifier._print_summary,
+                    self.rfs[w],
+                    workers=[w],
+                )
+            )
+
+        wait(futures)
+        raise_exception_from_futures(futures)
+        return self
+
+    def _concat_treelite_models(self):
+        """
+        Convert the cuML Random Forest model present in different workers to
+        the treelite format and then concatenate the different treelite models
+        to create a single model. The concatenated model is then converted to
+        bytes format.
+        """
+        model_protobuf_futures = list()
+        for w in self.workers:
+            model_protobuf_futures.append(
+                dask.delayed(RandomForestClassifier._get_protobuf_bytes)
+                (self.rfs[w]))
+        mod_bytes = self.client.compute(model_protobuf_futures, sync=True)
+        last_worker = w
+        all_tl_mod_handles = []
+        model = self.rfs[last_worker].result()
+        for n in range(len(self.workers)):
+            all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
+
+        model._concatenate_treelite_handle(
+            treelite_handle=all_tl_mod_handles)
+
+        self.local_model = model
+
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the input data with a Random Forest classifier
 
@@ -323,83 +370,162 @@ class RandomForestClassifier:
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Features of training examples.
-
-        y : dask_cudf.Dataframe
-            Dense  matrix (floats or doubles) of shape (n_samples, 1)
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+            Distributed dense matrix (floats or doubles) of shape
+            (n_samples, n_features).
+        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
             Labels of training examples.
             **y must be partitioned the same way as X**
+        convert_dtype : bool, optional (default = False)
+            When set to True, the fit method will, when necessary, convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
 
         """
-        c = default_client()
-
-        X_futures = workers_to_parts(c.sync(extract_ddf_partitions, X))
-        y_futures = workers_to_parts(c.sync(extract_ddf_partitions, y))
-
-        X_partition_workers = [w for w, xc in X_futures.items()]
-        y_partition_workers = [w for w, xc in y_futures.items()]
-
-        if set(X_partition_workers) != set(self.workers) or \
-           set(y_partition_workers) != set(self.workers):
-            raise ValueError("""
-              X is not partitioned on the same workers expected by RF\n
-              X workers: %s\n
-              y workers: %s\n
-              RF workers: %s
-            """ % (str(X_partition_workers),
-                   str(y_partition_workers),
-                   str(self.workers)))
-
+        self.num_classes = len(y.unique())
+        data = DistributedDataHandler.create((X, y), client=self.client)
+        self.datatype = data.datatype
         futures = list()
-        for w, xc in X_futures.items():
+        for idx, (worker, worker_data) in \
+                enumerate(data.worker_to_parts.items()):
             futures.append(
-                c.submit(
+                self.client.submit(
                     RandomForestClassifier._fit,
-                    self.rfs[w],
-                    xc,
-                    y_futures[w],
-                    random.random(),
-                    workers=[w],
-                )
+                    self.rfs[worker],
+                    worker_data,
+                    convert_dtype,
+                    workers=[worker],
+                    pure=False)
             )
 
         wait(futures)
         raise_exception_from_futures(futures)
-
         return self
 
-    def predict(self, X):
+    def predict(self, X, output_class=True, algo='auto', threshold=0.5,
+                convert_dtype=True, predict_model="GPU",
+                fil_sparse_format='auto', delayed=True):
         """
         Predicts the labels for X.
 
         Parameters
         ----------
-        X : np.array
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Features of examples to predict.
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+            Distributed dense matrix (floats or doubles) of shape
+            (n_samples, n_features).
+        output_class : boolean (default = True)
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            If true, return a 1 or 0 depending on whether the raw
+            prediction exceeds the threshold. If False, just return
+            the raw prediction.
+        algo : string (default = 'auto')
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            'naive' - simple inference using shared memory
+            'tree_reorg' - similar to naive but trees rearranged to be more
+            coalescing-friendly
+            'batch_tree_reorg' - similar to tree_reorg but predicting
+            multiple rows per thread block
+            `algo` - choose the algorithm automatically. Currently
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
+        threshold : float (default = 0.5)
+            Threshold used for classification. Optional and required only
+            while performing the predict operation on the GPU, that is for,
+            predict_model='GPU'.
+            It is applied if output_class == True, else it is ignored
+        convert_dtype : bool, optional (default = True)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+        predict_model : String (default = 'GPU')
+            'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
+            be used if the model was trained on float32 data and `X` is float32
+            or convert_dtype is set to True.
+        fil_sparse_format : boolean or string (default = auto)
+            This variable is used to choose the type of forest that will be
+            created in the Forest Inference Library. It is not required
+            while using predict_model='CPU'.
+            'auto' - choose the storage type automatically
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
+        delayed : bool (default = True)
+            Whether to do a lazy prediction (and return Delayed objects) or an
+            eagerly executed one.  It is not required  while using
+            predict_model='CPU'.
 
         Returns
         ----------
-        y: np.array
-           Dense vector (int) of shape (n_samples, 1)
+        y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
+        """
+        if self.num_classes > 2 or predict_model == "CPU":
+            preds = self._predict_using_cpu(X,
+                                            convert_dtype=convert_dtype)
 
+        else:
+            preds = \
+                self._predict_using_fil(X, output_class=output_class,
+                                        algo=algo,
+                                        threshold=threshold,
+                                        num_classes=self.num_classes,
+                                        convert_dtype=convert_dtype,
+                                        predict_model="GPU",
+                                        fil_sparse_format=fil_sparse_format,
+                                        delayed=delayed)
+
+        return preds
+
+    def _predict_using_fil(self, X, output_class=True, algo='auto',
+                           threshold=0.5, num_classes=2,
+                           convert_dtype=False, predict_model="GPU",
+                           delayed=True, fil_sparse_format='auto'):
+
+        self._concat_treelite_models()
+        data = DistributedDataHandler.create(X, client=self.client)
+        self.datatype = data.datatype
+
+        kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
+                  "predict_model": predict_model, "threshold": threshold,
+                  "num_classes": num_classes, "algo": algo,
+                  "fil_sparse_format": fil_sparse_format}
+        return self._predict(X, delayed, **kwargs)
+
+    """
+    TODO : Update function names used for CPU predict.
+        Cuml issue #1854 has been created to track this.
+    """
+    def _predict_using_cpu(self, X, convert_dtype=True):
+        """
+        Predicts the labels for X.
+
+        Parameters
+        ----------
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+            Distributed dense matrix (floats or doubles) of shape
+            (n_samples, n_features).
+        convert_dtype : bool, optional (default = True)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+        Returns
+        ----------
+        y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
         """
         c = default_client()
         workers = self.workers
-
-        if not isinstance(X, np.ndarray):
-            raise ValueError("Predict inputs must be numpy arrays")
 
         X_Scattered = c.scatter(X)
         futures = list()
         for n, w in enumerate(workers):
             futures.append(
                 c.submit(
-                    RandomForestClassifier._predict,
+                    RandomForestClassifier._predict_cpu,
                     self.rfs[w],
                     X_Scattered,
+                    convert_dtype,
                     random.random(),
                     workers=[w],
                 )
@@ -439,10 +565,80 @@ class RandomForestClassifier:
             pred.append(max_class)
         return pred
 
+    def predict_proba(self, X, output_class=True, algo='auto',
+                      threshold=0.5, num_classes=2,
+                      convert_dtype=False,
+                      delayed=True, fil_sparse_format='auto'):
+        """
+        Predicts the probability of each class for X.
+
+        Parameters
+        ----------
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+            Distributed dense matrix (floats or doubles) of shape
+            (n_samples, n_features).
+        predict_model : String (default = 'GPU')
+            'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
+            be used if the model was trained on float32 data and `X` is float32
+            or convert_dtype is set to True. Also the 'GPU' should only be
+            used for binary classification problems.
+        output_class : boolean (default = True)
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            If true, return a 1 or 0 depending on whether the raw
+            prediction exceeds the threshold. If False, just return
+            the raw prediction.
+        algo : string (default = 'auto')
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            'naive' - simple inference using shared memory
+            'tree_reorg' - similar to naive but trees rearranged to be more
+            coalescing-friendly
+            'batch_tree_reorg' - similar to tree_reorg but predicting
+            multiple rows per thread block
+            `auto` - choose the algorithm automatically. Currently
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
+        threshold : float (default = 0.5)
+            Threshold used for classification. Optional and required only
+            while performing the predict operation on the GPU.
+            It is applied if output_class == True, else it is ignored
+        num_classes : int (default = 2)
+            number of different classes present in the dataset
+        convert_dtype : bool, optional (default = True)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+        fil_sparse_format : boolean or string (default = auto)
+            This variable is used to choose the type of forest that will be
+            created in the Forest Inference Library. It is not required
+            while using predict_model='CPU'.
+            'auto' - choose the storage type automatically
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
+
+        Returns
+        ----------
+        y : NumPy
+           Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
+        """
+        self._concat_treelite_models()
+        data = DistributedDataHandler.create(X, client=self.client)
+        self.datatype = data.datatype
+
+        kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
+                  "threshold": threshold,
+                  "num_classes": num_classes, "algo": algo,
+                  "fil_sparse_format": fil_sparse_format}
+        return self._predict_proba(X, delayed, **kwargs)
+
     def get_params(self, deep=True):
         """
         Returns the value of all parameters
         required to configure this estimator as a dictionary.
+
         Parameters
         -----------
         deep : boolean (default = True)
@@ -458,6 +654,7 @@ class RandomForestClassifier:
         Sets the value of parameters required to
         configure this estimator, it functions similar to
         the sklearn set_params.
+
         Parameters
         -----------
         params : dict of new params

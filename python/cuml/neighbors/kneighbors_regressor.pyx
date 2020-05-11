@@ -21,8 +21,8 @@
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros, row_matrix
+from cuml.common.array import CumlArray
+from cuml.common import input_to_cuml_array
 
 from cuml.metrics import r2_score
 
@@ -68,6 +68,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         float *out,
         int64_t *knn_indices,
         vector[float *] &y,
+        size_t n_rows,
         size_t n_samples,
         int k,
     ) except +
@@ -82,6 +83,22 @@ class KNeighborsRegressor(NearestNeighbors):
 
     The K-Nearest Neighbors Regressor will compute the average of the
     labels for the k closest neighbors and use it as the label.
+
+    Parameters
+    ----------
+    n_neighbors : int (default=5)
+        Default number of neighbors to query
+    verbose : boolean (default=False)
+        Whether to print verbose logs
+    handle : cumlHandle
+        The cumlHandle resources to use
+    algorithm : string (default='brute')
+        The query algorithm to use. Currently, only 'brute' is supported.
+    metric : string (default='euclidean').
+        Distance metric to use.
+    weights : string (default='uniform')
+        Sample weights to use. Currently, only the uniform strategy is
+        supported.
 
     Examples
     ---------
@@ -128,18 +145,6 @@ class KNeighborsRegressor(NearestNeighbors):
     """
 
     def __init__(self, weights="uniform", **kwargs):
-        """
-        Parameters
-        ----------
-        n_neighbors : int default number of neighbors to query (default=5)
-        verbose : boolean print verbose logs
-        handle : cumlHandle the cumlHandle resources to use
-        algorithm : string the query algorithm to use. Currently, only
-                    'brute' is supported.
-        metric : string distance metric to use. (default="euclidean").
-        weights : string sample weights to use. (default="uniform").
-                  Currently, only the uniform strategy is supported.
-        """
         super(KNeighborsRegressor, self).__init__(**kwargs)
         self.y = None
         self.weights = weights
@@ -166,16 +171,14 @@ class KNeighborsRegressor(NearestNeighbors):
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
-        :return :
         """
         super(KNeighborsRegressor, self).fit(X, convert_dtype=convert_dtype)
-        self.y, _, _, _, _ = \
-            input_to_dev_array(y, order='F', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32
-                                                 if convert_dtype
-                                                 else None))
-
-        self.handle.sync()
+        self.y, _, _, _ = \
+            input_to_cuml_array(y, order='F', check_dtype=np.float32,
+                                convert_to_dtype=(np.float32
+                                                  if convert_dtype
+                                                  else None))
+        return self
 
     def predict(self, X, convert_dtype=True):
         """
@@ -192,31 +195,32 @@ class KNeighborsRegressor(NearestNeighbors):
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
-        :return:
         """
+
+        out_type = self._get_output_type(X)
+
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
 
-        cdef uintptr_t inds_ctype
-
-        inds, inds_ctype, n_rows, n_cols, dtype = \
-            input_to_dev_array(knn_indices, order='C', check_dtype=np.int64,
-                               convert_to_dtype=(np.int64
-                                                 if convert_dtype
-                                                 else None))
+        inds, n_rows, n_cols, dtype = \
+            input_to_cuml_array(knn_indices, order='C', check_dtype=np.int64,
+                                convert_to_dtype=(np.int64
+                                                  if convert_dtype
+                                                  else None))
+        cdef uintptr_t inds_ctype = inds.ptr
 
         res_cols = 1 if len(self.y.shape) == 1 else self.y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
-        results = rmm.to_device(zeros(res_shape, dtype=np.float32,
-                                      order="C"))
+        results = CumlArray.zeros(res_shape, dtype=np.float32,
+                                  order="C")
 
-        cdef uintptr_t results_ptr = get_dev_array_ptr(results)
+        cdef uintptr_t results_ptr = results.ptr
         cdef uintptr_t y_ptr
         cdef vector[float*] *y_vec = new vector[float*]()
 
         for col_num in range(res_cols):
             col = self.y if res_cols == 1 else self.y[:, col_num]
-            y_ptr = get_dev_array_ptr(col)
+            y_ptr = col.ptr
             y_vec.push_back(<float*>y_ptr)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -226,19 +230,14 @@ class KNeighborsRegressor(NearestNeighbors):
             <float*>results_ptr,
             <int64_t*>inds_ctype,
             deref(y_vec),
-            <size_t>X.shape[0],
+            <size_t>self.n_rows,
+            <size_t>n_rows,
             <int>self.n_neighbors
         )
 
         self.handle.sync()
-        if isinstance(X, np.ndarray):
-            return np.array(results)
-        elif isinstance(X, cudf.DataFrame):
-            if results.ndim == 1:
-                results = results.reshape(results.shape[0], 1)
-            return cudf.DataFrame.from_gpu_matrix(results)
-        else:
-            return results
+
+        return results.to_output(out_type)
 
     def score(self, X, y, convert_dtype=True):
         """
@@ -259,7 +258,6 @@ class KNeighborsRegressor(NearestNeighbors):
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
-        :return :
         """
         y_hat = self.predict(X, convert_dtype=convert_dtype)
         return r2_score(y, y_hat, convert_dtype=convert_dtype)

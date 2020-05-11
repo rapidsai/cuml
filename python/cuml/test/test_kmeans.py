@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,22 +17,168 @@ import cuml
 import numpy as np
 import pytest
 
-from cuml.test.utils import get_pattern, clusters_equal, unit_param, \
-    quality_param, stress_param
+from cuml.datasets import make_blobs
+
+from cuml.test.utils import get_pattern, unit_param, \
+    quality_param, stress_param, array_equal
 
 from sklearn import cluster
 from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
 
+import cupy as cp
+
 
 dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
+
+SCORE_EPS = 0.06
+
+
+@pytest.fixture
+def get_data_consistency_test():
+    cluster_std = 1.0
+    nrows = 1000
+    ncols = 50
+    nclusters = 8
+
+    X, y = make_blobs(nrows,
+                      ncols,
+                      nclusters,
+                      cluster_std=cluster_std,
+                      shuffle=False,
+                      random_state=0)
+    return X, y
+
+
+@pytest.mark.xfail
+@pytest.mark.parametrize('random_state', [i for i in range(0, 10, 2)])
+def test_n_init_cluster_consistency(random_state):
+
+    nclusters = 8
+    X, y = get_data_consistency_test()
+
+    cuml_kmeans = cuml.KMeans(verbose=0, init="k-means++",
+                              n_clusters=nclusters,
+                              n_init=10,
+                              random_state=random_state,
+                              output_type='numpy')
+
+    cuml_kmeans.fit(X)
+    initial_clusters = cuml_kmeans.cluster_centers_
+
+    cuml_kmeans = cuml.KMeans(verbose=0, init="k-means++",
+                              n_clusters=nclusters,
+                              n_init=10,
+                              random_state=random_state,
+                              output_type='numpy')
+
+    cuml_kmeans.fit(X)
+
+    assert array_equal(initial_clusters, cuml_kmeans.cluster_centers_)
+
+
+@pytest.mark.parametrize('nrows', [1000, 10000])
+@pytest.mark.parametrize('ncols', [25])
+@pytest.mark.parametrize('nclusters', [2, 5])
+@pytest.mark.parametrize('random_state', [i for i in range(0, 10, 2)])
+def test_traditional_kmeans_plus_plus_init(nrows, ncols, nclusters,
+                                           random_state):
+
+    # Using fairly high variance between points in clusters
+    cluster_std = 1.0
+
+    X, y = make_blobs(int(nrows),
+                      ncols,
+                      nclusters,
+                      cluster_std=cluster_std,
+                      shuffle=False,
+                      random_state=0)
+
+    cuml_kmeans = cuml.KMeans(verbose=0, init="k-means++",
+                              n_clusters=nclusters,
+                              n_init=10,
+                              random_state=random_state,
+                              output_type='numpy')
+
+    cuml_kmeans.fit(X)
+    cu_score = cuml_kmeans.score(X)
+
+    kmeans = cluster.KMeans(random_state=random_state,
+                            n_clusters=nclusters)
+    kmeans.fit(cp.asnumpy(X))
+    sk_score = kmeans.score(cp.asnumpy(X))
+
+    assert abs(cu_score - sk_score) <= cluster_std * 1.5
+
+
+@pytest.mark.parametrize('nrows', [100, 500])
+@pytest.mark.parametrize('ncols', [25])
+@pytest.mark.parametrize('nclusters', [5, 10])
+@pytest.mark.parametrize('max_weight', [10])
+@pytest.mark.parametrize('random_state', [i for i in range(5)])
+def test_weighted_kmeans(nrows, ncols, nclusters,
+                         max_weight, random_state):
+
+    # Using fairly high variance between points in clusters
+    cluster_std = 1.0
+    np.random.seed(random_state)
+
+    # set weight per sample to be from 1 to max_weight
+    wt = np.random.randint(1, high=max_weight, size=nrows)
+
+    X, y = make_blobs(nrows,
+                      ncols,
+                      nclusters,
+                      cluster_std=cluster_std,
+                      shuffle=False,
+                      random_state=0)
+
+    cuml_kmeans = cuml.KMeans(init="k-means++",
+                              n_clusters=nclusters,
+                              n_init=10,
+                              random_state=random_state,
+                              output_type='numpy')
+
+    cuml_kmeans.fit(X, sample_weight=wt)
+    cu_score = cuml_kmeans.score(X)
+
+    sk_kmeans = cluster.KMeans(random_state=random_state,
+                               n_clusters=nclusters)
+    sk_kmeans.fit(cp.asnumpy(X), sample_weight=wt)
+    sk_score = sk_kmeans.score(cp.asnumpy(X))
+
+    assert abs(cu_score - sk_score) <= cluster_std * 1.5
+
+
+@pytest.mark.parametrize('nrows', [1000, 10000])
+@pytest.mark.parametrize('ncols', [25])
+@pytest.mark.parametrize('nclusters', [2, 5])
+@pytest.mark.parametrize('cluster_std', [1.0, 0.1, 0.01])
+@pytest.mark.parametrize('random_state', [i for i in range(0, 10, 2)])
+def test_kmeans_clusters_blobs(nrows, ncols, nclusters,
+                               random_state, cluster_std):
+
+    X, y = make_blobs(int(nrows), ncols, nclusters,
+                      cluster_std=cluster_std,
+                      shuffle=False,
+                      random_state=random_state,)
+
+    cuml_kmeans = cuml.KMeans(verbose=0, init="k-means||",
+                              n_clusters=nclusters,
+                              random_state=random_state,
+                              output_type='numpy')
+
+    preds = cuml_kmeans.fit_predict(X)
+
+    assert adjusted_rand_score(cp.asnumpy(preds), cp.asnumpy(y)) >= 0.99
 
 
 @pytest.mark.parametrize('name', dataset_names)
 @pytest.mark.parametrize('nrows', [unit_param(1000),
-                                   quality_param(5000),
-                                   stress_param(500000)])
+                                   quality_param(5000)])
 def test_kmeans_sklearn_comparison(name, nrows):
+
+    random_state = 12
 
     default_base = {'quantile': .3,
                     'eps': .3,
@@ -46,40 +192,24 @@ def test_kmeans_sklearn_comparison(name, nrows):
     params = default_base.copy()
     params.update(pat[1])
 
-    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'])
+    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'],
+                              output_type='numpy',
+                              init="k-means++",
+                              random_state=random_state,
+                              n_init=10)
 
     X, y = pat[0]
 
     X = StandardScaler().fit_transform(X)
 
-    cu_y_pred = cuml_kmeans.fit_predict(X).to_array()
+    cu_y_pred = cuml_kmeans.fit_predict(X)
+    cu_score = adjusted_rand_score(cu_y_pred, y)
+    kmeans = cluster.KMeans(random_state=12,
+                            n_clusters=params['n_clusters'])
+    sk_y_pred = kmeans.fit_predict(X)
+    sk_score = adjusted_rand_score(sk_y_pred, y)
 
-    if nrows < 500000:
-        kmeans = cluster.KMeans(n_clusters=params['n_clusters'])
-        sk_y_pred = kmeans.fit_predict(X)
-
-        # Noisy circles clusters are rotated in the results,
-        # since we are comparing 2 we just need to compare that both clusters
-        # have approximately the same number of points.
-        calculation = (np.sum(sk_y_pred) - np.sum(cu_y_pred))/len(sk_y_pred)
-        score_test = (cuml_kmeans.score(X) - kmeans.score(X)) < 2e-3
-        if name == 'noisy_circles':
-            assert (calculation < 4e-3) and score_test
-
-        else:
-            if name == 'aniso':
-                # aniso dataset border points tend to differ in the frontier
-                # between clusters when compared to sklearn
-                tol = 2e-2
-            else:
-                # We allow up to 5 points to be different for the other
-                # datasets to be robust to small behavior changes
-                # between library versions/ small changes. Visually it is
-                # very clear that the algorithm work. Will add option
-                # to plot if desired in a future version.
-                tol = 1e-2
-            assert (clusters_equal(sk_y_pred, cu_y_pred,
-                    params['n_clusters'], tol=tol)) and score_test
+    assert sk_score - 1e-2 <= cu_score <= sk_score + 1e-2
 
 
 @pytest.mark.parametrize('name', dataset_names)
@@ -100,7 +230,10 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
     params = default_base.copy()
     params.update(pat[1])
 
-    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'])
+    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'],
+                              random_state=12,
+                              n_init=10,
+                              output_type='numpy')
 
     X, y = pat[0]
 
@@ -108,16 +241,14 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
 
     cu_y_pred = cuml_kmeans.fit_predict(X)
     cu_score = adjusted_rand_score(cu_y_pred, y)
-    kmeans = cluster.KMeans(random_state=12, n_clusters=params['n_clusters'])
+    kmeans = cluster.KMeans(random_state=12,
+                            n_clusters=params['n_clusters'])
     sk_y_pred = kmeans.fit_predict(X)
     sk_score = adjusted_rand_score(sk_y_pred, y)
 
-    # cuML score should be in a close neighborhood around scikit-learn's
-    assert sk_score - 0.03 <= cu_score <= sk_score + 0.03
+    assert sk_score - 1e-2 <= cu_score <= sk_score + 1e-2
 
 
-@pytest.mark.parametrize('n_rows', [unit_param(100),
-                                    stress_param(500000)])
 @pytest.mark.parametrize('n_clusters', [unit_param(10),
                                         unit_param(100),
                                         stress_param(1000)])
@@ -127,7 +258,7 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
 @pytest.mark.parametrize('init', ['k-means||',
                                   'random',
                                   'preset'])
-def test_all_kmeans_params(n_rows, n_clusters, max_iter, init,
+def test_all_kmeans_params(n_clusters, max_iter, init,
                            oversampling_factor, max_samples_per_batch):
 
     np.random.seed(0)
@@ -139,7 +270,48 @@ def test_all_kmeans_params(n_rows, n_clusters, max_iter, init,
     cuml_kmeans = cuml.KMeans(n_clusters=n_clusters,
                               max_iter=max_iter,
                               init=init,
+                              random_state=12,
                               oversampling_factor=oversampling_factor,
-                              max_samples_per_batch=max_samples_per_batch)
+                              max_samples_per_batch=max_samples_per_batch,
+                              output_type='cupy')
 
     cuml_kmeans.fit_predict(X)
+
+
+@pytest.mark.parametrize('nrows', [unit_param(500),
+                                   quality_param(5000),
+                                   stress_param(500000)])
+@pytest.mark.parametrize("ncols", [10, 30])
+@pytest.mark.parametrize("nclusters", [unit_param(5), quality_param(10),
+                                       stress_param(50)])
+def test_score(nrows, ncols, nclusters):
+
+    X, y = make_blobs(int(nrows), ncols, nclusters,
+                      cluster_std=0.01,
+                      shuffle=False,
+                      random_state=10)
+
+    cuml_kmeans = cuml.KMeans(verbose=0, init="k-means||",
+                              n_clusters=nclusters,
+                              random_state=10,
+                              output_type='numpy')
+
+    cuml_kmeans.fit(X)
+
+    actual_score = cuml_kmeans.score(X)
+
+    predictions = cuml_kmeans.predict(X)
+
+    centers = cuml_kmeans.cluster_centers_
+
+    expected_score = 0
+    for idx, label in enumerate(predictions):
+        x = X[idx]
+        y = cp.array(centers[label])
+
+        dist = cp.sqrt(cp.sum((x - y)**2))
+        expected_score += dist**2
+
+    assert actual_score + SCORE_EPS \
+        >= (-1*expected_score) \
+        >= actual_score - SCORE_EPS

@@ -13,13 +13,16 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import to_dask_cudf, extract_ddf_partitions, \
-    workers_to_parts, parts_to_ranks, raise_exception_from_futures, \
-    flatten_grouped_results, raise_mg_import_exception
+from cuml.dask.common import parts_to_ranks
+from cuml.dask.common import raise_exception_from_futures
+from cuml.dask.common import flatten_grouped_results
+from cuml.dask.common import raise_mg_import_exception
+from cuml.dask.common.base import BaseEstimator
 
-from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
+from cuml.dask.common.input_utils import to_output
+from cuml.dask.common.input_utils import DistributedDataHandler
 
 from uuid import uuid1
 
@@ -34,27 +37,33 @@ def _func_get_i(f, idx):
     return i[idx]
 
 
-class NearestNeighbors(object):
+class NearestNeighbors(BaseEstimator):
     """
     Multi-node Multi-GPU NearestNeighbors Model.
     """
     def __init__(self, client=None, streams_per_handle=0, verbose=False,
                  **kwargs):
-        self.client = default_client() if client is None else client
-        self.model_args = kwargs
-        self.X = None
-        self.Y = None
-        self.n_cols = 0
+        super(NearestNeighbors, self).__init__(client=client,
+                                               verbose=verbose,
+                                               **kwargs)
+
         self.streams_per_handle = streams_per_handle
-        self.verbose = verbose
 
     def fit(self, X):
         """
         Fit a multi-node multi-GPU Nearest Neighbors index
-        :param X : dask_cudf.Dataframe
-        :return : NearestNeighbors model
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe
+
+        Returns
+        -------
+        self: NearestNeighbors model
         """
-        self.X = self.client.sync(extract_ddf_partitions, X)
+        self.X_handler = DistributedDataHandler.create(data=X,
+                                                       client=self.client)
+        self.datatype = self.X_handler.datatype
         self.n_cols = X.shape[1]
         return self
 
@@ -81,12 +90,12 @@ class NearestNeighbors(object):
         )
 
     @staticmethod
-    def _build_comms(index_futures, query_futures, streams_per_handle,
+    def _build_comms(index_handler, query_handler, streams_per_handle,
                      verbose):
         # Communicator clique needs to include the union of workers hosting
         # query and index partitions
-        workers = set(map(lambda x: x[0], index_futures))
-        workers.update(list(map(lambda x: x[0], query_futures)))
+        workers = set(index_handler.workers)
+        workers.update(query_handler.workers)
 
         comms = CommsContext(comms_p2p=True,
                              streams_per_handle=streams_per_handle,
@@ -97,14 +106,22 @@ class NearestNeighbors(object):
     def get_neighbors(self, n_neighbors):
         """
         Returns the default n_neighbors, initialized from the constructor,
-        if n_neighbors is None
-        :param n_neighbors:
-        :return:
+        if n_neighbors is None.
+
+        Parameters
+        ----------
+        n_neighbors : int
+            Number of neighbors
+
+        Returns
+        --------
+        n_neighbors: int
+            Default n_neighbors if parameter n_neighbors is none
         """
         if n_neighbors is None:
-            if "n_neighbors" in self.model_args \
-                    and self.model_args["n_neighbors"] is not None:
-                n_neighbors = self.model_args["n_neighbors"]
+            if "n_neighbors" in self.kwargs \
+                    and self.kwargs["n_neighbors"] is not None:
+                n_neighbors = self.kwargs["n_neighbors"]
             else:
                 try:
                     from cuml.neighbors.nearest_neighbors_mg import \
@@ -124,7 +141,7 @@ class NearestNeighbors(object):
         nn_models = dict([(worker, self.client.submit(
             NearestNeighbors._func_create_model,
             comms.sessionId,
-            **self.model_args,
+            **self.kwargs,
             workers=[worker],
             key="%s-%s" % (key, idx)))
             for idx, worker in enumerate(comms.worker_addresses)])
@@ -133,42 +150,42 @@ class NearestNeighbors(object):
 
     def _query_models(self, n_neighbors,
                       comms, nn_models,
-                      index_futures, query_futures):
+                      index_handler, query_handler):
 
         worker_info = comms.worker_info(comms.worker_addresses)
-
-        index_worker_to_parts = workers_to_parts(index_futures)
-        query_worker_to_parts = workers_to_parts(query_futures)
 
         """
         Build inputs and outputs
         """
-        idx_parts_to_ranks, idx_M = parts_to_ranks(self.client,
-                                                   worker_info,
-                                                   index_futures)
+        index_handler.calculate_parts_to_sizes(comms=comms)
+        query_handler.calculate_parts_to_sizes(comms=comms)
 
-        query_parts_to_ranks, query_M = parts_to_ranks(self.client,
-                                                       worker_info,
-                                                       query_futures)
+        idx_parts_to_ranks, _ = parts_to_ranks(self.client,
+                                               worker_info,
+                                               index_handler.gpu_futures)
+
+        query_parts_to_ranks, _ = parts_to_ranks(self.client,
+                                                 worker_info,
+                                                 query_handler.gpu_futures)
 
         """
         Invoke kneighbors on Dask workers to perform distributed query
         """
 
         key = uuid1()
-        nn_fit = dict([(worker_info[worker]["r"], self.client.submit(
+        nn_fit = dict([(worker_info[worker]["rank"], self.client.submit(
                         NearestNeighbors._func_kneighbors,
                         nn_models[worker],
-                        index_worker_to_parts[worker] if
-                        worker in index_worker_to_parts else [],
-                        idx_M,
+                        index_handler.worker_to_parts[worker] if
+                        worker in index_handler.workers else [],
+                        index_handler.total_rows,
                         self.n_cols,
                         idx_parts_to_ranks,
-                        query_worker_to_parts[worker] if
-                        worker in query_worker_to_parts else [],
-                        query_M,
+                        query_handler.worker_to_parts[worker] if
+                        worker in query_handler.workers else [],
+                        query_handler.total_rows,
                         query_parts_to_ranks,
-                        worker_info[worker]["r"],
+                        worker_info[worker]["rank"],
                         n_neighbors,
                         key="%s-%s" % (key, idx),
                         workers=[worker]))
@@ -196,28 +213,37 @@ class NearestNeighbors(object):
                    _return_futures=False):
         """
         Query the distributed nearest neighbors index
-        :param X : dask_cudf.Dataframe Vectors to query. If not
-                   provided, neighbors of each indexed point are returned.
-        :param n_neighbors : Number of neighbors to query for each row in
-                             X. If not provided, the n_neighbors on the
-                             model are used.
-        :param return_distance : If false, only indices are returned
-        :return : dask_cudf.DataFrame containing distances
-        :return : dask_cudf.DataFrame containing indices
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe
+            Vectors to query. If not provided, neighbors of each indexed point
+            are returned.
+        n_neighbors : int
+            Number of neighbors to query for each row in X. If not provided,
+            the n_neighbors on the model are used.
+        return_distance : boolean (default=True)
+            If false, only indices are returned
+
+        Returns
+        -------
+        ret : tuple (dask_cudf.DataFrame, dask_cudf.DataFrame)
+            First dask-cuDF DataFrame contains distances, second conains the
+            indices.
         """
         n_neighbors = self.get_neighbors(n_neighbors)
 
-        query_futures = self.X if X is None else \
-            self.client.sync(extract_ddf_partitions, X)
+        query_handler = self.X_handler if X is None else \
+            DistributedDataHandler.create(data=X, client=self.client)
 
-        if X is None:
+        if query_handler is None:
             raise ValueError("Model needs to be trained using fit() "
                              "before calling kneighbors()")
 
         """
         Create communicator clique
         """
-        comms = NearestNeighbors._build_comms(self.X, query_futures,
+        comms = NearestNeighbors._build_comms(self.X_handler, query_handler,
                                               self.streams_per_handle,
                                               self.verbose)
 
@@ -231,7 +257,7 @@ class NearestNeighbors(object):
         """
         nn_fit, out_d_futures, out_i_futures = \
             self._query_models(n_neighbors, comms, nn_models,
-                               self.X, query_futures)
+                               self.X_handler, query_handler)
 
         comms.destroy()
 
@@ -239,8 +265,10 @@ class NearestNeighbors(object):
             ret = nn_fit, out_i_futures if not return_distance else \
                 (nn_fit, out_d_futures, out_i_futures)
         else:
-            ret = to_dask_cudf(out_i_futures) \
-                if not return_distance else (to_dask_cudf(out_d_futures),
-                                             to_dask_cudf(out_i_futures))
+            ret = to_output(out_i_futures, self.datatype) \
+                if not return_distance else (to_output(out_d_futures,
+                                             self.datatype), to_output(
+                                                 out_i_futures,
+                                                 self.datatype))
 
         return ret

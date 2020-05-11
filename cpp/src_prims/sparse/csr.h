@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <common/cudart_utils.h>
 #include "cuda_utils.h"
 
 #include "label/classlabels.h"
@@ -65,7 +66,7 @@ class CSR {
 
   /**
     * @brief default constructor
-    * @param alloc device allocator
+    * @param d_alloc device allocator
     * @param stream cuda stream
     */
   CSR(std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream)
@@ -106,7 +107,7 @@ class CSR {
 
   /**
      * @brief Allocate a CSR given its size
-    * @param alloc: device allocator for temporary buffers
+    * @param d_alloc: device allocator for temporary buffers
     * @param stream: CUDA stream to use
     * @param nnz: size of the rows/cols/vals arrays
     * @param n_rows: number of rows in the dense matrix
@@ -170,7 +171,7 @@ class CSR {
   friend std::ostream &operator<<(std::ostream &out, const CSR<T> &c) {
     if (c.validate_size() && c.validate_mem()) {
       cudaStream_t stream;
-      CUDA_CHECK(cudaStreamCreate(&stream));
+      CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
 
       out << arr2Str(c.row_ind_arr.data(), c.n_rows + 1, "row_ind", stream)
           << std::endl;
@@ -183,7 +184,7 @@ class CSR {
 
       CUDA_CHECK(cudaStreamDestroy(stream));
     } else {
-      out << "Cannot print COO object: Uninitialized or invalid." << std::endl;
+      out << "Cannot print CSR object: Uninitialized or invalid." << std::endl;
     }
 
     return out;
@@ -272,7 +273,7 @@ __global__ void csr_row_normalize_l1_kernel(
 
     T sum = T(0.0);
     for (int j = start_idx; j < stop_idx; j++) {
-      sum = sum + vals[j];
+      sum = sum + fabs(vals[j]);
     }
 
     for (int j = start_idx; j < stop_idx; j++) {
@@ -529,7 +530,7 @@ __global__ void csr_add_kernel(const int *a_ind, const int *a_indptr,
  * @param nnz2: size of right hand index_ptr and val arrays
  * @param m: size of output array (number of rows in final matrix)
  * @param out_ind: output row_ind array
- * @param alloc: deviceAllocator to use for temp memory
+ * @param d_alloc: deviceAllocator to use for temp memory
  * @param stream: cuda stream to use
  */
 template <typename T, int TPB_X = 32>
@@ -613,10 +614,10 @@ __global__ void csr_row_op_kernel(const T *row_ind, T n_rows, T nnz,
  * @tparam TPB_X number of threads per block to use for underlying kernel
  * @tparam Lambda type of custom operation function
  * @param row_ind the CSR row_ind array to perform parallel operations over
- * @param total_rows total number vertices in graph
- * @param batchSize size of row_ind
+ * @param n_rows total number vertices in graph
+ * @param nnz number of non-zeros
  * @param op custom row operation functor accepting the row and beginning index.
- * @param stream cuda stream 121to use
+ * @param stream cuda stream to use
  */
 template <typename Index_, int TPB_X = 32,
           typename Lambda = auto(Index_, Index_, Index_)->void>
@@ -638,6 +639,7 @@ void csr_row_op(const Index_ *row_ind, Index_ n_rows, Index_ nnz, Lambda op,
  * @tparam Lambda function for fused operation in the adj_graph construction
  * @param row_ind the input CSR row_ind array
  * @param total_rows number of vertices in graph
+ * @param nnz number of non-zeros
  * @param batchSize number of vertices in current batch
  * @param adj an adjacency array (size batchSize x total_rows)
  * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
@@ -683,7 +685,8 @@ void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
  * @tparam T the numeric type of the index arrays
  * @tparam TPB_X the number of threads to use per block for kernels
  * @param row_ind the input CSR row_ind array
- * @param n_rows number of total vertices in graph
+ * @param total_rows number of total vertices in graph
+ * @param nnz number of non-zeros
  * @param adj an adjacency array
  * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
  * @param stream cuda stream to use
@@ -711,9 +714,11 @@ template <typename Index_, int TPB_X = 32>
 __global__ void weak_cc_label_device(Index_ *labels, const Index_ *row_ind,
                                      const Index_ *row_ind_ptr, Index_ nnz,
                                      bool *fa, bool *xa, bool *m,
-                                     Index_ startVertexId, Index_ batchSize) {
+                                     Index_ startVertexId, Index_ batchSize,
+                                     Index_ N) {
   Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
-  if (tid < batchSize) {
+
+  if (tid < batchSize && tid + startVertexId < N) {
     if (fa[tid + startVertexId]) {
       fa[tid + startVertexId] = false;
       Index_ row_ind_val = row_ind[tid];
@@ -803,7 +808,7 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
 
     weak_cc_label_device<Index_, TPB_X><<<blocks, threads, 0, stream>>>(
       labels, row_ind, row_ind_ptr, nnz, state->fa, state->xa, state->m,
-      startVertexId, batchSize);
+      startVertexId, batchSize, N);
     CUDA_CHECK(cudaPeekAtLastError());
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -859,7 +864,6 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
   dim3 threads(TPB_X);
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
-
   if (startVertexId == 0) {
     weak_cc_init_all_kernel<Index_, TPB_X><<<blocks, threads, 0, stream>>>(
       labels, state->fa, state->xa, N, MAX_LABEL);
@@ -924,7 +928,7 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
  * @param row_ind_ptr the row index pointer of the CSR array
  * @param nnz the size of row_ind_ptr array
  * @param N number of vertices
- * @param alloc: deviceAllocator to use for temp memory
+ * @param d_alloc: deviceAllocator to use for temp memory
  * @param stream the cuda stream to use
  * @param filter_op an optional filtering function to determine which points
  * should get considered for labeling.
@@ -962,7 +966,7 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
  * @param row_ind_ptr the row index pointer of the CSR array
  * @param nnz the size of row_ind_ptr array
  * @param N number of vertices
- * @param alloc: deviceAllocator to use for temp memory
+ * @param d_alloc: deviceAllocator to use for temp memory
  * @param stream the cuda stream to use
  */
 template <typename Index_, int TPB_X = 32>

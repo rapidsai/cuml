@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 
 #include "random/rng.h"
 
+#include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
@@ -46,8 +47,8 @@ TEST_F(TestSpectralClustering, Fit) {
   int k = 3;
 
   float *X;
-  MLCommon::allocate(X, n * d);
   cumlHandle handle;
+  MLCommon::allocate(X, n * d);
 
   Random::Rng r(150, MLCommon::Random::GenTaps);
   r.uniform(X, n * d, -1.0f, 1.0f, handle.getStream());
@@ -56,6 +57,9 @@ TEST_F(TestSpectralClustering, Fit) {
   MLCommon::allocate(out, n, true);
 
   ML::Spectral::fit_clusters(handle, X, n, d, k, 10, 1e-3f, out);
+  CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+  CUDA_CHECK(cudaFree(out));
+  CUDA_CHECK(cudaFree(X));
 }
 
 typedef SpectralTest<float> TestSpectralEmbedding;
@@ -75,6 +79,9 @@ TEST_F(TestSpectralEmbedding, Fit) {
   MLCommon::allocate(out, n * 2, true);
 
   ML::Spectral::fit_embedding(handle, X, n, d, k, 2, out);
+  CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+  CUDA_CHECK(cudaFree(out));
+  CUDA_CHECK(cudaFree(X));
 }
 
 }  // end namespace ML

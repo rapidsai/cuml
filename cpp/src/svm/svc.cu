@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,15 @@
 
 #include <iostream>
 
+#include <cuml/svm/svc.hpp>
 #include "common/device_buffer.hpp"
-#include "kernelcache.h"
+#include "kernelcache.cuh"
 #include "label/classlabels.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/unary_op.h"
 #include "matrix/kernelfactory.h"
-#include "smosolver.h"
-#include "svc.hpp"
-#include "svc_impl.h"
+#include "smosolver.cuh"
+#include "svc_impl.cuh"
 
 namespace ML {
 namespace SVM {
@@ -63,9 +63,10 @@ template void svmFreeBuffers(const cumlHandle &handle, svmModel<double> &m);
 template <typename math_t>
 SVC<math_t>::SVC(cumlHandle &handle, math_t C, math_t tol,
                  Matrix::KernelParams kernel_params, math_t cache_size,
-                 int max_iter, int nochange_steps, bool verbose)
+                 int max_iter, int nochange_steps, int verbosity)
   : handle(handle),
-    param(svmParameter{C, cache_size, max_iter, nochange_steps, tol, verbose}),
+    param(
+      svmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity}),
     kernel_params(kernel_params) {
   model.n_support = 0;
   model.dual_coefs = nullptr;

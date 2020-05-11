@@ -31,7 +31,8 @@ import warnings
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 
-from cuml.utils import input_to_dev_array as to_cuda
+from cuml.common.array import CumlArray
+from cuml.common import input_to_cuml_array
 import rmm
 
 from libcpp cimport bool
@@ -65,7 +66,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         const float pre_momentum,
         const float post_momentum,
         const long long random_state,
-        const bool verbose,
+        int verbosity,
         const bool intialize_embeddings,
         bool barnes_hut) except +
 
@@ -142,8 +143,6 @@ class TSNE(Base):
         During the exaggeration iteration, more forcefully apply gradients.
     post_momentum : float (default 0.8)
         During the late phases, less forcefully apply gradients.
-    should_downcast : bool (default True)
-        Whether to reduce to dataset to float32 or not.
     handle : (cuML Handle, default None)
         You can pass in a past handle that was initialized, or we will create
         one for you anew!
@@ -203,7 +202,6 @@ class TSNE(Base):
                  int exaggeration_iter=250,
                  float pre_momentum=0.5,
                  float post_momentum=0.8,
-                 bool should_downcast=True,
                  handle=None):
 
         super(TSNE, self).__init__(handle=handle, verbose=(verbose != 0))
@@ -302,10 +300,7 @@ class TSNE(Base):
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
 
-        self._should_downcast = should_downcast
-        return
-
-    def fit(self, X):
+    def fit(self, X, convert_dtype=True):
         """Fit X into an embedded space.
 
         Parameters
@@ -314,10 +309,9 @@ class TSNE(Base):
             X contains a sample per row.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-        y : array-like (device or host) shape = (n_samples, 1)
-            y contains a label per row.
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will automatically
+            convert the inputs to np.float32.
         """
         cdef int n, p
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -328,12 +322,11 @@ class TSNE(Base):
             raise ValueError("data should be two dimensional")
 
         cdef uintptr_t X_ptr
-        if self._should_downcast:
-            _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
-                                             convert_to_dtype=np.float32)
-        else:
-            _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
-                                             check_dtype=np.float32)
+        X_m, n, p, dtype = \
+            input_to_cuml_array(X, order='C', check_dtype=np.float32,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None))
+        X_ptr = X_m.ptr
 
         if n <= 1:
             raise ValueError("There needs to be more than 1 sample to build "
@@ -346,12 +339,12 @@ class TSNE(Base):
             self.perplexity = n
 
         # Prepare output embeddings
-        Y = rmm.device_array(
+        Y = CumlArray.zeros(
             (n, self.n_components),
             order="F",
             dtype=np.float32)
 
-        cdef uintptr_t embed_ptr = Y.device_ctypes_pointer.value
+        cdef uintptr_t embed_ptr = Y.ptr
 
         # Find best params if learning rate method is adaptive
         if self.learning_rate_method=='adaptive' and self.method=="barnes_hut":
@@ -404,21 +397,20 @@ class TSNE(Base):
                  <float> self.pre_momentum,
                  <float> self.post_momentum,
                  <long long> seed,
-                 <bool> self.verbose,
+                 <int> self.verbosity,
                  <bool> True,
                  <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory
-        del _X
-        self.Y = Y
+        self._embedding_ = Y
         return self
 
     def __del__(self):
-        if "Y" in self.__dict__:
-            del self.Y
-            self.Y = None
+        if hasattr(self, '_embedding_'):
+            del self._embedding_
+            self._embedding_ = None
 
-    def fit_transform(self, X):
+    def fit_transform(self, X, convert_dtype=True):
         """Fit X into an embedded space and return that transformed output.
 
         Parameters
@@ -427,31 +419,24 @@ class TSNE(Base):
             X contains a sample per row.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+        convert_dtype : bool, optional (default = True)
+            When set to True, the fit_transform method will automatically
+            convert the inputs to np.float32.
 
         Returns
         --------
         X_new : array, shape (n_samples, n_components)
                 Embedding of the training data in low-dimensional space.
         """
-        self.fit(X)
+        self.fit(X, convert_dtype=convert_dtype)
+        out_type = self._get_output_type(X)
 
-        if isinstance(X, cudf.DataFrame):
-            if isinstance(self.Y, cudf.DataFrame):
-                return self.Y
-            else:
-                return cudf.DataFrame.from_gpu_matrix(self.Y)
-        elif isinstance(X, np.ndarray):
-            data = self.Y.copy_to_host()
-            del self.Y
-            return data
-        return None  # is this even possible?
+        data = self._embedding_.to_output(out_type)
+        del self._embedding_
+        return data
 
     def __getstate__(self):
         state = self.__dict__.copy()
-
-        if "Y" in state:
-            state["Y"] = cudf.DataFrame.from_gpu_matrix(state["Y"])
-
         if "handle" in state:
             del state["handle"]
         return state

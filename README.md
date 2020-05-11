@@ -1,5 +1,7 @@
 # <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuML - GPU Machine Learning Algorithms</div>
 
+[![Build Status](https://gpuci.gpuopenanalytics.com/job/rapidsai/job/gpuci/job/cuml/job/branches/job/cuml-branch-pipeline/badge/icon)](https://gpuci.gpuopenanalytics.com/job/rapidsai/job/gpuci/job/cuml/job/branches/job/cuml-branch-pipeline/)
+
 cuML is a suite of libraries that implement machine learning algorithms and mathematical primitives functions that share compatible APIs with other [RAPIDS](https://rapids.ai/) projects.
 
 cuML enables data scientists, researchers, and software engineers to run
@@ -10,7 +12,7 @@ programming. In most cases, cuML's Python API matches the API from
 
 For large datasets, these GPU-based implementations can complete 10-50x faster
 than their CPU equivalents. For details on performance, see the [cuML Benchmarks
-Notebook](https://github.com/rapidsai/notebooks-contrib/blob/master/intermediate_notebooks/benchmarks/cuml_benchmarks.ipynb).
+Notebook](https://github.com/rapidsai/cuml/notebooks/tools/cuml_benchmarks.ipynb).
 
 As an example, the following Python snippet loads input and computes DBSCAN clusters, all on GPU:
 ```python
@@ -73,28 +75,25 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 |  | K-Means | Multi-node multi-GPU via Dask |
 | **Dimensionality Reduction** | Principal Components Analysis (PCA) | Multi-node multi-GPU via Dask|
 | | Truncated Singular Value Decomposition (tSVD) | Multi-node multi-GPU via Dask |
-| | Uniform Manifold Approximation and Projection (UMAP) | |
+| | Uniform Manifold Approximation and Projection (UMAP) | Multi-node multi-GPU Inference via Dask |
 | | Random Projection | |
 | | t-Distributed Stochastic Neighbor Embedding (TSNE) | |
-| **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-GPU available in conda CUDA 10 package |
-| | Linear Regression with Lasso or Ridge Regularization | |
+| **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-node multi-GPU via Dask |
+| | Linear Regression with Lasso or Ridge Regularization | Multi-node multi-GPU via Dask |
 | | ElasticNet Regression | |
 | | Logistic Regression | |
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
 | **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node multi-GPU via Dask |
 | | Random Forest (RF) Regression | Experimental multi-node multi-GPU via Dask |
-|  | K-Nearest Neighbors (KNN) Classification | Multi-node multi-GPU via Dask, available in version 0.12 branch and nightly conda packages. Uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
-|  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask, available in version 0.12 branch and nightly conda packages. Uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query.  |
+| | Inference for decision tree-based models | Forest Inference Library (FIL) |
+|  | K-Nearest Neighbors (KNN) | Multi-node multi-GPU via Dask, uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+|  | K-Nearest Neighbors (KNN) Classification | |
+|  | K-Nearest Neighbors (KNN) Regression | |
 |  | Support Vector Machine Classifier (SVC) | |
-| **Time Series** | Linear Kalman Filter | |
-|  | Holt-Winters Exponential Smoothing | |
-|  | Auto-regressive Integrated Moving Average (ARIMA) | |
+|  | Epsilon-Support Vector Regression (SVR) | |
+| **Time Series** | Holt-Winters Exponential Smoothing | |
+|  | Auto-regressive Integrated Moving Average (ARIMA) | Supports seasonality (SARIMA) |
 ---
-
-More ML algorithms in cuML and more ML primitives in ml-prims are planned for
-future releases, including: spectral embedding, spectral clustering,
-support vector machines, and additional time series methods. Future releases
-will also expand support for multi-node, multi-GPU algorithms.
 
 ## Installation
 
@@ -109,6 +108,19 @@ See the build [guide](BUILD.md).
 ## Contributing
 
 Please see our [guide for contributing to cuML](CONTRIBUTING.md).
+
+## References
+
+For additional details on the technologies behind cuML, as well as a broader overview of the Python Machine Learning landscape, see [_Machine Learning in Python: Main developments and technology trends in data science, machine learning, and artificial intelligence_ (2020)](https://arxiv.org/abs/2002.04803) by Sebastian Raschka, Joshua Patterson, and Corey Nolet.
+
+Please consider citing this when using cuML in a project. You can use the citation BibTeX:
+
+> @article{raschka2020machine,
+>   title={Machine Learning in Python: Main developments and technology trends in data science, machine learning, and artificial intelligence},
+>   author={Raschka, Sebastian and Patterson, Joshua and Nolet, Corey},
+>   journal={arXiv preprint arXiv:2002.04803},
+>   year={2020}
+> }
 
 ## Contact
 

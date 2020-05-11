@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import argparse
 import tempfile
 
 
+EXPECTED_VERSION = "8.0.1"
 VERSION_REGEX = re.compile(r"clang-format version ([0-9.]+)")
 # NOTE: populate this list with more top-level dirs as we add more of them to
 #       to the cuml repo
@@ -67,8 +68,9 @@ def parse_args():
     if version is None:
         raise Exception("Failed to figure out clang-format version!")
     version = version.group(1)
-    if version != "8.0.0":
-        raise Exception("clang-format exe must be v8.0.0 found '%s'" % version)
+    if version != EXPECTED_VERSION:
+        raise Exception("clang-format exe must be v%s found '%s'" % \
+                        (EXPECTED_VERSION, version))
     if len(args.dirs) == 0:
         args.dirs = DEFAULT_DIRS
     return args
@@ -86,7 +88,7 @@ def list_all_src_files(file_regex, ignore_regex, srcdirs, dstdir, inplace):
                     if inplace:
                         _dir = root
                     else:
-                        _dir = os.path.join(dstdir, os.path.basename(root))
+                        _dir = os.path.join(dstdir, root)
                     dst = os.path.join(_dir, f)
                     allFiles.append((src, dst))
     return allFiles

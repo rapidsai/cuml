@@ -32,8 +32,8 @@ class RegressorMixin:
         ----------
         X : [cudf.DataFrame]
             Test samples on which we predict
-        y : [cudf.Series]
-            True values for predict(X)
+        y : [cudf.Series, device array, or numpy array]
+            Ground truth values for predict(X)
 
         Returns
         -------
@@ -41,9 +41,51 @@ class RegressorMixin:
             R^2 of self.predict(X) wrt. y.
         """
         from cuml.metrics.regression import r2_score
-        from cuml.utils import input_to_dev_array
+        from cuml.common import input_to_dev_array
 
         X_m = input_to_dev_array(X)[0]
         y_m = input_to_dev_array(y)[0]
 
-        return r2_score(y_m, cuda.to_device(self.predict(X_m)))
+        if hasattr(self, 'handle'):
+            handle = self.handle
+        else:
+            handle = None
+        return r2_score(y_m,
+                        cuda.to_device(self.predict(X_m)),
+                        handle=handle)
+
+
+class ClassifierMixin:
+    """Mixin class for classifier estimators in"""
+
+    _estimator_type = "classifier"
+
+    def score(self, X, y, **kwargs):
+        """Scoring function for based on mean accuracy.
+
+        Parameters
+        ----------
+        X : [cudf.DataFrame]
+            Test samples on which we predict
+        y : [cudf.Series, device array, or numpy array]
+            Ground truth values for predict(X)
+
+        Returns
+        -------
+        score : float
+            Accuracy of self.predict(X) wrt. y (fraction where y == pred_y)
+        """
+        from cuml.metrics.accuracy import accuracy_score
+        from cuml.common import input_to_dev_array
+
+        X_m = input_to_dev_array(X)[0]
+        y_m = input_to_dev_array(y)[0]
+
+        if hasattr(self, 'handle'):
+            handle = self.handle
+        else:
+            handle = None
+
+        return accuracy_score(y_m,
+                              cuda.to_device(self.predict(X_m)),
+                              handle=handle)

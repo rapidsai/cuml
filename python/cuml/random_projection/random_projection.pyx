@@ -22,15 +22,13 @@
 import cudf
 import numpy as np
 
-import rmm
-
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array
+from cuml.common import input_to_cuml_array
 
 cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
@@ -140,7 +138,7 @@ cdef class BaseRandomProjection():
 
         rand_matS/rand_matD : Cython pointers to structures
             Structures holding pointers to data describing random matrix.
-            S for simple/float and D for double.
+            S for single/float and D for double.
 
     Notes
     ------
@@ -191,8 +189,10 @@ cdef class BaseRandomProjection():
 
         """
 
-        _, _, n_samples, n_features, self.dtype = \
-            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
+        self._set_output_type(X)
+
+        _, n_samples, n_features, self.dtype = \
+            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         self.params.n_samples = n_samples
@@ -228,18 +228,19 @@ cdef class BaseRandomProjection():
 
         """
 
-        cdef uintptr_t input_ptr
+        out_type = self._get_output_type(X)
 
-        X_m, input_ptr, n_samples, n_features, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None))
+        X_m, n_samples, n_features, dtype = \
+            input_to_cuml_array(X, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None))
+        cdef uintptr_t input_ptr = X_m.ptr
 
-        X_new = rmm.device_array((n_samples, self.params.n_components),
-                                 dtype=self.dtype,
-                                 order='F')
+        X_new = CumlArray.empty((n_samples, self.params.n_components),
+                                dtype=self.dtype,
+                                order='F')
 
-        cdef uintptr_t output_ptr = get_dev_array_ptr(X_new)
+        cdef uintptr_t output_ptr = X_new.ptr
 
         if self.params.n_features != n_features:
             raise ValueError("n_features must be same as on fitting: %d" %
@@ -262,20 +263,7 @@ cdef class BaseRandomProjection():
 
         self.handle.sync()
 
-        if (isinstance(X, cudf.DataFrame)):
-            del(X_m)
-            h_X_new = X_new.copy_to_host()
-            del(X_new)
-            gdf_X_new = cudf.DataFrame()
-            for i in range(0, h_X_new.shape[1]):
-                gdf_X_new[str(i)] = h_X_new[:, i]
-            return gdf_X_new
-
-        elif isinstance(X, np.ndarray):
-            return X_new.copy_to_host()
-
-        else:
-            return X_new
+        return X_new.to_output(out_type)
 
     def fit_transform(self, X, convert_dtype=False):
         return self.fit(X).transform(X, convert_dtype)
@@ -357,7 +345,7 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
 
     Notes
     ------
-        Inspired from sklearn's implementation :
+        Inspired by Scikit-learn's implementation :
         https://scikit-learn.org/stable/modules/random_projection.html
 
     """
@@ -468,7 +456,7 @@ class SparseRandomProjection(Base, BaseRandomProjection):
 
     Notes
     ------
-        Inspired from sklearn's implementation :
+        Inspired by Scikit-learn's implementation :
         https://scikit-learn.org/stable/modules/random_projection.html
 
     """

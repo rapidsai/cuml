@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,20 +15,34 @@
  */
 
 #pragma once
-#include <utils.h>
+#include <common/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/tree/decisiontree.hpp>
 #include "common/cumlHandle.hpp"
 
 template <class T, class L>
 struct TemporaryMemory {
+  //depth algorithm changer
+  const int swap_depth = 14;
+  static const int gather_threads = 256;
+  size_t parentsz, childsz, gather_max_nodes;
   //Allocators parsed from CUML handle
   std::shared_ptr<MLCommon::deviceAllocator> device_allocator;
   std::shared_ptr<MLCommon::hostAllocator> host_allocator;
 
+  //Tree holder for gather algorithm
+  MLCommon::device_buffer<SparseTreeNode<T, L>> *d_sparsenodes = nullptr;
+  MLCommon::host_buffer<SparseTreeNode<T, L>> *h_sparsenodes = nullptr;
+
   //Temporary data buffer
   MLCommon::device_buffer<T> *temp_data = nullptr;
+  //Temporary CUB buffer
+  MLCommon::device_buffer<char> *temp_cub_buffer = nullptr;
+  size_t temp_cub_bytes;
+  MLCommon::host_buffer<int> *h_counter = nullptr;
+  MLCommon::device_buffer<int> *d_counter = nullptr;
   //Host/Device histograms and device minmaxs
   MLCommon::device_buffer<T> *d_globalminmax = nullptr;
   MLCommon::host_buffer<T> *h_globalminmax = nullptr;
@@ -55,8 +69,6 @@ struct TemporaryMemory {
   MLCommon::device_buffer<unsigned int> *d_colstart = nullptr;
   MLCommon::host_buffer<unsigned int> *h_colids = nullptr;
   MLCommon::host_buffer<unsigned int> *h_colstart = nullptr;
-  //Split algo
-  int splitalgo;
 
   //For level algorithm
   MLCommon::device_buffer<unsigned int> *d_flags = nullptr;
@@ -97,17 +109,21 @@ struct TemporaryMemory {
   TemporaryMemory(
     const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
     const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
-    const cudaStream_t stream_in, int N, int Ncols, float colper, int n_unique,
-    int n_bins, const int split_algo, int depth, bool col_shuffle);
+    const cudaStream_t stream_in, int N, int Ncols, int n_unique,
+    const ML::DecisionTree::DecisionTreeParams &tree_params);
+
   TemporaryMemory(const ML::cumlHandle_impl &handle, cudaStream_t stream_in,
-                  int N, int Ncols, float colper, int n_unique, int n_bins,
-                  const int split_algo, int depth, bool colshuffle);
+                  int N, int Ncols, int n_unique,
+                  const ML::DecisionTree::DecisionTreeParams &tree_params);
+
   ~TemporaryMemory();
-  void LevelMemAllocator(int nrows, int ncols, float colper, int n_unique,
-                         int nbins, int depth, const int split_algo,
-                         bool col_shuffle);
+
+  void LevelMemAllocator(
+    int nrows, int ncols, int n_unique,
+    const ML::DecisionTree::DecisionTreeParams &tree_params);
 
   void LevelMemCleaner();
-  void print_info();
+
+  void print_info(int depth, int nrows, int ncols, float colper);
 };
 #include "memory.cuh"

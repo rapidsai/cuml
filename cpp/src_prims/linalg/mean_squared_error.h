@@ -29,7 +29,6 @@ namespace LinAlg {
  * @param A input array (assumed to be a device pointer)
  * @param B input array (assumed to be a device pointer)
  * @param len number of elements in the input arrays
- * @param workingBuffer temporary array at least as large as the inputs (assumed to be a device pointer)
  * @param weight weight to apply to every term in the mean squared error calculation
  * @param stream cuda-stream where to launch this kernel
  */
