@@ -11,6 +11,7 @@
 - PR #2067: python: wrap logging interface in cython
 - PR #2083: Added dtype, order, and use_full_low_rank to MNMG `make_regression`
 - PR #2074: SG and MNMG `make_classification`
+- PR #2127: Added order to SG `make_blobs`, and switch from C++ to cupy based implementation
 - PR #2057: Weighted k-means
 
 ## Improvements
@@ -80,6 +81,8 @@
 - PR #2205: Use timeout to add 2 hour hard limit to dask tests
 - PR #2214: Remove utils folder and refactor to common folder
 - PR #2220: Final refactoring of all src_prims header files following rules as specified in #1675
+- PR #2225: input_to_cuml_array keep order option, test updates and cleanup
+- PR #2244: Re-enable slow ARIMA tests as stress tests
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -119,6 +122,7 @@
 - PR #2217: Fix opg_utils naming to fix singlegpu build
 - PR #2223: Fix bug in ARIMA C++ benchmark
 - PR #2224: Temporary fix for CI until new Dask version is released
+- PR #2228: Update to use __reduce_ex__ in CumlArray to override cudf.Buffer
 
 # cuML 0.13.0 (Date TBD)
 
