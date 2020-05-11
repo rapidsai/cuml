@@ -137,7 +137,7 @@ class DelayedParallelFunc(object):
                          rather than a dask collection object.
 
         output_collection_type : None or a string in {'cupy', 'cudf'}
-            Choose to collect the resulting collection as a CuPy backed
+            Choose to return the resulting collection as a CuPy backed
             dask.array or a dask_cudf.DataFrame. If None, will use the same
             collection type as used in the input of fit.
             Unused if output_futures=True.
