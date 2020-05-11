@@ -79,18 +79,6 @@ class Ridge(BaseEstimator,
         self._model_fit = False
         self._consec_call = 0
 
-    @staticmethod
-    def _func_create_model(sessionId, **kwargs):
-        try:
-            from cuml.linear_model.ridge_mg import RidgeMG as cumlRidge
-        except ImportError:
-            raise Exception("cuML has not been built with multiGPU support "
-                            "enabled. Build with the --multigpu flag to"
-                            " enable multiGPU support.")
-
-        handle = worker_state(sessionId)["handle"]
-        return cumlRidge(handle=handle, **kwargs)
-
     def fit(self, X, y):
         """
         Fit the model with X and y.
