@@ -30,10 +30,14 @@ class RegressorMixin:
 
         Parameters
         ----------
-        X : [cudf.DataFrame]
+        X : array-like (device or host) shape = (n_samples, n_features)
             Test samples on which we predict
-        y : [cudf.Series, device array, or numpy array]
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        y : array-like (device or host) shape = (n_samples, n_features)
             Ground truth values for predict(X)
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         Returns
         -------

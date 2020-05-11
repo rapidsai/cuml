@@ -27,7 +27,7 @@ from libc.stdint cimport uintptr_t
 import cuml.common.handle
 from cuml.common.handle cimport cumlHandle
 from cuml.metrics cimport regression
-from cuml.utils import input_to_cuml_array
+from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.memory_utils import with_cupy_rmm
 
 
