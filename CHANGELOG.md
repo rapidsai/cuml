@@ -13,6 +13,7 @@
 - PR #2074: SG and MNMG `make_classification`
 - PR #2127: Added order to SG `make_blobs`, and switch from C++ to cupy based implementation
 - PR #2057: Weighted k-means
+- PR #2242: Pandas input support with output as NumPy arrays by default
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
