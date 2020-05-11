@@ -26,12 +26,14 @@ namespace ML {
  * @param RANDOMIZED: randomized svd
  * @param COV_EIG_DQ: covariance of input will be used along with eigen decomposition using divide and conquer method for symmetric matrices
  * @param COV_EIG_JACOBI: covariance of input will be used along with eigen decomposition using jacobi method for symmetric matrices
+ * @param SVD_QR_DQ: SVD using QR decomposition will be used of the full input matrix
  * @{
  */
 enum solver {
   COV_EIG_DQ,
   COV_EIG_JACOBI,
   RANDOMIZED,
+  SVQ_QR_DQ
 };
 
 enum lr_type {

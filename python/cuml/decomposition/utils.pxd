@@ -24,7 +24,7 @@ from libcpp cimport bool
 cdef extern from "ml_utils.h" namespace "ML":
 
     enum solver:
-        COV_EIG_DQ, COV_EIG_JACOBI, RANDOMIZED
+        COV_EIG_DQ, COV_EIG_JACOBI, RANDOMIZED, SVD_QR_DQ
 
     cdef cppclass params:
         int n_rows
