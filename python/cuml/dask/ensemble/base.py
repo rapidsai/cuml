@@ -40,7 +40,6 @@ class BaseRandomForestModel(object):
         self.n_estimators_per_worker = \
             [n_est_per_worker for i in range(n_workers)]
         remaining_est = n_estimators - (n_est_per_worker * n_workers)
-
         for i in range(remaining_est):
             self.n_estimators_per_worker[i] = (
                 self.n_estimators_per_worker[i] + 1
