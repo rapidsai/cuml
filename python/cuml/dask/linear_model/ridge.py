@@ -74,11 +74,6 @@ class Ridge(BaseEstimator,
                                     verbose=verbose,
                                     **kwargs)
 
-        self.coef_ = None
-        self.intercept_ = None
-        self._model_fit = False
-        self._consec_call = 0
-
     @staticmethod
     def _func_create_model(sessionId, **kwargs):
         try:
@@ -103,12 +98,9 @@ class Ridge(BaseEstimator,
             Labels (outcome values)
         """
 
-        models = self._fit(model_func=Ridge._create_model, data=(X, y),
-                           **self.kwargs)
+        self._fit(model_func=Ridge._create_model, data=(X, y),
+                  **self.kwargs)
 
-        self.local_model = list(models.values())[0].result()
-        self.coef_ = self.local_model.coef_
-        self.intercept_ = self.local_model.intercept_
         return self
 
     def predict(self, X, delayed=True):

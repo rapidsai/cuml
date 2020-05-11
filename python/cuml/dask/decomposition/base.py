@@ -37,14 +37,6 @@ class BaseDecomposition(BaseEstimator):
                                                 **kwargs)
         self._model_func = model_func
 
-        # define attributes to make sure they
-        # are available even on untrained object
-        self.local_model = None
-        self.components_ = None
-        self.explained_variance_ = None
-        self.explained_variance_ratio_ = None
-        self.singular_values_ = None
-
 
 class DecompositionSyncFitMixin(object):
 
@@ -102,12 +94,6 @@ class DecompositionSyncFitMixin(object):
         comms.destroy()
 
         self.local_model = list(models.values())[0].result()
-
-        self.components_ = self.local_model.components_
-        self.explained_variance_ = self.local_model.explained_variance_
-        self.explained_variance_ratio_ = \
-            self.local_model.explained_variance_ratio_
-        self.singular_values_ = self.local_model.singular_values_
 
         if _transform:
             out_futures = flatten_grouped_results(self.client,
