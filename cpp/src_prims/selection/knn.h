@@ -439,9 +439,9 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
     MLCommon::LinAlg::unaryOp<int>(
       y_normalized.data(), y_normalized.data(), n_labels,
       [] __device__(int input) { return input - 1; }, stream);
-    class_probs_kernel<float, precomp_lbls><<<grid, blk, 0, stream>>>(
-      out[i], knn_indices, y_normalized.data(), n_unique_labels, n_labels,
-      n_rows, k);
+    class_probs_kernel<float, precomp_lbls>
+      <<<grid, blk, 0, stream>>>(out[i], knn_indices, y_normalized.data(),
+                                 n_unique_labels, n_labels, n_rows, k);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 }
@@ -499,9 +499,9 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
    * work to the streams, we don't need to explicitly synchronize the streams here.
    */
 
-  class_probs<precomp_lbls>(probs, knn_indices, y, n_labels, n_rows, k,
-                            uniq_labels, n_unique, allocator, user_stream,
-                            int_streams, n_int_streams);
+  class_probs<32, precomp_lbls>(probs, knn_indices, y, n_labels, n_rows, k,
+                                uniq_labels, n_unique, allocator, user_stream,
+                                int_streams, n_int_streams);
 
   dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
