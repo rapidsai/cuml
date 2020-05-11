@@ -11,6 +11,7 @@
 - PR #2067: python: wrap logging interface in cython
 - PR #2083: Added dtype, order, and use_full_low_rank to MNMG `make_regression`
 - PR #2074: SG and MNMG `make_classification`
+- PR #2127: Added order to SG `make_blobs`, and switch from C++ to cupy based implementation
 - PR #2057: Weighted k-means
 
 ## Improvements
@@ -80,6 +81,7 @@
 - PR #2210: Updating KNN tests to evaluate multiple index partitions
 - PR #2205: Use timeout to add 2 hour hard limit to dask tests
 - PR #2214: Remove utils folder and refactor to common folder
+- PR #2225: input_to_cuml_array keep order option, test updates and cleanup
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
