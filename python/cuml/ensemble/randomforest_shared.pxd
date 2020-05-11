@@ -37,6 +37,8 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 cimport cuml.common.handle
 cimport cuml.common.cuda
+cimport cython
+
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
@@ -127,3 +129,4 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef ModelHandle concatenate_trees(
         vector[ModelHandle] &treelite_handles) except +
+
