@@ -67,11 +67,6 @@ class LinearRegression(BaseEstimator,
                                                verbose=verbose,
                                                **kwargs)
 
-        self.coef_ = None
-        self.intercept_ = None
-        self._model_fit = False
-        self._consec_call = 0
-
     def fit(self, X, y):
         """
         Fit the model with X and y.
@@ -84,12 +79,9 @@ class LinearRegression(BaseEstimator,
             Labels (outcome values)
         """
 
-        models = self._fit(model_func=LinearRegression._create_model,
-                           data=(X, y), **self.kwargs)
+        self._fit(model_func=LinearRegression._create_model,
+                  data=(X, y), **self.kwargs)
 
-        self.local_model = list(models.values())[0].result()
-        self.coef_ = self.local_model.coef_
-        self.intercept_ = self.local_model.intercept_
         return self
 
     def predict(self, X, delayed=True):

@@ -18,26 +18,65 @@ import dask
 import numpy as np
 from toolz import first
 
+from dask.common.utils import get_client
+
 import cudf.comm.serialize  # noqa: F401
+
+import pickle
 
 from cuml import Base
 from cuml.common.array import CumlArray
 
 from dask_cudf.core import DataFrame as dcDataFrame
 
-from dask.distributed import default_client
 from functools import wraps
 
 
 class BaseEstimator(object):
 
-    def __init__(self, client=None, verbose=False, **kwargs):
+    def __init__(self, client=None, verbose=False, model=None, **kwargs):
         """
         Constructor for distributed estimators
         """
-        self.client = default_client() if client is None else client
+        self.client = get_client(client)
         self.verbose = verbose
         self.kwargs = kwargs
+
+        self.local_model = model
+
+    @staticmethod
+    def load(file, client=None, verbose=False, **kwargs):
+        model = pickle.load(file)
+        model.client = get_client(client)
+        model.kwargs = kwargs
+        model.verbose = verbose
+        return model
+
+    def __getstate__(self):
+        inst_attrs = self.__dict__
+        inst_attrs["local_model"] = self.model
+        del inst_attrs["client"]
+        return inst_attrs
+
+    @property
+    def model(self):
+        """
+        Return trained single-GPU model
+        """
+        local_model = self.local_model
+        if not isinstance(self.local_model, Base):
+            local_model = self.local_model.compute()
+        return local_model
+
+    @property.setter
+    def model(self, value, to_worker=True):
+        """
+        Parameters
+        ----------
+        value : a local model to scatter to Dask cluster
+        """
+        self.local_model = self.client.scatter([value]) \
+            if to_worker else value
 
     @staticmethod
     @dask.delayed

@@ -59,6 +59,8 @@ class BaseLinearModelSyncFitMixin(object):
         wait(list(lin_fit.values()))
         raise_exception_from_futures(list(lin_fit.values()))
 
+        self.local_model = list(lin_models.values())[0]
+
         comms.destroy()
         return lin_models
 

@@ -158,7 +158,6 @@ class PCA(BaseDecomposition,
                                   client=client,
                                   verbose=verbose,
                                   **kwargs)
-        self.noise_variance_ = None
 
     def fit(self, X):
         """
@@ -170,7 +169,6 @@ class PCA(BaseDecomposition,
         """
 
         self._fit(X)
-        self.noise_variance_ = self.local_model.noise_variance_
         return self
 
     def fit_transform(self, X):
