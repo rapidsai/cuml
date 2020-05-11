@@ -20,9 +20,10 @@
 # cython: language_level = 3
 
 from cuml.dask.solvers import CD
+from cuml.dask.common.base import BaseEstimator
 
 
-class Lasso:
+class Lasso(BaseEstimator):
 
     """
     Lasso extends LinearRegression by providing L1 regularization on the
@@ -119,54 +120,15 @@ class Lasso:
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
 
-    def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
-                 max_iter=1000, tol=1e-3, selection='cyclic'):
+    def __init__(self, client=None, verbose=False, **kwargs):
+        super(Lasso, self).__init__(client=client,
+                                    verbose=verbose,
+                                    **kwargs)
 
-        """
-        Initializes the lasso regression class.
+        self.solver = CD(client=client,
+                         verbose=verbose,
+                         **kwargs)
 
-        Parameters
-        ----------
-        alpha : float or double.
-        fit_intercept: boolean.
-        normalize: boolean.
-        max_iter: int
-        tol: float or double.
-        selection : str, ‘cyclic’, or 'random'
-
-        For additional docs, see `scikitlearn's Lasso
-        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
-        """
-        self._check_alpha(alpha)
-        self.alpha = alpha
-        self.coef_ = None
-        self.intercept_ = None
-        self.fit_intercept = fit_intercept
-        self.normalize = normalize
-        self.max_iter = max_iter
-        self.tol = tol
-        self.culasso = None
-        if selection in ['cyclic', 'random']:
-            self.selection = selection
-        else:
-            msg = "selection {!r} is not supported"
-            raise TypeError(msg.format(selection))
-
-        self.intercept_value = 0.0
-
-        shuffle = False
-        if self.selection == 'random':
-            shuffle = True
-
-        self.culasso = CD(fit_intercept=self.fit_intercept,
-                          normalize=self.normalize, alpha=self.alpha,
-                          l1_ratio=1.0, shuffle=shuffle,
-                          max_iter=self.max_iter)
-
-    def _check_alpha(self, alpha):
-        if alpha <= 0.0:
-            msg = "alpha value has to be positive"
-            raise ValueError(msg.format(alpha))
 
     def fit(self, X, y, force_colocality=False):
         """
@@ -191,14 +153,14 @@ class Lasso:
 
         """
 
-        self.culasso.fit(X, y, force_colocality)
+        self.solver.fit(X, y, delayed=True)
 
-        self.coef_ = self.culasso.coef_
-        self.intercept_ = self.culasso.intercept_
+        self.coef_ = self.solver.coef_
+        self.intercept_ = self.solver.intercept_
 
         return self
 
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, delayed=True):
         """
         Predicts the y for X.
 
@@ -209,6 +171,11 @@ class Lasso:
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+
         Returns
         ----------
         y: cuDF DataFrame
@@ -216,40 +183,4 @@ class Lasso:
 
         """
 
-        return self.culasso.predict(X)
-
-    def get_params(self, deep=True):
-        """
-        Sklearn style return parameter state
-
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-                     'selection']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
-
-    def set_params(self, **params):
-        """
-        Sklearn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-                     'selection']
-        for key, value in params.items():
-            if key not in variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-
-        return self
+        return self.solver.predict(X)

@@ -162,7 +162,7 @@ class DelayedParallelFunc(object):
 
             # todo: add parameter for option of not checking directly
 
-            shape = (np.nan,)*n_dims
+            shape = (np.nan,) * n_dims
             preds_arr = [
                 dask.array.from_delayed(pred,
                                         meta=cp.zeros(1, dtype=dtype),

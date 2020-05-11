@@ -20,9 +20,10 @@
 # cython: language_level = 3
 
 from cuml.dask.solvers import CD
+from cuml.dask.common.base import BaseEstimator
 
 
-class ElasticNet:
+class ElasticNet(BaseEstimator):
 
     """
     ElasticNet extends LinearRegression with combined L1 and L2 regularizations
@@ -33,53 +34,6 @@ class ElasticNet:
 
     cuML's ElasticNet an array-like object or cuDF DataFrame, uses coordinate
     descent to fit a linear model.
-
-    Examples
-    ---------
-
-    .. code-block:: python
-
-        import numpy as np
-        import cudf
-        from cuml.linear_model import ElasticNet
-
-        enet = ElasticNet(alpha = 0.1, l1_ratio=0.5)
-
-        X = cudf.DataFrame()
-        X['col1'] = np.array([0, 1, 2], dtype = np.float32)
-        X['col2'] = np.array([0, 1, 2], dtype = np.float32)
-
-        y = cudf.Series( np.array([0.0, 1.0, 2.0], dtype = np.float32) )
-
-        result_enet = enet.fit(X, y)
-        print("Coefficients:")
-        print(result_enet.coef_)
-        print("intercept:")
-        print(result_enet.intercept_)
-
-        X_new = cudf.DataFrame()
-        X_new['col1'] = np.array([3,2], dtype = np.float32)
-        X_new['col2'] = np.array([5,5], dtype = np.float32)
-        preds = result_enet.predict(X_new)
-
-        print(preds)
-
-    Output:
-
-    .. code-block:: python
-
-        Coefficients:
-
-                    0 0.448408
-                    1 0.443341
-
-        Intercept:
-                    0.1082506
-
-        Preds:
-
-                    0 3.67018
-                    1 3.22177
 
     Parameters
     -----------
@@ -125,63 +79,14 @@ class ElasticNet:
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
 
-    def __init__(self, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
-                 normalize=False, max_iter=1000, tol=1e-3, selection='cyclic'):
+    def __init__(self, client=None, verbose=False, **kwargs):
+        super(ElasticNet, self).__init__(client=client,
+                                         verbose=verbose,
+                                         **kwargs)
 
-        """
-        Initializes the elastic-net regression class.
-
-        Parameters
-        ----------
-        alpha : float or double.
-        l1_ratio : float or double.
-        fit_intercept: boolean.
-        normalize: boolean.
-        max_iter: int
-        tol: float or double.
-        selection : str, ‘cyclic’, or 'random'
-
-        For additional docs, see `scikitlearn's ElasticNet
-        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
-        """
-        self._check_alpha(alpha)
-        self._check_l1_ratio(l1_ratio)
-
-        self.alpha = alpha
-        self.l1_ratio = l1_ratio
-        self.coef_ = None
-        self.intercept_ = None
-        self.fit_intercept = fit_intercept
-        self.normalize = normalize
-        self.max_iter = max_iter
-        self.tol = tol
-        self.cuElasticNet = None
-        if selection in ['cyclic', 'random']:
-            self.selection = selection
-        else:
-            msg = "selection {!r} is not supported"
-            raise TypeError(msg.format(selection))
-
-        self.intercept_value = 0.0
-
-        shuffle = False
-        if self.selection == 'random':
-            shuffle = True
-
-        self.cuElasticNet = CD(fit_intercept=self.fit_intercept,
-                               normalize=self.normalize, alpha=self.alpha,
-                               l1_ratio=self.l1_ratio, shuffle=shuffle,
-                               max_iter=self.max_iter)
-
-    def _check_alpha(self, alpha):
-        if alpha <= 0.0:
-            msg = "alpha value has to be positive"
-            raise ValueError(msg.format(alpha))
-
-    def _check_l1_ratio(self, l1_ratio):
-        if l1_ratio < 0.0 or l1_ratio > 1.0:
-            msg = "l1_ratio value has to be between 0.0 and 1.0"
-            raise ValueError(msg.format(l1_ratio))
+        self.solver = CD(client=client,
+                         verbose=verbose,
+                         **kwargs)
 
     def fit(self, X, y, force_colocality=False):
         """
@@ -206,14 +111,14 @@ class ElasticNet:
 
         """
 
-        self.cuElasticNet.fit(X, y, force_colocality)
+        self.solver.fit(X, y)
 
-        self.coef_ = self.cuElasticNet.coef_
-        self.intercept_ = self.cuElasticNet.intercept_
+        self.coef_ = self.solver.coef_
+        self.intercept_ = self.solver.intercept_
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, delayed=True):
         """
         Predicts the y for X.
 
@@ -236,40 +141,4 @@ class ElasticNet:
 
         """
 
-        return self.cuElasticNet.predict(X)
-
-    def get_params(self, deep=True):
-        """
-        Sklearn style return parameter state
-
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-                     'selection']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
-
-    def set_params(self, **params):
-        """
-        Sklearn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-                     'selection']
-        for key, value in params.items():
-            if key not in variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-
-        return self
+        return self.solver.predict(X)
