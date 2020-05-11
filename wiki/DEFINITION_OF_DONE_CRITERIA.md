@@ -50,6 +50,7 @@ Below is a quick and simple checklist for developers to determine whether an alg
 - Pytests for pickle capability
 - Pytests to evaluate correctness against Scikit-learn on a variety of datasets
 - Add algorithm to benchmarks package in `python/cuml/benchmarks/algorithms.py` and benchmarks notebook in `python/cuml/notebooks/tools/cuml_benchmarks.ipynb`
+- PyTests that run in the "unit"-level marker should be quick to execute and should, in general, not significantly increase end-to-end test execution.
 
 #### Documentation
 
@@ -76,3 +77,7 @@ Aside from the general algorithm expectations outlined in the checklists above, 
 ### C++
 
 - New GTests are being enabled in `CMakeLists.txt`
+
+### Python
+
+- Look at the list of slowest PyTests printed in the CI logs and check that any newly committed PyTests are not going to have a significant impact on the end-to-end execution. 
