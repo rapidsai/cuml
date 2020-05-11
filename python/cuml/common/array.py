@@ -16,6 +16,7 @@
 
 import cupy as cp
 import numpy as np
+import pickle
 
 from rmm import DeviceBuffer
 from cudf.core import Buffer, Series, DataFrame
@@ -168,8 +169,11 @@ class CumlArray(Buffer):
     def __setitem__(self, slice, value):
         cp.asarray(self).__setitem__(slice, value)
 
-    def __reduce__(self):
-        return self.__class__, (self.to_output('numpy'),)
+    def __reduce_ex__(self, protocol):
+        data = self.to_output('numpy')
+        if protocol >= 5:
+            data = pickle.PickleBuffer(data)
+        return self.__class__, (data,)
 
     def __len__(self):
         return self.shape[0]
