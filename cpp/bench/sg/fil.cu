@@ -88,7 +88,9 @@ struct FilBenchParams {
 };
 
 size_t getSizeFromEnv(const char* name) {
-  int size = atoi(std::getenv(name));
+  const char* s = std::getenv(name);
+  ASSERT(s != nullptr, "%s", name);
+  signed long size = atol(s);
   // todo: implement proper mechanism to pass benchmark parameters
   ASSERT(size > 0, "%s", name);
   return (size_t)size;
@@ -97,12 +99,17 @@ size_t getSizeFromEnv(const char* name) {
 std::vector<Params> getInputs() {
   std::vector<Params> out;
   Params p;
-  TreeliteLoadProtobufModel(std::getenv("TL_MODEL_PROTO_PATH"), &p.model);
-  size_t ncols = getSizeFromEnv("NCOLS");
+  size_t ncols;
+  const char* pp = std::getenv("TL_MODEL_PROTO_PATH");
+  if (pp != nullptr) {
+    TREELITE_CHECK(TreeliteLoadProtobufModel(pp, &p.model));
+    ncols = getSizeFromEnv("NCOLS");
+  } else
+    return out;
   p.data.rowMajor = true;
   // see src_prims/random/make_regression.h
-  p.blobs = {.n_informative = (int)ncols / 3,
-             .effective_rank = 2 * (int)ncols / 3,
+  p.blobs = {.n_informative = (signed)ncols / 3,
+             .effective_rank = 2 * (signed)ncols / 3,
              .bias = 0.f,
              .tail_strength = 0.1,
              .noise = 0.01,
