@@ -131,8 +131,7 @@ class ElasticNet(Base, RegressorMixin):
 
     def __init__(self, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3, selection='cyclic',
-                 handle=None):
-
+                 handle=None, output_type=None):
         """
         Initializes the elastic-net regression class.
 
@@ -151,7 +150,8 @@ class ElasticNet(Base, RegressorMixin):
         """
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(ElasticNet, self).__init__(handle=handle, verbose=0)
+        super(ElasticNet, self).__init__(handle=handle, verbose=0,
+                                         output_type=output_type)
 
         self._check_alpha(alpha)
         self._check_l1_ratio(l1_ratio)
