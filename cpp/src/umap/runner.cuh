@@ -176,6 +176,7 @@ void _fit(const cumlHandle &handle,
   if (params->target_n_neighbors == -1)
     params->target_n_neighbors = params->n_neighbors;
 
+  ML::PUSH_RANGE("umap::knnGraph");
   MLCommon::device_buffer<int64_t> *knn_indices_b = nullptr;
   MLCommon::device_buffer<T> *knn_dists_b = nullptr;
 
@@ -197,10 +198,12 @@ void _fit(const cumlHandle &handle,
                   stream);
     CUDA_CHECK(cudaPeekAtLastError());
   }
+  ML::POP_RANGE();
 
   /**
    * Allocate workspace for fuzzy simplicial set.
    */
+  ML::PUSH_RANGE("umap::simplicial_set");
   COO<T> rgraph_coo(d_alloc, stream);
   COO<T> tmp_coo(d_alloc, stream);
 
@@ -243,10 +246,12 @@ void _fit(const cumlHandle &handle,
   COO<T> ocoo(d_alloc, stream);
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, d_alloc,
                                                stream);
+  ML::POP_RANGE();
 
   /**
    * Initialize embeddings
    */
+  ML::PUSH_RANGE("umap::supervised::fit");
   InitEmbed::run(handle, X, n, d, knn_indices, knn_dists, &ocoo, params,
                  embeddings, stream, params->init);
 
@@ -263,6 +268,7 @@ void _fit(const cumlHandle &handle,
    */
   SimplSetEmbed::run<TPB_X, T>(X, n, d, &ocoo, params, embeddings, d_alloc,
                                stream);
+  ML::POP_RANGE();
 
   if (params->callback) params->callback->on_train_end(embeddings);
 
@@ -288,6 +294,8 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
 
   CUML_LOG_DEBUG("Building KNN Graph");
 
+  
+  ML::PUSH_RANGE("umap::knnGraph");
   MLCommon::device_buffer<int64_t> *knn_indices_b = nullptr;
   MLCommon::device_buffer<T> *knn_dists_b = nullptr;
 
@@ -312,7 +320,9 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
                   params->n_neighbors, params, d_alloc, stream);
     CUDA_CHECK(cudaPeekAtLastError());
   }
+  ML::POP_RANGE();
 
+  ML::PUSH_RANGE("umap::smooth_knn");
   float adjusted_local_connectivity =
     max(0.0, params->local_connectivity - 1.0);
 
@@ -332,6 +342,7 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
   FuzzySimplSetImpl::smooth_knn_dist<TPB_X, T>(
     n, knn_indices, knn_dists, rhos.data(), sigmas.data(), params,
     params->n_neighbors, adjusted_local_connectivity, d_alloc, stream);
+  ML::POP_RANGE();
 
   /**
    * Compute graph of membership strengths
@@ -424,6 +435,7 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&graph_coo, &comp_coo, d_alloc,
                                                stream);
 
+  ML::PUSH_RANGE("umap::optimization");
   CUML_LOG_DEBUG("Computing # of epochs for training each sample");
 
   MLCommon::device_buffer<T> epochs_per_sample(d_alloc, stream, nnz);
@@ -445,6 +457,7 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
     transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
     comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
     params, n_epochs, params->multicore_implem, d_alloc, stream);
+  ML::POP_RANGE();
 
   if (params->callback) params->callback->on_train_end(transformed);
   ML::POP_RANGE();
