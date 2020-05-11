@@ -80,14 +80,14 @@ class FIL : public RegressionFixture<float> {
   bool predict_proba;
 };
 
-struct fil_bench_params_t {
+struct FilBenchParams {
   size_t nrows;
   size_t ncols;
   size_t nclasses;
   bool predict_proba;
 };
 
-size_t get_size_from_env(const char* name) {
+size_t getSizeFromEnv(const char* name) {
   int size = atoi(std::getenv(name));
   // todo: implement proper mechanism to pass benchmark parameters
   ASSERT(size > 0, "%s", name);
@@ -98,7 +98,7 @@ std::vector<Params> getInputs() {
   std::vector<Params> out;
   Params p;
   TreeliteLoadProtobufModel(std::getenv("TL_MODEL_PROTO_PATH"), &p.model);
-  size_t ncols = get_size_from_env("NCOLS");
+  size_t ncols = getSizeFromEnv("NCOLS");
   p.data.rowMajor = true;
   // see src_prims/random/make_regression.h
   p.blobs = {.n_informative = (int)ncols / 3,
@@ -108,7 +108,7 @@ std::vector<Params> getInputs() {
              .noise = 0.01,
              .shuffle = false,
              .seed = 12345ULL};
-  std::vector<fil_bench_params_t> rowcols = {
+  std::vector<FilBenchParams> rowcols = {
     {10123ul, ncols, 2ul, false}, {10123ul, ncols, 2ul, true},
     //{1184000, ncols, 2, false},  // Mimicking Bosch dataset
   };
