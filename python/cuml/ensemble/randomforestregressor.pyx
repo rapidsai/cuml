@@ -625,8 +625,6 @@ class RandomForestRegressor(Base):
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
                               fil_sparse_format):
-        if num_classes != self.num_classes:
-            warnings.warn("limiting num_classes during predict is deprecated!")
         out_type = self._get_output_type(X)
         cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
