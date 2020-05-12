@@ -152,7 +152,7 @@ struct forest {
     AVG is set: divide by the number of trees (averaging)
     SIGMOID is set: apply sigmoid
     CLASS is set: ignored
-    write the output of the previous stages and its complement
+    write the output of the previous stages and its complement probability
 
     The binary classification / regression (FLOAT_SCALAR) predict() works as follows
       (always 1 output):
@@ -603,6 +603,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   // fill in forest-dependent params
   params->depth = max_depth(model);  // also checks for cycles
 
+  const tl::ModelParam& param = model.param;
   // assuming either all leaves use the .leaf_vector() or all leaves use .leaf_value()
   size_t leaf_vec_size = tl_leaf_vector_size(model);
   if (leaf_vec_size > 0) {
@@ -610,13 +611,25 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
            "treelite model inconsistent");
     params->num_classes = leaf_vec_size;
     params->leaf_payload_type = leaf_value_t::INT_CLASS_LABEL;
+    ASSERT(
+      param.pred_transform != "identity",
+      "multiclass predict() only supported by choosing most likely label,\n"
+      "please use pred_transform == 'max_index' ('sigmoid' is still supported,"
+      " with 'max_index' implied)");
   } else {
     params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
     params->num_classes = 0;  // ignored
+    if (param.pred_transform == "max_index" &&
+        !(tl_params->output_class && tl_params->threshold == 0.5)) {
+      ASSERT(false,
+             "pred_transform == 'max_index' needs output_class && "
+             "threshold == 0.5 to be faithfully executed. Otherwise, please "
+             "use 'identity'");
+      // 'max_index' will be equivalent to setting 'output_class' and threshold == 0.5
+    }
   }
 
   params->num_cols = model.num_feature;
-  const tl::ModelParam& param = model.param;
   ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
   params->global_bias = param.global_bias;
   params->output = output_t::RAW;
