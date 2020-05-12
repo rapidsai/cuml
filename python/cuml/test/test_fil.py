@@ -18,17 +18,38 @@ import pytest
 import os
 
 from cuml import ForestInference
-from cuml.test.utils import array_equal, unit_param, \
+from cuml.test.utils import get_handle, array_equal, unit_param, \
     quality_param, stress_param
 from cuml.common.import_utils import has_treelite
 from cuml.common.import_utils import has_xgboost
 from cuml.common.import_utils import has_lightgbm
+from cuml.ensemble import RandomForestClassifier as curfc
+from cuml.ensemble import RandomForestRegressor as curfr
 
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import GradientBoostingClassifier, \
-    GradientBoostingRegressor, RandomForestClassifier, RandomForestRegressor
+    GradientBoostingRegressor
+from sklearn.ensemble import RandomForestClassifier as skrfc
+from sklearn.ensemble import RandomForestRegressor as skrfr
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        unit_param({'n_samples': 350, 'n_features': 20, 'n_informative': 10}),
+        quality_param({'n_samples': 5000, 'n_features': 200,
+                      'n_informative': 80}),
+        stress_param({'n_samples': 500000, 'n_features': 400,
+                     'n_informative': 180})
+    ])
+def small_clf(request):
+    X, y = make_classification(n_samples=request.param['n_samples'],
+                               n_features=request.param['n_features'],
+                               n_clusters_per_class=1,
+                               n_informative=request.param['n_informative'],
+                               random_state=123, n_classes=2)
+    return X, y
 
 if has_xgboost():
     import xgboost as xgb
@@ -194,7 +215,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
 @pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
 @pytest.mark.parametrize('model_class',
-                         [GradientBoostingClassifier, RandomForestClassifier])
+                         [GradientBoostingClassifier, skrfc])
 @pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                 storage_type, model_class):
@@ -221,7 +242,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
         'n_estimators': n_estimators,
         'max_depth': max_depth,
     }
-    if model_class == RandomForestClassifier:
+    if model_class == skrfc:
         init_kwargs['max_features'] = 0.3
         init_kwargs['n_jobs'] = -1
     else:
@@ -263,7 +284,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
 @pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
 @pytest.mark.parametrize('model_class',
-                         [GradientBoostingRegressor, RandomForestRegressor])
+                         [GradientBoostingRegressor, skrfr])
 @pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
 def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
                             storage_type, model_class):
@@ -289,7 +310,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
         'n_estimators': n_estimators,
         'max_depth': max_depth,
     }
-    if model_class == RandomForestRegressor:
+    if model_class == skrfr:
         init_kwargs['max_features'] = 0.3
         init_kwargs['n_jobs'] = -1
     else:
@@ -441,3 +462,42 @@ def test_lightgbm(tmp_path):
     fil_proba = np.reshape(fil_proba, np.shape(gbm_proba))
 
     assert np.allclose(gbm_proba, fil_proba, 1e-3)
+
+def test_cuml_rf_multiclass(small_clf):
+    use_handle = True
+
+    X, y = small_clf
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+    # Create a handle for the cuml model
+    handle, stream = get_handle(use_handle, n_streams=1)
+
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfc(max_features=1.0, rows_sample=1.0,
+                       n_bins=16, split_algo=0, split_criterion=0,
+                       min_rows_per_node=2, seed=123, n_streams=1,
+                       n_estimators=40, handle=handle, max_leaves=-1,
+                       max_depth=16)
+    cuml_model.fit(X_train, y_train)
+    fil_preds = cuml_model.predict(X_test,
+                                   predict_model="GPU",
+                                   output_class=True,
+                                   threshold=0.5,
+                                   algo='auto')
+    cu_preds = cuml_model.predict(X_test, predict_model="CPU")
+    fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
+    cuml_acc = accuracy_score(y_test, cu_preds)
+    fil_acc = accuracy_score(y_test, fil_preds)
+    if X.shape[0] < 500000:
+        sk_model = skrfc(n_estimators=40,
+                         max_depth=16,
+                         min_samples_split=2, max_features=1.0,
+                         random_state=10)
+        sk_model.fit(X_train, y_train)
+        sk_preds = sk_model.predict(X_test)
+        sk_acc = accuracy_score(y_test, sk_preds)
+        assert fil_acc >= (sk_acc - 0.07)
+    assert fil_acc >= (cuml_acc - 0.02)
