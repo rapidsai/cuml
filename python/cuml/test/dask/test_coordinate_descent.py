@@ -23,7 +23,6 @@ from cuml.test.utils import unit_param, quality_param, stress_param
 
 from sklearn.linear_model import Lasso, ElasticNet
 from sklearn.datasets import make_regression
-from sklearn.model_selection import train_test_split
 
 import pandas as pd
 import numpy as np
@@ -63,13 +62,15 @@ def make_regression_dataset(datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('alpha', [0.1, 0.001])
 @pytest.mark.parametrize('algorithm', ['cyclic', 'random'])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
+@pytest.mark.parametrize('nrows', [unit_param(500),
+                                   quality_param(5000),
+                                   stress_param(500000)])
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([100, 50]),
-                         stress_param([1000, 500])])
-@pytest.mark.parametrize('n_parts', [unit_param(16), quality_param(32),
-                         stress_param(64)])
+                                         quality_param([100, 50]),
+                                         stress_param([1000, 500])])
+@pytest.mark.parametrize('n_parts', [unit_param(16),
+                                     quality_param(32),
+                                     stress_param(64)])
 def test_lasso(datatype, alpha, algorithm,
                nrows, column_info, n_parts, client=None):
     ncols, n_info = column_info
@@ -89,8 +90,8 @@ def test_lasso(datatype, alpha, algorithm,
         X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
         cu_lasso = cuLasso(alpha=np.array([alpha]), fit_intercept=True,
-                       normalize=False, max_iter=1000,
-                       selection=algorithm, tol=1e-10)
+                           normalize=False, max_iter=1000,
+                           selection=algorithm, tol=1e-10)
 
         cu_lasso.fit(X_df, y_df)
         cu_predict = cu_lasso.predict(X_df)
@@ -98,8 +99,8 @@ def test_lasso(datatype, alpha, algorithm,
 
         if nrows < 500000:
             sk_lasso = Lasso(alpha=np.array([alpha]), fit_intercept=True,
-                         normalize=False, max_iter=1000,
-                         selection=algorithm, tol=1e-10)
+                             normalize=False, max_iter=1000,
+                             selection=algorithm, tol=1e-10)
             sk_lasso.fit(X, y)
             sk_predict = sk_lasso.predict(X)
             sk_r2 = r2_score(y, sk_predict)
@@ -112,12 +113,14 @@ def test_lasso(datatype, alpha, algorithm,
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([100, 50]),
-                         stress_param([1000, 500])])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('n_parts', [unit_param(16), quality_param(32),
-                         stress_param(110)])
+                                         quality_param([100, 50]),
+                                         stress_param([1000, 500])])
+@pytest.mark.parametrize('nrows', [unit_param(500),
+                                   quality_param(5000),
+                                   stress_param(500000)])
+@pytest.mark.parametrize('n_parts', [unit_param(16),
+                                     quality_param(32),
+                                     stress_param(110)])
 def test_lasso_default(datatype, nrows, column_info, n_parts, client=None):
 
     ncols, n_info = column_info
@@ -152,18 +155,19 @@ def test_lasso_default(datatype, nrows, column_info, n_parts, client=None):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('X_type', ['ndarray'])
 @pytest.mark.parametrize('alpha', [0.2, 0.7])
 @pytest.mark.parametrize('algorithm', ['cyclic', 'random'])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
+@pytest.mark.parametrize('nrows', [unit_param(500),
+                                   quality_param(5000),
+                                   stress_param(500000)])
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([100, 50]),
-                         stress_param([1000, 500])])
-@pytest.mark.parametrize('n_parts', [unit_param(16), quality_param(32),
-                         stress_param(64)])
-def test_elastic_net(datatype, X_type, alpha, algorithm,
-               nrows, column_info, n_parts, client=None):
+                                         quality_param([100, 50]),
+                                         stress_param([1000, 500])])
+@pytest.mark.parametrize('n_parts', [unit_param(16),
+                                     quality_param(32),
+                                     stress_param(64)])
+def test_elastic_net(datatype, alpha, algorithm,
+                     nrows, column_info, n_parts, client=None):
     ncols, n_info = column_info
 
     ncols, n_info = column_info
@@ -181,17 +185,18 @@ def test_elastic_net(datatype, X_type, alpha, algorithm,
         X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
         elastic_cu = cuElasticNet(alpha=np.array([alpha]), fit_intercept=True,
-                              normalize=False, max_iter=1000,
-                              selection=algorithm, tol=1e-10)
+                                  normalize=False, max_iter=1000,
+                                  selection=algorithm, tol=1e-10)
 
         elastic_cu.fit(X_df, y_df)
         cu_predict = elastic_cu.predict(X_df)
         cu_r2 = r2_score(y, cu_predict.compute().to_pandas().values)
 
         if nrows < 500000:
-            sk_elasticnet = ElasticNet(alpha=np.array([alpha]), fit_intercept=True,
-                         normalize=False, max_iter=1000,
-                         selection=algorithm, tol=1e-10)
+            sk_elasticnet = ElasticNet(alpha=np.array([alpha]),
+                                       fit_intercept=True,
+                                       normalize=False, max_iter=1000,
+                                       selection=algorithm, tol=1e-10)
             sk_elasticnet.fit(X, y)
             sk_predict = sk_elasticnet.predict(X)
             sk_r2 = r2_score(y, sk_predict)
@@ -204,13 +209,16 @@ def test_elastic_net(datatype, X_type, alpha, algorithm,
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([100, 50]),
-                         stress_param([1000, 500])])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('n_parts', [unit_param(16), quality_param(32),
-                         stress_param(110)])
-def test_elastic_net_default(datatype, nrows, column_info, n_parts, client=None):
+                                         quality_param([100, 50]),
+                                         stress_param([1000, 500])])
+@pytest.mark.parametrize('nrows', [unit_param(500),
+                                   quality_param(5000),
+                                   stress_param(500000)])
+@pytest.mark.parametrize('n_parts', [unit_param(16),
+                                     quality_param(32),
+                                     stress_param(110)])
+def test_elastic_net_default(datatype, nrows, column_info, n_parts,
+                             client=None):
 
     ncols, n_info = column_info
     if client is None:
