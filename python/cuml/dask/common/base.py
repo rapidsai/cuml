@@ -18,9 +18,7 @@ import dask
 import numpy as np
 from toolz import first
 
-from dask.common.utils import get_client
-
-import cudf.comm.serialize  # noqa: F401
+from cuml.dask.common.utils import get_client
 
 import pickle
 
@@ -42,7 +40,7 @@ class BaseEstimator(object):
         self.verbose = verbose
         self.kwargs = kwargs
 
-        self.local_model = model
+        self.set_model(model)
 
     @classmethod
     def load(cls, file, client=None, verbose=False, pickle_args={}, **kwargs):
@@ -67,22 +65,23 @@ class BaseEstimator(object):
 
     def __getstate__(self):
         inst_attrs = self.__dict__
-        inst_attrs["local_model"] = self.model
+        inst_attrs["local_model"] = self.get_model()
         del inst_attrs["client"]
         return inst_attrs
 
-    @property
-    def model(self):
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
+    def get_model(self):
         """
         Return trained single-GPU model
         """
         local_model = self.local_model
         if not isinstance(self.local_model, Base):
-            local_model = self.local_model.compute()
+            local_model = self.local_model.result()
         return local_model
 
-    @property.setter
-    def model(self, value, to_workers=True):
+    def set_model(self, value, to_workers=True):
         """
         Parameters
         ----------
