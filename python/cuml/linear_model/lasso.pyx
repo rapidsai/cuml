@@ -127,8 +127,8 @@ class Lasso(Base, RegressorMixin):
     """
 
     def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
-                 max_iter=1000, tol=1e-3, selection='cyclic', handle=None):
-
+                 max_iter=1000, tol=1e-3, selection='cyclic', handle=None,
+                 output_type=None):
         """
         Initializes the lasso regression class.
 
@@ -146,7 +146,8 @@ class Lasso(Base, RegressorMixin):
         """
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(Lasso, self).__init__(handle=handle, verbosity=logger.LEVEL_INFO)
+        super(Lasso, self).__init__(handle=handle, verbosity=logger.LEVEL_INFO,
+                                    output_type=output_type)
 
         self._check_alpha(alpha)
         self.alpha = alpha
