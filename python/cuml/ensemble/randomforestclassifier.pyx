@@ -403,12 +403,11 @@ class RandomForestClassifier(Base):
             model_pbuf_vec.assign(& model_pbuf_mv[0],
                                   & model_pbuf_mv[model_pbuf_mv.shape[0]])
         if self.treelite_handle is None:
-            task_category = CLASSIFICATION_MODEL
             build_treelite_forest(
                 & cuml_model_ptr,
                 rf_forest,
                 <int> self.n_cols,
-                <int> task_category,
+                <int> self.num_classes,
                 model_pbuf_vec)
             mod_ptr = <uintptr_t> cuml_model_ptr
             self.treelite_handle = ctypes.c_void_p(mod_ptr).value
@@ -516,11 +515,10 @@ class RandomForestClassifier(Base):
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
-        task_category = CLASSIFICATION_MODEL
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> self.n_cols,
-                              <int> task_category,
+                              <int> self.num_classes,
                               <vector[unsigned char] &> model_bytes)
         mod_handle = <uintptr_t> cuml_model_ptr
 
@@ -674,6 +672,7 @@ class RandomForestClassifier(Base):
                               threshold, algo,
                               num_classes, convert_dtype,
                               fil_sparse_format, predict_proba):
+        print('_predict_model_on_gpu num_classes', num_classes)
         out_type = self._get_output_type(X)
         cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
@@ -843,7 +842,7 @@ class RandomForestClassifier(Base):
                 self._predict_model_on_gpu(X, output_class=output_class,
                                            threshold=threshold,
                                            algo=algo,
-                                           num_classes=num_classes,
+                                           num_classes=self.num_classes,
                                            convert_dtype=convert_dtype,
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
