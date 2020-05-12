@@ -392,11 +392,6 @@ class RandomForestClassifier(Base):
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
-        if self.num_classes > 2:
-            raise NotImplementedError("Pickling for multi-class "
-                                      "classification models is currently not "
-                                      "implemented. Please check cuml issue "
-                                      "#1679 for more information.")
         cdef unsigned char[::1] model_pbuf_mv = self.model_pbuf_bytes
         cdef vector[unsigned char] model_pbuf_vec
         with cython.boundscheck(False):
@@ -670,10 +665,8 @@ class RandomForestClassifier(Base):
 
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo,
-                              num_classes, convert_dtype,
+                              convert_dtype,
                               fil_sparse_format, predict_proba):
-        if num_classes != self.num_classes:
-            warnings.warn("limiting num_classes during predict is deprecated!")
         out_type = self._get_output_type(X)
         cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
@@ -695,7 +688,7 @@ class RandomForestClassifier(Base):
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> n_cols,
-                              <int> num_classes,
+                              <int> self.num_classes,
                               <vector[unsigned char] &> self.model_pbuf_bytes)
         mod_ptr = <uintptr_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
@@ -769,7 +762,7 @@ class RandomForestClassifier(Base):
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
                 algo='auto',
-                num_classes=2, convert_dtype=True,
+                num_classes='auto', convert_dtype=True,
                 fil_sparse_format='auto'):
         """
         Predicts the labels for X.
@@ -827,6 +820,9 @@ class RandomForestClassifier(Base):
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
+        if num_classes != self.num_classes and num_classes != 'auto':
+            raise NotImplementedError(
+              "limiting num_classes for predict is not implemented")
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
@@ -843,7 +839,6 @@ class RandomForestClassifier(Base):
                 self._predict_model_on_gpu(X, output_class=output_class,
                                            threshold=threshold,
                                            algo=algo,
-                                           num_classes=self.num_classes,
                                            convert_dtype=convert_dtype,
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
@@ -912,7 +907,7 @@ class RandomForestClassifier(Base):
 
     def predict_proba(self, X, output_class=True,
                       threshold=0.5, algo='auto',
-                      num_classes=2, convert_dtype=True,
+                      num_classes='auto', convert_dtype=True,
                       fil_sparse_format='auto'):
         """
         Predicts class probabilites for X. This function uses the GPU
@@ -980,16 +975,13 @@ class RandomForestClassifier(Base):
                             then please use the CPU based predict by \
                             setting predict_model = 'CPU'")
 
-        elif self.num_classes > 2:
-            raise NotImplementedError("Predict_proba for multi-class "
-                                      "classification models is currently not "
-                                      "implemented. Please check cuml issue "
-                                      "#1679 for more information.")
+        if num_classes != self.num_classes and num_classes != 'auto':
+            raise NotImplementedError("limiting num_classes for predict_proba \
+                                      is not implemented")
         preds_proba = \
             self._predict_model_on_gpu(X, output_class=output_class,
                                        threshold=threshold,
                                        algo=algo,
-                                       num_classes=num_classes,
                                        convert_dtype=convert_dtype,
                                        fil_sparse_format=fil_sparse_format,
                                        predict_proba=True)
@@ -997,7 +989,7 @@ class RandomForestClassifier(Base):
         return preds_proba
 
     def score(self, X, y, threshold=0.5,
-              algo='auto', num_classes=2, predict_model="GPU",
+              algo='auto', num_classes='auto', predict_model="GPU",
               convert_dtype=True, fil_sparse_format='auto'):
         """
         Calculates the accuracy metric score of the model for X.
