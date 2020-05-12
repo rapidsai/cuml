@@ -213,9 +213,9 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
                                                      nRows * nLabels);
   CUDA_CHECK(cudaMemsetAsync(sampleToClusterSumOfDistances.data(), 0,
                              nRows * nLabels * sizeof(DataT), stream));
-  LinAlg::reduce_cols_by_key<DataT, LabelT>(
-    distanceMatrix.data(), labels, sampleToClusterSumOfDistances.data(), nRows,
-    nRows, nLabels, stream);
+  LinAlg::reduce_cols_by_key(distanceMatrix.data(), labels,
+                             sampleToClusterSumOfDistances.data(), nRows, nRows,
+                             nLabels, stream);
 
   //creating the a array and b array
   device_buffer<DataT> d_aArray(allocator, stream, nRows);

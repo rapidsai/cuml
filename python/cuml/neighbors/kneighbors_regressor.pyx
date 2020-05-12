@@ -22,7 +22,7 @@
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.common.array import CumlArray
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 
 from cuml.metrics import r2_score
 

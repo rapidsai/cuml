@@ -25,7 +25,7 @@ from sklearn import metrics
 import cuml.metrics
 import cuml.decomposition
 import cuml.naive_bayes
-from cuml.utils.import_utils import has_umap
+from cuml.common.import_utils import has_umap
 import numpy as np
 import tempfile
 
@@ -40,7 +40,7 @@ from cuml.benchmark.bench_helper_funcs import (
     _build_treelite_classifier,
     _treelite_fil_accuracy_score,
 )
-from cuml.utils.import_utils import has_treelite
+from cuml.common.import_utils import has_treelite
 
 if has_treelite():
     import treelite
@@ -190,7 +190,7 @@ def _labels_to_int_hook(data):
 
 def _treelite_format_hook(data):
     """Helper function converting data into treelite format"""
-    from cuml.utils.import_utils import has_treelite
+    from cuml.common.import_utils import has_treelite
 
     if has_treelite():
         import treelite
@@ -206,8 +206,8 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.cluster.KMeans,
             cuml.cluster.KMeans,
-            shared_args=dict(init="kmeans++", n_clusters=8,
-                             max_iter=300, n_init=10),
+            shared_args=dict(init="k-means++", n_clusters=8,
+                             max_iter=300, n_init=1),
             cuml_args=dict(oversampling_factor=0),
             name="KMeans",
             accepts_labels=False,
@@ -433,27 +433,23 @@ def all_algorithms():
             accuracy_function=_treelite_fil_accuracy_score,
             bench_func=predict,
         ),
+        AlgorithmPair(
+            umap.UMAP if has_umap() else None,
+            cuml.manifold.UMAP,
+            shared_args=dict(n_neighbors=5, n_epochs=500),
+            name="UMAP-Unsupervised",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.trustworthiness,
+        ),
+        AlgorithmPair(
+            umap.UMAP if has_umap() else None,
+            cuml.manifold.UMAP,
+            shared_args=dict(n_neighbors=5, n_epochs=500),
+            name="UMAP-Supervised",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.trustworthiness,
+        )
     ]
-
-    if has_umap():
-        algorithms.extend([
-            AlgorithmPair(
-                umap.UMAP,
-                cuml.manifold.UMAP,
-                shared_args=dict(n_neighbors=5, n_epochs=500),
-                name="UMAP-Unsupervised",
-                accepts_labels=True,
-                accuracy_function=cuml.metrics.trustworthiness,
-            ),
-            AlgorithmPair(
-                umap.UMAP,
-                cuml.manifold.UMAP,
-                shared_args=dict(n_neighbors=5, n_epochs=500),
-                name="UMAP-Supervised",
-                accepts_labels=True,
-                accuracy_function=cuml.metrics.trustworthiness,
-            )
-        ])
 
     return algorithms
 

@@ -13,9 +13,10 @@
 # limitations under the License.
 #
 
-from sklearn.utils.random import sample_without_replacement
+
+from cuml.common.import_utils import has_sklearn
 from cuml.datasets.utils import _create_rs_generator
-from cuml.utils import with_cupy_rmm
+from cuml.common import with_cupy_rmm
 
 import cupy as cp
 import numpy as np
@@ -24,6 +25,11 @@ import numpy as np
 def _generate_hypercube(samples, dimensions, rng):
     """Returns distinct binary samples of length dimensions
     """
+    if not has_sklearn():
+        raise RuntimeError("Scikit-learn is needed to run \
+                           make_classification.")
+
+    from sklearn.utils.random import sample_without_replacement
     if dimensions > 30:
         return np.hstack([np.random.randint(2, size=(samples,
                                                      dimensions - 30)),
@@ -195,6 +201,8 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
            `order=F` and eliminates any need for secondary copies
     """
     generator = _create_rs_generator(random_state)
+    np_seed = int(generator.randint(n_samples, size=1))
+    np.random.seed(np_seed)
 
     # Count features, clusters and samples
     if n_informative + n_redundant + n_repeated > n_features:

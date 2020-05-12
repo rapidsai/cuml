@@ -17,17 +17,16 @@ from cuml.datasets.classification import _generate_hypercube
 from cuml.datasets.classification import make_classification \
  as sg_make_classification
 from cuml.datasets.utils import _create_rs_generator
-from cuml.dask.datasets.blobs import _get_X
-from cuml.dask.datasets.blobs import _get_labels
-from cuml.utils import with_cupy_rmm
+from cuml.dask.datasets.utils import _get_X
+from cuml.dask.datasets.utils import _get_labels
+from cuml.dask.datasets.utils import _create_delayed
+from cuml.dask.common.utils import get_client
+from cuml.common import with_cupy_rmm
 
-from dask.distributed import default_client
 import dask.array as da
-import dask.delayed
 
 import cupy as cp
 import numpy as np
-import math
 
 
 def _create_covariance(dims, seed, dtype='float32'):
@@ -159,9 +158,9 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         than the number of workers)
     Returns
     -------
-    X : dask.array of shape [n_samples, n_features]
+    X : dask.array backed by CuPy array of shape [n_samples, n_features]
         The generated samples.
-    y : dask.array of shape [n_samples]
+    y : dask.array backed by CuPy array of shape [n_samples]
         The integer labels for class membership of each sample.
 
     How we extended the dask MNMG version from the single GPU version:
@@ -178,15 +177,14 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         data from the same covariances
     """
 
-    client = default_client() if client is None else client
+    client = get_client(client=client)
 
     rs = _create_rs_generator(random_state)
 
-    workers = list(client.has_what().keys())
+    workers = list(client.scheduler_info()['workers'].keys())
 
     n_parts = n_parts if n_parts is not None else len(workers)
     parts_workers = (workers * n_parts)[:n_parts]
-    rows_per_part = math.ceil(n_samples / n_parts)
 
     n_clusters = n_classes * n_clusters_per_class
 
@@ -220,14 +218,16 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         scale = 1 + 100 * rs.rand(n_features, dtype=dtype)
 
     # Create arrays on each worker (gpu)
-    worker_rows = []
-    rows_so_far = 0
-    for idx, worker in enumerate(parts_workers):
-        if rows_so_far + rows_per_part <= n_samples:
-            rows_so_far += rows_per_part
-            worker_rows.append(rows_per_part)
-        else:
-            worker_rows.append((int(n_samples) - rows_so_far))
+    rows_per_part = max(1, int(n_samples / n_parts))
+
+    worker_rows = [rows_per_part] * n_parts
+
+    if rows_per_part == 1:
+        worker_rows[-1] += n_samples % n_parts
+    else:
+        worker_rows[-1] += n_samples % rows_per_part
+
+    worker_rows = tuple(worker_rows)
 
     part_seeds = rs.permutation(n_parts)
     parts = [client.submit(sg_make_classification, worker_rows[i], n_features,
@@ -245,13 +245,10 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     y_parts = [client.submit(_get_labels, f, pure=False)
                for idx, f in enumerate(parts)]
 
-    X_dela = [da.from_delayed(dask.delayed(Xp),
-                              shape=(worker_rows[idx], n_features),
-                              dtype=dtype, meta=cp.zeros(1, dtype=dtype))
-              for idx, Xp in enumerate(X_parts)]
-    y_dela = [da.from_delayed(dask.delayed(yp),
-                              shape=(worker_rows[idx], ), dtype=dtype,
-                              meta=cp.zeros((1)))
-              for idx, yp in enumerate(y_parts)]
+    X_dela = _create_delayed(X_parts, dtype, worker_rows, n_features)
+    y_dela = _create_delayed(y_parts, dtype, worker_rows)
 
-    return da.concatenate(X_dela, axis=0), da.concatenate(y_dela, axis=0)
+    X = da.concatenate(X_dela)
+    y = da.concatenate(y_dela)
+
+    return X, y

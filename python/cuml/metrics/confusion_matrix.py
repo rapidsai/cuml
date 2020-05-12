@@ -22,8 +22,8 @@
 import numpy as np
 import cupy as cp
 
-from cuml.utils import input_to_cuml_array
-from cuml.utils.memory_utils import with_cupy_rmm
+from cuml.common import input_to_cuml_array
+from cuml.common.memory_utils import with_cupy_rmm
 from cuml.metrics.utils import sorted_unique_labels
 from cuml.prims.label import make_monotonic
 

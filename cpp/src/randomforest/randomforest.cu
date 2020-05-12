@@ -282,8 +282,10 @@ void build_treelite_forest(ModelHandle* model,
     // create a temp file
     const char* filename = std::tmpnam(nullptr);
     // write the model bytes into the temp file
-    std::ofstream file(filename, std::ios::binary);
-    file.write((char*)&data[0], data.size());
+    {
+      std::ofstream file(filename, std::ios::binary);
+      file.write((char*)&data[0], data.size());
+    }
     // read the file as a protobuf model
     TREELITE_CHECK(TreeliteLoadProtobufModel(filename, model));
   }
