@@ -99,18 +99,9 @@ class TSVDMG(TruncatedSVD, BaseDecompositionMG):
         cdef uintptr_t singular_vals_ptr = self._singular_values_.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        # cdef uintptr_t data
-        # cdef uintptr_t trans_data
-
         cdef paramsTSVD *params = <paramsTSVD*><size_t>arg_params
 
         if self.dtype == np.float32:
-            # data = self._build_dataFloat(arr_interfaces)
-            # arr_interfaces_trans = self._build_transData(p2r,
-            #                                             rank,
-            #                                             self.n_components,
-            #                                             np.float32)
-            # trans_data = self._build_dataFloat(arr_interfaces_trans)
 
             fit_transform(handle_[0],
                           <RankSizePair**><size_t>arg_rank_size_pair,
@@ -124,12 +115,6 @@ class TSVDMG(TruncatedSVD, BaseDecompositionMG):
                           deref(params),
                           False)
         else:
-            # data = self._build_dataDouble(arr_interfaces)
-            # arr_interfaces_trans = self._build_transData(p2r,
-            #                                             rank,
-            #                                             self.n_components,
-            #                                             np.float64)
-            # trans_data = self._build_dataDouble(arr_interfaces_trans)
 
             fit_transform(handle_[0],
                           <RankSizePair**><size_t>arg_rank_size_pair,
