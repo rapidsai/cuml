@@ -116,7 +116,8 @@ def test_umap_trustworthiness_on_iris():
     assert trust >= 0.97
 
 
-def test_umap_transform_on_iris():
+@pytest.mark.parametrize('target_metric', ["categorical", "euclidean"])
+def test_umap_transform_on_iris(target_metric):
 
     iris = datasets.load_iris()
 
@@ -125,7 +126,7 @@ def test_umap_transform_on_iris():
     data = iris.data[iris_selection]
 
     fitter = cuUMAP(n_neighbors=10, init="random", n_epochs=800, min_dist=0.01,
-                    random_state=42, verbose=False)
+                    random_state=42, verbose=False, target_metric=target_metric)
     fitter.fit(data, convert_dtype=True)
     new_data = iris.data[~iris_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)
@@ -136,7 +137,8 @@ def test_umap_transform_on_iris():
     assert trust >= 0.85
 
 
-def test_umap_transform_on_digits():
+@pytest.mark.parametrize('target_metric', ["categorical", "euclidean"])
+def test_umap_transform_on_digits(target_metric):
 
     digits = datasets.load_digits()
 
@@ -149,7 +151,8 @@ def test_umap_transform_on_digits():
                     n_epochs=0,
                     min_dist=0.01,
                     random_state=42,
-                    verbose=False)
+                    verbose=False,
+                    target_metric=target_metric)
     fitter.fit(data, convert_dtype=True)
     new_data = digits.data[~digits_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)
@@ -157,8 +160,9 @@ def test_umap_transform_on_digits():
     assert trust >= 0.96
 
 
+@pytest.mark.parametrize('target_metric', ["categorical", "euclidean"])
 @pytest.mark.parametrize('name', dataset_names)
-def test_umap_fit_transform_trust(name):
+def test_umap_fit_transform_trust(name, target_metric):
 
     if name == 'iris':
         iris = datasets.load_iris()
@@ -178,8 +182,10 @@ def test_umap_fit_transform_trust(name):
         data, labels = make_blobs(n_samples=5000, n_features=10,
                                   centers=10, random_state=42)
 
-    model = umap.UMAP(n_neighbors=10, min_dist=0.01)
-    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False)
+    model = umap.UMAP(n_neighbors=10, min_dist=0.01,
+                      target_metric=target_metric)
+    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False,
+                        target_metric=target_metric)
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
 
@@ -189,6 +195,7 @@ def test_umap_fit_transform_trust(name):
     assert array_equal(trust, cuml_trust, 1e-1, with_sign=True)
 
 
+@pytest.mark.parametrize('target_metric', ["categorical", "euclidean"])
 @pytest.mark.parametrize('name', [unit_param('digits')])
 @pytest.mark.parametrize('nrows', [quality_param(5000),
                          stress_param(500000)])
@@ -197,7 +204,7 @@ def test_umap_fit_transform_trust(name):
 @pytest.mark.parametrize('should_downcast', [True])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 def test_umap_data_formats(input_type, should_downcast,
-                           nrows, n_feats, name):
+                           nrows, n_feats, name, target_metric):
 
     dtype = np.float32 if not should_downcast else np.float64
     n_samples = nrows
@@ -212,13 +219,15 @@ def test_umap_data_formats(input_type, should_downcast,
         X, y = datasets.make_blobs(n_samples=n_samples,
                                    n_features=n_feats, random_state=0)
 
-    umap = cuUMAP(n_neighbors=3, n_components=2, verbose=False)
+    umap = cuUMAP(n_neighbors=3, n_components=2, verbose=False,
+                  target_metric=target_metric)
 
     embeds = umap.fit_transform(X)
     assert type(embeds) == np.ndarray
 
 
-def test_umap_fit_transform_score_default():
+@pytest.mark.parametrize('target_metric', ["categorical", "euclidean"])
+def test_umap_fit_transform_score_default(target_metric):
 
     n_samples = 500
     n_features = 20
@@ -226,8 +235,8 @@ def test_umap_fit_transform_score_default():
     data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
                               centers=10, random_state=42)
 
-    model = umap.UMAP()
-    cuml_model = cuUMAP(verbose=False)
+    model = umap.UMAP(target_metric=target_metric)
+    cuml_model = cuUMAP(verbose=False, target_metric=target_metric)
 
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
