@@ -22,7 +22,7 @@
 
 namespace ML {
 
-static const int TPB_X = 1024;
+static const int TPB_X = 256;
 
 void transform(const cumlHandle &handle, float *X, int n, int d,
                int64_t *knn_indices, float *knn_dists, float *orig_X,

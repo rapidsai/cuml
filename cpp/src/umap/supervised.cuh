@@ -68,7 +68,7 @@ void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
                               std::shared_ptr<deviceAllocator> d_alloc,
                               cudaStream_t stream  // size = nnz*2
 ) {
-  MLCommon::device_buffer<int> row_ind(d_alloc, stream, in_coo->n_rows);
+  MLCommon::device_buffer<int> row_ind(d_alloc, stream, in_coo->n_rows+1);
 
   MLCommon::Sparse::sorted_coo_to_csr(in_coo, row_ind.data(), d_alloc, stream);
 
@@ -202,25 +202,49 @@ template <typename T, int TPB_X>
 void general_simplicial_set_intersection(
   int *row1_ind, COO<T> *in1, int *row2_ind, COO<T> *in2, COO<T> *result,
   float weight, std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream) {
-  MLCommon::device_buffer<int> result_ind(d_alloc, stream, in1->n_rows);
+
+  MLCommon::device_buffer<int> result_ind(d_alloc, stream, in1->n_rows+1);
   CUDA_CHECK(
-    cudaMemsetAsync(result_ind.data(), 0, in1->n_rows * sizeof(int), stream));
+    cudaMemsetAsync(result_ind.data(), 0, (in1->n_rows+1) * sizeof(int), stream));
 
-  int result_nnz = MLCommon::Sparse::csr_add_calc_inds<float, 32>(
-    row1_ind, in1->cols(), in1->vals(), in1->nnz, row2_ind, in2->cols(),
-    in2->vals(), in2->nnz, in1->n_rows, result_ind.data(), d_alloc, stream);
+  std::cout << "Calculating inds: " << in1->n_rows << std::endl;
+  std::cout << "Calculating inds: " << in1->n_cols << std::endl;
 
-  result->allocate(result_nnz, in1->n_rows, stream);
+  std::cout << MLCommon::arr2Str(row1_ind, 25, "row1_ind", stream) << std::endl;
+
+  cusparseHandle_t handle = NULL;
+  CUSPARSE_CHECK(cusparseCreate(&handle));
+
+  size_t workspace_size = csr_add_calc_workspace(handle, in1->n_rows, in1->n_cols,
+  		in1->nnz, in1->vals(), row1_ind, in1->cols(),
+  		in2->nnz, in2->vals(), row2_ind, in2->cols(),
+  		nullptr, result_ind.data(), nullptr, stream);
+
+  MLCommon::device_buffer<char> workspace(d_alloc, stream, workspace_size);
+
+  int result_nnz = MLCommon::Sparse::csr_add_calc_inds(handle,
+  						   row1_ind, in1->cols(),
+                           in1->nnz, row2_ind, in2->cols(),
+                           in2->nnz, in1->n_rows, in1->n_cols, result_ind.data(),
+                           d_alloc, workspace.data(), stream);
+
+  result->allocate(result_nnz, in1->n_rows, in1->n_cols, true, stream);
 
   /**
    * Element-wise sum of two simplicial sets
    */
-  MLCommon::Sparse::csr_add_finalize<float, 32>(
-    row1_ind, in1->cols(), in1->vals(), in1->nnz, row2_ind, in2->cols(),
-    in2->vals(), in2->nnz, in1->n_rows, result_ind.data(), result->cols(),
-    result->vals(), stream);
+  MLCommon::Sparse::csr_add_finalize<float>(
+		  handle, in1->n_rows, in1->n_cols,
+  		row1_ind, in1->cols(), in1->vals(), in1->nnz,
+  		row2_ind, in2->cols(), in2->vals(), in2->nnz,
+  		result_ind.data(), result->cols(), result->vals(),
+  		workspace.data(), stream);
 
-  //@todo: Write a wrapper function for this
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaGetLastError());
+
+  std::cout << result << std::endl;
+
   MLCommon::Sparse::csr_to_coo<TPB_X>(result_ind.data(), result->n_rows,
                                       result->rows(), result->nnz, stream);
 
@@ -242,9 +266,10 @@ void general_simplicial_set_intersection(
     row1_ind, in1->cols(), in1->vals(), in1->nnz, row2_ind, in2->cols(),
     in2->vals(), in2->nnz, result_ind.data(), result->cols(), result->vals(),
     result->nnz, left_min, right_min, in1->n_rows, weight);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   CUDA_CHECK(cudaGetLastError());
 
-  dim3 grid_n(MLCommon::ceildiv(result->nnz, TPB_X), 1, 1);
+
 }
 
 template <int TPB_X, typename T>
@@ -293,26 +318,44 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
   FuzzySimplSet::run<TPB_X, T>(rgraph_coo->n_rows, y_knn_indices.data(),
                                y_knn_dists.data(), params->target_n_neighbors,
                                &ygraph_coo, params, d_alloc, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
 
-  /**
-   * Compute general simplicial set intersection.
-   */
-  MLCommon::device_buffer<int> xrow_ind(d_alloc, stream, rgraph_coo->n_rows);
-  MLCommon::device_buffer<int> yrow_ind(d_alloc, stream, ygraph_coo.n_rows);
-
-  CUDA_CHECK(cudaMemsetAsync(xrow_ind.data(), 0,
-                             rgraph_coo->n_rows * sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(yrow_ind.data(), 0,
-                             ygraph_coo.n_rows * sizeof(int), stream));
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaGetLastError());
 
   COO<T> cygraph_coo(d_alloc, stream);
   coo_remove_zeros<TPB_X, T>(&ygraph_coo, &cygraph_coo, d_alloc, stream);
 
-  MLCommon::Sparse::sorted_coo_to_csr(&cygraph_coo, yrow_ind.data(), d_alloc,
-                                      stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaGetLastError());
+
+
+  std::cout << MLCommon::arr2Str(cygraph_coo.cols(), 25, "cols", stream) << std::endl;
+
+  /**
+   * Compute general simplicial set intersection.
+   */
+  MLCommon::device_buffer<int> xrow_ind(d_alloc, stream, rgraph_coo->n_rows+1);
+  MLCommon::device_buffer<int> yrow_ind(d_alloc, stream, cygraph_coo.n_rows+1);
+
+  CUDA_CHECK(cudaMemsetAsync(xrow_ind.data(), 0,
+                             (rgraph_coo->n_rows+1) * sizeof(int), stream));
+  CUDA_CHECK(cudaMemsetAsync(yrow_ind.data(), 0,
+                             (cygraph_coo.n_rows+1) * sizeof(int), stream));
+
+
+
   MLCommon::Sparse::sorted_coo_to_csr(rgraph_coo, xrow_ind.data(), d_alloc,
                                       stream);
+
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaGetLastError());
+
+  MLCommon::Sparse::sorted_coo_to_csr(&cygraph_coo, yrow_ind.data(), d_alloc,
+                                      stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaGetLastError());
 
   COO<T> result_coo(d_alloc, stream);
   general_simplicial_set_intersection<T, TPB_X>(
@@ -327,6 +370,7 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
 
   reset_local_connectivity<T, TPB_X>(&out, final_coo, d_alloc, stream);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   CUDA_CHECK(cudaPeekAtLastError());
 }
 }  // namespace Supervised

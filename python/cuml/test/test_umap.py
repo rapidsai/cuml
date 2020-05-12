@@ -66,7 +66,7 @@ def test_umap_fit_transform_score(nrows, n_feats):
                               centers=10, random_state=42)
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.1)
-    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False)
+    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False, target_metric="euclidean")
 
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
@@ -125,7 +125,7 @@ def test_umap_transform_on_iris():
     data = iris.data[iris_selection]
 
     fitter = cuUMAP(n_neighbors=10, init="random", n_epochs=800, min_dist=0.01,
-                    random_state=42, verbose=False)
+                    random_state=42, verbose=False, target_metric="euclidean")
     fitter.fit(data, convert_dtype=True)
     new_data = iris.data[~iris_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)
@@ -149,7 +149,7 @@ def test_umap_transform_on_digits():
                     n_epochs=0,
                     min_dist=0.01,
                     random_state=42,
-                    verbose=False)
+                    verbose=False, target_metric="euclidean")
     fitter.fit(data, convert_dtype=True)
     new_data = digits.data[~digits_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)

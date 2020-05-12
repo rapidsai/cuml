@@ -27,6 +27,8 @@
 #include <thrust/device_vector.h>
 #include <thrust/scan.h>
 
+#include "cusparse_wrappers.h"
+
 #include <common/cudart_utils.h>
 #include <cuda_runtime.h>
 #include "cuda_utils.h"
@@ -688,18 +690,11 @@ template <typename T>
 void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
                        std::shared_ptr<deviceAllocator> d_alloc,
                        cudaStream_t stream) {
-  device_buffer<T> row_counts(d_alloc, stream, m);
 
-  CUDA_CHECK(cudaMemsetAsync(row_counts.data(), 0, m * sizeof(T), stream));
+  cusparseHandle_t handle = NULL;
+  CUSPARSE_CHECK(cusparseCreate(&handle));
 
-  coo_row_count<256>(rows, nnz, row_counts.data(), stream);
-
-  // create csr compressed row index from row counts
-  thrust::device_ptr<T> row_counts_d =
-    thrust::device_pointer_cast(row_counts.data());
-  thrust::device_ptr<T> c_ind_d = thrust::device_pointer_cast(row_ind);
-  exclusive_scan(thrust::cuda::par.on(stream), row_counts_d, row_counts_d + m,
-                 c_ind_d);
+  cusparsecoo2csr(handle, rows, nnz, m, row_ind, stream);
 }
 
 /**
@@ -717,101 +712,6 @@ void sorted_coo_to_csr(COO<T> *coo, int *row_ind,
   sorted_coo_to_csr(coo->rows(), coo->nnz, row_ind, coo->n_rows, d_alloc,
                     stream);
 }
-
-
-template <int TPB_X, typename T, typename Lambda>
-__global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
-                                      T *vals, int *orows, int *ocols, T *ovals,
-                                      int n, int cnnz, Lambda reduction_op) {
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
-
-  if (row < n) {
-    int start_idx = row_ind[row];  // each thread processes one row
-    int stop_idx = MLCommon::Sparse::get_stop_idx(row, n, cnnz, row_ind);
-
-    int row_nnz = 0;
-    int out_start_idx = start_idx * 2;
-
-    for (int idx = 0; idx < stop_idx - start_idx; idx++) {
-      int cur_row = rows[idx + start_idx];
-      int cur_col = cols[idx + start_idx];
-      T cur_val = vals[idx + start_idx];
-
-      int lookup_row = cur_col;
-      int t_start = row_ind[lookup_row];  // Start at
-      int t_stop = MLCommon::Sparse::get_stop_idx(lookup_row, n, cnnz, row_ind);
-
-      T transpose = 0.0;
-
-      bool found_match = false;
-      for (int t_idx = t_start; t_idx < t_stop; t_idx++) {
-        // If we find a match, let's get out of the loop. We won't
-        // need to modify the transposed value, since that will be
-        // done in a different thread.
-        if (cols[t_idx] == cur_row && rows[t_idx] == cur_col) {
-          // If it exists already, set transposed value to existing value
-          transpose = vals[t_idx];
-          found_match = true;
-          break;
-        }
-      }
-
-      // Custom reduction op on value and its transpose, which enables
-      // specialized weighting.
-      // If only simple X+X.T is desired, this op can just sum
-      // the two values.
-      T res = reduction_op(cur_row, cur_col, cur_val, transpose);
-
-      // if we didn't find an exact match, we need to add
-      // the computed res into our current matrix to guarantee
-      // symmetry.
-      // Note that if we did find a match, we don't need to
-      // compute `res` on it here because it will be computed
-      // in a different thread.
-      if (!found_match && vals[idx] != 0.0) {
-        orows[out_start_idx + row_nnz] = cur_col;
-        ocols[out_start_idx + row_nnz] = cur_row;
-        ovals[out_start_idx + row_nnz] = res;
-        ++row_nnz;
-      }
-
-      if (res != 0.0) {
-        orows[out_start_idx + row_nnz] = cur_row;
-        ocols[out_start_idx + row_nnz] = cur_col;
-        ovals[out_start_idx + row_nnz] = res;
-        ++row_nnz;
-      }
-    }
-  }
-}
-
-template <int TPB_X, typename T, typename Lambda>
-void coo_symmetrize(COO<T> *in, COO<T> *out,
-                    Lambda reduction_op,  // two-argument reducer
-                    std::shared_ptr<deviceAllocator> d_alloc,
-                    cudaStream_t stream) {
-  dim3 grid(ceildiv(in->n_rows, TPB_X), 1, 1);
-  dim3 blk(TPB_X, 1, 1);
-
-  ASSERT(!out->validate_mem(), "Expecting unallocated COO for output");
-
-  device_buffer<int> in_row_ind(d_alloc, stream, in->n_rows);
-
-
-  out->allocate(in->nnz * 2, in->n_rows, in->n_cols, stream);
-  copy(out->rows(), in->rows(), in->nnz, stream);
-  copy(out->rows() + in->nnz, in->rows(), in->nnz, stream);
-  copy(out->cols(), in->cols(), in->nnz, stream);
-  copy(out->cols() + in->nnz, in->rows(), in->nnz, stream);
-
-  sorted_coo_to_csr(in, in_row_ind.data(), d_alloc, stream);
-
-  coo_symmetrize_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(
-    in_row_ind.data(), in->rows(), in->cols(), in->vals(), out->rows(),
-    out->cols(), out->vals(), in->n_rows, in->nnz, reduction_op);
-  CUDA_CHECK(cudaPeekAtLastError());
-}
-
 
 /**
  * @brief takes a COO matrix which may not be symmetric and symmetrizes

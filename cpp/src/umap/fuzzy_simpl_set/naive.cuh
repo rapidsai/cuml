@@ -377,7 +377,7 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
 
   MLCommon::Sparse::coo_symmetrize<TPB_X, T>(&in, out, d_alloc, stream);
 
-  MLCommon::device_buffer<int> out_row_ind(d_alloc, stream, out->n_rows);
+  MLCommon::device_buffer<int> out_row_ind(d_alloc, stream, out->n_rows+1);
   sorted_coo_to_csr(out, out_row_ind.data(), d_alloc, stream);
 
   // Could compute degree, maybe?

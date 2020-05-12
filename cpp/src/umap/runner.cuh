@@ -231,6 +231,9 @@ void _fit(const cumlHandle &handle,
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, d_alloc,
                                                stream);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaPeekAtLastError());
+
   /**
    * Initialize embeddings
    */
@@ -336,7 +339,7 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
   if (knn_indices_b) delete knn_indices_b;
   if (knn_dists_b) delete knn_dists_b;
 
-  MLCommon::device_buffer<int> row_ind(d_alloc, stream, n);
+  MLCommon::device_buffer<int> row_ind(d_alloc, stream, n+1);
   MLCommon::device_buffer<int> ia(d_alloc, stream, n);
 
   MLCommon::Sparse::sorted_coo_to_csr(&graph_coo, row_ind.data(), d_alloc,
