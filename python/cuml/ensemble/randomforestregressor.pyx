@@ -389,7 +389,7 @@ class RandomForestRegressor(Base):
                 & cuml_model_ptr,
                 rf_forest,
                 <int> self.n_cols,
-                <int> self.num_classes,
+                <int> 1,
                 model_pbuf_vec)
             mod_ptr = <uintptr_t> cuml_model_ptr
             self.treelite_handle = ctypes.c_void_p(mod_ptr).value
@@ -497,7 +497,7 @@ class RandomForestRegressor(Base):
         build_treelite_forest(& tl_model_ptr,
                               rf_forest,
                               <int> self.n_cols,
-                              <int> self.num_classes,
+                              <int> 1,
                               <vector[unsigned char] &> model_bytes)
         mod_handle = <uintptr_t> tl_model_ptr
 
@@ -646,7 +646,7 @@ class RandomForestRegressor(Base):
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> n_cols,
-                              <int> self.num_classes,
+                              <int> 1,
                               <vector[unsigned char] &> self.model_pbuf_bytes)
         mod_ptr = <uintptr_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
