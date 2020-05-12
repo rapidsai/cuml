@@ -412,6 +412,7 @@ void csr_to_coo(const int *row_ind, int m, int *coo_rows, int nnz,
   dim3 blk(TPB_X, 1, 1);
 
   csr_to_coo_kernel<TPB_X><<<grid, blk, 0, stream>>>(row_ind, m, coo_rows, nnz);
+
   CUDA_CHECK(cudaGetLastError());
 }
 
@@ -549,12 +550,10 @@ size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
   csr_add_calc_row_counts_kernel<T, TPB_X>
     <<<grid, blk, 0, stream>>>(a_ind, a_indptr, a_val, nnz1, b_ind, b_indptr,
                                b_val, nnz2, m, row_counts.data());
-  CUDA_CHECK(cudaPeekAtLastError());
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   int cnnz = 0;
   MLCommon::updateHost(&cnnz, row_counts.data() + m, 1, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // create csr compressed row index from row counts
   thrust::device_ptr<int> row_counts_d =
