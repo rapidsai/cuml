@@ -48,7 +48,7 @@ from sklearn.model_selection import train_test_split
         quality_param({'n_samples': 5000, 'n_features': 200,
                       'n_informative': 80, 'n_classes': 10}),
         stress_param({'n_samples': 500000, 'n_features': 400,
-                     'n_informative': 180, 'n_classes': 180})
+                     'n_informative': 180, 'n_classes': 15})
     ])
 def small_clf(request):
     X, y = make_classification(n_samples=request.param['n_samples'],
