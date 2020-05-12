@@ -89,7 +89,8 @@ def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept,
 @pytest.mark.parametrize('keys', [cuml.dask.linear_model.LinearRegression])
 @pytest.mark.parametrize('data_size', [[500, 20, 10]])
 @pytest.mark.parametrize('fit_intercept', [True, False])
-def test_regressor_sg_train_mg_predict(datatype, keys, data_size, fit_intercept, cluster):
+def test_regressor_sg_train_mg_predict(datatype, keys, data_size,
+                                       fit_intercept, cluster):
 
     client = Client(cluster)
 
@@ -108,7 +109,7 @@ def test_regressor_sg_train_mg_predict(datatype, keys, data_size, fit_intercept,
 
     expected = local_model.predict(X_test_local)
 
-    dist_model = LinearRegression(model=local_model)
+    dist_model = LinearRegression(model=local_model, client=client)
     actual = dist_model.predict(X_test).compute()
 
     assert_equal(expected.get(), actual.get())
@@ -118,18 +119,17 @@ def test_regressor_sg_train_mg_predict(datatype, keys, data_size, fit_intercept,
 @pytest.mark.parametrize('keys', [cuml.dask.linear_model.LinearRegression])
 @pytest.mark.parametrize('data_size', [[500, 20, 10]])
 @pytest.mark.parametrize('fit_intercept', [True, False])
-def test_regressor_mg_train_sg_predict(datatype, keys, data_size, fit_intercept, cluster):
+def test_regressor_mg_train_sg_predict(datatype, keys, data_size,
+                                       fit_intercept, cluster):
 
     client = Client(cluster)
-
-    from cuml.linear_model import LinearRegression as sgLR
 
     nrows, ncols, n_info = data_size
     X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
     X_test_local = X_test.compute()
 
-    dist_model = LinearRegression(fit_intercept=fit_intercept)
+    dist_model = LinearRegression(fit_intercept=fit_intercept, client=client)
     dist_model.fit(X_train, y_train)
 
     expected = dist_model.predict(X_test).compute()
@@ -138,4 +138,3 @@ def test_regressor_mg_train_sg_predict(datatype, keys, data_size, fit_intercept,
     actual = local_model.predict(X_test_local)
 
     assert_equal(expected.get(), actual.get())
-
