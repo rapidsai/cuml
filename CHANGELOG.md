@@ -81,6 +81,7 @@
 - PR #2205: Use timeout to add 2 hour hard limit to dask tests
 - PR #2214: Remove utils folder and refactor to common folder
 - PR #2225: input_to_cuml_array keep order option, test updates and cleanup
+- PR #2244: Re-enable slow ARIMA tests as stress tests
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
