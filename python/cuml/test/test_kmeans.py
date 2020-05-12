@@ -26,6 +26,8 @@ from sklearn import cluster
 from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
 
+import cupy as cp
+
 
 dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
 
@@ -85,7 +87,7 @@ def test_traditional_kmeans_plus_plus_init(nrows, ncols, nclusters,
     # Using fairly high variance between points in clusters
     cluster_std = 1.0
 
-    X, y = make_blobs(nrows,
+    X, y = make_blobs(int(nrows),
                       ncols,
                       nclusters,
                       cluster_std=cluster_std,
@@ -103,8 +105,8 @@ def test_traditional_kmeans_plus_plus_init(nrows, ncols, nclusters,
 
     kmeans = cluster.KMeans(random_state=random_state,
                             n_clusters=nclusters)
-    kmeans.fit(X.copy_to_host())
-    sk_score = kmeans.score(X.copy_to_host())
+    kmeans.fit(cp.asnumpy(X))
+    sk_score = kmeans.score(cp.asnumpy(X))
 
     assert abs(cu_score - sk_score) <= cluster_std * 1.5
 
@@ -142,8 +144,8 @@ def test_weighted_kmeans(nrows, ncols, nclusters,
 
     sk_kmeans = cluster.KMeans(random_state=random_state,
                                n_clusters=nclusters)
-    sk_kmeans.fit(X.copy_to_host(), sample_weight=wt)
-    sk_score = sk_kmeans.score(X.copy_to_host())
+    sk_kmeans.fit(cp.asnumpy(X), sample_weight=wt)
+    sk_score = sk_kmeans.score(cp.asnumpy(X))
 
     assert abs(cu_score - sk_score) <= cluster_std * 1.5
 
@@ -156,7 +158,7 @@ def test_weighted_kmeans(nrows, ncols, nclusters,
 def test_kmeans_clusters_blobs(nrows, ncols, nclusters,
                                random_state, cluster_std):
 
-    X, y = make_blobs(nrows, ncols, nclusters,
+    X, y = make_blobs(int(nrows), ncols, nclusters,
                       cluster_std=cluster_std,
                       shuffle=False,
                       random_state=random_state,)
@@ -168,7 +170,7 @@ def test_kmeans_clusters_blobs(nrows, ncols, nclusters,
 
     preds = cuml_kmeans.fit_predict(X)
 
-    assert adjusted_rand_score(preds, y) >= 0.99
+    assert adjusted_rand_score(cp.asnumpy(preds), cp.asnumpy(y)) >= 0.99
 
 
 @pytest.mark.parametrize('name', dataset_names)
@@ -284,7 +286,7 @@ def test_all_kmeans_params(n_clusters, max_iter, init,
                                        stress_param(50)])
 def test_score(nrows, ncols, nclusters):
 
-    X, y = make_blobs(nrows, ncols, nclusters,
+    X, y = make_blobs(int(nrows), ncols, nclusters,
                       cluster_std=0.01,
                       shuffle=False,
                       random_state=10)
@@ -305,9 +307,9 @@ def test_score(nrows, ncols, nclusters):
     expected_score = 0
     for idx, label in enumerate(predictions):
         x = X[idx]
-        y = centers[label]
+        y = cp.array(centers[label])
 
-        dist = np.sqrt(np.sum((x - y)**2))
+        dist = cp.sqrt(cp.sum((x - y)**2))
         expected_score += dist**2
 
     assert actual_score + SCORE_EPS \

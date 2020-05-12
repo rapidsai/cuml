@@ -596,7 +596,7 @@ void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
   int out_nnz = thrust::reduce(thrust::cuda::par.on(stream), d_row_count_nz,
                                d_row_count_nz + in->n_rows);
 
-  out->allocate(out_nnz, in->n_rows, in->n_cols, stream);
+  out->allocate(out_nnz, in->n_rows, in->n_cols, false, stream);
 
   coo_remove_scalar<TPB_X, T>(in->rows(), in->cols(), in->vals(), in->nnz,
                               out->rows(), out->cols(), out->vals(),
@@ -669,7 +669,7 @@ void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
 template <typename T>
 void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
               COO<T> *out, cudaStream_t stream) {
-  out->allocate(m * k, m, m, stream);
+  out->allocate(m * k, m, m, true, stream);
 
   from_knn(knn_indices, knn_dists, m, k, out->rows(), out->cols(), out->vals());
 }
@@ -809,7 +809,7 @@ void coo_symmetrize(COO<T> *in, COO<T> *out,
 
   sorted_coo_to_csr(in, in_row_ind.data(), d_alloc, stream);
 
-  out->allocate(in->nnz * 2, in->n_rows, in->n_cols, stream);
+  out->allocate(in->nnz * 2, in->n_rows, in->n_cols, true, stream);
 
   coo_symmetrize_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(
     in_row_ind.data(), in->rows(), in->cols(), in->vals(), out->rows(),
@@ -952,7 +952,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   const int NNZ = 2 * n * k;
 
   // (3) Allocate new space
-  out->allocate(NNZ, n, n, stream);
+  out->allocate(NNZ, n, n, true, stream);
 
   // (4) Prepare edges for each new row
   // This mirrors CSR matrix's row Pointer, were maximum bounds for each row
