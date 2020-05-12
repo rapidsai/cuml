@@ -269,8 +269,6 @@ class SyncFitMixinLinearModel(object):
 
 
 def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
-    print(":::::_func_fit")
-    print(f)
     return f.fit(data, n_rows, n_cols, partsToSizes, rank)
 
 
