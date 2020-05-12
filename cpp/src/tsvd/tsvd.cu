@@ -15,7 +15,7 @@
  */
 
 #include <cuml/decomposition/tsvd.hpp>
-#include "tsvd.h"
+#include "tsvd.cuh"
 
 namespace ML {
 

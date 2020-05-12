@@ -18,7 +18,7 @@ from collections import OrderedDict
 
 from functools import reduce
 from tornado import gen
-from collections import Sequence
+from collections.abc import Sequence
 from dask.distributed import futures_of, default_client, wait
 from toolz import first
 

@@ -153,7 +153,7 @@ class UMAPParams {
 
   uint64_t random_state = 0;
 
-  bool multicore_implem = false;
+  bool multicore_implem = true;
 
   int optim_batch_size = 0;
 
