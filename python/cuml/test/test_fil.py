@@ -37,8 +37,11 @@ from sklearn.model_selection import train_test_split
 @pytest.fixture(
     scope="session",
     params=[
-        unit_param({'n_samples': 350, 'n_features': 20, 'n_informative': 10, 'n_classes':2}),
-        unit_param({'n_samples': 350, 'n_features': 20, 'n_informative': 10, 'n_classes':3}),
+        unit_param({'n_samples': 350, 'n_features': 80, 'n_informative': 70, 'n_classes':2}),
+        unit_param({'n_samples': 350, 'n_features': 80, 'n_informative': 70, 'n_classes':3}),
+        unit_param({'n_samples': 350, 'n_features': 80, 'n_informative': 70, 'n_classes':4}),
+        unit_param({'n_samples': 350, 'n_features': 80, 'n_informative': 70, 'n_classes':5}),
+        unit_param({'n_samples': 350, 'n_features': 80, 'n_informative': 70, 'n_classes':10}),
         quality_param({'n_samples': 5000, 'n_features': 200,
                       'n_informative': 80, 'n_classes':10}),
         stress_param({'n_samples': 500000, 'n_features': 400,
