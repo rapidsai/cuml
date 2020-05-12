@@ -138,7 +138,7 @@ class BaseDecompositionMG(object):
 
         self._set_output_type(X[0])
 
-        arr_interfaces = []
+        X_arys = []
         # for arr in X:
         #    X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
         #        input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
@@ -153,56 +153,73 @@ class BaseDecompositionMG(object):
 
             X_m, _, self.n_cols, _ = \
                 input_to_cuml_array(X[i], check_dtype=check_dtype)
-            arr_interfaces.append(X_m)
+            X_arys.append(X_m)
 
-        cdef uintptr_t data = opg.build_data_t(arr_interfaces)
+            if i == 0:
+                self.dtype = X_m.dtype
+
+        cdef uintptr_t data = opg.build_data_t(X_arys)
         X_arg = <size_t>data
 
+        cdef uintptr_t trans_data
+        if _transform:
+            trans_arys = opg.build_pred_or_trans_arys(X_arys, "F", self.dtype)
+            trans_data = opg.build_data_t(trans_arys)
+            trans_arg = <size_t> trans_data
+
         n_total_parts = len(X)
-        cdef RankSizePair **rank_size_pair = <RankSizePair**> \
-            malloc(sizeof(RankSizePair**)
-                   * n_total_parts)
+        #cdef RankSizePair **rank_size_pair = <RankSizePair**> \
+        #    malloc(sizeof(RankSizePair**)
+        #           * n_total_parts)
 
-        p2r = []
+        # p2r = []
 
-        n_rows = 0
-        for i in range(len(X)):
-            rank_size_pair[i] = <RankSizePair*> \
-                malloc(sizeof(RankSizePair))
-            rank_size_pair[i].rank = <int>rank
-            n_rows += len(X[i])
-            rank_size_pair[i].size = <size_t>len(X[i])
-            p2r.append((rank, len(X[i])))
+        # n_rows = 0
+        # for i in range(len(X)):
+        #    rank_size_pair[i] = <RankSizePair*> \
+        #        malloc(sizeof(RankSizePair))
+        #    rank_size_pair[i].rank = <int>rank
+        #    n_rows += len(X[i])
+        #    rank_size_pair[i].size = <size_t>len(X[i])
+        #   p2r.append((rank, len(X[i])))
 
         self._initialize_arrays(self.n_components, total_rows, n_cols)
 
-        arg_rank_size_pair = <size_t>rank_size_pair
+        cdef uintptr_t rank_to_sizes = opg.build_rank_size_pair(X,
+                                                                rank)
+        arg_rank_size_pair = <size_t>rank_to_sizes
+        # arg_rank_size_pair = <size_t>rank_size_pair
         decomp_params = self._build_params(total_rows, n_cols)
 
         if _transform:
-            arr_interfaces_trans, data, trans_data = self._call_fit(
-                arr_interfaces, p2r, rank, arg_rank_size_pair, n_total_parts,
+            self._call_fit(
+                X_arg, trans_arg, rank, arg_rank_size_pair, n_total_parts,
                 decomp_params)
         else:
-            self._call_fit(X_arg, p2r, rank, arg_rank_size_pair,
+            self._call_fit(X_arg, rank, arg_rank_size_pair,
                            n_total_parts, decomp_params)
 
-        for idx in range(n_total_parts):
-            free(<RankSizePair*>rank_size_pair[idx])
-        free(<RankSizePair**>rank_size_pair)
+        # for idx in range(n_total_parts):
+        #    free(<RankSizePair*>rank_size_pair[idx])
+        # free(<RankSizePair**>rank_size_pair)
+        opg.free_rank_size_pair(rank_to_sizes, n_total_parts)
+        opg.free_data_t(data, n_total_parts, self.dtype)
 
         if _transform:
-            trans_cudf = []
+            trans_out = []
 
-            for x_i in arr_interfaces_trans:
-                trans_cudf.append(x_i["obj"].to_output(
-                    output_type=self._get_output_type(X)))
+            for i in range(len(trans_arys)):
+                trans_out.append(trans_arys[i].to_output(
+                    output_type=self._get_output_type(X[0])))
+                # trans_cudf.append(x_i["obj"].to_output(
+                #    output_type=self._get_output_type(X)))
 
-            if self.dtype == np.float32:
-                self._freeFloatD(trans_data, arr_interfaces_trans)
-                self._freeFloatD(data, arr_interfaces)
-            else:
-                self._freeDoubleD(trans_data, arr_interfaces_trans)
-                self._freeDoubleD(data, arr_interfaces)
+            # if self.dtype == np.float32:
+            #    self._freeFloatD(trans_data, arr_interfaces_trans)
+                # self._freeFloatD(data, arr_interfaces)
+            # else:
+            #    self._freeDoubleD(trans_data, arr_interfaces_trans)
+                # self._freeDoubleD(data, arr_interfaces)
+            opg.free_data_t(trans_data, n_total_parts, self.dtype)
 
-            return trans_cudf
+            return trans_out
