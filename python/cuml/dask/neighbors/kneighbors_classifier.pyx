@@ -31,7 +31,7 @@ import numpy as np
 
 from cuml.common.array import CumlArray
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 
 import rmm
 from libc.stdlib cimport calloc, malloc, free
@@ -212,7 +212,8 @@ def _func_knn_classify(sessionID,
     handle = worker_state(sessionID)["handle"]
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
-    idx, lbls = data
+    idx = [d[0] for d in data]
+    lbls = [d[1] for d in data]
 
     idx_cai, idx_rsp, idx_local_parts, idx_desc = \
         _build_part_inputs(idx, data_parts_to_ranks,
@@ -223,10 +224,9 @@ def _func_knn_classify(sessionID,
                            query_nrows, ncols, rank, convert_dtype)
 
     cdef vector[int_ptr_vector] *lbls_local_parts = \
-        new vector[int_ptr_vector]()
+        new vector[int_ptr_vector](<int>len(lbls))
     lbls_dev_arr = []
     for arr in lbls:
-        lbls_local_parts.push_back(int_ptr_vector())
         for i in range(arr.shape[1]):
             lbls_arr, _, _, _ = \
                 input_to_cuml_array(arr[:, i], order="F",
@@ -235,12 +235,12 @@ def _func_knn_classify(sessionID,
                                                       else None),
                                     check_dtype=[np.int32])
             lbls_dev_arr.append(lbls_arr)
-            lbls_local_parts.back().push_back(<int*><uintptr_t>lbls_arr.ptr)
+            lbls_local_parts.at(i).push_back(<int*><uintptr_t>lbls_arr.ptr)
 
     cdef vector[int*] *uniq_labels_vec = \
         new vector[int*]()
     for uniq_label in uniq_labels:
-        uniq_labels_vec.push_back(<int*>malloc(len(uniq_label)*4))
+        uniq_labels_vec.push_back(<int*>malloc(len(uniq_label)*sizeof(int*)))
         for i, ul in enumerate(uniq_label):
             uniq_labels_vec.back()[i] = ul
 
@@ -248,6 +248,8 @@ def _func_knn_classify(sessionID,
         new vector[int]()
     for uniq_label in n_unique:
         n_unique_vec.push_back(uniq_label)
+
+    n_outputs = len(n_unique)
 
     cdef vector[intData_t*] *out_vec \
         = new vector[intData_t*]()
@@ -274,7 +276,7 @@ def _func_knn_classify(sessionID,
         output_d.append(d_ary)
 
         out_vec.push_back(new intData_t(
-            <int*><uintptr_t>o_ary.ptr, n_rows * n_neighbors))
+            <int*><uintptr_t>o_ary.ptr, n_rows * n_outputs))
 
         out_i_vec.push_back(new int64Data_t(
             <int64_t*><uintptr_t>i_ary.ptr, n_rows * n_neighbors))
@@ -292,10 +294,10 @@ def _func_knn_classify(sessionID,
         deref(<vector[floatData_t*]*><uintptr_t>q_local_parts),
         deref(<PartDescriptor*><uintptr_t>q_desc),
         deref(<vector[int_ptr_vector]*><uintptr_t>lbls_local_parts),
-        deref(<vector[int*]*><uintptr_t>uniq_labels),
-        deref(<vector[int]*><uintptr_t>n_unique),
-        False,  # column-major index
-        False,  # column-major query
+        deref(<vector[int*]*><uintptr_t>uniq_labels_vec),
+        deref(<vector[int]*><uintptr_t>n_unique_vec),
+        <bool>False,  # column-major index
+        <bool>False,  # column-major query
         <int>n_neighbors,
         <size_t>batch_size,
         <bool>verbose
@@ -339,11 +341,11 @@ class KNeighborsClassifier():
         comms.init(workers=workers)
         return comms
 
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y):
         self.data_handler = \
             DistributedDataHandler.create(data=[X, y],
                                           client=self.client)
-        self.datatype = self.X_handler.datatype
+        self.datatype = self.data_handler.datatype
 
         uniq_labels = []
         if y.ndim == 1:
@@ -356,7 +358,7 @@ class KNeighborsClassifier():
         self.n_unique = list(map(lambda x: len(x), self.uniq_labels))
         return self
 
-    def predict(self, X, _return_futures=False):
+    def predict(self, X, convert_dtype=True, _return_futures=False):
         query_handler = \
             DistributedDataHandler.create(data=X,
                                           client=self.client)
@@ -374,12 +376,12 @@ class KNeighborsClassifier():
         self.data_handler.calculate_parts_to_sizes(comms=comms)
         query_handler.calculate_parts_to_sizes(comms=comms)
 
-        data_parts_to_ranks, _ = \
+        data_parts_to_ranks, data_nrows = \
             parts_to_ranks(self.client,
                            worker_info,
                            self.data_handler.gpu_futures)
 
-        query_parts_to_ranks, _ = \
+        query_parts_to_ranks, query_nrows = \
             parts_to_ranks(self.client,
                            worker_info,
                            query_handler.gpu_futures)
@@ -394,14 +396,18 @@ class KNeighborsClassifier():
                             self.data_handler.worker_to_parts[worker] if
                             worker in self.data_handler.workers else [],
                             data_parts_to_ranks,
+                            data_nrows,
                             query_handler.worker_to_parts[worker] if
                             worker in query_handler.workers else [],
                             query_parts_to_ranks,
+                            query_nrows,
                             self.uniq_labels,
                             self.n_unique,
+                            X.shape[1],
                             self.n_neighbors,
                             worker_info[worker]["rank"],
                             self.batch_size,
+                            convert_dtype,
                             self.verbose,
                             key="%s-%s" % (key, idx),
                             workers=[worker]))
