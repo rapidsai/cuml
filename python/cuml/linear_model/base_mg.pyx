@@ -32,7 +32,7 @@ from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.handle cimport cumlHandle
 from cuml.common.opg_data_utils_mg cimport *
-from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.input import input_to_cuml_array
 from cuml.decomposition.utils cimport *
 
 
