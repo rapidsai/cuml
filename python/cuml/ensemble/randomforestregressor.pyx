@@ -311,13 +311,13 @@ class RandomForestRegressor(Base):
             params_t64 = <uintptr_t> self.rf_forest64
             rf_forest64 = \
                 <RandomForestMetaData[double, int]*>params_t64
-            if self.dtype == np.float32:
-                state["rf_params"] = rf_forest.rf_params
-            else:
-                state["rf_params64"] = rf_forest64.rf_params
+            state["rf_params"] = rf_forest.rf_params
+            state["rf_params64"] = rf_forest64.rf_params
+
         state['n_cols'] = self.n_cols
         state['verbose'] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
+        state["treelite_handle"] = None
 
         return state
 
@@ -331,12 +331,11 @@ class RandomForestRegressor(Base):
 
         self.n_cols = state['n_cols']
         if self.n_cols:
-            if state["dtype"] == np.float32:
-                rf_forest.rf_params = state["rf_params"]
-                state["rf_forest"] = <uintptr_t>rf_forest
-            else:
-                rf_forest64.rf_params = state["rf_params64"]
-                state["rf_forest64"] = <uintptr_t>rf_forest64
+            rf_forest.rf_params = state["rf_params"]
+            state["rf_forest"] = <uintptr_t>rf_forest
+
+            rf_forest64.rf_params = state["rf_params64"]
+            state["rf_forest64"] = <uintptr_t>rf_forest64
 
         self.model_pbuf_bytes = state["model_pbuf_bytes"]
 
@@ -345,21 +344,25 @@ class RandomForestRegressor(Base):
     def __del__(self):
         self._reset_forest_data()
 
+        if self.treelite_handle:
+            tl.free_treelite_model(self.treelite_handle)
+            self.treelite_handle = None
+
     def _reset_forest_data(self):
+        # Only if model is fitted before
+        # Clears the data of the forest to prepare for next fit
         if self.n_cols:
             free_trees_array(<RandomForestMetaData[float, float]*><uintptr_t>
                              self.rf_forest)
             free_trees_array(<RandomForestMetaData[double, double]*><uintptr_t>
                              self.rf_forest64)
-
-            # Only if the model is fitted before
-            # Clears the data of the forest to prepare for next fit
             free(<RandomForestMetaData[float, float]*><uintptr_t>
                  self.rf_forest)
             free(<RandomForestMetaData[double, double]*><uintptr_t>
                  self.rf_forest64)
             self.treelite_handle = None
             self.model_pbuf_bytes = bytearray()
+            self.n_cols = None
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
