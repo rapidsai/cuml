@@ -129,7 +129,7 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
     # converting pandas to numpy before sending it to CumlArray
     if isinstance(X, pd.DataFrame) or isinstance(X, pd.Series):
         # pandas doesn't support custom order in to_numpy
-        X = np.asarray(X.to_numpy(copy=False), order=order)
+        X = cp.asarray(X.to_numpy(copy=False), order=order)
 
     if isinstance(X, cudf.DataFrame):
         if order == 'K':
@@ -377,8 +377,7 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True):
                                 "in data loss.")
             return X_m
 
-    elif isinstance(X, cudf.Series) or isinstance(X, cudf.DataFrame) or \
-            isinstance(X, pd.Series) or isinstance(X, pd.DataFrame):
+    elif isinstance(X, (cudf.Series, cudf.DataFrame, pd.Series, pd.DataFrame)):
         return X.astype(to_dtype)
 
     elif cuda.is_cuda_array(X):
