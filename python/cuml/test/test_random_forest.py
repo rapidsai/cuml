@@ -340,13 +340,22 @@ def test_rf_regression_float64(large_reg, datatype):
                                        convert_dtype=False)
 
 
+def check_predict_proba(test_proba, baseline_proba, X_test, y_test, max_rel_err):
+    y_proba = np.zeros(np.shape(baseline_proba))
+    y_proba[:, 1] = y_test
+    y_proba[:, 0] = 1.0 - y_test
+    baseline_mse = mean_squared_error(y_proba, baseline_proba)
+    test_mse = mean_squared_error(y_proba, test_proba)
+    assert test_mse == pytest.approx(baseline_mse, rel=max_rel_err)
+
+
 @pytest.mark.parametrize('datatype', [(np.float32, np.float32)])
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('n_classes', [10])
+@pytest.mark.parametrize('n_classes', [unit_param(10), quality_param(15), stress_param(15)])
 @pytest.mark.parametrize('type', ['dataframe', 'numpy'])
 def test_rf_classification_multi_class(datatype, column_info, nrows,
                                        n_classes, type):
@@ -369,13 +378,20 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
         y_train_df = cudf.Series(y_train)
         X_test_df = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_test))
         cuml_model.fit(X_train_df, y_train_df)
-        cu_preds = cuml_model.predict(X_test_df,
+        #cu_proba_gpu = cuml_model.predict_proba(X_test_df).to_array()
+        cu_preds_cpu = cuml_model.predict(X_test_df,
                                       predict_model="CPU").to_array()
+        cu_preds_gpu = cuml_model.predict(X_test_df,
+                                      predict_model="GPU").to_array()
     else:
         cuml_model.fit(X_train, y_train)
-        cu_preds = cuml_model.predict(X_test, predict_model="CPU")
+        cu_proba_gpu = cuml_model.predict_proba(X_test)
+        cu_preds_cpu = cuml_model.predict(X_test, predict_model="CPU")
+        cu_preds_gpu = cuml_model.predict(X_test, predict_model="GPU")
 
-    cu_acc = accuracy_score(y_test, cu_preds)
+    cu_acc_cpu = accuracy_score(y_test, cu_preds_cpu)
+    cu_acc_gpu = accuracy_score(y_test, cu_preds_gpu)
+    assert cu_acc_cpu == pytest.approx(cu_acc_gpu, abs=0.01, rel=0.1)
 
     # sklearn random forest classification model
     # initialization, fit and predict
@@ -384,7 +400,10 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
         sk_model.fit(X_train, y_train)
         sk_preds = sk_model.predict(X_test)
         sk_acc = accuracy_score(y_test, sk_preds)
-        assert cu_acc >= (sk_acc - 0.07)
+        sk_proba = sk_model.predict_proba(X_test)
+        assert cu_acc_cpu >= (sk_acc - 0.07)
+        assert cu_acc_gpu >= (sk_acc - 0.07)
+        #check_predict_proba(cu_proba_gpu, sk_proba, X_test, y_test, 0.0061)
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
@@ -672,10 +691,6 @@ def test_rf_classification_proba(small_clf, datatype,
                                                output_class=True,
                                                threshold=0.5,
                                                algo='auto')
-    y_proba = np.zeros(np.shape(fil_preds_proba))
-    y_proba[:, 1] = y_test
-    y_proba[:, 0] = 1.0 - y_test
-    fil_mse = mean_squared_error(y_proba, fil_preds_proba)
     if X.shape[0] < 500000:
         sk_model = skrfc(n_estimators=40,
                          max_depth=16,
@@ -683,7 +698,6 @@ def test_rf_classification_proba(small_clf, datatype,
                          random_state=10)
         sk_model.fit(X_train, y_train)
         sk_preds_proba = sk_model.predict_proba(X_test)
-        sk_mse = mean_squared_error(y_proba, sk_preds_proba)
         # Max difference of 0.0061 is seen between the mse values of
         # predict proba function of fil and sklearn
-        assert fil_mse <= (sk_mse + 0.0061)
+        check_predict_proba(fil_preds_proba, sk_preds_proba, X_test, y_test, 0.0061)

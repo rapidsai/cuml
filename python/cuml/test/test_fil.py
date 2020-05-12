@@ -34,32 +34,6 @@ from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
 
 
-@pytest.fixture(
-    scope="session",
-    params=[
-        unit_param({'n_samples': 500, 'n_features': 80,
-                    'n_informative': 70, 'n_classes': 2}),
-        unit_param({'n_samples': 500, 'n_features': 80,
-                    'n_informative': 70, 'n_classes': 3}),
-        unit_param({'n_samples': 500, 'n_features': 80,
-                    'n_informative': 70, 'n_classes': 10}),
-        quality_param({'n_samples': 5000, 'n_features': 200,
-                      'n_informative': 80, 'n_classes': 2}),
-        quality_param({'n_samples': 5000, 'n_features': 200,
-                      'n_informative': 80, 'n_classes': 10}),
-        stress_param({'n_samples': 500000, 'n_features': 400,
-                     'n_informative': 180, 'n_classes': 15})
-    ])
-def small_clf(request):
-    X, y = make_classification(n_samples=request.param['n_samples'],
-                               n_features=request.param['n_features'],
-                               n_clusters_per_class=1,
-                               n_informative=request.param['n_informative'],
-                               random_state=123,
-                               n_classes=request.param['n_classes'])
-    return X, y
-
-
 if has_xgboost():
     import xgboost as xgb
 
@@ -164,7 +138,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     fil_proba = np.reshape(fil_proba, np.shape(xgb_proba))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
-    assert fil_acc == pytest.approx(xgb_acc, 0.01)
+    assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
     assert array_equal(fil_preds, xgb_preds_int)
     assert array_equal(fil_proba, xgb_proba)
 
@@ -214,7 +188,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
-    assert fil_mse == pytest.approx(xgb_mse, 0.01)
+    assert fil_mse == pytest.approx(xgb_mse, abs=0.01)
     assert array_equal(fil_preds, xgb_preds)
 
 
@@ -282,7 +256,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 
     fil_acc = accuracy_score(y_validation, fil_preds)
 
-    assert fil_acc == pytest.approx(skl_acc, 1e-5)
+    assert fil_acc == pytest.approx(skl_acc, abs=1e-5)
     assert array_equal(fil_preds, skl_preds_int)
     assert array_equal(fil_proba, skl_proba)
 
@@ -344,8 +318,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
 
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
-    # if fil is better than skl, no need to fail the test
-    assert fil_mse <= skl_mse * (1. + 1e-7) + 1e-4
+    assert fil_mse <= skl_mse * (1. + 1e-6) + 1e-4
     assert array_equal(fil_preds, skl_preds)
 
 
@@ -471,43 +444,3 @@ def test_lightgbm(tmp_path):
     fil_proba = np.reshape(fil_proba, np.shape(gbm_proba))
 
     assert np.allclose(gbm_proba, fil_proba, 1e-3)
-
-
-def test_cuml_rf_multiclass(small_clf):
-    use_handle = True
-
-    X, y = small_clf
-    X = X.astype(np.float32)
-    y = y.astype(np.int32)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
-    # Create a handle for the cuml model
-    handle, stream = get_handle(use_handle, n_streams=1)
-
-    # Initialize, fit and predict using cuML's
-    # random forest classification model
-    cuml_model = curfc(max_features=1.0, rows_sample=1.0,
-                       n_bins=16, split_algo=0, split_criterion=0,
-                       min_rows_per_node=2, seed=123, n_streams=1,
-                       n_estimators=40, handle=handle, max_leaves=-1,
-                       max_depth=16)
-    cuml_model.fit(X_train, y_train)
-    fil_preds = cuml_model.predict(X_test,
-                                   predict_model="GPU",
-                                   output_class=True,
-                                   threshold=1.0 / cuml_model.num_classes,
-                                   algo='auto')
-    cu_preds = cuml_model.predict(X_test, predict_model="CPU")
-    fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
-    cuml_acc = accuracy_score(y_test, cu_preds)
-    fil_acc = accuracy_score(y_test, fil_preds)
-    if X.shape[0] < 500000:
-        sk_model = skrfc(n_estimators=40,
-                         max_depth=16,
-                         min_samples_split=2, max_features=1.0,
-                         random_state=10)
-        sk_model.fit(X_train, y_train)
-        sk_preds = sk_model.predict(X_test)
-        sk_acc = accuracy_score(y_test, sk_preds)
-        assert fil_acc >= (sk_acc - 0.07)
-    assert fil_acc >= (cuml_acc - 0.02)
