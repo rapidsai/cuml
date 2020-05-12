@@ -333,7 +333,9 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/umap/umap.cu)
 
   if(OPENMP_FOUND)
-    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
+    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES}
+        OpenMP_CXX_FLAGS
+        Threads::Threads)
   endif(OPENMP_FOUND)
 
   if(NVTX)

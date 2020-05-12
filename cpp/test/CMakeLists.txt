@@ -67,6 +67,7 @@ endif(BUILD_CUML_TESTS)
 if(BUILD_CUML_MG_TESTS)
   # (please keep the filenames in alphabetical order)
   add_executable(ml_mg
+    sg/logger.cpp  # adding this test removes cmake warnings
     mg/test_ml_mg_utils.cu)
 
   target_include_directories(ml_mg PRIVATE ${CUML_TEST_INCLUDE_DIRS})
