@@ -126,7 +126,8 @@ def test_umap_transform_on_iris(target_metric):
     data = iris.data[iris_selection]
 
     fitter = cuUMAP(n_neighbors=10, init="random", n_epochs=800, min_dist=0.01,
-                    random_state=42, verbose=False, target_metric=target_metric)
+                    random_state=42, verbose=False,
+                    target_metric=target_metric)
     fitter.fit(data, convert_dtype=True)
     new_data = iris.data[~iris_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)
