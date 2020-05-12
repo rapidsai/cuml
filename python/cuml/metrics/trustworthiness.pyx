@@ -28,7 +28,7 @@ from numba import cuda
 from libc.stdint cimport uintptr_t
 import cuml.common.handle
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array
 
 cdef extern from "metrics/trustworthiness_c.h" namespace "MLCommon::Distance":

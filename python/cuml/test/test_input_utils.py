@@ -22,8 +22,17 @@ import numpy as np
 from numba import cuda
 from copy import deepcopy
 
-from cuml.utils import input_to_dev_array, input_to_host_array, has_cupy
-from cuml.utils.input_utils import convert_dtype, check_numba_order
+from cuml.common import input_to_cuml_array
+from cuml.common import input_to_dev_array
+from cuml.common import input_to_host_array
+from cuml.common import has_cupy
+from cuml.common.input_utils import convert_dtype
+
+
+###############################################################################
+#                                    Parameters                               #
+###############################################################################
+
 
 test_dtypes_all = [
     np.float16, np.float32, np.float64,
@@ -43,29 +52,107 @@ test_num_rows = [1, 100]
 test_num_cols = [1, 100]
 
 
+###############################################################################
+#                                    Tests                                    #
+###############################################################################
+
+
 @pytest.mark.parametrize('dtype', test_dtypes_acceptable)
 @pytest.mark.parametrize('input_type', test_input_types)
 @pytest.mark.parametrize('num_rows', test_num_rows)
 @pytest.mark.parametrize('num_cols', test_num_cols)
-@pytest.mark.parametrize('order', ['C', 'F'])
-def test_input_to_dev_array(dtype, input_type, num_rows, num_cols, order):
+@pytest.mark.parametrize('order', ['C', 'F', 'K'])
+def test_input_to_cuml_array(dtype, input_type, num_rows, num_cols, order):
     input_data, real_data = get_input(input_type, num_rows, num_cols,
                                       dtype, order=order)
 
     if input_type == 'cupy' and input_data is None:
         pytest.skip('cupy not installed')
 
-    X, X_ptr, n_rows, n_cols, dtype = input_to_dev_array(input_data,
-                                                         order=order)
+    X, n_rows, n_cols, res_dtype = input_to_cuml_array(input_data,
+                                                       order=order)
 
-    np.testing.assert_equal(X.copy_to_host(), real_data)
+    np.testing.assert_equal(X.to_output('numpy'), real_data)
 
-    assert n_rows == num_rows
-    assert n_cols == num_cols
-    assert dtype == dtype
+    assert n_rows == num_rows == X.shape[0] == len(X)
+    assert n_cols == num_cols == X.shape[1]
+    assert dtype == res_dtype == X.dtype
 
     del input_data
     del real_data
+
+
+@pytest.mark.parametrize('dtype', test_dtypes_acceptable)
+@pytest.mark.parametrize('input_type', ['numba', 'cupy'])
+@pytest.mark.parametrize('order', ['C', 'F'])
+@pytest.mark.parametrize('order_check', ['C', 'F'])
+def test_fail_on_order(dtype, input_type, order, order_check):
+    # this is tested only for non cudf dataframe or numpy arrays
+    # those are converted form order by their respective libraries
+    input_data, real_data = get_input(input_type, 10, 10, dtype, order=order)
+
+    if input_type == 'cupy' and input_data is None:
+        pytest.skip('cupy not installed')
+
+    if order == order_check:
+        input_to_cuml_array(input_data, fail_on_order=False, order=order)
+    else:
+        with pytest.raises(ValueError):
+            input_to_cuml_array(input_data, fail_on_order=True,
+                                order=order_check)
+
+
+@pytest.mark.parametrize('dtype', test_dtypes_acceptable)
+@pytest.mark.parametrize('input_type', test_input_types)
+@pytest.mark.parametrize('from_order', ['C', 'F'])
+@pytest.mark.parametrize('to_order', ['C', 'F', 'K'])
+def test_convert_matrix_order_cuml_array(dtype, input_type, from_order,
+                                         to_order):
+    input_data, real_data = get_input(input_type, 10, 10, dtype,
+                                      order=from_order)
+
+    # conv_data = np.array(real_data, order=to_order, copy=True)
+    if from_order == to_order or to_order == 'K':
+        conv_data, *_ = input_to_cuml_array(input_data, fail_on_order=False,
+                                            order=to_order)
+    else:
+        # Warning is raised for non cudf dataframe or numpy arrays
+        # those are converted form order by their respective libraries
+        if input_type in ['numpy', 'cupy', 'numba']:
+            with pytest.warns(UserWarning):
+                conv_data, *_ = input_to_cuml_array(input_data,
+                                                    fail_on_order=False,
+                                                    order=to_order)
+        else:
+            conv_data, *_ = input_to_cuml_array(input_data,
+                                                fail_on_order=False,
+                                                order=to_order)
+
+    if to_order == 'K':
+        if input_type == 'dataframe':
+            assert conv_data.order == 'F'
+        else:
+            assert conv_data.order == from_order
+    else:
+        assert conv_data.order == to_order
+    np.testing.assert_equal(real_data, conv_data.to_output('numpy'))
+
+
+@pytest.mark.parametrize('dtype', test_dtypes_acceptable)
+@pytest.mark.parametrize('input_type', test_input_types)
+@pytest.mark.parametrize('shape', [(1, 10), (10, 1)])
+@pytest.mark.parametrize('from_order', ['C', 'F'])
+@pytest.mark.parametrize('to_order', ['C', 'F', 'K'])
+def test_convert_vector_order_cuml_array(dtype, input_type, shape, from_order,
+                                         to_order):
+    input_data, real_data = get_input(input_type, shape[0], shape[1], dtype,
+                                      order=from_order)
+
+    # conv_data = np.array(real_data, order=to_order, copy=True)
+    conv_data, *_ = input_to_cuml_array(input_data, fail_on_order=False,
+                                        order=to_order)
+
+    np.testing.assert_equal(real_data, conv_data.to_output('numpy'))
 
 
 @pytest.mark.parametrize('dtype', test_dtypes_acceptable)
@@ -162,55 +249,9 @@ def test_convert_input_dtype(from_dtype, to_dtype, input_type, num_rows,
         np.testing.assert_equal(converted_data.as_matrix(), real_data)
 
 
-@pytest.mark.parametrize('dtype', test_dtypes_acceptable)
-@pytest.mark.parametrize('input_type', ['numba', 'cupy'])
-@pytest.mark.parametrize('order', ['C', 'F'])
-@pytest.mark.parametrize('order_check', ['C', 'F'])
-def test_fail_on_order(dtype, input_type, order, order_check):
-    # this is tested only for non cudf dataframe or numpy arrays
-    # those are converted form order by their respective libraries
-    input_data, real_data = get_input(input_type, 10, 10, dtype, order=order)
-
-    if input_type == 'cupy' and input_data is None:
-        pytest.skip('cupy not installed')
-
-    if order == order_check:
-        _, _, _, _, _ = \
-            input_to_dev_array(input_data, fail_on_order=False, order=order)
-    else:
-        with pytest.raises(ValueError):
-            _, _, _, _, _ = \
-                input_to_dev_array(input_data, fail_on_order=True,
-                                   order=order_check)
-
-
-@pytest.mark.parametrize('dtype', test_dtypes_acceptable)
-@pytest.mark.parametrize('input_type', test_input_types)
-@pytest.mark.parametrize('from_order', ['C', 'F'])
-@pytest.mark.parametrize('to_order', ['C', 'F'])
-def test_convert_order_dev_array(dtype, input_type, from_order, to_order):
-    input_data, real_data = get_input(input_type, 10, 10, dtype,
-                                      order=from_order)
-
-    # conv_data = np.array(real_data, order=to_order, copy=True)
-    if from_order == to_order:
-        conv_data, _, _, _, _ = \
-            input_to_dev_array(input_data, fail_on_order=False, order=to_order)
-    else:
-        # Warning is raised for non cudf dataframe or numpy arrays
-        # those are converted form order by their respective libraries
-        if input_type in ['cupy', 'numba']:
-            with pytest.warns(UserWarning):
-                conv_data, _, _, _, _ = \
-                    input_to_dev_array(input_data, fail_on_order=False,
-                                       order=to_order)
-        else:
-            conv_data, _, _, _, _ = \
-                input_to_dev_array(input_data, fail_on_order=False,
-                                   order=to_order)
-
-    assert(check_numba_order(conv_data, to_order))
-    np.testing.assert_equal(real_data, conv_data.copy_to_host())
+###############################################################################
+#                           Utility Functions                                 #
+###############################################################################
 
 
 def check_numpy_order(ary, order):

@@ -90,4 +90,5 @@ def mutual_info_score(labels_true, labels_pred, handle=None):
                          <int> n_rows,
                          <int> lower_class_range,
                          <int> upper_class_range)
+
     return mi

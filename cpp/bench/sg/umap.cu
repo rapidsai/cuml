@@ -48,44 +48,28 @@ void cast(OutT* out, const InT* in, IdxT len, cudaStream_t stream) {
 class UmapBase : public BlobsFixture<float, int> {
  public:
   UmapBase(const std::string& name, const Params& p)
-    : BlobsFixture<float, int>(p.data, p.blobs), uParams(p.umap) {
-    this->SetName(name.c_str());
-  }
+    : BlobsFixture<float, int>(name, p.data, p.blobs), uParams(p.umap) {}
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
+    using MLCommon::Bench::CudaEventTimer;
     if (!this->params.rowMajor) {
       state.SkipWithError("Umap only supports row-major inputs");
     }
-    auto& handle = *this->handle;
-    auto stream = handle.getStream();
-    for (auto _ : state) {
-      CudaEventTimer timer(handle, state, true, stream);
-      coreBenchmarkMethod();
-    }
+    this->loopOnState(state, [this]() { coreBenchmarkMethod(); });
   }
 
   virtual void coreBenchmarkMethod() = 0;
 
-  void allocateBuffers(const ::benchmark::State& state) {
-    auto& handle = *this->handle;
-    auto allocator = handle.getDeviceAllocator();
-    auto stream = handle.getStream();
-    yFloat =
-      (float*)allocator->allocate(this->params.nrows * sizeof(float), stream);
-    embeddings = (float*)allocator->allocate(
-      this->params.nrows * uParams.n_components * sizeof(float), stream);
-    cast<float, int>(yFloat, this->data.y, this->params.nrows, stream);
+  void allocateTempBuffers(const ::benchmark::State& state) override {
+    alloc(yFloat, this->params.nrows);
+    alloc(embeddings, this->params.nrows * uParams.n_components);
+    cast<float, int>(yFloat, this->data.y, this->params.nrows, this->stream);
   }
 
-  void deallocateBuffers(const ::benchmark::State& state) {
-    auto& handle = *this->handle;
-    auto allocator = handle.getDeviceAllocator();
-    auto stream = handle.getStream();
-    allocator->deallocate(yFloat, this->params.nrows * sizeof(float), stream);
-    allocator->deallocate(
-      embeddings, this->params.nrows * uParams.n_components * sizeof(float),
-      stream);
+  void deallocateTempBuffers(const ::benchmark::State& state) override {
+    dealloc(yFloat, this->params.nrows);
+    dealloc(embeddings, this->params.nrows * uParams.n_components);
   }
 
   UMAPParams uParams;
@@ -131,7 +115,7 @@ class UmapSupervised : public UmapBase {
         this->params.ncols, nullptr, nullptr, &uParams, embeddings);
   }
 };
-CUML_BENCH_REGISTER(Params, UmapSupervised, "blobs", getInputs());
+ML_BENCH_REGISTER(Params, UmapSupervised, "blobs", getInputs());
 
 class UmapUnsupervised : public UmapBase {
  public:
@@ -144,7 +128,7 @@ class UmapUnsupervised : public UmapBase {
         nullptr, nullptr, &uParams, embeddings);
   }
 };
-CUML_BENCH_REGISTER(Params, UmapUnsupervised, "blobs", getInputs());
+ML_BENCH_REGISTER(Params, UmapUnsupervised, "blobs", getInputs());
 
 class UmapTransform : public UmapBase {
  public:
@@ -160,26 +144,19 @@ class UmapTransform : public UmapBase {
   void allocateBuffers(const ::benchmark::State& state) {
     UmapBase::allocateBuffers(state);
     auto& handle = *this->handle;
-    auto allocator = handle.getDeviceAllocator();
-    transformed = (float*)allocator->allocate(
-      this->params.nrows * uParams.n_components * sizeof(float),
-      handle.getStream());
+    alloc(transformed, this->params.nrows * uParams.n_components);
     fit(handle, this->data.X, yFloat, this->params.nrows, this->params.ncols,
         nullptr, nullptr, &uParams, embeddings);
   }
   void deallocateBuffers(const ::benchmark::State& state) {
-    auto& handle = *this->handle;
-    auto allocator = handle.getDeviceAllocator();
-    allocator->deallocate(
-      transformed, this->params.nrows * uParams.n_components * sizeof(float),
-      handle.getStream());
+    dealloc(transformed, this->params.nrows * uParams.n_components);
     UmapBase::deallocateBuffers(state);
   }
 
  private:
   float* transformed;
 };
-CUML_BENCH_REGISTER(Params, UmapTransform, "blobs", getInputs());
+ML_BENCH_REGISTER(Params, UmapTransform, "blobs", getInputs());
 
 }  // end namespace umap
 }  // end namespace Bench

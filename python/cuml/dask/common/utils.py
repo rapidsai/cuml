@@ -21,7 +21,7 @@ import time
 
 from dask.distributed import default_client
 
-from cuml.utils import device_of_gpu_matrix
+from cuml.common import device_of_gpu_matrix
 
 from asyncio import InvalidStateError
 

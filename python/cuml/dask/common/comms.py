@@ -25,7 +25,7 @@ from cuml.common.handle import Handle
 
 from dask.distributed import get_worker, default_client
 
-from cuml.utils.import_utils import has_ucp
+from cuml.common.import_utils import has_ucp
 import warnings
 
 import time

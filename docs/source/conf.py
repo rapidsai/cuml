@@ -34,8 +34,14 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'numpydoc',
+    "sphinx_markdown_tables",
+    "IPython.sphinxext.ipython_console_highlighting",
+    "IPython.sphinxext.ipython_directive",
+    "nbsphinx",
+    "recommonmark",
 ]
 
+ipython_mplbackend = "str"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -44,7 +50,7 @@ templates_path = ['_templates']
 # You can specify multiple suffix as a list of string:
 #
 # source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 
 # The master toctree document.
 master_doc = 'index'
