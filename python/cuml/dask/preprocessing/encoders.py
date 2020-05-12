@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import dask
-
-from cuml.dask.common.dask_arr_utils import to_dask_cudf
-from cuml.utils import with_cupy_rmm
+from cuml.common import with_cupy_rmm
 
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedTransformMixin
@@ -26,15 +23,14 @@ from toolz import first
 from collections.abc import Sequence
 from dask_cudf.core import DataFrame as dcDataFrame
 from dask_cudf.core import Series as daskSeries
-from cuml.preprocessing.encoders import OneHotEncoder as cumlOHE
 
 
 class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
                     DelayedInverseTransformMixin):
     """
     Encode categorical features as a one-hot numeric array.
-    The input to this transformer should be a dask_cuDF.DataFrame of ints or
-    strings, denoting the values taken on by categorical (discrete) features.
+    The input to this transformer should be a dask_cuDF.DataFrame or cupy
+    dask.Array, denoting the values taken on by categorical features.
     The features are encoded using a one-hot (aka 'one-of-K' or 'dummy')
     encoding scheme. This creates a binary column for each category and
     returns a sparse matrix or dense array (depending on the ``sparse``
@@ -45,11 +41,12 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
 
     Parameters
     ----------
-    categories : 'auto' a dask.array or a dask_cudf.DataFrame, default='auto'
-        Categories (unique values) per feature:
+    categories : 'auto' an cupy.ndarray or a cudf.DataFrame, default='auto'
+        Categories (unique values) per feature. All categories are expected to
+        fit on one GPU.
         - 'auto' : Determine categories automatically from the training data.
-        - DataFrame : ``categories[col]`` holds the categories expected in the
-          feature col.
+        - DataFrame/ndarray : ``categories[col]`` holds the categories expected
+          in the feature col.
     drop : 'first', None or a dict, default=None
         Specifies a methodology to use to drop one of the categories per
         feature. This is useful in situations where perfectly collinear
@@ -81,37 +78,6 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
                                             verbose=verbose,
                                             **kwargs)
 
-    @property
-    def categories_(self):
-        """
-        Returns categories used for the one hot encoding in the correct order.
-        """
-        return self.local_model.categories_
-
-    class LocalOneHotEncoder(cumlOHE):
-        def __init__(self, client=None, **kwargs):
-            super().__init__(**kwargs)
-            self.client = client
-
-        def _check_input_fit(self, X, is_categories=False):
-            """Helper function to check input of fit within the local model"""
-            if isinstance(X, dask.array.core.Array):
-                self._set_input_type('array')
-                if is_categories:
-                    X = X.transpose()
-                return to_dask_cudf(X, client=self.client)
-            else:
-                self._set_input_type('df')
-                return X
-
-        @staticmethod
-        def _unique(inp):
-            return inp.unique().compute()
-
-        @staticmethod
-        def _has_unknown(X_cat, encoder_cat):
-            return not X_cat.isin(encoder_cat).all().compute()
-
     @with_cupy_rmm
     def fit(self, X):
         """
@@ -124,11 +90,14 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
         -------
         self
         """
+        from cuml.preprocessing.onehotencoder_mg import OneHotEncoderMG
+
         el = first(X) if isinstance(X, Sequence) else X
         self.datatype = ('cudf' if isinstance(el, (dcDataFrame, daskSeries))
                          else 'cupy')
 
-        self.local_model = self.LocalOneHotEncoder(**self.kwargs).fit(X)
+        self.local_model = OneHotEncoderMG(**self.kwargs).fit(X)
+        self.categories_ = self.local_model.categories_
 
         return self
 

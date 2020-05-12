@@ -175,16 +175,14 @@ class OneHotEncoder:
             return X
 
     def _check_input_fit(self, X, is_categories=False):
-        """Helper function to be overridden by dask OneHotEncoder"""
+        """Helper function used in fit. Can be overridden in subclasses"""
         return self._check_input(X, is_categories=is_categories)
 
-    @staticmethod
-    def _unique(inp):
-        """Helper function to be overridden by dask OneHotEncoder"""
+    def _unique(self, inp):
+        """Helper function used in fit. Can be overridden in subclasses"""
         return inp
 
-    @staticmethod
-    def _has_unknown(X_cat, encoder_cat):
+    def _has_unknown(self, X_cat, encoder_cat):
         """Check if X_cat has categories that are not present in encoder_cat"""
         return not X_cat.isin(encoder_cat).all()
 
@@ -217,8 +215,7 @@ class OneHotEncoder:
             self._encoders = dict()
             for feature in self._features:
                 le = LabelEncoder(handle_unknown=self.handle_unknown)
-                self._encoders[feature] = le.fit(
-                    self._unique(self.categories[feature]))
+                self._encoders[feature] = le.fit(self.categories[feature])
                 if self.handle_unknown == 'error':
                     if self._has_unknown(X[feature],
                                          self._encoders[feature].classes_):
