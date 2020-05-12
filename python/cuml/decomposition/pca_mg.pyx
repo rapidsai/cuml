@@ -98,7 +98,7 @@ class PCAMG(PCA, BaseDecompositionMG):
     def __init__(self, **kwargs):
         super(PCAMG, self).__init__(**kwargs)
 
-    def _call_fit(self, X, p2r, rank, arg_rank_size_pair,
+    def _call_fit(self, X, rank, arg_rank_size_pair,
                   n_total_parts, arg_params):
 
         cdef uintptr_t comp_ptr = self._components_.ptr
@@ -110,8 +110,8 @@ class PCAMG(PCA, BaseDecompositionMG):
         cdef uintptr_t noise_vars_ptr = self._noise_variance_.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef uintptr_t data
-        cdef uintptr_t trans_data
+        # cdef uintptr_t data
+        # cdef uintptr_t trans_data
 
         cdef paramsPCA *params = <paramsPCA*><size_t>arg_params
 

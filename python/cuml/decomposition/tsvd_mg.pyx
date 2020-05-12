@@ -89,7 +89,7 @@ class TSVDMG(TruncatedSVD, BaseDecompositionMG):
     def __init__(self, **kwargs):
         super(TSVDMG, self).__init__(**kwargs)
 
-    def _call_fit(self, arr_interfaces, p2r, rank, arg_rank_size_pair,
+    def _call_fit(self, X, trans, rank, arg_rank_size_pair,
                   n_total_parts, arg_params):
 
         cdef uintptr_t comp_ptr = self._components_.ptr
@@ -99,24 +99,24 @@ class TSVDMG(TruncatedSVD, BaseDecompositionMG):
         cdef uintptr_t singular_vals_ptr = self._singular_values_.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef uintptr_t data
-        cdef uintptr_t trans_data
+        # cdef uintptr_t data
+        # cdef uintptr_t trans_data
 
         cdef paramsTSVD *params = <paramsTSVD*><size_t>arg_params
 
         if self.dtype == np.float32:
-            data = self._build_dataFloat(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(p2r,
-                                                         rank,
-                                                         self.n_components,
-                                                         np.float32)
-            trans_data = self._build_dataFloat(arr_interfaces_trans)
+            # data = self._build_dataFloat(arr_interfaces)
+            # arr_interfaces_trans = self._build_transData(p2r,
+            #                                             rank,
+            #                                             self.n_components,
+            #                                             np.float32)
+            # trans_data = self._build_dataFloat(arr_interfaces_trans)
 
             fit_transform(handle_[0],
                           <RankSizePair**><size_t>arg_rank_size_pair,
                           <size_t> n_total_parts,
-                          <floatData_t**> data,
-                          <floatData_t**> trans_data,
+                          <floatData_t**><size_t> X,
+                          <floatData_t**><size_t> trans,
                           <float*> comp_ptr,
                           <float*> explained_var_ptr,
                           <float*> explained_var_ratio_ptr,
@@ -124,18 +124,18 @@ class TSVDMG(TruncatedSVD, BaseDecompositionMG):
                           deref(params),
                           False)
         else:
-            data = self._build_dataDouble(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(p2r,
-                                                         rank,
-                                                         self.n_components,
-                                                         np.float64)
-            trans_data = self._build_dataDouble(arr_interfaces_trans)
+            # data = self._build_dataDouble(arr_interfaces)
+            # arr_interfaces_trans = self._build_transData(p2r,
+            #                                             rank,
+            #                                             self.n_components,
+            #                                             np.float64)
+            # trans_data = self._build_dataDouble(arr_interfaces_trans)
 
             fit_transform(handle_[0],
                           <RankSizePair**><size_t>arg_rank_size_pair,
                           <size_t> n_total_parts,
-                          <doubleData_t**> data,
-                          <doubleData_t**> trans_data,
+                          <doubleData_t**><size_t> X,
+                          <doubleData_t**><size_t> trans,
                           <double*> comp_ptr,
                           <double*> explained_var_ptr,
                           <double*> explained_var_ratio_ptr,
@@ -145,7 +145,7 @@ class TSVDMG(TruncatedSVD, BaseDecompositionMG):
 
         self.handle.sync()
 
-        return arr_interfaces_trans, data, trans_data
+        # return arr_interfaces_trans, data, trans_data
 
     def fit(self, X, n_rows, n_cols, partsToRanks, rank, _transform=False):
         """
