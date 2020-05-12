@@ -110,13 +110,9 @@ class PCAMG(PCA, BaseDecompositionMG):
         cdef uintptr_t noise_vars_ptr = self._noise_variance_.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        # cdef uintptr_t data
-        # cdef uintptr_t trans_data
-
         cdef paramsPCA *params = <paramsPCA*><size_t>arg_params
 
         if self.dtype == np.float32:
-            # data = self._build_dataFloat(arr_interfaces)
 
             fit(handle_[0],
                 <RankSizePair**><size_t>arg_rank_size_pair,
@@ -131,7 +127,6 @@ class PCAMG(PCA, BaseDecompositionMG):
                 deref(params),
                 False)
         else:
-            # data = self._build_dataDouble(arr_interfaces)
 
             fit(handle_[0],
                 <RankSizePair**><size_t>arg_rank_size_pair,
