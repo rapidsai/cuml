@@ -93,7 +93,7 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                   bool verbose) except +
 
 
-class PCAMG(PCA, BaseDecompositionMG):
+class PCAMG(BaseDecompositionMG, PCA):
 
     def __init__(self, **kwargs):
         super(PCAMG, self).__init__(**kwargs)
@@ -142,15 +142,3 @@ class PCAMG(PCA, BaseDecompositionMG):
                 False)
 
         self.handle.sync()
-
-    def fit(self, X, n_rows, n_cols, partsToRanks, rank, _transform=False):
-        """
-        Fit function for PCA MG. This not meant to be used as
-        part of the public API.
-        :param X: array of local dataframes / array partitions
-        :param M: total number of rows
-        :param N: total number of cols
-        :param partsToRanks: array of tuples in the format: [(rank,size)]
-        :return: self
-        """
-        return self._fit(X, n_rows, n_cols, partsToRanks, rank, _transform)

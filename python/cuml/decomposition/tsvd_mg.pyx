@@ -84,7 +84,7 @@ cdef extern from "cumlprims/opg/tsvd.hpp" namespace "ML::TSVD::opg":
                             bool verbose) except +
 
 
-class TSVDMG(TruncatedSVD, BaseDecompositionMG):
+class TSVDMG(BaseDecompositionMG, TruncatedSVD):
 
     def __init__(self, **kwargs):
         super(TSVDMG, self).__init__(**kwargs)
@@ -129,17 +129,3 @@ class TSVDMG(TruncatedSVD, BaseDecompositionMG):
                           False)
 
         self.handle.sync()
-
-        # return arr_interfaces_trans, data, trans_data
-
-    def fit(self, X, n_rows, n_cols, partsToRanks, rank, _transform=False):
-        """
-        Fit function for TSVD MG. This not meant to be used as
-        part of the public API.
-        :param X: array of local dataframes / array partitions
-        :param M: total number of rows
-        :param N: total number of cols
-        :param partsToRanks: array of tuples in the format: [(rank,size)]
-        :return: self
-        """
-        return self._fit(X, n_rows, n_cols, partsToRanks, rank, _transform)

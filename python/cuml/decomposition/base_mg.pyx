@@ -47,8 +47,8 @@ class BaseDecompositionMG(object):
     def __init__(self, **kwargs):
         super(BaseDecompositionMG, self).__init__(**kwargs)
 
-    def _fit(self, X, total_rows, n_cols, partsToRanks, rank,
-             _transform=False):
+    def fit(self, X, total_rows, n_cols, partsToRanks, rank,
+            _transform=False):
         """
         Fit function for PCA MG. This not meant to be used as
         part of the public API.
