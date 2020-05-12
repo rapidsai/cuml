@@ -84,6 +84,14 @@ class ElasticNet(BaseEstimator):
                                          verbose=verbose,
                                          **kwargs)
 
+        kwargs['shuffle'] = False
+
+        if 'selection' in kwargs:
+            if kwargs['selection'] == 'random':
+                kwargs['shuffle'] = True
+
+            del kwargs['selection']
+
         self.solver = CD(client=client,
                          verbose=verbose,
                          **kwargs)

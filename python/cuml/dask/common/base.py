@@ -13,20 +13,22 @@
 # limitations under the License.
 #
 
+import cudf.comm.serialize  # noqa: F401
 import cupy as cp
 import dask
 import numpy as np
-from toolz import first
-
-import cudf.comm.serialize  # noqa: F401
 
 from cuml import Base
 from cuml.common.array import CumlArray
+from cuml.dask.common import raise_exception_from_futures
+from cuml.dask.common.comms import CommsContext
+from cuml.dask.common.input_utils import DistributedDataHandler
 
+from dask.distributed import wait
 from dask_cudf.core import DataFrame as dcDataFrame
-
 from dask.distributed import default_client
 from functools import wraps
+from toolz import first
 
 
 class BaseEstimator(object):
@@ -220,6 +222,56 @@ class DelayedInverseTransformMixin(DelayedParallelFunc):
                                        n_dims=n_dims,
                                        delayed=delayed,
                                        **kwargs)
+
+
+class SyncFitMixinLinearModel(object):
+
+    def _fit(self, model_func, data, **kwargs):
+
+        n_cols = data[0].shape[1]
+
+        data = DistributedDataHandler.create(data=data, client=self.client)
+        self.datatype = data.datatype
+
+        comms = CommsContext(comms_p2p=False, verbose=self.verbose)
+        comms.init(workers=data.workers)
+
+        data.calculate_parts_to_sizes(comms)
+        self.ranks = data.ranks
+
+        lin_models = dict([(data.worker_info[wf[0]]["rank"],
+                            self.client.submit(
+            model_func,
+            comms.sessionId,
+            self.datatype,
+            **self.kwargs,
+            pure=False,
+            workers=[wf[0]]))
+            for idx, wf in enumerate(data.worker_to_parts.items())])
+
+        lin_fit = dict([(wf[0], self.client.submit(
+            _func_fit,
+            lin_models[data.worker_info[wf[0]]["rank"]],
+            wf[1],
+            data.total_rows,
+            n_cols,
+            data.parts_to_sizes[data.worker_info[wf[0]]["rank"]],
+            data.worker_info[wf[0]]["rank"],
+            pure=False,
+            workers=[wf[0]]))
+            for idx, wf in enumerate(data.worker_to_parts.items())])
+
+        wait(list(lin_fit.values()))
+        raise_exception_from_futures(list(lin_fit.values()))
+
+        comms.destroy()
+        return lin_models
+
+
+def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
+    print(":::::_func_fit")
+    print(f)
+    return f.fit(data, n_rows, n_cols, partsToSizes, rank)
 
 
 def mnmg_import(func):

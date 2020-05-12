@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -125,12 +125,19 @@ class Lasso(BaseEstimator):
                                     verbose=verbose,
                                     **kwargs)
 
+        kwargs['shuffle'] = False
+
+        if 'selection' in kwargs:
+            if kwargs['selection'] == 'random':
+                kwargs['shuffle'] = True
+
+            del kwargs['selection']
+
         self.solver = CD(client=client,
                          verbose=verbose,
                          **kwargs)
 
-
-    def fit(self, X, y, force_colocality=False):
+    def fit(self, X, y):
         """
         Fit the model with X and y.
 
@@ -153,7 +160,7 @@ class Lasso(BaseEstimator):
 
         """
 
-        self.solver.fit(X, y, delayed=True)
+        self.solver.fit(X, y)
 
         self.coef_ = self.solver.coef_
         self.intercept_ = self.solver.intercept_
@@ -183,4 +190,4 @@ class Lasso(BaseEstimator):
 
         """
 
-        return self.solver.predict(X)
+        return self.solver.predict(X, delayed=delayed)

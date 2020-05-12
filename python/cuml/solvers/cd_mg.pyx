@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,21 +21,18 @@
 import ctypes
 import cudf
 import numpy as np
-
 import rmm
-
-from libc.stdlib cimport malloc, free
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
 from cuml.common.base import Base
+from cuml.common.array import CumlArray
 from cuml.common.handle cimport cumlHandle
+from cuml.common.opg_data_utils_mg cimport *
+from cuml.common.input_utils import input_to_cuml_array
 from cuml.decomposition.utils cimport *
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
-
 from cuml.linear_model.base_mg import MGFitMixin
 from cuml.solvers import CD
 
@@ -99,7 +96,7 @@ class CDMG(MGFitMixin, CD):
                 <size_t>n_rows,
                 <size_t>n_cols,
                 <floatData_t**><size_t>y,
-                <float*>coef_ptr,
+                <float*><size_t>coef_ptr,
                 <float*>&float_intercept,
                 <bool>self.fit_intercept,
                 <bool>self.normalize,
@@ -110,16 +107,16 @@ class CDMG(MGFitMixin, CD):
                 <float>self.tol,
                 False)
 
-            self.intercept_ = c_intercept1
+            self.intercept_ = float_intercept
         else:
             fit(handle_[0],
-                <RankSizePair**>rankSizePair,
+                <RankSizePair**><size_t>rank_to_sizes,
                 <size_t> n_total_parts,
-                <doubleData_t**>data,
-                <size_t>M,
-                <size_t>N,
-                <doubleData_t**>labels,
-                <double*>coef_ptr,
+                <doubleData_t**><size_t>X,
+                <size_t>n_rows,
+                <size_t>n_cols,
+                <doubleData_t**><size_t>y,
+                <double*><size_t>coef_ptr,
                 <double*>&double_intercept,
                 <bool>self.fit_intercept,
                 <bool>self.normalize,
