@@ -19,7 +19,7 @@ import numpy as np
 from toolz import first
 
 from cuml.dask.common.utils import get_client
-
+from cuml.dask.common.input_utils import get_datatype
 import pickle
 
 from cuml import Base
@@ -87,7 +87,7 @@ class BaseEstimator(object):
         ----------
         value : a local model to scatter to Dask cluster
         """
-        self.local_model = self.client.scatter([value]) \
+        self.local_model = self.client.scatter(value, broadcast=True) \
             if to_workers else value
 
     @staticmethod
@@ -135,6 +135,7 @@ class BaseEstimator(object):
             else:
                 # Otherwise, fetch the attribute from the distributed
                 # model and return it
+                print(str(attr))
                 ret_attr = BaseEstimator._get_model_attr(
                     self.__dict__["local_model"], attr).compute()
         else:
@@ -192,6 +193,8 @@ class DelayedParallelFunc(object):
 
         X_d = X.to_delayed()
 
+        print(str(self.local_model))
+
         model = dask.delayed(self.local_model, pure=True, traverse=False)
 
         func = dask.delayed(func, pure=False, nout=1)
@@ -209,6 +212,10 @@ class DelayedParallelFunc(object):
         # TODO: Put the following conditionals in a
         #  `to_delayed_output()` function
         # TODO: Add eager path back in
+
+        if "datatype" not in self.__dict__:
+            self.datatype, _ = get_datatype(X)
+
         if self.datatype == 'cupy':
 
             # todo: add parameter for option of not checking directly

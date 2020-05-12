@@ -79,6 +79,8 @@ class DistributedDataHandler:
 
     """ Class methods for initalization """
 
+
+
     @classmethod
     def create(cls, data, client=None):
         """
@@ -96,18 +98,7 @@ class DistributedDataHandler:
 
         client = cls.get_client(client)
 
-        multiple = isinstance(data, Sequence)
-
-        if isinstance(first(data) if multiple else data,
-                      (dcDataFrame, daskSeries)):
-            datatype = 'cudf'
-        else:
-            datatype = 'cupy'
-            if multiple:
-                for d in data:
-                    validate_dask_array(d)
-            else:
-                validate_dask_array(data)
+        datatype, multiple = get_datatype(data)
 
         gpu_futures = client.sync(_extract_partitions, data, client)
 
@@ -152,6 +143,24 @@ class DistributedDataHandler:
                 sizes
 
             self.total_rows += total
+
+
+def get_datatype(data):
+
+    multiple = isinstance(data, Sequence)
+
+    if isinstance(first(data) if multiple else data,
+                  (dcDataFrame, daskSeries)):
+        datatype = 'cudf'
+    else:
+        datatype = 'cupy'
+        if multiple:
+            for d in data:
+                validate_dask_array(d)
+        else:
+            validate_dask_array(data)
+
+    return datatype, multiple
 
 
 @with_cupy_rmm

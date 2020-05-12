@@ -83,3 +83,59 @@ def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept,
         assert_equal(expected.get(), actual.get())
 
     pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('keys', [cuml.dask.linear_model.LinearRegression])
+@pytest.mark.parametrize('data_size', [[500, 20, 10]])
+@pytest.mark.parametrize('fit_intercept', [True, False])
+def test_regressor_sg_train_mg_predict(datatype, keys, data_size, fit_intercept, cluster):
+
+    client = Client(cluster)
+
+    from cuml.linear_model import LinearRegression as sgLR
+
+    nrows, ncols, n_info = data_size
+    X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
+
+    X_train = X_train.compute()
+    y_train = y_train.compute()
+
+    X_test_local = X_test.compute()
+
+    local_model = sgLR(fit_intercept=fit_intercept)
+    local_model.fit(X_train, y_train)
+
+    expected = local_model.predict(X_test_local)
+
+    dist_model = LinearRegression(model=local_model)
+    actual = dist_model.predict(X_test).compute()
+
+    assert_equal(expected.get(), actual.get())
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('keys', [cuml.dask.linear_model.LinearRegression])
+@pytest.mark.parametrize('data_size', [[500, 20, 10]])
+@pytest.mark.parametrize('fit_intercept', [True, False])
+def test_regressor_mg_train_sg_predict(datatype, keys, data_size, fit_intercept, cluster):
+
+    client = Client(cluster)
+
+    from cuml.linear_model import LinearRegression as sgLR
+
+    nrows, ncols, n_info = data_size
+    X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
+
+    X_test_local = X_test.compute()
+
+    dist_model = LinearRegression(fit_intercept=fit_intercept)
+    dist_model.fit(X_train, y_train)
+
+    expected = dist_model.predict(X_test).compute()
+
+    local_model = dist_model.get_model()
+    actual = local_model.predict(X_test_local)
+
+    assert_equal(expected.get(), actual.get())
+
