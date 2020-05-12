@@ -66,6 +66,7 @@
 - PR #2146: Remove deprecated kalman filter
 - PR #2151: Add pytest duration and pytest timeout
 - PR #2156: Add Docker 19 support to local gpuci build
+- PR #2178: Reduce duplicated code in RF
 - PR #2124: Expand tutorial docs and sample notebook
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
 - PR #2186: Refactor cython code to build OPG structs in common utils file
