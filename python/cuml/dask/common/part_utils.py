@@ -62,6 +62,8 @@ def workers_to_parts(futures):
 
 
 def _func_get_rows(df):
+    if isinstance(df, tuple):
+        return df[0].shape[0]
     return df.shape[0]
 
 
