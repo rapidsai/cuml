@@ -629,7 +629,8 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   }
   if (param.pred_transform == "sigmoid") {
     params->output = output_t(params->output | output_t::SIGMOID);
-  } else if (param.pred_transform != "identity") {
+  } else if (param.pred_transform != "identity" &&
+             param.pred_transform != "max_index") {
     ASSERT(false, "%s: unsupported treelite prediction transform",
            param.pred_transform.c_str());
   }
