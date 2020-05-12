@@ -18,8 +18,7 @@ import dask
 import numpy as np
 from toolz import first
 
-# TODO: Check if below import is needed
-# import cudf.comm.serialize  # noqa: F401
+import cudf.comm.serialize  # noqa: F401
 
 from cuml import Base
 from cuml.common.array import CumlArray

@@ -17,38 +17,22 @@ import pytest
 from cudf import DataFrame, Series
 import cupy as cp
 import numpy as np
-import pandas as pd
 import dask.array as da
 from cuml.dask.preprocessing import OneHotEncoder
 from cuml.test.utils import stress_param
 from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 from dask.distributed import Client
 from pandas.util.testing import assert_frame_equal
-
-
-def _from_df_to_array(df):
-    return list(zip(*[df[feature] for feature in df.columns]))
-
-
-def _generate_inputs_from_categories(categories=None,
-                                     n_samples=10, seed=5060):
-    if categories is None:
-        categories = {'strings': ['Foo', 'Bar', 'Baz'],
-                      'integers': list(range(1000))}
-
-    rd = np.random.RandomState(seed)
-    pandas_df = pd.DataFrame({name: rd.choice(cat, n_samples)
-                              for name, cat in categories.items()})
-    ary = _from_df_to_array(pandas_df)
-    df = DataFrame.from_pandas(pandas_df)
-    return df, ary
+from cuml.test.test_one_hot_encoder import generate_inputs_from_categories
+from cuml.test.test_one_hot_encoder import assert_inverse_equal
+from cuml.test.test_one_hot_encoder import from_df_to_array
 
 
 @pytest.mark.mg
 def test_onehot_vs_skonehot(cluster):
     client = Client(cluster)
     X = DataFrame({'gender': ['Male', 'Female', 'Female'], 'int': [1, 3, 2]})
-    skX = _from_df_to_array(X)
+    skX = from_df_to_array(X)
     X = dask_cudf.from_cudf(X, npartitions=2)
 
     enc = OneHotEncoder(sparse=False)
@@ -83,7 +67,6 @@ def test_onehot_categories(cluster):
     X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
     X = dask_cudf.from_cudf(X, npartitions=2)
     cats = DataFrame({'chars': ['a', 'b', 'c'], 'int': [0, 1, 2]})
-    cats = dask_cudf.from_cudf(cats, npartitions=2)
     enc = OneHotEncoder(
         categories=cats,
         sparse=False
@@ -101,7 +84,6 @@ def test_onehot_fit_handle_unknown(cluster):
     X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
     Y = DataFrame({'chars': ['c', 'b'], 'int': [0, 2]})
     X = dask_cudf.from_cudf(X, npartitions=2)
-    Y = dask_cudf.from_cudf(Y, npartitions=2)
 
     enc = OneHotEncoder(handle_unknown='error', categories=Y)
     with pytest.raises(KeyError):
@@ -153,17 +135,22 @@ def test_onehot_inverse_transform_handle_unknown(cluster):
 
 @pytest.mark.mg
 @pytest.mark.parametrize('drop', [None, 'first'])
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
 @pytest.mark.parametrize('sparse', [True, False], ids=['sparse', 'dense'])
 @pytest.mark.parametrize("n_samples", [10, 1000, stress_param(50000)])
-def test_onehot_random_inputs(cluster, drop, sparse, n_samples):
+def test_onehot_random_inputs(cluster, drop, as_array, sparse, n_samples):
     client = Client(cluster)
 
-    df, ary = _generate_inputs_from_categories(n_samples=n_samples)
-    ddf = dask_cudf.from_cudf(df, npartitions=1)
+    X, ary = generate_inputs_from_categories(n_samples=n_samples,
+                                             as_array=as_array)
+    if as_array:
+        dX = da.from_array(X)
+    else:
+        dX = dask_cudf.from_cudf(X, npartitions=1)
 
     enc = OneHotEncoder(sparse=sparse, drop=drop)
     sk_enc = SkOneHotEncoder(sparse=sparse, drop=drop)
-    ohe = enc.fit_transform(ddf)
+    ohe = enc.fit_transform(dX)
     ref = sk_enc.fit_transform(ary)
     if sparse:
         cp.testing.assert_array_equal(ohe.compute().toarray(), ref.toarray())
@@ -171,7 +158,7 @@ def test_onehot_random_inputs(cluster, drop, sparse, n_samples):
         cp.testing.assert_array_equal(ohe.compute(), ref)
 
     inv_ohe = enc.inverse_transform(ohe)
-    assert_frame_equal(inv_ohe.compute().to_pandas(), df.to_pandas())
+    assert_inverse_equal(inv_ohe.compute(), dX.compute())
     client.close()
 
 
