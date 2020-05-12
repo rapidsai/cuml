@@ -24,7 +24,6 @@ from cuml.common.import_utils import has_treelite
 from cuml.common.import_utils import has_xgboost
 from cuml.common.import_utils import has_lightgbm
 from cuml.ensemble import RandomForestClassifier as curfc
-from cuml.ensemble import RandomForestRegressor as curfr
 
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import GradientBoostingClassifier, \
@@ -34,16 +33,22 @@ from sklearn.ensemble import RandomForestRegressor as skrfr
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
 
+
 @pytest.fixture(
     scope="session",
     params=[
-        unit_param({'n_samples': 500, 'n_features': 80, 'n_informative': 70, 'n_classes':2}),
-        unit_param({'n_samples': 500, 'n_features': 80, 'n_informative': 70, 'n_classes':3}),
-        unit_param({'n_samples': 500, 'n_features': 80, 'n_informative': 70, 'n_classes':10}),
+        unit_param({'n_samples': 500, 'n_features': 80,
+                    'n_informative': 70, 'n_classes': 2}),
+        unit_param({'n_samples': 500, 'n_features': 80,
+                    'n_informative': 70, 'n_classes': 3}),
+        unit_param({'n_samples': 500, 'n_features': 80,
+                    'n_informative': 70, 'n_classes': 10}),
         quality_param({'n_samples': 5000, 'n_features': 200,
-                      'n_informative': 80, 'n_classes':10}),
+                      'n_informative': 80, 'n_classes': 2}),
+        quality_param({'n_samples': 5000, 'n_features': 200,
+                      'n_informative': 80, 'n_classes': 10}),
         stress_param({'n_samples': 500000, 'n_features': 400,
-                     'n_informative': 180, 'n_classes':180})
+                     'n_informative': 180, 'n_classes': 180})
     ])
 def small_clf(request):
     X, y = make_classification(n_samples=request.param['n_samples'],
@@ -53,6 +58,7 @@ def small_clf(request):
                                random_state=123,
                                n_classes=request.param['n_classes'])
     return X, y
+
 
 if has_xgboost():
     import xgboost as xgb
@@ -466,6 +472,7 @@ def test_lightgbm(tmp_path):
 
     assert np.allclose(gbm_proba, fil_proba, 1e-3)
 
+
 def test_cuml_rf_multiclass(small_clf):
     use_handle = True
 
@@ -474,7 +481,6 @@ def test_cuml_rf_multiclass(small_clf):
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
                                                         random_state=0)
-    n_classes = np.unique(y_train).size
     # Create a handle for the cuml model
     handle, stream = get_handle(use_handle, n_streams=1)
 

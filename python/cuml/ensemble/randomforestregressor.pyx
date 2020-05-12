@@ -385,12 +385,11 @@ class RandomForestRegressor(Base):
             model_pbuf_vec.assign(& model_pbuf_mv[0],
                                   & model_pbuf_mv[model_pbuf_mv.shape[0]])
         if self.treelite_handle is None:
-            task_category = CLASSIFICATION_MODEL
             build_treelite_forest(
                 & cuml_model_ptr,
                 rf_forest,
                 <int> self.n_cols,
-                <int> task_category,
+                <int> self.num_classes,
                 model_pbuf_vec)
             mod_ptr = <uintptr_t> cuml_model_ptr
             self.treelite_handle = ctypes.c_void_p(mod_ptr).value
@@ -492,14 +491,13 @@ class RandomForestRegressor(Base):
            to a shared file. Cuml issue #1854 has been created to track this.
     """
     def _tl_model_handles(self, model_bytes):
-        task_category = REGRESSION_MODEL
         cdef ModelHandle tl_model_ptr = NULL
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
         build_treelite_forest(& tl_model_ptr,
                               rf_forest,
                               <int> self.n_cols,
-                              <int> task_category,
+                              <int> self.num_classes,
                               <vector[unsigned char] &> model_bytes)
         mod_handle = <uintptr_t> tl_model_ptr
 
@@ -627,6 +625,8 @@ class RandomForestRegressor(Base):
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
                               fil_sparse_format):
+        if num_classes != self.num_classes:
+            warnings.warn("limiting num_classes during predict is deprecated!")
         out_type = self._get_output_type(X)
         cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
@@ -645,11 +645,10 @@ class RandomForestRegressor(Base):
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
 
-        task_category = REGRESSION_MODEL
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> n_cols,
-                              <int> task_category,
+                              <int> self.num_classes,
                               <vector[unsigned char] &> self.model_pbuf_bytes)
         mod_ptr = <uintptr_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
