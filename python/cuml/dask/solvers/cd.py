@@ -16,14 +16,12 @@
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
-
+from cuml.dask.common.base import SyncFitMixinLinearModel
 from cuml.dask.common.comms import worker_state
-
-from cuml.dask.linear_model.base import BaseLinearModelSyncFitMixin
 
 
 class CD(BaseEstimator,
-         BaseLinearModelSyncFitMixin,
+         SyncFitMixinLinearModel,
          DelayedPredictionMixin):
     """
     Model-Parallel Multi-GPU Linear Regression Model. Single Process Multi GPU
@@ -89,6 +87,6 @@ class CD(BaseEstimator,
     @staticmethod
     @mnmg_import
     def _create_model(sessionId, datatype, **kwargs):
-        from cuml.solvers.cd_mg import CD
+        from cuml.solvers.cd_mg import CDMG
         handle = worker_state(sessionId)["handle"]
-        return CD(handle=handle, output_type=datatype, **kwargs)
+        return CDMG(handle=handle, output_type=datatype, **kwargs)

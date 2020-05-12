@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,7 +61,6 @@ def make_regression_dataset(datatype, nrows, ncols, n_info):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('X_type', ['ndarray'])
 @pytest.mark.parametrize('alpha', [0.1, 0.001])
 @pytest.mark.parametrize('algorithm', ['cyclic', 'random'])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
@@ -71,10 +70,10 @@ def make_regression_dataset(datatype, nrows, ncols, n_info):
                          stress_param([1000, 500])])
 @pytest.mark.parametrize('n_parts', [unit_param(16), quality_param(32),
                          stress_param(64)])
-def test_lasso(datatype, X_type, alpha, algorithm,
+def test_lasso(datatype, alpha, algorithm,
                nrows, column_info, n_parts, client=None):
     ncols, n_info = column_info
-    
+
     ncols, n_info = column_info
     if client is None:
         cluster = LocalCUDACluster()
@@ -166,7 +165,7 @@ def test_lasso_default(datatype, nrows, column_info, n_parts, client=None):
 def test_elastic_net(datatype, X_type, alpha, algorithm,
                nrows, column_info, n_parts, client=None):
     ncols, n_info = column_info
-    
+
     ncols, n_info = column_info
     if client is None:
         cluster = LocalCUDACluster()
@@ -196,7 +195,7 @@ def test_elastic_net(datatype, X_type, alpha, algorithm,
             sk_elasticnet.fit(X, y)
             sk_predict = sk_elasticnet.predict(X)
             sk_r2 = r2_score(y, sk_predict)
-            assert cu_r2 >= sk_r2 - 0.07
+            assert cu_r2 >= sk_r2 - 0.08
 
     finally:
         client.close()
@@ -237,7 +236,7 @@ def test_elastic_net_default(datatype, nrows, column_info, n_parts, client=None)
         sk_elasticnet.fit(X, y)
         sk_predict = sk_elasticnet.predict(X)
         sk_r2 = r2_score(y, sk_predict)
-        assert cu_r2 >= sk_r2 - 0.07
+        assert cu_r2 >= sk_r2 - 0.08
 
     finally:
         client.close()
