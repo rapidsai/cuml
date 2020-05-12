@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #include <linalg/map_then_reduce.h>
-#include "benchmark.cuh"
+#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -33,25 +33,26 @@ struct Identity {
 template <typename T>
 struct MapThenReduce : public Fixture {
   MapThenReduce(const std::string& name, const Params& p)
-    : Fixture(name), params(p) {}
+    : Fixture(name,
+              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+      params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override {
-    allocate(in, params.len, true);
-    allocate(out, 1, true);
+    alloc(in, params.len, true);
+    alloc(out, 1, true);
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out));
+    dealloc(in, params.len);
+    dealloc(out, 1);
   }
 
   void runBenchmark(::benchmark::State& state) override {
-    for (auto _ : state) {
-      CudaEventTimer timer(state, scratchBuffer, stream);
+    loopOnState(state, [this]() {
       MLCommon::LinAlg::mapThenSumReduce(out, params.len, Identity<T>(), stream,
                                          in);
-    }
+    });
   }
 
  private:
@@ -67,8 +68,8 @@ static std::vector<Params> getInputs() {
   };
 }
 
-PRIMS_BENCH_REGISTER(Params, MapThenReduce<float>, "mapReduce", getInputs());
-PRIMS_BENCH_REGISTER(Params, MapThenReduce<double>, "mapReduce", getInputs());
+ML_BENCH_REGISTER(Params, MapThenReduce<float>, "", getInputs());
+ML_BENCH_REGISTER(Params, MapThenReduce<double>, "", getInputs());
 
 }  // namespace LinAlg
 }  // namespace Bench
