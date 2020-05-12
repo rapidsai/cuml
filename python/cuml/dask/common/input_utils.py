@@ -79,8 +79,6 @@ class DistributedDataHandler:
 
     """ Class methods for initalization """
 
-
-
     @classmethod
     def create(cls, data, client=None):
         """
