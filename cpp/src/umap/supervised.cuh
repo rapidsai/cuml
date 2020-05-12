@@ -78,51 +78,13 @@ void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
     stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  MLCommon::Sparse::coo_symmetrize<TPB_X, T>(in_coo, out_coo, d_alloc, stream);
-
-  MLCommon::Sparse::sorted_coo_to_csr(out_coo, row_ind.data(), d_alloc, stream);
-
-  int *cols = out_coo->cols();
-  int *rows = out_coo->rows();
-  T *vals = out_coo->vals();
-
-  MLCommon::Sparse::csr_row_op(
-    row_ind.data(), out_coo->n_rows, in_coo->nnz,
-    [cols, rows, vals] __device__(int row, int start_idx, int stop_idx) {
-      int last_col = -1;
-
-      T prod = 1.0;
-      T sum = 0.0;
-      T n = 0.0;
-
-      for (int cur_idx = start_idx; cur_idx < stop_idx; cur_idx++) {
-        int cur_col = cols[cur_idx];
-        int cur_val = vals[cur_idx];
-
-        bool write_idx = 0.0;
-        if (start_idx == stop_idx - 1 && n == 0.0) {
-          write_idx = cur_idx;
-        } else {
-          write_idx = cur_idx - 1;
-        }
-
-        if ((cur_col != last_col && last_col != -1) ||
-            start_idx == stop_idx - 1) {
-          prod = prod * n > 1.0;  // simulate transpose being zero
-          vals[write_idx] = (sum - prod);
-          prod = cur_val;
-          sum = cur_val;
-          n = 0;
-        } else {
-          vals[write_idx] = 0.0;
-          prod *= cur_val;
-          sum *= cur_val;
-          n += 1.0;
-        }
-      }
+  MLCommon::Sparse::coo_symmetrize<TPB_X, T>(
+    in_coo, out_coo,
+    [] __device__(int row, int col, T result, T transpose) {
+      T prod_matrix = result * transpose;
+      return result + transpose - prod_matrix;
     },
-    stream);
-
+    d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -207,11 +169,6 @@ void general_simplicial_set_intersection(
   CUDA_CHECK(
     cudaMemsetAsync(result_ind.data(), 0, (in1->n_rows+1) * sizeof(int), stream));
 
-  std::cout << "Calculating inds: " << in1->n_rows << std::endl;
-  std::cout << "Calculating inds: " << in1->n_cols << std::endl;
-
-  std::cout << MLCommon::arr2Str(row1_ind, 25, "row1_ind", stream) << std::endl;
-
   cusparseHandle_t handle = NULL;
   CUSPARSE_CHECK(cusparseCreate(&handle));
 
@@ -240,11 +197,6 @@ void general_simplicial_set_intersection(
   		result_ind.data(), result->cols(), result->vals(),
   		workspace.data(), stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaGetLastError());
-
-  std::cout << result << std::endl;
-
   MLCommon::Sparse::csr_to_coo<TPB_X>(result_ind.data(), result->n_rows,
                                       result->rows(), result->nnz, stream);
 
@@ -266,10 +218,6 @@ void general_simplicial_set_intersection(
     row1_ind, in1->cols(), in1->vals(), in1->nnz, row2_ind, in2->cols(),
     in2->vals(), in2->nnz, result_ind.data(), result->cols(), result->vals(),
     result->nnz, left_min, right_min, in1->n_rows, weight);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaGetLastError());
-
-
 }
 
 template <int TPB_X, typename T>
@@ -319,17 +267,8 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
                                y_knn_dists.data(), params->target_n_neighbors,
                                &ygraph_coo, params, d_alloc, stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaGetLastError());
-
   COO<T> cygraph_coo(d_alloc, stream);
   coo_remove_zeros<TPB_X, T>(&ygraph_coo, &cygraph_coo, d_alloc, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaGetLastError());
-
-
-  std::cout << MLCommon::arr2Str(cygraph_coo.cols(), 25, "cols", stream) << std::endl;
 
   /**
    * Compute general simplicial set intersection.
@@ -342,20 +281,11 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
   CUDA_CHECK(cudaMemsetAsync(yrow_ind.data(), 0,
                              (cygraph_coo.n_rows+1) * sizeof(int), stream));
 
-
-
   MLCommon::Sparse::sorted_coo_to_csr(rgraph_coo, xrow_ind.data(), d_alloc,
                                       stream);
 
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaGetLastError());
-
   MLCommon::Sparse::sorted_coo_to_csr(&cygraph_coo, yrow_ind.data(), d_alloc,
                                       stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaGetLastError());
 
   COO<T> result_coo(d_alloc, stream);
   general_simplicial_set_intersection<T, TPB_X>(
@@ -369,9 +299,6 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
   coo_remove_zeros<TPB_X, T>(&result_coo, &out, d_alloc, stream);
 
   reset_local_connectivity<T, TPB_X>(&out, final_coo, d_alloc, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaPeekAtLastError());
 }
 }  // namespace Supervised
 }  // namespace UMAPAlgo
