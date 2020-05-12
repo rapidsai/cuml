@@ -334,7 +334,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES}
-        OpenMP_CXX_FLAGS
+        ${OpenMP_CXX_LIB_NAMES}
         Threads::Threads)
   endif(OPENMP_FOUND)
 
