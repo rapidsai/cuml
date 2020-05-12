@@ -126,6 +126,7 @@
 - PR #2224: Temporary fix for CI until new Dask version is released
 - PR #2228: Update to use __reduce_ex__ in CumlArray to override cudf.Buffer
 - PR #2249: Fix bug in UMAP continuous target metrics
+- PR #2251: Small changes to remove cmake 'Cannot generate a safe runtime' warnings
 
 # cuML 0.13.0 (Date TBD)
 
