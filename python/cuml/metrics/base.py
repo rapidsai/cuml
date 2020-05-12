@@ -30,10 +30,14 @@ class RegressorMixin:
 
         Parameters
         ----------
-        X : [cudf.DataFrame]
+        X : array-like (device or host) shape = (n_samples, n_features)
             Test samples on which we predict
-        y : [cudf.Series, device array, or numpy array]
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        y : array-like (device or host) shape = (n_samples, n_features)
             Ground truth values for predict(X)
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         Returns
         -------
@@ -41,17 +45,13 @@ class RegressorMixin:
             R^2 of self.predict(X) wrt. y.
         """
         from cuml.metrics.regression import r2_score
-        from cuml.common import input_to_dev_array
-
-        X_m = input_to_dev_array(X)[0]
-        y_m = input_to_dev_array(y)[0]
 
         if hasattr(self, 'handle'):
             handle = self.handle
         else:
             handle = None
-        return r2_score(y_m,
-                        cuda.to_device(self.predict(X_m)),
+        return r2_score(y,
+                        cuda.to_device(self.predict(X)),
                         handle=handle)
 
 

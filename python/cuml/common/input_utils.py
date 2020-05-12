@@ -18,11 +18,11 @@ import copy
 import cudf
 import cupy as cp
 import numpy as np
+import pandas as pd
 import warnings
 
 from collections import namedtuple
-from collections.abc import Collection
-
+from cuml.common import CumlArray
 from cuml.common import rmm_cupy_ary
 from numba import cuda
 
@@ -58,7 +58,6 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
                         check_dtype=False, convert_to_dtype=False,
                         check_cols=False, check_rows=False,
                         fail_on_order=False):
-
     """
     Convert input X to CumlArray.
 
@@ -78,10 +77,11 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
     X : cuDF.DataFrame, cuDF.Series, numba array, NumPy array or any
         cuda_array_interface compliant array like CuPy or pytorch.
 
-    order: string (default: 'F')
-        Whether to return a F-major or C-major array. Used to check the order
-        of the input. If fail_on_order=True method will raise ValueError,
-        otherwise it will convert X to be of order `order`.
+    order: 'F', 'C' or 'K' (default: 'F')
+        Whether to return a F-major ('F'),  C-major ('C') array or Keep ('K')
+        the order of X. Used to check the order of the input. If
+        fail_on_order=True, the method will raise ValueError,
+        otherwise it will convert X to be of order `order` if needed.
 
     deepcopy: boolean (default: False)
         Set to True to always return a deep copy of X.
@@ -113,10 +113,6 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
 
     """
 
-    # temporarily importing here, until github issue #1681 reorganizing utils
-    # is dealt with. Otherwise circular import causes issues
-    from cuml.common import CumlArray
-
     # dtype conversion
 
     if convert_to_dtype:
@@ -130,8 +126,16 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
             raise ValueError("Error: cuDF Series has missing/null values, " +
                              " which are not supported by cuML.")
 
+    # converting pandas to numpy before sending it to CumlArray
+    if isinstance(X, pd.DataFrame) or isinstance(X, pd.Series):
+        # pandas doesn't support custom order in to_numpy
+        X = cp.asarray(X.to_numpy(copy=False), order=order)
+
     if isinstance(X, cudf.DataFrame):
-        X_m = CumlArray(data=X.as_gpu_matrix(order=order))
+        if order == 'K':
+            X_m = CumlArray(data=X.as_gpu_matrix(order='F'))
+        else:
+            X_m = CumlArray(data=X.as_gpu_matrix(order=order))
 
     elif hasattr(X, "__array_interface__") or \
             hasattr(X, "__cuda_array_interface__"):
@@ -159,10 +163,14 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
     # Checks based on parameters
 
     n_rows = X_m.shape[0]
+
     if len(X_m.shape) > 1:
         n_cols = X_m.shape[1]
     else:
         n_cols = 1
+
+    if n_cols == 1 or n_rows == 1:
+        order = 'K'
 
     if check_cols:
         if n_cols != check_cols:
@@ -176,7 +184,7 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
                              " rows but got " + str(n_rows) +
                              " rows.")
 
-    if X_m.order != order:
+    if order != 'K' and X_m.order != order:
         if fail_on_order:
             raise ValueError("Expected " + order_to_str(order) +
                              " major order, but got the opposite.")
@@ -188,6 +196,88 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
             X_m = CumlArray(data=X_m)
 
     return cuml_array(array=X_m, n_rows=n_rows, n_cols=n_cols, dtype=X_m.dtype)
+
+
+def input_to_host_array(X, order='F', deepcopy=False,
+                        check_dtype=False, convert_to_dtype=False,
+                        check_cols=False, check_rows=False,
+                        fail_on_order=False):
+    """
+    Convert input X to host array (NumPy) suitable for C++ methods that accept
+    host arrays.
+
+    Acceptable input formats:
+
+    * Numpy array - returns a pointer to the original input
+
+    * cuDF Dataframe - returns a deep copy always
+
+    * cuDF Series - returns by reference or a deep copy depending on `deepcopy`
+
+    * cuda array interface compliant array (like Cupy) - returns a \
+        reference unless deepcopy=True
+
+    * numba device array - returns a reference unless deepcopy=True
+
+    Parameters
+        ----------
+
+    X:
+        cuDF.DataFrame, cuDF.Series, numba array, NumPy array or any
+        cuda_array_interface compliant array like CuPy or pytorch.
+
+    order: string (default: 'F')
+        Whether to return a F-major or C-major array. Used to check the order
+        of the input. If fail_on_order=True method will raise ValueError,
+        otherwise it will convert X to be of order `order`.
+
+    deepcopy: boolean (default: False)
+        Set to True to always return a deep copy of X.
+
+    check_dtype: np.dtype (default: False)
+        Set to a np.dtype to throw an error if X is not of dtype `check_dtype`.
+
+    convert_to_dtype: np.dtype (default: False)
+        Set to a dtype if you want X to be converted to that dtype if it is
+        not that dtype already.
+
+    check_cols: int (default: False)
+        Set to an int `i` to check that input X has `i` columns. Set to False
+        (default) to not check at all.
+
+    check_rows: boolean (default: False)
+        Set to an int `i` to check that input X has `i` columns. Set to False
+        (default) to not check at all.
+
+    fail_on_order: boolean (default: False)
+        Set to True if you want the method to raise a ValueError if X is not
+        of order `order`.
+
+
+    Returns
+    -------
+    `inp_array`: namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
+
+    `inp_array` is a new device array if the input was not a NumPy device
+        array. It is a reference to the input X if it was a NumPy host array
+    """
+
+    ary_tuple = input_to_cuml_array(X,
+                                    order=order,
+                                    deepcopy=deepcopy,
+                                    check_dtype=check_dtype,
+                                    convert_to_dtype=convert_to_dtype,
+                                    check_cols=check_cols,
+                                    check_rows=check_rows,
+                                    fail_on_order=fail_on_order)
+
+    X_m = ary_tuple.array.to_output('numpy')
+
+    return inp_array(array=X_m,
+                     pointer=X_m.__array_interface__['data'][0],
+                     n_rows=ary_tuple.n_rows,
+                     n_cols=ary_tuple.n_cols,
+                     dtype=ary_tuple.dtype)
 
 
 def input_to_dev_array(X, order='F', deepcopy=False,
@@ -278,10 +368,6 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True):
     Todo: support other dtypes if needed.
     """
 
-    # temporarily importing here, until github issue #1681 reorganizing utils
-    # is dealt with. Otherwise circular import causes issues
-    from cuml.common import CumlArray
-
     if isinstance(X, np.ndarray):
         dtype = X.dtype
         if dtype != to_dtype:
@@ -291,7 +377,7 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True):
                                 "in data loss.")
             return X_m
 
-    elif isinstance(X, cudf.Series) or isinstance(X, cudf.DataFrame):
+    elif isinstance(X, (cudf.Series, cudf.DataFrame, pd.Series, pd.DataFrame)):
         return X.astype(to_dtype)
 
     elif cuda.is_cuda_array(X):
@@ -320,132 +406,3 @@ def order_to_str(order):
         return 'column (\'F\')'
     elif order == 'C':
         return 'row (\'C\')'
-
-
-def input_to_host_array(X, order='F', deepcopy=False,
-                        check_dtype=False, convert_to_dtype=False,
-                        check_cols=False, check_rows=False,
-                        fail_on_order=False):
-    """
-    Convert input X to host array (NumPy) suitable for C++ methods that accept
-    host arrays.
-
-    Acceptable input formats:
-
-    * Numpy array - returns a pointer to the original input
-
-    * cuDF Dataframe - returns a deep copy always
-
-    * cuDF Series - returns by reference or a deep copy depending on `deepcopy`
-
-    * cuda array interface compliant array (like Cupy) - returns a \
-        reference unless deepcopy=True
-
-    * numba device array - returns a reference unless deepcopy=True
-
-    Parameters
-        ----------
-
-    X:
-        cuDF.DataFrame, cuDF.Series, numba array, NumPy array or any
-        cuda_array_interface compliant array like CuPy or pytorch.
-
-    order: string (default: 'F')
-        Whether to return a F-major or C-major array. Used to check the order
-        of the input. If fail_on_order=True method will raise ValueError,
-        otherwise it will convert X to be of order `order`.
-
-    deepcopy: boolean (default: False)
-        Set to True to always return a deep copy of X.
-
-    check_dtype: np.dtype (default: False)
-        Set to a np.dtype to throw an error if X is not of dtype `check_dtype`.
-
-    convert_to_dtype: np.dtype (default: False)
-        Set to a dtype if you want X to be converted to that dtype if it is
-        not that dtype already.
-
-    check_cols: int (default: False)
-        Set to an int `i` to check that input X has `i` columns. Set to False
-        (default) to not check at all.
-
-    check_rows: boolean (default: False)
-        Set to an int `i` to check that input X has `i` columns. Set to False
-        (default) to not check at all.
-
-    fail_on_order: boolean (default: False)
-        Set to True if you want the method to raise a ValueError if X is not
-        of order `order`.
-
-
-    Returns
-    -------
-    `inp_array`: namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
-
-    `inp_array` is a new device array if the input was not a NumPy device
-        array. It is a reference to the input X if it was a NumPy host array
-    """
-
-    if convert_to_dtype:
-        X = convert_dtype(X, to_dtype=convert_to_dtype)
-        check_dtype = False
-
-    if isinstance(X, cudf.DataFrame):
-        dtype = np.dtype(X[X.columns[0]]._column.dtype)
-        X_m = X.as_gpu_matrix(order=order)
-        X_m = X_m.copy_to_host()
-
-    elif (isinstance(X, cudf.Series)):
-        if X.null_count == 0:
-            X_m = X.to_array()
-        else:
-            raise ValueError('cuDF Series has missing (null) values.')
-
-    elif isinstance(X, np.ndarray):
-        X_m = np.array(X, order=order, copy=deepcopy)
-
-    elif cuda.is_cuda_array(X):
-        # Use cuda array interface to create a device array by reference
-        X_m = cuda.as_cuda_array(X)
-        X_m = np.array(X_m.copy_to_host(), order=order)
-
-    else:
-        msg = "X matrix format " + str(X.__class__) + " not supported"
-        raise TypeError(msg)
-
-    dtype = X_m.dtype
-
-    if check_dtype:
-        if isinstance(check_dtype, type):
-            if dtype != check_dtype:
-                del X_m
-                raise TypeError("Expected " + str(check_dtype) + "input but" +
-                                " got " + str(dtype) + " instead.")
-        elif isinstance(check_dtype, Collection):
-            if dtype not in check_dtype:
-                del X_m
-                raise TypeError("Expected input to be of type in " +
-                                str(check_dtype) + " but got " + str(dtype))
-
-    n_rows = X_m.shape[0]
-    if len(X_m.shape) > 1:
-        n_cols = X_m.shape[1]
-    else:
-        n_cols = 1
-
-    if check_cols:
-        if n_cols != check_cols:
-            raise ValueError("Expected " + str(check_cols) +
-                             " columns but got " + str(n_cols) +
-                             " columns.")
-
-    if check_rows:
-        if n_rows != check_rows:
-            raise ValueError("Expected " + str(check_rows) +
-                             " rows but got " + str(n_rows) +
-                             " rows.")
-
-    X_ptr = X_m.ctypes.data
-
-    return inp_array(array=X_m, pointer=X_ptr, n_rows=n_rows, n_cols=n_cols,
-                     dtype=dtype)
