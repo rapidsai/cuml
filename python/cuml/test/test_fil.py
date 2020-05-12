@@ -37,18 +37,20 @@ from sklearn.model_selection import train_test_split
 @pytest.fixture(
     scope="session",
     params=[
-        unit_param({'n_samples': 350, 'n_features': 20, 'n_informative': 10}),
+        unit_param({'n_samples': 350, 'n_features': 20, 'n_informative': 10, 'n_classes':2}),
+        unit_param({'n_samples': 350, 'n_features': 20, 'n_informative': 10, 'n_classes':3}),
         quality_param({'n_samples': 5000, 'n_features': 200,
-                      'n_informative': 80}),
+                      'n_informative': 80, 'n_classes':10}),
         stress_param({'n_samples': 500000, 'n_features': 400,
-                     'n_informative': 180})
+                     'n_informative': 180, 'n_classes':180})
     ])
 def small_clf(request):
     X, y = make_classification(n_samples=request.param['n_samples'],
                                n_features=request.param['n_features'],
                                n_clusters_per_class=1,
                                n_informative=request.param['n_informative'],
-                               random_state=123, n_classes=2)
+                               random_state=123,
+                               n_classes=request.param['n_classes'])
     return X, y
 
 if has_xgboost():
@@ -482,15 +484,17 @@ def test_cuml_rf_multiclass(small_clf):
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16)
     cuml_model.fit(X_train, y_train)
+    n_classes = np.unique(y).size
     fil_preds = cuml_model.predict(X_test,
                                    predict_model="GPU",
                                    output_class=True,
-                                   threshold=0.5,
+                                   threshold=1.0 / n_classes,
                                    algo='auto')
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
     cuml_acc = accuracy_score(y_test, cu_preds)
     fil_acc = accuracy_score(y_test, fil_preds)
+    print(cuml_acc, fil_acc, X.shape, y.shape, X_test.shape, cu_preds.shape, fil_preds.shape, n_classes)
     if X.shape[0] < 500000:
         sk_model = skrfc(n_estimators=40,
                          max_depth=16,
@@ -500,4 +504,5 @@ def test_cuml_rf_multiclass(small_clf):
         sk_preds = sk_model.predict(X_test)
         sk_acc = accuracy_score(y_test, sk_preds)
         assert fil_acc >= (sk_acc - 0.07)
+        print(sk_acc, sk_preds.shape)
     assert fil_acc >= (cuml_acc - 0.02)
