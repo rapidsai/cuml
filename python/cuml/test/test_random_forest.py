@@ -340,14 +340,14 @@ def test_rf_regression_float64(large_reg, datatype):
                                        convert_dtype=False)
 
 
-def check_predict_proba(test_proba, baseline_proba, X_test, y_test, max_rel_err):
+def check_predict_proba(test_proba, baseline_proba, X_test, y_test, rel_err):
     y_proba = np.zeros(np.shape(baseline_proba))
     y_proba[:, 1] = y_test
     y_proba[:, 0] = 1.0 - y_test
     print(y_proba.shape, baseline_proba.shape, test_proba.shape)
     baseline_mse = mean_squared_error(y_proba, baseline_proba)
     test_mse = mean_squared_error(y_proba, test_proba)
-    assert test_mse <= baseline_mse * (1.0 + max_rel_err)
+    assert test_mse <= baseline_mse * (1.0 + rel_err)
 
 
 @pytest.mark.parametrize('datatype', [(np.float32, np.float32)])
@@ -356,7 +356,8 @@ def check_predict_proba(test_proba, baseline_proba, X_test, y_test, max_rel_err)
                          stress_param([500, 350])])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('n_classes', [unit_param(10), quality_param(15), stress_param(15)])
+@pytest.mark.parametrize('n_classes', [unit_param(10), quality_param(15),
+                         stress_param(15)])
 @pytest.mark.parametrize('type', ['dataframe', 'numpy'])
 def test_rf_classification_multi_class(datatype, column_info, nrows,
                                        n_classes, type):
@@ -379,11 +380,12 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
         y_train_df = cudf.Series(y_train)
         X_test_df = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_test))
         cuml_model.fit(X_train_df, y_train_df)
-        cu_proba_gpu = np.array(cuml_model.predict_proba(X_test_df).to_gpu_matrix())
+        cu_proba_gpu = np.array(cuml_model.predict_proba(X_test_df)
+                                .to_gpu_matrix())
         cu_preds_cpu = cuml_model.predict(X_test_df,
-                                      predict_model="CPU").to_array()
+                                          predict_model="CPU").to_array()
         cu_preds_gpu = cuml_model.predict(X_test_df,
-                                      predict_model="GPU").to_array()
+                                          predict_model="GPU").to_array()
     else:
         cuml_model.fit(X_train, y_train)
         cu_proba_gpu = cuml_model.predict_proba(X_test)
@@ -701,4 +703,5 @@ def test_rf_classification_proba(small_clf, datatype,
         sk_preds_proba = sk_model.predict_proba(X_test)
         # Max difference of 0.0061 is seen between the mse values of
         # predict proba function of fil and sklearn
-        check_predict_proba(fil_preds_proba, sk_preds_proba, X_test, y_test, 0.1)
+        check_predict_proba(fil_preds_proba, sk_preds_proba, X_test, y_test,
+                            rel_err=0.1)

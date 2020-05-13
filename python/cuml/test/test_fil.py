@@ -23,13 +23,12 @@ from cuml.test.utils import get_handle, array_equal, unit_param, \
 from cuml.common.import_utils import has_treelite
 from cuml.common.import_utils import has_xgboost
 from cuml.common.import_utils import has_lightgbm
-from cuml.ensemble import RandomForestClassifier as curfc
 
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import GradientBoostingClassifier, \
     GradientBoostingRegressor
-from sklearn.ensemble import RandomForestClassifier as skrfc
-from sklearn.ensemble import RandomForestRegressor as skrfr
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
 
@@ -198,7 +197,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
 @pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
 @pytest.mark.parametrize('model_class',
-                         [GradientBoostingClassifier, skrfc])
+                         [GradientBoostingClassifier, RandomForestClassifier])
 @pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                 storage_type, model_class):
@@ -225,7 +224,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
         'n_estimators': n_estimators,
         'max_depth': max_depth,
     }
-    if model_class == skrfc:
+    if model_class == RandomForestClassifier:
         init_kwargs['max_features'] = 0.3
         init_kwargs['n_jobs'] = -1
     else:
@@ -267,7 +266,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
 @pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
 @pytest.mark.parametrize('model_class',
-                         [GradientBoostingRegressor, skrfr])
+                         [GradientBoostingRegressor, RandomForestRegressor])
 @pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
 def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
                             storage_type, model_class):
@@ -293,7 +292,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
         'n_estimators': n_estimators,
         'max_depth': max_depth,
     }
-    if model_class == skrfr:
+    if model_class == RandomForestRegressor:
         init_kwargs['max_features'] = 0.3
         init_kwargs['n_jobs'] = -1
     else:
