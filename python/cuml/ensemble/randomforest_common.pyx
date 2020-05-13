@@ -153,13 +153,10 @@ class BaseRandomForestModel(Base):
         mod_ptr = <uintptr_t> cuml_model_ptr
         self.treelite_handle = ctypes.c_void_p(mod_ptr).value
         print(self.RF_type)
-        cdef cython.float a
-        cdef cython.type b
         if self.RF_type == CLASSIFICATION:
-            meta = create_meta(a, b)
+            meta = <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
         else:
-            meta = create_meta(a, a)
-            #<RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
+            meta = <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
         #cdef object (*meta_info)(float, int)
         #meta_info = create_meta
         
@@ -185,6 +182,8 @@ class BaseRandomForestModel(Base):
 
         # Reset the old tree data for new fit call
         self._reset_forest_data()
+
+        #cdef uintptr_t X_ptr, y_ptr
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
@@ -280,6 +279,28 @@ class BaseRandomForestModel(Base):
                 setattr(self, key, value)
         return self
 
+    """
+    def _obtain_treelite_handle_common(self, task_category, rf_meta_type rf_type):
+        cdef ModelHandle cuml_model_ptr = NULL
+        cdef rf_class_float *rf_forest_class
+        cdef rf_reg_float *rf_forest_reg
+        if task_category == CLASSIFICATION:
+            rf_forest_class = \
+                <rf_meta_type*><uintptr_t> self.rf_forest
+
+        else:
+            rf_forest_reg = \
+                <rf_meta_type*><uintptr_t> self.rf_forest
+        build_treelite_forest[self.dtype, self.y_type](& cuml_model_ptr,
+                                  rf_forest_reg,
+                                  <int> self.n_cols,
+                                  <int> task_category,
+                                  <vector[unsigned char] &> self.model_pbuf_bytes)
+        mod_ptr = <size_t> cuml_model_ptr
+        treelite_handle = ctypes.c_void_p(mod_ptr).value
+        return treelite_handle
+
+    """
     def _get_protobuf_bytes_common(self, model):
         fit_mod_ptr = model._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
