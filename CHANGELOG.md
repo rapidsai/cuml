@@ -128,6 +128,7 @@
 - PR #2228: Update to use __reduce_ex__ in CumlArray to override cudf.Buffer
 - PR #2249: Fix bug in UMAP continuous target metrics
 - PR #2258: Fix doxygen build break
+- PR #2255: Set random_state for train_test_split function in dask RF
 
 # cuML 0.13.0 (Date TBD)
 
