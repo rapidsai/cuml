@@ -31,6 +31,70 @@ namespace MLCommon {
 namespace Random {
 
 /**
+ * @todo: docs
+ */
+template <typename DataT>
+__global__ void make_arima_kernel(DataT* d_diff, const DataT* d_res,
+                                  const DataT* d_mu, const DataT* d_ar,
+                                  const DataT* d_ma, const DataT* d_sar,
+                                  const DataT* d_sma, int n_obs_diff, int n_phi,
+                                  int n_theta, int p, int q, int P, int Q,
+                                  int s, int k) {
+  // Load phi, theta and mu to registers
+  DataT phi = 0, theta = 0;
+  if (threadIdx.x < n_phi) {
+    phi = TimeSeries::reduced_polynomial<true>(blockIdx.x, d_ar, p, d_sar, P, s,
+                                               threadIdx.x + 1);
+  }
+  if (threadIdx.x < n_theta) {
+    theta = TimeSeries::reduced_polynomial<false>(blockIdx.x, d_ma, q, d_sma, Q,
+                                                  s, threadIdx.x + 1);
+  }
+  DataT mu = (k && threadIdx.x == 0) ? d_mu[blockIdx.x] : (DataT)0;
+
+  // Shared memory: set pointers and load the residuals
+  // Note: neutral type to avoid a float/double definition conflict
+  extern __shared__ char make_arima_shared_mem[];
+  DataT* b_diff = (DataT*)make_arima_shared_mem;
+  DataT* b_res = (DataT*)make_arima_shared_mem + n_obs_diff;
+  for (int i = threadIdx.x; i < n_obs_diff; i += blockDim.x) {
+    b_res[i] = d_res[n_obs_diff * blockIdx.x + i];
+  }
+
+  // Main loop
+  char* temp_smem =
+    (char*)(make_arima_shared_mem + 2 * n_obs_diff * sizeof(DataT));
+  DataT obs;
+  for (int i = 0; i < n_obs_diff; i++) {
+    __syncthreads();
+
+    obs = 0;
+    // AR component
+    obs +=
+      phi * ((threadIdx.x < min(i, n_phi)) ? b_diff[i - threadIdx.x - 1] : mu);
+    // MA component
+    obs +=
+      (threadIdx.x < min(i, n_theta)) ? theta * b_res[i - threadIdx.x - 1] : 0;
+
+    obs = MLCommon::blockReduce(obs, temp_smem);
+
+    if (threadIdx.x == 0) {
+      // Intercept and residual
+      obs += mu + b_res[i];
+
+      // Write a data point in shared memory
+      b_diff[i] = obs;
+    }
+  }
+  __syncthreads();
+
+  // Copy the generated data to global memory
+  for (int i = threadIdx.x; i < n_obs_diff; i += blockDim.x) {
+    d_diff[n_obs_diff * blockIdx.x + i] = b_diff[i];
+  }
+}
+
+/**
  * @brief Time series generator for a given ARIMA order
  *
  * @tparam  DataT  Scalar type
@@ -44,12 +108,11 @@ void make_arima(DataT* out, int batch_size, int n_obs, ML::ARIMAOrder order,
                 DataT intercept_scale = (DataT)1.0, uint64_t seed = 0ULL,
                 GeneratorType type = GenPhilox) {
   int d_sD = order.d + order.s * order.D;
-  int p_sP = order.p + order.s * order.P;
-  int q_sQ = order.q + order.s * order.Q;
+  int n_phi = order.p + order.s * order.P;
+  int n_theta = order.q + order.s * order.Q;
   auto counting = thrust::make_counting_iterator(0);
 
   // Create CPU/GPU random generators and distributions
-  std::default_random_engine cpu_gen(seed);
   Rng gpu_gen(seed, type);
   std::uniform_real_distribution<DataT> udis((DataT)0.0, (DataT)1.0);
 
@@ -83,48 +146,32 @@ void make_arima(DataT* out, int batch_size, int n_obs, ML::ARIMAOrder order,
   TimeSeries::batched_jones_transform(order, batch_size, false, params_temp,
                                       params, allocator, stream);
 
-  // Create lag coefficient vectors for the AR+SAR and MA+SMA components
-  /// TODO: fuse all in a single kernel
-  device_buffer<DataT> ar_vec(allocator, stream);
-  device_buffer<DataT> ma_vec(allocator, stream);
-  ar_vec.resize(batch_size * p_sP, stream);
-  ma_vec.resize(batch_size * q_sQ, stream);
-  DataT* d_ar_vec = ar_vec.data();
-  DataT* d_ma_vec = ma_vec.data();
-  DataT *d_ar = params.ar, *d_ma = params.ma, *d_sar = params.sar,
-        *d_sma = params.sma;
-  if (p_sP) {
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int ib) {
-                       DataT* b_ar_vec = d_ar_vec + ib * p_sP;
-                       for (int ip = 0; ip < p_sP; ip++) {
-                         b_ar_vec[ip] = TimeSeries::reduced_polynomial<true>(
-                           ib, d_ar, order.p, d_sar, order.P, order.s, ip + 1);
-                       }
-                     });
-  }
-  if (q_sQ) {
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int ib) {
-                       DataT* b_ma_vec = d_ma_vec + ib * q_sQ;
-                       for (int iq = 0; iq < q_sQ; iq++) {
-                         b_ma_vec[iq] = TimeSeries::reduced_polynomial<false>(
-                           ib, d_ma, order.q, d_sma, order.Q, order.s, iq + 1);
-                       }
-                     });
-  }
-
-  // Generate d+s*D starting values per series
-  /// TODO: generate with a random walk
+  // Generate d+s*D starting values per series with a random walk
+  // We first generate random values between -1 and 1 and then use a kernel to
+  // create the random walk
   device_buffer<DataT> starting_values(allocator, stream);
   if (d_sD) {
     starting_values.resize(batch_size * d_sD, stream);
-    DataT mean = udis(cpu_gen);
-    gpu_gen.uniform(starting_values.data(), batch_size * d_sD, mean - scale,
-                    mean + scale, stream);
+    DataT* d_start_val = starting_values.data();
+
+    // First generate random values between - 1 and 1
+    gpu_gen.uniform(starting_values.data(), batch_size * d_sD, (DataT)-1,
+                    (DataT)1, stream);
+
+    // Then use a kernel to create the random walk
+    DataT walk_scale = 0.5 * scale;
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int ib) {
+                       DataT* b_start_val = d_start_val + d_sD * ib;
+                       b_start_val[0] *= scale;
+                       for (int i = 1; i < d_sD; i++) {
+                         b_start_val[i] =
+                           b_start_val[i - 1] + walk_scale * b_start_val[i];
+                       }
+                     });
   }
 
-  // Create buffer for the differenced series
+  // Create a buffer for the differenced series
   DataT* d_diff;
   device_buffer<DataT> diff_data(allocator, stream);
   if (d_sD) {
@@ -139,36 +186,18 @@ void make_arima(DataT* out, int batch_size, int n_obs, ML::ARIMAOrder order,
   residuals.resize(batch_size * (n_obs - d_sD), stream);
   gpu_gen.normal(residuals.data(), batch_size * (n_obs - d_sD), (DataT)0.0,
                  noise_scale, stream);
-  const DataT* d_res = residuals.data();
 
-  // Iterate to generate the differenced series
-  thrust::for_each(thrust::cuda::par.on(stream), counting,
-                   counting + batch_size, [=] __device__(int ib) {
-                     const DataT* b_ar_vec = d_ar_vec + ib * p_sP;
-                     const DataT* b_ma_vec = d_ma_vec + ib * q_sQ;
-                     const DataT* b_res = d_res + ib * (n_obs - d_sD);
-                     DataT* b_diff = d_diff + ib * (n_obs - d_sD);
-                     DataT b_mu = order.k ? params.mu[ib] : 0;
-                     for (int i = 0; i < n_obs - d_sD; i++) {
-                       // Observation noise
-                       DataT yi = b_mu + b_res[i];
-                       // AR component
-                       for (int ip = 0; ip < p_sP; ip++) {
-                         if (i - 1 - ip >= 0)
-                           yi += b_ar_vec[ip] * b_diff[i - 1 - ip];
-                       }
-                       // MA component
-                       for (int iq = 0; iq < q_sQ; iq++) {
-                         if (i - 1 - iq >= 0)
-                           yi += b_ma_vec[iq] * b_res[i - 1 - iq];
-                       }
-
-                       b_diff[i] = yi;
-                     }
-                   });
+  // Call the main kernel to generate the differenced series
+  int n_warps = std::max(ceildiv<int>(std::max(n_phi, n_theta), 32), 1);
+  size_t shared_mem_size = (2 * (n_obs - d_sD) + n_warps) * sizeof(double);
+  make_arima_kernel<<<batch_size, 32 * n_warps, shared_mem_size, stream>>>(
+    d_diff, residuals.data(), params.mu, params.ar, params.ma, params.sar,
+    params.sma, n_obs - d_sD, n_phi, n_theta, order.p, order.q, order.P,
+    order.Q, order.s, order.k);
+  CUDA_CHECK(cudaPeekAtLastError());
 
   // Final time series
-  if (d_sD || order.k) {
+  if (d_sD) {
     TimeSeries::finalize_forecast(d_diff, starting_values.data(), n_obs - d_sD,
                                   batch_size, d_sD, d_sD, order.d, order.D,
                                   order.s, stream);
