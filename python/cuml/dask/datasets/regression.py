@@ -15,14 +15,15 @@
 #
 
 import dask.array as da
-import dask.delayed
-from dask.distributed import default_client
 import numpy as np
 import cupy as cp
+
+from cuml.dask.datasets.utils import _get_X
+from cuml.dask.datasets.utils import _get_labels
+from cuml.dask.datasets.utils import _create_delayed
 from cuml.common import with_cupy_rmm
-from cuml.dask.datasets.blobs import _get_X
-from cuml.dask.datasets.blobs import _get_labels
 from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.utils import get_client
 
 
 def _create_rs_generator(random_state):
@@ -45,11 +46,6 @@ def _create_rs_generator(random_state):
     return rs
 
 
-def _dask_array_from_delayed(part, nrows, ncols, dtype):
-    return da.from_delayed(dask.delayed(part), shape=(nrows, ncols),
-                           meta=cp.zeros((1)), dtype=dtype)
-
-
 def _dask_f_order_standard_normal(nrows, ncols, dtype, seed):
     local_rs = cp.random.RandomState(seed=seed)
     x = local_rs.standard_normal(nrows * ncols, dtype=dtype)
@@ -69,9 +65,7 @@ def _f_order_standard_normal(client, rs, chunksizes, ncols, dtype):
                             workers=[chunks_workers[idx]], pure=False)
               for idx, chunksize in enumerate(chunksizes)]
 
-    chunks_dela = [_dask_array_from_delayed(chunk, chunksizes[idx], ncols,
-                                            dtype)
-                   for idx, chunk in enumerate(chunks)]
+    chunks_dela = _create_delayed(chunks, dtype, chunksizes, ncols)
 
     return da.concatenate(chunks_dela, axis=0)
 
@@ -100,9 +94,7 @@ def _data_from_multivariate_normal(client, rs, covar, chunksizes, n_features,
                                 pure=False)
                   for idx, chunk in enumerate(chunksizes)]
 
-    data_dela = [_dask_array_from_delayed(chunk, chunksizes[idx], n_features,
-                                          dtype)
-                 for idx, chunk in enumerate(data_parts)]
+    data_dela = _create_delayed(data_parts, dtype, chunksizes, n_features)
 
     return da.concatenate(data_dela, axis=0)
 
@@ -136,13 +128,8 @@ def _shuffle(client, rs, X, y, chunksizes, n_features,
     y_shuffled = [client.submit(_get_labels, f, pure=False)
                   for idx, f in enumerate(shuffled)]
 
-    X_dela = [_dask_array_from_delayed(Xs, chunksizes[idx], n_features,
-                                       dtype)
-              for idx, Xs in enumerate(X_shuffled)]
-
-    y_dela = [_dask_array_from_delayed(ys, chunksizes[idx], n_targets,
-                                       dtype)
-              for idx, ys in enumerate(y_shuffled)]
+    X_dela = _create_delayed(X_shuffled, dtype, chunksizes, n_features)
+    y_dela = _create_delayed(y_shuffled, dtype, chunksizes, n_targets)
 
     return da.concatenate(X_dela, axis=0), da.concatenate(y_dela, axis=0)
 
@@ -153,9 +140,7 @@ def _convert_C_to_F_order(client, X, chunksizes, n_features, dtype):
                                  workers=[w])
                    for idx, (w, X_part) in enumerate(X_ddh.gpu_futures)]
 
-    X_dela = [_dask_array_from_delayed(Xc, chunksizes[idx], n_features,
-                                       dtype)
-              for idx, Xc in enumerate(X_converted)]
+    X_dela = _create_delayed(X_converted, dtype, chunksizes, n_features)
 
     return da.concatenate(X_dela, axis=0)
 
@@ -374,7 +359,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
           configurations, try increasing the `n_parts` parameter.
     """
 
-    client = default_client() if client is None else client
+    client = get_client(client=client)
 
     n_informative = min(n_features, n_informative)
     rs = _create_rs_generator(random_state)
@@ -383,7 +368,10 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         n_samples_per_part = max(1, int(n_samples / n_parts))
 
     data_chunksizes = [n_samples_per_part] * n_parts
-    if n_samples % n_samples_per_part > 0:
+
+    if n_samples_per_part == 1:
+        data_chunksizes[-1] += n_samples % n_parts
+    else:
         data_chunksizes[-1] += n_samples % n_samples_per_part
 
     data_chunksizes = tuple(data_chunksizes)
