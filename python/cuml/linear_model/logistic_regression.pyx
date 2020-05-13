@@ -27,8 +27,8 @@ import rmm
 from cuml.solvers import QN
 from cuml.common.base import Base
 from cuml.metrics.accuracy import accuracy_score
-from cuml.utils import input_to_dev_array
-from cuml.utils import with_cupy_rmm
+from cuml.common import input_to_dev_array
+from cuml.common import with_cupy_rmm
 
 
 supported_penalties = ['l1', 'l2', 'none', 'elasticnet']

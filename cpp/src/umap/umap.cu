@@ -16,7 +16,7 @@
 
 #include <cuml/manifold/umapparams.h>
 #include <cuml/manifold/umap.hpp>
-#include "runner.h"
+#include "runner.cuh"
 
 #include <iostream>
 

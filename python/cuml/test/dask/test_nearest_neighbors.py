@@ -20,7 +20,7 @@ import pandas as pd
 
 import numpy as np
 
-from cuml.utils import has_scipy
+from cuml.common import has_scipy
 
 from cuml.dask.common import utils as dask_utils
 

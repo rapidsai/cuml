@@ -36,9 +36,9 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 
-from cuml.utils.import_utils import has_treelite
+from cuml.common.import_utils import has_treelite
 
 if has_treelite():
     import treelite.gallery.sklearn as tl_skl
@@ -364,7 +364,7 @@ class ForestInference(Base):
     provides a `predict` method for carrying out inference.
 
     **Known limitations**:
-     * A single row of data should fit into the shared memory of a thread block, 
+     * A single row of data should fit into the shared memory of a thread block,
        which means that more than 12288 features are not supported.
      * From sklearn.ensemble, only
        {RandomForest,GradientBoosting}{Classifier,Regressor} models are

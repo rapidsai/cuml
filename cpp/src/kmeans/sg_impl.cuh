@@ -40,7 +40,7 @@ void initRandom(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
 template <typename DataT, typename IndexT>
 void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
-         Tensor<DataT, 2, IndexT> &X,
+         Tensor<DataT, 2, IndexT> &X, Tensor<DataT, 1, IndexT> &weight,
          MLCommon::device_buffer<DataT> &centroidsRawData, DataT &inertia,
          int &n_iter, MLCommon::device_buffer<char> &workspace) {
   ML::Logger::get().setLevel(params.verbosity);
@@ -68,10 +68,10 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
   Tensor<DataT, 2, IndexT> newCentroids({n_clusters, n_features},
                                         handle.getDeviceAllocator(), stream);
 
-  // temporary buffer to store the sample count per cluster, destructor releases
-  // the resource
-  Tensor<int, 1, IndexT> sampleCountInCluster(
-    {n_clusters}, handle.getDeviceAllocator(), stream);
+  // temporary buffer to store weights per cluster, destructor releases the
+  // resource
+  Tensor<DataT, 1, IndexT> wtInCluster({n_clusters},
+                                       handle.getDeviceAllocator(), stream);
 
   cub::KeyValuePair<IndexT, DataT> *clusterCostD =
     (cub::KeyValuePair<IndexT, DataT> *)handle.getDeviceAllocator()->allocate(
@@ -85,6 +85,9 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
                               X.getSize(0), MLCommon::LinAlg::L2Norm, true,
                               stream);
   }
+
+  ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
+  auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
 
   LOG(handle,
       "Calling KMeans.fit with %d samples of input data and the initialized "
@@ -121,63 +124,45 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
     workspace.resize(n_samples, stream);
 
-    // Calculates sum of all the samples assigned to cluster-i and store the
+    // Calculates weighted sum of all the samples assigned to cluster-i and store the
     // result in newCentroids[i]
     MLCommon::LinAlg::reduce_rows_by_key(
-      X.data(), X.getSize(1), itr, workspace.data(), X.getSize(0), X.getSize(1),
-      n_clusters, newCentroids.data(), stream);
+      X.data(), X.getSize(1), itr, weight.data(), workspace.data(),
+      X.getSize(0), X.getSize(1), n_clusters, newCentroids.data(), stream);
 
-    // count # of samples in each cluster
-    kmeans::detail::countLabels(handle, itr, sampleCountInCluster.data(),
-                                n_samples, n_clusters, workspace, stream);
+    // Reduce weights by key to compute weight in each cluster
+    MLCommon::LinAlg::reduce_cols_by_key(weight.data(), itr, wtInCluster.data(),
+                                         1, weight.getSize(0), n_clusters,
+                                         stream);
 
-    // Computes newCentroids[i] = newCentroids[i]/sampleCountInCluster[i] where
-    //   newCentroids[n_samples x n_features] - 2D array, newCentroids[i] has
-    //   sum of all the samples assigned to cluster-i
-    //   sampleCountInCluster[n_clusters] - 1D array, sampleCountInCluster[i]
-    //   contains # of samples in cluster-i.
-    // Note - when sampleCountInCluster[i] is 0, newCentroid[i] is reset to 0
-
-    // transforms int values in sampleCountInCluster to its inverse and more
-    // importantly to DataT because matrixVectorOp supports only when matrix and
-    // vector are of same type
-    workspace.resize(sampleCountInCluster.numElements() * sizeof(DataT),
-                     stream);
-    auto sampleCountInClusterInverse = std::move(
-      Tensor<DataT, 1, IndexT>((DataT *)workspace.data(), {n_clusters}));
-
-    ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
-    auto execution_policy = thrust::cuda::par(alloc).on(stream);
-    thrust::transform(
-      execution_policy, sampleCountInCluster.begin(),
-      sampleCountInCluster.end(), sampleCountInClusterInverse.begin(),
-      [=] __device__(int count) {
-        if (count == 0)
-          return static_cast<DataT>(0);
-        else
-          return static_cast<DataT>(1.0) / static_cast<DataT>(count);
-      });
-
+    // Computes newCentroids[i] = newCentroids[i]/wtInCluster[i] where
+    //   newCentroids[n_clusters x n_features] - 2D array, newCentroids[i] has sum of all the samples assigned to cluster-i
+    //   wtInCluster[n_clusters] - 1D array, wtInCluster[i] contains # of samples in cluster-i.
+    // Note - when wtInCluster[i] is 0, newCentroid[i] is reset to 0
     MLCommon::LinAlg::matrixVectorOp(
-      newCentroids.data(), newCentroids.data(),
-      sampleCountInClusterInverse.data(), newCentroids.getSize(1),
-      newCentroids.getSize(0), true, false,
-      [=] __device__(DataT mat, DataT vec) { return mat * vec; }, stream);
+      newCentroids.data(), newCentroids.data(), wtInCluster.data(),
+      newCentroids.getSize(1), newCentroids.getSize(0), true, false,
+      [=] __device__(DataT mat, DataT vec) {
+        if (vec == 0)
+          return DataT(0);
+        else
+          return mat / vec;
+      },
+      stream);
 
-    // copy the centroids[i] to newCentroids[i] when sampleCountInCluster[i] is
-    // 0
-    cub::ArgIndexInputIterator<int *> itr_sc(sampleCountInCluster.data());
+    // copy centroids[i] to newCentroids[i] when wtInCluster[i] is 0
+    cub::ArgIndexInputIterator<DataT *> itr_wt(wtInCluster.data());
     MLCommon::Matrix::gather_if(
-      centroids.data(), centroids.getSize(1), centroids.getSize(0), itr_sc,
-      itr_sc, sampleCountInCluster.numElements(), newCentroids.data(),
-      [=] __device__(cub::KeyValuePair<ptrdiff_t, int> map) {  // predicate
+      centroids.data(), centroids.getSize(1), centroids.getSize(0), itr_wt,
+      itr_wt, wtInCluster.numElements(), newCentroids.data(),
+      [=] __device__(cub::KeyValuePair<ptrdiff_t, DataT> map) {  // predicate
         // copy when the # of samples in the cluster is 0
         if (map.value == 0)
           return true;
         else
           return false;
       },
-      [=] __device__(cub::KeyValuePair<ptrdiff_t, int> map) {  // map
+      [=] __device__(cub::KeyValuePair<ptrdiff_t, DataT> map) {  // map
         return map.key;
       },
       stream);
@@ -238,6 +223,22 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
       break;
     }
   }
+
+  auto centroids = std::move(Tensor<DataT, 2, IndexT>(
+    centroidsRawData.data(), {n_clusters, n_features}));
+
+  kmeans::detail::minClusterAndDistance(
+    handle, params, X, centroids, minClusterAndDistance, L2NormX,
+    L2NormBuf_OR_DistBuf, workspace, metric, stream);
+
+  thrust::transform(
+    thrust_exec_policy, minClusterAndDistance.begin(),
+    minClusterAndDistance.end(), weight.data(), minClusterAndDistance.begin(),
+    [=] __device__(const cub::KeyValuePair<IndexT, DataT> &kvp, DataT &wt) {
+      cub::KeyValuePair<IndexT, DataT> res;
+      res.value = kvp.value * wt;
+      return res;
+    });
 
   // calculate cluster cost phi_x(C)
   kmeans::detail::computeClusterCost(
@@ -437,12 +438,13 @@ void initScalableKMeansPlusPlus(
     // <<< Step-7 >>>: For x in C, set w_x to be the number of pts closest to X
     // temporary buffer to store the sample count per cluster, destructor
     // releases the resource
-    Tensor<int, 1, IndexT> weights({potentialCentroids.getSize(0)},
-                                   handle.getDeviceAllocator(), stream);
+    Tensor<DataT, 1, IndexT> weight({potentialCentroids.getSize(0)},
+                                    handle.getDeviceAllocator(), stream);
 
     kmeans::detail::countSamplesInCluster(handle, params, X, L2NormX,
                                           potentialCentroids, workspace, metric,
-                                          weights, stream);
+                                          weight, stream);
+
     // <<< end of Step-7 >>>
 
     // Step-8: Recluster the weighted points in C into k clusters
@@ -455,8 +457,7 @@ void initScalableKMeansPlusPlus(
     KMeansParams default_params;
     default_params.n_clusters = params.n_clusters;
 
-    // @todo: use weighted k-means once https://github.com/rapidsai/cuml/issues/1806 is addressed
-    ML::kmeans::fit(handle, default_params, potentialCentroids,
+    ML::kmeans::fit(handle, default_params, potentialCentroids, weight,
                     centroidsRawData, inertia, n_iter, workspace);
 
   } else if (potentialCentroids.getSize(0) < n_clusters) {
@@ -492,12 +493,13 @@ void initScalableKMeansPlusPlus(
 
 template <typename DataT, typename IndexT = int>
 void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
-         const DataT *X, const int n_local_samples, const int n_features,
-         DataT *centroids, DataT &inertia, int &n_iter) {
+         const DataT *X, const int n_samples, const int n_features,
+         const DataT *sample_weight, DataT *centroids, DataT &inertia,
+         int &n_iter) {
   ML::Logger::get().setLevel(km_params.verbosity);
   cudaStream_t stream = handle.getStream();
 
-  ASSERT(n_local_samples > 0, "# of samples must be > 0");
+  ASSERT(n_samples > 0, "# of samples must be > 0");
 
   ASSERT(km_params.oversampling_factor >= 0,
          "oversampling factor must be >= 0 (requested %f)",
@@ -506,7 +508,17 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
   ASSERT(memory_type(X) == cudaMemoryTypeDevice,
          "input data must be device accessible");
 
-  Tensor<DataT, 2, IndexT> data((DataT *)X, {n_local_samples, n_features});
+  Tensor<DataT, 2, IndexT> data((DataT *)X, {n_samples, n_features});
+
+  Tensor<DataT, 1, IndexT> weight({n_samples}, handle.getDeviceAllocator(),
+                                  stream);
+  if (sample_weight != nullptr) {
+    MLCommon::copy(weight.data(), sample_weight, n_samples, stream);
+  } else {
+    ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
+    auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
+    thrust::fill(thrust_exec_policy, weight.begin(), weight.end(), 1);
+  }
 
   // underlying expandable storage that holds centroids data
   MLCommon::device_buffer<DataT> centroidsRawData(handle.getDeviceAllocator(),
@@ -514,6 +526,9 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
 
   // Device-accessible allocation of expandable storage used as temorary buffers
   MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream);
+
+  // check if weights sum up to n_samples
+  kmeans::detail::checkWeights(handle, workspace, weight, stream);
 
   auto n_init = km_params.n_init;
   if (km_params.init == KMeansParams::InitMethod::Array && n_init != 1) {
@@ -574,7 +589,8 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
       THROW("unknown initialization method to select initial centers");
     }
 
-    fit(handle, params, data, centroidsRawData, _inertia, _n_iter, workspace);
+    fit(handle, params, data, weight, centroidsRawData, _inertia, _n_iter,
+        workspace);
 
     if (_inertia < inertia) {
       inertia = _inertia;
@@ -585,6 +601,9 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
 
     LOG(handle, "KMeans.fit after iteration-%d/%d: inertia - %f, n_iter - %d",
         seed_iter + 1, n_init, inertia, n_iter);
+
+    //auto centroidsT = std::move(Tensor<DataT, 2, IndexT>(
+    //  centroids, {params.n_clusters, n_features}));
   }
 
   LOG(handle,
@@ -595,7 +614,8 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
 template <typename DataT, typename IndexT = int>
 void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
              const DataT *cptr, const DataT *Xptr, const int n_samples,
-             const int n_features, IndexT *labelsRawPtr, DataT &inertia) {
+             const int n_features, const DataT *sample_weight,
+             IndexT *labelsRawPtr, DataT &inertia) {
   ML::Logger::get().setLevel(params.verbosity);
   cudaStream_t stream = handle.getStream();
   auto n_clusters = params.n_clusters;
@@ -614,12 +634,25 @@ void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
   Tensor<DataT, 2, IndexT> X((DataT *)Xptr, {n_samples, n_features});
   Tensor<DataT, 2, IndexT> centroids((DataT *)cptr, {n_clusters, n_features});
 
+  Tensor<DataT, 1, IndexT> weight({n_samples}, handle.getDeviceAllocator(),
+                                  stream);
+  if (sample_weight != nullptr) {
+    MLCommon::copy(weight.data(), sample_weight, n_samples, stream);
+  } else {
+    ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
+    auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
+    thrust::fill(thrust_exec_policy, weight.begin(), weight.end(), 1);
+  }
+
   // underlying expandable storage that holds labels
   MLCommon::device_buffer<IndexT> labelsRawData(handle.getDeviceAllocator(),
                                                 stream);
 
   // Device-accessible allocation of expandable storage used as temorary buffers
   MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream);
+
+  // check if weights sum up to n_samples
+  kmeans::detail::checkWeights(handle, workspace, weight, stream);
 
   Tensor<cub::KeyValuePair<IndexT, DataT>, 1> minClusterAndDistance(
     {n_samples}, handle.getDeviceAllocator(), stream);
@@ -652,6 +685,17 @@ void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     (cub::KeyValuePair<IndexT, DataT> *)handle.getDeviceAllocator()->allocate(
       sizeof(cub::KeyValuePair<IndexT, DataT>), stream);
 
+  ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
+  auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
+  thrust::transform(
+    thrust_exec_policy, minClusterAndDistance.begin(),
+    minClusterAndDistance.end(), weight.data(), minClusterAndDistance.begin(),
+    [=] __device__(const cub::KeyValuePair<IndexT, DataT> &kvp, DataT &wt) {
+      cub::KeyValuePair<IndexT, DataT> res;
+      res.value = kvp.value * wt;
+      return res;
+    });
+
   kmeans::detail::computeClusterCost(
     handle, minClusterAndDistance, workspace, clusterCostD,
     [] __device__(const cub::KeyValuePair<IndexT, DataT> &a,
@@ -668,10 +712,8 @@ void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
   labelsRawData.resize(n_samples, stream);
 
   auto labels = std::move(Tensor<IndexT, 1>(labelsRawData.data(), {n_samples}));
-  ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
-  auto execution_policy = thrust::cuda::par(alloc).on(stream);
   thrust::transform(
-    execution_policy, minClusterAndDistance.begin(),
+    thrust_exec_policy, minClusterAndDistance.begin(),
     minClusterAndDistance.end(), labels.begin(),
     [=] __device__(cub::KeyValuePair<IndexT, DataT> pair) { return pair.key; });
 
