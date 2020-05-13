@@ -45,7 +45,7 @@ class CumlArray(Buffer):
     Parameters
     ----------
 
-    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearrar or
+    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearray or
            memoryview
         An array-like object or integer representing a
         device or host pointer to pre-allocated memory.

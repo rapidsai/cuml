@@ -289,11 +289,8 @@ class RandomForestRegressor(BaseRandomForestModel):
                  self.rf_forest)
             free(<RandomForestMetaData[double, double]*><uintptr_t>
                  self.rf_forest64)
-    """
-    def _obtain_treelite_handle(self):
-        cdef RandomForestMetaData[float, float] rf_forest 
-        self._get_treelite_handle(rf_forest)
-    """
+            self.treelite_handle = None
+            self.model_pbuf_bytes = bytearray()
 
     def _get_protobuf_bytes(self):
         """
