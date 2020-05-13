@@ -241,6 +241,8 @@ class MultinomialNB(Base):
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     @with_cupy_rmm
     def _partial_fit(self, X, y, sample_weight=None, _classes=None):
+        self._set_output_type(X)
+
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
@@ -354,6 +356,7 @@ class MultinomialNB(Base):
         C : cupy.ndarray of shape (n_samples)
 
         """
+        out_type = self._get_output_type(X)
 
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
@@ -376,7 +379,7 @@ class MultinomialNB(Base):
         indices = cp.argmax(jll, axis=1).astype(self._classes_.dtype)
 
         y_hat = invert_labels(indices, classes=self._classes_)
-        return y_hat
+        return CumlArray(data=y_hat).to_output(out_type)
 
     @with_cupy_rmm
     def predict_log_proba(self, X):
@@ -397,6 +400,7 @@ class MultinomialNB(Base):
             model. The columns correspond to the classes in sorted order, as
             they appear in the attribute classes_.
         """
+        out_type = self._get_output_type(X)
 
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
@@ -433,7 +437,8 @@ class MultinomialNB(Base):
 
         if log_prob_x.ndim < 2:
             log_prob_x = log_prob_x.reshape((1, log_prob_x.shape[0]))
-        return jll - log_prob_x.T
+        result = jll - log_prob_x.T
+        return CumlArray(result).to_output(out_type)
 
     @with_cupy_rmm
     def predict_proba(self, X):
@@ -453,7 +458,9 @@ class MultinomialNB(Base):
             The columns correspond to the classes in sorted order, as they
             appear in the attribute classes_.
         """
-        return cp.exp(self.predict_log_proba(X))
+        out_type = self._get_output_type(X)
+        result = cp.exp(self.predict_log_proba(X))
+        return CumlArray(result).to_output(out_type)
 
     @with_cupy_rmm
     def score(self, X, y, sample_weight=None):
