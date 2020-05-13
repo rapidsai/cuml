@@ -93,23 +93,23 @@ ExternalProject_Add(spdlog
 ##############################################################################
 # - nvgraph ------------------------------------------------------------------
 
-set(NVGRAPH_DIR ${CMAKE_CURRENT_BINARY_DIR}/nvgraph CACHE STRING
-  "Path to nvgraph install directory")
-ExternalProject_Add(nvgraph
-    GIT_REPOSITORY    https://github.com/rapidsai/nvgraph.git
-    GIT_TAG           feb0c5721e6e0e27ee51b2f56fd39c7d1e805a64
-    PREFIX            ${NVGRAPH_DIR}
-    CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-                      -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
-                      ${NVGRAPH_DIR}/src/nvgraph/cpp
-    UPDATE_COMMAND    "")
+# set(NVGRAPH_DIR ${CMAKE_CURRENT_BINARY_DIR}/nvgraph CACHE STRING
+#   "Path to nvgraph install directory")
+# ExternalProject_Add(nvgraph
+#     GIT_REPOSITORY    https://github.com/rapidsai/nvgraph.git
+#     GIT_TAG           feb0c5721e6e0e27ee51b2f56fd39c7d1e805a64
+#     PREFIX            ${NVGRAPH_DIR}
+#     CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+#                       -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
+#                       ${NVGRAPH_DIR}/src/nvgraph/cpp
+#     UPDATE_COMMAND    "")
 
-add_library(nvgraphlib STATIC IMPORTED)
+# add_library(nvgraphlib STATIC IMPORTED)
 
-add_dependencies(nvgraphlib nvgraph)
+# add_dependencies(nvgraphlib nvgraph)
 
-set_property(TARGET nvgraphlib
-  PROPERTY IMPORTED_LOCATION ${NVGRAPH_DIR}/lib64/libnvgraph.so)
+# set_property(TARGET nvgraphlib
+#   PROPERTY IMPORTED_LOCATION ${NVGRAPH_DIR}/lib64/libnvgraph.so)
 
 ##############################################################################
 # - faiss --------------------------------------------------------------------
