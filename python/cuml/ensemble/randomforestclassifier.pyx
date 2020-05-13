@@ -309,31 +309,6 @@ class RandomForestClassifier(BaseRandomForestModel):
             free(<RandomForestMetaData[double, int]*><uintptr_t>
                  self.rf_forest64)
 
-    def _obtain_treelite_handle(self):
-        cdef ModelHandle cuml_model_ptr = NULL
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
-        if self.num_classes > 2:
-            raise NotImplementedError("Pickling for multi-class "
-                                      "classification models is currently not "
-                                      "implemented. Please check cuml issue "
-                                      "#1679 for more information.")
-        cdef unsigned char[::1] model_pbuf_mv = self.model_pbuf_bytes
-        cdef vector[unsigned char] model_pbuf_vec
-        with cython.boundscheck(False):
-            model_pbuf_vec.assign(& model_pbuf_mv[0],
-                                  & model_pbuf_mv[model_pbuf_mv.shape[0]])
-        if self.treelite_handle is None:
-            build_treelite_forest(
-                & cuml_model_ptr,
-                rf_forest,
-                <int> self.n_cols,
-                <int> self.num_classes,
-                model_pbuf_vec)
-            mod_ptr = <uintptr_t> cuml_model_ptr
-            self.treelite_handle = ctypes.c_void_p(mod_ptr).value
-        return self.treelite_handle
-
     def _get_protobuf_bytes(self):
         """
         Returns the self.model_pbuf_bytes.
@@ -488,7 +463,7 @@ class RandomForestClassifier(BaseRandomForestModel):
 
         """
         cdef uintptr_t X_ptr, y_ptr
-        X_m, y_m, max_feature_val = self._fit_setup(X, y, convert_dtype)
+        X_m, y_m, max_feature_val = self._dataset_setup(X, y, convert_dtype)
         X_ptr = X_m.ptr
         y_ptr = y_m.ptr
         cdef cumlHandle* handle_ =\
@@ -828,10 +803,10 @@ class RandomForestClassifier(BaseRandomForestModel):
                                       "implemented. Please check cuml issue "
                                       "#1679 for more information.")
         preds_proba = \
-            self._predict_model_on_gpu(X, output_class=output_class,
+            self._predict_model_on_gpu(model=RandomForestClassifier,
+                                       X=X, output_class=output_class,
                                        threshold=threshold,
                                        algo=algo,
-                                       num_classes=num_classes,
                                        convert_dtype=convert_dtype,
                                        fil_sparse_format=fil_sparse_format,
                                        predict_proba=True)
