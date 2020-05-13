@@ -18,6 +18,7 @@
 #include <matrix/grammatrix.h>
 #include <matrix/kernelfactory.h>
 #include <random/rng.h>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -49,7 +50,8 @@ struct GramMatrix : public Fixture {
     this->SetName(oss.str().c_str());
 
     CUBLAS_CHECK(cublasCreate(&cublas_handle));
-    kernel = Matrix::KernelFactory<T>::create(p.kernel_params, cublas_handle);
+    kernel = std::unique_ptr<GramMatrixBase<T>>(
+      KernelFactory<T>::create(p.kernel_params, cublas_handle));
   }
 
   ~GramMatrix() { CUBLAS_CHECK(cublasDestroy(cublas_handle)); }
@@ -82,7 +84,7 @@ struct GramMatrix : public Fixture {
 
  private:
   cublasHandle_t cublas_handle;
-  Matrix::GramMatrixBase<T>* kernel;
+  std::unique_ptr<GramMatrixBase<T>> kernel;
   GramTestParams params;
 
   T* A;  // input matrix A, size [m * k]
