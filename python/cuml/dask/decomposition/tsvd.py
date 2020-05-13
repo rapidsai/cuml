@@ -126,7 +126,11 @@ class TruncatedSVD(BaseDecomposition,
         X : dask cuDF input
 
         """
-        out = self._fit(X, _transform)
+
+        # `_transform=True` here as tSVD currently needs to
+        # call `fit_transform` to be able to build
+        # `explained_variance_`
+        out = self._fit(X, _transform=True)
         if _transform:
             return out
         return self

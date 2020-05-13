@@ -238,7 +238,7 @@ class RandomForestClassifier(Base):
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbosity=logger.LEVEL_INFO,
                  rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
-                 output_type=None, criterion=None,
+                 output_type=None, criterion=None, dtype=None,
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
                  max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None, n_jobs=None,
@@ -376,6 +376,8 @@ class RandomForestClassifier(Base):
                  self.rf_forest)
             free(<RandomForestMetaData[double, int]*><uintptr_t>
                  self.rf_forest64)
+            self.treelite_handle = None
+            self.model_pbuf_bytes = bytearray()
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
