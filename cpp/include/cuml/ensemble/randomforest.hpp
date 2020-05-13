@@ -144,14 +144,17 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
          int n_unique_labels, RF_params rf_params,
          int verbosity = CUML_LEVEL_INFO);
 
+template <class T, class L>
 void predict(const cumlHandle& user_handle,
-             const RandomForestClassifierF* forest, const float* input,
-             int n_rows, int n_cols, int* predictions,
+             const RandomForestMetaData<T, L>* forest, const T* input,
+             int n_rows, int n_cols, L* predictions,
              int verbosity = CUML_LEVEL_INFO);
+/**
 void predict(const cumlHandle& user_handle,
              const RandomForestClassifierD* forest, const double* input,
              int n_rows, int n_cols, int* predictions,
              int verbosity = CUML_LEVEL_INFO);
+*/
 
 void predictGetAll(const cumlHandle& user_handle,
                    const RandomForestClassifierF* forest, const float* input,
@@ -190,13 +193,10 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
          double* input, int n_rows, int n_cols, double* labels,
          RF_params rf_params, int verbosity = CUML_LEVEL_INFO);
 
+template <class T>
 void predict(const cumlHandle& user_handle,
-             const RandomForestRegressorF* forest, const float* input,
-             int n_rows, int n_cols, float* predictions,
-             int verbosity = CUML_LEVEL_INFO);
-void predict(const cumlHandle& user_handle,
-             const RandomForestRegressorD* forest, const double* input,
-             int n_rows, int n_cols, double* predictions,
+             const RandomForestMetaData<T, T>* forest, const T* input,
+             int n_rows, int n_cols, T* predictions,
              int verbosity = CUML_LEVEL_INFO);
 
 RF_metrics score(const cumlHandle& user_handle,
