@@ -8,6 +8,8 @@
 {% set cuda_version='.'.join(environ.get('CUDA', '9.2').split('.')[:2]) %}
 {% set cuda_major = environ.get('CUDA', '9.2').split('.')[0] %}
 {% set cuda_minor = environ.get('CUDA', '9.2').split('.')[1] %}
+{% set git_commit=environ.get( 'GIT_FULL_HASH', environ.get('GIT_COMMIT', '')) %}
+
 package:
   name: libcuml
   version: {{ version }}
@@ -50,3 +52,6 @@ about:
   license: Apache-2.0
   # license_file: LICENSE
   summary: libcuml library
+
+extra:
+  commit_hash: {{ git_commit }}

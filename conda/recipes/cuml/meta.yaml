@@ -7,6 +7,7 @@
 {% set git_revision_count=environ.get('GIT_DESCRIBE_NUMBER', 0) %}
 {% set cuda_version='.'.join(environ.get('CUDA', 'unknown').split('.')[:2]) %}
 {% set py_version=environ.get('CONDA_PY', 36) %}
+{% set git_commit=environ.get( 'GIT_FULL_HASH', environ.get('GIT_COMMIT', '')) %}
 
 package:
   name: cuml
@@ -54,3 +55,6 @@ about:
   license: Apache-2.0
   # license_file: LICENSE
   summary: cuML library
+
+extra:
+  commit_hash: {{ git_commit }}
