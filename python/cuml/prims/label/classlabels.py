@@ -200,7 +200,6 @@ def check_labels(labels, classes):
 
 
 def invert_labels(labels, classes, copy=False):
-
     """
     Takes a set of labels that have been mapped to be drawn
     from a monotonically increasing set and inverts them to
