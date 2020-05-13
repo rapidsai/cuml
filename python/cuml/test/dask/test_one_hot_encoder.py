@@ -148,8 +148,8 @@ def test_onehot_random_inputs(cluster, drop, as_array, sparse, n_samples):
     else:
         dX = dask_cudf.from_cudf(X, npartitions=1)
 
-    enc = OneHotEncoder(sparse=sparse, drop=drop)
-    sk_enc = SkOneHotEncoder(sparse=sparse, drop=drop)
+    enc = OneHotEncoder(sparse=sparse, drop=drop, categories='auto')
+    sk_enc = SkOneHotEncoder(sparse=sparse, drop=drop, categories='auto')
     ohe = enc.fit_transform(dX)
     ref = sk_enc.fit_transform(ary)
     if sparse:
