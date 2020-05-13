@@ -160,7 +160,6 @@ def make_monotonic(labels, classes=None, copy=False):
 
 
 def check_labels(labels, classes):
-
     """
     Validates that a set of labels is drawn from the unique
     set of given classes.
