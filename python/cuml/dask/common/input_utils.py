@@ -22,7 +22,7 @@ import dask.array as da
 
 from collections.abc import Sequence
 
-from cuml.utils.memory_utils import with_cupy_rmm
+from cuml.common.memory_utils import with_cupy_rmm
 
 from collections import OrderedDict
 from cudf.core import DataFrame, Series
@@ -33,6 +33,7 @@ from cuml.dask.common.utils import get_client
 from cuml.dask.common.dask_df_utils import to_dask_cudf
 from cuml.dask.common.dask_arr_utils import validate_dask_array
 from cuml.dask.common.part_utils import _extract_partitions
+
 from dask.distributed import wait
 from dask.distributed import default_client
 from toolz import first

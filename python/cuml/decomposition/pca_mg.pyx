@@ -37,7 +37,7 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
-from cuml.utils import input_to_dev_array, zeros
+from cuml.common import input_to_dev_array, zeros
 
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG
@@ -93,12 +93,12 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                   bool verbose) except +
 
 
-class PCAMG(PCA, BaseDecompositionMG):
+class PCAMG(BaseDecompositionMG, PCA):
 
     def __init__(self, **kwargs):
         super(PCAMG, self).__init__(**kwargs)
 
-    def _call_fit(self, arr_interfaces, p2r, rank, arg_rank_size_pair,
+    def _call_fit(self, X, rank, arg_rank_size_pair,
                   n_total_parts, arg_params):
 
         cdef uintptr_t comp_ptr = self._components_.ptr
@@ -110,18 +110,14 @@ class PCAMG(PCA, BaseDecompositionMG):
         cdef uintptr_t noise_vars_ptr = self._noise_variance_.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef uintptr_t data
-        cdef uintptr_t trans_data
-
         cdef paramsPCA *params = <paramsPCA*><size_t>arg_params
 
         if self.dtype == np.float32:
-            data = self._build_dataFloat(arr_interfaces)
 
             fit(handle_[0],
                 <RankSizePair**><size_t>arg_rank_size_pair,
                 <size_t> n_total_parts,
-                <floatData_t**> data,
+                <floatData_t**><size_t>X,
                 <float*> comp_ptr,
                 <float*> explained_var_ptr,
                 <float*> explained_var_ratio_ptr,
@@ -131,12 +127,11 @@ class PCAMG(PCA, BaseDecompositionMG):
                 deref(params),
                 False)
         else:
-            data = self._build_dataDouble(arr_interfaces)
 
             fit(handle_[0],
                 <RankSizePair**><size_t>arg_rank_size_pair,
                 <size_t> n_total_parts,
-                <doubleData_t**> data,
+                <doubleData_t**><size_t>X,
                 <double*> comp_ptr,
                 <double*> explained_var_ptr,
                 <double*> explained_var_ratio_ptr,
@@ -147,15 +142,3 @@ class PCAMG(PCA, BaseDecompositionMG):
                 False)
 
         self.handle.sync()
-
-    def fit(self, X, n_rows, n_cols, partsToRanks, rank, _transform=False):
-        """
-        Fit function for PCA MG. This not meant to be used as
-        part of the public API.
-        :param X: array of local dataframes / array partitions
-        :param M: total number of rows
-        :param N: total number of cols
-        :param partsToRanks: array of tuples in the format: [(rank,size)]
-        :return: self
-        """
-        return self._fit(X, n_rows, n_cols, partsToRanks, rank, _transform)

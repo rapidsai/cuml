@@ -18,7 +18,8 @@ import cupy as cp
 from cuml.prims.label import make_monotonic, check_labels, \
     invert_labels
 
-from cuml.utils import rmm_cupy_ary, has_scipy
+from cuml.common import rmm_cupy_ary
+from cuml.common import has_scipy
 
 
 def label_binarize(y, classes, neg_label=0, pos_label=1,
@@ -228,7 +229,7 @@ class LabelBinarizer(object):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            from cuml.utils.import_utils import dummy_function_always_false \
+            from cuml.common.import_utils import dummy_function_always_false \
                     as scipy_sparse_isspmatrix
 
         # If we are already given multi-class, just return it.
