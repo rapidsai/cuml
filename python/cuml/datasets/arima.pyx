@@ -22,23 +22,13 @@
 import cuml
 import numpy as np
 
+from cuml.common.array import CumlArray as cumlArray
 from cuml.common.handle cimport cumlHandle
-from cuml.common import get_dev_array_ptr, zeros
+from cuml.tsa.arima cimport ARIMAOrder
 
 from libc.stdint cimport uint64_t, uintptr_t
 
 from random import randint
-
-cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
-    ctypedef struct ARIMAOrder:
-        int p  # Basic order
-        int d
-        int q
-        int P  # Seasonal order
-        int D
-        int Q
-        int s  # Seasonal period
-        int k  # Fit intercept?
 
 
 cdef extern from "cuml/datasets/make_arima.hpp" namespace "ML":
@@ -77,15 +67,51 @@ inp_to_dtype = {
 
 
 def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
-               seasonal_order=(0, 0, 0, 0), fit_intercept=False,
-               random_state=None, dtype='double', handle=None):
-    """TODO: docs
+               seasonal_order=(0, 0, 0, 0), intercept=False,
+               random_state=None, dtype='double', output_type='cupy',
+               handle=None):
+    r"""Generates a dataset of time series by simulating an ARIMA process
+    of a given order.
+
+    Example
+    -------
+    .. code-block:: python
+
+        from cuml.datasets import make_arima
+        y = make_arima(1000, 100, (2,1,2), (0,1,2,12), 0)
+
+    Parameters
+    ----------
+    batch_size: int
+        Number of time series to generate
+    n_obs: int
+        Number of observations per series
+    order : Tuple[int, int, int]
+        Order (p, d, q) of the simulated ARIMA process
+    seasonal_order: Tuple[int, int, int, int]
+        Seasonal ARIMA order (P, D, Q, s) of the simulated ARIMA process
+    intercept: bool or int
+        Whether to include a constant trend mu in the simulated ARIMA process
+    random_state: int, RandomState instance or None (default)
+        Seed for the random number generator for dataset creation.
+    dtype: string or numpy dtype (default: 'single')
+        Type of the data. Possible values: float32, float64, 'single', 'float'
+        or 'double'
+    output_type: {'cudf', 'cupy', 'numpy'}
+        Type of the returned dataset
+    handle: cuml.Handle
+        If it is None, a new one is created just for this function call
+    
+    Returns:
+    --------
+    out: array-like, shape (n_obs, batch_size)
+        Array of the requested type containing the generated dataset
     """
 
     cdef ARIMAOrder cpp_order
     cpp_order.p, cpp_order.d, cpp_order.q = order
     cpp_order.P, cpp_order.D, cpp_order.Q, cpp_order.s = seasonal_order
-    cpp_order.k = <int>fit_intercept
+    cpp_order.k = <int>intercept
 
     # Define some parameters based on the order
     scale = 1.0
@@ -100,8 +126,8 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     handle = cuml.common.handle.Handle() if handle is None else handle
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
-    out = zeros((n_obs, batch_size), dtype=dtype, order='F')
-    cdef uintptr_t out_ptr = get_dev_array_ptr(out)
+    out = cumlArray.empty((n_obs, batch_size), dtype=dtype, order='F')
+    cdef uintptr_t out_ptr = <uintptr_t> out.ptr
 
     if random_state is None:
         random_state = randint(0, 1e18)
@@ -118,4 +144,4 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                        <double> noise_scale, <double> intercept_scale,
                        <uint64_t> random_state)
 
-    return out
+    return out.to_output(output_type)
