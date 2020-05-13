@@ -140,7 +140,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
 
     assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
     assert array_equal(fil_preds, xgb_preds_int)
-    assert array_equal(fil_proba, xgb_proba)
+    assert np.allclose(fil_proba, xgb_proba, 1e-3)
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
@@ -189,7 +189,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
     assert fil_mse == pytest.approx(xgb_mse, abs=0.01)
-    assert array_equal(fil_preds, xgb_preds)
+    assert np.allclose(fil_preds, xgb_preds, 1e-3)
 
 
 @pytest.mark.parametrize('n_rows', [1000])
@@ -258,7 +258,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 
     assert fil_acc == pytest.approx(skl_acc, abs=1e-5)
     assert array_equal(fil_preds, skl_preds_int)
-    assert array_equal(fil_proba, skl_proba)
+    assert np.allclose(fil_proba, skl_proba, 1e-3)
 
 
 @pytest.mark.parametrize('n_rows', [1000])
@@ -319,7 +319,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
     assert fil_mse <= skl_mse * (1. + 1e-6) + 1e-4
-    assert array_equal(fil_preds, skl_preds)
+    assert np.allclose(fil_preds, skl_preds, 1e-3)
 
 
 @pytest.fixture(scope="session")
