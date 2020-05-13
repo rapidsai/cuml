@@ -14,6 +14,7 @@
 - PR #2127: Added order to SG `make_blobs`, and switch from C++ to cupy based implementation
 - PR #2057: Weighted k-means
 - PR #2256: Add a `make_arima` generator
+- PR #2242: Pandas input support with output as NumPy arrays by default
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
@@ -66,6 +67,7 @@
 - PR #2146: Remove deprecated kalman filter
 - PR #2151: Add pytest duration and pytest timeout
 - PR #2156: Add Docker 19 support to local gpuci build
+- PR #2178: Reduce duplicated code in RF
 - PR #2124: Expand tutorial docs and sample notebook
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
 - PR #2186: Refactor cython code to build OPG structs in common utils file
@@ -84,6 +86,7 @@
 - PR #2214: Remove utils folder and refactor to common folder
 - PR #2225: input_to_cuml_array keep order option, test updates and cleanup
 - PR #2244: Re-enable slow ARIMA tests as stress tests
+- PR #2231: Using OPG structs from `cuml.common` in decomposition algorithms
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -124,6 +127,7 @@
 - PR #2223: Fix bug in ARIMA C++ benchmark
 - PR #2224: Temporary fix for CI until new Dask version is released
 - PR #2228: Update to use __reduce_ex__ in CumlArray to override cudf.Buffer
+- PR #2249: Fix bug in UMAP continuous target metrics
 
 # cuML 0.13.0 (Date TBD)
 
