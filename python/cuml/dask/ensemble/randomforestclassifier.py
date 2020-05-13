@@ -14,19 +14,20 @@
 # limitations under the License.
 #
 
-import random
+import numpy as np
 
-from cuml.dask.common import raise_exception_from_futures
+from cuml.dask.common.base import BaseEstimator
 from cuml.ensemble import RandomForestClassifier as cuRFC
 from cuml.dask.common.input_utils import DistributedDataHandler
-from dask.distributed import default_client, wait
 from cuml.dask.common.base import DelayedPredictionMixin, \
     DelayedPredictionProbaMixin
-from cuml.dask.ensemble.randomforestcommon import \
+from cuml.dask.ensemble.base import \
     BaseRandomForestModel
+from dask.distributed import default_client
+
 
 class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
-                             DelayedPredictionProbaMixin):
+                             DelayedPredictionProbaMixin, BaseEstimator):
 
     """
     Experimental API implementing a multi-GPU Random Forest classifier
@@ -103,6 +104,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     workers : optional, list of strings
         Dask addresses of workers to use for computation.
         If None, all available Dask workers will be used.
+    seed : int (default = None)
+        Base seed for the random number generator. Unseeded by default. Does
+        not currently fully guarantee the exact same results.
 
     Examples
     ---------
@@ -112,89 +116,28 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
 
     def __init__(
         self,
-        n_estimators=10,
-        max_depth=-1,
-        max_features="auto",
-        n_bins=8,
-        split_algo=1,
-        split_criterion=0,
-        min_rows_per_node=2,
-        bootstrap=True,
-        bootstrap_features=False,
-        type_model="classifier",
-        verbose=False,
-        rows_sample=1.0,
-        max_leaves=-1,
-        n_streams=4,
-        quantile_per_tree=False,
-        dtype=None,
-        criterion=None,
-        min_samples_leaf=None,
-        min_weight_fraction_leaf=None,
-        max_leaf_nodes=None,
-        min_impurity_decrease=None,
-        min_impurity_split=None,
-        oob_score=None,
-        n_jobs=None,
-        random_state=None,
-        warm_start=None,
-        class_weight=None,
         workers=None,
-        client=None
+        client=None,
+        verbose=False,
+        n_estimators=10,
+        seed=None,
+        **kwargs
     ):
 
-        unsupported_sklearn_params = {
-            "criterion": criterion,
-            "min_samples_leaf": min_samples_leaf,
-            "min_weight_fraction_leaf": min_weight_fraction_leaf,
-            "max_leaf_nodes": max_leaf_nodes,
-            "min_impurity_decrease": min_impurity_decrease,
-            "min_impurity_split": min_impurity_split,
-            "oob_score": oob_score,
-            "n_jobs": n_jobs,
-            "random_state": random_state,
-            "warm_start": warm_start,
-            "class_weight": class_weight,
-        }
+        super(RandomForestClassifier, self).__init__(client=client,
+                                                     verbose=verbose,
+                                                     **kwargs)
 
-        for key, vals in unsupported_sklearn_params.items():
-            if vals is not None:
-                raise TypeError(
-                    "The Scikit-learn variable",
-                    key,
-                    " is not supported in cuML,"
-                    " please read the cuML documentation for"
-                    " more information",
-                )
-
-        self.n_estimators = n_estimators
-        self.n_estimators_per_worker = list()
-        self.num_classes = 2
-
-        self.client = default_client() if client is None else client
-        if workers is None:
-            workers = self.client.has_what().keys()  # Default to all workers
-        self.workers = workers
-        self._create_the_model(
-            model_func=RandomForestClassifier._func_build_rf,
-            max_depth=max_depth,
-            n_streams=n_streams,
-            max_features=max_features,
-            n_bins=n_bins,
-            split_algo=split_algo,
-            split_criterion=split_criterion,
-            min_rows_per_node=min_rows_per_node,
-            bootstrap=bootstrap,
-            bootstrap_features=bootstrap_features,
-            type_model=type_model,
-            verbose=verbose,
-            rows_sample=rows_sample,
-            max_leaves=max_leaves,
-            quantile_per_tree=quantile_per_tree,
-            dtype=dtype)
+        self._create_model(
+            model_func=RandomForestClassifier._construct_rf,
+            client=client,
+            workers=workers,
+            n_estimators=n_estimators,
+            base_seed=seed,
+            **kwargs)
 
     @staticmethod
-    def _func_build_rf(
+    def _construct_rf(
         n_estimators,
         seed,
         **kwargs
@@ -258,6 +201,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
 
         """
         self.num_classes = len(y.unique())
+        self.local_model = None
         self._fit(model=self.rfs,
                   dataset=(X, y),
                   convert_dtype=convert_dtype)
@@ -340,7 +284,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         return preds
 
     def predict_using_fil(self, X, delayed, **kwargs):
-        self.local_model = self._concat_treelite_models()
+        if self.local_model is None:
+            self.local_model = self._concat_treelite_models()
+
         return self._predict_using_fil(X=X,
                                        delayed=delayed,
                                        **kwargs)
@@ -377,20 +323,12 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                     self.rfs[w],
                     X_Scattered,
                     convert_dtype,
-                    random.random(),
                     workers=[w],
                 )
             )
 
-        wait(futures)
-        raise_exception_from_futures(futures)
-
-        indexes = list()
-        rslts = list()
-        for d in range(len(futures)):
-            rslts.append(futures[d].result())
-            indexes.append(0)
-
+        rslts = self.client.gather(futures, errors="raise")
+        indexes = np.zeros(len(futures), dtype=np.int32)
         pred = list()
 
         for i in range(len(X)):
@@ -473,7 +411,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         y : NumPy
            Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
         """
-        self.local_model = self._concat_treelite_models()
+        if self.local_model is None:
+            self.local_model = self._concat_treelite_models()
+
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
         return self._predict_proba(X, delayed, **kwargs)
@@ -489,7 +429,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         """
         return self._get_params(deep)
 
-    def set_params(self, worker_numb=None, **params):
+    def set_params(self, **params):
         """
         Sets the value of parameters required to
         configure this estimator, it functions similar to
@@ -498,16 +438,5 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         Parameters
         -----------
         params : dict of new params.
-        worker_numb : list (default = None)
-            If worker_numb is `None`, then the parameters will be set for all
-            the workers. If it is not `None` then a list of worker numbers
-            for whom the model parameter values have to be set should be
-            passed.
-            ex. worker_numb = [0], will only update the parameters for
-            the model present in the first worker.
-            The values passed into the list should not be greater than the
-            number of workers in the cluster. The values passed in the list
-            should range from : 0 to len(workers present in the client) - 1.
         """
-        return self._set_params(**params,
-                                worker_numb=worker_numb)
+        return self._set_params(**params)

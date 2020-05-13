@@ -308,6 +308,8 @@ class RandomForestClassifier(BaseRandomForestModel):
                  self.rf_forest)
             free(<RandomForestMetaData[double, int]*><uintptr_t>
                  self.rf_forest64)
+            self.treelite_handle = None
+            self.model_pbuf_bytes = bytearray()
 
     def _get_protobuf_bytes(self):
         """

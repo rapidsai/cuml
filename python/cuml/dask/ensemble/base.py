@@ -2,8 +2,8 @@ import dask
 import math
 
 from cuml.dask.common.input_utils import DistributedDataHandler, \
-    wait_and_raise_from_futures, concatenate
-from dask.distributed import default_client
+    concatenate
+from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
 
 
 class BaseRandomForestModel(object):
@@ -19,34 +19,18 @@ class BaseRandomForestModel(object):
                       client,
                       workers,
                       n_estimators,
+                      base_seed,
                       **kwargs):
 
-        self.n_estimators = n_estimators
-
-        self.client = default_client() if client is None else client
-        if workers is None:
-            workers = self.client.has_what().keys()
-        self.workers = workers
-
+        self.client = get_client(client)
+        self.workers = self.client.scheduler_info()['workers'].keys()
         self.local_model = None
 
-        n_workers = len(self.workers)
-        if self.n_estimators < n_workers:
-            raise ValueError(
-                "n_estimators cannot be lower than number of dask workers."
-            )
-
-        n_est_per_worker = math.floor(self.n_estimators / n_workers)
-
         self.n_estimators_per_worker = \
-            [n_est_per_worker for i in range(n_workers)]
-        remaining_est = self.n_estimators - (n_est_per_worker * n_workers)
-
-        for i in range(remaining_est):
-            self.n_estimators_per_worker[i] = (
-                self.n_estimators_per_worker[i] + 1
-            )
-        seeds = [0]
+            self._estimators_per_worker(n_estimators)
+        if base_seed is None:
+            base_seed = 0
+        seeds = [base_seed]
         for i in range(1, len(self.n_estimators_per_worker)):
             sd = self.n_estimators_per_worker[i-1] + seeds[i-1]
             seeds.append(sd)
@@ -64,6 +48,23 @@ class BaseRandomForestModel(object):
         }
 
         wait_and_raise_from_futures(list(self.rfs.values()))
+
+    def _estimators_per_worker(self, n_estimators):
+        n_workers = len(self.workers)
+        if n_estimators < n_workers:
+            raise ValueError(
+                "n_estimators cannot be lower than number of dask workers."
+            )
+
+        n_est_per_worker = math.floor(n_estimators / n_workers)
+        n_estimators_per_worker = \
+            [n_est_per_worker for i in range(n_workers)]
+        remaining_est = n_estimators - (n_est_per_worker * n_workers)
+        for i in range(remaining_est):
+            n_estimators_per_worker[i] = (
+                n_estimators_per_worker[i] + 1
+            )
+        return n_estimators_per_worker
 
     def _fit(self, model, dataset, convert_dtype):
         data = DistributedDataHandler.create(dataset, client=self.client)
@@ -99,8 +100,8 @@ class BaseRandomForestModel(object):
         last_worker = w
         all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
-        for n in range(len(self.workers)):
-            all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
+        all_tl_mod_handles = [model._tl_model_handles(pbuf_bytes)
+                              for pbuf_bytes in mod_bytes]
 
         model._concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
@@ -122,8 +123,7 @@ class BaseRandomForestModel(object):
                     workers=[worker]
                 )
             )
-        wait_and_raise_from_futures(model_params)
-        params_of_each_model = [params.result() for params in model_params]
+        params_of_each_model = self.client.gather(model_params, errors="raise")
         return params_of_each_model
 
     def _set_params(self, **params):
