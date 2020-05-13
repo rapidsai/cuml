@@ -21,7 +21,6 @@
 
 import ctypes
 import cudf
-import math
 import numpy as np
 import warnings
 
@@ -41,8 +40,7 @@ from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
 
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.fil.fil import TreeliteModel as tl
-from cuml.common import input_to_cuml_array, input_to_dev_array, \
-    zeros, get_cudf_column_ptr
+from cuml.common import input_to_cuml_array
 from cython.operator cimport dereference as deref
 
 from numba import cuda
@@ -291,27 +289,11 @@ class RandomForestRegressor(BaseRandomForestModel):
                  self.rf_forest)
             free(<RandomForestMetaData[double, double]*><uintptr_t>
                  self.rf_forest64)
-
+    """
     def _obtain_treelite_handle(self):
-        cdef ModelHandle cuml_model_ptr = NULL
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
-        cdef unsigned char[::1] model_pbuf_mv = self.model_pbuf_bytes
-        cdef vector[unsigned char] model_pbuf_vec
-        with cython.boundscheck(False):
-            model_pbuf_vec.assign(& model_pbuf_mv[0],
-                                  & model_pbuf_mv[model_pbuf_mv.shape[0]])
-        if self.treelite_handle is None:
-            task_category = REGRESSION_MODEL
-            build_treelite_forest(
-                & cuml_model_ptr,
-                rf_forest,
-                <int> self.n_cols,
-                <int> task_category,
-                model_pbuf_vec)
-            mod_ptr = <uintptr_t> cuml_model_ptr
-            self.treelite_handle = ctypes.c_void_p(mod_ptr).value
-        return self.treelite_handle
+        cdef RandomForestMetaData[float, float] rf_forest 
+        self._get_treelite_handle(rf_forest)
+    """
 
     def _get_protobuf_bytes(self):
         """
@@ -411,7 +393,7 @@ class RandomForestRegressor(BaseRandomForestModel):
             These labels should be contiguous integers from 0 to n_classes.
         """
         cdef uintptr_t X_ptr, y_ptr
-        X_m, y_m, max_feature_val = self._fit_setup(X, y, convert_dtype)
+        X_m, y_m, max_feature_val = self._dataset_setup(X, y, convert_dtype)
         X_ptr = X_m.ptr
         y_ptr = y_m.ptr
         cdef cumlHandle* handle_ =\
