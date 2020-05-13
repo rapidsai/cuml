@@ -18,7 +18,7 @@ import pytest
 import os
 
 from cuml import ForestInference
-from cuml.test.utils import get_handle, array_equal, unit_param, \
+from cuml.test.utils import array_equal, unit_param, \
     quality_param, stress_param
 from cuml.common.import_utils import has_treelite
 from cuml.common.import_utils import has_xgboost
