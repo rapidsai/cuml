@@ -68,22 +68,14 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   double*,
                   RF_params,
                   int) except +
-    
-    cdef void predict(cumlHandle& handle,
-                      RandomForestMetaData[float, float] *,
-                      float*,
-                      int,
-                      int,
-                      float*,
-                      int) except +
 
-    cdef void predict(cumlHandle& handle,
-                      RandomForestMetaData[double, double]*,
-                      double*,
-                      int,
-                      int,
-                      double*,
-                      int) except +
+    cdef void predict[T, T](cumlHandle& handle,
+                            RandomForestMetaData[T, T] *,
+                            T*,
+                            int,
+                            int,
+                            T*,
+                            int) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, float]*,
@@ -292,34 +284,6 @@ class RandomForestRegressor(BaseRandomForestModel):
             self.treelite_handle = None
             self.model_pbuf_bytes = bytearray()
 
-    def _get_protobuf_bytes(self):
-        """
-        Returns the self.model_pbuf_bytes.
-        Cuml RF model gets converted to treelite protobuf bytes by:
-            1. converting the cuml RF model to a treelite model. The treelite
-            models handle (pointer) is returned
-            2. The treelite model handle is used to convert the treelite model
-            to a treelite protobuf model which is stored in a temporary file.
-            The protobuf model information is read from the temporary file and
-            the byte information is returned.
-        The treelite handle is stored `self.treelite_handle` and the treelite
-        protobuf model bytes are stored in `self.model_pbuf_bytes`. If either
-        of information is already present in the model then the respective
-        step is skipped.
-        """
-        if self.model_pbuf_bytes:
-            return self.model_pbuf_bytes
-        elif self.treelite_handle:
-            fit_mod_ptr = self.treelite_handle
-        else:
-            fit_mod_ptr = self._obtain_treelite_handle()
-        cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
-        cdef vector[unsigned char] pbuf_mod_info = \
-            save_model(<ModelHandle> model_ptr)
-        cdef unsigned char[::1] pbuf_mod_view = \
-            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
-        return self.model_pbuf_bytes
 
     def convert_to_treelite_model(self):
         """
@@ -351,27 +315,6 @@ class RandomForestRegressor(BaseRandomForestModel):
         mod_handle = <uintptr_t> tl_model_ptr
 
         return ctypes.c_void_p(mod_handle).value
-
-    def _concatenate_treelite_handle(self, treelite_handle):
-        cdef ModelHandle concat_model_handle = NULL
-        cdef vector[ModelHandle] *model_handles \
-            = new vector[ModelHandle]()
-        cdef uintptr_t mod_ptr
-        for i in treelite_handle:
-            mod_ptr = <uintptr_t>i
-            model_handles.push_back((
-                <ModelHandle> mod_ptr))
-
-        concat_model_handle = concatenate_trees(deref(model_handles))
-
-        cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
-        self.treelite_handle = concat_model_ptr
-        cdef vector[unsigned char] pbuf_mod_info = \
-            save_model(<ModelHandle> concat_model_ptr)
-        cdef unsigned char[::1] pbuf_mod_view = \
-            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
-        return self
 
     def fit(self, X, y, convert_dtype=False):
         """
@@ -461,7 +404,7 @@ class RandomForestRegressor(BaseRandomForestModel):
                                 check_cols=self.n_cols)
         X_ptr = X_m.ptr
 
-        preds = CumlArray.zeros(n_rows, dtype=dtype)
+        preds = CumlArray.zeros(n_rows, dtype=np.int32)
         cdef uintptr_t preds_ptr = preds.ptr
 
         cdef cumlHandle* handle_ =\
@@ -490,7 +433,7 @@ class RandomForestRegressor(BaseRandomForestModel):
                     <double*> preds_ptr,
                     <int> self.verbosity)
         else:
-            raise TypeError("supports only float32 and float64 input,"
+            raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."
                             % (str(self.dtype)))
 

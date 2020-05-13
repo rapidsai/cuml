@@ -526,16 +526,18 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
  * @param[in] verbosity: verbosity level for logging messages during execution
  * @{
  */
+template <class T, class L>
 void predict(const cumlHandle& user_handle,
-             const RandomForestClassifierF* forest, const float* input,
-             int n_rows, int n_cols, int* predictions, int verbosity) {
+             const RandomForestMetaData<T, L>* forest, const T* input,
+             int n_rows, int n_cols, L* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  std::shared_ptr<rfClassifier<float>> rf_classifier =
-    std::make_shared<rfClassifier<float>>(forest->rf_params);
+  std::shared_ptr<rfClassifier<T>> rf_classifier =
+    std::make_shared<rfClassifier<T>>(forest->rf_params);
   rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions,
                          forest, verbosity);
 }
 
+/**
 void predict(const cumlHandle& user_handle,
              const RandomForestClassifierD* forest, const double* input,
              int n_rows, int n_cols, int* predictions, int verbosity) {
@@ -545,6 +547,7 @@ void predict(const cumlHandle& user_handle,
   rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions,
                          forest, verbosity);
 }
+*/
 /** @} */
 
 /**
@@ -689,16 +692,18 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
  * @param[in] verbosity: verbosity level for logging messages during execution
  * @{
  */
+template <class T>
 void predict(const cumlHandle& user_handle,
-             const RandomForestRegressorF* forest, const float* input,
-             int n_rows, int n_cols, float* predictions, int verbosity) {
+             const RandomForestMetaData<T, T>* forest, const T* input,
+             int n_rows, int n_cols, T* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  std::shared_ptr<rfRegressor<float>> rf_regressor =
-    std::make_shared<rfRegressor<float>>(forest->rf_params);
+  std::shared_ptr<rfRegressor<T>> rf_regressor =
+    std::make_shared<rfRegressor<T>>(forest->rf_params);
   rf_regressor->predict(user_handle, input, n_rows, n_cols, predictions, forest,
                         verbosity);
 }
 
+/**
 void predict(const cumlHandle& user_handle,
              const RandomForestRegressorD* forest, const double* input,
              int n_rows, int n_cols, double* predictions, int verbosity) {
@@ -708,6 +713,9 @@ void predict(const cumlHandle& user_handle,
   rf_regressor->predict(user_handle, input, n_rows, n_cols, predictions, forest,
                         verbosity);
 }
+
+*/
+
 /** @} */
 
 /**
@@ -742,6 +750,7 @@ RF_metrics score(const cumlHandle& user_handle,
     user_handle, ref_labels, n_rows, predictions, verbosity);
   return regression_score;
 }
+
 /** @} */
 
 // Functions' specializations

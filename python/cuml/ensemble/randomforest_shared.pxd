@@ -157,3 +157,10 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
     cdef ModelHandle concatenate_trees(
         vector[ModelHandle] &treelite_handles) except +
 
+    cdef void predict[T, L](cumlHandle& handle,
+                      RandomForestMetaData[T, L] *,
+                      T*,
+                      int,
+                      int,
+                      L*,
+                      int) except +
