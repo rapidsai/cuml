@@ -114,8 +114,11 @@ ExternalProject_Add(faiss
   UPDATE_COMMAND    ""
   BUILD_IN_SOURCE   1
   PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/faiss_cuda11.patch || true)
+
 ExternalProject_Get_Property(faiss install_dir)
+
 add_library(faisslib STATIC IMPORTED)
+
 set_property(TARGET faisslib PROPERTY
   IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
 
@@ -137,15 +140,18 @@ ExternalProject_Add(treelite
                       ${TREELITE_DIR}/lib/libtreelite_runtime.so
     UPDATE_COMMAND    ""
     PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch || true)
+
 add_library(dmlclib STATIC IMPORTED)
 add_library(treelitelib STATIC IMPORTED)
 add_library(treelite_runtimelib SHARED IMPORTED)
+
 set_property(TARGET dmlclib PROPERTY
   IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdmlc.a)
 set_property(TARGET treelitelib PROPERTY
   IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
 set_property(TARGET treelite_runtimelib PROPERTY
   IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
+
 add_dependencies(dmlclib treelite)
 add_dependencies(treelitelib treelite)
 add_dependencies(treelite_runtimelib treelite)
@@ -169,14 +175,20 @@ ExternalProject_Add(googletest
   BUILD_BYPRODUCTS  ${GTEST_DIR}/lib/libgtest.a
                     ${GTEST_DIR}/lib/libgtest_main.a
   UPDATE_COMMAND    "")
+
 add_library(gtestlib STATIC IMPORTED)
 add_library(gtest_mainlib STATIC IMPORTED)
+
 set_property(TARGET gtestlib PROPERTY
   IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest.a)
 set_property(TARGET gtest_mainlib PROPERTY
   IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest_main.a)
+
 add_dependencies(gtestlib googletest)
 add_dependencies(gtest_mainlib googletest)
+
+##############################################################################
+# - googlebench ---------------------------------------------------------------
 
 set(GBENCH_DIR ${CMAKE_CURRENT_BINARY_DIR}/benchmark CACHE STRING
   "Path to google benchmark repo")

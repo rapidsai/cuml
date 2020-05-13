@@ -28,7 +28,7 @@ import warnings
 
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
 

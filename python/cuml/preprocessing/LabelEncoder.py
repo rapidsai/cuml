@@ -17,7 +17,7 @@
 import cudf
 import cupy as cp
 
-from cuml.utils.memory_utils import with_cupy_rmm
+from cuml.common.memory_utils import with_cupy_rmm
 from sklearn.exceptions import NotFittedError
 
 

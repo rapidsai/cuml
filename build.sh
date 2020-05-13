@@ -33,7 +33,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -g               - build for debug
    -n               - no install step
    --allgpuarch     - build for all supported GPU architectures
-   --singlegpu      - Build cuml without libcumlprims based multigpu algorithms.
+   --singlegpu      - Build libcuml and cuml without multigpu components
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
@@ -54,6 +54,7 @@ SINGLEGPU=""
 NVTX=OFF
 CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
+BUILD_CUML_STD_COMMS=ON
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -95,7 +96,8 @@ if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
 if hasArg --singlegpu; then
-    SINGLEGPU="--singlegpu"
+    SINGLEGPUPYTHON="--singlegpu"
+    BUILD_CUML_STD_COMMS=OFF
 fi
 if hasArg --nvtx; then
     NVTX=ON
@@ -145,14 +147,15 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench || ha
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
-          -DBUILD_CUML_STD_COMMS=ON \
+          -DBUILD_CUML_STD_COMMS=${BUILD_CUML_STD_COMMS} \
           -DWITH_UCX=ON \
           -DBUILD_CUML_MPI_COMMS=OFF \
           -DNVTX=${NVTX} \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
           -DNCCL_PATH=${INSTALL_PREFIX} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
-          -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ..
+          -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} \
+          ..
 
 fi
 
@@ -187,7 +190,7 @@ if (( ${NUMARGS} == 0 )) || hasArg cuml; then
 
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPU}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPUPYTHON}
         python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU}
     else
         python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU}

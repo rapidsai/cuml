@@ -22,11 +22,11 @@ import cupy as cp
 
 import cupy.prof
 
-from cuml.utils import with_cupy_rmm
+from cuml.common import with_cupy_rmm
 
 import warnings
 
-from cuml.utils import cuda_kernel_factory, has_scipy
+from cuml.common import cuda_kernel_factory, has_scipy
 
 from cuml.prims.label import make_monotonic
 from cuml.prims.label import check_labels
@@ -243,7 +243,7 @@ class MultinomialNB(object):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            from cuml.utils.import_utils import dummy_function_always_false \
+            from cuml.common.import_utils import dummy_function_always_false \
                     as scipy_sparse_isspmatrix
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
@@ -356,7 +356,7 @@ class MultinomialNB(object):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            from cuml.utils.import_utils import dummy_function_always_false \
+            from cuml.common.import_utils import dummy_function_always_false \
                     as scipy_sparse_isspmatrix
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
@@ -398,7 +398,7 @@ class MultinomialNB(object):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            from cuml.utils.import_utils import dummy_function_always_false \
+            from cuml.common.import_utils import dummy_function_always_false \
                     as scipy_sparse_isspmatrix
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
