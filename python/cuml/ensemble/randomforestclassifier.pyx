@@ -821,8 +821,8 @@ class RandomForestClassifier(Base):
            Dense vector (int) of shape (n_samples, 1)
         """
         if num_classes != self.num_classes and num_classes != 'auto':
-            raise NotImplementedError(
-              "limiting num_classes for predict is not implemented")
+            raise NotImplementedError("limiting num_classes for predict"
+                                      " is not implemented")
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
