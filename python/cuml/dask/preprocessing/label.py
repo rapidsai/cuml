@@ -17,7 +17,7 @@ from cuml.preprocessing.label import LabelBinarizer as LB
 from dask.distributed import default_client
 from cuml.dask.common.input_utils import _extract_partitions
 
-from cuml.utils import rmm_cupy_ary
+from cuml.common import rmm_cupy_ary
 
 import dask
 import cupy as cp

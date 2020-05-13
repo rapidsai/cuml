@@ -11,7 +11,9 @@
 - PR #2067: python: wrap logging interface in cython
 - PR #2083: Added dtype, order, and use_full_low_rank to MNMG `make_regression`
 - PR #2074: SG and MNMG `make_classification`
+- PR #2127: Added order to SG `make_blobs`, and switch from C++ to cupy based implementation
 - PR #2057: Weighted k-means
+- PR #2242: Pandas input support with output as NumPy arrays by default
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
@@ -64,6 +66,7 @@
 - PR #2146: Remove deprecated kalman filter
 - PR #2151: Add pytest duration and pytest timeout
 - PR #2156: Add Docker 19 support to local gpuci build
+- PR #2178: Reduce duplicated code in RF
 - PR #2124: Expand tutorial docs and sample notebook
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
 - PR #2186: Refactor cython code to build OPG structs in common utils file
@@ -76,7 +79,13 @@
 - PR #2195: Separating fit and transform calls in SG, MNMG PCA to save transform array memory consumption
 - PR #2201: Re-enabling UMAP repro tests
 - PR #2196: Updates to benchmarks. Moving notebook
+- PR #2208: Coordinate Descent, Lasso and ElasticNet CumlArray updates
+- PR #2210: Updating KNN tests to evaluate multiple index partitions
 - PR #2205: Use timeout to add 2 hour hard limit to dask tests
+- PR #2214: Remove utils folder and refactor to common folder
+- PR #2225: input_to_cuml_array keep order option, test updates and cleanup
+- PR #2244: Re-enable slow ARIMA tests as stress tests
+- PR #2231: Using OPG structs from `cuml.common` in decomposition algorithms
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -114,6 +123,11 @@
 - PR #2183: Fix RAFT in nightly package
 - PR #2191: Fix placement of SVM parameter documentation and add examples
 - PR #2215: Fix the printing of forest object
+- PR #2217: Fix opg_utils naming to fix singlegpu build
+- PR #2223: Fix bug in ARIMA C++ benchmark
+- PR #2224: Temporary fix for CI until new Dask version is released
+- PR #2228: Update to use __reduce_ex__ in CumlArray to override cudf.Buffer
+- PR #2249: Fix bug in UMAP continuous target metrics
 
 # cuML 0.13.0 (Date TBD)
 
@@ -131,6 +145,7 @@
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
+- PR #1814: ROC AUC score implementation with cupy
 - PR #1767: Single GPU decomposition models configurable output
 - PR #1646: Using FIL to predict in MNMG RF
 - PR #1778: Make cuML Handle picklable

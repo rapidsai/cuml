@@ -15,7 +15,7 @@
 import pytest
 from cuml.preprocessing import LabelBinarizer
 from cuml.test.utils import array_equal
-from cuml.utils import has_scipy
+from cuml.common import has_scipy
 
 from sklearn.preprocessing import LabelBinarizer as skLB
 

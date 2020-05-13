@@ -22,8 +22,9 @@ import numpy as np
 import operator
 import rmm
 
-from cuml.utils.import_utils import check_min_cupy_version
+from cuml.common.import_utils import check_min_cupy_version
 from functools import wraps
+from numba import cuda as nbcuda
 
 try:
     from cupy.cuda import using_allocator as cupy_using_allocator
@@ -85,7 +86,7 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
 
     .. code-block:: python
 
-        from cuml.utils import rmm_cupy_ary
+        from cuml.common import rmm_cupy_ary
         import cupy as cp
 
         # Get a new array filled with 0, column major
@@ -292,3 +293,20 @@ def using_output_type(output_type):
     else:
         raise ValueError('Parameter output_type must be one of "series" ' +
                          '"dataframe", cupy", "numpy", "numba" or "input')
+
+
+@with_cupy_rmm
+def numba_row_matrix(df):
+    """Compute the C (row major) version gpu matrix of df
+
+    :param col_major: an `np.ndarray` or a `DeviceNDArrayBase` subclass.
+        If already on the device, its stream will be used to perform the
+        transpose (and to copy `row_major` to the device if necessary).
+
+    """
+
+    col_major = df.as_gpu_matrix(order='F')
+
+    row_major = cp.array(col_major, order='C')
+
+    return nbcuda.as_cuda_array(row_major)

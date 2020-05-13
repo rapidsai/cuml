@@ -64,6 +64,12 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "lightgbm"
 
 
+# Install contextvars on Python 3.6
+py_ver=$(python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
+if [ "$py_ver" == "3.6" ];then
+    conda install contextvars
+fi
+
 # Install the master version of dask, distributed, and dask-ml
 logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
 pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps

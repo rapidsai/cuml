@@ -43,8 +43,8 @@ from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
     _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.fil.fil import TreeliteModel as tl
-from cuml.utils import input_to_cuml_array, rmm_cupy_ary
-from cuml.utils import get_cudf_column_ptr, zeros
+from cuml.common import input_to_cuml_array, rmm_cupy_ary
+from cuml.common import get_cudf_column_ptr, zeros
 
 from numba import cuda
 
@@ -235,7 +235,7 @@ class RandomForestClassifier(Base):
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbose=False,
                  rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
-                 output_type=None, criterion=None,
+                 output_type=None, criterion=None, dtype=None,
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
                  max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None, n_jobs=None,
@@ -374,6 +374,8 @@ class RandomForestClassifier(Base):
                  self.rf_forest)
             free(<RandomForestMetaData[double, int]*><uintptr_t>
                  self.rf_forest64)
+            self.treelite_handle = None
+            self.model_pbuf_bytes = bytearray()
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:

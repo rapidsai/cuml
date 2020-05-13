@@ -28,7 +28,7 @@ import cudf
 import pandas as pd
 import numpy as np
 
-from cuml.utils import has_scipy
+from cuml.common import has_scipy
 
 
 def predict(neigh_ind, _y, n_neighbors):

@@ -40,7 +40,7 @@ from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
 
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.fil.fil import TreeliteModel as tl
-from cuml.utils import input_to_cuml_array, input_to_dev_array, \
+from cuml.common import input_to_cuml_array, input_to_dev_array, \
     zeros, get_cudf_column_ptr
 from cython.operator cimport dereference as deref
 
@@ -223,7 +223,7 @@ class RandomForestRegressor(Base):
                  verbose=False, min_rows_per_node=2,
                  rows_sample=1.0, max_leaves=-1,
                  accuracy_metric='mse', output_type=None,
-                 min_samples_leaf=None,
+                 min_samples_leaf=None, dtype=None,
                  min_weight_fraction_leaf=None, n_jobs=None,
                  max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None,
@@ -359,6 +359,8 @@ class RandomForestRegressor(Base):
                  self.rf_forest)
             free(<RandomForestMetaData[double, double]*><uintptr_t>
                  self.rf_forest64)
+            self.treelite_handle = None
+            self.model_pbuf_bytes = bytearray()
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:

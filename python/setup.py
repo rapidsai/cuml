@@ -16,6 +16,7 @@
 
 from distutils.sysconfig import get_python_lib
 from pathlib import Path
+from pprint import pprint
 from setuptools import find_packages
 from setuptools import setup
 from setuptools.extension import Extension
@@ -148,10 +149,13 @@ if "--multigpu" in sys.argv:
 
 if "--singlegpu" in sys.argv:
     cython_exc_list = glob.glob('cuml/*/*_mg.pyx')
+    cython_exc_list = cython_exc_list + glob.glob('cuml/*/*_mg.pxd')
     cython_exc_list.append('cuml/nccl/nccl.pyx')
 
-    python_exc_list = ["*.dask", "*.dask.*"]
+    print('--singlegpu: excluding the following Cython components:')
+    pprint(cython_exc_list)
 
+    python_exc_list = ["*.dask", "*.dask.*"]
 else:
     libs.append('cumlprims')
     libs.append('cumlcomms')
