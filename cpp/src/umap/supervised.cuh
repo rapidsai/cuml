@@ -173,7 +173,7 @@ void general_simplicial_set_intersection(
     row1_ind, in1->cols(), in1->vals(), in1->nnz, row2_ind, in2->cols(),
     in2->vals(), in2->nnz, in1->n_rows, result_ind.data(), d_alloc, stream);
 
-  result->allocate(result_nnz, in1->n_rows, stream);
+  result->allocate(result_nnz, in1->n_rows, in1->n_cols, true, stream);
 
   /**
    * Element-wise sum of two simplicial sets
