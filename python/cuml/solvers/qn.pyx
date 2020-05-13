@@ -18,26 +18,17 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import ctypes
 import cudf
 import cupy as cp
 import numpy as np
-import warnings
-
-import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.base import Base
+from cuml.common.base import Base, CumlArray
 from cuml.common.handle cimport cumlHandle
-from cuml.common import get_cudf_column_ptr
-from cuml.common import get_dev_array_ptr
-from cuml.common import input_to_dev_array
-from cuml.common import zeros
+from cuml.common import input_to_cuml_array
 from cuml.common import with_cupy_rmm
-from cuml.common.import_utils import has_cupy
 from cuml.metrics import accuracy_score
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
@@ -292,17 +283,17 @@ class QN(Base):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
+        X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
+            X, order='F', check_dtype=[np.float32, np.float64]
+        )
+        cdef uintptr_t X_ptr = X_m.ptr
 
-        cdef uintptr_t X_ptr, y_ptr
-        X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='F',
-                               check_dtype=[np.float32, np.float64])
-
-        y_m, y_ptr, lab_rows, _, _ = \
-            input_to_dev_array(y, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_rows=n_rows, check_cols=1)
+        y_m, lab_rows, _, _ = input_to_cuml_array(
+            y, check_dtype=self.dtype,
+            convert_to_dtype=(self.dtype if convert_dtype else None),
+            check_rows=n_rows, check_cols=1
+        )
+        cdef uintptr_t y_ptr = y_m.ptr
 
         self._num_classes = len(cp.unique(y_m))
 
@@ -325,8 +316,8 @@ class QN(Base):
         else:
             coef_size = (self.n_cols, self._num_classes_dim)
 
-        self.coef_ = rmm.to_device(np.ones(coef_size, dtype=self.dtype))
-        cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
+        self.coef_ = CumlArray.ones(coef_size, dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float objective32
         cdef double objective64
@@ -409,19 +400,18 @@ class QN(Base):
         y: array-like (device)
             Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
+        X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
+            X, check_dtype=self.dtype,
+            convert_to_dtype=(self.dtype if convert_dtype else None),
+            check_cols=self.n_cols
+        )
+        cdef uintptr_t X_ptr = X_m.ptr
 
-        cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, self.dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+        scores = CumlArray.zeros(shape=(self._num_classes_dim, n_rows),
+                                 dtype=self.dtype, order='F')
 
-        scores = rmm.to_device(zeros((self._num_classes_dim, n_rows),
-                                     dtype=self.dtype, order='F'))
-
-        cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
-        cdef uintptr_t scores_ptr = get_dev_array_ptr(scores)
+        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t scores_ptr = scores.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -475,18 +465,17 @@ class QN(Base):
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
+        X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
+            X, check_dtype=self.dtype,
+            convert_to_dtype=(self.dtype if convert_dtype else None),
+            check_cols=self.n_cols
+        )
+        cdef uintptr_t X_ptr = X_m.ptr
 
-        cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, self.dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+        preds = CumlArray.zeros(shape=n_rows, dtype=self.dtype)
 
-        preds = rmm.to_device(zeros(n_rows, dtype=self.dtype))
-
-        cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
-        cdef uintptr_t pred_ptr = get_dev_array_ptr(preds)
+        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t pred_ptr = preds.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -528,7 +517,7 @@ class QN(Base):
             if self.fit_intercept:
                 return self.coef_[-1]
             else:
-                return rmm.to_device(zeros(1))
+                return CumlArray.zeros(shape=1)
         else:
             raise AttributeError(attr)
 
