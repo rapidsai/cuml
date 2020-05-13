@@ -81,9 +81,6 @@ class CD(BaseEstimator,
         """
         return self._predict(X, delayed=delayed)
 
-    def get_param_names(self):
-        return list(self.kwargs.keys())
-
     @staticmethod
     @mnmg_import
     def _create_model(sessionId, datatype, **kwargs):
