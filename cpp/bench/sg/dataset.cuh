@@ -126,9 +126,8 @@ struct Dataset {
     }
 
     ML::Datasets::make_blobs(handle, tmpX, tmpY, p.nrows, p.ncols, p.nclasses,
-                             nullptr, nullptr,
-                             D(b.cluster_std), b.shuffle, D(b.center_box_min),
-                             D(b.center_box_max), b.seed);
+                             nullptr, nullptr, D(b.cluster_std), b.shuffle,
+                             D(b.center_box_min), D(b.center_box_max), b.seed);
     if (!p.rowMajor) {
       MLCommon::LinAlg::transpose(tmpX, X, p.nrows, p.ncols, cublas_handle,
                                   stream);
