@@ -35,9 +35,7 @@ namespace ML {
 void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
-                     bool rowMajorQuery,
-                     MetricType metric,
-                     float metric_arg) {
+                     bool rowMajorQuery, MetricType metric, float metric_arg) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
 

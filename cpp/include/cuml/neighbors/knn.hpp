@@ -22,17 +22,16 @@
 namespace ML {
 
 enum MetricType {
-	METRIC_INNER_PRODUCT = 0,
-	METRIC_L2,
-	METRIC_L1,
-	METRIC_Linf,
-	METRIC_Lp,
+  METRIC_INNER_PRODUCT = 0,
+  METRIC_L2,
+  METRIC_L1,
+  METRIC_Linf,
+  METRIC_Lp,
 
-	METRIC_Canberra = 20,
-	METRIC_BrayCurtis,
-	METRIC_JensenShannon
+  METRIC_Canberra = 20,
+  METRIC_BrayCurtis,
+  METRIC_JensenShannon
 };
-
 
 /**
    * @brief Flat C++ API function to perform a brute force knn on
@@ -55,7 +54,8 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k,
                      bool rowMajorIndex = false, bool rowMajorQuery = false,
-                     MetricType metric = MetricType::METRIC_L2, float metric_arg = 0);
+                     MetricType metric = MetricType::METRIC_L2,
+                     float metric_arg = 0);
 
 /**
  * @brief Flat C++ API function to perform a knn classification using a

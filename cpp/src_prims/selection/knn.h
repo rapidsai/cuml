@@ -209,8 +209,7 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
                      int n_int_streams = 0, bool rowMajorIndex = true,
                      bool rowMajorQuery = true,
                      std::vector<int64_t> *translations = nullptr,
-                     int metric = 1,
-                     float metricArg = 0) {
+                     int metric = 1, float metricArg = 0) {
   ASSERT(DistanceType == Distance::EucUnexpandedL2 ||
            DistanceType == Distance::EucUnexpandedL2Sqrt,
          "Only EucUnexpandedL2Sqrt and EucUnexpandedL2 metrics are supported "
