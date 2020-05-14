@@ -80,9 +80,9 @@ class LogisticRegression(Base):
         reg.fit(X,y)
 
         print("Coefficients:")
-        print(reg.coef_.copy_to_host())
+        print(reg.coef_.to_output('cupy'))
         print("Intercept:")
-        print(reg.intercept_.copy_to_host())
+        print(reg.intercept_.to_output('cupy'))
 
         X_new = cudf.DataFrame()
         X_new['col1'] = np.array([1,5], dtype = np.float32)
@@ -286,10 +286,10 @@ class LogisticRegression(Base):
 
         if self.verbose > 2:
             print(self.verb_prefix + "Coefficients: " +
-                  self.coef_.copy_to_host())
+                  self.coef_.to_output('cupy'))
             if self.fit_intercept:
                 print(self.verb_prefix + "Intercept: " +
-                      self.intercept_.copy_to_host())
+                      self.intercept_.to_output('cupy'))
 
         return self
 
