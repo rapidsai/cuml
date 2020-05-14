@@ -205,6 +205,9 @@ class Base:
         string = string.rstrip(', ')
         return string + ')'
 
+    def enable_rmm_pool(self):
+        self.handle.enable_rmm_pool()
+
     def get_param_names(self):
         """
         Returns a list of hyperparameter names owned by this class. It is
