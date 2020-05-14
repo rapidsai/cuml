@@ -316,7 +316,7 @@ class QN(Base):
         else:
             coef_size = (self.n_cols, self._num_classes_dim)
 
-        self.coef_ = CumlArray.ones(coef_size, dtype=self.dtype)
+        self.coef_ = CumlArray.ones(coef_size, dtype=self.dtype, order='C')
         cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float objective32
@@ -507,7 +507,7 @@ class QN(Base):
 
         del X_m
 
-        return cudf.Series(preds)
+        return cudf.Series(preds.to_output('cupy'))
 
     def score(self, X, y):
         return accuracy_score(y, self.predict(X))
