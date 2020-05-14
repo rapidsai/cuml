@@ -596,7 +596,7 @@ def test_rf_host_memory_leak(large_clf, estimator_type):
         y = y.astype(np.float32)
 
     # Pre-fit once - this is our baseline and memory usage
-    # should not significantly exceed it after later fits 
+    # should not significantly exceed it after later fits
     base_model.fit(X, y)
     gc.collect()
     initial_baseline_mem = process.memory_info().rss
