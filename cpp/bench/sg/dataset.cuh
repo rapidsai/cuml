@@ -126,7 +126,7 @@ struct Dataset {
     }
 
     ML::Datasets::make_blobs(handle, tmpX, tmpY, p.nrows, p.ncols, p.nclasses,
-                             allocator, stream, nullptr, nullptr,
+                             nullptr, nullptr,
                              D(b.cluster_std), b.shuffle, D(b.center_box_min),
                              D(b.center_box_max), b.seed);
     if (!p.rowMajor) {
