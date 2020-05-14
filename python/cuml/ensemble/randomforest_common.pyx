@@ -33,10 +33,56 @@ from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
 cimport cython
 
-#RandomForestMetaData[X_dtype, y_dtype] *meta
-#cdef creat_meta(X_dtype a, y_dtype b):
-#    meta = new RandomForestMetaData[cython.typeof(a), cython.typeof(b)]()
-    #return meta
+
+cdef class BaseRandomForestModel_impl():
+    cpdef creat_meta(self, X_dtype a, y_dtype b):
+        meta = \
+            new RandomForestMetaData[cython.typeof(a), cython.typeof(b)]()
+        cdef RandomForestMetaData[float, int] *rf_class
+        cdef RandomForestMetaData[float, float] *rf_reg
+        if cython.typeof(b) == cython.int:
+            rf_class = <RandomForestMetaData[float, int]*><size_t> self.rf_forest
+            meta = rf_class
+        else:
+            rf_reg = <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+            meta = rf_reg
+        
+    def _obtain_treelite_handle(self):
+        if self.treelite_handle:
+            return self.treelite_handle
+        cdef ModelHandle cuml_model_ptr = NULL
+        cdef unsigned char[::1] model_pbuf_mv = self.model_pbuf_bytes
+        cdef vector[unsigned char] model_pbuf_vec
+        with cython.boundscheck(False):
+            model_pbuf_vec.assign(& model_pbuf_mv[0],
+                                  & model_pbuf_mv[model_pbuf_mv.shape[0]])
+
+        mod_ptr = <uintptr_t> cuml_model_ptr
+        self.treelite_handle = ctypes.c_void_p(mod_ptr).value
+        cdef cython.float a = 10.0
+        cdef cython.int b = 5
+        base_rf = BaseRandomForestModel_impl()
+        base_rf.creat_meta(a, b)
+        if self.RF_type == CLASSIFICATION:
+            build_treelite_forest(
+                & cuml_model_ptr,
+                #<RandomForestMetaData[float, int]*><size_t> self.rf_forest,
+                meta,
+                <int> self.n_cols,
+                <int> self.num_classes,
+                model_pbuf_vec)
+        else:
+            build_treelite_forest(
+                & cuml_model_ptr,
+                #<RandomForestMetaData[float, float]*><size_t> self.rf_forest,
+                meta,
+                <int> self.n_cols,
+                <int> self.num_classes,
+                model_pbuf_vec)
+            mod_ptr = <uintptr_t> cuml_model_ptr
+            self.treelite_handle = ctypes.c_void_p(mod_ptr).value
+          
+        return self.treelite_handle
 
 
 class BaseRandomForestModel(Base):
@@ -47,6 +93,9 @@ class BaseRandomForestModel(Base):
                  'bootstrap', 'bootstrap_features',
                  'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
+
+    def __init__(self):
+        self._impl = BaseRandomForestModel_impl()
 
     def _create_model(self, model, seed, split_criterion,
                       n_streams, n_estimators=100,
@@ -146,36 +195,8 @@ class BaseRandomForestModel(Base):
                              " please read the documentation")
 
     def _obtain_treelite_handle(self):
-        cdef ModelHandle cuml_model_ptr = NULL
-        cdef unsigned char[::1] model_pbuf_mv = self.model_pbuf_bytes
-        cdef vector[unsigned char] model_pbuf_vec
-        with cython.boundscheck(False):
-            model_pbuf_vec.assign(& model_pbuf_mv[0],
-                                  & model_pbuf_mv[model_pbuf_mv.shape[0]])
-
-        mod_ptr = <uintptr_t> cuml_model_ptr
-        self.treelite_handle = ctypes.c_void_p(mod_ptr).value
-        meta = <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
-
-        #cdef object (*meta_info)(float, int)
-        #meta_info = create_meta
-        
-        #cdef RandomForestMetaData[cython.typeof(a), cython.typeof(b)] *meta_info = get_meta_data[cython.typeof(a), cython.typeof(b)](<void*> self.rf_forest)
-            #<RandomForestMetaData[cython.typeof(a), cython.typeof(b)]><uintptr_t> self.forest #get_meta_data[float, int](<uintptr_t> self.rf_forest)
-        #cdef RandomForestMetaData[float, int] *rf_forest
-        #cdef fused_rf_meta *forest = \
-        #    <fused_rf_meta[cython.float, cython.int]*><uintptr_t>self.rf_forest
-        if self.treelite_handle is None:
-            build_treelite_forest(
-                & cuml_model_ptr,
-                meta,
-                <int> self.n_cols,
-                <int> self.num_classes,
-                model_pbuf_vec)
-            mod_ptr = <uintptr_t> cuml_model_ptr
-            self.treelite_handle = ctypes.c_void_p(mod_ptr).value
           
-        return self.treelite_handle
+        return self._impl._obtain_treelite_handle
 
     def _dataset_setup(self, X, y, convert_dtype):
         self._set_output_type(X)
@@ -249,6 +270,19 @@ class BaseRandomForestModel(Base):
         self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
         return self.model_pbuf_bytes
 
+    def _tl_model_handles(self, model_bytes):
+        cdef ModelHandle cuml_model_ptr = NULL
+        meta = <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
+        task_category = CLASSIFICATION_MODEL
+        build_treelite_forest(& cuml_model_ptr,
+                              meta,
+                              <int> self.n_cols,
+                              <int> task_category,
+                              <vector[unsigned char] &> model_bytes)
+        mod_handle = <uintptr_t> cuml_model_ptr
+
+        return ctypes.c_void_p(mod_handle).value
+
     def _concatenate_treelite_handle(self, treelite_handle):
         cdef ModelHandle concat_model_handle = NULL
         cdef vector[ModelHandle] *model_handles \
@@ -307,54 +341,6 @@ class BaseRandomForestModel(Base):
         tl.free_treelite_model(self.treelite_handle)
         return preds
 
-    def _predict_model_on_cpu(self, X, convert_dtype):
-        out_type = self._get_output_type(X)
-        cdef uintptr_t X_ptr
-        X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='C',
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-        X_ptr = X_m.ptr
-
-        preds = CumlArray.zeros(n_rows, dtype=dtype)
-        cdef uintptr_t preds_ptr = preds.ptr
-
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
-
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
-
-        cdef RandomForestMetaData[double, int] *rf_forest64 = \
-            <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
-        if self.dtype == np.float32:
-            predict(handle_[0],
-                    rf_forest,
-                    <float*> X_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <float*> preds_ptr,
-                    <int> self.verbosity)
-
-        elif self.dtype == np.float64:
-            predict(handle_[0],
-                    rf_forest64,
-                    <double*> X_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <double*> preds_ptr,
-                    <int> self.verbosity)
-        else:
-            raise TypeError("supports only float32 and float64 input,"
-                            " but input of type '%s' passed."
-                            % (str(self.dtype)))
-
-        self.handle.sync()
-        # synchronous w/o a stream
-        del(X_m)
-        return preds.to_output(out_type)
-
     def _get_params(self, model, deep):
         params = dict()
         for key in model.variables:
@@ -377,28 +363,6 @@ class BaseRandomForestModel(Base):
                 setattr(self, key, value)
         return self
 
-    """
-    def _obtain_treelite_handle_common(self, task_category, rf_meta_type rf_type):
-        cdef ModelHandle cuml_model_ptr = NULL
-        cdef rf_class_float *rf_forest_class
-        cdef rf_reg_float *rf_forest_reg
-        if task_category == CLASSIFICATION:
-            rf_forest_class = \
-                <rf_meta_type*><uintptr_t> self.rf_forest
-
-        else:
-            rf_forest_reg = \
-                <rf_meta_type*><uintptr_t> self.rf_forest
-        build_treelite_forest[self.dtype, self.y_type](& cuml_model_ptr,
-                                  rf_forest_reg,
-                                  <int> self.n_cols,
-                                  <int> task_category,
-                                  <vector[unsigned char] &> self.model_pbuf_bytes)
-        mod_ptr = <size_t> cuml_model_ptr
-        treelite_handle = ctypes.c_void_p(mod_ptr).value
-        return treelite_handle
-
-    """
     def _get_protobuf_bytes_common(self, model):
         fit_mod_ptr = model._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr

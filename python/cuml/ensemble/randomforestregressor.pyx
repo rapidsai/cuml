@@ -69,13 +69,13 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   RF_params,
                   int) except +
 
-    cdef void predict[T, T](cumlHandle& handle,
-                            RandomForestMetaData[T, T] *,
-                            T*,
-                            int,
-                            int,
-                            T*,
-                            int) except +
+    cdef void predict[T](cumlHandle& handle,
+                         RandomForestMetaData[T, T] *,
+                         T*,
+                         int,
+                         int,
+                         T*,
+                         int) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, float]*,
@@ -417,21 +417,21 @@ class RandomForestRegressor(BaseRandomForestModel):
             <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
         if self.dtype == np.float32:
             predict(handle_[0],
-                    rf_forest,
-                    <float*> X_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <float*> preds_ptr,
-                    <int> self.verbosity)
+                           rf_forest,
+                           <float*> X_ptr,
+                           <int> n_rows,
+                           <int> n_cols,
+                           <float*> preds_ptr,
+                           <int> self.verbosity)
 
         elif self.dtype == np.float64:
             predict(handle_[0],
-                    rf_forest64,
-                    <double*> X_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <double*> preds_ptr,
-                    <int> self.verbosity)
+                            rf_forest64,
+                            <double*> X_ptr,
+                            <int> n_rows,
+                            <int> n_cols,
+                            <double*> preds_ptr,
+                            <int> self.verbosity)
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."
