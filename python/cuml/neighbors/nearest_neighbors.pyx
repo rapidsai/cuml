@@ -93,7 +93,6 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         METRIC_JensenShannon
 
 
-
 class NearestNeighbors(Base):
     """
     NearestNeighbors is an queries neighborhoods from a given set of
@@ -246,7 +245,7 @@ class NearestNeighbors(Base):
         if self.metric == "euclidean" or self.metric == "l2":
             return MetricType.METRIC_L2
         elif self.metric == "cityblock" or self.metric == "l1"\
-            or self.metric == "manhattan" or self.metric == 'taxicab':
+                or self.metric == "manhattan" or self.metric == 'taxicab':
             return MetricType.METRIC_L1
         elif self.metric == "braycurtis":
             return MetricType.METRIC_BrayCurtis
@@ -260,7 +259,6 @@ class NearestNeighbors(Base):
             return MetricType.METRIC_JensenShannon
         else:
             raise ValueError("Metric %s is not supported" % self.metric)
-
 
     def kneighbors(self, X=None, n_neighbors=None,
                    return_distance=True, convert_dtype=True):
