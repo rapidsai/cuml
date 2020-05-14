@@ -26,8 +26,8 @@
 #include <cuml/cuml.hpp>
 #include <cuml/neighbors/knn.hpp>
 
-#include "linalg/reduce_rows_by_key.h"
 #include <cuml/datasets/make_blobs.hpp>
+#include "linalg/reduce_rows_by_key.h"
 
 #include "common/device_buffer.hpp"
 #include "umap/runner.cuh"
@@ -237,8 +237,8 @@ class UMAPParametrizableTest : public ::testing::Test {
     device_buffer<int> y_d(alloc, stream, n_samples);
 
     ML::Datasets::make_blobs(handle, X_d.data(), y_d.data(), n_samples,
-                             n_features, test_params.n_clusters, nullptr, nullptr,
-                             1.f, true, -10.f, 10.f, 1234ULL);
+                             n_features, test_params.n_clusters, nullptr,
+                             nullptr, 1.f, true, -10.f, 10.f, 1234ULL);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
