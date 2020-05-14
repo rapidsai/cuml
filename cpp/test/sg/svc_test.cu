@@ -23,8 +23,10 @@
 #include <thrust/fill.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
+#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
+#include <cuml/datasets/make_blobs.hpp>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svr.hpp>
 #include <iostream>
@@ -37,8 +39,6 @@
 #include "linalg/transpose.h"
 #include "matrix/grammatrix.h"
 #include "matrix/kernelmatrices.h"
-#include <cuml/datasets/make_blobs.hpp>
-#include <common/device_buffer.hpp>
 #include "random/rng.h"
 #include "svm/smoblocksolve.cuh"
 #include "svm/smosolver.cuh"
@@ -944,15 +944,17 @@ __global__ void cast(outType *out, int n, inType *in) {
 // To have the same input data for both single and double precision,
 // we generate the blobs in single precision only, and cast to dp if needed.
 template <typename math_t>
-void make_blobs(const cumlHandle& handle, math_t *x, math_t *y, int n_rows, int n_cols, int n_cluster, float *centers = nullptr) {
+void make_blobs(const cumlHandle &handle, math_t *x, math_t *y, int n_rows,
+                int n_cols, int n_cluster, float *centers = nullptr) {
   auto allocator = handle.getDeviceAllocator();
   auto cublas_h = handle.getImpl().getCublasHandle();
   auto stream = handle.getStream();
   device_buffer<float> x_float(allocator, stream, n_rows * n_cols);
   device_buffer<int> y_int(allocator, stream, n_rows);
 
-  Datasets::make_blobs(handle, x_float.data(), y_int.data(), n_rows, n_cols, n_cluster,
-                       centers, (float *)nullptr, 1.0f, true, -2.0f, 2.0f, 0);
+  Datasets::make_blobs(handle, x_float.data(), y_int.data(), n_rows, n_cols,
+                       n_cluster, centers, (float *)nullptr, 1.0f, true, -2.0f,
+                       2.0f, 0);
   int TPB = 256;
   if (std::is_same<float, math_t>::value) {
     LinAlg::transpose(x_float.data(), (float *)x, n_cols, n_rows, cublas_h,

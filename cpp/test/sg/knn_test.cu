@@ -24,8 +24,8 @@
 
 #include "cuml/neighbors/knn.hpp"
 
-#include <cuml/datasets/make_blobs.hpp>
 #include <common/device_buffer.hpp>
+#include <cuml/datasets/make_blobs.hpp>
 
 namespace ML {
 
@@ -52,8 +52,8 @@ template <typename T, typename IdxT>
 template <typename T>
 void gen_blobs(cumlHandle &handle, T *out, int *l, int rows, int cols,
                int centers, const T *centroids) {
-  Datasets::make_blobs(
-    handle, out, l, rows, cols, centers, centroids, nullptr, 0.1f, true, -10.0f, 10.0f, 1234ULL);
+  Datasets::make_blobs(handle, out, l, rows, cols, centers, centroids, nullptr,
+                       0.1f, true, -10.0f, 10.0f, 1234ULL);
 }
 
 void create_index_parts(cumlHandle &handle, float *query_data,
