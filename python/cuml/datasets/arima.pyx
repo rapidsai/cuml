@@ -101,7 +101,7 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
         Type of the returned dataset
     handle: cuml.Handle
         If it is None, a new one is created just for this function call
-    
+
     Returns:
     --------
     out: array-like, shape (n_obs, batch_size)
@@ -116,8 +116,8 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     # Define some parameters based on the order
     scale = 1.0
     noise_scale = 0.2
-    intercept_scale = [1.0, 0.2, 0.01][cpp_order.d + cpp_order.D] 
-    
+    intercept_scale = [1.0, 0.2, 0.01][cpp_order.d + cpp_order.D]
+
     if dtype not in ['single', 'float', 'double', np.float32, np.float64]:
         raise TypeError("dtype must be either 'float' or 'double'")
     else:

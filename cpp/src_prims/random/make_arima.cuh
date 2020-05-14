@@ -142,7 +142,6 @@ void make_arima(DataT* out, int batch_size, int n_obs, ML::ARIMAOrder order,
 
   // Create CPU/GPU random generators and distributions
   Rng gpu_gen(seed, type);
-  std::uniform_real_distribution<DataT> udis((DataT)0.0, (DataT)1.0);
 
   // Generate parameters. We draw temporary random parameters and transform
   // them to create the final parameters.
@@ -245,8 +244,6 @@ void make_arima(DataT* out, int batch_size, int n_obs, ML::ARIMAOrder order,
                        }
                      });
   }
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 }  // namespace Random
