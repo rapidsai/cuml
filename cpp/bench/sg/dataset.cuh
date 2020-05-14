@@ -19,7 +19,7 @@
 #include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <linalg/transpose.h>
-#include <random/make_blobs.h>
+#include <cuml/datasets/make_blobs.hpp>
 #include <random/make_regression.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/cuml.hpp>
@@ -115,10 +115,10 @@ struct Dataset {
     if (!p.rowMajor) {
       tmpX = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
     }
-    MLCommon::Random::make_blobs<D, L>(
-      tmpX, y, p.nrows, p.ncols, p.nclasses, allocator, stream, nullptr,
-      nullptr, D(b.cluster_std), b.shuffle, D(b.center_box_min),
-      D(b.center_box_max), b.seed);
+    ML::Datasets::make_blobs(
+      handle, tmpX, y, p.nrows, p.ncols, p.nclasses, nullptr, nullptr,
+      D(b.cluster_std), b.shuffle, D(b.center_box_min), D(b.center_box_max),
+      b.seed);
     if (!p.rowMajor) {
       MLCommon::LinAlg::transpose(tmpX, X, p.nrows, p.ncols, cublas_handle,
                                   stream);
