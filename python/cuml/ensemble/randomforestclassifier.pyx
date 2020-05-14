@@ -42,7 +42,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
     _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
 from cuml.ensemble.randomforest_shared cimport *
-from cuml.fil.fil import TreeliteModel as tl
+from cuml.fil.fil import TreeliteModel
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 from cuml.common import get_cudf_column_ptr, zeros
 
@@ -322,7 +322,8 @@ class RandomForestClassifier(Base):
         cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
-            model_pbuf_bytes = self._get_protobuf_bytes()
+            # XXX don't mutate self in getstate
+            self.model_pbuf_bytes = self._get_protobuf_bytes()
             params_t = <uintptr_t> self.rf_forest
             rf_forest = \
                 <RandomForestMetaData[float, int]*>params_t
@@ -331,12 +332,12 @@ class RandomForestClassifier(Base):
                 <RandomForestMetaData[double, int]*>params_t64
             state["rf_params"] = rf_forest.rf_params
             state["rf_params64"] = rf_forest64.rf_params
-        else:
-            model_pbuf_bytes = bytearray()
+        # else:
+        #    model_pbuf_bytes = bytearray()
         state['n_cols'] = self.n_cols
         state["verbose"] = self.verbose
-        state["model_pbuf_bytes"] = model_pbuf_bytes
-        state["treelite_handle"] = None
+        state["model_pbuf_bytes"] = self.model_pbuf_bytes
+        # state["treelite_handle"] = None
 
         return state
 
@@ -364,7 +365,7 @@ class RandomForestClassifier(Base):
         self._reset_forest_data()
 
         if self.treelite_handle:
-            tl.free_treelite_model(self.treelite_handle)
+            TreeliteModel.free_treelite_model(self.treelite_handle)
             self.treelite_handle = None
 
     def _reset_forest_data(self):
@@ -412,6 +413,7 @@ class RandomForestClassifier(Base):
                                       "classification models is currently not "
                                       "implemented. Please check cuml issue "
                                       "#1679 for more information.")
+
         cdef unsigned char[::1] model_pbuf_mv = self.model_pbuf_bytes
         cdef vector[unsigned char] model_pbuf_vec
         with cython.boundscheck(False):
@@ -558,7 +560,18 @@ class RandomForestClassifier(Base):
 
         concat_model_handle = concatenate_trees(deref(model_handles))
         cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
+        # Who frees the old model here?
         self.treelite_handle = concat_model_ptr
+        cdef vector[unsigned char] pbuf_mod_info = \
+            save_model(<ModelHandle> concat_model_ptr)
+        cdef unsigned char[::1] pbuf_mod_view = \
+            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
+        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+
+        # Update n_estimators to reflect concatenated trees
+        tl_model = TreeliteModel.from_treelite_model_handle(
+            self.treelite_handle)
+        self.n_estimators = tl_model.num_trees
 
         return self
 

@@ -39,7 +39,7 @@ from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
     _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
 
 from cuml.ensemble.randomforest_shared cimport *
-from cuml.fil.fil import TreeliteModel as tl
+from cuml.fil.fil import TreeliteModel
 from cuml.common import input_to_cuml_array, input_to_dev_array, \
     zeros, get_cudf_column_ptr
 from cython.operator cimport dereference as deref
@@ -345,7 +345,7 @@ class RandomForestRegressor(Base):
         self._reset_forest_data()
 
         if self.treelite_handle:
-            tl.free_treelite_model(self.treelite_handle)
+            TreeliteModel.free_treelite_model(self.treelite_handle)
             self.treelite_handle = None
 
     def _reset_forest_data(self):
@@ -418,8 +418,8 @@ class RandomForestRegressor(Base):
         """
         if self.model_pbuf_bytes:
             return self.model_pbuf_bytes
-        elif self.treelite_handle:
-            fit_mod_ptr = self.treelite_handle
+        # elif self.treelite_handle:
+        #     fit_mod_ptr = self.treelite_handle
         else:
             fit_mod_ptr = self._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
@@ -496,7 +496,7 @@ class RandomForestRegressor(Base):
     TODO : Move functions duplicated in the RF classifier and regressor
            to a shared file. Cuml issue #1854 has been created to track this.
     """
-    def _tl_model_handles(self, model_bytes):
+    def _alloc_and_build_tl_from_protobuf(self, model_bytes):
         task_category = REGRESSION_MODEL
         cdef ModelHandle tl_model_ptr = NULL
         cdef RandomForestMetaData[float, float] *rf_forest = \
@@ -510,19 +510,25 @@ class RandomForestRegressor(Base):
 
         return ctypes.c_void_p(mod_handle).value
 
-    def _concatenate_treelite_handle(self, treelite_handle):
+    def _concatenate_treelite_handles(self, treelite_handles):
         cdef ModelHandle concat_model_handle = NULL
         cdef vector[ModelHandle] *model_handles \
             = new vector[ModelHandle]()
         cdef uintptr_t mod_ptr
-        for i in treelite_handle:
+        for i in treelite_handles:
             mod_ptr = <uintptr_t>i
             model_handles.push_back((
                 <ModelHandle> mod_ptr))
 
+        # Who frees the old treelite model here?
         concat_model_handle = concatenate_trees(deref(model_handles))
         cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
         self.treelite_handle = concat_model_ptr
+
+        # Update n_estimators to reflect concatenated trees
+        tl_model = TreeliteModel.from_treelite_model_handle(
+            self.treelite_handle)
+        self.n_estimators = tl_model.num_trees
 
         return self
 
@@ -668,7 +674,7 @@ class RandomForestRegressor(Base):
                                              storage_type=storage_type)
 
         preds = tl_to_fil_model.predict(X, out_type)
-        tl.free_treelite_model(treelite_handle)
+        TreeliteModel.free_treelite_model(treelite_handle)
         return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):
