@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,11 +20,8 @@
 
 import ctypes
 import cudf
-import cuml.common.opg_data_utils_mg as opg
 import numpy as np
 import rmm
-
-from libc.stdlib cimport malloc, free
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
@@ -34,14 +31,12 @@ from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.handle cimport cumlHandle
 from cuml.common.opg_data_utils_mg cimport *
-from cuml.common import input_to_cuml_array
+from cuml.common.input_utils import input_to_cuml_array
 from cuml.decomposition.utils cimport *
-
-from cuml.linear_model import LinearRegression
 from cuml.linear_model.base_mg import MGFitMixin
+from cuml.solvers import CD
 
-
-cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
+cdef extern from "cumlprims/opg/cd.hpp" namespace "ML::CD::opg":
 
     cdef void fit(cumlHandle& handle,
                   RankSizePair **rank_sizes,
@@ -54,7 +49,11 @@ cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
                   float *intercept,
                   bool fit_intercept,
                   bool normalize,
-                  int algo,
+                  int epochs,
+                  float alpha,
+                  float l1_ratio,
+                  bool shuffle,
+                  float tol,
                   bool verbose) except +
 
     cdef void fit(cumlHandle& handle,
@@ -68,14 +67,21 @@ cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
                   double *intercept,
                   bool fit_intercept,
                   bool normalize,
-                  int algo,
+                  int epochs,
+                  double alpha,
+                  double l1_ratio,
+                  bool shuffle,
+                  double tol,
                   bool verbose) except +
 
 
-class LinearRegressionMG(MGFitMixin, LinearRegression):
+class CDMG(MGFitMixin, CD):
+    """
+    Cython class for MNMG code usage. Not meant for end user consumption.
+    """
 
     def __init__(self, **kwargs):
-        super(LinearRegressionMG, self).__init__(**kwargs)
+        super(CDMG, self).__init__(**kwargs)
 
     def _fit(self, X, y, coef_ptr, rank_to_sizes, n_rows, n_cols,
              n_total_parts):
@@ -85,7 +91,6 @@ class LinearRegressionMG(MGFitMixin, LinearRegression):
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
-
             fit(handle_[0],
                 <RankSizePair**><size_t>rank_to_sizes,
                 <size_t> n_total_parts,
@@ -97,12 +102,15 @@ class LinearRegressionMG(MGFitMixin, LinearRegression):
                 <float*>&float_intercept,
                 <bool>self.fit_intercept,
                 <bool>self.normalize,
-                <int>self.algo,
+                <int>self.max_iter,
+                <float>self.alpha,
+                <float>self.l1_ratio,
+                <bool>self.shuffle,
+                <float>self.tol,
                 False)
 
             self.intercept_ = float_intercept
         else:
-
             fit(handle_[0],
                 <RankSizePair**><size_t>rank_to_sizes,
                 <size_t> n_total_parts,
@@ -114,7 +122,11 @@ class LinearRegressionMG(MGFitMixin, LinearRegression):
                 <double*>&double_intercept,
                 <bool>self.fit_intercept,
                 <bool>self.normalize,
-                <int>self.algo,
+                <int>self.max_iter,
+                <double>self.alpha,
+                <double>self.l1_ratio,
+                <bool>self.shuffle,
+                <double>self.tol,
                 False)
 
             self.intercept_ = double_intercept
