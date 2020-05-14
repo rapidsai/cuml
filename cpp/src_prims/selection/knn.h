@@ -208,7 +208,9 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
                      cudaStream_t *internalStreams = nullptr,
                      int n_int_streams = 0, bool rowMajorIndex = true,
                      bool rowMajorQuery = true,
-                     std::vector<int64_t> *translations = nullptr) {
+                     std::vector<int64_t> *translations = nullptr,
+                     int metric = 1,
+                     float metricArg = 0) {
   ASSERT(DistanceType == Distance::EucUnexpandedL2 ||
            DistanceType == Distance::EucUnexpandedL2Sqrt,
          "Only EucUnexpandedL2Sqrt and EucUnexpandedL2 metrics are supported "
@@ -256,7 +258,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     gpu_res.setDefaultStream(device, stream);
 
     faiss::gpu::GpuDistanceParams args;
-    args.metric = faiss::METRIC_L2;
+    args.metric = (faiss::MetricType)metric;
+    args.metricArg = metricArg;
     args.k = k;
     args.dims = D;
     args.vectors = input[i];
@@ -379,7 +382,6 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
   LabelType pred = 0;
   for (int j = 0; j < n_neighbors; j++) {
     int64_t neighbor_idx = knn_indices[i + j];
-    int n = neighbor_idx;
     pred += labels[neighbor_idx];
   }
 
