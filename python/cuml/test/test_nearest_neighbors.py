@@ -117,7 +117,7 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k, metric):
 
     p = 5  # Testing 5-norm of the minkowski metric only
 
-    knn_sk = skKNN(metric=metric, p=p) # Testing
+    knn_sk = skKNN(metric=metric, p=p)  # Testing
     knn_sk.fit(X)
     D_sk, I_sk = knn_sk.kneighbors(X, k)
 
