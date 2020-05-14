@@ -100,11 +100,12 @@ class BaseRandomForestModel(object):
         last_worker = w
         all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
-        all_tl_mod_handles = [model._tl_model_handles(pbuf_bytes)
-                              for pbuf_bytes in mod_bytes]
+        all_tl_mod_handles = [
+            model._alloc_and_build_tl_from_protobuf(pbuf_bytes)
+            for pbuf_bytes in mod_bytes]
 
-        model._concatenate_treelite_handle(
-            treelite_handle=all_tl_mod_handles)
+        model._concatenate_treelite_handles(
+            treelite_handles=all_tl_mod_handles)
         return model
 
     def _predict_using_fil(self, X, delayed, **kwargs):

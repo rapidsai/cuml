@@ -24,7 +24,6 @@ from cuml.dask.common.base import DelayedPredictionMixin, \
 from cuml.dask.ensemble.base import \
     BaseRandomForestModel
 from dask.distributed import default_client
-from cuml.fil.fil import TreeliteModel as tl
 
 
 class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
@@ -135,7 +134,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             n_estimators=n_estimators,
             base_seed=seed,
             **kwargs)
-
 
     @staticmethod
     def _construct_rf(

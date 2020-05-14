@@ -322,8 +322,7 @@ class RandomForestClassifier(Base):
         cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
-            # XXX don't mutate self in getstate
-            self.model_pbuf_bytes = self._get_protobuf_bytes()
+            model_pbuf_bytes = self._get_protobuf_bytes()
             params_t = <uintptr_t> self.rf_forest
             rf_forest = \
                 <RandomForestMetaData[float, int]*>params_t
@@ -332,12 +331,12 @@ class RandomForestClassifier(Base):
                 <RandomForestMetaData[double, int]*>params_t64
             state["rf_params"] = rf_forest.rf_params
             state["rf_params64"] = rf_forest64.rf_params
-        # else:
-        #    model_pbuf_bytes = bytearray()
+        else:
+            model_pbuf_bytes = bytearray()
         state['n_cols'] = self.n_cols
         state["verbose"] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
-        # state["treelite_handle"] = None
+        state["treelite_handle"] = None
 
         return state
 
