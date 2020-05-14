@@ -35,6 +35,7 @@ namespace Datasets {
  * @param[in]  noise_scale    Scale used to draw the residuals
  * @param[in]  intercept_sale Scale used to draw the intercept
  * @param[in]  seed           Seed for the random number generator
+ * @{
  */
 void make_arima(const cumlHandle& handle, float* out, int batch_size, int n_obs,
                 ARIMAOrder order, float scale = 1.0f, float noise_scale = 0.2f,
@@ -44,6 +45,7 @@ void make_arima(const cumlHandle& handle, double* out, int batch_size,
                 int n_obs, ARIMAOrder order, double scale = 1.0,
                 double noise_scale = 0.2, double intercept_scale = 1.0,
                 uint64_t seed = 0ULL);
+/** @} */
 
 }  // namespace Datasets
 }  // namespace ML
