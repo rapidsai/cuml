@@ -52,6 +52,7 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/distance_l1.cu
     prims/distance_unexp_l2.cu
     prims/fused_l2_nn.cu
+    prims/gram_matrix.cu
     prims/main.cpp
     prims/map_then_reduce.cu
     prims/matrix_vector_op.cu
@@ -63,7 +64,7 @@ if(BUILD_CUML_PRIMS_BENCH)
 
   add_dependencies(prims_benchmark spdlog)
 
-  target_link_libraries(prims_benchmark benchmarklib)
+  target_link_libraries(prims_benchmark ${CUDA_cublas_LIBRARY} benchmarklib)
 
   target_include_directories(prims_benchmark
     PRIVATE ${GBENCH_DIR}/include
