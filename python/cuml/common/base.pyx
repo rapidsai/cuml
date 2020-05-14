@@ -108,8 +108,6 @@ class Base:
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created just for this class.
-    verbose : boolean
-        Deprecated in favor of `verbosity` flag
     verbosity : int
         Sets logging level. It must be one of `cuml.common.logger.LEVEL_*`.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
@@ -117,6 +115,8 @@ class Base:
         the estimators. If None, it'll inherit the output type set at the
         module level, cuml.output_type. If set, the estimator will override
         the global option for its behavior.
+    verbose : boolean
+        Deprecated in favor of `verbosity` flag
 
     Examples
     --------
@@ -164,8 +164,8 @@ class Base:
         del base  # optional!
     """
 
-    def __init__(self, handle=None, verbose=None, verbosity=logger.LEVEL_INFO,
-                 output_type=None):
+    def __init__(self, handle=None, verbosity=logger.LEVEL_INFO,
+                 output_type=None, verbose=None):
         """
         Constructor. All children must call init method of this base class.
 
