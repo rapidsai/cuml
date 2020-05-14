@@ -112,7 +112,7 @@ struct RandomForestMetaData {
   RandomForestMetaData() : trees(nullptr) {}
   ~RandomForestMetaData() {
     if (trees != nullptr) {
-      delete [] trees;
+      delete[] trees;
     }
   }
 };
