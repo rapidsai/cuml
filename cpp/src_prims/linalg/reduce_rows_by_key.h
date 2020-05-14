@@ -318,13 +318,17 @@ void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A, int lda,
 
 /**
  * @brief Computes the weighted reduction of matrix rows for each given key
- * @tparam DataIteratorT Random-access iterator type, for reading input matrix (may be a simple pointer type)
- * @tparam KeysIteratorT Random-access iterator type, for reading input keys (may be a simple pointer type)
+ *
+ * @tparam DataIteratorT Random-access iterator type, for reading input matrix
+ *                       (may be a simple pointer type)
+ * @tparam KeysIteratorT Random-access iterator type, for reading input keys
+ *                       (may be a simple pointer type)
+ *
  * @param[in]  d_A         Input data array (lda x nrows)
  * @param[in]  lda         Real row size for input data, d_A
- * @param[in[  d_weights   Weights for each observation in d_A (1 x nrows)
  * @param[in]  d_keys      Keys for each row (1 x nrows)
- * @param      d_keys_char Scratch memory for conversion of keys to char
+ * @param[in]  d_weights   Weights for each observation in d_A (1 x nrows)
+ * @param[out] d_keys_char Scratch memory for conversion of keys to char
  * @param[in]  nrows       Number of rows in d_A and d_keys
  * @param[in]  ncols       Number of data columns in d_A
  * @param[in]  nkeys       Number of unique keys in d_keys
