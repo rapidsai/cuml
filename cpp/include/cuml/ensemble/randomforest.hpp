@@ -131,6 +131,9 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles);
 
 void compare_concat_forest_to_subforests(
   ModelHandle concat_tree_handle, std::vector<ModelHandle> treelite_handles);
+
+template <class T, class L>
+RandomForestMetaData<T, L>* create_meta(T a, L b);
 // ----------------------------- Classification ----------------------------------- //
 
 typedef RandomForestMetaData<float, int> RandomForestClassifierF;

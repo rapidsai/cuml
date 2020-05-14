@@ -114,12 +114,25 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
 
     ctypedef fused fused_rf_meta:
        RandomForestMetaData[float, float]
-       RandomForestMetaData[double, double]
+       #RandomForestMetaData[double, double]
        RandomForestMetaData[float, int]
-       RandomForestMetaData[double, int]
+       #RandomForestMetaData[double, int]
 
-    cdef fused_rf_meta *meta
+    ctypedef fused X_dtype:
+        cython.float
+        cython.double
 
+    ctypedef fused y_dtype:
+        cython.int
+        cython.float
+        cython.double
+
+    cpdef fused_rf_meta *meta
+
+    cdef RandomForestMetaData[T, L]* create_meta[T, L](T a, L b)
+    #cdef fused_rf_meta *meta
+    #fused_rf_meta = cython.fused(RandomForestRegressorF, RandomForestRegressorD,
+    #                             RandomForestClassifierF, RandomForestClassifierD)
     #
     # Treelite handling
     #
@@ -157,10 +170,3 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
     cdef ModelHandle concatenate_trees(
         vector[ModelHandle] &treelite_handles) except +
 
-    cdef void predict[T, L](cumlHandle& handle,
-                      RandomForestMetaData[T, L] *,
-                      T*,
-                      int,
-                      int,
-                      L*,
-                      int) except +

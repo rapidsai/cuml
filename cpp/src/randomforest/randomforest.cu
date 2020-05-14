@@ -220,6 +220,11 @@ void print(const RF_params rf_params) {
   DecisionTree::print(rf_params.tree_params);
 }
 
+template <class T, class L>
+RandomForestMetaData<T, L>* create_meta(T a, L b) {
+  RandomForestMetaData<T, L>* rf = new RandomForestMetaData<T, L>();
+  return rf;
+}
 /**
  * @brief Set the trees pointer of RandomForestMetaData to nullptr.
  * @param[in, out] forest: CPU pointer to RandomForestMetaData.
@@ -754,6 +759,31 @@ RF_metrics score(const cumlHandle& user_handle,
 /** @} */
 
 // Functions' specializations
+
+template RandomForestMetaData<float, float>* create_meta<float, float>(float a, float b);
+template RandomForestMetaData<double, double>* create_meta<double, double>(double a, double b);
+template RandomForestMetaData<float, int>* create_meta<float, int>(float a , int b);
+template RandomForestMetaData<double, int>* create_meta<double, int>(double a, int b);
+
+
+template void predict<double, int>(
+  const cumlHandle& user_handle,
+  const RandomForestMetaData<double, int>* forest, const double* input,
+  int n_rows, int n_cols, int* predictions, int verbosity);
+template void predict<float, int>(
+  const cumlHandle& user_handle,
+  const RandomForestMetaData<float, int>* forest, const float* input,
+  int n_rows, int n_cols, int* predictions, int verbosity);
+
+template void predict<float>(
+  const cumlHandle& user_handle,
+  const RandomForestMetaData<float, float>* forest, const float* input,
+  int n_rows, int n_cols, float* predictions, int verbosity);
+template void predict<double>(
+  const cumlHandle& user_handle,
+  const RandomForestMetaData<double, double>* forest, const double* input,
+  int n_rows, int n_cols, double* predictions, int verbosity);
+
 template void print_rf_summary<float, int>(
   const RandomForestClassifierF* forest);
 template void print_rf_summary<double, int>(
