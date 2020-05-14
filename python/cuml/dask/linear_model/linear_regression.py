@@ -85,7 +85,7 @@ class LinearRegression(BaseEstimator,
         """
 
         models = self._fit(model_func=LinearRegression._create_model,
-                           data=(X, y), **self.kwargs)
+                           data=(X, y))
 
         self.local_model = list(models.values())[0].result()
         self.coef_ = self.local_model.coef_
