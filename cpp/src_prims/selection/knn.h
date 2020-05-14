@@ -248,12 +248,12 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   float *out_D = res_D;
   int64_t *out_I = res_I;
 
-  if(input.size() > 1) {
-	  all_D.resize(input.size() * k * n, userStream);
-	  all_I.resize(input.size() * k * n, userStream);
+  if (input.size() > 1) {
+    all_D.resize(input.size() * k * n, userStream);
+    all_I.resize(input.size() * k * n, userStream);
 
-	  out_D = all_D.data();
-	  out_I = all_I.data();
+    out_D = all_D.data();
+    out_I = all_I.data();
   }
 
   // Sync user stream only if using other streams to parallelize query
@@ -295,22 +295,21 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
   }
 
-  if(input.size() > 1) {
-	  knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k,
-	                  userStream, trans.data());
+  if (input.size() > 1) {
+    knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k, userStream,
+                    trans.data());
   }
 
   // Perform necessary post-processing
-  if(m == faiss::MetricType::METRIC_L2 || m == faiss::MetricType::METRIC_Lp) {
-	  /**
+  if (m == faiss::MetricType::METRIC_L2 || m == faiss::MetricType::METRIC_Lp) {
+    /**
 	   * p-norm post-processing
 	   */
-	  float p = 0.5; // standard l2
-	  if(m == faiss::MetricType::METRIC_Lp)
-		  p = 1.0/metricArg;
-	  MLCommon::LinAlg::unaryOp<float>(
-		res_D, res_D, n * k, [p] __device__(float input) { return powf(input, p); },
-		userStream);
+    float p = 0.5;  // standard l2
+    if (m == faiss::MetricType::METRIC_Lp) p = 1.0 / metricArg;
+    MLCommon::LinAlg::unaryOp<float>(
+      res_D, res_D, n * k,
+      [p] __device__(float input) { return powf(input, p); }, userStream);
   }
 
   if (translations == nullptr) delete id_ranges;
