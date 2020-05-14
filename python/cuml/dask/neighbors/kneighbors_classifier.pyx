@@ -92,38 +92,19 @@ cdef extern from "cumlprims/opg/selection/knn.hpp" namespace \
     ) except +
 
 
-def _build_float_d(arr_interfaces):
-    """
-    Instantiate a container object for a float data pointer
-    and size.
-
-    Parameters
-    ----------
-    arr_interfaces:
-    """
-    cdef vector[floatData_t *] * dataF = new vector[floatData_t *]()
-
-    cdef uintptr_t input_ptr
-    for x_i in range(len(arr_interfaces)):
-        x = arr_interfaces[x_i]
-        input_ptr = x["data"]
-        data = <floatData_t *> malloc(sizeof(floatData_t))
-        data.ptr = < float * > input_ptr
-        data.totalSize = <size_t> (x["shape"][0] *
-                                   x["shape"][1] *
-                                   sizeof(float))
-
-        dataF.push_back(data)
-
-    return < size_t > dataF
+def _func_get_o(f, idx):
+    o, i, d = f
+    return o[idx]
 
 
-def _free_float_d(data):
-    cdef uintptr_t data_ptr = <size_t>data
-    cdef vector[floatData_t*] *d = <vector[floatData_t*]*>data_ptr
-    for x_i in range(d.size()):
-        free(d.at(x_i))
-    free(d)
+def _func_get_i(f, idx):
+    o, i, d = f
+    return i[idx]
+
+
+def _func_get_d(f, idx):
+    o, i, d = f
+    return d[idx]
 
 
 def _build_part_inputs(cuda_arr_ifaces,
@@ -131,9 +112,7 @@ def _build_part_inputs(cuda_arr_ifaces,
                        m, n, local_rank,
                        convert_dtype):
 
-    cdef vector[RankSizePair*] *vec = new vector[RankSizePair*]()
-
-    arr_ints = []
+    cuml_arr_ifaces = []
     for arr in cuda_arr_ifaces:
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(arr, order="F",
@@ -141,33 +120,30 @@ def _build_part_inputs(cuda_arr_ifaces,
                                                   if convert_dtype
                                                   else None),
                                 check_dtype=[np.float32])
-        input_ptr = X_m.ptr
-        arr_ints.append({"obj": X_m,
-                         "data": input_ptr,
-                         "shape": (n_rows, n_cols)})
+        cuml_arr_ifaces.append(X_m)
 
+    cdef vector[floatData_t*] *local_parts = new vector[floatData_t*]()
+    for arr in cuml_arr_ifaces:
+        data = <floatData_t*>malloc(sizeof(floatData_t))
+        data.ptr = <float*><uintptr_t>arr.ptr
+        data.totalSize = <size_t>arr.shape[0]*arr.shape[1]*sizeof(float)
+        local_parts.push_back(data)
+
+    cdef vector[RankSizePair*] partsToRanks
     for idx, rankToSize in enumerate(parts_to_ranks):
         rank, size = rankToSize
-        rsp = <RankSizePair*> malloc(sizeof(RankSizePair))
+        rsp = <RankSizePair*>malloc(sizeof(RankSizePair))
         rsp.rank = <int>rank
         rsp.size = <size_t>size
+        partsToRanks.push_back(rsp)
 
-        vec.push_back(rsp)
+    cdef PartDescriptor *descriptor = \
+        new PartDescriptor(<size_t>m,
+                           <size_t>n,
+                           <vector[RankSizePair*]>partsToRanks,
+                           <int>local_rank)
 
-    cdef vector[floatData_t*] *local_parts \
-        = <vector[floatData_t*]*><size_t> _build_float_d(arr_ints)
-
-    cdef PartDescriptor *descriptor \
-        = new PartDescriptor(<size_t>m,
-                             <size_t>n,
-                             <vector[RankSizePair*]>deref(vec),
-                             <int>local_rank)
-
-    cdef uintptr_t rsp_ptr = <uintptr_t>vec
-    cdef uintptr_t local_parts_ptr = <uintptr_t>local_parts
-    cdef uintptr_t desc_ptr = <uintptr_t>descriptor
-
-    return arr_ints, rsp_ptr, local_parts_ptr, desc_ptr
+    return cuml_arr_ifaces, <uintptr_t>local_parts, <uintptr_t>descriptor
 
 
 def _free_mem(out_vec, out_i_vec, out_d_vec,
@@ -176,30 +152,33 @@ def _free_mem(out_vec, out_i_vec, out_d_vec,
               lbls_local_parts,
               uniq_labels, n_unique):
 
-    free(<void*>out_vec)
-    free(<void*>out_i_vec)
-    free(<void*>out_d_vec)
+    free(<void*><uintptr_t>out_vec)
+    free(<void*><uintptr_t>out_i_vec)
+    free(<void*><uintptr_t>out_d_vec)
 
-    _free_float_d(<uintptr_t>idx_local_parts)
-    free(<void*>idx_desc)
+    cdef floatData_t* ptr
 
-    _free_float_d(<uintptr_t>q_local_parts)
-    free(<void*>q_desc)
+    cdef vector[floatData_t*] *idx_local_parts_v = \
+        <vector[floatData_t *]*><uintptr_t>idx_local_parts
+    for i in range(idx_local_parts_v.size()):
+        ptr = idx_local_parts_v.at(i)
+        free(<void*>ptr)
+    free(<void*><uintptr_t>idx_local_parts)
 
-    cdef vector[int_ptr_vector]*v = \
-        <vector[int_ptr_vector]*><uintptr_t>lbls_local_parts
-    cdef vector[int*] *vv
-    for i in range(v.size()):
-        vv = &v.at(i)
-        free(<void*>vv)
-    free(<void*>v)
+    cdef vector[floatData_t*] *q_local_parts_v = \
+        <vector[floatData_t *]*><uintptr_t>q_local_parts
+    for i in range(q_local_parts_v.size()):
+        ptr = q_local_parts_v.at(i)
+        free(<void*>ptr)
+    free(<void*><uintptr_t>q_local_parts)
 
-    cdef vector[int*] *uniq_labels_vec = <vector[int*]*><uintptr_t>uniq_labels
-    for i in range(uniq_labels_vec.size()):
-        free(<void*>uniq_labels_vec.at(i))
-    free(<void*>uniq_labels_vec)
+    free(<void*><uintptr_t>idx_desc)
+    free(<void*><uintptr_t>q_desc)
 
-    free(<void*>n_unique)
+    free(<void*><uintptr_t>lbls_local_parts)
+
+    free(<void*><uintptr_t>uniq_labels)
+    free(<void*><uintptr_t>n_unique)
 
 
 def _func_knn_classify(sessionID,
@@ -215,11 +194,11 @@ def _func_knn_classify(sessionID,
     idx = [d[0] for d in data]
     lbls = [d[1] for d in data]
 
-    idx_cai, idx_rsp, idx_local_parts, idx_desc = \
+    idx_cai, idx_local_parts, idx_desc = \
         _build_part_inputs(idx, data_parts_to_ranks,
                            data_nrows, ncols, rank, convert_dtype)
 
-    q_cai, q_rsp, q_local_parts, q_desc = \
+    q_cai, q_local_parts, q_desc = \
         _build_part_inputs(query, query_parts_to_ranks,
                            query_nrows, ncols, rank, convert_dtype)
 
@@ -237,12 +216,14 @@ def _func_knn_classify(sessionID,
             lbls_dev_arr.append(lbls_arr)
             lbls_local_parts.at(i).push_back(<int*><uintptr_t>lbls_arr.ptr)
 
-    cdef vector[int*] *uniq_labels_vec = \
-        new vector[int*]()
-    for uniq_label in uniq_labels:
-        uniq_labels_vec.push_back(<int*>malloc(len(uniq_label)*sizeof(int*)))
-        for i, ul in enumerate(uniq_label):
-            uniq_labels_vec.back()[i] = ul
+    uniq_labels_d, _, _, _ = \
+        input_to_cuml_array(uniq_labels, order='C', check_dtype=np.int32,
+                            convert_to_dtype=np.int32)
+    cdef int* ptr = <int*><uintptr_t>uniq_labels_d.ptr
+    cdef vector[int*] *uniq_labels_vec = new vector[int*]()
+    for i in range(uniq_labels_d.shape[0]):
+        uniq_labels_vec.push_back(<int*>ptr)
+        ptr += <int>uniq_labels_d.shape[1]
 
     cdef vector[int] *n_unique_vec = \
         new vector[int]()
@@ -263,7 +244,7 @@ def _func_knn_classify(sessionID,
     output_d = []
 
     for query_part in q_cai:
-        n_rows = query_part["shape"][0]
+        n_rows = query_part.shape[0]
         o_ary = CumlArray.zeros(shape=(n_rows,),
                                 order="C", dtype=np.int32)
         i_ary = CumlArray.zeros(shape=(n_rows, n_neighbors),
@@ -313,8 +294,12 @@ def _func_knn_classify(sessionID,
               <uintptr_t>q_local_parts,
               <uintptr_t>q_desc,
               <uintptr_t>lbls_local_parts,
-              <uintptr_t>uniq_labels,
-              <uintptr_t>n_unique)
+              <uintptr_t>uniq_labels_vec,
+              <uintptr_t>n_unique_vec)
+
+    output = list(map(lambda o: o.to_output('cupy'), output))
+    output_i = list(map(lambda o: o.to_output('cupy'), output_i))
+    output_d = list(map(lambda o: o.to_output('cupy'), output_d))
 
     return output, output_i, output_d
 
@@ -354,7 +339,7 @@ class KNeighborsClassifier():
             n_targets = y.shape[1]
             for i in range(n_targets):
                 uniq_labels.append(da.unique(y[:, i]))
-        self.uniq_labels = da.compute(uniq_labels)[0]
+        self.uniq_labels = np.array(da.compute(uniq_labels)[0])
         self.n_unique = list(map(lambda x: len(x), self.uniq_labels))
         return self
 
@@ -423,27 +408,24 @@ class KNeighborsClassifier():
         out_futures = flatten_grouped_results(self.client,
                                               query_parts_to_ranks,
                                               knn_clf_res,
-                                              getter_func=lambda f,
-                                              idx: f[0][idx])
-
-        out_d_futures = flatten_grouped_results(self.client,
-                                                query_parts_to_ranks,
-                                                knn_clf_res,
-                                                getter_func=lambda f,
-                                                idx: f[1][idx])
+                                              getter_func=_func_get_o)
 
         out_i_futures = flatten_grouped_results(self.client,
                                                 query_parts_to_ranks,
                                                 knn_clf_res,
-                                                getter_func=lambda f,
-                                                idx: f[2][idx])
+                                                getter_func=_func_get_i)
+
+        out_d_futures = flatten_grouped_results(self.client,
+                                                query_parts_to_ranks,
+                                                knn_clf_res,
+                                                getter_func=_func_get_d)
 
         comms.destroy()
 
         if _return_futures:
-            return out_futures, out_d_futures, out_i_futures
+            return out_futures, out_i_futures, out_d_futures
         else:
             out = to_output(out_futures, self.datatype)
-            out_d = to_output(out_futures, self.datatype)
             out_i = to_output(out_i_futures, self.datatype)
-            return out, out_d, out_i
+            out_d = to_output(out_d_futures, self.datatype)
+            return out, out_i, out_d
