@@ -88,6 +88,7 @@
 - PR #2244: Re-enable slow ARIMA tests as stress tests
 - PR #2231: Using OPG structs from `cuml.common` in decomposition algorithms
 - PR #2252: Add benchmark for the Gram matrix prims
+- PR #2264: Reduce build time for cuML by using make_blobs from libcuml++ interface
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
