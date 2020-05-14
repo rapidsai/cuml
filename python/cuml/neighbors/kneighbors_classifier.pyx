@@ -136,9 +136,6 @@ class KNeighborsClassifier(NearestNeighbors):
     """
 
     def __init__(self, weights="uniform", **kwargs):
-        """
-
-        """
         super(KNeighborsClassifier, self).__init__(**kwargs)
 
         self.y = None
@@ -311,7 +308,8 @@ class KNeighborsClassifier(NearestNeighbors):
             if len(final_classes) == 1 else tuple(final_classes)
 
     def get_param_names(self):
-        return ["n_neighbors", "algorithm", "metric", "weights"]
+        return super(KNeighborsClassifier, self).get_param_names()\
+            + ["weights"]
 
     def score(self, X, y, convert_dtype=True):
         """
