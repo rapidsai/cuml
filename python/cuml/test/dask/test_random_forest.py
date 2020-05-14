@@ -124,7 +124,8 @@ def test_rf_regression_dask_fil(partitions_per_worker, cluster):
         y = y.astype(np.float32)
 
         X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                            test_size=1000)
+                                                            test_size=1000,
+                                                            random_state=123)
 
         cu_rf_params = {
             'n_estimators': 50,
@@ -222,7 +223,8 @@ def test_rf_regression_dask_cpu(partitions_per_worker, cluster):
         y = y.astype(np.float32)
 
         X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                            test_size=1000)
+                                                            test_size=1000,
+                                                            random_state=123)
 
         cu_rf_params = {
             'n_estimators': 50,
