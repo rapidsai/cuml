@@ -229,12 +229,13 @@ void null_trees_ptr(RandomForestMetaData<T, L>*& forest) {
   forest->trees = nullptr;
 }
 
+/**
+ * @brief Deletes RandomForestMetaData object
+ * @param[in] forest: CPU pointer to RandomForestMetaData.
+ */
 template <class T, class L>
-void free_trees_array(RandomForestMetaData<T, L>* forest) {
-  if (forest->trees != nullptr) {
-    delete[] forest->trees;
-    forest->trees = nullptr;
-  }
+void delete_rf_metadata(RandomForestMetaData<T, L>* forest) {
+  delete forest;
 }
 
 template <class T, class L>
@@ -776,10 +777,11 @@ template void null_trees_ptr<double, int>(RandomForestClassifierD*& forest);
 template void null_trees_ptr<float, float>(RandomForestRegressorF*& forest);
 template void null_trees_ptr<double, double>(RandomForestRegressorD*& forest);
 
-template void free_trees_array<float, int>(RandomForestClassifierF* forest);
-template void free_trees_array<double, int>(RandomForestClassifierD* forest);
-template void free_trees_array<float, float>(RandomForestRegressorF* forest);
-template void free_trees_array<double, double>(RandomForestRegressorD* forest);
+template void delete_rf_metadata<float, int>(RandomForestClassifierF* forest);
+template void delete_rf_metadata<double, int>(RandomForestClassifierD* forest);
+template void delete_rf_metadata<float, float>(RandomForestRegressorF* forest);
+template void delete_rf_metadata<double, double>(
+  RandomForestRegressorD* forest);
 
 template void build_treelite_forest<float, int>(
   ModelHandle* model, const RandomForestMetaData<float, int>* forest,

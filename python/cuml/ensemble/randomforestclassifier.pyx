@@ -371,14 +371,10 @@ class RandomForestClassifier(Base):
         # Only if model is fitted before
         # Clears the data of the forest to prepare for next fit
         if self.n_cols:
-            free_trees_array(<RandomForestMetaData[float, int]*><uintptr_t>
-                             self.rf_forest)
-            free_trees_array(<RandomForestMetaData[double, int]*><uintptr_t>
-                             self.rf_forest64)
-            free(<RandomForestMetaData[float, int]*><uintptr_t>
-                 self.rf_forest)
-            free(<RandomForestMetaData[double, int]*><uintptr_t>
-                 self.rf_forest64)
+            delete_rf_metadata(<RandomForestMetaData[float, int]*><uintptr_t>
+                               self.rf_forest)
+            delete_rf_metadata(<RandomForestMetaData[float, int]*><uintptr_t>
+                               self.rf_forest64)
 
             self.treelite_handle = None
             self.model_pbuf_bytes = bytearray()
