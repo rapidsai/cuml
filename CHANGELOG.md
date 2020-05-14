@@ -1,3 +1,10 @@
+# cuML 0.15.0 (Date TBD)
+
+## New Features
+- PR #2261: Exposing new FAISS metrics through Python API
+
+
+
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
