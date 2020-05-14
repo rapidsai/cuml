@@ -30,7 +30,7 @@ namespace ML {
  * @todo rmmPoolAllocatorAdapter currently only uses the default ctor of the
  *       underlying pool allocator (ie cnmem).
  */
-class rmmPoolAllocatorAdapter : public rmmPoolAllocatorAdapter {
+class rmmPoolAllocatorAdapter : public rmmAllocatorAdapter {
  public:
   rmmPoolAllocatorAdapter() : cnmem_mr_() {
     prev_mr_ = rmm::mr::set_default_resource(&cnmem_mr_);
