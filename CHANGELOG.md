@@ -59,6 +59,7 @@
 - PR #2118: Updating SGD & mini-batch estimators to use CumlArray
 - PR #2120: Speeding up dask RandomForest tests
 - PR #1883: Use CumlArray in ARIMA
+- PR #877: Adding definition of done criteria to wiki
 - PR #2135: A few optimizations to UMAP fuzzy simplicial set
 - PR #1914: Change the meaning of ARIMA's intercept to match the literature
 - PR #2098: Renaming .h to .cuh in decision_tree, glm, pca
@@ -78,6 +79,7 @@
 - PR #2199: Remove unncessary notebooks
 - PR #2195: Separating fit and transform calls in SG, MNMG PCA to save transform array memory consumption
 - PR #2201: Re-enabling UMAP repro tests
+- PR #2132: Add SVM C++ benchmarks
 - PR #2196: Updates to benchmarks. Moving notebook
 - PR #2208: Coordinate Descent, Lasso and ElasticNet CumlArray updates
 - PR #2210: Updating KNN tests to evaluate multiple index partitions
@@ -87,6 +89,7 @@
 - PR #2244: Re-enable slow ARIMA tests as stress tests
 - PR #2231: Using OPG structs from `cuml.common` in decomposition algorithms
 - PR #2259: Add CumlArray support to Naive Bayes
+- PR #2252: Add benchmark for the Gram matrix prims
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -128,6 +131,8 @@
 - PR #2224: Temporary fix for CI until new Dask version is released
 - PR #2228: Update to use __reduce_ex__ in CumlArray to override cudf.Buffer
 - PR #2249: Fix bug in UMAP continuous target metrics
+- PR #2258: Fix doxygen build break
+- PR #2255: Set random_state for train_test_split function in dask RF
 
 # cuML 0.13.0 (Date TBD)
 
