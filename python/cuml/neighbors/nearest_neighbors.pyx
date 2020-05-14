@@ -212,7 +212,7 @@ class NearestNeighbors(Base):
 
         self.n_neighbors = n_neighbors
         self.n_indices = 0
-        self.metric = metric.lower()
+        self.metric = metric
         self.metric_params = metric_params
         self.p = p
         self.algorithm = algorithm
@@ -250,6 +250,10 @@ class NearestNeighbors(Base):
         self.n_indices = 1
 
         return self
+
+    def get_param_names(self):
+        return ["n_neighbors", "algorithm", "metric",
+                "p", "metric_params"]
 
     def _build_metric_type(self, metric):
         if metric == "euclidean" or metric == "l2":
