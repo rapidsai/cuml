@@ -37,14 +37,15 @@ class ElasticNet(BaseEstimator):
 
     Parameters
     -----------
-    alpha : float or double
-        Constant that multiplies the L1 term. Defaults to 1.0.
+    alpha : float (default = 1.0)
+        Constant that multiplies the L1 term.
         alpha = 0 is equivalent to an ordinary least square, solved by the
         LinearRegression object.
         For numerical reasons, using alpha = 0 with the Lasso object is not
         advised.
         Given this, you should use the LinearRegression object.
-    l1_ratio: The ElasticNet mixing parameter, with 0 <= l1_ratio <= 1.
+    l1_ratio: float (default = 0.5)
+        The ElasticNet mixing parameter, with 0 <= l1_ratio <= 1.
         For l1_ratio = 0 the penalty is an L2 penalty. For l1_ratio = 1 it is
         an L1 penalty.
         For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
@@ -55,17 +56,26 @@ class ElasticNet(BaseEstimator):
         If True, the predictors in X will be normalized by dividing by it's L2
         norm.
         If False, no scaling will be done.
-    max_iter : int
+    max_iter : int (default = 1000)
         The maximum number of iterations
-    tol : float, optional
+    tol : float (default = 1e-3)
         The tolerance for the optimization: if the updates are smaller than
         tol, the optimization code checks the dual gap for optimality and
         continues until it is smaller than tol.
-    selection : str, default ‘cyclic’
+    selection : {'cyclic', 'random'} (default='cyclic')
         If set to ‘random’, a random coefficient is updated every iteration
         rather than looping over features sequentially by default.
         This (setting to ‘random’) often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class.
+    output_type : (optional) {'input', 'cudf', 'cupy', 'numpy'} default = None
+        Use it to control output type of the results and attributes.
+        If None it'll inherit the output type set at the
+        module level, cuml.output_type. If that has not been changed, by
+        default the estimator will mirror the type of the data used for each
+        fit or predict call.
+        If set, the estimator will override the global option for its behavior.
 
     Attributes
     -----------
@@ -96,26 +106,17 @@ class ElasticNet(BaseEstimator):
                          verbose=verbose,
                          **kwargs)
 
-    def fit(self, X, y, force_colocality=False):
+    def fit(self, X, y):
         """
         Fit the model with X and y.
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        X : Dask cuDF DataFrame or CuPy backed Dask Array
+        Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the transform method will, when necessary,
-            convert y to be the same data type as X if they differ. This
-            will increase memory used for the method.
+        y : Dask cuDF DataFrame or CuPy backed Dask Array
+        Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         """
 
@@ -132,20 +133,18 @@ class ElasticNet(BaseEstimator):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        X : Dask cuDF DataFrame or CuPy backed Dask Array
+        Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
+        delayed : bool (default = True)
+            Whether to do a lazy prediction (and return Delayed objects) or an
+            eagerly executed one.
+
 
         Returns
-        ----------
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
+        -------
+        y : Dask cuDF DataFrame or CuPy backed Dask Array
+        Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         """
 

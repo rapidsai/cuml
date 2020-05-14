@@ -76,11 +76,13 @@ cdef extern from "cumlprims/opg/cd.hpp" namespace "ML::CD::opg":
 
 
 class CDMG(MGFitMixin, CD):
+    """
+    Cython class for MNMG code usage. Not meant for end user consumption.
+    """
 
     def __init__(self, **kwargs):
         super(CDMG, self).__init__(**kwargs)
 
-    # def _fit(self, input_data, M, N, partsToRanks, rnk):
     def _fit(self, X, y, coef_ptr, rank_to_sizes, n_rows, n_cols,
              n_total_parts):
 
