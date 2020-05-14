@@ -16,6 +16,8 @@
 - PR #2242: Pandas input support with output as NumPy arrays by default
 
 ## Improvements
+
+- PR #2260: Add commit_hash to meta.yaml
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
 - PR #1944: Support for dask_cudf.core.Series in _extract_partitions
 - PR #1947: Cleaning up cmake
