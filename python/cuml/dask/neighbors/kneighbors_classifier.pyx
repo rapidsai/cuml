@@ -226,10 +226,10 @@ def _func_knn_classify(sessionID,
     cdef vector[int_ptr_vector] *lbls_local_parts = \
         new vector[int_ptr_vector](<int>len(lbls))
     lbls_dev_arr = []
-    for arr in lbls:
-        for i in range(arr.shape[1]):
+    for i, arr in enumerate(lbls):
+        for j in range(arr.shape[1]):
             lbls_arr, _, _, _ = \
-                input_to_cuml_array(arr[:, i], order="F",
+                input_to_cuml_array(arr[:, j], order="F",
                                     convert_to_dtype=(np.int32
                                                       if convert_dtype
                                                       else None),
