@@ -44,12 +44,13 @@ class Ridge(BaseEstimator,
 
     Parameters
     -----------
-    alpha : float or double
+    alpha : float (default = 1.0)
         Regularization strength - must be a positive float. Larger values
         specify stronger regularization. Array input will be supported later.
-    solver : 'eig'
+    solver : {'eig'}
         Eig uses a eigendecomposition of the covariance matrix, and is much
         faster.
+        Other solvers will be supported in the future.
     fit_intercept : boolean (default = True)
         If True, Ridge adds an additional term c to correct for the global
         mean of y, modeling the reponse as "x * beta + c".

@@ -53,8 +53,7 @@ class CD(BaseEstimator,
             Labels (outcome values)
         """
 
-        models = self._fit(model_func=CD._create_model, data=(X, y),
-                           **self.kwargs)
+        models = self._fit(model_func=CD._create_model, data=(X, y))
 
         self.local_model = list(models.values())[0].result()
         self.coef_ = self.local_model.coef_

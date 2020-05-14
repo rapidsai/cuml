@@ -20,11 +20,10 @@ import numpy as np
 
 from cuml import Base
 from cuml.common.array import CumlArray
-from cuml.dask.common import raise_exception_from_futures
+from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.dask.common.comms import CommsContext
 from cuml.dask.common.input_utils import DistributedDataHandler
 
-from dask.distributed import wait
 from dask_cudf.core import DataFrame as dcDataFrame
 from dask.distributed import default_client
 from functools import wraps
@@ -226,7 +225,7 @@ class DelayedInverseTransformMixin(DelayedParallelFunc):
 
 class SyncFitMixinLinearModel(object):
 
-    def _fit(self, model_func, data, **kwargs):
+    def _fit(self, model_func, data):
 
         n_cols = data[0].shape[1]
 
@@ -261,8 +260,7 @@ class SyncFitMixinLinearModel(object):
             workers=[wf[0]]))
             for idx, wf in enumerate(data.worker_to_parts.items())])
 
-        wait(list(lin_fit.values()))
-        raise_exception_from_futures(list(lin_fit.values()))
+        wait_and_raise_from_futures(list(lin_fit.values()))
 
         comms.destroy()
         return lin_models

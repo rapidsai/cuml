@@ -34,57 +34,10 @@ class Lasso(BaseEstimator):
     cuML's Lasso an array-like object or cuDF DataFrame and
     uses coordinate descent to fit a linear model.
 
-    Examples
-    ---------
-
-    .. code-block:: python
-
-        import numpy as np
-        import cudf
-        from cuml.linear_model import Lasso
-
-        ls = Lasso(alpha = 0.1)
-
-        X = cudf.DataFrame()
-        X['col1'] = np.array([0, 1, 2], dtype = np.float32)
-        X['col2'] = np.array([0, 1, 2], dtype = np.float32)
-
-        y = cudf.Series( np.array([0.0, 1.0, 2.0], dtype = np.float32) )
-
-        result_lasso = ls.fit(X, y)
-        print("Coefficients:")
-        print(result_lasso.coef_)
-        print("intercept:")
-        print(result_lasso.intercept_)
-
-        X_new = cudf.DataFrame()
-        X_new['col1'] = np.array([3,2], dtype = np.float32)
-        X_new['col2'] = np.array([5,5], dtype = np.float32)
-        preds = result_lasso.predict(X_new)
-
-        print(preds)
-
-    Output:
-
-    .. code-block:: python
-
-        Coefficients:
-
-                    0 0.85
-                    1 0.0
-
-        Intercept:
-                    0.149999
-
-        Preds:
-
-                    0 2.7
-                    1 1.85
-
     Parameters
     -----------
-    alpha : float or double
-        Constant that multiplies the L1 term. Defaults to 1.0.
+    alpha : float (default = 1.0)
+        Constant that multiplies the L1 term.
         alpha = 0 is equivalent to an ordinary least square, solved by the
         LinearRegression class.
         For numerical reasons, using alpha = 0 with the Lasso class is not
@@ -97,13 +50,13 @@ class Lasso(BaseEstimator):
         If True, the predictors in X will be normalized by dividing by it's L2
         norm.
         If False, no scaling will be done.
-    max_iter : int
+    max_iter : int (default = 1000)
         The maximum number of iterations
-    tol : float, optional
+    tol : float (default = 1e-3)
         The tolerance for the optimization: if the updates are smaller than
         tol, the optimization code checks the dual gap for optimality and
         continues until it is smaller than tol.
-    selection : str, default ‘cyclic’
+    selection : {'cyclic', 'random'} (default='cyclic')
         If set to ‘random’, a random coefficient is updated every iteration
         rather than looping over features sequentially by default.
         This (setting to ‘random’) often leads to significantly faster
@@ -143,20 +96,11 @@ class Lasso(BaseEstimator):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        X : Dask cuDF DataFrame or CuPy backed Dask Array
+        Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the transform method will, when necessary,
-            convert y to be the same data type as X if they differ. This
-            will increase memory used for the method.
+        y : Dask cuDF DataFrame or CuPy backed Dask Array
+        Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         """
 
@@ -173,20 +117,18 @@ class Lasso(BaseEstimator):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        X : Dask cuDF DataFrame or CuPy backed Dask Array
+        Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
+        delayed : bool (default = True)
+            Whether to do a lazy prediction (and return Delayed objects) or an
+            eagerly executed one.
+
 
         Returns
-        ----------
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
+        -------
+        y : Dask cuDF DataFrame or CuPy backed Dask Array
+        Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         """
 
