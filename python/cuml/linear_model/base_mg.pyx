@@ -78,7 +78,7 @@ class MGFitMixin(object):
         cdef uintptr_t coef_ptr = self._coef_.ptr
         coef_ptr_arg = <size_t>coef_ptr
 
-        cdef uintptr_t rank_to_sizes = opg.build_rank_size_pair(X_arys,
+        cdef uintptr_t rank_to_sizes = opg.build_rank_size_pair(partsToSizes,
                                                                 rank)
         rank_to_size_arg = <size_t>rank_to_sizes
 

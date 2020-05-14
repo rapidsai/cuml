@@ -99,14 +99,14 @@ def free_data_t(data_t, n, dtype):
         free(d64)
 
 
-def build_rank_size_pair(arys, rank):
+def build_rank_size_pair(parts_to_sizes, rank):
     """
-    Funciton to build a rankSizePair** mapping the rank to the sizes of arrays
-    in arys
+    Funciton to build a rankSizePair** mapping the rank to the sizes of
+    partitions
 
     Parameters
     ----------
-    arys: list of arrays (usual acceptable array/dataframe formats)
+    parts_to_sizes: array of tuples in the format: [(rank,size)]
     rank: rank to be mapped
 
     Returns:
@@ -115,13 +115,13 @@ def build_rank_size_pair(arys, rank):
     """
     cdef RankSizePair **rankSizePair = <RankSizePair**> \
         malloc(sizeof(RankSizePair**)
-               * len(arys))
+               * len(parts_to_sizes))
 
-    for i in range(len(arys)):
+    for i in range(len(parts_to_sizes)):
         rankSizePair[i] = <RankSizePair*> \
             malloc(sizeof(RankSizePair))
-        rankSizePair[i].rank = <int>rank
-        rankSizePair[i].size = <size_t>len(arys[i])
+        rankSizePair[i].rank = <int>parts_to_sizes[i][0]
+        rankSizePair[i].size = <size_t>parts_to_sizes[i][1]
 
     return <size_t> rankSizePair
 
