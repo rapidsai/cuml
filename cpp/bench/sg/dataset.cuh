@@ -125,10 +125,10 @@ struct Dataset {
       tmpY = (IdxT*)allocator->allocate(p.nrows * sizeof(IdxT), stream);
     }
 
-    ML::Datasets::make_blobs(
-      handle, tmpX, tmpY, p.nrows, p.ncols, p.nclasses, allocator, stream,
-      nullptr, nullptr, D(b.cluster_std), b.shuffle, D(b.center_box_min),
-      D(b.center_box_max), b.seed);
+    ML::Datasets::make_blobs(handle, tmpX, tmpY, p.nrows, p.ncols, p.nclasses,
+                             allocator, stream, nullptr, nullptr,
+                             D(b.cluster_std), b.shuffle, D(b.center_box_min),
+                             D(b.center_box_max), b.seed);
     if (!p.rowMajor) {
       MLCommon::LinAlg::transpose(tmpX, X, p.nrows, p.ncols, cublas_handle,
                                   stream);
