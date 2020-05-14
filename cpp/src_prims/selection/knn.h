@@ -218,6 +218,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
 
+  faiss::MetricType m = (faiss::MetricType)metric;
+
   std::vector<int64_t> *id_ranges;
   if (translations == nullptr) {
     // If we don't have explicit translations
@@ -240,8 +242,19 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   device_buffer<int64_t> trans(allocator, userStream, id_ranges->size());
   updateDevice(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
 
-  device_buffer<float> all_D(allocator, userStream, input.size() * k * n);
-  device_buffer<int64_t> all_I(allocator, userStream, input.size() * k * n);
+  device_buffer<float> all_D(allocator, userStream, 0);
+  device_buffer<int64_t> all_I(allocator, userStream, 0);
+
+  float *out_D = res_D;
+  int64_t *out_I = res_I;
+
+  if(input.size() > 1) {
+	  all_D.resize(input.size() * k * n, userStream);
+	  all_I.resize(input.size() * k * n, userStream);
+
+	  out_D = all_D.data();
+	  out_I = all_I.data();
+  }
 
   // Sync user stream only if using other streams to parallelize query
   if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
@@ -257,7 +270,7 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     gpu_res.setDefaultStream(device, stream);
 
     faiss::gpu::GpuDistanceParams args;
-    args.metric = (faiss::MetricType)metric;
+    args.metric = m;
     args.metricArg = metricArg;
     args.k = k;
     args.dims = D;
@@ -267,8 +280,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     args.queries = search_items;
     args.queriesRowMajor = rowMajorQuery;
     args.numQueries = n;
-    args.outDistances = all_D.data() + (i * k * n);
-    args.outIndices = all_I.data() + (i * k * n);
+    args.outDistances = out_D + (i * k * n);
+    args.outIndices = out_I + (i * k * n);
 
     bfKnn(&gpu_res, args);
 
@@ -282,12 +295,23 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
   }
 
-  knn_merge_parts(all_D.data(), all_I.data(), res_D, res_I, n, input.size(), k,
-                  userStream, trans.data());
+  if(input.size() > 1) {
+	  knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k,
+	                  userStream, trans.data());
+  }
 
-  MLCommon::LinAlg::unaryOp<float>(
-    res_D, res_D, n * k, [] __device__(float input) { return sqrt(input); },
-    userStream);
+  // Perform necessary post-processing
+  if(m == faiss::MetricType::METRIC_L2 || m == faiss::MetricType::METRIC_Lp) {
+	  /**
+	   * p-norm post-processing
+	   */
+	  float p = 0.5; // standard l2
+	  if(m == faiss::MetricType::METRIC_Lp)
+		  p = 1.0/metricArg;
+	  MLCommon::LinAlg::unaryOp<float>(
+		res_D, res_D, n * k, [p] __device__(float input) { return powf(input, p); },
+		userStream);
+  }
 
   if (translations == nullptr) delete id_ranges;
 

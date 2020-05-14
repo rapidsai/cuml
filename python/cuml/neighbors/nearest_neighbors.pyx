@@ -116,6 +116,9 @@ class NearestNeighbors(Base):
     p : float (default=2) Parameter for the Minkowski metric. When p = 1, this
         is equivalent to manhattan distance (l1), and euclidean distance (l2)
         for p = 2. For arbitrary p, minkowski distance (lp) is used.
+    metric_expanded : bool
+        Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
+        by using the expanded form and not computing the n-th roots.
     metric_params : dict, optional (default = None) This is currently ignored.
 
     Examples
@@ -192,18 +195,25 @@ class NearestNeighbors(Base):
                  metric="euclidean",
                  p=2,
                  metric_params=None,
+                 metric_expanded=False,
                  output_type=None):
 
         super(NearestNeighbors, self).__init__(handle=handle, verbose=verbose,
                                                output_type=output_type)
 
-        if metric != "euclidean":
-            raise ValueError("Only Euclidean (euclidean) "
-                             "metric is supported currently")
+        if algorithm != "brute":
+            raise ValueError("Algorithm %s is not valid. Only 'brute' is"
+                             "supported currently." % algorithm)
+
+        if metric not in cuml.neighbors.VALID_METRICS[algorithm]:
+            raise ValueError("Metric %s is not valid. "
+                             "Use sorted(cuml.neighbors.VALID_METRICS[%s]) "
+                             "to get valid options." % (metric, algorithm))
 
         self.n_neighbors = n_neighbors
         self.n_indices = 0
-        self.metric = metric.tolower()
+        self.metric = metric.lower()
+        self.metric_params = metric_params
         self.p = p
         self.algorithm = algorithm
 
@@ -241,24 +251,24 @@ class NearestNeighbors(Base):
 
         return self
 
-    def _build_metric_type(self):
-        if self.metric == "euclidean" or self.metric == "l2":
+    def _build_metric_type(self, metric):
+        if metric == "euclidean" or metric == "l2":
             return MetricType.METRIC_L2
-        elif self.metric == "cityblock" or self.metric == "l1"\
-                or self.metric == "manhattan" or self.metric == 'taxicab':
+        elif metric == "cityblock" or metric == "l1"\
+                or metric == "manhattan" or metric == 'taxicab':
             return MetricType.METRIC_L1
-        elif self.metric == "braycurtis":
+        elif metric == "braycurtis":
             return MetricType.METRIC_BrayCurtis
-        elif self.metric == "canberra":
+        elif metric == "canberra":
             return MetricType.METRIC_Canberra
-        elif self.metric == "minkowski":
+        elif metric == "minkowski" or metric == "lp":
             return MetricType.METRIC_Lp
-        elif self.metric == "chebyshev":
+        elif metric == "chebyshev" or metric == "linf":
             return MetricType.METRIC_Linf
-        elif self.metric == "jensenshannon":
+        elif metric == "jensenshannon":
             return MetricType.METRIC_JensenShannon
         else:
-            raise ValueError("Metric %s is not supported" % self.metric)
+            raise ValueError("Metric %s is not supported" % metric)
 
     def kneighbors(self, X=None, n_neighbors=None,
                    return_distance=True, convert_dtype=True):
@@ -339,7 +349,7 @@ class NearestNeighbors(Base):
 
         cdef uintptr_t x_ctype_st = X_m.ptr
 
-        metric = self._buid_metric_type(self.metric)
+        metric = self._build_metric_type(self.metric)
 
         brute_force_knn(
             handle_[0],
@@ -354,6 +364,8 @@ class NearestNeighbors(Base):
             False,
             False,
             <MetricType>metric,
+
+            # minkowski order is currently the only metric argument.
             <float>self.p
         )
 
