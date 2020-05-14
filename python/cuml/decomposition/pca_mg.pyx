@@ -32,12 +32,13 @@ from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
 from cuml.common.array import CumlArray
-
+import cuml.common.opg_data_utils_mg as opg
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_dev_array, zeros
+from cuml.common.opg_data_utils_mg cimport *
 
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG
@@ -67,9 +68,8 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
 cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
 
     cdef void fit(cumlHandle& handle,
-                  RankSizePair **rank_sizes,
-                  size_t n_parts,
-                  floatData_t **input,
+                  vector[floatData_t *] input_data,
+                  PartDescriptor &input_desc,
                   float *components,
                   float *explained_var,
                   float *explained_var_ratio,
@@ -80,9 +80,8 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                   bool verbose) except +
 
     cdef void fit(cumlHandle& handle,
-                  RankSizePair **rank_sizes,
-                  size_t n_parts,
-                  doubleData_t **input,
+                  vector[doubleData_t *] input_data,
+                  PartDescriptor &input_desc,
                   double *components,
                   double *explained_var,
                   double *explained_var_ratio,
@@ -98,8 +97,7 @@ class PCAMG(BaseDecompositionMG, PCA):
     def __init__(self, **kwargs):
         super(PCAMG, self).__init__(**kwargs)
 
-    def _call_fit(self, X, rank, arg_rank_size_pair,
-                  n_total_parts, arg_params):
+    def _call_fit(self, X, rank, part_desc, arg_params):
 
         cdef uintptr_t comp_ptr = self._components_.ptr
         cdef uintptr_t explained_var_ptr = self._explained_variance_.ptr
@@ -115,9 +113,8 @@ class PCAMG(BaseDecompositionMG, PCA):
         if self.dtype == np.float32:
 
             fit(handle_[0],
-                <RankSizePair**><size_t>arg_rank_size_pair,
-                <size_t> n_total_parts,
-                <floatData_t**><size_t>X,
+                deref(<vector[floatData_t*]*><uintptr_t>X),
+                deref(<PartDescriptor*><uintptr_t>part_desc),
                 <float*> comp_ptr,
                 <float*> explained_var_ptr,
                 <float*> explained_var_ratio_ptr,
@@ -129,9 +126,8 @@ class PCAMG(BaseDecompositionMG, PCA):
         else:
 
             fit(handle_[0],
-                <RankSizePair**><size_t>arg_rank_size_pair,
-                <size_t> n_total_parts,
-                <doubleData_t**><size_t>X,
+                deref(<vector[doubleData_t*]*><uintptr_t>X),
+                deref(<PartDescriptor*><uintptr_t>part_desc),
                 <double*> comp_ptr,
                 <double*> explained_var_ptr,
                 <double*> explained_var_ratio_ptr,

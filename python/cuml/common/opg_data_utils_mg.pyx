@@ -19,6 +19,7 @@ import numpy as np
 from cuml.common.opg_data_utils_mg cimport *
 from libc.stdlib cimport malloc, free
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
+from cython.operator cimport dereference as deref
 from cuml.common.array import CumlArray
 
 
@@ -34,44 +35,53 @@ def build_data_t(arys):
 
     Returns
     -------
-    ptr: pointer to either a floatData_t** or doubleData_t**, depending on
-        dtype of input
+    ptr: vector pointer of either a floatData_t* or doubleData_t*,
+         depending on dtype of input
 
     """
-    cdef floatData_t **data_f32
-    cdef doubleData_t **data_f64
+    cdef vector[floatData_t *] *data_f32 = new vector[floatData_t *]()
+    cdef vector[doubleData_t *] *data_f64 = new vector[doubleData_t *]()
+    # cdef floatData_t **data_f32
+    # cdef doubleData_t **data_f64
     cdef uintptr_t ary_ptr
+    cdef floatData_t *data_f
+    cdef doubleData_t *data_d
+    cdef uintptr_t data_ptr
 
     if arys[0].dtype == np.float32:
-        data_f32 = <floatData_t **> malloc(
-            sizeof(floatData_t *) * len(arys))
+        # data_f32 = <floatData_t **> malloc(
+        #    sizeof(floatData_t *) * len(arys))
 
         for idx in range(len(arys)):
-            data_f32[idx] = <floatData_t*> malloc(sizeof(floatData_t))
+            data_f = <floatData_t*> malloc(sizeof(floatData_t))
             ary_ptr = arys[idx].ptr
-            data_f32[idx].ptr = <float*> ary_ptr
-            data_f32[idx].totalSize = len(arys[idx])
+            data_f.ptr = <float*> ary_ptr
+            data_f.totalSize = len(arys[idx])
+            data_f32.push_back(data_f)
 
-        return <size_t>data_f32
+        data_ptr = <uintptr_t> data_f32
+        return data_ptr
 
     elif arys[0].dtype == np.float64:
-        data_f64 = <doubleData_t **> malloc(
-            sizeof(doubleData_t *) * len(arys))
+        # data_f64 = <doubleData_t **> malloc(
+        #    sizeof(doubleData_t *) * len(arys))
 
         for idx in range(len(arys)):
-            data_f64[idx] = <doubleData_t*> malloc(sizeof(doubleData_t))
+            data_d = <doubleData_t*> malloc(sizeof(doubleData_t))
             ary_ptr = arys[idx].ptr
-            data_f64[idx].ptr = <double*> ary_ptr
-            data_f64[idx].totalSize = len(arys[idx])
+            data_d.ptr = <double*> ary_ptr
+            data_d.totalSize = len(arys[idx])
+            data_f64.push_back(data_d)
 
-        return <size_t>data_f64
+        data_ptr = <uintptr_t> data_f64
+        return data_ptr
 
     else:
         raise TypeError('build_data_t: Arrays passed must be np.float32 or \
                         np.float64')
 
 
-def free_data_t(data_t, n, dtype):
+def free_data_t(data_t, dtype):
     """
     Function to free a floatData_t** or doubleData_t**
 
@@ -82,20 +92,20 @@ def free_data_t(data_t, n, dtype):
     dtype: np.float32 or np.float64 indicating whether data_t is a
         floatData_t** or doubleData_t**
     """
+    cdef uintptr_t data_ptr = data_t 
 
-    cdef uintptr_t data_ptr = data_t
-    cdef floatData_t **d32
-    cdef doubleData_t **d64
+    cdef vector[floatData_t*] *d32
+    cdef vector[doubleData_t*] *d64
 
     if dtype == np.float32:
-        d32 = <floatData_t**>data_ptr
-        for x_i in range(n):
-            free(d32[x_i])
+        d32 = <vector[floatData_t*]*> data_ptr
+        for x_i in range(d32.size()):
+            free(d32.at(x_i))
         free(d32)
     else:
-        d64 = <doubleData_t**>data_ptr
-        for x_i in range(n):
-            free(d64[x_i])
+        d64 = <vector[doubleData_t*]*> data_ptr
+        for x_i in range(d64.size()):
+            free(d64.at(x_i))
         free(d64)
 
 
@@ -111,22 +121,23 @@ def build_rank_size_pair(parts_to_sizes, rank):
 
     Returns:
     --------
-    ptr: pointer to the rankSizePair**
+    ptr: vector pointer of the RankSizePair*
     """
-    cdef RankSizePair **rankSizePair = <RankSizePair**> \
-        malloc(sizeof(RankSizePair**)
-               * len(parts_to_sizes))
+    cdef vector[RankSizePair*] *rsp_vec = new vector[RankSizePair*]()
 
-    for i in range(len(parts_to_sizes)):
-        rankSizePair[i] = <RankSizePair*> \
-            malloc(sizeof(RankSizePair))
-        rankSizePair[i].rank = <int>parts_to_sizes[i][0]
-        rankSizePair[i].size = <size_t>parts_to_sizes[i][1]
+    for idx, rankToSize in enumerate(parts_to_sizes):
+        rank, size = rankToSize
+        rsp = <RankSizePair*> malloc(sizeof(RankSizePair))
+        rsp.rank = <int>rank
+        rsp.size = <size_t>size
 
-    return <size_t> rankSizePair
+        rsp_vec.push_back(rsp)
+
+    cdef uintptr_t rsp_ptr = <uintptr_t> rsp_vec
+    return rsp_ptr
 
 
-def free_rank_size_pair(rank_size_t, n):
+def free_rank_size_pair(rank_size_t):
     """
     Function to free a rankSizePair**
 
@@ -135,12 +146,36 @@ def free_rank_size_pair(rank_size_t, n):
     rank_size_t: rankSizePair** to be freed.
     n: number of elements in the rankSizePair** to be freed.
     """
-    cdef uintptr_t rs_ptr = rank_size_t
-    cdef RankSizePair **rankSizePair = <RankSizePair**> rs_ptr
+    cdef uintptr_t rank_size_ptr = rank_size_t 
 
-    for idx in range(n):
-        free(<RankSizePair*>rankSizePair[idx])
-    free(<RankSizePair**>rankSizePair)
+    cdef vector[RankSizePair *] *rsp_vec \
+        = <vector[RankSizePair *]*> rank_size_ptr
+
+    for x_i in range(rsp_vec.size()):
+        free(rsp_vec.at(x_i))
+    free(rsp_vec)
+
+
+def build_part_descriptor(m, n, rank_size_t, rank):
+    cdef uintptr_t rank_size_ptr = rank_size_t 
+
+    cdef vector[RankSizePair *] *rsp_vec \
+        = <vector[RankSizePair *]*> rank_size_ptr
+
+    cdef PartDescriptor *descriptor \
+        = new PartDescriptor(<size_t>m,
+                             <size_t>n,
+                             <vector[RankSizePair*]>deref(rsp_vec),
+                             <int>rank)
+
+    cdef uintptr_t desc_ptr = <uintptr_t>descriptor
+    return desc_ptr
+
+
+def free_part_descriptor(descriptor_ptr):
+    cdef PartDescriptor *desc_c \
+        = <PartDescriptor*><size_t>descriptor_ptr
+    free(desc_c)
 
 
 def build_pred_or_trans_arys(arys, order, dtype):
