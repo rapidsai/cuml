@@ -18,6 +18,8 @@ import cupy as cp
 import pytest
 from sklearn.feature_extraction.text import CountVectorizer as SkCountVect
 from cudf import Series
+from numpy.testing import assert_array_equal
+import numpy as np
 
 
 def test_count_vectorizer():
@@ -143,3 +145,65 @@ def test_countvectorizer_max_df():
     assert len(vect.vocabulary_.to_host()) == 4    # {bcdt} remain
     assert 'a' in vect.stop_words_.to_host()
     assert len(vect.stop_words_) == 2
+
+
+def test_vectorizer_min_df():
+    test_data = Series(['abc', 'dea', 'eat'])
+    vect = CountVectorizer(analyzer='char', min_df=1)
+    vect.fit(test_data)
+    assert 'a' in vect.vocabulary_.to_host()
+    assert len(vect.vocabulary_.to_host()) == 6
+    assert len(vect.stop_words_) == 0
+
+    vect.min_df = 2
+    vect.fit(test_data)
+    assert 'c' not in vect.vocabulary_.to_host()  # {bcdt} ignored
+    assert len(vect.vocabulary_.to_host()) == 2    # {ae} remain
+    assert 'c' in vect.stop_words_.to_host()
+    assert len(vect.stop_words_) == 4
+
+    vect.min_df = 0.8  # 0.8 * 3 documents -> min_doc_count == 2.4
+    vect.fit(test_data)
+    assert 'c' not in vect.vocabulary_.to_host()  # {bcdet} ignored
+    assert len(vect.vocabulary_.to_host()) == 1    # {a} remains
+    assert 'c' in vect.stop_words_.to_host()
+    assert len(vect.stop_words_) == 5
+
+
+def test_count_binary_occurrences():
+    # by default multiple occurrences are counted as longs
+    test_data = Series(['aaabc', 'abbde'])
+    vect = CountVectorizer(analyzer='char', max_df=1.0)
+    X = cp.asnumpy(vect.fit_transform(test_data))
+    assert_array_equal(['a', 'b', 'c', 'd', 'e'],
+                       vect.get_feature_names().to_host())
+    assert_array_equal([[3, 1, 1, 0, 0],
+                        [1, 2, 0, 1, 1]], X)
+
+    # using boolean features, we can fetch the binary occurrence info
+    # instead.
+    vect = CountVectorizer(analyzer='char', max_df=1.0, binary=True)
+    X = cp.asnumpy(vect.fit_transform(test_data))
+    assert_array_equal([[1, 1, 1, 0, 0],
+                        [1, 1, 0, 1, 1]], X)
+
+    # check the ability to change the dtype
+    vect = CountVectorizer(analyzer='char', max_df=1.0,
+                           binary=True, dtype=cp.float32)
+    X = vect.fit_transform(test_data)
+    assert X.dtype == cp.float32
+
+
+def test_vectorizer_inverse_transform():
+    vectorizer = CountVectorizer()
+    transformed_data = vectorizer.fit_transform(DOCS_GPU)
+    inversed_data = vectorizer.inverse_transform(transformed_data)
+
+    sk_vectorizer = SkCountVect()
+    sk_transformed_data = sk_vectorizer.fit_transform(DOCS)
+    sk_inversed_data = sk_vectorizer.inverse_transform(sk_transformed_data)
+
+    for doc, sk_doc in zip(inversed_data, sk_inversed_data):
+        doc = np.sort(doc._column.nvstrings.to_host())
+        sk_doc = np.sort(sk_doc)
+        assert_array_equal(doc, sk_doc)
