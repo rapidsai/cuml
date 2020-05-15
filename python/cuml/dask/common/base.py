@@ -20,6 +20,7 @@ import numpy as np
 
 from cuml import Base
 from cuml.common.array import CumlArray
+import cuml.common.logger as logger
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.dask.common.comms import CommsContext
 from cuml.dask.common.input_utils import DistributedDataHandler
@@ -32,12 +33,12 @@ from toolz import first
 
 class BaseEstimator(object):
 
-    def __init__(self, client=None, verbose=False, **kwargs):
+    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
         """
         Constructor for distributed estimators
         """
         self.client = default_client() if client is None else client
-        self.verbose = verbose
+        self.verbosity = verbosity
         self.kwargs = kwargs
 
     @staticmethod
@@ -232,7 +233,7 @@ class SyncFitMixinLinearModel(object):
         data = DistributedDataHandler.create(data=data, client=self.client)
         self.datatype = data.datatype
 
-        comms = CommsContext(comms_p2p=False, verbose=self.verbose)
+        comms = CommsContext(comms_p2p=False)
         comms.init(workers=data.workers)
 
         data.calculate_parts_to_sizes(comms)

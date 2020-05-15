@@ -22,6 +22,7 @@
 from cuml.solvers import CD
 from cuml.metrics.base import RegressorMixin
 from cuml.common.base import Base
+import cuml.common.logger as logger
 
 
 class ElasticNet(Base, RegressorMixin):
@@ -158,7 +159,8 @@ class ElasticNet(Base, RegressorMixin):
         """
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(ElasticNet, self).__init__(handle=handle, verbose=0,
+        super(ElasticNet, self).__init__(handle=handle,
+                                         verbosity=logger.LEVEL_INFO,
                                          output_type=output_type)
 
         self._check_alpha(alpha)
