@@ -245,7 +245,7 @@ def _func_knn_classify(sessionID,
 
     for query_part in q_cai:
         n_rows = query_part.shape[0]
-        o_ary = CumlArray.zeros(shape=(n_rows,),
+        o_ary = CumlArray.zeros(shape=(n_rows, n_outputs),
                                 order="C", dtype=np.int32)
         i_ary = CumlArray.zeros(shape=(n_rows, n_neighbors),
                                 order="C", dtype=np.int64)
