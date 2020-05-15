@@ -28,14 +28,12 @@ class CD(BaseEstimator,
     supported currently
     """
 
-    def __init__(self, verbose=False, client=None, **kwargs):
+    def __init__(self, client=None, **kwargs):
         """
         Initializes the linear regression class.
 
         """
-        super(CD, self).__init__(client=client,
-                                 verbose=verbose,
-                                 **kwargs)
+        super(CD, self).__init__(client=client, **kwargs)
         self.coef_ = None
         self.intercept_ = None
         self._model_fit = False
