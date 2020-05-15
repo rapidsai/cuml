@@ -20,10 +20,7 @@
 
 #include <common/cudart_utils.h>
 
-#include "cuda_utils.h"
-#include "linalg/cublas_wrappers.h"
-#include "linalg/subtract.h"
-#include "linalg/transpose.h"
+#include "cuda_utils.cuh"
 #include "random/make_arima.cuh"
 #include "test_utils.h"
 
