@@ -13,6 +13,7 @@
 - PR #2074: SG and MNMG `make_classification`
 - PR #2127: Added order to SG `make_blobs`, and switch from C++ to cupy based implementation
 - PR #2057: Weighted k-means
+- PR #2245: ElasticNet, Lasso and Coordinate Descent MNMG
 - PR #2242: Pandas input support with output as NumPy arrays by default
 
 ## Improvements
@@ -79,6 +80,7 @@
 - PR #2199: Remove unncessary notebooks
 - PR #2195: Separating fit and transform calls in SG, MNMG PCA to save transform array memory consumption
 - PR #2201: Re-enabling UMAP repro tests
+- PR #2132: Add SVM C++ benchmarks
 - PR #2196: Updates to benchmarks. Moving notebook
 - PR #2208: Coordinate Descent, Lasso and ElasticNet CumlArray updates
 - PR #2210: Updating KNN tests to evaluate multiple index partitions
@@ -88,6 +90,7 @@
 - PR #2225: input_to_cuml_array keep order option, test updates and cleanup
 - PR #2244: Re-enable slow ARIMA tests as stress tests
 - PR #2231: Using OPG structs from `cuml.common` in decomposition algorithms
+- PR #2259: Add CumlArray support to Naive Bayes
 - PR #2252: Add benchmark for the Gram matrix prims
 
 ## Bug Fixes
