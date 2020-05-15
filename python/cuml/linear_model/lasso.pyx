@@ -86,8 +86,8 @@ class Lasso(Base, RegressorMixin):
 
     Parameters
     -----------
-    alpha : float or double
-        Constant that multiplies the L1 term. Defaults to 1.0.
+    alpha : float (default = 1.0)
+        Constant that multiplies the L1 term.
         alpha = 0 is equivalent to an ordinary least square, solved by the
         LinearRegression class.
         For numerical reasons, using alpha = 0 with the Lasso class is not
@@ -102,11 +102,11 @@ class Lasso(Base, RegressorMixin):
         If False, no scaling will be done.
     max_iter : int
         The maximum number of iterations
-    tol : float, optional
+    tol : float (default = 1e-3)
         The tolerance for the optimization: if the updates are smaller than
         tol, the optimization code checks the dual gap for optimality and
         continues until it is smaller than tol.
-    selection : 'cyclic', 'random' (default = 'cyclic')
+    selection : {'cyclic', 'random'} (default='cyclic')
         If set to ‘random’, a random coefficient is updated every iteration
         rather than looping over features sequentially by default.
         This (setting to ‘random’) often leads to significantly faster
@@ -126,8 +126,8 @@ class Lasso(Base, RegressorMixin):
     """
 
     def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
-                 max_iter=1000, tol=1e-3, selection='cyclic', handle=None):
-
+                 max_iter=1000, tol=1e-3, selection='cyclic', handle=None,
+                 output_type=None):
         """
         Initializes the lasso regression class.
 
@@ -145,7 +145,8 @@ class Lasso(Base, RegressorMixin):
         """
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(Lasso, self).__init__(handle=handle, verbose=0)
+        super(Lasso, self).__init__(handle=handle, verbose=0,
+                                    output_type=output_type)
 
         self._check_alpha(alpha)
         self.alpha = alpha

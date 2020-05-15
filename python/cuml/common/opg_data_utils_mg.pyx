@@ -19,6 +19,7 @@ import numpy as np
 from cuml.common.opg_data_utils_mg cimport *
 from libc.stdlib cimport malloc, free
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
+from cuml.common.array import CumlArray
 
 
 def build_data_t(arys):
@@ -120,7 +121,7 @@ def build_rank_size_pair(arys, rank):
         rankSizePair[i] = <RankSizePair*> \
             malloc(sizeof(RankSizePair))
         rankSizePair[i].rank = <int>rank
-        rankSizePair[i].size = <size_t>len(arys[i][0])
+        rankSizePair[i].size = <size_t>len(arys[i])
 
     return <size_t> rankSizePair
 
@@ -140,3 +141,15 @@ def free_rank_size_pair(rank_size_t, n):
     for idx in range(n):
         free(<RankSizePair*>rankSizePair[idx])
     free(<RankSizePair**>rankSizePair)
+
+
+def build_pred_or_trans_arys(arys, order, dtype):
+    output_arys = []
+    for i in range(len(arys)):
+        out = CumlArray.zeros(arys[i].shape,
+                              order=order,
+                              dtype=dtype)
+
+        output_arys.append(out)
+
+    return output_arys

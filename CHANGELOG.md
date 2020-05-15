@@ -11,7 +11,10 @@
 - PR #2067: python: wrap logging interface in cython
 - PR #2083: Added dtype, order, and use_full_low_rank to MNMG `make_regression`
 - PR #2074: SG and MNMG `make_classification`
+- PR #2127: Added order to SG `make_blobs`, and switch from C++ to cupy based implementation
 - PR #2057: Weighted k-means
+- PR #2245: ElasticNet, Lasso and Coordinate Descent MNMG
+- PR #2242: Pandas input support with output as NumPy arrays by default
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
@@ -57,6 +60,7 @@
 - PR #2118: Updating SGD & mini-batch estimators to use CumlArray
 - PR #2120: Speeding up dask RandomForest tests
 - PR #1883: Use CumlArray in ARIMA
+- PR #877: Adding definition of done criteria to wiki
 - PR #2135: A few optimizations to UMAP fuzzy simplicial set
 - PR #1914: Change the meaning of ARIMA's intercept to match the literature
 - PR #2098: Renaming .h to .cuh in decision_tree, glm, pca
@@ -64,6 +68,7 @@
 - PR #2146: Remove deprecated kalman filter
 - PR #2151: Add pytest duration and pytest timeout
 - PR #2156: Add Docker 19 support to local gpuci build
+- PR #2178: Reduce duplicated code in RF
 - PR #2124: Expand tutorial docs and sample notebook
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
 - PR #2186: Refactor cython code to build OPG structs in common utils file
@@ -75,11 +80,18 @@
 - PR #2199: Remove unncessary notebooks
 - PR #2195: Separating fit and transform calls in SG, MNMG PCA to save transform array memory consumption
 - PR #2201: Re-enabling UMAP repro tests
+- PR #2132: Add SVM C++ benchmarks
 - PR #2196: Updates to benchmarks. Moving notebook
+- PR #2208: Coordinate Descent, Lasso and ElasticNet CumlArray updates
 - PR #2210: Updating KNN tests to evaluate multiple index partitions
 - PR #2205: Use timeout to add 2 hour hard limit to dask tests
 - PR #2212: Improve DBScan batch count / memory estimation
 - PR #2214: Remove utils folder and refactor to common folder
+- PR #2225: input_to_cuml_array keep order option, test updates and cleanup
+- PR #2244: Re-enable slow ARIMA tests as stress tests
+- PR #2231: Using OPG structs from `cuml.common` in decomposition algorithms
+- PR #2259: Add CumlArray support to Naive Bayes
+- PR #2252: Add benchmark for the Gram matrix prims
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -121,6 +133,9 @@
 - PR #2223: Fix bug in ARIMA C++ benchmark
 - PR #2224: Temporary fix for CI until new Dask version is released
 - PR #2228: Update to use __reduce_ex__ in CumlArray to override cudf.Buffer
+- PR #2249: Fix bug in UMAP continuous target metrics
+- PR #2258: Fix doxygen build break
+- PR #2255: Set random_state for train_test_split function in dask RF
 
 # cuML 0.13.0 (Date TBD)
 

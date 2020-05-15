@@ -160,7 +160,6 @@ def make_monotonic(labels, classes=None, copy=False):
 
 
 def check_labels(labels, classes):
-
     """
     Validates that a set of labels is drawn from the unique
     set of given classes.
@@ -201,7 +200,6 @@ def check_labels(labels, classes):
 
 
 def invert_labels(labels, classes, copy=False):
-
     """
     Takes a set of labels that have been mapped to be drawn
     from a monotonically increasing set and inverts them to
