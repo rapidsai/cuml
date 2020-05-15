@@ -17,12 +17,12 @@
 #include <cuml/cluster/spectral.hpp>
 #include <cuml/cuml.hpp>
 
-#include "random/rng.h"
+#include "random/rng.cuh"
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include <cuda_utils.cuh>
 #include <iostream>
 #include <vector>
 

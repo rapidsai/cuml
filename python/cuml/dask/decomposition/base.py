@@ -25,15 +25,18 @@ from dask.distributed import wait
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.input_utils import DistributedDataHandler
 
+import cuml.common.logger as logger
+
 
 class BaseDecomposition(BaseEstimator):
 
-    def __init__(self, model_func, client=None, verbose=False, **kwargs):
+    def __init__(self, model_func, client=None, verbosity=logger.LEVEL_INFO,
+                 **kwargs):
         """
         Constructor for distributed decomposition model
         """
         super(BaseDecomposition, self).__init__(client=client,
-                                                verbose=verbose,
+                                                verbosity=verbosity,
                                                 **kwargs)
         self._model_func = model_func
 
@@ -49,8 +52,8 @@ class BaseDecomposition(BaseEstimator):
 class DecompositionSyncFitMixin(object):
 
     @staticmethod
-    def _func_fit(m, dfs, M, N, partsToRanks, rank, transform):
-        return m.fit(dfs, M, N, partsToRanks, rank, transform)
+    def _func_fit(m, dfs, M, N, partsToRanks, rank, _transform):
+        return m.fit(dfs, M, N, partsToRanks, rank, _transform)
 
     def _fit(self, X, _transform=False):
         """
@@ -114,6 +117,8 @@ class DecompositionSyncFitMixin(object):
                                                   data.gpu_futures,
                                                   pca_fit)
             return to_output(out_futures, self.datatype)
+
+        return self
 
         return self
 

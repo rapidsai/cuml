@@ -27,8 +27,9 @@ import rmm
 from cuml.solvers import QN
 from cuml.common.base import Base
 from cuml.metrics.accuracy import accuracy_score
-from cuml.utils import input_to_dev_array
-from cuml.utils import with_cupy_rmm
+import cuml.common.logger as logger
+from cuml.common import input_to_dev_array
+from cuml.common import with_cupy_rmm
 
 
 supported_penalties = ['l1', 'l2', 'none', 'elasticnet']
@@ -128,7 +129,7 @@ class LogisticRegression(Base):
     linesearch_max_iter: int (default = 50)
         Max number of linesearch iterations per outer iteration used in the
         lbfgs and owl QN solvers.
-    verbose: int (optional, default 0)
+    verbosity: int (optional, default cuml.common.logger.LEVEL_INFO)
         Controls verbosity level of logging.
     l1_ratio: float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
@@ -163,10 +164,11 @@ class LogisticRegression(Base):
 
     def __init__(self, penalty='l2', tol=1e-4, C=1.0, fit_intercept=True,
                  class_weight=None, max_iter=1000, linesearch_max_iter=50,
-                 verbose=0, l1_ratio=None, solver='qn', handle=None):
+                 verbosity=logger.LEVEL_INFO, l1_ratio=None, solver='qn',
+                 handle=None):
 
         super(LogisticRegression, self).__init__(handle=handle,
-                                                 verbose=verbose)
+                                                 verbosity=verbosity)
 
         if class_weight:
             raise ValueError("`class_weight` not supported.")
@@ -218,12 +220,13 @@ class LogisticRegression(Base):
                      l1_strength=l1_strength, l2_strength=l2_strength,
                      max_iter=self.max_iter,
                      linesearch_max_iter=self.linesearch_max_iter,
-                     tol=self.tol, verbose=self.verbose, handle=self.handle)
+                     tol=self.tol, verbosity=self.verbosity,
+                     handle=self.handle)
 
-        if self.verbose > 1:
+        if logger.should_log_for(logger.LEVEL_DEBUG):
             self.verb_prefix = "CY::"
-            print(self.verb_prefix + "Estimator parameters:")
-            pprint.pprint(self.__dict__)
+            logger.debug(self.verb_prefix + "Estimator parameters:")
+            logger.debug(pprint.pformat(self.__dict__))
         else:
             self.verb_prefix = ""
 
@@ -264,19 +267,20 @@ class LogisticRegression(Base):
         else:
             loss = 'sigmoid'
 
-        if self.verbose > 0:
-            print(self.verb_prefix + "Setting loss to " + str(loss))
+        if logger.should_log_for(logger.LEVEL_DEBUG):
+            logger.debug(self.verb_prefix + "Setting loss to " + str(loss))
 
         self.qn.loss = loss
 
-        if self.verbose > 0:
-            print(self.verb_prefix + "Calling QN fit " + str(loss))
+        if logger.should_log_for(logger.LEVEL_DEBUG):
+            logger.debug(self.verb_prefix + "Calling QN fit " + str(loss))
 
         self.qn.fit(X, y_m, convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
-        if self.verbose > 0:
-            print(self.verb_prefix + "Setting coefficients " + str(loss))
+        if logger.should_log_for(logger.LEVEL_DEBUG):
+            logger.debug(self.verb_prefix + "Setting coefficients " +
+                         str(loss))
 
         if self.fit_intercept:
             self.coef_ = self.qn.coef_[0:-1]
@@ -284,12 +288,12 @@ class LogisticRegression(Base):
         else:
             self.coef_ = self.qn.coef_
 
-        if self.verbose > 2:
-            print(self.verb_prefix + "Coefficients: " +
-                  self.coef_.copy_to_host())
+        if logger.should_log_for(logger.LEVEL_TRACE):
+            logger.trace(self.verb_prefix + "Coefficients: " +
+                         self.coef_.copy_to_host())
             if self.fit_intercept:
-                print(self.verb_prefix + "Intercept: " +
-                      self.intercept_.copy_to_host())
+                logger.trace(self.verb_prefix + "Intercept: " +
+                             self.intercept_.copy_to_host())
 
         return self
 
@@ -433,7 +437,7 @@ class LogisticRegression(Base):
 
     def __setstate__(self, state):
         super(LogisticRegression, self).__init__(handle=None,
-                                                 verbose=state['verbose'])
+                                                 verbosity=state['verbosity'])
 
         if 'qn' in state:
             qn = state['qn']

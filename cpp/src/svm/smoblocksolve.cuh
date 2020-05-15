@@ -18,11 +18,11 @@
 */
 #pragma once
 
-#include <cuda_utils.h>
 #include <stdlib.h>
+#include <cuda_utils.cuh>
 #include "cuml/svm/svm_parameter.h"
 #include "ml_utils.h"
-#include "selection/kselection.h"
+#include "selection/kselection.cuh"
 #include "smo_sets.cuh"
 
 namespace ML {

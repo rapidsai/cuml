@@ -17,8 +17,8 @@
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <cub/cub.cuh>
-#include "cuda_utils.h"
-#include "random/rng.h"
+#include "cuda_utils.cuh"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {
