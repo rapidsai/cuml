@@ -18,9 +18,9 @@
 
 #include <common/cudart_utils.h>
 #include <linalg/transpose.h>
-#include <linalg/unary_op.h>
-#include <random/make_blobs.h>
-#include <random/make_regression.h>
+#include <linalg/unary_op.cuh>
+#include <random/make_blobs.cuh>
+#include <random/make_regression.cuh>
 #include <common/cumlHandle.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/cuml.hpp>
