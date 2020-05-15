@@ -24,19 +24,19 @@
 namespace Dbscan {
 namespace AdjGraph {
 
-template <typename Type, typename Index_ = int>
+template <typename Index_ = int>
 void run(const ML::cumlHandle_impl& handle, bool* adj, Index_* vd,
          Index_* adj_graph, Index_ adjnnz, Index_* ex_scan, Index_ N,
-         Type minpts, bool* core_pts, int algo, Index_ batchSize,
+         Index_ minpts, bool* core_pts, int algo, Index_ batchSize,
          cudaStream_t stream) {
-  Pack<Type, Index_> data = {vd,      adj,      adj_graph, adjnnz,
-                             ex_scan, core_pts, N,         minpts};
+  Pack<Index_> data = {vd,      adj,      adj_graph, adjnnz,
+                       ex_scan, core_pts, N,         minpts};
   switch (algo) {
     case 0:
-      Naive::launcher<Type, Index_>(handle, data, batchSize, stream);
+      Naive::launcher<Index_>(handle, data, batchSize, stream);
       break;
     case 1:
-      Algo::launcher<Type, Index_>(handle, data, batchSize, stream);
+      Algo::launcher<Index_>(handle, data, batchSize, stream);
       break;
     default:
       ASSERT(false, "Incorrect algo passed! '%d'", algo);
