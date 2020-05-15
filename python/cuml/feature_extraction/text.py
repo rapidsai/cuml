@@ -79,6 +79,7 @@ class _VectorizerMixin:
 
     @staticmethod
     def _surround_with_space(nvstr):
+        """Adds spaces before and after each strings of a nvstrings"""
         s = len(nvstr)
         spaces = Series('').repeat(s)._column.nvstrings
         return spaces.cat(nvstr.cat(spaces, sep=' '), sep=' ')
@@ -117,9 +118,8 @@ class _VectorizerMixin:
 
         Returns
         -------
-        analyzer: callable
-            A function to handle tokenization
-            and n-grams generation.
+        ngrams: nvstrings
+            The vocabulary of n-grams.
         """
         if self.analyzer == 'char':
             return self._char_ngrams(docs)
@@ -142,7 +142,11 @@ class _VectorizerMixin:
         vocab = vocab.strip()
         return vocab
 
-    def build_vocabulary(self, docs):
+    def _build_vocabulary(self, docs):
+        """Builds a vocabulary given the preprocessed documents.
+
+        Takes care of tokenization and ngram_generation.
+        """
         self._fixed_vocabulary = self.vocabulary is not None
 
         if self._fixed_vocabulary:
@@ -181,15 +185,7 @@ class _VectorizerMixin:
             raise ValueError(msg)
 
     def _warn_for_unused_params(self):
-        if self.preprocessor is not None and callable(self.analyzer):
-            warnings.warn("The parameter 'preprocessor' will not be used"
-                          " since 'analyzer' is callable'")
-
-        if (self.ngram_range != (1, 1) and self.ngram_range is not None
-                and callable(self.analyzer)):
-            warnings.warn("The parameter 'ngram_range' will not be used"
-                          " since 'analyzer' is callable'")
-        if self.analyzer != 'word' or callable(self.analyzer):
+        if self.analyzer != 'word':
             if self.stop_words is not None:
                 warnings.warn("The parameter 'stop_words' will not be used"
                               " since 'analyzer' != 'word'")
@@ -291,8 +287,7 @@ class CountVectorizer(_VectorizerMixin):
         self.dtype = dtype
 
     def _count_vocab(self, docs):
-        """Create feature matrix, and vocabulary where fixed_vocab=False
-        """
+        """Create feature matrix, and vocabulary where fixed_vocab=False"""
         vocabulary = self.vocabulary_
         X = cp.empty((len(docs), len(vocabulary)), dtype=cp.int32)
 
@@ -309,6 +304,12 @@ class CountVectorizer(_VectorizerMixin):
         return X
 
     def _limit_features(self, X, vocab, high, low, limit):
+        """Remove too rare or too common features.
+
+        Prune features that are non zero in more samples than high or less
+        documents than low, modifying the vocabulary, and restricting it to
+        at most the limit most frequent.
+        """
         if high is None and low is None and limit is None:
             self.stop_words_ = None
             return X
@@ -341,15 +342,39 @@ class CountVectorizer(_VectorizerMixin):
         return preprocess(docs)
 
     def fit(self, raw_documents):
+        """Build a vocabulary of all tokens in the raw documents.
+
+       Parameters
+       ----------
+       raw_documents : cudf.Series
+           A Series of string documents
+
+       Returns
+       -------
+       self
+       """
         self.fit_transform(raw_documents)
         return self
 
     def fit_transform(self, raw_documents):
-        """Equivalent to .fit(X).transform(X) but preprocess X only once."""
+        """Build the vocabulary and return document-term matrix.
+
+        Equivalent to .fit(X).transform(X) but preprocess X only once.
+
+        Parameters
+        ----------
+        raw_documents : cudf.Series
+           A Series of string documents
+
+        Returns
+        -------
+        X : array of shape (n_samples, n_features)
+            Document-term matrix.
+        """
         self._warn_for_unused_params()
         self._validate_params()
         docs = self._preprocess(raw_documents)
-        self.build_vocabulary(docs)
+        self._build_vocabulary(docs)
 
         X = self._count_vocab(docs)
 
@@ -376,6 +401,21 @@ class CountVectorizer(_VectorizerMixin):
         return X
 
     def transform(self, raw_documents):
+        """Transform documents to document-term matrix.
+
+        Extract token counts out of raw text documents using the vocabulary
+        fitted with fit or the one provided to the constructor.
+
+        Parameters
+        ----------
+        raw_documents : cudf.Series
+           A Series of string documents
+
+        Returns
+        -------
+        X : array of shape (n_samples, n_features)
+            Document-term matrix.
+        """
         docs = self._preprocess(raw_documents)
         X = self._count_vocab(docs)
         if self.binary:
@@ -384,6 +424,18 @@ class CountVectorizer(_VectorizerMixin):
         return X
 
     def inverse_transform(self, X):
+        """Return terms per document with nonzero entries in X.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Document-term matrix.
+
+        Returns
+        -------
+        X_inv : list of cudf.Series of shape (n_samples,)
+            List of Series of terms.
+        """
         vocab = Series(self.vocabulary_)
         return [vocab[X[i, :].nonzero()[0]] for i in range(X.shape[0])]
 
