@@ -15,7 +15,7 @@
 
 import cuml
 import pytest
-import numpy as np
+import cupy as cp
 
 from sklearn.metrics import adjusted_rand_score
 
@@ -38,7 +38,7 @@ n_features = [
 centers = [
     None,
     2,
-    50,
+    5,
 ]
 
 cluster_std = [
@@ -71,27 +71,30 @@ random_state = [
 @pytest.mark.parametrize('center_box', center_box)
 @pytest.mark.parametrize('shuffle', shuffle)
 @pytest.mark.parametrize('random_state', random_state)
+@pytest.mark.parametrize('order', ['F', 'C'])
 def test_make_blobs_scalar_parameters(dtype, n_samples, n_features, centers,
                                       cluster_std, center_box, shuffle,
-                                      random_state):
+                                      random_state, order):
 
     out, labels = cuml.make_blobs(dtype=dtype, n_samples=n_samples,
                                   n_features=n_features, centers=centers,
                                   cluster_std=0.001,
                                   center_box=center_box, shuffle=shuffle,
-                                  random_state=random_state)
-
-    # we can use cupy in the future
-    labels_np = labels.copy_to_host()
+                                  random_state=random_state, order=order)
 
     assert out.shape == (n_samples, n_features), "out shape mismatch"
     assert labels.shape == (n_samples,), "labels shape mismatch"
 
+    if order == 'F':
+        assert out.flags['F_CONTIGUOUS']
+    elif order == 'C':
+        assert out.flags['C_CONTIGUOUS']
+
     if centers is None:
-        assert np.unique(labels_np).shape == (3,), \
+        assert cp.unique(labels).shape == (3,), \
             "unexpected number of clusters"
     elif centers <= n_samples:
-        assert np.unique(labels_np).shape == (centers,), \
+        assert cp.unique(labels).shape == (centers,), \
             "unexpected number of clusters"
 
 
@@ -102,8 +105,8 @@ n_features_ary = [
 ]
 
 centers_ary = [
-    np.random.uniform(size=(10, 2)),
-    np.random.uniform(size=(10, 100))
+    cp.random.uniform(size=(10, 2)),
+    cp.random.uniform(size=(10, 100))
 ]
 
 
@@ -119,11 +122,11 @@ def test_make_blobs_ary_parameters(dtype, n_samples, n_features,
                                    centers, cluster_std, center_box,
                                    shuffle, random_state):
 
-    centers = centers.astype(np.dtype(dtype))
-    cluster_std = np.full(shape=(1, 10), fill_value=cluster_std, dtype=dtype)
+    centers = cp.array(centers)
+    cluster_std = cp.full(shape=10, fill_value=cluster_std, dtype=dtype)
 
     if centers.shape[1] != n_features or \
-            cluster_std.shape[1] != centers.shape[0]:
+            len(cluster_std) != centers.shape[0]:
         with pytest.raises(ValueError):
             out, labels = \
                 cuml.make_blobs(dtype=dtype, n_samples=n_samples,
@@ -144,15 +147,12 @@ def test_make_blobs_ary_parameters(dtype, n_samples, n_features,
         assert out.shape == (n_samples, n_features), "out shape mismatch"
         assert labels.shape == (n_samples,), "labels shape mismatch"
 
-        labels_np = labels.copy_to_host()
-        out_np = out.copy_to_host()
-
-        assert np.unique(labels_np).shape == (centers.shape[0],), \
+        assert cp.unique(labels).shape == (centers.shape[0],), \
             "unexpected number of clusters"
 
         # Use kmeans to verify k cluster centers
         from sklearn.cluster import KMeans
         model = KMeans(n_clusters=centers.shape[0])
-        model.fit(np.array(out_np))
+        model.fit(cp.asnumpy(out))
 
-        assert adjusted_rand_score(model.labels_, labels_np)
+        assert adjusted_rand_score(model.labels_, cp.asnumpy(labels))
