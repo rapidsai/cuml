@@ -301,7 +301,10 @@ class CountVectorizer(_VectorizerMixin):
             vocabulary = self._surround_with_space(vocabulary)
             nvtext.strings_counts(docs, vocabulary, devptr=X.data.ptr)
         else:
-            nvtext.tokens_counts(docs, vocabulary, devptr=X.data.ptr)
+            if self.analyzer == 'word':
+                nvtext.tokens_counts(docs, vocabulary, devptr=X.data.ptr)
+            else:
+                nvtext.strings_counts(docs, vocabulary, devptr=X.data.ptr)
 
         return X
 
@@ -368,6 +371,7 @@ class CountVectorizer(_VectorizerMixin):
                                      max_doc_count,
                                      min_doc_count,
                                      self.max_features)
+
         X = X.astype(dtype=self.dtype)
         return X
 
@@ -381,8 +385,7 @@ class CountVectorizer(_VectorizerMixin):
 
     def inverse_transform(self, X):
         vocab = Series(self.vocabulary_)
-        return [vocab[X[i, :].nonzero()[0]]
-                for i in range(X.shape[0])]
+        return [vocab[X[i, :].nonzero()[0]] for i in range(X.shape[0])]
 
     def get_feature_names(self):
         """Array mapping from feature integer indices to feature name.
