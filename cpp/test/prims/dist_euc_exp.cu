@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "distance_base.h"
+#include "distance_base.cuh"
 
 namespace MLCommon {
 namespace Distance {

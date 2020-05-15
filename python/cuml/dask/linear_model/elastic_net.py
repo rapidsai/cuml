@@ -89,10 +89,8 @@ class ElasticNet(BaseEstimator):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
 
-    def __init__(self, client=None, verbose=False, **kwargs):
-        super(ElasticNet, self).__init__(client=client,
-                                         verbose=verbose,
-                                         **kwargs)
+    def __init__(self, client=None, **kwargs):
+        super(ElasticNet, self).__init__(client=client, **kwargs)
 
         kwargs['shuffle'] = False
 
@@ -102,9 +100,7 @@ class ElasticNet(BaseEstimator):
 
             del kwargs['selection']
 
-        self.solver = CD(client=client,
-                         verbose=verbose,
-                         **kwargs)
+        self.solver = CD(client=client, **kwargs)
 
     def fit(self, X, y):
         """

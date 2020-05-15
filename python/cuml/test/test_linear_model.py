@@ -196,7 +196,7 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
     culog = cuLog(penalty=penalty, l1_ratio=l1_ratio, C=C,
-                  fit_intercept=fit_intercept, tol=tol, verbose=0)
+                  fit_intercept=fit_intercept, tol=tol)
     culog.fit(X_train, y_train)
 
     # Only solver=saga supports elasticnet in scikit
