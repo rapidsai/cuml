@@ -131,17 +131,20 @@ class _VectorizerMixin:
             raise ValueError('%s is not a valid tokenization scheme/analyzer' %
                              self.analyzer)
 
-    def _remove_stop_words(self, vocab, stop_words):
-        contains = cp.empty(len(vocab), dtype=cp.bool)
+    def _remove_stop_words(self, vocab):
+        stop_words = self.get_stop_words()
+        vocab = self._surround_with_space(vocab)
         for w in (f' {w} ' for w in stop_words):
+            contains = cp.empty(len(vocab), dtype=cp.bool)
             _ = vocab.contains(w, regex=False, devptr=contains.data.ptr)
             idx = cp.where(contains)[0]
             vocab = vocab.remove_strings(idx.data.ptr, count=len(idx))
+        vocab = vocab.strip()
+        return vocab
 
     def build_vocabulary(self, docs):
         self._fixed_vocabulary = self.vocabulary is not None
 
-        print(docs)
         if self._fixed_vocabulary:
             self.vocabulary_ = self.vocabulary._column.nvstrings
         else:
@@ -156,12 +159,11 @@ class _VectorizerMixin:
                     vocab = nvtext.character_tokenize(docs)
                     vocab = Series(vocab).unique()._column.nvstrings
 
-            if self.analyzer == 'word':
-                vocab = self._remove_stop_words(vocab, self.get_stop_words())
+            if self.analyzer == 'word' and self.stop_words is not None:
+                vocab = self._remove_stop_words(vocab)
 
             self.vocabulary_ = vocab
 
-        print(self.vocabulary_)
         if len(self.vocabulary_) == 0:
             raise ValueError("Empty vocabulary; perhaps the documents only"
                              " contain stop words")
@@ -295,8 +297,8 @@ class CountVectorizer(_VectorizerMixin):
         X = cp.empty((len(docs), len(vocabulary)), dtype=cp.int32)
 
         if self.ngram_range != (1, 1):
-            vocabulary = self._surround_with_space(vocabulary)
             docs = self._surround_with_space(docs)
+            vocabulary = self._surround_with_space(vocabulary)
             nvtext.strings_counts(docs, vocabulary, devptr=X.data.ptr)
         else:
             nvtext.tokens_counts(docs, vocabulary, devptr=X.data.ptr)
@@ -344,7 +346,6 @@ class CountVectorizer(_VectorizerMixin):
         self._warn_for_unused_params()
         self._validate_params()
         docs = self._preprocess(raw_documents)
-        print(docs)
         self.build_vocabulary(docs)
 
         X = self._count_vocab(docs)
