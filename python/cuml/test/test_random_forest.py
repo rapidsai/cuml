@@ -690,36 +690,3 @@ def test_multiple_fits_regression(column_info, nrows, n_estimators, n_bins):
     params = cuml_model.get_params()
     assert params['n_estimators'] == n_estimators
     assert params['n_bins'] == n_bins
-
-
-    use_handle = True
-
-    X = X.astype(datatype)
-    y = y.astype(np.int32)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
-    # Create a handle for the cuml model
-    handle, stream = get_handle(use_handle, n_streams=1)
-
-    # Initialize, fit and predict using cuML's
-    # random forest classification model
-    cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
-                       n_bins=16, split_criterion=0,
-                       min_rows_per_node=2, seed=123, n_streams=1,
-                       n_estimators=40, handle=handle, max_leaves=-1,
-                       max_depth=16)
-    cuml_model.fit(X_train, y_train)
-    fil_preds_proba = cuml_model.predict_proba(X_test,
-                                               output_class=True,
-                                               threshold=0.5,
-                                               algo='auto')
-    if X.shape[0] < 500000:
-        sk_model = skrfc(n_estimators=40,
-                         max_depth=16,
-                         min_samples_split=2, max_features=max_features,
-                         random_state=10)
-        sk_model.fit(X_train, y_train)
-        sk_preds_proba = sk_model.predict_proba(X_test)
-        # Max difference of 0.0061 is seen between the mse values of
-        # predict proba function of fil and sklearn
-        check_predict_proba(fil_preds_proba, sk_preds_proba, y_test, rel_err=0.1)
