@@ -86,6 +86,7 @@
 - PR #2210: Updating KNN tests to evaluate multiple index partitions
 - PR #2205: Use timeout to add 2 hour hard limit to dask tests
 - PR #2214: Remove utils folder and refactor to common folder
+- PR #2220: Final refactoring of all src_prims header files following rules as specified in #1675
 - PR #2225: input_to_cuml_array keep order option, test updates and cleanup
 - PR #2244: Re-enable slow ARIMA tests as stress tests
 - PR #2231: Using OPG structs from `cuml.common` in decomposition algorithms
