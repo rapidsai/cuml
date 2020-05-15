@@ -543,7 +543,8 @@ def test_rf_memory_leakage(small_clf, fil_sparse_format, n_iter):
     # Warmup. Some modules that are used in RF allocate space on the device
     # and consume memory. This is to make sure that the allocation is done
     # before the first call to get_memory_info.
-    base_model = curfc(handle=handle, max_depth=15, n_estimators=100)
+    # Use deep enough max_depth to ensure that both scatter and gather happen
+    base_model = curfc(handle=handle, max_depth=15, n_estimators=10)
     base_model.fit(X_train, y_train)
     handle.sync()  # just to be sure
     free_mem = cuda.current_context().get_memory_info()[0]
