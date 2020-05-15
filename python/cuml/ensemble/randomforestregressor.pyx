@@ -528,6 +528,7 @@ class RandomForestRegressor(Base):
 
         # TODO: free the old treelite model here
         concat_model_handle = concatenate_trees(deref(model_handles))
+        cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
         self.treelite_handle = concat_model_ptr
 
         # Update n_estimators to reflect concatenated trees
