@@ -16,13 +16,14 @@
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
+from cuml.dask.common.base import SyncFitMixinLinearModel
 from cuml.dask.common.comms import worker_state
-from cuml.dask.linear_model.base import BaseLinearModelSyncFitMixin
+
 import cuml.common.logger as logger
 
 
 class LinearRegression(BaseEstimator,
-                       BaseLinearModelSyncFitMixin,
+                       SyncFitMixinLinearModel,
                        DelayedPredictionMixin):
     """
     LinearRegression is a simple machine learning model where the response y is
@@ -86,7 +87,7 @@ class LinearRegression(BaseEstimator,
         """
 
         models = self._fit(model_func=LinearRegression._create_model,
-                           data=(X, y), **self.kwargs)
+                           data=(X, y))
 
         self.local_model = list(models.values())[0].result()
         self.coef_ = self.local_model.coef_
