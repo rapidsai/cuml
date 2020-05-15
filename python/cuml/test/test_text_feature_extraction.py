@@ -67,7 +67,6 @@ def test_countvectorizer_custom_vocabulary():
 
     ref = SkCountVect(vocabulary=vocab).fit_transform(DOCS)
     X = CountVectorizer(vocabulary=vocab_gpu).fit_transform(DOCS_GPU)
-
     cp.testing.assert_array_equal(X, ref.toarray())
 
 
@@ -79,6 +78,68 @@ def test_countvectorizer_stop_words():
 
 def test_countvectorizer_empty_vocabulary():
     v = CountVectorizer(max_df=1.0, stop_words="english")
-    # fit on stopwords only
-    v.fit(Series(["to be or not to be", "and me too", "and so do you"]))
-    assert False, "we shouldn't get here"
+    # fitting only on stopwords will result in an empty vocabulary
+    with pytest.raises(ValueError):
+        v.fit(Series(["to be or not to be", "and me too", "and so do you"]))
+
+
+def test_countvectorizer_max_features():
+    expected_vocabulary = {'burger', 'beer', 'salad', 'pizza'}
+    expected_stop_words = {'celeri', 'tomato', 'copyright', 'coke',
+                           'sparkling', 'water', 'the'}
+
+    # test bounded number of extracted features
+    vec = CountVectorizer(max_df=0.6, max_features=4)
+    vec.fit(DOCS_GPU)
+    assert set(vec.get_feature_names().to_host()) == expected_vocabulary
+    assert set(vec.stop_words_.to_host()) == expected_stop_words
+
+
+def test_countvectorizer_max_features_counts():
+    JUNK_FOOD_DOCS_GPU = Series(JUNK_FOOD_DOCS)
+
+    cv_1 = CountVectorizer(max_features=1)
+    cv_3 = CountVectorizer(max_features=3)
+    cv_None = CountVectorizer(max_features=None)
+
+    counts_1 = cv_1.fit_transform(JUNK_FOOD_DOCS_GPU).sum(axis=0)
+    counts_3 = cv_3.fit_transform(JUNK_FOOD_DOCS_GPU).sum(axis=0)
+    counts_None = cv_None.fit_transform(JUNK_FOOD_DOCS_GPU).sum(axis=0)
+
+    features_1 = cv_1.get_feature_names()
+    features_3 = cv_3.get_feature_names()
+    features_None = cv_None.get_feature_names()
+
+    # The most common feature is "the", with frequency 7.
+    assert 7 == counts_1.max()
+    assert 7 == counts_3.max()
+    assert 7 == counts_None.max()
+
+    # The most common feature should be the same
+    def as_index(x): return x.astype(cp.int32).get()
+    assert ["the"] == features_1[as_index(cp.argmax(counts_1))].to_host()
+    assert ["the"] == features_3[as_index(cp.argmax(counts_3))].to_host()
+    assert ["the"] == features_None[as_index(cp.argmax(counts_None))].to_host()
+
+
+def test_countvectorizer_max_df():
+    test_data = Series(['abc', 'dea', 'eat'])
+    vect = CountVectorizer(analyzer='char', max_df=1.0)
+    vect.fit(test_data)
+    assert 'a' in vect.vocabulary_.to_host()
+    assert len(vect.vocabulary_.to_host()) == 6
+    assert len(vect.stop_words_) == 0
+
+    vect.max_df = 0.5  # 0.5 * 3 documents -> max_doc_count == 1.5
+    vect.fit(test_data)
+    assert 'a' not in vect.vocabulary_.to_host()  # {ae} ignored
+    assert len(vect.vocabulary_.to_host()) == 4    # {bcdt} remain
+    assert 'a' in vect.stop_words_.to_host()
+    assert len(vect.stop_words_) == 2
+
+    vect.max_df = 1
+    vect.fit(test_data)
+    assert 'a' not in vect.vocabulary_.to_host()  # {ae} ignored
+    assert len(vect.vocabulary_.to_host()) == 4    # {bcdt} remain
+    assert 'a' in vect.stop_words_.to_host()
+    assert len(vect.stop_words_) == 2
