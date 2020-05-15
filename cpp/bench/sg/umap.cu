@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include <cuml/cuml.hpp>
 #include <cuml/manifold/umap.hpp>
 #include <utility>

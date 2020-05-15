@@ -19,9 +19,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
-#include "cuda_utils.h"
-#include "metrics/dispersion.h"
-#include "random/rng.h"
+#include "cuda_utils.cuh"
+#include "metrics/dispersion.cuh"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {
