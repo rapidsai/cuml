@@ -475,7 +475,6 @@ class QN(Base):
         cdef uintptr_t X_ptr = X_m.ptr
 
         preds = CumlArray.zeros(shape=n_rows, dtype=self.dtype)
-
         cdef uintptr_t coef_ptr = self.coef_.ptr
         cdef uintptr_t pred_ptr = preds.ptr
 
@@ -530,7 +529,9 @@ class QN(Base):
             del state['handle']
         if 'coef_' in state:
             if state['coef_'] is not None:
-                state['coef_'] = cudf.Series(state['coef_'].ravel())
+                state['coef_'] = cudf.Series(
+                    cp.ravel(state['coef_'].to_output('cupy'))
+                )
         return state
 
     def __setstate__(self, state):
@@ -542,6 +543,7 @@ class QN(Base):
             else:
                 coef_size = (state['n_cols'], state['_num_classes'])
             state['coef_'] = state['coef_'].to_gpu_array().reshape(coef_size)
+            state['coef_'] = CumlArray(state['coef_'])
 
         self.__dict__.update(state)
 
