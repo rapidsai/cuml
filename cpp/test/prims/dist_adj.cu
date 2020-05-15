@@ -16,9 +16,9 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "cuda_utils.h"
-#include "distance/distance.h"
-#include "random/rng.h"
+#include "cuda_utils.cuh"
+#include "distance/distance.cuh"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {
