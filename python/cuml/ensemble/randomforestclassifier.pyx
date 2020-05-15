@@ -373,7 +373,7 @@ class RandomForestClassifier(Base):
         if self.n_cols:
             delete_rf_metadata(<RandomForestMetaData[float, int]*><uintptr_t>
                                self.rf_forest)
-            delete_rf_metadata(<RandomForestMetaData[float, int]*><uintptr_t>
+            delete_rf_metadata(<RandomForestMetaData[double, int]*><uintptr_t>
                                self.rf_forest64)
 
             self.treelite_handle = None
