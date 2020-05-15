@@ -15,7 +15,7 @@
  */
 
 #include <cuml/matrix/kernelparams.h>
-#include <matrix/grammatrix.h>
+#include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.h>
 #include <random/rng.h>
 #include <memory>
