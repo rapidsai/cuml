@@ -288,6 +288,8 @@ class RandomForestRegressor(Base):
         if ((seed is not None) and (n_streams != 1)):
             warnings.warn("Setting the random seed does not fully guarantee"
                           " the exact same results at this time.")
+        self.rf_forest = None
+        self.rf_forest64 = None
         self.model_pbuf_bytes = bytearray()
 
     """
@@ -340,7 +342,6 @@ class RandomForestRegressor(Base):
             state["rf_forest64"] = <uintptr_t>rf_forest64
 
         self.model_pbuf_bytes = state["model_pbuf_bytes"]
-
         self.__dict__.update(state)
 
     def __del__(self):
@@ -379,6 +380,11 @@ class RandomForestRegressor(Base):
                              " please read the documentation")
 
     def _obtain_treelite_handle(self):
+        """Either return a pre-built treelite_handle representing this model
+        or build a new one. Caller does not have to free, as the destructor
+        will clean up self.treelite_handle."""
+        if self.treelite_handle:
+            return self.treelite_handle  # Use cached version
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
@@ -387,16 +393,16 @@ class RandomForestRegressor(Base):
         with cython.boundscheck(False):
             model_pbuf_vec.assign(& model_pbuf_mv[0],
                                   & model_pbuf_mv[model_pbuf_mv.shape[0]])
-        if self.treelite_handle is None:
-            task_category = CLASSIFICATION_MODEL
-            build_treelite_forest(
-                & cuml_model_ptr,
-                rf_forest,
-                <int> self.n_cols,
-                <int> task_category,
-                model_pbuf_vec)
-            mod_ptr = <uintptr_t> cuml_model_ptr
-            self.treelite_handle = ctypes.c_void_p(mod_ptr).value
+
+        task_category = REGRESSION_MODEL
+        build_treelite_forest(
+            & cuml_model_ptr,
+            rf_forest,
+            <int> self.n_cols,
+            <int> task_category,
+            model_pbuf_vec)
+        mod_ptr = <uintptr_t> cuml_model_ptr
+        self.treelite_handle = ctypes.c_void_p(mod_ptr).value
         return self.treelite_handle
 
     def _get_protobuf_bytes(self):
@@ -417,8 +423,6 @@ class RandomForestRegressor(Base):
         """
         if self.model_pbuf_bytes:
             return self.model_pbuf_bytes
-        # elif self.treelite_handle:
-        #     fit_mod_ptr = self.treelite_handle
         else:
             fit_mod_ptr = self._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
@@ -496,6 +500,9 @@ class RandomForestRegressor(Base):
            to a shared file. Cuml issue #1854 has been created to track this.
     """
     def _alloc_and_build_tl_from_protobuf(self, model_bytes):
+        """Creates a treelite model from the protobuf format model_bytes
+        and returns its TreeliteHandle.
+        The caller must free the resulting model."""
         task_category = REGRESSION_MODEL
         cdef ModelHandle tl_model_ptr = NULL
         cdef RandomForestMetaData[float, float] *rf_forest = \
@@ -519,9 +526,8 @@ class RandomForestRegressor(Base):
             model_handles.push_back((
                 <ModelHandle> mod_ptr))
 
-        # Who frees the old treelite model here?
+        # TODO: free the old treelite model here
         concat_model_handle = concatenate_trees(deref(model_handles))
-        cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
         self.treelite_handle = concat_model_ptr
 
         # Update n_estimators to reflect concatenated trees
@@ -648,18 +654,7 @@ class RandomForestRegressor(Base):
                             predict_model='CPU' to use the CPU implementation \
                             of predict.")
 
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
-
-        task_category = REGRESSION_MODEL
-        build_treelite_forest(& cuml_model_ptr,
-                              rf_forest,
-                              <int> n_cols,
-                              <int> task_category,
-                              <vector[unsigned char] &> self.model_pbuf_bytes)
-        mod_ptr = <uintptr_t> cuml_model_ptr
-        treelite_handle = ctypes.c_void_p(mod_ptr).value
-
+        treelite_handle = self._obtain_treelite_handle()
         storage_type = \
             _check_fil_parameter_validity(depth=self.max_depth,
                                           fil_sparse_format=fil_sparse_format,
@@ -673,7 +668,7 @@ class RandomForestRegressor(Base):
                                              storage_type=storage_type)
 
         preds = tl_to_fil_model.predict(X, out_type)
-        TreeliteModel.free_treelite_model(treelite_handle)
+
         return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):

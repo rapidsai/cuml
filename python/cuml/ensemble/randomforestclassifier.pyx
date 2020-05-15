@@ -398,7 +398,7 @@ class RandomForestClassifier(Base):
         or build a new one. Caller does not have to free, as the destructor
         will clean up self.treelite_handle."""
         if self.treelite_handle:
-            return self.treelite_handle # Use cached version
+            return self.treelite_handle  # Use cached version
 
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
@@ -553,15 +553,9 @@ class RandomForestClassifier(Base):
             model_handles.push_back((
                 <ModelHandle> mod_ptr))
 
-        concat_model_handle = concatenate_trees(deref(model_handles))
+        # TODO: free the old treelite model here
         cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
-        # Who frees the old model here?
         self.treelite_handle = concat_model_ptr
-        cdef vector[unsigned char] pbuf_mod_info = \
-            save_model(<ModelHandle> concat_model_ptr)
-        cdef unsigned char[::1] pbuf_mod_view = \
-            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
 
         # Update n_estimators to reflect concatenated trees
         tl_model = TreeliteModel.from_treelite_model_handle(
@@ -713,10 +707,6 @@ class RandomForestClassifier(Base):
                             predict_model='CPU' to use the CPU implementation \
                             of predict.")
 
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
-
-        # XXX Can we just use _obtain_treelite_handle here?
         treelite_handle = self._obtain_treelite_handle()
         storage_type = \
             _check_fil_parameter_validity(depth=self.max_depth,
