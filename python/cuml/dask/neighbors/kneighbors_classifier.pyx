@@ -305,6 +305,13 @@ def _func_knn_classify(sessionID,
 
 
 class KNeighborsClassifier():
+    """
+    Multi-node Multi-GPU K-Nearest Neighbors Classifier Model.
+
+    K-Nearest Neighbors Classifier is an instance-based learning technique,
+    that keeps training samples around for prediction, rather than trying
+    to learn a generalizable set of model parameters.
+    """
     def __init__(self, client=None, streams_per_handle=0, verbose=False,
                  n_neighbors=5, batch_size=1024):
         self.client = default_client() if client is None else client
@@ -327,6 +334,23 @@ class KNeighborsClassifier():
         return comms
 
     def fit(self, X, y):
+        """
+        Fit a multi-node multi-GPU K-Nearest Neighbors Classifier index
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Index data.
+            Acceptable formats: dask cuDF, dask CuPy/NumPy/Numba Array
+
+        y : array-like (device or host) shape = (n_samples, n_features)
+            Index labels data.
+            Acceptable formats: dask cuDF, dask CuPy/NumPy/Numba Array
+
+        Returns
+        -------
+        self : KNeighborsClassifier model
+        """
         self.data_handler = \
             DistributedDataHandler.create(data=[X, y],
                                           client=self.client)
@@ -344,6 +368,29 @@ class KNeighborsClassifier():
         return self
 
     def predict(self, X, convert_dtype=True, _return_futures=False):
+        """
+        Predict labels for a query from previously stored index
+        and index labels.
+        The process is done in a multi-node multi-GPU fashion.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Query data.
+            Acceptable formats: dask cuDF, dask CuPy/NumPy/Numba Array
+
+        convert_dtype : bool, optional (default = True)
+            When set to True, the predict method will automatically
+            convert the data to the right formats.
+
+        _return_futures : bool, optional (default = False)
+            When set to True, the predict method will return the predictions
+            as Dask futures instead of Dask CuPy Arrays
+
+        Returns
+        -------
+        predictions : Dask futures or Dask CuPy Arrays
+        """
         query_handler = \
             DistributedDataHandler.create(data=X,
                                           client=self.client)
