@@ -21,7 +21,7 @@
 import cupy as cp
 from cuml.metrics.utils import sorted_unique_labels
 from cuml.prims.label import make_monotonic
-from cuml.utils import with_cupy_rmm, input_to_cuml_array
+from cuml.common import with_cupy_rmm, input_to_cuml_array
 
 
 @with_cupy_rmm

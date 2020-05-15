@@ -22,7 +22,7 @@ from dask.distributed import wait
 import dask.array
 
 
-from cuml.utils import with_cupy_rmm
+from cuml.common import with_cupy_rmm
 
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
@@ -31,9 +31,11 @@ from cuml.dask.common.func import reduce
 from cuml.dask.common.func import tree_reduce
 
 from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.utils import rmm_cupy_ary
+from cuml.common import rmm_cupy_ary
 
 from cuml.naive_bayes import MultinomialNB as MNB
+
+import cuml.common.logger as logger
 
 
 class MultinomialNB(BaseEstimator,
@@ -96,7 +98,7 @@ class MultinomialNB(BaseEstimator,
     0.9244298934936523
 
     """
-    def __init__(self, client=None, verbose=False, **kwargs):
+    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
 
         """
         Create new multinomial distributed Naive Bayes classifier instance
@@ -106,7 +108,7 @@ class MultinomialNB(BaseEstimator,
 
         client : dask.distributed.Client optional Dask client to use
         """
-        super(MultinomialNB, self).__init__(client=client, verbose=verbose,
+        super(MultinomialNB, self).__init__(client=client, verbosity=verbosity,
                                             **kwargs)
 
         self.datatype = "cupy"
