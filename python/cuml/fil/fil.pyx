@@ -166,7 +166,8 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
     cdef enum storage_type_t:
         AUTO,
         DENSE,
-        SPARSE
+        SPARSE,
+        SPARSE8
 
     cdef struct forest:
         pass
@@ -224,7 +225,10 @@ cdef class ForestInference_impl():
                            'DENSE': storage_type_t.DENSE,
                            'dense': storage_type_t.DENSE,
                            'SPARSE': storage_type_t.SPARSE,
-                           'sparse': storage_type_t.SPARSE}
+                           'sparse': storage_type_t.SPARSE,
+                           'SPARSE8': storage_type_t.SPARSE8,
+                           'sparse8': storage_type_t.SPARSE8,
+        }
         if storage_type_str not in storage_type_dict.keys():
             raise ValueError(' Wrong sparsity selected please refer'
                              ' to the documentation')
@@ -503,6 +507,8 @@ class ForestInference(Base):
              'DENSE' or 'dense' - create a dense forest
              'SPARSE' or 'sparse' - create a sparse forest;
                                     requires algo='NAIVE' or algo='AUTO'
+             'SPARSE8' or 'sparse8' - create a sparse forest with 8-byte nodes;
+                                      requires algo='NAIVE' or algo='AUTO'
         """
         if isinstance(model, TreeliteModel):
             # TreeliteModel defined in this file

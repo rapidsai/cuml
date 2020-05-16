@@ -191,8 +191,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           // merely that we copied floats into weights_h earlier
           std::memcpy(&w.f, &weights_h[i], sizeof w.f);
       }
-      fil::dense_node_init(&nodes[i], w, thresholds_h[i], fids_h[i],
-                           def_lefts_h[i], is_leafs_h[i]);
+      fil::node_init(&nodes[i], w, thresholds_h[i], fids_h[i], def_lefts_h[i],
+                     is_leafs_h[i]);
     }
 
     // clean up
@@ -332,8 +332,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     int fid = 0;
     bool def_left = false, is_leaf = false;
     for (;;) {
-      fil::dense_node_decode(&root[curr], &output, &threshold, &fid, &def_left,
-                             &is_leaf);
+      fil::node_decode(&root[curr], &output, &threshold, &fid, &def_left,
+                       &is_leaf);
       if (is_leaf) break;
       float val = data[fid];
       bool cond = isnan(val) ? !def_left : val >= threshold;
@@ -391,21 +391,21 @@ class PredictSparseFilTest : public BaseFilTest {
     fil::val_t output;
     int feature;
     bool def_left, is_leaf;
-    dense_node_decode(&dense_root[i_dense], &output, &threshold, &feature,
-                      &def_left, &is_leaf);
+    fil::node_decode(&dense_root[i_dense], &output, &threshold, &feature,
+                     &def_left, &is_leaf);
     if (is_leaf) {
       // leaf sparse node
-      sparse_node_init(&sparse_nodes[i_sparse], output, threshold, feature,
-                       def_left, is_leaf, 0);
+      node_init(&sparse_nodes[i_sparse], output, threshold, feature, def_left,
+                is_leaf, 0);
       return;
     }
     // inner sparse node
     // reserve space for children
     int left_index = sparse_nodes.size();
-    sparse_nodes.push_back(fil::sparse_node_t());
-    sparse_nodes.push_back(fil::sparse_node_t());
-    sparse_node_init(&sparse_nodes[i_sparse], output, threshold, feature,
-                     def_left, is_leaf, left_index - i_sparse_root);
+    sparse_nodes.push_back(fil::sparse_node16_t());
+    sparse_nodes.push_back(fil::sparse_node16_t());
+    node_init(&sparse_nodes[i_sparse], output, threshold, feature,
+              def_left, is_leaf, left_index - i_sparse_root);
     dense2sparse_node(dense_root, 2 * i_dense + 1, i_sparse_root, left_index);
     dense2sparse_node(dense_root, 2 * i_dense + 2, i_sparse_root,
                       left_index + 1);
@@ -413,7 +413,7 @@ class PredictSparseFilTest : public BaseFilTest {
 
   void dense2sparse_tree(const fil::dense_node_t* dense_root) {
     int i_sparse_root = sparse_nodes.size();
-    sparse_nodes.push_back(fil::sparse_node_t());
+    sparse_nodes.push_back(fil::sparse_node16_t());
     dense2sparse_node(dense_root, 0, i_sparse_root, i_sparse_root);
     trees.push_back(i_sparse_root);
   }
@@ -437,10 +437,10 @@ class PredictSparseFilTest : public BaseFilTest {
     fil_params.num_classes = ps.num_classes;
     dense2sparse();
     fil_params.num_nodes = sparse_nodes.size();
-    fil::init_sparse(handle, pforest, trees.data(), sparse_nodes.data(),
-                     &fil_params);
+    fil::init_sparse16(handle, pforest, trees.data(), sparse_nodes.data(),
+                       &fil_params);
   }
-  std::vector<fil::sparse_node_t> sparse_nodes;
+  std::vector<fil::sparse_node16_t> sparse_nodes;
   std::vector<int> trees;
 };
 
@@ -457,8 +457,8 @@ class TreeliteFilTest : public BaseFilTest {
     float threshold;
     fil::val_t output;
     bool is_leaf, default_left;
-    fil::dense_node_decode(&nodes[node], &output, &threshold, &feature,
-                           &default_left, &is_leaf);
+    fil::node_decode(&nodes[node], &output, &threshold, &feature, &default_left,
+                     &is_leaf);
     if (is_leaf) {
       switch (ps.leaf_payload_type) {
         case fil::leaf_value_t::FLOAT_SCALAR:
