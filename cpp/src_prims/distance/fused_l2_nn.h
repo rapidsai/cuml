@@ -113,7 +113,7 @@ struct FusedL2NN : public BaseClass {
 #if (ENABLE_MEMCPY_ASYNC == 1)
 #pragma unroll
     for (int i = 0; i < P::Veclen; ++i) {
-      zeros[i] = Zero;
+      zeros[i] = BaseClass::Zero;
     }
 #endif
   }
@@ -276,21 +276,21 @@ struct FusedL2NN : public BaseClass {
 #if (ENABLE_MEMCPY_ASYNC == 1)
   ///@todo: fix this to use memcpy_async
   DI void ldgsts(IdxT kidx) {
-    auto koffset = kidx + scolid;
-    auto offset = this->pageWr * P::SmemPage + srowid * P::SmemStride + scolid;
-    auto* saddrx = sx + offset;
+    auto koffset = kidx + this->scolid;
+    auto offset = this->pageWr * P::SmemPage + this->srowid * P::SmemStride + this->scolid;
+    auto* saddrx = this->sx + offset;
     for (int i = 0; i < P::LdgPerThX; ++i) {
       auto* sax = saddrx + i * P::LdgRowsX * P::SmemStride;
-      auto* gax = x + i * P::LdgRowsX * k + koffset;
-      auto inside = koffset < k && (xrowid + i * P::LdgRowsX) < m;
+      auto* gax = this->x + i * P::LdgRowsX * this->k + koffset;
+      auto inside = koffset < this->k && (this->xrowid + i * P::LdgRowsX) < this->m;
       __pipeline_memcpy_async(sax, inside ? gax : nullptr, SizeAndAlign,
                               inside ? 0 : SizeAndAlign);
     }
-    auto* saddry = sy + offset;
+    auto* saddry = this->sy + offset;
     for (int i = 0; i < P::LdgPerThY; ++i) {
       auto* say = saddry + i * P::LdgRowsY * P::SmemStride;
-      auto* gay = y + i * P::LdgRowsY * k + koffset;
-      auto inside = koffset < k && (yrowid + i * P::LdgRowsY) < n;
+      auto* gay = this->y + i * P::LdgRowsY * this->k + koffset;
+      auto inside = koffset < this->k && (this->yrowid + i * P::LdgRowsY) < this->n;
       __pipeline_memcpy_async(say, inside ? gay : nullptr, SizeAndAlign,
                               inside ? 0 : SizeAndAlign);
     }
