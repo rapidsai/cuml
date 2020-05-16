@@ -178,15 +178,17 @@ if hasArg prims-bench; then
 fi
 
 # If `./build.sh cuml` is called, don't build C/C++ components
-if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench || hasArg cppdocs; then
+if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
 # If there are no targets specified when calling build.sh, it will
 # just call `make -j`. This avoids a lot of extra printing
     cd ${LIBCUML_BUILD_DIR}
     make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
 
-    if hasArg cppdocs; then
-        make doc
-    fi
+fi
+
+if hasArg cppdocs; then
+    cd ${LIBCUML_BUILD_DIR}
+    make doc
 fi
 
 
