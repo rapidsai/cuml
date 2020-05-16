@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,19 @@
 # limitations under the License.
 #
 
-from cuml.datasets.arima import make_arima
-from cuml.datasets.blobs import make_blobs
-from cuml.datasets.regression import make_regression
-from cuml.datasets.classification import make_classification
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
+
+
+cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
+    ctypedef struct ARIMAOrder:
+        int p  # Basic order
+        int d
+        int q
+        int P  # Seasonal order
+        int D
+        int Q
+        int s  # Seasonal period
+        int k  # Fit intercept?
