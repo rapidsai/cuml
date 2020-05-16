@@ -321,7 +321,7 @@ endif(NVGRAPH_AVAILABLE)
 if(BUILD_CUML_CPP_LIBRARY)
   set(CUML_CPP_TARGET "cuml++")
 
-  add_library(${CUML_CPP_TARGET} SHARED
+  set(CUML_CPP_SRCS
     src/arima/batched_arima.cu
     src/arima/batched_kalman.cu
     src/common/cumlHandle.cpp
@@ -346,14 +346,32 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
     src/solver/solver.cu
-    #src/spectral/spectral.cu
     src/svm/svc.cu
     src/svm/svr.cu
     src/svm/ws_util.cu
     src/tsa/stationarity.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu)
-    #src/umap/umap.cu)
+
+  if(NVGRAPH_AVAILABLE)
+    list(APPEND CUML_CPP_SRCS
+      src/spectral/spectral.cu
+      src/umap/umap.cu)
+  endif()
+
+  add_library(${CUML_CPP_TARGET} SHARED ${CUML_CPP_SRCS})
+
+  set(CUML_LINK_LIBRARIES
+    ${CUDA_cublas_LIBRARY}
+    ${CUDA_curand_LIBRARY}
+    ${CUDA_cusolver_LIBRARY}
+    ${CUDA_CUDART_LIBRARY}
+    ${CUDA_cusparse_LIBRARY}
+    ${ZLIB_LIBRARIES}
+    ${Protobuf_LIBRARIES}
+    treelitelib
+    dmlclib
+    faisslib)
 
   if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
