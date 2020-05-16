@@ -28,7 +28,6 @@ dependencies:
 - libcumlprims=0.14*
 - statsmodels
 - protobuf >=3.4.1,<4.0.0
-- jupyter<2.0
 - doxygen
 - sphinx
 - sphinx_rtd_theme
