@@ -23,7 +23,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "../../src_prims/cuda_utils.h"
+#include "../../src_prims/cuda_utils.cuh"
 
 #include <cuml/fil/fil.h>
 
