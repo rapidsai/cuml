@@ -22,6 +22,11 @@
 #include <limits>
 #include <linalg/contractions.cuh>
 
+#if (ENABLE_MEMCPY_ASYNC == 1)
+#include <cuda_pipeline.h>
+using namespace nvcuda::experimental;
+#endif
+
 namespace MLCommon {
 namespace Distance {
 
@@ -83,7 +88,13 @@ struct FusedL2NN : public BaseClass {
 
   ReduceOpT redOp;
 
+#if (ENABLE_MEMCPY_ASYNC == 1)
+  DataT zeros[P::Veclen];
+  nvcuda::experimental::pipeline pipe;
+#endif
+
   static const DataT Two = (DataT)2.0;
+  static constexpr size_t SizeAndAlign = P::Veclen * sizeof(DataT);
 
  public:
   DI FusedL2NN(OutT* _min, const DataT* _x, const DataT* _y, const DataT* _xn,
@@ -98,7 +109,14 @@ struct FusedL2NN : public BaseClass {
       syNorm(&(sxNorm[P::Mblk])),
       sRed((cub::KeyValuePair<IdxT, DataT>*)_smem),
       maxVal(_mv),
-      redOp(op) {}
+      redOp(op) {
+#if (ENABLE_MEMCPY_ASYNC == 1)
+#pragma unroll
+    for (int i = 0; i < P::Veclen; ++i) {
+      zeros[i] = Zero;
+    }
+#endif
+  }
 
   DI void run() {
     prolog();
@@ -254,6 +272,32 @@ struct FusedL2NN : public BaseClass {
       }
     }
   }
+
+#if (ENABLE_MEMCPY_ASYNC == 1)
+  ///@todo: fix this to use memcpy_async
+  DI void ldgsts(IdxT kidx) {
+    auto koffset = kidx + scolid;
+    auto offset = this->pageWr * P::SmemPage + srowid * P::SmemStride + scolid;
+    auto* saddrx = sx + offset;
+    for (int i = 0; i < P::LdgPerThX; ++i) {
+      auto* sax = saddrx + i * P::LdgRowsX * P::SmemStride;
+      auto* gax = x + i * P::LdgRowsX * k + koffset;
+      auto inside = koffset < k && (xrowid + i * P::LdgRowsX) < m;
+      __pipeline_memcpy_async(sax, inside ? gax : nullptr, SizeAndAlign,
+                              inside ? 0 : SizeAndAlign);
+    }
+    auto* saddry = sy + offset;
+    for (int i = 0; i < P::LdgPerThY; ++i) {
+      auto* say = saddry + i * P::LdgRowsY * P::SmemStride;
+      auto* gay = y + i * P::LdgRowsY * k + koffset;
+      auto inside = koffset < k && (yrowid + i * P::LdgRowsY) < n;
+      __pipeline_memcpy_async(say, inside ? gay : nullptr, SizeAndAlign,
+                              inside ? 0 : SizeAndAlign);
+    }
+    pipe.commit();
+    pipe.wait_prior<0>();
+  }
+#endif  // ENABLE_MEMCPY_ASYNC
 };  // struct FusedL2NN
 
 template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
