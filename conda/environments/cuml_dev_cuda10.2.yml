@@ -28,8 +28,15 @@ dependencies:
 - libcumlprims=0.14*
 - statsmodels
 - protobuf >=3.4.1,<4.0.0
+- jupyter<2.0
 - doxygen
+- sphinx
+- sphinx_rtd_theme
+- numpydoc
+- nbsphinx
+- recommonmark
 - pip
 - pip:
+    - sphinx_markdown_tables
     - git+https://github.com/dask/dask.git
     - git+https://github.com/dask/distributed.git
