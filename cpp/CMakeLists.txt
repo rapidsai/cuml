@@ -366,12 +366,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_curand_LIBRARY}
     ${CUDA_cusolver_LIBRARY}
     ${CUDA_CUDART_LIBRARY}
-    ${CUDA_cusparse_LIBRARY}
-    ${ZLIB_LIBRARIES}
-    ${Protobuf_LIBRARIES}
-    treelitelib
-    dmlclib
-    faisslib)
+    ${CUDA_cusparse_LIBRARY})
 
   if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
