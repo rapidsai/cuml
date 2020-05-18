@@ -61,7 +61,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "ucx-py=${MINOR_VERSION}" \
       "statsmodels" \
       "xgboost====1.0.2dev.rapidsai0.13" \
-      "lightgbm" \
+      "lightgbm"
       "ipython=7.3*" \
       "jupyterlab"
 
@@ -129,16 +129,16 @@ fi
 logger "Check GPU usage..."
 nvidia-smi
 
-# logger "GoogleTest for libcuml..."
-# cd $WORKSPACE/cpp/build
-# GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+logger "GoogleTest for libcuml..."
+cd $WORKSPACE/cpp/build
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
-# logger "Python pytest for cuml..."
-# cd $WORKSPACE/python
+logger "Python pytest for cuml..."
+cd $WORKSPACE/python
 
-# pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask
 
-# timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
+timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
 
 
 ################################################################################
@@ -152,16 +152,16 @@ python ${WORKSPACE}/ci/utils/nbtestlog2junitxml.py nbtest.log
 # TEST - Run GoogleTest for ml-prims
 ################################################################################
 
-# logger "Run ml-prims test..."
-# cd $WORKSPACE/cpp/build
-# GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
+logger "Run ml-prims test..."
+cd $WORKSPACE/cpp/build
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
 
 ################################################################################
 # TEST - Run GoogleTest for ml-prims, but with cuda-memcheck enabled
 ################################################################################
 
-# if [ "$BUILD_MODE" = "branch" ] && [ "$BUILD_TYPE" = "gpu" ]; then
-#     logger "GoogleTest for ml-prims with cuda-memcheck enabled..."
-#     cd $WORKSPACE/cpp/build
-#     python ../scripts/cuda-memcheck.py -tool memcheck -exe ./test/prims
-# fi
+if [ "$BUILD_MODE" = "branch" ] && [ "$BUILD_TYPE" = "gpu" ]; then
+    logger "GoogleTest for ml-prims with cuda-memcheck enabled..."
+    cd $WORKSPACE/cpp/build
+    python ../scripts/cuda-memcheck.py -tool memcheck -exe ./test/prims
+fi
