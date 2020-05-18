@@ -97,6 +97,7 @@
 - PR #2231: Using OPG structs from `cuml.common` in decomposition algorithms
 - PR #2259: Add CumlArray support to Naive Bayes
 - PR #2252: Add benchmark for the Gram matrix prims
+- PR #2271: Clarify doc for _unique default implementation in OneHotEncoder
 - PR #2272: Add docs build.sh script to repository
 
 ## Bug Fixes
