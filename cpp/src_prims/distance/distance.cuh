@@ -17,9 +17,9 @@
 #pragma once
 
 #include <cuda_runtime_api.h>
-#include <cuda_utils.h>
 #include <cutlass/shape.h>
 #include <common/device_buffer.hpp>
+#include <cuda_utils.cuh>
 #include "cosine.cuh"
 #include "euclidean.cuh"
 #include "l1.cuh"

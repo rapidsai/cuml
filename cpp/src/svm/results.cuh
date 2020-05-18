@@ -30,7 +30,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <linalg/add.cuh>
 #include <linalg/binary_op.cuh>
-#include <linalg/init.cuh>
+#include <linalg/init.h>
 #include <linalg/map_then_reduce.cuh>
 #include <linalg/unary_op.cuh>
 #include <matrix/matrix.cuh>

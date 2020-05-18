@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cublas_v2.h>
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include "cublas_wrappers.h"
 
 namespace MLCommon {

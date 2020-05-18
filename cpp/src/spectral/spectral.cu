@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <sparse/coo.h>
 #include <cuml/cuml.hpp>
 #include <sparse/coo.cuh>
 

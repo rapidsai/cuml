@@ -36,7 +36,6 @@
 #include <random/rng.cuh>
 #include <stats/sum.cuh>
 
-#include <sys/time.h>
 #include <unistd.h>
 #include <chrono>
 #include <iostream>
