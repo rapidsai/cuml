@@ -32,7 +32,8 @@ FilesToCheck = [
 
 # this will break starting at year 10000, which is probably OK :)
 CheckSimple = re.compile(r"Copyright \(c\) (\d{4}), NVIDIA CORPORATION")
-CheckDouble = re.compile(r"Copyright \(c\) (\d{4})-(\d{4}), NVIDIA CORPORATION")
+CheckDouble = re.compile(
+    r"Copyright \(c\) (\d{4})-(\d{4}), NVIDIA CORPORATION")
 
 
 def checkThisFile(f):

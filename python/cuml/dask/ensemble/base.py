@@ -193,3 +193,4 @@ def _func_set_params(model, **params):
 
 
 def _get_protobuf_bytes(model):
+    return model._get_protobuf_bytes()
