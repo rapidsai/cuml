@@ -17,19 +17,19 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <linalg/add.h>
-#include <linalg/gemm.h>
-#include <linalg/norm.h>
-#include <linalg/subtract.h>
-#include <linalg/svd.h>
-#include <matrix/math.h>
-#include <matrix/matrix.h>
 #include <ml_utils.h>
-#include <stats/mean.h>
-#include <stats/mean_center.h>
-#include <stats/stddev.h>
-#include <stats/sum.h>
 #include <common/cumlHandle.hpp>
+#include <linalg/add.cuh>
+#include <linalg/gemm.cuh>
+#include <linalg/norm.cuh>
+#include <linalg/subtract.cuh>
+#include <linalg/svd.cuh>
+#include <matrix/math.cuh>
+#include <matrix/matrix.cuh>
+#include <stats/mean.cuh>
+#include <stats/mean_center.cuh>
+#include <stats/stddev.cuh>
+#include <stats/sum.cuh>
 #include "preprocess.cuh"
 
 namespace ML {

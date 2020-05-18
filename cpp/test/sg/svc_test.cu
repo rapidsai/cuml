@@ -15,17 +15,10 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <gtest/gtest.h>
-#include <linalg/binary_op.h>
-#include <linalg/map_then_reduce.h>
 #include <linalg/transpose.h>
-#include <matrix/grammatrix.h>
-#include <matrix/kernelmatrices.h>
-#include <random/make_blobs.h>
-#include <random/rng.h>
 #include <test_utils.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
@@ -33,10 +26,17 @@
 #include <thrust/transform.h>
 #include <common/cumlHandle.hpp>
 #include <cub/cub.cuh>
+#include <cuda_utils.cuh>
 #include <cuml/common/logger.hpp>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svr.hpp>
 #include <iostream>
+#include <linalg/binary_op.cuh>
+#include <linalg/map_then_reduce.cuh>
+#include <matrix/grammatrix.cuh>
+#include <matrix/kernelmatrices.cuh>
+#include <random/make_blobs.cuh>
+#include <random/rng.cuh>
 #include <string>
 #include <svm/smoblocksolve.cuh>
 #include <svm/smosolver.cuh>

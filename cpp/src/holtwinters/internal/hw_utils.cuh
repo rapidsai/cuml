@@ -20,11 +20,11 @@
 #include <cuml/tsa/holtwinters_params.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/cusolver_wrappers.h>
-#include <linalg/eltwise.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
+#include <linalg/eltwise.cuh>
 #include <vector>
 
 #define IDX(n, m, N) (n + (m) * (N))

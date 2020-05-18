@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,13 @@
 # limitations under the License.
 #
 
-from cuml.utils.import_utils import has_dask
+from cuml.common.import_utils import has_dask
 import warnings
 
 if has_dask():
     from cuml.dask.linear_model.linear_regression import LinearRegression  # NOQA
     from cuml.dask.linear_model.ridge import Ridge
+    from cuml.dask.linear_model.lasso import Lasso
+    from cuml.dask.linear_model.elastic_net import ElasticNet
 else:
     warnings.warn("Dask not found. All Dask-based multi-GPU operation is disabed.")

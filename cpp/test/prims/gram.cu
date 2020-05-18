@@ -15,15 +15,15 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <cuml/matrix/kernelparams.h>
 #include <gtest/gtest.h>
-#include <matrix/grammatrix.h>
-#include <matrix/kernelfactory.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
+#include <cuda_utils.cuh>
 #include <iostream>
+#include <matrix/grammatrix.cuh>
+#include <matrix/kernelfactory.cuh>
 #include <memory>
 #include "test_utils.h"
 

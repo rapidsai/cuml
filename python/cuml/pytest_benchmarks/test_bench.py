@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ Requires pytest-benchmark, which is not currently installed by default.
 """
 
 from cuml.benchmark import datagen, algorithms
-from cuml.utils.import_utils import has_pytest_benchmark
+from cuml.common.import_utils import has_pytest_benchmark
 import pytest
 
 

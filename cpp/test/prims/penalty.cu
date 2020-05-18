@@ -15,9 +15,9 @@
  */
 
 #include <common/cudart_utils.h>
-#include <functions/penalty.h>
 #include <gtest/gtest.h>
-#include <random/rng.h>
+#include <functions/penalty.cuh>
+#include <random/rng.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {

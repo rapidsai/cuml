@@ -15,10 +15,10 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <selection/knn.h>
+#include <cuda_utils.cuh>
 #include <iostream>
+#include <selection/knn.cuh>
 #include <vector>
 #include "test_utils.h"
 

@@ -15,12 +15,12 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <cuml/random_projection/rproj_c.h>
-#include <distance/distance.h>
 #include <gtest/gtest.h>
 #include <linalg/transpose.h>
 #include <test_utils.h>
+#include <cuda_utils.cuh>
+#include <distance/distance.cuh>
 #include <iostream>
 #include <random>
 #include <vector>

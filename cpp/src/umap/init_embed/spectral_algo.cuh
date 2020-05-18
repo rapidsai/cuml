@@ -19,12 +19,12 @@
 #include <cuml/manifold/umapparams.h>
 #include <common/device_buffer.hpp>
 
-#include <sparse/coo.h>
+#include <sparse/coo.cuh>
 
-#include <linalg/add.h>
+#include <linalg/add.cuh>
 
 #include <linalg/transpose.h>
-#include <random/rng.h>
+#include <random/rng.cuh>
 
 #include <cuml/cluster/spectral.hpp>
 #include <iostream>

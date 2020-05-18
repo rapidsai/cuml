@@ -37,10 +37,11 @@ from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
     _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
+import cuml.common.logger as logger
 
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.fil.fil import TreeliteModel as tl
-from cuml.utils import input_to_cuml_array, input_to_dev_array, \
+from cuml.common import input_to_cuml_array, input_to_dev_array, \
     zeros, get_cudf_column_ptr
 from cython.operator cimport dereference as deref
 
@@ -48,7 +49,9 @@ from numba import cuda
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
+
 cimport cython
+
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
@@ -212,7 +215,7 @@ class RandomForestRegressor(Base):
                  'split_algo', 'split_criterion', 'min_rows_per_node',
                  'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
-                 'verbose', 'rows_sample',
+                 'verbosity', 'rows_sample',
                  'max_leaves', 'quantile_per_tree',
                  'accuracy_metric']
 
@@ -220,10 +223,10 @@ class RandomForestRegressor(Base):
                  max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
-                 verbose=False, min_rows_per_node=2,
+                 verbosity=logger.LEVEL_INFO, min_rows_per_node=2,
                  rows_sample=1.0, max_leaves=-1,
                  accuracy_metric='mse', output_type=None,
-                 min_samples_leaf=None,
+                 min_samples_leaf=None, dtype=None,
                  min_weight_fraction_leaf=None, n_jobs=None,
                  max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None,
@@ -250,7 +253,7 @@ class RandomForestRegressor(Base):
             handle = Handle(n_streams)
 
         super(RandomForestRegressor, self).__init__(handle=handle,
-                                                    verbose=verbose,
+                                                    verbosity=verbosity,
                                                     output_type=output_type)
 
         if max_depth < 0:
@@ -276,7 +279,6 @@ class RandomForestRegressor(Base):
         self.max_depth = max_depth
         self.max_features = max_features
         self.bootstrap = bootstrap
-        self.verbose = verbose
         self.n_bins = n_bins
         self.n_cols = None
         self.dtype = None
@@ -316,14 +318,14 @@ class RandomForestRegressor(Base):
             else:
                 state["rf_params64"] = rf_forest64.rf_params
         state['n_cols'] = self.n_cols
-        state['verbose'] = self.verbose
+        state['verbosity'] = self.verbosity
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
 
         return state
 
     def __setstate__(self, state):
-        super(RandomForestRegressor, self).__init__(handle=None,
-                                                    verbose=state['verbose'])
+        super(RandomForestRegressor, self).__init__(
+            handle=None, verbosity=state['verbosity'])
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         cdef  RandomForestMetaData[double, double] *rf_forest64 = \
@@ -359,6 +361,8 @@ class RandomForestRegressor(Base):
                  self.rf_forest)
             free(<RandomForestMetaData[double, double]*><uintptr_t>
                  self.rf_forest64)
+            self.treelite_handle = None
+            self.model_pbuf_bytes = bytearray()
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:

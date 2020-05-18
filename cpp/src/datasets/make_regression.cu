@@ -17,6 +17,7 @@
 #include <random/make_regression.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/datasets/make_regression.hpp>
+#include <random/make_regression.cuh>
 
 namespace ML {
 namespace Datasets {

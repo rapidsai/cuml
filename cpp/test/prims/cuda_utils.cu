@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
+#include <cuda_utils.cuh>
 
 namespace MLCommon {
 

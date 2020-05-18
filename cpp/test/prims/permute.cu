@@ -15,10 +15,10 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
-#include <random/permute.h>
-#include <random/rng.h>
 #include <algorithm>
+#include <cuda_utils.cuh>
+#include <random/permute.cuh>
+#include <random/rng.cuh>
 #include <vector>
 #include "test_utils.h"
 

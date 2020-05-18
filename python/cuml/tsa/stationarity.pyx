@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ from libc.stdint cimport uintptr_t
 
 import cuml
 from cuml.common.handle cimport cumlHandle
-from cuml.utils.input_utils import input_to_dev_array
+from cuml.common.input_utils import input_to_dev_array
 
 
 cdef extern from "cuml/tsa/stationarity.h" namespace "ML":

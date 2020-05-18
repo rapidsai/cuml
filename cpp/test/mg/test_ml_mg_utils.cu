@@ -15,11 +15,11 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <ml_mg_utils.h>
 #include <test_utils.h>
+#include <cuda_utils.cuh>
 #include <iostream>
+#include <ml_mg_utils.cuh>
 #include <vector>
 
 namespace ML {

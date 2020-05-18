@@ -15,10 +15,10 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <random/make_blobs.h>
 #include <cub/cub.cuh>
+#include <cuda_utils.cuh>
+#include <random/make_blobs.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {

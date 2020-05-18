@@ -16,8 +16,8 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <linalg/eltwise.h>
-#include <random/rng.h>
+#include <linalg/eltwise.cuh>
+#include <random/rng.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {

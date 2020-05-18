@@ -15,17 +15,17 @@
  */
 #pragma once
 
-#include <distance/distance.h>
-#include <distance/fused_l2_nn.h>
-#include <linalg/binary_op.h>
-#include <linalg/matrix_vector_op.h>
-#include <linalg/mean_squared_error.h>
-#include <linalg/reduce.h>
-#include <linalg/reduce_cols_by_key.h>
-#include <linalg/reduce_rows_by_key.h>
-#include <matrix/gather.h>
-#include <random/permute.h>
-#include <random/rng.h>
+#include <distance/distance.cuh>
+#include <distance/fused_l2_nn.cuh>
+#include <linalg/binary_op.cuh>
+#include <linalg/matrix_vector_op.cuh>
+#include <linalg/mean_squared_error.cuh>
+#include <linalg/reduce.cuh>
+#include <linalg/reduce_cols_by_key.cuh>
+#include <linalg/reduce_rows_by_key.cuh>
+#include <matrix/gather.cuh>
+#include <random/permute.cuh>
+#include <random/rng.cuh>
 #include <random>
 
 #include <ml_cuda_utils.h>

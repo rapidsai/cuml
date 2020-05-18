@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ from cuml.manifold import TSNE
 
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn import datasets
+
+import cuml.common.logger as logger
 
 
 dataset_names = ['digits', 'boston', 'iris', 'breast_cancer',
@@ -43,7 +45,8 @@ def test_tsne(name):
     for i in range(3):
         print("iteration = ", i)
 
-        tsne = TSNE(2, random_state=i, verbose=0, learning_rate=2+i)
+        tsne = TSNE(2, random_state=i, verbosity=logger.LEVEL_INFO,
+                    learning_rate=2+i)
 
         # Reuse
         Y = tsne.fit_transform(X)
@@ -55,7 +58,8 @@ def test_tsne(name):
         del Y
 
         # Again
-        tsne = TSNE(2, random_state=i+2, verbose=1, learning_rate=2+i+2)
+        tsne = TSNE(2, random_state=i+2, verbosity=logger.LEVEL_DEBUG,
+                    learning_rate=2+i+2)
 
         # Reuse
         Y = tsne.fit_transform(X)

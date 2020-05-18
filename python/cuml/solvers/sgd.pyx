@@ -1,4 +1,4 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,8 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common import CumlArray
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array
+import cuml.common.logger as logger
+from cuml.common import input_to_cuml_array
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
@@ -230,7 +231,7 @@ class SGD(Base):
             msg = "penalty {!r} is not supported"
             raise TypeError(msg.format(penalty))
 
-        super(SGD, self).__init__(handle=handle, verbose=False,
+        super(SGD, self).__init__(handle=handle, verbosity=logger.LEVEL_INFO,
                                   output_type=output_type)
         self.alpha = alpha
         self.l1_ratio = l1_ratio

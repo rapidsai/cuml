@@ -16,11 +16,11 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <metrics/adjustedRandIndex.h>
-#include <metrics/contingencyMatrix.h>
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
+#include <metrics/adjustedRandIndex.cuh>
+#include <metrics/contingencyMatrix.cuh>
 #include <random>
 #include "test_utils.h"
 

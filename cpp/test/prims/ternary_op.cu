@@ -16,9 +16,9 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <linalg/ternary_op.h>
-#include <random/rng.h>
-#include "binary_op.h"
+#include <linalg/ternary_op.cuh>
+#include <random/rng.cuh>
+#include "binary_op.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.common.array import CumlArray
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 
 from cuml.metrics import r2_score
 
@@ -35,6 +35,7 @@ from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector
 
 from cuml.common.handle cimport cumlHandle
+import cuml.common.logger as logger
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -50,6 +51,7 @@ import rmm
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
+
 
 cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
     cdef cppclass deviceAllocator:
@@ -88,8 +90,8 @@ class KNeighborsRegressor(NearestNeighbors):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbose : boolean (default=False)
-        Whether to print verbose logs
+    verbosity : int (default=cuml.common.logger.LEVEL_INFO)
+        Logging level
     handle : cumlHandle
         The cumlHandle resources to use
     algorithm : string (default='brute')

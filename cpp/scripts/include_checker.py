@@ -86,7 +86,7 @@ def check_includes_in(src, inplace):
             src, ', '.join(str(x[0]) for x in errs)))
         for line_number, replacement in errs:
             lines[line_number] = (line_number, replacement)
-        with io.open(src, 'w', encoding="utf-8") as out_file:
+        with io.open(src, "w", encoding="utf-8") as out_file:
             for _, new_line in lines:
                 out_file.write(new_line)
         errs = []

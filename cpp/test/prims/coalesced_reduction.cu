@@ -15,11 +15,11 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <linalg/coalesced_reduction.h>
-#include <random/rng.h>
-#include "reduce.h"
+#include <cuda_utils.cuh>
+#include <linalg/coalesced_reduction.cuh>
+#include <random/rng.cuh>
+#include "reduce.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,12 +19,16 @@ from dask.distributed import Client, wait
 import numpy as np
 from cuml.test.utils import array_equal, \
     unit_param, stress_param
+import cupy as cp
+
+from cuml.dask.common.dask_arr_utils import to_dask_cudf
 
 
 @pytest.mark.mg
 @pytest.mark.parametrize("data_info", [unit_param([1000, 20, 30]),
                          stress_param([9e6, 5000, 30])])
-def test_pca_fit(data_info, cluster):
+@pytest.mark.parametrize("input_type", ["dataframe", "array"])
+def test_pca_fit(data_info, input_type, cluster):
 
     client = Client(cluster)
     nrows, ncols, n_parts = data_info
@@ -36,22 +40,26 @@ def test_pca_fit(data_info, cluster):
 
         from cuml.dask.datasets import make_blobs
 
-        X_cudf, _ = make_blobs(n_samples=nrows,
-                               n_features=ncols,
-                               centers=1,
-                               n_parts=n_parts,
-                               cluster_std=0.5, verbose=False,
-                               random_state=10, dtype=np.float32)
+        X, _ = make_blobs(n_samples=nrows,
+                          n_features=ncols,
+                          centers=1,
+                          n_parts=n_parts,
+                          cluster_std=0.5,
+                          random_state=10, dtype=np.float32)
 
-        wait(X_cudf)
-
-        X = X_cudf.compute().to_pandas().values
+        wait(X)
+        if input_type == "dataframe":
+            X_train = to_dask_cudf(X)
+            X_cpu = X_train.compute().to_pandas().values
+        elif input_type == "array":
+            X_train = X
+            X_cpu = cp.asnumpy(X_train.compute())
 
         cutsvd = daskTPCA(n_components=5)
-        cutsvd.fit(X_cudf)
+        cutsvd.fit(X_train)
 
         sktsvd = TruncatedSVD(n_components=5, algorithm="arpack")
-        sktsvd.fit(X)
+        sktsvd.fit(X_cpu)
 
         all_attr = ['singular_values_', 'components_',
                     'explained_variance_', 'explained_variance_ratio_']
@@ -86,7 +94,7 @@ def test_pca_fit_transform_fp32(data_info, cluster):
                                n_features=ncols,
                                centers=1,
                                n_parts=n_parts,
-                               cluster_std=1.5, verbose=False,
+                               cluster_std=1.5,
                                random_state=10, dtype=np.float32)
 
         wait(X_cudf)
@@ -114,7 +122,7 @@ def test_pca_fit_transform_fp64(data_info, cluster):
                                n_features=ncols,
                                centers=1,
                                n_parts=n_parts,
-                               cluster_std=1.5, verbose=False,
+                               cluster_std=1.5,
                                random_state=10, dtype=np.float64)
 
         wait(X_cudf)

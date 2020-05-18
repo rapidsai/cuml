@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -124,7 +124,7 @@ def test_send_recv(n_trials, ucx_cluster):
 
     try:
 
-        cb = CommsContext(comms_p2p=True, verbose=True)
+        cb = CommsContext(comms_p2p=True)
         cb.init()
 
         dfs = [client.submit(func_test_send_recv,

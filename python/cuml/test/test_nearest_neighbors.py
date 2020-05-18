@@ -1,5 +1,5 @@
-
-# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import cudf
 import pandas as pd
 import numpy as np
 
-from cuml.utils import has_scipy
+from cuml.common import has_scipy
 
 
 def predict(neigh_ind, _y, n_neighbors):

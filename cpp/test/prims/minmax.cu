@@ -15,13 +15,13 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <random/rng.h>
-#include <stats/minmax.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <cuda_utils.cuh>
 #include <limits>
+#include <random/rng.cuh>
+#include <stats/minmax.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {

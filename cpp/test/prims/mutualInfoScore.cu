@@ -13,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <metrics/contingencyMatrix.h>
-#include <metrics/mutualInfoScore.h>
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
+#include <metrics/contingencyMatrix.cuh>
+#include <metrics/mutualInfoScore.cuh>
 #include <random>
 #include "test_utils.h"
 

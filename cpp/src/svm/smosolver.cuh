@@ -17,8 +17,8 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <math.h>
+#include <cuda_utils.cuh>
 #include <iostream>
 #include <limits>
 #include <string>
@@ -27,11 +27,11 @@
 #include <cuml/matrix/kernelparams.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/gemv.h>
-#include <linalg/unary_op.h>
-#include <matrix/grammatrix.h>
-#include <matrix/kernelfactory.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
+#include <linalg/unary_op.cuh>
+#include <matrix/grammatrix.cuh>
+#include <matrix/kernelfactory.cuh>
 #include "kernelcache.cuh"
 #include "smo_sets.cuh"
 #include "smoblocksolve.cuh"

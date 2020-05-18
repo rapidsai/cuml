@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #########################################
 # cuML GPU build and test script for CI #
 #########################################
@@ -63,6 +63,12 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "xgboost====1.0.2dev.rapidsai0.13" \
       "lightgbm"
 
+
+# Install contextvars on Python 3.6
+py_ver=$(python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
+if [ "$py_ver" == "3.6" ];then
+    conda install contextvars
+fi
 
 # Install the master version of dask, distributed, and dask-ml
 logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
