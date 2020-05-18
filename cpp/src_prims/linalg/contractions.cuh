@@ -211,12 +211,21 @@ struct Contractions_NT {
 
  protected:
   /**
-   * @brief Load current block of X/Y from global memory to smem
+   * @brief Load current block of X/Y from global memory to registers
    * @param[in] kidx current start index of k to be loaded
    */
-  DI void ldgsts(IdxT kidx) {
-    ldgstsX(kidx, sx + pageWr * P::SmemPage);
-    ldgstsY(kidx, sy + pageWr * P::SmemPage);
+  DI void ldgXY(IdxT kidx) {
+    ldgX(kidx);
+    ldgY(kidx);
+  }
+
+  /**
+   * @brief Store current block of X/Y from registers to smem
+   * @param[in] kidx current start index of k to be loaded
+   */
+  DI void stsXY() {
+    stsX(sx + pageWr * P::SmemPage);
+    stsY(sy + pageWr * P::SmemPage);
   }
 
   /**
@@ -229,47 +238,47 @@ struct Contractions_NT {
   }
 
  private:
-  DI void ldgstsX(IdxT kidx, DataT* smem) {
-    DataT data[P::LdgPerThX][P::Veclen];
-    // LDG
+  DI void ldgX(IdxT kidx) {
     auto koffset = kidx + scolid;
     for (int i = 0; i < P::LdgPerThX; ++i) {
       if (koffset < k && (xrowid + i * P::LdgRowsX) < m) {
-        ldg(data[i], x + i * P::LdgRowsX * k + koffset);
+        ldg(ldgDataX[i], x + i * P::LdgRowsX * k + koffset);
       } else {
 #pragma unroll
         for (int j = 0; j < P::Veclen; ++j) {
-          data[i][j] = Zero;
+          ldgDataX[i][j] = Zero;
         }
       }
-    }
-    // STS
-    auto* saddr = smem + srowid * P::SmemStride + scolid;
-#pragma unroll
-    for (int i = 0; i < P::LdgPerThX; ++i) {
-      sts(saddr + i * P::LdgRowsX * P::SmemStride, data[i]);
     }
   }
 
-  DI void ldgstsY(IdxT kidx, DataT* smem) {
-    DataT data[P::LdgPerThX][P::Veclen];
-    // LDG
+  DI void ldgY(IdxT kidx) {
     auto koffset = kidx + scolid;
     for (int i = 0; i < P::LdgPerThY; ++i) {
       if (koffset < k && (yrowid + i * P::LdgRowsY) < n) {
-        ldg(data[i], y + i * P::LdgRowsY * k + koffset);
+        ldg(ldgDataY[i], y + i * P::LdgRowsY * k + koffset);
       } else {
 #pragma unroll
         for (int j = 0; j < P::Veclen; ++j) {
-          data[i][j] = Zero;
+          ldgDataY[i][j] = Zero;
         }
       }
     }
-    // STS
+  }
+
+  DI void stsX(DataT* smem) {
+    auto* saddr = smem + srowid * P::SmemStride + scolid;
+#pragma unroll
+    for (int i = 0; i < P::LdgPerThX; ++i) {
+      sts(saddr + i * P::LdgRowsX * P::SmemStride, ldgDataX[i]);
+    }
+  }
+
+  DI void stsY(DataT* smem) {
     auto* saddr = smem + srowid * P::SmemStride + scolid;
 #pragma unroll
     for (int i = 0; i < P::LdgPerThY; ++i) {
-      sts(saddr + i * P::LdgRowsY * P::SmemStride, data[i]);
+      sts(saddr + i * P::LdgRowsY * P::SmemStride, ldgDataY[i]);
     }
   }
 
