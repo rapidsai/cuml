@@ -16,10 +16,10 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <metrics/randIndex.h>
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
+#include <metrics/randIndex.cuh>
 #include <random>
 #include "test_utils.h"
 

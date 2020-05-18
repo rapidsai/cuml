@@ -15,12 +15,12 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <label/classlabels.h>
-#include <random/make_blobs.h>
-#include <selection/knn.h>
+#include <cuda_utils.cuh>
 #include <iostream>
+#include <label/classlabels.cuh>
+#include <random/make_blobs.cuh>
+#include <selection/knn.cuh>
 #include <vector>
 #include "test_utils.h"
 

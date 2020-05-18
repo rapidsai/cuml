@@ -21,8 +21,8 @@
 #include <vector>
 
 #include <common/cudart_utils.h>
-#include <timeSeries/stationarity.h>
 #include <cuml/common/cuml_allocator.hpp>
+#include <timeSeries/stationarity.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {

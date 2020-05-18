@@ -15,11 +15,11 @@
  */
 
 #include <common/cudart_utils.h>
-#include <common/scatter.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <random/rng.h>
 #include <algorithm>
+#include <common/scatter.cuh>
+#include <cuda_utils.cuh>
+#include <random/rng.cuh>
 #include <random>
 #include "test_utils.h"
 

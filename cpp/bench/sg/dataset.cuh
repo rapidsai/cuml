@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,15 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <linalg/transpose.h>
-#include <random/make_blobs.h>
-#include <random/make_regression.h>
 #include <common/cumlHandle.hpp>
+#include <cuda_utils.cuh>
 #include <cuml/cuml.hpp>
 #include <fstream>
 #include <iostream>
+#include <linalg/unary_op.cuh>
+#include <random/make_blobs.cuh>
+#include <random/make_regression.cuh>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -70,8 +71,9 @@ struct RegressionParams {
  * @brief A simple object to hold the loaded dataset for benchmarking
  * @tparam D type of the dataset (type of X)
  * @tparam L type of the labels/output (type of y)
+ * @tparam IdxT type of indices
  */
-template <typename D, typename L>
+template <typename D, typename L, typename IdxT = int>
 struct Dataset {
   /** input data */
   D* X;
@@ -103,8 +105,6 @@ struct Dataset {
    */
   void blobs(const cumlHandle& handle, const DatasetParams& p,
              const BlobsParams& b) {
-    ASSERT(isClassification(),
-           "make_blobs: is only for classification/clustering problems!");
     const auto& handle_impl = handle.getImpl();
     auto stream = handle_impl.getStream();
     auto cublas_handle = handle_impl.getCublasHandle();
@@ -115,14 +115,29 @@ struct Dataset {
     if (!p.rowMajor) {
       tmpX = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
     }
-    MLCommon::Random::make_blobs<D, L>(
-      tmpX, y, p.nrows, p.ncols, p.nclasses, allocator, stream, nullptr,
+
+    // Make blobs will generate labels of type IdxT which has to be an integer
+    // type. We cast it to a different output type if needed.
+    IdxT* tmpY;
+    if (std::is_same<L, IdxT>::value) {
+      tmpY = (IdxT*)y;
+    } else {
+      tmpY = (IdxT*)allocator->allocate(p.nrows * sizeof(IdxT), stream);
+    }
+
+    MLCommon::Random::make_blobs<D, IdxT>(
+      tmpX, tmpY, p.nrows, p.ncols, p.nclasses, allocator, stream, nullptr,
       nullptr, D(b.cluster_std), b.shuffle, D(b.center_box_min),
       D(b.center_box_max), b.seed);
     if (!p.rowMajor) {
       MLCommon::LinAlg::transpose(tmpX, X, p.nrows, p.ncols, cublas_handle,
                                   stream);
       allocator->deallocate(tmpX, p.nrows * p.ncols * sizeof(D), stream);
+    }
+    if (!std::is_same<L, IdxT>::value) {
+      MLCommon::LinAlg::unaryOp(
+        y, tmpY, p.nrows, [] __device__(IdxT z) { return (L)z; }, stream);
+      allocator->deallocate(tmpY, p.nrows * sizeof(IdxT), stream);
     }
   }
 
@@ -204,6 +219,13 @@ struct Dataset {
     return tokens;
   }
 };
+
+namespace {
+std::ostream& operator<<(std::ostream& os, const DatasetParams& d) {
+  os << "/" << d.nrows << "x" << d.ncols;
+  return os;
+}
+}  // namespace
 
 }  // end namespace Bench
 }  // end namespace ML

@@ -17,15 +17,15 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <linalg/gemm.h>
-#include <linalg/norm.h>
-#include <matrix/math.h>
-#include <matrix/matrix.h>
 #include <ml_utils.h>
-#include <stats/mean.h>
-#include <stats/mean_center.h>
-#include <stats/stddev.h>
 #include <common/cumlHandle.hpp>
+#include <linalg/gemm.cuh>
+#include <linalg/norm.cuh>
+#include <matrix/math.cuh>
+#include <matrix/matrix.cuh>
+#include <stats/mean.cuh>
+#include <stats/mean_center.cuh>
+#include <stats/stddev.cuh>
 
 namespace ML {
 namespace GLM {

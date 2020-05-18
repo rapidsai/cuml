@@ -15,12 +15,12 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <metrics/dispersion.h>
-#include <random/rng.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <cuda_utils.cuh>
+#include <metrics/dispersion.cuh>
+#include <random/rng.cuh>
 #include <vector>
 #include "test_utils.h"
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.datasets.blobs import blobs as make_blobs
+from cuml.datasets.arima import make_arima
+from cuml.datasets.blobs import make_blobs
 from cuml.datasets.regression import make_regression
 from cuml.datasets.classification import make_classification

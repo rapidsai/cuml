@@ -15,7 +15,6 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <cuml/fil/fil.h>
 #include <gtest/gtest.h>
 #include <ml_utils.h>
@@ -26,8 +25,10 @@
 #include <treelite/tree.h>
 #include <cmath>
 #include <cstdio>
+#include <cuda_utils.cuh>
 #include <limits>
 #include <memory>
+#include <random/rng.cuh>
 #include <utility>
 
 #define TL_CPP_CHECK(call) ASSERT(int(call) >= 0, "treelite call error")

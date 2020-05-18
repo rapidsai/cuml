@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,8 @@ from cuml.benchmark import datagen, algorithms
 from cuml.benchmark.bench_helper_funcs import _training_data_to_numpy
 from cuml.benchmark.runners import AccuracyComparisonRunner, \
     SpeedupComparisonRunner, run_variations
-from cuml.utils.import_utils import has_umap, has_xgboost
+from cuml.common.import_utils import has_umap
+from cuml.common.import_utils import has_xgboost
 
 import numpy as np
 import cudf

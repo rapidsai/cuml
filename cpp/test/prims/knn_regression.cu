@@ -15,18 +15,16 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <label/classlabels.h>
-#include <random/rng.h>
-#include <selection/knn.h>
+#include <linalg/cusolver_wrappers.h>
+#include <cuda_utils.cuh>
 #include <iostream>
+#include <label/classlabels.cuh>
+#include <linalg/reduce.cuh>
+#include <random/rng.cuh>
+#include <selection/knn.cuh>
 #include <vector>
 #include "test_utils.h"
-
-#include <linalg/cusolver_wrappers.h>
-
-#include <linalg/reduce.h>
 
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>

@@ -15,13 +15,13 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <linalg/cublas_wrappers.h>
 #include <ml_utils.h>
-#include <random/rng.h>
 #include <test_utils.h>
+#include <cuda_utils.cuh>
 #include <pca/pca.cuh>
+#include <random/rng.cuh>
 #include <vector>
 
 namespace ML {

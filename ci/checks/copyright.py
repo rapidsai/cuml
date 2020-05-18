@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 import datetime
 import re
 import gitutils
+import argparse
+import io
 
 
 FilesToCheck = [
@@ -26,6 +28,10 @@ FilesToCheck = [
     re.compile(r"[.]flake8[.]cython$"),
     re.compile(r"meta[.]yaml$")
 ]
+
+# this will break starting at year 10000, which is probably OK :)
+CheckSimple = re.compile(r"Copyright \(c\) (\d{4}), NVIDIA CORPORATION")
+CheckDouble = re.compile(r"Copyright \(c\) (\d{4})-(\d{4}), NVIDIA CORPORATION")
 
 
 def checkThisFile(f):
@@ -38,17 +44,25 @@ def checkThisFile(f):
 
 
 def getCopyrightYears(line):
-    res = re.search(r"Copyright \(c\) (\d{4}), NVIDIA CORPORATION", line)
+    res = CheckSimple.search(line)
     if res:
         return (int(res.group(1)), int(res.group(1)))
-    res = re.search(r"Copyright \(c\) (\d{4})-(\d{4}), NVIDIA CORPORATION",
-                    line)
+    res = CheckDouble.search(line)
     if res:
         return (int(res.group(1)), int(res.group(2)))
     return (None, None)
 
 
-def checkCopyright(f):
+def replaceCurrentYear(line, start, end):
+    # first turn a simple regex into double (if applicable). then update years
+    res = CheckSimple.sub(r"Copyright (c) \1-\1, NVIDIA CORPORATION", line)
+    res = CheckDouble.sub(
+        r"Copyright (c) {:04d}-{:04d}, NVIDIA CORPORATION".format(start, end),
+        res)
+    return res
+
+
+def checkCopyright(f, update_current_year):
     """
     Checks for copyright headers and their years
     """
@@ -57,26 +71,52 @@ def checkCopyright(f):
     lineNum = 0
     crFound = False
     yearMatched = False
-    fp = open(f, "r")
-    for line in fp.readlines():
+    with io.open(f, "r", encoding="utf-8") as fp:
+        lines = fp.readlines()
+    for line in lines:
         lineNum += 1
         start, end = getCopyrightYears(line)
         if start is None:
             continue
         crFound = True
+        if start > end:
+            e = [f, lineNum, "First year after second year in the copyright "
+                 "header (manual fix required)"]
+            e += [None] if update_current_year else []
+            errs.append(e)
         if thisYear < start or thisYear > end:
-            errs.append((f, lineNum,
-                         "Current year not included in the copyright header"))
+            e = [f, lineNum, "Current year not included in the "
+                 "copyright header"]
+            if update_current_year and thisYear < start:
+                e += [replaceCurrentYear(line, thisYear, end)]
+            if update_current_year and thisYear > end:
+                e += [replaceCurrentYear(line, start, thisYear)]
+            errs.append(e)
         else:
             yearMatched = True
     fp.close()
     # copyright header itself not found
     if not crFound:
-        errs.append((f, 0,
-                     "Copyright header missing or formatted incorrectly"))
+        e = [f, 0, "Copyright header missing or formatted incorrectly "
+             "(manual fix required)"]
+        e += [None] if update_current_year else []
+        errs.append(e)
     # even if the year matches a copyright header, make the check pass
     if yearMatched:
         errs = []
+
+    if update_current_year:
+        errs_update = [x for x in errs if x[-1] is not None]
+        if len(errs_update) > 0:
+            print("File: {}. Changing line(s) {}".format(
+                f, ', '.join(str(x[1]) for x in errs if x[-1] is not None)))
+            for _, lineNum, __, replacement in errs_update:
+                lines[lineNum - 1] = replacement
+            with io.open(f, "w", encoding="utf-8") as out_file:
+                for new_line in lines:
+                    out_file.write(new_line)
+        errs = [x for x in errs if x[-1] is None]
+
     return errs
 
 
@@ -86,10 +126,17 @@ def checkCopyrightForAll():
     repo, this script will just look for uncommitted files and in case of CI
     it compares between branches "$PR_TARGET_BRANCH" and "current-pr-branch"
     """
+    argparser = argparse.ArgumentParser(
+        "Checks for a consistent copyright header in git's modified files")
+    argparser.add_argument("--update-current-year", dest='update_current_year',
+                           action="store_true", required=False, help="If set, "
+                           "update the current year if a header is already "
+                           "present and well formatted.")
+    args = argparser.parse_args()
     files = gitutils.modifiedFiles(filter=checkThisFile)
     errors = []
     for f in files:
-        errors += checkCopyright(f)
+        errors += checkCopyright(f, args.update_current_year)
     if len(errors) > 0:
         print("Copyright headers incomplete in some of the files!")
         for e in errors:

@@ -16,11 +16,11 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <random/rng.h>
-#include <selection/kselection.h>
 #include <stdlib.h>
 #include <algorithm>
 #include <limits>
+#include <random/rng.cuh>
+#include <selection/kselection.cuh>
 
 namespace MLCommon {
 namespace Selection {

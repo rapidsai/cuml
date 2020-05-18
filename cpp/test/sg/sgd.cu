@@ -15,12 +15,11 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <linalg/cusolver_wrappers.h>
-#include <matrix/matrix.h>
 #include <ml_utils.h>
 #include <test_utils.h>
+#include <matrix/matrix.cuh>
 #include <solver/sgd.cuh>
 
 namespace ML {

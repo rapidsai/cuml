@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
  */
 
 #pragma once
-#include <matrix/math.h>
 #include <common/device_buffer.hpp>
 #include <glm/qn/glm_base.cuh>
 #include <glm/qn/glm_linear.cuh>
@@ -23,6 +22,7 @@
 #include <glm/qn/glm_regularizer.cuh>
 #include <glm/qn/glm_softmax.cuh>
 #include <glm/qn/qn_solvers.cuh>
+#include <matrix/math.cuh>
 
 namespace ML {
 namespace GLM {

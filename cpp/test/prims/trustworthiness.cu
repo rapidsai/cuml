@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
-#include <distance/distance.h>
 #include <gtest/gtest.h>
-#include <score/scores.h>
+#include <cuda_utils.cuh>
+#include <distance/distance.cuh>
 #include <iostream>
+#include <score/scores.cuh>
 #include <vector>
 #include "test_utils.h"
 

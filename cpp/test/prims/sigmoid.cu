@@ -15,9 +15,9 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
-#include <functions/sigmoid.h>
 #include <gtest/gtest.h>
+#include <cuda_utils.cuh>
+#include <functions/sigmoid.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {

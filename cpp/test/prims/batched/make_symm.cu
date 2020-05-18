@@ -16,9 +16,9 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <linalg/batched/make_symm.h>
-#include <random/rng.h>
-#include <test_utils.h>
+#include <linalg/batched/make_symm.cuh>
+#include <random/rng.cuh>
+#include "../test_utils.h"
 
 namespace MLCommon {
 namespace LinAlg {

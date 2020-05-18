@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,10 +30,14 @@ class RegressorMixin:
 
         Parameters
         ----------
-        X : [cudf.DataFrame]
+        X : array-like (device or host) shape = (n_samples, n_features)
             Test samples on which we predict
-        y : [cudf.Series, device array, or numpy array]
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        y : array-like (device or host) shape = (n_samples, n_features)
             Ground truth values for predict(X)
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         Returns
         -------
@@ -41,17 +45,13 @@ class RegressorMixin:
             R^2 of self.predict(X) wrt. y.
         """
         from cuml.metrics.regression import r2_score
-        from cuml.utils import input_to_dev_array
-
-        X_m = input_to_dev_array(X)[0]
-        y_m = input_to_dev_array(y)[0]
 
         if hasattr(self, 'handle'):
             handle = self.handle
         else:
             handle = None
-        return r2_score(y_m,
-                        cuda.to_device(self.predict(X_m)),
+        return r2_score(y,
+                        cuda.to_device(self.predict(X)),
                         handle=handle)
 
 
@@ -76,7 +76,7 @@ class ClassifierMixin:
             Accuracy of self.predict(X) wrt. y (fraction where y == pred_y)
         """
         from cuml.metrics.accuracy import accuracy_score
-        from cuml.utils import input_to_dev_array
+        from cuml.common import input_to_dev_array
 
         X_m = input_to_dev_array(X)[0]
         y_m = input_to_dev_array(y)[0]

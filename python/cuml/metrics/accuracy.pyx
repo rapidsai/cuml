@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ from libc.stdint cimport uintptr_t
 import cudf
 
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_dev_array
+from cuml.common import input_to_dev_array
 import cuml.common.handle
 cimport cuml.common.cuda
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ from collections import OrderedDict
 
 from functools import reduce
 from tornado import gen
-from collections import Sequence
+from collections.abc import Sequence
 from dask.distributed import futures_of, default_client, wait
 from toolz import first
 

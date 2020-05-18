@@ -13,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <metrics/entropy.h>
 #include <algorithm>
+#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
+#include <metrics/entropy.cuh>
 #include <random>
 #include "test_utils.h"
 

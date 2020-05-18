@@ -16,12 +16,12 @@
 
 #include <iostream>
 
-#include <label/classlabels.h>
 #include <linalg/cublas_wrappers.h>
-#include <linalg/unary_op.h>
-#include <matrix/kernelfactory.h>
 #include <common/device_buffer.hpp>
 #include <cuml/svm/svc.hpp>
+#include <label/classlabels.cuh>
+#include <linalg/unary_op.cuh>
+#include <matrix/kernelfactory.cuh>
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 #include "svc_impl.cuh"

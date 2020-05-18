@@ -23,7 +23,7 @@
 
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
-#include "knn_graph/runner.h"
+#include "knn_graph/runner.cuh"
 #include "simpl_set_embed/runner.cuh"
 
 #include <thrust/count.h>
@@ -33,11 +33,11 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include <sparse/coo.h>
-#include <sparse/csr.h>
+#include <sparse/coo.cuh>
+#include <sparse/csr.cuh>
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 
 #include <cuda_runtime.h>
 
@@ -174,7 +174,7 @@ void general_simplicial_set_intersection(
     row1_ind, in1->cols(), in1->vals(), in1->nnz, row2_ind, in2->cols(),
     in2->vals(), in2->nnz, in1->n_rows, result_ind.data(), d_alloc, stream);
 
-  result->allocate(result_nnz, in1->n_rows, stream);
+  result->allocate(result_nnz, in1->n_rows, in1->n_cols, true, stream);
 
   /**
    * Element-wise sum of two simplicial sets

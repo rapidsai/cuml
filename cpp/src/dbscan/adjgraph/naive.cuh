@@ -17,9 +17,9 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/host_buffer.hpp>
+#include <cuda_utils.cuh>
 #include <dbscan/common.cuh>
 #include "pack.h"
 
@@ -27,8 +27,8 @@ namespace Dbscan {
 namespace AdjGraph {
 namespace Naive {
 
-template <typename Type, typename Index_ = int>
-void launcher(const ML::cumlHandle_impl& handle, Pack<Type, Index_> data,
+template <typename Index_ = int>
+void launcher(const ML::cumlHandle_impl& handle, Pack<Index_> data,
               Index_ batchSize, cudaStream_t stream) {
   Index_ k = 0;
   Index_ N = data.N;
