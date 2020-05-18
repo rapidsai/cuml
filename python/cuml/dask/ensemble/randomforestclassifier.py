@@ -283,6 +283,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         return preds
 
     def predict_using_fil(self, X, delayed, **kwargs):
+        assert self.num_classes <= 2, "multi-class classification not "\
+                                      "supported in dask on GPU yet"
         if self.local_model is None:
             self.local_model = self._concat_treelite_models()
 
@@ -389,8 +391,10 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
-        num_classes : int (default = 2)
+        num_classes : int (default = 'auto')
+            deprecated
             number of different classes present in the dataset
+            must match the number of classes the model was trained on
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -410,6 +414,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         y : NumPy
            Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
         """
+        if predict_model == "GPU" and self.num_classes > 2:
+          assert False, "multi-class classification in dask on GPU is not "\
+                        "supported yet"
         if self.local_model is None:
             self.local_model = self._concat_treelite_models()
 
