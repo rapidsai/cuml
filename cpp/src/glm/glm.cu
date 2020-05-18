@@ -16,8 +16,8 @@
 
 #include <cuml/cuml.hpp>
 #include <cuml/linear_model/glm.hpp>
-#include <glm/qn/qn.cuh>
 #include "ols.cuh"
+#include "qn/qn.cuh"
 #include "ridge.cuh"
 
 namespace ML {

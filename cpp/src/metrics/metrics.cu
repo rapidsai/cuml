@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-// #include <metrics.h>
 #include <cuda_utils.cuh>
 #include <cuml/metrics/metrics.hpp>
 #include <metrics/adjustedRandIndex.cuh>
