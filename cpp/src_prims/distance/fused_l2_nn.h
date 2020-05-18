@@ -127,8 +127,7 @@ struct FusedL2NN : public BaseClass {
 
  private:
   DI void prolog() {
-    this->ldgsts(0);
-    this->pageWr ^= 1;
+    this->ldgXY(0);
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
@@ -136,13 +135,16 @@ struct FusedL2NN : public BaseClass {
         acc[i][j] = BaseClass::Zero;
       }
     }
+    this->stsXY();
     __syncthreads();
+    this->pageWr ^= 1;
   }
 
   DI void loop() {
     for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
-      this->ldgsts(kidx);
+      this->ldgXY(kidx);
       accumulate();  // on the previous k-block
+      this->stsXY();
       __syncthreads();
       this->pageWr ^= 1;
       this->pageRd ^= 1;
@@ -275,7 +277,7 @@ struct FusedL2NN : public BaseClass {
 
 #if (ENABLE_MEMCPY_ASYNC == 1)
   ///@todo: fix this to use memcpy_async
-  DI void ldgsts(IdxT kidx) {
+  DI void ldgXY(IdxT kidx) {
     auto koffset = kidx + this->scolid;
     auto offset = this->pageWr * P::SmemPage + this->srowid * P::SmemStride + this->scolid;
     auto* saddrx = this->sx + offset;
@@ -295,6 +297,9 @@ struct FusedL2NN : public BaseClass {
                               inside ? 0 : SizeAndAlign);
     }
     pipe.commit();
+  }
+
+  DI void stsXY() {
     pipe.wait_prior<0>();
   }
 #endif  // ENABLE_MEMCPY_ASYNC
