@@ -364,6 +364,8 @@ def check_predict_proba(test_proba, baseline_proba, y_test, rel_err):
         y_proba[count, _class] = 1
     baseline_mse = mean_squared_error(y_proba, baseline_proba)
     test_mse = mean_squared_error(y_proba, test_proba)
+    # using relative error is more stable when changing decision tree
+    # parameters, column or class count
     assert test_mse <= baseline_mse * (1.0 + rel_err)
 
 
@@ -381,7 +383,7 @@ def rf_classification(datatype, array_type, max_features, rows_sample,
     # random forest classification model
     cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_criterion=0,
-                       min_rows_per_node=2, seed=123, n_streams=1,
+                       min_rows_per_node=2, seed=123,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16)
     if array_type == 'dataframe':
@@ -390,7 +392,7 @@ def rf_classification(datatype, array_type, max_features, rows_sample,
         X_test_df = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_test))
         cuml_model.fit(X_train_df, y_train_df)
         cu_proba_gpu = np.array(cuml_model.predict_proba(X_test_df)
-                                .to_gpu_matrix())
+                                .as_gpu_matrix())
         cu_preds_cpu = cuml_model.predict(X_test_df,
                                           predict_model="CPU").to_array()
         cu_preds_gpu = cuml_model.predict(X_test_df,
@@ -418,7 +420,8 @@ def rf_classification(datatype, array_type, max_features, rows_sample,
         sk_proba = sk_model.predict_proba(X_test)
         assert cu_acc_cpu >= sk_acc - 0.07
         assert cu_acc_gpu >= sk_acc - 0.07
-        check_predict_proba(cu_proba_gpu, sk_proba, y_test, 0.1)
+        # 0.01429 is the highest error observed
+        check_predict_proba(cu_proba_gpu, sk_proba, y_test, 0.02)
 
 
 @pytest.mark.parametrize('datatype', [(np.float32, np.float32)])

@@ -801,8 +801,10 @@ class RandomForestClassifier(Base):
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
-        num_classes : int (default = 2)
+        num_classes : int (default = 'auto')
+            deprecated
             number of different classes present in the dataset
+            must match the number of classes the model was trained on
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -822,9 +824,12 @@ class RandomForestClassifier(Base):
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-        if num_classes != self.num_classes and num_classes != 'auto':
-            raise NotImplementedError("limiting num_classes for predict"
-                                      " is not implemented")
+        if num_classes != 'auto':
+          warnings.warn("num_classes is deprecated and will be removed"
+                        " in an upcoming version")
+          if num_classes != self.num_classes:
+              raise NotImplementedError("limiting num_classes for predict"
+                                        " is not implemented")
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
@@ -914,10 +919,7 @@ class RandomForestClassifier(Base):
         """
         Predicts class probabilites for X. This function uses the GPU
         implementation of predict. Therefore, data with 'dtype = np.float32'
-        and 'num_classes = 2' should be used while using this function.
-        The option to use predict_proba for multi_class classification is not
-        currently implemented. Please check cuml issue #1679 for more
-        information.
+        should be used while using this function.
 
         Parameters
         ----------
@@ -946,8 +948,10 @@ class RandomForestClassifier(Base):
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
-        num_classes : int (default = 2)
+        num_classes : int (default = 'auto')
+            deprecated
             number of different classes present in the dataset
+            must match the number of classes the model was trained on
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -977,9 +981,12 @@ class RandomForestClassifier(Base):
                             then please use the CPU based predict by \
                             setting predict_model = 'CPU'")
 
-        if num_classes != self.num_classes and num_classes != 'auto':
-            raise NotImplementedError("limiting num_classes for predict_proba \
-                                      is not implemented")
+        if num_classes != 'auto':
+          warnings.warn("num_classes is deprecated and will be removed"
+                        " in an upcoming version")
+          if num_classes != self.num_classes:
+              raise NotImplementedError("limiting num_classes for predict"
+                                        " is not implemented")
         preds_proba = \
             self._predict_model_on_gpu(X, output_class=output_class,
                                        threshold=threshold,
@@ -1019,8 +1026,10 @@ class RandomForestClassifier(Base):
             threshold is used to for classification
             This is optional and required only while performing the
             predict operation on the GPU.
-        num_classes : integer
+        num_classes : integer (default = 'auto')
+            deprecated
             number of different classes present in the dataset
+            must match the number of classes the model was trained on
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
         predict_model : String (default = 'GPU')

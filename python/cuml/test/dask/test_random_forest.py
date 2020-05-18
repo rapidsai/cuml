@@ -69,44 +69,6 @@ def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     return X_train_df, y_train_df
 
 
-@pytest.mark.parametrize('partitions_per_worker', [3])
-def test_rf_classification_dask_cudf(partitions_per_worker, cluster):
-
-    # Use CUDA_VISIBLE_DEVICES to control the number of workers
-    c = Client(cluster)
-
-    try:
-
-        X, y = make_classification(n_samples=10000, n_features=20,
-                                   n_clusters_per_class=1, n_informative=10,
-                                   random_state=123, n_classes=5)
-
-        X = X.astype(np.float32)
-        y = y.astype(np.int32)
-
-        X_train, X_test, y_train, y_test = \
-            train_test_split(X, y, test_size=1000)
-
-        cu_rf_params = {
-            'n_estimators': 40,
-            'max_depth': 16,
-            'n_bins': 16,
-        }
-
-        X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
-                                                     partitions_per_worker)
-
-        cuml_mod = cuRFC_mg(**cu_rf_params)
-        cuml_mod.fit(X_train_df, y_train_df)
-        cuml_mod_predict = cuml_mod.predict(X_test)
-        acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
-
-        assert acc_score > 0.8
-
-    finally:
-        c.close()
-
-
 @pytest.mark.xfail(reason="Intermittent failure of test observed. For"
                    "more information please check cuml issue #1934")
 @pytest.mark.parametrize('partitions_per_worker', [5])
