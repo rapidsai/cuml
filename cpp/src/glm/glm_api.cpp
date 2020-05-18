@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <glm/glm_api.h>
+#include "glm_api.h"
 #include <common/cumlHandle.hpp>
 #include <cuml/linear_model/glm.hpp>
 

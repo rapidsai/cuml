@@ -19,12 +19,12 @@
 #include <common/cudart_utils.h>
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
+#include <linalg/cublas_wrappers.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <algorithm>
 #include <cstddef>
 #include <cuda_utils.cuh>
-#include "../linalg/cublas_wrappers.h"
 
 namespace MLCommon {
 namespace Matrix {
