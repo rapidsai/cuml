@@ -1,6 +1,8 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
+- PR #1994: Support for distributed OneHotEncoder
+- PR #1892: One hot encoder implementation with cupy
 - PR #1655: Adds python bindings for homogeneity score
 - PR #1704: Adds python bindings for completeness score
 - PR #1687: Adds python bindings for mutual info score
@@ -149,7 +151,6 @@
 - PR #1766: Mean absolute error implementation with cupy
 - PR #1766: Mean squared log error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
-- PR #1892: One hot encoder implementation with cupy
 - PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
 - PR #1689: Add framework for cuML Dask serializers
