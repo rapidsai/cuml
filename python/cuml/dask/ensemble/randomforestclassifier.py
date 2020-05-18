@@ -267,8 +267,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
         """
         if predict_model == "CPU":
-            preds = self._predict_using_cpu(X,
-                                            convert_dtype=convert_dtype)
+            preds = self.predict_model_on_cpu(X=X,
+                                              convert_dtype=convert_dtype)
         else:
             preds = \
                 self.predict_using_fil(X, output_class=output_class,
