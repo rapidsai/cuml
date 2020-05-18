@@ -15,7 +15,6 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <treelite/c_api.h>
@@ -23,12 +22,13 @@
 #include <treelite/tree.h>
 #include <cmath>
 #include <cstdio>
+#include <cuda_utils.cuh>
 #include <limits>
 #include <memory>
 #include <utility>
 #include "cuml/fil/fil.h"
 #include "ml_utils.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 #define TL_CPP_CHECK(call) ASSERT(int(call) >= 0, "treelite call error")

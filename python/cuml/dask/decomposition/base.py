@@ -25,15 +25,18 @@ from dask.distributed import wait
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.input_utils import DistributedDataHandler
 
+import cuml.common.logger as logger
+
 
 class BaseDecomposition(BaseEstimator):
 
-    def __init__(self, model_func, client=None, verbose=False, **kwargs):
+    def __init__(self, model_func, client=None, verbosity=logger.LEVEL_INFO,
+                 **kwargs):
         """
         Constructor for distributed decomposition model
         """
         super(BaseDecomposition, self).__init__(client=client,
-                                                verbose=verbose,
+                                                verbosity=verbosity,
                                                 **kwargs)
         self._model_func = model_func
 
