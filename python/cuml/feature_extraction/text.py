@@ -15,7 +15,7 @@
 import warnings
 
 from cudf import Series
-from sklearn.feature_extraction._stop_words import ENGLISH_STOP_WORDS
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 from string import punctuation
 from functools import partial
 import nvtext
