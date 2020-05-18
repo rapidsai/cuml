@@ -98,6 +98,7 @@
 - PR #2257: Update QN and LogisticRegression to use CumlArray
 - PR #2259: Add CumlArray support to Naive Bayes
 - PR #2252: Add benchmark for the Gram matrix prims
+- PR #2272: Add docs build.sh script to repository
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
