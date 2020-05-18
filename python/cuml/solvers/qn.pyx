@@ -524,31 +524,6 @@ class QN(Base):
         else:
             raise AttributeError(attr)
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        # Remove the unpicklable handle.
-        if 'handle' in state:
-            del state['handle']
-        if 'coef_' in state:
-            if state['coef_'] is not None:
-                state['coef_'] = cudf.Series(
-                    cp.ravel(state['coef_'].to_output('cupy'))
-                )
-        return state
-
-    def __setstate__(self, state):
-        super(QN, self).__init__(handle=None, verbosity=state['verbosity'])
-
-        if 'coef_' in state and state['coef_'] is not None:
-            if 'fit_intercept' in state and state['fit_intercept']:
-                coef_size = (state['n_cols'] + 1, state['_num_classes'])
-            else:
-                coef_size = (state['n_cols'], state['_num_classes'])
-            state['coef_'] = state['coef_'].to_gpu_array().reshape(coef_size)
-            state['coef_'] = CumlArray(state['coef_'])
-
-        self.__dict__.update(state)
-
     def get_param_names(self):
         return ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
                 'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory',
