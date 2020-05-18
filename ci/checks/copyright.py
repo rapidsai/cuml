@@ -18,6 +18,7 @@ import re
 import gitutils
 import argparse
 import io
+import os
 
 
 FilesToCheck = [
@@ -81,16 +82,15 @@ def checkCopyright(f, update_current_year):
         crFound = True
         if start > end:
             e = [f, lineNum, "First year after second year in the copyright "
-                 "header (manual fix required)"]
-            e += [None] if update_current_year else []
+                 "header (manual fix required)", None]
             errs.append(e)
         if thisYear < start or thisYear > end:
             e = [f, lineNum, "Current year not included in the "
-                 "copyright header"]
-            if update_current_year and thisYear < start:
-                e += [replaceCurrentYear(line, thisYear, end)]
-            if update_current_year and thisYear > end:
-                e += [replaceCurrentYear(line, start, thisYear)]
+                 "copyright header", None]
+            if thisYear < start:
+                e[-1] = replaceCurrentYear(line, thisYear, end)
+            if thisYear > end:
+                e[-1] = replaceCurrentYear(line, start, thisYear)
             errs.append(e)
         else:
             yearMatched = True
@@ -98,8 +98,7 @@ def checkCopyright(f, update_current_year):
     # copyright header itself not found
     if not crFound:
         e = [f, 0, "Copyright header missing or formatted incorrectly "
-             "(manual fix required)"]
-        e += [None] if update_current_year else []
+             "(manual fix required)", None]
         errs.append(e)
     # even if the year matches a copyright header, make the check pass
     if yearMatched:
@@ -142,7 +141,13 @@ def checkCopyrightForAll():
         for e in errors:
             print("  %s:%d Issue: %s" % (e[0], e[1], e[2]))
         print("")
-        raise Exception("Copyright check failed! Check above to know more")
+        n_fixable = sum(1 for e in errors if e[-1] is not None)
+        path_parts = os.path.abspath(__file__).split(os.sep)
+        file_from_cuml = os.sep.join(path_parts[path_parts.index("ci"):])
+        if n_fixable > 0:
+            print("You can run {} --update-current-year to fix {} of these "
+                  "errors.\n".format(file_from_cuml, n_fixable))
+        raise Exception("Copyright check failed! Check above to know more.")
     else:
         print("Copyright check passed")
 
