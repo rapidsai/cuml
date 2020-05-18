@@ -43,28 +43,6 @@ from cuml.common.opg_data_utils_mg cimport *
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG
 
-
-cdef extern from "cumlprims/opg/matrix/data.hpp" \
-                 namespace "MLCommon::Matrix":
-
-    cdef cppclass floatData_t:
-        floatData_t(float *ptr, size_t totalSize)
-        float *ptr
-        size_t totalSize
-
-    cdef cppclass doubleData_t:
-        doubleData_t(double *ptr, size_t totalSize)
-        double *ptr
-        size_t totalSize
-
-cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
-                 namespace "MLCommon::Matrix":
-
-    cdef cppclass RankSizePair:
-        int rank
-        size_t size
-
-
 cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
 
     cdef void fit(cumlHandle& handle,
