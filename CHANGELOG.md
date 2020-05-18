@@ -1,6 +1,8 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
+- PR #1994: Support for distributed OneHotEncoder
+- PR #1892: One hot encoder implementation with cupy
 - PR #1655: Adds python bindings for homogeneity score
 - PR #1704: Adds python bindings for completeness score
 - PR #1687: Adds python bindings for mutual info score
@@ -13,6 +15,7 @@
 - PR #2074: SG and MNMG `make_classification`
 - PR #2127: Added order to SG `make_blobs`, and switch from C++ to cupy based implementation
 - PR #2057: Weighted k-means
+- PR #2256: Add a `make_arima` generator
 - PR #2245: ElasticNet, Lasso and Coordinate Descent MNMG
 - PR #2242: Pandas input support with output as NumPy arrays by default
 
@@ -86,6 +89,7 @@
 - PR #2208: Coordinate Descent, Lasso and ElasticNet CumlArray updates
 - PR #2210: Updating KNN tests to evaluate multiple index partitions
 - PR #2205: Use timeout to add 2 hour hard limit to dask tests
+- PR #2212: Improve DBScan batch count / memory estimation
 - PR #2214: Remove utils folder and refactor to common folder
 - PR #2220: Final refactoring of all src_prims header files following rules as specified in #1675
 - PR #2225: input_to_cuml_array keep order option, test updates and cleanup
@@ -130,6 +134,7 @@
 - PR #2179: Fix clang tools version in libcuml recipe
 - PR #2183: Fix RAFT in nightly package
 - PR #2191: Fix placement of SVM parameter documentation and add examples
+- PR #2212: Fix DBScan results (no propagation of labels through border points)
 - PR #2217: Fix opg_utils naming to fix singlegpu build
 - PR #2223: Fix bug in ARIMA C++ benchmark
 - PR #2224: Temporary fix for CI until new Dask version is released
@@ -147,7 +152,6 @@
 - PR #1766: Mean absolute error implementation with cupy
 - PR #1766: Mean squared log error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
-- PR #1892: One hot encoder implementation with cupy
 - PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
 - PR #1689: Add framework for cuML Dask serializers

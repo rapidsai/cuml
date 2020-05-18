@@ -76,9 +76,9 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
  * @param stream the cudaStream where to launch the kernels
  * @return in case the temp buffer is null, this returns the size needed.
  */
-template <typename Type, typename Type_f, typename Index_ = int>
+template <typename Type_f, typename Index_ = int>
 size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
-           Type_f eps, Type minPts, Index_* labels, int algoVd, int algoAdj,
+           Type_f eps, Index_ minPts, Index_* labels, int algoVd, int algoAdj,
            int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream) {
   const size_t align = 256;
   size_t batchSize = ceildiv<size_t>(N, nBatches);
@@ -95,7 +95,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
    * overflow.
    */
   size_t adjSize = alignTo<size_t>(sizeof(bool) * N * batchSize, align);
-  size_t corePtsSize = alignTo<size_t>(sizeof(bool) * batchSize, align);
+  size_t corePtsSize = alignTo<size_t>(sizeof(bool) * N, align);
   size_t xaSize = alignTo<size_t>(sizeof(bool) * N, align);
   size_t mSize = alignTo<size_t>(sizeof(bool), align);
   size_t vdSize = alignTo<size_t>(sizeof(Index_) * (batchSize + 1), align);
@@ -118,7 +118,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
   // partition the temporary workspace needed for different stages of dbscan.
 
-  Index_ adjlen = 0;
+  Index_ maxadjlen = 0;
   Index_ curradjlen = 0;
   char* temp = (char*)workspace;
   bool* adj = (bool*)temp;
@@ -138,11 +138,11 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
   // Running VertexDeg
   MLCommon::Sparse::WeakCCState state(xa, fa, m);
+  MLCommon::device_buffer<Index_> adj_graph(handle.getDeviceAllocator(),
+                                            stream);
 
   for (int i = 0; i < nBatches; i++) {
     ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
-    MLCommon::device_buffer<Index_> adj_graph(handle.getDeviceAllocator(),
-                                              stream);
 
     Index_ startVertexId = i * batchSize;
     Index_ nPoints = min(size_t(N - startVertexId), batchSize);
@@ -168,14 +168,14 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     start_time = curTimeMillis();
     // Running AdjGraph
     ML::PUSH_RANGE("Trace::Dbscan::AdjGraph");
-    if (curradjlen > adjlen || adj_graph.data() == NULL) {
-      adjlen = curradjlen;
-      adj_graph.resize(adjlen, stream);
+    if (curradjlen > maxadjlen || adj_graph.data() == NULL) {
+      maxadjlen = curradjlen;
+      adj_graph.resize(maxadjlen, stream);
     }
 
-    AdjGraph::run<Type, Index_>(handle, adj, vd, adj_graph.data(), adjlen,
-                                ex_scan, N, minPts, core_pts, algoAdj, nPoints,
-                                stream);
+    AdjGraph::run<Index_>(handle, adj, vd, adj_graph.data(), curradjlen,
+                          ex_scan, N, minPts, core_pts + startVertexId, algoAdj,
+                          nPoints, stream);
 
     ML::POP_RANGE();
 
@@ -188,9 +188,12 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
     start_time = curTimeMillis();
     MLCommon::Sparse::weak_cc_batched<Index_, 1024>(
-      labels, ex_scan, adj_graph.data(), adjlen, N, startVertexId, nPoints,
+      labels, ex_scan, adj_graph.data(), curradjlen, N, startVertexId, nPoints,
       &state, stream,
-      [core_pts] __device__(Index_ tid) { return core_pts[tid]; });
+      [core_pts, startVertexId, nPoints] __device__(Index_ global_id) {
+        return global_id < startVertexId + nPoints ? core_pts[global_id]
+                                                   : false;
+      });
     ML::POP_RANGE();
 
     cur_time = curTimeMillis();
