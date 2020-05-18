@@ -67,7 +67,8 @@ class _VectorizerMixin:
         """Tokenize text_document into a sequence of character n-grams"""
         # tokens = nvtext.character_tokenize(text_document)
         # return self._word_ngrams(tokens)
-        raise NotImplementedError()
+        raise NotImplementedError("Character-level ngrams is not yet"
+                                  " supported by cuML.")
 
     def _char_wb_ngrams(self, text_document):
         """Whitespace sensitive char-n-gram tokenization.
@@ -201,8 +202,6 @@ class CountVectorizer(_VectorizerMixin):
     ----------
     lowercase : boolean, True by default
         Convert all characters to lowercase before tokenizing.
-    remove_punctuation : boolean, True by default
-        Remove all characters from string.punctuation before tokenizing.
     preprocessor : callable or None (default)
         Override the preprocessing (string transformation) stage while
         preserving the tokenizing and n-grams generation steps.
@@ -251,6 +250,8 @@ class CountVectorizer(_VectorizerMixin):
         counts.
     dtype : type, optional
         Type of the matrix returned by fit_transform() or transform().
+    remove_punctuation : boolean, True by default
+        Remove all characters from string.punctuation before tokenizing.
     Attributes
     ----------
     vocabulary_ : nvstrings
@@ -262,10 +263,12 @@ class CountVectorizer(_VectorizerMixin):
           - were cut off by feature selection (`max_features`).
         This is only available if no vocabulary was given.
     """
-    def __init__(self, lowercase=True, remove_punctuation=True,
-                 preprocessor=None, stop_words=None, ngram_range=(1, 1),
-                 analyzer='word', max_df=1.0, min_df=1, max_features=None,
-                 vocabulary=None, binary=False, dtype=cp.int32):
+    def __init__(self, input=None, encoding=None, decode_error=None,
+                 strip_accents=None, lowercase=True, preprocessor=None,
+                 tokenizer=None, stop_words=None, token_pattern=None,
+                 ngram_range=(1, 1), analyzer='word', max_df=1.0, min_df=1,
+                 max_features=None, vocabulary=None, binary=False,
+                 dtype=cp.int32, remove_punctuation=True):
         self.preprocessor = preprocessor
         self.analyzer = analyzer
         self.lowercase = lowercase
@@ -285,6 +288,14 @@ class CountVectorizer(_VectorizerMixin):
         self.vocabulary = vocabulary
         self.binary = binary
         self.dtype = dtype
+
+        sklearn_params = {"input": input,
+                          "encoding": encoding,
+                          "decode_error": decode_error,
+                          "strip_accents": strip_accents,
+                          "tokenizer": tokenizer,
+                          "token_pattern": token_pattern}
+        self.check_sklearn_params(analyzer, sklearn_params)
 
     def _count_vocab(self, docs):
         """Create feature matrix, and vocabulary where fixed_vocab=False"""
@@ -447,3 +458,16 @@ class CountVectorizer(_VectorizerMixin):
             A list of feature names.
         """
         return self.vocabulary_
+
+    def check_sklearn_params(self, analyzer, sklearn_params):
+        if callable(analyzer):
+            raise ValueError("cuML does not support callable analyzer,"
+                             " please refer to the cuML documentation for"
+                             " more information.")
+
+        for key, vals in sklearn_params.items():
+            if vals is not None:
+                raise TypeError("The Scikit-learn variable", key,
+                                " is not supported in cuML,"
+                                " please read the cuML documentation for"
+                                " more information.")
