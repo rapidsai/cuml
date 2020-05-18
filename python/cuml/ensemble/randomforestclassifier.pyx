@@ -140,6 +140,8 @@ class RandomForestClassifier(Base):
        * Very deep / very wide models may exhaust available GPU memory.
          Future versions of cuML will provide an alternative algorithm to
          reduce memory consumption.
+       * While training the model for multi class classification problems,
+         using deep trees or `max_features=1.0` provides better performance.
 
     Examples
     ---------
