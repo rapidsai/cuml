@@ -29,12 +29,13 @@ import cuml
 import warnings
 
 from cuml.common.base import Base
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros, row_matrix
+from cuml.common.array import CumlArray
+from cuml.common import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
 
 from cuml.common.handle cimport cumlHandle
+import cuml.common.logger as logger
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -192,18 +193,19 @@ def _build_part_inputs(cuda_arr_ifaces,
 
     arr_ints = []
     for arr in cuda_arr_ifaces:
-        X_m, input_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(arr, order="F",
-                               convert_to_dtype=(np.float32
-                                                 if convert_dtype
-                                                 else None),
-                               check_dtype=[np.float32])
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(arr, order="F",
+                                convert_to_dtype=(np.float32
+                                                  if convert_dtype
+                                                  else None),
+                                check_dtype=[np.float32])
+        input_ptr = X_m.ptr
         arr_ints.append({"obj": X_m,
                          "data": input_ptr,
                          "shape": (n_rows, n_cols)})
 
-    for rankSize in parts_to_ranks:
-        rank, size = rankSize
+    for idx, rankToSize in enumerate(parts_to_ranks):
+        rank, size = rankToSize
         rsp = <RankSizePair*> malloc(sizeof(RankSizePair))
         rsp.rank = <int>rank
         rsp.size = <size_t>size
@@ -266,6 +268,8 @@ class NearestNeighborsMG(NearestNeighbors):
         -------
         output indices, output distances
         """
+        self._set_output_type(indices[0])
+        out_type = self._get_output_type(queries[0])
 
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
 
@@ -295,18 +299,18 @@ class NearestNeighborsMG(NearestNeighbors):
         for query_part in q_cai:
 
             n_rows = query_part["shape"][0]
-            i_ary = rmm.to_device(zeros((n_rows, n_neighbors),
-                                        order="C",
-                                        dtype=np.int64))
-            d_ary = rmm.to_device(zeros((n_rows, n_neighbors),
-                                        order="C",
-                                        dtype=np.float32))
+            i_ary = CumlArray.zeros((n_rows, n_neighbors),
+                                    order="C",
+                                    dtype=np.int64)
+            d_ary = CumlArray.zeros((n_rows, n_neighbors),
+                                    order="C",
+                                    dtype=np.float32)
 
             output_i_arrs.append(i_ary)
             output_d_arrs.append(d_ary)
 
-            i_ptr = get_dev_array_ptr(i_ary)
-            d_ptr = get_dev_array_ptr(d_ary)
+            i_ptr = i_ary.ptr
+            d_ptr = d_ary.ptr
 
             out_i_vec.push_back(new int64Data_t(
                 <int64_t*>i_ptr, n_rows * n_neighbors))
@@ -314,6 +318,7 @@ class NearestNeighborsMG(NearestNeighbors):
             out_d_vec.push_back(new floatData_t(
                 <float*>d_ptr, n_rows * n_neighbors))
 
+        is_verbose = logger.should_log_for(logger.LEVEL_DEBUG)
         brute_force_knn(
             handle_[0],
             deref(out_i_vec),
@@ -326,14 +331,14 @@ class NearestNeighborsMG(NearestNeighbors):
             False,  # column-major query
             n_neighbors,
             <size_t>self.batch_size,
-            <bool>self.verbose
+            <bool>is_verbose
         )
 
         self.handle.sync()
 
-        output_i = list(map(lambda x: cudf.DataFrame.from_gpu_matrix(x),
+        output_i = list(map(lambda x: x.to_output(out_type),
                             output_i_arrs))
-        output_d = list(map(lambda x: cudf.DataFrame.from_gpu_matrix(x),
+        output_d = list(map(lambda x: x.to_output(out_type),
                             output_d_arrs))
 
         _free_mem(<size_t>idx_rsp,

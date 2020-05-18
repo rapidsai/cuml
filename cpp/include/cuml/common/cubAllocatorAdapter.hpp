@@ -21,19 +21,38 @@
 
 namespace ML {
 
+/**
+ * @brief Implemententation of ML::deviceAllocator using the cub's caching
+ *        allocator API
+ */
 class cachingDeviceAllocator : public deviceAllocator {
  public:
   cachingDeviceAllocator()
     : _allocator(8, 3, cub::CachingDeviceAllocator::INVALID_BIN,
                  cub::CachingDeviceAllocator::INVALID_SIZE) {}
 
+  /**
+   * @brief asynchronosly allocate n bytes that can be used after all work in
+   *        stream sheduled prior to this call has completetd.
+   *
+   * @param[in] n         size of the allocation in bytes
+   * @param[in] stream    the stream to use for the asynchronous allocations
+   */
   void* allocate(std::size_t n, cudaStream_t stream) {
     void* ptr = 0;
     _allocator.DeviceAllocate(&ptr, n, stream);
     return ptr;
   }
 
-  void deallocate(void* p, std::size_t, cudaStream_t) {
+  /**
+   * @brief asynchronosly free an allocation of n bytes that can be reused after
+   *        all work in stream scheduled prior to this call has completed.
+   *
+   * @param[in] p         pointer to n bytes of memory to be deallocated
+   * @param[in] n         size of the allocation to release in bytes
+   * @param[in] stream    the stream to use for the asynchronous free
+   */
+  void deallocate(void* p, std::size_t n, cudaStream_t stream) {
     _allocator.DeviceFree(p);
   }
 

@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits>
-#include "cuda_utils.h"
-#include "random/rng.h"
-#include "stats/minmax.h"
+#include "cuda_utils.cuh"
+#include "random/rng.cuh"
+#include "stats/minmax.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

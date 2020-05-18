@@ -20,15 +20,19 @@
 # cython: language_level = 3
 
 import cuml
-import cuml.common.handle
 import cuml.common.cuda
+import cuml.common.handle
+import cuml.common.logger as logger
 import inspect
 
-from cudf.core import Series, DataFrame
+from cudf.core import Series as cuSeries
+from cudf.core import DataFrame as cuDataFrame
 from cuml.common.array import CumlArray
 from cupy import ndarray as cupyArray
-from numba.cuda import is_cuda_array
+from numba.cuda import devicearray as numbaArray
 from numpy import ndarray as numpyArray
+from pandas import DataFrame as pdDataFrame
+from pandas import Series as pdSeries
 
 
 class Base:
@@ -58,7 +62,7 @@ class Base:
     .. code-block:: python
 
         def __init__(...)
-            super(KMeans, self).__init__(handle, verbose, output_type)
+            super(KMeans, self).__init__(handle, verbosity, output_type)
 
             # initialize numeric variables
 
@@ -104,13 +108,15 @@ class Base:
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created just for this class.
-    verbose : bool
-        Whether to print debug spews
+    verbosity : int
+        Sets logging level. It must be one of `cuml.common.logger.LEVEL_*`.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes of
         the estimators. If None, it'll inherit the output type set at the
         module level, cuml.output_type. If set, the estimator will override
         the global option for its behavior.
+    verbose : boolean
+        Deprecated in favor of `verbosity` flag
 
     Examples
     --------
@@ -158,18 +164,21 @@ class Base:
         del base  # optional!
     """
 
-    def __init__(self, handle=None, verbose=False, output_type=None):
+    def __init__(self, handle=None, verbosity=logger.LEVEL_INFO,
+                 output_type=None, verbose=None):
         """
         Constructor. All children must call init method of this base class.
 
         """
         self.handle = cuml.common.handle.Handle() if handle is None else handle
-        self.verbose = verbose
+        self.verbosity = verbosity
+        if verbose is not None:
+            logger.warn("'verbose' flag is deprecated in favor of 'verbosity'")
 
         self.output_type = cuml.global_output_type if output_type is None \
             else _check_output_type_str(output_type)
 
-        self._mirror_input = True if self.output_type is 'input' else False
+        self._mirror_input = True if self.output_type == 'input' else False
 
     def __repr__(self):
         """
@@ -233,15 +242,12 @@ class Base:
         return self
 
     def __getstate__(self):
-        state = self.__dict__.copy()
-        # Remove the unpicklable handle.
-        if 'handle' in state:
-            del state['handle']
-        return state
+        # getstate and setstate are needed to tell pickle to treat this
+        # as regular python classes instead of triggering __getattr__
+        return self.__dict__
 
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self.handle = cuml.common.handle.Handle()
+    def __setstate__(self, d):
+        self.__dict__.update(d)
 
     def __getattr__(self, attr):
         """
@@ -257,6 +263,8 @@ class Base:
                 return self.__dict__[real_name].to_output(self.output_type)
             else:
                 return self.__dict__[real_name]
+        else:
+            raise AttributeError
 
     def _set_output_type(self, input):
         """
@@ -274,7 +282,7 @@ class Base:
         class output type and global output type.
         """
         if self._mirror_input:
-            return _input_type_to_str[type(input)]
+            return _input_to_type(input)
         else:
             return self.output_type
 
@@ -284,8 +292,10 @@ class Base:
 _input_type_to_str = {
     numpyArray: 'numpy',
     cupyArray: 'cupy',
-    Series: 'cudf',
-    DataFrame: 'cudf'
+    cuSeries: 'cudf',
+    cuDataFrame: 'cudf',
+    pdSeries: 'numpy',
+    pdDataFrame: 'numpy'
 }
 
 
@@ -294,7 +304,7 @@ def _input_to_type(input):
     # numba check for a numba device_array
     if type(input) in _input_type_to_str.keys():
         return _input_type_to_str[type(input)]
-    elif is_cuda_array(input):
+    elif numbaArray.is_cuda_ndarray(input):
         return 'numba'
     else:
         return 'cupy'

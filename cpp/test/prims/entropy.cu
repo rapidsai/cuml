@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <random>
-#include "cuda_utils.h"
-#include "metrics/entropy.h"
+#include "cuda_utils.cuh"
+#include "metrics/entropy.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

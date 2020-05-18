@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "linalg/reduce_cols_by_key.h"
-#include "random/rng.h"
+#include "linalg/reduce_cols_by_key.cuh"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

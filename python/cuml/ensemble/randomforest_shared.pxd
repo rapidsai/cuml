@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ from cuml.common.handle import Handle
 from cuml import ForestInference
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 cimport cuml.common.handle
 cimport cuml.common.cuda
@@ -70,6 +70,10 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef enum RF_type:
         CLASSIFICATION,
         REGRESSION
+
+    cdef enum task_category:
+        REGRESSION_MODEL = 1,
+        CLASSIFICATION_MODEL = 2
 
     cdef struct RF_metrics:
         RF_type rf_type
@@ -120,3 +124,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                     int) except +
 
     cdef vector[unsigned char] save_model(ModelHandle)
+
+    cdef ModelHandle concatenate_trees(
+        vector[ModelHandle] &treelite_handles) except +

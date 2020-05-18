@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,6 @@
 #
 
 import pytest
-from dask_cuda import LocalCUDACluster
-
 from dask.distributed import Client
 from cuml.dask.common import utils as dask_utils
 from sklearn.metrics import mean_squared_error
@@ -64,14 +62,19 @@ def make_regression_dataset(datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("normalize", [False])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize("delayed", [True, False])
 def test_ols(nrows, ncols, n_parts, fit_intercept,
-             normalize, datatype, client=None):
+             normalize, datatype, delayed, cluster):
 
-    if client is None:
-        cluster = LocalCUDACluster()
-        client = Client(cluster)
+    client = Client(cluster)
 
     try:
+
+        def imp():
+            import cuml.comm.serialize  # NOQA
+
+        client.run(imp)
+
         from cuml.dask.linear_model import LinearRegression as cumlOLS_dask
 
         n_info = 5
@@ -83,12 +86,9 @@ def test_ols(nrows, ncols, n_parts, fit_intercept,
 
         lr = cumlOLS_dask(fit_intercept=fit_intercept, normalize=normalize)
 
-        if n_parts > 2:
-            lr.fit(X_df, y_df, force_colocality=True)
-        else:
-            lr.fit(X_df, y_df)
+        lr.fit(X_df, y_df)
 
-        ret = lr.predict(X_df)
+        ret = lr.predict(X_df, delayed=delayed)
 
         error_cuml = mean_squared_error(y, ret.compute().to_pandas().values)
 
@@ -96,4 +96,3 @@ def test_ols(nrows, ncols, n_parts, fit_intercept,
 
     finally:
         client.close()
-        cluster.close()

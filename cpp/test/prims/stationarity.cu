@@ -19,9 +19,10 @@
 #include <random>
 #include <vector>
 
+#include <common/cudart_utils.h>
 #include "cuml/common/cuml_allocator.hpp"
 #include "test_utils.h"
-#include "timeSeries/stationarity.h"
+#include "timeSeries/stationarity.cuh"
 
 namespace MLCommon {
 namespace TimeSeries {

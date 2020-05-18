@@ -16,13 +16,14 @@
 
 import cupy as cp
 import numpy as np
+import pickle
 
 from rmm import DeviceBuffer
 from cudf.core import Buffer, Series, DataFrame
-from cuml.utils import with_cupy_rmm
-from cuml.utils.memory_utils import _get_size_from_shape
-from cuml.utils.memory_utils import _order_to_strides
-from cuml.utils.memory_utils import _strides_to_order
+from cuml.common.memory_utils import with_cupy_rmm
+from cuml.common.memory_utils import _get_size_from_shape
+from cuml.common.memory_utils import _order_to_strides
+from cuml.common.memory_utils import _strides_to_order
 from numba import cuda
 
 
@@ -44,7 +45,8 @@ class CumlArray(Buffer):
     Parameters
     ----------
 
-    data : rmm.DeviceBuffer, array_like, int
+    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearray or
+           memoryview
         An array-like object or integer representing a
         device or host pointer to pre-allocated memory.
     owner : object, optional
@@ -109,20 +111,33 @@ class CumlArray(Buffer):
 
     def __init__(self, data=None, owner=None, dtype=None, shape=None,
                  order=None):
+
+        # Checks of parameters
         if data is None:
             raise TypeError("To create an empty Array, use the class method" +
-                            " Array.empty()")
-        if isinstance(data, int):
+                            " Array.empty().")
+        elif isinstance(data, memoryview):
+            data = np.asarray(data)
+
+        if _check_low_level_type(data):
             if dtype is None or shape is None or order is None:
                 raise TypeError("Need to specify dtype, shape and order when" +
-                                " creating an Array from a pointer.")
+                                " creating an Array from {}."
+                                .format(type(data)))
+            detailed_construction = True
+        elif dtype is not None and shape is not None and order is not None:
+            detailed_construction = True
+        else:
+            detailed_construction = False
 
         ary_interface = False
 
-        if isinstance(data, DeviceBuffer) or isinstance(data, int) or \
-                isinstance(data, Buffer):
-            size, shape = _get_size_from_shape(shape, dtype)
-            super(CumlArray, self).__init__(data=data, owner=owner, size=size)
+        # Base class (Buffer) constructor call
+        size, shape = _get_size_from_shape(shape, dtype)
+        super(CumlArray, self).__init__(data=data, owner=owner, size=size)
+
+        # Post processing of meta data
+        if detailed_construction:
             self.shape = shape
             self.dtype = np.dtype(dtype)
             self.order = order
@@ -135,19 +150,18 @@ class CumlArray(Buffer):
             ary_interface = data.__cuda_array_interface__
 
         else:
-            raise TypeError("Unrecognized data type.")
+            raise TypeError("Unrecognized data type: %s" % str(type(data)))
 
         if ary_interface:
-            super(CumlArray, self).__init__(data=data, owner=owner)
             self.shape = ary_interface['shape']
-            self.dtype = np.dtype(data.dtype)
-            if ary_interface['strides'] is None:
+            self.dtype = np.dtype(ary_interface['typestr'])
+            if ary_interface.get('strides', None) is None:
                 self.order = 'C'
                 self.strides = _order_to_strides(self.order, self.shape,
                                                  self.dtype)
             else:
                 self.strides = ary_interface['strides']
-                self.order = _strides_to_order(self.strides, data.dtype)
+                self.order = _strides_to_order(self.strides, self.dtype)
 
     def __getitem__(self, slice):
         return CumlArray(data=cp.asarray(self).__getitem__(slice))
@@ -155,8 +169,11 @@ class CumlArray(Buffer):
     def __setitem__(self, slice, value):
         cp.asarray(self).__setitem__(slice, value)
 
-    def __reduce__(self):
-        return self.__class__, (self.to_output('numpy'),)
+    def __reduce_ex__(self, protocol):
+        data = self.to_output('numpy')
+        if protocol >= 5:
+            data = pickle.PickleBuffer(data)
+        return self.__class__, (data,)
 
     def __len__(self):
         return self.shape[0]
@@ -194,10 +211,10 @@ class CumlArray(Buffer):
         if output_type == 'cudf':
             if len(self.shape) == 1:
                 output_type = 'series'
-            elif self.shape[0] > 1 and self.shape[1] > 1:
-                output_type = 'dataframe'
-            else:
+            elif self.shape[1] == 1:
                 output_type = 'series'
+            else:
+                output_type = 'dataframe'
 
         if output_type == 'cupy':
             return cp.asarray(self)
@@ -227,7 +244,7 @@ class CumlArray(Buffer):
                     return Series(self, dtype=self.dtype)
                 else:
                     raise ValueError('cuDF unsupported Array dtype')
-            elif self.shape[0] > 1 and self.shape[1] > 1:
+            elif self.shape[1] > 1:
                 raise ValueError('Only single dimensional arrays can be \
                                  transformed to cuDF Series. ')
             else:
@@ -317,3 +334,15 @@ class CumlArray(Buffer):
             Whether to create a F-major or C-major array.
         """
         return CumlArray.full(value=1, shape=shape, dtype=dtype, order=order)
+
+
+def _check_low_level_type(data):
+    if not (
+        hasattr(data, "__array_interface__")
+        or hasattr(data, "__cuda_array_interface__")
+    ):
+        return True
+    elif isinstance(data, (DeviceBuffer, Buffer)):
+        return True
+    else:
+        return False

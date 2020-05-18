@@ -17,6 +17,9 @@
 #include "common_kernel.cuh"
 #include "cub/cub.cuh"
 
+namespace ML {
+namespace DecisionTree {
+
 __global__ void sample_count_histogram_kernel(
   const int* __restrict__ labels, const unsigned int* __restrict__ sample_cnt,
   const int nrows, const int nmax, int* histout) {
@@ -606,3 +609,6 @@ __global__ void make_leaf_gather_classification_kernel(
     d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
   }
 }
+
+}  // namespace DecisionTree
+}  // namespace ML

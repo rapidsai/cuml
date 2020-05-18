@@ -21,7 +21,7 @@ import warnings
 from numba import cuda
 from typing import Union
 
-from cuml.utils import rmm_cupy_ary
+from cuml.common import rmm_cupy_ary
 
 
 def train_test_split(
@@ -60,7 +60,6 @@ def train_test_split(
 
     Examples
     --------
-
     .. code-block:: python
 
         import cudf
@@ -200,7 +199,7 @@ def train_test_split(
             X = cp.asarray(X)[idxs]
 
         if isinstance(y, cudf.DataFrame) or isinstance(y, cudf.Series):
-            y = y.iloc[idxs].reset_index(drop=True)
+            y = y.iloc[idxs]
 
         elif cuda.is_cuda_array(y):
             if cuda.devicearray.is_cuda_ndarray(y):
