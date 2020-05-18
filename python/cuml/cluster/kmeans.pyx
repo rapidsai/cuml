@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,7 +32,8 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array
+import cuml.common.logger as logger
+from cuml.common import input_to_cuml_array
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace \
         "ML::kmeans::KMeansParams":
@@ -46,9 +47,10 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
         InitMethod init
         int max_iter,
         double tol,
-        int verbose,
+        int verbosity,
         int seed,
         int metric,
+        int n_init,
         double oversampling_factor,
         int batch_samples,
         int batch_centroids,
@@ -59,6 +61,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                           const float *X,
                           int n_samples,
                           int n_features,
+                          const float *sample_weight,
                           float *centroids,
                           int *labels,
                           float &inertia,
@@ -69,6 +72,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                           const double *X,
                           int n_samples,
                           int n_features,
+                          const double *sample_weight,
                           double *centroids,
                           int *labels,
                           double &inertia,
@@ -80,6 +84,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       const float *X,
                       int n_samples,
                       int n_features,
+                      const float *sample_weight,
                       int *labels,
                       float &inertia) except +
 
@@ -89,6 +94,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       const double *X,
                       int n_samples,
                       int n_features,
+                      const double *sample_weight,
                       int *labels,
                       double &inertia) except +
 
@@ -199,8 +205,8 @@ class KMeans(Base):
         The more iterations of EM, the more accurate, but slower.
     tol : float64 (default = 1e-4)
         Stopping criterion when centroid means do not change much.
-    verbose : boolean (default = 0)
-        If True, prints diagnostic information.
+    verbosity : int (default = cuml.common.logger.LEVEL_INFO)
+        Logging level.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a
         state.
@@ -210,6 +216,10 @@ class KMeans(Base):
         'random': Choose 'n_cluster' observations (rows) at random from data
         for the initial centroids. If an ndarray is passed, it should be of
         shape (n_clusters, n_features) and gives the initial centers.
+    n_init: int (default = 1)
+        Number of instances the k-means algorithm will be called with different seeds.
+        The final results will be from the instance that produces lowest inertia out
+        of n_init instances.
     oversampling_factor : float64
         scalable k-means|| oversampling factor
     max_samples_per_batch : int (default=1<<15)
@@ -260,15 +270,15 @@ class KMeans(Base):
     """
 
     def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
-                 verbose=0, random_state=1, init='scalable-k-means++',
-                 oversampling_factor=2.0, max_samples_per_batch=1<<15,
-                 output_type=None):
-        super(KMeans, self).__init__(handle, verbose, output_type)
+                 verbosity=logger.LEVEL_INFO, random_state=1,
+                 init='scalable-k-means++', n_init=1, oversampling_factor=2.0,
+                 max_samples_per_batch=1<<15, output_type=None):
+        super(KMeans, self).__init__(handle, verbosity, output_type)
         self.n_clusters = n_clusters
-        self.verbose = verbose
         self.random_state = random_state
         self.max_iter = max_iter
         self.tol = tol
+        self.n_init = n_init
         self.inertia_ = 0
         self.n_iter_ = 0
         self.oversampling_factor=oversampling_factor
@@ -280,6 +290,12 @@ class KMeans(Base):
 
         cdef KMeansParams params
         params.n_clusters = <int>self.n_clusters
+
+        # K-means++ is the constrained case of k-means||
+        # w/ oversampling factor = 0
+        if (init == 'k-means++'):
+            init = 'k-means||'
+            self.oversampling_factor = 0
 
         if (init in ['scalable-k-means++', 'k-means||']):
             self.init = init
@@ -298,14 +314,15 @@ class KMeans(Base):
 
         params.max_iter = <int>self.max_iter
         params.tol = <double>self.tol
-        params.verbose = <int>self.verbose
+        params.verbosity = <int>self.verbosity
         params.seed = <int>self.random_state
         params.metric = 0   # distance metric as squared L2: @todo - support other metrics # noqa: E501
         params.batch_samples=<int>self.max_samples_per_batch
         params.oversampling_factor=<double>self.oversampling_factor
+        params.n_init = <int>self.n_init
         self._params = params
 
-    def fit(self, X):
+    def fit(self, X, sample_weight=None):
         """
         Compute k-means clustering with X.
 
@@ -315,6 +332,10 @@ class KMeans(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        sample_weight : array-like (device or host) shape = (n_samples,), default=None # noqa
+            The weights for each observation in X. If None, all observations
+            are assigned equal weight.
 
         """
 
@@ -335,6 +356,16 @@ class KMeans(Base):
         cdef uintptr_t input_ptr = X_m.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
+        if sample_weight is None:
+            sample_weight_m = CumlArray.ones(shape=n_rows, dtype=self.dtype)
+        else:
+            sample_weight_m, _, _, _ = \
+                input_to_cuml_array(sample_weight, order='C',
+                                    convert_to_dtype=self.dtype,
+                                    check_rows=n_rows)
+
+        cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
 
         self._labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32)
         cdef uintptr_t labels_ptr = self._labels_.ptr
@@ -359,6 +390,7 @@ class KMeans(Base):
                 <const float*> input_ptr,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
+                <const float *>sample_weight_ptr,
                 <float*> cluster_centers_ptr,
                 <int*> labels_ptr,
                 inertiaf,
@@ -373,6 +405,7 @@ class KMeans(Base):
                 <const double*> input_ptr,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
+                <const double *>sample_weight_ptr,
                 <double*> cluster_centers_ptr,
                 <int*> labels_ptr,
                 inertiad,
@@ -386,12 +419,11 @@ class KMeans(Base):
                             ' passed.')
 
         self.handle.sync()
-
         del(X_m)
-
+        del(sample_weight_m)
         return self
 
-    def fit_predict(self, X):
+    def fit_predict(self, X, sample_weight=None):
         """
         Compute cluster centers and predict cluster index for each sample.
 
@@ -402,10 +434,15 @@ class KMeans(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        """
-        return self.fit(X).labels_
+        sample_weight : array-like (device or host) shape = (n_samples,), default=None # noqa
+            The weights for each observation in X. If None, all observations
+            are assigned equal weight.
 
-    def _predict_labels_inertia(self, X, convert_dtype=False):
+        """
+        return self.fit(X, sample_weight=sample_weight).labels_
+
+    def _predict_labels_inertia(self, X, convert_dtype=False,
+                                sample_weight=None):
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -420,6 +457,10 @@ class KMeans(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
+        sample_weight : array-like (device or host) shape = (n_samples,), default=None # noqa
+            The weights for each observation in X. If None, all observations
+            are assigned equal weight.
 
         Returns
         -------
@@ -440,6 +481,16 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr = X_m.ptr
 
+        if sample_weight is None:
+            sample_weight_m = CumlArray.ones(shape=n_rows, dtype=self.dtype)
+        else:
+            sample_weight_m, _, _, _ = \
+                input_to_cuml_array(sample_weight, order='C',
+                                    convert_to_dtype=self.dtype,
+                                    check_rows=n_rows)
+
+        cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
+
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
@@ -459,6 +510,7 @@ class KMeans(Base):
                 <float*> input_ptr,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
+                <float *>sample_weight_ptr,
                 <int*> labels_ptr,
                 inertiaf)
             self.handle.sync()
@@ -471,6 +523,7 @@ class KMeans(Base):
                 <double*> input_ptr,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
+                <double *>sample_weight_ptr,
                 <int*> labels_ptr,
                 inertiad)
             self.handle.sync()
@@ -482,10 +535,10 @@ class KMeans(Base):
 
         self.handle.sync()
         del(X_m)
-
+        del(sample_weight_m)
         return self._labels_.to_output(out_type), inertia
 
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=False, sample_weight=None):
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -502,7 +555,9 @@ class KMeans(Base):
         Which cluster each datapoint belongs to.
         """
 
-        return self._predict_labels_inertia(X, convert_dtype=convert_dtype)[0]
+        labels, _ = self._predict_labels_inertia(X,
+                                                 convert_dtype=convert_dtype)
+        return labels
 
     def transform(self, X, convert_dtype=False):
         """
@@ -615,6 +670,6 @@ class KMeans(Base):
         return self.fit(X).transform(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
-        return ['oversampling_factor', 'max_samples_per_batch',
+        return ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
-                'tol', 'verbose']
+                'tol', 'verbosity']

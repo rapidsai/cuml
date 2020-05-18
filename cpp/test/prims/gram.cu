@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
+#include <common/cudart_utils.h>
 #include <cuml/matrix/kernelparams.h>
 #include <gtest/gtest.h>
+#include <cuda_utils.cuh>
 #include <iostream>
 #include <memory>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "common/host_buffer.hpp"
-#include "matrix/grammatrix.h"
-#include "matrix/kernelfactory.h"
+#include "matrix/grammatrix.cuh"
+#include "matrix/kernelfactory.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

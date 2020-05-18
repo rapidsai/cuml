@@ -15,7 +15,7 @@
  */
 
 #include <cuml/tsa/holtwinters.h>
-#include "runner.h"
+#include "runner.cuh"
 
 namespace ML {
 namespace HoltWinters {

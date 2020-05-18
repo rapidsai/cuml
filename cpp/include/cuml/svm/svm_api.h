@@ -41,8 +41,9 @@ extern "C" {
  * @param [in] max_iter maximum number of outer iterations in SmoSolver
  * @param [in] nochange_steps max number of outer iterations without change in convergence
  * @param [in] tol tolerance to stop fitting
- * @param[in] verbose Pass a 1 to print useful information as algorithm executes. To
- *     execute quietly, pass 0
+ * @param [in] verbosity Fine grained control over logging of useful information
+ *   as algorithm executes. Currently passing anything greater than or equal to
+ *   CUML_LEVEL_INFO will make it execute quietly
  * @param [in] kernel type of kernel (LINEAR, POLYNOMIAL, RBF or TANH)
  * @param [in] degree of polynomial kernel (ignored by others)
  * @param [in] gamma multiplier in the RBF, POLYNOMIAL and TANH kernels
@@ -63,7 +64,7 @@ extern "C" {
 cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
                          int n_cols, float *labels, float C, float cache_size,
                          int max_iter, int nochange_steps, float tol,
-                         int verbose, cumlSvmKernelType kernel, int degree,
+                         int verbosity, cumlSvmKernelType kernel, int degree,
                          float gamma, float coef0, int *n_support, float *b,
                          float **dual_coefs, float **x_support,
                          int **support_idx, int *n_classes,
@@ -72,7 +73,7 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
 cumlError_t cumlDpSvcFit(cumlHandle_t handle, double *input, int n_rows,
                          int n_cols, double *labels, double C,
                          double cache_size, int max_iter, int nochange_steps,
-                         double tol, int verbose, cumlSvmKernelType kernel,
+                         double tol, int verbosity, cumlSvmKernelType kernel,
                          int degree, double gamma, double coef0, int *n_support,
                          double *b, double **dual_coefs, double **x_support,
                          int **support_idx, int *n_classes,

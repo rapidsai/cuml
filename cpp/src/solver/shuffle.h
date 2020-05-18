@@ -40,7 +40,6 @@ void shuffle(std::vector<math_t> &rand_indices, std::mt19937 &g) {
   std::shuffle(rand_indices.begin(), rand_indices.end(), g);
 }
 
-/** @} */
 };  // namespace Solver
 };  // namespace ML
 // end namespace ML

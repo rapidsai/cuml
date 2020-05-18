@@ -31,3 +31,11 @@ def test_base_class_usage_with_handle():
     base = cuml.Base(handle=handle)
     base.handle.sync()
     del base
+
+
+def test_base_hasattr():
+    base = cuml.Base()
+    # With __getattr__ overriding magic, hasattr should still return
+    # True only for valid attributes
+    assert hasattr(base, "handle")
+    assert not hasattr(base, "somefakeattr")

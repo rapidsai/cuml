@@ -74,12 +74,12 @@ def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
     """
 
     n = X.shape[0]
-    svm1_y_hat = svm1.predict(X).to_array()
+    svm1_y_hat = svm1.predict(X)
     svm1_n_wrong = np.sum(np.abs(y - svm1_y_hat))
     accuracy1 = (n-svm1_n_wrong)*100/n
     svm2_y_hat = svm2.predict(X)
     if type(svm2_y_hat) != np.ndarray:
-        svm2_y_hat = svm2_y_hat.to_array()
+        svm2_y_hat = svm2_y_hat
     svm2_n_wrong = np.sum(np.abs(y - svm2_y_hat))
     accuracy2 = (n-svm2_n_wrong)*100/n
 
@@ -133,25 +133,25 @@ def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
         assert cs > 1 - coef_tol
 
     if cmp_sv or (dcoef_tol is not None):
-        sidx1 = np.argsort((svm1.support_).copy_to_host())
-        sidx2 = np.argsort((svm2.support_).copy_to_host())
+        sidx1 = np.argsort((svm1.support_))
+        sidx2 = np.argsort((svm2.support_))
 
     if cmp_sv:
-        support_idx1 = ((svm1.support_).copy_to_host())[sidx1]
-        support_idx2 = ((svm2.support_).copy_to_host())[sidx2]
+        support_idx1 = ((svm1.support_))[sidx1]
+        support_idx2 = ((svm2.support_))[sidx2]
         assert np.all(support_idx1-support_idx2) == 0
-        sv1 = ((svm1.support_vectors_).copy_to_host())[sidx1, :]
-        sv2 = ((svm2.support_vectors_).copy_to_host())[sidx2, :]
+        sv1 = ((svm1.support_vectors_))[sidx1, :]
+        sv2 = ((svm2.support_vectors_))[sidx2, :]
         assert np.all(sv1-sv2 == 0)
 
     if dcoef_tol is not None:
-        dcoef1 = ((svm1.dual_coef_).copy_to_host())[0, sidx1]
-        dcoef2 = ((svm2.dual_coef_).copy_to_host())[0, sidx2]
+        dcoef1 = ((svm1.dual_coef_))[0, sidx1]
+        dcoef2 = ((svm2.dual_coef_))[0, sidx2]
         assert np.all(np.abs(dcoef1-dcoef2) <= dcoef_tol)
 
     if cmp_decision_func:
         if accuracy2 > 90:
-            df1 = svm1.decision_function(X).to_array()
+            df1 = svm1.decision_function(X)
             df2 = svm2.decision_function(X)
             # For classification, the class is determined by
             # sign(decision function). We should not expect tight match for
@@ -271,7 +271,7 @@ def test_svm_predict(params, n_pred):
                                                         train_size=n_rows)
     cuSVC = cu_svm.SVC(**params)
     cuSVC.fit(X_train, y_train)
-    y_pred = cuSVC.predict(X_test).to_array()
+    y_pred = cuSVC.predict(X_test)
     n_correct = np.sum(y_test == y_pred)
     accuracy = n_correct * 100 / n_pred
     assert accuracy > 99
@@ -302,6 +302,7 @@ def test_svm_gamma(params):
     if x_arraytype == 'dataframe':
         X_df = cudf.DataFrame()
         X = X_df.from_gpu_matrix(cuda.to_device(X))
+        y = cudf.Series(y)
     elif x_arraytype == 'numba':
         X = cuda.to_device(X)
     # Using degree 40 polynomials and fp32 training would fail with
@@ -309,7 +310,7 @@ def test_svm_gamma(params):
     # gamma = 1/(n_cols*X.var())
     cuSVC = cu_svm.SVC(**params)
     cuSVC.fit(X, y)
-    y_pred = cuSVC.predict(X).to_array()
+    y_pred = cuSVC.predict(X)
     n_correct = np.sum(y == y_pred)
     accuracy = n_correct * 100 / n_rows
     assert accuracy > 70
@@ -329,7 +330,7 @@ def test_svm_numeric_arraytype(x_dtype, y_dtype):
     n_sv_exp = 15
     assert abs(cuSVC.intercept_ - intercept_exp) / intercept_exp < 1e-3
     assert cuSVC.n_support_ == n_sv_exp
-    n_pred_wrong = np.sum(cuSVC.predict(X).to_array()-y)
+    n_pred_wrong = np.sum(cuSVC.predict(X)-y)
     assert n_pred_wrong == 0
 
 
@@ -347,10 +348,11 @@ def get_memsize(svc):
     ms = 0
     for a in ['dual_coef_', 'support_', 'support_vectors_']:
         x = getattr(svc, a)
-        ms += np.prod(x.shape)*x.dtype.itemsize
+        ms += np.prod(x[0].shape)*x[0].dtype.itemsize
     return ms
 
 
+@pytest.mark.memleak
 @pytest.mark.parametrize('params', [
     {'kernel': 'rbf', 'C': 1, 'gamma': 1}
 ])
@@ -403,6 +405,7 @@ def test_svm_memleak(params, n_rows, n_iter, n_cols,
     assert delta_mem == 0
 
 
+@pytest.mark.memleak
 @pytest.mark.parametrize('params', [
     {'kernel': 'poly', 'degree': 30, 'C': 1, 'gamma': 1}
 ])
@@ -473,7 +476,7 @@ def compare_svr(svr1, svr2, X_test, y_test, tol=1e-3):
         score2 = svr2.score(X_test, y_test)
         assert abs(score1-score2) < tol
     else:
-        y_pred1 = svr1.predict(X_test).to_array()
+        y_pred1 = svr1.predict(X_test)
         y_pred2 = svr2.predict(X_test)
         mse1 = mean_squared_error(y_test, y_pred1)
         mse2 = mean_squared_error(y_test, y_pred2)

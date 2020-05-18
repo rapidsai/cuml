@@ -21,7 +21,8 @@
 #include <random>
 #include <vector>
 
-#include "metrics/batched/information_criterion.h"
+#include <common/cudart_utils.h>
+#include "metrics/batched/information_criterion.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

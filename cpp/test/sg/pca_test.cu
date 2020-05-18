@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <linalg/cublas_wrappers.h>
+#include <cuda_utils.cuh>
 #include <vector>
 #include "ml_utils.h"
-#include "pca/pca.h"
-#include "random/rng.h"
+#include "pca/pca.cuh"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace ML {

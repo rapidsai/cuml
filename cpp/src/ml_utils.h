@@ -81,7 +81,7 @@ class paramsTSVD : public paramsSolver {
 };
 
 /**
- * @defgroup paramsPCA: structure for pca parameters. Ref: http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html
+ * @brief structure for pca parameters. Ref: http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html
  * @param n_components: Number of components to keep. if n_components is not set all components are kept:
  * @param copy: If False, data passed to fit are overwritten and running fit(X).transform(X) will not yield the expected results,
  *              use fit_transform(X) instead.
@@ -91,12 +91,10 @@ class paramsTSVD : public paramsSolver {
  * @param tol: Tolerance for singular values computed by svd_solver == ‘arpack’ or svd_solver == ‘COV_EIG_JACOBI’
  * @param iterated_power: Number of iterations for the power method computed by svd_solver == ‘randomized’ or
  *                        jacobi method by svd_solver == 'COV_EIG_JACOBI'.
- * @random_state: RandomState instance or None, optional (default None)
- * @verbose: 0: no error message printing, 1: print error messages
- * @max_sweeps: number of sweeps jacobi method uses. The more the better accuracy.
- * @{
+ * @param random_state: RandomState instance or None, optional (default None)
+ * @param verbose: 0: no error message printing, 1: print error messages
+ * @param max_sweeps: number of sweeps jacobi method uses. The more the better accuracy.
  */
-
 //template<typename math_t>
 //class paramsPCA: public paramsTSVD<math_t> {
 class paramsPCA : public paramsTSVD {
