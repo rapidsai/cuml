@@ -16,8 +16,8 @@
 
 #include <nvgraph.h>
 
-#include <cuda_utils.h>
 #include <common/device_buffer.hpp>
+#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>

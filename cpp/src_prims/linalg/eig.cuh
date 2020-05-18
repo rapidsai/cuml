@@ -18,8 +18,8 @@
 
 #include <common/cudart_utils.h>
 #include <cuda_runtime_api.h>
-#include <cuda_utils.h>
 #include <common/device_buffer.hpp>
+#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <matrix/matrix.cuh>
 #include "cusolver_wrappers.h"

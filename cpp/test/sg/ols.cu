@@ -15,6 +15,8 @@
  */
 
 #include <common/cudart_utils.h>
+#include <cuml/common/cuml_allocator.hpp>
+#include <glm/ols.cuh>
 #include <gtest/gtest.h>
 #include <ml_utils.h>
 #include <test_utils.h>
