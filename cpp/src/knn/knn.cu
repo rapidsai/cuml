@@ -19,13 +19,13 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 
-#include "ml_mg_utils.h"
+#include "ml_mg_utils.cuh"
 
-#include "label/classlabels.h"
-#include "selection/knn.h"
+#include "label/classlabels.cuh"
+#include "selection/knn.cuh"
 
 #include <cuda_runtime.h>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 
 #include <sstream>
 #include <vector>

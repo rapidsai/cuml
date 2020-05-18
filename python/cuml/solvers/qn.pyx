@@ -39,6 +39,8 @@ from cuml.common import zeros
 from cuml.common import with_cupy_rmm
 from cuml.common.import_utils import has_cupy
 from cuml.metrics import accuracy_score
+import cuml.common.logger as logger
+
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -218,7 +220,7 @@ class QN(Base):
     lbfgs_memory: int (default = 5)
         Rank of the lbfgs inverse-Hessian approximation. Method will use
         O(lbfgs_memory * D) memory.
-    verbose: int (optional, default 0)
+    verbosity: int (optional, default cuml.common.logger.LEVEL_INFO)
         Controls verbosity level of logging.
 
     Attributes
@@ -243,10 +245,10 @@ class QN(Base):
 
     def __init__(self, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
-                 linesearch_max_iter=50, lbfgs_memory=5, verbose=0,
-                 handle=None):
+                 linesearch_max_iter=50, lbfgs_memory=5,
+                 verbosity=logger.LEVEL_INFO, handle=None):
 
-        super(QN, self).__init__(handle=handle, verbose=verbose)
+        super(QN, self).__init__(handle=handle, verbosity=verbosity)
 
         self.fit_intercept = fit_intercept
         self.l1_strength = l1_strength
@@ -348,7 +350,7 @@ class QN(Base):
                   <float> self.tol,
                   <int> self.linesearch_max_iter,
                   <int> self.lbfgs_memory,
-                  <int> self.verbose,
+                  <int> self.verbosity,
                   <float*> coef_ptr,
                   <float*> &objective32,
                   <int*> &num_iters,
@@ -371,7 +373,7 @@ class QN(Base):
                   <double> self.tol,
                   <int> self.linesearch_max_iter,
                   <int> self.lbfgs_memory,
-                  <int> self.verbose,
+                  <int> self.verbosity,
                   <double*> coef_ptr,
                   <double*> &objective64,
                   <int*> &num_iters,
@@ -543,7 +545,7 @@ class QN(Base):
         return state
 
     def __setstate__(self, state):
-        super(QN, self).__init__(handle=None, verbose=state['verbose'])
+        super(QN, self).__init__(handle=None, verbosity=state['verbosity'])
 
         if 'coef_' in state and state['coef_'] is not None:
             if 'fit_intercept' in state and state['fit_intercept']:
@@ -557,4 +559,4 @@ class QN(Base):
     def get_param_names(self):
         return ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
                 'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory',
-                'verbose']
+                'verbosity']

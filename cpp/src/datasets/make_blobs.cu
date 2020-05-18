@@ -16,7 +16,7 @@
 
 #include <common/cumlHandle.hpp>
 #include <cuml/datasets/make_blobs.hpp>
-#include "random/make_blobs.h"
+#include "random/make_blobs.cuh"
 
 namespace ML {
 namespace Datasets {

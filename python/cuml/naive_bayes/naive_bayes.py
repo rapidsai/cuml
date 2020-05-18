@@ -200,7 +200,6 @@ class MultinomialNB(Base):
                       according to the data.
         """
         super(MultinomialNB, self).__init__(handle=handle,
-                                            verbose=False,
                                             output_type=output_type)
         self.alpha = alpha
         self.fit_prior = fit_prior
