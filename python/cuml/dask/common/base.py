@@ -106,6 +106,7 @@ class DelayedParallelFunc(object):
                            delayed=True,
                            output_futures=False,
                            output_dtype=None,
+                           output_collection_type=None,
                            **kwargs):
         """
         Runs a function embarrassingly parallel on a set of workers while
@@ -136,10 +137,18 @@ class DelayedParallelFunc(object):
                          of the parallel function executions on the workers,
                          rather than a dask collection object.
 
+        output_collection_type : None or a string in {'cupy', 'cudf'}
+            Choose to return the resulting collection as a CuPy backed
+            dask.array or a dask_cudf.DataFrame. If None, will use the same
+            collection type as used in the input of fit.
+            Unused if output_futures=True.
+
         Returns
         -------
         y : dask cuDF (n_rows, 1)
         """
+        if output_collection_type is None:
+            output_collection_type = self.datatype
 
         X_d = X.to_delayed()
 
@@ -160,7 +169,7 @@ class DelayedParallelFunc(object):
         # TODO: Put the following conditionals in a
         #  `to_delayed_output()` function
         # TODO: Add eager path back in
-        if self.datatype == 'cupy':
+        if output_collection_type == 'cupy':
 
             # todo: add parameter for option of not checking directly
 
@@ -180,7 +189,6 @@ class DelayedParallelFunc(object):
                                                 )
 
                 return output if delayed else output.persist()
-
         else:
             if output_futures:
                 return self.client.compute(preds)
