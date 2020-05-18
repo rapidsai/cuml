@@ -1,4 +1,7 @@
-# Generate a junit-xml file from parsing a nbtest log
+# Copyright (c) 2020, NVIDIA CORPORATION.
+#########################
+# Generate a junit-xml file from parsing a nbtest log #
+#########################
 
 import re
 from xml.etree.ElementTree import Element, ElementTree
@@ -7,11 +10,13 @@ import string
 from enum import Enum
 
 
-startingPatt = re.compile("^STARTING: ([\w\.\-]+)$")
-skippingPatt = re.compile("^SKIPPING: ([\w\.\-]+)\s*(\(([\w\.\-\ \,]+)\))?\s*$")
-exitCodePatt = re.compile("^EXIT CODE: (\d+)$")
-folderPatt = re.compile("^FOLDER: ([\w\.\-]+)$")
-timePatt = re.compile("^real\s+([\d\.ms]+)$")
+startingPatt = re.compile(r"^STARTING: ([\w\.\-]+)$")
+skippingPatt = re.compile(
+    r"^SKIPPING: ([\w\.\-]+)\s*(\(([\w\.\-\ \,]+)\))?\s*$"
+    )
+exitCodePatt = re.compile(r"^EXIT CODE: (\d+)$")
+folderPatt = re.compile(r"^FOLDER: ([\w\.\-]+)$")
+timePatt = re.compile(r"^real\s+([\d\.ms]+)$")
 linePatt = re.compile("^" + ("-" * 80) + "$")
 
 
@@ -41,7 +46,8 @@ def setFileNameAttr(attrDict, fileName):
                     line="",
                     name="",
                     time=""
-                   )
+                    )
+
 
 def setClassNameAttr(attrDict, className):
     attrDict["classname"] = className
@@ -64,7 +70,15 @@ def incrNumAttr(element, attr):
 
 def parseLog(logFile, testSuiteElement):
     # Example attrs:
-    # errors="0" failures="0" hostname="a437d6835edf" name="pytest" skipped="2" tests="6" time="6.174" timestamp="2019-11-18T19:49:47.946307"
+    ################
+    # errors="0"
+    # failures="0"
+    # hostname="a437d6835edf"
+    # name="pytest"
+    # skipped="2"
+    # tests="6"
+    # time="6.174"
+    # timestamp="2019-11-18T19:49:47.946307"
 
     with open(logFile) as lf:
         testSuiteElement.attrib["tests"] = "0"
@@ -75,7 +89,6 @@ def parseLog(logFile, testSuiteElement):
         testSuiteElement.attrib["timestamp"] = ""
 
         attrDict = {}
-        #setFileNameAttr(attrDict, logFile)
         setFileNameAttr(attrDict, "nbtest")
 
         parserStateEnum = Enum("parserStateEnum",
@@ -97,7 +110,9 @@ def parseLog(logFile, testSuiteElement):
                     setTimeAttr(attrDict, "0m0s")
                     skippedElement = makeTestCaseElement(attrDict)
                     message = m.group(3) or ""
-                    skippedElement.append(Element("skipped", message=message, type=""))
+                    skippedElement.append(
+                        Element("skipped", message=message, type="")
+                        )
                     testSuiteElement.append(skippedElement)
                     incrNumAttr(testSuiteElement, "skipped")
                     incrNumAttr(testSuiteElement, "tests")
@@ -156,7 +171,12 @@ if __name__ == "__main__":
     import sys
 
     testSuitesElement = Element("testsuites")
-    testSuiteElement = Element("testsuite", name="nbtest", hostname="")
+    testSuiteElement = Element("testsuite",
+                               name="nbtest",
+                               hostname="")
     parseLog(sys.argv[1], testSuiteElement)
     testSuitesElement.append(testSuiteElement)
-    ElementTree(testSuitesElement).write(sys.argv[1]+".xml", xml_declaration=True)
+    ElementTree(testSuitesElement).write(
+        sys.argv[1]+".xml",
+        xml_declaration=True
+        )
