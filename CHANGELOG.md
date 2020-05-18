@@ -95,6 +95,7 @@
 - PR #2225: input_to_cuml_array keep order option, test updates and cleanup
 - PR #2244: Re-enable slow ARIMA tests as stress tests
 - PR #2231: Using OPG structs from `cuml.common` in decomposition algorithms
+- PR #2257: Update QN and LogisticRegression to use CumlArray
 - PR #2259: Add CumlArray support to Naive Bayes
 - PR #2252: Add benchmark for the Gram matrix prims
 - PR #2271: Clarify doc for _unique default implementation in OneHotEncoder
