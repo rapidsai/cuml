@@ -85,6 +85,16 @@ def test_countvectorizer_empty_vocabulary():
         v.fit(Series(["to be or not to be", "and me too", "and so do you"]))
 
 
+def test_countvectorizer_stop_words_ngrams():
+    stop_words_doc = Series(["and me too andy andy too"])
+    expected_vocabulary = ["andy andy"]
+
+    vec = CountVectorizer(ngram_range=(2, 2), stop_words='english')
+    vec._build_vocabulary(vec._preprocess(stop_words_doc))
+
+    assert expected_vocabulary == vec.get_feature_names().to_host()
+
+
 def test_countvectorizer_max_features():
     expected_vocabulary = {'burger', 'beer', 'salad', 'pizza'}
     expected_stop_words = {'celeri', 'tomato', 'copyright', 'coke',
