@@ -41,16 +41,13 @@ def build_data_t(arys):
     """
     cdef vector[floatData_t *] *data_f32 = new vector[floatData_t *]()
     cdef vector[doubleData_t *] *data_f64 = new vector[doubleData_t *]()
-    # cdef floatData_t **data_f32
-    # cdef doubleData_t **data_f64
+
     cdef uintptr_t ary_ptr
     cdef floatData_t *data_f
     cdef doubleData_t *data_d
     cdef uintptr_t data_ptr
 
     if arys[0].dtype == np.float32:
-        # data_f32 = <floatData_t **> malloc(
-        #    sizeof(floatData_t *) * len(arys))
 
         for idx in range(len(arys)):
             data_f = <floatData_t*> malloc(sizeof(floatData_t))
@@ -63,8 +60,6 @@ def build_data_t(arys):
         return data_ptr
 
     elif arys[0].dtype == np.float64:
-        # data_f64 = <doubleData_t **> malloc(
-        #    sizeof(doubleData_t *) * len(arys))
 
         for idx in range(len(arys)):
             data_d = <doubleData_t*> malloc(sizeof(doubleData_t))
@@ -83,14 +78,13 @@ def build_data_t(arys):
 
 def free_data_t(data_t, dtype):
     """
-    Function to free a floatData_t** or doubleData_t**
+    Function to free a vector of floatData_t* or doubleData_t*
 
     Parameters
     ----------
-    data_t: a floatData_t** or doubleData_t**
-    n: number of elements in the floatData_t** or doubleData_t**
+    data_t: a vector of floatData_t* or doubleData_t*
     dtype: np.float32 or np.float64 indicating whether data_t is a
-        floatData_t** or doubleData_t**
+        floatData_t* or doubleData_t*
     """
     cdef uintptr_t data_ptr = data_t 
 
@@ -111,8 +105,8 @@ def free_data_t(data_t, dtype):
 
 def build_rank_size_pair(parts_to_sizes, rank):
     """
-    Funciton to build a rankSizePair** mapping the rank to the sizes of
-    partitions
+    Funciton to build a vector<rankSizePair*> mapping the rank to the
+    sizes of partitions
 
     Parameters
     ----------
@@ -139,12 +133,11 @@ def build_rank_size_pair(parts_to_sizes, rank):
 
 def free_rank_size_pair(rank_size_t):
     """
-    Function to free a rankSizePair**
+    Function to free a vector of rankSizePair*
 
     Parameters
     ----------
-    rank_size_t: rankSizePair** to be freed.
-    n: number of elements in the rankSizePair** to be freed.
+    rank_size_t: vector of rankSizePair* to be freed.
     """
     cdef uintptr_t rank_size_ptr = rank_size_t 
 
@@ -157,6 +150,21 @@ def free_rank_size_pair(rank_size_t):
 
 
 def build_part_descriptor(m, n, rank_size_t, rank):
+    """
+    Funciton to build a shared PartDescriptor object
+
+    Parameters
+    ----------
+    m: total number of rows across all workers
+    n: number of cols
+    rank_size_t: vector of rankSizePair * to be used for
+        building the part descriptor
+    rank: rank to be mapped
+
+    Returns:
+    --------
+    ptr: PartDescriptor object
+    """
     cdef uintptr_t rank_size_ptr = rank_size_t 
 
     cdef vector[RankSizePair *] *rsp_vec \
@@ -173,6 +181,13 @@ def build_part_descriptor(m, n, rank_size_t, rank):
 
 
 def free_part_descriptor(descriptor_ptr):
+    """
+    Function to free a PartDescriptor*
+
+    Parameters
+    ----------
+    descriptor_ptr: PartDescriptor* to be freed
+    """
     cdef PartDescriptor *desc_c \
         = <PartDescriptor*><size_t>descriptor_ptr
     free(desc_c)
