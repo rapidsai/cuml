@@ -126,6 +126,8 @@ namespace SVM {
  * @param [in] n_train number of trainig vectors
  * @param [inout] alpha dual coefficients, size [n_train]
  * @param [in] n_ws number of elements in the working set
+ * @param [in] n_unique elements in the working set with unique training vectors
+ *             for SVC n_unique = n_ws, for SVR n_unique <= n_ws
  * @param [out] delta_alpha change in the dual coeff of vectors in the working
  *        set, size [n_ws]
  * @param [in] f_array optimality indicator vector, size [n_train]
@@ -143,9 +145,9 @@ namespace SVM {
  */
 template <typename math_t, int WSIZE>
 __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
-  math_t *y_array, int n_train, math_t *alpha, int n_ws, math_t *delta_alpha,
-  math_t *f_array, const math_t *kernel, const int *ws_idx, math_t C,
-  math_t eps, math_t *return_buff, int max_iter = 10000,
+  math_t *y_array, int n_train, math_t *alpha, int n_ws, int n_unique,
+  math_t *delta_alpha, math_t *f_array, const math_t *kernel, const int *ws_idx,
+  math_t C, math_t eps, math_t *return_buff, int max_iter = 10000,
   SvmType svmType = C_SVC, const int *kColIdx = nullptr) {
   typedef MLCommon::Selection::KVPair<math_t, int> Pair;
   typedef cub::BlockReduce<Pair, WSIZE> BlockReduce;
@@ -177,11 +179,14 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
 
   // Consult KernelCache::GetTile for the layout of the kernel matrix
   // kernel matrix row and colums indices for workspace vector ws_idx[tid]
-  // k_row_idx \in [0..n_rows-1]
-  int k_row_idx =
-    (svmType == EPSILON_SVR && idx >= n_rows) ? idx - n_rows : idx;
+  // k_row_idx \in [0..n_unique-1]
+  int k_row_idx = (svmType == C_SVC) ? tid : kColIdx[tid];
   // k_col_idx \in [0..n_unique-1]
   int k_col_idx = (svmType == C_SVC) ? tid : kColIdx[tid];
+
+  // kernel matrix stride for the second dimension, i.e.
+  // K(a,b) = kernel[a + b*ld_kernel]
+  const int ld_kernel = n_unique;
 
   k_col_idx_map[tid] = k_col_idx;
 
@@ -193,7 +198,9 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   __shared__ math_t diff_end;
   __shared__ math_t diff;
 
-  Kd[tid] = kernel[k_row_idx + k_col_idx * n_rows];
+  // TODO change ld_kernel to n_ws once the kernel routines support padding for
+  // the output matrix. For now we assume no padding, so n_unique is the stride.
+  Kd[tid] = kernel[k_row_idx + k_col_idx * ld_kernel];
   int n_iter = 0;
 
   for (; n_iter < max_iter; n_iter++) {
@@ -210,7 +217,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
     f_tmp = in_lower(a, y, C) ? f : -INFINITY;
     __syncthreads();  // needed because we are reusing the shared memory buffer
                       // and also the k_col_idx_u shared value
-    math_t Kui = kernel[k_col_idx_u * n_rows + k_row_idx];
+    math_t Kui = kernel[k_col_idx_u * ld_kernel + k_row_idx];
     math_t f_max =
       BlockReduceFloat(temp_storage.single).Reduce(f_tmp, cub::Max(), n_ws);
 
@@ -240,7 +247,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
       k_col_idx_l = k_col_idx_map[l];
     }
     __syncthreads();
-    math_t Kli = kernel[k_col_idx_l * n_rows + k_row_idx];
+    math_t Kli = kernel[k_col_idx_l * ld_kernel + k_row_idx];
 
     // Update alpha
     // Let's set q = \frac{f_l - f_u}{\eta_{ul}

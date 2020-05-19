@@ -18,6 +18,7 @@
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <gtest/gtest.h>
+#include <linalg/init.h>
 #include <linalg/transpose.h>
 #include <test_utils.h>
 #include <thrust/device_ptr.h>
@@ -45,6 +46,7 @@
 #include <svm/workingset.cuh>
 #include <type_traits>
 #include <vector>
+#
 
 namespace ML {
 namespace SVM {
@@ -132,66 +134,106 @@ class KernelCacheTest : public ::testing::Test {
     cublas_handle = handle.getImpl().getCublasHandle();
     allocate(x_dev, n_rows * n_cols);
     updateDevice(x_dev, x_host, n_rows * n_cols, stream);
-
-    allocate(ws_idx_dev, 2 * n_ws);
-    updateDevice(ws_idx_dev, ws_idx_host, n_ws, stream);
+    allocate(cache_idx_dev, 2 * n_rows);
+    allocate(val_tmp_dev, 2 * n_rows, true);
+    LinAlg::range(val_tmp_dev, 1, 1 + 2 * n_rows, stream);
+    allocate(ws_idx_dev, 2 * n_rows);
+    allocate(B, n_cols * n_rows);
+    updateDevice(ws_idx_dev, ws_idx_host, n_rows, stream);
   }
 
   void TearDown() override {
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(x_dev));
+    CUDA_CHECK(cudaFree(B));
     CUDA_CHECK(cudaFree(ws_idx_dev));
   }
 
   // Naive host side kernel implementation used for comparison
-  void ApplyNonlin(Matrix::KernelParams params) {
+  void ApplyNonlin(Matrix::KernelParams params, const math_t *in, math_t *out) {
     switch (params.kernel) {
       case Matrix::LINEAR:
+        for (int z = 0; z < n_rows * n_rows; z++) {
+          out[z] = in[z];
+        }
         break;
       case Matrix::POLYNOMIAL:
-        for (int z = 0; z < n_rows * n_ws; z++) {
-          math_t val = params.gamma * tile_host_expected[z] + params.coef0;
-          tile_host_expected[z] = pow(val, params.degree);
+        for (int z = 0; z < n_rows * n_rows; z++) {
+          math_t val = params.gamma * in[z] + params.coef0;
+          out[z] = pow(val, params.degree);
         }
         break;
       case Matrix::TANH:
-        for (int z = 0; z < n_rows * n_ws; z++) {
-          math_t val = params.gamma * tile_host_expected[z] + params.coef0;
-          tile_host_expected[z] = tanh(val);
+        for (int z = 0; z < n_rows * n_rows; z++) {
+          math_t val = params.gamma * in[z] + params.coef0;
+          out[z] = tanh(val);
         }
         break;
       case Matrix::RBF:
-        for (int i = 0; i < n_ws; i++) {
+        for (int i = 0; i < n_rows; i++) {
           for (int j = 0; j < n_rows; j++) {
             math_t d = 0;
             for (int k = 0; k < n_cols; k++) {
-              int idx_i = ws_idx_host[i];
-              math_t diff = x_host[idx_i + k * n_rows] - x_host[j + k * n_rows];
+              math_t diff = x_host[i + k * n_rows] - x_host[j + k * n_rows];
               d += diff * diff;
             }
-            tile_host_expected[i * n_rows + j] = exp(-params.gamma * d);
+            out[i * n_rows + j] = exp(-params.gamma * d);
           }
         }
         break;
     }
   }
 
-  void check(const math_t *tile_dev, int n_ws, int n_rows, const int *ws_idx,
-             const int *kColIdx) {
+  void check(KernelCache<math_t> &cache, Matrix::KernelParams &param,
+             const math_t *tile_dev) {
+    ApplyNonlin(param, tile_host_linear, tile_host_expected);
     host_buffer<int> ws_idx_h(handle.getHostAllocator(), stream, n_ws);
-    updateHost(ws_idx_h.data(), ws_idx, n_ws, stream);
+    updateHost(ws_idx_h.data(), cache.GetWsIndices(), n_ws, stream);
     host_buffer<int> kidx_h(handle.getHostAllocator(), stream, n_ws);
-    updateHost(kidx_h.data(), kColIdx, n_ws, stream);
+    updateHost(kidx_h.data(), cache.GetColIdxMap(), n_ws, stream);
+    int n_unique = cache.GetUniqueSize();
+    int tile_size = n_unique * n_unique;
+    host_buffer<math_t> tile_h(handle.getHostAllocator(), stream, tile_size);
+    updateHost(tile_h.data(), tile_dev, tile_size, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     // Note: kernel cache can permute the working set, so we have to look
     // up which rows we compare
+    CompareApprox<math_t> cmp(1e-6f);
     for (int i = 0; i < n_ws; i++) {
-      SCOPED_TRACE(i);
-      int widx = ws_idx_h[i] % n_rows;
-      int kidx = kidx_h[i];
-      const math_t *cache_row = tile_dev + kidx * n_rows;
-      const math_t *row_exp = tile_host_all + widx * n_rows;
-      EXPECT_TRUE(devArrMatchHost(row_exp, cache_row, n_rows,
+      for (int j = 0; j < n_ws; j++) {
+        SCOPED_TRACE(i * n_ws + j);
+        int widx_i = ws_idx_h[i] % n_rows;
+        int widx_j = ws_idx_h[j] % n_rows;
+        int kidx_i = kidx_h[i];
+        int kidx_j = kidx_h[j];
+        math_t expected_val = tile_host_expected[widx_i * n_rows + widx_j];
+        math_t actual_val = tile_h[kidx_i * n_unique + kidx_j];
+        EXPECT_TRUE(cmp(expected_val, actual_val))
+          << "actual=" << actual_val << " != expected=" << expected_val << " @"
+          << i << "," << j;
+      }
+    }
+  }
+  // Check batched kernel tile evaluation
+  void checkBatch(KernelCache<math_t> &cache, Matrix::KernelParams &param,
+                  const math_t *tile_dev, int offset, int n_batch) {
+    ApplyNonlin(param, tile_host_linear, tile_host_expected);
+    host_buffer<int> ws_idx_h(handle.getHostAllocator(), stream, n_ws);
+    updateHost(ws_idx_h.data(), cache.GetWsIndices(), n_ws, stream);
+    host_buffer<int> kidx_h(handle.getHostAllocator(), stream, n_ws);
+    updateHost(kidx_h.data(), cache.GetColIdxMap(), n_ws, stream);
+    int n_unique = cache.GetUniqueSize();
+    int tile_size = n_unique * n_batch;
+    host_buffer<math_t> tile_h(handle.getHostAllocator(), stream, tile_size);
+    updateHost(tile_h.data(), tile_dev, tile_size, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    // Note: kernel cache can permute the working set, so we have to look
+    // up which rows we compare
+    for (int k = 0; k < this->n_ws; k++) {
+      int widx = ws_idx_h[k] % n_rows;  // widx \in [0..n_rows-1]
+      int kidx = kidx_h[k];             // kidx \in [0..n_unique-1]
+      EXPECT_TRUE(devArrMatchHost(tile_host_expected + widx * n_rows + offset,
+                                  tile_dev + kidx * n_batch, n_batch,
                                   CompareApprox<math_t>(1e-6f)));
     }
   }
@@ -200,19 +242,30 @@ class KernelCacheTest : public ::testing::Test {
   cublasHandle_t cublas_handle;
   cudaStream_t stream;
 
-  int n_rows = 4;
+  int n_rows = 10;
   int n_cols = 2;
-  int n_ws = 3;
+  int n_ws = 4;
 
   math_t *x_dev;
+  math_t *B;
+  math_t *val_tmp_dev;
   int *ws_idx_dev;
+  int *cache_idx_dev;
+  std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
 
-  math_t x_host[8] = {1, 2, 3, 4, 5, 6, 7, 8};
-  int ws_idx_host[4] = {0, 1, 3};
-  math_t tile_host_expected[12] = {26, 32, 38, 44, 32, 40,
-                                   48, 56, 44, 56, 68, 80};
-  math_t tile_host_all[16] = {26, 32, 38, 44, 32, 40, 48, 56,
-                              38, 48, 58, 68, 44, 56, 68, 80};
+  math_t x_host[20] = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10,
+                       11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+  int ws_idx_host[6] = {1, 2, 5, 8};
+  math_t tile_host_linear[100] = {
+    122, 134, 146, 158, 170, 182, 194, 206, 218, 230, 134, 148, 162, 176, 190,
+    204, 218, 232, 246, 260, 146, 162, 178, 194, 210, 226, 242, 258, 274, 290,
+    158, 176, 194, 212, 230, 248, 266, 284, 302, 320, 170, 190, 210, 230, 250,
+    270, 290, 310, 330, 350, 182, 204, 226, 248, 270, 292, 314, 336, 358, 380,
+    194, 218, 242, 266, 290, 314, 338, 362, 386, 410, 206, 232, 258, 284, 310,
+    336, 362, 388, 414, 440, 218, 246, 274, 302, 330, 358, 386, 414, 442, 470,
+    230, 260, 290, 320, 350, 380, 410, 440, 470, 500};
+
+  math_t tile_host_expected[100];
 };
 
 TYPED_TEST_CASE_P(KernelCacheTest);
@@ -221,72 +274,83 @@ TYPED_TEST_P(KernelCacheTest, EvalTest) {
   std::vector<Matrix::KernelParams> param_vec{
     Matrix::KernelParams{Matrix::LINEAR, 3, 1, 0},
     Matrix::KernelParams{Matrix::POLYNOMIAL, 2, 1.3, 1},
-    Matrix::KernelParams{Matrix::TANH, 2, 0.5, 2.4},
-    Matrix::KernelParams{Matrix::RBF, 2, 0.5, 0}};
-  float cache_size = 0;
-
-  for (auto params : param_vec) {
-    Matrix::GramMatrixBase<TypeParam> *kernel =
-      Matrix::KernelFactory<TypeParam>::create(
-        params, this->handle.getImpl().getCublasHandle());
-    KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
-                                 this->n_rows, this->n_cols, this->n_ws, kernel,
-                                 cache_size, C_SVC);
-    TypeParam *tile_dev = cache.GetTile(this->ws_idx_dev);
-    // apply nonlinearity on tile_host_expected
-    this->ApplyNonlin(params);
-    ASSERT_TRUE(devArrMatchHost(this->tile_host_expected, tile_dev,
-                                this->n_rows * this->n_ws,
-                                CompareApprox<TypeParam>(1e-6f)));
-    delete kernel;
-  }
-}
-
-TYPED_TEST_P(KernelCacheTest, CacheEvalTest) {
-  Matrix::KernelParams param{Matrix::LINEAR, 3, 1, 0};
+    Matrix::KernelParams{Matrix::TANH, 2, 0.001, -0.2},
+    Matrix::KernelParams{Matrix::RBF, 2, 0.05, 0}};
+  Logger::get().setLevel(CUML_LEVEL_TRACE);
   float cache_size = sizeof(TypeParam) * this->n_rows * 32 / (1024.0 * 1024);
+  std::vector<int> batch_size_vec{10, 5, 2};
+  std::vector<SvmType> svm_type_vec{C_SVC, EPSILON_SVR};
+  for (SvmType svm_type : svm_type_vec) {
+    if (svm_type == EPSILON_SVR) {
+      this->n_ws = 8;
+      int ws_idx_svr[8] = {1, 11, 15, 8, 12, 5, 9, 19};
+      updateDevice(this->ws_idx_dev, ws_idx_svr, this->n_ws, this->stream);
+    }
+    for (int batch_size : batch_size_vec) {
+      for (auto params : param_vec) {
+        SCOPED_TRACE(this->kernel_names[params.kernel]);
+        Matrix::GramMatrixBase<TypeParam> *kernel =
+          Matrix::KernelFactory<TypeParam>::create(
+            params, this->handle.getImpl().getCublasHandle());
+        KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
+                                     this->n_rows, this->n_cols, this->n_ws,
+                                     kernel, cache_size, batch_size, svm_type);
+        int n_batch = cache.GetBatchSize();
+        // evaluate multiple times: i==0 without cache, i > 0 with cache
+        for (int i = 0; i < 2; i++) {
+          std::ostringstream oss;
+          std::string svm_type_string =
+            (svm_type == C_SVC) ? "CSVC/" : "epsSVR/";
+          oss << svm_type_string << this->kernel_names[params.kernel] << "/"
+              << i << "/n_batch_" << n_batch;
+          //std::cout << oss.str() << "\n";
+          SCOPED_TRACE(oss.str());
+          int n_cached = 0;
+          int *cache_idx_dev = nullptr;
+          if (i > 0) {
+            int *udx = cache.GetUniqueIndices(this->ws_idx_dev, this->n_ws);
+            // Call KernelMV in order to fill the cache. Subsequent Get[ws]Tile
+            // calls can use the cached values
+            cache.KernelMV(this->val_tmp_dev, this->n_ws, 1, this->B);
+            n_cached = cache.GetCacheIndices(
+              cache.GetUniqueIndices(), cache.GetUniqueSize(),
+              this->val_tmp_dev, this->cache_idx_dev);
+            cache_idx_dev = this->cache_idx_dev;
+          }
+          // Evaluate the kernel matrix for the working set only
+          TypeParam *tile_dev = cache.GetWsTile(this->ws_idx_dev);
+          this->check(cache, params, tile_dev);
 
-  Matrix::GramMatrixBase<TypeParam> *kernel =
-    Matrix::KernelFactory<TypeParam>::create(
-      param, this->handle.getImpl().getCublasHandle());
-  KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
-                               this->n_rows, this->n_cols, this->n_ws, kernel,
-                               cache_size, C_SVC);
-  for (int i = 0; i < 2; i++) {
-    // We calculate cache tile multiple times to see if cache lookup works
-    TypeParam *tile_dev = cache.GetTile(this->ws_idx_dev);
-    this->check(tile_dev, this->n_ws, this->n_rows, cache.GetWsIndices(),
-                cache.GetColIdxMap());
+          // Evaluate columns of the kernel matrix batch wise
+          if (n_cached == 0) {
+            MLCommon::Matrix::copyRows(this->x_dev, this->n_rows, this->n_cols,
+                                       this->B, cache.GetUniqueIndices(),
+                                       cache.GetUniqueSize(), this->stream,
+                                       false);
+          } else {
+            MLCommon::Matrix::copyRows(this->x_dev, this->n_rows, this->n_cols,
+                                       this->B, cache_idx_dev + n_cached,
+                                       cache.GetUniqueSize() - n_cached,
+                                       this->stream, false);
+          }
+          string info = oss.str();
+          for (int offset = 0; offset < this->n_rows; offset += n_batch) {
+            int n_batch_loc =
+              offset + n_batch < this->n_rows ? n_batch : this->n_rows - offset;
+            SCOPED_TRACE(oss.str());
+            int nB = cache.GetUniqueSize() - n_cached;
+            tile_dev = cache.GetTile(offset, n_batch_loc, this->B, nB, n_cached,
+                                     nB, cache_idx_dev);
+            this->checkBatch(cache, params, tile_dev, offset, n_batch_loc);
+          }
+        }
+        delete kernel;
+      }
+    }
   }
-  delete kernel;
 }
 
-TYPED_TEST_P(KernelCacheTest, SvrEvalTest) {
-  Matrix::KernelParams param{Matrix::LINEAR, 3, 1, 0};
-  float cache_size = sizeof(TypeParam) * this->n_rows * 32 / (1024.0 * 1024);
-
-  this->n_ws = 6;
-  int ws_idx_svr[6] = {0, 5, 1, 4, 3, 7};
-  updateDevice(this->ws_idx_dev, ws_idx_svr, 6, this->stream);
-
-  Matrix::GramMatrixBase<TypeParam> *kernel =
-    Matrix::KernelFactory<TypeParam>::create(
-      param, this->handle.getImpl().getCublasHandle());
-  KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
-                               this->n_rows, this->n_cols, this->n_ws, kernel,
-                               cache_size, EPSILON_SVR);
-
-  for (int i = 0; i < 2; i++) {
-    // We calculate cache tile multiple times to see if cache lookup works
-    TypeParam *tile_dev = cache.GetTile(this->ws_idx_dev);
-    this->check(tile_dev, this->n_ws, this->n_rows, cache.GetWsIndices(),
-                cache.GetColIdxMap());
-  }
-  delete kernel;
-}
-
-REGISTER_TYPED_TEST_CASE_P(KernelCacheTest, EvalTest, CacheEvalTest,
-                           SvrEvalTest);
+REGISTER_TYPED_TEST_CASE_P(KernelCacheTest, EvalTest);
 INSTANTIATE_TYPED_TEST_CASE_P(My, KernelCacheTest, FloatTypes);
 
 template <typename math_t>
@@ -387,35 +451,55 @@ class SmoUpdateTest : public ::testing::Test {
   void SetUp() override {
     stream = handle.getImpl().getInternalStream(0);
     cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
+    allocate(x_dev, n_rows * n_cols, stream);
+    updateDevice(x_dev, x_host, n_rows * n_cols, stream);
     allocate(f_dev, n_rows, true);
-    allocate(kernel_dev, n_rows * n_ws);
-    updateDevice(kernel_dev, kernel_host, n_ws * n_rows, stream);
+    allocate(ws_idx_dev, n_ws);
+    updateDevice(ws_idx_dev, ws_idx_host, n_ws, stream);
     allocate(delta_alpha_dev, n_ws);
     updateDevice(delta_alpha_dev, delta_alpha_host, n_ws, stream);
   }
   void RunTest() {
+    float cache_size = sizeof(math_t) * this->n_rows * 32 / (1024.0 * 1024);
     svmParameter param = getDefaultSvmParameter();
-    SmoSolver<float> smo(handle.getImpl(), param, nullptr);
-    smo.UpdateF(f_dev, n_rows, delta_alpha_dev, n_ws, kernel_dev);
-
-    float f_host_expected[] = {0.1f, 7.4505806e-9f, 0.3f, 0.2f, 0.5f, 0.4f};
-    devArrMatchHost(f_host_expected, f_dev, n_rows,
-                    CompareApprox<math_t>(1e-6));
+    auto kernel = std::unique_ptr<Matrix::GramMatrixBase<math_t>>(
+      Matrix::KernelFactory<math_t>::create(
+        Matrix::KernelParams{Matrix::LINEAR},
+        handle.getImpl().getCublasHandle()));
+    std::vector<int> batch_size_vec{10, 5, 2};
+    for (int n_batch : batch_size_vec) {
+      KernelCache<math_t> cache(handle.getImpl(), x_dev, n_rows, n_cols, n_ws,
+                                kernel.get(), cache_size, n_batch, C_SVC);
+      cache.GetUniqueIndices(this->ws_idx_dev, this->n_ws);
+      for (int cache_repeat : {0, 1}) {
+        CUDA_CHECK(cudaMemsetAsync(f_dev, 0, n_rows * sizeof(math_t), stream));
+        cache.KernelMV(delta_alpha_dev, n_ws, 1, f_dev);
+        EXPECT_TRUE(devArrMatchHost(f_host_expected, f_dev, n_rows,
+                                    CompareApprox<math_t>(1e-6)));
+      }
+    }
   }
   void TearDown() override {
     CUDA_CHECK(cudaFree(delta_alpha_dev));
-    CUDA_CHECK(cudaFree(kernel_dev));
+    CUDA_CHECK(cudaFree(ws_idx_dev));
+    CUDA_CHECK(cudaFree(x_dev));
     CUDA_CHECK(cudaFree(f_dev));
   }
   cumlHandle handle;
   cudaStream_t stream;
-  int n_rows = 6;
-  int n_ws = 2;
-  float *kernel_dev;
-  float *f_dev;
-  float *delta_alpha_dev;
-  float kernel_host[12] = {3, 5, 4, 6, 5, 7, 4, 5, 7, 8, 10, 11};
-  float delta_alpha_host[2] = {-0.1f, 0.1f};
+  int n_rows = 10;
+  int n_cols = 2;
+  int n_ws = 4;
+  math_t *x_dev;
+  int *ws_idx_dev;
+  math_t *f_dev;
+  math_t *delta_alpha_dev;
+  math_t x_host[20] = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10,
+                       11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+  int ws_idx_host[4] = {0, 3, 4, 8};
+  math_t delta_alpha_host[4] = {0, -0.2, 0, 0.7};
+  math_t f_host_expected[10] = {121, 137, 153, 169, 185,
+                                201, 217, 233, 249, 265};
 };
 
 TYPED_TEST_CASE(SmoUpdateTest, FloatTypes);
@@ -445,13 +529,13 @@ class SmoBlockSolverTest : public ::testing::Test {
  public:  // because of the device lambda
   void testBlockSolve() {
     SmoBlockSolve<math_t, 1024><<<1, n_ws, 0, stream>>>(
-      y_dev, n_rows, alpha_dev, n_ws, delta_alpha_dev, f_dev, kernel_dev,
+      y_dev, n_rows, alpha_dev, n_ws, n_ws, delta_alpha_dev, f_dev, kernel_dev,
       ws_idx_dev, 1.5f, 1e-3f, return_buff_dev, 1);
     CUDA_CHECK(cudaPeekAtLastError());
 
     math_t return_buff_exp[2] = {0.2, 1};
-    devArrMatchHost(return_buff_exp, return_buff_dev, 2,
-                    CompareApprox<math_t>(1e-6));
+    EXPECT_TRUE(devArrMatchHost(return_buff_exp, return_buff_dev, 2,
+                                CompareApprox<math_t>(1e-6)));
 
     math_t *delta_alpha_calc;
     allocate(delta_alpha_calc, n_rows);
@@ -462,7 +546,8 @@ class SmoBlockSolverTest : public ::testing::Test {
                 CompareApprox<math_t>(1e-6));
     CUDA_CHECK(cudaFree(delta_alpha_calc));
     math_t alpha_expected[] = {0, 0.1f, 0.1f, 0};
-    devArrMatch(alpha_expected, alpha_dev, n_rows, CompareApprox<math_t>(1e-6));
+    EXPECT_TRUE(devArrMatch(alpha_expected, alpha_dev, n_rows,
+                            CompareApprox<math_t>(1e-6)));
   }
 
  protected:
@@ -689,7 +774,7 @@ class SmoSolverTest : public ::testing::Test {
  public:
   void blockSolveTest() {
     SmoBlockSolve<math_t, 1024><<<1, n_ws, 0, stream>>>(
-      y_dev, n_rows, alpha_dev, n_ws, delta_alpha_dev, f_dev, kernel_dev,
+      y_dev, n_rows, alpha_dev, n_ws, n_ws, delta_alpha_dev, f_dev, kernel_dev,
       ws_idx_dev, 1.0, 1e-3, return_buff_dev);
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -747,7 +832,7 @@ class SmoSolverTest : public ::testing::Test {
     updateDevice(kernel_dev, kernel, 4, stream);
     updateDevice(kColIdx_dev.data(), kColIdx, 4, stream);
     SmoBlockSolve<math_t, 1024><<<1, n_ws, 0, stream>>>(
-      y_dev, 2 * n_rows, alpha_dev, n_ws, delta_alpha_dev, f_dev, kernel_dev,
+      y_dev, 2 * n_rows, alpha_dev, n_ws, 2, delta_alpha_dev, f_dev, kernel_dev,
       ws_idx_dev, 1.0, 1e-3, return_buff_dev, 10, EPSILON_SVR,
       kColIdx_dev.data());
     CUDA_CHECK(cudaPeekAtLastError());
@@ -826,7 +911,10 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest) {
                           {1, 1, 2, 2, 1, 2, 2, 3},  // x_support
                           {0, 2, 3, 5}}},            // support idx
     {smoInput<TypeParam>{10, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 1},
-     smoOutput<TypeParam>{3, {-2, 4, -2, 0, 0}, -1.0, {-2, 2}, {}, {}}},
+     smoOutput<TypeParam>{3, {2, -4, 2, 0, 0}, -1.0, {-2, 2}, {}, {}}},
+    // For the test above, change in the SMO solver can lead to an alternative
+    // solution:
+    // smoOutput<TypeParam>{3, {-2, 4, -2, 0, 0}, -1.0, {-2, 2}, {}, {}}},
     {smoInput<TypeParam>{1, 1e-6, KernelParams{POLYNOMIAL, 3, 1, 1}, 100, 1},
      smoOutput<TypeParam>{3,
                           {-0.02556136, 0.03979708, -0.01423571},

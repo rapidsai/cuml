@@ -17,6 +17,14 @@
 #pragma once
 
 #include <common/cudart_utils.h>
+#include <cuda_utils.h>
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
+#include <thrust/fill.h>
+#include <thrust/host_vector.h>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/transform.h>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
@@ -192,6 +200,24 @@ class Cache {
     }
   }
 
+  void PrintCache(cudaStream_t stream) {
+    int n = cached_keys.size();  //number of vectors that can be cached
+    thrust::device_ptr<int> time(cache_time.data());
+    thrust::device_ptr<int> key(cached_keys.data());
+    thrust::host_vector<int> hv(n);
+    std::cout << "PrintCache\n";
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    auto nonzero = [] __device__(int a) { return a != 0; };
+    for (int i = 0; i < n; i++) {
+      if (time[i] > 0) {
+        std::cout << "key[" << i << "] = " << key[i] << std::endl;
+        MLCommon::myPrintDevVector("vec", cache.data() + i * n_vec, n_vec);
+      }
+    }
+    MLCommon::myPrintDevVector("full cache", cache.data(), n * n_vec);
+    MLCommon::myPrintDevVector("keys", cached_keys.data(), n);
+    MLCommon::myPrintDevVector("time", cache_time.data(), n);
+  }
   /** @brief Collect cached data into contiguous memory space.
      *
      * On exit, the tile array is filled the following way:

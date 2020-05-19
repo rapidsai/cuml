@@ -45,25 +45,27 @@ using namespace std;
  * @param n_rows_indices number of rows to copy
  * @param stream cuda stream
  * @param rowMajor whether the matrix has row major layout
+ * @param stride of the column indiex (in column major format).
  */
 template <typename m_t>
 void copyRows(const m_t *in, int n_rows, int n_cols, m_t *out,
               const int *indices, int n_rows_indices, cudaStream_t stream,
-              bool rowMajor = false) {
+              bool rowMajor = false, int stride = -1) {
   if (rowMajor) {
     ASSERT(false, "matrix.h: row major is not supported yet!");
   }
-
-  auto size = n_rows_indices * n_cols;
+  if (stride == -1) stride = n_rows_indices;
+  auto size = stride * n_cols;
   auto counting = thrust::make_counting_iterator<int>(0);
 
   thrust::for_each(thrust::cuda::par.on(stream), counting, counting + size,
                    [=] __device__(int idx) {
-                     int row = idx % n_rows_indices;
-                     int col = idx / n_rows_indices;
+                     int row = idx % stride;
+                     int col = idx / stride;
 
-                     out[col * n_rows_indices + row] =
-                       in[col * n_rows + indices[row]];
+                     out[col * stride + row] =
+                       (row < n_rows_indices) ? in[col * n_rows + indices[row]]
+                                              : 0;
                    });
 }
 
