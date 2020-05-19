@@ -128,4 +128,3 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef ModelHandle concatenate_trees(
         vector[ModelHandle] &treelite_handles) except +
-
