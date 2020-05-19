@@ -95,8 +95,13 @@
 - PR #2225: input_to_cuml_array keep order option, test updates and cleanup
 - PR #2244: Re-enable slow ARIMA tests as stress tests
 - PR #2231: Using OPG structs from `cuml.common` in decomposition algorithms
+- PR #2257: Update QN and LogisticRegression to use CumlArray
 - PR #2259: Add CumlArray support to Naive Bayes
 - PR #2252: Add benchmark for the Gram matrix prims
+- PR #2269: Add docs targets to build.sh and fix python cuml.common docs
+- PR #2271: Clarify doc for `_unique` default implementation in OneHotEncoder
+- PR #2272: Add docs build.sh script to repository
+- PR #2276: Ensure `CumlArray` provided `dtype` conforms
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -142,6 +147,8 @@
 - PR #2258: Fix doxygen build break
 - PR #2255: Set random_state for train_test_split function in dask RF
 - PR #2275: Fix RF fit memory leak
+- PR #2274: Fix parameter name verbose to verbosity in mnmg OneHotEncoder
+- PR #2277: Updated cub repo path and branch name
 
 # cuML 0.13.0 (Date TBD)
 
