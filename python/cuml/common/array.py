@@ -118,6 +118,8 @@ class CumlArray(Buffer):
                             " Array.empty().")
         elif isinstance(data, memoryview):
             data = np.asarray(data)
+        if dtype is not None:
+            dtype = np.dtype(dtype)
 
         if _check_low_level_type(data):
             if dtype is None or shape is None or order is None:
@@ -139,7 +141,7 @@ class CumlArray(Buffer):
         # Post processing of meta data
         if detailed_construction:
             self.shape = shape
-            self.dtype = np.dtype(dtype)
+            self.dtype = dtype
             self.order = order
             self.strides = _order_to_strides(order, shape, dtype)
 
