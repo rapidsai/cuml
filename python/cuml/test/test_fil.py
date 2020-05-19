@@ -316,7 +316,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
     assert fil_mse <= skl_mse * (1. + 1e-6) + 1e-4
-    assert np.allclose(fil_preds, skl_preds, 1e-3)
+    assert np.allclose(fil_preds, skl_preds, 1.2e-3)
 
 
 @pytest.fixture(scope="session")
