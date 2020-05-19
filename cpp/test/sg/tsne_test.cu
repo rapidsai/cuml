@@ -15,6 +15,7 @@
  */
 
 #include <common/cudart_utils.h>
+#include <cuml/manifold/tsne.h>
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
 #include <stdio.h>
@@ -23,7 +24,6 @@
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuml/manifold/tsne.h>
 #include <iostream>
 #include <score/scores.cuh>
 #include <vector>

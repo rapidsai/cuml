@@ -23,6 +23,7 @@
 #include <memory>
 
 #include <common/cudart_utils.h>
+#include <linalg/init.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
@@ -30,7 +31,6 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <linalg/add.cuh>
 #include <linalg/binary_op.cuh>
-#include <linalg/init.h>
 #include <linalg/map_then_reduce.cuh>
 #include <linalg/unary_op.cuh>
 #include <matrix/matrix.cuh>
