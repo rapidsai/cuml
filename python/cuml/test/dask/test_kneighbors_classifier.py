@@ -16,7 +16,8 @@
 
 import pytest
 from cuml.test.utils import unit_param, \
-    quality_param, stress_param
+                            quality_param, \
+                            stress_param
 
 from cuml.neighbors import KNeighborsClassifier as lKNNClf
 from cuml.dask.neighbors import KNeighborsClassifier as dKNNClf
@@ -36,7 +37,7 @@ def generate_dask_array(np_array, n_workers):
     chunks = [n_samples_per_part * n_workers]
     chunks[-1] += n_samples % n_samples_per_part
     chunks = tuple(chunks)
-    return da.from_array(np_array, chunks=(chunks,-1))
+    return da.from_array(np_array, chunks=(chunks, -1))
 
 
 @pytest.fixture(
@@ -59,7 +60,7 @@ def dataset(request):
     new_x = []
     new_y = []
     for i in range(y.shape[0]):
-        a = np.argwhere(y[i]==1)[:,0]
+        a = np.argwhere(y[i] == 1)[:, 0]
         if len(a) >= request.param['n_targets']:
             new_x.append(i)
             np.random.shuffle(a)
@@ -91,7 +92,7 @@ def exact_match(output1, output2):
     # Distances should strictly match
     assert np.array_equal(d1, d2)
 
-    # Indices might defer for equivalent distances
+    # Indices might differ for equivalent distances
     for i in range(d1.shape[0]):
         idx_set1, idx_set2 = (set(), set())
         dist = 0.
@@ -104,7 +105,7 @@ def exact_match(output1, output2):
             idx_set2.add(i2[i, j])
         assert idx_set1 == idx_set2
 
-    # As indices might defer, labels can also differ
+    # As indices might differ, labels can also differ
     assert (np.sum(l1 == l2) / l1.size) > 0.9
 
 
@@ -127,7 +128,8 @@ def test_knn_classify(dataset, cluster):
 
         d_model = dKNNClf(client=client, n_neighbors=3)
         d_model.fit(X_train, y_train)
-        d_labels, d_indices, d_distances = d_model.predict(X_test, convert_dtype=True, _return_futures=False)
+        d_labels, d_indices, d_distances = \
+            d_model.predict(X_test, convert_dtype=True)
         d_labels = asnumpy(d_labels.compute())
         d_indices = asnumpy(d_indices.compute())
         d_distances = asnumpy(d_distances.compute())

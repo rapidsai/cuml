@@ -19,9 +19,13 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-from cuml.dask.common.input_utils import DistributedDataHandler, to_output
-from cuml.dask.common import workers_to_parts, parts_to_ranks, \
-    raise_exception_from_futures, flatten_grouped_results
+from cuml.dask.common.input_utils import DistributedDataHandler, \
+                                         to_output, \
+                                         to_dask_cupy
+from cuml.dask.common import workers_to_parts, \
+                             parts_to_ranks, \
+                             raise_exception_from_futures, \
+                             flatten_grouped_results
 from cuml.dask.common.comms import CommsContext, worker_state
 from dask.distributed import default_client
 from dask.distributed import wait
@@ -341,11 +345,11 @@ class KNeighborsClassifier():
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Index data.
-            Acceptable formats: dask cuDF, dask CuPy/NumPy/Numba Array
+            Acceptable formats: dask CuPy/NumPy/Numba Array
 
         y : array-like (device or host) shape = (n_samples, n_features)
             Index labels data.
-            Acceptable formats: dask cuDF, dask CuPy/NumPy/Numba Array
+            Acceptable formats: dask CuPy/NumPy/Numba Array
 
         Returns
         -------
@@ -367,7 +371,7 @@ class KNeighborsClassifier():
         self.n_unique = list(map(lambda x: len(x), self.uniq_labels))
         return self
 
-    def predict(self, X, convert_dtype=True, _return_futures=False):
+    def predict(self, X, convert_dtype=True):
         """
         Predict labels for a query from previously stored index
         and index labels.
@@ -382,10 +386,6 @@ class KNeighborsClassifier():
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will automatically
             convert the data to the right formats.
-
-        _return_futures : bool, optional (default = False)
-            When set to True, the predict method will return the predictions
-            as Dask futures instead of Dask CuPy Arrays
 
         Returns
         -------
@@ -469,10 +469,7 @@ class KNeighborsClassifier():
 
         comms.destroy()
 
-        if _return_futures:
-            return out_futures, out_i_futures, out_d_futures
-        else:
-            out = to_output(out_futures, self.datatype)
-            out_i = to_output(out_i_futures, self.datatype)
-            out_d = to_output(out_d_futures, self.datatype)
-            return out, out_i, out_d
+        out = to_output(out_futures, self.datatype)
+        out_i = to_output(out_i_futures, self.datatype)
+        out_d = to_output(out_d_futures, self.datatype)
+        return out, out_i, out_d

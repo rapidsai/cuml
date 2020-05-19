@@ -412,12 +412,15 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  * @param int_streams internal streams to use for parallelizing independent CUDA events.
  * @param n_int_streams number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
+ * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Classifier. In this case,
+ * the knn_indices array is not used as the y arrays already store the labels for each row.
+ * This makes it possible to compute the reduction step without holding all the data on a single machine.
  */
 template <int TPB_X = 32, bool precomp_lbls = false>
 void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
                  std::vector<int *> &y, size_t n_labels, size_t n_rows, int k,
                  std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
-                 std::shared_ptr<deviceAllocator> allocator,
+                 const std::shared_ptr<deviceAllocator> allocator,
                  cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
                  int n_int_streams = 0) {
   for (int i = 0; i < y.size(); i++) {
@@ -470,6 +473,9 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  * @param int_streams internal streams to use for parallelizing independent CUDA events.
  * @param n_int_streams number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
+ * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Classifier. In this case,
+ * the knn_indices array is not used as the y arrays already store the labels for each row.
+ * This makes it possible to compute the reduction step without holding all the data on a single machine.
  */
 template <int TPB_X = 32, bool precomp_lbls = false>
 void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
