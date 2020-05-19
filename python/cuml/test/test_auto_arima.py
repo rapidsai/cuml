@@ -184,7 +184,8 @@ def test_merge_series(batch_size, n_obs, n_sub, dtype):
     # Divide the dataset according to the id tracker
     data_div = []
     for i in range(n_sub):
-        data_piece = np.zeros((n_obs, len(tracker_np[i])), dtype=dtype)
+        data_piece = np.zeros((n_obs, len(tracker_np[i])), dtype=dtype,
+                              order='F')
         for j in range(len(tracker_np[i])):
             data_piece[:, j] = data_np[:, tracker_np[i][j]]
         data_div.append(input_to_cuml_array(data_piece)[0])
