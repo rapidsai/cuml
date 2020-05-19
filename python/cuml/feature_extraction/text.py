@@ -23,7 +23,7 @@ import cupy as cp
 import numbers
 
 
-def _preprocess(doc, lower=False, remove_punctuation=False, stop_words=None):
+def _preprocess(doc, lower=False, remove_punctuation=False):
     """Chain together an optional series of text preprocessing steps to
     apply to a document.
     Parameters
@@ -97,7 +97,7 @@ class _VectorizerMixin:
         return partial(_preprocess, lower=self.lowercase,
                        remove_punctuation=self.remove_punctuation)
 
-    def get_stop_words(self):
+    def _get_stop_words(self):
         """Build or fetch the effective stop words list.
         Returns
         -------
@@ -133,7 +133,7 @@ class _VectorizerMixin:
                              self.analyzer)
 
     def _remove_stop_words(self, vocab):
-        stop_words = self.get_stop_words()
+        stop_words = self._get_stop_words()
         vocab = self._surround_with_space(vocab)
         for w in (f' {w} ' for w in stop_words):
             contains = cp.empty(len(vocab), dtype=cp.bool)
@@ -295,7 +295,7 @@ class CountVectorizer(_VectorizerMixin):
                           "strip_accents": strip_accents,
                           "tokenizer": tokenizer,
                           "token_pattern": token_pattern}
-        self.check_sklearn_params(analyzer, sklearn_params)
+        self._check_sklearn_params(analyzer, sklearn_params)
 
     def _count_vocab(self, docs):
         """Create feature matrix, and vocabulary where fixed_vocab=False"""
@@ -459,7 +459,7 @@ class CountVectorizer(_VectorizerMixin):
         """
         return self.vocabulary_
 
-    def check_sklearn_params(self, analyzer, sklearn_params):
+    def _check_sklearn_params(self, analyzer, sklearn_params):
         if callable(analyzer):
             raise ValueError("cuML does not support callable analyzer,"
                              " please refer to the cuML documentation for"
