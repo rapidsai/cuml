@@ -307,3 +307,31 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
 
     finally:
         c.close()
+
+
+def test_rf_concatenation_dask(cluster):
+    from cuml.fil.fil import TreeliteModel
+    c = Client(cluster)
+
+    try:
+        X, y = make_classification(n_samples=1000, n_features=30,
+                                   random_state=123, n_classes=2)
+
+        X = X.astype(np.float32)
+        y = y.astype(np.int32)
+        n_estimators = 40
+        cu_rf_params = {'n_estimators': n_estimators}
+
+        X_df, y_df = _prep_training_data(c, X, y,
+                                         partitions_per_worker=2)
+        cu_rf_mg = cuRFC_mg(**cu_rf_params)
+        cu_rf_mg.fit(X_df, y_df)
+        res1 = cu_rf_mg.predict_proba(X_df)
+        res1.compute()
+        local_tl = TreeliteModel.from_treelite_model_handle(
+            cu_rf_mg.local_model._obtain_treelite_handle())
+        # assert cu_rf_mg.local_model.n_estimators == n_estimators
+        assert local_tl.num_trees == n_estimators
+
+    finally:
+        c.close()
