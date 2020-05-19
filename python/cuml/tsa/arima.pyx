@@ -218,13 +218,8 @@ class ARIMA(Base):
                                "estimation.")
 
         # Initialize base class
-<<<<<<< HEAD
-        super().__init__(handle, verbose, output_type)
-        self._set_output_type(endog)
-=======
         super().__init__(handle, verbosity, output_type)
-        self._set_output_type(y)
->>>>>>> branch-0.14
+        self._set_output_type(endog)
 
         # Set the ARIMA order
         cdef ARIMAOrder cpp_order
