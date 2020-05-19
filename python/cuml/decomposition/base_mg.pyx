@@ -77,17 +77,14 @@ class BaseDecompositionMG(object):
         cdef uintptr_t X_arg = opg.build_data_t(X_arys)
 
         cdef uintptr_t trans_data
-        cdef uintptr_t trans_rank_to_sizes
         cdef uintptr_t trans_part_desc
         if _transform:
             trans_arys = opg.build_pred_or_trans_arys(X_arys, "F", self.dtype)
             trans_arg = opg.build_data_t(trans_arys)
 
-            trans_rank_to_sizes = opg.build_rank_size_pair(partsToRanks, rank)
-
             trans_part_desc = opg.build_part_descriptor(total_rows,
                                                         self.n_components,
-                                                        trans_rank_to_sizes,
+                                                        rank_to_sizes,
                                                         rank)
 
         self._initialize_arrays(self.n_components, total_rows, n_cols)
@@ -119,5 +116,6 @@ class BaseDecompositionMG(object):
                     output_type=self._get_output_type(X[0])))
 
             opg.free_data_t(trans_arg, self.dtype)
+            opg.free_part_descriptor(trans_part_desc)
 
             return trans_out

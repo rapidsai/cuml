@@ -16,6 +16,8 @@
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import CommsContext
 from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common import parts_to_ranks
+
 from dask.distributed import wait
 
 
@@ -34,6 +36,12 @@ class BaseLinearModelSyncFitMixin(object):
         data.calculate_parts_to_sizes(comms)
         self.ranks = data.ranks
 
+        worker_info = comms.worker_info(comms.worker_addresses)
+        parts_to_sizes, _ = parts_to_ranks(self.client,
+                                           worker_info,
+                                           data.gpu_futures)
+
+
         lin_models = dict([(data.worker_info[wf[0]]["rank"],
                             self.client.submit(
             model_func,
@@ -50,7 +58,7 @@ class BaseLinearModelSyncFitMixin(object):
             wf[1],
             data.total_rows,
             n_cols,
-            data.parts_to_sizes[data.worker_info[wf[0]]["rank"]],
+            parts_to_sizes,
             data.worker_info[wf[0]]["rank"],
             pure=False,
             workers=[wf[0]]))

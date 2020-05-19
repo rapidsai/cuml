@@ -80,25 +80,24 @@ class MGFitMixin(object):
 
         cdef uintptr_t rank_to_sizes = opg.build_rank_size_pair(partsToSizes,
                                                                 rank)
-        rank_to_size_arg = <size_t>rank_to_sizes
 
-        cdef uintptr_t data = opg.build_data_t(X_arys)
-        X_arg = <size_t>data
-        cdef uintptr_t labels = opg.build_data_t(y_arys)
-        y_arg = <size_t>labels
+        cdef uintptr_t part_desc = opg.build_part_descriptor(n_rows,
+                                                             n_cols,
+                                                             rank_to_sizes,
+                                                             rank)
+
+        cdef uintptr_t X_arg = opg.build_data_t(X_arys)
+        cdef uintptr_t y_arg = opg.build_data_t(y_arys)
 
         # call inheriting class _fit that does all cython pointers and calls
         self._fit(X=X_arg,
                   y=y_arg,
                   coef_ptr=coef_ptr_arg,
-                  rank_to_sizes=rank_to_size_arg,
-                  n_rows=n_rows,
-                  n_cols=n_cols,
-                  n_total_parts=n_total_parts)
+                  input_desc=part_desc)
 
-        opg.free_rank_size_pair(rank_to_sizes, n_total_parts)
-
-        opg.free_data_t(data, n_total_parts, self.dtype)
-        opg.free_data_t(labels, n_total_parts, self.dtype)
+        opg.free_rank_size_pair(rank_to_sizes)
+        opg.free_part_descriptor(part_desc)
+        opg.free_data_t(X_arg, self.dtype)
+        opg.free_data_t(y_arg, self.dtype)
 
         return self
