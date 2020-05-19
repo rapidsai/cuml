@@ -343,4 +343,3 @@ def test_rf_concatenation_dask(cluster, model_type):
         assert local_tl.num_trees == n_estimators
     finally:
         c.close()
-
