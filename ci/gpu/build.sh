@@ -62,6 +62,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "statsmodels" \
       "xgboost====1.0.2dev.rapidsai0.13" \
       "lightgbm" \
+      "matplotlib" \
       "ipython=7.3*" \
       "jupyterlab"
 
