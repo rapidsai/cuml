@@ -20,7 +20,7 @@ import cudf
 import cupy as cp
 import numpy as np
 
-from cuml.common import input_to_cuml_array
+from cuml.common import input_to_cuml_array, CumlArray
 from cuml.common import input_to_dev_array
 from cuml.common import input_to_host_array
 from cuml.common import has_cupy
@@ -44,7 +44,7 @@ test_dtypes_acceptable = [
 ]
 
 test_input_types = [
-    'numpy', 'numba', 'cupy', 'cudf', 'pandas'
+    'numpy', 'numba', 'cupy', 'cudf', 'pandas', 'cuml'
 ]
 
 test_num_rows = [1, 100]
@@ -282,6 +282,10 @@ def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
         result = cudf.DataFrame()
         result = result.from_gpu_matrix(nbcuda.as_cuda_array(rand_mat))
         result = result.to_pandas()
+
+    if type == 'cuml':
+        result = CumlArray(data=rand_mat, dtype=dtype, shape=rand_mat.shape,
+                           order=order if order != 'K' else None)
 
     if out_dtype:
         return result, np.array(cp.asnumpy(rand_mat).astype(out_dtype),

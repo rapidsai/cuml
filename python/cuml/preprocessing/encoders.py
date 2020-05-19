@@ -175,11 +175,14 @@ class OneHotEncoder:
             return X
 
     def _check_input_fit(self, X, is_categories=False):
-        """Helper function used in fit. Can be overridden in subclasses"""
+        """Helper function used in fit. Can be overridden in subclasses. """
         return self._check_input(X, is_categories=is_categories)
 
     def _unique(self, inp):
-        """Helper function used in fit. Can be overridden in subclasses"""
+        """Helper function used in fit. Can be overridden in subclasses. """
+
+        # Default implementation passes input through directly since this is
+        # performed in `LabelEncoder.fit()`
         return inp
 
     def _has_unknown(self, X_cat, encoder_cat):
