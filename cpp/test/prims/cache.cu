@@ -16,10 +16,12 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <linalg/init.h>
 #include <cache/cache.cuh>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
+#include <matrix/matrix.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -30,9 +32,9 @@ class CacheTest : public ::testing::Test {
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocator = std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator());
-    allocate(x_dev, n_rows * n_cols);
-    updateDevice(x_dev, x_host, n_rows * n_cols, stream);
-    allocate(tile_dev, n_rows * n_cols);
+    allocate(x_dev, n_rows * n_cols2);
+    LinAlg::range(x_dev, n_rows * n_cols2, stream);
+    allocate(tile_dev, n_rows * n_cols2);
 
     allocate(keys_dev, n);
     allocate(is_cached, n);
@@ -58,14 +60,13 @@ class CacheTest : public ::testing::Test {
 
   int n_rows = 10;
   int n_cols = 2;
+  int n_cols2 = 10;
   int n = 10;
 
   float *x_dev;
   int *keys_dev;
   int *cache_idx_dev;
   int *int_array_dev;
-  float x_host[20] = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10,
-                      11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
 
   float *tile_dev;
 
@@ -239,59 +240,121 @@ TEST_F(CacheTest, TestEvict) {
 }
 
 TEST_F(CacheTest, TestStoreCollect) {
-  float cache_size = 8 * sizeof(float) * n_cols / (1024 * 1024.0);
-  Cache<float, 4> cache(allocator, stream, n_cols, cache_size);
-
-  ASSERT_EQ(cache.GetSize(), 8);
-
-  int n_cached;
-
-  cache.GetCacheIdxPartitioned(keys_dev, 5, cache_idx_dev, &n_cached, stream);
-  cache.AssignCacheIdx(keys_dev, 5, cache_idx_dev, stream);
-  cache.GetCacheIdxPartitioned(keys_dev, 5, cache_idx_dev, &n_cached, stream);
-
-  cache.StoreVecs(x_dev, 10, n_cached, cache_idx_dev, stream, keys_dev);
-  cache.GetCacheIdxPartitioned(keys_dev, 5, cache_idx_dev, &n_cached, stream);
-  cache.GetVecs(cache_idx_dev, n_cached, tile_dev, stream);
-
-  int cache_idx_host[10];
-  updateHost(cache_idx_host, cache_idx_dev, n_cached, stream);
+  // Here we assume x_dev is column major. The cache will contain columns of
+  // x_dev, each with n_vec = n_rows elements.
+  std::vector<int> batch_size_vec{10, 4, 2};
   int keys_host[10];
-  updateHost(keys_host, keys_dev, n_cached, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  for (int i = 0; i < n_cached; i++) {
-    EXPECT_TRUE(devArrMatch(x_dev + keys_host[i] * n_cols,
-                            tile_dev + i * n_cols, n_cols, Compare<int>()))
-      << "vector " << i;
-  }
+  int cache_idx_host[10];
+  for (int batch_size : batch_size_vec) {
+    // Allocate the cache with a total capacity of 8 vectors
+    float cache_size = 8 * sizeof(float) * n_rows / (1024 * 1024.0);
+    Cache<float, 4> cache(allocator, stream, n_rows, cache_size);
 
-  for (int k = 0; k < 4; k++) {
-    cache.GetCacheIdxPartitioned(keys_dev, 10, cache_idx_dev, &n_cached,
-                                 stream);
-    if (k == 0) {
-      EXPECT_EQ(n_cached, 5);
-    } else {
-      EXPECT_EQ(n_cached, 8);
+    ASSERT_EQ(cache.GetSize(), 8);
+
+    int n_cached;
+
+    // First we cache 5 columns
+    cache.GetCacheIdxPartitioned(keys_dev, 5, cache_idx_dev, &n_cached, stream);
+    cache.AssignCacheIdx(keys_dev, 5, cache_idx_dev, stream);
+    cache.GetCacheIdxPartitioned(keys_dev, 5, cache_idx_dev, &n_cached, stream);
+    for (int offset = 0; offset < n_rows; offset += batch_size) {
+      int s = offset + batch_size < n_rows ? batch_size : n_rows - offset;
+      LinAlg::range(int_array_dev, offset, offset + s, stream);
+      Matrix::copyRows(x_dev, n_rows, n_cols2, tile_dev, int_array_dev, s,
+                       stream, false);
+      cache.StoreVecs(tile_dev, n_cols2, n_cached, cache_idx_dev, stream,
+                      keys_dev, offset, s);
     }
 
-    cache.AssignCacheIdx(keys_dev + n_cached, 10 - n_cached,
-                         cache_idx_dev + n_cached, stream);
-    cache.StoreVecs(x_dev, 10, 10 - n_cached, cache_idx_dev + n_cached, stream,
-                    keys_dev + n_cached);
+    for (int offset = 0; offset < n_rows; offset += batch_size) {
+      int s = offset + batch_size < n_rows ? batch_size : n_rows - offset;
+      cache.GetCacheIdxPartitioned(keys_dev, 5, cache_idx_dev, &n_cached,
+                                   stream);
+      cache.GetVecs(cache_idx_dev, n_cached, tile_dev, stream, offset, s);
 
-    cache.GetVecs(cache_idx_dev, 10, tile_dev, stream);
-
-    updateHost(cache_idx_host, cache_idx_dev, 10, stream);
-    updateHost(keys_host, keys_dev, 10, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    for (int i = 0; i < 10; i++) {
-      if (cache_idx_host[i] >= 0) {
-        EXPECT_TRUE(devArrMatch(x_dev + keys_host[i] * n_cols,
-                                tile_dev + i * n_cols, n_cols, Compare<int>()))
+      updateHost(keys_host, keys_dev, n_cached, stream);
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+      for (int i = 0; i < n_cached; i++) {
+        EXPECT_TRUE(devArrMatch(x_dev + offset + keys_host[i] * n_rows,
+                                tile_dev + i * s, s, Compare<int>()))
           << "vector " << i;
+      }
+    }
+    // Now we cache all the columns
+    for (int k = 0; k < 4; k++) {
+      cache.GetCacheIdxPartitioned(keys_dev, n_cols2, cache_idx_dev, &n_cached,
+                                   stream);
+      if (k == 0) {
+        EXPECT_EQ(n_cached, 5);
+      } else {
+        EXPECT_EQ(n_cached, 8);
+      }
+      cache.AssignCacheIdx(keys_dev + n_cached, n_cols2 - n_cached,
+                           cache_idx_dev + n_cached, stream);
+      // Store and retrieve column vectors batchwise
+      for (int offset = 0; offset < n_rows; offset += batch_size) {
+        int s = offset + batch_size < n_rows ? batch_size : n_rows - offset;
+        LinAlg::range(int_array_dev, offset, offset + s, stream);
+        Matrix::copyRows(x_dev, n_rows, n_cols2, tile_dev, int_array_dev, s,
+                         stream, false);
+        // store those vectors which are not cached
+        cache.StoreVecs(tile_dev, n_cols2, n_cols2 - n_cached,
+                        cache_idx_dev + n_cached, stream, keys_dev + n_cached,
+                        offset, s);
+      }
+      for (int offset = 0; offset < n_rows; offset += batch_size) {
+        int s = offset + batch_size < n_rows ? batch_size : n_rows - offset;
+        cache.GetVecs(cache_idx_dev, n_cols2, tile_dev, stream, offset, s);
+        updateHost(cache_idx_host, cache_idx_dev, n_cols2, stream);
+        updateHost(keys_host, keys_dev, n_cols2, stream);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+        for (int i = 0; i < n_cols2; i++) {
+          if (cache_idx_host[i] >= 0) {
+            EXPECT_TRUE(devArrMatch(x_dev + offset + keys_host[i] * n_rows,
+                                    tile_dev + i * s, s, Compare<int>()))
+              << "vector " << i;
+          }
+        }
       }
     }
   }
 }
-};  // end namespace Cache
-};  // end namespace MLCommon
+
+TEST_F(CacheTest, TestScatteredStoreCollect) {
+  // Here we assume x_dev is column major. The cache will contain columns of
+  // x_dev, each with n_vec = n_rows elements.
+  // Allocate the cache with a total capacity of 8 vectors
+  float cache_size = 8 * sizeof(float) * n_rows / (1024 * 1024.0);
+  Cache<float, 4> cache(allocator, stream, n_rows, cache_size);
+  ASSERT_EQ(cache.GetSize(), 8);
+  int n_cached;
+  cache.GetCacheIdxPartitioned(keys_dev, n_cols2, cache_idx_dev, &n_cached,
+                               stream);
+  cache.AssignCacheIdx(keys_dev, n_cols2, cache_idx_dev, stream);
+  cache.StoreVecs(x_dev, n_cols2, n_cols2, cache_idx_dev, stream, keys_dev);
+  int cache_idx_host[10];
+  updateHost(cache_idx_host, cache_idx_dev, n_cols2, stream);
+  int keys_host[10];
+  updateHost(keys_host, keys_dev, n_cols2, stream);
+  // Collect a scattered set of elements. We use
+  int n_collect = 5;
+  int rows_to_collect[] = {1, 2, 3, 5, 8};
+  updateDevice(int_array_dev, rows_to_collect, n_collect, stream);
+  cache.GetVecs(cache_idx_dev, n_cols2, tile_dev, stream, int_array_dev,
+                n_collect);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  for (int i = 0; i < n_cols2; i++) {
+    if (cache_idx_host[i] >= 0) {
+      std::vector<float> values(n_collect, keys_host[i] * 10);
+      for (int k = 0; k < n_collect; k++) {
+        values[k] += rows_to_collect[k];
+      }
+      EXPECT_TRUE(devArrMatchHost(values.data(), tile_dev + i * n_collect,
+                                  n_collect, Compare<int>()))
+        << "vector " << i;
+    }
+  }
+}
+};  // namespace Cache
+};  // namespace MLCommon

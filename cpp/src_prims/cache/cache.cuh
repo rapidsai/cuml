@@ -173,17 +173,45 @@ class Cache {
    * out[i + n_vec*k] = cache[i + n_vec * idx[k]]), where i=0..n_vec-1,
    * k = 0..n-1
    *
-   * Idx values less than 0 are ignored. 
+   * Idx values less than 0 are ignored.
    *
    * @param [in] idx cache indices, size [n]
    * @param [in] n the number of vectors that need to be collected
    * @param [out] out vectors collected from cache, size [n_vec*n]
    * @param [in] stream cuda stream
+   * @param [in] offset within each cached vector
+   * @param [in] k number of elements to retrive from each cached vector
    */
-  void GetVecs(const int *idx, int n, math_t *out, cudaStream_t stream) {
+  void GetVecs(const int *idx, int n, math_t *out, cudaStream_t stream,
+               int offset = 0, int k = -1) {
     if (n > 0) {
-      get_vecs<<<ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(cache.data(), n_vec,
-                                                            idx, n, out);
+      if (k == -1) k = n_vec;
+      get_vecs<<<ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(
+        cache.data(), n_vec, idx, n, out, offset, k);
+      CUDA_CHECK(cudaPeekAtLastError());
+    }
+  }
+
+  /** @brief Collect cached data into contiguous memory space.
+     *
+     * On exit, the tile array is filled the following way:
+     * out[i + n_vec*k] = cache[i + n_vec * idx[k]]), where i=0..n_vec-1,
+     * k = 0..n-1
+     *
+     * Idx values less than 0 are ignored.
+     *
+     * @param [in] idx cache indices, size [n]
+     * @param [in] n the number of vectors that need to be collected
+     * @param [out] out vectors collected from cache, size [n_vec*n]
+     * @param [in] stream cuda stream
+     * @param [in] array of offsets within each cached vector, size [k]
+     * @param [in] k number of elements to retrive from each cached vector
+     */
+  void GetVecs(const int *idx, int n, math_t *out, cudaStream_t stream,
+               const int *offset, int k) {
+    if (n > 0) {
+      get_vecs<<<ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(
+        cache.data(), n_vec, idx, n, out, offset, k);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
@@ -211,11 +239,13 @@ class Cache {
   * @param [in] tile_idx indices of vectors that need to be stored
   */
   void StoreVecs(const math_t *tile, int n_tile, int n, int *cache_idx,
-                 cudaStream_t stream, const int *tile_idx = nullptr) {
+                 cudaStream_t stream, const int *tile_idx = nullptr,
+                 int offset = 0, int k = -1) {
     if (n > 0) {
+      if (k == -1) k = n_vec;
       store_vecs<<<ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(
         tile, n_tile, n_vec, tile_idx, n, cache_idx, cache.data(),
-        cache.size() / n_vec);
+        cache.size() / n_vec, offset, k);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
