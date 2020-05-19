@@ -23,12 +23,13 @@ import cupy as cp
 import numbers
 
 
-def _preprocess(doc, lower=False, remove_punctuation=False):
+def _preprocess(doc, lower=False, remove_punctuation=False, stop_words=None,
+                delimiter=' '):
     """Chain together an optional series of text preprocessing steps to
     apply to a document.
     Parameters
     ----------
-    doc: str
+    doc: nvstrings
         The string to preprocess
     lower: bool
         Whether to use str.lower to lowercase all of the text
@@ -37,13 +38,16 @@ def _preprocess(doc, lower=False, remove_punctuation=False):
         Punctuation characters are taken from string.punctuation
     Returns
     -------
-    doc: str
+    doc: nvstrings
         preprocessed string
     """
     if lower:
         doc = doc.lower()
     if remove_punctuation:
-        doc = doc.replace(f'[{punctuation}]', ' ')
+        punctuation_list = Series(list(punctuation))._column.nvstrings
+        doc = doc.replace_multi(punctuation_list, delimiter, regex=False)
+    if stop_words is not None:
+        doc = nvtext.replace_tokens(doc, stop_words, delimiter)
     return doc
 
 
@@ -94,8 +98,14 @@ class _VectorizerMixin:
         """
         if self.preprocessor is not None:
             return self.preprocessor
+
+        stop_words = None
+        if self.analyzer == 'word' and self.stop_words is not None:
+            stop_words = Series(self._get_stop_words())._column.nvstrings
+
         return partial(_preprocess, lower=self.lowercase,
-                       remove_punctuation=self.remove_punctuation)
+                       remove_punctuation=self.remove_punctuation,
+                       stop_words=stop_words, delimiter=self.delimiter)
 
     def _get_stop_words(self):
         """Build or fetch the effective stop words list.
@@ -132,17 +142,6 @@ class _VectorizerMixin:
             raise ValueError('%s is not a valid tokenization scheme/analyzer' %
                              self.analyzer)
 
-    def _remove_stop_words(self, vocab):
-        stop_words = self._get_stop_words()
-        vocab = self._surround_with_space(vocab)
-        for w in (f' {w} ' for w in stop_words):
-            contains = cp.empty(len(vocab), dtype=cp.bool)
-            _ = vocab.contains(w, regex=False, devptr=contains.data.ptr)
-            idx = cp.where(contains)[0]
-            vocab = vocab.remove_strings(idx.data.ptr, count=len(idx))
-        vocab = vocab.strip()
-        return vocab
-
     def _build_vocabulary(self, docs):
         """Builds a vocabulary given the preprocessed documents.
 
@@ -163,9 +162,6 @@ class _VectorizerMixin:
                 else:
                     vocab = nvtext.character_tokenize(docs)
                     vocab = Series(vocab).unique()._column.nvstrings
-
-            if self.analyzer == 'word' and self.stop_words is not None:
-                vocab = self._remove_stop_words(vocab)
 
             self.vocabulary_ = vocab
 
@@ -252,6 +248,10 @@ class CountVectorizer(_VectorizerMixin):
         Type of the matrix returned by fit_transform() or transform().
     remove_punctuation : boolean, True by default
         Remove all characters from string.punctuation before tokenizing.
+    delimiter : str, whitespace by default
+        String used as a replacement for punctuation if remove_punctuation is
+        True and for stop words if stop_words is not None. Typically the
+        delimiting character between words is a good choice. Default is space.
     Attributes
     ----------
     vocabulary_ : nvstrings
@@ -268,7 +268,7 @@ class CountVectorizer(_VectorizerMixin):
                  tokenizer=None, stop_words=None, token_pattern=None,
                  ngram_range=(1, 1), analyzer='word', max_df=1.0, min_df=1,
                  max_features=None, vocabulary=None, binary=False,
-                 dtype=cp.int32, remove_punctuation=True):
+                 dtype=cp.int32, remove_punctuation=True, delimiter=' '):
         self.preprocessor = preprocessor
         self.analyzer = analyzer
         self.lowercase = lowercase
@@ -288,6 +288,7 @@ class CountVectorizer(_VectorizerMixin):
         self.vocabulary = vocabulary
         self.binary = binary
         self.dtype = dtype
+        self.delimiter = delimiter
 
         sklearn_params = {"input": input,
                           "encoding": encoding,
