@@ -17,17 +17,17 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
-#include <linalg/gemm.h>
 #include <cub/cub.cuh>
-#include "cache/cache.h"
-#include "cache/cache_util.h"
+#include <cuda_utils.cuh>
+#include <linalg/gemm.cuh>
+#include "cache/cache.cuh"
+#include "cache/cache_util.cuh"
 #include "common/cumlHandle.hpp"
 #include "common/host_buffer.hpp"
 #include "cuml/svm/svm_parameter.h"
 #include "linalg/init.h"
-#include "matrix/grammatrix.h"
-#include "matrix/matrix.h"
+#include "matrix/grammatrix.cuh"
+#include "matrix/matrix.cuh"
 #include "ml_utils.h"
 
 namespace ML {

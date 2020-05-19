@@ -26,10 +26,13 @@ from cuml.dask.datasets.utils import _get_labels
 from cuml.dask.datasets.utils import _create_delayed
 from cuml.dask.common.utils import get_client
 
+import math
+
+import cuml.common.logger as logger
+
 
 def _create_local_data(m, n, centers, cluster_std, shuffle, random_state,
                        order, dtype):
-
     X, y = sg_make_blobs(m, n, centers=centers,
                          cluster_std=cluster_std,
                          random_state=random_state,
@@ -43,8 +46,9 @@ def _create_local_data(m, n, centers, cluster_std, shuffle, random_state,
 @with_cupy_rmm
 def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                n_parts=None, center_box=(-10, 10), shuffle=True,
-               random_state=None, return_centers=False, verbose=False,
-               order='F', dtype='float32', client=None):
+               random_state=None, return_centers=False,
+               verbosity=logger.LEVEL_INFO, order='F', dtype='float32',
+               client=None):
     """
     Makes labeled Dask-Cupy arrays containing blobs
     for a randomly generated set of centroids.
@@ -78,8 +82,8 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
          sets random seed (or use None to reinitialize each time)
     return_centers : bool, optional (default=False)
         If True, then return the centers of each cluster
-    verbose : bool (default = False)
-         enables / disables verbose printing.
+    verbosity : int (default = cuml.logger.LEVEL_INFO)
+         Logging level.
     shuffle : bool (default=False)
               Shuffles the samples on each worker.
     order: str, optional (default='F')
@@ -125,10 +129,10 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
     worker_rows = tuple(worker_rows)
 
-    if verbose:
-        print("Generating %s samples across %d partitions on "
-              "%d workers (total=%d samples)" % ','.join(worker_rows),
-              n_parts, len(workers), n_samples)
+    logger.debug("Generating %d samples across %d partitions on "
+                 "%d workers (total=%d samples)" %
+                 (math.ceil(n_samples / len(workers)),
+                  n_parts, len(workers), n_samples))
 
     seeds = generator.randint(n_samples, size=len(parts_workers))
     parts = [client.submit(_create_local_data,

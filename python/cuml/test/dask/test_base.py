@@ -29,36 +29,39 @@ def test_getattr(cluster):
 
     client = Client(cluster)
 
-    # Test getattr on local param
-    kmeans_model = KMeans(client=client)
+    try:
+        # Test getattr on local param
+        kmeans_model = KMeans(client=client)
 
-    assert kmeans_model.client is not None
+        assert kmeans_model.client is not None
 
-    # Test getattr on local_model param with a non-distributed model
+        # Test getattr on local_model param with a non-distributed model
 
-    X, y = make_blobs(n_samples=5,
-                      n_features=5,
-                      centers=2,
-                      n_parts=2,
-                      cluster_std=0.01,
-                      verbose=False,
-                      random_state=10)
+        X, y = make_blobs(n_samples=5,
+                          n_features=5,
+                          centers=2,
+                          n_parts=2,
+                          cluster_std=0.01,
+                          random_state=10)
 
-    wait(X)
+        wait(X)
 
-    kmeans_model.fit(X)
+        kmeans_model.fit(X)
 
-    assert kmeans_model.cluster_centers_ is not None
-    assert isinstance(kmeans_model.cluster_centers_, cupy.core.ndarray)
+        assert kmeans_model.cluster_centers_ is not None
+        assert isinstance(kmeans_model.cluster_centers_, cupy.core.ndarray)
 
-    # Test getattr on trained distributed model
+        # Test getattr on trained distributed model
 
-    X, y = load_text_corpus(client)
+        X, y = load_text_corpus(client)
 
-    print(str(X.compute()))
+        print(str(X.compute()))
 
-    nb_model = MultinomialNB(client=client)
-    nb_model.fit(X, y)
+        nb_model = MultinomialNB(client=client)
+        nb_model.fit(X, y)
 
-    assert nb_model.feature_count_ is not None
-    assert isinstance(nb_model.feature_count_, cupy.core.ndarray)
+        assert nb_model.feature_count_ is not None
+        assert isinstance(nb_model.feature_count_, cupy.core.ndarray)
+
+    finally:
+        client.close()

@@ -16,8 +16,8 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "matrix_vector_op.h"
-#include "random/rng.h"
+#include "matrix_vector_op.cuh"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {
