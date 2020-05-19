@@ -375,9 +375,8 @@ class RandomForestClassifier(Base):
             delete_rf_metadata(
                 <RandomForestMetaData[double, int]*><uintptr_t>
                 self.rf_forest64)
-            if self.treelite_handle:
-                TreeliteModel.free_treelite_model(self.treelite_handle)
-                self.treelite_handle = None
+            # Who frees the treelite model if any?
+            self.treelite_handle = None
             self.model_pbuf_bytes = bytearray()
             self.n_cols = None
 
