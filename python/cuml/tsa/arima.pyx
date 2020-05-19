@@ -33,22 +33,13 @@ from cuml.common.base import Base
 from cuml.common.cuda import nvtx_range_wrap
 from cuml.common.handle cimport cumlHandle
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
+import cuml.common.logger as logger
 from cuml.common import has_scipy
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import input_to_host_array
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
-    ctypedef struct ARIMAOrder:
-        int p  # Basic order
-        int d
-        int q
-        int P  # Seasonal order
-        int D
-        int Q
-        int s  # Seasonal period
-        int k  # Fit intercept?
-
     cdef cppclass ARIMAParams[DataT]:
         DataT* mu
         DataT* ar
@@ -163,7 +154,7 @@ class ARIMA(Base):
         Whether to include a constant trend mu in the model (default: True)
     handle: cuml.Handle
         If it is None, a new one is created just for this instance
-    verbose: int (optional, default 0)
+    verbosity: int (optional, default cuml.common.logger.LEVEL_INFO)
         Controls verbosity level of logging.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes.
@@ -218,7 +209,7 @@ class ARIMA(Base):
                  = (0, 0, 0, 0),
                  fit_intercept=True,
                  handle=None,
-                 verbose=0,
+                 verbosity=logger.LEVEL_INFO,
                  output_type=None):
 
         if not has_scipy():
@@ -227,8 +218,13 @@ class ARIMA(Base):
                                "estimation.")
 
         # Initialize base class
+<<<<<<< HEAD
         super().__init__(handle, verbose, output_type)
         self._set_output_type(endog)
+=======
+        super().__init__(handle, verbosity, output_type)
+        self._set_output_type(y)
+>>>>>>> branch-0.14
 
         # Set the ARIMA order
         cdef ARIMAOrder cpp_order
@@ -448,9 +444,9 @@ class ARIMA(Base):
         elif end <= start:
             raise ValueError("ERROR(`predict`): end <= start")
         elif start < order.d + order.D * order.s:
-            print("WARNING(`predict`): predictions before {} are undefined,"
-                  " will be set to NaN".format(order.d + order.D * order.s),
-                  file=sys.stderr)
+            logger.warn("WARNING(`predict`): predictions before {} are"
+                        " undefined, will be set to NaN"
+                        .format(order.d + order.D * order.s))
 
         if end is None:
             end = self.n_obs
@@ -658,7 +654,7 @@ class ARIMA(Base):
                 n_gllf = -self._loglike_grad(x, h, True, fit_method, truncate)
                 return n_gllf / (self.n_obs - 1)
 
-            # check initial parameter sanity
+            # Check initial parameter sanity
             if ((np.isnan(x_in).any()) or (np.isinf(x_in).any())):
                 raise FloatingPointError(
                     "Initial parameter vector x has NaN or Inf.")
@@ -670,8 +666,7 @@ class ARIMA(Base):
 
             # Handle non-zero flags with Warning
             if (flags != 0).any():
-                print("WARNING: Some batch members had optimizer problems.",
-                      file=sys.stderr)
+                logger.warn("fit: Some batch members had optimizer problems")
 
             return x_out, niter
 
