@@ -20,6 +20,7 @@ from cuml.ensemble import RandomForestClassifier as RFClassifier
 from cuml.test.utils import get_handle
 from sklearn.datasets import make_classification
 
+
 @pytest.mark.parametrize('n_estimators', [5, 10, 20])
 @pytest.mark.parametrize('detailed_printing', [True, False])
 def test_rf_printing(capfd, n_estimators, detailed_printing):
@@ -37,12 +38,12 @@ def test_rf_printing(capfd, n_estimators, detailed_printing):
     cuml_model = RFClassifier(handle=handle, max_features=1.0, rows_sample=1.0,
                               n_bins=16, split_algo=0, split_criterion=0,
                               min_rows_per_node=2, seed=23707, n_streams=1,
-                              n_estimators=n_estimators, max_leaves = -1,
+                              n_estimators=n_estimators, max_leaves=-1,
                               max_depth=16)
     # Train model on the data
     cuml_model.fit(X, y)
 
-    if detailed_printing == True:
+    if detailed_printing:
         cuml_model.print_detailed()
     else:
         cuml_model.print_summary()
