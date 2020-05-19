@@ -15,9 +15,9 @@
  */
 
 #include <gtest/gtest.h>
-#include "cuda_utils.h"
-#include "linalg/gemm.h"
-#include "random/rng.h"
+#include "cuda_utils.cuh"
+#include "linalg/gemm.cuh"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

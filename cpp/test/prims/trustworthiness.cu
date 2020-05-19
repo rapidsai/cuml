@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <score/scores.h>
+#include <cuda_utils.cuh>
 #include <iostream>
+#include <score/scores.cuh>
 #include <vector>
-#include "distance/distance.h"
+#include "distance/distance.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

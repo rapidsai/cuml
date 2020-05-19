@@ -31,6 +31,11 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+import cuml.common.logger as logger
+from cuml.common import get_cudf_column_ptr
+from cuml.common import get_dev_array_ptr
+from cuml.common import input_to_dev_array
+from cuml.common import zeros
 from cuml.common.input_utils import input_to_cuml_array
 
 
@@ -180,7 +185,7 @@ class CD(Base):
             msg = "loss {!r} is not supported"
             raise NotImplementedError(msg.format(loss))
 
-        super(CD, self).__init__(handle=handle, verbose=False,
+        super(CD, self).__init__(handle=handle, verbosity=logger.LEVEL_INFO,
                                  output_type=output_type)
         self.alpha = alpha
         self.l1_ratio = l1_ratio
