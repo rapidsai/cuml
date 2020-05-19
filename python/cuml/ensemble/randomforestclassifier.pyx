@@ -1183,4 +1183,3 @@ class RandomForestClassifier(Base):
             print_rf_detailed(rf_forest64)
         else:
             print_rf_detailed(rf_forest)
-

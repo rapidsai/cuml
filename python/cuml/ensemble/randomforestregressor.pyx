@@ -364,7 +364,6 @@ class RandomForestRegressor(Base):
             self.model_pbuf_bytes = bytearray()
             self.n_cols = None
 
-
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
             return self.max_features/self.n_cols
