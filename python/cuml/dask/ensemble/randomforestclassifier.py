@@ -414,9 +414,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         y : NumPy
            Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
         """
-        if predict_model == "GPU" and self.num_classes > 2:
-          assert False, "multi-class classification in dask on GPU is not "\
-                        "supported yet"
+        assert self.num_classes <= 2, "multi-class predict_proba in dask is"\
+                                      " not supported yet"
         if self.local_model is None:
             self.local_model = self._concat_treelite_models()
 
