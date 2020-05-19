@@ -303,18 +303,18 @@ class RandomForestRegressor(Base):
         state = self.__dict__.copy()
         del state['handle']
         cdef size_t params_t
-        cdef  RandomForestMetaData[float, int] *rf_forest
-        cdef  RandomForestMetaData[double, int] *rf_forest64
+        cdef  RandomForestMetaData[float, float] *rf_forest
+        cdef  RandomForestMetaData[double, double] *rf_forest64
         cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
             model_pbuf_bytes = self._get_protobuf_bytes()
             params_t = <uintptr_t> self.rf_forest
             rf_forest = \
-                <RandomForestMetaData[float, int]*>params_t
+                <RandomForestMetaData[float, float]*>params_t
             params_t64 = <uintptr_t> self.rf_forest64
             rf_forest64 = \
-                <RandomForestMetaData[double, int]*>params_t64
+                <RandomForestMetaData[double, double]*>params_t64
             state["rf_params"] = rf_forest.rf_params
             state["rf_params64"] = rf_forest64.rf_params
         else:
@@ -386,12 +386,12 @@ class RandomForestRegressor(Base):
         a cached version when available. The handle is cached in the
         instanced and freed at instance deletion. Caller should not
         delete the returned model."""
+        if self.treelite_handle is not None:
+            return self.treelite_handle  # Cached version
+
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
-
-        if self.treelite_handle is not None:
-            return self.treelite_handle  # Cached version
 
         cdef unsigned char[::1] model_pbuf_mv = self.model_pbuf_bytes
         cdef vector[unsigned char] model_pbuf_vec

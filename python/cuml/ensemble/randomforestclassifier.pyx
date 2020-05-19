@@ -399,12 +399,12 @@ class RandomForestClassifier(Base):
         a cached version when available. The handle is cached in the
         instanced and freed at instance deletion. Caller should not
         delete the returned model."""
+        if self.treelite_handle is not None:
+            return self.treelite_handle  # Cached version
+
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
-
-        if self.treelite_handle is not None:
-            return self.treelite_handle  # Cached version
 
         if self.num_classes > 2:
             raise NotImplementedError("Pickling for multi-class "
