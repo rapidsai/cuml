@@ -100,6 +100,7 @@
 - PR #2252: Add benchmark for the Gram matrix prims
 - PR #2271: Clarify doc for _unique default implementation in OneHotEncoder
 - PR #2272: Add docs build.sh script to repository
+- PR #2276: Ensure `CumlArray` provided `dtype` conforms
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
