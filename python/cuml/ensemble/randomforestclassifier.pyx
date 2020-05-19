@@ -825,11 +825,11 @@ class RandomForestClassifier(Base):
            Dense vector (int) of shape (n_samples, 1)
         """
         if num_classes != 'auto':
-          warnings.warn("num_classes is deprecated and will be removed"
-                        " in an upcoming version")
-          if num_classes != self.num_classes:
-              raise NotImplementedError("limiting num_classes for predict"
-                                        " is not implemented")
+            warnings.warn("num_classes is deprecated and will be removed"
+                          " in an upcoming version")
+            if num_classes != self.num_classes:
+                raise NotImplementedError("limiting num_classes for predict"
+                                          " is not implemented")
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
@@ -982,11 +982,11 @@ class RandomForestClassifier(Base):
                             setting predict_model = 'CPU'")
 
         if num_classes != 'auto':
-          warnings.warn("num_classes is deprecated and will be removed"
-                        " in an upcoming version")
-          if num_classes != self.num_classes:
-              raise NotImplementedError("limiting num_classes for predict"
-                                        " is not implemented")
+            warnings.warn("num_classes is deprecated and will be removed"
+                          " in an upcoming version")
+            if num_classes != self.num_classes:
+                raise NotImplementedError("limiting num_classes for predict"
+                                          " is not implemented")
         preds_proba = \
             self._predict_model_on_gpu(X, output_class=output_class,
                                        threshold=threshold,
