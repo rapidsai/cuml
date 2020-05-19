@@ -15,7 +15,7 @@
 
 import numpy as np
 import pytest
-import sys
+
 from cuml.ensemble import RandomForestClassifier as RFClassifier
 from cuml.test.utils import get_handle
 from sklearn.datasets import make_classification
