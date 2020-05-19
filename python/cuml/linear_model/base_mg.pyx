@@ -71,8 +71,6 @@ class MGFitMixin(object):
                                           check_dtype=self.dtype)
             y_arys.append(y_m)
 
-        n_total_parts = len(input_data)
-
         self._coef_ = CumlArray.zeros(self.n_cols,
                                       dtype=self.dtype)
         cdef uintptr_t coef_ptr = self._coef_.ptr
