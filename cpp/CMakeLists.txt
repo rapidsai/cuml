@@ -247,7 +247,7 @@ include(ExternalProject)
 
 ExternalProject_Add(cub
   GIT_REPOSITORY    https://github.com/NVlabs/cub.git
-  GIT_TAG           v1.8.0
+  GIT_TAG           1.8.0
   PREFIX            ${CUB_DIR}
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
