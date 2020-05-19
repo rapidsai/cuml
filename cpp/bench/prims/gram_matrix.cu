@@ -15,10 +15,10 @@
  */
 
 #include <cuml/matrix/kernelparams.h>
-#include <matrix/grammatrix.h>
-#include <matrix/kernelfactory.h>
-#include <random/rng.h>
+#include <matrix/grammatrix.cuh>
+#include <matrix/kernelfactory.cuh>
 #include <memory>
+#include <random/rng.cuh>
 #include <sstream>
 #include <string>
 #include <vector>

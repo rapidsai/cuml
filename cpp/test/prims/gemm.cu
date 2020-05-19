@@ -16,7 +16,7 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "linalg/gemm.h"
+#include "linalg/gemm.cuh"
 
 namespace MLCommon {
 namespace LinAlg {
