@@ -15,14 +15,14 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include <cuda_utils.cuh>
 #include <iostream>
 #include <random>
 #include <vector>
 #include "cuml/random_projection/rproj_c.h"
-#include "distance/distance.h"
+#include "distance/distance.cuh"
 #include "linalg/transpose.h"
 
 namespace ML {

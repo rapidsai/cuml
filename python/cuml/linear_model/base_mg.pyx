@@ -32,7 +32,7 @@ from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.handle cimport cumlHandle
 from cuml.common.opg_data_utils_mg cimport *
-from cuml.common import input_to_cuml_array
+from cuml.common.input_utils import input_to_cuml_array
 from cuml.decomposition.utils cimport *
 
 
@@ -78,7 +78,7 @@ class MGFitMixin(object):
         cdef uintptr_t coef_ptr = self._coef_.ptr
         coef_ptr_arg = <size_t>coef_ptr
 
-        cdef uintptr_t rank_to_sizes = opg.build_rank_size_pair(input_data,
+        cdef uintptr_t rank_to_sizes = opg.build_rank_size_pair(X_arys,
                                                                 rank)
         rank_to_size_arg = <size_t>rank_to_sizes
 

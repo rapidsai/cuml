@@ -19,10 +19,11 @@ import cupy as cp
 import cupyx
 import cudf
 import dask
+import dask.dataframe as dd
 
 from cuml.common.memory_utils import with_cupy_rmm
 
-from cuml.dask.common.dask_df_utils import to_dask_cudf
+from cuml.dask.common.dask_df_utils import to_dask_cudf as df_to_dask_cudf
 from dask.distributed import default_client
 
 from cuml.dask.common.part_utils import _extract_partitions
@@ -140,7 +141,7 @@ def to_sparse_dask_array(cudf_or_array, client=None):
         futures = [client.submit(_conv_np_to_df, part, workers=[w], pure=False)
                    for w, part in parts]
 
-        ret = to_dask_cudf(futures)
+        ret = df_to_dask_cudf(futures)
 
     # If we have a Dask Dataframe, use `map_partitions` to convert it
     # to a Sparse Cupy-backed Dask Array. This will also convert the dense
@@ -163,3 +164,28 @@ def to_sparse_dask_array(cudf_or_array, client=None):
 
         return dask.array.from_delayed(final_result, shape=shape,
                                        meta=meta)
+
+
+def _get_meta(df):
+    ret = df.iloc[:0]
+    return ret
+
+
+@dask.delayed
+def _to_cudf(arr):
+    if arr.ndim == 2:
+        return cudf.DataFrame.from_gpu_matrix(arr)
+    elif arr.ndim == 1:
+        return cudf.Series(arr)
+
+
+def to_dask_cudf(dask_arr, client=None):
+    client = default_client() if client is None else client
+
+    elms = [_to_cudf(dp) for dp in dask_arr.to_delayed().flatten()]
+    dfs = client.compute(elms)
+
+    meta = client.submit(_get_meta, dfs[0])
+    meta_local = meta.result()
+
+    return dd.from_delayed(dfs, meta=meta_local)
