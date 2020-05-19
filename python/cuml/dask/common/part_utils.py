@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-from uuid import uuid1
 from collections import OrderedDict
 
 from functools import reduce
@@ -72,12 +71,11 @@ def parts_to_ranks(client, worker_info, part_futures):
     :param part_futures: list of (worker, future) tuples
     :return: [(part, size)] in the same order of part_futures
     """
-    key = uuid1()
     futures = [(worker_info[wf[0]]["r"],
                 client.submit(_func_get_rows,
                               wf[1],
                               workers=[wf[0]],
-                              key="%s-%s" % (key, idx)))
+                              pure=False))
                for idx, wf in enumerate(part_futures)]
 
     sizes = client.compute(list(map(lambda x: x[1], futures)), sync=True)

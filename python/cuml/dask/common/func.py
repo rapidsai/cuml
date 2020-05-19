@@ -114,7 +114,8 @@ def tree_reduce(objs, func=sum):
         new_objs = []
         n_objs = len(objs)
         for i in range(0, n_objs, 2):
-            inputs = dask.delayed(objs[i:i + 2])
+            inputs = dask.delayed(objs[i:i + 2],
+                                  pure=False)
             obj = func(inputs)
             new_objs.append(obj)
         wait(new_objs)

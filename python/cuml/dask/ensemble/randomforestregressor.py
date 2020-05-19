@@ -37,10 +37,10 @@ class RandomForestRegressor(DelayedPredictionMixin):
     (possibly on different nodes).
 
     Currently, this API makes the following assumptions:
-     * The set of Dask workers used between instantiation, fit,
-       and predict are all consistent
-     * Training data is comes in the form of cuDF dataframes,
-       distributed so that each worker has at least one partition.
+    * The set of Dask workers used between instantiation, fit,
+    and predict are all consistent
+    * Training data is comes in the form of cuDF dataframes,
+    distributed so that each worker has at least one partition.
 
     Future versions of the API will support more flexible data
     distribution and additional input types. User-facing APIs are
@@ -60,63 +60,60 @@ class RandomForestRegressor(DelayedPredictionMixin):
     Please check the single-GPU implementation of Random Forest
     classifier for more information about the underlying algorithm.
 
-     Parameters
+    Parameters
     -----------
     n_estimators : int (default = 10)
-                   total number of trees in the forest (not per-worker)
+        total number of trees in the forest (not per-worker)
     handle : cuml.Handle
-             If it is None, a new one is created just for this class.
+        If it is None, a new one is created just for this class.
     split_algo : int (default = 1)
-                 0 for HIST, 1 for GLOBAL_QUANTILE
-                 The type of algorithm to be used to create the trees.
-    split_criterion: int (default = 2)
-                     The criterion used to split nodes.
-                     0 for GINI, 1 for ENTROPY,
-                     2 for MSE, 3 for MAE and 4 for CRITERION_END.
-                     0 and 1 not valid for regression
+        0 for HIST, 1 for GLOBAL_QUANTILE
+        The type of algorithm to be used to create the trees.
+    split_criterion : int (default = 2)
+        The criterion used to split nodes.
+        0 for GINI, 1 for ENTROPY,
+        2 for MSE, 3 for MAE and 4 for CRITERION_END.
+        0 and 1 not valid for regression
     bootstrap : boolean (default = True)
-                Control bootstrapping.
-                If set, each tree in the forest is built
-                on a bootstrapped sample with replacement.
-                If false, sampling without replacement is done.
+        Control bootstrapping.
+        If set, each tree in the forest is built
+        on a bootstrapped sample with replacement.
+        If false, sampling without replacement is done.
     bootstrap_features : boolean (default = False)
-                         Control bootstrapping for features.
-                         If features are drawn with or without replacement
+        Control bootstrapping for features.
+        If features are drawn with or without replacement
     rows_sample : float (default = 1.0)
-                  Ratio of dataset rows used while fitting each tree.
+        Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = -1)
-                Maximum tree depth. Unlimited (i.e, until leaves are pure),
-                if -1.
+        Maximum tree depth. Unlimited (i.e, until leaves are pure), if -1.
     max_leaves : int (default = -1)
-                 Maximum leaf nodes per tree. Soft constraint. Unlimited,
-                 if -1.
+        Maximum leaf nodes per tree. Soft constraint. Unlimited, if -1.
     max_features : int or float or string or None (default = 'auto')
-                   Ratio of number of features (columns) to consider
-                   per node split.
-                   If int then max_features/n_features.
-                   If float then max_features is a fraction.
-                   If 'auto' then max_features=n_features which is 1.0.
-                   If 'sqrt' then max_features=1/sqrt(n_features).
-                   If 'log2' then max_features=log2(n_features)/n_features.
-                   If None, then max_features=n_features which is 1.0.
-    n_bins :  int (default = 8)
-              Number of bins used by the split algorithm.
+        Ratio of number of features (columns) to consider
+        per node split.
+        If int then max_features/n_features.
+        If float then max_features is a fraction.
+        If 'auto' then max_features=n_features which is 1.0.
+        If 'sqrt' then max_features=1/sqrt(n_features).
+        If 'log2' then max_features=log2(n_features)/n_features.
+        If None, then max_features=n_features which is 1.0.
+    n_bins : int (default = 8)
+        Number of bins used by the split algorithm.
     min_rows_per_node : int or float (default = 2)
-                        The minimum number of samples (rows) needed
-                        to split a node.
-                        If int then number of sample rows
-                        If float the min_rows_per_sample*n_rows
+        The minimum number of samples (rows) needed to split a node.
+        If int then number of sample rows
+        If float the min_rows_per_sample*n_rows
     accuracy_metric : string (default = 'mse')
-                      Decides the metric used to evaluate the performance
-                      of the model.
-                      for median of abs error : 'median_ae'
-                      for mean of abs error : 'mean_ae'
-                      for mean square error' : 'mse'
+        Decides the metric used to evaluate the performance of the model.
+        for median of abs error : 'median_ae'
+        for mean of abs error : 'mean_ae'
+        for mean square error' : 'mse'
     n_streams : int (default = 4 )
-                Number of parallel streams used for forest building
+        Number of parallel streams used for forest building
     workers : optional, list of strings
-              Dask addresses of workers to use for computation.
-              If None, all available Dask workers will be used.
+        Dask addresses of workers to use for computation.
+        If None, all available Dask workers will be used.
+
     """
 
     def __init__(
@@ -297,8 +294,8 @@ class RandomForestRegressor(DelayedPredictionMixin):
         model.print_summary()
 
     @staticmethod
-    def _predict_cpu(model, X, predict_model):
-        return model._predict_model_on_cpu(X, predict_model=predict_model)
+    def _predict_cpu(model, X, convert_dtype):
+        return model._predict_model_on_cpu(X, convert_dtype=convert_dtype)
 
     def print_summary(self):
         """
@@ -338,9 +335,9 @@ class RandomForestRegressor(DelayedPredictionMixin):
         for n in range(len(self.workers)):
             all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
 
-        concat_model_handle = model.concatenate_treelite_handle(
+        concat_model_handle = model._concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
-        model.concatenate_model_bytes(concat_model_handle)
+        model._concatenate_model_bytes(concat_model_handle)
 
         self.local_model = model
 
@@ -367,6 +364,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
                                                            X_dask_cudf=workers,
                                                            y_dask_cudf=workers
                                                            })
+
         Parameters
         ----------
         X : dask_cudf.Dataframe
@@ -430,12 +428,12 @@ class RandomForestRegressor(DelayedPredictionMixin):
             predict operation on the GPU.
             'naive' - simple inference using shared memory
             'tree_reorg' - similar to naive but trees rearranged to be more
-                           coalescing-friendly
+            coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
-                                 multiple rows per thread block
+            multiple rows per thread block
             `algo` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -449,10 +447,10 @@ class RandomForestRegressor(DelayedPredictionMixin):
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
         delayed : bool (default = True)
             Whether to do a lazy prediction (and return Delayed objects) or an
             eagerly executed one.
@@ -462,7 +460,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
         y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
         """
         if predict_model == "CPU":
-            preds = self._predict_using_cpu(X, predict_model=predict_model)
+            preds = self._predict_using_cpu(X, convert_dtype=convert_dtype)
 
         else:
             preds = \
@@ -489,7 +487,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
     TODO : Update function names used for CPU predict.
            Cuml issue #1854 has been created to track this.
     """
-    def _predict_using_cpu(self, X, predict_model):
+    def _predict_using_cpu(self, X, convert_dtype):
         workers = self.workers
 
         X_Scattered = self.client.scatter(X)
@@ -501,7 +499,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
                     RandomForestRegressor._predict_cpu,
                     self.rfs[w],
                     X_Scattered,
-                    predict_model,
+                    convert_dtype,
                     workers=[w],
                 )
             )
