@@ -333,5 +333,9 @@ def test_rf_concatenation_dask(cluster):
         # assert cu_rf_mg.local_model.n_estimators == n_estimators
         assert local_tl.num_trees == n_estimators
 
+        # first_rf = list(cu_rf_mg.rfs.values())[0].result()
+        # assert first_rf.local_model.n_estimators == 40
+
     finally:
         c.close()
+
