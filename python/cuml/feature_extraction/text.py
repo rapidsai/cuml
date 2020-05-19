@@ -57,9 +57,9 @@ class _VectorizerMixin:
         ngrams = nvtext.ngrams_tokenize(tokens, N=min_n, sep=' ')
         min_n += 1
 
-        for n in range(min_n, min(max_n + 1, len(tokens) + 1)):
-            ngrams = ngrams.add_strings(
-                nvtext.ngrams_tokenize(tokens, N=n, sep=' '))
+        ngrams_list = [nvtext.ngrams_tokenize(tokens, N=n, sep=' ')
+                       for n in range(min_n, min(max_n + 1, len(tokens) + 1))]
+        ngrams = ngrams.add_strings(ngrams_list)
 
         return ngrams
 
