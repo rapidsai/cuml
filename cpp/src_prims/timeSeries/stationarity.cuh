@@ -33,7 +33,7 @@
 #include <vector>
 
 #include <common/cudart_utils.h>
-#include "arima_helpers.h"
+#include "arima_helpers.cuh"
 #include "common/device_buffer.hpp"
 #include "cuml/common/cuml_allocator.hpp"
 #include "linalg/cublas_wrappers.h"
