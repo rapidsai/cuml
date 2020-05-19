@@ -266,9 +266,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         ----------
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
         """
-        if predict_model == "CPU":
-            preds = self._predict_using_cpu(X,
-                                            convert_dtype=convert_dtype)
+        if self.num_classes > 2 or predict_model == "CPU":
+            preds = self.predict_model_on_cpu(X,
+                                              convert_dtype=convert_dtype)
         else:
             preds = \
                 self.predict_using_fil(X, output_class=output_class,
@@ -283,8 +283,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         return preds
 
     def predict_using_fil(self, X, delayed, **kwargs):
-        assert self.num_classes <= 2, "multi-class classification not "\
-                                      "supported in dask on GPU yet"
         if self.local_model is None:
             self.local_model = self._concat_treelite_models()
 
