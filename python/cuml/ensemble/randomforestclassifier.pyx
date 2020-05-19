@@ -364,19 +364,20 @@ class RandomForestClassifier(Base):
 
     def __del__(self):
         self._reset_forest_data()
-        if self.treelite_handle:
-            TreeliteModel.free_treelite_model(self.treelite_handle)
-            self.treelite_handle = None
 
     def _reset_forest_data(self):
         # Only if model is fitted before
         # Clears the data of the forest to prepare for next fit
         if self.n_cols:
-            delete_rf_metadata(<RandomForestMetaData[float, int]*><uintptr_t>
-                               self.rf_forest)
-            delete_rf_metadata(<RandomForestMetaData[double, int]*><uintptr_t>
-                               self.rf_forest64)
-            self.treelite_handle = None
+            delete_rf_metadata(
+                <RandomForestMetaData[float, int]*><uintptr_t>
+                self.rf_forest)
+            delete_rf_metadata(
+                <RandomForestMetaData[double, int]*><uintptr_t>
+                self.rf_forest64)
+            if self.treelite_handle:
+                TreeliteModel.free_treelite_model(self.treelite_handle)
+                self.treelite_handle = None
             self.model_pbuf_bytes = bytearray()
             self.n_cols = None
 
@@ -394,6 +395,11 @@ class RandomForestClassifier(Base):
                              " please read the documentation")
 
     def _obtain_treelite_handle(self):
+        """Returns a handle to a treelite-formatted version of the model.
+        This will create a new treelite model if necessary, or return
+        a cached version when available. The handle is cached in the
+        instanced and freed at instance deletion. Caller should not
+        delete the returned model."""
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest

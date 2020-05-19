@@ -141,6 +141,7 @@
 - PR #2249: Fix bug in UMAP continuous target metrics
 - PR #2258: Fix doxygen build break
 - PR #2255: Set random_state for train_test_split function in dask RF
+- PR #2275: Fix RF fit memory leak
 
 # cuML 0.13.0 (Date TBD)
 

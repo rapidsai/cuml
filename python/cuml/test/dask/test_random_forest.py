@@ -309,7 +309,8 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
         c.close()
 
 
-def test_rf_concatenation_dask(cluster):
+@pytest.mark.parametrize('model_type', ['classification', 'regression'])
+def test_rf_concatenation_dask(cluster, model_type):
     from cuml.fil.fil import TreeliteModel
     c = Client(cluster)
 
@@ -318,24 +319,28 @@ def test_rf_concatenation_dask(cluster):
                                    random_state=123, n_classes=2)
 
         X = X.astype(np.float32)
-        y = y.astype(np.int32)
+        if model_type == 'classification':
+            y = y.astype(np.int32)
+        else:
+            y = y.astype(np.float32)
         n_estimators = 40
         cu_rf_params = {'n_estimators': n_estimators}
 
         X_df, y_df = _prep_training_data(c, X, y,
                                          partitions_per_worker=2)
-        cu_rf_mg = cuRFC_mg(**cu_rf_params)
+
+        if model_type == 'classification':
+            cu_rf_mg = cuRFC_mg(**cu_rf_params)
+        else:
+            cu_rf_mg = cuRFR_mg(**cu_rf_params)
+
         cu_rf_mg.fit(X_df, y_df)
-        res1 = cu_rf_mg.predict_proba(X_df)
+        res1 = cu_rf_mg.predict(X_df)
         res1.compute()
         local_tl = TreeliteModel.from_treelite_model_handle(
             cu_rf_mg.local_model._obtain_treelite_handle())
-        # assert cu_rf_mg.local_model.n_estimators == n_estimators
+
         assert local_tl.num_trees == n_estimators
-
-        # first_rf = list(cu_rf_mg.rfs.values())[0].result()
-        # assert first_rf.local_model.n_estimators == 40
-
     finally:
         c.close()
 
