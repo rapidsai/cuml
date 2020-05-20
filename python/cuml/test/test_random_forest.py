@@ -696,3 +696,46 @@ def test_multiple_fits_regression(column_info, nrows, n_estimators, n_bins):
     params = cuml_model.get_params()
     assert params['n_estimators'] == n_estimators
     assert params['n_bins'] == n_bins
+
+
+@pytest.mark.memleak
+@pytest.mark.parametrize('estimator_type', ['classification'])
+def test_rf_host_memory_leak(large_clf, estimator_type):
+    import gc
+    import os
+
+    try:
+        import psutil
+    except ImportError:
+        pytest.skip("psutil not installed")
+
+    process = psutil.Process(os.getpid())
+
+    X, y = large_clf
+    X = X.astype(np.float32)
+
+    if estimator_type == 'classification':
+        base_model = curfc(max_depth=10,
+                           n_estimators=100,
+                           seed=123)
+        y = y.astype(np.int32)
+    else:
+        base_model = curfr(max_depth=10,
+                           n_estimators=100,
+                           seed=123)
+        y = y.astype(np.float32)
+
+    # Pre-fit once - this is our baseline and memory usage
+    # should not significantly exceed it after later fits
+    base_model.fit(X, y)
+    gc.collect()
+    initial_baseline_mem = process.memory_info().rss
+
+    for i in range(5):
+        base_model.fit(X, y)
+        gc.collect()
+        final_mem = process.memory_info().rss
+
+    # Some tiny allocations may occur, but we shuld not leak
+    # without bounds, which previously happened
+    assert (final_mem - initial_baseline_mem) < 2e6

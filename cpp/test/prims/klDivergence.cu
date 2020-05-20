@@ -19,7 +19,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <random>
-#include "metrics/klDivergence.h"
+#include "metrics/klDivergence.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

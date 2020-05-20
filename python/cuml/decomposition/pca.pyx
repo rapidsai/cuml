@@ -36,6 +36,7 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
+import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 
 
@@ -212,8 +213,8 @@ class PCA(Base):
     tol : float (default = 1e-7)
         Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
         but but will slow down the algorithm's convergence.
-    verbose : bool
-        Whether to print debug spews
+    verbosity : int
+        Logging level
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by
         the corresponding singular values then multiplying by sqrt(n_samples).
@@ -262,9 +263,10 @@ class PCA(Base):
 
     def __init__(self, copy=True, handle=None, iterated_power=15,
                  n_components=1, random_state=None, svd_solver='auto',
-                 tol=1e-7, verbose=False, whiten=False, output_type=None):
+                 tol=1e-7, verbosity=logger.LEVEL_INFO, whiten=False,
+                 output_type=None):
         # parameters
-        super(PCA, self).__init__(handle=handle, verbose=verbose,
+        super(PCA, self).__init__(handle=handle, verbosity=verbosity,
                                   output_type=output_type)
         self.copy = copy
         self.iterated_power = iterated_power
