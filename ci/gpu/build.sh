@@ -61,6 +61,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "ucx-py=${MINOR_VERSION}" \
       "statsmodels" \
       "xgboost====1.0.2dev.rapidsai0.13" \
+      "psutil" \
       "lightgbm"
 
 
