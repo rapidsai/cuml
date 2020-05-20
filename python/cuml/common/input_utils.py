@@ -137,6 +137,9 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
         else:
             X_m = CumlArray(data=X.as_gpu_matrix(order=order))
 
+    elif isinstance(X, CumlArray):
+        X_m = X
+
     elif hasattr(X, "__array_interface__") or \
             hasattr(X, "__cuda_array_interface__"):
         X_m = CumlArray(data=X)
