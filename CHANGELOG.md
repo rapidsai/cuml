@@ -5,6 +5,7 @@
 ## Improvements
 
 ## Bug Fixes
+- PR #2279: Add RAFT include dir to setup.py
 
 # cuML 0.14.0 (Date TBD)
 
