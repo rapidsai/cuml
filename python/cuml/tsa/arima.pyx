@@ -40,16 +40,6 @@ from cuml.common.input_utils import input_to_host_array
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
-    ctypedef struct ARIMAOrder:
-        int p  # Basic order
-        int d
-        int q
-        int P  # Seasonal order
-        int D
-        int Q
-        int s  # Seasonal period
-        int k  # Fit intercept?
-
     cdef cppclass ARIMAParams[DataT]:
         DataT* mu
         DataT* ar

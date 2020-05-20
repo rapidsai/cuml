@@ -8,8 +8,8 @@ Datatype Configuration
 Output Type
 -----------
 
- .. automethod:: cuml.utils.memory_utils.set_global_output_type
- .. automethod:: cuml.utils.memory_utils.using_output_type
+ .. automethod:: cuml.common.memory_utils.set_global_output_type
+ .. automethod:: cuml.common.memory_utils.using_output_type
 
 
 Preprocessing, Metrics, and Utilities

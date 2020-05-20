@@ -1,4 +1,4 @@
-
+#
 # Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,5 +14,19 @@
 # limitations under the License.
 #
 
-from cuml.dask.preprocessing.label import LabelBinarizer
-from cuml.dask.preprocessing.encoders import OneHotEncoder
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
+
+
+cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
+    ctypedef struct ARIMAOrder:
+        int p  # Basic order
+        int d
+        int q
+        int P  # Seasonal order
+        int D
+        int Q
+        int s  # Seasonal period
+        int k  # Fit intercept?
