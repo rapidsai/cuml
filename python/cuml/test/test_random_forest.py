@@ -688,6 +688,7 @@ def test_rf_classification_proba(small_clf, datatype,
         # predict proba function of fil and sklearn
         assert fil_mse <= (sk_mse + 0.0061)
 
+
 @pytest.mark.parametrize('n_estimators', [5, 10, 20])
 @pytest.mark.parametrize('detailed_printing', [True, False])
 def test_rf_printing(capfd, n_estimators, detailed_printing):
