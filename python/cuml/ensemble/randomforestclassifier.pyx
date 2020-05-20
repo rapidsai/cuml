@@ -304,8 +304,8 @@ class RandomForestClassifier(Base):
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
                           "random_seed is set")
-        self.rf_forest = None
-        self.rf_forest64 = None
+        self.rf_forest = 0
+        self.rf_forest64 = 0
         self.model_pbuf_bytes = bytearray()
 
     """
@@ -368,17 +368,23 @@ class RandomForestClassifier(Base):
     def _reset_forest_data(self):
         # Only if model is fitted before
         # Clears the data of the forest to prepare for next fit
-        if self.n_cols:
+        if self.rf_forest:
             delete_rf_metadata(
                 <RandomForestMetaData[float, int]*><uintptr_t>
                 self.rf_forest)
+            self.rf_forest = 0
+        if self.rf_forest64:
             delete_rf_metadata(
                 <RandomForestMetaData[double, int]*><uintptr_t>
                 self.rf_forest64)
-            # Who frees the treelite model if any?
-            self.treelite_handle = None
-            self.model_pbuf_bytes = bytearray()
-            self.n_cols = None
+            self.rf_forest64 = 0
+
+        if self.treelite_handle:
+            TreeliteModel.free_treelite_model(self.treelite_handle)
+
+        self.treelite_handle = None
+        self.model_pbuf_bytes = bytearray()
+        self.n_cols = None
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
@@ -405,6 +411,8 @@ class RandomForestClassifier(Base):
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
+
+        assert len(self.model_pbuf_bytes) > 0 or self.rf_forest
 
         if self.num_classes > 2:
             raise NotImplementedError("Pickling for multi-class "
@@ -550,6 +558,7 @@ class RandomForestClassifier(Base):
             model_handles.push_back((
                 <ModelHandle> mod_ptr))
 
+        self._reset_forest_data()
         concat_model_handle = concatenate_trees(deref(model_handles))
         cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
         self.treelite_handle = concat_model_ptr
@@ -559,6 +568,18 @@ class RandomForestClassifier(Base):
         cdef unsigned char[::1] pbuf_mod_view = \
             <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
         self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+
+        # XXX This will crash because the tl_model's dealloc will free
+        # the underlying Model, leading to a double free when our destructor
+        # also tries to free it
+        tl_model = TreeliteModel.from_treelite_model_handle(
+            self.treelite_handle,
+            take_handle_ownership=False)
+        self.n_cols = tl_model.num_features
+        self.n_estimators = tl_model.num_trees
+
+
+        # del model_handles
         return self
 
     def fit(self, X, y, convert_dtype=False):
