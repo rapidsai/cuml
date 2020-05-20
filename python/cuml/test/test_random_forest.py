@@ -784,6 +784,8 @@ def test_concat_memory_leak(large_clf, estimator_type):
         init_model._concatenate_treelite_handle(other_handles)
         gc.collect()
         used_mem = process.memory_info().rss
+        # print("delta at %2d:  %f kb" %
+        #      (i, (used_mem - initial_baseline_mem)/1e3))
 
     gc.collect()
     used_mem = process.memory_info().rss
