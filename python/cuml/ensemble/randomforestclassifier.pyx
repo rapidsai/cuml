@@ -351,6 +351,7 @@ class RandomForestClassifier(Base):
             new RandomForestMetaData[float, int]()
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
+
         self.n_cols = state['n_cols']
         if self.n_cols:
             rf_forest.rf_params = state["rf_params"]
@@ -359,14 +360,14 @@ class RandomForestClassifier(Base):
             rf_forest64.rf_params = state["rf_params64"]
             state["rf_forest64"] = <uintptr_t>rf_forest64
 
+        self.model_pbuf_bytes = state["model_pbuf_bytes"]
         self.__dict__.update(state)
 
     def __del__(self):
         self._reset_forest_data()
 
     def _reset_forest_data(self):
-        # Only if model is fitted before
-        # Clears the data of the forest to prepare for next fit
+        """Free memory allocated by this instance and clear instance vars."""
         if self.rf_forest:
             delete_rf_metadata(
                 <RandomForestMetaData[float, int]*><uintptr_t>

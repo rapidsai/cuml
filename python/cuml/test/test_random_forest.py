@@ -26,6 +26,7 @@ from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.metrics import r2_score
 from cuml.test.utils import get_handle, unit_param, \
     quality_param, stress_param
+import cuml.common.logger as logger
 
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
@@ -733,7 +734,7 @@ def test_rf_host_memory_leak(large_clf, estimator_type):
 
 
 @pytest.mark.memleak
-@pytest.mark.parametrize('estimator_type', ['classification'])
+@pytest.mark.parametrize('estimator_type', ['regression', 'classification'])
 def test_concat_memory_leak(large_clf, estimator_type):
     import gc
     import os
@@ -782,8 +783,11 @@ def test_concat_memory_leak(large_clf, estimator_type):
         init_model._concatenate_treelite_handle(other_handles)
         gc.collect()
         used_mem = process.memory_info().rss
+        logger.debug("memory at rep %2d: %d m" % (
+                    i, (used_mem - initial_baseline_mem)/1e6))
 
     gc.collect()
     used_mem = process.memory_info().rss
-    print("Final memory delta: ", (used_mem - initial_baseline_mem)/1e6)
+    logger.info("Final memory delta: %d" % (
+        (used_mem - initial_baseline_mem)/1e6))
     assert (used_mem - initial_baseline_mem) < 1e6
