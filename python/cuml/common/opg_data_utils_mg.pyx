@@ -86,7 +86,7 @@ def free_data_t(data_t, dtype):
     dtype: np.float32 or np.float64 indicating whether data_t is a
         floatData_t* or doubleData_t*
     """
-    cdef uintptr_t data_ptr = data_t 
+    cdef uintptr_t data_ptr = data_t
 
     cdef vector[floatData_t*] *d32
     cdef vector[doubleData_t*] *d64
@@ -139,7 +139,7 @@ def free_rank_size_pair(rank_size_t):
     ----------
     rank_size_t: vector of rankSizePair* to be freed.
     """
-    cdef uintptr_t rank_size_ptr = rank_size_t 
+    cdef uintptr_t rank_size_ptr = rank_size_t
 
     cdef vector[RankSizePair *] *rsp_vec \
         = <vector[RankSizePair *]*> rank_size_ptr
@@ -165,7 +165,7 @@ def build_part_descriptor(m, n, rank_size_t, rank):
     --------
     ptr: PartDescriptor object
     """
-    cdef uintptr_t rank_size_ptr = rank_size_t 
+    cdef uintptr_t rank_size_ptr = rank_size_t
 
     cdef vector[RankSizePair *] *rsp_vec \
         = <vector[RankSizePair *]*> rank_size_ptr
