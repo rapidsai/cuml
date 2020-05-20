@@ -23,8 +23,7 @@ import cupy as cp
 import numbers
 
 
-def _preprocess(doc, lower=False, remove_punctuation=False, stop_words=None,
-                delimiter=' '):
+def _preprocess(doc, lower=False, remove_punctuation=False, delimiter=' '):
     """Chain together an optional series of text preprocessing steps to
     apply to a document.
     Parameters
@@ -46,8 +45,6 @@ def _preprocess(doc, lower=False, remove_punctuation=False, stop_words=None,
     if remove_punctuation:
         punctuation_list = Series(list(punctuation))._column.nvstrings
         doc = doc.replace_multi(punctuation_list, delimiter, regex=False)
-    if stop_words is not None:
-        doc = nvtext.replace_tokens(doc, stop_words, delimiter)
     return doc
 
 
@@ -89,23 +86,31 @@ class _VectorizerMixin:
         spaces = Series('').repeat(s)._column.nvstrings
         return spaces.cat(nvstr.cat(spaces, sep=' '), sep=' ')
 
+    def _remove_stop_words(self, doc):
+        """Remove stop words only if needed."""
+        if self.analyzer == 'word' and self.stop_words is not None:
+            stop_words = Series(self._get_stop_words())._column.nvstrings
+            doc = nvtext.replace_tokens(doc, stop_words, self.delimiter)
+        return doc
+
     def build_preprocessor(self):
         """Return a function to preprocess the text before tokenization.
+
+        If analyzer == 'word' and stop_words is not None, stop words are
+        removed from the input documents after preprocessing.
+
         Returns
         -------
         preprocessor: callable
               A function to preprocess the text before tokenization.
         """
         if self.preprocessor is not None:
-            return self.preprocessor
-
-        stop_words = None
-        if self.analyzer == 'word' and self.stop_words is not None:
-            stop_words = Series(self._get_stop_words())._column.nvstrings
-
-        return partial(_preprocess, lower=self.lowercase,
-                       remove_punctuation=self.remove_punctuation,
-                       stop_words=stop_words, delimiter=self.delimiter)
+            preprocess = self.preprocessor
+        else:
+            preprocess = partial(_preprocess, lower=self.lowercase,
+                                 remove_punctuation=self.remove_punctuation,
+                                 delimiter=self.delimiter)
+        return lambda doc: self._remove_stop_words(preprocess(doc))
 
     def _get_stop_words(self):
         """Build or fetch the effective stop words list.
@@ -185,9 +190,6 @@ class _VectorizerMixin:
         if self.analyzer != 'word' and self.stop_words is not None:
             warnings.warn("The parameter 'stop_words' will not be used"
                           " since 'analyzer' != 'word'")
-        if self.preprocessor is not None and self.stop_words is not None:
-            warnings.warn("The parameter 'stop_words' will not be used"
-                          " since 'preprocessor' is custom")
 
 
 class CountVectorizer(_VectorizerMixin):
@@ -207,7 +209,6 @@ class CountVectorizer(_VectorizerMixin):
         If 'english', a built-in stop word list for English is used.
         If a list, that list is assumed to contain stop words, all of which
         will be removed from the input documents.
-        Only applies if ``analyzer == 'word'`` and preprocessor is not None.
         If None, no stop words will be used. max_df can be set to a value
         to automatically detect and filter stop words based on intra corpus
         document frequency of terms.
