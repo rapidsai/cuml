@@ -105,7 +105,7 @@ def free_data_t(data_t, dtype):
 
 def build_rank_size_pair(parts_to_sizes, rank):
     """
-    Funciton to build a vector<rankSizePair*> mapping the rank to the
+    Function to build a vector<rankSizePair*> mapping the rank to the
     sizes of partitions
 
     Parameters
@@ -151,7 +151,7 @@ def free_rank_size_pair(rank_size_t):
 
 def build_part_descriptor(m, n, rank_size_t, rank):
     """
-    Funciton to build a shared PartDescriptor object
+    Function to build a shared PartDescriptor object
 
     Parameters
     ----------
