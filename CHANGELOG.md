@@ -1,6 +1,7 @@
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
+- PR #2287: Single-GPU TfidfTransformer implementation
 
 ## Improvements
 
