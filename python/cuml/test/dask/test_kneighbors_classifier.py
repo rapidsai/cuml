@@ -31,10 +31,10 @@ import numpy as np
 from cupy import asnumpy
 
 
-def generate_dask_array(np_array, n_workers):
+def generate_dask_array(np_array, n_parts):
     n_samples = np_array.shape[0]
-    n_samples_per_part = int(n_samples / n_workers)
-    chunks = [n_samples_per_part * n_workers]
+    n_samples_per_part = int(n_samples / n_parts)
+    chunks = [n_samples_per_part * n_parts]
     chunks[-1] += n_samples % n_samples_per_part
     chunks = tuple(chunks)
     return da.from_array(np_array, chunks=(chunks, -1))
@@ -77,10 +77,10 @@ def dataset(request):
 def accuracy_score(y_true, y_pred):
     assert y_pred.shape[0] == y_true.shape[0]
     assert y_pred.shape[1] == y_true.shape[1]
-    return np.sum(y_pred == y_true) / y_true.size
+    return np.mean(y_pred == y_true)
 
 
-def exact_match(output1, output2):
+def match_test(output1, output2):
     l1, i1, d1 = output1
     l2, i2, d2 = output2
 
@@ -106,27 +106,30 @@ def exact_match(output1, output2):
         assert idx_set1 == idx_set2
 
     # As indices might differ, labels can also differ
-    assert (np.sum(l1 == l2) / l1.size) > 0.9
+    assert np.mean(l1 == l2) > 0.9
 
 
-def test_knn_classify(dataset, cluster):
+@pytest.mark.parametrize("n_parts", [None, 1, 3, 16])
+@pytest.mark.parametrize("n_neighbors", [1, 3, 8])
+def test_knn_classify(dataset, cluster, n_parts, n_neighbors):
     client = Client(cluster)
 
     try:
         X_train, X_test, y_train, y_test = dataset
 
-        l_model = lKNNClf(n_neighbors=3)
+        l_model = lKNNClf(n_neighbors=n_neighbors)
         l_model.fit(X_train, y_train)
         l_distances, l_indices = l_model.kneighbors(X_test)
         l_labels = l_model.predict(X_test)
 
-        n_workers = len(client.has_what().keys())
+        if not n_parts:
+            n_parts = len(client.has_what().keys())
 
-        X_train = generate_dask_array(X_train, n_workers)
-        X_test = generate_dask_array(X_test, n_workers)
-        y_train = generate_dask_array(y_train, n_workers)
+        X_train = generate_dask_array(X_train, n_parts)
+        X_test = generate_dask_array(X_test, n_parts)
+        y_train = generate_dask_array(y_train, n_parts)
 
-        d_model = dKNNClf(client=client, n_neighbors=3)
+        d_model = dKNNClf(client=client, n_neighbors=n_neighbors)
         d_model.fit(X_train, y_train)
         d_labels, d_indices, d_distances = \
             d_model.predict(X_test, convert_dtype=True)
@@ -136,7 +139,7 @@ def test_knn_classify(dataset, cluster):
 
         local_out = (l_labels, l_indices, l_distances)
         distributed_out = (d_labels, d_indices, d_distances)
-        exact_match(local_out, distributed_out)
+        match_test(local_out, distributed_out)
         assert accuracy_score(y_test, d_labels) > 0.15
 
     finally:
