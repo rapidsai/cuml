@@ -53,7 +53,6 @@ def test_tfidf_transformer_copy(norm, use_idf, smooth_idf, sublinear_tf):
         [0, 1, 1, 1],
         [0, 2, 0, 1]
     ], dtype=cp.float64, order='F')
-    print(data_gpu.__cuda_array_interface__['data'][0])
 
     tfidf = TfidfTransformer(norm=norm, use_idf=use_idf,
                              smooth_idf=smooth_idf, sublinear_tf=sublinear_tf)
