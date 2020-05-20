@@ -229,6 +229,15 @@ void null_trees_ptr(RandomForestMetaData<T, L>*& forest) {
   forest->trees = nullptr;
 }
 
+/**
+ * @brief Deletes RandomForestMetaData object
+ * @param[in] forest: CPU pointer to RandomForestMetaData.
+ */
+template <class T, class L>
+void delete_rf_metadata(RandomForestMetaData<T, L>* forest) {
+  delete forest;
+}
+
 template <class T, class L>
 void _print_rf(const RandomForestMetaData<T, L>* forest, bool summary) {
   ML::PatternSetter _("%v");
@@ -767,6 +776,12 @@ template void null_trees_ptr<float, int>(RandomForestClassifierF*& forest);
 template void null_trees_ptr<double, int>(RandomForestClassifierD*& forest);
 template void null_trees_ptr<float, float>(RandomForestRegressorF*& forest);
 template void null_trees_ptr<double, double>(RandomForestRegressorD*& forest);
+
+template void delete_rf_metadata<float, int>(RandomForestClassifierF* forest);
+template void delete_rf_metadata<double, int>(RandomForestClassifierD* forest);
+template void delete_rf_metadata<float, float>(RandomForestRegressorF* forest);
+template void delete_rf_metadata<double, double>(
+  RandomForestRegressorD* forest);
 
 template void build_treelite_forest<float, int>(
   ModelHandle* model, const RandomForestMetaData<float, int>* forest,
