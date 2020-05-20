@@ -4,7 +4,7 @@ import math
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
-
+from cuml.fil.fil import TreeliteModel
 
 class BaseRandomForestModel(object):
     """
@@ -103,8 +103,10 @@ class BaseRandomForestModel(object):
         all_tl_mod_handles = [model._tl_model_handles(pbuf_bytes)
                               for pbuf_bytes in mod_bytes]
 
-        model._concatenate_treelite_handle(
-            treelite_handle=all_tl_mod_handles)
+        model._concatenate_treelite_handle(all_tl_mod_handles)
+        for tl_handle in all_tl_mod_handles:
+            TreeliteModel.free_treelite_model(tl_handle)
+
         return model
 
     def _predict_using_fil(self, X, delayed, **kwargs):
