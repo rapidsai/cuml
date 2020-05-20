@@ -146,6 +146,7 @@
 - PR #2249: Fix bug in UMAP continuous target metrics
 - PR #2258: Fix doxygen build break
 - PR #2255: Set random_state for train_test_split function in dask RF
+- PR #2275: Fix RF fit memory leak
 - PR #2274: Fix parameter name verbose to verbosity in mnmg OneHotEncoder
 - PR #2277: Updated cub repo path and branch name
 
