@@ -61,7 +61,6 @@ class RFClassifier : public BlobsFixture<D> {
       fit(*this->handle, mPtr, this->data.X, this->params.nrows,
           this->params.ncols, this->data.y, this->params.nclasses, rfParams);
       CUDA_CHECK(cudaStreamSynchronize(this->stream));
-      delete[] mPtr->trees;
     });
   }
 
