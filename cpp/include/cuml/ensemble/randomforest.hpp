@@ -108,10 +108,20 @@ struct RandomForestMetaData {
   DecisionTree::TreeMetaDataNode<T, L>* trees;
   RF_params rf_params;
   //TODO can add prepare, train time, if needed
+
+  RandomForestMetaData() : trees(nullptr) {}
+  ~RandomForestMetaData() {
+    if (trees != nullptr) {
+      delete[] trees;
+    }
+  }
 };
 
 template <class T, class L>
 void null_trees_ptr(RandomForestMetaData<T, L>*& forest);
+
+template <class T, class L>
+void delete_rf_metadata(RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
 void print_rf_summary(const RandomForestMetaData<T, L>* forest);
