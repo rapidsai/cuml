@@ -6,6 +6,7 @@ from cuml.dask.common.input_utils import DistributedDataHandler, \
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
 from cuml.fil.fil import TreeliteModel
 
+
 class BaseRandomForestModel(object):
     """
     BaseRandomForestModel defines functions used in both Random Forest
