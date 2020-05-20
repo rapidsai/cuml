@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda_utils.h>
 #include <math.h>
+#include <cuda_utils.cuh>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -28,12 +28,12 @@
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "common/host_buffer.hpp"
-#include "linalg/add.h"
-#include "linalg/binary_op.h"
+#include "linalg/add.cuh"
+#include "linalg/binary_op.cuh"
 #include "linalg/init.h"
-#include "linalg/map_then_reduce.h"
-#include "linalg/unary_op.h"
-#include "matrix/matrix.h"
+#include "linalg/map_then_reduce.cuh"
+#include "linalg/unary_op.cuh"
+#include "matrix/matrix.cuh"
 #include "ws_util.cuh"
 
 namespace ML {
