@@ -27,6 +27,7 @@ from dask.distributed import default_client
 
 import cuml.common.logger as logger
 
+
 class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                              DelayedPredictionProbaMixin, BaseEstimator):
 

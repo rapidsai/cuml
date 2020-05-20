@@ -82,7 +82,8 @@ cdef class TreeliteModel():
     cpdef bool owns_handle
 
     def __cinit__(self, owns_handle=True):
-        """If owns_handle is True, free the underlying model in destructor."""
+        """If owns_handle is True, free the handle's model in destructor.
+        Set this to False if another owner will free the model."""
         self.handle = <ModelHandle>NULL
         self.owns_handle = owns_handle
 
@@ -94,9 +95,7 @@ cdef class TreeliteModel():
 
     def __dealloc__(self):
         if self.handle != NULL and self.owns_handle:
-            # XXX be careful we don't do this twice!
             TreeliteFreeModel(self.handle)
-            pass
 
     @property
     def num_trees(self):
