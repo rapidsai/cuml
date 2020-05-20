@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
 
 ## Bug Fixes
 
