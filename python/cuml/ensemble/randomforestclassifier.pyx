@@ -325,14 +325,14 @@ class RandomForestClassifier(Base):
         if self.n_cols:
             # only if model has been fit previously
             self._get_protobuf_bytes()  # Ensure we have this cached
-            params_t = <uintptr_t> self.rf_forest
-            if params_t:
+            if self.rf_forest:
+                params_t = <uintptr_t> self.rf_forest
                 rf_forest = \
                     <RandomForestMetaData[float, int]*>params_t
                 state["rf_params"] = rf_forest.rf_params
 
-            params_t64 = <uintptr_t> self.rf_forest64
-            if params_t64:
+            if self.rf_forest64:
+                params_t64 = <uintptr_t> self.rf_forest64
                 rf_forest64 = \
                     <RandomForestMetaData[double, int]*>params_t64
                 state["rf_params64"] = rf_forest64.rf_params

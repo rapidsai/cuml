@@ -752,13 +752,13 @@ def test_concat_memory_leak(large_clf, estimator_type):
     n_models = 10
     if estimator_type == 'classification':
         base_models = [curfc(max_depth=10,
-                           n_estimators=100,
-                           seed=123) for i in range(n_models)]
+                             n_estimators=100,
+                             seed=123) for i in range(n_models)]
         y = y.astype(np.int32)
     elif estimator_type == 'regression':
         base_models = [curfr(max_depth=10,
-                           n_estimators=100,
-                           seed=123) for i in range(n_models)]
+                             n_estimators=100,
+                             seed=123) for i in range(n_models)]
         y = y.astype(np.float32)
     else:
         assert False
@@ -775,26 +775,15 @@ def test_concat_memory_leak(large_clf, estimator_type):
         model._obtain_treelite_handle() for model in concat_models
     ]
     init_model._concatenate_treelite_handle(other_handles)
-    print("concatenated1")
-    #y_pred1 = init_model.predict(X)
-    #print("pred1")
+
     gc.collect()
     initial_baseline_mem = process.memory_info().rss
     for i in range(10):
         init_model._concatenate_treelite_handle(other_handles)
         gc.collect()
         used_mem = process.memory_info().rss
-        # print("delta at %2d:  %f kb" %
-        #      (i, (used_mem - initial_baseline_mem)/1e3))
 
     gc.collect()
     used_mem = process.memory_info().rss
-    print("final used: ", (used_mem - initial_baseline_mem)/1e6)
-
-    # base_models = None
-    # concat_models = None
-
-    # Just make sure we haven't broken this
-    # y_pred = init_model.predict(X)
-    init_model = None
-    assert (used_mem - initial_baseline_mem) < 5e6
+    print("Final memory delta: ", (used_mem - initial_baseline_mem)/1e6)
+    assert (used_mem - initial_baseline_mem) < 1e6
