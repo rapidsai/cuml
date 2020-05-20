@@ -182,10 +182,12 @@ class _VectorizerMixin:
             raise ValueError(msg)
 
     def _warn_for_unused_params(self):
-        if self.analyzer != 'word':
-            if self.stop_words is not None:
-                warnings.warn("The parameter 'stop_words' will not be used"
-                              " since 'analyzer' != 'word'")
+        if self.analyzer != 'word' and self.stop_words is not None:
+            warnings.warn("The parameter 'stop_words' will not be used"
+                          " since 'analyzer' != 'word'")
+        if self.preprocessor is not None and self.stop_words is not None:
+            warnings.warn("The parameter 'stop_words' will not be used"
+                          " since 'preprocessor' is custom")
 
 
 class CountVectorizer(_VectorizerMixin):
@@ -204,8 +206,8 @@ class CountVectorizer(_VectorizerMixin):
     stop_words : string {'english'}, list, or None (default)
         If 'english', a built-in stop word list for English is used.
         If a list, that list is assumed to contain stop words, all of which
-        will be removed from the resulting tokens.
-        Only applies if ``analyzer == 'word'``.
+        will be removed from the input documents.
+        Only applies if ``analyzer == 'word'`` and preprocessor is not None.
         If None, no stop words will be used. max_df can be set to a value
         to automatically detect and filter stop words based on intra corpus
         document frequency of terms.
