@@ -78,9 +78,8 @@ class DecompositionSyncFitMixin(object):
 
         worker_info = comms.worker_info(comms.worker_addresses)
         parts_to_sizes, _ = parts_to_ranks(self.client,
-                                        worker_info,
-                                        data.gpu_futures)
-
+                                           worker_info,
+                                           data.gpu_futures)
 
         total_rows = data.total_rows
 
