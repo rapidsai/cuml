@@ -27,8 +27,8 @@ import rmm
 from cuml.solvers import QN
 from cuml.common.base import Base
 from cuml.metrics.accuracy import accuracy_score
+from cuml.common import input_to_cuml_array
 import cuml.common.logger as logger
-from cuml.common import input_to_dev_array
 from cuml.common import with_cupy_rmm
 
 
@@ -81,9 +81,9 @@ class LogisticRegression(Base):
         reg.fit(X,y)
 
         print("Coefficients:")
-        print(reg.coef_.copy_to_host())
+        print(reg.coef_.to_output('cupy'))
         print("Intercept:")
-        print(reg.intercept_.copy_to_host())
+        print(reg.intercept_.to_output('cupy'))
 
         X_new = cudf.DataFrame()
         X_new['col1'] = np.array([1,5], dtype = np.float32)
@@ -257,7 +257,7 @@ class LogisticRegression(Base):
         # Converting y to device array here to use `unique` function
         # since calling input_to_dev_array again in QN has no cost
         # Not needed to check dtype since qn class checks it already
-        y_m, _, _, _, _ = input_to_dev_array(y)
+        y_m, _, _, _ = input_to_cuml_array(y)
 
         unique_labels = cp.unique(y_m)
         self._num_classes = len(unique_labels)
@@ -290,10 +290,10 @@ class LogisticRegression(Base):
 
         if logger.should_log_for(logger.LEVEL_TRACE):
             logger.trace(self.verb_prefix + "Coefficients: " +
-                         self.coef_.copy_to_host())
+                         self.coef_.to_output('cupy'))
             if self.fit_intercept:
                 logger.trace(self.verb_prefix + "Intercept: " +
-                             self.intercept_.copy_to_host())
+                             self.intercept_.to_output('cupy'))
 
         return self
 

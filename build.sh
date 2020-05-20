@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcuml cuml prims bench prims-bench -v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help"
+VALIDARGS="clean libcuml cuml prims bench prims-bench cppdocs pydocs -v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -28,6 +28,8 @@ HELP="$0 [<target> ...] [<flag> ...]
    prims            - build the ML prims tests
    bench            - build the cuml C++ benchmark
    prims-bench      - build the ml-prims C++ benchmark
+   cppdocs          - build the C++ API doxygen documentation
+   pydocs           - build the general and Python API documentation
  and <flag> is:
    -v               - verbose build mode
    -g               - build for debug
@@ -129,7 +131,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench; then
+if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         GPU_ARCH=""
         echo "Building for the architecture of the GPU in the system..."
@@ -184,9 +186,14 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
 
 fi
 
+if hasArg cppdocs; then
+    cd ${LIBCUML_BUILD_DIR}
+    make doc
+fi
+
 
 # Build and (optionally) install the cuml Python package
-if (( ${NUMARGS} == 0 )) || hasArg cuml; then
+if (( ${NUMARGS} == 0 )) || hasArg cuml || hasArg pydocs; then
 
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
@@ -194,5 +201,10 @@ if (( ${NUMARGS} == 0 )) || hasArg cuml; then
         python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU}
     else
         python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU}
+    fi
+
+    if hasArg pydocs; then
+        cd ${REPODIR}/docs
+        make html
     fi
 fi

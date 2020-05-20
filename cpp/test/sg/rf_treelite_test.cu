@@ -239,11 +239,8 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     CUDA_CHECK(cudaFree(labels_d));
     CUDA_CHECK(cudaFree(predicted_labels_d));
 
-    delete[] forest->trees;
     delete forest;
-    delete[] forest_2->trees;
     delete forest_2;
-    delete[] forest_3->trees;
     delete forest_3;
     all_forest_info.clear();
     labels_h.clear();
