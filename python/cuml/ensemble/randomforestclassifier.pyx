@@ -324,17 +324,18 @@ class RandomForestClassifier(Base):
         cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
-            model_pbuf_bytes = self._get_protobuf_bytes()
+            self._get_protobuf_bytes()  # Ensure we have this cached
             params_t = <uintptr_t> self.rf_forest
-            rf_forest = \
-                <RandomForestMetaData[float, int]*>params_t
+            if params_t:
+                rf_forest = \
+                    <RandomForestMetaData[float, int]*>params_t
+                state["rf_params"] = rf_forest.rf_params
+
             params_t64 = <uintptr_t> self.rf_forest64
-            rf_forest64 = \
-                <RandomForestMetaData[double, int]*>params_t64
-            state["rf_params"] = rf_forest.rf_params
-            state["rf_params64"] = rf_forest64.rf_params
-        else:
-            model_pbuf_bytes = bytearray()
+            if params_t64:
+                rf_forest64 = \
+                    <RandomForestMetaData[double, int]*>params_t64
+                state["rf_params64"] = rf_forest64.rf_params
 
         state['n_cols'] = self.n_cols
         state["verbosity"] = self.verbosity
@@ -344,7 +345,6 @@ class RandomForestClassifier(Base):
         return state
 
     def __setstate__(self, state):
-
         super(RandomForestClassifier, self).__init__(
             handle=None, verbosity=state['verbosity'])
         cdef  RandomForestMetaData[float, int] *rf_forest = \
@@ -359,7 +359,6 @@ class RandomForestClassifier(Base):
             rf_forest64.rf_params = state["rf_params64"]
             state["rf_forest64"] = <uintptr_t>rf_forest64
 
-        self.model_pbuf_bytes = state["model_pbuf_bytes"]
         self.__dict__.update(state)
 
     def __del__(self):
@@ -569,17 +568,12 @@ class RandomForestClassifier(Base):
             <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
         self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
 
-        # XXX This will crash because the tl_model's dealloc will free
-        # the underlying Model, leading to a double free when our destructor
-        # also tries to free it
         tl_model = TreeliteModel.from_treelite_model_handle(
             self.treelite_handle,
             take_handle_ownership=False)
         self.n_cols = tl_model.num_features
         self.n_estimators = tl_model.num_trees
 
-
-        # del model_handles
         return self
 
     def fit(self, X, y, convert_dtype=False):
