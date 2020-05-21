@@ -20,7 +20,6 @@ import cuml.common.logger as logger
 import cupy as cp
 import numpy as np
 import pandas as pd
-import warnings
 
 from collections import namedtuple
 from cuml.common import CumlArray
