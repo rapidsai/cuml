@@ -400,11 +400,12 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True):
             return X_m
 
     elif isinstance(X, (cudf.Series, cudf.DataFrame, pd.Series, pd.DataFrame)):
-        return X.astype(to_dtype)
+        return X.astype(to_dtype, copy=False)
 
     elif cuda.is_cuda_array(X):
         X_m = cp.asarray(X)
-        X_m = X_m.astype(to_dtype)
+        X_m = X_m.astype(to_dtype, copy=False)
+
         if legacy:
             return cuda.as_cuda_array(X_m)
         else:
