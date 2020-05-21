@@ -162,6 +162,7 @@
 - PR #2274: Fix parameter name verbose to verbosity in mnmg OneHotEncoder
 - PR #2277: Updated cub repo path and branch name
 - PR #2282: Fix memory leak in Dask RF concatenation
+- PR #2295: Fix convert_to_dtype copy even with same dtype
 
 # cuML 0.13.0 (Date TBD)
 
