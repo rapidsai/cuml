@@ -25,6 +25,8 @@ from cuml.dask.ensemble.base import \
     BaseRandomForestModel
 from dask.distributed import default_client
 
+import cuml.common.logger as logger
+
 
 class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                              DelayedPredictionProbaMixin, BaseEstimator):
@@ -118,14 +120,14 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         self,
         workers=None,
         client=None,
-        verbose=False,
+        verbosity=logger.LEVEL_INFO,
         n_estimators=10,
         seed=None,
         **kwargs
     ):
 
         super(RandomForestClassifier, self).__init__(client=client,
-                                                     verbose=verbose,
+                                                     verbosity=verbosity,
                                                      **kwargs)
 
         self._create_model(
@@ -275,7 +277,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                 self.predict_using_fil(X, output_class=output_class,
                                        algo=algo,
                                        threshold=threshold,
-                                       num_classes=self.num_classes,
                                        convert_dtype=convert_dtype,
                                        predict_model="GPU",
                                        fil_sparse_format=fil_sparse_format,

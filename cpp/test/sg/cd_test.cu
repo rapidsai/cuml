@@ -15,11 +15,11 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <linalg/cusolver_wrappers.h>
-#include <matrix/matrix.h>
 #include <test_utils.h>
+#include <cuda_utils.cuh>
+#include <matrix/matrix.cuh>
 #include "ml_utils.h"
 #include "solver/cd.cuh"
 
