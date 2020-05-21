@@ -21,6 +21,7 @@
 
 import ctypes
 import cudf
+import math
 import numpy as np
 import warnings
 
@@ -31,7 +32,6 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml import ForestInference
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.common.handle cimport cumlHandle
@@ -68,14 +68,22 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   double*,
                   RF_params,
                   int) except +
+    
+    cdef void predict(cumlHandle& handle,
+                      RandomForestMetaData[float, float] *,
+                      float*,
+                      int,
+                      int,
+                      float*,
+                      int) except +
 
-    cdef void predict[T](cumlHandle& handle,
-                         RandomForestMetaData[T, T] *,
-                         T*,
-                         int,
-                         int,
-                         T*,
-                         int) except +
+    cdef void predict(cumlHandle& handle,
+                      RandomForestMetaData[double, double]*,
+                      double*,
+                      int,
+                      int,
+                      double*,
+                      int) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, float]*,
@@ -281,9 +289,6 @@ class RandomForestRegressor(BaseRandomForestModel):
                  self.rf_forest)
             free(<RandomForestMetaData[double, double]*><uintptr_t>
                  self.rf_forest64)
-            self.treelite_handle = None
-            self.model_pbuf_bytes = bytearray()
-
 
     def convert_to_treelite_model(self):
         """
@@ -297,24 +302,80 @@ class RandomForestRegressor(BaseRandomForestModel):
 
         return _obtain_treelite_model(handle)
 
+    def convert_to_fil_model(self, output_class=False,
+                             algo='auto',
+                             fil_sparse_format='auto'):
+        """
+        Create a Forest Inference (FIL) model from the trained cuML
+        Random Forest model.
+        Parameters
+        ----------
+        output_class : boolean (default = True)
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            If true, return a 1 or 0 depending on whether the raw
+            prediction exceeds the threshold. If False, just return
+            the raw prediction.
+        algo : string (default = 'auto')
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            'naive' - simple inference using shared memory
+            'tree_reorg' - similar to naive but trees rearranged to be more
+            coalescing-friendly
+            'batch_tree_reorg' - similar to tree_reorg but predicting
+            multiple rows per thread block
+            `auto` - choose the algorithm automatically. Currently
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
+        fil_sparse_format : boolean or string (default = auto)
+            This variable is used to choose the type of forest that will be
+            created in the Forest Inference Library. It is not required
+            while using predict_model='CPU'.
+            'auto' - choose the storage type automatically
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
+        Returns
+        ----------
+        fil_model :
+            A Forest Inference model which can be used to perform
+            inferencing on the random forest model.
+        """
+        treelite_handle = self._obtain_treelite_handle()
+        return _obtain_fil_model(treelite_handle=treelite_handle,
+                                 depth=self.max_depth,
+                                 output_class=output_class,
+                                 algo=algo,
+                                 fil_sparse_format=fil_sparse_format)
+
 
     """
     TODO : Move functions duplicated in the RF classifier and regressor
            to a shared file. Cuml issue #1854 has been created to track this.
     """
-    def _tl_model_handles(self, model_bytes):
-        task_category = REGRESSION_MODEL
-        cdef ModelHandle tl_model_ptr = NULL
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
-        build_treelite_forest(& tl_model_ptr,
-                              rf_forest,
-                              <int> self.n_cols,
-                              <int> task_category,
-                              <vector[unsigned char] &> model_bytes)
-        mod_handle = <uintptr_t> tl_model_ptr
+    """
+    def _concatenate_treelite_handle(self, treelite_handle):
+        cdef ModelHandle concat_model_handle = NULL
+        cdef vector[ModelHandle] *model_handles \
+            = new vector[ModelHandle]()
+        cdef uintptr_t mod_ptr
+        for i in treelite_handle:
+            mod_ptr = <uintptr_t>i
+            model_handles.push_back((
+                <ModelHandle> mod_ptr))
 
-        return ctypes.c_void_p(mod_handle).value
+        concat_model_handle = concatenate_trees(deref(model_handles))
+
+        cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
+        self.treelite_handle = concat_model_ptr
+        cdef vector[unsigned char] pbuf_mod_info = \
+            save_model(<ModelHandle> concat_model_ptr)
+        cdef unsigned char[::1] pbuf_mod_view = \
+            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
+        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+        return self
+    """
 
     def fit(self, X, y, convert_dtype=False):
         """
@@ -393,6 +454,53 @@ class RandomForestRegressor(BaseRandomForestModel):
         del X_m
         del y_m
         return self
+    
+    """
+    def _predict_model_on_gpu(self, X, algo, convert_dtype,
+                              fil_sparse_format):
+        out_type = self._get_output_type(X)
+        cdef ModelHandle cuml_model_ptr = NULL
+        _, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, order='F',
+                                check_cols=self.n_cols)
+
+        if dtype == np.float64 and not convert_dtype:
+            raise TypeError("GPU based predict only accepts np.float32 data. \
+                            Please set convert_dtype=True to convert the test \
+                            data to the same dtype as the data used to train, \
+                            ie. np.float32. If you would like to use test \
+                            data of dtype=np.float64 please set \
+                            predict_model='CPU' to use the CPU implementation \
+                            of predict.")
+
+        cdef RandomForestMetaData[float, float] *rf_forest = \
+            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
+
+        task_category = REGRESSION_MODEL
+        build_treelite_forest(& cuml_model_ptr,
+                              rf_forest,
+                              <int> n_cols,
+                              <int> task_category,
+                              <vector[unsigned char] &> self.model_pbuf_bytes)
+        mod_ptr = <uintptr_t> cuml_model_ptr
+        treelite_handle = ctypes.c_void_p(mod_ptr).value
+
+        storage_type = \
+            _check_fil_parameter_validity(depth=self.max_depth,
+                                          fil_sparse_format=fil_sparse_format,
+                                          algo=algo)
+
+        fil_model = ForestInference()
+        tl_to_fil_model = \
+            fil_model.load_from_randomforest(treelite_handle,
+                                             output_class=False,
+                                             algo=algo,
+                                             storage_type=storage_type)
+
+        preds = tl_to_fil_model.predict(X, out_type)
+        tl.free_treelite_model(treelite_handle)
+        return preds
+    """
 
     def _predict_model_on_cpu(self, X, convert_dtype):
         out_type = self._get_output_type(X)
@@ -404,7 +512,7 @@ class RandomForestRegressor(BaseRandomForestModel):
                                 check_cols=self.n_cols)
         X_ptr = X_m.ptr
 
-        preds = CumlArray.zeros(n_rows, dtype=np.int32)
+        preds = CumlArray.zeros(n_rows, dtype=dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
         cdef cumlHandle* handle_ =\
@@ -417,23 +525,23 @@ class RandomForestRegressor(BaseRandomForestModel):
             <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
         if self.dtype == np.float32:
             predict(handle_[0],
-                           rf_forest,
-                           <float*> X_ptr,
-                           <int> n_rows,
-                           <int> n_cols,
-                           <float*> preds_ptr,
-                           <int> self.verbosity)
+                    rf_forest,
+                    <float*> X_ptr,
+                    <int> n_rows,
+                    <int> n_cols,
+                    <float*> preds_ptr,
+                    <int> self.verbosity)
 
         elif self.dtype == np.float64:
             predict(handle_[0],
-                            rf_forest64,
-                            <double*> X_ptr,
-                            <int> n_rows,
-                            <int> n_cols,
-                            <double*> preds_ptr,
-                            <int> self.verbosity)
+                    rf_forest64,
+                    <double*> X_ptr,
+                    <int> n_rows,
+                    <int> n_cols,
+                    <double*> preds_ptr,
+                    <int> self.verbosity)
         else:
-            raise TypeError("supports only np.float32 and np.float64 input,"
+            raise TypeError("supports only float32 and float64 input,"
                             " but input of type '%s' passed."
                             % (str(self.dtype)))
 
@@ -501,8 +609,7 @@ class RandomForestRegressor(BaseRandomForestModel):
                             setting predict_model = 'CPU'")
 
         else:
-            preds = self._predict_model_on_gpu(model=RandomForestRegressor,
-                                               X=X,
+            preds = self._predict_model_on_gpu(X=X,
                                                algo=algo,
                                                convert_dtype=convert_dtype,
                                                fil_sparse_format=fil_sparse_format)
