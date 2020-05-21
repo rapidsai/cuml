@@ -119,10 +119,12 @@ def test_convert_matrix_order_cuml_array(dtype, input_type, from_order,
         # Warning is raised for non cudf dataframe or numpy arrays
         # those are converted form order by their respective libraries
         if input_type in ['numpy', 'cupy', 'numba']:
-            with pytest.warns(UserWarning):
-                conv_data, *_ = input_to_cuml_array(input_data,
-                                                    fail_on_order=False,
-                                                    order=to_order)
+            # with pytest.warns(UserWarning):
+            # warning disabled due to using cuml logger, need to
+            # adapt tests for that.
+            conv_data, *_ = input_to_cuml_array(input_data,
+                                                fail_on_order=False,
+                                                order=to_order)
         else:
             conv_data, *_ = input_to_cuml_array(input_data,
                                                 fail_on_order=False,
