@@ -59,6 +59,12 @@ def _prep_training_data(c, X_train, partitions_per_worker):
     return X_train_df
 
 
+def _scale_rows(client, nrows):
+    workers = list(client.scheduler_info()['workers'].keys())
+    n_workers = len(workers)
+    return n_workers * nrows 
+
+
 @pytest.mark.parametrize("nrows", [unit_param(1e3), unit_param(1e4),
                                    quality_param(1e6),
                                    stress_param(5e8)])
@@ -79,6 +85,8 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
         from cuml.dask.neighbors import NearestNeighbors as daskNN
 
         from sklearn.datasets import make_blobs
+
+        nrows = _scale_rows(client, nrows)
 
         X, y = make_blobs(n_samples=int(nrows),
                           n_features=ncols,
@@ -125,6 +133,8 @@ def test_batch_size(nrows, ncols, n_parts,
 
         from sklearn.datasets import make_blobs
 
+        nrows = _scale_rows(client, nrows)
+
         X, y = make_blobs(n_samples=int(nrows),
                           n_features=ncols,
                           centers=n_clusters)
@@ -166,6 +176,8 @@ def test_return_distance(cluster):
 
         from sklearn.datasets import make_blobs
 
+        nrows = _scale_rows(client, nrows)
+
         X, y = make_blobs(n_samples=n_samples,
                           n_features=n_feats, random_state=0)
 
@@ -205,6 +217,8 @@ def test_default_n_neighbors(cluster):
             NearestNeighborsMG as cumlNN
 
         from sklearn.datasets import make_blobs
+
+        nrows = _scale_rows(client, nrows)
 
         X, y = make_blobs(n_samples=n_samples,
                           n_features=n_feats, random_state=0)
