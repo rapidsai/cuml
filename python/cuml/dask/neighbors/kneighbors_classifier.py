@@ -79,17 +79,22 @@ class KNeighborsClassifier(BaseEstimator):
         self.data_handler = \
             DistributedDataHandler.create(data=[X, y],
                                           client=self.client)
-        self.datatype = self.data_handler.datatype
 
         uniq_labels = []
-        if y.ndim == 1:
-            uniq_labels.append(da.unique(y))
+        if self.data_handler.datatype == 'cupy':
+            if y.ndim == 1:
+                uniq_labels.append(da.unique(y))
+            else:
+                n_targets = y.shape[1]
+                for i in range(n_targets):
+                    uniq_labels.append(da.unique(y[:, i]))
         else:
             n_targets = y.shape[1]
             for i in range(n_targets):
-                uniq_labels.append(da.unique(y[:, i]))
+                uniq_labels.append(y.iloc[:, i].unique())
         self.uniq_labels = np.array(da.compute(uniq_labels)[0])
         self.n_unique = list(map(lambda x: len(x), self.uniq_labels))
+
         return self
 
     @staticmethod
@@ -150,6 +155,7 @@ class KNeighborsClassifier(BaseEstimator):
         query_handler = \
             DistributedDataHandler.create(data=X,
                                           client=self.client)
+        self.datatype = query_handler.datatype
 
         comms = KNeighborsClassifier._build_comms(self.data_handler,
                                                   query_handler,

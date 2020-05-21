@@ -34,6 +34,7 @@ from libcpp.vector cimport vector
 from libcpp.memory cimport shared_ptr
 
 from cuml.neighbors import NearestNeighbors
+from cudf.core import DataFrame as cudfDataFrame
 
 cdef extern from "cumlprims/opg/matrix/data.hpp" namespace \
         "MLCommon::Matrix":
@@ -199,18 +200,16 @@ class KNeighborsClassifierMG(NearestNeighbors):
         -------
         predictions : labels, indices, distances
         """
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if len(data) > 0:
             self._set_output_type(data[0])
-        out_type = 'cupy'
+        out_type = self.output_type
         if len(query) > 0:
             out_type = self._get_output_type(query[0])
 
-        self.n_dims = ncols
-
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
         idx = [d[0] for d in data]
         lbls = [d[1] for d in data]
+        self.n_dims = ncols
 
         idx_cai, idx_local_parts, idx_desc = \
             _build_part_inputs(idx, data_parts_to_ranks,
@@ -225,8 +224,12 @@ class KNeighborsClassifierMG(NearestNeighbors):
         lbls_dev_arr = []
         for i, arr in enumerate(lbls):
             for j in range(arr.shape[1]):
+                if isinstance(arr, cudfDataFrame):
+                    col = arr.iloc[:, j]
+                else:
+                    col = arr[:, j]
                 lbls_arr, _, _, _ = \
-                    input_to_cuml_array(arr[:, j], order="F",
+                    input_to_cuml_array(col, order="F",
                                         convert_to_dtype=(np.int32
                                                           if convert_dtype
                                                           else None),
@@ -315,8 +318,8 @@ class KNeighborsClassifierMG(NearestNeighbors):
                   <uintptr_t>uniq_labels_vec,
                   <uintptr_t>n_unique_vec)
 
-        output = list(map(lambda o: o.to_output('cupy'), output))
-        output_i = list(map(lambda o: o.to_output('cupy'), output_i))
-        output_d = list(map(lambda o: o.to_output('cupy'), output_d))
+        output = list(map(lambda o: o.to_output(out_type), output))
+        output_i = list(map(lambda o: o.to_output(out_type), output_i))
+        output_d = list(map(lambda o: o.to_output(out_type), output_d))
 
         return output, output_i, output_d

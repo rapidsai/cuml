@@ -222,7 +222,7 @@ def _workers_to_parts(futures):
 
 def _get_ary_meta(ary):
 
-    if isinstance(ary, cp.ndarray):
+    if isinstance(ary, (np.ndarray, cp.ndarray)):
         return ary.shape, ary.dtype
     elif isinstance(ary, cudf.DataFrame):
         return ary.shape, first(set(ary.dtypes))
