@@ -70,13 +70,13 @@ class paramsSolver : public params {
   int verbose = 0;
 };
 
-//template<typename math_t>
-//class paramsTSVD: public paramsSolver<math_t> {
-class paramsTSVD : public paramsSolver {
+template<typename enum_solver=solver>
+// class paramsTSVD: public paramsSolver<math_t> {
+class paramsTSVDTemplate : public paramsSolver {
  public:
   int n_components = 1;
   int max_sweeps = 15;
-  solver algorithm = solver::COV_EIG_DQ;
+  enum_solver algorithm = enum_solver::COV_EIG_DQ;
   bool trans_input = false;
 };
 
@@ -95,12 +95,17 @@ class paramsTSVD : public paramsSolver {
  * @param verbose: 0: no error message printing, 1: print error messages
  * @param max_sweeps: number of sweeps jacobi method uses. The more the better accuracy.
  */
-//template<typename math_t>
-//class paramsPCA: public paramsTSVD<math_t> {
-class paramsPCA : public paramsTSVD {
+
+template<typename enum_solver=solver>
+class paramsPCATemplate: public paramsTSVDTemplate<enum_solver> {
+// class paramsPCATemplate : public paramsTSVDTemplate {
  public:
   bool copy = true;
   bool whiten = false;
 };
+
+typedef paramsTSVDTemplate<> paramsTSVD;
+
+typedef paramsPCATemplate<> paramsPCA;
 
 };  // end namespace ML
