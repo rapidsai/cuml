@@ -151,7 +151,7 @@ def test_elastic_net(dtype, alpha, algorithm,
             assert r2_score(y.compute(), y_hat.compute()) >= 0.96
 
         else:
-            assert r2_score(y.compute(), y_hat.compute()) >= 0.82
+            assert r2_score(y.compute(), y_hat.compute()) >= 0.80
 
     finally:
         client.close()

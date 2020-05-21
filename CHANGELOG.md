@@ -103,6 +103,7 @@
 - PR #2272: Add docs build.sh script to repository
 - PR #2276: Ensure `CumlArray` provided `dtype` conforms
 - PR #2281: Rely on cuDF's `Serializable` in `CumlArray`
+- PR #2285: Increase the threshold for elastic_net test in dask/test_coordinate_descent
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
