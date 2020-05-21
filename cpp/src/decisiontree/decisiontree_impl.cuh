@@ -57,13 +57,14 @@ void print_node(const std::string &prefix,
                 const std::vector<SparseTreeNode<T, L>> &sparsetree, int idx,
                 bool isLeft) {
   const SparseTreeNode<T, L> &node = sparsetree[idx];
-  CUML_LOG_DEBUG(prefix.c_str());
-  CUML_LOG_DEBUG(isLeft ? "├" : "└");
 
   // print the value of the node
   std::stringstream ss;
-  ss << node << std::endl;
-  CUML_LOG_DEBUG(ss.str().c_str());
+  ss << prefix.c_str();
+  ss << (isLeft ? "├" : "└");
+  ss << node;
+
+  CUML_LOG_INFO(ss.str().c_str());
 
   if ((node.colid != -1)) {
     // enter the next tree level - left and right branch
