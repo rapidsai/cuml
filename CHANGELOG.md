@@ -5,6 +5,7 @@
 ## Improvements
 
 ## Bug Fixes
+- PR #2294: Fix convert_to_dtype copy even with same dtype
 
 # cuML 0.14.0 (Date TBD)
 
