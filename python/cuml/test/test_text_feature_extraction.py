@@ -55,8 +55,11 @@ NOTJUNK_FOOD_DOCS = (
 DOCS = JUNK_FOOD_DOCS + NOTJUNK_FOOD_DOCS
 DOCS_GPU = Series(DOCS)
 
+NGRAM_RANGES = [(1, 1), (1, 2), (2, 3)]
+NGRAM_IDS = [f'ngram_range={str(r)}' for r in NGRAM_RANGES]
 
-@pytest.mark.parametrize('ngram_range', [(1, 1), (1, 2)])
+
+@pytest.mark.parametrize('ngram_range', NGRAM_RANGES, ids=NGRAM_IDS)
 def test_word_analyzer(ngram_range):
     vec = CountVectorizer(ngram_range=ngram_range).fit(DOCS_GPU)
     ref = SkCountVect(ngram_range=ngram_range).fit(DOCS)
@@ -217,3 +220,12 @@ def test_vectorizer_inverse_transform():
         doc = np.sort(doc._column.nvstrings.to_host())
         sk_doc = np.sort(sk_doc)
         assert_array_equal(doc, sk_doc)
+
+
+@pytest.mark.parametrize('ngram_range', NGRAM_RANGES, ids=NGRAM_IDS)
+def test_space_ngrams(ngram_range):
+    data = ['abc      def. 123 456    789']
+    data_gpu = Series(data)
+    vec = CountVectorizer(ngram_range=ngram_range).fit(data_gpu)
+    ref = SkCountVect(ngram_range=ngram_range).fit(data)
+    assert ref.get_feature_names() == vec.get_feature_names().to_host()
