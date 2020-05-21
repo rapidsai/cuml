@@ -20,8 +20,8 @@ from cuml.dask.common import parts_to_ranks
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common.utils import raise_mg_import_exception
-from cuml.dask.common.comms import CommsContext, worker_state
-from cuml.dask.common.base import BaseEstimator
+from cuml.dask.common.comms import worker_state
+from cuml.dask.neighbors import NearestNeighbors
 from dask.distributed import wait
 import dask.array as da
 from uuid import uuid1
@@ -43,7 +43,7 @@ def _func_get_d(f, idx):
     return d[idx]
 
 
-class KNeighborsClassifier(BaseEstimator):
+class KNeighborsClassifier(NearestNeighbors):
     """
     Multi-node Multi-GPU K-Nearest Neighbors Classifier Model.
 
@@ -118,19 +118,6 @@ class KNeighborsClassifier(BaseEstimator):
             query, query_parts_to_ranks, query_nrows,
             uniq_labels, n_unique, ncols, rank, convert_dtype
         )
-
-    @staticmethod
-    def _build_comms(data_handler, query_handler, streams_per_handle, verbose):
-        # Communicator clique needs to include the union of workers hosting
-        # query and index partitions
-        workers = set(data_handler.workers)
-        workers.update(query_handler.workers)
-
-        comms = CommsContext(comms_p2p=True,
-                             streams_per_handle=streams_per_handle,
-                             verbose=verbose)
-        comms.init(workers=workers)
-        return comms
 
     def predict(self, X, convert_dtype=True):
         """
