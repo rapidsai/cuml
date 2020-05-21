@@ -62,7 +62,7 @@ def _prep_training_data(c, X_train, partitions_per_worker):
 def _scale_rows(client, nrows):
     workers = list(client.scheduler_info()['workers'].keys())
     n_workers = len(workers)
-    return n_workers * nrows 
+    return n_workers * nrows
 
 
 @pytest.mark.parametrize("nrows", [unit_param(1e3), unit_param(1e4),
@@ -176,7 +176,7 @@ def test_return_distance(cluster):
 
         from sklearn.datasets import make_blobs
 
-        nrows = _scale_rows(client, nrows)
+        n_samples = _scale_rows(client, n_samples)
 
         X, y = make_blobs(n_samples=n_samples,
                           n_features=n_feats, random_state=0)
@@ -218,7 +218,7 @@ def test_default_n_neighbors(cluster):
 
         from sklearn.datasets import make_blobs
 
-        nrows = _scale_rows(client, nrows)
+        n_samples = _scale_rows(client, n_samples)
 
         X, y = make_blobs(n_samples=n_samples,
                           n_features=n_feats, random_state=0)
