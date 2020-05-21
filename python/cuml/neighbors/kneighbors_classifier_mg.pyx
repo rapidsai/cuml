@@ -24,45 +24,17 @@ import numpy as np
 from cuml.common.array import CumlArray
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
+from cuml.common.opg_data_utils_mg cimport *
 
 import rmm
 from libc.stdlib cimport calloc, malloc, free
 from cython.operator cimport dereference as deref
-from libc.stdint cimport uintptr_t, int64_t
+from libc.stdint cimport uintptr_t
 from libcpp cimport bool
-from libcpp.vector cimport vector
 from libcpp.memory cimport shared_ptr
 
 from cuml.neighbors import NearestNeighbors
 from cudf.core import DataFrame as cudfDataFrame
-
-cdef extern from "cumlprims/opg/matrix/data.hpp" namespace \
-        "MLCommon::Matrix":
-
-    cdef cppclass Data[T]:
-        Data(T *ptr, size_t totalSize)
-
-    cdef cppclass floatData_t:
-        floatData_t(float *ptr, size_t totalSize)
-        float *ptr
-        size_t totalSize
-
-ctypedef Data[int64_t] int64Data_t
-ctypedef Data[int] intData_t
-ctypedef vector[int*] int_ptr_vector
-
-cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" namespace \
-        "MLCommon::Matrix":
-
-    cdef cppclass RankSizePair:
-        int rank
-        size_t size
-
-    cdef cppclass PartDescriptor:
-        PartDescriptor(size_t M,
-                       size_t N,
-                       vector[RankSizePair*] &partsToRanks,
-                       int myrank)
 
 cdef extern from "cumlprims/opg/selection/knn.hpp" namespace \
         "MLCommon::Selection::opg":
