@@ -607,4 +607,18 @@ DI T blockReduce(T val, char *smem) {
   return warpReduce(val);
 }
 
+/**
+ * @brief Simple utility function to determine whether user_stream or one of the
+ * internal streams should be used.
+ * @param user_stream main user stream
+ * @param int_streams array of internal streams
+ * @param n_int_streams number of internal streams
+ * @param idx the index for which to query the stream
+ */
+ inline cudaStream_t select_stream(cudaStream_t user_stream,
+  cudaStream_t *int_streams, int n_int_streams,
+  int idx) {
+return n_int_streams > 0 ? int_streams[idx % n_int_streams] : user_stream;
+}
+
 }  // namespace MLCommon
