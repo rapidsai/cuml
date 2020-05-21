@@ -412,7 +412,8 @@ class RandomForestClassifier(Base):
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
 
-        assert len(self.model_pbuf_bytes) > 0 or self.rf_forest
+        assert len(self.model_pbuf_bytes) > 0 or self.rf_forest, \
+            "Attempting to create treelite from un-fit forest."
 
         if self.num_classes > 2:
             raise NotImplementedError("Pickling for multi-class "
@@ -569,6 +570,7 @@ class RandomForestClassifier(Base):
             <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
         self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
 
+        # Fix up some instance variables that should match the new TL model
         tl_model = TreeliteModel.from_treelite_model_handle(
             self.treelite_handle,
             take_handle_ownership=False)
