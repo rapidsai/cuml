@@ -23,7 +23,7 @@ from cuml.preprocessing.model_selection import train_test_split
 from numba import cuda
 
 test_array_input_types = [
-    'numba', 'cupy', 'rmm'
+    'numba', 'cupy'
 ]
 
 test_seeds = [
@@ -145,10 +145,6 @@ def test_array_split(type, test_size, train_size, shuffle):
     if type == 'numba':
         X = cuda.to_device(X)
         y = cuda.to_device(y)
-
-    if type == 'rmm':
-        X = rmm.to_device(X)
-        y = rmm.to_device(y)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                         train_size=train_size,

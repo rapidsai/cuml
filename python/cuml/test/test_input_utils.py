@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ from cuml.common import input_to_dev_array
 from cuml.common import input_to_host_array
 from cuml.common import has_cupy
 from cuml.common.input_utils import convert_dtype
+from cuml.common.memory_utils import _check_array_contiguity
 from numba import cuda as nbcuda
 
 
@@ -247,6 +248,36 @@ def test_convert_input_dtype(from_dtype, to_dtype, input_type, num_rows,
         np.testing.assert_equal(converted_data.to_numpy(), real_data)
     else:
         np.testing.assert_equal(converted_data.copy_to_host(), real_data)
+
+
+@pytest.mark.parametrize('dtype', test_dtypes_acceptable)
+@pytest.mark.parametrize('input_type', ['numpy', 'cupy'])
+@pytest.mark.parametrize('order', ['C', 'F'])
+@pytest.mark.parametrize('contiguous', [True, False])
+@pytest.mark.parametrize('force_contiguous', [True, False])
+def test_non_contiguous_to_contiguous_input(dtype, input_type, order,
+                                            contiguous, force_contiguous):
+    input_data, real_data = get_input(input_type, 10, 8, dtype,
+                                      order=order)
+
+    if not contiguous:
+        if order == 'F':
+            data_view = input_data[:-3]
+            real_data = real_data[:-3]
+        else:
+            data_view = input_data[:, :-3]
+            real_data = real_data[:, :-3]
+
+    else:
+        data_view = input_data
+
+    cumlary, *_ = input_to_cuml_array(data_view,
+                                      force_contiguous=force_contiguous)
+
+    if force_contiguous:
+        assert(_check_array_contiguity(cumlary))
+
+    np.testing.assert_equal(real_data, cumlary.to_output('numpy'))
 
 
 ###############################################################################
