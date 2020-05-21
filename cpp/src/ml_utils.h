@@ -28,7 +28,7 @@ namespace ML {
  * @param COV_EIG_JACOBI: covariance of input will be used along with eigen decomposition using jacobi method for symmetric matrices
  * @{
  */
-enum solver {
+enum class solver {
   COV_EIG_DQ,
   COV_EIG_JACOBI,
   RANDOMIZED,
