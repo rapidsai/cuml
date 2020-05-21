@@ -17,7 +17,6 @@ import cudf
 import cupy as cp
 import numpy as np
 import pytest
-import rmm
 
 from cuml.preprocessing.model_selection import train_test_split
 from numba import cuda
