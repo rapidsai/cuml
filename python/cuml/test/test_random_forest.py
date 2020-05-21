@@ -444,7 +444,6 @@ def test_rf_classification_sparse(small_clf, datatype,
         tl_model = cuml_model.convert_to_treelite_model()
         assert num_treees == tl_model.num_trees
         assert X.shape[1] == tl_model.num_features
-        # del tl_model
 
         if X.shape[0] < 500000:
             sk_model = skrfc(n_estimators=50,
@@ -510,7 +509,6 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
         tl_model = cuml_model.convert_to_treelite_model()
         assert num_treees == tl_model.num_trees
         assert X.shape[1] == tl_model.num_features
-        # del tl_model
 
         # Initialize, fit and predict using
         # sklearn's random forest regression model

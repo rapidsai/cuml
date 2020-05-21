@@ -370,7 +370,6 @@ class RandomForestRegressor(Base):
         self.model_pbuf_bytes = bytearray()
         self.n_cols = None
 
-
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
             return self.max_features/self.n_cols
@@ -398,7 +397,8 @@ class RandomForestRegressor(Base):
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
-        assert len(self.model_pbuf_bytes) > 0 or self.rf_forest
+        assert len(self.model_pbuf_bytes) > 0 or self.rf_forest, \
+            "Attempting to create treelite from un-fit forest."
 
         cdef unsigned char[::1] model_pbuf_mv = self.model_pbuf_bytes
         cdef vector[unsigned char] model_pbuf_vec
