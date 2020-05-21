@@ -16,6 +16,7 @@
 
 import copy
 import cudf
+import cuml.common.logger as logger
 import cupy as cp
 import numpy as np
 import pandas as pd
@@ -59,7 +60,8 @@ def get_cudf_column_ptr(col):
 def input_to_cuml_array(X, order='F', deepcopy=False,
                         check_dtype=False, convert_to_dtype=False,
                         check_cols=False, check_rows=False,
-                        fail_on_order=False, force_contiguous=True):
+                        fail_on_order=False, force_contiguous=True,
+                        verbosity=logger.LEVEL_INFO):
     """
     Convert input X to CumlArray.
 
@@ -109,7 +111,7 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
         of order `order`.
 
     force_contiguous: boolean (default: True)
-        Set to True to force CumlArray produced to be contiguos. If `X` is
+        Set to True to force CumlArray produced to be contiguous. If `X` is
         non contiguous then a contiguous copy will be done.
         If False, and `X` doesn't need to be converted and is not contiguous,
         the underlying memory underneath the CumlArray will be non contiguous.
@@ -156,6 +158,8 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
 
         if force_contiguous or hasattr(X, "__array_interface__"):
             if not _check_array_contiguity(X):
+                logger.warn("Non contiguous array or view detected, a \
+                             contiguous copy of the data will be done. ")
                 X = cp.array(X, order=order, copy=True)
 
         X_m = CumlArray(data=X)
@@ -208,9 +212,9 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
             raise ValueError("Expected " + order_to_str(order) +
                              " major order, but got the opposite.")
         else:
-            warnings.warn("Expected " + order_to_str(order) + " major order, "
-                          "but got the opposite. Converting data, this will "
-                          "result in additional memory utilization.")
+            logger.warn("Expected " + order_to_str(order) + " major order, "
+                        "but got the opposite. Converting data, this will "
+                        "result in additional memory utilization.")
             X_m = cp.array(X_m, copy=False, order=order)
             X_m = CumlArray(data=X_m)
 
