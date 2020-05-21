@@ -248,6 +248,9 @@ def test_convert_input_dtype(from_dtype, to_dtype, input_type, num_rows,
     else:
         np.testing.assert_equal(converted_data.copy_to_host(), real_data)
 
+    if from_dtype == to_dtype:
+        check_ptr(converted_data, input_data, input_type)
+
 
 ###############################################################################
 #                           Utility Functions                                 #
@@ -259,6 +262,24 @@ def check_numpy_order(ary, order):
         return ary.flags.f_contiguous
     else:
         return ary.flags.c_contiguous
+
+
+def check_ptr(a, b, input_type):
+    if input_type == 'cudf':
+        for (_, col_a), (_, col_b) in zip(a._data.items(), b._data.items()):
+            assert col_a.base_data.ptr == col_b.base_data.ptr
+    else:
+        def get_ptr(x):
+            try:
+                return x.__cuda_array_interface__['data'][0]
+            except AttributeError:
+                return x.__array_interface__['data'][0]
+
+        if input_type == 'pandas':
+            a = a.as_matrix()
+            b = b.as_matrix()
+
+        assert get_ptr(a) == get_ptr(b)
 
 
 def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
