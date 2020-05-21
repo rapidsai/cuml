@@ -338,7 +338,8 @@ def test_rf_concatenation_dask(cluster, model_type):
         res1 = cu_rf_mg.predict(X_df)
         res1.compute()
         local_tl = TreeliteModel.from_treelite_model_handle(
-            cu_rf_mg.local_model._obtain_treelite_handle())
+            cu_rf_mg.local_model._obtain_treelite_handle(),
+            take_handle_ownership=False)
 
         assert local_tl.num_trees == n_estimators
     finally:
