@@ -1,6 +1,8 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
+- PR #1994: Support for distributed OneHotEncoder
+- PR #1892: One hot encoder implementation with cupy
 - PR #1655: Adds python bindings for homogeneity score
 - PR #1704: Adds python bindings for completeness score
 - PR #1687: Adds python bindings for mutual info score
@@ -11,6 +13,11 @@
 - PR #2067: python: wrap logging interface in cython
 - PR #2083: Added dtype, order, and use_full_low_rank to MNMG `make_regression`
 - PR #2074: SG and MNMG `make_classification`
+- PR #2127: Added order to SG `make_blobs`, and switch from C++ to cupy based implementation
+- PR #2057: Weighted k-means
+- PR #2256: Add a `make_arima` generator
+- PR #2245: ElasticNet, Lasso and Coordinate Descent MNMG
+- PR #2242: Pandas input support with output as NumPy arrays by default
 
 ## Improvements
 - PR #1873: Remove usage of nvstring and nvcat from LabelEncoder
@@ -26,6 +33,7 @@
 - PR #1974: Reduce ARIMA testing time
 - PR #1981: Using CumlArray in kNN and DistributedDataHandler in dask kNN
 - PR #1984: Enable Ninja build
+- PR #1985: C++ UMAP parametrizable tests
 - PR #1988: C++: cpp bench refactor
 - PR #1996: Cythonize in parallel
 - PR #2005: Adding missing algorithms to cuml benchmarks and notebook
@@ -49,23 +57,67 @@
 - PR #2080: Improved import of sparse FIL forests from treelite
 - PR #2085: Convert TSNE to use CumlArray
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
+<<<<<<< HEAD
 - PR #2090: Upgrade C++ build to C++14 standard
+=======
+- PR #2128: Update Dask RF code to reduce the time required for GPU predict to run
+- PR #2125: Build infrastructure to use RAFT
+- PR #2131: Update Dask RF fit to use DistributedDataHandler
+- PR #2055: Update the metrics notebook to use important cuML models
+>>>>>>> rapidsai/branch-0.14
 - PR #2095: Improved import of src_prims/utils.h, making it less ambiguous
 - PR #2098: Renaming .h to .cuh in decision_tree, glm, pca
 - PR #2118: Updating SGD & mini-batch estimators to use CumlArray
 - PR #2120: Speeding up dask RandomForest tests
+<<<<<<< HEAD
 - PR #2124: Expand tutorial docs and sample notebook
 - PR #2125: Build infrastructure to use RAFT
 - PR #2131: Update Dask RF fit to use DistributedDataHandler
+=======
+- PR #1883: Use CumlArray in ARIMA
+- PR #877: Adding definition of done criteria to wiki
+>>>>>>> rapidsai/branch-0.14
 - PR #2135: A few optimizations to UMAP fuzzy simplicial set
 - PR #2146: Remove deprecated kalman filter
 - PR #2150: Remove deprecated RMM calls in RMM allocator adapter
 - PR #2151: Add pytest duration and pytest timeout
 - PR #2152: add FIL C++ benchmark
 - PR #2156: Add Docker 19 support to local gpuci build
+<<<<<<< HEAD
+=======
+- PR #2178: Reduce duplicated code in RF
+- PR #2124: Expand tutorial docs and sample notebook
+>>>>>>> rapidsai/branch-0.14
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
+- PR #2186: Refactor cython code to build OPG structs in common utils file
+- PR #2180: Add fully single GPU singlegpu python build
+- PR #2187: CMake improvements to manage conda environment dependencies
 - PR #2185: Add has_sklearn function and use it in datasets/classification.
 - PR #2193: Order-independent local shuffle in `cuml.dask.make_regression`
+- PR #2204: Update python layer to use the logger interface
+- PR #2184: Refoctor headers for holtwinters, rproj, tsvd, tsne, umap
+- PR #2199: Remove unncessary notebooks
+- PR #2195: Separating fit and transform calls in SG, MNMG PCA to save transform array memory consumption
+- PR #2201: Re-enabling UMAP repro tests
+- PR #2132: Add SVM C++ benchmarks
+- PR #2196: Updates to benchmarks. Moving notebook
+- PR #2208: Coordinate Descent, Lasso and ElasticNet CumlArray updates
+- PR #2210: Updating KNN tests to evaluate multiple index partitions
+- PR #2205: Use timeout to add 2 hour hard limit to dask tests
+- PR #2212: Improve DBScan batch count / memory estimation
+- PR #2214: Remove utils folder and refactor to common folder
+- PR #2220: Final refactoring of all src_prims header files following rules as specified in #1675
+- PR #2225: input_to_cuml_array keep order option, test updates and cleanup
+- PR #2244: Re-enable slow ARIMA tests as stress tests
+- PR #2231: Using OPG structs from `cuml.common` in decomposition algorithms
+- PR #2257: Update QN and LogisticRegression to use CumlArray
+- PR #2259: Add CumlArray support to Naive Bayes
+- PR #2252: Add benchmark for the Gram matrix prims
+- PR #2269: Add docs targets to build.sh and fix python cuml.common docs
+- PR #2271: Clarify doc for `_unique` default implementation in OneHotEncoder
+- PR #2272: Add docs build.sh script to repository
+- PR #2276: Ensure `CumlArray` provided `dtype` conforms
+- PR #2281: Rely on cuDF's `Serializable` in `CumlArray`
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -98,9 +150,21 @@
 - PR #2162: Use stream in transpose prim
 - PR #2165: Fit function test correction
 - PR #2166: Fix handling of temp file in RF pickling
+- PR #2176: C++: fix for adjusted rand index when input array is all zeros
 - PR #2179: Fix clang tools version in libcuml recipe
 - PR #2183: Fix RAFT in nightly package
 - PR #2191: Fix placement of SVM parameter documentation and add examples
+- PR #2212: Fix DBScan results (no propagation of labels through border points)
+- PR #2217: Fix opg_utils naming to fix singlegpu build
+- PR #2223: Fix bug in ARIMA C++ benchmark
+- PR #2224: Temporary fix for CI until new Dask version is released
+- PR #2228: Update to use __reduce_ex__ in CumlArray to override cudf.Buffer
+- PR #2249: Fix bug in UMAP continuous target metrics
+- PR #2258: Fix doxygen build break
+- PR #2255: Set random_state for train_test_split function in dask RF
+- PR #2275: Fix RF fit memory leak
+- PR #2274: Fix parameter name verbose to verbosity in mnmg OneHotEncoder
+- PR #2277: Updated cub repo path and branch name
 
 # cuML 0.13.0 (Date TBD)
 
@@ -111,13 +175,13 @@
 - PR #1766: Mean absolute error implementation with cupy
 - PR #1766: Mean squared log error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
-- PR #1892: One hot encoder implementation with cupy
 - PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
 - PR #1689: Add framework for cuML Dask serializers
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
+- PR #1814: ROC AUC score implementation with cupy
 - PR #1767: Single GPU decomposition models configurable output
 - PR #1646: Using FIL to predict in MNMG RF
 - PR #1778: Make cuML Handle picklable

@@ -15,14 +15,14 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include <cuda_utils.cuh>
 #include <iostream>
 #include <vector>
-#include "label/classlabels.h"
-#include "random/make_blobs.h"
-#include "selection/knn.h"
+#include "label/classlabels.cuh"
+#include "random/make_blobs.cuh"
+#include "selection/knn.cuh"
 
 namespace MLCommon {
 namespace Selection {

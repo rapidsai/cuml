@@ -19,10 +19,10 @@ import numpy as np
 
 from rmm import DeviceBuffer
 from cudf.core import Buffer, Series, DataFrame
-from cuml.utils import with_cupy_rmm
-from cuml.utils.memory_utils import _get_size_from_shape
-from cuml.utils.memory_utils import _order_to_strides
-from cuml.utils.memory_utils import _strides_to_order
+from cuml.common.memory_utils import with_cupy_rmm
+from cuml.common.memory_utils import _get_size_from_shape
+from cuml.common.memory_utils import _order_to_strides
+from cuml.common.memory_utils import _strides_to_order
 from numba import cuda
 
 
@@ -44,7 +44,7 @@ class CumlArray(Buffer):
     Parameters
     ----------
 
-    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearrar or
+    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearray or
            memoryview
         An array-like object or integer representing a
         device or host pointer to pre-allocated memory.
@@ -117,6 +117,8 @@ class CumlArray(Buffer):
                             " Array.empty().")
         elif isinstance(data, memoryview):
             data = np.asarray(data)
+        if dtype is not None:
+            dtype = np.dtype(dtype)
 
         if _check_low_level_type(data):
             if dtype is None or shape is None or order is None:
@@ -138,7 +140,7 @@ class CumlArray(Buffer):
         # Post processing of meta data
         if detailed_construction:
             self.shape = shape
-            self.dtype = np.dtype(dtype)
+            self.dtype = dtype
             self.order = order
             self.strides = _order_to_strides(order, shape, dtype)
 
@@ -167,9 +169,6 @@ class CumlArray(Buffer):
 
     def __setitem__(self, slice, value):
         cp.asarray(self).__setitem__(slice, value)
-
-    def __reduce__(self):
-        return self.__class__, (self.to_output('numpy'),)
 
     def __len__(self):
         return self.shape[0]

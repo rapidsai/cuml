@@ -14,9 +14,6 @@
 # limitations under the License.
 #=============================================================================
 
-# Policy CMP0079 set as NEW as of 3.13 allows googletest be built outside this folder
-cmake_policy(SET CMP0079 NEW)
-
 set(CUML_TEST_INCLUDE_DIRS
   ${CUML_INCLUDE_DIRECTORIES}
   ${GTEST_DIR}/include
@@ -57,7 +54,7 @@ if(BUILD_CUML_TESTS)
     sg/trustworthiness_test.cu
     sg/tsne_test.cu
     sg/tsvd_test.cu
-    sg/umap_test.cu)
+    sg/umap_parametrizable_test.cu)
 
   target_include_directories(ml PRIVATE ${CUML_TEST_INCLUDE_DIRS})
 
@@ -138,6 +135,7 @@ if(BUILD_PRIMS_TESTS)
     prims/linearReg.cu
     prims/log.cu
     prims/logisticReg.cu
+    prims/make_arima.cu
     prims/make_blobs.cu
     prims/make_regression.cu
     prims/map_then_reduce.cu

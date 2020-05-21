@@ -20,7 +20,9 @@ import os
 from cuml import ForestInference
 from cuml.test.utils import array_equal, unit_param, \
     quality_param, stress_param
-from cuml.utils.import_utils import has_treelite, has_xgboost, has_lightgbm
+from cuml.common.import_utils import has_treelite
+from cuml.common.import_utils import has_xgboost
+from cuml.common.import_utils import has_lightgbm
 
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import GradientBoostingClassifier, \

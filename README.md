@@ -12,7 +12,7 @@ programming. In most cases, cuML's Python API matches the API from
 
 For large datasets, these GPU-based implementations can complete 10-50x faster
 than their CPU equivalents. For details on performance, see the [cuML Benchmarks
-Notebook](https://github.com/rapidsai/notebooks-contrib/blob/master/intermediate_notebooks/benchmarks/cuml_benchmarks.ipynb).
+Notebook](https://github.com/rapidsai/cuml/notebooks/tools/cuml_benchmarks.ipynb).
 
 As an example, the following Python snippet loads input and computes DBSCAN clusters, all on GPU:
 ```python
@@ -75,7 +75,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 |  | K-Means | Multi-node multi-GPU via Dask |
 | **Dimensionality Reduction** | Principal Components Analysis (PCA) | Multi-node multi-GPU via Dask|
 | | Truncated Singular Value Decomposition (tSVD) | Multi-node multi-GPU via Dask |
-| | Uniform Manifold Approximation and Projection (UMAP) | |
+| | Uniform Manifold Approximation and Projection (UMAP) | Multi-node multi-GPU Inference via Dask |
 | | Random Projection | |
 | | t-Distributed Stochastic Neighbor Embedding (TSNE) | |
 | **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-node multi-GPU via Dask |
@@ -91,8 +91,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 |  | K-Nearest Neighbors (KNN) Regression | |
 |  | Support Vector Machine Classifier (SVC) | |
 |  | Epsilon-Support Vector Regression (SVR) | |
-| **Time Series** | Linear Kalman Filter | |
-|  | Holt-Winters Exponential Smoothing | |
+| **Time Series** | Holt-Winters Exponential Smoothing | |
 |  | Auto-regressive Integrated Moving Average (ARIMA) | Supports seasonality (SARIMA) |
 ---
 
