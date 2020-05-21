@@ -33,58 +33,7 @@ from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
 cimport cython
 
-
-cdef class BaseRandomForestModel_impl():
-    cpdef creat_meta(self, X_dtype a, y_dtype b):
-        meta = \
-            new RandomForestMetaData[cython.typeof(a), cython.typeof(b)]()
-        cdef RandomForestMetaData[float, int] *rf_class
-        cdef RandomForestMetaData[float, float] *rf_reg
-        if cython.typeof(b) == cython.int:
-            rf_class = <RandomForestMetaData[float, int]*><size_t> self.rf_forest
-            meta = rf_class
-        else:
-            rf_reg = <RandomForestMetaData[float, float]*><size_t> self.rf_forest
-            meta = rf_reg
-        
-    def _obtain_treelite_handle(self):
-        if self.treelite_handle:
-            return self.treelite_handle
-        cdef ModelHandle cuml_model_ptr = NULL
-        cdef unsigned char[::1] model_pbuf_mv = self.model_pbuf_bytes
-        cdef vector[unsigned char] model_pbuf_vec
-        with cython.boundscheck(False):
-            model_pbuf_vec.assign(& model_pbuf_mv[0],
-                                  & model_pbuf_mv[model_pbuf_mv.shape[0]])
-
-        mod_ptr = <uintptr_t> cuml_model_ptr
-        self.treelite_handle = ctypes.c_void_p(mod_ptr).value
-        cdef cython.float a = 10.0
-        cdef cython.int b = 5
-        base_rf = BaseRandomForestModel_impl()
-        base_rf.creat_meta(a, b)
-        if self.RF_type == CLASSIFICATION:
-            build_treelite_forest(
-                & cuml_model_ptr,
-                #<RandomForestMetaData[float, int]*><size_t> self.rf_forest,
-                meta,
-                <int> self.n_cols,
-                <int> self.num_classes,
-                model_pbuf_vec)
-        else:
-            build_treelite_forest(
-                & cuml_model_ptr,
-                #<RandomForestMetaData[float, float]*><size_t> self.rf_forest,
-                meta,
-                <int> self.n_cols,
-                <int> self.num_classes,
-                model_pbuf_vec)
-            mod_ptr = <uintptr_t> cuml_model_ptr
-            self.treelite_handle = ctypes.c_void_p(mod_ptr).value
-          
-        return self.treelite_handle
-
-
+# create a cdef class and cdef func which will call the C++ cdef func and then return the required handle and stuff
 class BaseRandomForestModel(Base):
     variables = ['n_estimators', 'max_depth', 'handle',
                  'max_features', 'n_bins',
@@ -93,9 +42,6 @@ class BaseRandomForestModel(Base):
                  'bootstrap', 'bootstrap_features',
                  'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
-
-    def __init__(self):
-        self._impl = BaseRandomForestModel_impl()
 
     def _create_model(self, model, seed, split_criterion,
                       n_streams, n_estimators=100,
@@ -170,12 +116,7 @@ class BaseRandomForestModel(Base):
         self.seed = seed
         self.model_pbuf_bytes = bytearray()
         self.treelite_handle = None
-       # if self.model_type == curfr:
-       # print have a check for the random forest meta data in init
-    """
-    def _check_rf_meta_data_format(self, task_category):
-      if task_category == CLASSIFICATION
-    """
+
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
             return self.max_features/self.n_cols
@@ -194,17 +135,73 @@ class BaseRandomForestModel(Base):
             raise ValueError("Wrong value passed in for max_features"
                              " please read the documentation")
 
+    def _get_protobuf_bytes(self):
+        """
+        Returns the self.model_pbuf_bytes.
+        Cuml RF model gets converted to treelite protobuf bytes by:
+            1. converting the cuml RF model to a treelite model. The treelite
+            models handle (pointer) is returned
+            2. The treelite model handle is used to convert the treelite model
+            to a treelite protobuf model which is stored in a temporary file.
+            The protobuf model information is read from the temporary file and
+            the byte information is returned.
+        The treelite handle is stored `self.treelite_handle` and the treelite
+        protobuf model bytes are stored in `self.model_pbuf_bytes`. If either
+        of information is already present in the model then the respective
+        step is skipped.
+        """
+        if self.model_pbuf_bytes:
+            return self.model_pbuf_bytes
+        elif self.treelite_handle:
+            fit_mod_ptr = self.treelite_handle
+        else:
+            fit_mod_ptr = self._obtain_treelite_handle()
+        cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
+        cdef vector[unsigned char] pbuf_mod_info = \
+            save_model(<ModelHandle> model_ptr)
+        cdef unsigned char[::1] pbuf_mod_view = \
+            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
+        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+        return self.model_pbuf_bytes
+
     def _obtain_treelite_handle(self):
-          
-        return self._impl._obtain_treelite_handle
+        if self.treelite_handle:
+            print(" treelite handle in obt : ", self.treelite_handle)
+            return self.treelite_handle # Use cached version
+        cdef ModelHandle cuml_model_ptr = NULL
+        cdef unsigned char[::1] model_pbuf_mv
+        cdef vector[unsigned char] model_pbuf_vec
+        if self.model_pbuf_bytes:
+            model_pbuf_mv = self.model_pbuf_bytes
+            with cython.boundscheck(False):
+                model_pbuf_vec.assign(& model_pbuf_mv[0],
+                                      & model_pbuf_mv[model_pbuf_mv.shape[0]])
+        else:
+            model_pbuf_vec = <vector[unsigned char]&> bytearray()
+        if self.RF_type == CLASSIFICATION:
+            build_treelite_forest(
+                & cuml_model_ptr,
+                <RandomForestMetaData[float, int]*><size_t> self.rf_forest,
+                <int> self.n_cols,
+                <int> self.num_classes,
+                model_pbuf_vec)
+        else:
+            build_treelite_forest(
+                & cuml_model_ptr,
+                <RandomForestMetaData[float, float]*><size_t> self.rf_forest,
+                <int> self.n_cols,
+                <int> REGRESSION_MODEL,
+                model_pbuf_vec)
+
+        mod_ptr = <uintptr_t> cuml_model_ptr
+        self.treelite_handle = ctypes.c_void_p(mod_ptr).value
+        return self.treelite_handle
 
     def _dataset_setup(self, X, y, convert_dtype):
         self._set_output_type(X)
 
         # Reset the old tree data for new fit call
         self._reset_forest_data()
-
-        #cdef uintptr_t X_ptr, y_ptr
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
@@ -241,47 +238,69 @@ class BaseRandomForestModel(Base):
 
         return X_m, y_m, max_feature_val
 
-    def _get_protobuf_bytes(self):
-        """
-        Returns the self.model_pbuf_bytes.
-        Cuml RF model gets converted to treelite protobuf bytes by:
-            1. converting the cuml RF model to a treelite model. The treelite
-            models handle (pointer) is returned
-            2. The treelite model handle is used to convert the treelite model
-            to a treelite protobuf model which is stored in a temporary file.
-            The protobuf model information is read from the temporary file and
-            the byte information is returned.
-        The treelite handle is stored `self.treelite_handle` and the treelite
-        protobuf model bytes are stored in `self.model_pbuf_bytes`. If either
-        of information is already present in the model then the respective
-        step is skipped.
-        """
-        if self.model_pbuf_bytes:
-            return self.model_pbuf_bytes
-        elif self.treelite_handle:
-            fit_mod_ptr = self.treelite_handle
-        else:
-            fit_mod_ptr = self._obtain_treelite_handle()
-        cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
-        cdef vector[unsigned char] pbuf_mod_info = \
-            save_model(<ModelHandle> model_ptr)
-        cdef unsigned char[::1] pbuf_mod_view = \
-            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
-        return self.model_pbuf_bytes
+    """
+    def _predict_model_on_gpu(self, X,
+                              algo,
+                              convert_dtype,
+                              fil_sparse_format,
+                              output_class=False,
+                              threshold=0.5,
+                              predict_proba=False):
+        out_type = self._get_output_type(X)
+        cdef ModelHandle cuml_model_ptr = NULL
+        _, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, order='F',
+                                check_cols=self.n_cols)
 
+        if dtype == np.float64 and not convert_dtype:
+            raise TypeError("GPU based predict only accepts np.float32 data. \
+                            Please set convert_dtype=True to convert the test \
+                            data to the same dtype as the data used to train, \
+                            ie. np.float32. If you would like to use test \
+                            data of dtype=np.float64 please set \
+                            predict_model='CPU' to use the CPU implementation \
+                            of predict.")
+
+        self._obtain_treelite_handle()
+        storage_type = \
+            _check_fil_parameter_validity(depth=self.max_depth,
+                                          fil_sparse_format=fil_sparse_format,
+                                          algo=algo)
+
+        fil_model = ForestInference()
+        tl_to_fil_model = \
+            fil_model.load_from_randomforest(self.treelite_handle,
+                                             output_class=output_class,
+                                             threshold=threshold,
+                                             algo=algo,
+                                             storage_type=storage_type)
+
+        preds = tl_to_fil_model.predict(X, output_type=out_type,
+                                        predict_proba=predict_proba)
+        tl.free_treelite_model(self.treelite_handle)
+        return preds
+    """
+   
     def _tl_model_handles(self, model_bytes):
         cdef ModelHandle cuml_model_ptr = NULL
-        meta = <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
-        task_category = CLASSIFICATION_MODEL
-        build_treelite_forest(& cuml_model_ptr,
-                              meta,
-                              <int> self.n_cols,
-                              <int> task_category,
-                              <vector[unsigned char] &> model_bytes)
+        if self.RF_type == CLASSIFICATION:
+            build_treelite_forest(
+                & cuml_model_ptr,
+                <RandomForestMetaData[float, int]*><size_t> self.rf_forest,
+                <int> self.n_cols,
+                <int> self.num_classes,
+                <vector[unsigned char] &> model_bytes)
+        else:
+            build_treelite_forest(
+                & cuml_model_ptr,
+                <RandomForestMetaData[float, float]*><size_t> self.rf_forest,
+                <int> self.n_cols,
+                <int> 1,
+                <vector[unsigned char] &> model_bytes)
         mod_handle = <uintptr_t> cuml_model_ptr
 
         return ctypes.c_void_p(mod_handle).value
+
 
     def _concatenate_treelite_handle(self, treelite_handle):
         cdef ModelHandle concat_model_handle = NULL
@@ -292,11 +311,11 @@ class BaseRandomForestModel(Base):
             mod_ptr = <uintptr_t>i
             model_handles.push_back((
                 <ModelHandle> mod_ptr))
-
+        print(" run the concat c++ func")
         concat_model_handle = concatenate_trees(deref(model_handles))
-
         cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
         self.treelite_handle = concat_model_ptr
+        print(" treelite handle in concat : ", self.treelite_handle)
         cdef vector[unsigned char] pbuf_mod_info = \
             save_model(<ModelHandle> concat_model_ptr)
         cdef unsigned char[::1] pbuf_mod_view = \
@@ -304,7 +323,8 @@ class BaseRandomForestModel(Base):
         self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
         return self
 
-    def _predict_model_on_gpu(self, model, X, algo, convert_dtype,
+    
+    def _predict_model_on_gpu(self, X, algo, convert_dtype,
                               fil_sparse_format, threshold=0.5,
                               output_class=False, predict_proba=False):
         out_type = self._get_output_type(X)
@@ -339,8 +359,9 @@ class BaseRandomForestModel(Base):
         preds = tl_to_fil_model.predict(X, output_type=out_type,
                                         predict_proba=predict_proba)
         tl.free_treelite_model(self.treelite_handle)
+        self.treelite_handle = None
         return preds
-
+    
     def _get_params(self, model, deep):
         params = dict()
         for key in model.variables:
@@ -362,12 +383,6 @@ class BaseRandomForestModel(Base):
             else:
                 setattr(self, key, value)
         return self
-
-    def _get_protobuf_bytes_common(self, model):
-        fit_mod_ptr = model._obtain_treelite_handle()
-        cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
-        model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
-        return model_protobuf_bytes
 
 
 def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
@@ -397,7 +412,6 @@ def _check_fil_sparse_format_value(fil_sparse_format):
                          "to see the accepted values.")
     else:
         storage_format = 'sparse'
-
     return storage_format
 
 
@@ -429,7 +443,6 @@ def _obtain_fil_model(treelite_handle, depth,
         A Forest Inference model which can be used to perform
         inferencing on the random forest model.
     """
-
     storage_format = \
         _check_fil_parameter_validity(depth=depth,
                                       fil_sparse_format=fil_sparse_format,

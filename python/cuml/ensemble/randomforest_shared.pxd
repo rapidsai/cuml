@@ -111,28 +111,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         ctypedef TreeMetaDataNode[T, L]* trees
         RF_params rf_params
 
-
-    ctypedef fused fused_rf_meta:
-       RandomForestMetaData[float, float]
-       #RandomForestMetaData[double, double]
-       RandomForestMetaData[float, int]
-       #RandomForestMetaData[double, int]
-
-    ctypedef fused X_dtype:
-        cython.float
-        cython.double
-
-    ctypedef fused y_dtype:
-        cython.int
-        cython.float
-        cython.double
-
-    cpdef fused_rf_meta *meta
-
-    cdef RandomForestMetaData[T, L]* create_meta[T, L](T a, L b)
-    #cdef fused_rf_meta *meta
-    #fused_rf_meta = cython.fused(RandomForestRegressorF, RandomForestRegressorD,
-    #                             RandomForestClassifierF, RandomForestClassifierD)
     #
     # Treelite handling
     #
