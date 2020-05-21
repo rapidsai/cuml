@@ -45,6 +45,7 @@ def _preprocess(doc, lower=False, remove_punctuation=False, delimiter=' '):
     if remove_punctuation:
         punctuation_list = Series(list(punctuation))._column.nvstrings
         doc = doc.replace_multi(punctuation_list, delimiter, regex=False)
+    doc = nvtext.normalize_spaces(doc)
     return doc
 
 
@@ -59,7 +60,7 @@ class _VectorizerMixin:
         min_n += 1
 
         ngrams_list = [nvtext.ngrams_tokenize(tokens, N=n, sep=' ')
-                       for n in range(min_n, min(max_n + 1, len(tokens) + 1))]
+                       for n in range(min_n, max_n + 1)]
         ngrams = ngrams.add_strings(ngrams_list)
 
         return ngrams
