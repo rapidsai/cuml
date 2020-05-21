@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <sparse/coo.h>
 #include <cuml/cuml.hpp>
 
 namespace ML {

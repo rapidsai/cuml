@@ -234,18 +234,27 @@ void null_trees_ptr(RandomForestMetaData<T, L>*& forest) {
   forest->trees = nullptr;
 }
 
+/**
+ * @brief Deletes RandomForestMetaData object
+ * @param[in] forest: CPU pointer to RandomForestMetaData.
+ */
+template <class T, class L>
+void delete_rf_metadata(RandomForestMetaData<T, L>* forest) {
+  delete forest;
+}
+
 template <class T, class L>
 void _print_rf(const RandomForestMetaData<T, L>* forest, bool summary) {
   ML::PatternSetter _("%v");
   if (!forest || !forest->trees) {
-    CUML_LOG_DEBUG("Empty forest");
+    CUML_LOG_INFO("Empty forest");
   } else {
-    CUML_LOG_DEBUG("Forest has %d trees, max_depth %d, and max_leaves %d",
-                   forest->rf_params.n_trees,
-                   forest->rf_params.tree_params.max_depth,
-                   forest->rf_params.tree_params.max_leaves);
+    CUML_LOG_INFO("Forest has %d trees, max_depth %d, and max_leaves %d",
+                  forest->rf_params.n_trees,
+                  forest->rf_params.tree_params.max_depth,
+                  forest->rf_params.tree_params.max_leaves);
     for (int i = 0; i < forest->rf_params.n_trees; i++) {
-      CUML_LOG_DEBUG("Tree #%d", i);
+      CUML_LOG_INFO("Tree #%d", i);
       if (summary) {
         DecisionTree::print_tree_summary<T, L>(&(forest->trees[i]));
       } else {
@@ -806,6 +815,12 @@ template void null_trees_ptr<float, int>(RandomForestClassifierF*& forest);
 template void null_trees_ptr<double, int>(RandomForestClassifierD*& forest);
 template void null_trees_ptr<float, float>(RandomForestRegressorF*& forest);
 template void null_trees_ptr<double, double>(RandomForestRegressorD*& forest);
+
+template void delete_rf_metadata<float, int>(RandomForestClassifierF* forest);
+template void delete_rf_metadata<double, int>(RandomForestClassifierD* forest);
+template void delete_rf_metadata<float, float>(RandomForestRegressorF* forest);
+template void delete_rf_metadata<double, double>(
+  RandomForestRegressorD* forest);
 
 template void build_treelite_forest<float, int>(
   ModelHandle* model, const RandomForestMetaData<float, int>* forest,

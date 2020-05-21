@@ -21,7 +21,7 @@ import warnings
 
 import numpy as np
 from cuml import ForestInference
-from cuml.fil.fil import TreeliteModel as tl
+from cuml.fil.fil import TreeliteModel
 from cuml.common.handle import Handle
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
@@ -114,6 +114,8 @@ class BaseRandomForestModel(Base):
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = handle.getNumInternalStreams()
         self.seed = seed
+        self.rf_forest = 0
+        self.rf_forest64 = 0
         self.model_pbuf_bytes = bytearray()
         self.treelite_handle = None
 
@@ -342,7 +344,7 @@ class BaseRandomForestModel(Base):
                             predict_model='CPU' to use the CPU implementation \
                             of predict.")
 
-        self._obtain_treelite_handle()
+        treelite_handle = self._obtain_treelite_handle()
         storage_type = \
             _check_fil_parameter_validity(depth=self.max_depth,
                                           fil_sparse_format=fil_sparse_format,
@@ -350,7 +352,7 @@ class BaseRandomForestModel(Base):
 
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(self.treelite_handle,
+            fil_model.load_from_randomforest(treelite_handle,
                                              output_class=output_class,
                                              threshold=threshold,
                                              algo=algo,
@@ -358,8 +360,6 @@ class BaseRandomForestModel(Base):
 
         preds = tl_to_fil_model.predict(X, output_type=out_type,
                                         predict_proba=predict_proba)
-        tl.free_treelite_model(self.treelite_handle)
-        self.treelite_handle = None
         return preds
     
     def _get_params(self, model, deep):
@@ -425,7 +425,7 @@ def _obtain_treelite_model(treelite_handle):
     tl_to_fil_model : Treelite version of this model
     """
     treelite_model = \
-        tl.from_treelite_model_handle(treelite_handle)
+        TreeliteModel.from_treelite_model_handle(treelite_handle)
     return treelite_model
 
 

@@ -25,6 +25,9 @@ from cython.operator cimport dereference as deref
 from libcpp cimport bool
 from libc.stdlib cimport malloc, free
 
+import cuml.common.logger as logger
+
+
 cdef extern from "cuML_comms_py.hpp" namespace "ML":
     void get_unique_id(char *uid, int size) except +
     void ncclUniqueIdFromChar(ncclUniqueId *id,
@@ -142,7 +145,7 @@ cdef class nccl:
         if result != ncclSuccess:
             with nogil:
                 err_str = ncclGetErrorString(result)
-            print("NCCL_ERROR: %s" % err_str)
+            logger.error("NCCL_ERROR: %s" % err_str)
 
     def destroy(self):
         """
@@ -158,7 +161,7 @@ cdef class nccl:
             if result != ncclSuccess:
                 with nogil:
                     err_str = ncclGetErrorString(result)
-                print("NCCL_ERROR: %s" % err_str)
+                logger.error("NCCL_ERROR: %s" % err_str)
 
             free(self.comm)
             self.comm = NULL
@@ -176,7 +179,7 @@ cdef class nccl:
             if result != ncclSuccess:
                 with nogil:
                     err_str = ncclGetErrorString(result)
-                print("NCCL_ERROR: %s" % err_str)
+                logger.error("NCCL_ERROR: %s" % err_str)
             free(comm_)
             self.comm = NULL
 
@@ -195,7 +198,7 @@ cdef class nccl:
         if result != ncclSuccess:
             with nogil:
                 err_str = ncclGetErrorString(result)
-            print("NCCL_ERROR: %s" % err_str)
+            logger.error("NCCL_ERROR: %s" % err_str)
 
         ret = dev[0]
         free(dev)
@@ -218,7 +221,7 @@ cdef class nccl:
         if result != ncclSuccess:
             with nogil:
                 err_str = ncclGetErrorString(result)
-            print("NCCL_ERROR: %s" % err_str)
+            logger.error("NCCL_ERROR: %s" % err_str)
 
         ret = rank[0]
         free(rank)

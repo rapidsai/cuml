@@ -56,7 +56,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
                           n_features=ncols,
                           centers=nclusters,
                           n_parts=n_parts,
-                          cluster_std=0.01, verbose=False,
+                          cluster_std=0.01,
                           random_state=10)
 
         wait(X)
@@ -66,7 +66,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
         elif input_type == "array":
             X_train, y_train = X, y
 
-        cumlModel = cumlKMeans(verbose=0, init="k-means||",
+        cumlModel = cumlKMeans(init="k-means||",
                                n_clusters=nclusters,
                                random_state=10)
 
@@ -130,7 +130,6 @@ def test_transform(nrows, ncols, nclusters, n_parts, input_type, cluster):
                           centers=nclusters,
                           n_parts=n_parts,
                           cluster_std=0.01,
-                          verbose=False,
                           shuffle=False,
                           random_state=10)
         y = y.astype('int64')
@@ -144,7 +143,7 @@ def test_transform(nrows, ncols, nclusters, n_parts, input_type, cluster):
             X_train, y_train = X, y
             labels = cp.squeeze(y_train.compute())
 
-        cumlModel = cumlKMeans(verbose=0, init="k-means||",
+        cumlModel = cumlKMeans(init="k-means||",
                                n_clusters=nclusters,
                                random_state=10)
 
@@ -199,7 +198,7 @@ def test_score(nrows, ncols, nclusters, n_parts, input_type, cluster):
                           n_features=ncols,
                           centers=nclusters,
                           n_parts=n_parts,
-                          cluster_std=0.01, verbose=False,
+                          cluster_std=0.01,
                           shuffle=False,
                           random_state=10)
 
@@ -211,7 +210,7 @@ def test_score(nrows, ncols, nclusters, n_parts, input_type, cluster):
         elif input_type == "array":
             X_train, y_train = X, y
 
-        cumlModel = cumlKMeans(verbose=0, init="k-means||",
+        cumlModel = cumlKMeans(init="k-means||",
                                n_clusters=nclusters,
                                random_state=10)
 

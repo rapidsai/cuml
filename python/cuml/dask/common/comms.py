@@ -22,6 +22,7 @@ from .comms_utils import inject_comms_on_handle, \
     inject_comms_on_handle_coll_only, is_ucx_enabled
 from .utils import parse_host_port
 from cuml.common.handle import Handle
+import cuml.common.logger as logger
 
 from dask.distributed import get_worker, default_client
 
@@ -115,44 +116,42 @@ def _func_ucp_listener_port():
 
 
 async def _func_init_all(sessionId, uniqueId, comms_p2p,
-                         worker_info, verbose, streams_per_handle):
+                         worker_info, streams_per_handle):
 
     session_state = worker_state(sessionId)
     session_state["nccl_uid"] = uniqueId
     session_state["wid"] = worker_info[get_worker().address]["rank"]
     session_state["nworkers"] = len(worker_info)
 
-    if verbose:
-        print("Initializing NCCL")
+    if logger.should_log_for(logger.LEVEL_DEBUG):
+        logger.debug("Initializing NCCL")
         start = time.time()
 
     _func_init_nccl(sessionId, uniqueId)
 
-    if verbose:
+    if logger.should_log_for(logger.LEVEL_DEBUG):
         elapsed = time.time() - start
-        print("NCCL Initialization took: %f seconds." % elapsed)
+        logger.debug("NCCL Initialization took: %f seconds." % elapsed)
 
     if comms_p2p:
-        if verbose:
-            print("Initializing UCX Endpoints")
+        logger.debug("Initializing UCX Endpoints")
 
-        if verbose:
+        if logger.should_log_for(logger.LEVEL_DEBUG):
             start = time.time()
         await _func_ucp_create_endpoints(sessionId, worker_info)
 
-        if verbose:
+        if logger.should_log_for(logger.LEVEL_DEBUG):
             elapsed = time.time() - start
-            print("Done initializing UCX endpoints. Took: %f seconds." %
-                  elapsed)
-            print("Building handle")
+            logger.debug("Done initializing UCX endpoints. Took: %f seconds." %
+                         elapsed)
+            logger.debug("Building handle")
 
-        _func_build_handle_p2p(sessionId, streams_per_handle, verbose)
+        _func_build_handle_p2p(sessionId, streams_per_handle)
 
-        if verbose:
-            print("Done building handle.")
+        logger.debug("Done building handle.")
 
     else:
-        _func_build_handle(sessionId, streams_per_handle, verbose)
+        _func_build_handle(sessionId, streams_per_handle)
 
 
 def _func_init_nccl(sessionId, uniqueId):
@@ -172,10 +171,10 @@ def _func_init_nccl(sessionId, uniqueId):
         n.init(nWorkers, uniqueId, wid)
         worker_state(sessionId)["nccl"] = n
     except Exception:
-        print("An error occurred initializing NCCL!")
+        logger.error("An error occurred initializing NCCL!")
 
 
-def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
+def _func_build_handle_p2p(sessionId, streams_per_handle):
     """
     Builds a cumlHandle on the current worker given the initialized comms
     :param nccl_comm: ncclComm_t Initialized NCCL comm
@@ -194,12 +193,12 @@ def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
     workerId = session_state["wid"]
 
     inject_comms_on_handle(handle, nccl_comm, ucp_worker, eps,
-                           nWorkers, workerId, verbose)
+                           nWorkers, workerId)
 
     worker_state(sessionId)["handle"] = handle
 
 
-def _func_build_handle(sessionId, streams_per_handle, verbose):
+def _func_build_handle(sessionId, streams_per_handle):
     """
     Builds a cumlHandle on the current worker given the initialized comms
     :param nccl_comm: ncclComm_t Initialized NCCL comm
@@ -216,7 +215,7 @@ def _func_build_handle(sessionId, streams_per_handle, verbose):
 
     nccl_comm = session_state["nccl"]
     inject_comms_on_handle_coll_only(handle, nccl_comm, nWorkers,
-                                     workerId, verbose)
+                                     workerId)
     session_state["handle"] = handle
 
 
@@ -253,7 +252,7 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     worker_state(sessionId)["ucp_eps"] = eps
 
 
-async def _func_destroy_all(sessionId, comms_p2p, verbose=False):
+async def _func_destroy_all(sessionId, comms_p2p):
     worker_state(sessionId)["nccl"].destroy()
     del worker_state(sessionId)["nccl"]
     del worker_state(sessionId)["handle"]
@@ -283,8 +282,7 @@ class CommsContext:
     This class is not meant to be thread-safe.
     """
 
-    def __init__(self, comms_p2p=False, client=None, verbose=False,
-                 streams_per_handle=0):
+    def __init__(self, comms_p2p=False, client=None, streams_per_handle=0):
         """
         Construct a new CommsContext instance
         :param comms_p2p: bool Should p2p comms be initialized?
@@ -299,15 +297,12 @@ class CommsContext:
         self.nccl_initialized = False
         self.ucx_initialized = False
 
-        self.verbose = verbose
-
         if comms_p2p and (not is_ucx_enabled() or not has_ucp()):
             warnings.warn("ucx-py not found. UCP Integration will "
                           "be disabled.")
             self.comms_p2p = False
 
-        if verbose:
-            print("Initializing comms!")
+        logger.debug("Initializing comms!")
 
     def __del__(self):
         if self.nccl_initialized or self.ucx_initialized:
@@ -352,7 +347,6 @@ class CommsContext:
                         self.uniqueId,
                         self.comms_p2p,
                         worker_info,
-                        self.verbose,
                         self.streams_per_handle,
                         workers=self.worker_addresses,
                         wait=True)
@@ -362,8 +356,7 @@ class CommsContext:
         if self.comms_p2p:
             self.ucx_initialized = True
 
-        if self.verbose:
-            print("Initialization complete.")
+        logger.debug("Initialization complete.")
 
     def destroy(self):
         """
@@ -372,12 +365,10 @@ class CommsContext:
         self.client.run(_func_destroy_all,
                         self.sessionId,
                         self.comms_p2p,
-                        self.verbose,
                         wait=True,
                         workers=self.worker_addresses)
 
-        if self.verbose:
-            print("Destroying comms.")
+        logger.debug("Destroying comms.")
 
         self.nccl_initialized = False
         self.ucx_initialized = False
