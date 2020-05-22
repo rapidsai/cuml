@@ -222,3 +222,31 @@ class KNeighborsClassifier(NearestNeighbors):
         out_i = to_output(out_i_futures, self.datatype)
         out_d = to_output(out_d_futures, self.datatype)
         return out, out_i, out_d
+
+    def score(self, X, y):
+        """
+        Predict labels for a query from previously stored index
+        and index labels.
+        The process is done in a multi-node multi-GPU fashion.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Query test data.
+            Acceptable formats: dask cuDF, dask CuPy/NumPy/Numba Array
+
+        y : array-like (device or host) shape = (n_samples, n_features)
+            Labels test data.
+            Acceptable formats: dask cuDF, dask CuPy/NumPy/Numba Array
+
+        Returns
+        -------
+        score
+        """
+        labels, _, _ = self.predict(X, convert_dtype=True)
+        diff = (labels == y)
+        if self.data_handler.datatype == 'cupy':
+            mean = da.mean(diff)
+        else:
+            mean = diff.sum(axis=1).sum() / diff.size
+        return mean.compute()
