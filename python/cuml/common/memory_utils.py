@@ -127,6 +127,9 @@ def _rmm_cupy6_array_like(ary, order):
 
 
 def _strides_to_order(strides, dtype):
+    # cuda array interface specification
+    if strides is None:
+        return 'C'
     if strides[0] == dtype.itemsize or len(strides) == 1:
         return 'F'
     elif strides[1] == dtype.itemsize:
@@ -173,6 +176,57 @@ def _get_size_from_shape(shape, dtype):
     else:
         raise ValueError("Shape must be int or tuple of ints.")
     return (size, shape)
+
+
+def _check_array_contiguity(ary):
+    """
+    Check if array-like ary is contioguous.
+
+    Parameters
+    ----------
+    ary: __cuda_array_interface__ or __array_interface__ compliant array.
+    """
+
+    if hasattr(ary, 'ndim'):
+        if ary.ndim == 1:
+            return True
+
+    # Use contiguity flags if present
+    if hasattr(ary, 'flags'):
+        if ary.flags['C_CONTIGUOUS'] or ary.flags['F_CONTIGUOUS']:
+            return True
+        else:
+            return False
+
+    # Check contiguity from shape and strides if not
+    else:
+        if hasattr(ary, "__array_interface__"):
+            ary_interface = ary.__array_interface__
+
+        elif hasattr(ary, "__cuda_array_interface__"):
+            ary_interface = ary.__cuda_array_interface__
+
+        else:
+            raise TypeError("No array_interface attribute detected in input. ")
+
+        shape = ary_interface['shape']
+        strides = ary_interface['strides']
+        dtype = cp.dtype(ary_interface['typestr'])
+        order = _strides_to_order(strides, dtype)
+        itemsize = cp.dtype(dtype).itemsize
+
+        # We check if the strides jump on the non contiguous dimension
+        # does not correspond to the array dimension size, which indicates
+        # this is a view to a non contiguous array.
+        if order == 'F':
+            if (shape[0] * itemsize) != strides[1]:
+                return False
+
+        elif order == 'C':
+            if (shape[1] * itemsize) != strides[0]:
+                return False
+
+        return True
 
 
 def set_global_output_type(output_type):

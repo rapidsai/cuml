@@ -19,11 +19,12 @@ import cudf
 import cupy as cp
 import numpy as np
 import pandas as pd
-import warnings
 
 from collections import namedtuple
 from cuml.common import CumlArray
-from cuml.common import rmm_cupy_ary
+from cuml.common.logger import warn
+from cuml.common.memory_utils import with_cupy_rmm
+from cuml.common.memory_utils import _check_array_contiguity
 from numba import cuda
 
 
@@ -54,10 +55,11 @@ def get_cudf_column_ptr(col):
     return col.__cuda_array_interface__['data'][0]
 
 
+@with_cupy_rmm
 def input_to_cuml_array(X, order='F', deepcopy=False,
                         check_dtype=False, convert_to_dtype=False,
                         check_cols=False, check_rows=False,
-                        fail_on_order=False):
+                        fail_on_order=False, force_contiguous=True):
     """
     Convert input X to CumlArray.
 
@@ -74,8 +76,9 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
     Parameters
     ----------
 
-    X : cuDF.DataFrame, cuDF.Series, numba array, NumPy array or any
-        cuda_array_interface compliant array like CuPy or pytorch.
+    X : cuDF.DataFrame, cuDF.Series, NumPy array, Pandas DataFrame, Pandas
+        Series or any cuda_array_interface (CAI) compliant array like CuPy,
+        Numba or pytorch.
 
     order: 'F', 'C' or 'K' (default: 'F')
         Whether to return a F-major ('F'),  C-major ('C') array or Keep ('K')
@@ -105,6 +108,14 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
         Set to True if you want the method to raise a ValueError if X is not
         of order `order`.
 
+    force_contiguous: boolean (default: True)
+        Set to True to force CumlArray produced to be contiguous. If `X` is
+        non contiguous then a contiguous copy will be done.
+        If False, and `X` doesn't need to be converted and is not contiguous,
+        the underlying memory underneath the CumlArray will be non contiguous.
+        Only affects CAI inputs. Only affects CuPy and Numba device array
+        views, all other input methods produce contiguous CumlArrays.
+
     Returns
     -------
     `cuml_array`: namedtuple('cuml_array', 'array n_rows n_cols dtype')
@@ -123,8 +134,8 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
 
     if (isinstance(X, cudf.Series)):
         if X.null_count != 0:
-            raise ValueError("Error: cuDF Series has missing/null values, " +
-                             " which are not supported by cuML.")
+            raise ValueError("Error: cuDF Series has missing/null values, \
+                             which are not supported by cuML.")
 
     # converting pandas to numpy before sending it to CumlArray
     if isinstance(X, pd.DataFrame) or isinstance(X, pd.Series):
@@ -142,6 +153,13 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
 
     elif hasattr(X, "__array_interface__") or \
             hasattr(X, "__cuda_array_interface__"):
+
+        if force_contiguous or hasattr(X, "__array_interface__"):
+            if not _check_array_contiguity(X):
+                warn("Non contiguous array or view detected, a \
+                     contiguous copy of the data will be done. ")
+                X = cp.array(X, order=order, copy=True)
+
         X_m = CumlArray(data=X)
 
         if deepcopy:
@@ -192,10 +210,10 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
             raise ValueError("Expected " + order_to_str(order) +
                              " major order, but got the opposite.")
         else:
-            warnings.warn("Expected " + order_to_str(order) + " major order, "
-                          "but got the opposite. Converting data, this will "
-                          "result in additional memory utilization.")
-            X_m = rmm_cupy_ary(cp.array, X_m, copy=False, order=order)
+            warn("Expected " + order_to_str(order) + " major order, "
+                 "but got the opposite. Converting data, this will "
+                 "result in additional memory utilization.")
+            X_m = cp.array(X_m, copy=False, order=order)
             X_m = CumlArray(data=X_m)
 
     return cuml_array(array=X_m, n_rows=n_rows, n_cols=n_cols, dtype=X_m.dtype)
@@ -363,6 +381,7 @@ def input_to_dev_array(X, order='F', deepcopy=False,
                      dtype=ary_tuple.dtype)
 
 
+@with_cupy_rmm
 def convert_dtype(X, to_dtype=np.float32, legacy=True):
     """
     Convert X to be of dtype `dtype`
@@ -384,8 +403,9 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True):
         return X.astype(to_dtype, copy=False)
 
     elif cuda.is_cuda_array(X):
-        X_m = rmm_cupy_ary(cp.asarray, X)
+        X_m = cp.asarray(X)
         X_m = X_m.astype(to_dtype, copy=False)
+
         if legacy:
             return cuda.as_cuda_array(X_m)
         else:
@@ -395,13 +415,6 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True):
         raise TypeError("Received unsupported input type: %s" % type(X))
 
     return X
-
-
-def check_numba_order(dev_ary, order):
-    if order == 'F':
-        return dev_ary.is_f_contiguous()
-    elif order == 'C':
-        return dev_ary.is_c_contiguous()
 
 
 def order_to_str(order):
