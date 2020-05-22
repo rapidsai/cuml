@@ -99,9 +99,13 @@
 - PR #2257: Update QN and LogisticRegression to use CumlArray
 - PR #2259: Add CumlArray support to Naive Bayes
 - PR #2252: Add benchmark for the Gram matrix prims
+- PR #2269: Add docs targets to build.sh and fix python cuml.common docs
 - PR #2271: Clarify doc for `_unique` default implementation in OneHotEncoder
 - PR #2272: Add docs build.sh script to repository
 - PR #2276: Ensure `CumlArray` provided `dtype` conforms
+- PR #2281: Rely on cuDF's `Serializable` in `CumlArray`
+- PR #2284: Reduce dataset size in SG RF notebook to reduce run time of sklearn
+- PR #2285: Increase the threshold for elastic_net test in dask/test_coordinate_descent
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -139,6 +143,7 @@
 - PR #2183: Fix RAFT in nightly package
 - PR #2191: Fix placement of SVM parameter documentation and add examples
 - PR #2212: Fix DBScan results (no propagation of labels through border points)
+- PR #2215: Fix the printing of forest object
 - PR #2217: Fix opg_utils naming to fix singlegpu build
 - PR #2223: Fix bug in ARIMA C++ benchmark
 - PR #2224: Temporary fix for CI until new Dask version is released
@@ -146,8 +151,12 @@
 - PR #2249: Fix bug in UMAP continuous target metrics
 - PR #2258: Fix doxygen build break
 - PR #2255: Set random_state for train_test_split function in dask RF
+- PR #2275: Fix RF fit memory leak
 - PR #2274: Fix parameter name verbose to verbosity in mnmg OneHotEncoder
 - PR #2277: Updated cub repo path and branch name
+- PR #2282: Fix memory leak in Dask RF concatenation
+- PR #2293: Contiguity fixes for input_to_cuml_array and train_test_split
+- PR #2295: Fix convert_to_dtype copy even with same dtype
 
 # cuML 0.13.0 (Date TBD)
 
