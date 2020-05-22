@@ -79,9 +79,13 @@ cdef class TreeliteModel():
         Opaque pointer to Treelite model
     """
     cpdef ModelHandle handle
+    cpdef bool owns_handle
 
-    def __cinit__(self):
+    def __cinit__(self, owns_handle=True):
+        """If owns_handle is True, free the handle's model in destructor.
+        Set this to False if another owner will free the model."""
         self.handle = <ModelHandle>NULL
+        self.owns_handle = owns_handle
 
     cdef set_handle(self, ModelHandle new_handle):
         self.handle = new_handle
@@ -90,7 +94,7 @@ cdef class TreeliteModel():
         return self.handle
 
     def __dealloc__(self):
-        if self.handle != NULL:
+        if self.handle != NULL and self.owns_handle:
             TreeliteFreeModel(self.handle)
 
     @property
@@ -150,9 +154,10 @@ cdef class TreeliteModel():
         return model
 
     @staticmethod
-    def from_treelite_model_handle(treelite_handle):
+    def from_treelite_model_handle(treelite_handle,
+                                   take_handle_ownership=False):
         cdef ModelHandle handle = <ModelHandle> <size_t> treelite_handle
-        model = TreeliteModel()
+        model = TreeliteModel(owns_handle=take_handle_ownership)
         model.set_handle(handle)
         return model
 
