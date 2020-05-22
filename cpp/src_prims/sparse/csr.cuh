@@ -739,8 +739,12 @@ __global__ void weak_cc_label_device(Index_ *labels, const Index_ *row_ind,
             atomicMin((int *)(labels + j_ind), ci);
           else if (sizeof(Index_) == 8)
             atomicMin((long long int *)(labels + j_ind), ci);
-          xa[j_ind] = cj_allow_prop;
-          m[0] = cj_allow_prop;
+          ///@todo it may be worth it to use an atomic op here such as
+          // atomicLogicalOr(xa + j_ind, cj_allow_prop);
+          // Same can be done for m : atomicLogicalOr(m, cj_allow_prop);
+          // Both can be done below for xa[global_id] / ci_allow_prop, too.
+          xa[j_ind] = true;
+          m[0] = true;
         } else if (ci > cj && cj_allow_prop) {
           ci = cj;
           ci_mod = true;
@@ -751,8 +755,8 @@ __global__ void weak_cc_label_device(Index_ *labels, const Index_ *row_ind,
           atomicMin((int *)(labels + global_id), ci);
         else if (sizeof(Index_) == 8)
           atomicMin((long long int *)(labels + global_id), ci);
-        xa[global_id] = ci_allow_prop;
-        m[0] = ci_allow_prop;
+        xa[global_id] = true;
+        m[0] = true;
       }
     }
   }
