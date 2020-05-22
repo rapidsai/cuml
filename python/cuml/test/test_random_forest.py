@@ -26,6 +26,7 @@ from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.metrics import r2_score
 from cuml.test.utils import get_handle, unit_param, \
     quality_param, stress_param
+import cuml.common.logger as logger
 
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
@@ -443,7 +444,6 @@ def test_rf_classification_sparse(small_clf, datatype,
         tl_model = cuml_model.convert_to_treelite_model()
         assert num_treees == tl_model.num_trees
         assert X.shape[1] == tl_model.num_features
-        del tl_model
 
         if X.shape[0] < 500000:
             sk_model = skrfc(n_estimators=50,
@@ -509,7 +509,6 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
         tl_model = cuml_model.convert_to_treelite_model()
         assert num_treees == tl_model.num_trees
         assert X.shape[1] == tl_model.num_features
-        del tl_model
 
         # Initialize, fit and predict using
         # sklearn's random forest regression model
@@ -689,6 +688,51 @@ def test_rf_classification_proba(small_clf, datatype,
         assert fil_mse <= (sk_mse + 0.0061)
 
 
+@pytest.mark.parametrize('n_estimators', [5, 10, 20])
+@pytest.mark.parametrize('detailed_printing', [True, False])
+def test_rf_printing(capfd, n_estimators, detailed_printing):
+
+    X, y = make_classification(n_samples=500, n_features=10,
+                               n_clusters_per_class=1, n_informative=5,
+                               random_state=94929, n_classes=2)
+
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+
+    # Create a handle for the cuml model
+    handle, stream = get_handle(True, n_streams=1)
+
+    # Initialize cuML Random Forest classification model
+    cuml_model = curfc(handle=handle, max_features=1.0, rows_sample=1.0,
+                       n_bins=16, split_algo=0, split_criterion=0,
+                       min_rows_per_node=2, seed=23707, n_streams=1,
+                       n_estimators=n_estimators, max_leaves=-1,
+                       max_depth=16)
+
+    # Train model on the data
+    cuml_model.fit(X, y)
+
+    if detailed_printing:
+        cuml_model.print_detailed()
+    else:
+        cuml_model.print_summary()
+
+    # Read the captured output
+    printed_output = capfd.readouterr().out
+
+    # Test 1: Output is non-zero
+    assert '' != printed_output
+
+    # Count the number of trees printed
+    tree_count = 0
+    for line in printed_output.split('\n'):
+        if line.strip().startswith('Tree #'):
+            tree_count += 1
+
+    # Test 2: Correct number of trees are printed
+    assert n_estimators == tree_count
+
+
 @pytest.mark.memleak
 @pytest.mark.parametrize('estimator_type', ['classification'])
 def test_rf_host_memory_leak(large_clf, estimator_type):
@@ -730,3 +774,63 @@ def test_rf_host_memory_leak(large_clf, estimator_type):
     # Some tiny allocations may occur, but we shuld not leak
     # without bounds, which previously happened
     assert (final_mem - initial_baseline_mem) < 2e6
+
+
+@pytest.mark.memleak
+@pytest.mark.parametrize('estimator_type', ['regression', 'classification'])
+def test_concat_memory_leak(large_clf, estimator_type):
+    import gc
+    import os
+
+    try:
+        import psutil
+    except ImportError:
+        pytest.skip("psutil not installed")
+
+    process = psutil.Process(os.getpid())
+
+    X, y = large_clf
+    X = X.astype(np.float32)
+
+    # Build a series of RF models
+    n_models = 10
+    if estimator_type == 'classification':
+        base_models = [curfc(max_depth=10,
+                             n_estimators=100,
+                             seed=123) for i in range(n_models)]
+        y = y.astype(np.int32)
+    elif estimator_type == 'regression':
+        base_models = [curfr(max_depth=10,
+                             n_estimators=100,
+                             seed=123) for i in range(n_models)]
+        y = y.astype(np.float32)
+    else:
+        assert False
+
+    # Pre-fit once - this is our baseline and memory usage
+    # should not significantly exceed it after later fits
+    for model in base_models:
+        model.fit(X, y)
+
+    # Just concatenate over and over in a loop
+    concat_models = base_models[1:]
+    init_model = base_models[0]
+    other_handles = [
+        model._obtain_treelite_handle() for model in concat_models
+    ]
+    init_model._concatenate_treelite_handle(other_handles)
+
+    gc.collect()
+    initial_baseline_mem = process.memory_info().rss
+    for i in range(10):
+        init_model._concatenate_treelite_handle(other_handles)
+        gc.collect()
+        used_mem = process.memory_info().rss
+        logger.debug("memory at rep %2d: %d m" % (
+                    i, (used_mem - initial_baseline_mem)/1e6))
+
+    gc.collect()
+    used_mem = process.memory_info().rss
+    logger.info("Final memory delta: %d" % (
+        (used_mem - initial_baseline_mem)/1e6))
+    assert (used_mem - initial_baseline_mem) < 1e6
