@@ -28,19 +28,10 @@ from uuid import uuid1
 import numpy as np
 
 
-def _func_get_o(f, idx):
-    o, i, d = f
-    return o[idx]
-
-
-def _func_get_i(f, idx):
-    o, i, d = f
-    return i[idx]
-
-
-def _func_get_d(f, idx):
-    o, i, d = f
-    return d[idx]
+def _custom_getter(o):
+    def func_get(f, idx):
+        return f[o][idx]
+    return func_get
 
 
 class KNeighborsClassifier(NearestNeighbors):
@@ -213,17 +204,17 @@ class KNeighborsClassifier(NearestNeighbors):
         out_futures = flatten_grouped_results(self.client,
                                               query_parts_to_ranks,
                                               knn_clf_res,
-                                              getter_func=_func_get_o)
+                                              getter_func=_custom_getter(0))
 
         out_i_futures = flatten_grouped_results(self.client,
                                                 query_parts_to_ranks,
                                                 knn_clf_res,
-                                                getter_func=_func_get_i)
+                                                getter_func=_custom_getter(1))
 
         out_d_futures = flatten_grouped_results(self.client,
                                                 query_parts_to_ranks,
                                                 knn_clf_res,
-                                                getter_func=_func_get_d)
+                                                getter_func=_custom_getter(2))
 
         comms.destroy()
 
