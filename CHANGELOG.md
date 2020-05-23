@@ -5,6 +5,7 @@
 ## Improvements
 
 - PR #2308: Using fixture for Dask client to eliminate possiblity of not closing
+- PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
 
 ## Bug Fixes
 
