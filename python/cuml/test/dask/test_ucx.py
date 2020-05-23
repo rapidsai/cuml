@@ -14,7 +14,6 @@
 #
 from cuml.dask.common.ucx import UCX
 
-from dask.distributed import Client
 from dask.distributed import get_worker
 
 from cuml.dask.common.utils import parse_host_port

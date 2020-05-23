@@ -20,7 +20,7 @@ from cuml.test.utils import unit_param
 from cuml.test.utils import quality_param
 from cuml.test.utils import stress_param
 
-from dask.distributed import Client, wait
+from dask.distributed import wait
 
 from cuml.metrics import adjusted_rand_score
 from sklearn.metrics import adjusted_rand_score as sk_adjusted_rand_score

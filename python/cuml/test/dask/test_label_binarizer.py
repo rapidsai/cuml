@@ -15,7 +15,6 @@
 import pytest
 from cuml.dask.preprocessing import LabelBinarizer
 from cuml.test.utils import array_equal
-from dask.distributed import Client
 
 import dask
 import numpy as np
