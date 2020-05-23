@@ -20,7 +20,7 @@
 #include <cuda_utils.cuh>
 #include <iostream>
 #include <vector>
-#include "random/rng.h"
+#include "random/rng.cuh"
 
 #include "cuml/neighbors/knn.hpp"
 
