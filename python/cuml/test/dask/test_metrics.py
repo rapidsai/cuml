@@ -18,7 +18,6 @@ from itertools import chain, permutations
 import numpy as np
 import cupy as cp
 import pytest
-from dask.distributed import Client
 from sklearn.metrics import confusion_matrix as sk_confusion_matrix
 from cuml.test.utils import stress_param, generate_random_labels
 from cuml.dask.metrics import confusion_matrix

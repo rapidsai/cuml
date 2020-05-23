@@ -48,8 +48,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, r2_score, mean_squared_error
 from sklearn.ensemble import RandomForestClassifier as skrfc
 
-from dask.distributed import Client
-
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     workers = c.has_what().keys()
@@ -89,7 +87,7 @@ def test_rf_classification_dask_cudf(partitions_per_worker, client):
         'n_bins': 16,
     }
 
-    X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
+    X_train_df, y_train_df = _prep_training_data(client, X_train, y_train,
                                                  partitions_per_worker)
 
     cuml_mod = cuRFC_mg(**cu_rf_params)
@@ -122,7 +120,7 @@ def test_rf_regression_dask_fil(partitions_per_worker, client):
         'n_bins': 16,
     }
 
-    workers = c.has_what().keys()
+    workers = client.has_what().keys()
     n_partitions = partitions_per_worker * len(workers)
 
     X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
@@ -137,7 +135,7 @@ def test_rf_regression_dask_fil(partitions_per_worker, client):
         dask_cudf.from_cudf(X_cudf_test, npartitions=n_partitions)
 
     X_train_df, y_train_df = dask_utils.persist_across_workers(
-        c, [X_train_df, y_train_df], workers=workers)
+        client, [X_train_df, y_train_df], workers=workers)
 
     cuml_mod = cuRFR_mg(**cu_rf_params)
     cuml_mod.fit(X_train_df, y_train_df)
@@ -204,7 +202,7 @@ def test_rf_regression_dask_cpu(partitions_per_worker, client):
         'n_bins': 16,
     }
 
-    workers = c.has_what().keys()
+    workers = client.has_what().keys()
     n_partitions = partitions_per_worker * len(workers)
 
     X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
@@ -284,7 +282,7 @@ def test_rf_concatenation_dask(client, model_type):
     n_estimators = 40
     cu_rf_params = {'n_estimators': n_estimators}
 
-    X_df, y_df = _prep_training_data(c, X, y,
+    X_df, y_df = _prep_training_data(client, X, y,
                                      partitions_per_worker=2)
 
     if model_type == 'classification':

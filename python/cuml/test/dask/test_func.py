@@ -15,7 +15,6 @@
 #
 
 from dask import delayed
-from dask.distributed import Client
 import pytest
 
 from cuml.dask.common.func import reduce

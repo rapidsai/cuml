@@ -20,8 +20,6 @@ import dask.array as da
 import numpy as np
 import cupy as cp
 
-from dask.distributed import Client
-
 from cuml.dask.datasets.blobs import make_blobs
 from cuml.dask.common.input_utils import DistributedDataHandler
 

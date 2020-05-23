@@ -46,4 +46,3 @@ def ucx_client(ucx_cluster):
     client = Client(ucx_cluster)
     yield client
     client.close()
-

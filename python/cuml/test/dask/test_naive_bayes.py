@@ -15,7 +15,6 @@
 #
 
 
-from dask.distributed import Client
 from cuml.test.dask.utils import load_text_corpus
 
 from sklearn.metrics import accuracy_score

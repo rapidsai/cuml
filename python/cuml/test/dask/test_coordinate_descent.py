@@ -15,7 +15,7 @@
 
 import pytest
 
-from dask.distributed import Client, wait
+from dask.distributed import wait
 from cuml.dask.datasets import make_regression
 from cuml.dask.linear_model import ElasticNet
 from cuml.dask.linear_model import Lasso
@@ -42,7 +42,6 @@ import numpy as np
 def test_lasso(dtype, alpha, algorithm,
                nrows, column_info, n_parts, delayed, client):
     ncols, n_info = column_info
-
 
     X, y = make_regression(n_samples=nrows,
                            n_features=ncols,

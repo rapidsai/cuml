@@ -14,7 +14,6 @@
 #
 
 import pytest
-from dask.distributed import Client
 
 import cupy as cp
 import numpy as np

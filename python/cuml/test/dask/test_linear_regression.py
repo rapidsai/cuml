@@ -14,7 +14,6 @@
 #
 
 import pytest
-from dask.distributed import Client
 from cuml.dask.common import utils as dask_utils
 from sklearn.metrics import mean_squared_error
 from sklearn.datasets import make_regression

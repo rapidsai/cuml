@@ -17,7 +17,7 @@ import pytest
 
 import random
 
-from dask.distributed import Client, wait
+from dask.distributed import wait
 
 from cuml.dask.common.comms import CommsContext, worker_state, default_comms
 from cuml.dask.common import perform_test_comms_send_recv
@@ -114,10 +114,10 @@ def test_send_recv(n_trials, ucx_client):
         cb.init()
 
         dfs = [ucx_client.submit(func_test_send_recv,
-                             cb.sessionId,
-                             n_trials,
-                             random.random(),
-                             workers=[w])
+                                 cb.sessionId,
+                                 n_trials,
+                                 random.random(),
+                                 workers=[w])
                for w in cb.worker_addresses]
 
         wait(dfs, timeout=5)
@@ -139,11 +139,11 @@ def test_recv_any_rank(n_trials, ucx_client):
         cb = CommsContext(comms_p2p=True)
         cb.init()
 
-        dfs = [client.submit(func_test_recv_any_rank,
-                             cb.sessionId,
-                             n_trials,
-                             random.random(),
-                             workers=[w])
+        dfs = [ucx_client.submit(func_test_recv_any_rank,
+                                 cb.sessionId,
+                                 n_trials,
+                                 random.random(),
+                                 workers=[w])
                for w in cb.worker_addresses]
 
         wait(dfs, timeout=5)
