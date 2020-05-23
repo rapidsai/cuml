@@ -26,8 +26,8 @@
 #include <cuml/neighbors/knn.hpp>
 #include <metrics/trustworthiness.cuh>
 
-#include "linalg/reduce_rows_by_key.cuh"
 #include <cuml/datasets/make_blobs.hpp>
+#include "linalg/reduce_rows_by_key.cuh"
 
 #include "common/device_buffer.hpp"
 #include "umap/runner.cuh"
