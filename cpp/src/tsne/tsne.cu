@@ -17,9 +17,9 @@
 #include <common/cudart_utils.h>
 #include <cuml/manifold/tsne.h>
 #include <cuml/common/logger.hpp>
-#include "distances.h"
+#include "distances.cuh"
 #include "exact_kernels.cuh"
-#include "utils.h"
+#include "utils.cuh"
 
 #include "barnes_hut.cuh"
 #include "exact_tsne.cuh"

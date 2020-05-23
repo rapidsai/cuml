@@ -15,9 +15,9 @@
  */
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include <cuda_utils.cuh>
 #include "cuml/ensemble/randomforest.hpp"
 #include "ml_utils.h"
 
@@ -131,7 +131,6 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     CUDA_CHECK(cudaFree(predicted_labels));
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(inference_data_d));
-    delete[] forest->trees;
     delete forest;
   }
 
@@ -229,7 +228,6 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     CUDA_CHECK(cudaFree(predicted_labels));
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(inference_data_d));
-    delete[] forest->trees;
     delete forest;
   }
 

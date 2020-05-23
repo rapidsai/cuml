@@ -19,7 +19,7 @@
 #include <math.h>
 #include <vector>
 #include "../memory.h"
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 
 namespace ML {
 namespace DecisionTree {
