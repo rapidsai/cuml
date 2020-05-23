@@ -20,9 +20,9 @@ from dask.distributed import get_worker
 from cuml.dask.common.utils import parse_host_port
 
 
-def test_listener(cluster):
+def test_listener(client):
 
-    c = Client(cluster)
+    c = client
 
     multiple_workers = len(c.scheduler_info()["workers"]) > 1
 

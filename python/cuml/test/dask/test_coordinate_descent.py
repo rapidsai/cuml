@@ -40,34 +40,29 @@ import numpy as np
                                      stress_param(64)])
 @pytest.mark.parametrize("delayed", [True, False])
 def test_lasso(dtype, alpha, algorithm,
-               nrows, column_info, n_parts, delayed, cluster):
-    client = Client(cluster)
+               nrows, column_info, n_parts, delayed, client):
     ncols, n_info = column_info
 
-    try:
 
-        X, y = make_regression(n_samples=nrows,
-                               n_features=ncols,
-                               n_informative=n_info,
-                               n_parts=n_parts,
-                               client=client,
-                               dtype=dtype)
+    X, y = make_regression(n_samples=nrows,
+                           n_features=ncols,
+                           n_informative=n_info,
+                           n_parts=n_parts,
+                           client=client,
+                           dtype=dtype)
 
-        wait(X)
+    wait(X)
 
-        lasso = Lasso(alpha=np.array([alpha]), fit_intercept=True,
-                      normalize=False, max_iter=1000,
-                      selection=algorithm, tol=1e-10,
-                      client=client)
+    lasso = Lasso(alpha=np.array([alpha]), fit_intercept=True,
+                  normalize=False, max_iter=1000,
+                  selection=algorithm, tol=1e-10,
+                  client=client)
 
-        lasso.fit(X, y)
+    lasso.fit(X, y)
 
-        y_hat = lasso.predict(X, delayed=delayed)
+    y_hat = lasso.predict(X, delayed=delayed)
 
-        assert r2_score(y.compute(), y_hat.compute()) >= 0.99
-
-    finally:
-        client.close()
+    assert r2_score(y.compute(), y_hat.compute()) >= 0.99
 
 
 @pytest.mark.mg
@@ -81,31 +76,25 @@ def test_lasso(dtype, alpha, algorithm,
 @pytest.mark.parametrize('n_parts', [unit_param(16),
                                      quality_param(32),
                                      stress_param(64)])
-def test_lasso_default(dtype, nrows, column_info, n_parts, cluster):
+def test_lasso_default(dtype, nrows, column_info, n_parts, client):
 
-    client = Client(cluster)
     ncols, n_info = column_info
 
-    try:
+    X, y = make_regression(n_samples=nrows,
+                           n_features=ncols,
+                           n_informative=n_info,
+                           client=client,
+                           dtype=dtype)
 
-        X, y = make_regression(n_samples=nrows,
-                               n_features=ncols,
-                               n_informative=n_info,
-                               client=client,
-                               dtype=dtype)
+    wait(X)
 
-        wait(X)
+    lasso = Lasso(client=client)
 
-        lasso = Lasso(client=client)
+    lasso.fit(X, y)
 
-        lasso.fit(X, y)
+    y_hat = lasso.predict(X)
 
-        y_hat = lasso.predict(X)
-
-        assert r2_score(y.compute(), y_hat.compute()) >= 0.99
-
-    finally:
-        client.close()
+    assert r2_score(y.compute(), y_hat.compute()) >= 0.99
 
 
 @pytest.mark.parametrize('dtype', [np.float32, np.float64])
@@ -122,39 +111,33 @@ def test_lasso_default(dtype, nrows, column_info, n_parts, cluster):
                                      stress_param(64)])
 @pytest.mark.parametrize("delayed", [True, False])
 def test_elastic_net(dtype, alpha, algorithm,
-                     nrows, column_info, n_parts, cluster, delayed):
-    client = Client(cluster)
+                     nrows, column_info, n_parts, client, delayed):
     ncols, n_info = column_info
 
-    try:
+    X, y = make_regression(n_samples=nrows,
+                           n_features=ncols,
+                           n_informative=n_info,
+                           n_parts=n_parts,
+                           client=client,
+                           dtype=dtype)
 
-        X, y = make_regression(n_samples=nrows,
-                               n_features=ncols,
-                               n_informative=n_info,
-                               n_parts=n_parts,
-                               client=client,
-                               dtype=dtype)
+    wait(X)
 
-        wait(X)
+    elasticnet = ElasticNet(alpha=np.array([alpha]), fit_intercept=True,
+                            normalize=False, max_iter=1000,
+                            selection=algorithm, tol=1e-10,
+                            client=client)
 
-        elasticnet = ElasticNet(alpha=np.array([alpha]), fit_intercept=True,
-                                normalize=False, max_iter=1000,
-                                selection=algorithm, tol=1e-10,
-                                client=client)
+    elasticnet.fit(X, y)
 
-        elasticnet.fit(X, y)
+    y_hat = elasticnet.predict(X, delayed=delayed)
 
-        y_hat = elasticnet.predict(X, delayed=delayed)
+    # based on differences with scikit-learn 0.22
+    if alpha == 0.2:
+        assert r2_score(y.compute(), y_hat.compute()) >= 0.96
 
-        # based on differences with scikit-learn 0.22
-        if alpha == 0.2:
-            assert r2_score(y.compute(), y_hat.compute()) >= 0.96
-
-        else:
-            assert r2_score(y.compute(), y_hat.compute()) >= 0.80
-
-    finally:
-        client.close()
+    else:
+        assert r2_score(y.compute(), y_hat.compute()) >= 0.80
 
 
 @pytest.mark.parametrize('dtype', [np.float32, np.float64])
@@ -167,28 +150,22 @@ def test_elastic_net(dtype, alpha, algorithm,
 @pytest.mark.parametrize('n_parts', [unit_param(16),
                                      quality_param(32),
                                      stress_param(64)])
-def test_elastic_net_default(dtype, nrows, column_info, n_parts, cluster):
-    client = Client(cluster)
+def test_elastic_net_default(dtype, nrows, column_info, n_parts, client):
     ncols, n_info = column_info
 
-    try:
+    X, y = make_regression(n_samples=nrows,
+                           n_features=ncols,
+                           n_informative=n_info,
+                           n_parts=n_parts,
+                           client=client,
+                           dtype=dtype)
 
-        X, y = make_regression(n_samples=nrows,
-                               n_features=ncols,
-                               n_informative=n_info,
-                               n_parts=n_parts,
-                               client=client,
-                               dtype=dtype)
+    wait(X)
 
-        wait(X)
+    elasticnet = ElasticNet(client=client)
 
-        elasticnet = ElasticNet(client=client)
+    elasticnet.fit(X, y)
 
-        elasticnet.fit(X, y)
+    y_hat = elasticnet.predict(X)
 
-        y_hat = elasticnet.predict(X)
-
-        assert r2_score(y.compute(), y_hat.compute()) >= 0.96
-
-    finally:
-        client.close()
+    assert r2_score(y.compute(), y_hat.compute()) >= 0.96
