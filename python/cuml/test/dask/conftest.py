@@ -12,13 +12,9 @@ enable_infiniband = False
 @pytest.fixture(scope="module")
 def cluster():
 
-    print("Starting cluster")
     cluster = LocalCUDACluster(protocol="tcp", scheduler_port=0)
-    print(str(cluster))
     yield cluster
-    print("Closing cluster")
     cluster.close()
-    print("Closed cluster")
 
 
 @pytest.fixture(scope="function")
@@ -42,6 +38,7 @@ def ucx_cluster():
                                ucx_net_devices="auto")
     yield cluster
     cluster.close()
+
 
 @pytest.fixture(scope="function")
 def ucx_client(ucx_cluster):
