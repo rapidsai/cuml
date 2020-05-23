@@ -95,13 +95,13 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
                       centers=nclusters)
     X = X.astype(np.float32)
 
-    wait(X_cudf)
+    wait(X)
 
     cumlModel = daskNN(n_neighbors=n_neighbors,
                        streams_per_handle=streams_per_handle)
-    cumlModel.fit(X_cudf)
+    cumlModel.fit(X)
 
-    out_d, out_i = cumlModel.kneighbors(X_cudf)
+    out_d, out_i = cumlModel.kneighbors(X)
 
     local_i = np.array(out_i.compute().as_gpu_matrix())
 
@@ -124,20 +124,9 @@ def test_batch_size(nrows, ncols, n_parts,
     n_clusters = 5
     from cuml.dask.neighbors import NearestNeighbors as daskNN
 
-<<<<<<< HEAD
     from sklearn.datasets import make_blobs
-=======
-    try:
-        from cuml.dask.neighbors import NearestNeighbors as daskNN
 
-        from sklearn.datasets import make_blobs
-
-        nrows = _scale_rows(client, nrows)
-
-        X, y = make_blobs(n_samples=int(nrows),
-                          n_features=ncols,
-                          centers=n_clusters)
->>>>>>> branch-0.15
+    nrows = _scale_rows(client, nrows)
 
     X, y = make_blobs(n_samples=int(nrows),
                       n_features=ncols,
@@ -171,23 +160,12 @@ def test_return_distance(client):
     k = 5
     from cuml.dask.neighbors import NearestNeighbors as daskNN
 
-<<<<<<< HEAD
     from sklearn.datasets import make_blobs
-=======
-    try:
-        from cuml.dask.neighbors import NearestNeighbors as daskNN
 
-        from sklearn.datasets import make_blobs
-
-        n_samples = _scale_rows(client, n_samples)
-
-        X, y = make_blobs(n_samples=n_samples,
-                          n_features=n_feats, random_state=0)
->>>>>>> branch-0.15
+    n_samples = _scale_rows(client, n_samples)
 
     X, y = make_blobs(n_samples=n_samples,
                       n_features=n_feats, random_state=0)
-
     X = X.astype(np.float32)
 
     X_cudf = _prep_training_data(client, X, 1)
@@ -217,18 +195,11 @@ def test_default_n_neighbors(client):
     from cuml.neighbors.nearest_neighbors_mg import \
         NearestNeighborsMG as cumlNN
 
-<<<<<<< HEAD
     from sklearn.datasets import make_blobs
-=======
-        n_samples = _scale_rows(client, n_samples)
-
-        X, y = make_blobs(n_samples=n_samples,
-                          n_features=n_feats, random_state=0)
->>>>>>> branch-0.15
+    n_samples = _scale_rows(client, n_samples)
 
     X, y = make_blobs(n_samples=n_samples,
                       n_features=n_feats, random_state=0)
-
     X = X.astype(np.float32)
 
     X_cudf = _prep_training_data(client, X, 1)
