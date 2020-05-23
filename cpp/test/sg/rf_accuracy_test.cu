@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <random/rng.h>
+#include <cuda_utils.cuh>
 #include <cuml/ensemble/randomforest.hpp>
+#include <random/rng.cuh>
 
 namespace ML {
 
@@ -116,7 +116,6 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     predict(h, forest, X_test, params.n_rows_test, 1, y_pred);
     auto metrics = score(h, forest, y_test, params.n_rows_test, y_pred);
-    delete[] forest->trees;
     delete forest;
     return metrics.accuracy;
   }

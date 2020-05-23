@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <gtest/gtest.h>
@@ -25,6 +24,7 @@
 #include <thrust/transform.h>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
+#include <cuda_utils.cuh>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/svm/svc.hpp>
@@ -34,8 +34,8 @@
 #include <type_traits>
 #include <vector>
 #include "common/cumlHandle.hpp"
-#include "linalg/binary_op.h"
-#include "linalg/map_then_reduce.h"
+#include "linalg/binary_op.cuh"
+#include "linalg/map_then_reduce.cuh"
 #include "linalg/transpose.h"
 #include "matrix/grammatrix.h"
 #include "matrix/kernelmatrices.h"

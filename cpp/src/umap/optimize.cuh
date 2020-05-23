@@ -21,14 +21,14 @@
 #include "common/device_buffer.hpp"
 
 #include <common/cudart_utils.h>
-#include "linalg/add.h"
-#include "linalg/binary_op.h"
-#include "linalg/eltwise.h"
-#include "linalg/multiply.h"
-#include "linalg/power.h"
-#include "linalg/unary_op.h"
-#include "matrix/math.h"
-#include "stats/mean.h"
+#include "linalg/add.cuh"
+#include "linalg/binary_op.cuh"
+#include "linalg/eltwise.cuh"
+#include "linalg/multiply.cuh"
+#include "linalg/power.cuh"
+#include "linalg/unary_op.cuh"
+#include "matrix/math.cuh"
+#include "stats/mean.cuh"
 
 #include <cuda_runtime.h>
 
