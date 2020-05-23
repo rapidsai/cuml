@@ -27,7 +27,7 @@
 #include <metrics/trustworthiness.cuh>
 
 #include "linalg/reduce_rows_by_key.cuh"
-#include "random/make_blobs.cuh"
+#include <cuml/datasets/make_blobs.hpp>
 
 #include "common/device_buffer.hpp"
 #include "umap/runner.cuh"
