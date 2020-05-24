@@ -101,6 +101,9 @@ __global__ void gatherKernel(DataT* out, const DataT* in, const IdxT* perms,
  * @param[in]  n_clusters         number of clusters (or classes) to generate
  * @param[in]  allocator          device allocator for temporary allocations
  * @param[in]  stream             cuda stream to schedule the work on
+ * @param[in]  row_major          whether input `centers` and output `out`
+ *                                buffers are to be stored in row or column
+ *                                major layout
  * @param[in]  centers            centers of each of the cluster, pass a nullptr
  *                                if you need this also to be generated randomly
  *                                [on device] [dim = n_clusters x n_cols]
@@ -121,7 +124,8 @@ __global__ void gatherKernel(DataT* out, const DataT* in, const IdxT* perms,
 template <typename DataT, typename IdxT>
 void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
                 IdxT n_clusters, std::shared_ptr<deviceAllocator> allocator,
-                cudaStream_t stream, const DataT* centers = nullptr,
+                cudaStream_t stream, bool row_major = true,
+                const DataT* centers = nullptr,
                 const DataT* cluster_std = nullptr,
                 const DataT cluster_std_scalar = (DataT)1.0,
                 bool shuffle = true, DataT center_box_min = (DataT)-10.0,
