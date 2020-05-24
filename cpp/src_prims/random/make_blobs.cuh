@@ -52,6 +52,28 @@ void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
                    IdxT n_clusters, cudaStream_t stream, bool row_major,
                    const DataT* centers, const DataT* cluster_std,
                    const DataT cluster_std_scalar, Rng& rng) {
+  auto op = [n_rows, n_cols, labels, centers, cluster_std, cluster_std_scalar]
+    __device__(DataT val, IdxT idx) {
+    IdxT cid, center_id;
+    if (row_major) {
+      cid = idx / n_cols;
+      auto fid = idx % n_cols;
+      center_id = cid * n_cols + fid;
+    } else {
+      cid = idx % n_rows;
+      auto fid = idx / n_rows;
+      center_id = cid + fid * n_rows;
+    }
+    auto sigma = cluster_std == nullptr ? cluster_std_scalar : cluster_std[cid];
+    auto mu = centers[center_id];
+    constexpr auto twoPi = DataT(2.0) * DataT(3.141592654);
+    constexpr auto minus2 = -DataT(2.0);
+    auto R = mySqrt(minus2 * myLog(val));
+    auto theta = twoPi * val;
+    val = mySin(theta) * R * sigma + mu;
+    return val;
+  };
+  rng.custom_distribution<DataT, DataT, IdxT>(out, n_rows * n_cols, op, stream);
 }
 
 }  // namespace
