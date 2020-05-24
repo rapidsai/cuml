@@ -5,6 +5,7 @@
 ## Improvements
 
 - PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
+- PR #1945: enable clang tidy
 
 ## Bug Fixes
 
@@ -35,7 +36,6 @@
 - PR #1947: Cleaning up cmake
 - PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
-- PR #1945: enable clang tidy
 - PR #1988: C++: cpp bench refactor
 - PR #1873: Remove usage of nvstring and nvcat from LabelEncoder
 - PR #1968: Update SVC SVR with cuML Array
