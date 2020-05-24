@@ -23,6 +23,7 @@
 #include "common/device_buffer.hpp"
 #include "permute.cuh"
 #include "rng.cuh"
+#include <cuda_utils.cuh>
 
 namespace MLCommon {
 namespace Random {
@@ -37,8 +38,7 @@ void generate_labels(IdxT* labels, IdxT n_rows, IdxT n_clusters, bool shuffle,
   IdxT a = rand() % n_rows;
   while (gcd(a, n_rows) != 1) a = (a + 1) % n_rows;
   IdxT b = rand() % n_rows;
-  auto op = [a, b, n_rows, n_clusters, shuffle] __device__(IdxT * ptr,
-                                                           IdxT idx) {
+  auto op = [=] __device__(IdxT * ptr, IdxT idx) {
     if (shuffle) {
       idx = IdxT((a * int64_t(idx)) + b) % n_rows;
     }
@@ -49,32 +49,54 @@ void generate_labels(IdxT* labels, IdxT n_rows, IdxT n_clusters, bool shuffle,
 }
 
 template <typename DataT, typename IdxT>
+DI void get_mu_sigma(DataT& mu, DataT& sigma, IdxT idx, const IdxT* labels,
+                     bool row_major, const DataT* centers,
+                     const DataT* cluster_std, DataT cluster_std_scalar,
+                     IdxT n_rows, IdxT n_cols) {
+  IdxT cid, fid;
+  if (row_major) {
+    cid = idx / n_cols;
+    fid = idx % n_cols;
+  } else {
+    cid = idx % n_rows;
+    fid = idx / n_rows;
+  }
+  IdxT center_id;
+  if (cid < n_rows) {
+    center_id = labels[cid];
+  } else {
+    center_id = 0;
+  }
+  if (row_major) {
+    center_id = center_id * n_cols + fid;
+  } else {
+    center_id += fid * n_rows;
+  }
+  sigma = cluster_std == nullptr ? cluster_std_scalar : cluster_std[cid];
+  mu = centers[center_id];
+}
+
+template <typename DataT, typename IdxT>
 void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
                    IdxT n_clusters, cudaStream_t stream, bool row_major,
                    const DataT* centers, const DataT* cluster_std,
                    const DataT cluster_std_scalar, Rng& rng) {
-  auto op = [n_rows, n_cols, labels, centers, cluster_std, cluster_std_scalar,
-             row_major] __device__(DataT val, IdxT idx) {
-    IdxT cid, center_id;
-    if (row_major) {
-      cid = idx / n_cols;
-      auto fid = idx % n_cols;
-      center_id = cid * n_cols + fid;
-    } else {
-      cid = idx % n_rows;
-      auto fid = idx / n_rows;
-      center_id = cid + fid * n_rows;
-    }
-    auto sigma = cluster_std == nullptr ? cluster_std_scalar : cluster_std[cid];
-    auto mu = centers[center_id];
+  auto op = [=] __device__(DataT& val1, DataT& val2, IdxT idx1, IdxT idx2) {
+    DataT mu1, sigma1, mu2, sigma2;
+    get_mu_sigma(mu1, sigma1, idx1, labels, row_major, centers, cluster_std,
+                 cluster_std_scalar, n_rows, n_cols);
+    get_mu_sigma(mu2, sigma2, idx2, labels, row_major, centers, cluster_std,
+                 cluster_std_scalar, n_rows, n_cols);
     constexpr auto twoPi = DataT(2.0) * DataT(3.141592654);
     constexpr auto minus2 = -DataT(2.0);
-    auto R = mySqrt(minus2 * myLog(val));
-    auto theta = twoPi * val;
-    val = mySin(theta) * R * sigma + mu;
-    return val;
+    auto R = mySqrt(minus2 * myLog(val1));
+    auto theta = twoPi * val2;
+    DataT s, c;
+    mySinCos(theta, s, c);
+    val1 = R * c * sigma1 + mu1;
+    val2 = R * s * sigma2 + mu2;
   };
-  rng.custom_distribution<DataT, DataT, IdxT>(out, n_rows * n_cols, op, stream);
+  rng.custom_distribution2<DataT, DataT, IdxT>(out, n_rows * n_cols, op, stream);
 }
 
 }  // namespace
