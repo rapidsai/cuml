@@ -525,6 +525,7 @@ class Rng {
    * @param[in]  len    number of elements to be generated
    * @param[in]  randOp the device lambda or operator
    * @param[in]  stream cuda stream
+   * @{
    */
   template <typename OutType, typename MathType = OutType,
             typename LenType = int, typename Lambda>
@@ -533,6 +534,14 @@ class Rng {
     randImpl<OutType, MathType, LenType, Lambda>(
       offset, ptr, len, randOp, NumThreads, nBlocks, type, stream);
   }
+  template <typename OutType, typename MathType = OutType,
+            typename LenType = int, typename Lambda>
+  void custom_distribution2(OutType *ptr, LenType len, Lambda randOp,
+                           cudaStream_t stream) {
+    randImpl2<OutType, MathType, LenType, Lambda>(
+      offset, ptr, len, randOp, NumThreads, nBlocks, type, stream);
+  }
+  /** @} */
 
  private:
   /** generator type */
