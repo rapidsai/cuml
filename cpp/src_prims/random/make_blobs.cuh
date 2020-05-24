@@ -101,13 +101,6 @@ void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
 
 }  // namespace
 
-template <typename DataT, typename IdxT>
-__global__ void gatherKernel(DataT* out, const DataT* in, const IdxT* perms,
-                             IdxT len) {
-  IdxT tid = blockIdx.x * blockDim.x + threadIdx.x;
-  if (tid < len) out[tid] = in[perms[tid]];
-}
-
 /**
  * @brief GPU-equivalent of sklearn.datasets.make_blobs
  *
@@ -168,50 +161,6 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
   generate_labels(labels, n_rows, n_clusters, shuffle, stream);
   generate_data(out, labels, n_rows, n_cols, n_clusters, stream, row_major,
                 _centers, cluster_std, cluster_std_scalar, r);
-  // // use the right output buffer
-  // device_buffer<DataT> tmp_out(allocator, stream);
-  // device_buffer<IdxT> perms(allocator, stream);
-  // device_buffer<IdxT> tmp_labels(allocator, stream);
-  // DataT* _out;
-  // IdxT* _labels;
-  // if (shuffle) {
-  //   tmp_out.resize(n_rows * n_cols, stream);
-  //   perms.resize(n_rows, stream);
-  //   tmp_labels.resize(n_rows, stream);
-  //   _out = tmp_out.data();
-  //   _labels = tmp_labels.data();
-  // } else {
-  //   _out = out;
-  //   _labels = labels;
-  // }
-  // // get the std info transferred to host
-  // std::vector<DataT> h_cluster_std(n_clusters, cluster_std_scalar);
-  // if (cluster_std != nullptr) {
-  //   updateHost(&(h_cluster_std[0]), cluster_std, n_clusters, stream);
-  //   CUDA_CHECK(cudaStreamSynchronize(stream));
-  // }
-  // // generate data points for each cluster (assume equal distribution)
-  // IdxT rows_per_cluster = ceildiv(n_rows, n_clusters);
-  // for (IdxT i = 0, row_id = 0; i < n_clusters;
-  //      ++i, row_id += rows_per_cluster) {
-  //   IdxT current_rows = std::min(rows_per_cluster, n_rows - row_id);
-  //   if (current_rows > 0) {
-  //     r.normalTable<DataT, IdxT>(_out + row_id * n_cols, current_rows, n_cols,
-  //                                _centers + i * n_cols, nullptr,
-  //                                h_cluster_std[i], stream);
-  //     r.fill(_labels + row_id, current_rows, (IdxT)i, stream);
-  //   }
-  // }
-  // // shuffle, if asked for
-  // ///@todo: currently using a poor quality shuffle for better perf!
-  // if (shuffle) {
-  //   permute<DataT, IdxT, IdxT>(perms.data(), out, _out, n_cols, n_rows, true,
-  //                              stream);
-  //   constexpr long Nthreads = 256;
-  //   IdxT nblks = ceildiv<IdxT>(n_rows, Nthreads);
-  //   gatherKernel<<<nblks, Nthreads, 0, stream>>>(labels, _labels, perms.data(),
-  //                                                n_rows);
-  // }
 }
 
 }  // end namespace Random
