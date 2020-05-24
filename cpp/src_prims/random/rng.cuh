@@ -277,8 +277,8 @@ class Rng {
   template <typename Type, typename OutType = bool, typename LenType = int>
   void bernoulli(OutType *ptr, LenType len, Type prob, cudaStream_t stream) {
     custom_distribution<OutType, Type>(
-      ptr, len,
-      [=] __device__(Type val, LenType idx) { return val > prob; }, stream);
+      ptr, len, [=] __device__(Type val, LenType idx) { return val > prob; },
+      stream);
   }
 
   /**

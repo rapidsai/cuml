@@ -18,11 +18,11 @@
 
 #include <common/cudart_utils.h>
 #include <cuml/common/cuml_allocator.hpp>
+#include <linalg/unary_op.cuh>
 #include <vector>
 #include "common/device_buffer.hpp"
 #include "permute.cuh"
 #include "rng.cuh"
-#include <linalg/unary_op.cuh>
 
 namespace MLCommon {
 namespace Random {
@@ -37,7 +37,8 @@ void generate_labels(IdxT* labels, IdxT n_rows, IdxT n_clusters, bool shuffle,
   IdxT a = rand() % n_rows;
   while (gcd(a, n_rows) != 1) a = (a + 1) % n_rows;
   IdxT b = rand() % n_rows;
-  auto op = [a, b, n_rows, n_clusters, shuffle] __device__(IdxT* ptr, IdxT idx) {
+  auto op = [a, b, n_rows, n_clusters, shuffle] __device__(IdxT * ptr,
+                                                           IdxT idx) {
     if (shuffle) {
       idx = IdxT((a * int64_t(idx)) + b) % n_rows;
     }
