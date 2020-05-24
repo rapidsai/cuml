@@ -556,7 +556,7 @@ class Rng {
       default:
         ASSERT(false, "randImpl: Incorrect generator type! %d", type);
     };
-    CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK(cudaGetLastError());
     offset = newOffset;
   }
 
