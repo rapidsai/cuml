@@ -52,8 +52,8 @@ void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
                    IdxT n_clusters, cudaStream_t stream, bool row_major,
                    const DataT* centers, const DataT* cluster_std,
                    const DataT cluster_std_scalar, Rng& rng) {
-  auto op = [n_rows, n_cols, labels, centers, cluster_std, cluster_std_scalar]
-    __device__(DataT val, IdxT idx) {
+  auto op = [n_rows, n_cols, labels, centers, cluster_std, cluster_std_scalar,
+             row_major] __device__(DataT val, IdxT idx) {
     IdxT cid, center_id;
     if (row_major) {
       cid = idx / n_cols;
