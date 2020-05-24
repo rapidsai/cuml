@@ -130,24 +130,24 @@ class Rng {
                cudaStream_t stream) {
     static_assert(std::is_floating_point<Type>::value,
                   "Type for 'uniform' can only be floating point!");
-    randImpl(
-      offset, ptr, len,
+    custom_distribution(
+      ptr, len,
       [=] __device__(Type val, LenType idx) {
         return (val * (end - start)) + start;
       },
-      NumThreads, nBlocks, type, stream);
+      stream);
   }
   template <typename IntType, typename LenType = int>
   void uniformInt(IntType *ptr, LenType len, IntType start, IntType end,
                   cudaStream_t stream) {
     static_assert(std::is_integral<IntType>::value,
                   "Type for 'uniformInt' can only be integer!");
-    randImpl(
-      offset, ptr, len,
+    custom_distribution(
+      ptr, len,
       [=] __device__(IntType val, LenType idx) {
         return (val % (end - start)) + start;
       },
-      NumThreads, nBlocks, type, stream);
+      stream);
   }
   /** @} */
 
@@ -276,10 +276,9 @@ class Rng {
    */
   template <typename Type, typename OutType = bool, typename LenType = int>
   void bernoulli(OutType *ptr, LenType len, Type prob, cudaStream_t stream) {
-    randImpl<OutType, Type>(
-      offset, ptr, len,
-      [=] __device__(Type val, LenType idx) { return val > prob; }, NumThreads,
-      nBlocks, type, stream);
+    custom_distribution<OutType, Type>(
+      ptr, len,
+      [=] __device__(Type val, LenType idx) { return val > prob; }, stream);
   }
 
   /**
@@ -297,12 +296,12 @@ class Rng {
                         cudaStream_t stream) {
     static_assert(std::is_floating_point<Type>::value,
                   "Type for 'scaled_bernoulli' can only be floating point!");
-    randImpl(
-      offset, ptr, len,
+    custom_distribution(
+      ptr, len,
       [=] __device__(Type val, LenType idx) {
         return val > prob ? -scale : scale;
       },
-      NumThreads, nBlocks, type, stream);
+      stream);
   }
 
   /**
@@ -318,12 +317,12 @@ class Rng {
    */
   template <typename Type, typename LenType = int>
   void gumbel(Type *ptr, LenType len, Type mu, Type beta, cudaStream_t stream) {
-    randImpl(
-      offset, ptr, len,
+    custom_distribution(
+      ptr, len,
       [=] __device__(Type val, LenType idx) {
         return mu - beta * myLog(-myLog(val));
       },
-      NumThreads, nBlocks, type, stream);
+      stream);
   }
 
   /**
@@ -369,13 +368,13 @@ class Rng {
   template <typename Type, typename LenType = int>
   void logistic(Type *ptr, LenType len, Type mu, Type scale,
                 cudaStream_t stream) {
-    randImpl(
-      offset, ptr, len,
+    custom_distribution(
+      ptr, len,
       [=] __device__(Type val, LenType idx) {
         constexpr Type one = (Type)1.0;
         return mu - scale * myLog(one / val - one);
       },
-      NumThreads, nBlocks, type, stream);
+      stream);
   }
 
   /**
@@ -389,13 +388,13 @@ class Rng {
    */
   template <typename Type, typename LenType = int>
   void exponential(Type *ptr, LenType len, Type lambda, cudaStream_t stream) {
-    randImpl(
-      offset, ptr, len,
+    custom_distribution(
+      ptr, len,
       [=] __device__(Type val, LenType idx) {
         constexpr Type one = (Type)1.0;
         return -myLog(one - val) / lambda;
       },
-      NumThreads, nBlocks, type, stream);
+      stream);
   }
 
   /**
@@ -409,14 +408,14 @@ class Rng {
    */
   template <typename Type, typename LenType = int>
   void rayleigh(Type *ptr, LenType len, Type sigma, cudaStream_t stream) {
-    randImpl(
-      offset, ptr, len,
+    custom_distribution(
+      ptr, len,
       [=] __device__(Type val, LenType idx) {
         constexpr Type one = (Type)1.0;
         constexpr Type two = (Type)2.0;
         return mySqrt(-two * myLog(one - val)) * sigma;
       },
-      NumThreads, nBlocks, type, stream);
+      stream);
   }
 
   /**
@@ -432,8 +431,8 @@ class Rng {
   template <typename Type, typename LenType = int>
   void laplace(Type *ptr, LenType len, Type mu, Type scale,
                cudaStream_t stream) {
-    randImpl(
-      offset, ptr, len,
+    custom_distribution(
+      ptr, len,
       [=] __device__(Type val, LenType idx) {
         constexpr Type one = (Type)1.0;
         constexpr Type two = (Type)2.0;
@@ -446,7 +445,7 @@ class Rng {
         }
         return out;
       },
-      NumThreads, nBlocks, type, stream);
+      stream);
   }
 
   /**
@@ -488,8 +487,8 @@ class Rng {
     device_buffer<IdxT> outIdxBuff(allocator, stream, len);
     auto *inIdxPtr = inIdx.data();
     // generate modified weights
-    randImpl(
-      offset, expWts.data(), len,
+    custom_distribution(
+      expWts.data(), len,
       [wts, inIdxPtr] __device__(WeightsT val, IdxT idx) {
         inIdxPtr[idx] = idx;
         constexpr WeightsT one = (WeightsT)1.0;
@@ -499,7 +498,7 @@ class Rng {
         }
         return exp;
       },
-      NumThreads, nBlocks, type, stream);
+      stream);
     ///@todo: use a more efficient partitioning scheme instead of full sort
     // sort the array and pick the top sampledLen items
     IdxT *outIdxPtr = outIdxBuff.data();
