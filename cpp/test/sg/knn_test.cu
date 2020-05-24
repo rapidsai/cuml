@@ -52,7 +52,7 @@ template <typename T, typename IdxT>
 template <typename T>
 void gen_blobs(cumlHandle &handle, T *out, int *l, int rows, int cols,
                int centers, const T *centroids) {
-  Datasets::make_blobs(handle, out, l, rows, cols, centers, centroids, nullptr,
+  Datasets::make_blobs(handle, out, l, rows, cols, centers, true, centroids, nullptr,
                        0.1f, true, -10.0f, 10.0f, 1234ULL);
 }
 

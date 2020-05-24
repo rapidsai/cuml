@@ -25,7 +25,6 @@
 #include <fstream>
 #include <iostream>
 #include <linalg/unary_op.cuh>
-#include <random/make_blobs.cuh>
 #include <random/make_regression.cuh>
 #include <sstream>
 #include <string>
@@ -127,7 +126,7 @@ struct Dataset {
     }
 
     ML::Datasets::make_blobs(handle, tmpX, tmpY, p.nrows, p.ncols, p.nclasses,
-                             nullptr, nullptr, D(b.cluster_std), b.shuffle,
+                             true, nullptr, nullptr, D(b.cluster_std), b.shuffle,
                              D(b.center_box_min), D(b.center_box_max), b.seed);
     if (!p.rowMajor) {
       MLCommon::LinAlg::transpose(tmpX, X, p.nrows, p.ncols, cublas_handle,
