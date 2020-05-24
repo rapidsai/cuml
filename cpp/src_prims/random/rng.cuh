@@ -513,6 +513,24 @@ class Rng {
     scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
   }
 
+  /**
+   * @brief Core method to generate a pdf based on the cdf that is defined in
+   *        the input device lambda
+   *
+   * @tparam OutType  output type
+   * @tparam MathType type on which arithmetic is done
+   * @tparam LenTyp   index type
+   * @tparam Lambda   device lambda (or operator)
+   *
+   * @param[inout] offset   seed offset
+   * @param[out]   ptr      output buffer [on device] [len = len]
+   * @param[in]    len      number of elements to be generated
+   * @param[in]    randOp   the device lambda or operator
+   * @param[in]    nThreads number of threads per block
+   * @param[in]    nBlocks  number of blocks in the grid
+   * @param[in]    type     generator type
+   * @param[in]    stream   cuda stream
+   */
   template <typename OutType, typename MathType = OutType,
             typename LenType = int, typename Lambda>
   void randImpl(uint64_t &offset, OutType *ptr, LenType len, Lambda randOp,
