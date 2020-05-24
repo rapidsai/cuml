@@ -23,28 +23,34 @@ namespace Datasets {
 
 /**
  * @defgroup MakeBlobs scikit-learn-esq make_blobs
- * @brief GPU-equivalent of sklearn.datasets.make_blobs as documented here:
- * https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_blobs.html
- * @param out the generated data on device (dim = n_rows x n_cols) in row-major
- * layout
- * @param labels labels for the generated data on device (dim = n_rows x 1)
- * @param n_rows number of rows in the generated data
- * @param n_cols number of columns in the generated data
- * @param n_clusters number of clusters (or classes) to generate
- * @param centers centers of each of the cluster, pass a nullptr if you need
- * this also to be generated randomly (dim = n_clusters x n_cols). This is
- * expected to be on device
- * @param cluster_std standard deviation of each of the cluster center, pass a
- * nullptr if you need this to be read from 'cluster_std_scalar'.
- * (dim = n_clusters x 1) This is expected to be on device
- * @param cluster_std_scalar if 'cluster_std' is nullptr, then use this as the
- * standard deviation across all dimensions.
- * @param shuffle shuffle the generated dataset and labels
- * @param center_box_min min value of the box from which to pick the cluster
- * centers. Useful only if 'centers' is nullptr
- * @param center_box_max max value of the box from which to pick the cluster
- * centers. Useful only if 'centers' is nullptr
- * @param seed seed for the RNG
+ *
+ * @brief GPU-equivalent of sklearn.datasets.make_blobs
+ *
+ * @param[out] out                generated data [on device]
+ *                                [dim = n_rows x n_cols]
+ * @param[out] labels             labels for the generated data [on device]
+ *                                [len = n_rows]
+ * @param[in]  n_rows             number of rows in the generated data
+ * @param[in]  n_cols             number of columns in the generated data
+ * @param[in]  n_clusters         number of clusters (or classes) to generate
+ * @param[in]  row_major          whether input `centers` and output `out`
+ *                                buffers are to be stored in row or column
+ *                                major layout
+ * @param[in]  centers            centers of each of the cluster, pass a nullptr
+ *                                if you need this also to be generated randomly
+ *                                [on device] [dim = n_clusters x n_cols]
+ * @param[in]  cluster_std        standard deviation of each cluster center,
+ *                                pass a nullptr if this is to be read from the
+ *                                `cluster_std_scalar`. [on device]
+ *                                [len = n_clusters]
+ * @param[in]  cluster_std_scalar if 'cluster_std' is nullptr, then use this as
+ *                                the std-dev across all dimensions.
+ * @param[in]  shuffle            shuffle the generated dataset and labels
+ * @param[in]  center_box_min     min value of box from which to pick cluster
+ *                                centers. Useful only if 'centers' is nullptr
+ * @param[in]  center_box_max     max value of box from which to pick cluster
+ *                                centers. Useful only if 'centers' is nullptr
+ * @param[in]  seed               seed for the RNG
  * @{
  */
 void make_blobs(const cumlHandle& handle, float* out, int64_t* labels,
