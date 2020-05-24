@@ -22,6 +22,7 @@
 #include "common/device_buffer.hpp"
 #include "permute.cuh"
 #include "rng.cuh"
+#include <linalg/unary_op.cuh>
 
 namespace MLCommon {
 namespace Random {
@@ -41,7 +42,7 @@ void generate_labels(IdxT* labels, IdxT n_rows, bool shuffle, cudaStream_t s) {
     }
     *ptr = idx;
   };
-  writeOnlyUnaryOp<IdxT, decltype(op), IdxT>(labels, n_rows, op, s);
+  LinAlg::writeOnlyUnaryOp<IdxT, decltype(op), IdxT>(labels, n_rows, op, s);
 }
 
 }  // namespace
