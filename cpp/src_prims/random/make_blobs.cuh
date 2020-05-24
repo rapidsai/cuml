@@ -26,6 +26,26 @@
 namespace MLCommon {
 namespace Random {
 
+namespace {
+
+// generate the labels first and shuffle them instead of shuffling the dataset
+template <typename IdxT>
+void generate_labels(IdxT* labels, IdxT n_rows, bool shuffle, cudaStream_t s) {
+  // always keep 'a' to be coprime to n_rows
+  IdxT a = rand() % n_rows;
+  while (gcd(a, n_rows) != 1) a = (a + 1) % n_rows;
+  IdxT b = rand() % n_rows;
+  auto op = [a, b, n_rows, shuffle] __device__(IdxT* ptr, IdxT idx) {
+    if (shuffle) {
+      idx = IdxT((a * int64_t(idx)) + b) % n_rows;
+    }
+    *ptr = idx;
+  };
+  writeOnlyUnaryOp<IdxT, decltype(op), IdxT>(labels, n_rows, op, s);
+}
+
+}  // namespace
+
 template <typename DataT, typename IdxT>
 __global__ void gatherKernel(DataT* out, const DataT* in, const IdxT* perms,
                              IdxT len) {
