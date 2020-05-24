@@ -522,42 +522,17 @@ class Rng {
    * @tparam LenTyp   index type
    * @tparam Lambda   device lambda (or operator)
    *
-   * @param[inout] offset   seed offset
-   * @param[out]   ptr      output buffer [on device] [len = len]
-   * @param[in]    len      number of elements to be generated
-   * @param[in]    randOp   the device lambda or operator
-   * @param[in]    nThreads number of threads per block
-   * @param[in]    nBlocks  number of blocks in the grid
-   * @param[in]    type     generator type
-   * @param[in]    stream   cuda stream
+   * @param[out] ptr    output buffer [on device] [len = len]
+   * @param[in]  len    number of elements to be generated
+   * @param[in]  randOp the device lambda or operator
+   * @param[in]  stream cuda stream
    */
   template <typename OutType, typename MathType = OutType,
             typename LenType = int, typename Lambda>
-  void randImpl(uint64_t &offset, OutType *ptr, LenType len, Lambda randOp,
-                int nThreads, int nBlocks, GeneratorType type,
-                cudaStream_t stream) {
-    if (len <= 0) return;
-    uint64_t seed = gen();
-    auto newOffset = _setupSeeds<false, MathType, LenType>(seed, offset, len,
-                                                           nThreads, nBlocks);
-    switch (type) {
-      case GenPhilox:
-        randKernel<OutType, MathType, detail::PhiloxGenerator, LenType, Lambda>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
-        break;
-      case GenTaps:
-        randKernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
-        break;
-      case GenKiss99:
-        randKernel<OutType, MathType, detail::Kiss99Generator, LenType, Lambda>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
-        break;
-      default:
-        ASSERT(false, "randImpl: Incorrect generator type! %d", type);
-    };
-    CUDA_CHECK(cudaGetLastError());
-    offset = newOffset;
+  void custom_distribution(OutType *ptr, LenType len, Lambda randOp,
+                           cudaStream_t stream) {
+    randImpl<OutType, MathType, LenType, Lambda>(
+      offset, ptr, len, randOp, NumThreads, nBlocks, type, stream);
   }
 
  private:
@@ -595,6 +570,35 @@ class Rng {
       newOffset = itemsPerThread * factor;
     }
     return newOffset;
+  }
+
+  template <typename OutType, typename MathType = OutType,
+            typename LenType = int, typename Lambda>
+  void randImpl(uint64_t &offset, OutType *ptr, LenType len, Lambda randOp,
+                int nThreads, int nBlocks, GeneratorType type,
+                cudaStream_t stream) {
+    if (len <= 0) return;
+    uint64_t seed = gen();
+    auto newOffset = _setupSeeds<false, MathType, LenType>(seed, offset, len,
+                                                           nThreads, nBlocks);
+    switch (type) {
+      case GenPhilox:
+        randKernel<OutType, MathType, detail::PhiloxGenerator, LenType, Lambda>
+          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
+        break;
+      case GenTaps:
+        randKernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda>
+          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
+        break;
+      case GenKiss99:
+        randKernel<OutType, MathType, detail::Kiss99Generator, LenType, Lambda>
+          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
+        break;
+      default:
+        ASSERT(false, "randImpl: Incorrect generator type! %d", type);
+    };
+    CUDA_CHECK(cudaGetLastError());
+    offset = newOffset;
   }
 
   template <typename OutType, typename MathType = OutType,
