@@ -52,7 +52,7 @@ template <typename DataT, typename IdxT>
 DI void get_mu_sigma(DataT& mu, DataT& sigma, IdxT idx, const IdxT* labels,
                      bool row_major, const DataT* centers,
                      const DataT* cluster_std, DataT cluster_std_scalar,
-                     IdxT n_rows, IdxT n_cols) {
+                     IdxT n_rows, IdxT n_cols, IdxT n_clusters) {
   IdxT cid, fid;
   if (row_major) {
     cid = idx / n_cols;
@@ -70,7 +70,7 @@ DI void get_mu_sigma(DataT& mu, DataT& sigma, IdxT idx, const IdxT* labels,
   if (row_major) {
     center_id = center_id * n_cols + fid;
   } else {
-    center_id += fid * n_rows;
+    center_id += fid * n_clusters;
   }
   sigma = cluster_std == nullptr ? cluster_std_scalar : cluster_std[cid];
   mu = centers[center_id];
@@ -84,9 +84,9 @@ void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
   auto op = [=] __device__(DataT & val1, DataT & val2, IdxT idx1, IdxT idx2) {
     DataT mu1, sigma1, mu2, sigma2;
     get_mu_sigma(mu1, sigma1, idx1, labels, row_major, centers, cluster_std,
-                 cluster_std_scalar, n_rows, n_cols);
+                 cluster_std_scalar, n_rows, n_cols, n_clusters);
     get_mu_sigma(mu2, sigma2, idx2, labels, row_major, centers, cluster_std,
-                 cluster_std_scalar, n_rows, n_cols);
+                 cluster_std_scalar, n_rows, n_cols, n_clusters);
     constexpr auto twoPi = DataT(2.0) * DataT(3.141592654);
     constexpr auto minus2 = -DataT(2.0);
     auto R = mySqrt(minus2 * myLog(val1));
