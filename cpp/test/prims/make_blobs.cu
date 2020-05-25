@@ -70,8 +70,8 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     r.fill(mu_vec, params.cols * params.n_clusters, params.mean, stream);
     T* sigma_vec = nullptr;
     make_blobs(data, labels, params.rows, params.cols, params.n_clusters,
-               allocator, stream, params.row_major, mu_vec, sigma_vec, params.std, false,
-               (T)-10.0, (T)10.0, params.seed, params.gtype);
+               allocator, stream, params.row_major, mu_vec, sigma_vec,
+               params.std, false, (T)-10.0, (T)10.0, params.seed, params.gtype);
     static const int threads = 128;
     meanKernel<T, threads>
       <<<ceildiv(len, threads), threads, 0, stream>>>(stats, data, len);

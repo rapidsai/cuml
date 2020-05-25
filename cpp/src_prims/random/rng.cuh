@@ -537,7 +537,7 @@ class Rng {
   template <typename OutType, typename MathType = OutType,
             typename LenType = int, typename Lambda>
   void custom_distribution2(OutType *ptr, LenType len, Lambda randOp,
-                           cudaStream_t stream) {
+                            cudaStream_t stream) {
     rand2Impl<OutType, MathType, LenType, Lambda>(
       offset, ptr, len, randOp, NumThreads, nBlocks, type, stream);
   }
