@@ -28,8 +28,8 @@
 #include <distance/distance.cuh>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <metrics/trustworthiness.cuh>
-#include <random/make_blobs.cuh>
 #include <umap/runner.cuh>
+#include <cuml/datasets/make_blobs.hpp>
 
 using namespace ML;
 using namespace ML::Metrics;
@@ -230,9 +230,9 @@ class UMAPParametrizableTest : public ::testing::Test {
     device_buffer<float> X_d(alloc, stream, n_samples * n_features);
     device_buffer<int> y_d(alloc, stream, n_samples);
 
-    Random::make_blobs<float, int>(X_d.data(), y_d.data(), n_samples,
-                                   n_features, test_params.n_clusters, alloc,
-                                   stream, nullptr, nullptr);
+    ML::Datasets::make_blobs(handle, X_d.data(), y_d.data(), n_samples,
+                             n_features, test_params.n_clusters, nullptr,
+                             nullptr, 1.f, true, -10.f, 10.f, 1234ULL);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 

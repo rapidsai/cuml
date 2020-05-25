@@ -21,6 +21,7 @@
 #include <common/cumlHandle.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/cuml.hpp>
+#include <cuml/datasets/make_blobs.hpp>
 #include <fstream>
 #include <iostream>
 #include <linalg/unary_op.cuh>
@@ -125,10 +126,9 @@ struct Dataset {
       tmpY = (IdxT*)allocator->allocate(p.nrows * sizeof(IdxT), stream);
     }
 
-    MLCommon::Random::make_blobs<D, IdxT>(
-      tmpX, tmpY, p.nrows, p.ncols, p.nclasses, allocator, stream, nullptr,
-      nullptr, D(b.cluster_std), b.shuffle, D(b.center_box_min),
-      D(b.center_box_max), b.seed);
+    ML::Datasets::make_blobs(handle, tmpX, tmpY, p.nrows, p.ncols, p.nclasses,
+                             nullptr, nullptr, D(b.cluster_std), b.shuffle,
+                             D(b.center_box_min), D(b.center_box_max), b.seed);
     if (!p.rowMajor) {
       MLCommon::LinAlg::transpose(tmpX, X, p.nrows, p.ncols, cublas_handle,
                                   stream);
