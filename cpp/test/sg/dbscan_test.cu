@@ -91,7 +91,8 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
     score = adjustedRandIndex(handle, labels_ref, labels, params.n_row);
 
     if (score < 1.0) {
-      auto str = arr2Str(labels_ref, params.n_row, "labels_ref", handle.getStream());
+      auto str =
+        arr2Str(labels_ref, params.n_row, "labels_ref", handle.getStream());
       CUML_LOG_DEBUG("y: %s", str.c_str());
       str = arr2Str(labels, params.n_row, "labels", handle.getStream());
       CUML_LOG_DEBUG("y_hat: %s", str.c_str());
