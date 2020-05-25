@@ -54,8 +54,8 @@ struct MakeBlobs : public Fixture {
 
  private:
   Params params;
-  T *data;
-  int *labels;
+  T* data;
+  int* labels;
 };  // struct MakeBlobs
 
 static std::vector<Params> getInputs() {
