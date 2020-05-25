@@ -2,6 +2,8 @@
 
 ## New Features
 
+- PR #2312: column-major support for make_blobs
+
 ## Improvements
 
 - PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
