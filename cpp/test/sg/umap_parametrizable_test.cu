@@ -24,12 +24,12 @@
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/cuml.hpp>
+#include <cuml/datasets/make_blobs.hpp>
 #include <cuml/neighbors/knn.hpp>
 #include <distance/distance.cuh>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <metrics/trustworthiness.cuh>
 #include <umap/runner.cuh>
-#include <cuml/datasets/make_blobs.hpp>
 
 using namespace ML;
 using namespace ML::Metrics;
