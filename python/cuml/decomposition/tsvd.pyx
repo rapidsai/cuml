@@ -38,7 +38,6 @@ from cuml.common import input_to_cuml_array
 from cython.operator cimport dereference as deref
 
 
-
 cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
 
     cdef void tsvdFit(cumlHandle& handle,

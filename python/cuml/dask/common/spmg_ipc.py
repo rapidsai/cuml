@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import cuml.common.logger as logger
 import logging
 import numba.cuda
 import time

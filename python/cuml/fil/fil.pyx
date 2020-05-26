@@ -369,8 +369,8 @@ class ForestInference(Base):
     provides a `predict` method for carrying out inference.
 
     **Known limitations**:
-     * A single row of data should fit into the shared memory of a thread block,
-       which means that more than 12288 features are not supported.
+     * A single row of data should fit into the shared memory of a thread
+       block, which means that more than 12288 features are not supported.
      * From sklearn.ensemble, only
        {RandomForest,GradientBoosting}{Classifier,Regressor} models are
        supported; other sklearn.ensemble models are currently not supported.
