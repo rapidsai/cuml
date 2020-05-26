@@ -62,7 +62,7 @@ def _build_and_save_xgboost(model_path,
     dtrain = xgb.DMatrix(X_train, label=y_train)
 
     # instantiate params
-    params = {'silent': 0}
+    params = {'silent': 1}
 
     # learning task params
     if classification:
