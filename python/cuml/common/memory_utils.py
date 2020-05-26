@@ -238,13 +238,63 @@ def set_global_output_type(output_type):
 
     Parameters
     ----------
-    output_type : {'input', 'cudf', 'cupy', 'numba', numpy'} (default = 'input')  # noqa
+    output_type : {'input', 'cudf', 'cupy', 'numpy'} (default = 'input')
         Desired output type of results and attributes of the estimators.
+
         'input' will mean that the parameters and methods will mirror the
-        format of the data sent to the estimators/methods. 'cudf' will
-        return cuDF Series for single dimensional results and DataFrames
-        for the rest. 'cupy' will return CuPy ndarrays. 'numpy' will return
-        NumPy ndarrays.
+        format of the data sent to the estimators/methods as much as
+        possible. Specifically:
+
+            Input type -> Output type
+
+            cuDF DataFrame or Series -> cuDF DataFrame or Series
+
+            NumPy arrays -> NumPy arrays
+
+            Pandas DataFrame or Series -> NumPy arrays
+
+            Numba device arrays -> Numba device arrays
+
+            CuPy arrays -> CuPy arrays
+
+            Other __cuda_array_interface__ objects -> CuPy arrays
+
+        'cudf' will return cuDF Series for single dimensional results and
+        DataFrames for the rest.
+
+        'cupy' will return CuPy arrays.
+
+        'numpy' will return NumPy arrays.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cuml
+        import cupy as cp
+
+        ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
+        ary = cp.asarray(ary)
+
+        cuml.set_global_output_type('cudf'):
+        dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
+        dbscan_float.fit(ary)
+
+        print("cuML output type")
+        print(dbscan_float.labels_)
+        print(type(dbscan_float.labels_))
+
+    Output:
+
+    .. code-block:: python
+
+        cuML output type
+        0    0
+        1    1
+        2    2
+        dtype: int32
+        <class 'cudf.core.series.Series'>
 
     Notes
     -----
@@ -253,11 +303,6 @@ def set_global_output_type(output_type):
     and processing time needed to build the Series and DataFrames. 'numpy' has
     the biggest overhead due to the need to transfer data to CPU memory.
 
-    cuML is transitioning to support this parameter for all its estimators.
-    Currently the following single GPU estimators have this new behavior:
-
-    - DBSCAN
-    - KMeans
     """
     if isinstance(output_type, str):
         output_type = output_type.lower()
@@ -281,16 +326,36 @@ def using_output_type(output_type):
 
     Parameters
     ----------
-    output_type : {'input', 'cudf', 'cupy', 'numba', numpy'} (default = 'input')  # noqa
+    output_type : {'input', 'cudf', 'cupy', 'numpy'} (default = 'input')
         Desired output type of results and attributes of the estimators.
-        'input' will mean that the parameters and methods will mirror the
-        format of the data sent to the estimators/methods. 'cudf' will
-        return cuDF Series for single dimensional results and DataFrames
-        for the rest. 'cupy' will return CuPy ndarrays. 'numpy' will return
-        NumPy ndarrays.
 
-    Example
-    -------
+        'input' will mean that the parameters and methods will mirror the
+        format of the data sent to the estimators/methods as much as
+        possible. Specifically:
+
+            Input type -> Output type
+
+            cuDF DataFrame or Series -> cuDF DataFrame or Series
+
+            NumPy arrays -> NumPy arrays
+
+            Pandas DataFrame or Series -> NumPy arrays
+
+            Numba device arrays -> Numba device arrays
+
+            CuPy arrays -> CuPy arrays
+
+            Other __cuda_array_interface__ objects -> CuPy arrays
+
+        'cudf' will return cuDF Series for single dimensional results and
+        DataFrames for the rest.
+
+        'cupy' will return CuPy arrays.
+
+        'numpy' will return NumPy arrays.
+
+    Examples
+    --------
 
     .. code-block:: python
 
@@ -319,6 +384,7 @@ def using_output_type(output_type):
     Output:
 
     .. code-block:: python
+
         cuML output inside `with` context
         0    0
         1    1
