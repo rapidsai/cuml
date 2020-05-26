@@ -106,6 +106,7 @@
 - PR #2284: Reduce dataset size in SG RF notebook to reduce run time of sklearn
 - PR #2285: Increase the threshold for elastic_net test in dask/test_coordinate_descent
 - PR #2314: Update FIL default values, documentation and test
+- PR #2316: 0.14 release docs additions and fixes
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -155,8 +156,10 @@
 - PR #2274: Fix parameter name verbose to verbosity in mnmg OneHotEncoder
 - PR #2277: Updated cub repo path and branch name
 - PR #2282: Fix memory leak in Dask RF concatenation
+- PR #2301: Scaling KNN dask tests sample size with n GPUs
 - PR #2293: Contiguity fixes for input_to_cuml_array and train_test_split
 - PR #2295: Fix convert_to_dtype copy even with same dtype
+- PR #2305: Fixed race condition in DBScan
 
 # cuML 0.13.0 (Date TBD)
 

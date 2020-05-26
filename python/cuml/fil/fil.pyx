@@ -412,7 +412,7 @@ class ForestInference(Base):
     Notes
     ------
     For additional usage examples, see the sample notebook at
-    https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/forest_inference_demo.ipynb # noqa
+    https://github.com/rapidsai/cuml/blob/branch-0.14/notebooks/forest_inference_demo.ipynb
 
     """
     def __init__(self,
