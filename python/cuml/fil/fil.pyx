@@ -571,7 +571,8 @@ class ForestInference(Base):
         Returns
         ----------
         fil_model :
-            A Forest Inference model for the scikit-learn model passed.
+            A Forest Inference model created from the scikit-learn
+            model passed.
 
         """
         cuml_fm = ForestInference(handle=handle)
