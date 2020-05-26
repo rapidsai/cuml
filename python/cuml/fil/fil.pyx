@@ -511,6 +511,12 @@ class ForestInference(Base):
              'DENSE' or 'dense' - create a dense forest
              'SPARSE' or 'sparse' - create a sparse forest;
                                     requires algo='NAIVE' or algo='AUTO'
+
+        Returns
+        ----------
+        fil_model :
+            A Forest Inference model which can be used to perform
+            inferencing on the random forest/ xgboost model.
         """
         if isinstance(model, TreeliteModel):
             # TreeliteModel defined in this file
@@ -529,6 +535,45 @@ class ForestInference(Base):
                           algo='auto',
                           storage_type='auto',
                           handle=None):
+        """
+        Creates a FIL model using the scikit-learn model passed to the
+        function.
+
+        Parameters
+        ----------
+        skl_model : The scikit-learn model whos equivalent FIL model is
+            to be created.
+        output_class: boolean (default=False)
+           If true, return a 1 or 0 depending on whether the raw prediction
+           exceeds the threshold. If False, just return the raw prediction.
+        algo : string (default='auto')
+            name of the algo from (from algo_t enum)
+             'AUTO' or 'auto' - choose the algorithm automatically;
+                   currently 'BATCH_TREE_REORG' is used for dense storage,
+                   and 'NAIVE' for sparse storage
+             'NAIVE' or 'naive' - simple inference using shared memory
+             'TREE_REORG' or 'tree_reorg' - similar to naive but trees
+                              rearranged to be more coalescing-friendly
+             'BATCH_TREE_REORG' or 'batch_tree_reorg' - similar to TREE_REORG
+                                    but predicting multiple rows
+                                    per thread block
+        threshold : float (default=0.5)
+            Threshold is used to for classification. It is applied
+            only if output_class == True, else it is ignored.
+        storage_type : string (default='auto')
+            Accepts name of the storage type to be used for the FIL model.
+             'AUTO' or 'auto' - choose the storage type automatically
+                                (currently DENSE is always used)
+             'DENSE' or 'dense' - create a dense forest
+             'SPARSE' or 'sparse' - create a sparse forest;
+                                    requires algo='NAIVE' or algo='AUTO'.
+
+        Returns
+        ----------
+        fil_model :
+            A Forest Inference model for the scikit-learn model passed.
+
+        """
         cuml_fm = ForestInference(handle=handle)
         tl_model = tl_skl.import_model(skl_model)
         cuml_fm.load_from_treelite_model(
@@ -569,6 +614,12 @@ class ForestInference(Base):
         model_type : string (default="xgboost")
             Format of the saved treelite model to be load.
             It can be 'xgboost', 'lightgbm', or 'protobuf'.
+
+        Returns
+        ----------
+        fil_model :
+            A Forest Inference model which can be used to perform
+            inferencing on the model read from the file.
         """
         cuml_fm = ForestInference(handle=handle)
         tl_model = TreeliteModel.from_filename(filename, model_type=model_type)
@@ -606,6 +657,12 @@ class ForestInference(Base):
         storage_type : string (default='auto')
             Accepts name of the storage type to be used for the FIL model.
             See documentation in FIL.load_from_treelite_model
+
+        Returns
+        ----------
+        fil_model :
+            A Forest Inference model which can be used to perform
+            inferencing on the random forest model.
         """
         return self._impl.load_from_randomforest(model_handle, output_class,
                                                  algo, threshold, storage_type)
