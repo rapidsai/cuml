@@ -58,9 +58,10 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "distributed>=2.12.0" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=${MINOR_VERSION}" \
+      "ucx-py=0.14*" \
       "statsmodels" \
-      "xgboost====1.0.2dev.rapidsai0.13" \
+      "xgboost==1.0.2dev.rapidsai0.13" \
+      "psutil" \
       "lightgbm"
 
 
@@ -113,7 +114,6 @@ cd ../python
 python setup.py install
 
 cd $WORKSPACE
-
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for libcuml and cuML
