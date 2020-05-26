@@ -171,11 +171,12 @@ class Base:
         self.handle = cuml.common.handle.Handle() if handle is None else handle
 
         if verbose is True:
-            self.verbose = logger.LEVEL_INFO
+            self.verbose = logger.level_debug
         elif verbose is False:
-            self.verbose = logger.LEVEL_OFF
+            self.verbose = logger.level_warn
         else:
-            self.verbose = 6 - verbose
+            # Using max in case user gives a verbosity value greater than 6
+            self.verbose = max(6 - verbose, 0)
 
         self.output_type = cuml.global_output_type if output_type is None \
             else _check_output_type_str(output_type)

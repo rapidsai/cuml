@@ -197,7 +197,7 @@ def _to_dask_cudf(futures, client=None):
     c = default_client() if client is None else client
     # Convert a list of futures containing dfs back into a dask_cudf
     dfs = [d for d in futures if d.type != type(None)]  # NOQA
-    if logger.should_log_for(logger.LEVEL_DEBUG):
+    if logger.should_log_for(logger.level_debug):
         logger.debug("to_dask_cudf dfs=%s" % str(dfs))
     meta_future = c.submit(_get_meta, dfs[0], pure=False)
     meta = meta_future.result()

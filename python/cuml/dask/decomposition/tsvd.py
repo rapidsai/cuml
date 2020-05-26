@@ -46,7 +46,7 @@ class TruncatedSVD(BaseDecomposition,
 
         X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
                         cluster_std=1.8,
-                        verbose=cuml.logger.LEVEL_INFO,
+                        verbose=cuml.logger.level_info,
                         random_state=10, dtype=np.float32)
 
         wait(X_cudf)
