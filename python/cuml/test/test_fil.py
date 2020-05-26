@@ -75,8 +75,6 @@ def _build_and_save_xgboost(model_path,
 
     params['max_depth'] = 25
     params.update(xgboost_params)
-    import pdb
-    #pdb.set_trace()
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
     return bst
@@ -123,11 +121,8 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
 
     xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
-    import pdb
-    #pdb.set_trace()
     fm = ForestInference.load(model_path,
                               algo='auto',
-                              storage_type='auto',
                               output_class=True,
                               threshold=0.50)
     fil_preds = np.asarray(fm.predict(X_validation))
@@ -137,8 +132,6 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     fil_proba = np.reshape(fil_proba, np.shape(xgb_proba))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
-    import pdb
-    pdb.set_trace()
     assert fil_acc == pytest.approx(xgb_acc, 0.01)
     assert array_equal(fil_preds, xgb_preds_int)
     assert array_equal(fil_proba, xgb_proba)
