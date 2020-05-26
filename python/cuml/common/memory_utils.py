@@ -259,9 +259,8 @@ def set_global_output_type(output_type):
 
             Other __cuda_array_interface__ objects -> CuPy arrays
 
-        'cudf' will
-        return cuDF Series for single dimensional results and DataFrames
-        for the rest.
+        'cudf' will return cuDF Series for single dimensional results and
+        DataFrames for the rest.
 
         'cupy' will return CuPy arrays.
 
@@ -348,9 +347,8 @@ def using_output_type(output_type):
 
             Other __cuda_array_interface__ objects -> CuPy arrays
 
-        'cudf' will
-        return cuDF Series for single dimensional results and DataFrames
-        for the rest.
+        'cudf' will return cuDF Series for single dimensional results and
+        DataFrames for the rest.
 
         'cupy' will return CuPy arrays.
 
