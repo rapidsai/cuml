@@ -176,7 +176,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 
     xgb_mse = mean_squared_error(y_validation, xgb_preds)
     fm = ForestInference.load(model_path,
-                              algo='algo',
+                              algo='auto',
                               output_class=False)
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
