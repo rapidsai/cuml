@@ -24,7 +24,7 @@ from cuml.common import has_scipy
 
 from cuml.dask.common import utils as dask_utils
 
-from dask.distributed import wait
+from dask.distributed import Client, wait
 
 from cuml.test.utils import unit_param, quality_param, stress_param
 
@@ -83,11 +83,6 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
     from sklearn.datasets import make_blobs
 
-    X, y = make_blobs(n_samples=int(nrows),
-                      n_features=ncols,
-                      centers=nclusters)
-    X = X.astype(np.float32)
-
     nrows = _scale_rows(client, nrows)
 
     X, y = make_blobs(n_samples=int(nrows),
@@ -95,13 +90,15 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
                       centers=nclusters)
     X = X.astype(np.float32)
 
-    wait(X)
+    X_cudf = _prep_training_data(client, X, n_parts)
+
+    wait(X_cudf)
 
     cumlModel = daskNN(n_neighbors=n_neighbors,
                        streams_per_handle=streams_per_handle)
-    cumlModel.fit(X)
+    cumlModel.fit(X_cudf)
 
-    out_d, out_i = cumlModel.kneighbors(X)
+    out_d, out_i = cumlModel.kneighbors(X_cudf)
 
     local_i = np.array(out_i.compute().as_gpu_matrix())
 
@@ -158,6 +155,7 @@ def test_return_distance(client):
     n_samples = 50
     n_feats = 50
     k = 5
+
     from cuml.dask.neighbors import NearestNeighbors as daskNN
 
     from sklearn.datasets import make_blobs
@@ -166,6 +164,7 @@ def test_return_distance(client):
 
     X, y = make_blobs(n_samples=n_samples,
                       n_features=n_feats, random_state=0)
+
     X = X.astype(np.float32)
 
     X_cudf = _prep_training_data(client, X, 1)
@@ -196,10 +195,12 @@ def test_default_n_neighbors(client):
         NearestNeighborsMG as cumlNN
 
     from sklearn.datasets import make_blobs
+
     n_samples = _scale_rows(client, n_samples)
 
     X, y = make_blobs(n_samples=n_samples,
                       n_features=n_feats, random_state=0)
+
     X = X.astype(np.float32)
 
     X_cudf = _prep_training_data(client, X, 1)
