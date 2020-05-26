@@ -115,8 +115,8 @@ class MBSGDRegressor(Base):
 
     Notes
     ------
-    For additional docs, see `scikitlearn's OLS
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDRegressor.html>
+    For additional docs, see `scikitlearn's SGDRegressor
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDRegressor.html>`_.
     """
 
     def __init__(self, loss='squared_loss', penalty='l2', alpha=0.0001,
