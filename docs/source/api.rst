@@ -320,10 +320,11 @@ Truncated SVD
 .. autoclass:: cuml.dask.decomposition.TruncatedSVD
     :members:
 
-UMAP
-----
+Manifold
+--------
 
-..autoclass:: cuml.dask.manifold.UMAP
+.. autoclass:: cuml.dask.manifold.UMAP
+    :members:
 
 Linear Models
 -------------
@@ -344,7 +345,7 @@ Solvers
 -------
 
 .. autoclass:: cuml.dask.solvers.CD
-    :members::
+    :members:
 
 Dask Base Classes and Mixins
 ----------------------------
