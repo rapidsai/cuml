@@ -20,8 +20,8 @@ Model Selection and Data Splitting
 
  .. automethod:: cuml.preprocessing.model_selection.train_test_split
 
-Label Encoding
---------------
+Feature and Label Encoding (Single-GPU)
+---------------------------------------
 
  .. autoclass:: cuml.preprocessing.LabelEncoder
     :members:
@@ -29,21 +29,35 @@ Label Encoding
  .. autoclass:: cuml.preprocessing.LabelBinarizer
     :members:
 
+ .. automethod:: cuml.preprocessing.label_binarize
+
+ .. autoclass:: cuml.preprocessing.OneHotEncoder
+    :members:
+
+Feature and Label Encoding (Dask-based Multi-GPU)
+-------------------------------------------------
+
  .. autoclass:: cuml.dask.preprocessing.LabelBinarizer
     :members:
 
- .. automethod:: cuml.preprocessing.label_binarize
+ .. autoclass:: cuml.dask.preprocessing.OneHotEncoder
+    :members:
 
 Dataset Generation (Single-GPU)
 -------------------------------
 
   .. automethod:: cuml.datasets.make_blobs
+  .. automethod:: cuml.datasets.make_classification
   .. automethod:: cuml.datasets.make_regression
+  .. automethod:: cuml.datasets.make_arima
 
 
 Dataset Generation (Dask-based Multi-GPU)
 -----------------------------------------
   .. automodule:: cuml.dask.datasets.blobs
+     :members:
+
+  .. automodule:: cuml.dask.datasets.classification
      :members:
 
   .. automodule:: cuml.dask.datasets.regression
@@ -306,6 +320,11 @@ Truncated SVD
 .. autoclass:: cuml.dask.decomposition.TruncatedSVD
     :members:
 
+UMAP
+----
+
+..autoclass:: cuml.dask.manifold.UMAP
+
 Linear Models
 -------------
 
@@ -314,6 +333,18 @@ Linear Models
 
 .. autoclass:: cuml.dask.linear_model.Ridge
     :members:
+
+.. autoclass:: cuml.dask.linear_model.Lasso
+    :members:
+
+.. autoclass:: cuml.dask.linear_model.ElasticNet
+    :members:
+
+Solvers
+-------
+
+.. autoclass:: cuml.dask.solvers.CD
+    :members::
 
 Dask Base Classes and Mixins
 ----------------------------
