@@ -80,7 +80,6 @@ class UMAP(BaseEstimator,
     kNN.
 
     Known issue: If a UMAP model has not yet been fit, it cannot be pickled
-    However, after fitting, a UMAP mode.
 
     References
     ----------

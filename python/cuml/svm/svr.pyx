@@ -190,7 +190,7 @@ class SVR(SVMBase):
 
     Notes
     -----
-    For additional docs, see `scikitlearn's SVR
+    For additional docs, see `Scikit-learn's SVR
     <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVR.html>`_.
 
     The solver uses the SMO method to fit the regressor. We use the Optimized
