@@ -106,6 +106,7 @@
 - PR #2284: Reduce dataset size in SG RF notebook to reduce run time of sklearn
 - PR #2285: Increase the threshold for elastic_net test in dask/test_coordinate_descent
 - PR #2316: 0.14 release docs additions and fixes
+- PR #2323: Change verbose levels and parameter name to match Scikit-learn API
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
