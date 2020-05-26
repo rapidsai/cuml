@@ -24,7 +24,7 @@ from cuml.common import has_scipy
 
 from cuml.dask.common import utils as dask_utils
 
-from dask.distributed import Client, wait
+from dask.distributed import wait
 
 from cuml.test.utils import unit_param, quality_param, stress_param
 
