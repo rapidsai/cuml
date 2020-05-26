@@ -471,12 +471,13 @@ class ForestInference(Base):
         (or 'preds' filled with inference results if preds was specified)
         """
         out_type = self._get_output_type(X)
+
         return self._impl.predict(X, out_type, predict_proba=True, preds=None)
 
-    def load_from_treelite_model(self, model, output_class,
-                                 algo='AUTO',
+    def load_from_treelite_model(self, model, output_class=False,
+                                 algo='auto',
                                  threshold=0.5,
-                                 storage_type='DENSE'):
+                                 storage_type='auto'):
         """
         Creates a FIL model using the treelite model
         passed to the function.
@@ -486,10 +487,11 @@ class ForestInference(Base):
         model : the trained model information in the treelite format
            loaded from a saved model using the treelite API
            https://treelite.readthedocs.io/en/latest/treelite-api.html
-        output_class: boolean
+        output_class: boolean (default=False)
            If true, return a 1 or 0 depending on whether the raw prediction
            exceeds the threshold. If False, just return the raw prediction.
-        algo : string name of the algo from (from algo_t enum)
+        algo : string (default='auto')
+            name of the algo from (from algo_t enum)
              'AUTO' or 'auto' - choose the algorithm automatically;
                    currently 'BATCH_TREE_REORG' is used for dense storage,
                    and 'NAIVE' for sparse storage
@@ -499,10 +501,11 @@ class ForestInference(Base):
              'BATCH_TREE_REORG' or 'batch_tree_reorg' - similar to TREE_REORG
                                     but predicting multiple rows
                                     per thread block
-        threshold : threshold is used to for classification
-           applied if output_class == True, else it is ignored
-        storage_type : string name of the storage type
-           (from storage_type_t enum) for the FIL forest
+        threshold : float (default=0.5)
+            Threshold is used to for classification. It is applied
+            only if output_class == True, else it is ignored.
+        storage_type : string (default='auto')
+            Accepts name of the storage type to be used for the FIL model.
              'AUTO' or 'auto' - choose the storage type automatically
                                 (currently DENSE is always used)
              'DENSE' or 'dense' - create a dense forest
@@ -523,8 +526,8 @@ class ForestInference(Base):
     def load_from_sklearn(skl_model,
                           output_class=False,
                           threshold=0.50,
-                          algo='AUTO',
-                          storage_type='DENSE',
+                          algo='auto',
+                          storage_type='auto',
                           handle=None):
         cuml_fm = ForestInference(handle=handle)
         tl_model = tl_skl.import_model(skl_model)
@@ -537,8 +540,8 @@ class ForestInference(Base):
     def load(filename,
              output_class=False,
              threshold=0.50,
-             algo='AUTO',
-             storage_type='DENSE',
+             algo='auto',
+             storage_type='auto',
              model_type="xgboost",
              handle=None):
         """
@@ -547,24 +550,25 @@ class ForestInference(Base):
 
         Parameters
         ----------
-        filename : str
+        filename : string
            Path to saved model file in a treelite-compatible format
            (See https://treelite.readthedocs.io/en/latest/treelite-api.html
-        output_class : bool
+            for more information)
+        output_class : bool (default=False)
            If true, return a 1 or 0 depending on whether the raw prediction
            exceeds the threshold. If False, just return the raw prediction.
-        threshold : float
+        threshold : float (default=0.5)
            Cutoff value above which a prediction is set to 1.0
            Only used if the model is classification and output_class is True
-        algo : string
+        algo : string (default='auto')
            Which inference algorithm to use.
            See documentation in FIL.load_from_treelite_model
-        storage_type : string name of the storage type
-           (from storage_type_t enum) for the FIL forest.
-           See documentation in FIL.load_from_treelite_model
-        model_type : str
-            Format of saved treelite model to load.
-            Can be 'xgboost', 'lightgbm', or 'protobuf'
+        storage_type : string (default='auto')
+            Accepts name of the storage type to be used for the FIL model.
+            See documentation in FIL.load_from_treelite_model
+        model_type : string (default="xgboost")
+            Format of the saved treelite model to be load.
+            It can be 'xgboost', 'lightgbm', or 'protobuf'.
         """
         cuml_fm = ForestInference(handle=handle)
         tl_model = TreeliteModel.from_filename(filename, model_type=model_type)
@@ -578,9 +582,30 @@ class ForestInference(Base):
     def load_from_randomforest(self,
                                model_handle,
                                output_class=False,
-                               algo='AUTO',
-                               storage_type='DENSE',
+                               algo='auto',
+                               storage_type='auto',
                                threshold=0.50):
+        """
+        Returns a FIL instance by converting cuML's random forest model to
+        FIL model.
 
+        Parameters
+        ----------
+        model_handle : Handle to the treelite forest model
+            (See https://treelite.readthedocs.io/en/latest/treelite-api.html
+            for more information)
+        output_class : bool (default=False)
+           If true, return a 1 or 0 depending on whether the raw prediction
+           exceeds the threshold. If False, just return the raw prediction.
+        threshold : float (default=0.5)
+           Cutoff value above which a prediction is set to 1.0
+           Only used if the model is classification and output_class is True
+        algo : string (default='auto')
+           Which inference algorithm to use.
+           See documentation in FIL.load_from_treelite_model
+        storage_type : string (default='auto')
+            Accepts name of the storage type to be used for the FIL model.
+            See documentation in FIL.load_from_treelite_model
+        """
         return self._impl.load_from_randomforest(model_handle, output_class,
                                                  algo, threshold, storage_type)
