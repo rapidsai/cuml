@@ -108,7 +108,7 @@ class Base:
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created just for this class.
-    verbose : int
+    verbose : int or boolean (default = False)
         Sets logging level. It must be one of `cuml.common.logger.LEVEL_*`.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes of
@@ -162,7 +162,7 @@ class Base:
         del base  # optional!
     """
 
-    def __init__(self, handle=None, verbose=logger.LEVEL_INFO,
+    def __init__(self, handle=None, verbose=False,
                  output_type=None):
         """
         Constructor. All children must call init method of this base class.
@@ -175,7 +175,7 @@ class Base:
         elif verbose is False:
             self.verbose = logger.LEVEL_OFF
         else:
-            self.verbose = verbose
+            self.verbose = 6 - verbose
 
         self.output_type = cuml.global_output_type if output_type is None \
             else _check_output_type_str(output_type)

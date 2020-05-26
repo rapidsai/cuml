@@ -185,7 +185,7 @@ class CD(Base):
             msg = "loss {!r} is not supported"
             raise NotImplementedError(msg.format(loss))
 
-        super(CD, self).__init__(handle=handle, verbose=logger.LEVEL_INFO,
+        super(CD, self).__init__(handle=handle, verbose=False,
                                  output_type=output_type)
         self.alpha = alpha
         self.l1_ratio = l1_ratio

@@ -92,7 +92,7 @@ class NearestNeighbors(Base):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbose : int (default=cuml.common.logger.LEVEL_INFO)
+    verbose : int or boolean (default = False)
         Logging level
     handle : cumlHandle
         The cumlHandle resources to use
@@ -169,7 +169,7 @@ class NearestNeighbors(Base):
     """
     def __init__(self,
                  n_neighbors=5,
-                 verbose=logger.LEVEL_INFO,
+                 verbose=False,
                  handle=None,
                  algorithm="brute",
                  metric="euclidean",

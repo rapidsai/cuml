@@ -118,7 +118,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         self,
         workers=None,
         client=None,
-        verbose=logger.LEVEL_INFO,
+        verbose=False,
         n_estimators=10,
         seed=None,
         **kwargs

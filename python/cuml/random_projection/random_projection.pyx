@@ -352,7 +352,7 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
     """
 
     def __init__(self, handle=None, n_components='auto', eps=0.1,
-                 random_state=None, verbose=logger.LEVEL_INFO):
+                 random_state=None, verbose=False):
         Base.__init__(self, handle, verbose)
         self.gaussian_method = True
         self.density = -1.0  # not used
@@ -464,7 +464,7 @@ class SparseRandomProjection(Base, BaseRandomProjection):
 
     def __init__(self, handle=None, n_components='auto', density='auto',
                  eps=0.1, dense_output=True, random_state=None,
-                 verbose=logger.LEVEL_INFO):
+                 verbose=False):
         Base.__init__(self, handle, verbose)
         self.gaussian_method = False
         self.density = density if density != 'auto' else -1.0

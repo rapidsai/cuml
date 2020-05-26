@@ -133,7 +133,7 @@ class Lasso(Base, RegressorMixin):
                  output_type=None):
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(Lasso, self).__init__(handle=handle, verbose=logger.LEVEL_INFO,
+        super(Lasso, self).__init__(handle=handle, verbose=False,
                                     output_type=output_type)
 
         self._check_alpha(alpha)

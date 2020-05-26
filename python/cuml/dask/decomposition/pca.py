@@ -107,7 +107,7 @@ class PCA(BaseDecomposition,
     svd_solver : 'full'
         Only Full algorithm is supported since it's significantly faster on GPU
         then the other solvers including randomized SVD.
-    verbose : int
+    verbose : int or boolean (default = False)
         Logging level
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by
@@ -155,7 +155,7 @@ class PCA(BaseDecomposition,
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
-    def __init__(self, client=None, verbose=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=False, **kwargs):
 
         super(PCA, self).__init__(PCA._create_pca,
                                   client=client,

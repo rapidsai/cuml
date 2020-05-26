@@ -242,7 +242,7 @@ class UMAP(Base):
 
                     def on_train_end(self, embeddings):
                         print(embeddings.copy_to_host())
-    verbose: int (optional, default cuml.common.logger.LEVEL_INFO)
+    verbose : int or boolean (default = False)
         Controls verbosity of logging.
 
     Notes
@@ -287,7 +287,7 @@ class UMAP(Base):
                  negative_sample_rate=5,
                  transform_queue_size=4.0,
                  init="spectral",
-                 verbose=logger.LEVEL_INFO,
+                 verbose=False,
                  a=None,
                  b=None,
                  target_n_neighbors=-1,
