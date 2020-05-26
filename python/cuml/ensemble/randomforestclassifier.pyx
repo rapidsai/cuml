@@ -229,14 +229,14 @@ class RandomForestClassifier(Base):
                  'split_algo', 'split_criterion', 'min_rows_per_node',
                  'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
-                 'verbosity', 'rows_sample',
+                 'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
 
     def __init__(self, n_estimators=100, max_depth=16, handle=None,
                  max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
-                 type_model="classifier", verbosity=logger.LEVEL_INFO,
+                 type_model="classifier", verbose=logger.LEVEL_INFO,
                  rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
                  output_type=None, criterion=None, dtype=None,
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
@@ -268,7 +268,7 @@ class RandomForestClassifier(Base):
             handle = Handle(n_streams)
 
         super(RandomForestClassifier, self).__init__(handle=handle,
-                                                     verbosity=verbosity,
+                                                     verbose=verbose,
                                                      output_type=output_type)
 
         self.split_algo = split_algo
@@ -338,7 +338,7 @@ class RandomForestClassifier(Base):
                 state["rf_params64"] = rf_forest64.rf_params
 
         state['n_cols'] = self.n_cols
-        state["verbosity"] = self.verbosity
+        state["verbose"] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
         state["treelite_handle"] = None
 
@@ -346,7 +346,7 @@ class RandomForestClassifier(Base):
 
     def __setstate__(self, state):
         super(RandomForestClassifier, self).__init__(
-            handle=None, verbosity=state['verbosity'])
+            handle=None, verbose=state['verbose'])
         cdef  RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \
@@ -677,7 +677,7 @@ class RandomForestClassifier(Base):
                 <int*> y_ptr,
                 <int> num_unique_labels,
                 rf_params,
-                <int> self.verbosity)
+                <int> self.verbose)
 
         elif self.dtype == np.float64:
             rf_params64 = rf_params
@@ -689,7 +689,7 @@ class RandomForestClassifier(Base):
                 <int*> y_ptr,
                 <int> num_unique_labels,
                 rf_params64,
-                <int> self.verbosity)
+                <int> self.verbose)
 
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
@@ -768,7 +768,7 @@ class RandomForestClassifier(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <int*> preds_ptr,
-                    <int> self.verbosity)
+                    <int> self.verbose)
 
         elif self.dtype == np.float64:
             predict(handle_[0],
@@ -777,7 +777,7 @@ class RandomForestClassifier(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <int*> preds_ptr,
-                    <int> self.verbosity)
+                    <int> self.verbose)
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."
@@ -918,7 +918,7 @@ class RandomForestClassifier(Base):
                           <int> n_rows,
                           <int> n_cols,
                           <int*> preds_ptr,
-                          <int> self.verbosity)
+                          <int> self.verbose)
 
         elif self.dtype == np.float64:
             predictGetAll(handle_[0],
@@ -927,7 +927,7 @@ class RandomForestClassifier(Base):
                           <int> n_rows,
                           <int> n_cols,
                           <int*> preds_ptr,
-                          <int> self.verbosity)
+                          <int> self.verbose)
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."
@@ -1113,14 +1113,14 @@ class RandomForestClassifier(Base):
                                <int*> y_ptr,
                                <int> n_rows,
                                <int*> preds_ptr,
-                               <int> self.verbosity)
+                               <int> self.verbose)
         elif self.dtype == np.float64:
             self.stats = score(handle_[0],
                                rf_forest64,
                                <int*> y_ptr,
                                <int> n_rows,
                                <int*> preds_ptr,
-                               <int> self.verbosity)
+                               <int> self.verbose)
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."

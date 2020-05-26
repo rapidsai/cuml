@@ -215,7 +215,7 @@ class RandomForestRegressor(Base):
                  'split_algo', 'split_criterion', 'min_rows_per_node',
                  'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
-                 'verbosity', 'rows_sample',
+                 'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree',
                  'accuracy_metric']
 
@@ -223,7 +223,7 @@ class RandomForestRegressor(Base):
                  max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
-                 verbosity=logger.LEVEL_INFO, min_rows_per_node=2,
+                 verbose=logger.LEVEL_INFO, min_rows_per_node=2,
                  rows_sample=1.0, max_leaves=-1,
                  accuracy_metric='mse', output_type=None,
                  min_samples_leaf=None, dtype=None,
@@ -253,7 +253,7 @@ class RandomForestRegressor(Base):
             handle = Handle(n_streams)
 
         super(RandomForestRegressor, self).__init__(handle=handle,
-                                                    verbosity=verbosity,
+                                                    verbose=verbose,
                                                     output_type=output_type)
 
         if max_depth < 0:
@@ -322,7 +322,7 @@ class RandomForestRegressor(Base):
                 state["rf_params64"] = rf_forest64.rf_params
 
         state['n_cols'] = self.n_cols
-        state["verbosity"] = self.verbosity
+        state["verbose"] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
         state["treelite_handle"] = None
 
@@ -330,7 +330,7 @@ class RandomForestRegressor(Base):
 
     def __setstate__(self, state):
         super(RandomForestRegressor, self).__init__(
-            handle=None, verbosity=state['verbosity'])
+            handle=None, verbose=state['verbose'])
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         cdef  RandomForestMetaData[double, double] *rf_forest64 = \
@@ -636,7 +636,7 @@ class RandomForestRegressor(Base):
                 <int> self.n_cols,
                 <float*> y_ptr,
                 rf_params,
-                <int> self.verbosity)
+                <int> self.verbose)
 
         else:
             rf_params64 = rf_params
@@ -647,7 +647,7 @@ class RandomForestRegressor(Base):
                 <int> self.n_cols,
                 <double*> y_ptr,
                 rf_params64,
-                <int> self.verbosity)
+                <int> self.verbose)
         # make sure that the `fit` is complete before the following delete
         # call happens
         self.handle.sync()
@@ -717,7 +717,7 @@ class RandomForestRegressor(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <float*> preds_ptr,
-                    <int> self.verbosity)
+                    <int> self.verbose)
 
         elif self.dtype == np.float64:
             predict(handle_[0],
@@ -726,7 +726,7 @@ class RandomForestRegressor(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <double*> preds_ptr,
-                    <int> self.verbosity)
+                    <int> self.verbose)
         else:
             raise TypeError("supports only float32 and float64 input,"
                             " but input of type '%s' passed."
@@ -882,7 +882,7 @@ class RandomForestRegressor(Base):
                                     <float*> y_ptr,
                                     <int> n_rows,
                                     <float*> preds_ptr,
-                                    <int> self.verbosity)
+                                    <int> self.verbose)
 
         elif self.dtype == np.float64:
             self.temp_stats = score(handle_[0],
@@ -890,7 +890,7 @@ class RandomForestRegressor(Base):
                                     <double*> y_ptr,
                                     <int> n_rows,
                                     <double*> preds_ptr,
-                                    <int> self.verbosity)
+                                    <int> self.verbose)
 
         if self.accuracy_metric == 'median_ae':
             stats = self.temp_stats['median_abs_error']

@@ -192,7 +192,7 @@ class TruncatedSVD(Base):
     tol : float (default = 1e-7)
         Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
         but but will slow down the algorithm's convergence.
-    verbosity : int
+    verbose : int
         Logging level
 
     Attributes
@@ -228,9 +228,9 @@ class TruncatedSVD(Base):
 
     def __init__(self, algorithm='full', handle=None, n_components=1,
                  n_iter=15, random_state=None, tol=1e-7,
-                 verbosity=logger.LEVEL_INFO, output_type=None):
+                 verbose=logger.LEVEL_INFO, output_type=None):
         # params
-        super(TruncatedSVD, self).__init__(handle=handle, verbosity=verbosity,
+        super(TruncatedSVD, self).__init__(handle=handle, verbose=verbose,
                                            output_type=output_type)
         self.algorithm = algorithm
         self.n_components = n_components

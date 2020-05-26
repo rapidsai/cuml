@@ -81,9 +81,9 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
         will be denoted as None.
     """
 
-    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=logger.LEVEL_INFO, **kwargs):
         super(OneHotEncoder, self).__init__(client=client,
-                                            verbosity=verbosity,
+                                            verbose=verbose,
                                             **kwargs)
 
     @with_cupy_rmm

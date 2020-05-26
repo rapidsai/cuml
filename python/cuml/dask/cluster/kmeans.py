@@ -58,7 +58,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         The more iterations of EM, the more accurate, but slower.
     tol : float (default = 1e-4)
         Stopping criterion when centroid means do not change much.
-    verbosity : int (default = cuml.logger.LEVEL_INFO)
+    verbose : int (default = cuml.logger.LEVEL_INFO)
         Logging level for printing diagnostic information
     random_state : int (default = 1)
         If you want results to be the same when you restart Python,
@@ -93,9 +93,9 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
     """
 
-    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=logger.LEVEL_INFO, **kwargs):
         super(KMeans, self).__init__(client=client,
-                                     verbosity=verbosity,
+                                     verbose=verbose,
                                      **kwargs)
 
     @staticmethod

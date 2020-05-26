@@ -213,7 +213,7 @@ class PCA(Base):
     tol : float (default = 1e-7)
         Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
         but but will slow down the algorithm's convergence.
-    verbosity : int
+    verbose : int
         Logging level
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by
@@ -261,10 +261,10 @@ class PCA(Base):
 
     def __init__(self, copy=True, handle=None, iterated_power=15,
                  n_components=1, random_state=None, svd_solver='auto',
-                 tol=1e-7, verbosity=logger.LEVEL_INFO, whiten=False,
+                 tol=1e-7, verbose=logger.LEVEL_INFO, whiten=False,
                  output_type=None):
         # parameters
-        super(PCA, self).__init__(handle=handle, verbosity=verbosity,
+        super(PCA, self).__init__(handle=handle, verbose=verbose,
                                   output_type=output_type)
         self.copy = copy
         self.iterated_power = iterated_power

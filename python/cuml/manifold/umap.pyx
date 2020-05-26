@@ -242,7 +242,7 @@ class UMAP(Base):
 
                     def on_train_end(self, embeddings):
                         print(embeddings.copy_to_host())
-    verbosity: int (optional, default cuml.common.logger.LEVEL_INFO)
+    verbose: int (optional, default cuml.common.logger.LEVEL_INFO)
         Controls verbosity of logging.
 
     Notes
@@ -287,7 +287,7 @@ class UMAP(Base):
                  negative_sample_rate=5,
                  transform_queue_size=4.0,
                  init="spectral",
-                 verbosity=logger.LEVEL_INFO,
+                 verbose=logger.LEVEL_INFO,
                  a=None,
                  b=None,
                  target_n_neighbors=-1,
@@ -300,7 +300,7 @@ class UMAP(Base):
                  callback=None,
                  output_type=None):
 
-        super(UMAP, self).__init__(handle=handle, verbosity=verbosity,
+        super(UMAP, self).__init__(handle=handle, verbose=verbose,
                                    output_type=output_type)
 
         self.hash_input = hash_input
@@ -373,7 +373,7 @@ class UMAP(Base):
         umap_params.repulsion_strength = <float> cls.repulsion_strength
         umap_params.negative_sample_rate = <int> cls.negative_sample_rate
         umap_params.transform_queue_size = <int> cls.transform_queue_size
-        umap_params.verbosity = <int> cls.verbosity
+        umap_params.verbosity = <int> cls.verbose
         umap_params.a = <float> cls.a
         umap_params.b = <float> cls.b
         if cls.init == "spectral":

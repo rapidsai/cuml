@@ -70,9 +70,9 @@ class Ridge(BaseEstimator,
         The independent term. If fit_intercept_ is False, will be 0.
     """
 
-    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=logger.LEVEL_INFO, **kwargs):
         super(Ridge, self).__init__(client=client,
-                                    verbosity=verbosity,
+                                    verbose=verbose,
                                     **kwargs)
 
         self.coef_ = None

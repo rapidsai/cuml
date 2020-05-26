@@ -120,14 +120,14 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         self,
         workers=None,
         client=None,
-        verbosity=logger.LEVEL_INFO,
+        verbose=logger.LEVEL_INFO,
         n_estimators=10,
         seed=None,
         **kwargs
     ):
 
         super(RandomForestClassifier, self).__init__(client=client,
-                                                     verbosity=verbosity,
+                                                     verbose=verbose,
                                                      **kwargs)
 
         self._create_model(

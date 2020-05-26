@@ -33,12 +33,12 @@ from toolz import first
 
 class BaseEstimator(object):
 
-    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=logger.LEVEL_INFO, **kwargs):
         """
         Constructor for distributed estimators
         """
         self.client = default_client() if client is None else client
-        self.verbosity = verbosity
+        self.verbose = verbose
         self.kwargs = kwargs
 
     @staticmethod
