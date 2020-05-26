@@ -340,9 +340,9 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
 
     Attributes
     ----------
-        gaussian_method : boolean
-            To be passed to base class in order to determine
-            random matrix generation method
+    gaussian_method : boolean
+        To be passed to base class in order to determine
+        random matrix generation method
 
     Notes
     ------
