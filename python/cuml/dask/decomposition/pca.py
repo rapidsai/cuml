@@ -58,7 +58,7 @@ class PCA(BaseDecomposition,
 
         X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
                         cluster_std=0.01,
-                        verbosity=cuml.logger.LEVEL_INFO,
+                        verbose=cuml.logger.LEVEL_INFO,
                         random_state=10, dtype=np.float32)
 
         wait(X_cudf)
@@ -107,7 +107,7 @@ class PCA(BaseDecomposition,
     svd_solver : 'full'
         Only Full algorithm is supported since it's significantly faster on GPU
         then the other solvers including randomized SVD.
-    verbosity : int
+    verbose : int
         Logging level
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by
@@ -155,11 +155,11 @@ class PCA(BaseDecomposition,
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
-    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=logger.LEVEL_INFO, **kwargs):
 
         super(PCA, self).__init__(PCA._create_pca,
                                   client=client,
-                                  verbosity=verbosity,
+                                  verbose=verbose,
                                   **kwargs)
         self.noise_variance_ = None
 

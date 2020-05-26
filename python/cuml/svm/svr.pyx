@@ -163,7 +163,7 @@ class SVR(SVMBase):
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
-    verbosity : int (default = cuml.common.logger.LEVEL_INFO)
+    verbose : int (default = cuml.common.logger.LEVEL_INFO)
         verbosity level
 
     Attributes
@@ -209,10 +209,10 @@ class SVR(SVMBase):
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, epsilon=0.1,
                  cache_size=200.0, max_iter=-1, nochange_steps=1000,
-                 verbosity=logger.LEVEL_INFO):
+                 verbose=logger.LEVEL_INFO):
         super(SVR, self).__init__(handle, C, kernel, degree, gamma, coef0, tol,
                                   cache_size, max_iter, nochange_steps,
-                                  verbosity, epsilon)
+                                  verbose, epsilon)
         self.svmType = EPSILON_SVR
 
     def fit(self, X, y):

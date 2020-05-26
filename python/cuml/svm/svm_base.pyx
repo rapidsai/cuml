@@ -116,7 +116,7 @@ class SVMBase(Base):
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
-                 max_iter=-1, nochange_steps=1000, verbosity=logger.LEVEL_INFO,
+                 max_iter=-1, nochange_steps=1000, verbose=logger.LEVEL_INFO,
                  epsilon=0.1):
         """
         Construct an SVC classifier for training and predictions.
@@ -157,7 +157,7 @@ class SVMBase(Base):
             We monitor how much our stopping criteria changes during outer
             iterations. If it does not change (changes less then 1e-3*tol)
             for nochange_steps consecutive steps, then we stop training.
-        verbosity : int (default = cuml.common.logger.LEVEL_INFO)
+        verbose : int (default = cuml.common.logger.LEVEL_INFO)
             verbosity level
 
         Attributes
@@ -184,7 +184,7 @@ class SVMBase(Base):
         For additional docs, see `scikitlearn's SVC
         <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
         """
-        super(SVMBase, self).__init__(handle=handle, verbosity=verbosity)
+        super(SVMBase, self).__init__(handle=handle, verbose=verbose)
         # Input parameters for training
         self.tol = tol
         self.C = C
@@ -313,7 +313,7 @@ class SVMBase(Base):
         param.max_iter = self.max_iter
         param.nochange_steps = self.nochange_steps
         param.tol = self.tol
-        param.verbosity = self.verbosity
+        param.verbosity = self.verbose
         param.epsilon = self.epsilon
         param.svmType = self.svmType
         return param
@@ -563,7 +563,7 @@ class SVMBase(Base):
 
     def get_param_names(self):
         return ["C", "kernel", "degree", "gamma", "coef0", "cache_size",
-                "max_iter", "tol", "verbosity"]
+                "max_iter", "tol", "verbose"]
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -573,7 +573,7 @@ class SVMBase(Base):
 
     def __setstate__(self, state):
         super(SVMBase, self).__init__(handle=None,
-                                      verbosity=state['verbosity'])
+                                      verbose=state['verbose'])
         self.__dict__.update(state)
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False

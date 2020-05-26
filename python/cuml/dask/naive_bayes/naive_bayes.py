@@ -98,7 +98,7 @@ class MultinomialNB(BaseEstimator,
     0.9244298934936523
 
     """
-    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=logger.LEVEL_INFO, **kwargs):
 
         """
         Create new multinomial distributed Naive Bayes classifier instance
@@ -108,7 +108,7 @@ class MultinomialNB(BaseEstimator,
 
         client : dask.distributed.Client optional Dask client to use
         """
-        super(MultinomialNB, self).__init__(client=client, verbosity=verbosity,
+        super(MultinomialNB, self).__init__(client=client, verbose=verbose,
                                             **kwargs)
 
         self.datatype = "cupy"

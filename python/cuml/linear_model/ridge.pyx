@@ -213,7 +213,7 @@ class Ridge(Base, RegressorMixin):
 
         """
         self._check_alpha(alpha)
-        super(Ridge, self).__init__(handle=handle, verbosity=logger.LEVEL_INFO,
+        super(Ridge, self).__init__(handle=handle, verbose=logger.LEVEL_INFO,
                                     output_type=output_type)
 
         # internal array attributes

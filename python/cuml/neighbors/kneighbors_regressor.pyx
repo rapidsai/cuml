@@ -90,7 +90,7 @@ class KNeighborsRegressor(NearestNeighbors):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbosity : int (default=cuml.common.logger.LEVEL_INFO)
+    verbose : int (default=cuml.common.logger.LEVEL_INFO)
         Logging level
     handle : cumlHandle
         The cumlHandle resources to use

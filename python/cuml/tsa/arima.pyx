@@ -143,8 +143,8 @@ class ARIMA(Base):
         Whether to include a constant trend mu in the model (default: True)
     handle: cuml.Handle
         If it is None, a new one is created just for this instance
-    verbosity: int (optional, default cuml.common.logger.LEVEL_INFO)
-        Controls verbosity level of logging.
+    verbose: int (optional, default cuml.common.logger.LEVEL_INFO)
+        Controls verbose level of logging.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes of
         the estimators. If None, it'll inherit the output type set at the
@@ -199,7 +199,7 @@ class ARIMA(Base):
                  = (0, 0, 0, 0),
                  fit_intercept=True,
                  handle=None,
-                 verbosity=logger.LEVEL_INFO,
+                 verbose=logger.LEVEL_INFO,
                  output_type=None):
 
         if not has_scipy():
@@ -208,7 +208,7 @@ class ARIMA(Base):
                                "estimation.")
 
         # Initialize base class
-        super().__init__(handle, verbosity, output_type)
+        super().__init__(handle, verbose, output_type)
         self._set_output_type(y)
 
         # Set the ARIMA order
