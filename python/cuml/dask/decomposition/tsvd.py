@@ -94,7 +94,7 @@ class TruncatedSVD(BaseDecomposition,
     svd_solver : 'full'
         Only Full algorithm is supported since it's significantly faster on GPU
         then the other solvers including randomized SVD.
-    verbose : int
+    verbose : int or boolean (default = False)
         Logging level
 
     Attributes

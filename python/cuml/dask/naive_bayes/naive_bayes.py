@@ -98,7 +98,7 @@ class MultinomialNB(BaseEstimator,
     0.9244298934936523
 
     """
-    def __init__(self, client=None, verbose=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=False, **kwargs):
 
         """
         Create new multinomial distributed Naive Bayes classifier instance

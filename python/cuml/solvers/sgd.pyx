@@ -227,7 +227,7 @@ class SGD(Base):
             msg = "penalty {!r} is not supported"
             raise TypeError(msg.format(penalty))
 
-        super(SGD, self).__init__(handle=handle, verbose=logger.LEVEL_INFO,
+        super(SGD, self).__init__(handle=handle, verbose=False,
                                   output_type=output_type)
         self.alpha = alpha
         self.l1_ratio = l1_ratio

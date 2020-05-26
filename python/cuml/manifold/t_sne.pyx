@@ -111,7 +111,7 @@ class TSNE(Base):
         a future release.
     init : str 'random' (default 'random')
         Currently supports random intialization.
-    verbose : int (default logger.LEVEL_INFO)
+    verbose : int or boolean (default = False) (default logger.LEVEL_INFO)
         Level of verbosity.
         Most messages will be printed inside the Python Console.
     random_state : int (default None)
@@ -193,7 +193,7 @@ class TSNE(Base):
                  float min_grad_norm=1e-07,
                  str metric='euclidean',
                  str init='random',
-                 int verbose=logger.LEVEL_INFO,
+                 int verbose=False,
                  random_state=None,
                  str method='barnes_hut',
                  float angle=0.5,

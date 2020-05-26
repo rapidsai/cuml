@@ -33,7 +33,7 @@ from toolz import first
 
 class BaseEstimator(object):
 
-    def __init__(self, client=None, verbose=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=False, **kwargs):
         """
         Constructor for distributed estimators
         """

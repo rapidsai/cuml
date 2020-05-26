@@ -127,7 +127,7 @@ class DBSCAN(Base):
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
-    verbose : int
+    verbose : int or boolean (default = False)
         Logging level
     max_mbytes_per_batch : (optional) int64
         Calculate batch size using no more than this number of megabytes for
@@ -174,7 +174,7 @@ class DBSCAN(Base):
     """
 
     def __init__(self, eps=0.5, handle=None, min_samples=5,
-                 verbose=logger.LEVEL_INFO, max_mbytes_per_batch=None,
+                 verbose=False, max_mbytes_per_batch=None,
                  output_type=None):
         super(DBSCAN, self).__init__(handle, verbose, output_type)
         self.eps = eps

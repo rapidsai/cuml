@@ -141,9 +141,9 @@ class ARIMA(Base):
         The seasonal ARIMA order (P, D, Q, s) of the model
     fit_intercept : bool or int
         Whether to include a constant trend mu in the model (default: True)
-    handle: cuml.Handle
+    handle : cuml.Handle
         If it is None, a new one is created just for this instance
-    verbose: int (optional, default cuml.common.logger.LEVEL_INFO)
+    verbose : int or boolean (default = False)
         Controls verbose level of logging.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes of
@@ -199,7 +199,7 @@ class ARIMA(Base):
                  = (0, 0, 0, 0),
                  fit_intercept=True,
                  handle=None,
-                 verbose=logger.LEVEL_INFO,
+                 verbose=False,
                  output_type=None):
 
         if not has_scipy():

@@ -129,7 +129,7 @@ class LogisticRegression(Base):
     linesearch_max_iter: int (default = 50)
         Max number of linesearch iterations per outer iteration used in the
         lbfgs and owl QN solvers.
-    verbose: int (optional, default cuml.common.logger.LEVEL_INFO)
+    verbose : int or boolean (default = False)
         Controls verbose level of logging.
     l1_ratio: float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
@@ -164,7 +164,7 @@ class LogisticRegression(Base):
 
     def __init__(self, penalty='l2', tol=1e-4, C=1.0, fit_intercept=True,
                  class_weight=None, max_iter=1000, linesearch_max_iter=50,
-                 verbose=logger.LEVEL_INFO, l1_ratio=None, solver='qn',
+                 verbose=False, l1_ratio=None, solver='qn',
                  handle=None):
 
         super(LogisticRegression, self).__init__(handle=handle,

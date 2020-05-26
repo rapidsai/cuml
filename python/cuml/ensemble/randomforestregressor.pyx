@@ -223,7 +223,7 @@ class RandomForestRegressor(Base):
                  max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
-                 verbose=logger.LEVEL_INFO, min_rows_per_node=2,
+                 verbose=False, min_rows_per_node=2,
                  rows_sample=1.0, max_leaves=-1,
                  accuracy_metric='mse', output_type=None,
                  min_samples_leaf=None, dtype=None,

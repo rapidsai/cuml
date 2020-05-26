@@ -116,7 +116,7 @@ class SVMBase(Base):
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
-                 max_iter=-1, nochange_steps=1000, verbose=logger.LEVEL_INFO,
+                 max_iter=-1, nochange_steps=1000, verbose=False,
                  epsilon=0.1):
         """
         Construct an SVC classifier for training and predictions.
@@ -157,7 +157,7 @@ class SVMBase(Base):
             We monitor how much our stopping criteria changes during outer
             iterations. If it does not change (changes less then 1e-3*tol)
             for nochange_steps consecutive steps, then we stop training.
-        verbose : int (default = cuml.common.logger.LEVEL_INFO)
+        verbose : int or boolean (default = False)
             verbosity level
 
         Attributes

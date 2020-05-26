@@ -30,7 +30,7 @@ import cuml.common.logger as logger
 
 class BaseDecomposition(BaseEstimator):
 
-    def __init__(self, model_func, client=None, verbose=logger.LEVEL_INFO,
+    def __init__(self, model_func, client=None, verbose=False,
                  **kwargs):
         """
         Constructor for distributed decomposition model

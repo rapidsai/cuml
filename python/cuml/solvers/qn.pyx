@@ -211,7 +211,7 @@ class QN(Base):
     lbfgs_memory: int (default = 5)
         Rank of the lbfgs inverse-Hessian approximation. Method will use
         O(lbfgs_memory * D) memory.
-    verbose: int (optional, default cuml.common.logger.LEVEL_INFO)
+    verbose : int or boolean (default = False)
         Controls verbose level of logging.
 
     Attributes
@@ -237,7 +237,7 @@ class QN(Base):
     def __init__(self, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
                  linesearch_max_iter=50, lbfgs_memory=5,
-                 verbose=logger.LEVEL_INFO, handle=None):
+                 verbose=False, handle=None):
 
         super(QN, self).__init__(handle=handle, verbose=verbose)
 
