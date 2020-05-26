@@ -28,7 +28,6 @@ from cuml.dask.common.utils import get_client
 
 import math
 
-import cuml.common.logger as logger
 
 
 def _create_local_data(m, n, centers, cluster_std, shuffle, random_state,

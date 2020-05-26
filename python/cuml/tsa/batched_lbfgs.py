@@ -17,7 +17,6 @@
 import numpy as np
 
 from cuml.common.cuda import nvtx_range_push, nvtx_range_pop
-import cuml.common.logger as logger
 from cuml.common import has_scipy
 
 

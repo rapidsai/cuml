@@ -34,7 +34,6 @@ from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
 from libcpp cimport bool
 from cuml.svm.svm_base import SVMBase
-import cuml.common.logger as logger
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:

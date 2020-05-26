@@ -30,7 +30,6 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 
 from collections import defaultdict

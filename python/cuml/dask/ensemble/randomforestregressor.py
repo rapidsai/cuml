@@ -20,8 +20,6 @@ from cuml.dask.ensemble.base import \
     BaseRandomForestModel
 from cuml.dask.common.base import BaseEstimator
 
-import cuml.common.logger as logger
-
 
 class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
                             BaseEstimator):

@@ -43,7 +43,6 @@ from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
     _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.fil.fil import TreeliteModel
-import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 from cuml.common import get_cudf_column_ptr, zeros
 

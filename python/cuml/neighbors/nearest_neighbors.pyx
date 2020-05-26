@@ -33,7 +33,6 @@ from cuml.common import input_to_cuml_array
 from cython.operator cimport dereference as deref
 
 from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
 
 
 from libcpp cimport bool

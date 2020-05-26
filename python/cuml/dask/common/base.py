@@ -20,7 +20,6 @@ import numpy as np
 
 from cuml import Base
 from cuml.common.array import CumlArray
-import cuml.common.logger as logger
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.dask.common.comms import CommsContext
 from cuml.dask.common.input_utils import DistributedDataHandler

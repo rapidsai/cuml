@@ -25,8 +25,6 @@ from dask.distributed import wait
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.input_utils import DistributedDataHandler
 
-import cuml.common.logger as logger
-
 
 class BaseDecomposition(BaseEstimator):
 

@@ -36,7 +36,6 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
-import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 
 
