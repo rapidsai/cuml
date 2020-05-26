@@ -22,6 +22,7 @@
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.common.array import CumlArray
+import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 
 import numpy as np
@@ -52,6 +53,7 @@ import rmm
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
+
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
@@ -86,8 +88,8 @@ class KNeighborsClassifier(NearestNeighbors):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbose : boolean (default=False)
-        Whether to print verbose logs
+    verbosity : int (default=cuml.common.logger.LEVEL_INFO)
+        Logging level
     handle : cumlHandle
         The cumlHandle resources to use
     algorithm : string (default='brute')

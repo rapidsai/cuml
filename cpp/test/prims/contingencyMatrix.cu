@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <iostream>
 #include <random>
-#include "metrics/contingencyMatrix.h"
+#include "metrics/contingencyMatrix.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

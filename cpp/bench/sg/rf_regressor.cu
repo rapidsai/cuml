@@ -61,7 +61,6 @@ class RFRegressor : public RegressionFixture<D> {
       fit(*this->handle, mPtr, this->data.X, this->params.nrows,
           this->params.ncols, this->data.y, rfParams);
       CUDA_CHECK(cudaStreamSynchronize(this->stream));
-      delete[] mPtr->trees;
     });
   }
 

@@ -79,7 +79,7 @@ class LinearRegressionMG(MGFitMixin, LinearRegression):
 
     def _fit(self, X, y, coef_ptr, rank_to_sizes, n_rows, n_cols,
              n_total_parts):
-        # self._set_output_type(input_data[0][0])
+
         cdef float float_intercept
         cdef double double_intercept
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()

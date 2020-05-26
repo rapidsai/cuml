@@ -40,6 +40,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_cuml_array, zeros, with_cupy_rmm, has_scipy
 from cuml.common.array import CumlArray
+import cuml.common.logger as logger
 
 import rmm
 
@@ -241,7 +242,7 @@ class UMAP(Base):
 
                     def on_train_end(self, embeddings):
                         print(embeddings.copy_to_host())
-    verbose: bool (optional, default False)
+    verbosity: int (optional, default cuml.common.logger.LEVEL_INFO)
         Controls verbosity of logging.
 
     Notes
@@ -286,7 +287,7 @@ class UMAP(Base):
                  negative_sample_rate=5,
                  transform_queue_size=4.0,
                  init="spectral",
-                 verbose=False,
+                 verbosity=logger.LEVEL_INFO,
                  a=None,
                  b=None,
                  target_n_neighbors=-1,
@@ -299,7 +300,7 @@ class UMAP(Base):
                  callback=None,
                  output_type=None):
 
-        super(UMAP, self).__init__(handle=handle, verbose=verbose,
+        super(UMAP, self).__init__(handle=handle, verbosity=verbosity,
                                    output_type=output_type)
 
         self.hash_input = hash_input
@@ -307,7 +308,6 @@ class UMAP(Base):
         self.n_neighbors = n_neighbors
         self.n_components = n_components
         self.n_epochs = n_epochs
-        self.verbose = verbose
 
         if init == "spectral" or init == "random":
             self.init = init

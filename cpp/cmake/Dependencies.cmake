@@ -55,8 +55,8 @@ endif(DEFINED ENV{RAFT_PATH})
 
 set(CUB_DIR ${CMAKE_CURRENT_BINARY_DIR}/cub CACHE STRING "Path to cub repo")
 ExternalProject_Add(cub
-  GIT_REPOSITORY    https://github.com/NVlabs/cub.git
-  GIT_TAG           v1.8.0
+  GIT_REPOSITORY    https://github.com/thrust/cub.git
+  GIT_TAG           1.8.0
   PREFIX            ${CUB_DIR}
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
@@ -219,8 +219,8 @@ set_property(TARGET benchmarklib PROPERTY
 add_dependencies(cub raft)
 add_dependencies(cutlass cub)
 add_dependencies(spdlog cutlass)
-add_dependencies(faiss spdlog)
+add_dependencies(googletest spdlog)
+add_dependencies(benchmark googletest)
+add_dependencies(faiss benchmark)
 add_dependencies(faisslib faiss)
 add_dependencies(treelite faiss)
-add_dependencies(googletest treelite)
-add_dependencies(benchmark googletest)
