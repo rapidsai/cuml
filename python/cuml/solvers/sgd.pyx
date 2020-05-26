@@ -207,10 +207,6 @@ class SGD(Base):
         module level, cuml.output_type. If set, the estimator will override
         the global option for its behavior.
 
-    Notes
-    ------
-    For additional docs, see `scikitlearn's OLS
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>
     """
 
     def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001,
@@ -411,6 +407,7 @@ class SGD(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
         ----------
         y: Type specified in `output_type`

@@ -148,7 +148,7 @@ class DBSCAN(Base):
         If set, the estimator will override the global option for its behavior.
 
     Attributes
-    -----------
+    ----------
     labels_ : array-like or cuDF series
         Which cluster each datapoint belongs to. Noisy samples are labeled as
         -1. Format depends on cuml global output type and estimator
@@ -169,9 +169,6 @@ class DBSCAN(Base):
         Large Hadron Collider, customer segmentation in marketing analyses,
         and much more.
 
-
-    For an additional example, see `the DBSCAN notebook
-    <https://github.com/rapidsai/notebooks/blob/master/cuml/dbscan_demo.ipynb>`_.
     For additional docs, see `scikitlearn's DBSCAN
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """

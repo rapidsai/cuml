@@ -1,4 +1,4 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -212,6 +212,7 @@ class CD(Base):
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -297,6 +298,7 @@ class CD(Base):
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -308,6 +310,7 @@ class CD(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
         ----------
         y: cuDF DataFrame
