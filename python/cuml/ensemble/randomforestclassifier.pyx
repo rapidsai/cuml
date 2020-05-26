@@ -730,11 +730,11 @@ class RandomForestClassifier(Base):
                                           algo=algo)
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_handle,
-                                             output_class=output_class,
-                                             threshold=threshold,
-                                             algo=algo,
-                                             storage_type=storage_type)
+            fil_model.load_using_treelite_handle(treelite_handle,
+                                                 output_class=output_class,
+                                                 threshold=threshold,
+                                                 algo=algo,
+                                                 storage_type=storage_type)
 
         preds = tl_to_fil_model.predict(X, output_type=out_type,
                                         predict_proba=predict_proba)
