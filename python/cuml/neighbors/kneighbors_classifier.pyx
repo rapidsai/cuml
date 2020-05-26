@@ -22,7 +22,6 @@
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.common.array import CumlArray
-import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 
 import numpy as np

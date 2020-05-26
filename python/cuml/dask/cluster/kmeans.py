@@ -31,8 +31,6 @@ from cuml.dask.common.utils import raise_exception_from_futures
 from dask.distributed import wait
 from cuml.common.memory_utils import with_cupy_rmm
 
-import cuml.common.logger as logger
-
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     """

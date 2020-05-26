@@ -20,7 +20,6 @@
 # cython: language_level = 3
 from cuml.common.base import Base
 from cuml.solvers import SGD
-import cuml.common.logger as logger
 
 
 class MBSGDRegressor(Base):

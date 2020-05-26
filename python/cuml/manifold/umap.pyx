@@ -40,7 +40,6 @@ from cuml.common.handle cimport cumlHandle
 from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_cuml_array, zeros, with_cupy_rmm, has_scipy
 from cuml.common.array import CumlArray
-import cuml.common.logger as logger
 
 import rmm
 

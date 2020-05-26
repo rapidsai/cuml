@@ -37,7 +37,6 @@ from cuml.common import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
 
-import cuml.common.logger as logger
 
 
 cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":

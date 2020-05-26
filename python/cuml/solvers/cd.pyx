@@ -31,7 +31,6 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
 from cuml.common import get_cudf_column_ptr
 from cuml.common import get_dev_array_ptr
 from cuml.common import input_to_dev_array

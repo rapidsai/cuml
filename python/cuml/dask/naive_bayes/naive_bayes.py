@@ -35,8 +35,6 @@ from cuml.common import rmm_cupy_ary
 
 from cuml.naive_bayes import MultinomialNB as MNB
 
-import cuml.common.logger as logger
-
 
 class MultinomialNB(BaseEstimator,
                     DelayedPredictionMixin):

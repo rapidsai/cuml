@@ -30,7 +30,6 @@ from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
 from cuml.common import with_cupy_rmm
 from cuml.metrics import accuracy_score
-import cuml.common.logger as logger
 
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
