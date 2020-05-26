@@ -58,7 +58,7 @@ def test_tsne(name):
         del Y
 
         # Again
-        tsne = TSNE(2, random_state=i+2, verbose=logger.LEVEL_DEBUG,
+        tsne = TSNE(2, random_state=i+2, verbose=logger.level_debug,
                     learning_rate=2+i+2)
 
         # Reuse

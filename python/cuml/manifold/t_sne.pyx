@@ -111,7 +111,7 @@ class TSNE(Base):
         a future release.
     init : str 'random' (default 'random')
         Currently supports random intialization.
-    verbose : int or boolean (default = False) (default logger.LEVEL_INFO)
+    verbose : int or boolean (default = False) (default logger.level_info)
         Level of verbosity.
         Most messages will be printed inside the Python Console.
     random_state : int (default None)
@@ -361,7 +361,7 @@ class TSNE(Base):
             self.pre_learning_rate = max(n / 3.0, 1)
             self.post_learning_rate = self.pre_learning_rate
             self.early_exaggeration = 24.0 if n > 10000 else 12.0
-            if logger.should_log_for(logger.LEVEL_DEBUG):
+            if logger.should_log_for(logger.level_debug):
                 logger.debug("New n_neighbors = {}, learning_rate = {}, "
                              "exaggeration = {}"
                              .format(self.n_neighbors, self.pre_learning_rate,

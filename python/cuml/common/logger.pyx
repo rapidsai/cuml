@@ -53,25 +53,25 @@ cdef extern from "cuml/common/logger.hpp" nogil:
 
 
 """Enables all log messages upto and including `trace()`"""
-LEVEL_TRACE = CUML_LEVEL_TRACE
+level_trace = 6 - CUML_LEVEL_TRACE
 
 """Enables all log messages upto and including `debug()`"""
-LEVEL_DEBUG = CUML_LEVEL_DEBUG
+level_debug = 6 - CUML_LEVEL_DEBUG
 
 """Enables all log messages upto and including `info()`"""
-LEVEL_INFO = CUML_LEVEL_INFO
+level_info = 6 - CUML_LEVEL_INFO
 
 """Enables all log messages upto and including `warn()`"""
-LEVEL_WARN = CUML_LEVEL_WARN
+level_warn = 6 - CUML_LEVEL_WARN
 
 """Enables all log messages upto and include `error()`"""
-LEVEL_ERROR = CUML_LEVEL_ERROR
+level_error = 6 - CUML_LEVEL_ERROR
 
 """Enables only `critical()` messages"""
-LEVEL_CRITICAL = CUML_LEVEL_CRITICAL
+level_critical = 6 - CUML_LEVEL_CRITICAL
 
 """Disables all log messages"""
-LEVEL_OFF = CUML_LEVEL_OFF
+level_off = 6 - CUML_LEVEL_OFF
 
 
 class LogLevelSetter:
@@ -101,10 +101,10 @@ def set_level(level):
 
         # regular usage of setting a logging level for all subsequent logs
         # in this case, it will enable all logs upto and including `info()`
-        logger.set_level(logger.LEVEL_INFO)
+        logger.set_level(logger.level_info)
 
         # in case one wants to temporarily set the log level for a code block
-        with logger.set_level(logger.LEVEL_DEBUG) as _:
+        with logger.set_level(logger.level_debug) as _:
             logger.debug("Hello world!")
 
     Parameters
@@ -187,7 +187,7 @@ def should_log_for(level):
     .. code-block:: python
 
         import cuml.common.logger as logger
-        if logger.should_log_for(LEVEL_INFO):
+        if logger.should_log_for(level_info):
             # which could waste precious CPU cycles
             my_message = construct_message()
             logger.info(my_message)
@@ -195,8 +195,9 @@ def should_log_for(level):
     Parameters
     ----------
     level : int
-        Logging level to be set. It must be one of cuml.common.logger.LEVEL_*
+        Logging level to be set. It must be one of cuml.common.logger.level_*
     """
+    level = max(6 - level, 0)
     return Logger.get().shouldLogFor(<int>level)
 
 
