@@ -109,7 +109,7 @@ class Base:
         handles in several streams.
         If it is None, a new one is created just for this class.
     verbose : int or boolean (default = False)
-        Sets logging level. It must be one of `cuml.common.logger.LEVEL_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes of
         the estimators. If None, it'll inherit the output type set at the
@@ -162,7 +162,7 @@ class Base:
         del base  # optional!
     """
 
-    def __init__(self, handle=None, verbose=True,
+    def __init__(self, handle=None, verbose=False,
                  output_type=None):
         """
         Constructor. All children must call init method of this base class.
