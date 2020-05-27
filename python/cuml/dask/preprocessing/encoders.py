@@ -17,7 +17,6 @@ from cuml.common import with_cupy_rmm
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
-import cuml.common.logger as logger
 
 from toolz import first
 
@@ -81,9 +80,9 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
         will be denoted as None.
     """
 
-    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=False, **kwargs):
         super(OneHotEncoder, self).__init__(client=client,
-                                            verbosity=verbosity,
+                                            verbose=verbose,
                                             **kwargs)
 
     @with_cupy_rmm
