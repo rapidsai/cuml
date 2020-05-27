@@ -27,6 +27,8 @@ log
 .ipynb_checkpoints
 .DS_Store
 dask-worker-space/
+tmp/
+
 ## eclipse
 .project
 .cproject

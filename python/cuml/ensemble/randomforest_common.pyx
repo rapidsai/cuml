@@ -345,18 +345,18 @@ class BaseRandomForestModel(Base):
                             of predict.")
 
         treelite_handle = self._obtain_treelite_handle()
+
         storage_type = \
             _check_fil_parameter_validity(depth=self.max_depth,
                                           fil_sparse_format=fil_sparse_format,
                                           algo=algo)
-
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_handle,
-                                             output_class=output_class,
-                                             threshold=threshold,
-                                             algo=algo,
-                                             storage_type=storage_type)
+            fil_model.load_using_treelite_handle(treelite_handle,
+                                                 output_class=output_class,
+                                                 threshold=threshold,
+                                                 algo=algo,
+                                                 storage_type=storage_type)
 
         preds = tl_to_fil_model.predict(X, output_type=out_type,
                                         predict_proba=predict_proba)
@@ -448,6 +448,8 @@ def _obtain_fil_model(treelite_handle, depth,
                                       fil_sparse_format=fil_sparse_format,
                                       algo=algo)
 
+    tl_mod = _obtain_treelite_model(treelite_handle)
+    print(" number of trees in tl_mod : ", tl_mod.num_trees)
     fil_model = ForestInference()
     tl_to_fil_model = \
         fil_model.load_from_randomforest(treelite_handle,

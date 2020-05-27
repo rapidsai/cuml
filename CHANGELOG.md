@@ -18,6 +18,7 @@
 - PR #2256: Add a `make_arima` generator
 - PR #2245: ElasticNet, Lasso and Coordinate Descent MNMG
 - PR #2242: Pandas input support with output as NumPy arrays by default
+- PR #1728: Added notebook testing to gpuCI gpu build
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
@@ -105,6 +106,10 @@
 - PR #2281: Rely on cuDF's `Serializable` in `CumlArray`
 - PR #2284: Reduce dataset size in SG RF notebook to reduce run time of sklearn
 - PR #2285: Increase the threshold for elastic_net test in dask/test_coordinate_descent
+- PR #2314: Update FIL default values, documentation and test
+- PR #2316: 0.14 release docs additions and fixes
+- PR #2323: Change verbose levels and parameter name to match Scikit-learn API
+- PR #2324: Raise an error if n_bins > number of training samples in RF
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -154,6 +159,10 @@
 - PR #2274: Fix parameter name verbose to verbosity in mnmg OneHotEncoder
 - PR #2277: Updated cub repo path and branch name
 - PR #2282: Fix memory leak in Dask RF concatenation
+- PR #2301: Scaling KNN dask tests sample size with n GPUs
+- PR #2293: Contiguity fixes for input_to_cuml_array and train_test_split
+- PR #2295: Fix convert_to_dtype copy even with same dtype
+- PR #2305: Fixed race condition in DBScan
 
 # cuML 0.13.0 (Date TBD)
 

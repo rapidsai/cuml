@@ -20,8 +20,6 @@ from cuml.dask.ensemble.base import \
     BaseRandomForestModel
 from cuml.dask.common.base import BaseEstimator
 
-import cuml.common.logger as logger
-
 
 class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
                             BaseEstimator):
@@ -118,13 +116,13 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         self,
         workers=None,
         client=None,
-        verbosity=logger.LEVEL_INFO,
+        verbose=False,
         n_estimators=10,
         seed=None,
         **kwargs
     ):
         super(RandomForestRegressor, self).__init__(client=client,
-                                                    verbosity=verbosity,
+                                                    verbose=verbose,
                                                     **kwargs)
         self._create_model(
             model_func=RandomForestRegressor._construct_rf,
