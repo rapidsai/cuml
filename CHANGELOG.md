@@ -18,6 +18,7 @@
 - PR #2256: Add a `make_arima` generator
 - PR #2245: ElasticNet, Lasso and Coordinate Descent MNMG
 - PR #2242: Pandas input support with output as NumPy arrays by default
+- PR #1728: Added notebook testing to gpuCI gpu build
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
