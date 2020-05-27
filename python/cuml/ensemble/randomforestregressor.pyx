@@ -581,6 +581,9 @@ class RandomForestRegressor(Base):
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
                                 order='F')
+        if self.n_bins > n_rows:
+            raise ValueError("The number of bins,`n_bins` can not be greater"
+                             " than the number of samples used for training.")
         X_ptr = X_m.ptr
         y_m, _, _, y_dtype = \
             input_to_cuml_array(y,
