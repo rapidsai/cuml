@@ -62,7 +62,11 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "statsmodels" \
       "xgboost====1.0.2dev.rapidsai0.13" \
       "psutil" \
-      "lightgbm"
+      "lightgbm" \
+      "matplotlib" \
+      "ipython=7.3*" \
+      "jupyterlab"
+      
 
 
 # Install contextvars on Python 3.6
@@ -138,6 +142,14 @@ cd $WORKSPACE/python
 pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask
 
 timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
+
+
+################################################################################
+# TEST - Run notebook tests
+################################################################################
+
+${WORKSPACE}/ci/gpu/test-notebooks.sh 2>&1 | tee nbtest.log
+python ${WORKSPACE}/ci/utils/nbtestlog2junitxml.py nbtest.log
 
 ################################################################################
 # TEST - Run GoogleTest for ml-prims

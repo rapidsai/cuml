@@ -22,7 +22,6 @@
 from cuml.solvers import CD
 from cuml.metrics.base import RegressorMixin
 from cuml.common.base import Base
-import cuml.common.logger as logger
 
 
 class Lasso(Base, RegressorMixin):
@@ -133,7 +132,7 @@ class Lasso(Base, RegressorMixin):
                  output_type=None):
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(Lasso, self).__init__(handle=handle, verbosity=logger.LEVEL_INFO,
+        super(Lasso, self).__init__(handle=handle, verbose=False,
                                     output_type=output_type)
 
         self._check_alpha(alpha)
