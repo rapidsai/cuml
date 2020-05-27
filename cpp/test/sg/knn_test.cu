@@ -20,16 +20,17 @@
 #include <cuda_utils.cuh>
 #include <iostream>
 #include <vector>
-#include "random/rng_impl.cuh"
+#include "random/rng.cuh"
 
 #include "cuml/neighbors/knn.hpp"
 
-#include <random/make_blobs.cuh>
+#include <common/device_buffer.hpp>
+#include <cuml/datasets/make_blobs.hpp>
 
 namespace ML {
 
 using namespace MLCommon;
-using namespace Random;
+using namespace MLCommon::Random;
 using namespace std;
 
 struct KNNInputs {
@@ -51,9 +52,8 @@ template <typename T, typename IdxT>
 template <typename T>
 void gen_blobs(cumlHandle &handle, T *out, int *l, int rows, int cols,
                int centers, const T *centroids) {
-  make_blobs<float, int>(
-    out, l, rows, cols, centers, handle.getDeviceAllocator(),
-    handle.getStream(), centroids, nullptr, 0.1f, true, -10.0f, 10.0f, 1234ULL);
+  Datasets::make_blobs(handle, out, l, rows, cols, centers, centroids, nullptr,
+                       0.1f, true, -10.0f, 10.0f, 1234ULL);
 }
 
 void create_index_parts(cumlHandle &handle, float *query_data,
