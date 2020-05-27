@@ -105,8 +105,10 @@
 - PR #2281: Rely on cuDF's `Serializable` in `CumlArray`
 - PR #2284: Reduce dataset size in SG RF notebook to reduce run time of sklearn
 - PR #2285: Increase the threshold for elastic_net test in dask/test_coordinate_descent
+- PR #2314: Update FIL default values, documentation and test
 - PR #2316: 0.14 release docs additions and fixes
 - PR #2323: Change verbose levels and parameter name to match Scikit-learn API
+- PR #2324: Raise an error if n_bins > number of training samples in RF
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array

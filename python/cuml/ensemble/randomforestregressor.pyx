@@ -580,6 +580,9 @@ class RandomForestRegressor(Base):
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
                                 order='F')
+        if self.n_bins > n_rows:
+            raise ValueError("The number of bins,`n_bins` can not be greater"
+                             " than the number of samples used for training.")
         X_ptr = X_m.ptr
         y_m, _, _, y_dtype = \
             input_to_cuml_array(y,
@@ -680,10 +683,10 @@ class RandomForestRegressor(Base):
 
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_handle,
-                                             output_class=False,
-                                             algo=algo,
-                                             storage_type=storage_type)
+            fil_model.load_using_treelite_handle(treelite_handle,
+                                                 output_class=False,
+                                                 algo=algo,
+                                                 storage_type=storage_type)
 
         preds = tl_to_fil_model.predict(X, out_type)
         return preds
