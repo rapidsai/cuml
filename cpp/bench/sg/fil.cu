@@ -16,6 +16,7 @@
 
 #include <cuml/fil/fil.h>
 #include <cuml/tree/algo_helper.h>
+#include <decisiontree/decisiontree_impl.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 #include <cuml/common/logger.hpp>
@@ -35,30 +36,30 @@ struct Params {
 };
 
 class FIL : public RegressionFixture<float> {
+ typedef RegressionFixture<float> Base;
  public:
   FIL(const std::string& name, const Params& p)
-    : RegressionFixture<float>("FIL", p.data, p.blobs),
+    : RegressionFixture<float>(name, p.data, p.blobs),
       model(p.model),
-      predict_proba(p.predict_proba) {
-    this->SetName(name.c_str());
-  }
+      predict_proba(p.predict_proba) {}
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
     if (!this->params.rowMajor) {
       state.SkipWithError("FIL only supports row-major inputs");
     }
-    auto& handle = *this->handle;
-    auto stream = handle.getStream();
-    for (auto _ : state) {
-      MLCommon::Bench::CudaEventTimer timer(state, nullptr, 0, stream);
-      ML::fil::predict(handle, forest, this->data.y, this->data.X,
-                       this->params.nrows, predict_proba);
+    if (this->predict_proba) {
+      // Dataset<D, L> allocates y assuming one output value per input row
+      state.SkipWithError("currently only supports scalar prediction");
     }
+    this->loopOnState(state, [this]() {
+      ML::fil::predict(*this->handle, this->forest, this->data.y, this->data.X,
+                       this->params.nrows, this->predict_proba);
+    });
   }
 
   void allocateBuffers(const ::benchmark::State& state) override {
-    //auto stream = this->handle->getStream();
+    Base::allocateBuffers(state);
     ML::fil::treelite_params_t tl_params = {
       .algo = ML::fil::algo_t::ALGO_AUTO,
       .output_class = true,                      // cuML RF forest
@@ -69,8 +70,8 @@ class FIL : public RegressionFixture<float> {
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override {
-    //auto allocator = this->handle->getDeviceAllocator();
     ML::fil::free(*handle, forest);
+    Base::deallocateBuffers(state);
   }
 
  private:
@@ -89,23 +90,17 @@ struct FilBenchParams {
 
 size_t getSizeFromEnv(const char* name) {
   const char* s = std::getenv(name);
-  ASSERT(s != nullptr, "%s", name);
+  ASSERT(s != nullptr, "environment variable %s must be defined", name);
   signed long size = atol(s);
-  // todo: implement proper mechanism to pass benchmark parameters
-  ASSERT(size > 0, "%s", name);
+  ASSERT(size > 0, "environment variable %s must contain a positive integer", name);
   return (size_t)size;
 }
 
 std::vector<Params> getInputs() {
   std::vector<Params> out;
   Params p;
-  size_t ncols;
-  const char* pp = std::getenv("TL_MODEL_PROTO_PATH");
-  if (pp != nullptr) {
-    TREELITE_CHECK(TreeliteLoadProtobufModel(pp, &p.model));
-    ncols = getSizeFromEnv("NCOLS");
-  } else
-    return out;
+  size_t ncols = getSizeFromEnv("NCOLS");
+  TREELITE_CHECK(TreeliteLoadProtobufModel("./tl_model.pb", &p.model));
   p.data.rowMajor = true;
   // see src_prims/random/make_regression.h
   p.blobs = {.n_informative = (signed)ncols / 3,
