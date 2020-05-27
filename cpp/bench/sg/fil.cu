@@ -21,6 +21,7 @@
 #include <treelite/tree.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
+#include <cuml/ensemble/randomforest.hpp>
 #include <utility>
 #include "benchmark.cuh"
 
@@ -33,15 +34,20 @@ struct Params {
   RegressionParams blobs;
   ModelHandle model;
   bool predict_proba;
+  bool fit_model;
+  RF_params rf;
 };
 
 class FIL : public RegressionFixture<float> {
- typedef RegressionFixture<float> Base;
+  typedef RegressionFixture<float> Base;
+
  public:
   FIL(const std::string& name, const Params& p)
     : RegressionFixture<float>(name, p.data, p.blobs),
       model(p.model),
-      predict_proba(p.predict_proba) {}
+      predict_proba(p.predict_proba),
+      fit_model(p.fit_model),
+      rfParams(p.rf) {}
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
@@ -52,21 +58,47 @@ class FIL : public RegressionFixture<float> {
       // Dataset<D, L> allocates y assuming one output value per input row
       state.SkipWithError("currently only supports scalar prediction");
     }
-    this->loopOnState(state, [this]() {
-      ML::fil::predict(*this->handle, this->forest, this->data.y, this->data.X,
-                       this->params.nrows, this->predict_proba);
-    });
+    if (!fit_model) {
+      this->loopOnState(state, [this]() {
+        ML::fil::predict(*this->handle, this->forest, this->data.y,
+                         this->data.X, this->params.nrows, this->predict_proba);
+      });
+    } else {
+      // create model
+      ML::RandomForestRegressorF rf_model;
+      auto* mPtr = &rf_model;
+      mPtr->trees = nullptr;
+      fit(*this->handle, mPtr, this->data.X, this->params.nrows,
+          this->params.ncols, this->data.y, rfParams);
+      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+
+      // export RF to treelite
+
+      ML::fil::treelite_params_t tl_params = {
+        .algo = ML::fil::algo_t::ALGO_AUTO,
+        .output_class = true,                      // cuML RF forest
+        .threshold = 1.f / this->params.nclasses,  //Fixture::DatasetParams
+        .storage_type = ML::fil::storage_type_t::AUTO};
+      ML::fil::from_treelite(*this->handle, &forest, model, &tl_params);
+
+      // only time prediction
+      this->loopOnState(state, [this]() {
+        ML::fil::predict(*this->handle, this->forest, this->data.y,
+                         this->data.X, this->params.nrows, this->predict_proba);
+      });
+    }
   }
 
   void allocateBuffers(const ::benchmark::State& state) override {
     Base::allocateBuffers(state);
-    ML::fil::treelite_params_t tl_params = {
-      .algo = ML::fil::algo_t::ALGO_AUTO,
-      .output_class = true,                      // cuML RF forest
-      .threshold = 1.f / this->params.nclasses,  //Fixture::DatasetParams
-      .storage_type = ML::fil::storage_type_t::AUTO};
-    auto& handle = *this->handle;
-    ML::fil::from_treelite(handle, &forest, model, &tl_params);
+    if (!fit_model) {
+      ML::fil::treelite_params_t tl_params = {
+        .algo = ML::fil::algo_t::ALGO_AUTO,
+        .output_class = true,                      // cuML RF forest
+        .threshold = 1.f / this->params.nclasses,  //Fixture::DatasetParams
+        .storage_type = ML::fil::storage_type_t::AUTO};
+      ML::fil::from_treelite(*this->handle, &forest, model, &tl_params);
+    }
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override {
@@ -79,6 +111,8 @@ class FIL : public RegressionFixture<float> {
   ML::fil::forest_t forest;
   ModelHandle model;
   bool predict_proba;
+  bool fit_model;
+  RF_params rfParams;
 };
 
 struct FilBenchParams {
@@ -88,19 +122,23 @@ struct FilBenchParams {
   bool predict_proba;
 };
 
-size_t getSizeFromEnv(const char* name) {
+size_t tryGetSizeFromEnv(const char* name) {
   const char* s = std::getenv(name);
-  ASSERT(s != nullptr, "environment variable %s must be defined", name);
+  if (s == nullptr) return 0;
   signed long size = atol(s);
-  ASSERT(size > 0, "environment variable %s must contain a positive integer", name);
+  if (size <= 0) return 0;
   return (size_t)size;
 }
 
 std::vector<Params> getInputs() {
   std::vector<Params> out;
   Params p;
-  size_t ncols = getSizeFromEnv("NCOLS");
-  TREELITE_CHECK(TreeliteLoadProtobufModel("./tl_model.pb", &p.model));
+  size_t ncols = tryGetSizeFromEnv("NCOLS");
+  p.fit_model = (ncols == 0);
+  if (ncols != 0)
+    TREELITE_CHECK(TreeliteLoadProtobufModel("./tl_model.pb", &p.model));
+  else
+    ncols = 20;
   p.data.rowMajor = true;
   // see src_prims/random/make_regression.h
   p.blobs = {.n_informative = (signed)ncols / 3,
@@ -110,6 +148,19 @@ std::vector<Params> getInputs() {
              .noise = 0.01,
              .shuffle = false,
              .seed = 12345ULL};
+  p.rf.bootstrap = true;
+  p.rf.rows_sample = 1.f;
+  p.rf.tree_params.max_leaves = 1 << 20;
+  p.rf.tree_params.min_rows_per_node = 3;
+  p.rf.tree_params.n_bins = 32;
+  p.rf.tree_params.bootstrap_features = true;
+  p.rf.tree_params.quantile_per_tree = false;
+  p.rf.tree_params.split_algo = 1;
+  p.rf.tree_params.split_criterion = ML::CRITERION::MSE;
+  p.rf.n_trees = 500;
+  p.rf.n_streams = 8;
+  p.rf.tree_params.max_features = 1.f;
+  p.rf.tree_params.max_depth = 8;
   std::vector<FilBenchParams> rowcols = {
     {10123ul, ncols, 2ul, false}, {10123ul, ncols, 2ul, true},
     //{1184000, ncols, 2, false},  // Mimicking Bosch dataset
@@ -119,10 +170,7 @@ std::vector<Params> getInputs() {
     p.data.ncols = rc.ncols;
     p.data.nclasses = rc.nclasses;
     p.predict_proba = rc.predict_proba;
-    //for (auto max_depth : std::vector<int>({8, 10})) {
-    //  p.rf.tree_params.max_depth = max_depth;
     out.push_back(p);
-    //}
   }
   return out;
 }
