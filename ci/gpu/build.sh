@@ -105,8 +105,18 @@ logger "Resetting LD_LIBRARY_PATH..."
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
 
-logger "Install Treelite for GPU testing..."
-python -m pip install -v treelite==0.91
+logger "Build treelite for GPU testing..."
+# FIXME: Upload new Treelite to PyPI / Conda
+
+cd $WORKSPACE/cpp/build/treelite/src/treelite
+mkdir build
+cd build
+cmake ..
+make -j${PARALLEL_LEVEL}
+cd ../python
+python setup.py install
+cd ../runtime/python
+python setup.py install
 
 cd $WORKSPACE
 
