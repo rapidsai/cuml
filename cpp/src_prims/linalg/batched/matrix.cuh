@@ -31,10 +31,11 @@
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 
-#include <linalg/cublas_wrappers.h>
 #include <common/device_buffer.hpp>
-#include <linalg/binary_op.cuh>
-#include <linalg/unary_op.cuh>
+
+#include "../binary_op.cuh"
+#include "../cublas_wrappers.h"
+#include "../unary_op.cuh"
 
 #include <common/cudart_utils.h>
 #include <cuda_utils.cuh>

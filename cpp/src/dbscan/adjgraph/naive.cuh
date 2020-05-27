@@ -20,7 +20,7 @@
 #include <common/cumlHandle.hpp>
 #include <common/host_buffer.hpp>
 #include <cuda_utils.cuh>
-#include <dbscan/common.cuh>
+#include "../common.cuh"
 #include "pack.h"
 
 namespace Dbscan {
