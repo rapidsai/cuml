@@ -42,6 +42,8 @@ from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
     _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
 from cuml.ensemble.randomforest_shared cimport *
+from cuml.ensemble.randomforest_shared import treelite_serialize, \
+    treelite_deserialize
 from cuml.fil.fil import TreeliteModel
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 from cuml.common import get_cudf_column_ptr, zeros
@@ -304,7 +306,7 @@ class RandomForestClassifier(Base):
                           "random_seed is set")
         self.rf_forest = 0
         self.rf_forest64 = 0
-        self.model_pbuf_bytes = bytearray()
+        self.model_serialized = None
 
     """
     TODO:
@@ -321,7 +323,7 @@ class RandomForestClassifier(Base):
         cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
-            self._get_protobuf_bytes()  # Ensure we have this cached
+            self._get_model_serialized()  # Ensure we have this cached
             if self.rf_forest:
                 params_t = <uintptr_t> self.rf_forest
                 rf_forest = \
@@ -336,7 +338,7 @@ class RandomForestClassifier(Base):
 
         state['n_cols'] = self.n_cols
         state["verbose"] = self.verbose
-        state["model_pbuf_bytes"] = self.model_pbuf_bytes
+        state["model_serialized"] = self.model_serialized
         state["treelite_handle"] = None
         state['handle'] = self.handle
 
@@ -358,7 +360,7 @@ class RandomForestClassifier(Base):
             rf_forest64.rf_params = state["rf_params64"]
             state["rf_forest64"] = <uintptr_t>rf_forest64
 
-        self.model_pbuf_bytes = state["model_pbuf_bytes"]
+        self.model_serialized = state["model_serialized"]
         self.__dict__.update(state)
 
     def __del__(self):
@@ -381,7 +383,7 @@ class RandomForestClassifier(Base):
             TreeliteModel.free_treelite_model(self.treelite_handle)
 
         self.treelite_handle = None
-        self.model_pbuf_bytes = bytearray()
+        self.model_serialized = None
         self.n_cols = None
 
     def _get_max_feat_val(self):
@@ -405,12 +407,12 @@ class RandomForestClassifier(Base):
         delete the returned model."""
         if self.treelite_handle is not None:
             return self.treelite_handle  # Cached version
-
-        cdef ModelHandle cuml_model_ptr = NULL
+        cdef uintptr_t tl_handle_int
+        cdef ModelHandle tl_handle = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
 
-        assert len(self.model_pbuf_bytes) > 0 or self.rf_forest, \
+        assert self.model_serialized or self.rf_forest, \
             "Attempting to create treelite from un-fit forest."
 
         if self.num_classes > 2:
@@ -418,51 +420,38 @@ class RandomForestClassifier(Base):
                                       "classification models is currently not "
                                       "implemented. Please check cuml issue "
                                       "#1679 for more information.")
-        cdef unsigned char[::1] model_pbuf_mv = self.model_pbuf_bytes
-        cdef vector[unsigned char] model_pbuf_vec
-        with cython.boundscheck(False):
-            model_pbuf_vec.assign(& model_pbuf_mv[0],
-                                  & model_pbuf_mv[model_pbuf_mv.shape[0]])
-
-        task_category = CLASSIFICATION_MODEL
-        build_treelite_forest(
-            & cuml_model_ptr,
-            rf_forest,
-            <int> self.n_cols,
-            <int> task_category,
-            model_pbuf_vec)
-        mod_ptr = <uintptr_t> cuml_model_ptr
-        self.treelite_handle = ctypes.c_void_p(mod_ptr).value
+        if self.model_serialized:  # bytes -> Treelite
+            tl_handle_int = treelite_deserialize(self.model_serialized)
+            tl_handle = <ModelHandle>tl_handle_int
+        else:                 # RF -> Treelite
+            task_category = CLASSIFICATION_MODEL
+            build_treelite_forest(
+                &tl_handle,
+                rf_forest,
+                <int> self.n_cols,
+                <int> task_category)
+        self.treelite_handle = ctypes.c_void_p(<uintptr_t>tl_handle).value
         return self.treelite_handle
 
-    def _get_protobuf_bytes(self):
+    def _get_model_serialized(self):
         """
-        Returns the self.model_pbuf_bytes.
+        Returns the self.model_serialized.
         Cuml RF model gets converted to treelite protobuf bytes by:
             1. converting the cuml RF model to a treelite model. The treelite
             models handle (pointer) is returned
-            2. The treelite model handle is used to convert the treelite model
-            to a treelite protobuf model which is stored in a temporary file.
-            The protobuf model information is read from the temporary file and
-            the byte information is returned.
-        The treelite handle is stored `self.treelite_handle` and the treelite
-        protobuf model bytes are stored in `self.model_pbuf_bytes`. If either
-        of information is already present in the model then the respective
-        step is skipped.
+            2. The treelite model handle is converted to bytes.
+        The treelite model bytes are stored in `self.model_serialized`. If the
+        model bytes are present, we can skip _obtain_treelite_handle().
         """
-        if self.model_pbuf_bytes:
-            return self.model_pbuf_bytes
+        if self.model_serialized:
+            return self.model_serialized
         elif self.treelite_handle:
             fit_mod_ptr = self.treelite_handle
         else:
             fit_mod_ptr = self._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
-        cdef vector[unsigned char] pbuf_mod_info = \
-            save_model(<ModelHandle> model_ptr)
-        cdef unsigned char[::1] pbuf_mod_view = \
-            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
-        return self.model_pbuf_bytes
+        self.model_serialized = treelite_serialize(model_ptr)
+        return self.model_serialized
 
     def convert_to_treelite_model(self):
         """
@@ -533,19 +522,12 @@ class RandomForestClassifier(Base):
     TODO : Move functions duplicated in the RF classifier and regressor
            to a shared file. Cuml issue #1854 has been created to track this.
     """
-    def _tl_model_handles(self, model_bytes):
-        cdef ModelHandle cuml_model_ptr = NULL
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
-        task_category = CLASSIFICATION_MODEL
-        build_treelite_forest(& cuml_model_ptr,
-                              rf_forest,
-                              <int> self.n_cols,
-                              <int> task_category,
-                              <vector[unsigned char] &> model_bytes)
-        mod_handle = <uintptr_t> cuml_model_ptr
-
-        return ctypes.c_void_p(mod_handle).value
+    def _tl_handle_from_bytes(self, model_serialized):
+        if not model_serialized:
+            raise ValueError(
+                '_tl_handle_from_bytes() requires non-empty serialized model')
+        tl_handle_int = treelite_deserialize(model_serialized)
+        return ctypes.c_void_p(tl_handle_int).value
 
     def _concatenate_treelite_handle(self, treelite_handle):
         cdef ModelHandle concat_model_handle = NULL
@@ -561,12 +543,7 @@ class RandomForestClassifier(Base):
         concat_model_handle = concatenate_trees(deref(model_handles))
         cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
         self.treelite_handle = concat_model_ptr
-
-        cdef vector[unsigned char] pbuf_mod_info = \
-            save_model(<ModelHandle> concat_model_ptr)
-        cdef unsigned char[::1] pbuf_mod_view = \
-            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+        self.model_serialized = treelite_serialize(concat_model_ptr)
 
         # Fix up some instance variables that should match the new TL model
         tl_model = TreeliteModel.from_treelite_model_handle(
@@ -710,7 +687,6 @@ class RandomForestClassifier(Base):
                               num_classes, convert_dtype,
                               fil_sparse_format, predict_proba):
         out_type = self._get_output_type(X)
-        cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
                                 check_cols=self.n_cols)
@@ -1160,7 +1136,7 @@ class RandomForestClassifier(Base):
         -----------
         params : dict of new params
         """
-        self.model_pbuf_bytes = []
+        self.model_serialized = None
 
         if not params:
             return self

@@ -61,8 +61,6 @@ cdef extern from "treelite/c_api.h":
     cdef int TreeliteQueryNumFeature(ModelHandle handle, size_t* out) except +
     cdef int TreeliteLoadLightGBMModel(const char* filename,
                                        ModelHandle* out) except +
-    cdef int TreeliteLoadProtobufModel(const char* filename,
-                                       ModelHandle* out) except +
     cdef const char* TreeliteGetLastError()
 
 
@@ -129,18 +127,12 @@ cdef class TreeliteModel():
             Path to treelite model file to load
 
         model_type : string
-            Type of model: 'xgboost', 'protobuf', or 'lightgbm'
+            Type of model: 'xgboost', or 'lightgbm'
         """
         filename_bytes = filename.encode("UTF-8")
         cdef ModelHandle handle
         if model_type == "xgboost":
             res = TreeliteLoadXGBoostModel(filename_bytes, &handle)
-            if res < 0:
-                err = TreeliteGetLastError()
-                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
-        elif model_type == "protobuf":
-            # XXX Not tested
-            res = TreeliteLoadProtobufModel(filename_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
