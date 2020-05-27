@@ -124,8 +124,8 @@ class MBSGDClassifier(Base):
 
     Notes
     ------
-    For additional docs, see `scikit-learn's SGDClassifier
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>
+    For additional docs, see `scikitlearn's SGDClassifier
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>`_.
     """
 
     def __init__(self, loss='hinge', penalty='l2', alpha=0.0001,
