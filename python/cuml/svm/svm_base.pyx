@@ -562,7 +562,7 @@ class SVMBase(Base):
 
     def get_param_names(self):
         return ["C", "kernel", "degree", "gamma", "coef0", "cache_size",
-                "max_iter", "tol", "verbose"]
+                "max_iter", "tol"]
 
     def __getstate__(self):
         state = self.__dict__.copy()

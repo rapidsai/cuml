@@ -527,5 +527,4 @@ class QN(Base):
 
     def get_param_names(self):
         return ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
-                'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory',
-                'verbose']
+                'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory']

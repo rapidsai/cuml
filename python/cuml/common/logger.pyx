@@ -53,25 +53,25 @@ cdef extern from "cuml/common/logger.hpp" nogil:
 
 
 """Enables all log messages upto and including `trace()`"""
-level_trace = 6 - CUML_LEVEL_TRACE
+level_trace = CUML_LEVEL_TRACE
 
 """Enables all log messages upto and including `debug()`"""
-level_debug = 6 - CUML_LEVEL_DEBUG
+level_debug = CUML_LEVEL_DEBUG
 
 """Enables all log messages upto and including `info()`"""
-level_info = 6 - CUML_LEVEL_INFO
+level_info = CUML_LEVEL_INFO
 
 """Enables all log messages upto and including `warn()`"""
-level_warn = 6 - CUML_LEVEL_WARN
+level_warn = CUML_LEVEL_WARN
 
 """Enables all log messages upto and include `error()`"""
-level_error = 6 - CUML_LEVEL_ERROR
+level_error = CUML_LEVEL_ERROR
 
 """Enables only `critical()` messages"""
-level_critical = 6 - CUML_LEVEL_CRITICAL
+level_critical = CUML_LEVEL_CRITICAL
 
 """Disables all log messages"""
-level_off = 6 - CUML_LEVEL_OFF
+level_off = CUML_LEVEL_OFF
 
 
 class LogLevelSetter:
@@ -184,7 +184,7 @@ def should_log_for(level):
 
     .. code-block:: python
 
-                if logger.should_log_for(level_info):
+        if logger.should_log_for(level_info):
             # which could waste precious CPU cycles
             my_message = construct_message()
             logger.info(my_message)
@@ -194,7 +194,6 @@ def should_log_for(level):
     level : int
         Logging level to be set. It must be one of cuml.common.logger.level_*
     """
-    level = max(6 - level, 0)
     return Logger.get().shouldLogFor(<int>level)
 
 

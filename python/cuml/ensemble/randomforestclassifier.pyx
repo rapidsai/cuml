@@ -228,7 +228,7 @@ class RandomForestClassifier(Base):
                  'split_algo', 'split_criterion', 'min_rows_per_node',
                  'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
-                 'verbose', 'rows_sample',
+                 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
 
     def __init__(self, n_estimators=100, max_depth=16, handle=None,
@@ -667,6 +667,7 @@ class RandomForestClassifier(Base):
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams)
+
         if self.dtype == np.float32:
             fit(handle_[0],
                 rf_forest,
