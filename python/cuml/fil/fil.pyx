@@ -537,7 +537,7 @@ class ForestInference(Base):
                           handle=None):
         """
         Creates a FIL model using the scikit-learn model passed to the
-        function.
+        function. This function requires Treelite to be built from source.
 
         Parameters
         ----------
@@ -574,6 +574,9 @@ class ForestInference(Base):
             model passed.
 
         """
+        if (has_treelite()==False):
+            raise ImportError(" Treelite needs to be built from source"
+                              " for this function to be used.")
         cuml_fm = ForestInference(handle=handle)
         tl_model = tl_skl.import_model(skl_model)
         cuml_fm.load_from_treelite_model(
