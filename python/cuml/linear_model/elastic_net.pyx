@@ -133,7 +133,8 @@ class ElasticNet(Base, RegressorMixin):
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
 
-
+    Notes
+    -----
     For additional docs, see `scikitlearn's ElasticNet
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """

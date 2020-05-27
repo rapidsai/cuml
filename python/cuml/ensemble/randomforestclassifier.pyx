@@ -304,8 +304,8 @@ class RandomForestClassifier(Base):
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
                           "random_seed is set")
-        self.rf_forest = None
-        self.rf_forest64 = None
+        self.rf_forest = 0
+        self.rf_forest64 = 0
         self.model_pbuf_bytes = bytearray()
 
     """
@@ -324,17 +324,18 @@ class RandomForestClassifier(Base):
         cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
-            model_pbuf_bytes = self._get_protobuf_bytes()
-            params_t = <uintptr_t> self.rf_forest
-            rf_forest = \
-                <RandomForestMetaData[float, int]*>params_t
-            params_t64 = <uintptr_t> self.rf_forest64
-            rf_forest64 = \
-                <RandomForestMetaData[double, int]*>params_t64
-            state["rf_params"] = rf_forest.rf_params
-            state["rf_params64"] = rf_forest64.rf_params
-        else:
-            model_pbuf_bytes = bytearray()
+            self._get_protobuf_bytes()  # Ensure we have this cached
+            if self.rf_forest:
+                params_t = <uintptr_t> self.rf_forest
+                rf_forest = \
+                    <RandomForestMetaData[float, int]*>params_t
+                state["rf_params"] = rf_forest.rf_params
+
+            if self.rf_forest64:
+                params_t64 = <uintptr_t> self.rf_forest64
+                rf_forest64 = \
+                    <RandomForestMetaData[double, int]*>params_t64
+                state["rf_params64"] = rf_forest64.rf_params
 
         state['n_cols'] = self.n_cols
         state["verbosity"] = self.verbosity
@@ -344,13 +345,13 @@ class RandomForestClassifier(Base):
         return state
 
     def __setstate__(self, state):
-
         super(RandomForestClassifier, self).__init__(
             handle=None, verbosity=state['verbosity'])
         cdef  RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
+
         self.n_cols = state['n_cols']
         if self.n_cols:
             rf_forest.rf_params = state["rf_params"]
@@ -366,19 +367,24 @@ class RandomForestClassifier(Base):
         self._reset_forest_data()
 
     def _reset_forest_data(self):
-        # Only if model is fitted before
-        # Clears the data of the forest to prepare for next fit
-        if self.n_cols:
+        """Free memory allocated by this instance and clear instance vars."""
+        if self.rf_forest:
             delete_rf_metadata(
                 <RandomForestMetaData[float, int]*><uintptr_t>
                 self.rf_forest)
+            self.rf_forest = 0
+        if self.rf_forest64:
             delete_rf_metadata(
                 <RandomForestMetaData[double, int]*><uintptr_t>
                 self.rf_forest64)
-            # Who frees the treelite model if any?
-            self.treelite_handle = None
-            self.model_pbuf_bytes = bytearray()
-            self.n_cols = None
+            self.rf_forest64 = 0
+
+        if self.treelite_handle:
+            TreeliteModel.free_treelite_model(self.treelite_handle)
+
+        self.treelite_handle = None
+        self.model_pbuf_bytes = bytearray()
+        self.n_cols = None
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
@@ -405,6 +411,9 @@ class RandomForestClassifier(Base):
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
+
+        assert len(self.model_pbuf_bytes) > 0 or self.rf_forest, \
+            "Attempting to create treelite from un-fit forest."
 
         if self.num_classes > 2:
             raise NotImplementedError("Pickling for multi-class "
@@ -550,6 +559,7 @@ class RandomForestClassifier(Base):
             model_handles.push_back((
                 <ModelHandle> mod_ptr))
 
+        self._reset_forest_data()
         concat_model_handle = concatenate_trees(deref(model_handles))
         cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
         self.treelite_handle = concat_model_ptr
@@ -559,6 +569,14 @@ class RandomForestClassifier(Base):
         cdef unsigned char[::1] pbuf_mod_view = \
             <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
         self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+
+        # Fix up some instance variables that should match the new TL model
+        tl_model = TreeliteModel.from_treelite_model_handle(
+            self.treelite_handle,
+            take_handle_ownership=False)
+        self.n_cols = tl_model.num_features
+        self.n_estimators = tl_model.num_trees
+
         return self
 
     def fit(self, X, y, convert_dtype=False):
@@ -592,6 +610,9 @@ class RandomForestClassifier(Base):
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
                                 order='F')
+        if self.n_bins > n_rows:
+            raise ValueError("The number of bins,`n_bins` can not be greater"
+                             " than the number of samples used for training.")
         X_ptr = X_m.ptr
 
         y_m, _, _, y_dtype = \
@@ -712,11 +733,11 @@ class RandomForestClassifier(Base):
                                           algo=algo)
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_handle,
-                                             output_class=output_class,
-                                             threshold=threshold,
-                                             algo=algo,
-                                             storage_type=storage_type)
+            fil_model.load_using_treelite_handle(treelite_handle,
+                                                 output_class=output_class,
+                                                 threshold=threshold,
+                                                 algo=algo,
+                                                 storage_type=storage_type)
 
         preds = tl_to_fil_model.predict(X, output_type=out_type,
                                         predict_proba=predict_proba)
