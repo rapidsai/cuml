@@ -222,8 +222,6 @@ class TruncatedSVD(Base):
         TruncatedSVD is also used in information retrieval tasks,
         recommendation systems and data compression.
 
-    For additional examples, see `the Truncated SVD  notebook
-    <https://github.com/rapidsai/notebooks/blob/master/cuml/tsvd_demo.ipynb>`_.
     For additional documentation, see `scikitlearn's TruncatedSVD docs
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
     """
