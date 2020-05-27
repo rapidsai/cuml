@@ -34,10 +34,10 @@ they are:
    * - 2
      - cuml.common.logger.level_error
      - Enables all messages up to errors.
-   * - 3 or False
+   * - 3
      - cuml.common.logger.level_warn
      - Enables all messages up to warnings.
-   * - 4
+   * - 4 or False
      - cuml.common.logger.level_info
      - Enables all messages up to information messages.
    * - 5 or True
