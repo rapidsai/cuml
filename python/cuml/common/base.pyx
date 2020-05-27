@@ -162,7 +162,7 @@ class Base:
         del base  # optional!
     """
 
-    def __init__(self, handle=None, verbose=False,
+    def __init__(self, handle=None, verbose=True,
                  output_type=None):
         """
         Constructor. All children must call init method of this base class.
@@ -170,6 +170,9 @@ class Base:
         """
         self.handle = cuml.common.handle.Handle() if handle is None else handle
 
+        # Internally, self.verbose follows the spdlog/c++ standard of
+        # 0 is most logging, and logging decreases from there.
+        # So if the user passes an int value for logging, we convert it.
         if verbose is True:
             self.verbose = logger.level_debug
         elif verbose is False:

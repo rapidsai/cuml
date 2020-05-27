@@ -33,16 +33,16 @@ they are:
      - Enables only critical messages
    * - 2
      - cuml.common.logger.level_error
-     - Enables all messages up to errors.
+     - Enables all messages up to and including errors.
    * - 3
      - cuml.common.logger.level_warn
-     - Enables all messages up to warnings.
+     - Enables all messages up to and including warnings.
    * - 4 or False
      - cuml.common.logger.level_info
-     - Enables all messages up to information messages.
+     - Enables all messages up to and including information messages.
    * - 5 or True
      - cuml.common.logger.level_debug
-     - Enables all messages up to debug messages.
+     - Enables all messages up to and including debug messages.
    * - 6
      - cuml.common.logger.level_trace
      - Enables all messages up to and including trace messages.

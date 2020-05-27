@@ -214,7 +214,7 @@ class RandomForestRegressor(Base):
                  'split_algo', 'split_criterion', 'min_rows_per_node',
                  'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
-                 'verbose', 'rows_sample',
+                 'rows_sample',
                  'max_leaves', 'quantile_per_tree',
                  'accuracy_metric']
 

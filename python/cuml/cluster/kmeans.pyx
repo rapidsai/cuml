@@ -671,4 +671,4 @@ class KMeans(Base):
     def get_param_names(self):
         return ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
-                'tol', 'verbose']
+                'tol']
