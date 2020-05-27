@@ -31,7 +31,6 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common import CumlArray
 from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
@@ -227,7 +226,7 @@ class SGD(Base):
             msg = "penalty {!r} is not supported"
             raise TypeError(msg.format(penalty))
 
-        super(SGD, self).__init__(handle=handle, verbosity=logger.LEVEL_INFO,
+        super(SGD, self).__init__(handle=handle, verbose=False,
                                   output_type=output_type)
         self.alpha = alpha
         self.l1_ratio = l1_ratio
