@@ -25,8 +25,6 @@ from cuml.dask.ensemble.base import \
     BaseRandomForestModel
 from dask.distributed import default_client
 
-import cuml.common.logger as logger
-
 
 class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                              DelayedPredictionProbaMixin, BaseEstimator):
@@ -120,14 +118,14 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         self,
         workers=None,
         client=None,
-        verbosity=logger.LEVEL_INFO,
+        verbose=False,
         n_estimators=10,
         seed=None,
         **kwargs
     ):
 
         super(RandomForestClassifier, self).__init__(client=client,
-                                                     verbosity=verbosity,
+                                                     verbose=verbose,
                                                      **kwargs)
 
         self._create_model(
@@ -215,6 +213,28 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         """
         Predicts the labels for X.
 
+        GPU-based prediction in a multi-node, multi-GPU context works
+        by sending the sub-forest from each worker to the client,
+        concatenating these into one forest with the full
+        `n_estimators` set of trees, and sending this combined forest to
+        the workers, which will each infer on their local set of data.
+        Within the worker, this uses the cuML Forest Inference Library
+        (cuml.fil) for high-throughput prediction.
+
+        This allows inference to scale to large datasets, but the forest
+        transmission incurs overheads for very large trees. For inference
+        on small datasets, this overhead may dominate prediction time.
+
+        The 'CPU' fallback method works with sub-forests in-place,
+        broadcasting the datasets to all workers and combining predictions
+        via a voting method at the end. This method is slower
+        on a per-row basis but may be faster for problems with many trees
+        and few rows.
+
+        In the 0.15 cuML release, inference will be updated with much
+        faster tree transfer. Preliminary builds with this updated approach
+        will be available from rapids.ai 
+
         Parameters
         ----------
         X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
@@ -267,6 +287,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         Returns
         ----------
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
+
         """
         if self.num_classes > 2 or predict_model == "CPU":
             preds = self.predict_model_on_cpu(X,
@@ -360,6 +381,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                       delayed=True, **kwargs):
         """
         Predicts the probability of each class for X.
+
+        See documentation of `predict' for notes on performance.
 
         Parameters
         ----------

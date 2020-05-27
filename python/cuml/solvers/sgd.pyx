@@ -31,7 +31,6 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common import CumlArray
 from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
@@ -207,10 +206,6 @@ class SGD(Base):
         module level, cuml.output_type. If set, the estimator will override
         the global option for its behavior.
 
-    Notes
-    ------
-    For additional docs, see `scikitlearn's OLS
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>
     """
 
     def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001,
@@ -231,7 +226,7 @@ class SGD(Base):
             msg = "penalty {!r} is not supported"
             raise TypeError(msg.format(penalty))
 
-        super(SGD, self).__init__(handle=handle, verbosity=logger.LEVEL_INFO,
+        super(SGD, self).__init__(handle=handle, verbose=False,
                                   output_type=output_type)
         self.alpha = alpha
         self.l1_ratio = l1_ratio
@@ -411,6 +406,7 @@ class SGD(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
         ----------
         y: Type specified in `output_type`

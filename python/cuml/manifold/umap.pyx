@@ -40,7 +40,6 @@ from cuml.common.handle cimport cumlHandle
 from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_cuml_array, zeros, with_cupy_rmm, has_scipy
 from cuml.common.array import CumlArray
-import cuml.common.logger as logger
 
 import rmm
 
@@ -242,7 +241,7 @@ class UMAP(Base):
 
                     def on_train_end(self, embeddings):
                         print(embeddings.copy_to_host())
-    verbosity: int (optional, default cuml.common.logger.LEVEL_INFO)
+    verbose : int or boolean (default = False)
         Controls verbosity of logging.
 
     Notes
@@ -287,7 +286,7 @@ class UMAP(Base):
                  negative_sample_rate=5,
                  transform_queue_size=4.0,
                  init="spectral",
-                 verbosity=logger.LEVEL_INFO,
+                 verbose=False,
                  a=None,
                  b=None,
                  target_n_neighbors=-1,
@@ -300,7 +299,7 @@ class UMAP(Base):
                  callback=None,
                  output_type=None):
 
-        super(UMAP, self).__init__(handle=handle, verbosity=verbosity,
+        super(UMAP, self).__init__(handle=handle, verbose=verbose,
                                    output_type=output_type)
 
         self.hash_input = hash_input
@@ -373,7 +372,7 @@ class UMAP(Base):
         umap_params.repulsion_strength = <float> cls.repulsion_strength
         umap_params.negative_sample_rate = <int> cls.negative_sample_rate
         umap_params.transform_queue_size = <int> cls.transform_queue_size
-        umap_params.verbosity = <int> cls.verbosity
+        umap_params.verbosity = <int> cls.verbose
         umap_params.a = <float> cls.a
         umap_params.b = <float> cls.b
         if cls.init == "spectral":
