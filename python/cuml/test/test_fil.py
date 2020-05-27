@@ -75,7 +75,6 @@ def _build_and_save_xgboost(model_path,
 
     params['max_depth'] = 25
     params.update(xgboost_params)
-
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
     return bst
@@ -122,9 +121,8 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
 
     xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
-
     fm = ForestInference.load(model_path,
-                              algo='BATCH_TREE_REORG',
+                              algo='auto',
                               output_class=True,
                               threshold=0.50)
     fil_preds = np.asarray(fm.predict(X_validation))
@@ -178,7 +176,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 
     xgb_mse = mean_squared_error(y_validation, xgb_preds)
     fm = ForestInference.load(model_path,
-                              algo='BATCH_TREE_REORG',
+                              algo='auto',
                               output_class=False)
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))

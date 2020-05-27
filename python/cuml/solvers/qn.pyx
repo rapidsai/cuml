@@ -30,7 +30,6 @@ from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
 from cuml.common import with_cupy_rmm
 from cuml.metrics import accuracy_score
-import cuml.common.logger as logger
 
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
@@ -211,8 +210,8 @@ class QN(Base):
     lbfgs_memory: int (default = 5)
         Rank of the lbfgs inverse-Hessian approximation. Method will use
         O(lbfgs_memory * D) memory.
-    verbosity: int (optional, default cuml.common.logger.LEVEL_INFO)
-        Controls verbosity level of logging.
+    verbose : int or boolean (default = False)
+        Controls verbose level of logging.
 
     Attributes
     -----------
@@ -237,9 +236,9 @@ class QN(Base):
     def __init__(self, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
                  linesearch_max_iter=50, lbfgs_memory=5,
-                 verbosity=logger.LEVEL_INFO, handle=None):
+                 verbose=False, handle=None):
 
-        super(QN, self).__init__(handle=handle, verbosity=verbosity)
+        super(QN, self).__init__(handle=handle, verbose=verbose)
 
         self.fit_intercept = fit_intercept
         self.l1_strength = l1_strength
@@ -342,7 +341,7 @@ class QN(Base):
                   <float> self.tol,
                   <int> self.linesearch_max_iter,
                   <int> self.lbfgs_memory,
-                  <int> self.verbosity,
+                  <int> self.verbose,
                   <float*> coef_ptr,
                   <float*> &objective32,
                   <int*> &num_iters,
@@ -365,7 +364,7 @@ class QN(Base):
                   <double> self.tol,
                   <int> self.linesearch_max_iter,
                   <int> self.lbfgs_memory,
-                  <int> self.verbosity,
+                  <int> self.verbose,
                   <double*> coef_ptr,
                   <double*> &objective64,
                   <int*> &num_iters,
@@ -528,5 +527,4 @@ class QN(Base):
 
     def get_param_names(self):
         return ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
-                'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory',
-                'verbosity']
+                'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory']

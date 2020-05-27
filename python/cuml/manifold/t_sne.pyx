@@ -111,7 +111,7 @@ class TSNE(Base):
         a future release.
     init : str 'random' (default 'random')
         Currently supports random intialization.
-    verbosity : int (default logger.LEVEL_INFO)
+    verbose : int or boolean (default = False) (default logger.level_info)
         Level of verbosity.
         Most messages will be printed inside the Python Console.
     random_state : int (default None)
@@ -193,7 +193,7 @@ class TSNE(Base):
                  float min_grad_norm=1e-07,
                  str metric='euclidean',
                  str init='random',
-                 int verbosity=logger.LEVEL_INFO,
+                 int verbose=False,
                  random_state=None,
                  str method='barnes_hut',
                  float angle=0.5,
@@ -205,7 +205,7 @@ class TSNE(Base):
                  float post_momentum=0.8,
                  handle=None):
 
-        super(TSNE, self).__init__(handle=handle, verbosity=verbosity)
+        super(TSNE, self).__init__(handle=handle, verbose=verbose)
 
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
@@ -361,7 +361,7 @@ class TSNE(Base):
             self.pre_learning_rate = max(n / 3.0, 1)
             self.post_learning_rate = self.pre_learning_rate
             self.early_exaggeration = 24.0 if n > 10000 else 12.0
-            if logger.should_log_for(logger.LEVEL_DEBUG):
+            if logger.should_log_for(logger.level_debug):
                 logger.debug("New n_neighbors = {}, learning_rate = {}, "
                              "exaggeration = {}"
                              .format(self.n_neighbors, self.pre_learning_rate,
@@ -393,7 +393,7 @@ class TSNE(Base):
                  <float> self.pre_momentum,
                  <float> self.post_momentum,
                  <long long> seed,
-                 <int> self.verbosity,
+                 <int> self.verbose,
                  <bool> True,
                  <bool> (self.method == 'barnes_hut'))
 
@@ -439,6 +439,6 @@ class TSNE(Base):
 
     def __setstate__(self, state):
         super(TSNE, self).__init__(handle=None,
-                                   verbosity=state['verbosity'])
+                                   verbose=state['verbose'])
         self.__dict__.update(state)
         return state
