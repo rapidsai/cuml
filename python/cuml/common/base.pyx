@@ -173,7 +173,7 @@ class Base:
         if verbose is True:
             self.verbose = logger.level_debug
         elif verbose is False:
-            self.verbose = logger.level_warn
+            self.verbose = logger.level_info
         else:
             # Using max in case user gives a verbosity value greater than 6
             self.verbose = max(6 - verbose, 0)
