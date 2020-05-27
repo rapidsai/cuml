@@ -20,7 +20,6 @@
 # cython: language_level = 3
 from cuml.common.base import Base
 from cuml.solvers import SGD
-import cuml.common.logger as logger
 
 
 class MBSGDClassifier(Base):
@@ -124,17 +123,17 @@ class MBSGDClassifier(Base):
 
     Notes
     ------
-    For additional docs, see `scikit-learn's SGDClassifier
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>
+    For additional docs, see `scikitlearn's SGDClassifier
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>`_.
     """
 
     def __init__(self, loss='hinge', penalty='l2', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
-                 verbosity=logger.LEVEL_INFO, output_type=None):
+                 verbose=False, output_type=None):
         super(MBSGDClassifier, self).__init__(handle=handle,
-                                              verbosity=verbosity,
+                                              verbose=verbose,
                                               output_type=output_type)
         self.loss = loss
         self.penalty = penalty

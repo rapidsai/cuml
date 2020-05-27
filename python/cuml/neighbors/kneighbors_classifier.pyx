@@ -22,7 +22,6 @@
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.common.array import CumlArray
-import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 
 import numpy as np
@@ -88,7 +87,7 @@ class KNeighborsClassifier(NearestNeighbors):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbosity : int (default=cuml.common.logger.LEVEL_INFO)
+    verbose : int or boolean (default = False)
         Logging level
     handle : cumlHandle
         The cumlHandle resources to use
