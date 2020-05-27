@@ -31,8 +31,6 @@ from cuml.dask.common.utils import raise_exception_from_futures
 from dask.distributed import wait
 from cuml.common.memory_utils import with_cupy_rmm
 
-import cuml.common.logger as logger
-
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     """
@@ -58,7 +56,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         The more iterations of EM, the more accurate, but slower.
     tol : float (default = 1e-4)
         Stopping criterion when centroid means do not change much.
-    verbosity : int (default = cuml.logger.LEVEL_INFO)
+    verbose : int or boolean (default = False)
         Logging level for printing diagnostic information
     random_state : int (default = 1)
         If you want results to be the same when you restart Python,
@@ -93,9 +91,9 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
     """
 
-    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=False, **kwargs):
         super(KMeans, self).__init__(client=client,
-                                     verbosity=verbosity,
+                                     verbose=verbose,
                                      **kwargs)
 
     @staticmethod
