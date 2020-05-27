@@ -18,8 +18,8 @@
 
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
-#include <linalg/unary_op.cuh>
 #include <type_traits>
+#include "unary_op.cuh"
 
 namespace MLCommon {
 namespace LinAlg {

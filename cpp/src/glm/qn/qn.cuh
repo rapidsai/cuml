@@ -16,13 +16,13 @@
 
 #pragma once
 #include <common/device_buffer.hpp>
-#include <glm/qn/glm_base.cuh>
-#include <glm/qn/glm_linear.cuh>
-#include <glm/qn/glm_logistic.cuh>
-#include <glm/qn/glm_regularizer.cuh>
-#include <glm/qn/glm_softmax.cuh>
-#include <glm/qn/qn_solvers.cuh>
 #include <matrix/math.cuh>
+#include "glm_base.cuh"
+#include "glm_linear.cuh"
+#include "glm_logistic.cuh"
+#include "glm_regularizer.cuh"
+#include "glm_softmax.cuh"
+#include "qn_solvers.cuh"
 
 namespace ML {
 namespace GLM {

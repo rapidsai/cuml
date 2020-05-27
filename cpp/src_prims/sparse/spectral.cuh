@@ -20,7 +20,7 @@
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <selection/knn.cuh>
-#include <sparse/coo.cuh>
+#include "coo.cuh"
 #include "cusparse_wrappers.h"
 
 namespace MLCommon {

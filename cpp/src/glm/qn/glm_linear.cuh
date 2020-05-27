@@ -17,9 +17,9 @@
 #pragma once
 
 #include <cuda_utils.cuh>
-#include <glm/qn/glm_base.cuh>
-#include <glm/qn/simple_mat.cuh>
 #include <linalg/binary_op.cuh>
+#include "glm_base.cuh"
+#include "simple_mat.cuh"
 
 namespace ML {
 namespace GLM {
