@@ -219,7 +219,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
 
         The 'CPU' fallback method works with sub-forests in-place,
         broadcasting the datasets to all workers and combining predictions
-        via a voting or averaging method at the end. This method is slower
+        via an averaging method at the end. This method is slower
         on a per-row basis but may be faster for problems with many trees
         and few rows.
 
