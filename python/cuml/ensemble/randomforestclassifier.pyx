@@ -452,7 +452,7 @@ class RandomForestClassifier(Base):
         step is skipped.
         """
         if self.dtype == np.float64:
-            raise TypeError("Pickling is only supported for models trained"
+            raise TypeError("Pickling is not supported for models trained"
                             " using dataset of dtype float64.")
         if self.model_pbuf_bytes:
             return self.model_pbuf_bytes
