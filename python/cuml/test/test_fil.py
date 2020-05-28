@@ -193,7 +193,8 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 @pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
 @pytest.mark.parametrize('model_class',
                          [GradientBoostingClassifier, RandomForestClassifier])
-@pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
+@pytest.mark.xfail(not has_treelite(),
+                   reason="need to install treelite version 0.9")
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                 storage_type, model_class):
 
@@ -262,7 +263,8 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 @pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
 @pytest.mark.parametrize('model_class',
                          [GradientBoostingRegressor, RandomForestRegressor])
-@pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
+@pytest.mark.xfail(not has_treelite(),
+                   reason="need to install treelite version 0.9")
 def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
                             storage_type, model_class):
 
@@ -439,53 +441,3 @@ def test_lightgbm(tmp_path):
     fil_proba = np.reshape(fil_proba, np.shape(gbm_proba))
 
     assert np.allclose(gbm_proba, fil_proba, 1e-3)
-
-
-@pytest.mark.xfail(has_treelite() is False,
-                   reason="need to build treelite from source")
-def test_fil_skl_without_tl():
-
-    # settings
-    classification = True  # change this to false to use regression
-
-    X, y = simulate_data(100, 20, 2,
-                         random_state=123,
-                         classification=classification)
-    # identify shape and indices
-    train_size = 0.80
-
-    X_train, X_validation, y_train, y_validation = train_test_split(
-        X, y, train_size=train_size, random_state=0)
-
-    init_kwargs = {
-        'n_estimators': 20,
-        'max_depth': 5,
-        'max_features': 0.3,
-        'n_jobs': -1,
-    }
-
-    skl_model = RandomForestClassifier(**init_kwargs)
-    skl_model.fit(X_train, y_train)
-
-    skl_preds = skl_model.predict(X_validation)
-    skl_preds_int = np.around(skl_preds)
-    skl_proba = skl_model.predict_proba(X_validation)
-
-    skl_acc = accuracy_score(y_validation, skl_preds > 0.5)
-
-    fm = ForestInference.load_from_sklearn(skl_model,
-                                           algo='auto',
-                                           output_class=True,
-                                           threshold=0.50,
-                                           storage_type='auto')
-    fil_preds = np.asarray(fm.predict(X_validation))
-    fil_preds = np.reshape(fil_preds, np.shape(skl_preds_int))
-
-    fil_proba = np.asarray(fm.predict_proba(X_validation))
-    fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
-
-    fil_acc = accuracy_score(y_validation, fil_preds)
-
-    assert fil_acc == pytest.approx(skl_acc, 1e-5)
-    assert array_equal(fil_preds, skl_preds_int)
-    assert array_equal(fil_proba, skl_proba)
