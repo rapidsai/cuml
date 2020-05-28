@@ -233,7 +233,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
 
         In the 0.15 cuML release, inference will be updated with much
         faster tree transfer. Preliminary builds with this updated approach
-        will be available from rapids.ai 
+        will be available from rapids.ai
 
         Parameters
         ----------
