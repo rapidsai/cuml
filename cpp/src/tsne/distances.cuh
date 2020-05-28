@@ -51,7 +51,7 @@ void get_distances(const float *X, const int n, const int p, long *indices,
   input_vec.push_back(knn_input[0]);
   sizes_vec.push_back(sizes[0]);
 
-/**
+  /**
  * std::vector<float *> &input, std::vector<int> &sizes,
                      IntType D, float *search_items, IntType n, int64_t *res_I,
                      float *res_D, IntType k,
@@ -59,8 +59,9 @@ void get_distances(const float *X, const int n, const int p, long *indices,
                      cudaStream_t userStream,
  */
 
-  MLCommon::Selection::brute_force_knn(input_vec, sizes_vec, p, const_cast<float *>(X),
-                                       n, indices, distances, n_neighbors, d_alloc, stream);
+  MLCommon::Selection::brute_force_knn(input_vec, sizes_vec, p,
+                                       const_cast<float *>(X), n, indices,
+                                       distances, n_neighbors, d_alloc, stream);
   delete knn_input, sizes;
 }
 
