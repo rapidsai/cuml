@@ -19,8 +19,6 @@ from cuml.dask.cluster import KMeans
 from cuml.dask.naive_bayes.naive_bayes import MultinomialNB
 from cuml.test.dask.utils import load_text_corpus
 
-from dask.distributed import wait
-
 from cuml.dask.datasets import make_blobs
 
 
