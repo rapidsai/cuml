@@ -15,7 +15,6 @@
 
 import pytest
 
-from dask.distributed import wait
 from cuml.dask.datasets import make_regression
 from cuml.dask.linear_model import ElasticNet
 from cuml.dask.linear_model import Lasso

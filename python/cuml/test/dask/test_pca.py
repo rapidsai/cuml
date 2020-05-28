@@ -14,8 +14,6 @@
 #
 
 import pytest
-from dask.distributed import wait
-
 import numpy as np
 import cupy as cp
 

@@ -20,8 +20,6 @@ from cuml.test.utils import unit_param
 from cuml.test.utils import quality_param
 from cuml.test.utils import stress_param
 
-from dask.distributed import wait
-
 from cuml.metrics import adjusted_rand_score
 from sklearn.metrics import adjusted_rand_score as sk_adjusted_rand_score
 
@@ -178,7 +176,6 @@ def test_score(nrows, ncols, nclusters, n_parts, input_type, client):
                       shuffle=False,
                       random_state=10)
 
-    wait(X)
     if input_type == "dataframe":
         X_train = to_dask_cudf(X)
         y_train = to_dask_cudf(y)

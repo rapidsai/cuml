@@ -14,7 +14,6 @@
 #
 
 import pytest
-from dask.distributed import wait
 
 import numpy as np
 from cuml.test.utils import array_equal, \
