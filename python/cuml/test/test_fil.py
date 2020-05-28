@@ -441,14 +441,12 @@ def test_lightgbm(tmp_path):
     assert np.allclose(gbm_proba, fil_proba, 1e-3)
 
 
-@pytest.mark.xfail(has_treelite()==False,
+@pytest.mark.xfail(has_treelite() is False,
                    reason="need to build treelite from source")
 def test_fil_skl_without_tl():
 
     # settings
     classification = True  # change this to false to use regression
-    n_categories = 2
-    random_state = np.random.RandomState(43210)
 
     X, y = simulate_data(100, 20, 2,
                          random_state=123,
@@ -462,8 +460,8 @@ def test_fil_skl_without_tl():
     init_kwargs = {
         'n_estimators': 20,
         'max_depth': 5,
-        'max_features' : 0.3,
-        'n_jobs' : -1,
+        'max_features': 0.3,
+        'n_jobs': -1,
     }
 
     skl_model = RandomForestClassifier(**init_kwargs)
