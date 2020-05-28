@@ -196,8 +196,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             **y must be partitioned the same way as X**
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
+            y to be of dtype int32 and X to be float32. This will increase
+            memory used for the method.
 
         """
         self.num_classes = len(y.unique())
@@ -307,9 +307,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         return preds
 
     def predict_using_fil(self, X, delayed, **kwargs):
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
-
         return self._predict_using_fil(X=X,
                                        delayed=delayed,
                                        **kwargs)
