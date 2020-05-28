@@ -575,7 +575,7 @@ class ForestInference(Base):
             model passed.
 
         """
-        if(has_treelite()==False):
+        if(has_treelite() is False):
             raise ImportError("Treelite needs to be built from source"
                               " for this function to be used.")
         else:
