@@ -575,14 +575,11 @@ class ForestInference(Base):
             model passed.
 
         """
-        if(has_treelite() is False):
-            raise ImportError("Treelite needs to be built from source"
-                              " for this function to be used.")
+        if(not has_treelite()):
+            raise ImportError("Treelite version 0.9 needs to be installed.")
         else:
-            if(treelite.__version__ <= '0.32'):
-                raise ImportError("Treelite version greater than 0.32 is"
-                                  " required to use this function. Please"
-                                  " build Treelite from source.")
+            if(treelite.__version__ < '0.9'):
+                raise ImportError("Treelite version 0.9 required")
 
         cuml_fm = ForestInference(handle=handle)
         tl_model = tl_skl.import_model(skl_model)
