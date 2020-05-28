@@ -157,7 +157,7 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
   } else {
     _centers = centers;
   }
-  generate_labels(labels, n_rows, n_clusters, shuffle, stream);
+  generate_labels(labels, n_rows, n_clusters, shuffle, r, stream);
   generate_data(out, labels, n_rows, n_cols, n_clusters, stream, row_major,
                 _centers, cluster_std, cluster_std_scalar, r);
 }
