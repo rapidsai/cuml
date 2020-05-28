@@ -194,7 +194,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 @pytest.mark.parametrize('model_class',
                          [GradientBoostingClassifier, RandomForestClassifier])
 @pytest.mark.xfail(not check_min_treelite_version(),
-                   reason="need to install treelite version 0.9")
+                   reason="need to install treelite version 0.90")
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                 storage_type, model_class):
 
@@ -264,7 +264,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 @pytest.mark.parametrize('model_class',
                          [GradientBoostingRegressor, RandomForestRegressor])
 @pytest.mark.xfail(not check_min_treelite_version(),
-                   reason="need to install treelite version 0.9")
+                   reason="need to install treelite version 0.90")
 def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
                             storage_type, model_class):
 
