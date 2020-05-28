@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -237,4 +237,24 @@ def test_core_point_prop3():
     sk_y_pred = dbscan.fit_predict(X)
 
     score = adjusted_rand_score(sk_y_pred[:-1], cu_y_pred[:-1])
+    assert(score == 1.0)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('out_dtype', ["int32", np.int32, "int64", np.int64])
+def test_dbscan_propagation(datatype, use_handle, out_dtype):
+    X, y = make_blobs(5000, centers=1, cluster_std=8.0,
+                      center_box=(-100.0, 100.0), random_state=8)
+    X = X.astype(datatype)
+
+    handle, stream = get_handle(use_handle)
+    cuml_dbscan = cuDBSCAN(handle=handle, eps=0.5, min_samples=5,
+                           output_type='numpy')
+    cu_y_pred = cuml_dbscan.fit_predict(X, out_dtype=out_dtype)
+
+    dbscan = skDBSCAN(eps=0.5, min_samples=5)
+    sk_y_pred = dbscan.fit_predict(X)
+
+    score = adjusted_rand_score(sk_y_pred, cu_y_pred)
     assert(score == 1.0)
