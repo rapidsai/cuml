@@ -38,7 +38,8 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
 
-from cuml.common.import_utils import has_treelite
+from cuml.common.import_utils import has_treelite, \
+    check_min_treelite_version
 
 if has_treelite():
     import treelite
@@ -577,10 +578,8 @@ class ForestInference(Base):
         """
         if(not has_treelite()):
             raise ImportError("Treelite version 0.9 needs to be installed.")
-        else:
-            if(treelite.__version__ < '0.9'):
-                raise ImportError("Treelite version 0.9 required")
-
+        if(not check_min_treelite_version()):
+            raise ImportError("Treelite version 0.9 required")
         cuml_fm = ForestInference(handle=handle)
         tl_model = tl_skl.import_model(skl_model)
         cuml_fm.load_from_treelite_model(
