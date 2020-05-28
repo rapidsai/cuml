@@ -539,7 +539,7 @@ class ForestInference(Base):
                           handle=None):
         """
         Creates a FIL model using the scikit-learn model passed to the
-        function. This function requires Treelite 0.9 to be installed.
+        function. This function requires Treelite 0.90 to be installed.
 
         Parameters
         ----------
@@ -577,9 +577,9 @@ class ForestInference(Base):
 
         """
         if(not has_treelite()):
-            raise ImportError("Treelite version 0.9 needs to be installed.")
+            raise ImportError("Treelite version 0.90 needs to be installed.")
         if(not check_min_treelite_version()):
-            raise ImportError("Treelite version 0.9 required")
+            raise ImportError("Treelite version 0.90 required")
         cuml_fm = ForestInference(handle=handle)
         tl_model = tl_skl.import_model(skl_model)
         cuml_fm.load_from_treelite_model(
