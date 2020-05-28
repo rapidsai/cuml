@@ -16,23 +16,23 @@
 
 #include <gtest/gtest.h>
 
-#include "distance/distance.h"
+#include "distance/distance.cuh"
 
 #include "datasets/digits.h"
 
 #include <cuml/manifold/umapparams.h>
-#include <metrics/trustworthiness.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/neighbors/knn.hpp>
+#include <metrics/trustworthiness.cuh>
 
-#include "linalg/reduce_rows_by_key.h"
-#include "random/make_blobs.h"
+#include <cuml/datasets/make_blobs.hpp>
+#include "linalg/reduce_rows_by_key.cuh"
 
 #include "common/device_buffer.hpp"
 #include "umap/runner.cuh"
 
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 
 #include <iostream>
 #include <vector>
@@ -236,9 +236,9 @@ class UMAPParametrizableTest : public ::testing::Test {
     device_buffer<float> X_d(alloc, stream, n_samples * n_features);
     device_buffer<int> y_d(alloc, stream, n_samples);
 
-    Random::make_blobs<float, int>(X_d.data(), y_d.data(), n_samples,
-                                   n_features, test_params.n_clusters, alloc,
-                                   stream, nullptr, nullptr);
+    ML::Datasets::make_blobs(handle, X_d.data(), y_d.data(), n_samples,
+                             n_features, test_params.n_clusters, nullptr,
+                             nullptr, 1.f, true, -10.f, 10.f, 1234ULL);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 

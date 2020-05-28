@@ -59,6 +59,12 @@ def _prep_training_data(c, X_train, partitions_per_worker):
     return X_train_df
 
 
+def _scale_rows(client, nrows):
+    workers = list(client.scheduler_info()['workers'].keys())
+    n_workers = len(workers)
+    return n_workers * nrows
+
+
 @pytest.mark.parametrize("nrows", [unit_param(1e3), unit_param(1e4),
                                    quality_param(1e6),
                                    stress_param(5e8)])
@@ -80,6 +86,8 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
         from sklearn.datasets import make_blobs
 
+        nrows = _scale_rows(client, nrows)
+
         X, y = make_blobs(n_samples=int(nrows),
                           n_features=ncols,
                           centers=nclusters)
@@ -89,7 +97,7 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
+        cumlModel = daskNN(n_neighbors=n_neighbors,
                            streams_per_handle=streams_per_handle)
         cumlModel.fit(X_cudf)
 
@@ -125,6 +133,8 @@ def test_batch_size(nrows, ncols, n_parts,
 
         from sklearn.datasets import make_blobs
 
+        nrows = _scale_rows(client, nrows)
+
         X, y = make_blobs(n_samples=int(nrows),
                           n_features=ncols,
                           centers=n_clusters)
@@ -135,7 +145,7 @@ def test_batch_size(nrows, ncols, n_parts,
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
+        cumlModel = daskNN(n_neighbors=n_neighbors,
                            batch_size=batch_size,
                            streams_per_handle=5)
 
@@ -166,6 +176,8 @@ def test_return_distance(cluster):
 
         from sklearn.datasets import make_blobs
 
+        n_samples = _scale_rows(client, n_samples)
+
         X, y = make_blobs(n_samples=n_samples,
                           n_features=n_feats, random_state=0)
 
@@ -175,7 +187,7 @@ def test_return_distance(cluster):
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=False, streams_per_handle=5)
+        cumlModel = daskNN(streams_per_handle=5)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)
@@ -206,6 +218,8 @@ def test_default_n_neighbors(cluster):
 
         from sklearn.datasets import make_blobs
 
+        n_samples = _scale_rows(client, n_samples)
+
         X, y = make_blobs(n_samples=n_samples,
                           n_features=n_feats, random_state=0)
 
@@ -215,14 +229,14 @@ def test_default_n_neighbors(cluster):
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=False, streams_per_handle=5)
+        cumlModel = daskNN(streams_per_handle=5)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, return_distance=False)
 
         assert ret.shape[1] == cumlNN().n_neighbors
 
-        cumlModel = daskNN(verbose=False, n_neighbors=k)
+        cumlModel = daskNN(n_neighbors=k)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)

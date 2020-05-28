@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 #include <set>
 #include <vector>
-#include "cuda_utils.h"
-#include "random/rng.h"
+#include "cuda_utils.cuh"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {
