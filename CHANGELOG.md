@@ -10,6 +10,8 @@
 
 ## Bug Fixes
 
+- PR #2337: Fix flake8 error: `W291 trailing whitespace`
+
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
