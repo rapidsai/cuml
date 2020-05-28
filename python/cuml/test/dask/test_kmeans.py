@@ -54,7 +54,6 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
                       cluster_std=0.01,
                       random_state=10)
 
-    wait(X)
     if input_type == "dataframe":
         X_train = to_dask_cudf(X)
         y_train = to_dask_cudf(y)
@@ -120,7 +119,6 @@ def test_transform(nrows, ncols, nclusters, n_parts, input_type, client):
                       random_state=10)
     y = y.astype('int64')
 
-    wait(X)
     if input_type == "dataframe":
         X_train = to_dask_cudf(X)
         y_train = to_dask_cudf(y)
