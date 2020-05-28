@@ -4,7 +4,7 @@
 
 ## Improvements
 - PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
-
+- PR #2341: DO NOT MERGE
 - PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
 - PR #1945: enable clang tidy
 
