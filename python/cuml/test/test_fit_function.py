@@ -39,8 +39,8 @@ def test_fit_function(dataset, model_name):
 
     if model_name in ['SparseRandomProjection', 'GaussianRandomProjection']:
         model = models[model_name](n_components=2)
-    elif model_name in {'ARIMA', 'AutoARIMA', 'ExponentialSmoothing'}:
-        model = models[model_name](endog=np.zeros((10,)))
+    elif model_name in ['ARIMA', 'AutoARIMA', 'ExponentialSmoothing']:
+        model = models[model_name](np.random.normal(0.0, 1.0, (10,)))
     else:
         if n_pos_args_constr == 1:
             model = models[model_name]()
@@ -50,7 +50,15 @@ def test_fit_function(dataset, model_name):
             model = models[model_name](5, 5)
 
     if hasattr(model, 'fit'):
-        n_pos_args_fit = func_positional_arg(models[model_name].fit)
+        # Unfortunately co_argcount doesn't work with decorated functions,
+        # and the inspect module doesn't work with Cython. Therefore we need
+        # to register the number of arguments manually if `fit` is decorated
+        pos_args_spec = {
+            'ARIMA': 1,
+        }
+        n_pos_args_fit = (pos_args_spec[model_name]
+                          if model_name in pos_args_spec
+                          else func_positional_arg(models[model_name].fit))
 
         X, y = dataset
 
