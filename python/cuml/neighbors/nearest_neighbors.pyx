@@ -79,7 +79,8 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         bool rowMajorIndex,
         bool rowMajorQuery,
         MetricType metric,
-        float metric_arg
+        float metric_arg,
+        bool expanded
     ) except +
 
     enum MetricType:
@@ -196,7 +197,6 @@ class NearestNeighbors(Base):
                  metric="euclidean",
                  p=2,
                  metric_params=None,
-                 metric_expanded=False,
                  output_type=None):
 
         super(NearestNeighbors, self).__init__(handle=handle,
@@ -258,23 +258,31 @@ class NearestNeighbors(Base):
                 "p", "metric_params"]
 
     def _build_metric_type(self, metric):
+
+        expanded = False
+
         if metric == "euclidean" or metric == "l2":
-            return MetricType.METRIC_L2
+            m = MetricType.METRIC_L2
+        elif metric == "sqeuclidean":
+            m = MetricType.METRIC_L2
+            expanded = True
         elif metric == "cityblock" or metric == "l1"\
                 or metric == "manhattan" or metric == 'taxicab':
-            return MetricType.METRIC_L1
+            m = MetricType.METRIC_L1
         elif metric == "braycurtis":
-            return MetricType.METRIC_BrayCurtis
+            m = MetricType.METRIC_BrayCurtis
         elif metric == "canberra":
-            return MetricType.METRIC_Canberra
+            m = MetricType.METRIC_Canberra
         elif metric == "minkowski" or metric == "lp":
-            return MetricType.METRIC_Lp
+            m = MetricType.METRIC_Lp
         elif metric == "chebyshev" or metric == "linf":
-            return MetricType.METRIC_Linf
+            m = MetricType.METRIC_Linf
         elif metric == "jensenshannon":
-            return MetricType.METRIC_JensenShannon
+            m = MetricType.METRIC_JensenShannon
         else:
             raise ValueError("Metric %s is not supported" % metric)
+
+        return m, expanded
 
     def kneighbors(self, X=None, n_neighbors=None,
                    return_distance=True, convert_dtype=True):
@@ -355,7 +363,7 @@ class NearestNeighbors(Base):
 
         cdef uintptr_t x_ctype_st = X_m.ptr
 
-        metric = self._build_metric_type(self.metric)
+        metric, expanded = self._build_metric_type(self.metric)
 
         brute_force_knn(
             handle_[0],
@@ -372,7 +380,8 @@ class NearestNeighbors(Base):
             <MetricType>metric,
 
             # minkowski order is currently the only metric argument.
-            <float>self.p
+            <float>self.p,
+            < bool > expanded
         )
 
         self.handle.sync()
