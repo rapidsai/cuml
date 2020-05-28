@@ -226,9 +226,16 @@ void call_optimize_batch_kernel(
   const MLCommon::FastIntDiv &tail_n, const int *head, const int *tail, int nnz,
   T *epochs_per_sample, int n_vertices, T *epoch_of_next_negative_sample,
   T *epoch_of_next_sample, T alpha, int epoch, T gamma, uint64_t seed,
-  double *embedding_updates, bool move_other, bool use_shared_mem,
-  UMAPParams *params, int n, dim3 &grid, dim3 &blk, size_t requiredSize,
+  double *embedding_updates, bool move_other,
+  UMAPParams *params, int n, dim3 &grid, dim3 &blk,
   cudaStream_t &stream, int offset = 0) {
+  size_t requiredSize = TPB_X * params->n_components;
+  if (params->multicore_implem) {
+    requiredSize *= sizeof(T);
+  } else {
+    requiredSize *= sizeof(double);
+  }
+  bool use_shared_mem = requiredSize < MLCommon::getSharedMemPerBlock();
   T nsr_inv = T(1.0) / params->negative_sample_rate;
   if (embedding_updates) {
     if (use_shared_mem) {
