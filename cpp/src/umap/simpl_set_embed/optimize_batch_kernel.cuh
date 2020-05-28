@@ -28,6 +28,7 @@ using namespace ML;
 
 /**
  * Calculate the squared distance between two vectors of size n
+ * @{
  */
 template <typename T, typename T2>
 DI T2 rdist(const T *X, const T *Y, int n) {
@@ -38,6 +39,17 @@ DI T2 rdist(const T *X, const T *Y, int n) {
   }
   return result;
 }
+template <typename T, typename T2, int LEN>
+DI T2 rdist(const T (&X)[LEN], const T (&Y)[LEN]) {
+  auto result = T2(0.0);
+#pragma unroll
+  for (int i = 0; i < LEN; ++i) {
+    auto diff = T2(X[i] - Y[i]);
+    result += diff * diff;
+  }
+  return result;
+}
+/** @} */
 
 /**
  * Clip a value to within a lower and upper bound
