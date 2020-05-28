@@ -133,8 +133,8 @@ class AutoARIMA(Base):
         Numba device ndarray, cuda array interface compliant array like CuPy.
     handle : cuml.Handle
         If it is None, a new one is created just for this instance
-    verbosity : int
-        Sets logging level. It must be one of `cuml.common.logger.LEVEL_*`
+    verbose : int
+        Logging level. It must be one of `cuml.common.logger.level_*`
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes.
         If None, it'll inherit the output type set at the module level,
@@ -154,13 +154,13 @@ class AutoARIMA(Base):
     def __init__(self,
                  endog,
                  handle=None,
-                 verbosity=logger.LEVEL_INFO,
+                 verbose=logger.level_info,
                  output_type=None):
         # Initialize base class
-        super().__init__(handle, output_type=output_type, verbosity=verbosity)
+        super().__init__(handle, output_type=output_type, verbose=verbose)
         self._set_output_type(endog)
 
-        logger.set_level(self.verbosity)
+        logger.set_level(self.verbose)
 
         # Get device array. Float64 only for now.
         self._d_y, self.n_obs, self.batch_size, self.dtype \
