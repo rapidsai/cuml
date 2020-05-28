@@ -35,7 +35,7 @@ def gpu_zeros_2d(out):
         out[i][j] = 0
 
 
-def zeros(size, dtype, order='F'):
+def zeros(size, dtype, order="F"):
     """
     Return device array of zeros generated on device.
     """
