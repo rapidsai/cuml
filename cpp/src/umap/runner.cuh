@@ -456,7 +456,7 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
   SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
     transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
     comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
-    params, n_epochs, params->multicore_implem, d_alloc, stream);
+    params, n_epochs, d_alloc, stream);
   ML::POP_RANGE();
 
   if (params->callback) params->callback->on_train_end(transformed);
