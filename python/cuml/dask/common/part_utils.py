@@ -62,7 +62,10 @@ def workers_to_parts(futures):
 
 
 def _func_get_rows(df):
-    return df.shape[0]
+    if isinstance(df, tuple):
+        return df[0].shape[0]
+    else:
+        return df.shape[0]
 
 
 def parts_to_ranks(client, worker_info, part_futures):
