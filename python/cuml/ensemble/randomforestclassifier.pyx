@@ -451,6 +451,9 @@ class RandomForestClassifier(Base):
         of information is already present in the model then the respective
         step is skipped.
         """
+        if self.dtype == np.float64:
+            raise TypeError("Pickling is only supported for models trained"
+                            " using dataset of dtype np.float64.")
         if self.model_pbuf_bytes:
             return self.model_pbuf_bytes
         elif self.treelite_handle:

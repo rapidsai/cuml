@@ -15,6 +15,7 @@
 
 import dask
 import math
+import numpy as np
 
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
@@ -85,11 +86,11 @@ class BaseRandomForestModel(object):
     def _fit(self, model, dataset, convert_dtype):
         data = DistributedDataHandler.create(dataset, client=self.client)
         self.datatype = data.datatype
-        self.dtype = X.dtypes
+        self.dtype = dataset[0].dtypes
         if (self.dtype.any() == np.float64) and (convert_dtype is False):
-            warnings.warn("To use Dask RF data should have dtype float 32. \
-                          Converting data to dtype=np.float32. \
-                          This will consume more memory and time.")
+            raise TypeError("To use Dask RF data should have dtype float 32. "
+                            "Converting data to dtype=np.float32. "
+                            "This will consume more memory and time.")
             convert_dtype = True
         futures = list()
         for idx, (worker, worker_data) in \
@@ -134,15 +135,16 @@ class BaseRandomForestModel(object):
     def _predict_using_fil(self, X, delayed, **kwargs):
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
-        if self.datatype == np.float64:
+        if X.dtypes.any() == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \
                             If you would like to use test \
                             data of dtype=np.float64 please set \
                             predict_model='CPU' to use the CPU implementation \
                             of predict.")
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
-        return self._predict(X, delayed=delayed, **kwargs)
+        else:
+            if self.local_model is None:
+                self.local_model = self._concat_treelite_models()
+            return self._predict(X, delayed=delayed, **kwargs)
 
     def _get_params(self, deep):
         model_params = list()
