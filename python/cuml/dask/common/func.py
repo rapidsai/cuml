@@ -13,17 +13,15 @@
 # limitations under the License.
 #
 
-from dask.delayed import Delayed
-
+import cuml.common.logger as logger
 import dask
-
-from dask.distributed import wait
-
-from toolz import first
 
 from cuml.dask.common.utils import get_client
 from cuml.dask.common.part_utils import hosts_to_parts
 from cuml.dask.common.part_utils import workers_to_parts
+from dask.delayed import Delayed
+from dask.distributed import wait
+from toolz import first
 
 
 def reduce(futures, func, client=None):
@@ -121,6 +119,6 @@ def tree_reduce(objs, func=sum):
         wait(new_objs)
         objs = new_objs
 
-    print(str(objs))
+    logger.info(str(objs))
 
     return first(objs)

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,11 +20,12 @@ import cudf
 import cupy as cp
 import numpy as np
 
-from cuml.common import input_to_cuml_array
+from cuml.common import input_to_cuml_array, CumlArray
 from cuml.common import input_to_dev_array
 from cuml.common import input_to_host_array
 from cuml.common import has_cupy
 from cuml.common.input_utils import convert_dtype
+from cuml.common.memory_utils import _check_array_contiguity
 from numba import cuda as nbcuda
 
 
@@ -44,7 +45,7 @@ test_dtypes_acceptable = [
 ]
 
 test_input_types = [
-    'numpy', 'numba', 'cupy', 'cudf', 'pandas'
+    'numpy', 'numba', 'cupy', 'cudf', 'pandas', 'cuml'
 ]
 
 test_num_rows = [1, 100]
@@ -118,10 +119,12 @@ def test_convert_matrix_order_cuml_array(dtype, input_type, from_order,
         # Warning is raised for non cudf dataframe or numpy arrays
         # those are converted form order by their respective libraries
         if input_type in ['numpy', 'cupy', 'numba']:
-            with pytest.warns(UserWarning):
-                conv_data, *_ = input_to_cuml_array(input_data,
-                                                    fail_on_order=False,
-                                                    order=to_order)
+            # with pytest.warns(UserWarning):
+            # warning disabled due to using cuml logger, need to
+            # adapt tests for that.
+            conv_data, *_ = input_to_cuml_array(input_data,
+                                                fail_on_order=False,
+                                                order=to_order)
         else:
             conv_data, *_ = input_to_cuml_array(input_data,
                                                 fail_on_order=False,
@@ -248,6 +251,39 @@ def test_convert_input_dtype(from_dtype, to_dtype, input_type, num_rows,
     else:
         np.testing.assert_equal(converted_data.copy_to_host(), real_data)
 
+    if from_dtype == to_dtype:
+        check_ptr(converted_data, input_data, input_type)
+
+
+@pytest.mark.parametrize('dtype', test_dtypes_acceptable)
+@pytest.mark.parametrize('input_type', ['numpy', 'cupy'])
+@pytest.mark.parametrize('order', ['C', 'F'])
+@pytest.mark.parametrize('contiguous', [True, False])
+@pytest.mark.parametrize('force_contiguous', [True, False])
+def test_non_contiguous_to_contiguous_input(dtype, input_type, order,
+                                            contiguous, force_contiguous):
+    input_data, real_data = get_input(input_type, 10, 8, dtype,
+                                      order=order)
+
+    if not contiguous:
+        if order == 'F':
+            data_view = input_data[:-3]
+            real_data = real_data[:-3]
+        else:
+            data_view = input_data[:, :-3]
+            real_data = real_data[:, :-3]
+
+    else:
+        data_view = input_data
+
+    cumlary, *_ = input_to_cuml_array(data_view,
+                                      force_contiguous=force_contiguous)
+
+    if force_contiguous:
+        assert(_check_array_contiguity(cumlary))
+
+    np.testing.assert_equal(real_data, cumlary.to_output('numpy'))
+
 
 ###############################################################################
 #                           Utility Functions                                 #
@@ -259,6 +295,24 @@ def check_numpy_order(ary, order):
         return ary.flags.f_contiguous
     else:
         return ary.flags.c_contiguous
+
+
+def check_ptr(a, b, input_type):
+    if input_type == 'cudf':
+        for (_, col_a), (_, col_b) in zip(a._data.items(), b._data.items()):
+            assert col_a.base_data.ptr == col_b.base_data.ptr
+    else:
+        def get_ptr(x):
+            try:
+                return x.__cuda_array_interface__['data'][0]
+            except AttributeError:
+                return x.__array_interface__['data'][0]
+
+        if input_type == 'pandas':
+            a = a.as_matrix()
+            b = b.as_matrix()
+
+        assert get_ptr(a) == get_ptr(b)
 
 
 def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
@@ -282,6 +336,10 @@ def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
         result = cudf.DataFrame()
         result = result.from_gpu_matrix(nbcuda.as_cuda_array(rand_mat))
         result = result.to_pandas()
+
+    if type == 'cuml':
+        result = CumlArray(data=rand_mat, dtype=dtype, shape=rand_mat.shape,
+                           order=order if order != 'K' else None)
 
     if out_dtype:
         return result, np.array(cp.asnumpy(rand_mat).astype(out_dtype),

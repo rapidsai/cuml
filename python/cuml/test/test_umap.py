@@ -45,7 +45,7 @@ def test_blobs_cluster(nrows, n_feats):
 
     data, labels = datasets.make_blobs(
         n_samples=nrows, n_features=n_feats, centers=5, random_state=0)
-    embedding = cuUMAP(verbose=False).fit_transform(data, convert_dtype=True)
+    embedding = cuUMAP().fit_transform(data, convert_dtype=True)
 
     if nrows < 500000:
         score = adjusted_rand_score(labels,
@@ -66,7 +66,7 @@ def test_umap_fit_transform_score(nrows, n_feats):
                               centers=10, random_state=42)
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.1)
-    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False)
+    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01)
 
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
@@ -87,9 +87,8 @@ def test_umap_fit_transform_score(nrows, n_feats):
 def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
-    embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                       verbose=False).fit_transform(data, iris.target,
-                                                    convert_dtype=True)
+    embedding = cuUMAP(n_neighbors=10, min_dist=0.01).fit_transform(
+        data, iris.target, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
 
@@ -99,9 +98,8 @@ def test_semisupervised_umap_trustworthiness_on_iris():
     data = iris.data
     target = iris.target.copy()
     target[25:75] = -1
-    embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                       verbose=False).fit_transform(data, target,
-                                                    convert_dtype=True)
+    embedding = cuUMAP(n_neighbors=10, min_dist=0.01).fit_transform(
+        data, target, convert_dtype=True)
 
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
@@ -110,8 +108,8 @@ def test_semisupervised_umap_trustworthiness_on_iris():
 def test_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
-    embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                       verbose=False).fit_transform(data, convert_dtype=True)
+    embedding = cuUMAP(n_neighbors=10, min_dist=0.01).fit_transform(
+        data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
 
@@ -126,8 +124,7 @@ def test_umap_transform_on_iris(target_metric):
     data = iris.data[iris_selection]
 
     fitter = cuUMAP(n_neighbors=10, init="random", n_epochs=800, min_dist=0.01,
-                    random_state=42, verbose=False,
-                    target_metric=target_metric)
+                    random_state=42, target_metric=target_metric)
     fitter.fit(data, convert_dtype=True)
     new_data = iris.data[~iris_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)
@@ -152,7 +149,6 @@ def test_umap_transform_on_digits(target_metric):
                     n_epochs=0,
                     min_dist=0.01,
                     random_state=42,
-                    verbose=False,
                     target_metric=target_metric)
     fitter.fit(data, convert_dtype=True)
     new_data = digits.data[~digits_selection]
@@ -185,7 +181,7 @@ def test_umap_fit_transform_trust(name, target_metric):
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.01,
                       target_metric=target_metric)
-    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False,
+    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01,
                         target_metric=target_metric)
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
@@ -220,8 +216,7 @@ def test_umap_data_formats(input_type, should_downcast,
         X, y = datasets.make_blobs(n_samples=n_samples,
                                    n_features=n_feats, random_state=0)
 
-    umap = cuUMAP(n_neighbors=3, n_components=2, verbose=False,
-                  target_metric=target_metric)
+    umap = cuUMAP(n_neighbors=3, n_components=2, target_metric=target_metric)
 
     embeds = umap.fit_transform(X)
     assert type(embeds) == np.ndarray
@@ -237,7 +232,7 @@ def test_umap_fit_transform_score_default(target_metric):
                               centers=10, random_state=42)
 
     model = umap.UMAP(target_metric=target_metric)
-    cuml_model = cuUMAP(verbose=False, target_metric=target_metric)
+    cuml_model = cuUMAP(target_metric=target_metric)
 
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
@@ -263,7 +258,7 @@ def test_umap_fit_transform_against_fit_and_transform():
     First test the default option does not hash the input
     """
 
-    cuml_model = cuUMAP(verbose=False)
+    cuml_model = cuUMAP()
 
     ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
     fit_embedding_same_input = cuml_model.transform(data, convert_dtype=True)
@@ -274,7 +269,7 @@ def test_umap_fit_transform_against_fit_and_transform():
     Next, test explicitly enabling feature hashes the input
     """
 
-    cuml_model = cuUMAP(hash_input=True, verbose=False)
+    cuml_model = cuUMAP(hash_input=True)
 
     ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
     fit_embedding_same_input = cuml_model.transform(data, convert_dtype=True)
@@ -300,7 +295,7 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
                               centers=10, random_state=42)
 
     def get_embedding(n_components, random_state):
-        reducer = cuUMAP(verbose=False, init="random",
+        reducer = cuUMAP(init="random",
                          n_components=n_components,
                          random_state=random_state)
         return reducer.fit_transform(data, convert_dtype=True)
@@ -347,7 +342,7 @@ def test_umap_transform_reproducibility(n_components, random_state):
     transform_data = data[~selection]
 
     def get_embedding(n_components, random_state):
-        reducer = cuUMAP(verbose=False, init="random",
+        reducer = cuUMAP(init="random",
                          n_components=n_components,
                          random_state=random_state)
         reducer.fit(fit_data, convert_dtype=True)
@@ -379,8 +374,8 @@ def test_umap_transform_reproducibility(n_components, random_state):
 def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
     iris = datasets.load_iris()
     data = iris.data
-    embedding = cuUMAP(n_neighbors=10, min_dist=0.01, random_state=42,
-                       verbose=False).fit_transform(data, convert_dtype=True)
+    algo = cuUMAP(n_neighbors=10, min_dist=0.01, random_state=42)
+    embedding = algo.fit_transform(data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
 
@@ -392,8 +387,7 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
         [True, False], data.shape[0], replace=True, p=[0.5, 0.5])
     fit_data = data[selection]
     transform_data = data[~selection]
-    model = cuUMAP(n_neighbors=10, min_dist=0.01, random_state=42,
-                   verbose=False)
+    model = cuUMAP(n_neighbors=10, min_dist=0.01, random_state=42)
     model.fit(fit_data, convert_dtype=True)
     embedding = model.transform(transform_data, convert_dtype=True)
     trust = trustworthiness(transform_data, embedding, 10)
@@ -426,13 +420,13 @@ def test_umap_knn_parameters(n_neighbors):
     data = data.astype(np.float32)
 
     def fit_transform_embed(knn_graph=None):
-        model = cuUMAP(verbose=False, random_state=42,
+        model = cuUMAP(random_state=42,
                        n_neighbors=n_neighbors)
         return model.fit_transform(data, knn_graph=knn_graph,
                                    convert_dtype=True)
 
     def transform_embed(knn_graph=None):
-        model = cuUMAP(verbose=False, random_state=42,
+        model = cuUMAP(random_state=42,
                        n_neighbors=n_neighbors)
         model.fit(data, knn_graph=knn_graph, convert_dtype=True)
         return model.transform(data, knn_graph=knn_graph,

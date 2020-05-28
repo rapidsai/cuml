@@ -2,14 +2,50 @@
 cuML API Reference
 ~~~~~~~~~~~~~~~~~~~
 
-Datatype Configuration
-======================
+Module Configuration
+====================
 
-Output Type
------------
+Output Data Type Configuration
+------------------------------
 
- .. automethod:: cuml.utils.memory_utils.set_global_output_type
- .. automethod:: cuml.utils.memory_utils.using_output_type
+ .. automethod:: cuml.common.memory_utils.set_global_output_type
+ .. automethod:: cuml.common.memory_utils.using_output_type
+
+Verbosity Levels
+----------------
+
+cuML follows a verbosity model similar to Scikit-learn's: The verbose parameter
+can be a boolean, or a numeric value, and higher numeric values mean more verbosity. The exact values can be set directly, or through the cuml.common.logger module, and
+they are:
+
+.. list-table:: Verbosity Levels
+   :widths: 25 25 50
+   :header-rows: 1
+
+   * - Numeric value
+     - cuml.common.logger value
+     - Verbosity level
+   * - 0
+     - cuml.common.logger.level_off
+     - Disables all log messages
+   * - 1
+     - cuml.common.logger.level_critical
+     - Enables only critical messages
+   * - 2
+     - cuml.common.logger.level_error
+     - Enables all messages up to and including errors.
+   * - 3
+     - cuml.common.logger.level_warn
+     - Enables all messages up to and including warnings.
+   * - 4 or False
+     - cuml.common.logger.level_info
+     - Enables all messages up to and including information messages.
+   * - 5 or True
+     - cuml.common.logger.level_debug
+     - Enables all messages up to and including debug messages.
+   * - 6
+     - cuml.common.logger.level_trace
+     - Enables all messages up to and including trace messages.
 
 
 Preprocessing, Metrics, and Utilities
@@ -20,8 +56,8 @@ Model Selection and Data Splitting
 
  .. automethod:: cuml.preprocessing.model_selection.train_test_split
 
-Label Encoding
---------------
+Feature and Label Encoding (Single-GPU)
+---------------------------------------
 
  .. autoclass:: cuml.preprocessing.LabelEncoder
     :members:
@@ -29,21 +65,35 @@ Label Encoding
  .. autoclass:: cuml.preprocessing.LabelBinarizer
     :members:
 
+ .. automethod:: cuml.preprocessing.label_binarize
+
+ .. autoclass:: cuml.preprocessing.OneHotEncoder
+    :members:
+
+Feature and Label Encoding (Dask-based Multi-GPU)
+-------------------------------------------------
+
  .. autoclass:: cuml.dask.preprocessing.LabelBinarizer
     :members:
 
- .. automethod:: cuml.preprocessing.label_binarize
+ .. autoclass:: cuml.dask.preprocessing.OneHotEncoder
+    :members:
 
 Dataset Generation (Single-GPU)
 -------------------------------
 
   .. automethod:: cuml.datasets.make_blobs
+  .. automethod:: cuml.datasets.make_classification
   .. automethod:: cuml.datasets.make_regression
+  .. automethod:: cuml.datasets.make_arima
 
 
 Dataset Generation (Dask-based Multi-GPU)
 -----------------------------------------
   .. automodule:: cuml.dask.datasets.blobs
+     :members:
+
+  .. automodule:: cuml.dask.datasets.classification
      :members:
 
   .. automodule:: cuml.dask.datasets.regression
@@ -306,6 +356,12 @@ Truncated SVD
 .. autoclass:: cuml.dask.decomposition.TruncatedSVD
     :members:
 
+Manifold
+--------
+
+.. autoclass:: cuml.dask.manifold.UMAP
+    :members:
+
 Linear Models
 -------------
 
@@ -313,6 +369,18 @@ Linear Models
     :members:
 
 .. autoclass:: cuml.dask.linear_model.Ridge
+    :members:
+
+.. autoclass:: cuml.dask.linear_model.Lasso
+    :members:
+
+.. autoclass:: cuml.dask.linear_model.ElasticNet
+    :members:
+
+Solvers
+-------
+
+.. autoclass:: cuml.dask.solvers.CD
     :members:
 
 Dask Base Classes and Mixins
