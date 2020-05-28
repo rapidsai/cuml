@@ -212,8 +212,8 @@ class PCA(Base):
     tol : float (default = 1e-7)
         Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
         but but will slow down the algorithm's convergence.
-    verbose : bool
-        Whether to print debug spews
+    verbose : int or boolean (default = False)
+        Logging level
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by
         the corresponding singular values then multiplying by sqrt(n_samples).
@@ -254,15 +254,14 @@ class PCA(Base):
         between cancerous cells from healthy cells.
 
 
-    For an additional example see `the PCA notebook
-    <https://github.com/rapidsai/notebooks/blob/master/cuml/pca_demo.ipynb>`_.
     For additional docs, see `scikitlearn's PCA
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
     def __init__(self, copy=True, handle=None, iterated_power=15,
                  n_components=1, random_state=None, svd_solver='auto',
-                 tol=1e-7, verbose=False, whiten=False, output_type=None):
+                 tol=1e-7, verbose=False, whiten=False,
+                 output_type=None):
         # parameters
         super(PCA, self).__init__(handle=handle, verbose=verbose,
                                   output_type=output_type)

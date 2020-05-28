@@ -16,14 +16,12 @@
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
-
+from cuml.dask.common.base import SyncFitMixinLinearModel
 from cuml.dask.common.comms import worker_state
-
-from cuml.dask.linear_model.base import BaseLinearModelSyncFitMixin
 
 
 class Ridge(BaseEstimator,
-            BaseLinearModelSyncFitMixin,
+            SyncFitMixinLinearModel,
             DelayedPredictionMixin):
 
     """
@@ -46,12 +44,13 @@ class Ridge(BaseEstimator,
 
     Parameters
     -----------
-    alpha : float or double
+    alpha : float (default = 1.0)
         Regularization strength - must be a positive float. Larger values
         specify stronger regularization. Array input will be supported later.
-    solver : 'eig'
+    solver : {'eig'}
         Eig uses a eigendecomposition of the covariance matrix, and is much
         faster.
+        Other solvers will be supported in the future.
     fit_intercept : boolean (default = True)
         If True, Ridge adds an additional term c to correct for the global
         mean of y, modeling the reponse as "x * beta + c".
@@ -74,17 +73,10 @@ class Ridge(BaseEstimator,
                                     verbose=verbose,
                                     **kwargs)
 
-    @staticmethod
-    def _func_create_model(sessionId, **kwargs):
-        try:
-            from cuml.linear_model.ridge_mg import RidgeMG as cumlRidge
-        except ImportError:
-            raise Exception("cuML has not been built with multiGPU support "
-                            "enabled. Build with the --multigpu flag to"
-                            " enable multiGPU support.")
-
-        handle = worker_state(sessionId)["handle"]
-        return cumlRidge(handle=handle, **kwargs)
+        self.coef_ = None
+        self.intercept_ = None
+        self._model_fit = False
+        self._consec_call = 0
 
     def fit(self, X, y):
         """
@@ -98,8 +90,7 @@ class Ridge(BaseEstimator,
             Labels (outcome values)
         """
 
-        self._fit(model_func=Ridge._create_model, data=(X, y),
-                  **self.kwargs)
+        models = self._fit(model_func=Ridge._create_model, data=(X, y))
 
         return self
 

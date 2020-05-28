@@ -1,4 +1,4 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +31,10 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+from cuml.common import get_cudf_column_ptr
+from cuml.common import get_dev_array_ptr
+from cuml.common import input_to_dev_array
+from cuml.common import zeros
 from cuml.common.input_utils import input_to_cuml_array
 
 
@@ -207,6 +211,7 @@ class CD(Base):
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -292,6 +297,7 @@ class CD(Base):
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -303,6 +309,7 @@ class CD(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
         ----------
         y: cuDF DataFrame

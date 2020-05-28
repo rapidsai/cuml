@@ -17,6 +17,7 @@ from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
 
 from cuml.dask.common.input_utils import to_output
+from cuml.dask.common import parts_to_ranks
 
 from cuml.dask.common.part_utils import flatten_grouped_results
 
@@ -28,7 +29,8 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 
 class BaseDecomposition(BaseEstimator):
 
-    def __init__(self, model_func, client=None, verbose=False, **kwargs):
+    def __init__(self, model_func, client=None, verbose=False,
+                 **kwargs):
         """
         Constructor for distributed decomposition model
         """
@@ -64,6 +66,11 @@ class DecompositionSyncFitMixin(object):
 
         data.calculate_parts_to_sizes(comms)
 
+        worker_info = comms.worker_info(comms.worker_addresses)
+        parts_to_sizes, _ = parts_to_ranks(self.client,
+                                           worker_info,
+                                           data.gpu_futures)
+
         total_rows = data.total_rows
 
         models = dict([(data.worker_info[wf[0]]["rank"], self.client.submit(
@@ -81,7 +88,7 @@ class DecompositionSyncFitMixin(object):
             models[data.worker_info[wf[0]]["rank"]],
             wf[1],
             total_rows, n_cols,
-            data.parts_to_sizes[data.worker_info[wf[0]]["rank"]],
+            parts_to_sizes,
             data.worker_info[wf[0]]["rank"],
             _transform,
             pure=False,

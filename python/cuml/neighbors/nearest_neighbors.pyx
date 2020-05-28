@@ -53,6 +53,7 @@ import rmm
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
+
 cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
     cdef cppclass deviceAllocator:
         pass
@@ -90,8 +91,8 @@ class NearestNeighbors(Base):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbose : boolean (default=False)
-        Whether to print verbose logs
+    verbose : int or boolean (default = False)
+        Logging level
     handle : cumlHandle
         The cumlHandle resources to use
     algorithm : string (default='brute')
@@ -160,7 +161,7 @@ class NearestNeighbors(Base):
     -----
 
     For an additional example see `the NearestNeighbors notebook
-    <https://github.com/rapidsai/notebook/blob/master/python/notebooks/nearest_neighbors_demo.ipynb>`_.
+    <https://github.com/rapidsai/cuml/blob/branch-0.14/notebooks/nearest_neighbors_demo.ipynb>`_.
 
     For additional docs, see `scikit-learn's NearestNeighbors
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
@@ -173,7 +174,8 @@ class NearestNeighbors(Base):
                  metric="euclidean",
                  output_type=None):
 
-        super(NearestNeighbors, self).__init__(handle=handle, verbose=verbose,
+        super(NearestNeighbors, self).__init__(handle=handle,
+                                               verbose=verbose,
                                                output_type=output_type)
 
         if metric != "euclidean":
