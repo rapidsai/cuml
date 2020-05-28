@@ -41,6 +41,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.import_utils import has_treelite
 
 if has_treelite():
+    import treelite
     import treelite.gallery.sklearn as tl_skl
 
 cimport cuml.common.handle
@@ -574,9 +575,15 @@ class ForestInference(Base):
             model passed.
 
         """
-        if (has_treelite()==False):
-            raise ImportError(" Treelite needs to be built from source"
+        if(has_treelite()==False):
+            raise ImportError("Treelite needs to be built from source"
                               " for this function to be used.")
+        else:
+            if(treelite.__version__ <= '0.32'):
+                raise ImportError("Treelite version greater than 0.32 is"
+                                  " required to use this function. Please"
+                                  " build Treelite from source.")
+
         cuml_fm = ForestInference(handle=handle)
         tl_model = tl_skl.import_model(skl_model)
         cuml_fm.load_from_treelite_model(

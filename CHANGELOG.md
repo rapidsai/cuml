@@ -110,6 +110,7 @@
 - PR #2316: 0.14 release docs additions and fixes
 - PR #2323: Change verbose levels and parameter name to match Scikit-learn API
 - PR #2324: Raise an error if n_bins > number of training samples in RF
+- PR #2335: Throw a warning if treelite cannot be imported and `load_from_sklearn` is used
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
