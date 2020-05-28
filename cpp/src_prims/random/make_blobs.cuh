@@ -33,11 +33,9 @@ namespace {
 // generate the labels first and shuffle them instead of shuffling the dataset
 template <typename IdxT>
 void generate_labels(IdxT* labels, IdxT n_rows, IdxT n_clusters, bool shuffle,
-                     cudaStream_t stream) {
-  // always keep 'a' to be coprime to n_rows
-  IdxT a = rand() % n_rows;
-  while (gcd(a, n_rows) != 1) a = (a + 1) % n_rows;
-  IdxT b = rand() % n_rows;
+                     Rng& r, cudaStream_t stream) {
+  IdxT a, b;
+  r.affine_transform_params(n_rows, a, b);
   auto op = [=] __device__(IdxT * ptr, IdxT idx) {
     if (shuffle) {
       idx = IdxT((a * int64_t(idx)) + b) % n_rows;

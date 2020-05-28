@@ -115,6 +115,27 @@ class Rng {
   }
 
   /**
+   * @brief Generates the 'a' and 'b' parameters for a modulo affine
+   *        transformation equation: `(ax + b) % n`
+   *
+   * @tparam IdxT integer type
+   *
+   * @param[in]  n the modulo range
+   * @param[out] a slope parameter
+   * @param[out[ b intercept parameter
+   */
+  void affine_transform_params(IdxT n, IdxT& a, IdxT& b) {
+    // always keep 'a' to be coprime to 'n'
+    a = gen() % n;
+    while (gcd(a, n) != 1) {
+      ++a;
+      if (a >= n) a = 0;
+    }
+    // the bias term 'b' can be any number in the range of [0, n)
+    b = gen() % n;
+  }
+
+  /**
    * @brief Generate uniformly distributed numbers in the given range
    * @tparam Type data type of output random number
    * @tparam LenType data type used to represent length of the arrays
