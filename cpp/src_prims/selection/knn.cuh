@@ -197,19 +197,20 @@ inline void knn_merge_parts(float *inK, int64_t *inV, float *outK,
    * @param rowMajorQuery are the query array in row-major layout?
    * @param translations translation ids for indices when index rows represent
    *        non-contiguous partitions
+   * @param metric corresponds to the FAISS::metricType enum (default is euclidean)
+   * @param metricArg metric argument to use. Corresponds to the p arg for lp norm
+   * @param expanded_form whether or not lp variants should be reduced w/ lp-root
    */
 template <typename IntType = int,
           Distance::DistanceType DistanceType = Distance::EucUnexpandedL2>
-void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
-                     IntType D, float *search_items, IntType n, int64_t *res_I,
-                     float *res_D, IntType k,
-                     std::shared_ptr<deviceAllocator> allocator,
-                     cudaStream_t userStream,
-                     cudaStream_t *internalStreams = nullptr,
-                     int n_int_streams = 0, bool rowMajorIndex = true,
-                     bool rowMajorQuery = true,
-                     std::vector<int64_t> *translations = nullptr,
-                     int metric = 1, float metricArg = 0) {
+void brute_force_knn(
+  std::vector<float *> &input, std::vector<int> &sizes, IntType D,
+  float *search_items, IntType n, int64_t *res_I, float *res_D, IntType k,
+  std::shared_ptr<deviceAllocator> allocator, cudaStream_t userStream,
+  cudaStream_t *internalStreams = nullptr, int n_int_streams = 0,
+  bool rowMajorIndex = true, bool rowMajorQuery = true,
+  std::vector<int64_t> *translations = nullptr, int metric = 1,
+  float metricArg = 0, bool expanded_form = false) {
   ASSERT(DistanceType == Distance::EucUnexpandedL2 ||
            DistanceType == Distance::EucUnexpandedL2Sqrt,
          "Only EucUnexpandedL2Sqrt and EucUnexpandedL2 metrics are supported "
@@ -301,7 +302,9 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   }
 
   // Perform necessary post-processing
-  if (m == faiss::MetricType::METRIC_L2 || m == faiss::MetricType::METRIC_Lp) {
+  if ((m == faiss::MetricType::METRIC_L2 ||
+       m == faiss::MetricType::METRIC_Lp) &&
+      !expanded_form) {
     /**
 	   * p-norm post-processing
 	   */
@@ -317,30 +320,30 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   CUDA_CHECK(cudaStreamSynchronize(userStream));
 };
 
-template <typename IntType = int,
-          Distance::DistanceType DistanceType = Distance::EucUnexpandedL2>
-void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
-                     float *search_items, IntType n, int64_t *res_I,
-                     float *res_D, IntType k,
-                     std::shared_ptr<deviceAllocator> allocator,
-                     cudaStream_t userStream,
-                     cudaStream_t *internalStreams = nullptr,
-                     int n_int_streams = 0, bool rowMajorIndex = true,
-                     bool rowMajorQuery = true,
-                     std::vector<int64_t> *translations = nullptr) {
-  std::vector<float *> input_vec(n_params);
-  std::vector<int> sizes_vec(n_params);
-
-  for (int i = 0; i < n_params; i++) {
-    input_vec.push_back(input[i]);
-    sizes_vec.push_back(sizes[i]);
-  }
-
-  brute_force_knn<IntType, DistanceType>(
-    input_vec, sizes_vec, D, search_items, n, res_I, res_D, k, allocator,
-    userStream, internalStreams, n_int_streams, rowMajorIndex, rowMajorQuery,
-    translations);
-}
+//template <typename IntType = int,
+//          Distance::DistanceType DistanceType = Distance::EucUnexpandedL2>
+//void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
+//                     float *search_items, IntType n, int64_t *res_I,
+//                     float *res_D, IntType k,
+//                     std::shared_ptr<deviceAllocator> allocator,
+//                     cudaStream_t userStream,
+//                     cudaStream_t *internalStreams = nullptr,
+//                     int n_int_streams = 0, bool rowMajorIndex = true,
+//                     bool rowMajorQuery = true,
+//                     std::vector<int64_t> *translations = nullptr) {
+//  std::vector<float *> input_vec(n_params);
+//  std::vector<int> sizes_vec(n_params);
+//
+//  for (int i = 0; i < n_params; i++) {
+//    input_vec.push_back(input[i]);
+//    sizes_vec.push_back(sizes[i]);
+//  }
+//
+//  brute_force_knn<IntType, DistanceType>(
+//    input_vec, sizes_vec, D, search_items, n, res_I, res_D, k, allocator,
+//    userStream, internalStreams, n_int_streams, rowMajorIndex, rowMajorQuery,
+//    translations);
+//}
 
 template <typename OutType = float>
 __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
