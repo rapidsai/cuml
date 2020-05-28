@@ -106,12 +106,7 @@ __global__ void optimize_batch_kernel(
   T *other = tail_embedding + (k * params.n_components);
   T2 *current_buffer, *other_buffer;
   if (use_shared_mem) {
-    // shared memory
     current_buffer = (T2 *)embedding_shared_mem_updates + threadIdx.x;
-    // initialization of shared memory
-    for (int d = 0; d < params.n_components; d++) {
-      current_buffer[d * TPB_X] = 0;
-    }
   } else if (!multicore_implem) {
     // no shared memory and synchronized implementation
     current_buffer = (T2 *)embedding_updates + (j * params.n_components);
@@ -136,7 +131,7 @@ __global__ void optimize_batch_kernel(
                            T2(-4.0), T2(4.0));
     grad_d *= alpha;
     if (use_shared_mem) {
-      current_buffer[d * TPB_X] += grad_d;
+      current_buffer[d * TPB_X] = grad_d;
     } else {
       if (multicore_implem) {
         atomicAdd(current + d, grad_d);
