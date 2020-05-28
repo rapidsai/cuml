@@ -598,8 +598,8 @@ class RandomForestClassifier(Base):
             These labels should be contiguous integers from 0 to n_classes.
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
-            y to be of dtype int32 and X to be float32. This will increase
-            memory used for the method.
+            y to be of dtype int32. This will increase memory used for
+            the method.
 
         """
         self._set_output_type(X)
@@ -611,8 +611,6 @@ class RandomForestClassifier(Base):
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
-                                convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None),
                                 order='F')
         if self.n_bins > n_rows:
             raise ValueError("The number of bins,`n_bins` can not be greater"
