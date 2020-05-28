@@ -591,5 +591,14 @@ TEST_P(RngNormalTableTestD, Result) {
 INSTANTIATE_TEST_CASE_P(RngNormalTableTests, RngNormalTableTestD,
                         ::testing::ValuesIn(inputsd_t));
 
+TEST(Rng, AffineTransformParams) {
+  Rng r(123456ULL);
+  int a, b;
+  int n = 100;
+  r.affine_transform_params(n, a, b);
+  ASSERT_TRUE(gcd(a, n) == 1);
+  ASSERT_TRUE(0 <= b && b < n);
+}
+
 }  // end namespace Random
 }  // end namespace MLCommon
