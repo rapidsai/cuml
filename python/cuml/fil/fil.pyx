@@ -538,7 +538,7 @@ class ForestInference(Base):
                           handle=None):
         """
         Creates a FIL model using the scikit-learn model passed to the
-        function. This function requires Treelite to be built from source.
+        function. This function requires Treelite 0.9 to be installed.
 
         Parameters
         ----------
