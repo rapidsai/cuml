@@ -34,9 +34,6 @@ from cuml.common.import_utils import has_dask
 from cuml.common.import_utils import check_min_numba_version
 from cuml.common.import_utils import check_min_cupy_version, has_scipy
 
-from cuml.common.kernel_utils import get_dtype_str
-from cuml.common.kernel_utils import cuda_kernel_factory
-
 ## legacy to be removed after complete CumlAray migration
 
 from cuml.common.numba_utils import zeros
