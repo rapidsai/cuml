@@ -66,7 +66,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "matplotlib" \
       "ipython=7.3*" \
       "jupyterlab"
-      
+
 
 
 # Install contextvars on Python 3.6
@@ -138,9 +138,9 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
 
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=0 --timeout=300 --ignore=cuml/test/dask
 
-timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
+timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=0 --timeout=300"
 
 
 ################################################################################
