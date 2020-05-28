@@ -453,7 +453,7 @@ class RandomForestClassifier(Base):
         """
         if self.dtype == np.float64:
             raise TypeError("Pickling is only supported for models trained"
-                            " using dataset of dtype np.float64.")
+                            " using dataset of dtype float64.")
         if self.model_pbuf_bytes:
             return self.model_pbuf_bytes
         elif self.treelite_handle:
