@@ -43,7 +43,6 @@ def test_pca_fit(data_info, input_type, client):
                       cluster_std=0.5,
                       random_state=10, dtype=np.float32)
 
-    wait(X)
     if input_type == "dataframe":
         X_train = to_dask_cudf(X)
         X_cpu = X_train.compute().to_pandas().values
@@ -88,8 +87,6 @@ def test_pca_fit_transform_fp32(data_info, client):
                            cluster_std=1.5,
                            random_state=10, dtype=np.float32)
 
-    wait(X_cudf)
-
     cutsvd = daskTPCA(n_components=20)
     cutsvd.fit_transform(X_cudf)
 
@@ -110,8 +107,6 @@ def test_pca_fit_transform_fp64(data_info, client):
                            n_parts=n_parts,
                            cluster_std=1.5,
                            random_state=10, dtype=np.float64)
-
-    wait(X_cudf)
 
     cutsvd = daskTPCA(n_components=30)
     cutsvd.fit_transform(X_cudf)

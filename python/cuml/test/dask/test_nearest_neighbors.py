@@ -92,8 +92,6 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
     X_cudf = _prep_training_data(client, X, n_parts)
 
-    wait(X_cudf)
-
     cumlModel = daskNN(n_neighbors=n_neighbors,
                        streams_per_handle=streams_per_handle)
     cumlModel.fit(X_cudf)
@@ -133,8 +131,6 @@ def test_batch_size(nrows, ncols, n_parts,
 
     X_cudf = _prep_training_data(client, X, n_parts)
 
-    wait(X_cudf)
-
     cumlModel = daskNN(n_neighbors=n_neighbors,
                        batch_size=batch_size,
                        streams_per_handle=5)
@@ -169,8 +165,6 @@ def test_return_distance(client):
 
     X_cudf = _prep_training_data(client, X, 1)
 
-    wait(X_cudf)
-
     cumlModel = daskNN(streams_per_handle=5)
     cumlModel.fit(X_cudf)
 
@@ -204,8 +198,6 @@ def test_default_n_neighbors(client):
     X = X.astype(np.float32)
 
     X_cudf = _prep_training_data(client, X, 1)
-
-    wait(X_cudf)
 
     cumlModel = daskNN(streams_per_handle=5)
     cumlModel.fit(X_cudf)

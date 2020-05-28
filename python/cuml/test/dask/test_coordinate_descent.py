@@ -50,8 +50,6 @@ def test_lasso(dtype, alpha, algorithm,
                            client=client,
                            dtype=dtype)
 
-    wait(X)
-
     lasso = Lasso(alpha=np.array([alpha]), fit_intercept=True,
                   normalize=False, max_iter=1000,
                   selection=algorithm, tol=1e-10,
@@ -85,8 +83,6 @@ def test_lasso_default(dtype, nrows, column_info, n_parts, client):
                            client=client,
                            dtype=dtype)
 
-    wait(X)
-
     lasso = Lasso(client=client)
 
     lasso.fit(X, y)
@@ -119,8 +115,6 @@ def test_elastic_net(dtype, alpha, algorithm,
                            n_parts=n_parts,
                            client=client,
                            dtype=dtype)
-
-    wait(X)
 
     elasticnet = ElasticNet(alpha=np.array([alpha]), fit_intercept=True,
                             normalize=False, max_iter=1000,
@@ -158,8 +152,6 @@ def test_elastic_net_default(dtype, nrows, column_info, n_parts, client):
                            n_parts=n_parts,
                            client=client,
                            dtype=dtype)
-
-    wait(X)
 
     elasticnet = ElasticNet(client=client)
 

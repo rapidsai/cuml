@@ -40,8 +40,6 @@ def test_getattr(client):
                       cluster_std=0.01,
                       random_state=10)
 
-    wait(X)
-
     kmeans_model.fit(X)
 
     assert kmeans_model.cluster_centers_ is not None
@@ -50,8 +48,6 @@ def test_getattr(client):
     # Test getattr on trained distributed model
 
     X, y = load_text_corpus(client)
-
-    print(str(X.compute()))
 
     nb_model = MultinomialNB(client=client)
     nb_model.fit(X, y)
