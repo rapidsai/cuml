@@ -35,8 +35,6 @@ from cuml.common import rmm_cupy_ary
 
 from cuml.naive_bayes import MultinomialNB as MNB
 
-import cuml.common.logger as logger
-
 
 class MultinomialNB(BaseEstimator,
                     DelayedPredictionMixin):
@@ -98,7 +96,7 @@ class MultinomialNB(BaseEstimator,
     0.9244298934936523
 
     """
-    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=False, **kwargs):
 
         """
         Create new multinomial distributed Naive Bayes classifier instance
@@ -108,7 +106,7 @@ class MultinomialNB(BaseEstimator,
 
         client : dask.distributed.Client optional Dask client to use
         """
-        super(MultinomialNB, self).__init__(client=client, verbosity=verbosity,
+        super(MultinomialNB, self).__init__(client=client, verbose=verbose,
                                             **kwargs)
 
         self.datatype = "cupy"
