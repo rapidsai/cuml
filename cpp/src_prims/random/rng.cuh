@@ -83,6 +83,28 @@ __global__ void constFillKernel(Type *ptr, int len, Type val) {
   }
 }
 
+/**
+ * @brief Helper method to compute Box Muller transform
+ *
+ * @tparam Type data type
+ *
+ * @param[inout] val1  first value
+ * @param[inout] val2  second value
+ * @param[in]    sigma standard deviation of the output gaussian
+ * @param[in]    mu    mean of the output gaussian
+ */
+template <typename Type>
+DI void box_muller_transform(Type& val1, Type& val2, Type sigma, Type mu) {
+  constexpr Type twoPi = Type(2.0) * Type(3.141592654);
+  constexpr Type minus2 = -Type(2.0);
+  Type R = mySqrt(minus2 * myLog(val1));
+  Type theta = twoPi * val2;
+  Type s, c;
+  mySinCos(theta, s, c);
+  val1 = R * c * sigma + mu;
+  val2 = R * s * sigma + mu;
+}
+
 /** The main random number generator class, fully on GPUs */
 class Rng {
  public:
@@ -192,14 +214,7 @@ class Rng {
     rand2Impl(
       offset, ptr, len,
       [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
-        constexpr Type twoPi = Type(2.0) * Type(3.141592654);
-        constexpr Type minus2 = -Type(2.0);
-        Type R = mySqrt(minus2 * myLog(val1));
-        Type theta = twoPi * val2;
-        Type s, c;
-        mySinCos(theta, s, c);
-        val1 = R * c * sigma + mu;
-        val2 = R * s * sigma + mu;
+        box_muller_transform<Type>(val1, val2, sigma, mu);
       },
       NumThreads, nBlocks, type, stream);
   }
@@ -211,14 +226,7 @@ class Rng {
     rand2Impl<IntType, double>(
       offset, ptr, len,
       [=] __device__(double &val1, double &val2, LenType idx1, LenType idx2) {
-        constexpr auto twoPi = 2.0 * 3.141592654;
-        constexpr auto minus2 = -2.0;
-        auto R = mySqrt(minus2 * myLog(val1));
-        auto theta = twoPi * val2;
-        double s, c;
-        mySinCos(theta, s, c);
-        val1 = R * c * sigma + mu;
-        val2 = R * s * sigma + mu;
+        box_muller_transform<double>(val1, val2, sigma, mu);
       },
       NumThreads, nBlocks, type, stream);
   }
@@ -363,14 +371,7 @@ class Rng {
     rand2Impl(
       offset, ptr, len,
       [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
-        constexpr Type twoPi = Type(2.0) * Type(3.141592654);
-        constexpr Type minus2 = -Type(2.0);
-        Type R = mySqrt(minus2 * myLog(val1));
-        Type theta = twoPi * val2;
-        Type s, c;
-        mySinCos(theta, s, c);
-        val1 = R * c * sigma + mu;
-        val2 = R * s * sigma + mu;
+        box_muller_transform<Type>(val1, val2, sigma, mu);
         val1 = myExp(val1);
         val2 = myExp(val2);
       },
