@@ -26,7 +26,8 @@ namespace Random {
 
 template <typename T>
 __global__ void meanKernel(T* out, int* lens, const T* data, const int* labels,
-                           int nrows, int ncols, int nclusters, bool row_major) {
+                           int nrows, int ncols, int nclusters,
+                           bool row_major) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int rowid = row_major ? tid / ncols : tid % nrows;
   int colid = row_major ? tid % ncols : tid / nrows;

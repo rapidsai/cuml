@@ -125,7 +125,7 @@ class Rng {
    * @param[out] b intercept parameter
    */
   template <typename IdxT>
-  void affine_transform_params(IdxT n, IdxT& a, IdxT& b) {
+  void affine_transform_params(IdxT n, IdxT &a, IdxT &b) {
     // always keep 'a' to be coprime to 'n'
     a = gen() % n;
     while (gcd(a, n) != 1) {
