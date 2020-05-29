@@ -85,14 +85,7 @@ void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
                  cluster_std_scalar, n_rows, n_cols, n_clusters);
     get_mu_sigma(mu2, sigma2, idx2, labels, row_major, centers, cluster_std,
                  cluster_std_scalar, n_rows, n_cols, n_clusters);
-    constexpr auto twoPi = DataT(2.0) * DataT(3.141592654);
-    constexpr auto minus2 = -DataT(2.0);
-    auto R = mySqrt(minus2 * myLog(val1));
-    auto theta = twoPi * val2;
-    DataT s, c;
-    mySinCos(theta, s, c);
-    val1 = R * c * sigma1 + mu1;
-    val2 = R * s * sigma2 + mu2;
+    box_muller_transform<DataT>(val1, val2, sigma1, mu1, sigma2, mu2);
   };
   rng.custom_distribution2<DataT, DataT, IdxT>(out, n_rows * n_cols, op,
                                                stream);
