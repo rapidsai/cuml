@@ -21,6 +21,9 @@ from functools import partial
 import nvtext
 import cupy as cp
 import numbers
+import cudf
+from cuml.common.type_utils import CUPY_SPARSE_DTYPES
+from cuml.prims.label import make_monotonic
 
 
 def _preprocess(doc, lower=False, remove_punctuation=False, delimiter=' '):
@@ -46,47 +49,12 @@ def _preprocess(doc, lower=False, remove_punctuation=False, delimiter=' '):
         punctuation_list = Series(list(punctuation))._column.nvstrings
         doc = doc.replace_multi(punctuation_list, delimiter, regex=False)
     doc = nvtext.normalize_spaces(doc)
+    doc = doc.strip()
     return doc
 
 
 class _VectorizerMixin:
     """Provides common code for text vectorizers (tokenization logic)."""
-
-    def _word_ngrams(self, tokens):
-        """Turn tokens into a sequence of n-grams"""
-        min_n, max_n = self.ngram_range
-
-        ngrams = nvtext.ngrams_tokenize(tokens, N=min_n, sep=' ')
-        min_n += 1
-
-        ngrams_list = [nvtext.ngrams_tokenize(tokens, N=n, sep=' ')
-                       for n in range(min_n, max_n + 1)]
-        ngrams = ngrams.add_strings(ngrams_list)
-
-        return ngrams
-
-    def _char_ngrams(self, text_document):
-        """Tokenize text_document into a sequence of character n-grams"""
-        # tokens = nvtext.character_tokenize(text_document)
-        # return self._word_ngrams(tokens)
-        raise NotImplementedError("Character-level ngrams is not yet"
-                                  " supported by cuML.")
-
-    def _char_wb_ngrams(self, text_document):
-        """Whitespace sensitive char-n-gram tokenization.
-        Tokenize text_document into a sequence of character n-grams
-        operating only inside word boundaries. n-grams at the edges
-        of words are padded with space."""
-        text_document = self._surround_with_space(text_document)
-        return self._char_ngrams(text_document)
-
-    @staticmethod
-    def _surround_with_space(nvstr):
-        """Adds spaces before and after each strings of a nvstrings"""
-        s = len(nvstr)
-        spaces = Series('').repeat(s)._column.nvstrings
-        return spaces.cat(nvstr.cat(spaces, sep=' '), sep=' ')
-
     def _remove_stop_words(self, doc):
         """Remove stop words only if needed."""
         if self.analyzer == 'word' and self.stop_words is not None:
@@ -129,51 +97,126 @@ class _VectorizerMixin:
         else:  # assume it's a collection
             return list(self.stop_words)
 
-    def _build_ngram_vocab(self, docs):
+    def get_ngram(self, str_series, n, doc_id_sr, token_count_sr, separator):
         """
-        Build vocabulary when using ngrams.
-
-        Returns
-        -------
-        ngrams: nvstrings
-            The vocabulary of n-grams.
+        This returns the ngrams for the string series
+        Parameters
+        ----------
+        str_series : (cudf.Series)
+            String series to tokenize
+        n : int
+            Gram level to get (1 for unigram, 2 for bigram etc)
+        doc_id_sr : cudf.Series
+            Int series containing documents ids
+        token_count_sr : cudf.Series
+            Int series containing number of tokens per doc
+        separator : string
+            Ngram separator
         """
-        if self.analyzer == 'char':
-            return self._char_ngrams(docs)
-        elif self.analyzer == 'char_wb':
-            return self._char_wb_ngrams(docs)
-        elif self.analyzer == 'word':
-            return self._word_ngrams(docs)
+        if self.analyzer == 'word':
+            ngram_sr = Series(nvtext.ngrams_tokenize(
+                str_series._column.nvstrings,
+                self.delimiter, N=n,
+                sep=separator)
+            )
         else:
-            raise ValueError('%s is not a valid tokenization scheme/analyzer' %
-                             self.analyzer)
+            if n != 1:
+                raise NotImplementedError("Character-level ngrams is not yet"
+                                          " supported by cuML.")
+            ngram_sr = Series(
+                nvtext.character_tokenize(str_series._column.nvstrings)
+            )
 
-    def _build_vocabulary(self, docs):
-        """Builds a vocabulary given the preprocessed documents.
+        # for ngram we have `x-(n-1)`  grams per doc
+        # where x = total number of tokens in the doc
+        # eg: for bigram we have `x-1` bigrams per doc
+        ngram_count = token_count_sr - (n - 1)
 
-        Takes care of tokenization and ngram_generation.
+        doc_id_sr = doc_id_sr.repeat(ngram_count).reset_index(drop=True)
+        tokenized_df = cudf.DataFrame()
+        tokenized_df["doc_id"] = doc_id_sr
+        tokenized_df["token"] = ngram_sr
+        return tokenized_df
+
+    def _create_tokenized_df(self, str_series):
+        """Creates a tokenized DataFrame from a string Series.
+
+        Each row describes the token string and the corresponding document id.
         """
-        self._fixed_vocabulary = self.vocabulary is not None
+        delimiter = self.delimiter
+        min_n, max_n = self.ngram_range
 
-        if self._fixed_vocabulary:
-            self.vocabulary_ = self.vocabulary._column.nvstrings
+        if self.analyzer == 'word':
+            ngram_separator = " "
+            token_count = str_series.str.token_count(delimiter=delimiter)
         else:
-            if self.ngram_range != (1, 1):
-                vocab = self._build_ngram_vocab(docs)
-                vocab = Series(vocab).unique()._column.nvstrings
-            else:
-                if self.analyzer == 'word':
-                    vocab = nvtext.unique_tokens(docs)
-                    vocab = vocab.sort()
-                else:
-                    vocab = nvtext.character_tokenize(docs)
-                    vocab = Series(vocab).unique()._column.nvstrings
+            ngram_separator = ""
+            token_count = cp.empty(len(str_series), dtype=cp.int32)
+            str_series.str.byte_count(token_count.data.ptr)
 
-            self.vocabulary_ = vocab
+        doc_id = cp.arange(start=0, stop=len(str_series), dtype=cp.int32)
+        doc_id = Series(doc_id)
 
-        if len(self.vocabulary_) == 0:
-            raise ValueError("Empty vocabulary; perhaps the documents only"
-                             " contain stop words")
+        tokenized_df_ls = [
+            self.get_ngram(str_series, n, doc_id, token_count, ngram_separator)
+            for n in range(min_n, max_n + 1)
+        ]
+
+        tokenized_df = cudf.concat(tokenized_df_ls)
+        tokenized_df = tokenized_df.reset_index(drop=True)
+
+        return tokenized_df
+
+    def _insert_zeros(self, ary, zero_indices):
+        """Create a new array of len(ary + zero_indices) where zero_indices
+        indicates indexes of 0s in the new array. Ary is used to fill the rest.
+
+        Example:
+            _insert_zeros([1, 2, 3], [1, 3]) => [1, 0, 2, 0, 3]
+        """
+        if len(zero_indices) == 0:
+            return ary.values
+
+        new_ary = cp.zeros((len(ary) + len(zero_indices)), dtype=cp.int32)
+
+        # getting mask of non-zeros
+        data_mask = ~cp.in1d(cp.arange(0, len(new_ary)), zero_indices)
+
+        new_ary[data_mask] = ary
+        return new_ary
+
+    def _compute_empty_doc_ids(self, count_df, n_doc):
+        """
+        Compute empty docs ids using the remaining docs, given the total number
+        of documents.
+        """
+        remaining_docs = count_df['doc_id'].unique().values
+        doc_ids = cp.arange(0, n_doc)
+        empty_doc_ids = doc_ids[~cp.in1d(doc_ids, remaining_docs)]
+        return empty_doc_ids
+
+    def _create_csr_matrix_from_count_df(self, count_df, empty_doc_ids):
+        """Create a sparse matrix from the count of tokens by document"""
+        n_features = len(self.vocabulary_)
+
+        data = count_df["count"].values
+        indices = count_df["token"].values
+
+        doc_token_counts = count_df["doc_id"].value_counts().reset_index()
+        doc_token_counts = doc_token_counts.rename(
+            {"doc_id": "token_counts", "index": "doc_id"}
+        ).sort_values(by="doc_id")
+        token_counts = self._insert_zeros(doc_token_counts["token_counts"],
+                                          empty_doc_ids)
+        indptr = token_counts.cumsum()
+        indptr = cp.pad(indptr, (1, 0), "constant")
+
+        n_rows = len(doc_token_counts) + len(empty_doc_ids)
+
+        return cp.sparse.csr_matrix(
+            arg1=(data, indices, indptr), dtype=self.dtype,
+            shape=(n_rows, n_features)
+        )
 
     def _validate_params(self):
         """Check validity of ngram_range parameter"""
@@ -191,6 +234,28 @@ class _VectorizerMixin:
         if self.analyzer != 'word' and self.stop_words is not None:
             warnings.warn("The parameter 'stop_words' will not be used"
                           " since 'analyzer' != 'word'")
+
+
+def _document_frequency(X):
+    """Count the number of non-zero values for each feature in X."""
+    doc_freq = cp.asarray(
+        X[["token", "doc_id"]]
+        .groupby(["token"])
+        .count()
+        .as_gpu_matrix()
+    ).ravel()
+    return doc_freq
+
+
+def _term_frequency(X):
+    """Count the number of occurrences of each term in X."""
+    term_freq = cp.asarray(
+        X[["token", "count"]]
+        .groupby(["token"])
+        .sum()
+        .as_gpu_matrix()
+    ).ravel()
+    return term_freq
 
 
 class CountVectorizer(_VectorizerMixin):
@@ -272,7 +337,7 @@ class CountVectorizer(_VectorizerMixin):
                  tokenizer=None, stop_words=None, token_pattern=None,
                  ngram_range=(1, 1), analyzer='word', max_df=1.0, min_df=1,
                  max_features=None, vocabulary=None, binary=False,
-                 dtype=cp.int32, remove_punctuation=True, delimiter=' '):
+                 dtype=cp.float32, remove_punctuation=True, delimiter=' '):
         self.preprocessor = preprocessor
         self.analyzer = analyzer
         self.lowercase = lowercase
@@ -293,6 +358,9 @@ class CountVectorizer(_VectorizerMixin):
         self.binary = binary
         self.dtype = dtype
         self.delimiter = delimiter
+        if dtype not in CUPY_SPARSE_DTYPES:
+            msg = f"Expected dtype in {CUPY_SPARSE_DTYPES}, got {dtype}"
+            raise ValueError(msg)
 
         sklearn_params = {"input": input,
                           "encoding": encoding,
@@ -302,24 +370,26 @@ class CountVectorizer(_VectorizerMixin):
                           "token_pattern": token_pattern}
         self._check_sklearn_params(analyzer, sklearn_params)
 
-    def _count_vocab(self, docs):
-        """Create feature matrix, and vocabulary where fixed_vocab=False"""
-        vocabulary = self.vocabulary_
-        X = cp.empty((len(docs), len(vocabulary)), dtype=cp.int32)
+    def _count_vocab(self, tokenized_df):
+        """Count occurrences of tokens in each document."""
+        # Transform string tokens into token indexes from 0 to len(vocab)
+        tokenized_df['token'] = tokenized_df['token'].astype('category')
+        tokenized_df['token'] = tokenized_df['token'].cat.set_categories(
+            self.vocabulary_
+        )._column.codes
 
-        if self.ngram_range != (1, 1):
-            docs = self._surround_with_space(docs)
-            vocabulary = self._surround_with_space(vocabulary)
-            nvtext.strings_counts(docs, vocabulary, devptr=X.data.ptr)
-        else:
-            if self.analyzer == 'word':
-                nvtext.tokens_counts(docs, vocabulary, devptr=X.data.ptr)
-            else:
-                nvtext.strings_counts(docs, vocabulary, devptr=X.data.ptr)
+        # Count of each token in each document
+        count_df = (
+            tokenized_df[["doc_id", "token"]]
+            .groupby(["doc_id", "token"])
+            .size()
+            .reset_index()
+            .rename({0: "count"})
+        )
 
-        return X
+        return count_df
 
-    def _limit_features(self, X, vocab, high, low, limit):
+    def _limit_features(self, count_df, vocab, high, low, limit):
         """Remove too rare or too common features.
 
         Prune features that are non zero in more samples than high or less
@@ -328,16 +398,17 @@ class CountVectorizer(_VectorizerMixin):
         """
         if high is None and low is None and limit is None:
             self.stop_words_ = None
-            return X
+            return count_df
 
-        document_frequency = cp.count_nonzero(X, axis=0)
+        document_frequency = _document_frequency(count_df)
+
         mask = cp.ones(len(document_frequency), dtype=bool)
         if high is not None:
             mask &= document_frequency <= high
         if low is not None:
             mask &= document_frequency >= low
         if limit is not None and mask.sum() > limit:
-            term_frequency = X.sum(axis=0)
+            term_frequency = _term_frequency(count_df)
             mask_inds = (-term_frequency[mask]).argsort()[:limit]
             new_mask = cp.zeros(len(document_frequency), dtype=bool)
             new_mask[cp.where(mask)[0][mask_inds]] = True
@@ -346,16 +417,32 @@ class CountVectorizer(_VectorizerMixin):
         keep_idx = cp.where(mask)[0].astype(cp.int32)
         keep_num = keep_idx.shape[0]
 
-        self.stop_words_ = vocab.remove_strings(keep_idx.data.ptr, keep_num)
-        self.vocabulary_ = vocab.gather(keep_idx.data.ptr, keep_num)
+        if keep_num == 0:
+            raise ValueError("After pruning, no terms remain. Try a lower"
+                             " min_df or a higher max_df.")
 
-        X = X[:, mask]
-        return X
+        self.stop_words_ = vocab[~mask].reset_index(drop=True)
+        self.vocabulary_ = vocab[mask].reset_index(drop=True)
+
+        keep_mask = count_df['token'].isin(keep_idx)
+        count_df = count_df.loc[count_df.index[keep_mask]]
+        count_df['token'] = count_df['token'].astype(cp.int32)
+
+        if keep_num == 1 and isinstance(count_df, cudf.Series):
+            # Workaround for cudf bug where df.loc[[x]] returns a Series
+            # instead of a DataFrame. This if statement and its content can be
+            # safely removed once below issue is fixed.
+            # See https://github.com/rapidsai/cudf/issues/5330
+            count_df = cudf.DataFrame({x: count_df[x] for x in count_df.index})
+
+        make_monotonic(count_df['token'])
+
+        return count_df
 
     def _preprocess(self, raw_documents):
         preprocess = self.build_preprocessor()
         docs = raw_documents._column.nvstrings
-        return preprocess(docs)
+        return Series(preprocess(docs))
 
     def fit(self, raw_documents):
         """Build a vocabulary of all tokens in the raw documents.
@@ -389,16 +476,22 @@ class CountVectorizer(_VectorizerMixin):
         """
         self._warn_for_unused_params()
         self._validate_params()
+
+        self._fixed_vocabulary = self.vocabulary is not None
+
         docs = self._preprocess(raw_documents)
-        self._build_vocabulary(docs)
+        n_doc = len(docs)
 
-        X = self._count_vocab(docs)
+        tokenized_df = self._create_tokenized_df(docs)
 
-        if self.binary:
-            cp.minimum(X, 1, out=X)
+        if self._fixed_vocabulary:
+            self.vocabulary_ = self.vocabulary
+        else:
+            self.vocabulary_ = tokenized_df["token"].unique()
+
+        count_df = self._count_vocab(tokenized_df)
 
         if not self._fixed_vocabulary:
-            n_doc = len(X)
             max_doc_count = (self.max_df
                              if isinstance(self.max_df, numbers.Integral)
                              else self.max_df * n_doc)
@@ -408,12 +501,16 @@ class CountVectorizer(_VectorizerMixin):
             if max_doc_count < min_doc_count:
                 raise ValueError(
                     "max_df corresponds to < documents than min_df")
-            X = self._limit_features(X, self.vocabulary_,
-                                     max_doc_count,
-                                     min_doc_count,
-                                     self.max_features)
+            count_df = self._limit_features(count_df, self.vocabulary_,
+                                            max_doc_count,
+                                            min_doc_count,
+                                            self.max_features)
 
-        X = X.astype(dtype=self.dtype)
+        empty_doc_ids = self._compute_empty_doc_ids(count_df, n_doc)
+
+        X = self._create_csr_matrix_from_count_df(count_df, empty_doc_ids)
+        if self.binary:
+            X.data.fill(1)
         return X
 
     def transform(self, raw_documents):
@@ -433,10 +530,13 @@ class CountVectorizer(_VectorizerMixin):
             Document-term matrix.
         """
         docs = self._preprocess(raw_documents)
-        X = self._count_vocab(docs)
+        n_doc = len(docs)
+        tokenized_df, empty_doc_ids = self._create_tokenized_df(docs)
+        count_df = self._count_vocab(tokenized_df)
+        empty_doc_ids = self._compute_empty_doc_ids(count_df, n_doc)
+        X = self._create_csr_matrix_from_count_df(count_df, empty_doc_ids)
         if self.binary:
-            cp.minimum(X, 1, out=X)
-        X = X.astype(dtype=self.dtype)
+            X.data.fill(1)
         return X
 
     def inverse_transform(self, X):
@@ -453,13 +553,13 @@ class CountVectorizer(_VectorizerMixin):
             List of Series of terms.
         """
         vocab = Series(self.vocabulary_)
-        return [vocab[X[i, :].nonzero()[0]] for i in range(X.shape[0])]
+        return [vocab[X[i, :].indices] for i in range(X.shape[0])]
 
     def get_feature_names(self):
         """Array mapping from feature integer indices to feature name.
         Returns
         -------
-        feature_names : nvstrings
+        feature_names : Series
             A list of feature names.
         """
         return self.vocabulary_

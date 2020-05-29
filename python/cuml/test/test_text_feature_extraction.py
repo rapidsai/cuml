@@ -32,7 +32,7 @@ def test_count_vectorizer():
 
     res = CountVectorizer().fit_transform(Series(corpus))
     ref = SkCountVect().fit_transform(corpus)
-    cp.testing.assert_array_equal(res, ref.toarray())
+    cp.testing.assert_array_equal(res.todense(), ref.toarray())
 
 
 JUNK_FOOD_DOCS = (
@@ -63,7 +63,7 @@ NGRAM_IDS = [f'ngram_range={str(r)}' for r in NGRAM_RANGES]
 def test_word_analyzer(ngram_range):
     vec = CountVectorizer(ngram_range=ngram_range).fit(DOCS_GPU)
     ref = SkCountVect(ngram_range=ngram_range).fit(DOCS)
-    assert ref.get_feature_names() == vec.get_feature_names().to_host()
+    assert ref.get_feature_names() == vec.get_feature_names().tolist()
 
 
 def test_countvectorizer_custom_vocabulary():
@@ -72,13 +72,13 @@ def test_countvectorizer_custom_vocabulary():
 
     ref = SkCountVect(vocabulary=vocab).fit_transform(DOCS)
     X = CountVectorizer(vocabulary=vocab_gpu).fit_transform(DOCS_GPU)
-    cp.testing.assert_array_equal(X, ref.toarray())
+    cp.testing.assert_array_equal(X.todense(), ref.toarray())
 
 
 def test_countvectorizer_stop_words():
     ref = SkCountVect(stop_words='english').fit_transform(DOCS)
     X = CountVectorizer(stop_words='english').fit_transform(DOCS_GPU)
-    cp.testing.assert_array_equal(X, ref.toarray())
+    cp.testing.assert_array_equal(X.todense(), ref.toarray())
 
 
 def test_countvectorizer_empty_vocabulary():
@@ -93,9 +93,9 @@ def test_countvectorizer_stop_words_ngrams():
     expected_vocabulary = ["andy andy"]
 
     vec = CountVectorizer(ngram_range=(2, 2), stop_words='english')
-    vec._build_vocabulary(vec._preprocess(stop_words_doc))
+    vec.fit(stop_words_doc)
 
-    assert expected_vocabulary == vec.get_feature_names().to_host()
+    assert expected_vocabulary == vec.get_feature_names().tolist()
 
 
 def test_countvectorizer_max_features():
@@ -106,8 +106,8 @@ def test_countvectorizer_max_features():
     # test bounded number of extracted features
     vec = CountVectorizer(max_df=0.6, max_features=4)
     vec.fit(DOCS_GPU)
-    assert set(vec.get_feature_names().to_host()) == expected_vocabulary
-    assert set(vec.stop_words_.to_host()) == expected_stop_words
+    assert set(vec.get_feature_names().tolist()) == expected_vocabulary
+    assert set(vec.stop_words_.tolist()) == expected_stop_words
 
 
 def test_countvectorizer_max_features_counts():
@@ -132,31 +132,31 @@ def test_countvectorizer_max_features_counts():
 
     # The most common feature should be the same
     def as_index(x): return x.astype(cp.int32).get()
-    assert ["the"] == features_1[as_index(cp.argmax(counts_1))].to_host()
-    assert ["the"] == features_3[as_index(cp.argmax(counts_3))].to_host()
-    assert ["the"] == features_None[as_index(cp.argmax(counts_None))].to_host()
+    assert ["the"] == features_1[as_index(cp.argmax(counts_1))].tolist()
+    assert ["the"] == features_3[as_index(cp.argmax(counts_3))].tolist()
+    assert ["the"] == features_None[as_index(cp.argmax(counts_None))].tolist()
 
 
 def test_countvectorizer_max_df():
     test_data = Series(['abc', 'dea', 'eat'])
     vect = CountVectorizer(analyzer='char', max_df=1.0)
     vect.fit(test_data)
-    assert 'a' in vect.vocabulary_.to_host()
-    assert len(vect.vocabulary_.to_host()) == 6
+    assert 'a' in vect.vocabulary_.tolist()
+    assert len(vect.vocabulary_.tolist()) == 6
     assert len(vect.stop_words_) == 0
 
     vect.max_df = 0.5  # 0.5 * 3 documents -> max_doc_count == 1.5
     vect.fit(test_data)
-    assert 'a' not in vect.vocabulary_.to_host()  # {ae} ignored
-    assert len(vect.vocabulary_.to_host()) == 4    # {bcdt} remain
-    assert 'a' in vect.stop_words_.to_host()
+    assert 'a' not in vect.vocabulary_.tolist()  # {ae} ignored
+    assert len(vect.vocabulary_.tolist()) == 4    # {bcdt} remain
+    assert 'a' in vect.stop_words_.tolist()
     assert len(vect.stop_words_) == 2
 
     vect.max_df = 1
     vect.fit(test_data)
-    assert 'a' not in vect.vocabulary_.to_host()  # {ae} ignored
-    assert len(vect.vocabulary_.to_host()) == 4    # {bcdt} remain
-    assert 'a' in vect.stop_words_.to_host()
+    assert 'a' not in vect.vocabulary_.tolist()  # {ae} ignored
+    assert len(vect.vocabulary_.tolist()) == 4    # {bcdt} remain
+    assert 'a' in vect.stop_words_.tolist()
     assert len(vect.stop_words_) == 2
 
 
@@ -164,22 +164,22 @@ def test_vectorizer_min_df():
     test_data = Series(['abc', 'dea', 'eat'])
     vect = CountVectorizer(analyzer='char', min_df=1)
     vect.fit(test_data)
-    assert 'a' in vect.vocabulary_.to_host()
-    assert len(vect.vocabulary_.to_host()) == 6
+    assert 'a' in vect.vocabulary_.tolist()
+    assert len(vect.vocabulary_.tolist()) == 6
     assert len(vect.stop_words_) == 0
 
     vect.min_df = 2
     vect.fit(test_data)
-    assert 'c' not in vect.vocabulary_.to_host()  # {bcdt} ignored
-    assert len(vect.vocabulary_.to_host()) == 2    # {ae} remain
-    assert 'c' in vect.stop_words_.to_host()
+    assert 'c' not in vect.vocabulary_.tolist()  # {bcdt} ignored
+    assert len(vect.vocabulary_.tolist()) == 2    # {ae} remain
+    assert 'c' in vect.stop_words_.tolist()
     assert len(vect.stop_words_) == 4
 
     vect.min_df = 0.8  # 0.8 * 3 documents -> min_doc_count == 2.4
     vect.fit(test_data)
-    assert 'c' not in vect.vocabulary_.to_host()  # {bcdet} ignored
-    assert len(vect.vocabulary_.to_host()) == 1    # {a} remains
-    assert 'c' in vect.stop_words_.to_host()
+    assert 'c' not in vect.vocabulary_.tolist()  # {bcdet} ignored
+    assert len(vect.vocabulary_.tolist()) == 1    # {a} remains
+    assert 'c' in vect.stop_words_.tolist()
     assert len(vect.stop_words_) == 5
 
 
@@ -187,16 +187,16 @@ def test_count_binary_occurrences():
     # by default multiple occurrences are counted as longs
     test_data = Series(['aaabc', 'abbde'])
     vect = CountVectorizer(analyzer='char', max_df=1.0)
-    X = cp.asnumpy(vect.fit_transform(test_data))
+    X = cp.asnumpy(vect.fit_transform(test_data).todense())
     assert_array_equal(['a', 'b', 'c', 'd', 'e'],
-                       vect.get_feature_names().to_host())
+                       vect.get_feature_names().tolist())
     assert_array_equal([[3, 1, 1, 0, 0],
                         [1, 2, 0, 1, 1]], X)
 
     # using boolean features, we can fetch the binary occurrence info
     # instead.
     vect = CountVectorizer(analyzer='char', max_df=1.0, binary=True)
-    X = cp.asnumpy(vect.fit_transform(test_data))
+    X = cp.asnumpy(vect.fit_transform(test_data).todense())
     assert_array_equal([[1, 1, 1, 0, 0],
                         [1, 1, 0, 1, 1]], X)
 
@@ -228,4 +228,19 @@ def test_space_ngrams(ngram_range):
     data_gpu = Series(data)
     vec = CountVectorizer(ngram_range=ngram_range).fit(data_gpu)
     ref = SkCountVect(ngram_range=ngram_range).fit(data)
-    assert ref.get_feature_names() == vec.get_feature_names().to_host()
+    assert ref.get_feature_names() == vec.get_feature_names().tolist()
+
+
+def test_empty_doc_after_limit_features():
+    data = ['abc abc def',
+            'def abc',
+            'ghi']
+    data_gpu = Series(data)
+    count = CountVectorizer(min_df=2).fit_transform(data_gpu)
+    ref = SkCountVect(min_df=2).fit_transform(data)
+    print(count.todense())
+    print(ref.toarray())
+    cp.testing.assert_array_equal(count.todense(), ref.toarray())
+
+
+# TODO: add tests for .transform
