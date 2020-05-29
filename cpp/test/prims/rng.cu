@@ -591,7 +591,6 @@ TEST_P(RngNormalTableTestD, Result) {
 INSTANTIATE_TEST_CASE_P(RngNormalTableTests, RngNormalTableTestD,
                         ::testing::ValuesIn(inputsd_t));
 
-
 struct RngAffineInputs {
   int n;
   unsigned long long seed;
@@ -616,17 +615,13 @@ class RngAffineTest : public ::testing::TestWithParam<RngAffineInputs> {
 };  // RngAffineTest
 
 const std::vector<RngAffineInputs> inputs_affine = {
-  {100, 123456ULL},
-  {100, 1234567890ULL},
-  {101, 123456ULL},
-  {101, 1234567890ULL},
-  {7, 123456ULL},
-  {7, 1234567890ULL},
-  {2568, 123456ULL},
-  {2568, 1234567890ULL},
+  {100, 123456ULL},     {100, 1234567890ULL},  {101, 123456ULL},
+  {101, 1234567890ULL}, {7, 123456ULL},        {7, 1234567890ULL},
+  {2568, 123456ULL},    {2568, 1234567890ULL},
 };
 TEST_P(RngAffineTest, Result) { check(); }
-INSTANTIATE_TEST_CASE_P(RngAffineTests, RngAffineTest, ::testing::ValuesIn(inputs_affine));
+INSTANTIATE_TEST_CASE_P(RngAffineTests, RngAffineTest,
+                        ::testing::ValuesIn(inputs_affine));
 
 }  // end namespace Random
 }  // end namespace MLCommon
