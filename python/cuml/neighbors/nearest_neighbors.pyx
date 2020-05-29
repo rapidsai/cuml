@@ -33,7 +33,6 @@ from cuml.common import input_to_cuml_array
 from cython.operator cimport dereference as deref
 
 from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
 
 
 from libcpp cimport bool
@@ -92,7 +91,7 @@ class NearestNeighbors(Base):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbosity : int (default=cuml.common.logger.LEVEL_INFO)
+    verbose : int or boolean (default = False)
         Logging level
     handle : cumlHandle
         The cumlHandle resources to use
@@ -162,21 +161,21 @@ class NearestNeighbors(Base):
     -----
 
     For an additional example see `the NearestNeighbors notebook
-    <https://github.com/rapidsai/notebook/blob/master/python/notebooks/nearest_neighbors_demo.ipynb>`_.
+    <https://github.com/rapidsai/cuml/blob/branch-0.14/notebooks/nearest_neighbors_demo.ipynb>`_.
 
     For additional docs, see `scikit-learn's NearestNeighbors
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
     """
     def __init__(self,
                  n_neighbors=5,
-                 verbosity=logger.LEVEL_INFO,
+                 verbose=False,
                  handle=None,
                  algorithm="brute",
                  metric="euclidean",
                  output_type=None):
 
         super(NearestNeighbors, self).__init__(handle=handle,
-                                               verbosity=verbosity,
+                                               verbose=verbose,
                                                output_type=output_type)
 
         if metric != "euclidean":

@@ -20,7 +20,6 @@
 # cython: language_level = 3
 from cuml.common.base import Base
 from cuml.solvers import SGD
-import cuml.common.logger as logger
 
 
 class MBSGDRegressor(Base):
@@ -115,17 +114,17 @@ class MBSGDRegressor(Base):
 
     Notes
     ------
-    For additional docs, see `scikitlearn's OLS
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDRegressor.html>
+    For additional docs, see `scikitlearn's SGDRegressor
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDRegressor.html>`_.
     """
 
     def __init__(self, loss='squared_loss', penalty='l2', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
-                 verbosity=logger.LEVEL_INFO, output_type=None):
+                 verbose=False, output_type=None):
         super(MBSGDRegressor, self).__init__(handle=handle,
-                                             verbosity=verbosity,
+                                             verbose=verbose,
                                              output_type=output_type)
         if loss in ['squared_loss']:
             self.loss = loss

@@ -32,7 +32,6 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace \
@@ -205,7 +204,7 @@ class KMeans(Base):
         The more iterations of EM, the more accurate, but slower.
     tol : float64 (default = 1e-4)
         Stopping criterion when centroid means do not change much.
-    verbosity : int (default = cuml.common.logger.LEVEL_INFO)
+    verbose : int or boolean (default = False)
         Logging level.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a
@@ -270,10 +269,10 @@ class KMeans(Base):
     """
 
     def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
-                 verbosity=logger.LEVEL_INFO, random_state=1,
+                 verbose=False, random_state=1,
                  init='scalable-k-means++', n_init=1, oversampling_factor=2.0,
                  max_samples_per_batch=1<<15, output_type=None):
-        super(KMeans, self).__init__(handle, verbosity, output_type)
+        super(KMeans, self).__init__(handle, verbose, output_type)
         self.n_clusters = n_clusters
         self.random_state = random_state
         self.max_iter = max_iter
@@ -314,7 +313,7 @@ class KMeans(Base):
 
         params.max_iter = <int>self.max_iter
         params.tol = <double>self.tol
-        params.verbosity = <int>self.verbosity
+        params.verbosity = <int>self.verbose
         params.seed = <int>self.random_state
         params.metric = 0   # distance metric as squared L2: @todo - support other metrics # noqa: E501
         params.batch_samples=<int>self.max_samples_per_batch
@@ -672,4 +671,4 @@ class KMeans(Base):
     def get_param_names(self):
         return ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
-                'tol', 'verbosity']
+                'tol']
