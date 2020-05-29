@@ -88,22 +88,31 @@ __global__ void constFillKernel(Type *ptr, int len, Type val) {
  *
  * @tparam Type data type
  *
- * @param[inout] val1  first value
- * @param[inout] val2  second value
- * @param[in]    sigma standard deviation of the output gaussian
- * @param[in]    mu    mean of the output gaussian
+ * @param[inout] val1   first value
+ * @param[inout] val2   second value
+ * @param[in]    sigma1 standard deviation of output gaussian for first value
+ * @param[in]    mu1    mean of output gaussian for first value
+ * @param[in]    sigma2 standard deviation of output gaussian for second value
+ * @param[in]    mu2    mean of output gaussian for second value
+ * @{
  */
 template <typename Type>
-DI void box_muller_transform(Type& val1, Type& val2, Type sigma, Type mu) {
+DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1,
+                             Type sigma2, Type mu2) {
   constexpr Type twoPi = Type(2.0) * Type(3.141592654);
   constexpr Type minus2 = -Type(2.0);
   Type R = mySqrt(minus2 * myLog(val1));
   Type theta = twoPi * val2;
   Type s, c;
   mySinCos(theta, s, c);
-  val1 = R * c * sigma + mu;
-  val2 = R * s * sigma + mu;
+  val1 = R * c * sigma1 + mu1;
+  val2 = R * s * sigma2 + mu2;
 }
+template <typename Type>
+DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1) {
+  box_muller_transform<Type>(val1, val2, sigma1, mu1, sigma1, mu1);
+}
+/** @} */
 
 /** The main random number generator class, fully on GPUs */
 class Rng {
@@ -265,14 +274,7 @@ class Rng {
         auto mean2 = mu[col2];
         auto sig1 = sigma_vec == nullptr ? sigma : sigma_vec[col1];
         auto sig2 = sigma_vec == nullptr ? sigma : sigma_vec[col2];
-        constexpr Type twoPi = Type(2.0) * Type(3.141592654);
-        constexpr Type minus2 = -Type(2.0);
-        Type R = mySqrt(minus2 * myLog(val1));
-        Type theta = twoPi * val2;
-        Type s, c;
-        mySinCos(theta, s, c);
-        val1 = R * c * sig1 + mean1;
-        val2 = R * s * sig2 + mean2;
+        box_muller_transform<Type>(val1, val2, sig1, mean1, sig2, mean2);
       },
       NumThreads, nBlocks, type, stream);
   }
