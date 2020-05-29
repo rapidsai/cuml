@@ -1,3 +1,4 @@
+
 #
 # Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
@@ -35,18 +36,20 @@ from libc.stdlib cimport calloc, malloc, free
 from cython.operator cimport dereference as deref
 
 from cuml import ForestInference
+from cuml.fil.fil import TreeliteModel
+
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
 from cuml.common.handle import Handle
+from cuml.ensemble.randomforest_common import BaseRandomForestModel
+
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
     _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 
 from cuml.ensemble.randomforest_shared cimport *
-from cuml.fil.fil import TreeliteModel
+import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
-from cuml.common import get_cudf_column_ptr, zeros
 
 from numba import cuda
 
@@ -225,14 +228,6 @@ class RandomForestClassifier(BaseRandomForestModel):
         Seed for the random number generator. Unseeded by default.
     """
 
-    variables = ['n_estimators', 'max_depth', 'handle',
-                 'max_features', 'n_bins',
-                 'split_algo', 'split_criterion', 'min_rows_per_node',
-                 'min_impurity_decrease',
-                 'bootstrap', 'bootstrap_features',
-                 'rows_sample',
-                 'max_leaves', 'quantile_per_tree']
-
     def __init__(self, split_criterion=0, seed=None,
                  n_streams=8, **kwargs):
         if ((seed is not None) and (n_streams != 1)):
@@ -244,9 +239,9 @@ class RandomForestClassifier(BaseRandomForestModel):
         self.RF_type = CLASSIFICATION
         self.num_classes = 2
         self._create_model(model=RandomForestClassifier,
-                      split_criterion=split_criterion,
-                      seed=seed, n_streams=n_streams,
-                      **kwargs)
+                           split_criterion=split_criterion,
+                           seed=seed, n_streams=n_streams,
+                           **kwargs)
 
     """
     TODO:
@@ -417,15 +412,13 @@ class RandomForestClassifier(BaseRandomForestModel):
             memory used for the method.
 
         """
+
         X_m, y_m, max_feature_val = self._dataset_setup(X, y, convert_dtype)
         cdef uintptr_t X_ptr, y_ptr
         X_ptr = X_m.ptr
         y_ptr = y_m.ptr
         cdef cumlHandle* handle_ =\
             <cumlHandle*><uintptr_t>self.handle.getHandle()
-
-        unique_labels = rmm_cupy_ary(cp.unique, y_m)
-        num_unique_labels = len(unique_labels)
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
@@ -462,7 +455,7 @@ class RandomForestClassifier(BaseRandomForestModel):
                 <int> self.n_rows,
                 <int> self.n_cols,
                 <int*> y_ptr,
-                <int> num_unique_labels,
+                <int> self.num_classes,
                 rf_params,
                 <int> self.verbose)
 
@@ -474,7 +467,7 @@ class RandomForestClassifier(BaseRandomForestModel):
                 <int> self.n_rows,
                 <int> self.n_cols,
                 <int*> y_ptr,
-                <int> num_unique_labels,
+                <int> self.num_classes,
                 rf_params64,
                 <int> self.verbose)
 
@@ -485,9 +478,8 @@ class RandomForestClassifier(BaseRandomForestModel):
         # make sure that the `fit` is complete before the following delete
         # call happens
         self.handle.sync()
-        del(X_m)
-        del(y_m)
-        self.num_classes = num_unique_labels
+        del X_m
+        del y_m
         return self
 
     def _predict_model_on_cpu(self, X, convert_dtype):
@@ -617,7 +609,7 @@ class RandomForestClassifier(BaseRandomForestModel):
 
         else:
             preds = \
-                self._predict_model_on_gpu(X, output_class=output_class,
+                self._predict_model_on_gpu(X=X, output_class=output_class,
                                            threshold=threshold,
                                            algo=algo,
                                            convert_dtype=convert_dtype,
@@ -837,7 +829,6 @@ class RandomForestClassifier(BaseRandomForestModel):
         y_ptr = y_m.ptr
         preds = self.predict(X, output_class=True,
                              threshold=threshold, algo=algo,
-                             num_classes=num_classes,
                              convert_dtype=convert_dtype,
                              predict_model=predict_model,
                              fil_sparse_format=fil_sparse_format)
@@ -889,13 +880,10 @@ class RandomForestClassifier(BaseRandomForestModel):
         -----------
         deep : boolean (default = True)
         """
-        params = dict()
-        for key in RandomForestClassifier.variables:
-            if key in ['handle']:
-                continue
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
+
+
+        return self._get_params(model=RandomForestClassifier,
+                                deep=deep)
 
     def set_params(self, **params):
         """
@@ -908,17 +896,10 @@ class RandomForestClassifier(BaseRandomForestModel):
         params : dict of new params
         """
         # Resetting handle as __setstate__ overwrites with handle=None
-        self.handle.__setstate__(self.n_streams)
-        self.model_pbuf_bytes = []
 
-        if not params:
-            return self
-        for key, value in params.items():
-            if key not in RandomForestClassifier.variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-        return self
+
+        return self._set_params(model=RandomForestClassifier,
+                                **params)
 
     def print_summary(self):
         """
