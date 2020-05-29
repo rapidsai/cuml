@@ -123,24 +123,24 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
     session_state["wid"] = worker_info[get_worker().address]["rank"]
     session_state["nworkers"] = len(worker_info)
 
-    if logger.should_log_for(logger.LEVEL_DEBUG):
+    if logger.should_log_for(logger.level_debug):
         logger.debug("Initializing NCCL")
         start = time.time()
 
     _func_init_nccl(sessionId, uniqueId)
 
-    if logger.should_log_for(logger.LEVEL_DEBUG):
+    if logger.should_log_for(logger.level_debug):
         elapsed = time.time() - start
         logger.debug("NCCL Initialization took: %f seconds." % elapsed)
 
     if comms_p2p:
         logger.debug("Initializing UCX Endpoints")
 
-        if logger.should_log_for(logger.LEVEL_DEBUG):
+        if logger.should_log_for(logger.level_debug):
             start = time.time()
         await _func_ucp_create_endpoints(sessionId, worker_info)
 
-        if logger.should_log_for(logger.LEVEL_DEBUG):
+        if logger.should_log_for(logger.level_debug):
             elapsed = time.time() - start
             logger.debug("Done initializing UCX endpoints. Took: %f seconds." %
                          elapsed)

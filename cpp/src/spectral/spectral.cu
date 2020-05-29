@@ -15,9 +15,9 @@
  */
 
 #include <cuml/cuml.hpp>
-#include "sparse/coo.cuh"
+#include <sparse/coo.cuh>
 
-#include "sparse/spectral.cuh"
+#include <sparse/spectral.cuh>
 
 namespace ML {
 

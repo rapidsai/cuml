@@ -318,7 +318,7 @@ class NearestNeighborsMG(NearestNeighbors):
             out_d_vec.push_back(new floatData_t(
                 <float*>d_ptr, n_rows * n_neighbors))
 
-        is_verbose = logger.should_log_for(logger.LEVEL_DEBUG)
+        is_verbose = logger.should_log_for(logger.level_debug)
         brute_force_knn(
             handle_[0],
             deref(out_i_vec),

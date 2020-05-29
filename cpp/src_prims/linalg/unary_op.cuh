@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "cuda_utils.cuh"
-#include "vectorized.cuh"
+#include <cuda_utils.cuh>
+#include <vectorized.cuh>
 
 namespace MLCommon {
 namespace LinAlg {

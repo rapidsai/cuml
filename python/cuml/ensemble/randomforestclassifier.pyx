@@ -43,7 +43,6 @@ from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
     _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.fil.fil import TreeliteModel
-import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 from cuml.common import get_cudf_column_ptr, zeros
 
@@ -229,14 +228,14 @@ class RandomForestClassifier(Base):
                  'split_algo', 'split_criterion', 'min_rows_per_node',
                  'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
-                 'verbosity', 'rows_sample',
+                 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
 
     def __init__(self, n_estimators=100, max_depth=16, handle=None,
                  max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
-                 type_model="classifier", verbosity=logger.LEVEL_INFO,
+                 type_model="classifier", verbose=False,
                  rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
                  output_type=None, criterion=None, dtype=None,
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
@@ -268,7 +267,7 @@ class RandomForestClassifier(Base):
             handle = Handle(n_streams)
 
         super(RandomForestClassifier, self).__init__(handle=handle,
-                                                     verbosity=verbosity,
+                                                     verbose=verbose,
                                                      output_type=output_type)
 
         self.split_algo = split_algo
@@ -304,8 +303,8 @@ class RandomForestClassifier(Base):
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
                           "random_seed is set")
-        self.rf_forest = None
-        self.rf_forest64 = None
+        self.rf_forest = 0
+        self.rf_forest64 = 0
         self.model_pbuf_bytes = bytearray()
 
     """
@@ -324,33 +323,34 @@ class RandomForestClassifier(Base):
         cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
-            model_pbuf_bytes = self._get_protobuf_bytes()
-            params_t = <uintptr_t> self.rf_forest
-            rf_forest = \
-                <RandomForestMetaData[float, int]*>params_t
-            params_t64 = <uintptr_t> self.rf_forest64
-            rf_forest64 = \
-                <RandomForestMetaData[double, int]*>params_t64
-            state["rf_params"] = rf_forest.rf_params
-            state["rf_params64"] = rf_forest64.rf_params
-        else:
-            model_pbuf_bytes = bytearray()
+            self._get_protobuf_bytes()  # Ensure we have this cached
+            if self.rf_forest:
+                params_t = <uintptr_t> self.rf_forest
+                rf_forest = \
+                    <RandomForestMetaData[float, int]*>params_t
+                state["rf_params"] = rf_forest.rf_params
+
+            if self.rf_forest64:
+                params_t64 = <uintptr_t> self.rf_forest64
+                rf_forest64 = \
+                    <RandomForestMetaData[double, int]*>params_t64
+                state["rf_params64"] = rf_forest64.rf_params
 
         state['n_cols'] = self.n_cols
-        state["verbosity"] = self.verbosity
+        state["verbose"] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
         state["treelite_handle"] = None
 
         return state
 
     def __setstate__(self, state):
-
         super(RandomForestClassifier, self).__init__(
-            handle=None, verbosity=state['verbosity'])
+            handle=None, verbose=state['verbose'])
         cdef  RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
+
         self.n_cols = state['n_cols']
         if self.n_cols:
             rf_forest.rf_params = state["rf_params"]
@@ -366,19 +366,24 @@ class RandomForestClassifier(Base):
         self._reset_forest_data()
 
     def _reset_forest_data(self):
-        # Only if model is fitted before
-        # Clears the data of the forest to prepare for next fit
-        if self.n_cols:
+        """Free memory allocated by this instance and clear instance vars."""
+        if self.rf_forest:
             delete_rf_metadata(
                 <RandomForestMetaData[float, int]*><uintptr_t>
                 self.rf_forest)
+            self.rf_forest = 0
+        if self.rf_forest64:
             delete_rf_metadata(
                 <RandomForestMetaData[double, int]*><uintptr_t>
                 self.rf_forest64)
-            # Who frees the treelite model if any?
-            self.treelite_handle = None
-            self.model_pbuf_bytes = bytearray()
-            self.n_cols = None
+            self.rf_forest64 = 0
+
+        if self.treelite_handle:
+            TreeliteModel.free_treelite_model(self.treelite_handle)
+
+        self.treelite_handle = None
+        self.model_pbuf_bytes = bytearray()
+        self.n_cols = None
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
@@ -405,6 +410,9 @@ class RandomForestClassifier(Base):
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
+
+        assert len(self.model_pbuf_bytes) > 0 or self.rf_forest, \
+            "Attempting to create treelite from un-fit forest."
 
         if self.num_classes > 2:
             raise NotImplementedError("Pickling for multi-class "
@@ -550,6 +558,7 @@ class RandomForestClassifier(Base):
             model_handles.push_back((
                 <ModelHandle> mod_ptr))
 
+        self._reset_forest_data()
         concat_model_handle = concatenate_trees(deref(model_handles))
         cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
         self.treelite_handle = concat_model_ptr
@@ -559,6 +568,14 @@ class RandomForestClassifier(Base):
         cdef unsigned char[::1] pbuf_mod_view = \
             <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
         self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+
+        # Fix up some instance variables that should match the new TL model
+        tl_model = TreeliteModel.from_treelite_model_handle(
+            self.treelite_handle,
+            take_handle_ownership=False)
+        self.n_cols = tl_model.num_features
+        self.n_estimators = tl_model.num_trees
+
         return self
 
     def fit(self, X, y, convert_dtype=False):
@@ -592,6 +609,9 @@ class RandomForestClassifier(Base):
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
                                 order='F')
+        if self.n_bins > n_rows:
+            raise ValueError("The number of bins,`n_bins` can not be greater"
+                             " than the number of samples used for training.")
         X_ptr = X_m.ptr
 
         y_m, _, _, y_dtype = \
@@ -650,6 +670,7 @@ class RandomForestClassifier(Base):
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams)
+
         if self.dtype == np.float32:
             fit(handle_[0],
                 rf_forest,
@@ -659,7 +680,7 @@ class RandomForestClassifier(Base):
                 <int*> y_ptr,
                 <int> num_unique_labels,
                 rf_params,
-                <int> self.verbosity)
+                <int> self.verbose)
 
         elif self.dtype == np.float64:
             rf_params64 = rf_params
@@ -671,7 +692,7 @@ class RandomForestClassifier(Base):
                 <int*> y_ptr,
                 <int> num_unique_labels,
                 rf_params64,
-                <int> self.verbosity)
+                <int> self.verbose)
 
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
@@ -712,11 +733,11 @@ class RandomForestClassifier(Base):
                                           algo=algo)
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_handle,
-                                             output_class=output_class,
-                                             threshold=threshold,
-                                             algo=algo,
-                                             storage_type=storage_type)
+            fil_model.load_using_treelite_handle(treelite_handle,
+                                                 output_class=output_class,
+                                                 threshold=threshold,
+                                                 algo=algo,
+                                                 storage_type=storage_type)
 
         preds = tl_to_fil_model.predict(X, output_type=out_type,
                                         predict_proba=predict_proba)
@@ -750,7 +771,7 @@ class RandomForestClassifier(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <int*> preds_ptr,
-                    <int> self.verbosity)
+                    <int> self.verbose)
 
         elif self.dtype == np.float64:
             predict(handle_[0],
@@ -759,7 +780,7 @@ class RandomForestClassifier(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <int*> preds_ptr,
-                    <int> self.verbosity)
+                    <int> self.verbose)
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."
@@ -900,7 +921,7 @@ class RandomForestClassifier(Base):
                           <int> n_rows,
                           <int> n_cols,
                           <int*> preds_ptr,
-                          <int> self.verbosity)
+                          <int> self.verbose)
 
         elif self.dtype == np.float64:
             predictGetAll(handle_[0],
@@ -909,7 +930,7 @@ class RandomForestClassifier(Base):
                           <int> n_rows,
                           <int> n_cols,
                           <int*> preds_ptr,
-                          <int> self.verbosity)
+                          <int> self.verbose)
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."
@@ -1095,14 +1116,14 @@ class RandomForestClassifier(Base):
                                <int*> y_ptr,
                                <int> n_rows,
                                <int*> preds_ptr,
-                               <int> self.verbosity)
+                               <int> self.verbose)
         elif self.dtype == np.float64:
             self.stats = score(handle_[0],
                                rf_forest64,
                                <int*> y_ptr,
                                <int> n_rows,
                                <int*> preds_ptr,
-                               <int> self.verbosity)
+                               <int> self.verbose)
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."
