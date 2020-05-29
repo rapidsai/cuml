@@ -23,7 +23,7 @@ from libcpp cimport bool
 
 ctypedef int underlying_type_t_solver
 
-cdef extern from "ml_utils.h" namespace "ML" nogil:
+cdef extern from "cuml/decomposition/params.hpp" namespace "ML" nogil:
 
     ctypedef enum solver "ML::solver":
        COV_EIG_DQ "ML::solver::COV_EIG_DQ"
