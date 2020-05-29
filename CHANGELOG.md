@@ -3,9 +3,9 @@
 ## New Features
 
 ## Improvements
-
 - PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
 - PR #1945: enable clang tidy
+- PR #2339: umap performance improvements
 
 ## Bug Fixes
 
