@@ -54,6 +54,9 @@ HASH_INCLUDE=`python cpp/scripts/include_checker.py \
                      cpp/comms/std/src \
                      cpp/include \
                      cpp/examples \
+                     cpp/src \
+                     cpp/src_prims \
+                     cpp/test \
                      2>&1`
 HASH_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
