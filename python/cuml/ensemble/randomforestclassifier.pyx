@@ -880,8 +880,6 @@ class RandomForestClassifier(BaseRandomForestModel):
         -----------
         deep : boolean (default = True)
         """
-
-
         return self._get_params(model=RandomForestClassifier,
                                 deep=deep)
 
@@ -895,9 +893,7 @@ class RandomForestClassifier(BaseRandomForestModel):
         -----------
         params : dict of new params
         """
-        # Resetting handle as __setstate__ overwrites with handle=None
-
-
+        # Resetting handle as __setstate__ overwrites with handle=Non
         return self._set_params(model=RandomForestClassifier,
                                 **params)
 

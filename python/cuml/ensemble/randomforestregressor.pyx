@@ -217,10 +217,10 @@ class RandomForestRegressor(BaseRandomForestModel):
                  **kwargs):
         self.RF_type = REGRESSION
         self._create_model(model=RandomForestRegressor,
-                      split_criterion=split_criterion,
-                      seed=seed, n_streams=n_streams,
-                      accuracy_metric=accuracy_metric,
-                      **kwargs)
+                           split_criterion=split_criterion,
+                           seed=seed, n_streams=n_streams,
+                           accuracy_metric=accuracy_metric,
+                           **kwargs)
     """
     TODO:
         Add the preprocess and postprocess functions
@@ -355,7 +355,6 @@ class RandomForestRegressor(BaseRandomForestModel):
                                  output_class=output_class,
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
-
 
     """
     TODO : Move functions duplicated in the RF classifier and regressor
@@ -549,10 +548,11 @@ class RandomForestRegressor(BaseRandomForestModel):
                             setting predict_model = 'CPU'")
 
         else:
-            preds = self._predict_model_on_gpu(X=X,
-                                               algo=algo,
-                                               convert_dtype=convert_dtype,
-                                               fil_sparse_format=fil_sparse_format)
+            preds = self._predict_model_on_gpu(
+                X=X,
+                algo=algo,
+                convert_dtype=convert_dtype,
+                fil_sparse_format=fil_sparse_format)
 
         return preds
 

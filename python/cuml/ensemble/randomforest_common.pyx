@@ -33,7 +33,7 @@ from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
 cimport cython
 
-# create a cdef class and cdef func which will call the C++ cdef func and then return the required handle and stuff
+
 class BaseRandomForestModel(Base):
     variables = ['n_estimators', 'max_depth', 'handle',
                  'max_features', 'n_bins',
@@ -166,11 +166,9 @@ class BaseRandomForestModel(Base):
         self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
         return self.model_pbuf_bytes
 
-
     def _obtain_treelite_handle(self):
         if self.treelite_handle:
-            print(" treelite handle in obt : ", self.treelite_handle)
-            return self.treelite_handle # Use cached version
+            return self.treelite_handle  # Use cached version
         cdef ModelHandle cuml_model_ptr = NULL
         cdef unsigned char[::1] model_pbuf_mv
         cdef vector[unsigned char] model_pbuf_vec
@@ -180,7 +178,7 @@ class BaseRandomForestModel(Base):
                 model_pbuf_vec.assign(& model_pbuf_mv[0],
                                       & model_pbuf_mv[model_pbuf_mv.shape[0]])
         else:
-            model_pbuf_vec = <vector[unsigned char]&> bytearray()
+            model_pbuf_vec = <vector[unsigned char] &> bytearray()
         if self.RF_type == CLASSIFICATION:
             build_treelite_forest(
                 & cuml_model_ptr,
@@ -214,12 +212,14 @@ class BaseRandomForestModel(Base):
                              " than the number of samples used for training.")
         if self.RF_type == CLASSIFICATION:
             y_m, _, _, y_dtype = \
-                input_to_cuml_array(y, check_dtype=np.int32,
-                                    convert_to_dtype=(np.int32 if convert_dtype
-                                                      else None),
-                                    check_rows=self.n_rows, check_cols=1)
+                input_to_cuml_array(
+                    y, check_dtype=np.int32,
+                    convert_to_dtype=(np.int32 if convert_dtype
+                                      else None),
+                    check_rows=self.n_rows, check_cols=1)
             if y_dtype != np.int32:
-                raise TypeError("The labels `y` need to be of dtype `np.int32`")
+                raise TypeError("The labels `y` need to be of dtype"
+                                " `np.int32`")
             unique_labels = rmm_cupy_ary(cp.unique, y_m)
             self.num_classes = len(unique_labels)
             for i in range(self.num_classes):
@@ -229,10 +229,11 @@ class BaseRandomForestModel(Base):
                                      "0 to the number of unique label values")
         else:
             y_m, _, _, y_dtype = \
-                input_to_cuml_array(y,
-                                    convert_to_dtype=(self.dtype if convert_dtype
-                                                      else None),
-                                    check_rows=self.n_rows, check_cols=1)
+                input_to_cuml_array(
+                    y,
+                    convert_to_dtype=(self.dtype if convert_dtype
+                                      else None),
+                    check_rows=self.n_rows, check_cols=1)
 
         if self.dtype == np.float64:
             warnings.warn("To use GPU-based prediction, first train using \
@@ -240,11 +241,12 @@ class BaseRandomForestModel(Base):
 
         max_feature_val = self._get_max_feat_val()
         if type(self.min_rows_per_node) == float:
-            self.min_rows_per_node = math.ceil(self.min_rows_per_node*self.n_rows)
+            self.min_rows_per_node = \
+                math.ceil(self.min_rows_per_node*self.n_rows)
         del X
         del y
         return X_m, y_m, max_feature_val
-    
+
     def _tl_model_handles(self, model_bytes):
         cdef ModelHandle cuml_model_ptr = NULL
         if self.RF_type == CLASSIFICATION:
@@ -264,7 +266,6 @@ class BaseRandomForestModel(Base):
         mod_handle = <uintptr_t> cuml_model_ptr
 
         return ctypes.c_void_p(mod_handle).value
-
 
     def _concatenate_treelite_handle(self, treelite_handle):
         cdef ModelHandle concat_model_handle = NULL
@@ -293,7 +294,6 @@ class BaseRandomForestModel(Base):
         self.n_estimators = tl_model.num_trees
         return self
 
-    
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
                               fil_sparse_format, threshold=0.5,
                               output_class=False, predict_proba=False):
@@ -329,7 +329,7 @@ class BaseRandomForestModel(Base):
         preds = tl_to_fil_model.predict(X, output_type=out_type,
                                         predict_proba=predict_proba)
         return preds
-    
+
     def _get_params(self, model, deep):
         params = dict()
         for key in model.variables:
@@ -351,6 +351,7 @@ class BaseRandomForestModel(Base):
             else:
                 setattr(self, key, value)
         return self
+
 
 def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
     storage_format = _check_fil_sparse_format_value(fil_sparse_format)
