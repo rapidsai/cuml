@@ -25,7 +25,6 @@
 #include <stats/mean_center.cuh>
 #include <stats/stddev.cuh>
 #include "common/cumlHandle.hpp"
-#include "ml_utils.h"
 
 namespace ML {
 namespace GLM {

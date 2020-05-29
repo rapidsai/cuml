@@ -20,7 +20,6 @@
 #include <cuda_utils.cuh>
 #include <vector>
 #include "glm/ols.cuh"
-#include "ml_utils.h"
 
 namespace ML {
 namespace GLM {

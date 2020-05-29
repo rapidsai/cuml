@@ -29,7 +29,6 @@
 #include <stats/stddev.cuh>
 #include <stats/sum.cuh>
 #include "common/cumlHandle.hpp"
-#include "ml_utils.h"
 #include "preprocess.cuh"
 
 namespace ML {

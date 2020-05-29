@@ -22,7 +22,6 @@
 #include <cuml/common/logger.hpp>
 #include "cache_util.cuh"
 #include "common/device_buffer.hpp"
-#include "ml_utils.h"
 
 namespace MLCommon {
 namespace Cache {

@@ -19,7 +19,7 @@
 #include <linalg/cublas_wrappers.h>
 #include <cuda_utils.cuh>
 #include <vector>
-#include "ml_utils.h"
+#include "cuml/decomposition/params.hpp"
 #include "pca/pca.cuh"
 #include "random/rng.cuh"
 #include "test_utils.h"

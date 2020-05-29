@@ -29,7 +29,7 @@
 #include <stats/mean_center.cuh>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
-#include "ml_utils.h"
+#include "cuml/decomposition/params.hpp"
 #include "tsvd/tsvd.cuh"
 
 namespace ML {

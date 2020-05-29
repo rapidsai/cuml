@@ -20,7 +20,6 @@
 #include <test_utils.h>
 #include <cuda_utils.cuh>
 #include <matrix/matrix.cuh>
-#include "ml_utils.h"
 #include "solver/cd.cuh"
 
 namespace ML {

@@ -30,7 +30,6 @@
 #include "decisiontree/decisiontree_impl.h"
 #include "linalg/gemv.h"
 #include "linalg/transpose.h"
-#include "ml_utils.h"
 #include "random/rng.cuh"
 
 namespace ML {
