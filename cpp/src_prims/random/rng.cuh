@@ -122,7 +122,7 @@ class Rng {
    *
    * @param[in]  n the modulo range
    * @param[out] a slope parameter
-   * @param[out[ b intercept parameter
+   * @param[out] b intercept parameter
    */
   template <typename IdxT>
   void affine_transform_params(IdxT n, IdxT& a, IdxT& b) {
