@@ -20,34 +20,34 @@
 # cython: language_level = 3
 
 import ctypes
-import cudf
-import math
 import numpy as np
+import rmm
 import warnings
+
+import cuml.common.logger as logger
+
+from cuml import ForestInference
+from cuml.common.array import CumlArray
+from cuml.common.handle import Handle
+from cuml.common import input_to_cuml_array, rmm_cupy_ary
+
+from cuml.ensemble.randomforest_common import BaseRandomForestModel
+from cuml.ensemble.randomforest_common import _obtain_treelite_model, \
+    _obtain_fil_model
+from cuml.ensemble.randomforest_shared cimport *
+
+from cuml.fil.fil import TreeliteModel
+
+from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml import ForestInference
-from cuml.fil.fil import TreeliteModel
-from cuml.common.array import CumlArray
-from cuml.common.handle import Handle
-from cuml.ensemble.randomforest_common import BaseRandomForestModel
-from cuml.common.handle cimport cumlHandle
-from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
-    _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
-from cuml.ensemble.randomforest_common import BaseRandomForestModel
-
-from cuml.ensemble.randomforest_shared cimport *
-from cuml.common import input_to_cuml_array
-import cuml.common.logger as logger
-
-from cython.operator cimport dereference as deref
-
 from numba import cuda
 
+from cuml.common.handle cimport cumlHandle
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
@@ -216,11 +216,11 @@ class RandomForestRegressor(BaseRandomForestModel):
                  accuracy_metric='mse', n_streams=8,
                  **kwargs):
         self.RF_type = REGRESSION
-        self._create_model(model=RandomForestRegressor,
-                           split_criterion=split_criterion,
-                           seed=seed, n_streams=n_streams,
-                           accuracy_metric=accuracy_metric,
-                           **kwargs)
+        super(RandomForestRegressor, self)._create_model(
+            split_criterion=split_criterion,
+            seed=seed, n_streams=n_streams,
+            accuracy_metric=accuracy_metric,
+            **kwargs)
     """
     TODO:
         Add the preprocess and postprocess functions
@@ -306,7 +306,6 @@ class RandomForestRegressor(BaseRandomForestModel):
         tl_to_fil_model : Treelite version of this model
         """
         handle = self._obtain_treelite_handle()
-
         return _obtain_treelite_model(handle)
 
     def convert_to_fil_model(self, output_class=False,
@@ -317,7 +316,7 @@ class RandomForestRegressor(BaseRandomForestModel):
         Random Forest model.
         Parameters
         ----------
-        output_class : boolean (default = True)
+        output_class : boolean (default = False)
             This is optional and required only while performing the
             predict operation on the GPU.
             If true, return a 1 or 0 depending on whether the raw
@@ -377,7 +376,8 @@ class RandomForestRegressor(BaseRandomForestModel):
             ndarray, cuda array interface compliant array like CuPy
             These labels should be contiguous integers from 0 to n_classes.
         """
-        X_m, y_m, max_feature_val = self._dataset_setup(X, y, convert_dtype)
+        X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
+                                                                convert_dtype)
 
         # Reset the old tree data for new fit call
         cdef uintptr_t X_ptr, y_ptr
@@ -663,27 +663,23 @@ class RandomForestRegressor(BaseRandomForestModel):
         """
         Returns the value of all parameters
         required to configure this estimator as a dictionary.
-
         Parameters
         -----------
         deep : boolean (default = True)
         """
-        return self._get_params(model=RandomForestRegressor,
-                                deep=deep)
+        return self._get_params(deep=deep)
 
     def set_params(self, **params):
         """
         Sets the value of parameters required to
         configure this estimator, it functions similar to
         the sklearn set_params.
-
         Parameters
         -----------
         params : dict of new params
         """
         # Resetting handle as __setstate__ overwrites with handle=None
-        return self._set_params(model=RandomForestRegressor,
-                                **params)
+        return self._set_params(**params)
 
     def print_summary(self):
         """
