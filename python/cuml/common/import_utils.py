@@ -86,6 +86,14 @@ def has_pytest_benchmark():
         return False
 
 
+def check_min_treelite_version():
+    if has_treelite():
+        import treelite
+        return LooseVersion(str(treelite.__version__)) >= LooseVersion("0.90")
+    else:
+        return False
+
+
 def check_min_numba_version(version):
     return LooseVersion(str(numba.__version__)) >= LooseVersion(version)
 

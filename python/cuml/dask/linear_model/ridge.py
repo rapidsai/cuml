@@ -19,8 +19,6 @@ from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
 from cuml.dask.common.comms import worker_state
 
-import cuml.common.logger as logger
-
 
 class Ridge(BaseEstimator,
             SyncFitMixinLinearModel,
@@ -70,9 +68,9 @@ class Ridge(BaseEstimator,
         The independent term. If fit_intercept_ is False, will be 0.
     """
 
-    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=False, **kwargs):
         super(Ridge, self).__init__(client=client,
-                                    verbosity=verbosity,
+                                    verbose=verbose,
                                     **kwargs)
 
         self.coef_ = None

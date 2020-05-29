@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
 
 - PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
 - PR #1945: enable clang tidy
@@ -29,6 +30,7 @@
 - PR #2256: Add a `make_arima` generator
 - PR #2245: ElasticNet, Lasso and Coordinate Descent MNMG
 - PR #2242: Pandas input support with output as NumPy arrays by default
+- PR #1728: Added notebook testing to gpuCI gpu build
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
@@ -120,7 +122,10 @@
 - PR #2285: Increase the threshold for elastic_net test in dask/test_coordinate_descent
 - PR #2314: Update FIL default values, documentation and test
 - PR #2316: 0.14 release docs additions and fixes
+- PR #2320: Add prediction notes to RF docs
+- PR #2323: Change verbose levels and parameter name to match Scikit-learn API
 - PR #2324: Raise an error if n_bins > number of training samples in RF
+- PR #2335: Throw a warning if treelite cannot be imported and `load_from_sklearn` is used
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array

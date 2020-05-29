@@ -2,14 +2,50 @@
 cuML API Reference
 ~~~~~~~~~~~~~~~~~~~
 
-Datatype Configuration
-======================
+Module Configuration
+====================
 
-Output Type
------------
+Output Data Type Configuration
+------------------------------
 
  .. automethod:: cuml.common.memory_utils.set_global_output_type
  .. automethod:: cuml.common.memory_utils.using_output_type
+
+Verbosity Levels
+----------------
+
+cuML follows a verbosity model similar to Scikit-learn's: The verbose parameter
+can be a boolean, or a numeric value, and higher numeric values mean more verbosity. The exact values can be set directly, or through the cuml.common.logger module, and
+they are:
+
+.. list-table:: Verbosity Levels
+   :widths: 25 25 50
+   :header-rows: 1
+
+   * - Numeric value
+     - cuml.common.logger value
+     - Verbosity level
+   * - 0
+     - cuml.common.logger.level_off
+     - Disables all log messages
+   * - 1
+     - cuml.common.logger.level_critical
+     - Enables only critical messages
+   * - 2
+     - cuml.common.logger.level_error
+     - Enables all messages up to and including errors.
+   * - 3
+     - cuml.common.logger.level_warn
+     - Enables all messages up to and including warnings.
+   * - 4 or False
+     - cuml.common.logger.level_info
+     - Enables all messages up to and including information messages.
+   * - 5 or True
+     - cuml.common.logger.level_debug
+     - Enables all messages up to and including debug messages.
+   * - 6
+     - cuml.common.logger.level_trace
+     - Enables all messages up to and including trace messages.
 
 
 Preprocessing, Metrics, and Utilities
