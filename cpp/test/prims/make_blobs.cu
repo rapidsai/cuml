@@ -89,9 +89,14 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     CUDA_CHECK(cudaFree(mu_vec));
   }
 
-  void getExpectedMeanVar(T meanvar[2]) {
+  void check() {
+    T meanvar[2];
     meanvar[0] = params.mean;
     meanvar[1] = params.std * params.std;
+    ASSERT_TRUE(match(meanvar[0], h_stats[0],
+                      CompareApprox<T>(num_sigma * params.tolerance)));
+    ASSERT_TRUE(match(meanvar[1], h_stats[1],
+                      CompareApprox<T>(num_sigma * params.tolerance)));
   }
 
  protected:
@@ -132,14 +137,7 @@ const std::vector<MakeBlobsInputs<float>> inputsf_t = {
   {0.011, 5003, 8, 5, 1.f, 1.f, false, GenKiss99, 1234ULL},
 };
 
-TEST_P(MakeBlobsTestF, Result) {
-  float meanvar[2];
-  getExpectedMeanVar(meanvar);
-  ASSERT_TRUE(match(meanvar[0], h_stats[0],
-                    CompareApprox<float>(num_sigma * params.tolerance)));
-  ASSERT_TRUE(match(meanvar[1], h_stats[1],
-                    CompareApprox<float>(num_sigma * params.tolerance)));
-}
+TEST_P(MakeBlobsTestF, Result) { check(); }
 INSTANTIATE_TEST_CASE_P(MakeBlobsTests, MakeBlobsTestF,
                         ::testing::ValuesIn(inputsf_t));
 
@@ -171,14 +169,7 @@ const std::vector<MakeBlobsInputs<double>> inputsd_t = {
   {0.0055, 5003, 32, 5, 1.0, 1.0, false, GenKiss99, 1234ULL},
   {0.011, 5003, 8, 5, 1.0, 1.0, false, GenKiss99, 1234ULL},
 };
-TEST_P(MakeBlobsTestD, Result) {
-  double meanvar[2];
-  getExpectedMeanVar(meanvar);
-  ASSERT_TRUE(match(meanvar[0], h_stats[0],
-                    CompareApprox<double>(num_sigma * params.tolerance)));
-  ASSERT_TRUE(match(meanvar[1], h_stats[1],
-                    CompareApprox<double>(num_sigma * params.tolerance)));
-}
+TEST_P(MakeBlobsTestD, Result) { check(); }
 INSTANTIATE_TEST_CASE_P(MakeBlobsTests, MakeBlobsTestD,
                         ::testing::ValuesIn(inputsd_t));
 
