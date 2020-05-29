@@ -23,6 +23,8 @@ import ctypes
 import cudf
 import numpy as np
 
+from enum import IntEnum
+
 import rmm
 
 import cuml
@@ -93,6 +95,9 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                            double *mu,
                            const paramsPCA &prms) except +
 
+class Solver(IntEnum):
+    COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
+    COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 class PCA(Base):
     """
@@ -272,6 +277,7 @@ class PCA(Base):
         self.svd_solver = svd_solver
         self.tol = tol
         self.whiten = whiten
+        # self._set_algorithm_c_name(self.svd_solver)
         self.c_algorithm = self._get_algorithm_c_name(self.svd_solver)
 
         # internal array attributes
@@ -291,15 +297,16 @@ class PCA(Base):
 
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
-            'full': COV_EIG_DQ,
-            'auto': COV_EIG_DQ,
+            'full': Solver.COV_EIG_DQ,
+            'auto': Solver.COV_EIG_JACOBI,
             # 'arpack': NOT_SUPPORTED,
             # 'randomized': NOT_SUPPORTED,
-            'jacobi': COV_EIG_JACOBI
+            'jacobi': Solver.COV_EIG_JACOBI
         }
         if algorithm not in algo_map:
             msg = "algorithm {!r} is not supported"
             raise TypeError(msg.format(algorithm))
+
         return algo_map[algorithm]
 
     def _build_params(self, n_rows, n_cols):
@@ -310,7 +317,7 @@ class PCA(Base):
         params.whiten = self.whiten
         params.n_iterations = self.iterated_power
         params.tol = self.tol
-        params.algorithm = self.c_algorithm
+        params.algorithm = <solver> self.c_algorithm
 
         return <size_t>params
 

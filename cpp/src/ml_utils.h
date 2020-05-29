@@ -28,7 +28,7 @@ namespace ML {
  * @param COV_EIG_JACOBI: covariance of input will be used along with eigen decomposition using jacobi method for symmetric matrices
  * @{
  */
-enum class solver {
+enum class solver : int {
   COV_EIG_DQ,
   COV_EIG_JACOBI,
   RANDOMIZED,
@@ -49,7 +49,6 @@ enum loss_funct {
 
 enum penalty { NONE, L1, L2, ELASTICNET };
 
-//template<typename math_t>
 class params {
  public:
   int n_rows;
@@ -57,8 +56,6 @@ class params {
   int gpu_id = 0;
 };
 
-//template<typename math_t>
-//class paramsSolver: public params<math_t> {
 class paramsSolver : public params {
  public:
   int n_rows;
@@ -71,7 +68,6 @@ class paramsSolver : public params {
 };
 
 template<typename enum_solver=solver>
-// class paramsTSVD: public paramsSolver<math_t> {
 class paramsTSVDTemplate : public paramsSolver {
  public:
   int n_components = 1;
@@ -98,7 +94,6 @@ class paramsTSVDTemplate : public paramsSolver {
 
 template<typename enum_solver=solver>
 class paramsPCATemplate: public paramsTSVDTemplate<enum_solver> {
-// class paramsPCATemplate : public paramsTSVDTemplate {
  public:
   bool copy = true;
   bool whiten = false;
