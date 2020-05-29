@@ -172,8 +172,8 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
           head_embedding, head_n, tail_embedding, tail_n_fast, head, tail,
           offset + curBatchSize, epochs_per_sample, n_vertices,
           epoch_of_next_negative_sample.data(), epoch_of_next_sample.data(),
-          alpha, n, gamma, seed, embedding_updates, move_other,
-          params, n, grid, blk, stream, offset);
+          alpha, n, gamma, seed, embedding_updates, move_other, params, n, grid,
+          blk, stream, offset);
         CUDA_CHECK(cudaGetLastError());
 
         toDo -= curBatchSize;
