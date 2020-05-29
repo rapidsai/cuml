@@ -45,7 +45,7 @@ def test_tsne(name):
     for i in range(3):
         print("iteration = ", i)
 
-        tsne = TSNE(2, random_state=i, verbosity=logger.LEVEL_INFO,
+        tsne = TSNE(2, random_state=i, verbose=False,
                     learning_rate=2+i)
 
         # Reuse
@@ -58,7 +58,7 @@ def test_tsne(name):
         del Y
 
         # Again
-        tsne = TSNE(2, random_state=i+2, verbosity=logger.LEVEL_DEBUG,
+        tsne = TSNE(2, random_state=i+2, verbose=logger.level_debug,
                     learning_rate=2+i+2)
 
         # Reuse
