@@ -16,8 +16,8 @@
 
 #include <cuml/solvers/solver.hpp>
 #include "cd.cuh"
-#include "ml_utils.h"
 #include "sgd.cuh"
+#include "cuml/solvers/params.hpp"
 
 namespace ML {
 namespace Solver {

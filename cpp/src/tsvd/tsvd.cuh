@@ -35,7 +35,7 @@
 #include "common/allocatorAdapter.hpp"
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
-#include "ml_utils.h"
+#include "cuml/decomposition/params.hpp"
 
 namespace ML {
 

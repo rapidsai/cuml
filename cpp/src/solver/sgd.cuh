@@ -35,8 +35,8 @@
 #include "common/cumlHandle.hpp"
 #include "glm/preprocess.cuh"
 #include "learning_rate.h"
-#include "ml_utils.h"
 #include "shuffle.h"
+#include "cuml/solvers/params.hpp"
 
 namespace ML {
 namespace Solver {

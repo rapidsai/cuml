@@ -27,7 +27,6 @@
 #include <memory>
 #include <utility>
 #include "cuml/fil/fil.h"
-#include "ml_utils.h"
 #include "random/rng.cuh"
 #include "test_utils.h"
 

@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <cuda_utils.cuh>
 #include <vector>
-#include "ml_utils.h"
+#include "cuml/decomposition/params.hpp"
 #include "random/rng.cuh"
 #include "test_utils.h"
 #include "tsvd/tsvd.cuh"

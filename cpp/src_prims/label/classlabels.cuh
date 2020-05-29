@@ -23,7 +23,6 @@
 #include "common/device_buffer.hpp"
 #include "cuda_utils.cuh"
 #include "linalg/unary_op.cuh"
-#include "ml_utils.h"
 
 namespace MLCommon {
 namespace Label {

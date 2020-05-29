@@ -28,7 +28,6 @@
 #include "linalg/init.h"
 #include "matrix/grammatrix.cuh"
 #include "matrix/matrix.cuh"
-#include "ml_utils.h"
 
 namespace ML {
 namespace SVM {
