@@ -31,18 +31,19 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml import ForestInference
+from cuml.fil.fil import TreeliteModel
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
 from cuml.common.handle import Handle
+from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
     _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 
 from cuml.ensemble.randomforest_shared cimport *
-from cuml.fil.fil import TreeliteModel
-from cuml.common import input_to_cuml_array, input_to_dev_array, \
-    zeros, get_cudf_column_ptr
+from cuml.common import input_to_cuml_array
+import cuml.common.logger as logger
+
 from cython.operator cimport dereference as deref
 
 from numba import cuda
@@ -54,7 +55,7 @@ cimport cython
 
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
-
+    
     cdef void fit(cumlHandle & handle,
                   RandomForestMetaData[float, float]*,
                   float*,
@@ -72,7 +73,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   double*,
                   RF_params,
                   int) except +
-
+    
     cdef void predict(cumlHandle& handle,
                       RandomForestMetaData[float, float] *,
                       float*,
@@ -210,14 +211,6 @@ class RandomForestRegressor(BaseRandomForestModel):
         currently fully guarantee the exact same results.
 
     """
-    variables = ['n_estimators', 'max_depth', 'handle',
-                 'max_features', 'n_bins',
-                 'split_algo', 'split_criterion', 'min_rows_per_node',
-                 'min_impurity_decrease',
-                 'bootstrap', 'bootstrap_features',
-                 'rows_sample',
-                 'max_leaves', 'quantile_per_tree',
-                 'accuracy_metric']
 
     def __init__(self, split_criterion=2, seed=None,
                  accuracy_metric='mse', n_streams=8,
@@ -322,7 +315,6 @@ class RandomForestRegressor(BaseRandomForestModel):
         """
         Create a Forest Inference (FIL) model from the trained cuML
         Random Forest model.
-
         Parameters
         ----------
         output_class : boolean (default = True)
@@ -351,13 +343,11 @@ class RandomForestRegressor(BaseRandomForestModel):
             False - create a dense forest
             True - create a sparse forest, requires algo='naive'
             or algo='auto'
-
         Returns
         ----------
         fil_model :
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
-
         """
         treelite_handle = self._obtain_treelite_handle()
         return _obtain_fil_model(treelite_handle=treelite_handle,
@@ -365,6 +355,7 @@ class RandomForestRegressor(BaseRandomForestModel):
                                  output_class=output_class,
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
+
 
     """
     TODO : Move functions duplicated in the RF classifier and regressor
@@ -393,11 +384,6 @@ class RandomForestRegressor(BaseRandomForestModel):
         cdef uintptr_t X_ptr, y_ptr
         X_ptr = X_m.ptr
         y_ptr = y_m.ptr
-
-        if self.dtype == np.float64:
-            warnings.warn("To use GPU-based prediction, first train using \
-                          float 32 data to fit the estimator.")
-
         cdef cumlHandle* handle_ =\
             <cumlHandle*><uintptr_t>self.handle.getHandle()
 
@@ -452,8 +438,8 @@ class RandomForestRegressor(BaseRandomForestModel):
         # make sure that the `fit` is complete before the following delete
         # call happens
         self.handle.sync()
-        del(X_m)
-        del(y_m)
+        del X_m
+        del y_m
         return self
 
     def _predict_model_on_cpu(self, X, convert_dtype):
@@ -563,8 +549,10 @@ class RandomForestRegressor(BaseRandomForestModel):
                             setting predict_model = 'CPU'")
 
         else:
-            preds = self._predict_model_on_gpu(X, algo, convert_dtype,
-                                               fil_sparse_format)
+            preds = self._predict_model_on_gpu(X=X,
+                                               algo=algo,
+                                               convert_dtype=convert_dtype,
+                                               fil_sparse_format=fil_sparse_format)
 
         return preds
 
@@ -680,14 +668,8 @@ class RandomForestRegressor(BaseRandomForestModel):
         -----------
         deep : boolean (default = True)
         """
-
-        params = dict()
-        for key in RandomForestRegressor.variables:
-            if key in ['handle']:
-                continue
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
+        return self._get_params(model=RandomForestRegressor,
+                                deep=deep)
 
     def set_params(self, **params):
         """
@@ -700,18 +682,8 @@ class RandomForestRegressor(BaseRandomForestModel):
         params : dict of new params
         """
         # Resetting handle as __setstate__ overwrites with handle=None
-        self.handle.__setstate__(self.n_streams)
-        self.model_pbuf_bytes = []
-
-        if not params:
-            return self
-        for key, value in params.items():
-            if key not in RandomForestRegressor.variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-
-        return self
+        return self._set_params(model=RandomForestRegressor,
+                                **params)
 
     def print_summary(self):
         """

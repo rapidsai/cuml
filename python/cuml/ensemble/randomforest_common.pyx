@@ -136,7 +136,7 @@ class BaseRandomForestModel(Base):
         else:
             raise ValueError("Wrong value passed in for max_features"
                              " please read the documentation")
-    
+
     def _get_protobuf_bytes(self):
         """
         Returns the self.model_pbuf_bytes.
@@ -199,7 +199,6 @@ class BaseRandomForestModel(Base):
         mod_ptr = <uintptr_t> cuml_model_ptr
         self.treelite_handle = ctypes.c_void_p(mod_ptr).value
         return self.treelite_handle
-    
 
     def _dataset_setup(self, X, y, convert_dtype):
         self._set_output_type(X)
@@ -246,7 +245,6 @@ class BaseRandomForestModel(Base):
         del y
         return X_m, y_m, max_feature_val
     
-
     def _tl_model_handles(self, model_bytes):
         cdef ModelHandle cuml_model_ptr = NULL
         if self.RF_type == CLASSIFICATION:
@@ -277,7 +275,6 @@ class BaseRandomForestModel(Base):
             mod_ptr = <uintptr_t>i
             model_handles.push_back((
                 <ModelHandle> mod_ptr))
-
         self._reset_forest_data()
         concat_model_handle = concatenate_trees(deref(model_handles))
         cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
@@ -294,7 +291,6 @@ class BaseRandomForestModel(Base):
             take_handle_ownership=False)
         self.n_cols = tl_model.num_features
         self.n_estimators = tl_model.num_trees
-
         return self
 
     
@@ -355,7 +351,6 @@ class BaseRandomForestModel(Base):
             else:
                 setattr(self, key, value)
         return self
-    
 
 def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
     storage_format = _check_fil_sparse_format_value(fil_sparse_format)
