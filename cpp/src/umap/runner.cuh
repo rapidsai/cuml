@@ -294,7 +294,6 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
 
   CUML_LOG_DEBUG("Building KNN Graph");
 
-  
   ML::PUSH_RANGE("umap::knnGraph");
   MLCommon::device_buffer<int64_t> *knn_indices_b = nullptr;
   MLCommon::device_buffer<T> *knn_dists_b = nullptr;

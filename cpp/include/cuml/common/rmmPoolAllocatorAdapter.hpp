@@ -19,8 +19,8 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
-#include "rmmAllocatorAdapter.hpp"
 #include <rmm/mr/device/cnmem_memory_resource.hpp>
+#include "rmmAllocatorAdapter.hpp"
 
 namespace ML {
 

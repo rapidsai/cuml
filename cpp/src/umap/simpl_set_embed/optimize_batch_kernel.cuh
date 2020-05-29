@@ -348,9 +348,8 @@ void call_optimize_batch_kernel(
   const MLCommon::FastIntDiv &tail_n, const int *head, const int *tail, int nnz,
   T *epochs_per_sample, int n_vertices, T *epoch_of_next_negative_sample,
   T *epoch_of_next_sample, T alpha, int epoch, T gamma, uint64_t seed,
-  double *embedding_updates, bool move_other,
-  UMAPParams *params, int n, dim3 &grid, dim3 &blk,
-  cudaStream_t &stream, int offset = 0) {
+  double *embedding_updates, bool move_other, UMAPParams *params, int n,
+  dim3 &grid, dim3 &blk, cudaStream_t &stream, int offset = 0) {
   size_t requiredSize = TPB_X * params->n_components;
   if (params->multicore_implem) {
     requiredSize *= sizeof(T);
@@ -388,12 +387,11 @@ void call_optimize_batch_kernel(
   } else {
     if (params->n_components == 2) {
       // multicore implementation with registers
-      optimize_batch_kernel_reg<T, T, TPB_X, true, 2>
-        <<<grid, blk, 0, stream>>>(
-          head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
-          epochs_per_sample, n_vertices, epoch_of_next_negative_sample,
-          epoch_of_next_sample, alpha, n, gamma, seed, embedding_updates,
-          move_other, *params, nsr_inv);
+      optimize_batch_kernel_reg<T, T, TPB_X, true, 2><<<grid, blk, 0, stream>>>(
+        head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
+        epochs_per_sample, n_vertices, epoch_of_next_negative_sample,
+        epoch_of_next_sample, alpha, n, gamma, seed, embedding_updates,
+        move_other, *params, nsr_inv);
     } else if (use_shared_mem) {
       // multicore implementation with shared memory
       optimize_batch_kernel<T, T, TPB_X, true, true>
