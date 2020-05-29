@@ -4,9 +4,9 @@
 
 ## Improvements
 - PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
-
 - PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
 - PR #1945: enable clang tidy
+- PR #2345: make C++ logger level definition to be the same as python layer
 
 ## Bug Fixes
 
