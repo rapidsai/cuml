@@ -43,7 +43,7 @@ class BaseRandomForestModel(Base):
                  'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
 
-    def _create_model(self, model, seed, split_criterion,
+    def _create_model(self, seed, split_criterion,
                       n_streams, n_estimators=100,
                       max_depth=16, handle=None, max_features='auto',
                       n_bins=8, split_algo=1, bootstrap=True,
@@ -59,7 +59,8 @@ class BaseRandomForestModel(Base):
                       quantile_per_tree=False, criterion=None):
 
         if accuracy_metric:
-            model.variables.append('accuracy_metric')
+            BaseRandomForestModel.variables.append('accuracy_metric')
+
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
@@ -71,7 +72,7 @@ class BaseRandomForestModel(Base):
                           "class_weight": class_weight}
 
         for key, vals in sklearn_params.items():
-            if vals is not None:
+            if vals:
                 raise TypeError(" The Scikit-learn variable ", key,
                                 " is not supported in cuML,"
                                 " please read the cuML documentation for"
@@ -80,9 +81,11 @@ class BaseRandomForestModel(Base):
         if handle is None:
             handle = Handle(n_streams)
 
-        super(model, self).__init__(handle=handle,
-                                    verbose=verbose,
-                                    output_type=output_type)
+        super(BaseRandomForestModel, self).__init__(
+            handle=handle,
+            verbose=verbose,
+            output_type=output_type)
+
         if max_depth < 0:
             raise ValueError("Must specify max_depth >0 ")
 
@@ -152,6 +155,9 @@ class BaseRandomForestModel(Base):
         of information is already present in the model then the respective
         step is skipped.
         """
+        if self.dtype == np.float64:
+            raise TypeError("To use pickling, first train the model"
+                            " using float 32 data.")
         if self.model_pbuf_bytes:
             return self.model_pbuf_bytes
         elif self.treelite_handle:
@@ -179,6 +185,7 @@ class BaseRandomForestModel(Base):
                                       & model_pbuf_mv[model_pbuf_mv.shape[0]])
         else:
             model_pbuf_vec = <vector[unsigned char] &> bytearray()
+
         if self.RF_type == CLASSIFICATION:
             build_treelite_forest(
                 & cuml_model_ptr,
@@ -198,7 +205,7 @@ class BaseRandomForestModel(Base):
         self.treelite_handle = ctypes.c_void_p(mod_ptr).value
         return self.treelite_handle
 
-    def _dataset_setup(self, X, y, convert_dtype):
+    def _dataset_setup_for_fit(self, X, y, convert_dtype):
         self._set_output_type(X)
 
         # Reset the old tree data for new fit call
@@ -210,6 +217,7 @@ class BaseRandomForestModel(Base):
         if self.n_bins > self.n_rows:
             raise ValueError("The number of bins,`n_bins` can not be greater"
                              " than the number of samples used for training.")
+
         if self.RF_type == CLASSIFICATION:
             y_m, _, _, y_dtype = \
                 input_to_cuml_array(
@@ -330,23 +338,23 @@ class BaseRandomForestModel(Base):
                                         predict_proba=predict_proba)
         return preds
 
-    def _get_params(self, model, deep):
+    def _get_params(self, deep):
         params = dict()
-        for key in model.variables:
+        for key in BaseRandomForestModel.variables:
             if key in ['handle']:
                 continue
             var_value = getattr(self, key, None)
             params[key] = var_value
         return params
 
-    def _set_params(self, model, **params):
+    def _set_params(self, **params):
         self.handle.__setstate__(self.n_streams)
         self.model_pbuf_bytes = []
 
         if not params:
             return self
         for key, value in params.items():
-            if key not in model.variables:
+            if key not in BaseRandomForestModel.variables:
                 raise ValueError('Invalid parameter for estimator')
             else:
                 setattr(self, key, value)

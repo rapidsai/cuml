@@ -21,38 +21,34 @@
 # cython: language_level = 3
 
 import ctypes
-import cudf
-import cupy as cp
-import math
 import numpy as np
 import rmm
 import warnings
+
+import cuml.common.logger as logger
+
+from cuml import ForestInference
+from cuml.common.array import CumlArray
+from cuml.common.handle import Handle
+from cuml.common import input_to_cuml_array, rmm_cupy_ary
+
+from cuml.ensemble.randomforest_common import BaseRandomForestModel
+from cuml.ensemble.randomforest_common import _obtain_treelite_model, \
+    _obtain_fil_model
+from cuml.ensemble.randomforest_shared cimport *
+
+from cuml.fil.fil import TreeliteModel
+
+from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cython.operator cimport dereference as deref
-
-from cuml import ForestInference
-from cuml.fil.fil import TreeliteModel
-
-from cuml.common.array import CumlArray
-from cuml.common.handle import Handle
-from cuml.ensemble.randomforest_common import BaseRandomForestModel
-
-from cuml.common.handle cimport cumlHandle
-from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
-    _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
-from cuml.ensemble.randomforest_common import BaseRandomForestModel
-
-from cuml.ensemble.randomforest_shared cimport *
-import cuml.common.logger as logger
-from cuml.common import input_to_cuml_array, rmm_cupy_ary
-
 from numba import cuda
 
+from cuml.common.handle cimport cumlHandle
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
@@ -238,10 +234,10 @@ class RandomForestClassifier(BaseRandomForestModel):
 
         self.RF_type = CLASSIFICATION
         self.num_classes = 2
-        self._create_model(model=RandomForestClassifier,
-                           split_criterion=split_criterion,
-                           seed=seed, n_streams=n_streams,
-                           **kwargs)
+        super(RandomForestClassifier, self)._create_model(
+            split_criterion=split_criterion,
+            seed=seed, n_streams=n_streams,
+            **kwargs)
 
     """
     TODO:
@@ -413,7 +409,8 @@ class RandomForestClassifier(BaseRandomForestModel):
 
         """
 
-        X_m, y_m, max_feature_val = self._dataset_setup(X, y, convert_dtype)
+        X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
+                                                                convert_dtype)
         cdef uintptr_t X_ptr, y_ptr
         X_ptr = X_m.ptr
         y_ptr = y_m.ptr
@@ -532,7 +529,7 @@ class RandomForestClassifier(BaseRandomForestModel):
 
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
-                algo='auto',
+                algo='auto', num_classes=None,
                 convert_dtype=True,
                 fil_sparse_format='auto'):
         """
@@ -570,7 +567,7 @@ class RandomForestClassifier(BaseRandomForestModel):
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
-        num_classes : int (default = 2)
+        num_classes : int (default = None)
             number of different classes present in the dataset. This variable
             will be depricated in 0.16
         convert_dtype : bool, optional (default = True)
@@ -592,7 +589,12 @@ class RandomForestClassifier(BaseRandomForestModel):
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-        if predict_model == "CPU" or self.num_classes > 2:
+        if (num_classes and self.num_classes != num_classes):
+            raise ValueError("The number of classes in the test dataset"
+                             " should be equal to the number of classes"
+                             " present in the training dataset.")
+
+        elif predict_model == "CPU" or self.num_classes > 2:
             if self.num_classes > 2 and predict_model == "GPU":
                 warnings.warn("Switching over to use the CPU predict since "
                               "the GPU predict currently cannot perform "
@@ -681,7 +683,8 @@ class RandomForestClassifier(BaseRandomForestModel):
     def predict_proba(self, X, output_class=True,
                       threshold=0.5, algo='auto',
                       convert_dtype=True,
-                      fil_sparse_format='auto'):
+                      fil_sparse_format='auto',
+                      num_classes=None):
         """
         Predicts class probabilites for X. This function uses the GPU
         implementation of predict. Therefore, data with 'dtype = np.float32'
@@ -717,8 +720,9 @@ class RandomForestClassifier(BaseRandomForestModel):
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
-        num_classes : int (default = 2)
-            number of different classes present in the dataset
+        num_classes : int (default = None)
+            number of different classes present in the dataset. This variable
+            will be depricated in 0.16
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -753,6 +757,11 @@ class RandomForestClassifier(BaseRandomForestModel):
                                       "classification models is currently not "
                                       "implemented. Please check cuml issue "
                                       "#1679 for more information.")
+
+        elif (num_classes and self.num_classes != num_classes):
+            raise ValueError("The number of classes in the test dataset"
+                             " should be equal to the number of classes"
+                             " present in the training dataset.")
         preds_proba = \
             self._predict_model_on_gpu(X, output_class=output_class,
                                        threshold=threshold,
@@ -764,7 +773,7 @@ class RandomForestClassifier(BaseRandomForestModel):
         return preds_proba
 
     def score(self, X, y, threshold=0.5,
-              algo='auto', num_classes=2, predict_model="GPU",
+              algo='auto', num_classes=None, predict_model="GPU",
               convert_dtype=True, fil_sparse_format='auto'):
         """
         Calculates the accuracy metric score of the model for X.
@@ -792,8 +801,9 @@ class RandomForestClassifier(BaseRandomForestModel):
             threshold is used to for classification
             This is optional and required only while performing the
             predict operation on the GPU.
-        num_classes : integer
-            number of different classes present in the dataset
+        num_classes : int (default = None)
+            number of different classes present in the dataset. This variable
+            will be depricated in 0.16
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
         predict_model : String (default = 'GPU')
@@ -831,6 +841,7 @@ class RandomForestClassifier(BaseRandomForestModel):
                              threshold=threshold, algo=algo,
                              convert_dtype=convert_dtype,
                              predict_model=predict_model,
+                             num_classes=num_classes,
                              fil_sparse_format=fil_sparse_format)
 
         cdef uintptr_t preds_ptr
@@ -875,27 +886,23 @@ class RandomForestClassifier(BaseRandomForestModel):
         """
         Returns the value of all parameters
         required to configure this estimator as a dictionary.
-
         Parameters
         -----------
         deep : boolean (default = True)
         """
-        return self._get_params(model=RandomForestClassifier,
-                                deep=deep)
+        return self._get_params(deep=deep)
 
     def set_params(self, **params):
         """
         Sets the value of parameters required to
         configure this estimator, it functions similar to
         the sklearn set_params.
-
         Parameters
         -----------
         params : dict of new params
         """
-        # Resetting handle as __setstate__ overwrites with handle=Non
-        return self._set_params(model=RandomForestClassifier,
-                                **params)
+        # Resetting handle as __setstate__ overwrites with handle=None
+        return self._set_params(**params)
 
     def print_summary(self):
         """
