@@ -97,7 +97,7 @@ __global__ void constFillKernel(Type *ptr, int len, Type val) {
  * @{
  */
 template <typename Type>
-DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1,
+DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1,
                              Type sigma2, Type mu2) {
   constexpr Type twoPi = Type(2.0) * Type(3.141592654);
   constexpr Type minus2 = -Type(2.0);
@@ -109,7 +109,7 @@ DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1,
   val2 = R * s * sigma2 + mu2;
 }
 template <typename Type>
-DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1) {
+DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1) {
   box_muller_transform<Type>(val1, val2, sigma1, mu1, sigma1, mu1);
 }
 /** @} */
