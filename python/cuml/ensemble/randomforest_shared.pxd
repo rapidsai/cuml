@@ -33,12 +33,10 @@ from cuml.common.handle import Handle
 from cuml import ForestInference
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 cimport cuml.common.handle
 cimport cuml.common.cuda
-cimport cython
-
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
@@ -47,7 +45,7 @@ cdef extern from "treelite/c_api.h":
                                          ModelHandle model)
     cdef const char* TreeliteGetLastError()
 
-cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef enum CRITERION:
         GINI,
         ENTROPY,
@@ -55,15 +53,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         MAE,
         CRITERION_END
 
-cdef extern from "cuml/tree/flatnode.h" namespace "ML::Flatnode" nogil:
-    cdef cppclass SparseTreeNode[T, L]:
-        L prediction
-        int colid
-        T quesval
-        T best_metric_val
-        int left_child_id
-
-cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree" nogil:
+cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
     cdef struct DecisionTreeParams:
         int max_depth
         int max_leaves
@@ -75,15 +65,7 @@ cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree" nogil
         bool quantile_per_tree
         CRITERION split_criterion
 
-    cdef cppclass TreeMetaDataNode[T, L]:
-        int treeid
-        int depth_counter
-        int leaf_counter
-        double prepare_time
-        double train_time
-        vector[SparseTreeNode[T, L]] sparsetree
-
-cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef enum RF_type:
         CLASSIFICATION,
@@ -108,19 +90,17 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         pass
 
     cdef cppclass RandomForestMetaData[T, L]:
-        ctypedef TreeMetaDataNode[T, L]* trees
+        void* trees
         RF_params rf_params
 
     #
     # Treelite handling
     #
-
     cdef void build_treelite_forest[T, L](ModelHandle*,
                                           RandomForestMetaData[T, L]*,
                                           int,
                                           int,
                                           vector[unsigned char] &) except +
-
 
     cdef vector[unsigned char] save_model_protobuf(ModelHandle) except +
 
@@ -148,4 +128,3 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
 
     cdef ModelHandle concatenate_trees(
         vector[ModelHandle] &treelite_handles) except +
-

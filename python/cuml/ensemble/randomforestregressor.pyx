@@ -55,7 +55,7 @@ cimport cython
 
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
-    
+
     cdef void fit(cumlHandle & handle,
                   RandomForestMetaData[float, float]*,
                   float*,
@@ -73,7 +73,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   double*,
                   RF_params,
                   int) except +
-    
+
     cdef void predict(cumlHandle& handle,
                       RandomForestMetaData[float, float] *,
                       float*,
