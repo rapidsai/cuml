@@ -13,14 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
+#include <metrics/adjustedRandIndex.cuh>
+#include <metrics/contingencyMatrix.cuh>
 #include <random>
-#include "metrics/adjustedRandIndex.cuh"
-#include "metrics/contingencyMatrix.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {
