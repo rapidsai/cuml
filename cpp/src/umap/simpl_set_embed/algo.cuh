@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
 #include <common/cudart_utils.h>
@@ -26,10 +27,10 @@
 #include <common/fast_int_div.cuh>
 #include <cstdlib>
 #include <cuml/common/logger.hpp>
+#include <random/rng_impl.cuh>
+#include <sparse/coo.cuh>
 #include <string>
 #include "optimize_batch_kernel.cuh"
-#include "random/rng_impl.cuh"
-#include "sparse/coo.cuh"
 
 #pragma once
 
