@@ -187,6 +187,12 @@ class BaseRandomForestModel(Base):
             model_pbuf_vec = <vector[unsigned char] &> bytearray()
 
         if self.RF_type == CLASSIFICATION:
+            if self.num_classes > 2:
+                raise NotImplementedError("Pickling for multi-class "
+                                          "classification models is currently"
+                                          "  not implemented. Please check"
+                                          "  cuml issue #1679 for more"
+                                          "  information.")
             build_treelite_forest(
                 & cuml_model_ptr,
                 <RandomForestMetaData[float, int]*><size_t> self.rf_forest,
