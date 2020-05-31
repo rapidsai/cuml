@@ -594,7 +594,6 @@ class RandomForestClassifier(BaseRandomForestModel):
                              " should be equal to the number of classes"
                              " present in the training dataset.")
 
-
         elif predict_model == "CPU" or self.num_classes > 2:
             if self.num_classes > 2 and predict_model == "GPU":
                 warnings.warn("Switching over to use the CPU predict since "
