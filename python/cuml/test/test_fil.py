@@ -20,7 +20,7 @@ import os
 from cuml import ForestInference
 from cuml.test.utils import array_equal, unit_param, \
     quality_param, stress_param
-from cuml.common.import_utils import has_treelite
+from cuml.common.import_utils import check_min_treelite_version
 from cuml.common.import_utils import has_xgboost
 from cuml.common.import_utils import has_lightgbm
 
@@ -193,7 +193,8 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 @pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
 @pytest.mark.parametrize('model_class',
                          [GradientBoostingClassifier, RandomForestClassifier])
-@pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
+@pytest.mark.xfail(not check_min_treelite_version(),
+                   reason="need to install treelite version 0.90")
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                 storage_type, model_class):
 
@@ -262,7 +263,8 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 @pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
 @pytest.mark.parametrize('model_class',
                          [GradientBoostingRegressor, RandomForestRegressor])
-@pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
+@pytest.mark.xfail(not check_min_treelite_version(),
+                   reason="need to install treelite version 0.90")
 def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
                             storage_type, model_class):
 
