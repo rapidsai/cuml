@@ -17,19 +17,19 @@
 #include <common/cudart_utils.h>
 #include <math.h>
 #include <algorithm>
+#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
+#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <distance/distance.cuh>
 #include <iostream>
 #include <linalg/binary_op.cuh>
+#include <linalg/eltwise.cuh>
+#include <linalg/map_then_reduce.cuh>
+#include <linalg/matrix_vector_op.cuh>
+#include <linalg/reduce.cuh>
+#include <linalg/reduce_cols_by_key.cuh>
 #include <numeric>
-#include "common/device_buffer.hpp"
-#include "cuda_utils.cuh"
-#include "linalg/eltwise.cuh"
-#include "linalg/map_then_reduce.cuh"
-#include "linalg/matrix_vector_op.cuh"
-#include "linalg/reduce.cuh"
-#include "linalg/reduce_cols_by_key.cuh"
 
 namespace MLCommon {
 namespace Metrics {
