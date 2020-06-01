@@ -390,21 +390,24 @@ class RandomForestRegressor(Base):
         a cached version when available. The handle is cached in the
         instanced and freed at instance deletion. Caller should not
         delete the returned model."""
+        print(" self.treelite_handle in obt : ", self.treelite_handle)
+        print(" self.model_pbuf_bytes in obt : ", len(self.model_pbuf_bytes))
+        print(" self.rf_ forest : ", self.rf_forest)
         if self.treelite_handle is not None:
             return self.treelite_handle  # Cached version
 
         cdef ModelHandle cuml_model_ptr = NULL
+        print(" set the self.forest var in obt ")
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
         assert len(self.model_pbuf_bytes) > 0 or self.rf_forest, \
             "Attempting to create treelite from un-fit forest."
-
         cdef unsigned char[::1] model_pbuf_mv = self.model_pbuf_bytes
         cdef vector[unsigned char] model_pbuf_vec
         with cython.boundscheck(False):
             model_pbuf_vec.assign(& model_pbuf_mv[0],
                                   & model_pbuf_mv[model_pbuf_mv.shape[0]])
-
+        print(" enter the c++ func to build treelite model")
         task_category = REGRESSION_MODEL
         build_treelite_forest(
             & cuml_model_ptr,
@@ -414,6 +417,7 @@ class RandomForestRegressor(Base):
             model_pbuf_vec)
         mod_ptr = <uintptr_t> cuml_model_ptr
         self.treelite_handle = ctypes.c_void_p(mod_ptr).value
+        print(" self.treelite_handle at end of obt : ", self.treelite_handle)
         return self.treelite_handle
 
     def _get_protobuf_bytes(self):
@@ -446,6 +450,7 @@ class RandomForestRegressor(Base):
         cdef unsigned char[::1] pbuf_mod_view = \
             <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
         self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+        print(" len of model bytes in cython : ", len(self.model_pbuf_bytes))
         return self.model_pbuf_bytes
 
     def convert_to_treelite_model(self):
@@ -623,7 +628,8 @@ class RandomForestRegressor(Base):
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
             new RandomForestMetaData[double, double]()
         self.rf_forest64 = <uintptr_t> rf_forest64
-
+        print(" self.rf_forest before fit : ", self.rf_forest)
+        print(" self.rf_forest64 before fit : ", self.rf_forest64)
         if self.seed is None:
             seed_val = <uintptr_t>NULL
         else:
@@ -670,6 +676,8 @@ class RandomForestRegressor(Base):
         self.handle.sync()
         del(X_m)
         del(y_m)
+        print(" self.rf_forest after fit : ", self.rf_forest)
+        print(" self.rf_forest64 after fit : ", self.rf_forest64)
         return self
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
@@ -757,7 +765,7 @@ class RandomForestRegressor(Base):
         return preds.to_output(out_type)
 
     def predict(self, X, predict_model="GPU",
-                algo='auto', convert_dtype=True,
+                algo='auto', convert_dtype=False,
                 fil_sparse_format='auto'):
         """
         Predicts the labels for X.
@@ -783,7 +791,7 @@ class RandomForestRegressor(Base):
             `auto` - choose the algorithm automatically. Currently
             'batch_tree_reorg' is used for dense storage
             and 'naive' for sparse storage
-        convert_dtype : bool, optional (default = True)
+        convert_dtype : bool, optional (default = False)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.

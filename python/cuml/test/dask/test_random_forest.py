@@ -108,9 +108,11 @@ def test_rf_classification_dask_cudf(partitions_per_worker, cluster):
         c.close()
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('convert_dtype', [True, False])
 @pytest.mark.parametrize('partitions_per_worker', [5])
 def test_rf_regression_dask_fil(partitions_per_worker,
-                                datatype, cluster):
+                                datatype,
+                                convert_dtype, cluster):
 
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
     c = Client(cluster)
@@ -127,7 +129,7 @@ def test_rf_regression_dask_fil(partitions_per_worker,
                                                             test_size=1000,
                                                             random_state=123)
 
-        if datatype == np.float64:
+        if datatype == np.float64 and not convert_dtype:
             pytest.xfail(reason=" Dask RF does not support float64 data")
 
         cu_rf_params = {
@@ -154,10 +156,11 @@ def test_rf_regression_dask_fil(partitions_per_worker,
             c, [X_train_df, y_train_df], workers=workers)
 
         cuml_mod = cuRFR_mg(**cu_rf_params)
-        cuml_mod.fit(X_train_df, y_train_df)
+        cuml_mod.fit(X_train_df, y_train_df, convert_dtype=convert_dtype)
 
-        cuml_mod_predict = cuml_mod.predict(X_test_df).compute()
-        cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict))
+        cuml_mod_predict = cuml_mod.predict(X_test_df,
+                                            convert_dtype=convert_dtype)
+        cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict.compute()))
 
         acc_score = r2_score(cuml_mod_predict, y_test)
 
