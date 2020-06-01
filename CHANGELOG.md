@@ -182,6 +182,7 @@
 - PR #2293: Contiguity fixes for input_to_cuml_array and train_test_split
 - PR #2295: Fix convert_to_dtype copy even with same dtype
 - PR #2305: Fixed race condition in DBScan
+- PR #2354: Fix broken links in README
 
 # cuML 0.13.0 (Date TBD)
 
