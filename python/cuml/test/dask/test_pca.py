@@ -20,6 +20,7 @@ import numpy as np
 import cupy as cp
 
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
+from cuml.test.utils import array_equal
 
 
 @pytest.mark.mg
@@ -63,8 +64,6 @@ def test_pca_fit(nrows, ncols, n_parts, input_type, cluster):
         skpca = PCA(n_components=5, whiten=True, svd_solver="full")
         skpca.fit(X_cpu)
 
-        from cuml.test.utils import array_equal
-
         all_attr = ['singular_values_', 'components_',
                     'explained_variance_', 'explained_variance_ratio_']
 
@@ -75,6 +74,67 @@ def test_pca_fit(nrows, ncols, n_parts, input_type, cluster):
                 cuml_res = cuml_res.as_matrix()
             skl_res = getattr(skpca, attr)
             assert array_equal(cuml_res, skl_res, 1e-1, with_sign=with_sign)
+    finally:
+        client.close()
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("nrows", [1000])
+@pytest.mark.parametrize("ncols", [20])
+@pytest.mark.parametrize("n_parts", [5])
+@pytest.mark.parametrize("input_type", ["dataframe", "array"])
+def test_pca_tsqr(nrows, ncols, n_parts, input_type, cluster):
+
+    client = Client(cluster)
+
+    try:
+
+        from cuml.dask.decomposition import PCA as daskPCA
+        from sklearn.decomposition import PCA
+
+        from cuml.dask.datasets import make_blobs
+
+        X, _ = make_blobs(n_samples=nrows,
+                          n_features=ncols,
+                          centers=1,
+                          n_parts=n_parts,
+                          cluster_std=0.5,
+                          random_state=10, dtype=np.float32)
+
+        wait(X)
+        if input_type == "dataframe":
+            X_train = to_dask_cudf(X)
+        elif input_type == "array":
+            X_train = X
+
+        print(X_train.shape)
+        print(X_train.compute().shape)
+
+        try:
+
+            cupca = daskPCA(n_components=5, whiten=True, svd_solver="tsqr")
+            cupca.fit(X_train)
+
+            X_trans = cupca.transform(X_train)
+            X_inv = cupca.inverse_transform(X_trans)
+
+            if input_type == "array":
+                local_X_train = X_train.compute()
+                local_X_inv = X_inv.compute()
+            elif input_type == "dataframe":
+                local_X_train = cp.array(X_train.compute().as_gpu_matrix())
+                local_X_inv = cp.array(X_inv.compute().as_gpu_matrix())
+
+            X_train_cov = cp.cov(local_X_train)
+            X_inv_cov = cp.cov(local_X_inv)
+            print(X_train_cov)
+            print(X_inv_cov)
+
+            assert array_equal(X_train_cov, X_inv_cov, 1e-1, with_sign=True)
+
+        except Exception as e:
+            print(str(e))
+
     finally:
         client.close()
 
