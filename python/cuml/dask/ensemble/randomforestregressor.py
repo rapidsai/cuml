@@ -198,7 +198,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         return self
 
     def predict(self, X, predict_model="GPU", algo='auto',
-                convert_dtype=True, fil_sparse_format='auto',
+                convert_dtype=False, fil_sparse_format='auto',
                 delayed=True):
         """
         Predicts the regressor outputs for X.
@@ -240,7 +240,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             `algo` - choose the algorithm automatically. Currently
             'batch_tree_reorg' is used for dense storage
             and 'naive' for sparse storage
-        convert_dtype : bool, optional (default = True)
+        convert_dtype : bool, optional (default = False)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.

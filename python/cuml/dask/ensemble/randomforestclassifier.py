@@ -200,7 +200,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             memory used for the method.
 
         """
-        self.num_classes = len(y.unique())
         self.local_model = None
         self._fit(model=self.rfs,
                   dataset=(X, y),
@@ -208,7 +207,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         return self
 
     def predict(self, X, output_class=True, algo='auto', threshold=0.5,
-                convert_dtype=True, predict_model="GPU",
+                convert_dtype=False, predict_model="GPU",
                 fil_sparse_format='auto', delayed=True):
         """
         Predicts the labels for X.
@@ -289,7 +288,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
 
         """
-        if self.num_classes > 2 or predict_model == "CPU":
+        if predict_model == "CPU" or self.num_classes > 2:
             preds = self.predict_model_on_cpu(X,
                                               convert_dtype=convert_dtype)
 
@@ -298,7 +297,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                 self.predict_using_fil(X, output_class=output_class,
                                        algo=algo,
                                        threshold=threshold,
-                                       num_classes=self.num_classes,
                                        convert_dtype=convert_dtype,
                                        predict_model="GPU",
                                        fil_sparse_format=fil_sparse_format,
