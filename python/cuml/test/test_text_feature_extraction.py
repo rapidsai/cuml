@@ -238,9 +238,10 @@ def test_empty_doc_after_limit_features():
     data_gpu = Series(data)
     count = CountVectorizer(min_df=2).fit_transform(data_gpu)
     ref = SkCountVect(min_df=2).fit_transform(data)
-    print(count.todense())
-    print(ref.toarray())
     cp.testing.assert_array_equal(count.todense(), ref.toarray())
 
 
-# TODO: add tests for .transform
+def test_countvectorizer_separate_fit_transform():
+    res = CountVectorizer().fit(DOCS_GPU).transform(DOCS_GPU)
+    ref = SkCountVect().fit(DOCS).transform(DOCS)
+    cp.testing.assert_array_equal(res.todense(), ref.toarray())
