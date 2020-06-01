@@ -208,7 +208,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         return self
 
     def predict(self, X, output_class=True, algo='auto', threshold=0.5,
-                convert_dtype=False, predict_model="GPU",
+                convert_dtype=True, predict_model="GPU",
                 fil_sparse_format='auto', delayed=True):
         """
         Predicts the labels for X.
@@ -262,7 +262,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             while performing the predict operation on the GPU, that is for,
             predict_model='GPU'.
             It is applied if output_class == True, else it is ignored
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
