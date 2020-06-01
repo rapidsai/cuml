@@ -757,6 +757,8 @@ class RandomForestClassifier(Base):
         return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):
+        print("inside the predict cpu function ")
+        print(" self.dtype : ", self.dtype)
         out_type = self._get_output_type(X)
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
@@ -765,7 +767,6 @@ class RandomForestClassifier(Base):
                                                   else None),
                                 check_cols=self.n_cols)
         X_ptr = X_m.ptr
-
         preds = CumlArray.zeros(n_rows, dtype=np.int32)
         cdef uintptr_t preds_ptr = preds.ptr
 
@@ -807,7 +808,7 @@ class RandomForestClassifier(Base):
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
                 algo='auto',
-                num_classes=2, convert_dtype=False,
+                num_classes=2, convert_dtype=True,
                 fil_sparse_format='auto'):
         """
         Predicts the labels for X.
@@ -847,7 +848,7 @@ class RandomForestClassifier(Base):
         num_classes : int (default = 2)
             number of different classes present in the dataset. This varaible
             will be depricated in 0.16
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
@@ -871,7 +872,8 @@ class RandomForestClassifier(Base):
                 warnings.warn("Switching over to use the CPU predict since "
                               "the GPU predict currently cannot perform "
                               "multi-class classification.")
-            preds = self._predict_model_on_cpu(X, convert_dtype)
+            preds = self._predict_model_on_cpu(X,
+                                               convert_dtype=convert_dtype)
 
         elif self.dtype == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \

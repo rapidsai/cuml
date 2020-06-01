@@ -754,7 +754,7 @@ class RandomForestRegressor(Base):
         return preds.to_output(out_type)
 
     def predict(self, X, predict_model="GPU",
-                algo='auto', convert_dtype=False,
+                algo='auto', convert_dtype=True,
                 fil_sparse_format='auto'):
         """
         Predicts the labels for X.
@@ -780,7 +780,7 @@ class RandomForestRegressor(Base):
             `auto` - choose the algorithm automatically. Currently
             'batch_tree_reorg' is used for dense storage
             and 'naive' for sparse storage
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
