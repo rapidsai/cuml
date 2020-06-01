@@ -20,17 +20,40 @@ from cuml.feature_extraction.tfidf import TfidfTransformer
 from sklearn.feature_extraction.text import TfidfTransformer as SkTfidfTransfo
 
 
-@pytest.mark.parametrize('norm', ['l1', 'l2'])
-@pytest.mark.parametrize('use_idf', [True, False])
-@pytest.mark.parametrize('smooth_idf', [True, False])
-@pytest.mark.parametrize('sublinear_tf', [True, False])
-def test_tfidf_transformer(norm, use_idf, smooth_idf, sublinear_tf):
-    data = np.array([
+# DATAS_IDS correspond to DATAS, order is important
+DATAS_IDS = ['base_case', 'diag', 'empty_feature', '123', 'empty_doc']
+DATAS = [
+    np.array([
         [0, 1, 1, 1, 0, 0, 1, 0, 1],
         [0, 2, 0, 1, 0, 1, 1, 0, 1],
         [1, 0, 0, 1, 1, 0, 1, 1, 1],
         [0, 1, 1, 1, 0, 0, 1, 0, 1]
-    ])
+    ]),
+    np.array([
+        [1, 1, 1],
+        [1, 1, 0],
+        [1, 0, 0]
+    ]),
+    np.array([
+        [1, 1, 0],
+        [1, 1, 0],
+        [1, 0, 0]
+    ]),
+    np.array([[1], [2], [3]]),
+    np.array([
+        [1, 1, 1],
+        [1, 1, 0],
+        [0, 0, 0]
+    ]),
+]
+
+
+@pytest.mark.parametrize('data', DATAS, ids=DATAS_IDS)
+@pytest.mark.parametrize('norm', ['l1', 'l2'])
+@pytest.mark.parametrize('use_idf', [True, False])
+@pytest.mark.parametrize('smooth_idf', [True, False])
+@pytest.mark.parametrize('sublinear_tf', [True, False])
+def test_tfidf_transformer(data, norm, use_idf, smooth_idf, sublinear_tf):
     data_gpu = cp.array(data)
 
     tfidf = TfidfTransformer(norm=norm, use_idf=use_idf,
