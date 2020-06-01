@@ -573,8 +573,8 @@ class RandomForestRegressor(Base):
             These labels should be contiguous integers from 0 to n_classes.
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This will increase
-            memory used for the method.
+            X and y to be of the data type specified in `convert_to_dtype`.
+            This will increase memory used for the method.
         convert_to_dtype : dtype (default=np.float32)
             The training data is converted to the dtype specified here if
             `convert_dtype` is True. If `convert_dtype` is False then the
