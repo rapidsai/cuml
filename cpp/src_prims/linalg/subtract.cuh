@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <cuda_utils.cuh>
 #include "binary_op.cuh"
-#include "cuda_utils.cuh"
 #include "unary_op.cuh"
 
 namespace MLCommon {
