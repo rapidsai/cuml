@@ -1,3 +1,15 @@
+# cuML 0.15.0 (Date TBD)
+
+## New Features
+
+## Improvements
+- PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
+
+- PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
+- PR #1945: enable clang tidy
+
+## Bug Fixes
+
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
@@ -99,6 +111,7 @@
 - PR #2257: Update QN and LogisticRegression to use CumlArray
 - PR #2259: Add CumlArray support to Naive Bayes
 - PR #2252: Add benchmark for the Gram matrix prims
+- PR #2264: Reduce build time for cuML by using make_blobs from libcuml++ interface
 - PR #2269: Add docs targets to build.sh and fix python cuml.common docs
 - PR #2271: Clarify doc for `_unique` default implementation in OneHotEncoder
 - PR #2272: Add docs build.sh script to repository
