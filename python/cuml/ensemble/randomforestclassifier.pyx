@@ -845,7 +845,8 @@ class RandomForestClassifier(Base):
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = 2)
-            number of different classes present in the dataset
+            number of different classes present in the dataset. This varaible
+            will be depricated in 0.16
         convert_dtype : bool, optional (default = False)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
