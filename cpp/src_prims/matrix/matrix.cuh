@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@
 
 #include <common/cudart_utils.h>
 #include <cuda_runtime.h>
+#include <cusolverDn.h>
+#include <linalg/cublas_wrappers.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <algorithm>
 #include <cstddef>
-#include "../linalg/cublas_wrappers.h"
-#include "cuda_utils.cuh"
-#include "cusolverDn.h"
+#include <cuda_utils.cuh>
 
 namespace MLCommon {
 namespace Matrix {
