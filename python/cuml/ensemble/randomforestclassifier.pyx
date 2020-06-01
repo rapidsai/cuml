@@ -466,6 +466,7 @@ class RandomForestClassifier(Base):
         cdef unsigned char[::1] pbuf_mod_view = \
             <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
         self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+
         return self.model_pbuf_bytes
 
     def convert_to_treelite_model(self):
@@ -806,7 +807,7 @@ class RandomForestClassifier(Base):
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
                 algo='auto',
-                num_classes=2, convert_dtype=True,
+                num_classes=2, convert_dtype=False,
                 fil_sparse_format='auto'):
         """
         Predicts the labels for X.
@@ -845,7 +846,7 @@ class RandomForestClassifier(Base):
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = 2)
             number of different classes present in the dataset
-        convert_dtype : bool, optional (default = True)
+        convert_dtype : bool, optional (default = False)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.

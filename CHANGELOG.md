@@ -4,12 +4,11 @@
 
 ## Improvements
 - PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
-
 - PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
 - PR #1945: enable clang tidy
+- PR #2099: Raise an error or convert dtype when float64 data is used with dask RF
 
 ## Bug Fixes
-
 # cuML 0.14.0 (Date TBD)
 
 ## New Features

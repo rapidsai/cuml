@@ -200,6 +200,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             memory used for the method.
 
         """
+
         self.local_model = None
         self._fit(model=self.rfs,
                   dataset=(X, y),
@@ -261,7 +262,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             while performing the predict operation on the GPU, that is for,
             predict_model='GPU'.
             It is applied if output_class == True, else it is ignored
-        convert_dtype : bool, optional (default = True)
+        convert_dtype : bool, optional (default = False)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
