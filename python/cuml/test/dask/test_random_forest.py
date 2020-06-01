@@ -107,6 +107,7 @@ def test_rf_classification_dask_cudf(partitions_per_worker, cluster):
     finally:
         c.close()
 
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('convert_dtype', [True, False])
 @pytest.mark.parametrize('partitions_per_worker', [5])
