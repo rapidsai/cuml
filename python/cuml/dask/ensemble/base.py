@@ -1,9 +1,25 @@
+# Copyright (c) 2020, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import dask
 import math
 
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
+from cuml.fil.fil import TreeliteModel
 
 
 class BaseRandomForestModel(object):
@@ -103,8 +119,10 @@ class BaseRandomForestModel(object):
         all_tl_mod_handles = [model._tl_model_handles(pbuf_bytes)
                               for pbuf_bytes in mod_bytes]
 
-        model._concatenate_treelite_handle(
-            treelite_handle=all_tl_mod_handles)
+        model._concatenate_treelite_handle(all_tl_mod_handles)
+        for tl_handle in all_tl_mod_handles:
+            TreeliteModel.free_treelite_model(tl_handle)
+
         return model
 
     def _predict_using_fil(self, X, delayed, **kwargs):
