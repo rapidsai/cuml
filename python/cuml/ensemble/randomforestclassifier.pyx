@@ -757,8 +757,6 @@ class RandomForestClassifier(Base):
         return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):
-        print("inside the predict cpu function ")
-        print(" self.dtype : ", self.dtype)
         out_type = self._get_output_type(X)
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
