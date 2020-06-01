@@ -531,7 +531,7 @@ class CountVectorizer(_VectorizerMixin):
         """
         docs = self._preprocess(raw_documents)
         n_doc = len(docs)
-        tokenized_df, empty_doc_ids = self._create_tokenized_df(docs)
+        tokenized_df = self._create_tokenized_df(docs)
         count_df = self._count_vocab(tokenized_df)
         empty_doc_ids = self._compute_empty_doc_ids(count_df, n_doc)
         X = self._create_csr_matrix_from_count_df(count_df, empty_doc_ids)
