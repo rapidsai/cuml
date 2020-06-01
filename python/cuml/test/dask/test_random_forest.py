@@ -103,7 +103,7 @@ def test_rf_classification_dask_cudf(partitions_per_worker, client):
 @pytest.mark.parametrize('partitions_per_worker', [5])
 def test_rf_regression_dask_fil(partitions_per_worker,
                                 datatype,
-                                convert_dtype, cluster):
+                                convert_dtype, client):
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
     X, y = make_regression(n_samples=10000, n_features=20,
                            n_informative=10, random_state=123)
