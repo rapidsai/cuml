@@ -299,7 +299,7 @@ class PCA(Base):
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
             'full': Solver.COV_EIG_DQ,
-            'auto': Solver.COV_EIG_JACOBI,
+            'auto': Solver.COV_EIG_DQ,
             # 'arpack': NOT_SUPPORTED,
             # 'randomized': NOT_SUPPORTED,
             'jacobi': Solver.COV_EIG_JACOBI
