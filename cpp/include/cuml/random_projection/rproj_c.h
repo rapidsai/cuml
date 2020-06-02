@@ -16,8 +16,11 @@
 
 #pragma once
 #include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 
 namespace ML {
+
+  using namespace MLCommon;
 
 /**
      * @defgroup paramsRPROJ: structure holding parameters used by random projection model
@@ -54,15 +57,26 @@ struct rand_mat {
   ~rand_mat() { this->reset(); }
 
   // For dense matrices
-  math_t *dense_data;
+  device_buffer<math_t> *dense_data;
 
   // For sparse CSC matrices
-  int *indices;
-  int *indptr;
-  math_t *sparse_data;
+  device_buffer<int> *indices;
+  device_buffer<int> *indptr;
+  device_buffer<math_t> *sparse_data;
   size_t sparse_data_size;
 
-  void reset();
+  void reset() {
+    if (this->dense_data) delete this->dense_data;
+    if (this->indices) delete this->indices;
+    if (this->indptr) delete this->indptr;
+    if (this->sparse_data) delete this->sparse_data;
+
+    this->dense_data = nullptr;
+    this->indices = nullptr;
+    this->indptr = nullptr;
+    this->sparse_data = nullptr;
+    this->sparse_data_size = 0;
+  };
 };
 
 template <typename math_t>
