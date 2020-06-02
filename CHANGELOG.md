@@ -1,4 +1,4 @@
-# cuML 0.14.0 (Date TBD)
+# cuML 0.14.0 (03 Jun 2020)
 
 ## New Features
 - PR #1994: Support for distributed OneHotEncoder
