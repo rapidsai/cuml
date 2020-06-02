@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include <cuda_utils.h>
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 #include <common/allocatorAdapter.hpp>
 #include <common/cumlHandle.hpp>
+#include <cuda_utils.cuh>
 #include "../common.cuh"
 #include "pack.h"
 
-#include "sparse/csr.h"
+#include <sparse/csr.cuh>
 
 using namespace thrust;
 
@@ -40,8 +40,8 @@ static const int TPB_X = 256;
  * Takes vertex degree array (vd) and CSR row_ind array (ex_scan) to produce the
  * CSR row_ind_ptr array (adj_graph) and filters into a core_pts array based on min_pts.
  */
-template <typename Type, typename Index_ = int>
-void launcher(const ML::cumlHandle_impl &handle, Pack<Type, Index_> data,
+template <typename Index_ = int>
+void launcher(const ML::cumlHandle_impl &handle, Pack<Index_> data,
               Index_ batchSize, cudaStream_t stream) {
   device_ptr<Index_> dev_vd = device_pointer_cast(data.vd);
   device_ptr<Index_> dev_ex_scan = device_pointer_cast(data.ex_scan);

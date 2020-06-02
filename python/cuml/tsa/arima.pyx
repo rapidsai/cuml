@@ -33,22 +33,13 @@ from cuml.common.base import Base
 from cuml.common.cuda import nvtx_range_wrap
 from cuml.common.handle cimport cumlHandle
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
+import cuml.common.logger as logger
 from cuml.common import has_scipy
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import input_to_host_array
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
-    ctypedef struct ARIMAOrder:
-        int p  # Basic order
-        int d
-        int q
-        int P  # Seasonal order
-        int D
-        int Q
-        int s  # Seasonal period
-        int k  # Fit intercept?
-
     cdef cppclass ARIMAParams[DataT]:
         DataT* mu
         DataT* ar
@@ -150,10 +141,10 @@ class ARIMA(Base):
         The seasonal ARIMA order (P, D, Q, s) of the model
     fit_intercept : bool or int
         Whether to include a constant trend mu in the model (default: True)
-    handle: cuml.Handle
+    handle : cuml.Handle
         If it is None, a new one is created just for this instance
-    verbose: int (optional, default 0)
-        Controls verbosity level of logging.
+    verbose : int or boolean (default = False)
+        Controls verbose level of logging.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes of
         the estimators. If None, it'll inherit the output type set at the
@@ -208,7 +199,7 @@ class ARIMA(Base):
                  = (0, 0, 0, 0),
                  fit_intercept=True,
                  handle=None,
-                 verbose=0,
+                 verbose=False,
                  output_type=None):
 
         if not has_scipy():
@@ -421,9 +412,9 @@ class ARIMA(Base):
         elif end <= start:
             raise ValueError("ERROR(`predict`): end <= start")
         elif start < order.d + order.D * order.s:
-            print("WARNING(`predict`): predictions before {} are undefined,"
-                  " will be set to NaN".format(order.d + order.D * order.s),
-                  file=sys.stderr)
+            logger.warn("WARNING(`predict`): predictions before {} are"
+                        " undefined, will be set to NaN"
+                        .format(order.d + order.D * order.s))
 
         if end is None:
             end = self.n_obs
@@ -638,8 +629,8 @@ class ARIMA(Base):
 
         # Handle non-zero flags with Warning
         if (flags != 0).any():
-            print("WARNING(`fit`): Some batch members had optimizer problems.",
-                  file=sys.stderr)
+            logger.warn("WARNING(`fit`): Some batch members had optimizer"
+                        " problems.")
 
         self.unpack(self._batched_transform(x))
         self.niter = niter

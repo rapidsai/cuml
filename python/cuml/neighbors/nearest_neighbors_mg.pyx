@@ -36,6 +36,7 @@ from cython.operator cimport dereference as deref
 
 from cuml.common.handle cimport cumlHandle
 from cuml.common.opg_data_utils_mg import _build_part_inputs
+import cuml.common.logger as logger
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -231,6 +232,7 @@ class NearestNeighborsMG(NearestNeighbors):
             out_d_vec.push_back(new floatData_t(
                 <float*>d_ptr, n_rows * n_neighbors))
 
+        is_verbose = logger.should_log_for(logger.level_debug)
         brute_force_knn(
             handle_[0],
             deref(out_i_vec),
@@ -243,7 +245,7 @@ class NearestNeighborsMG(NearestNeighbors):
             False,  # column-major query
             n_neighbors,
             <size_t>self.batch_size,
-            <bool>self.verbose
+            <bool>is_verbose
         )
 
         self.handle.sync()

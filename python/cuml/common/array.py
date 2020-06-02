@@ -16,7 +16,6 @@
 
 import cupy as cp
 import numpy as np
-import pickle
 
 from rmm import DeviceBuffer
 from cudf.core import Buffer, Series, DataFrame
@@ -45,7 +44,7 @@ class CumlArray(Buffer):
     Parameters
     ----------
 
-    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearrar or
+    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearray or
            memoryview
         An array-like object or integer representing a
         device or host pointer to pre-allocated memory.
@@ -118,6 +117,8 @@ class CumlArray(Buffer):
                             " Array.empty().")
         elif isinstance(data, memoryview):
             data = np.asarray(data)
+        if dtype is not None:
+            dtype = np.dtype(dtype)
 
         if _check_low_level_type(data):
             if dtype is None or shape is None or order is None:
@@ -139,7 +140,7 @@ class CumlArray(Buffer):
         # Post processing of meta data
         if detailed_construction:
             self.shape = shape
-            self.dtype = np.dtype(dtype)
+            self.dtype = dtype
             self.order = order
             self.strides = _order_to_strides(order, shape, dtype)
 
@@ -168,12 +169,6 @@ class CumlArray(Buffer):
 
     def __setitem__(self, slice, value):
         cp.asarray(self).__setitem__(slice, value)
-
-    def __reduce_ex__(self, protocol):
-        data = self.to_output('numpy')
-        if protocol >= 5:
-            data = pickle.PickleBuffer(data)
-        return self.__class__, (data,)
 
     def __len__(self):
         return self.shape[0]

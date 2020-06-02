@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <cuda_utils.h>
 #include <common/cumlHandle.hpp>
+#include <cuda_utils.cuh>
 #include <cuml/cuml.hpp>
 
-#include <random/rng.h>
+#include <random/rng.cuh>
 
 namespace ML {
 namespace Bench {
