@@ -19,49 +19,36 @@ from cuml.dask.cluster import KMeans
 from cuml.dask.naive_bayes.naive_bayes import MultinomialNB
 from cuml.test.dask.utils import load_text_corpus
 
-from dask.distributed import Client
-from dask.distributed import wait
-
 from cuml.dask.datasets import make_blobs
 
 
-def test_getattr(cluster):
+def test_getattr(client):
 
-    client = Client(cluster)
+    # Test getattr on local param
+    kmeans_model = KMeans(client=client)
 
-    try:
-        # Test getattr on local param
-        kmeans_model = KMeans(client=client)
+    assert kmeans_model.client is not None
 
-        assert kmeans_model.client is not None
+    # Test getattr on local_model param with a non-distributed model
 
-        # Test getattr on local_model param with a non-distributed model
+    X, y = make_blobs(n_samples=5,
+                      n_features=5,
+                      centers=2,
+                      n_parts=2,
+                      cluster_std=0.01,
+                      random_state=10)
 
-        X, y = make_blobs(n_samples=5,
-                          n_features=5,
-                          centers=2,
-                          n_parts=2,
-                          cluster_std=0.01,
-                          random_state=10)
+    kmeans_model.fit(X)
 
-        wait(X)
+    assert kmeans_model.cluster_centers_ is not None
+    assert isinstance(kmeans_model.cluster_centers_, cupy.core.ndarray)
 
-        kmeans_model.fit(X)
+    # Test getattr on trained distributed model
 
-        assert kmeans_model.cluster_centers_ is not None
-        assert isinstance(kmeans_model.cluster_centers_, cupy.core.ndarray)
+    X, y = load_text_corpus(client)
 
-        # Test getattr on trained distributed model
+    nb_model = MultinomialNB(client=client)
+    nb_model.fit(X, y)
 
-        X, y = load_text_corpus(client)
-
-        print(str(X.compute()))
-
-        nb_model = MultinomialNB(client=client)
-        nb_model.fit(X, y)
-
-        assert nb_model.feature_count_ is not None
-        assert isinstance(nb_model.feature_count_, cupy.core.ndarray)
-
-    finally:
-        client.close()
+    assert nb_model.feature_count_ is not None
+    assert isinstance(nb_model.feature_count_, cupy.core.ndarray)
