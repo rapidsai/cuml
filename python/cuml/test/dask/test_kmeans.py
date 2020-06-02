@@ -25,8 +25,6 @@ from sklearn.metrics import adjusted_rand_score as sk_adjusted_rand_score
 
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 
-SCORE_EPS = 0.06
-
 
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [unit_param(1e3), quality_param(1e5),
@@ -68,7 +66,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
     n_workers = len(list(client.has_what().keys()))
 
     # Verifying we are grouping partitions. This should be changed soon.
-    if n_parts is not None and n_parts < n_workers:
+    if n_parts is not None:
         parts_len = n_parts
     else:
         parts_len = n_workers
@@ -161,8 +159,10 @@ def test_transform(nrows, ncols, nclusters, n_parts, input_type, client):
                                        stress_param(50)])
 @pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
                                      stress_param(50)])
+@pytest.mark.parametrize("SCORE_EPS", [unit_param(0.06), stress_param(0.06)])
 @pytest.mark.parametrize("input_type", ["dataframe", "array"])
-def test_score(nrows, ncols, nclusters, n_parts, input_type, client):
+def test_score(nrows, ncols, nclusters, n_parts,
+               input_type, SCORE_EPS, client):
 
     from cuml.dask.cluster import KMeans as cumlKMeans
 
