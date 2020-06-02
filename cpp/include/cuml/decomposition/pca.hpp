@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuml/cuml.hpp>
-#include "cuml/decomposition/params.hpp"
+#include "params.hpp"
 
 namespace ML {
 
