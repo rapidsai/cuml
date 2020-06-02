@@ -4,10 +4,13 @@
 -PR #2289: QR SVD solver for MNMG PCA
 
 ## Improvements
+- PR #2336: Eliminate `rmm.device_array` usage
 - PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
-
+- PR #2308: Using fixture for Dask client to eliminate possiblity of not closing
 - PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
 - PR #1945: enable clang tidy
+- PR #2345: make C++ logger level definition to be the same as python layer
+- PR #2329: Add short commit hash to conda package name
 
 ## Bug Fixes
 
@@ -104,6 +107,7 @@
 - PR #2210: Updating KNN tests to evaluate multiple index partitions
 - PR #2205: Use timeout to add 2 hour hard limit to dask tests
 - PR #2212: Improve DBScan batch count / memory estimation
+- PR #2213: Standardized include statements across all cpp source files, updated copyright on all modified files
 - PR #2214: Remove utils folder and refactor to common folder
 - PR #2220: Final refactoring of all src_prims header files following rules as specified in #1675
 - PR #2225: input_to_cuml_array keep order option, test updates and cleanup
@@ -179,6 +183,7 @@
 - PR #2293: Contiguity fixes for input_to_cuml_array and train_test_split
 - PR #2295: Fix convert_to_dtype copy even with same dtype
 - PR #2305: Fixed race condition in DBScan
+- PR #2354: Fix broken links in README
 
 # cuML 0.13.0 (Date TBD)
 
