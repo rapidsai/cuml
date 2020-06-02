@@ -315,7 +315,6 @@ class RandomForestClassifier(Base):
     """
     def __getstate__(self):
         state = self.__dict__.copy()
-        del state['handle']
         cdef size_t params_t
         cdef  RandomForestMetaData[float, int] *rf_forest
         cdef  RandomForestMetaData[double, int] *rf_forest64
@@ -339,12 +338,13 @@ class RandomForestClassifier(Base):
         state["verbose"] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
         state["treelite_handle"] = None
+        state['handle'] = self.handle
 
         return state
 
     def __setstate__(self, state):
         super(RandomForestClassifier, self).__init__(
-            handle=None, verbose=state['verbose'])
+            handle=state['handle'], verbose=state['verbose'])
         cdef  RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \
@@ -1160,7 +1160,6 @@ class RandomForestClassifier(Base):
         -----------
         params : dict of new params
         """
-        self.handle = Handle(self.n_streams)
         self.model_pbuf_bytes = []
 
         if not params:
