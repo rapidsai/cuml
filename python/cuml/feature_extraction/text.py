@@ -48,8 +48,6 @@ def _preprocess(doc, lower=False, remove_punctuation=False, delimiter=' '):
     if remove_punctuation:
         punctuation_list = Series(list(punctuation))._column.nvstrings
         doc = doc.replace_multi(punctuation_list, delimiter, regex=False)
-    doc = nvtext.normalize_spaces(doc)
-    doc = doc.strip()
     return doc
 
 
@@ -126,6 +124,10 @@ class _VectorizerMixin:
             ngram_sr = Series(
                 nvtext.character_tokenize(str_series._column.nvstrings)
             )
+
+        not_empty_docs = token_count_sr > 0
+        token_count_sr = token_count_sr[not_empty_docs]
+        doc_id_sr = doc_id_sr[not_empty_docs]
 
         # for ngram we have `x-(n-1)`  grams per doc
         # where x = total number of tokens in the doc
@@ -238,24 +240,22 @@ class _VectorizerMixin:
 
 def _document_frequency(X):
     """Count the number of non-zero values for each feature in X."""
-    doc_freq = cp.asarray(
+    doc_freq = (
         X[["token", "doc_id"]]
         .groupby(["token"])
         .count()
-        .as_gpu_matrix()
-    ).ravel()
-    return doc_freq
+    )
+    return doc_freq["doc_id"].values
 
 
 def _term_frequency(X):
     """Count the number of occurrences of each term in X."""
-    term_freq = cp.asarray(
+    term_freq = (
         X[["token", "count"]]
         .groupby(["token"])
         .sum()
-        .as_gpu_matrix()
-    ).ravel()
-    return term_freq
+    )
+    return term_freq["count"].values
 
 
 class CountVectorizer(_VectorizerMixin):
@@ -373,6 +373,7 @@ class CountVectorizer(_VectorizerMixin):
     def _count_vocab(self, tokenized_df):
         """Count occurrences of tokens in each document."""
         # Transform string tokens into token indexes from 0 to len(vocab)
+        # The indexes are based on lexicographical ordering.
         tokenized_df['token'] = tokenized_df['token'].astype('category')
         tokenized_df['token'] = tokenized_df['token'].cat.set_categories(
             self.vocabulary_

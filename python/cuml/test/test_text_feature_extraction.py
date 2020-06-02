@@ -52,7 +52,9 @@ NOTJUNK_FOOD_DOCS = (
     "the tomato salad water copyright",
 )
 
-DOCS = JUNK_FOOD_DOCS + NOTJUNK_FOOD_DOCS
+EMPTY_DOCS = ("",)
+
+DOCS = JUNK_FOOD_DOCS + EMPTY_DOCS + NOTJUNK_FOOD_DOCS + EMPTY_DOCS
 DOCS_GPU = Series(DOCS)
 
 NGRAM_RANGES = [(1, 1), (1, 2), (2, 3)]
@@ -217,8 +219,10 @@ def test_vectorizer_inverse_transform():
     sk_inversed_data = sk_vectorizer.inverse_transform(sk_transformed_data)
 
     for doc, sk_doc in zip(inversed_data, sk_inversed_data):
-        doc = np.sort(doc._column.nvstrings.to_host())
+        doc = np.sort(doc.tolist())
         sk_doc = np.sort(sk_doc)
+        if len(doc) + len(sk_doc) == 0:
+            continue
         assert_array_equal(doc, sk_doc)
 
 
