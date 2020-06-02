@@ -233,8 +233,6 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     :param worker_info: dict Maps worker address to rank & UCX port
     :param r: float a random number to stop the function from being cached
     """
-    dask_worker = get_worker()
-    local_address = dask_worker.address
 
     eps = [None] * len(worker_info)
     count = 1
