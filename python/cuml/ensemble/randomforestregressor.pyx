@@ -291,7 +291,6 @@ class RandomForestRegressor(Base):
         self.rf_forest = None
         self.rf_forest64 = None
         self.model_pbuf_bytes = bytearray()
-        del handle
 
     """
     TODO:
