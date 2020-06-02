@@ -240,14 +240,13 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     count = 1
 
     for k in worker_info:
-        if str(k) != str(local_address):
 
-            ip, port = parse_host_port(k)
+        ip, port = parse_host_port(k)
 
-            ep = await get_ucx().get_endpoint(ip, worker_info[k]["port"])
+        ep = await get_ucx().get_endpoint(ip, worker_info[k]["port"])
 
-            eps[worker_info[k]["rank"]] = ep
-            count += 1
+        eps[worker_info[k]["rank"]] = ep
+        count += 1
 
     worker_state(sessionId)["ucp_eps"] = eps
 

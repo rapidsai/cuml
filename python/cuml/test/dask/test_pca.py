@@ -20,7 +20,6 @@ import numpy as np
 import cupy as cp
 
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
-from cuml.test.utils import array_equal
 
 
 @pytest.mark.mg
@@ -56,13 +55,15 @@ def test_pca_fit(nrows, ncols, n_parts, input_type, cluster):
 
         try:
 
-            cupca = daskPCA(n_components=5, whiten=True)
+            cupca = daskPCA(n_components=5)
             cupca.fit(X_train)
         except Exception as e:
             print(str(e))
 
-        skpca = PCA(n_components=5, whiten=True, svd_solver="full")
+        skpca = PCA(n_components=5, svd_solver="full")
         skpca.fit(X_cpu)
+
+        from cuml.test.utils import array_equal
 
         all_attr = ['singular_values_', 'components_',
                     'explained_variance_', 'explained_variance_ratio_']
@@ -83,9 +84,9 @@ def test_pca_fit(nrows, ncols, n_parts, input_type, cluster):
 @pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [5])
 @pytest.mark.parametrize("input_type", ["dataframe", "array"])
-def test_pca_tsqr(nrows, ncols, n_parts, input_type, cluster):
+def test_pca_tsqr(nrows, ncols, n_parts, input_type, ucx_cluster):
 
-    client = Client(cluster)
+    client = Client(ucx_cluster)
 
     try:
 
@@ -104,37 +105,32 @@ def test_pca_tsqr(nrows, ncols, n_parts, input_type, cluster):
         wait(X)
         if input_type == "dataframe":
             X_train = to_dask_cudf(X)
+            X_cpu = X_train.compute().to_pandas().values
         elif input_type == "array":
             X_train = X
-
-        print(X_train.shape)
-        print(X_train.compute().shape)
+            X_cpu = cp.asnumpy(X_train.compute())
 
         try:
 
-            cupca = daskPCA(n_components=5, whiten=True, svd_solver="tsqr")
+            cupca = daskPCA(n_components=5, svd_solver="tsqr")
             cupca.fit(X_train)
-
-            X_trans = cupca.transform(X_train)
-            X_inv = cupca.inverse_transform(X_trans)
-
-            if input_type == "array":
-                local_X_train = X_train.compute()
-                local_X_inv = X_inv.compute()
-            elif input_type == "dataframe":
-                local_X_train = cp.array(X_train.compute().as_gpu_matrix())
-                local_X_inv = cp.array(X_inv.compute().as_gpu_matrix())
-
-            X_train_cov = cp.cov(local_X_train)
-            X_inv_cov = cp.cov(local_X_inv)
-            print(X_train_cov)
-            print(X_inv_cov)
-
-            assert array_equal(X_train_cov, X_inv_cov, 1e-1, with_sign=True)
-
         except Exception as e:
             print(str(e))
 
+        skpca = PCA(n_components=5, svd_solver="full")
+        skpca.fit(X_cpu)
+
+        from cuml.test.utils import array_equal
+
+        all_attr = ['singular_values_', 'components_',
+                    'explained_variance_', 'explained_variance_ratio_']
+
+        for attr in all_attr:
+            cuml_res = (getattr(cupca, attr))
+            if type(cuml_res) == np.ndarray:
+                cuml_res = cuml_res.as_matrix()
+            skl_res = getattr(skpca, attr)
+            assert array_equal(cuml_res, skl_res, 1e-1, with_sign=True)
     finally:
         client.close()
 
