@@ -241,11 +241,11 @@ class KNeighborsClassifier(NearestNeighbors):
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Query test data.
-            Acceptable formats: dask cuDF, dask CuPy/NumPy/Numba Array
+            Acceptable formats: dask CuPy/NumPy/Numba Array
 
         y : array-like (device or host) shape = (n_samples, n_features)
             Labels test data.
-            Acceptable formats: dask cuDF, dask CuPy/NumPy/Numba Array
+            Acceptable formats: dask CuPy/NumPy/Numba Array
 
         Returns
         -------
@@ -255,9 +255,9 @@ class KNeighborsClassifier(NearestNeighbors):
         diff = (labels == y)
         if self.data_handler.datatype == 'cupy':
             mean = da.mean(diff)
+            return mean.compute()
         else:
-            mean = diff.sum(axis=1).sum() / diff.size
-        return mean.compute()
+            raise ValueError("Only Dask arrays are supported")
 
     def predict_proba(self, X, convert_dtype=True):
         """
