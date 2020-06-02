@@ -22,7 +22,13 @@ from cuml.common import input_to_cuml_array
 
 @with_cupy_rmm
 def log_loss(y_true, y_pred, eps=1e-15, normalize=True, sample_weight=None):
-    """
+    """ Log loss, aka logistic loss or cross-entropy loss.
+    This is the loss function used in (multinomial) logistic regression
+    and extensions of it such as neural networks, defined as the negative
+    log-likelihood of a logistic model that returns ``y_pred`` probabilities
+    for its training data ``y_true``.
+    The log loss is only defined for two or more labels.
+
     Parameters
     ----------
     y_true : array-like, shape = (n_samples,)
@@ -36,6 +42,24 @@ def log_loss(y_true, y_pred, eps=1e-15, normalize=True, sample_weight=None):
         Otherwise, return the sum of the per-sample losses.
     sample_weight : array-like of shape (n_samples,), default=None
         Sample weights.
+
+    Returns
+    -------
+    loss : float
+    Examples
+    --------
+    >>> from cuml.metrics import log_loss
+    >>> import numpy as np
+    >>> log_loss(np.array([1, 0, 0, 1]),
+    ...          np.array([[.1, .9], [.9, .1], [.8, .2], [.35, .65]]))
+    0.21616...
+    References
+    ----------
+    C.M. Bishop (2006). Pattern Recognition and Machine Learning. Springer,
+    p. 209.
+    Notes
+    -----
+    The logarithm used is the natural logarithm (base-e).
     """
     y_true, n_rows, n_cols, ytype = \
         input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64,
