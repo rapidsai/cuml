@@ -52,7 +52,7 @@ class paramsSolver : public params {
   int verbose = 0;
 };
 
-template<typename enum_solver=solver>
+template <typename enum_solver = solver>
 class paramsTSVDTemplate : public paramsSolver {
  public:
   int n_components = 1;
@@ -77,8 +77,8 @@ class paramsTSVDTemplate : public paramsSolver {
  * @param max_sweeps: number of sweeps jacobi method uses. The more the better accuracy.
  */
 
-template<typename enum_solver=solver>
-class paramsPCATemplate: public paramsTSVDTemplate<enum_solver> {
+template <typename enum_solver = solver>
+class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
  public:
   bool copy = true;
   bool whiten = false;

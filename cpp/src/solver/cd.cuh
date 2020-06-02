@@ -31,9 +31,9 @@
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
 #include "common/cumlHandle.hpp"
+#include "cuml/solvers/params.hpp"
 #include "glm/preprocess.cuh"
 #include "shuffle.h"
-#include "cuml/solvers/params.hpp"
 
 namespace ML {
 namespace Solver {

@@ -33,4 +33,4 @@ enum loss_funct {
 
 enum penalty { NONE, L1, L2, ELASTICNET };
 
-}; // namespace ML
+};  // namespace ML
