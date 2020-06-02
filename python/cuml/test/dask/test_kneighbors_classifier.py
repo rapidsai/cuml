@@ -163,8 +163,8 @@ def test_predict(dataset, datatype, n_neighbors, n_parts, cluster):
 
 
 @pytest.mark.parametrize("datatype", ['dask_array'])
-@pytest.mark.parametrize("n_neighbors", [3])
-@pytest.mark.parametrize("n_parts", [None])
+@pytest.mark.parametrize("n_neighbors", [1, 3, 8])
+@pytest.mark.parametrize("n_parts", [None, 2, 3, 5])
 def test_score(dataset, datatype, n_neighbors, n_parts, cluster):
     client = Client(cluster)
 
