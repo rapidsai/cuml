@@ -305,7 +305,6 @@ class RandomForestClassifier(Base):
         self.rf_forest = 0
         self.rf_forest64 = 0
         self.model_pbuf_bytes = bytearray()
-        del handle
 
     """
     TODO:
