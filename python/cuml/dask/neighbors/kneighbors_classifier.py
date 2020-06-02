@@ -102,13 +102,20 @@ class KNeighborsClassifier(NearestNeighbors):
     @staticmethod
     def _func_predict(model, data, data_parts_to_ranks, data_nrows,
                       query, query_parts_to_ranks, query_nrows,
-                      uniq_labels, n_unique, ncols, rank, convert_dtype):
-
-        return model.predict(
-            data, data_parts_to_ranks, data_nrows,
-            query, query_parts_to_ranks, query_nrows,
-            uniq_labels, n_unique, ncols, rank, convert_dtype
-        )
+                      uniq_labels, n_unique, ncols, rank, convert_dtype,
+                      probas_only):
+        if probas_only:
+            return model.predict_proba(
+                data, data_parts_to_ranks, data_nrows,
+                query, query_parts_to_ranks, query_nrows,
+                uniq_labels, n_unique, ncols, rank, convert_dtype
+            )
+        else:
+            return model.predict(
+                data, data_parts_to_ranks, data_nrows,
+                query, query_parts_to_ranks, query_nrows,
+                uniq_labels, n_unique, ncols, rank, convert_dtype
+            )
 
     def predict(self, X, convert_dtype=True):
         """
@@ -190,6 +197,7 @@ class KNeighborsClassifier(NearestNeighbors):
                             X.shape[1],
                             worker_info[worker]["rank"],
                             convert_dtype,
+                            False,
                             key="%s-%s" % (key, idx),
                             workers=[worker]))
                            for idx, worker in enumerate(comms.worker_addresses)
@@ -250,3 +258,109 @@ class KNeighborsClassifier(NearestNeighbors):
         else:
             mean = diff.sum(axis=1).sum() / diff.size
         return mean.compute()
+
+    def predict_proba(self, X, convert_dtype=True):
+        """
+        Predict labels probabilities for a query from
+        previously stored index and index labels.
+        The process is done in a multi-node multi-GPU fashion.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Query data.
+            Acceptable formats: dask cuDF, dask CuPy/NumPy/Numba Array
+
+        convert_dtype : bool, optional (default = True)
+            When set to True, the predict method will automatically
+            convert the data to the right formats.
+
+        Returns
+        -------
+        probabilities : Dask futures or Dask CuPy Arrays
+        """
+        query_handler = \
+            DistributedDataHandler.create(data=X,
+                                          client=self.client)
+        self.datatype = query_handler.datatype
+
+        comms = KNeighborsClassifier._build_comms(self.data_handler,
+                                                  query_handler,
+                                                  self.streams_per_handle,
+                                                  self.verbose)
+
+        worker_info = comms.worker_info(comms.worker_addresses)
+
+        """
+        Build inputs and outputs
+        """
+        self.data_handler.calculate_parts_to_sizes(comms=comms)
+        query_handler.calculate_parts_to_sizes(comms=comms)
+
+        data_parts_to_ranks, data_nrows = \
+            parts_to_ranks(self.client,
+                           worker_info,
+                           self.data_handler.gpu_futures)
+
+        query_parts_to_ranks, query_nrows = \
+            parts_to_ranks(self.client,
+                           worker_info,
+                           query_handler.gpu_futures)
+
+        """
+        Each Dask worker creates a single model
+        """
+        key = uuid1()
+        models = dict([(worker, self.client.submit(
+            self._func_create_model,
+            comms.sessionId,
+            **self.kwargs,
+            workers=[worker],
+            key="%s-%s" % (key, idx)))
+            for idx, worker in enumerate(comms.worker_addresses)])
+
+        """
+        Invoke knn_classify on Dask workers to perform distributed query
+        """
+        key = uuid1()
+        knn_prob_res = dict([(worker_info[worker]["rank"], self.client.submit(
+                            self._func_predict,
+                            models[worker],
+                            self.data_handler.worker_to_parts[worker] if
+                            worker in self.data_handler.workers else [],
+                            data_parts_to_ranks,
+                            data_nrows,
+                            query_handler.worker_to_parts[worker] if
+                            worker in query_handler.workers else [],
+                            query_parts_to_ranks,
+                            query_nrows,
+                            self.uniq_labels,
+                            self.n_unique,
+                            X.shape[1],
+                            worker_info[worker]["rank"],
+                            convert_dtype,
+                            True,
+                            key="%s-%s" % (key, idx),
+                            workers=[worker]))
+                           for idx, worker in enumerate(comms.worker_addresses)
+                            ])
+
+        wait(list(knn_prob_res.values()))
+        raise_exception_from_futures(list(knn_prob_res.values()))
+
+        n_outputs = len(self.n_unique)
+
+        """
+        Gather resulting partitions and return result
+        """
+        outputs = []
+        for o in range(n_outputs):
+            futures = flatten_grouped_results(self.client,
+                                              query_parts_to_ranks,
+                                              knn_prob_res,
+                                              getter_func=_custom_getter(o))
+            outputs.append(to_output(futures, self.datatype))
+
+        comms.destroy()
+
+        return tuple(outputs)

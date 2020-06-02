@@ -44,7 +44,7 @@ def generate_dask_array(np_array, n_parts):
 @pytest.fixture(
     scope="module",
     params=[
-        unit_param({'n_samples': 50, 'n_features': 30,
+        unit_param({'n_samples': 1000, 'n_features': 30,
                     'n_classes': 5, 'n_targets': 2}),
         quality_param({'n_samples': 5000, 'n_features': 100,
                        'n_classes': 12, 'n_targets': 4}),
@@ -108,6 +108,12 @@ def match_test(output1, output2):
 
     # As indices might differ, labels can also differ
     # assert np.mean((l1 == l2)) > 0.6
+
+
+def check_probabilities(l_probas, d_probas):
+    assert len(l_probas) == len(d_probas)
+    for i in range(len(l_probas)):
+        assert l_probas[i].shape == d_probas[i].shape
 
 
 @pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
@@ -199,6 +205,48 @@ def test_score(dataset, datatype, n_neighbors, n_parts, cluster):
         manual_score = accuracy_score(y_test, distributed_out[0])
 
         assert cuml_score == manual_score
+
+    finally:
+        client.close()
+
+
+@pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
+@pytest.mark.parametrize("n_neighbors", [1, 3, 8])
+@pytest.mark.parametrize("n_parts", [None, 2, 3, 5])
+def test_predict_proba(dataset, datatype, n_neighbors, n_parts, cluster):
+    client = Client(cluster)
+
+    try:
+        X_train, X_test, y_train, y_test = dataset
+
+        l_model = lKNNClf(n_neighbors=n_neighbors)
+        l_model.fit(X_train, y_train)
+        l_probas = l_model.predict_proba(X_test)
+
+        if not n_parts:
+            n_parts = len(client.has_what().keys())
+
+        X_train = generate_dask_array(X_train, n_parts)
+        X_test = generate_dask_array(X_test, n_parts)
+        y_train = generate_dask_array(y_train, n_parts)
+
+        if datatype == 'dask_cudf':
+            X_train = to_dask_cudf(X_train, client)
+            X_test = to_dask_cudf(X_test, client)
+            y_train = to_dask_cudf(y_train, client)
+
+        d_model = dKNNClf(client=client, n_neighbors=n_neighbors)
+        d_model.fit(X_train, y_train)
+        d_probas = d_model.predict_proba(X_test, convert_dtype=True)
+        d_probas = da.compute(d_probas)[0]
+
+        if datatype == 'dask_cudf':
+            d_probas = list(map(lambda o: o.as_matrix()
+                                if isinstance(o, DataFrame)
+                                else o.to_array()[..., np.newaxis],
+                                d_probas))
+
+        check_probabilities(l_probas, d_probas)
 
     finally:
         client.close()
