@@ -103,11 +103,10 @@ def test_pca_fit_then_transform(datatype, input_type,
     X_cupca = cupca.transform(X)
     cupca.handle.sync()
 
-    assert Xskpca.shape[0] == X_cupca.shape[0]
-    assert Xskpca.shape[1] == X_cupca.shape[1]
-
     if name != 'blobs':
         assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
+        assert Xskpca.shape[0] == X_cupca.shape[0]
+        assert Xskpca.shape[1] == X_cupca.shape[1]
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -143,12 +142,10 @@ def test_pca_fit_transform(datatype, input_type,
     X_cupca = cupca.fit_transform(X)
     cupca.handle.sync()
 
-    assert Xskpca.shape[0] == X_cupca.shape[0]
-    assert Xskpca.shape[1] == X_cupca.shape[1]
-
     if name != 'blobs':
         assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
-
+        assert Xskpca.shape[0] == X_cupca.shape[0]
+        assert Xskpca.shape[1] == X_cupca.shape[1]
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['ndarray'])
