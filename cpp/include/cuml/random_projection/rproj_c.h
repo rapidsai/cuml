@@ -20,7 +20,7 @@
 
 namespace ML {
 
-  using namespace MLCommon;
+using namespace MLCommon;
 
 /**
      * @defgroup paramsRPROJ: structure holding parameters used by random projection model
