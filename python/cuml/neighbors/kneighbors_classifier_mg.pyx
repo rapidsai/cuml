@@ -42,9 +42,10 @@ cdef extern from "cumlprims/opg/selection/knn.hpp" namespace \
 
     cdef void knn_classify(
         cumlHandle &handle,
-        vector[intData_t*] &out,
-        vector[int64Data_t*] &out_I,
-        vector[floatData_t*] &out_D,
+        vector[intData_t*] *out,
+        vector[int64Data_t*] *out_I,
+        vector[floatData_t*] *out_D,
+        vector[float_ptr_vector] *probas,
         vector[floatData_t*] &idx_data,
         PartDescriptor &idx_desc,
         vector[floatData_t*] &query_data,
@@ -54,6 +55,7 @@ cdef extern from "cumlprims/opg/selection/knn.hpp" namespace \
         vector[int] &n_unique,
         bool rowMajorIndex,
         bool rowMajorQuery,
+        bool probas_only,
         int k,
         size_t batch_size,
         bool verbose
@@ -222,9 +224,10 @@ class KNeighborsClassifierMG(NearestNeighbors):
 
         knn_classify(
             handle_[0],
-            deref(out_vec),
-            deref(out_i_vec),
-            deref(out_d_vec),
+            out_vec,
+            out_i_vec,
+            out_d_vec,
+            <vector[float_ptr_vector]*>0,
             deref(<vector[floatData_t*]*><uintptr_t>idx_local_parts),
             deref(<PartDescriptor*><uintptr_t>idx_desc),
             deref(<vector[floatData_t*]*><uintptr_t>q_local_parts),
@@ -234,6 +237,7 @@ class KNeighborsClassifierMG(NearestNeighbors):
             deref(<vector[int]*><uintptr_t>n_unique_vec),
             <bool>False,  # column-major index
             <bool>False,  # column-major query
+            <bool>False,
             <int>self.n_neighbors,
             <size_t>self.batch_size,
             <bool>self.verbose
@@ -257,3 +261,126 @@ class KNeighborsClassifierMG(NearestNeighbors):
         output_d = list(map(lambda o: o.to_output(out_type), output_d))
 
         return output, output_i, output_d
+
+    def predict_proba(self, data, data_parts_to_ranks, data_nrows,
+                      query, query_parts_to_ranks, query_nrows,
+                      uniq_labels, n_unique, ncols, rank, convert_dtype):
+        """
+        Predict labels for a query from previously stored index
+        and index labels.
+        The process is done in a multi-node multi-GPU fashion.
+
+        Parameters
+        ----------
+        data: [__cuda_array_interface__] of local index and labels partitions
+        data_parts_to_ranks: mappings of data partitions to ranks
+        data_nrows: number of total data rows
+        query: [__cuda_array_interface__] of local query partitions
+        query_parts_to_ranks: mappings of query partitions to ranks
+        query_nrows: number of total query rows
+        uniq_labels: array of labels of a column
+        n_unique: array with number of possible labels for each columns
+        ncols: number of columns
+        rank: int rank of current worker
+        convert_dtype: since only float32 inputs are supported, should
+               the input be automatically converted?
+
+        Returns
+        -------
+        predictions : labels, indices, distances
+        """
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        if len(data) > 0:
+            self._set_output_type(data[0])
+        out_type = self.output_type
+        if len(query) > 0:
+            out_type = self._get_output_type(query[0])
+
+        idx = [d[0] for d in data]
+        lbls = [d[1] for d in data]
+        self.n_dims = ncols
+
+        idx_cai, idx_local_parts, idx_desc = \
+            _build_part_inputs(idx, data_parts_to_ranks,
+                               data_nrows, ncols, rank, convert_dtype)
+
+        q_cai, q_local_parts, q_desc = \
+            _build_part_inputs(query, query_parts_to_ranks,
+                               query_nrows, ncols, rank, convert_dtype)
+
+        cdef vector[int_ptr_vector] *lbls_local_parts = \
+            new vector[int_ptr_vector](<int>len(lbls))
+        lbls_dev_arr = []
+        for i, arr in enumerate(lbls):
+            for j in range(arr.shape[1]):
+                if isinstance(arr, cudfDataFrame):
+                    col = arr.iloc[:, j]
+                else:
+                    col = arr[:, j]
+                lbls_arr, _, _, _ = \
+                    input_to_cuml_array(col, order="F",
+                                        convert_to_dtype=(np.int32
+                                                          if convert_dtype
+                                                          else None),
+                                        check_dtype=[np.int32])
+                lbls_dev_arr.append(lbls_arr)
+                lbls_local_parts.at(i).push_back(<int*><uintptr_t>lbls_arr.ptr)
+
+        uniq_labels_d, _, _, _ = \
+            input_to_cuml_array(uniq_labels, order='C', check_dtype=np.int32,
+                                convert_to_dtype=np.int32)
+        cdef int* ptr = <int*><uintptr_t>uniq_labels_d.ptr
+        cdef vector[int*] *uniq_labels_vec = new vector[int*]()
+        for i in range(uniq_labels_d.shape[0]):
+            uniq_labels_vec.push_back(<int*>ptr)
+            ptr += <int>uniq_labels_d.shape[1]
+
+        cdef vector[int] *n_unique_vec = \
+            new vector[int]()
+        for uniq_label in n_unique:
+            n_unique_vec.push_back(uniq_label)
+
+        n_outputs = len(n_unique)
+        n_local_queries = len(q_cai)
+        cdef vector[float_ptr_vector] *probas \
+            = new vector[float_ptr_vector](n_local_queries)
+
+        proba_cai = [[] for i in range(n_outputs)]
+        for query_idx, query_part in enumerate(q_cai):
+            n_rows = query_part.shape[0]
+            for target_idx, n_classes in enumerate(n_unique):
+                p_ary = CumlArray.zeros(shape=(n_rows, n_classes),
+                                        order="C", dtype=np.float32)
+                proba_cai[target_idx].append(p_ary)
+
+                probas.at(query_idx).push_back(<float*><uintptr_t>p_ary.ptr)
+
+        knn_classify(
+            handle_[0],
+            <vector[intData_t*]*>0,
+            <vector[int64Data_t*]*>0,
+            <vector[floatData_t*]*>0,
+            probas,
+            deref(<vector[floatData_t*]*><uintptr_t>idx_local_parts),
+            deref(<PartDescriptor*><uintptr_t>idx_desc),
+            deref(<vector[floatData_t*]*><uintptr_t>q_local_parts),
+            deref(<PartDescriptor*><uintptr_t>q_desc),
+            deref(<vector[int_ptr_vector]*><uintptr_t>lbls_local_parts),
+            deref(<vector[int*]*><uintptr_t>uniq_labels_vec),
+            deref(<vector[int]*><uintptr_t>n_unique_vec),
+            <bool>False,  # column-major index
+            <bool>False,  # column-major query
+            <bool>True,
+            <int>self.n_neighbors,
+            <size_t>self.batch_size,
+            <bool>self.verbose
+        )
+
+        self.handle.sync()
+
+        probas_out = []
+        for i in range(n_outputs):
+            probas_out.append(list(map(lambda o: o.to_output(out_type),
+                                       proba_cai[i])))
+
+        return tuple(probas_out)

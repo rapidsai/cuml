@@ -46,6 +46,7 @@ cdef extern from "cumlprims/opg/matrix/data.hpp" \
 ctypedef Data[int64_t] int64Data_t
 ctypedef Data[int] intData_t
 ctypedef vector[int*] int_ptr_vector
+ctypedef vector[float*] float_ptr_vector
 
 cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
                  namespace "MLCommon::Matrix":
