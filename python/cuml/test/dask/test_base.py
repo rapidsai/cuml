@@ -19,15 +19,10 @@ from cuml.dask.cluster import KMeans
 from cuml.dask.naive_bayes.naive_bayes import MultinomialNB
 from cuml.test.dask.utils import load_text_corpus
 
-from dask.distributed import Client
-from dask.distributed import wait
-
 from cuml.dask.datasets import make_blobs
 
 
-def test_getattr(cluster):
-
-    client = Client(cluster)
+def test_getattr(client):
 
     # Test getattr on local param
     kmeans_model = KMeans(client=client)
@@ -41,10 +36,7 @@ def test_getattr(cluster):
                       centers=2,
                       n_parts=2,
                       cluster_std=0.01,
-                      verbose=False,
                       random_state=10)
-
-    wait(X)
 
     kmeans_model.fit(X)
 
@@ -54,8 +46,6 @@ def test_getattr(cluster):
     # Test getattr on trained distributed model
 
     X, y = load_text_corpus(client)
-
-    print(str(X.compute()))
 
     nb_model = MultinomialNB(client=client)
     nb_model.fit(X, y)

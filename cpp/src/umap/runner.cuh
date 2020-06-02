@@ -23,7 +23,7 @@
 
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
-#include "knn_graph/runner.h"
+#include "knn_graph/runner.cuh"
 #include "simpl_set_embed/runner.cuh"
 
 #include <thrust/count.h>
@@ -33,10 +33,10 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include "sparse/coo.h"
-#include "sparse/csr.h"
+#include <sparse/coo.cuh>
+#include <sparse/csr.cuh>
 
-#include "cuda_utils.h"
+#include <cuda_utils.cuh>
 
 #include <cuda_runtime.h>
 

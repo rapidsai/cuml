@@ -53,6 +53,7 @@ import rmm
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
+
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
     void knn_classify(
@@ -86,8 +87,8 @@ class KNeighborsClassifier(NearestNeighbors):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbose : boolean (default=False)
-        Whether to print verbose logs
+    verbose : int or boolean (default = False)
+        Logging level
     handle : cumlHandle
         The cumlHandle resources to use
     algorithm : string (default='brute')
