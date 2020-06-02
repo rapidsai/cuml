@@ -47,11 +47,10 @@ void gaussian_random_matrix(const cumlHandle& h,
   cudaStream_t stream = h.getStream();
   auto d_alloc = h.getDeviceAllocator();
   int len = params.n_components * params.n_features;
-  random_matrix->dense_data =
-    (math_t*)d_alloc->allocate(len * sizeof(math_t), stream);
+  random_matrix->dense_data = new device_buffer<math_t>(d_alloc, stream, len);
   auto rng = Random::Rng(params.random_state);
   math_t scale = 1.0 / sqrt(double(params.n_components));
-  rng.normal(random_matrix->dense_data, len, math_t(0), scale, stream);
+  rng.normal(random_matrix->dense_data->data(), len, math_t(0), scale, stream);
 }
 
 /**
@@ -68,11 +67,10 @@ void sparse_random_matrix(const cumlHandle& h, rand_mat<math_t>* random_matrix,
 
   if (params.density == 1.0f) {
     int len = params.n_components * params.n_features;
-    random_matrix->dense_data =
-      (math_t*)d_alloc->allocate(len * sizeof(math_t), stream);
+    random_matrix->dense_data = new device_buffer<math_t>(d_alloc, stream, len);
     auto rng = Random::Rng(params.random_state);
     math_t scale = 1.0 / sqrt(math_t(params.n_components));
-    rng.scaled_bernoulli(random_matrix->dense_data, len, math_t(0.5), scale,
+    rng.scaled_bernoulli(random_matrix->dense_data->data(), len, math_t(0.5), scale,
                          stream);
   } else {
     auto alloc = h.getHostAllocator();
@@ -102,21 +100,20 @@ void sparse_random_matrix(const cumlHandle& h, rand_mat<math_t>* random_matrix,
     indptr[indptr_idx] = offset;
 
     size_t len = offset;
-    random_matrix->indices = (int*)d_alloc->allocate(len * sizeof(int), stream);
-    updateDevice(random_matrix->indices, indices, len, stream);
+    random_matrix->indices = new device_buffer<int>(d_alloc, stream, len);
+    updateDevice(random_matrix->indices->data(), indices, len, stream);
     alloc->deallocate(indices, indices_alloc, stream);
 
     len = indptr_idx + 1;
-    random_matrix->indptr = (int*)d_alloc->allocate(len * sizeof(int), stream);
-    updateDevice(random_matrix->indptr, indptr, len, stream);
+    random_matrix->indptr = new device_buffer<int>(d_alloc, stream, len);
+    updateDevice(random_matrix->indptr->data(), indptr, len, stream);
     alloc->deallocate(indptr, indptr_alloc, stream);
 
     len = offset;
-    random_matrix->sparse_data =
-      (math_t*)d_alloc->allocate(len * sizeof(math_t), stream);
+    random_matrix->sparse_data = new device_buffer<math_t>(d_alloc, stream, len);
     auto rng = Random::Rng(params.random_state);
     math_t scale = sqrt(1.0 / params.density) / sqrt(params.n_components);
-    rng.scaled_bernoulli(random_matrix->sparse_data, len, math_t(0.5), scale,
+    rng.scaled_bernoulli(random_matrix->sparse_data->data(), len, math_t(0.5), scale,
                          stream);
 
     random_matrix->sparse_data_size = len;
@@ -175,7 +172,7 @@ void RPROJtransform(const cumlHandle& handle, math_t* input,
     int& ldc = m;
 
     CUBLAS_CHECK(cublasgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k,
-                            &alfa, input, lda, random_matrix->dense_data, ldb,
+                            &alfa, input, lda, random_matrix->dense_data->data(), ldb,
                             &beta, output, ldc, stream));
 
   } else if (random_matrix->sparse_data) {
@@ -194,8 +191,9 @@ void RPROJtransform(const cumlHandle& handle, math_t* input,
     int& ldc = m;
 
     CUSPARSE_CHECK(cusparsegemmi(cusparse_handle, m, n, k, nnz, &alfa, input,
-                                 lda, random_matrix->sparse_data,
-                                 random_matrix->indptr, random_matrix->indices,
+                                 lda, random_matrix->sparse_data->data(),
+                                 random_matrix->indptr->data(),
+                                 random_matrix->indices->data(),
                                  &beta, output, ldc));
   } else {
     ASSERT(false,
