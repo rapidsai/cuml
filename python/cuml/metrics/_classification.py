@@ -59,9 +59,7 @@ def log_loss(y_true, y_pred, eps=1e-15, normalize=True, sample_weight=None):
     if (y_pred.ndim == 1 and y_true_max > 1) \
        or (y_pred.ndim > 1 and y_pred.shape[1] <= y_true_max):
         raise ValueError("The shape of y_pred doesn't "
-                         "match the number of classes\n"
-                         f"y_pred.shape:{y_pred.shape} "
-                         "number of classes: {y_true_max+1}")
+                         "match the number of classes")
 
     y_true = y_true.astype('int32')
     y_pred = cp.clip(y_pred, eps, 1 - eps)
