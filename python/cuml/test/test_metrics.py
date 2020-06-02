@@ -646,6 +646,7 @@ def test_roc_auc_score_at_limits():
     with pytest.raises(ValueError, match=err_msg):
         roc_auc_score(y_true, y_pred)
 
+
 def test_log_loss():
     y_true = np.array([0, 0, 1, 1])
     y_pred = np.array([0.1, 0.4, 0.35, 0.8])
@@ -666,7 +667,7 @@ def test_log_loss_random(n_samples, dtype):
         lambda rng: rng.randint(0, 10, n_samples).astype(dtype))
 
     y_pred, _, _, _ = generate_random_labels(
-        lambda rng: rng.rand(n_samples,10))
+        lambda rng: rng.rand(n_samples, 10))
 
     assert_almost_equal(log_loss(y_true, y_pred),
                         sklearn_log_loss(y_true, y_pred))
@@ -676,7 +677,6 @@ def test_log_loss_at_limits():
     y_true = np.array([0., 1., 2.], dtype=np.float)
     y_pred = np.array([0., 0.5, 1.], dtype=np.float)
 
-    y_true_max = y_true.max()
     err_msg = ("The shape of y_pred doesn't "
                "match the number of classes")
 
