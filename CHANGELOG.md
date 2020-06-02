@@ -1,6 +1,7 @@
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
+-PR #2289: QR SVD solver for MNMG PCA
 
 ## Improvements
 - PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
