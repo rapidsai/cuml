@@ -254,7 +254,6 @@ class RandomForestRegressor(Base):
         super(RandomForestRegressor, self).__init__(handle=handle,
                                                     verbose=verbose,
                                                     output_type=output_type)
-
         if max_depth < 0:
             raise ValueError("Must specify max_depth >0 ")
 
@@ -292,6 +291,7 @@ class RandomForestRegressor(Base):
         self.rf_forest = None
         self.rf_forest64 = None
         self.model_pbuf_bytes = bytearray()
+        del handle
 
     """
     TODO:
@@ -934,10 +934,8 @@ class RandomForestRegressor(Base):
         -----------
         params : dict of new params
         """
-        # Resetting handle as __setstate__ overwrites with handle=None
-        self.handle.__setstate__(self.n_streams)
+        self.handle = Handle(self.n_streams)
         self.model_pbuf_bytes = []
-
         if not params:
             return self
         for key, value in params.items():

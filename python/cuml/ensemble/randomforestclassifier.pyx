@@ -269,7 +269,6 @@ class RandomForestClassifier(Base):
         super(RandomForestClassifier, self).__init__(handle=handle,
                                                      verbose=verbose,
                                                      output_type=output_type)
-
         self.split_algo = split_algo
         criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
                           '3': MAE, '4': CRITERION_END}
@@ -306,6 +305,7 @@ class RandomForestClassifier(Base):
         self.rf_forest = 0
         self.rf_forest64 = 0
         self.model_pbuf_bytes = bytearray()
+        del handle
 
     """
     TODO:
@@ -1161,8 +1161,7 @@ class RandomForestClassifier(Base):
         -----------
         params : dict of new params
         """
-        # Resetting handle as __setstate__ overwrites with handle=None
-        self.handle.__setstate__(self.n_streams)
+        self.handle = Handle(self.n_streams)
         self.model_pbuf_bytes = []
 
         if not params:
