@@ -69,7 +69,11 @@ class DecompositionSyncFitMixin(object):
         data = DistributedDataHandler.create(data=X, client=self.client)
         self.datatype = data.datatype
 
-        comms = CommsContext(comms_p2p=False)
+        if "svd_solver" in self.kwargs and self.kwargs["svd_solver"] == "tsqr":
+            comms = CommsContext(comms_p2p=True)
+        else:
+            comms = CommsContext(comms_p2p=False)
+
         comms.init(workers=data.workers)
 
         data.calculate_parts_to_sizes(comms)
