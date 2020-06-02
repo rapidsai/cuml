@@ -14,7 +14,6 @@
 #
 
 import pytest
-from dask.distributed import Client
 
 import cupy as cp
 import numpy as np
@@ -130,37 +129,29 @@ def _umap_mnmg_trustworthiness(local_X, local_y,
 @pytest.mark.parametrize("dataset", ["digits", "iris"])
 @pytest.mark.parametrize("n_neighbors", [10])
 def test_umap_mnmg(n_parts, n_rows, sampling_ratio, supervised,
-                   dataset, n_neighbors, cluster):
+                   dataset, n_neighbors, client):
+    local_X, local_y = _load_dataset(dataset, n_rows)
 
-    client = Client(cluster)
+    dist_umap = _umap_mnmg_trustworthiness(local_X, local_y,
+                                           n_neighbors, supervised,
+                                           n_parts, sampling_ratio)
 
-    try:
+    loc_umap = _local_umap_trustworthiness(local_X, local_y,
+                                           n_neighbors, supervised)
 
-        local_X, local_y = _load_dataset(dataset, n_rows)
+    print("\nLocal UMAP trustworthiness score : {:.2f}".format(loc_umap))
+    print("UMAP MNMG trustworthiness score : {:.2f}".format(dist_umap))
 
-        dist_umap = _umap_mnmg_trustworthiness(local_X, local_y,
-                                               n_neighbors, supervised,
-                                               n_parts, sampling_ratio)
+    trust_diff = loc_umap - dist_umap
 
-        loc_umap = _local_umap_trustworthiness(local_X, local_y,
-                                               n_neighbors, supervised)
-
-        print("\nLocal UMAP trustworthiness score : {:.2f}".format(loc_umap))
-        print("UMAP MNMG trustworthiness score : {:.2f}".format(dist_umap))
-
-        trust_diff = loc_umap - dist_umap
-
-        if sampling_ratio == 0.1:
-            assert trust_diff <= 0.4
-        elif sampling_ratio == 0.2:
-            assert trust_diff <= 0.3
-        elif sampling_ratio == 0.4:
-            assert trust_diff <= 0.2
-        elif sampling_ratio == 0.5:
-            assert trust_diff <= 0.11
-        else:
-            raise ValueError("No assertion for sampling ratio. "
-                             "Please update.")
-
-    finally:
-        client.close()
+    if sampling_ratio == 0.1:
+        assert trust_diff <= 0.4
+    elif sampling_ratio == 0.2:
+        assert trust_diff <= 0.3
+    elif sampling_ratio == 0.4:
+        assert trust_diff <= 0.2
+    elif sampling_ratio == 0.5:
+        assert trust_diff <= 0.11
+    else:
+        raise ValueError("No assertion for sampling ratio. "
+                         "Please update.")

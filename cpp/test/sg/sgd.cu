@@ -18,9 +18,8 @@
 #include <gtest/gtest.h>
 #include <linalg/cusolver_wrappers.h>
 #include <test_utils.h>
-#include <cuda_utils.cuh>
 #include <matrix/matrix.cuh>
-#include "solver/sgd.cuh"
+#include <solver/sgd.cuh>
 
 namespace ML {
 namespace Solver {
