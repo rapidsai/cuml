@@ -27,8 +27,8 @@ import warnings
 class OneHotEncoder:
     """
     Encode categorical features as a one-hot numeric array.
-    The input to this transformer should be a cuDF.DataFrame of integers or
-    strings, denoting the values taken on by categorical (discrete) features.
+    The input to this estimator should be a cuDF.DataFrame or a cupy.ndarray,
+    denoting the unique values taken on by categorical (discrete) features.
     The features are encoded using a one-hot (aka 'one-of-K' or 'dummy')
     encoding scheme. This creates a binary column for each category and
     returns a sparse matrix or dense array (depending on the ``sparse``
@@ -43,19 +43,26 @@ class OneHotEncoder:
     ----------
     categories : 'auto' an cupy.ndarray or a cudf.DataFrame, default='auto'
         Categories (unique values) per feature:
+
         - 'auto' : Determine categories automatically from the training data.
+
         - DataFrame/ndarray : ``categories[col]`` holds the categories expected
           in the feature col.
+
     drop : 'first', None, a dict or a list, default=None
         Specifies a methodology to use to drop one of the categories per
         feature. This is useful in situations where perfectly collinear
         features cause problems, such as when feeding the resulting data
         into a neural network or an unregularized regression.
+
         - None : retain all features (the default).
+
         - 'first' : drop the first category in each feature. If only one
           category is present, the feature will be dropped entirely.
+
         - dict/list : ``drop[col]`` is the category in feature col that
           should be dropped.
+
     sparse : bool, default=False
         This feature was deactivated and will give an exception when True.
         The reason is because sparse matrix are not fully supported by cupy
@@ -77,6 +84,7 @@ class OneHotEncoder:
         ``drop_idx_[i]`` is the index in ``categories_[i]`` of the category to
         be dropped for each feature. None if all the transformed features will
         be retained.
+
     """
     def __init__(self, categories='auto', drop=None, sparse=True,
                  dtype=np.float, handle_unknown='error'):
@@ -174,41 +182,60 @@ class OneHotEncoder:
             self._set_input_type('df')
             return X
 
+    def _check_input_fit(self, X, is_categories=False):
+        """Helper function used in fit. Can be overridden in subclasses. """
+        return self._check_input(X, is_categories=is_categories)
+
+    def _unique(self, inp):
+        """Helper function used in fit. Can be overridden in subclasses. """
+
+        # Default implementation passes input through directly since this is
+        # performed in `LabelEncoder.fit()`
+        return inp
+
+    def _has_unknown(self, X_cat, encoder_cat):
+        """Check if X_cat has categories that are not present in encoder_cat"""
+        return not X_cat.isin(encoder_cat).all()
+
     def fit(self, X):
         """
         Fit OneHotEncoder to X.
+
         Parameters
         ----------
         X : cuDF.DataFrame or cupy.ndarray, shape = (n_samples, n_features)
             The data to determine the categories of each feature.
+
         Returns
         -------
         self
+
         """
         self._validate_keywords()
-        X = self._check_input(X)
+        X = self._check_input_fit(X)
         if type(self.categories) is str and self.categories == 'auto':
             self._features = X.columns
             self._encoders = {
                 feature: LabelEncoder(handle_unknown=self.handle_unknown).fit(
-                    X[feature])
+                    self._unique(X[feature]))
                 for feature in self._features
             }
         else:
-            self.categories = self._check_input(self.categories, True)
+            self.categories = self._check_input_fit(self.categories, True)
             self._features = self.categories.columns
             if len(self._features) != X.shape[1]:
                 raise ValueError("Shape mismatch: if categories is not 'auto',"
                                  " it has to be of shape (n_features, _).")
             self._encoders = dict()
             for feature in self._features:
+                le = LabelEncoder(handle_unknown=self.handle_unknown)
+                self._encoders[feature] = le.fit(self.categories[feature])
                 if self.handle_unknown == 'error':
-                    if not X[feature].isin(self.categories[feature]).all():
+                    if self._has_unknown(X[feature],
+                                         self._encoders[feature].classes_):
                         msg = ("Found unknown categories in column {0}"
                                " during fit".format(feature))
                         raise KeyError(msg)
-                le = LabelEncoder(handle_unknown=self.handle_unknown)
-                self._encoders[feature] = le.fit(self.categories[feature])
 
         self.drop_idx_ = self._compute_drop_idx()
         self._fitted = True
@@ -223,10 +250,12 @@ class OneHotEncoder:
         ----------
         X : cudf.DataFrame or cupy.ndarray, shape = (n_samples, n_features)
             The data to encode.
+
         Returns
         -------
         X_out : sparse matrix if sparse=True else a 2-d array
             Transformed input.
+
         """
         X = self._check_input(X)
         return self.fit(X).transform(X)
@@ -235,10 +264,12 @@ class OneHotEncoder:
     def transform(self, X):
         """
         Transform X using one-hot encoding.
+
         Parameters
         ----------
         X : cudf.DataFrame or cupy.ndarray
             The data to encode.
+
         Returns
         -------
         X_out : sparse matrix if sparse=True else a 2-d array
@@ -297,10 +328,12 @@ class OneHotEncoder:
 
         The return type is the same as the type of the input used by the first
         call to fit on this estimator instance.
+
         Parameters
         ----------
         X : array-like or sparse matrix, shape [n_samples, n_encoded_features]
             The transformed data.
+
         Returns
         -------
         X_tr : cudf.DataFrame or cupy.ndarray

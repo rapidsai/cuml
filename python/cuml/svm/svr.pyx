@@ -162,8 +162,8 @@ class SVR(SVMBase):
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
-    verbose : bool (default = False)
-        verbose mode
+    verbose : int or boolean (default = False)
+        verbosity level
 
     Attributes
     ----------
@@ -186,11 +186,12 @@ class SVR(SVMBase):
         hyperplane.
         coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
 
-    For additional docs, see `scikitlearn's SVR
-    <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVR.html>`_.
 
     Notes
     -----
+    For additional docs, see `Scikit-learn's SVR
+    <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVR.html>`_.
+
     The solver uses the SMO method to fit the regressor. We use the Optimized
     Hierarchical Decomposition [1] variant of the SMO algorithm, similar to [2]
 

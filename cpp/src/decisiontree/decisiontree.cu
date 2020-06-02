@@ -72,12 +72,12 @@ void print(const DecisionTreeParams params) {
 
 template <class T, class L>
 void print_tree_summary(const TreeMetaDataNode<T, L> *tree) {
-  CUML_LOG_DEBUG(" Decision Tree depth --> %d and n_leaves --> %d",
-                 tree->depth_counter, tree->leaf_counter);
-  CUML_LOG_DEBUG(" Tree Fitting - Overall time --> %lf s",
-                 tree->prepare_time + tree->train_time);
-  CUML_LOG_DEBUG("   - preparing for fit time: %lf s", tree->prepare_time);
-  CUML_LOG_DEBUG("   - tree growing time: %lf s", tree->train_time);
+  CUML_LOG_INFO(" Decision Tree depth --> %d and n_leaves --> %d",
+                tree->depth_counter, tree->leaf_counter);
+  CUML_LOG_INFO(" Tree Fitting - Overall time --> %lf s",
+                tree->prepare_time + tree->train_time);
+  CUML_LOG_INFO("   - preparing for fit time: %lf s", tree->prepare_time);
+  CUML_LOG_INFO("   - tree growing time: %lf s", tree->train_time);
 }
 
 template <class T, class L>
