@@ -10,6 +10,7 @@
 - PR #1945: enable clang tidy
 - PR #2345: make C++ logger level definition to be the same as python layer
 - PR #2329: Add short commit hash to conda package name
+- PR #2363: Update threshold and make other changes for stress tests
 
 ## Bug Fixes
 
