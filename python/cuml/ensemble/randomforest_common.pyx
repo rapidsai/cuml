@@ -109,7 +109,6 @@ class BaseRandomForestModel(Base):
         self.max_depth = max_depth
         self.max_features = max_features
         self.bootstrap = bootstrap
-        self.verbose = verbose
         self.n_bins = n_bins
         self.n_cols = None
         self.dtype = dtype
