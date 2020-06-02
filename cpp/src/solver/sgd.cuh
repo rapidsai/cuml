@@ -33,10 +33,10 @@
 #include <stats/mean.cuh>
 #include <stats/mean_center.cuh>
 #include "common/cumlHandle.hpp"
+#include "cuml/solvers/params.hpp"
 #include "glm/preprocess.cuh"
 #include "learning_rate.h"
 #include "shuffle.h"
-#include "cuml/solvers/params.hpp"
 
 namespace ML {
 namespace Solver {

@@ -39,7 +39,8 @@ using namespace MLCommon;
 template <typename math_t, typename enum_solver = solver>
 void truncCompExpVars(const cumlHandle_impl &handle, math_t *in,
                       math_t *components, math_t *explained_var,
-                      math_t *explained_var_ratio, const paramsTSVDTemplate<enum_solver> prms,
+                      math_t *explained_var_ratio,
+                      const paramsTSVDTemplate<enum_solver> prms,
                       cudaStream_t stream) {
   int len = prms.n_cols * prms.n_cols;
   auto allocator = handle.getDeviceAllocator();
@@ -47,8 +48,8 @@ void truncCompExpVars(const cumlHandle_impl &handle, math_t *in,
   device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
   device_buffer<math_t> explained_var_ratio_all(allocator, stream, prms.n_cols);
 
-  calEig<math_t, enum_solver>(handle, in, components_all.data(), explained_var_all.data(), prms,
-         stream);
+  calEig<math_t, enum_solver>(handle, in, components_all.data(),
+                              explained_var_all.data(), prms, stream);
   Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
                           prms.n_components, prms.n_cols, stream);
   Matrix::ratio(explained_var_all.data(), explained_var_ratio_all.data(),
