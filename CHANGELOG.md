@@ -12,6 +12,7 @@
 - PR #2329: Add short commit hash to conda package name
 
 ## Bug Fixes
+- PR #2369: Update RF code to fix set_params memory leak
 
 # cuML 0.14.0 (Date TBD)
 
