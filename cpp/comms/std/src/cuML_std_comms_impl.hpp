@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,31 +26,8 @@
 
 #ifdef WITH_UCX
 #include <ucp/api/ucp.h>
-
-/**
- * Standard UCX request object that will be passed
- * around asynchronously. This object is really
- * opaque and the comms layer only cares that it
- * has been completed. Because cuml comms do not
- * initialize the ucx application context, it doesn't
- * own this object and thus it's important not to
- * modify this struct.
- */
-struct ucx_context {
-  int completed;
-};
-
-/**
- * The ucp_request struct is owned by cuml comms. It
- * wraps the `ucx_context` request and adds a few
- * other fields for logging and cleanup.
- */
-struct ucp_request {
-  struct ucx_context* req;
-  bool needs_release = true;
-  int other_rank = -1;
-  bool is_send_request = false;
-};
+#include <ucp/api/ucp_def.h>
+#include "ucp_helper.h"
 #endif
 
 namespace ML {
@@ -80,11 +57,9 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
    * @param eps shared pointer to array of ucp endpoints
    * @param size size of the cluster
    * @param rank rank of the current worker
-   * @param verbose print verbose logging
    */
   cumlStdCommunicator_impl(ncclComm_t comm, ucp_worker_h ucp_worker,
-                           std::shared_ptr<ucp_ep_h*> eps, int size, int rank,
-                           bool verbose = false);
+                           std::shared_ptr<ucp_ep_h*> eps, int size, int rank);
 #endif
 
   /**
@@ -92,10 +67,8 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
    * @param comm initilized nccl communicator
    * @param size size of the cluster
    * @param rank rank of the current worker
-   * @param verbose print verbose logging
    */
-  cumlStdCommunicator_impl(ncclComm_t comm, int size, int rank,
-                           bool verbose = false);
+  cumlStdCommunicator_impl(ncclComm_t comm, int size, int rank);
 
   virtual ~cumlStdCommunicator_impl();
 
@@ -149,13 +122,12 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
   int _size;
   int _rank;
 
-  bool _verbose;
-
   void initialize();
   void get_request_id(request_t* req) const;
 
 #ifdef WITH_UCX
-  void* _ucp_handle;
+  bool p2p_enabled = false;
+  comms_ucp_handler _ucp_handler;
   ucp_worker_h _ucp_worker;
   std::shared_ptr<ucp_ep_h*> _ucp_eps;
   mutable request_t _next_request_id;

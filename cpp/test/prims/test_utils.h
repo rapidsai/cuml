@@ -15,10 +15,10 @@
  */
 
 #pragma once
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include "cuda_utils.h"
 
 namespace MLCommon {
 

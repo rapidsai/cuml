@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <cmath>
 #include <iostream>
 #include <random>
-#include "random/mvg.h"
+#include "random/mvg.cuh"
 #include "test_utils.h"
 
 // mvg.h takes in matrices that are colomn major (as in fortan)

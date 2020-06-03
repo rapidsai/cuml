@@ -15,8 +15,11 @@
  */
 
 #pragma once
-#include "cuda_utils.h"
-#include "metric_def.h"
+#include "cuda_utils.cuh"
+#include "metric_def.cuh"
+
+namespace ML {
+namespace DecisionTree {
 
 template <class T>
 DI T SquareFunctor::exec(T x) {
@@ -53,3 +56,6 @@ float EntropyFunctor::exec(std::vector<unsigned int> &hist, int nrows) {
   }
   return (-1 * eval);
 }
+
+}  // namespace DecisionTree
+}  // namespace ML

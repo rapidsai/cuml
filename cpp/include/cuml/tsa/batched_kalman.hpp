@@ -32,7 +32,7 @@ namespace ML {
  * @param[in]  params        ARIMA parameters (device)
  * @param[in]  order         ARIMA hyper-parameters
  * @param[in]  batch_size    Number of series making up the batch
- * @param[out] loglike_b     Resulting loglikelihood (for each series)
+ * @param[out] loglike       Resulting loglikelihood (for each series)
  * @param[out] d_vs          Residual between the prediction and the
  *                           original series.
  *                           shape=(nobs-d-s*D, batch_size) (device)

@@ -34,7 +34,7 @@ from cuml.metrics.base import RegressorMixin
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -153,10 +153,10 @@ class Ridge(Base, RegressorMixin):
 
     Parameters
     -----------
-    alpha : float or double
+    alpha : float (default = 1.0)
         Regularization strength - must be a positive float. Larger values
         specify stronger regularization. Array input will be supported later.
-    solver : 'eig' or 'svd' or 'cd' (default = 'eig')
+    solver : {'eig', 'svd', 'cd'} (default = 'eig')
         Eig uses a eigendecomposition of the covariance matrix, and is much
         faster.
         SVD is slower, but guaranteed to be stable.

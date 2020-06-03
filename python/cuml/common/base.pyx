@@ -20,15 +20,19 @@
 # cython: language_level = 3
 
 import cuml
-import cuml.common.handle
 import cuml.common.cuda
+import cuml.common.handle
+import cuml.common.logger as logger
 import inspect
 
-from cudf.core import Series, DataFrame
+from cudf.core import Series as cuSeries
+from cudf.core import DataFrame as cuDataFrame
 from cuml.common.array import CumlArray
 from cupy import ndarray as cupyArray
-from numba.cuda import is_cuda_array
+from numba.cuda import devicearray as numbaArray
 from numpy import ndarray as numpyArray
+from pandas import DataFrame as pdDataFrame
+from pandas import Series as pdSeries
 
 
 class Base:
@@ -104,8 +108,8 @@ class Base:
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created just for this class.
-    verbose : bool
-        Whether to print debug spews
+    verbose : int or boolean (default = False)
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes of
         the estimators. If None, it'll inherit the output type set at the
@@ -158,13 +162,24 @@ class Base:
         del base  # optional!
     """
 
-    def __init__(self, handle=None, verbose=False, output_type=None):
+    def __init__(self, handle=None, verbose=False,
+                 output_type=None):
         """
         Constructor. All children must call init method of this base class.
 
         """
         self.handle = cuml.common.handle.Handle() if handle is None else handle
-        self.verbose = verbose
+
+        # Internally, self.verbose follows the spdlog/c++ standard of
+        # 0 is most logging, and logging decreases from there.
+        # So if the user passes an int value for logging, we convert it.
+        if verbose is True:
+            self.verbose = logger.level_debug
+        elif verbose is False:
+            self.verbose = logger.level_info
+        else:
+            # Using max in case user gives a verbosity value greater than 6
+            self.verbose = max(6 - verbose, 0)
 
         self.output_type = cuml.global_output_type if output_type is None \
             else _check_output_type_str(output_type)
@@ -283,8 +298,10 @@ class Base:
 _input_type_to_str = {
     numpyArray: 'numpy',
     cupyArray: 'cupy',
-    Series: 'cudf',
-    DataFrame: 'cudf'
+    cuSeries: 'cudf',
+    cuDataFrame: 'cudf',
+    pdSeries: 'numpy',
+    pdDataFrame: 'numpy'
 }
 
 
@@ -293,7 +310,7 @@ def _input_to_type(input):
     # numba check for a numba device_array
     if type(input) in _input_type_to_str.keys():
         return _input_type_to_str[type(input)]
-    elif is_cuda_array(input):
+    elif numbaArray.is_cuda_ndarray(input):
         return 'numba'
     else:
         return 'cupy'

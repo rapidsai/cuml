@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <random/make_blobs.h>
 #include <common/device_buffer.hpp>
 #include <distance/epsilon_neighborhood.cuh>
+#include <random/make_blobs.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {

@@ -27,8 +27,9 @@ import rmm
 from cuml.solvers import QN
 from cuml.common.base import Base
 from cuml.metrics.accuracy import accuracy_score
-from cuml.utils import input_to_dev_array
-from cuml.utils import with_cupy_rmm
+from cuml.common import input_to_cuml_array
+import cuml.common.logger as logger
+from cuml.common import with_cupy_rmm
 
 
 supported_penalties = ['l1', 'l2', 'none', 'elasticnet']
@@ -80,9 +81,9 @@ class LogisticRegression(Base):
         reg.fit(X,y)
 
         print("Coefficients:")
-        print(reg.coef_.copy_to_host())
+        print(reg.coef_.to_output('cupy'))
         print("Intercept:")
-        print(reg.intercept_.copy_to_host())
+        print(reg.intercept_.to_output('cupy'))
 
         X_new = cudf.DataFrame()
         X_new['col1'] = np.array([1,5], dtype = np.float32)
@@ -128,8 +129,8 @@ class LogisticRegression(Base):
     linesearch_max_iter: int (default = 50)
         Max number of linesearch iterations per outer iteration used in the
         lbfgs and owl QN solvers.
-    verbose: int (optional, default 0)
-        Controls verbosity level of logging.
+    verbose : int or boolean (default = False)
+        Controls verbose level of logging.
     l1_ratio: float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
     solver: 'qn', 'lbfgs', 'owl' (default='qn').
@@ -163,7 +164,8 @@ class LogisticRegression(Base):
 
     def __init__(self, penalty='l2', tol=1e-4, C=1.0, fit_intercept=True,
                  class_weight=None, max_iter=1000, linesearch_max_iter=50,
-                 verbose=0, l1_ratio=None, solver='qn', handle=None):
+                 verbose=False, l1_ratio=None, solver='qn',
+                 handle=None):
 
         super(LogisticRegression, self).__init__(handle=handle,
                                                  verbose=verbose)
@@ -218,12 +220,13 @@ class LogisticRegression(Base):
                      l1_strength=l1_strength, l2_strength=l2_strength,
                      max_iter=self.max_iter,
                      linesearch_max_iter=self.linesearch_max_iter,
-                     tol=self.tol, verbose=self.verbose, handle=self.handle)
+                     tol=self.tol, verbose=self.verbose,
+                     handle=self.handle)
 
-        if self.verbose > 1:
+        if logger.should_log_for(logger.level_debug):
             self.verb_prefix = "CY::"
-            print(self.verb_prefix + "Estimator parameters:")
-            pprint.pprint(self.__dict__)
+            logger.debug(self.verb_prefix + "Estimator parameters:")
+            logger.debug(pprint.pformat(self.__dict__))
         else:
             self.verb_prefix = ""
 
@@ -254,7 +257,7 @@ class LogisticRegression(Base):
         # Converting y to device array here to use `unique` function
         # since calling input_to_dev_array again in QN has no cost
         # Not needed to check dtype since qn class checks it already
-        y_m, _, _, _, _ = input_to_dev_array(y)
+        y_m, _, _, _ = input_to_cuml_array(y)
 
         unique_labels = cp.unique(y_m)
         self._num_classes = len(unique_labels)
@@ -264,19 +267,20 @@ class LogisticRegression(Base):
         else:
             loss = 'sigmoid'
 
-        if self.verbose > 0:
-            print(self.verb_prefix + "Setting loss to " + str(loss))
+        if logger.should_log_for(logger.level_debug):
+            logger.debug(self.verb_prefix + "Setting loss to " + str(loss))
 
         self.qn.loss = loss
 
-        if self.verbose > 0:
-            print(self.verb_prefix + "Calling QN fit " + str(loss))
+        if logger.should_log_for(logger.level_debug):
+            logger.debug(self.verb_prefix + "Calling QN fit " + str(loss))
 
         self.qn.fit(X, y_m, convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
-        if self.verbose > 0:
-            print(self.verb_prefix + "Setting coefficients " + str(loss))
+        if logger.should_log_for(logger.level_debug):
+            logger.debug(self.verb_prefix + "Setting coefficients " +
+                         str(loss))
 
         if self.fit_intercept:
             self.coef_ = self.qn.coef_[0:-1]
@@ -284,12 +288,12 @@ class LogisticRegression(Base):
         else:
             self.coef_ = self.qn.coef_
 
-        if self.verbose > 2:
-            print(self.verb_prefix + "Coefficients: " +
-                  self.coef_.copy_to_host())
+        if logger.should_log_for(logger.level_trace):
+            logger.trace(self.verb_prefix + "Coefficients: " +
+                         str(self.coef_.to_output('cupy')))
             if self.fit_intercept:
-                print(self.verb_prefix + "Intercept: " +
-                      self.intercept_.copy_to_host())
+                logger.trace(self.verb_prefix + "Intercept: " +
+                             str(self.intercept_.to_output('cupy')))
 
         return self
 
@@ -308,6 +312,7 @@ class LogisticRegression(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
         ----------
         y: array-like (device)
@@ -355,6 +360,7 @@ class LogisticRegression(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
         ----------
         y: array-like (device)
@@ -390,6 +396,7 @@ class LogisticRegression(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
         ----------
         y: array-like (device)

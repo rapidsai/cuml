@@ -33,9 +33,10 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
+
 
 cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
 
@@ -189,8 +190,8 @@ class TruncatedSVD(Base):
     tol : float (default = 1e-7)
         Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
         but but will slow down the algorithm's convergence.
-    verbose : bool
-        Whether to print debug spews
+    verbose : int or boolean (default = False)
+        Logging level
 
     Attributes
     -----------
@@ -219,15 +220,13 @@ class TruncatedSVD(Base):
         TruncatedSVD is also used in information retrieval tasks,
         recommendation systems and data compression.
 
-    For additional examples, see `the Truncated SVD  notebook
-    <https://github.com/rapidsai/notebooks/blob/master/cuml/tsvd_demo.ipynb>`_.
     For additional documentation, see `scikitlearn's TruncatedSVD docs
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
     """
 
     def __init__(self, algorithm='full', handle=None, n_components=1,
-                 n_iter=15, random_state=None, tol=1e-7, verbose=False,
-                 output_type=None):
+                 n_iter=15, random_state=None, tol=1e-7,
+                 verbose=False, output_type=None):
         # params
         super(TruncatedSVD, self).__init__(handle=handle, verbose=verbose,
                                            output_type=output_type)

@@ -55,7 +55,8 @@ class PCA(BaseDecomposition,
         n_parts = 2
 
         X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                        cluster_std=0.01, verbose=False,
+                        cluster_std=0.01,
+                        verbose=cuml.logger.level_info,
                         random_state=10, dtype=np.float32)
 
         wait(X_cudf)
@@ -104,8 +105,8 @@ class PCA(BaseDecomposition,
     svd_solver : 'full'
         Only Full algorithm is supported since it's significantly faster on GPU
         then the other solvers including randomized SVD.
-    verbose : bool
-        Whether to print debug spews
+    verbose : int or boolean (default = False)
+        Logging level
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by
         the corresponding singular values then multiplying by sqrt(n_samples).
@@ -160,7 +161,7 @@ class PCA(BaseDecomposition,
                                   **kwargs)
         self.noise_variance_ = None
 
-    def fit(self, X, _transform=False):
+    def fit(self, X):
         """
         Fit the model with X.
 
@@ -169,9 +170,9 @@ class PCA(BaseDecomposition,
         X : dask cuDF input
         """
 
-        out = self._fit(X, _transform)
+        self._fit(X)
         self.noise_variance_ = self.local_model.noise_variance_
-        return out
+        return self
 
     def fit_transform(self, X):
         """
@@ -185,7 +186,7 @@ class PCA(BaseDecomposition,
         -------
         X_new : dask cuDF
         """
-        return self.fit(X, _transform=True)
+        return self.fit(X).transform(X)
 
     def transform(self, X, delayed=True):
         """
