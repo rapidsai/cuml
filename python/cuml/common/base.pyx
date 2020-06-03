@@ -178,8 +178,7 @@ class Base:
         elif verbose is False:
             self.verbose = logger.level_info
         else:
-            # Using max in case user gives a verbosity value greater than 6
-            self.verbose = max(6 - verbose, 0)
+            self.verbose = verbose
 
         self.output_type = cuml.global_output_type if output_type is None \
             else _check_output_type_str(output_type)

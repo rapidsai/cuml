@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,12 @@
 #include <common/cudart_utils.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/transpose.h>
+#include <ml_utils.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
+#include <common/allocatorAdapter.hpp>
+#include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <linalg/binary_op.cuh>
 #include <linalg/eig.cuh>
@@ -32,10 +36,6 @@
 #include <stats/mean.cuh>
 #include <stats/stddev.cuh>
 #include <stats/sum.cuh>
-#include "common/allocatorAdapter.hpp"
-#include "common/cumlHandle.hpp"
-#include "common/device_buffer.hpp"
-#include "ml_utils.h"
 
 namespace ML {
 
