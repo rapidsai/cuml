@@ -13,6 +13,7 @@
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
+- PR #2373: Use Treelite Pip package in GPU testing
 
 # cuML 0.14.0 (03 Jun 2020)
 
