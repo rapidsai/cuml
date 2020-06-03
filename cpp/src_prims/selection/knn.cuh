@@ -370,7 +370,7 @@ __global__ void class_vote_kernel(OutType *out, const float *class_proba,
   out[row * n_outputs + output_offset] = label_cache[cur_label];
 }
 
-template <typename LabelType>
+template <typename LabelType, bool precomp_lbls = false>
 __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
                                    const LabelType *labels, size_t n_labels,
                                    size_t n_samples, int n_neighbors,
@@ -383,9 +383,12 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
   // should work for moderately small number of classes
   LabelType pred = 0;
   for (int j = 0; j < n_neighbors; j++) {
-    int64_t neighbor_idx = knn_indices[i + j];
-    int n = neighbor_idx;
-    pred += labels[neighbor_idx];
+    if (precomp_lbls) {
+      pred += labels[i + j];
+    } else {
+      int64_t neighbor_idx = knn_indices[i + j];
+      pred += labels[neighbor_idx];
+    }
   }
 
   out[row * n_outputs + output_offset] = pred / (LabelType)n_neighbors;
@@ -398,6 +401,9 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  *
  * @param out vector of output class probabilities of the same size as y.
  *            each element should be of size size (n_samples * n_classes[i])
+ * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Classifier. In this case,
+ * the knn_indices array is not used as the y arrays already store the labels for each row.
+ * This makes it possible to compute the reduction step without holding all the data on a single machine.
  * @param knn_indices the index array resulting from a knn search
  * @param y vector of label arrays. for multulabel classification,
  *          each output in the vector is a different array of labels
@@ -412,9 +418,6 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  * @param int_streams internal streams to use for parallelizing independent CUDA events.
  * @param n_int_streams number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
- * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Classifier. In this case,
- * the knn_indices array is not used as the y arrays already store the labels for each row.
- * This makes it possible to compute the reduction step without holding all the data on a single machine.
  */
 template <int TPB_X = 32, bool precomp_lbls = false>
 void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
@@ -458,6 +461,9 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  * array of unique monotonically increasing labels will be used.
  *
  * @tparam TPB_X the number of threads per block to use
+ * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Classifier. In this case,
+ * the knn_indices array is not used as the y arrays already store the labels for each row.
+ * This makes it possible to compute the reduction step without holding all the data on a single machine.
  * @param out output array of size (n_samples * y.size())
  * @param knn_indices index array from knn search
  * @param y vector of label arrays. for multilabel classification, each
@@ -473,9 +479,6 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  * @param int_streams internal streams to use for parallelizing independent CUDA events.
  * @param n_int_streams number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
- * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Classifier. In this case,
- * the knn_indices array is not used as the y arrays already store the labels for each row.
- * This makes it possible to compute the reduction step without holding all the data on a single machine.
  */
 template <int TPB_X = 32, bool precomp_lbls = false>
 void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
@@ -539,6 +542,9 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
  * nearest neighbors.
  * @tparam ValType data type of the labels
  * @tparam TPB_X the number of threads per block to use
+ * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Regressor. In this case,
+ * the knn_indices array is not used as the y arrays already store the output for each row.
+ * This makes it possible to compute the reduction step without holding all the data on a single machine.
  * @param out output array of size (n_samples * y.size())
  * @param knn_indices index array from knn search
  * @param y vector of label arrays. for multilabel classification, each
@@ -553,7 +559,7 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
  *        the user_stream is used.
  */
 
-template <typename ValType, int TPB_X = 32>
+template <typename ValType, int TPB_X = 32, bool precomp_lbls = false>
 void knn_regress(ValType *out, const int64_t *knn_indices,
                  const std::vector<ValType *> &y, size_t n_labels,
                  size_t n_rows, int k, cudaStream_t user_stream,
@@ -565,8 +571,9 @@ void knn_regress(ValType *out, const int64_t *knn_indices,
     cudaStream_t stream =
       select_stream(user_stream, int_streams, n_int_streams, i);
 
-    regress_avg_kernel<<<ceildiv(n_rows, (size_t)TPB_X), TPB_X, 0, stream>>>(
-      out, knn_indices, y[i], n_labels, n_rows, k, y.size(), i);
+    regress_avg_kernel<ValType, precomp_lbls>
+      <<<ceildiv(n_rows, (size_t)TPB_X), TPB_X, 0, stream>>>(
+        out, knn_indices, y[i], n_labels, n_rows, k, y.size(), i);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaPeekAtLastError());
