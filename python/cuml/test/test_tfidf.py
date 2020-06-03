@@ -88,4 +88,12 @@ def test_tfidf_transformer_copy(norm, use_idf, smooth_idf, sublinear_tf):
     cp.testing.assert_array_almost_equal(data_gpu.todense(), res.todense())
 
 
-# TODO: add test with random sparse input
+def test_tfidf_transformer_sparse():
+    X = cp.sparse.rand(10, 2000, dtype=np.float64, random_state=123)
+    X_csc = cp.sparse.csc_matrix(X)
+    X_csr = cp.sparse.csr_matrix(X)
+
+    X_trans_csc = TfidfTransformer().fit_transform(X_csc).todense()
+    X_trans_csr = TfidfTransformer().fit_transform(X_csr).todense()
+
+    cp.testing.assert_array_almost_equal(X_trans_csc, X_trans_csr)
