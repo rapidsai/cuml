@@ -204,15 +204,17 @@ inline void knn_merge_parts(float *inK, int64_t *inV, float *outK,
    */
 template <typename IntType = int,
           Distance::DistanceType DistanceType = Distance::EucUnexpandedL2>
-void brute_force_knn(
-  std::vector<float *> &input, std::vector<int> &sizes, IntType D,
-  float *search_items, IntType n, int64_t *res_I, float *res_D, IntType k,
-  std::shared_ptr<deviceAllocator> allocator, cudaStream_t userStream,
-  cudaStream_t *internalStreams = nullptr, int n_int_streams = 0,
-  bool rowMajorIndex = true, bool rowMajorQuery = true,
-  std::vector<int64_t> *translations = nullptr,
-  ML::MetricType metric = ML::MetricType::METRIC_L2,
-  float metricArg = 0, bool expanded_form = false) {
+void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
+                     IntType D, float *search_items, IntType n, int64_t *res_I,
+                     float *res_D, IntType k,
+                     std::shared_ptr<deviceAllocator> allocator,
+                     cudaStream_t userStream,
+                     cudaStream_t *internalStreams = nullptr,
+                     int n_int_streams = 0, bool rowMajorIndex = true,
+                     bool rowMajorQuery = true,
+                     std::vector<int64_t> *translations = nullptr,
+                     ML::MetricType metric = ML::MetricType::METRIC_L2,
+                     float metricArg = 0, bool expanded_form = false) {
   ASSERT(DistanceType == Distance::EucUnexpandedL2 ||
            DistanceType == Distance::EucUnexpandedL2Sqrt,
          "Only EucUnexpandedL2Sqrt and EucUnexpandedL2 metrics are supported "

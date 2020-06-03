@@ -213,7 +213,8 @@ extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
         handle_ptr->getImpl().getDeviceAllocator(),
         handle_ptr->getImpl().getStream(), int_streams.data(),
         handle_ptr->getImpl().getNumInternalStreams(), rowMajorIndex,
-        rowMajorQuery, nullptr, (ML::MetricType)metric_type, metric_arg, expanded);
+        rowMajorQuery, nullptr, (ML::MetricType)metric_type, metric_arg,
+        expanded);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }

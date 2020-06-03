@@ -65,7 +65,6 @@ cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
-
     enum MetricType:
         METRIC_INNER_PRODUCT = 0,
         METRIC_L2,
@@ -78,21 +77,21 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         METRIC_JensenShannon
 
     void brute_force_knn(
-            cumlHandle &handle,
-            vector[float*] &inputs,
-            vector[int] &sizes,
-            int D,
-            float *search_items,
-            int n,
-            int64_t *res_I,
-            float *res_D,
-            int k,
-            bool rowMajorIndex,
-            bool rowMajorQuery,
-            MetricType metric,
-            float metric_arg,
-            bool expanded
-        ) except +
+        cumlHandle &handle,
+        vector[float*] &inputs,
+        vector[int] &sizes,
+        int D,
+        float *search_items,
+        int n,
+        int64_t *res_I,
+        float *res_D,
+        int k,
+        bool rowMajorIndex,
+        bool rowMajorQuery,
+        MetricType metric,
+        float metric_arg,
+        bool expanded
+    ) except +
 
 
 class NearestNeighbors(Base):

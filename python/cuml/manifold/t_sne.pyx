@@ -207,6 +207,8 @@ class TSNE(Base):
 
         super(TSNE, self).__init__(handle=handle, verbose=verbose)
 
+        print(str("Creating tsne object"))
+
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
                              "than 0.".format(n_components))
@@ -311,6 +313,10 @@ class TSNE(Base):
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
         """
+
+        print("INSIDE FIT")
+
+        logger.debug("inside fit")
         cdef int n, p
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if handle_ == NULL:
@@ -371,6 +377,8 @@ class TSNE(Base):
         if self.random_state is not None:
             seed = self.random_state
 
+        print("Calling tsne_fit")
+
         TSNE_fit(handle_[0],
                  <float*> X_ptr,
                  <float*> embed_ptr,
@@ -396,6 +404,8 @@ class TSNE(Base):
                  <int> self.verbose,
                  <bool> True,
                  <bool> (self.method == 'barnes_hut'))
+
+        print("Done.")
 
         # Clean up memory
         self._embedding_ = Y
@@ -427,8 +437,12 @@ class TSNE(Base):
         self.fit(X, convert_dtype=convert_dtype)
         out_type = self._get_output_type(X)
 
+        print("Converting output")
+
         data = self._embedding_.to_output(out_type)
         del self._embedding_
+
+        print("Done.")
         return data
 
     def __getstate__(self):
