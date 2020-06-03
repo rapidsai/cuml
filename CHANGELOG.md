@@ -14,7 +14,7 @@
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
 
-# cuML 0.14.0 (Date TBD)
+# cuML 0.14.0 (03 Jun 2020)
 
 ## New Features
 - PR #1994: Support for distributed OneHotEncoder
