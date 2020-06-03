@@ -17,9 +17,8 @@
 import cupy as cp
 import math
 
-from cuml.utils import rmm_cupy_ary
-
-from cuml.utils import cuda_kernel_factory
+from cuml.common.memory_utils import rmm_cupy_ary
+from cuml.common.kernel_utils import cuda_kernel_factory
 
 
 map_kernel_str = r'''
@@ -38,9 +37,10 @@ map_kernel_str = r'''
   for(int i = 0; i < n_labels; i++) {
     if(label_cache[i] == unmapped_label) {
       x[tid] = i;
-      break;
+      return;
     }
   }
+  x[tid] = n_labels+1;
 }
 '''
 
@@ -116,6 +116,8 @@ def make_monotonic(labels, classes=None, copy=False):
     set [0, n-1] and renumbers them to be drawn that
     interval.
 
+    Replaces labels not present in classes by len(classes)+1.
+
     Parameters
     ----------
 
@@ -157,7 +159,6 @@ def make_monotonic(labels, classes=None, copy=False):
 
 
 def check_labels(labels, classes):
-
     """
     Validates that a set of labels is drawn from the unique
     set of given classes.
@@ -198,7 +199,6 @@ def check_labels(labels, classes):
 
 
 def invert_labels(labels, classes, copy=False):
-
     """
     Takes a set of labels that have been mapped to be drawn
     from a monotonically increasing set and inverts them to

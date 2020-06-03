@@ -14,25 +14,22 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include <cuda_utils.cuh>
 #include <iostream>
 #include <vector>
-#include "label/classlabels.h"
-#include "random/rng.h"
-#include "selection/knn.h"
+#include "label/classlabels.cuh"
+#include "random/rng.cuh"
+#include "selection/knn.cuh"
 
 #include "linalg/cusolver_wrappers.h"
 
-#include "linalg/reduce.h"
+#include "linalg/reduce.cuh"
 
-//#include <thrust/count.h>
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
-//#include <thrust/reduce.h>
-//#include <thrust/scan.h>
-//#include <thrust/system/cuda/execution_policy.h>
 
 namespace MLCommon {
 namespace Selection {
@@ -107,7 +104,8 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
     std::vector<float *> y;
     y.push_back(train_labels);
 
-    knn_regress(pred_labels, knn_indices, y, params.rows, params.k, stream);
+    knn_regress(pred_labels, knn_indices, y, params.rows, params.rows, params.k,
+                stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));

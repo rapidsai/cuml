@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/matrix/kernelparams.h>
+#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include "svm_model.h"
 #include "svm_parameter.h"
@@ -58,7 +59,9 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  * sign(f(x_i)).
  *
  * The predictions are calculated according to the following formulas:
- * f(x_i) = \sum_{j=1}^n_support K(x_i, x_j) * dual_coefs[j] + b)
+ * \f[
+ *    f(x_i) = \sum_{j=1}^n_support K(x_i, x_j) * dual_coefs[j] + b)
+ * \f]
  *
  * pred(x_i) = label[sign(f(x_i))], if predict_class==true, or
  * pred(x_i) = f(x_i),       if predict_class==falsee.
@@ -127,13 +130,14 @@ class SVC {
    * @param kernel_params parameters for kernels
    * @param cache_size size of kernel cache in device memory (MiB)
    * @param max_iter maximum number of outer iterations in SmoSolver
-   * @param verbose enable verbose output
+   * @param nochange_steps number of steps with no change wrt convergence
+   * @param verbosity verbosity level for logging messages during execution
    */
   SVC(cumlHandle &handle, math_t C = 1, math_t tol = 1.0e-3,
       MLCommon::Matrix::KernelParams kernel_params =
         MLCommon::Matrix::KernelParams{MLCommon::Matrix::LINEAR, 3, 1, 0},
       math_t cache_size = 200, int max_iter = -1, int nochange_steps = 1000,
-      bool verbose = false);
+      int verbosity = CUML_LEVEL_INFO);
 
   ~SVC();
 
@@ -154,7 +158,7 @@ class SVC {
    * @brief Predict classes for samples in input.
    * @param [in]  input device pointer for the input data in column major format,
    *   size [n_rows x n_cols].
-   * @param [in] n_rows, number of vectors
+   * @param [in] n_rows number of vectors
    * @param [in] n_cols number of features
    * @param [out] preds device pointer to store the predicted class labels.
    *    Size [n_rows]. Should be allocated on entry.
@@ -165,7 +169,7 @@ class SVC {
    * @brief Calculate decision function value for samples in input.
    * @param [in] input device pointer for the input data in column major format,
    *   size [n_rows x n_cols].
-   * @param [in] n_rows, number of vectors
+   * @param [in] n_rows number of vectors
    * @param [in] n_cols number of features
    * @param [out] preds device pointer to store the decision function value
    *    Size [n_rows]. Should be allocated on entry.

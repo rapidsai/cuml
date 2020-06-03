@@ -93,13 +93,18 @@ def test_pca_fit_then_transform(datatype, input_type,
 
     if name != 'blobs':
         skpca = skPCA(n_components=2)
-        Xskpca = skpca.fit_transform(X)
+        skpca.fit(X)
+        Xskpca = skpca.transform(X)
 
     handle, stream = get_handle(use_handle)
     cupca = cuPCA(n_components=2, handle=handle)
 
-    X_cupca = cupca.fit_transform(X)
+    cupca.fit(X)
+    X_cupca = cupca.transform(X)
     cupca.handle.sync()
+
+    assert Xskpca.shape[0] == X_cupca.shape[0]
+    assert Xskpca.shape[1] == X_cupca.shape[1]
 
     if name != 'blobs':
         assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
@@ -137,6 +142,9 @@ def test_pca_fit_transform(datatype, input_type,
 
     X_cupca = cupca.fit_transform(X)
     cupca.handle.sync()
+
+    assert Xskpca.shape[0] == X_cupca.shape[0]
+    assert Xskpca.shape[1] == X_cupca.shape[1]
 
     if name != 'blobs':
         assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)

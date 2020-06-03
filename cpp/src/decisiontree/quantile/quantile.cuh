@@ -15,8 +15,12 @@
  */
 
 #pragma once
+#include <common/cudart_utils.h>
 #include "cub/cub.cuh"
 #include "quantile.h"
+
+namespace ML {
+namespace DecisionTree {
 
 template <typename T>
 __global__ void allcolsampler_kernel(const T *__restrict__ data,
@@ -164,3 +168,6 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
 
   return;
 }
+
+}  // namespace DecisionTree
+}  // namespace ML

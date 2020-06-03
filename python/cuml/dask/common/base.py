@@ -13,20 +13,21 @@
 # limitations under the License.
 #
 
+import cudf.comm.serialize  # noqa: F401
 import cupy as cp
 import dask
 import numpy as np
-from toolz import first
-
-import cudf.comm.serialize  # noqa: F401
 
 from cuml import Base
 from cuml.common.array import CumlArray
+from cuml.dask.common.utils import wait_and_raise_from_futures
+from cuml.dask.common.comms import CommsContext
+from cuml.dask.common.input_utils import DistributedDataHandler
 
 from dask_cudf.core import DataFrame as dcDataFrame
-
 from dask.distributed import default_client
 from functools import wraps
+from toolz import first
 
 
 class BaseEstimator(object):
@@ -104,6 +105,7 @@ class DelayedParallelFunc(object):
                            delayed=True,
                            output_futures=False,
                            output_dtype=None,
+                           output_collection_type=None,
                            **kwargs):
         """
         Runs a function embarrassingly parallel on a set of workers while
@@ -134,10 +136,18 @@ class DelayedParallelFunc(object):
                          of the parallel function executions on the workers,
                          rather than a dask collection object.
 
+        output_collection_type : None or a string in {'cupy', 'cudf'}
+            Choose to return the resulting collection as a CuPy backed
+            dask.array or a dask_cudf.DataFrame. If None, will use the same
+            collection type as used in the input of fit.
+            Unused if output_futures=True.
+
         Returns
         -------
         y : dask cuDF (n_rows, 1)
         """
+        if output_collection_type is None:
+            output_collection_type = self.datatype
 
         X_d = X.to_delayed()
 
@@ -158,11 +168,11 @@ class DelayedParallelFunc(object):
         # TODO: Put the following conditionals in a
         #  `to_delayed_output()` function
         # TODO: Add eager path back in
-        if self.datatype == 'cupy':
+        if output_collection_type == 'cupy':
 
             # todo: add parameter for option of not checking directly
 
-            shape = (np.nan,)*n_dims
+            shape = (np.nan,) * n_dims
             preds_arr = [
                 dask.array.from_delayed(pred,
                                         meta=cp.zeros(1, dtype=dtype),
@@ -178,7 +188,6 @@ class DelayedParallelFunc(object):
                                                 )
 
                 return output if delayed else output.persist()
-
         else:
             if output_futures:
                 return self.client.compute(preds)
@@ -187,31 +196,90 @@ class DelayedParallelFunc(object):
                 return output if delayed else output.persist()
 
 
+class DelayedPredictionProbaMixin(DelayedParallelFunc):
+
+    def _predict_proba(self, X, delayed=True, **kwargs):
+        return self._run_parallel_func(func=_predict_proba_func, X=X,
+                                       n_dims=2, delayed=delayed, **kwargs)
+
+
 class DelayedPredictionMixin(DelayedParallelFunc):
 
     def _predict(self, X, delayed=True, **kwargs):
-        return self._run_parallel_func(_predict_func, X, 1, delayed,
+        return self._run_parallel_func(func=_predict_func, X=X,
+                                       n_dims=1, delayed=delayed,
                                        **kwargs)
 
 
 class DelayedTransformMixin(DelayedParallelFunc):
 
     def _transform(self, X, n_dims=1, delayed=True, **kwargs):
-        return self._run_parallel_func(_transform_func,
-                                       X,
-                                       n_dims,
-                                       delayed,
+        return self._run_parallel_func(func=_transform_func,
+                                       X=X,
+                                       n_dims=n_dims,
+                                       delayed=delayed,
                                        **kwargs)
 
 
 class DelayedInverseTransformMixin(DelayedParallelFunc):
 
     def _inverse_transform(self, X, n_dims=1, delayed=True, **kwargs):
-        return self._run_parallel_func(_inverse_transform_func,
-                                       X,
-                                       n_dims,
-                                       delayed,
+        return self._run_parallel_func(func=_inverse_transform_func,
+                                       X=X,
+                                       n_dims=n_dims,
+                                       delayed=delayed,
                                        **kwargs)
+
+
+class SyncFitMixinLinearModel(object):
+
+    def _fit(self, model_func, data):
+
+        n_cols = data[0].shape[1]
+
+        data = DistributedDataHandler.create(data=data, client=self.client)
+        self.datatype = data.datatype
+
+        comms = CommsContext(comms_p2p=False)
+        comms.init(workers=data.workers)
+
+        data.calculate_parts_to_sizes(comms)
+        self.ranks = data.ranks
+
+        lin_models = dict([(data.worker_info[worker_data[0]]["rank"],
+                            self.client.submit(
+            model_func,
+            comms.sessionId,
+            self.datatype,
+            **self.kwargs,
+            pure=False,
+            workers=[worker_data[0]]))
+
+            for worker, worker_data in
+            enumerate(data.worker_to_parts.items())])
+
+        lin_fit = dict([(worker_data[0], self.client.submit(
+            _func_fit,
+            lin_models[data.worker_info[worker_data[0]]["rank"]],
+            worker_data[1],
+            data.total_rows,
+            n_cols,
+            data.parts_to_sizes[data.worker_info[worker_data[0]]["rank"]],
+            data.worker_info[worker_data[0]]["rank"],
+            pure=False,
+            workers=[worker_data[0]]))
+
+            for worker, worker_data in
+            enumerate(data.worker_to_parts.items())])
+
+        wait_and_raise_from_futures(list(lin_fit.values()))
+
+        comms.destroy()
+        return lin_models
+
+
+def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
+    return f.fit(data, n_rows, n_cols, partsToSizes, rank)
 
 
 def mnmg_import(func):
@@ -230,6 +298,10 @@ def mnmg_import(func):
 
 def _predict_func(model, data, **kwargs):
     return model.predict(data, **kwargs)
+
+
+def _predict_proba_func(model, data, **kwargs):
+    return model.predict_proba(data, **kwargs)
 
 
 def _transform_func(model, data, **kwargs):

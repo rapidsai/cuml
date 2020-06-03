@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <common/cudart_utils.h>
 #include <cuml/tree/flatnode.h>
 #include <cuml/tree/decisiontree.hpp>
 #include <iostream>
@@ -21,6 +22,10 @@
 #include "common_helper.cuh"
 #include "levelhelper_regressor.cuh"
 #include "metric.cuh"
+
+namespace ML {
+namespace DecisionTree {
+
 /*
 This is the driver function for building regression tree
 level by level using a simple for loop.
@@ -35,11 +40,9 @@ template <typename T>
 void grow_deep_tree_regression(
   const T* data, const T* labels, unsigned int* rowids, const int Ncols,
   const float colper, const int n_sampled_rows, const int nrows,
-  const int nbins, int maxdepth, const int maxleaves,
-  const int min_rows_per_node, const ML::CRITERION split_cr, int split_algo,
-  const float min_impurity_decrease, int& depth_cnt, int& leaf_cnt,
-  std::vector<SparseTreeNode<T, T>>& sparsetree, const int treeid,
-  std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  const ML::DecisionTree::DecisionTreeParams& tree_params, int& depth_cnt,
+  int& leaf_cnt, std::vector<SparseTreeNode<T, T>>& sparsetree,
+  const int treeid, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   const int ncols_sampled = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
@@ -49,14 +52,14 @@ void grow_deep_tree_regression(
   T mean;
   T initial_metric;
   unsigned int count;
-  if (split_cr == ML::CRITERION::MSE) {
+  if (tree_params.split_criterion == ML::CRITERION::MSE) {
     initial_metric_regression<T, SquareFunctor>(labels, sample_cnt, nrows, mean,
                                                 count, initial_metric, tempmem);
   } else {
     initial_metric_regression<T, AbsFunctor>(labels, sample_cnt, nrows, mean,
                                              count, initial_metric, tempmem);
   }
-  int reserve_depth = std::min(tempmem->swap_depth, maxdepth);
+  int reserve_depth = std::min(tempmem->swap_depth, tree_params.max_depth);
   size_t total_nodes = pow(2, (reserve_depth + 1)) - 1;
 
   std::vector<T> sparse_meanstate;
@@ -112,7 +115,7 @@ void grow_deep_tree_regression(
   std::vector<unsigned int> feature_selector(h_colids, h_colids + Ncols);
   float* infogain = tempmem->h_outgain->data();
 
-  int scatter_algo_depth = std::min(tempmem->swap_depth, maxdepth);
+  int scatter_algo_depth = std::min(tempmem->swap_depth, tree_params.max_depth);
   for (int depth = 0; (depth < scatter_algo_depth) && (n_nodes_nextitr != 0);
        depth++) {
     depth_cnt = depth + 1;
@@ -130,42 +133,44 @@ void grow_deep_tree_regression(
     init_parent_value(sparse_meanstate, sparse_countstate, sparse_nodelist,
                       sparsesize, depth, tempmem);
 
-    if (split_cr == ML::CRITERION::MSE) {
-      get_mse_regression_fused<T>(
-        data, labels, flagsptr, sample_cnt, nrows, Ncols, ncols_sampled, nbins,
-        n_nodes, split_algo, tempmem, d_mseout, d_predout, d_count);
+    if (tree_params.split_criterion == ML::CRITERION::MSE) {
+      get_mse_regression_fused<T>(data, labels, flagsptr, sample_cnt, nrows,
+                                  Ncols, ncols_sampled, tree_params.n_bins,
+                                  n_nodes, tree_params.split_algo, tempmem,
+                                  d_mseout, d_predout, d_count);
       get_best_split_regression<T, MSEGain<T>>(
         h_mseout, d_mseout, h_predout, d_predout, h_count, d_count, h_colids,
-        d_colids, h_colstart, d_colstart, Ncols, ncols_sampled, nbins, n_nodes,
-        depth, min_rows_per_node, split_algo, sparsesize, infogain,
-        sparse_meanstate, sparse_countstate, sparsetree, sparse_nodelist,
-        h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
-        tempmem);
+        d_colids, h_colstart, d_colstart, Ncols, ncols_sampled,
+        tree_params.n_bins, n_nodes, depth, tree_params.min_rows_per_node,
+        tree_params.split_algo, sparsesize, infogain, sparse_meanstate,
+        sparse_countstate, sparsetree, sparse_nodelist, h_split_colidx,
+        h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
 
     } else {
       get_mse_regression<T, AbsFunctor>(
-        data, labels, flagsptr, sample_cnt, nrows, Ncols, ncols_sampled, nbins,
-        n_nodes, split_algo, tempmem, d_mseout, d_predout, d_count);
+        data, labels, flagsptr, sample_cnt, nrows, Ncols, ncols_sampled,
+        tree_params.n_bins, n_nodes, tree_params.split_algo, tempmem, d_mseout,
+        d_predout, d_count);
       get_best_split_regression<T, MAEGain<T>>(
         h_mseout, d_mseout, h_predout, d_predout, h_count, d_count, h_colids,
-        d_colids, h_colstart, d_colstart, Ncols, ncols_sampled, nbins, n_nodes,
-        depth, min_rows_per_node, split_algo, sparsesize, infogain,
-        sparse_meanstate, sparse_countstate, sparsetree, sparse_nodelist,
-        h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
-        tempmem);
+        d_colids, h_colstart, d_colstart, Ncols, ncols_sampled,
+        tree_params.n_bins, n_nodes, depth, tree_params.min_rows_per_node,
+        tree_params.split_algo, sparsesize, infogain, sparse_meanstate,
+        sparse_countstate, sparsetree, sparse_nodelist, h_split_colidx,
+        h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
     }
 
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-    leaf_eval_regression(infogain, depth, min_impurity_decrease, maxdepth,
-                         maxleaves, h_new_node_flags, sparsetree, sparsesize,
-                         sparse_meanstate, n_nodes_nextitr, sparse_nodelist,
-                         leaf_cnt);
+    leaf_eval_regression(
+      infogain, depth, tree_params.min_impurity_decrease, tree_params.max_depth,
+      tree_params.max_leaves, h_new_node_flags, sparsetree, sparsesize,
+      sparse_meanstate, n_nodes_nextitr, sparse_nodelist, leaf_cnt);
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
                            tempmem->stream);
-    make_level_split(data, nrows, Ncols, ncols_sampled, nbins, n_nodes,
-                     split_algo, d_split_colidx, d_split_binidx,
-                     d_new_node_flags, flagsptr, tempmem);
+    make_level_split(data, nrows, Ncols, ncols_sampled, tree_params.n_bins,
+                     n_nodes, tree_params.split_algo, d_split_colidx,
+                     d_split_binidx, d_new_node_flags, flagsptr, tempmem);
   }
 
   // Start of gather algorithm
@@ -198,8 +203,8 @@ void grow_deep_tree_regression(
   sparsetree.resize(sparsetree.size() - lastsize);
   convert_scatter_to_gather(flagsptr, sample_cnt, n_nodes, nrows, d_nodecount,
                             d_nodestart, d_samplelist, tempmem);
-  for (int depth = tempmem->swap_depth; (depth < maxdepth) && (n_nodes != 0);
-       depth++) {
+  for (int depth = tempmem->swap_depth;
+       (depth < tree_params.max_depth) && (n_nodes != 0); depth++) {
     depth_cnt = depth + 1;
     //Algorithm starts here
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
@@ -208,9 +213,9 @@ void grow_deep_tree_regression(
 
     best_split_gather_regression(
       data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, nrows,
-      Ncols, ncols_sampled, nbins, n_nodes, split_algo, split_cr,
-      sparsetree.size() + lastsize, min_impurity_decrease, tempmem,
-      d_sparsenodes, d_nodelist);
+      Ncols, ncols_sampled, tree_params.n_bins, n_nodes, tree_params.split_algo,
+      tree_params.split_criterion, sparsetree.size() + lastsize,
+      tree_params.min_impurity_decrease, tempmem, d_sparsenodes, d_nodelist);
 
     MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
                          tempmem->stream);
@@ -238,3 +243,6 @@ void grow_deep_tree_regression(
                       h_sparsenodes + lastsize);
   }
 }
+
+}  // namespace DecisionTree
+}  // namespace ML

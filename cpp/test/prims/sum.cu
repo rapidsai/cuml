@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "linalg/eltwise.h"
-#include "random/rng.h"
-#include "stats/sum.h"
+#include "linalg/eltwise.cuh"
+#include "random/rng.cuh"
+#include "stats/sum.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

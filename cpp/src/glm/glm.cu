@@ -15,9 +15,9 @@
  */
 #include <cuml/cuml.hpp>
 #include <cuml/linear_model/glm.hpp>
-#include "glm/qn/qn.h"
-#include "ols.h"
-#include "ridge.h"
+#include "glm/qn/qn.cuh"
+#include "ols.cuh"
+#include "ridge.cuh"
 
 namespace ML {
 namespace GLM {

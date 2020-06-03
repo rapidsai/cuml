@@ -41,6 +41,7 @@ struct Pack {
   /**
      * @brief reset the output array before calling the actual kernel
      * @param stream cuda stream where to perform this operation
+     * @param vdlen lenght of the vertex degree array
      */
   void resetArray(cudaStream_t stream, Index_ vdlen) {
     CUDA_CHECK(cudaMemsetAsync(vd, 0, sizeof(Index_) * vdlen, stream));

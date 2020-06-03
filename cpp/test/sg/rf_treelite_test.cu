@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <sys/stat.h>
 #include <test_utils.h>
 #include <treelite/c_api.h>
 #include <treelite/c_api_runtime.h>
 #include <cstdlib>
+#include <cuda_utils.cuh>
 #include <fstream>
 #include <iostream>
 #include <limits>
@@ -30,7 +31,7 @@
 #include "linalg/gemv.h"
 #include "linalg/transpose.h"
 #include "ml_utils.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 
 namespace ML {
 
@@ -151,9 +152,9 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   void getResultAndCheck() {
     // Predict and compare against known labels
     predict(*handle, forest, inference_data_d, params.n_inference_rows,
-            params.n_cols, predicted_labels_d, false);
+            params.n_cols, predicted_labels_d);
     RF_metrics tmp = score(*handle, forest, labels_d, params.n_inference_rows,
-                           predicted_labels_d, false);
+                           predicted_labels_d);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -238,11 +239,8 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     CUDA_CHECK(cudaFree(labels_d));
     CUDA_CHECK(cudaFree(predicted_labels_d));
 
-    delete[] forest->trees;
     delete forest;
-    delete[] forest_2->trees;
     delete forest_2;
-    delete[] forest_3->trees;
     delete forest_3;
     all_forest_info.clear();
     labels_h.clear();

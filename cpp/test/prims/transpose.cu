@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 #include "linalg/transpose.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

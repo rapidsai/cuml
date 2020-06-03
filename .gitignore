@@ -1,3 +1,6 @@
+## python raft symlink
+python/cuml/raft
+
 ## common
 __pycache__
 *.pyc
@@ -18,11 +21,14 @@ build_prims/
 cuml.egg-info/
 dist/
 python/cuml/**/*.cpp
-python/external_repositories
+python/_external_repositories
+python/record.txt
 log
 .ipynb_checkpoints
 .DS_Store
 dask-worker-space/
+tmp/
+
 ## eclipse
 .project
 .cproject
@@ -41,3 +47,6 @@ dask-worker-space/
 *.qdrep.cache
 *.qdstrm
 *.nvprof
+
+## doxygen build check inside ci/checks/style.sh
+doxygen_check/
