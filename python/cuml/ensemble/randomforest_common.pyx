@@ -353,6 +353,7 @@ class BaseRandomForestModel(Base):
         return params
 
     def _set_params(self, **params):
+        # Resetting handle as __setstate__ overwrites with handle=None
         self.handle.__setstate__(self.n_streams)
         self.model_pbuf_bytes = []
 

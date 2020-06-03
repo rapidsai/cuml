@@ -901,7 +901,6 @@ class RandomForestClassifier(BaseRandomForestModel):
         -----------
         params : dict of new params
         """
-        # Resetting handle as __setstate__ overwrites with handle=None
         return self._set_params(**params)
 
     def print_summary(self):
