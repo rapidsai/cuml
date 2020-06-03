@@ -10,6 +10,7 @@
 - PR #1945: enable clang tidy
 - PR #2345: make C++ logger level definition to be the same as python layer
 - PR #2329: Add short commit hash to conda package name
+- PR #2371: Updating MBSGD tests to use larger batches
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
