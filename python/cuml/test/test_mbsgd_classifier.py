@@ -63,10 +63,12 @@ def test_mbsgd_classifier_vs_skl(lrate, penalty, loss, make_dataset):
     nrows, X_train, X_test, y_train, y_test = make_dataset
 
     if nrows < 500000:
-        cu_mbsgd_classifier = cumlMBSGClassifier(learning_rate=lrate, eta0=0.005,
-                                                epochs=100, fit_intercept=True,
-                                                batch_size=2, tol=0.0,
-                                                penalty=penalty)
+        cu_mbsgd_classifier = cumlMBSGClassifier(learning_rate=lrate, 
+                                                 eta0=0.005,
+                                                 epochs=100,
+                                                 fit_intercept=True,
+                                                 batch_size=2, tol=0.0,
+                                                 penalty=penalty)
 
         cu_mbsgd_classifier.fit(X_train, y_train)
         cu_pred = cu_mbsgd_classifier.predict(X_test)
