@@ -16,11 +16,18 @@
 from sklearn.utils.validation import FLOAT_DTYPES
 from sklearn.exceptions import NotFittedError
 import cupy as cp
-from cuml.common.input_utils import input_to_cuml_array
 from cuml.common import with_cupy_rmm
+from cuml.common.sparsefuncs import csr_row_normalize_l1
+from cuml.common.sparsefuncs import csr_row_normalize_l2
 
 
-# TODO: Move this to feature_extraction/text.py once CountVectorizer is merged
+def _sparse_document_frequency(X):
+    """Count the number of non-zero values for each feature in sparse X."""
+    if cp.sparse.isspmatrix_csr(X):
+        return cp.bincount(X.indices, minlength=X.shape[1])
+    else:
+        return cp.diff(X.indptr)
+
 
 class TfidfTransformer:
     """Transform a count matrix to a normalized tf or tf-idf representation
@@ -94,14 +101,13 @@ class TfidfTransformer:
         X : array-like of shape n_samples, n_features
             A matrix of term/token counts.
         """
-        X, _, _, _ = input_to_cuml_array(X)
-
         dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float64
+        X = self._check_sparse(X, dtype)
 
         if self.use_idf:
             n_samples, n_features = X.shape
-            df = cp.count_nonzero(X, axis=0)
-            df = df.astype(dtype)
+            df = _sparse_document_frequency(X)
+            df = df.astype(dtype, copy=False)
 
             # perform idf smoothing if required
             df += int(self.smooth_idf)
@@ -110,7 +116,11 @@ class TfidfTransformer:
             # log+1 instead of log makes sure terms with zero idf don't get
             # suppressed entirely.
             idf = cp.log(n_samples / df) + 1
-            self.idf_ = idf
+            self._idf_diag = cp.sparse.dia_matrix(
+                (idf, 0),
+                shape=(n_features, n_features),
+                dtype=dtype
+            )
 
         return self
 
@@ -128,33 +138,36 @@ class TfidfTransformer:
         -------
         vectors : array-like of shape (n_samples, n_features)
         """
+        if copy:
+            X = X.copy()
+
         dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float64
-        X, _, _, _ = input_to_cuml_array(X, deepcopy=copy,
-                                         convert_to_dtype=dtype)
+
+        X = self._check_sparse(X, dtype)
+        if X.dtype != dtype:
+            X = X.astype(dtype)
 
         n_samples, n_features = X.shape
 
         if self.sublinear_tf:
-            idx = cp.nonzero(cp.not_equal(X, 0))
-            X[idx] = cp.log(X[idx]) + 1
+            cp.log(X.data, X.data)
+            X.data += 1
 
         if self.use_idf:
             self._check_is_idf_fitted()
 
-            expected_n_features = len(self.idf_)
+            expected_n_features = self._idf_diag.shape[0]
             if n_features != expected_n_features:
                 raise ValueError("Input has n_features=%d while the model"
                                  " has been trained with n_features=%d" % (
                                      n_features, expected_n_features))
-            X = cp.multiply(X, self.idf_, out=X)
+            X *= self._idf_diag
 
         if self.norm:
             if self.norm == 'l1':
-                norms = cp.abs(X).sum(axis=1)
+                csr_row_normalize_l1(X, inplace=True)
             elif self.norm == 'l2':
-                norms = cp.einsum('ij,ij->i', X, X)
-                cp.sqrt(norms, out=norms)
-            X = cp.divide(X, norms[:, cp.newaxis], out=X)
+                csr_row_normalize_l2(X, inplace=True)
 
         return X
 
@@ -182,3 +195,28 @@ class TfidfTransformer:
                    "value of use_idf is not consistant between "
                    ".fit() and .transform().")
             raise NotFittedError(msg)
+
+    def _check_sparse(self, X, dtype):
+        """Convert array to CSR format if it not sparse nor CSR."""
+        if not cp.sparse.isspmatrix_csr(X):
+            if not cp.sparse.issparse(X):
+                X = cp.sparse.csr_matrix(X.astype(dtype))
+            else:
+                X = X.tocsr()
+        return X
+
+    @property
+    def idf_(self):
+        # if _idf_diag is not set, this will raise an attribute error,
+        # which means hasattr(self, "idf_") is False
+        return self._idf_diag.data
+
+    @idf_.setter
+    def idf_(self, value):
+        value = cp.asarray(value, dtype=cp.float64)
+        n_features = value.shape[0]
+        self._idf_diag = cp.sparse.dia_matrix(
+            (value, 0),
+            shape=(n_features, n_features),
+            dtype=cp.float64
+        )

@@ -49,7 +49,7 @@ DATAS = [
 
 
 @pytest.mark.parametrize('data', DATAS, ids=DATAS_IDS)
-@pytest.mark.parametrize('norm', ['l1', 'l2'])
+@pytest.mark.parametrize('norm', ['l1', 'l2', None])
 @pytest.mark.parametrize('use_idf', [True, False])
 @pytest.mark.parametrize('smooth_idf', [True, False])
 @pytest.mark.parametrize('sublinear_tf', [True, False])
@@ -61,25 +61,31 @@ def test_tfidf_transformer(data, norm, use_idf, smooth_idf, sublinear_tf):
     sk_tfidf = SkTfidfTransfo(norm=norm, use_idf=use_idf,
                               smooth_idf=smooth_idf, sublinear_tf=sublinear_tf)
 
-    res = tfidf.fit_transform(data_gpu)
+    res = tfidf.fit_transform(data_gpu).todense()
     ref = sk_tfidf.fit_transform(data).todense()
 
-    cp.testing.assert_array_equal(res, ref)
+    cp.testing.assert_array_almost_equal(res, ref)
 
 
-@pytest.mark.parametrize('norm', ['l1', 'l2'])
+@pytest.mark.parametrize('norm', ['l1', 'l2', None])
 @pytest.mark.parametrize('use_idf', [True, False])
 @pytest.mark.parametrize('smooth_idf', [True, False])
 @pytest.mark.parametrize('sublinear_tf', [True, False])
 def test_tfidf_transformer_copy(norm, use_idf, smooth_idf, sublinear_tf):
-    data_gpu = cp.array([
+    if use_idf:
+        pytest.xfail("cupy.sparse.csr does not support inplace multiply.")
+
+    data_gpu = cp.sparse.csr_matrix(cp.array([
         [0, 1, 1, 1],
         [0, 2, 0, 1]
-    ], dtype=cp.float64, order='F')
+    ], dtype=cp.float64, order='F'))
 
     tfidf = TfidfTransformer(norm=norm, use_idf=use_idf,
                              smooth_idf=smooth_idf, sublinear_tf=sublinear_tf)
 
     res = tfidf.fit_transform(data_gpu, copy=False)
 
-    cp.testing.assert_array_equal(data_gpu, res)
+    cp.testing.assert_array_almost_equal(data_gpu.todense(), res.todense())
+
+
+# TODO: add test with random sparse input
