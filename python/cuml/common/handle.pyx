@@ -30,7 +30,7 @@ cdef extern from "cuml/common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
         pass
 
 cdef extern from "cuml/common/rmmPoolAllocatorAdapter.hpp" namespace "ML" \
-    nogil:
+        nogil:
     cdef cppclass rmmPoolAllocatorAdapter(rmmAllocatorAdapter):
         pass
 
