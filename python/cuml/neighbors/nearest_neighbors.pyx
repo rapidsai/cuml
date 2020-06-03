@@ -34,7 +34,6 @@ from cython.operator cimport dereference as deref
 
 from cuml.common.handle cimport cumlHandle
 
-
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
@@ -66,33 +65,34 @@ cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
-    void brute_force_knn(
-        cumlHandle &handle,
-        vector[float*] &inputs,
-        vector[int] &sizes,
-        int D,
-        float *search_items,
-        int n,
-        int64_t *res_I,
-        float *res_D,
-        int k,
-        bool rowMajorIndex,
-        bool rowMajorQuery,
-        MetricType metric,
-        float metric_arg,
-        bool expanded
-    ) except +
 
     enum MetricType:
-        METRIC_INNER_PRODUCT=0,
+        METRIC_INNER_PRODUCT = 0,
         METRIC_L2,
         METRIC_L1,
         METRIC_Linf,
         METRIC_Lp,
 
-        METRIC_Canberra=20,
+        METRIC_Canberra = 20,
         METRIC_BrayCurtis,
         METRIC_JensenShannon
+
+    void brute_force_knn(
+            cumlHandle &handle,
+            vector[float*] &inputs,
+            vector[int] &sizes,
+            int D,
+            float *search_items,
+            int n,
+            int64_t *res_I,
+            float *res_D,
+            int k,
+            bool rowMajorIndex,
+            bool rowMajorQuery,
+            MetricType metric,
+            float metric_arg,
+            bool expanded
+        ) except +
 
 
 class NearestNeighbors(Base):

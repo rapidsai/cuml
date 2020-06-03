@@ -34,6 +34,7 @@
 #include <thrust/iterator/transform_iterator.h>
 
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/neighbors/knn.hpp>
 #include "common/device_buffer.hpp"
 
 #include <iostream>
@@ -209,7 +210,8 @@ void brute_force_knn(
   std::shared_ptr<deviceAllocator> allocator, cudaStream_t userStream,
   cudaStream_t *internalStreams = nullptr, int n_int_streams = 0,
   bool rowMajorIndex = true, bool rowMajorQuery = true,
-  std::vector<int64_t> *translations = nullptr, int metric = 1,
+  std::vector<int64_t> *translations = nullptr,
+  ML::MetricType metric = ML::MetricType::METRIC_L2,
   float metricArg = 0, bool expanded_form = false) {
   ASSERT(DistanceType == Distance::EucUnexpandedL2 ||
            DistanceType == Distance::EucUnexpandedL2Sqrt,
