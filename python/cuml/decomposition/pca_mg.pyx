@@ -51,9 +51,9 @@ ctypedef int underlying_type_t_solver
 cdef extern from "cumlprims/opg/pca.hpp" namespace "ML":
 
     ctypedef enum mg_solver "ML::mg_solver":
-       COV_EIG_DQ "ML::mg_solver::COV_EIG_DQ"
-       COV_EIG_JACOBI "ML::mg_solver::COV_EIG_JACOBI"
-       QR "ML::mg_solver::QR"
+        COV_EIG_DQ "ML::mg_solver::COV_EIG_DQ"
+        COV_EIG_JACOBI "ML::mg_solver::COV_EIG_JACOBI"
+        QR "ML::mg_solver::QR"
 
     cdef cppclass paramsTSVDMG(paramsSolver):
         int n_components
@@ -126,7 +126,8 @@ class PCAMG(BaseDecompositionMG, PCA):
         params.whiten = self.whiten
         params.n_iterations = self.iterated_power
         params.tol = self.tol
-        params.algorithm = <mg_solver> (<underlying_type_t_solver> (self.c_algorithm))
+        params.algorithm = <mg_solver> (<underlying_type_t_solver> (
+            self.c_algorithm))
 
         return <size_t>params
 
