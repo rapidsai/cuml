@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "cuda_utils.cuh"
-#include "linalg/add.cuh"
+#include <cuda_utils.cuh>
+#include <linalg/add.cuh>
 
 namespace MLCommon {
 namespace LinAlg {

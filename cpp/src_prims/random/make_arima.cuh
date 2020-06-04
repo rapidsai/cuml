@@ -22,10 +22,10 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
-#include "cuml/common/cuml_allocator.hpp"
-#include "cuml/tsa/arima_common.h"
+#include <cuml/tsa/arima_common.h>
+#include <cuml/common/cuml_allocator.hpp>
+#include <timeSeries/arima_helpers.cuh>
 #include "rng.cuh"
-#include "timeSeries/arima_helpers.cuh"
 
 namespace MLCommon {
 namespace Random {
