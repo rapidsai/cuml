@@ -53,6 +53,7 @@ cdef extern from "cumlprims/opg/selection/knn.hpp" namespace \
         bool rowMajorIndex,
         bool rowMajorQuery,
         int k,
+        int n_outputs,
         size_t batch_size,
         bool verbose
     ) except +
@@ -103,7 +104,7 @@ class KNeighborsRegressorMG(NearestNeighbors):
 
     def predict(self, data, data_parts_to_ranks, data_nrows,
                 query, query_parts_to_ranks, query_nrows,
-                ncols, rank, convert_dtype):
+                ncols, n_outputs, rank, convert_dtype):
         """
         Predict outputs for a query from previously stored index
         and index labels.
@@ -164,8 +165,6 @@ class KNeighborsRegressorMG(NearestNeighbors):
                 lbls_local_parts.at(i).push_back(<float*><uintptr_t>
                                                  lbls_arr.ptr)
 
-        n_outputs = lbls.shape[1]
-
         cdef vector[floatData_t*] *out_vec \
             = new vector[floatData_t*]()
         cdef vector[int64Data_t*] *out_i_vec \
@@ -212,6 +211,7 @@ class KNeighborsRegressorMG(NearestNeighbors):
             <bool>False,  # column-major index
             <bool>False,  # column-major query
             <int>self.n_neighbors,
+            <int>n_outputs,
             <size_t>self.batch_size,
             <bool>self.verbose
         )

@@ -69,6 +69,7 @@ class KNeighborsRegressor(NearestNeighbors):
         self.data_handler = \
             DistributedDataHandler.create(data=[X, y],
                                           client=self.client)
+        self.n_outputs = y.shape[1]
 
         return self
 
@@ -86,11 +87,11 @@ class KNeighborsRegressor(NearestNeighbors):
     @staticmethod
     def _func_predict(model, data, data_parts_to_ranks, data_nrows,
                       query, query_parts_to_ranks, query_nrows,
-                      ncols, rank, convert_dtype):
+                      ncols, rank, n_output, convert_dtype):
         return model.predict(
             data, data_parts_to_ranks, data_nrows,
             query, query_parts_to_ranks, query_nrows,
-            ncols, rank, convert_dtype
+            ncols, rank, n_output, convert_dtype
         )
 
     def predict(self, X, convert_dtype=True):
@@ -120,8 +121,7 @@ class KNeighborsRegressor(NearestNeighbors):
 
         comms = KNeighborsRegressor._build_comms(self.data_handler,
                                                  query_handler,
-                                                 self.streams_per_handle,
-                                                 self.verbose)
+                                                 self.streams_per_handle)
 
         worker_info = comms.worker_info(comms.worker_addresses)
 
@@ -169,9 +169,9 @@ class KNeighborsRegressor(NearestNeighbors):
                             query_parts_to_ranks,
                             query_nrows,
                             X.shape[1],
+                            self.n_outputs,
                             worker_info[worker]["rank"],
                             convert_dtype,
-                            False,
                             key="%s-%s" % (key, idx),
                             workers=[worker]))
                            for idx, worker in enumerate(comms.worker_addresses)

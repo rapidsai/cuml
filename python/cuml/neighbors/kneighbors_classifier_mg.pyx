@@ -146,6 +146,7 @@ class KNeighborsClassifierMG(NearestNeighbors):
         idx = [d[0] for d in data]
         lbls = [d[1] for d in data]
         self.n_dims = ncols
+        n_outputs = len(n_unique)
 
         idx_cai, idx_local_parts, idx_desc = \
             _build_part_inputs(idx, data_parts_to_ranks,
@@ -186,8 +187,6 @@ class KNeighborsClassifierMG(NearestNeighbors):
             new vector[int]()
         for uniq_label in n_unique:
             n_unique_vec.push_back(uniq_label)
-
-        n_outputs = len(n_unique)
 
         cdef vector[intData_t*] *out_vec \
             = new vector[intData_t*]()
@@ -299,6 +298,7 @@ class KNeighborsClassifierMG(NearestNeighbors):
         idx = [d[0] for d in data]
         lbls = [d[1] for d in data]
         self.n_dims = ncols
+        n_outputs = len(n_unique)
 
         idx_cai, idx_local_parts, idx_desc = \
             _build_part_inputs(idx, data_parts_to_ranks,
@@ -340,7 +340,6 @@ class KNeighborsClassifierMG(NearestNeighbors):
         for uniq_label in n_unique:
             n_unique_vec.push_back(uniq_label)
 
-        n_outputs = len(n_unique)
         n_local_queries = len(q_cai)
         cdef vector[float_ptr_vector] *probas \
             = new vector[float_ptr_vector](n_local_queries)
