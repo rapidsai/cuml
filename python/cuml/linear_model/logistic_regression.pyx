@@ -129,8 +129,8 @@ class LogisticRegression(Base):
     linesearch_max_iter: int (default = 50)
         Max number of linesearch iterations per outer iteration used in the
         lbfgs and owl QN solvers.
-    verbosity: int (optional, default cuml.common.logger.LEVEL_INFO)
-        Controls verbosity level of logging.
+    verbose : int or boolean (default = False)
+        Controls verbose level of logging.
     l1_ratio: float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
     solver: 'qn', 'lbfgs', 'owl' (default='qn').
@@ -164,11 +164,11 @@ class LogisticRegression(Base):
 
     def __init__(self, penalty='l2', tol=1e-4, C=1.0, fit_intercept=True,
                  class_weight=None, max_iter=1000, linesearch_max_iter=50,
-                 verbosity=logger.LEVEL_INFO, l1_ratio=None, solver='qn',
+                 verbose=False, l1_ratio=None, solver='qn',
                  handle=None):
 
         super(LogisticRegression, self).__init__(handle=handle,
-                                                 verbosity=verbosity)
+                                                 verbose=verbose)
 
         if class_weight:
             raise ValueError("`class_weight` not supported.")
@@ -220,10 +220,10 @@ class LogisticRegression(Base):
                      l1_strength=l1_strength, l2_strength=l2_strength,
                      max_iter=self.max_iter,
                      linesearch_max_iter=self.linesearch_max_iter,
-                     tol=self.tol, verbosity=self.verbosity,
+                     tol=self.tol, verbose=self.verbose,
                      handle=self.handle)
 
-        if logger.should_log_for(logger.LEVEL_DEBUG):
+        if logger.should_log_for(logger.level_debug):
             self.verb_prefix = "CY::"
             logger.debug(self.verb_prefix + "Estimator parameters:")
             logger.debug(pprint.pformat(self.__dict__))
@@ -267,18 +267,18 @@ class LogisticRegression(Base):
         else:
             loss = 'sigmoid'
 
-        if logger.should_log_for(logger.LEVEL_DEBUG):
+        if logger.should_log_for(logger.level_debug):
             logger.debug(self.verb_prefix + "Setting loss to " + str(loss))
 
         self.qn.loss = loss
 
-        if logger.should_log_for(logger.LEVEL_DEBUG):
+        if logger.should_log_for(logger.level_debug):
             logger.debug(self.verb_prefix + "Calling QN fit " + str(loss))
 
         self.qn.fit(X, y_m, convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
-        if logger.should_log_for(logger.LEVEL_DEBUG):
+        if logger.should_log_for(logger.level_debug):
             logger.debug(self.verb_prefix + "Setting coefficients " +
                          str(loss))
 
@@ -288,12 +288,12 @@ class LogisticRegression(Base):
         else:
             self.coef_ = self.qn.coef_
 
-        if logger.should_log_for(logger.LEVEL_TRACE):
+        if logger.should_log_for(logger.level_trace):
             logger.trace(self.verb_prefix + "Coefficients: " +
-                         self.coef_.to_output('cupy'))
+                         str(self.coef_.to_output('cupy')))
             if self.fit_intercept:
                 logger.trace(self.verb_prefix + "Intercept: " +
-                             self.intercept_.to_output('cupy'))
+                             str(self.intercept_.to_output('cupy')))
 
         return self
 
@@ -312,6 +312,7 @@ class LogisticRegression(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
         ----------
         y: array-like (device)
@@ -359,6 +360,7 @@ class LogisticRegression(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
         ----------
         y: array-like (device)
@@ -394,6 +396,7 @@ class LogisticRegression(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
         ----------
         y: array-like (device)
@@ -437,7 +440,7 @@ class LogisticRegression(Base):
 
     def __setstate__(self, state):
         super(LogisticRegression, self).__init__(handle=None,
-                                                 verbosity=state['verbosity'])
+                                                 verbose=state['verbose'])
 
         if 'qn' in state:
             qn = state['qn']

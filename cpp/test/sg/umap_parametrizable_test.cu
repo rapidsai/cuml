@@ -15,27 +15,21 @@
  */
 
 #include <gtest/gtest.h>
-
-#include "distance/distance.cuh"
-
-#include "datasets/digits.h"
-
-#include <cuml/manifold/umapparams.h>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
-#include <cuml/neighbors/knn.hpp>
-#include <metrics/trustworthiness.cuh>
-
-#include <cuml/datasets/make_blobs.hpp>
-#include "linalg/reduce_rows_by_key.cuh"
-
-#include "common/device_buffer.hpp"
-#include "umap/runner.cuh"
-
-#include <cuda_utils.cuh>
-
 #include <iostream>
 #include <vector>
+
+#include <cuml/manifold/umapparams.h>
+#include <datasets/digits.h>
+#include <common/device_buffer.hpp>
+#include <cuda_utils.cuh>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/cuml.hpp>
+#include <cuml/datasets/make_blobs.hpp>
+#include <cuml/neighbors/knn.hpp>
+#include <distance/distance.cuh>
+#include <linalg/reduce_rows_by_key.cuh>
+#include <metrics/trustworthiness.cuh>
+#include <umap/runner.cuh>
 
 using namespace ML;
 using namespace ML::Metrics;

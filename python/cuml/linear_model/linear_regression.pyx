@@ -34,7 +34,6 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
@@ -186,9 +185,9 @@ class LinearRegression(Base):
     """
 
     def __init__(self, algorithm='eig', fit_intercept=True, normalize=False,
-                 handle=None, verbosity=logger.LEVEL_INFO, output_type=None):
+                 handle=None, verbose=False, output_type=None):
         super(LinearRegression, self).__init__(handle=handle,
-                                               verbosity=verbosity,
+                                               verbose=verbose,
                                                output_type=output_type)
 
         # internal array attributes
