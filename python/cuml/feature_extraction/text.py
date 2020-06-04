@@ -112,11 +112,8 @@ class _VectorizerMixin:
             Ngram separator
         """
         if self.analyzer == 'word':
-            ngram_sr = Series(nvtext.ngrams_tokenize(
-                str_series._column.nvstrings,
-                self.delimiter, N=n,
-                sep=separator)
-            )
+            ngram_sr = str_series.str.ngrams_tokenize(n=n, separator=separator,
+                                                      delimiter=self.delimiter)
         else:
             if n != 1:
                 raise NotImplementedError("Character-level ngrams is not yet"
