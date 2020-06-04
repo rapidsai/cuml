@@ -35,12 +35,17 @@ template <typename IdxT>
 void generate_labels(IdxT* labels, IdxT n_rows, IdxT n_clusters, bool shuffle,
                      Rng& r, cudaStream_t stream) {
   IdxT a, b;
-  r.affine_transform_params(n_rows, a, b);
+  r.affine_transform_params(n_clusters, a, b);
   auto op = [=] __device__(IdxT * ptr, IdxT idx) {
     if (shuffle) {
-      idx = IdxT((a * int64_t(idx)) + b) % n_rows;
+      idx = IdxT((a * int64_t(idx)) + b);
     }
-    *ptr = idx % n_clusters;
+    idx %= n_clusters;
+    // in the unlikely case of n_clusters > n_rows, make sure that the writes
+    // do not go out-of-bounds
+    if (idx < n_rows) {
+      *ptr = idx;
+    }
   };
   LinAlg::writeOnlyUnaryOp<IdxT, decltype(op), IdxT>(labels, n_rows, op,
                                                      stream);
