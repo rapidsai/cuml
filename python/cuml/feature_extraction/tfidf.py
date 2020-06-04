@@ -63,6 +63,7 @@ class TfidfTransformer:
     Idf is "t" when use_idf is given, "n" (none) otherwise.
     Normalization is "c" (cosine) when ``norm='l2'``, "n" (none)
     when ``norm=None``.
+
     Parameters
     ----------
     norm : {'l1', 'l2'}, default='l2'
@@ -79,6 +80,7 @@ class TfidfTransformer:
         exactly once. Prevents zero divisions.
     sublinear_tf : bool, default=False
         Apply sublinear tf scaling, i.e. replace tf with 1 + log(tf).
+
     Attributes
     ----------
     idf_ : array of shape (n_features)
@@ -96,13 +98,14 @@ class TfidfTransformer:
     @with_cupy_rmm
     def fit(self, X):
         """Learn the idf vector (global term weights).
+
         Parameters
         ----------
         X : array-like of shape n_samples, n_features
             A matrix of term/token counts.
         """
-        dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float64
-        X = self._check_sparse(X, dtype)
+        dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float32
+        X = self._convert_to_csr(X, dtype)
 
         if self.use_idf:
             n_samples, n_features = X.shape
@@ -127,6 +130,7 @@ class TfidfTransformer:
     @with_cupy_rmm
     def transform(self, X, copy=True):
         """Transform a count matrix to a tf or tf-idf representation
+
         Parameters
         ----------
         X : array-like of (n_samples, n_features)
@@ -134,6 +138,7 @@ class TfidfTransformer:
         copy : bool, default=True
             Whether to copy X and operate on the copy or perform in-place
             operations.
+
         Returns
         -------
         vectors : array-like of shape (n_samples, n_features)
@@ -141,9 +146,9 @@ class TfidfTransformer:
         if copy:
             X = X.copy()
 
-        dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float64
+        dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float32
 
-        X = self._check_sparse(X, dtype)
+        X = self._convert_to_csr(X, dtype)
         if X.dtype != dtype:
             X = X.astype(dtype)
 
@@ -196,7 +201,7 @@ class TfidfTransformer:
                    ".fit() and .transform().")
             raise NotFittedError(msg)
 
-    def _check_sparse(self, X, dtype):
+    def _convert_to_csr(self, X, dtype):
         """Convert array to CSR format if it not sparse nor CSR."""
         if not cp.sparse.isspmatrix_csr(X):
             if not cp.sparse.issparse(X):
@@ -213,10 +218,10 @@ class TfidfTransformer:
 
     @idf_.setter
     def idf_(self, value):
-        value = cp.asarray(value, dtype=cp.float64)
+        value = cp.asarray(value, dtype=cp.float32)
         n_features = value.shape[0]
         self._idf_diag = cp.sparse.dia_matrix(
             (value, 0),
             shape=(n_features, n_features),
-            dtype=cp.float64
+            dtype=cp.float32
         )

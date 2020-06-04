@@ -20,9 +20,9 @@ from cuml.feature_extraction.tfidf import TfidfTransformer
 from sklearn.feature_extraction.text import TfidfTransformer as SkTfidfTransfo
 
 
-# DATAS_IDS correspond to DATAS, order is important
-DATAS_IDS = ['base_case', 'diag', 'empty_feature', '123', 'empty_doc']
-DATAS = [
+# data_ids correspond to data, order is important
+data_ids = ['base_case', 'diag', 'empty_feature', '123', 'empty_doc']
+data = [
     np.array([
         [0, 1, 1, 1, 0, 0, 1, 0, 1],
         [0, 2, 0, 1, 0, 1, 1, 0, 1],
@@ -48,7 +48,7 @@ DATAS = [
 ]
 
 
-@pytest.mark.parametrize('data', DATAS, ids=DATAS_IDS)
+@pytest.mark.parametrize('data', data, ids=data_ids)
 @pytest.mark.parametrize('norm', ['l1', 'l2', None])
 @pytest.mark.parametrize('use_idf', [True, False])
 @pytest.mark.parametrize('smooth_idf', [True, False])
