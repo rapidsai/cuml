@@ -72,7 +72,9 @@ class RPROJTest : public ::testing::Test {
       42        // random seed
     };
 
-    random_matrix1 = new rand_mat<T>();
+    cudaStream_t stream = h.getStream();
+    auto alloc = h.getDeviceAllocator();
+    random_matrix1 = new rand_mat<T>(alloc, stream);
     RPROJfit(h, random_matrix1, params1);
     allocate(d_output1, N * params1->n_components);
     RPROJtransform(h, d_input, random_matrix1, d_output1, params1);
@@ -93,7 +95,9 @@ class RPROJTest : public ::testing::Test {
       42        // random seed
     };
 
-    random_matrix2 = new rand_mat<T>();
+    cudaStream_t stream = h.getStream();
+    auto alloc = h.getDeviceAllocator();
+    random_matrix2 = new rand_mat<T>(alloc, stream);
     RPROJfit(h, random_matrix2, params2);
 
     allocate(d_output2, N * params2->n_components);
@@ -125,14 +129,15 @@ class RPROJTest : public ::testing::Test {
     size_t D = johnson_lindenstrauss_min_dim(N, epsilon);
 
     ASSERT_TRUE(params1->n_components == D);
-    ASSERT_TRUE(random_matrix1->dense_data);
+    ASSERT_TRUE(random_matrix1->dense_data.size() > 0);
+    ASSERT_TRUE(random_matrix1->type == dense);
 
     ASSERT_TRUE(params2->n_components == D);
     ASSERT_TRUE(params2->density == 1 / sqrt(M));
-    ASSERT_TRUE(random_matrix2->indices);
-    ASSERT_TRUE(random_matrix2->indptr);
-    ASSERT_TRUE(random_matrix2->sparse_data);
-    ASSERT_TRUE(random_matrix2->sparse_data_size = N * D);
+    ASSERT_TRUE(random_matrix2->indices.size() > 0);
+    ASSERT_TRUE(random_matrix2->indptr.size() > 0);
+    ASSERT_TRUE(random_matrix2->sparse_data.size() > 0);
+    ASSERT_TRUE(random_matrix2->type == sparse);
   }
 
   void epsilon_check() {
