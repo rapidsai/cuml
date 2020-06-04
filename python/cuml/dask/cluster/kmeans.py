@@ -56,8 +56,8 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         The more iterations of EM, the more accurate, but slower.
     tol : float (default = 1e-4)
         Stopping criterion when centroid means do not change much.
-    verbose : boolean (default = 0)
-        If True, prints diagnositc information.
+    verbose : int or boolean (default = False)
+        Logging level for printing diagnostic information
     random_state : int (default = 1)
         If you want results to be the same when you restart Python,
         select a state.
@@ -127,7 +127,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
 
-        comms = CommsContext(comms_p2p=False, verbose=self.verbose)
+        comms = CommsContext(comms_p2p=False)
         comms.init(workers=data.workers)
 
         kmeans_fit = [self.client.submit(KMeans._func_fit,

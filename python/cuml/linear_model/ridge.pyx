@@ -153,10 +153,10 @@ class Ridge(Base, RegressorMixin):
 
     Parameters
     -----------
-    alpha : float or double
+    alpha : float (default = 1.0)
         Regularization strength - must be a positive float. Larger values
         specify stronger regularization. Array input will be supported later.
-    solver : 'eig' or 'svd' or 'cd' (default = 'eig')
+    solver : {'eig', 'svd', 'cd'} (default = 'eig')
         Eig uses a eigendecomposition of the covariance matrix, and is much
         faster.
         SVD is slower, but guaranteed to be stable.

@@ -35,6 +35,9 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     "Debug" "Release")
 endif()
 
+# this is needed for clang-tidy runs
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
@@ -330,6 +333,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/common/logger.cpp
     src/common/nvtx.cu
     src/comms/cuML_comms_test.cpp
+    src/datasets/make_arima.cu
     src/datasets/make_blobs.cu
     src/datasets/make_regression.cu
     src/dbscan/dbscan.cu

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
@@ -22,7 +23,7 @@
 
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
-#include "knn_graph/runner.h"
+#include "knn_graph/runner.cuh"
 #include "simpl_set_embed/runner.cuh"
 
 #include <thrust/count.h>
@@ -32,11 +33,11 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include "sparse/coo.h"
-#include "sparse/csr.h"
+#include <sparse/coo.cuh>
+#include <sparse/csr.cuh>
 
 #include <common/cudart_utils.h>
-#include "cuda_utils.h"
+#include <cuda_utils.cuh>
 
 #include <cuda_runtime.h>
 

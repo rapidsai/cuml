@@ -126,7 +126,7 @@ class LabelBinarizer(object):
         return model.inverse_transform(y, threshold)
 
     def fit(self, y):
-        """Fit label binarizer`
+        """Fit label binarizer
 
         Parameters
         ----------

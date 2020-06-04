@@ -241,7 +241,7 @@ class UMAP(Base):
 
                     def on_train_end(self, embeddings):
                         print(embeddings.copy_to_host())
-    verbose: bool (optional, default False)
+    verbose : int or boolean (default = False)
         Controls verbosity of logging.
 
     Notes
@@ -307,7 +307,6 @@ class UMAP(Base):
         self.n_neighbors = n_neighbors
         self.n_components = n_components
         self.n_epochs = n_epochs
-        self.verbose = verbose
 
         if init == "spectral" or init == "random":
             self.init = init
@@ -373,7 +372,7 @@ class UMAP(Base):
         umap_params.repulsion_strength = <float> cls.repulsion_strength
         umap_params.negative_sample_rate = <int> cls.negative_sample_rate
         umap_params.transform_queue_size = <int> cls.transform_queue_size
-        umap_params.verbosity = <int> cls.verbosity
+        umap_params.verbosity = <int> cls.verbose
         umap_params.a = <float> cls.a
         umap_params.b = <float> cls.b
         if cls.init == "spectral":
