@@ -62,7 +62,7 @@ def test_mbsgd_regressor_vs_skl(lrate, penalty, make_dataset):
 
     if nrows < 500000:
 
-        cu_mbsgd_regressor = cumlMBSGRegressor(learning_rate=lrate, 
+        cu_mbsgd_regressor = cumlMBSGRegressor(learning_rate=lrate,
                                                eta0=0.005, epochs=100,
                                                fit_intercept=True,
                                                batch_size=2, tol=0.0,
@@ -70,7 +70,7 @@ def test_mbsgd_regressor_vs_skl(lrate, penalty, make_dataset):
 
         cu_mbsgd_regressor.fit(X_train, y_train)
         cu_pred = cu_mbsgd_regressor.predict(X_test)
-        cu_r2 = r2_score(cp.asnumpy(cu_pred), cp.asnumpy(y_test), 
+        cu_r2 = r2_score(cp.asnumpy(cu_pred), cp.asnumpy(y_test),
                          convert_dtype=datatype)
 
         skl_sgd_regressor = SGDRegressor(learning_rate=lrate, eta0=0.005,
@@ -108,6 +108,7 @@ def test_mbsgd_regressor(lrate, penalty, make_dataset):
     cu_r2 = r2_score(cu_pred, y_test, convert_dtype=datatype)
 
     assert cu_r2 >= 0.9
+
 
 def test_mbsgd_regressor_default(make_dataset):
     nrows, datatype, X_train, X_test, y_train, y_test = make_dataset

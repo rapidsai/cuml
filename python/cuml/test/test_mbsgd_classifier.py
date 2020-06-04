@@ -49,6 +49,7 @@ def make_dataset(request):
 
     return nrows, X_train, X_test, y_train, y_test
 
+
 @pytest.mark.parametrize(
     # Grouped those tests to reduce the total number of individual tests
     # while still keeping good coverage of the different features of MBSGD
@@ -63,7 +64,7 @@ def test_mbsgd_classifier_vs_skl(lrate, penalty, loss, make_dataset):
     nrows, X_train, X_test, y_train, y_test = make_dataset
 
     if nrows < 500000:
-        cu_mbsgd_classifier = cumlMBSGClassifier(learning_rate=lrate, 
+        cu_mbsgd_classifier = cumlMBSGClassifier(learning_rate=lrate,
                                                  eta0=0.005,
                                                  epochs=100,
                                                  fit_intercept=True,
