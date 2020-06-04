@@ -16,17 +16,17 @@
 
 #pragma once
 
-#include "common/device_buffer.hpp"
+#include <common/device_buffer.hpp>
+#include <cuda_utils.cuh>
+#include <matrix/math.cuh>
+#include <matrix/matrix.cuh>
+#include <random/rng.cuh>
 #include "cublas_wrappers.h"
-#include "cuda_utils.cuh"
 #include "cusolver_wrappers.h"
 #include "eig.cuh"
 #include "gemm.cuh"
 #include "gemv.h"
-#include "matrix/math.cuh"
-#include "matrix/matrix.cuh"
 #include "qr.cuh"
-#include "random/rng.cuh"
 #include "svd.cuh"
 #include "transpose.h"
 
