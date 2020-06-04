@@ -25,7 +25,7 @@ from cuml.test.utils import stress_param
 from pandas.util.testing import assert_frame_equal
 
 
-def _from_df_to_array(df):
+def from_df_to_array(df):
     return list(zip(*[df[feature] for feature in df.columns]))
 
 
@@ -34,7 +34,7 @@ def _from_df_to_cupy(df):
     for col in df.columns:
         if not np.issubdtype(df[col].dtype, np.number):
             df[col] = [ord(c) for c in df[col]]
-    return cp.array(_from_df_to_array(df))
+    return cp.array(from_df_to_array(df))
 
 
 def _convert_drop(drop):
@@ -43,10 +43,10 @@ def _convert_drop(drop):
     return [ord(x) if isinstance(x, str) else x for x in drop.values()]
 
 
-def _generate_inputs_from_categories(categories=None,
-                                     n_samples=10,
-                                     seed=5060,
-                                     as_array=False):
+def generate_inputs_from_categories(categories=None,
+                                    n_samples=10,
+                                    seed=5060,
+                                    as_array=False):
     if categories is None:
         if as_array:
             categories = {'strings': list(range(1000, 4000, 3)),
@@ -58,7 +58,7 @@ def _generate_inputs_from_categories(categories=None,
     rd = np.random.RandomState(seed)
     pandas_df = pd.DataFrame({name: rd.choice(cat, n_samples)
                               for name, cat in categories.items()})
-    ary = _from_df_to_array(pandas_df)
+    ary = from_df_to_array(pandas_df)
     if as_array:
         inp_ary = cp.array(ary)
         return inp_ary, ary
@@ -77,7 +77,7 @@ def assert_inverse_equal(ours, ref):
 @pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
 def test_onehot_vs_skonehot(as_array):
     X = DataFrame({'gender': ['M', 'F', 'F'], 'int': [1, 3, 2]})
-    skX = _from_df_to_array(X)
+    skX = from_df_to_array(X)
     if as_array:
         X = _from_df_to_cupy(X)
         skX = cp.asnumpy(X)
@@ -181,8 +181,8 @@ def test_onehot_inverse_transform_handle_unknown(as_array):
 @pytest.mark.parametrize("n_samples", [10, 1000, 20000, stress_param(250000)])
 @pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
 def test_onehot_random_inputs(drop, sparse, n_samples, as_array):
-    X, ary = _generate_inputs_from_categories(n_samples=n_samples,
-                                              as_array=as_array)
+    X, ary = generate_inputs_from_categories(n_samples=n_samples,
+                                             as_array=as_array)
 
     enc = OneHotEncoder(sparse=sparse, drop=drop, categories='auto')
     sk_enc = SkOneHotEncoder(sparse=sparse, drop=drop, categories='auto')
@@ -218,7 +218,7 @@ def test_onehot_drop_idx_first(as_array):
 def test_onehot_drop_one_of_each(as_array):
     X = DataFrame({'chars': ['c', 'b'], 'int': [2, 2], 'letters': ['a', 'b']})
     drop = dict({'chars': 'b', 'int': 2, 'letters': 'b'})
-    X_ary = _from_df_to_array(X)
+    X_ary = from_df_to_array(X)
     drop_ary = ['b', 2, 'b']
     if as_array:
         X = _from_df_to_cupy(X)
@@ -275,7 +275,7 @@ def test_onehot_sparse_drop(as_array):
     X = DataFrame({'g': ['M', 'F', 'F'], 'i': [1, 3, 2], 'l': [5, 5, 6]})
     drop = {'g': 'F', 'i': 3, 'l': 6}
 
-    ary = _from_df_to_array(X)
+    ary = from_df_to_array(X)
     drop_ary = ['F', 3, 6]
     if as_array:
         X = _from_df_to_cupy(X)

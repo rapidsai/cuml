@@ -26,9 +26,11 @@ if(BUILD_CUML_BENCH)
     sg/dbscan.cu
     sg/kmeans.cu
     sg/main.cpp
-    sg/rf_classifier.cu)
+    sg/rf_classifier.cu
     # sg/rf_regressor.cu
-    # sg/umap.cu
+    sg/svc.cu
+    sg/svr.cu)
+    # sg/umap.cu)
 
   target_link_libraries(sg_benchmark
     ${CUML_CPP_TARGET}
@@ -51,7 +53,9 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/distance_l1.cu
     prims/distance_unexp_l2.cu
     prims/fused_l2_nn.cu
+    prims/gram_matrix.cu
     prims/main.cpp
+    prims/make_blobs.cu
     prims/map_then_reduce.cu
     prims/matrix_vector_op.cu
     prims/permute.cu
@@ -64,7 +68,7 @@ if(BUILD_CUML_PRIMS_BENCH)
   endif(NOT CUB_IS_PART_OF_CTK)
   add_dependencies(prims_benchmark spdlog)
 
-  target_link_libraries(prims_benchmark benchmarklib)
+  target_link_libraries(prims_benchmark ${CUDA_cublas_LIBRARY} benchmarklib)
 
   target_include_directories(prims_benchmark
     PRIVATE ${GBENCH_DIR}/include

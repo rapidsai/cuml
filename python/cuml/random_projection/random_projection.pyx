@@ -339,9 +339,9 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
 
     Attributes
     ----------
-        gaussian_method : boolean
-            To be passed to base class in order to determine
-            random matrix generation method
+    gaussian_method : boolean
+        To be passed to base class in order to determine
+        random matrix generation method
 
     Notes
     ------
@@ -462,7 +462,8 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     """
 
     def __init__(self, handle=None, n_components='auto', density='auto',
-                 eps=0.1, dense_output=True, random_state=None, verbose=False):
+                 eps=0.1, dense_output=True, random_state=None,
+                 verbose=False):
         Base.__init__(self, handle, verbose)
         self.gaussian_method = False
         self.density = density if density != 'auto' else -1.0

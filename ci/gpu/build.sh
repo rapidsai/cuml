@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #########################################
 # cuML GPU build and test script for CI #
 #########################################
@@ -60,8 +60,13 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
       "statsmodels" \
-      "xgboost====1.0.2dev.rapidsai0.13" \
-      "lightgbm"
+      "xgboost==1.0.2dev.rapidsai0.13" \
+      "psutil" \
+      "lightgbm" \
+      "matplotlib" \
+      "ipython=7.3*" \
+      "jupyterlab"
+      
 
 
 # Install contextvars on Python 3.6
@@ -100,20 +105,10 @@ logger "Resetting LD_LIBRARY_PATH..."
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
 
-logger "Build treelite for GPU testing..."
-# Buildint treelite Python for testing is temporary while there is a pip/conda
-# treelite package
-
-cd $WORKSPACE/cpp/build/treelite/src/treelite
-mkdir build
-cd build
-cmake ..
-make -j${PARALLEL_LEVEL}
-cd ../python
-python setup.py install
+logger "Install Treelite for GPU testing..."
+python -m pip install -v treelite==0.91
 
 cd $WORKSPACE
-
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for libcuml and cuML
@@ -137,6 +132,14 @@ cd $WORKSPACE/python
 pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask
 
 timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
+
+
+################################################################################
+# TEST - Run notebook tests
+################################################################################
+
+${WORKSPACE}/ci/gpu/test-notebooks.sh 2>&1 | tee nbtest.log
+python ${WORKSPACE}/ci/utils/nbtestlog2junitxml.py nbtest.log
 
 ################################################################################
 # TEST - Run GoogleTest for ml-prims

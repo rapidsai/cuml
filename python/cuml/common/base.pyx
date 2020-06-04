@@ -62,8 +62,7 @@ class Base:
     .. code-block:: python
 
         def __init__(...)
-            super(KMeans, self).__init__(handle, verbose, verbosity,
-                                         output_type)
+            super(KMeans, self).__init__(handle, verbose, output_type)
 
             # initialize numeric variables
 
@@ -109,11 +108,8 @@ class Base:
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created just for this class.
-    verbose : bool
-        Whether to print debug spews. (This will be deprecated once we have the
-        verbosity flag updated across all algos)
-    verbosity : int
-        Sets logging level. It must be one of `cuml.common.logger.LEVEL_*`.
+    verbose : int or boolean (default = False)
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes of
         the estimators. If None, it'll inherit the output type set at the
@@ -166,22 +162,23 @@ class Base:
         del base  # optional!
     """
 
-    def __init__(self, handle=None, verbose=False, output_type=None,
-                 verbosity=logger.LEVEL_INFO):
+    def __init__(self, handle=None, verbose=False,
+                 output_type=None):
         """
         Constructor. All children must call init method of this base class.
 
         """
         self.handle = cuml.common.handle.Handle() if handle is None else handle
-        self.verbose = verbose
-        # NOTE:
-        # 1. Expose the CUML_LEVEL_* macros in python and use them instead of
-        #    hard-coded values?
-        # 2. And once all algorithms at C++ level have been updated to accept
-        #    integer logging-level argument, remove `self.verbose` and have all
-        #    algos in python layer accept an integer logging level instead of
-        #    the current boolean param
-        self.verbosity = verbosity
+
+        # Internally, self.verbose follows the spdlog/c++ standard of
+        # 0 is most logging, and logging decreases from there.
+        # So if the user passes an int value for logging, we convert it.
+        if verbose is True:
+            self.verbose = logger.level_debug
+        elif verbose is False:
+            self.verbose = logger.level_info
+        else:
+            self.verbose = verbose
 
         self.output_type = cuml.global_output_type if output_type is None \
             else _check_output_type_str(output_type)

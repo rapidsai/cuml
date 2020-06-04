@@ -121,7 +121,6 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         seed=None,
         **kwargs
     ):
-
         super(RandomForestRegressor, self).__init__(client=client,
                                                     verbose=verbose,
                                                     **kwargs)
@@ -203,6 +202,27 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
                 delayed=True):
         """
         Predicts the regressor outputs for X.
+
+
+        GPU-based prediction in a multi-node, multi-GPU context works
+        by sending the sub-forest from each worker to the client,
+        concatenating these into one forest with the full
+        `n_estimators` set of trees, and sending this combined forest to
+        the workers, which will each infer on their local set of data.
+        This allows inference to scale to large datasets, but the forest
+        transmission incurs overheads for very large trees. For inference
+        on small datasets, this overhead may dominate prediction time.
+        Within the worker, this uses the cuML Forest Inference Library
+        (cuml.fil) for high-throughput prediction.
+
+        The 'CPU' fallback method works with sub-forests in-place,
+        broadcasting the datasets to all workers and combining predictions
+        via an averaging method at the end. This method is slower
+        on a per-row basis but may be faster for problems with many trees
+        and few rows.
+
+        In the 0.15 cuML release, inference will be updated with much
+        faster tree transfer.
 
         Parameters
         ----------
