@@ -278,7 +278,6 @@ class PCA(Base):
         self.svd_solver = svd_solver
         self.tol = tol
         self.whiten = whiten
-        # self._set_algorithm_c_name(self.svd_solver)
         self.c_algorithm = self._get_algorithm_c_name(self.svd_solver)
 
         # internal array attributes

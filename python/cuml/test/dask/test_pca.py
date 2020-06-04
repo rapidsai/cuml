@@ -16,7 +16,6 @@
 import pytest
 import numpy as np
 import cupy as cp
-from dask.distributed import wait
 
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 
@@ -90,7 +89,6 @@ def test_pca_tsqr(nrows, ncols, n_parts, input_type, ucx_client):
                         cluster_std=0.5,
                         random_state=10, dtype=np.float32)
 
-    wait(X)
     if input_type == "dataframe":
         X_train = to_dask_cudf(X)
         X_cpu = X_train.compute().to_pandas().values
