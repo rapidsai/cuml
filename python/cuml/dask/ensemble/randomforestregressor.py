@@ -191,7 +191,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
-        self.local_model = None
+        self.internal_model = None
         self._fit(model=self.rfs,
                   dataset=(X, y),
                   convert_dtype=convert_dtype)
@@ -278,8 +278,8 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         return preds
 
     def predict_using_fil(self, X, delayed, **kwargs):
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
+        if self.internal_model is None:
+            self._set_internal_model(self._concat_treelite_models())
         return self._predict_using_fil(X=X,
                                        delayed=delayed,
                                        **kwargs)
