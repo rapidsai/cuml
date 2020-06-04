@@ -95,6 +95,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                            double *mu,
                            const paramsPCA &prms) except +
 
+
 class Solver(IntEnum):
     COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
@@ -317,7 +318,8 @@ class PCA(Base):
         params.whiten = self.whiten
         params.n_iterations = self.iterated_power
         params.tol = self.tol
-        params.algorithm = <solver> (<underlying_type_t_solver> (self.c_algorithm))
+        params.algorithm = <solver> (<underlying_type_t_solver> (
+            self.c_algorithm))
 
         return <size_t>params
 

@@ -273,7 +273,8 @@ class TruncatedSVD(Base):
         params.n_cols = n_cols
         params.n_iterations = self.n_iter
         params.tol = self.tol
-        params.algorithm = <solver> (<underlying_type_t_solver> (self.c_algorithm))
+        params.algorithm = <solver> (<underlying_type_t_solver> (
+            self.c_algorithm))
 
         return <size_t>params
 
