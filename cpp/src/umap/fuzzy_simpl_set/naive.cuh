@@ -21,10 +21,10 @@
 #include <cuml/neighbors/knn.hpp>
 
 #include <common/cudart_utils.h>
-#include "cuda_utils.cuh"
+#include <cuda_utils.cuh>
 
-#include "sparse/coo.cuh"
-#include "stats/mean.cuh"
+#include <sparse/coo.cuh>
+#include <stats/mean.cuh>
 
 #include <cuda_runtime.h>
 

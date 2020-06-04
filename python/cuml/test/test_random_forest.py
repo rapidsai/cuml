@@ -748,7 +748,7 @@ def test_rf_host_memory_leak(large_clf, estimator_type):
 
     X, y = large_clf
     X = X.astype(np.float32)
-
+    params = {'max_depth': 50}
     if estimator_type == 'classification':
         base_model = curfc(max_depth=10,
                            n_estimators=100,
@@ -768,6 +768,7 @@ def test_rf_host_memory_leak(large_clf, estimator_type):
 
     for i in range(5):
         base_model.fit(X, y)
+        base_model.set_params(**params)
         gc.collect()
         final_mem = process.memory_info().rss
 
@@ -834,3 +835,17 @@ def test_concat_memory_leak(large_clf, estimator_type):
     logger.info("Final memory delta: %d" % (
         (used_mem - initial_baseline_mem)/1e6))
     assert (used_mem - initial_baseline_mem) < 1e6
+
+
+@pytest.mark.xfail(strict=True, raises=ValueError)
+def test_rf_nbins_small(small_clf):
+
+    X, y = small_clf
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfc()
+    cuml_model.fit(X_train[0:3, :], y_train[0:3])

@@ -35,7 +35,6 @@ from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector
 
 from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -90,7 +89,7 @@ class KNeighborsRegressor(NearestNeighbors):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbosity : int (default=cuml.common.logger.LEVEL_INFO)
+    verbose : int or boolean (default = False)
         Logging level
     handle : cumlHandle
         The cumlHandle resources to use

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include <ml_utils.h>
 #include <cuml/solvers/solver.hpp>
 #include "cd.cuh"
-#include "ml_utils.h"
 #include "sgd.cuh"
 
 namespace ML {

@@ -37,7 +37,6 @@ from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
     _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
-import cuml.common.logger as logger
 
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.fil.fil import TreeliteModel
@@ -215,7 +214,7 @@ class RandomForestRegressor(Base):
                  'split_algo', 'split_criterion', 'min_rows_per_node',
                  'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
-                 'verbosity', 'rows_sample',
+                 'rows_sample',
                  'max_leaves', 'quantile_per_tree',
                  'accuracy_metric']
 
@@ -223,7 +222,7 @@ class RandomForestRegressor(Base):
                  max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
-                 verbosity=logger.LEVEL_INFO, min_rows_per_node=2,
+                 verbose=False, min_rows_per_node=2,
                  rows_sample=1.0, max_leaves=-1,
                  accuracy_metric='mse', output_type=None,
                  min_samples_leaf=None, dtype=None,
@@ -253,9 +252,8 @@ class RandomForestRegressor(Base):
             handle = Handle(n_streams)
 
         super(RandomForestRegressor, self).__init__(handle=handle,
-                                                    verbosity=verbosity,
+                                                    verbose=verbose,
                                                     output_type=output_type)
-
         if max_depth < 0:
             raise ValueError("Must specify max_depth >0 ")
 
@@ -301,7 +299,6 @@ class RandomForestRegressor(Base):
     """
     def __getstate__(self):
         state = self.__dict__.copy()
-        del state['handle']
         cdef size_t params_t
         cdef  RandomForestMetaData[float, float] *rf_forest
         cdef  RandomForestMetaData[double, double] *rf_forest64
@@ -322,15 +319,16 @@ class RandomForestRegressor(Base):
                 state["rf_params64"] = rf_forest64.rf_params
 
         state['n_cols'] = self.n_cols
-        state["verbosity"] = self.verbosity
+        state["verbose"] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
+        state['handle'] = self.handle
         state["treelite_handle"] = None
 
         return state
 
     def __setstate__(self, state):
         super(RandomForestRegressor, self).__init__(
-            handle=None, verbosity=state['verbosity'])
+            handle=state['handle'], verbose=state['verbose'])
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         cdef  RandomForestMetaData[double, double] *rf_forest64 = \
@@ -581,6 +579,9 @@ class RandomForestRegressor(Base):
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
                                 order='F')
+        if self.n_bins > n_rows:
+            raise ValueError("The number of bins,`n_bins` can not be greater"
+                             " than the number of samples used for training.")
         X_ptr = X_m.ptr
         y_m, _, _, y_dtype = \
             input_to_cuml_array(y,
@@ -636,7 +637,7 @@ class RandomForestRegressor(Base):
                 <int> self.n_cols,
                 <float*> y_ptr,
                 rf_params,
-                <int> self.verbosity)
+                <int> self.verbose)
 
         else:
             rf_params64 = rf_params
@@ -647,7 +648,7 @@ class RandomForestRegressor(Base):
                 <int> self.n_cols,
                 <double*> y_ptr,
                 rf_params64,
-                <int> self.verbosity)
+                <int> self.verbose)
         # make sure that the `fit` is complete before the following delete
         # call happens
         self.handle.sync()
@@ -681,10 +682,10 @@ class RandomForestRegressor(Base):
 
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_handle,
-                                             output_class=False,
-                                             algo=algo,
-                                             storage_type=storage_type)
+            fil_model.load_using_treelite_handle(treelite_handle,
+                                                 output_class=False,
+                                                 algo=algo,
+                                                 storage_type=storage_type)
 
         preds = tl_to_fil_model.predict(X, out_type)
         return preds
@@ -717,7 +718,7 @@ class RandomForestRegressor(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <float*> preds_ptr,
-                    <int> self.verbosity)
+                    <int> self.verbose)
 
         elif self.dtype == np.float64:
             predict(handle_[0],
@@ -726,7 +727,7 @@ class RandomForestRegressor(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <double*> preds_ptr,
-                    <int> self.verbosity)
+                    <int> self.verbose)
         else:
             raise TypeError("supports only float32 and float64 input,"
                             " but input of type '%s' passed."
@@ -882,7 +883,7 @@ class RandomForestRegressor(Base):
                                     <float*> y_ptr,
                                     <int> n_rows,
                                     <float*> preds_ptr,
-                                    <int> self.verbosity)
+                                    <int> self.verbose)
 
         elif self.dtype == np.float64:
             self.temp_stats = score(handle_[0],
@@ -890,7 +891,7 @@ class RandomForestRegressor(Base):
                                     <double*> y_ptr,
                                     <int> n_rows,
                                     <double*> preds_ptr,
-                                    <int> self.verbosity)
+                                    <int> self.verbose)
 
         if self.accuracy_metric == 'median_ae':
             stats = self.temp_stats['median_abs_error']
@@ -932,10 +933,7 @@ class RandomForestRegressor(Base):
         -----------
         params : dict of new params
         """
-        # Resetting handle as __setstate__ overwrites with handle=None
-        self.handle.__setstate__(self.n_streams)
         self.model_pbuf_bytes = []
-
         if not params:
             return self
         for key, value in params.items():

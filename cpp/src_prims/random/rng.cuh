@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-20, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,14 @@
 
 #include <common/cudart_utils.h>
 #include <stdint.h>
+#include <common/cub_wrappers.cuh>
+#include <common/scatter.cuh>
 #include <cstdio>
 #include <cstdlib>
+#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <random>
 #include <type_traits>
-#include "common/cub_wrappers.cuh"
-#include "common/scatter.cuh"
-#include "cuda_utils.cuh"
 #include "rng_impl.cuh"
 
 namespace MLCommon {
