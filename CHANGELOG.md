@@ -2,6 +2,8 @@
 
 ## New Features
 
+- PR #2312: column-major support for make_blobs
+
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
 - PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers

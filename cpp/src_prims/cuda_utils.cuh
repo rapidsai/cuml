@@ -365,6 +365,22 @@ DI void mySinCos(double x, double &s, double &c) {
 /** @} */
 
 /**
+ * @defgroup Sine Sine calculation
+ * @{
+ */
+template <typename T>
+DI T mySin(T x);
+template <>
+DI float mySin(float x) {
+  return sinf(x);
+}
+template <>
+DI double mySin(double x) {
+  return sin(x);
+}
+/** @} */
+
+/**
  * @defgroup Abs Absolute value
  * @{
  */
