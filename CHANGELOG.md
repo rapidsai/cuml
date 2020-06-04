@@ -1,4 +1,20 @@
-# cuML 0.14.0 (Date TBD)
+# cuML 0.15.0 (Date TBD)
+
+## New Features
+
+## Improvements
+- PR #2336: Eliminate `rmm.device_array` usage
+- PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
+- PR #2308: Using fixture for Dask client to eliminate possiblity of not closing
+- PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
+- PR #1945: enable clang tidy
+- PR #2345: make C++ logger level definition to be the same as python layer
+- PR #2329: Add short commit hash to conda package name
+
+## Bug Fixes
+- PR #2369: Update RF code to fix set_params memory leak
+
+# cuML 0.14.0 (03 Jun 2020)
 
 ## New Features
 - PR #1994: Support for distributed OneHotEncoder
@@ -91,6 +107,7 @@
 - PR #2210: Updating KNN tests to evaluate multiple index partitions
 - PR #2205: Use timeout to add 2 hour hard limit to dask tests
 - PR #2212: Improve DBScan batch count / memory estimation
+- PR #2213: Standardized include statements across all cpp source files, updated copyright on all modified files
 - PR #2214: Remove utils folder and refactor to common folder
 - PR #2220: Final refactoring of all src_prims header files following rules as specified in #1675
 - PR #2225: input_to_cuml_array keep order option, test updates and cleanup
@@ -99,6 +116,7 @@
 - PR #2257: Update QN and LogisticRegression to use CumlArray
 - PR #2259: Add CumlArray support to Naive Bayes
 - PR #2252: Add benchmark for the Gram matrix prims
+- PR #2264: Reduce build time for cuML by using make_blobs from libcuml++ interface
 - PR #2269: Add docs targets to build.sh and fix python cuml.common docs
 - PR #2271: Clarify doc for `_unique` default implementation in OneHotEncoder
 - PR #2272: Add docs build.sh script to repository
