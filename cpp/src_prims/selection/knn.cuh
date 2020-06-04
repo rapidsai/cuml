@@ -36,7 +36,6 @@
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/neighbors/knn.hpp>
-#include <common/device_buffer.hpp>
 
 #include <iostream>
 
