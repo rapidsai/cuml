@@ -92,6 +92,8 @@ class Ridge(BaseEstimator,
 
         models = self._fit(model_func=Ridge._create_model, data=(X, y))
 
+        self._set_internal_model(models[0])
+
         return self
 
     def predict(self, X, delayed=True):

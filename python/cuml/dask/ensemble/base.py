@@ -40,7 +40,7 @@ class BaseRandomForestModel(object):
 
         self.client = get_client(client)
         self.workers = self.client.scheduler_info()['workers'].keys()
-        self.local_model = None
+        self.internal_model = None
 
         self.n_estimators_per_worker = \
             self._estimators_per_worker(n_estimators)
@@ -114,7 +114,6 @@ class BaseRandomForestModel(object):
                 (self.rfs[w]))
         mod_bytes = self.client.compute(model_protobuf_futures, sync=True)
         last_worker = w
-        all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
         all_tl_mod_handles = [model._tl_model_handles(pbuf_bytes)
                               for pbuf_bytes in mod_bytes]

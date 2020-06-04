@@ -17,11 +17,11 @@ import cudf.comm.serialize  # noqa: F401
 import cupy as cp
 import dask
 import numpy as np
+import warnings
 from toolz import first
+from collections.abc import Iterable
 
 from cuml.dask.common.utils import get_client
-from cuml.dask.common.input_utils import get_datatype
-import pickle
 
 from cuml import Base
 from cuml.common.array import CumlArray
@@ -32,68 +32,101 @@ from cuml.dask.common import parts_to_ranks
 
 from dask_cudf.core import DataFrame as dcDataFrame
 from functools import wraps
-from toolz import first
+
+from distributed.client import Future
 
 
 class BaseEstimator(object):
 
-    def __init__(self, client=None, verbose=False, model=None, **kwargs):
+    def __init__(self, client=None, verbose=False, **kwargs):
         """
-        Constructor for distributed estimators
+        Constructor for distributed estimators.
         """
         self.client = get_client(client)
         self.verbose = verbose
         self.kwargs = kwargs
 
-        self.set_model(model)
+        self.internal_model = None
 
-    @classmethod
-    def load(cls, file, client=None, verbose=False, pickle_args={}, **kwargs):
+    def get_combined_model(self):
         """
-        Convenience function to load a saved cuml model into a distributed
-        model.
+        Return single-GPU model for serialization
         """
-        model = pickle.load(file, **pickle_args)
 
-        if isinstance(model, Base):
-            # If serialized model is single GPU, create new
-            # dist model
-            model = cls.__init__(client=client,
-                                 verbose=verbose,
-                                 model=model,
-                                 **kwargs)
-        else:
-            model.client = get_client(client)
-            model.kwargs = kwargs
-            model.verbose = verbose
-        return model
+        internal_model = self._check_internal_model(self._get_internal_model())
 
-    def __getstate__(self):
-        inst_attrs = self.__dict__
-        inst_attrs["local_model"] = self.get_model()
-        del inst_attrs["client"]
-        return inst_attrs
+        if isinstance(self.internal_model, Iterable):
+            # This function needs to return a single instance of cuml.Base,
+            # even if the class is just a composite.
+            raise ValueError("Expected a single instance of cuml.Base "
+                             "but got %s instead." % type(self.internal_model))
 
-    def __setstate__(self, state):
-        self.__dict__.update(state)
+        elif isinstance(self.internal_model, Future):
+            internal_model = self.internal_model.result()
 
-    def get_model(self):
+        return internal_model
+
+    def _set_internal_model(self, model):
+
         """
-        Return trained single-GPU model
-        """
-        local_model = self.local_model
-        if not isinstance(self.local_model, Base):
-            local_model = self.local_model.result()
-        return local_model
+        Standardizes upon the way we set the internal model so that it could
+         either be futures, a single future, or a class local to the client.
 
-    def set_model(self, value, to_workers=True):
+        In order for `get_serializable model` to provide a consistent output,
+        self.internal_model is expected to be either a single future
+        containing a cuml.Base instance or a local cuml.Base on the client.
+        If an iterable is passed into this method, only the first item will
+        be used.
+
+        If multiple different parameters have been trained across the cluster,
+        such as in RandomForests or some approx. nearest neighbors algorithms,
+        they should be combined into a single model.
+       """
+        self.internal_model = self._check_internal_model(model)
+
+    @staticmethod
+    def _check_internal_model(model):
         """
+
         Parameters
         ----------
-        value : a local model to scatter to Dask cluster
+
+        model : distributed.client.Future[cuml.Base], cuml.Base, or None
+
+        Returns
+        -------
+
+        model : distributed.client.Future[cuml.Base], cuml.Base, or None
+
         """
-        self.local_model = self.client.scatter(value, broadcast=True) \
-            if to_workers else value
+        if isinstance(model, Iterable):
+            # If model is iterable, just grab the first
+            model = first(model)
+
+        if isinstance(model, Future):
+            if issubclass(Base, model.type):
+                warnings.warn("Dask Future expected to contain cuml.Base but"
+                              "found %s instead." % model.type)
+
+        elif model is not None and not isinstance(model, Base):
+            warnings.warn("Expected model of type cuml.Base but found %s "
+                          "instead." % type(model))
+
+        return model
+
+    def _get_internal_model(self):
+        """
+        Internal method for subclasses to (optionally) override.
+        An example of when this might be useful is when a RandomForest
+        model has been trained but not yet concatencated. This allows
+        a reduction on-demand before the final model is returned.
+
+        Returns
+        -------
+
+        internal_model : dask.client.Future[cuml.Base], cuml.Base or None
+        """
+        return self.internal_model
 
     @staticmethod
     @dask.delayed
@@ -112,42 +145,44 @@ class BaseEstimator(object):
         If the attribute being requested is not directly on the local object,
         this function will see if the local object contains the attribute
         prefixed with an _. In the case the attribute does not exist on this
-        local instance, the request will be proxied to self.local_model and
+        local instance, the request will be proxied to self.internal_model and
         will be fetched either locally or remotely depending on whether
-        self.local_model is a local object instance or a future.
+        self.internal_model is a local object instance or a future.
         """
         real_name = '_' + attr
 
-        # First check locally for attr
-        if attr in self.__dict__:
-            ret_attr = self.__dict__[attr]
+        print(str(attr))
 
-        # Next check locally for _ prefixed attr
-        elif real_name in self.__dict__:
+        internal_model = self._get_internal_model()
+
+        # First check locally for _ prefixed attr
+        if real_name in self.__dict__:
             ret_attr = self.__dict__[real_name]
 
-        # Finally, check the trained model (this is done as a
-        # last resort since fetching the attribute from the
-        # distributed model will incur a higher cost than
-        # local attributes.
-        elif "local_model" in self.__dict__:
-            local_model = self.__dict__["local_model"]
+        # Otherwise, if the actual attribute name exists on the
+        # object, just return it.
+        elif attr in self.__dict__:
+            ret_attr = self.__dict__[attr]
 
-            if isinstance(local_model, Base):
+        # If we didn't have an attribute on the local model, we might
+        # have it on the distributed model.
+        elif internal_model is not None:
+            if isinstance(internal_model, Base):
                 # If model is not distributed, just return the
                 # requested attribute
-                ret_attr = getattr(local_model, attr)
+                ret_attr = getattr(internal_model, attr)
             else:
                 # Otherwise, fetch the attribute from the distributed
                 # model and return it
-                print(str(attr))
                 ret_attr = BaseEstimator._get_model_attr(
-                    self.__dict__["local_model"], attr).compute()
+                    internal_model, attr).compute()
         else:
             raise ValueError("Attribute %s not found in %s" %
                              (attr, type(self)))
 
         if isinstance(ret_attr, CumlArray):
+            # Dask wrappers aren't meant to be pickled, so we can
+            # store the raw type on the instance
             return ret_attr.to_output(self.output_type)
         else:
             return ret_attr
@@ -169,7 +204,7 @@ class DelayedParallelFunc(object):
         tasks that can execute concurrently on each worker.
 
         Note that this mixin assumes the subclass has been trained and
-        includes a `self.local_model` attribute containing a subclass
+        includes a `self.internal_model` attribute containing a subclass
         of `cuml.Base`.
 
         This is intended to abstract functions like predict, transform, and
@@ -202,14 +237,14 @@ class DelayedParallelFunc(object):
         -------
         y : dask cuDF (n_rows, 1)
         """
+        X_d = X.to_delayed()
+
         if output_collection_type is None:
             output_collection_type = self.datatype
 
-        X_d = X.to_delayed()
-
-        print(str(self.local_model))
-
-        model = dask.delayed(self.local_model, pure=True, traverse=False)
+        model = dask.delayed(self._get_internal_model(),
+                             pure=True,
+                             traverse=False)
 
         func = dask.delayed(func, pure=False, nout=1)
 
@@ -227,10 +262,7 @@ class DelayedParallelFunc(object):
         #  `to_delayed_output()` function
         # TODO: Add eager path back in
 
-        if "datatype" not in self.__dict__:
-            self.datatype, _ = get_datatype(X)
-
-        if self.datatype == 'cupy':
+        if output_collection_type == 'cupy':
 
             # todo: add parameter for option of not checking directly
 

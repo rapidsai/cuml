@@ -22,6 +22,10 @@ from cuml.test.dask.utils import load_text_corpus
 from cuml.dask.datasets import make_blobs
 
 
+def test_get_internal_model(client):
+    pass
+
+
 def test_getattr(client):
 
     # Test getattr on local param
