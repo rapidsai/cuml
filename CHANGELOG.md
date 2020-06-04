@@ -13,6 +13,7 @@
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
+- PR #2364: Fix for random projection
 
 # cuML 0.14.0 (03 Jun 2020)
 
@@ -184,7 +185,6 @@
 - PR #2295: Fix convert_to_dtype copy even with same dtype
 - PR #2305: Fixed race condition in DBScan
 - PR #2354: Fix broken links in README
-- PR #2364: Fix for random projection
 
 # cuML 0.13.0 (Date TBD)
 
