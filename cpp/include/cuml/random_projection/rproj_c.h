@@ -45,37 +45,39 @@ struct paramsRPROJ {
   int random_state;
 };
 
+enum random_matrix_type { unset, dense, sparse };
+
 template <typename math_t>
 struct rand_mat {
-  rand_mat()
-    : dense_data(nullptr),
-      indices(nullptr),
-      indptr(nullptr),
-      sparse_data(nullptr),
-      sparse_data_size(0) {}
+  rand_mat(std::shared_ptr<MLCommon::deviceAllocator> allocator,
+           cudaStream_t stream)
+    : dense_data(allocator, stream),
+      indices(allocator, stream),
+      indptr(allocator, stream),
+      sparse_data(allocator, stream),
+      stream(stream),
+      type(unset) {}
 
   ~rand_mat() { this->reset(); }
 
   // For dense matrices
-  device_buffer<math_t> *dense_data;
+  device_buffer<math_t> dense_data;
 
   // For sparse CSC matrices
-  device_buffer<int> *indices;
-  device_buffer<int> *indptr;
-  device_buffer<math_t> *sparse_data;
-  size_t sparse_data_size;
+  device_buffer<int> indices;
+  device_buffer<int> indptr;
+  device_buffer<math_t> sparse_data;
+
+  cudaStream_t stream;
+
+  random_matrix_type type;
 
   void reset() {
-    if (this->dense_data) delete this->dense_data;
-    if (this->indices) delete this->indices;
-    if (this->indptr) delete this->indptr;
-    if (this->sparse_data) delete this->sparse_data;
-
-    this->dense_data = nullptr;
-    this->indices = nullptr;
-    this->indptr = nullptr;
-    this->sparse_data = nullptr;
-    this->sparse_data_size = 0;
+    this->dense_data.release(this->stream);
+    this->indices.release(this->stream);
+    this->indptr.release(this->stream);
+    this->sparse_data.release(this->stream);
+    this->type = unset;
   };
 };
 

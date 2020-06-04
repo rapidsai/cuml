@@ -47,10 +47,10 @@ void gaussian_random_matrix(const cumlHandle& h,
   cudaStream_t stream = h.getStream();
   auto d_alloc = h.getDeviceAllocator();
   int len = params.n_components * params.n_features;
-  random_matrix->dense_data = new device_buffer<math_t>(d_alloc, stream, len);
+  random_matrix->dense_data.resize(len, stream);
   auto rng = Random::Rng(params.random_state);
   math_t scale = 1.0 / sqrt(double(params.n_components));
-  rng.normal(random_matrix->dense_data->data(), len, math_t(0), scale, stream);
+  rng.normal(random_matrix->dense_data.data(), len, math_t(0), scale, stream);
 }
 
 /**
@@ -67,10 +67,10 @@ void sparse_random_matrix(const cumlHandle& h, rand_mat<math_t>* random_matrix,
 
   if (params.density == 1.0f) {
     int len = params.n_components * params.n_features;
-    random_matrix->dense_data = new device_buffer<math_t>(d_alloc, stream, len);
+    random_matrix->dense_data.resize(len, stream);
     auto rng = Random::Rng(params.random_state);
     math_t scale = 1.0 / sqrt(math_t(params.n_components));
-    rng.scaled_bernoulli(random_matrix->dense_data->data(), len, math_t(0.5),
+    rng.scaled_bernoulli(random_matrix->dense_data.data(), len, math_t(0.5),
                          scale, stream);
   } else {
     auto alloc = h.getHostAllocator();
@@ -100,24 +100,21 @@ void sparse_random_matrix(const cumlHandle& h, rand_mat<math_t>* random_matrix,
     indptr[indptr_idx] = offset;
 
     size_t len = offset;
-    random_matrix->indices = new device_buffer<int>(d_alloc, stream, len);
-    updateDevice(random_matrix->indices->data(), indices, len, stream);
+    random_matrix->indices.resize(len, stream);
+    updateDevice(random_matrix->indices.data(), indices, len, stream);
     alloc->deallocate(indices, indices_alloc, stream);
 
     len = indptr_idx + 1;
-    random_matrix->indptr = new device_buffer<int>(d_alloc, stream, len);
-    updateDevice(random_matrix->indptr->data(), indptr, len, stream);
+    random_matrix->indptr.resize(len, stream);
+    updateDevice(random_matrix->indptr.data(), indptr, len, stream);
     alloc->deallocate(indptr, indptr_alloc, stream);
 
     len = offset;
-    random_matrix->sparse_data =
-      new device_buffer<math_t>(d_alloc, stream, len);
+    random_matrix->sparse_data.resize(len, stream);
     auto rng = Random::Rng(params.random_state);
     math_t scale = sqrt(1.0 / params.density) / sqrt(params.n_components);
-    rng.scaled_bernoulli(random_matrix->sparse_data->data(), len, math_t(0.5),
+    rng.scaled_bernoulli(random_matrix->sparse_data.data(), len, math_t(0.5),
                          scale, stream);
-
-    random_matrix->sparse_data_size = len;
   }
 }
 
@@ -137,8 +134,10 @@ void RPROJfit(const cumlHandle& handle, rand_mat<math_t>* random_matrix,
 
   if (params->gaussian_method) {
     gaussian_random_matrix<math_t>(handle, random_matrix, *params);
+    random_matrix->type = dense;
   } else {
     sparse_random_matrix<math_t>(handle, random_matrix, *params);
+    random_matrix->type = sparse;
   }
 }
 
@@ -158,7 +157,7 @@ void RPROJtransform(const cumlHandle& handle, math_t* input,
 
   check_parameters(*params);
 
-  if (random_matrix->dense_data) {
+  if (random_matrix->type == dense) {
     cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
 
     const math_t alfa = 1;
@@ -172,11 +171,11 @@ void RPROJtransform(const cumlHandle& handle, math_t* input,
     int& ldb = k;
     int& ldc = m;
 
-    CUBLAS_CHECK(cublasgemm(
-      cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alfa, input, lda,
-      random_matrix->dense_data->data(), ldb, &beta, output, ldc, stream));
+    CUBLAS_CHECK(cublasgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k,
+                            &alfa, input, lda, random_matrix->dense_data.data(),
+                            ldb, &beta, output, ldc, stream));
 
-  } else if (random_matrix->sparse_data) {
+  } else if (random_matrix->type == sparse) {
     cusparseHandle_t cusparse_handle = handle.getImpl().getcusparseHandle();
     CUSPARSE_CHECK(cusparseSetStream(cusparse_handle, stream));
 
@@ -186,15 +185,15 @@ void RPROJtransform(const cumlHandle& handle, math_t* input,
     int& m = params->n_samples;
     int& n = params->n_components;
     int& k = params->n_features;
-    size_t& nnz = random_matrix->sparse_data_size;
+    size_t nnz = random_matrix->sparse_data.size();
 
     int& lda = m;
     int& ldc = m;
 
     CUSPARSE_CHECK(cusparsegemmi(
       cusparse_handle, m, n, k, nnz, &alfa, input, lda,
-      random_matrix->sparse_data->data(), random_matrix->indptr->data(),
-      random_matrix->indices->data(), &beta, output, ldc));
+      random_matrix->sparse_data.data(), random_matrix->indptr.data(),
+      random_matrix->indices.data(), &beta, output, ldc));
   } else {
     ASSERT(false,
            "Could not find a random matrix. Please perform a fit operation "
