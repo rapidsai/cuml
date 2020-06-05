@@ -686,8 +686,6 @@ def test_log_loss_at_limits():
     y_true = np.array([0., 0.5, 1.0], dtype=np.float)
     y_pred = np.array([0., 0.5, 1.], dtype=np.float)
 
-    err_msg = ("Continuous format of y_true "
-               "is not supported by log_loss")
-
+    err_msg = ("'y_true' can only have integer values")
     with pytest.raises(ValueError, match=err_msg):
         log_loss(y_true, y_pred)

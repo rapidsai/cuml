@@ -11,6 +11,7 @@
 - PR #2345: make C++ logger level definition to be the same as python layer
 - PR #2329: Add short commit hash to conda package name
 - PR #2362: Implement binary/multi-classification log loss with cupy
+
 ## Bug Fixes
 
 # cuML 0.14.0 (Date TBD)
