@@ -98,12 +98,12 @@ def test_pca_tsqr(nrows, ncols, n_parts, input_type, ucx_client):
 
     try:
 
-        cupca = daskPCA(n_components=5, svd_solver="tsqr")
+        cupca = daskPCA(n_components=5, svd_solver="tsqr", whiten=False)
         cupca.fit(X_train)
     except Exception as e:
         print(str(e))
 
-    skpca = PCA(n_components=5, svd_solver="full")
+    skpca = PCA(n_components=5, svd_solver="full", whiten=False)
     skpca.fit(X_cpu)
 
     from cuml.test.utils import array_equal
@@ -123,26 +123,24 @@ def test_pca_tsqr(nrows, ncols, n_parts, input_type, ucx_client):
         local_X = cp.array(X_train.compute())
         X_trans = cupca.transform(X_train)
         local_X_inv = cp.array(cupca.inverse_transform(X_trans).compute())
+    elif input_type == "dataframe":
+        local_X = cp.array(X_train.compute().as_gpu_matrix())
+        X_trans = cupca.transform(X_train)
+        local_X_inv = cp.array(cupca.inverse_transform(
+            X_trans).compute().as_gpu_matrix())
 
-        X_signs = cp.where(local_X >=0, 1, -1)
-        X_inv_signs = cp.where(local_X_inv >=0, 1, -1)
+    X_sk = cp.asnumpy(local_X)
+    X_sk_t = skpca.transform(X_sk)
+    X_sk_inv = skpca.inverse_transform(X_sk_t)
 
-        unequal = cp.where(X_signs != X_inv_signs, 1, 0)
-        print("cu, sign, ", cp.sum(unequal))
+    cu_err = local_X - local_X_inv
 
-        X_sk = cp.asnumpy(local_X)
-        X_sk_t = skpca.transform(X_sk)
-        X_sk_inv = skpca.inverse_transform(X_sk_t)
+    sk_err = cp.array(X_sk - X_sk_inv)
 
-        X_sk_signs = np.where(X_sk >=0, 1, -1)
-        X_sk_inv_signs = np.where(X_sk_inv >=0, 1, -1)
+    mean_err_diff = abs(cp.mean(cu_err)) - abs(cp.mean(sk_err))
+    max_err_diff = abs(cp.max(cu_err)) - abs(cp.max(sk_err))
 
-        sk_unequal = np.where(X_sk_signs != X_sk_inv_signs, 1, 0)
-
-        diff = cp.where(unequal != cp.array(sk_unequal), 1, 0)
-        print("diff: ", cp.sum(diff))
-
-        assert array_equal(local_X_inv, X_sk_inv, 0.5, with_sign=False)
+    assert mean_err_diff < 1e-7 and max_err_diff < 0.03
 
 
 @pytest.mark.mg
