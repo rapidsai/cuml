@@ -1,7 +1,7 @@
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
--PR #2289: QR SVD solver for MNMG PCA
+- PR #2289: QR SVD solver for MNMG PCA
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
