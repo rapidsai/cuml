@@ -65,20 +65,18 @@ def log_loss(y_true, y_pred, eps=1e-15, normalize=True, sample_weight=None):
         input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64,
                                                  np.float32, np.float64])
 
-    y_true = y_true.to_output()
+    y_true = y_true.to_output('cupy')
     if y_true.dtype.kind == 'f' and np.any(y_true != y_true.astype(int)):
-        raise ValueError("Continuous format of y_true "
-                         "is not supported by log_loss")
+        raise ValueError("'y_true' can only have integer values")
     if y_true.min() < 0:
-        raise ValueError("The minimum value of y_true "
-                         "cannot be negative")
+        raise ValueError("'y_true' cannot have negative values")
 
     y_pred, _, _, _ = \
         input_to_cuml_array(y_pred, check_dtype=[np.int32, np.int64,
                                                  np.float32, np.float64],
                             check_rows=n_rows)
 
-    y_pred = y_pred.to_output()
+    y_pred = y_pred.to_output('cupy')
     y_true_max = y_true.max()
     if (y_pred.ndim == 1 and y_true_max > 1) \
        or (y_pred.ndim > 1 and y_pred.shape[1] <= y_true_max):
@@ -99,8 +97,8 @@ def log_loss(y_true, y_pred, eps=1e-15, normalize=True, sample_weight=None):
 
 def _weighted_sum(sample_score, sample_weight, normalize):
     if normalize:
-        return np.average(sample_score, weights=sample_weight)
+        return cp.average(sample_score, weights=sample_weight)
     elif sample_weight is not None:
-        return np.dot(sample_score, sample_weight)
+        return cp.dot(sample_score, sample_weight)
     else:
         return sample_score.sum()
