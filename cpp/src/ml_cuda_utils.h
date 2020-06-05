@@ -38,10 +38,7 @@ cudaMemoryType memory_type(const void *p) {
     err = cudaGetLastError();
     ASSERT(err == cudaErrorInvalidValue, "%s", cudaGetErrorString(err));
   }
-#if CUDA_VERSION >= 10000
   return att.type;
-#else
-  return att.memoryType;
-#endif
 }
+
 }  // namespace ML
