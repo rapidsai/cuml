@@ -82,6 +82,7 @@ class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
  public:
   bool copy = true;
   bool whiten = false;
+  bool sign_flip = true;
 };
 
 typedef paramsTSVDTemplate<> paramsTSVD;
