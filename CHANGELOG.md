@@ -11,6 +11,7 @@
 - PR #1945: enable clang tidy
 - PR #2345: make C++ logger level definition to be the same as python layer
 - PR #2329: Add short commit hash to conda package name
+- PR #2378: Reduce memory footprint in MNMG PCA QR by more than 50%
 
 ## Bug Fixes
 
