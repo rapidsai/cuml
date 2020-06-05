@@ -227,6 +227,10 @@ class PCA(Base):
         Whitening allows each component to have unit variance and removes
         multi-collinearity. It might be beneficial for downstream
         tasks like LinearRegression where correlated features cause problems.
+    sign_flip: boolean (default = True)
+        Ignored for now.
+        If True, it will flip the sign of the eigenvectors when using
+        an eigenvalue decomposition based SVD solver
 
 
     Attributes
