@@ -46,8 +46,8 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cupy>=7,<8.0.0a0" \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
-      "rmm=${MINOR_VERSION}" \
-      "nvstrings=${MINOR_VERSION}" \
+      "rmm=0.14" \
+      "nvstrings=0.14" \
       "libcumlprims=${MINOR_VERSION}" \
       "lapack" \
       "cmake==3.14.3" \
