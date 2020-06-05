@@ -75,7 +75,7 @@ def test_pca_fit(nrows, ncols, n_parts, input_type, client):
 @pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [2])
 @pytest.mark.parametrize("input_type", ["dataframe", "array"])
-def test_pca_tsqr(nrows, ncols, n_parts, input_type, sign_flip, ucx_client):
+def test_pca_tsqr(nrows, ncols, n_parts, input_type, ucx_client):
 
     from cuml.dask.decomposition import PCA as daskPCA
     from sklearn.decomposition import PCA
@@ -98,8 +98,7 @@ def test_pca_tsqr(nrows, ncols, n_parts, input_type, sign_flip, ucx_client):
 
     try:
 
-        cupca = daskPCA(n_components=5, svd_solver="tsqr",
-                        sign_flip=sign_flip, whiten=False)
+        cupca = daskPCA(n_components=5, svd_solver="tsqr")
         cupca.fit(X_train)
     except Exception as e:
         print(str(e))
@@ -129,7 +128,7 @@ def test_pca_tsqr(nrows, ncols, n_parts, input_type, sign_flip, ucx_client):
         X_inv_signs = cp.where(local_X_inv >=0, 1, -1)
 
         unequal = cp.where(X_signs != X_inv_signs, 1, 0)
-        print("cu, sign, ", sign_flip, cp.sum(unequal))
+        print("cu, sign, ", cp.sum(unequal))
 
         X_sk = cp.asnumpy(local_X)
         X_sk_t = skpca.transform(X_sk)
@@ -138,10 +137,12 @@ def test_pca_tsqr(nrows, ncols, n_parts, input_type, sign_flip, ucx_client):
         X_sk_signs = np.where(X_sk >=0, 1, -1)
         X_sk_inv_signs = np.where(X_sk_inv >=0, 1, -1)
 
-        unequal = np.where(X_sk_signs != X_sk_inv_signs, 1, 0)
-        print("np: ", np.sum(unequal))
+        sk_unequal = np.where(X_sk_signs != X_sk_inv_signs, 1, 0)
 
-        assert array_equal(X_signs, X_inv_signs, 0, with_sign=True)
+        diff = cp.where(unequal != cp.array(sk_unequal), 1, 0)
+        print("diff: ", cp.sum(diff))
+
+        assert array_equal(local_X_inv, X_sk_inv, 0.5, with_sign=False)
 
 
 @pytest.mark.mg
