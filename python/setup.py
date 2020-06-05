@@ -171,6 +171,9 @@ cmdclass["build_ext"] = build_ext
 if not libcuml_path:
     libcuml_path = '../cpp/build/'
 
+# for now, do not build umap for cuda-11
+cython_exc_list.append('cuml/manifold/umap.pyx')
+
 extensions = [
     Extension("*",
               sources=["cuml/**/**/*.pyx"],
