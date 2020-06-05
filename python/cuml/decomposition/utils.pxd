@@ -52,3 +52,4 @@ cdef extern from "cuml/decomposition/params.hpp" namespace "ML" nogil:
     cdef cppclass paramsPCA(paramsTSVD):
         bool copy
         bool whiten
+        bool sign_flip

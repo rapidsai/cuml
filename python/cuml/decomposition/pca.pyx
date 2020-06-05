@@ -267,7 +267,7 @@ class PCA(Base):
 
     def __init__(self, copy=True, handle=None, iterated_power=15,
                  n_components=1, random_state=None, svd_solver='auto',
-                 tol=1e-7, verbose=False, whiten=False,
+                 tol=1e-7, verbose=False, whiten=False, sign_flip=True,
                  output_type=None):
         # parameters
         super(PCA, self).__init__(handle=handle, verbose=verbose,
@@ -280,6 +280,7 @@ class PCA(Base):
         self.tol = tol
         self.whiten = whiten
         self.c_algorithm = self._get_algorithm_c_name(self.svd_solver)
+        self.sign_flip = sign_flip
 
         # internal array attributes
         self._components_ = None  # accessed via estimator.components_
@@ -320,6 +321,7 @@ class PCA(Base):
         params.tol = self.tol
         params.algorithm = <solver> (<underlying_type_t_solver> (
             self.c_algorithm))
+        params.sign_flip = self.sign_flip
 
         return <size_t>params
 

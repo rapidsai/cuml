@@ -112,11 +112,15 @@ def test_pca_tsqr(nrows, ncols, n_parts, input_type, ucx_client):
                 'explained_variance_', 'explained_variance_ratio_']
 
     for attr in all_attr:
+        with_sign = False if attr in ['components_'] else True
         cuml_res = (getattr(cupca, attr))
         if type(cuml_res) == np.ndarray:
             cuml_res = cuml_res.as_matrix()
         skl_res = getattr(skpca, attr)
-        assert array_equal(cuml_res, skl_res, 1e-1, with_sign=True)
+        if attr == "components_":
+            print(cuml_res)
+            print(skl_res)
+        assert array_equal(cuml_res, skl_res, 1e-1, with_sign=with_sign)
 
 
 @pytest.mark.mg

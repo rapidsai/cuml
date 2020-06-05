@@ -64,6 +64,7 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML":
     cdef cppclass paramsPCAMG(paramsTSVDMG):
         bool copy
         bool whiten
+        bool sign_flip
 
 
 cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
@@ -128,6 +129,7 @@ class PCAMG(BaseDecompositionMG, PCA):
         params.tol = self.tol
         params.algorithm = <mg_solver> (<underlying_type_t_solver> (
             self.c_algorithm))
+        params.sign_flip = self.sign_flip
 
         return <size_t>params
 
