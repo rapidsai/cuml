@@ -162,6 +162,7 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
                                              R_full_ncols, R_full.data(),
                                              R_full_nrows, &Lwork));
    device_buffer<math_t> workspace(allocator, stream, Lwork);
+   std::cout << "Fourth Alloc" << std::endl;
    CUSOLVER_CHECK(cusolverDngeqrf(
      cusolverH, R_full_nrows, R_full_ncols, R_full.data(), R_full_nrows,
      tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
@@ -171,7 +172,6 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
  #endif
  
    Matrix::copyUpperTriangular(R_full.data(), R, m, n, stream);
-   std::cout << "Fourth Alloc" << std::endl;
  }
 /** @} */
 
