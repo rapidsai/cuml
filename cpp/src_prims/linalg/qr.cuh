@@ -158,7 +158,7 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
  
    int Lwork;
   //  device_buffer<int> devInfo(allocator, stream, 1);
-    math_t* devInfo = (math_t*) allocator->allocate(1 * sizeof(math_t), stream);
+    int* devInfo = (int*) allocator->allocate(1 * sizeof(math_t), stream);
    std::cout << "Third Alloc" << std::endl;
  
    CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, R_full_nrows,
