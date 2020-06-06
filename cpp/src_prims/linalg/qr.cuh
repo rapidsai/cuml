@@ -151,9 +151,9 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
    math_t* tau = (math_t*) allocator->allocate(min(m, n) * sizeof(math_t), stream);
    std::cout << "Second Alloc" << std::endl;
    CUDA_CHECK(
-     cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * min(m, n), stream));
+     cudaMemsetAsync(tau, 0, sizeof(math_t) * min(m, n), stream));
    int R_full_nrows = m, R_full_ncols = n;
-   CUDA_CHECK(cudaMemcpyAsync(R_full.data(), M, sizeof(math_t) * m * n,
+   CUDA_CHECK(cudaMemcpyAsync(R_full, M, sizeof(math_t) * m * n,
                               cudaMemcpyDeviceToDevice, stream));
  
    int Lwork;
@@ -162,7 +162,7 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
    std::cout << "Third Alloc" << std::endl;
  
    CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, R_full_nrows,
-                                             R_full_ncols, R_full.data(),
+                                             R_full_ncols, R_full,
                                              R_full_nrows, &Lwork));
   //  device_buffer<math_t> workspace(allocator, stream, Lwork);
   math_t* workspace = (math_t*) allocator->allocate(Lwork * sizeof(math_t), stream);
@@ -178,7 +178,7 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
    CUDA_CHECK(cudaDeviceSynchronize());
  #endif
  
-   Matrix::copyUpperTriangular(R_full.data(), R, m, n, stream);
+   Matrix::copyUpperTriangular(R_full, R, m, n, stream);
  }
 /** @} */
 
