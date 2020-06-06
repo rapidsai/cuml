@@ -71,7 +71,7 @@ class DecompositionSyncFitMixin(object):
 
         if "svd_solver" in self.kwargs \
                 and self.kwargs["svd_solver"] == "tsqr":
-            comms = CommsContext(comms_p2p=True)
+            comms = CommsContext(comms_p2p=True, streams_per_handle=5)
         else:
             comms = CommsContext(comms_p2p=False)
 

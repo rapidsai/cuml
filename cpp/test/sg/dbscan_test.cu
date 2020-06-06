@@ -72,8 +72,8 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                           params.n_row);
 
     make_blobs(handle, out.data(), l.data(), params.n_row, params.n_col,
-               params.n_centers, nullptr, nullptr, params.cluster_std, true,
-               -10.0f, 10.0f, 1234ULL);
+               params.n_centers, true, nullptr, nullptr, params.cluster_std,
+               true, -10.0f, 10.0f, params.seed);
 
     allocate(labels, params.n_row);
     allocate(labels_ref, params.n_row);
@@ -90,9 +90,10 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
     score = adjustedRandIndex(handle, labels_ref, labels, params.n_row);
 
     if (score < 1.0) {
-      auto str = arr2Str(labels_ref, 25, "labels_ref", handle.getStream());
+      auto str =
+        arr2Str(labels_ref, params.n_row, "labels_ref", handle.getStream());
       CUML_LOG_DEBUG("y: %s", str.c_str());
-      str = arr2Str(labels, 25, "labels", handle.getStream());
+      str = arr2Str(labels, params.n_row, "labels", handle.getStream());
       CUML_LOG_DEBUG("y_hat: %s", str.c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }
@@ -113,10 +114,8 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 };
 
 const std::vector<DbscanInputs<float, int>> inputsf2 = {
-  {50000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL},
   {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
   {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
-  {50000, 16, 5l, 0.01, 2, 2, (size_t)13e3, 1234ULL},
   {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
   {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL}};
 
