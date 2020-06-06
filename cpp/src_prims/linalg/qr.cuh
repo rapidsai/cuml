@@ -144,9 +144,11 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
               std::shared_ptr<deviceAllocator> allocator) {
    int m = n_rows, n = n_cols;
    std::cout << "IN R" << std::endl;
-   device_buffer<math_t> R_full(allocator, stream, m * n);
+  //  device_buffer<math_t> R_full(allocator, stream, m * n);
+  math_t* R_full = (math_t*) allocator->allocate(m * n * sizeof(math_t), stream);
    std::cout << "First Alloc" << std::endl;
-   device_buffer<math_t> tau(allocator, stream, min(m, n));
+  //  device_buffer<math_t> tau(allocator, stream, min(m, n));
+   math_t* tau = (math_t*) allocator->allocate(min(m, n) * sizeof(math_t), stream);
    std::cout << "Second Alloc" << std::endl;
    CUDA_CHECK(
      cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * min(m, n), stream));
@@ -155,17 +157,22 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
                               cudaMemcpyDeviceToDevice, stream));
  
    int Lwork;
-   device_buffer<int> devInfo(allocator, stream, 1);
+  //  device_buffer<int> devInfo(allocator, stream, 1);
+    math_t* devInfo = (math_t*) allocator->allocate(1 * sizeof(math_t), stream);
    std::cout << "Third Alloc" << std::endl;
  
    CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, R_full_nrows,
                                              R_full_ncols, R_full.data(),
                                              R_full_nrows, &Lwork));
-   device_buffer<math_t> workspace(allocator, stream, Lwork);
+  //  device_buffer<math_t> workspace(allocator, stream, Lwork);
+  math_t* workspace = (math_t*) allocator->allocate(Lwork * sizeof(math_t), stream);
    std::cout << "Fourth Alloc" << std::endl;
-   CUSOLVER_CHECK(cusolverDngeqrf(
-     cusolverH, R_full_nrows, R_full_ncols, R_full.data(), R_full_nrows,
-     tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
+  //  CUSOLVER_CHECK(cusolverDngeqrf(
+  //    cusolverH, R_full_nrows, R_full_ncols, R_full.data(), R_full_nrows,
+  //    tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
+  CUSOLVER_CHECK(cusolverDngeqrf(
+    cusolverH, R_full_nrows, R_full_ncols, R_full, R_full_nrows,
+    tau, workspace, Lwork, devInfo, stream));
    // @note in v9.2, without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail.
  #if defined(CUDART_VERSION) && CUDART_VERSION <= 9020
    CUDA_CHECK(cudaDeviceSynchronize());
