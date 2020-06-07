@@ -142,6 +142,7 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
  void qrGetR(math_t *M, math_t *R, int n_rows, int n_cols,
               cusolverDnHandle_t cusolverH, cudaStream_t stream,
               std::shared_ptr<deviceAllocator> allocator) {
+                std::cout << "in cusolver" << std::endl;
    int m = n_rows, n = n_cols;
    device_buffer<math_t> R_full(allocator, stream, m * n);
    device_buffer<math_t> tau(allocator, stream, min(m, n));
@@ -158,9 +159,11 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
                                              R_full_ncols, R_full.data(),
                                              R_full_nrows, &Lwork));
    device_buffer<math_t> workspace(allocator, stream, Lwork);
+   std::cout << "start cusolver" << std::endl;
    CUSOLVER_CHECK(cusolverDngeqrf(
      cusolverH, R_full_nrows, R_full_ncols, R_full.data(), R_full_nrows,
      tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
+     std::cout << "end cusolver" << std::endl;
    // @note in v9.2, without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail.
 //  #if defined(CUDART_VERSION) && CUDART_VERSION <= 9020
 //    CUDA_CHECK(cudaDeviceSynchronize());
