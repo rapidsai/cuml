@@ -162,9 +162,9 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
      cusolverH, R_full_nrows, R_full_ncols, R_full.data(), R_full_nrows,
      tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
    // @note in v9.2, without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail.
- #if defined(CUDART_VERSION) && CUDART_VERSION <= 9020
-   CUDA_CHECK(cudaDeviceSynchronize());
- #endif
+//  #if defined(CUDART_VERSION) && CUDART_VERSION <= 9020
+//    CUDA_CHECK(cudaDeviceSynchronize());
+//  #endif
  
    Matrix::copyUpperTriangular(R_full.data(), R, m, n, stream);
  }
