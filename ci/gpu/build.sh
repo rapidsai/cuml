@@ -58,7 +58,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "distributed>=2.12.0" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=0.14*" \
+      "ucx-py=${MINOR_VERSION}" \
       "statsmodels" \
       "xgboost==1.0.2dev.rapidsai0.13" \
       "psutil" \
@@ -105,17 +105,8 @@ logger "Resetting LD_LIBRARY_PATH..."
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
 
-logger "Build treelite for GPU testing..."
-# Buildint treelite Python for testing is temporary while there is a pip/conda
-# treelite package
-
-cd $WORKSPACE/cpp/build/treelite/src/treelite
-mkdir build
-cd build
-cmake ..
-make -j${PARALLEL_LEVEL}
-cd ../python
-python setup.py install
+logger "Install Treelite for GPU testing..."
+python -m pip install -v treelite==0.91
 
 cd $WORKSPACE
 

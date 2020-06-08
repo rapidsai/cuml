@@ -2,18 +2,25 @@
 
 ## New Features
 - PR #2287: Single-GPU TfidfTransformer implementation
+- PR #2289: QR SVD solver for MNMG PCA
+- PR #2312: column-major support for make_blobs
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
 - PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
+- PR #2308: Using fixture for Dask client to eliminate possiblity of not closing
 - PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
 - PR #1945: enable clang tidy
 - PR #2345: make C++ logger level definition to be the same as python layer
 - PR #2329: Add short commit hash to conda package name
+- PR #2371: Updating MBSGD tests to use larger batches
 
 ## Bug Fixes
+- PR #2369: Update RF code to fix set_params memory leak
+- PR #2373: Use Treelite Pip package in GPU testing
+- PR #2376: Update documentation Links
 
-# cuML 0.14.0 (Date TBD)
+# cuML 0.14.0 (03 Jun 2020)
 
 ## New Features
 - PR #1994: Support for distributed OneHotEncoder
@@ -182,6 +189,7 @@
 - PR #2293: Contiguity fixes for input_to_cuml_array and train_test_split
 - PR #2295: Fix convert_to_dtype copy even with same dtype
 - PR #2305: Fixed race condition in DBScan
+- PR #2354: Fix broken links in README
 
 # cuML 0.13.0 (Date TBD)
 

@@ -954,8 +954,8 @@ void make_blobs(const cumlHandle &handle, math_t *x, math_t *y, int n_rows,
   device_buffer<int> y_int(allocator, stream, n_rows);
 
   Datasets::make_blobs(handle, x_float.data(), y_int.data(), n_rows, n_cols,
-                       n_cluster, centers, (float *)nullptr, 1.0f, true, -2.0f,
-                       2.0f, 0);
+                       n_cluster, true, centers, (float *)nullptr, 1.0f, true,
+                       -2.0f, 2.0f, 0);
   int TPB = 256;
   if (std::is_same<float, math_t>::value) {
     LinAlg::transpose(x_float.data(), (float *)x, n_cols, n_rows, cublas_h,

@@ -21,6 +21,7 @@
 #include <linalg/gemv.h>
 #include <common/cumlHandle.hpp>
 #include <cuda_utils.cuh>
+#include <cuml/solvers/params.hpp>
 #include <functions/hinge.cuh>
 #include <functions/linearReg.cuh>
 #include <functions/logisticReg.cuh>
