@@ -189,10 +189,11 @@ class _VectorizerMixin:
         Compute empty docs ids using the remaining docs, given the total number
         of documents.
         """
-        remaining_docs = count_df['doc_id'].unique().values
-        doc_ids = cp.arange(0, n_doc)
-        empty_doc_ids = doc_ids[~cp.in1d(doc_ids, remaining_docs)]
-        return empty_doc_ids
+        remaining_docs = count_df['doc_id'].unique()
+        doc_ids = cudf.DataFrame(data={'all_ids': cp.arange(0, n_doc)})
+        empty_docs = doc_ids - doc_ids.iloc[remaining_docs]
+        empty_ids = empty_docs[empty_docs['all_ids'].isnull()].index.values
+        return empty_ids
 
     def _create_csr_matrix_from_count_df(self, count_df, empty_doc_ids):
         """Create a sparse matrix from the count of tokens by document"""
