@@ -48,7 +48,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
       "nvstrings=${MINOR_VERSION}" \
-      "libcumlprims=${MINOR_VERSION}" \
+      "libcumlprims=${MINOR_VERSION}a200607" \
       "lapack" \
       "cmake==3.14.3" \
       "umap-learn" \
