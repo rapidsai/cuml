@@ -14,6 +14,11 @@
 # limitations under the License.
 #
 
+from cuml.common.import_utils import has_dask
+
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
 from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
+
+if has_dask():
+    from cuml.neighbors.kneighbors_mg import KNeighborsMG
