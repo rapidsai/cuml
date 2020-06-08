@@ -371,10 +371,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
 
     data_chunksizes = [n_samples_per_part] * n_parts
 
-    if n_samples_per_part == 1:
-        data_chunksizes[-1] += n_samples % n_parts
-    else:
-        data_chunksizes[-1] += n_samples % n_samples_per_part
+    data_chunksizes[-1] += (n_samples % n_parts)
 
     data_chunksizes = tuple(data_chunksizes)
 
