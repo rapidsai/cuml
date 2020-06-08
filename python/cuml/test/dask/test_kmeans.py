@@ -159,10 +159,10 @@ def test_transform(nrows, ncols, nclusters, n_parts, input_type, client):
                                        stress_param(50)])
 @pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
                                      stress_param(50)])
-@pytest.mark.parametrize("SCORE_EPS", [unit_param(0.06), stress_param(35.0)])
+@pytest.mark.parametrize("score_eps", [unit_param(0.06), stress_param(35.0)])
 @pytest.mark.parametrize("input_type", ["dataframe", "array"])
 def test_score(nrows, ncols, nclusters, n_parts,
-               input_type, SCORE_EPS, client):
+               input_type, score_eps, client):
 
     from cuml.dask.cluster import KMeans as cumlKMeans
 
@@ -213,6 +213,6 @@ def test_score(nrows, ncols, nclusters, n_parts,
 
     # Threshold increased for stress test to 35.0. This is the
     # threshold required for `test_score[array-0.8-50-50-30-5000000.0]`
-    assert actual_score + SCORE_EPS \
+    assert actual_score + score_eps \
         >= (-1 * expected_score) \
-        >= actual_score - SCORE_EPS
+        >= actual_score - score_eps
