@@ -112,7 +112,7 @@ class KNeighborsClassifierMG(KNeighborsMG):
                                      query, query_parts_to_ranks, query_nrows,
                                      ncols, rank, convert_dtype)
 
-        output = self.gen_local_output(data, convert_dtype)
+        output = self.gen_local_output(data, convert_dtype, 'int32')
 
         query_cais = input['cais']['query']
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))
@@ -172,6 +172,7 @@ class KNeighborsClassifierMG(KNeighborsMG):
         self.handle.sync()
 
         self.free_mem(input, result)
+        free(<void*><uintptr_t>output['outputs'])
 
         _free_mem(<uintptr_t>uniq_labels_vec,
                   <uintptr_t>n_unique_vec)
@@ -221,7 +222,7 @@ class KNeighborsClassifierMG(KNeighborsMG):
                                      query, query_parts_to_ranks, query_nrows,
                                      ncols, rank, convert_dtype)
 
-        output = self.gen_local_output(data, convert_dtype)
+        output = self.gen_local_output(data, convert_dtype, dtype='int32')
 
         uniq_labels_d, _, _, _ = \
             input_to_cuml_array(uniq_labels, order='C', check_dtype=np.int32,
@@ -284,6 +285,7 @@ class KNeighborsClassifierMG(KNeighborsMG):
         self.handle.sync()
 
         self.free_mem(input)
+        free(<void*><uintptr_t>output['outputs'])
 
         _free_mem(<uintptr_t>uniq_labels_vec,
                   <uintptr_t>n_unique_vec)

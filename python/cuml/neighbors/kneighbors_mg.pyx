@@ -80,10 +80,20 @@ class KNeighborsMG(NearestNeighbors):
             },
         }
 
-    def gen_local_output(self, data, convert_dtype):
+    def gen_local_output(self, data, convert_dtype, dtype):
+        cdef vector[int_ptr_vector] *out_local_parts_i32
+        cdef vector[float_ptr_vector] *out_local_parts_f32
+
         outputs = [d[1] for d in data]
-        cdef vector[int_ptr_vector] *outputs_local_parts = \
-            new vector[int_ptr_vector](<int>len(outputs))
+        n_out = len(outputs)
+
+        if dtype == 'int32':
+            out_local_parts_i32 = new vector[int_ptr_vector](<int>n_out)
+        elif dtype == 'float32':
+            out_local_parts_f32 = new vector[float_ptr_vector](<int>n_out)
+        else:
+            raise ValueError('Wrong dtype')
+
         outputs_cai = []
         for i, arr in enumerate(outputs):
             for j in range(arr.shape[1]):
@@ -93,16 +103,22 @@ class KNeighborsMG(NearestNeighbors):
                     col = arr[:, j]
                 out_ai, _, _, _ = \
                     input_to_cuml_array(col, order="F",
-                                        convert_to_dtype=(np.int32
+                                        convert_to_dtype=(dtype
                                                           if convert_dtype
                                                           else None),
-                                        check_dtype=[np.int32])
+                                        check_dtype=[dtype])
                 outputs_cai.append(out_ai)
-                outputs_local_parts.at(i).push_back(<int*><uintptr_t>
-                                                    out_ai.ptr)
+                if dtype == 'int32':
+                    out_local_parts_i32.at(i).push_back(<int*><uintptr_t>
+                                                        out_ai.ptr)
+                else:
+                    out_local_parts_f32.at(i).push_back(<float*><uintptr_t>
+                                                        out_ai.ptr)
 
         return {
-            'outputs': <uintptr_t>outputs_local_parts,
+            'outputs':
+                <uintptr_t>out_local_parts_i32 if dtype == 'int32'
+                else <uintptr_t>out_local_parts_f32,
             'cais': [outputs_cai]
         }
 
@@ -140,31 +156,31 @@ class KNeighborsMG(NearestNeighbors):
 
     def free_mem(self, input, result=None):
         cdef floatData_t *f_ptr
-        cdef vector[floatData_t*] *f_local_parts
+        cdef vector[floatData_t*] *f_lp
 
         for input_type in ['data', 'query']:
             ilp = input[input_type]['local_parts']
-            f_local_parts = <vector[floatData_t *]*><uintptr_t>ilp
-            for i in range(f_local_parts.size()):
-                f_ptr = f_local_parts.at(i)
+            f_lp = <vector[floatData_t *]*><uintptr_t>ilp
+            for i in range(f_lp.size()):
+                f_ptr = f_lp.at(i)
                 free(<void*>f_ptr)
-            free(<void*><uintptr_t>f_local_parts)
+            free(<void*><uintptr_t>f_lp)
 
             free(<void*><uintptr_t>input[input_type]['desc'])
 
         cdef int64Data_t *i64_ptr
-        cdef vector[int64Data_t*] *i64_local_parts
+        cdef vector[int64Data_t*] *i64_lp
 
         if result:
 
-            f_local_parts = <vector[floatData_t *]*><uintptr_t>result['distances']
-            for i in range(f_local_parts.size()):
-                f_ptr = f_local_parts.at(i)
+            f_lp = <vector[floatData_t *]*><uintptr_t>result['distances']
+            for i in range(f_lp.size()):
+                f_ptr = f_lp.at(i)
                 free(<void*>f_ptr)
-            free(<void*><uintptr_t>f_local_parts)
+            free(<void*><uintptr_t>f_lp)
 
-            i64_local_parts = <vector[int64Data_t *]*><uintptr_t>result['indices']
-            for i in range(i64_local_parts.size()):
-                i64_ptr = i64_local_parts.at(i)
+            i64_lp = <vector[int64Data_t *]*><uintptr_t>result['indices']
+            for i in range(i64_lp.size()):
+                i64_ptr = i64_lp.at(i)
                 free(<void*>i64_ptr)
-            free(<void*><uintptr_t>i64_local_parts)
+            free(<void*><uintptr_t>i64_lp)
