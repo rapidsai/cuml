@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <math_constants.h>
 #include <stdint.h>
 #include <cuml/common/utils.hpp>
-#include "math_constants.h"
 
 namespace MLCommon {
 
@@ -361,6 +361,22 @@ DI void mySinCos(float x, float &s, float &c) {
 template <>
 DI void mySinCos(double x, double &s, double &c) {
   sincos(x, &s, &c);
+}
+/** @} */
+
+/**
+ * @defgroup Sine Sine calculation
+ * @{
+ */
+template <typename T>
+DI T mySin(T x);
+template <>
+DI float mySin(float x) {
+  return sinf(x);
+}
+template <>
+DI double mySin(double x) {
+  return sin(x);
 }
 /** @} */
 
