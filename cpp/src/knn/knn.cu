@@ -146,3 +146,4 @@ extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
   }
   return status;
 }
+};  // END NAMESPACE ML
