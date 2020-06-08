@@ -138,7 +138,7 @@ class KNeighborsMG(NearestNeighbors):
             }
         }
 
-    def free_mem(self, input, result):
+    def free_mem(self, input, result=None):
         cdef floatData_t *f_ptr
         cdef vector[floatData_t*] *f_local_parts
 
@@ -152,17 +152,19 @@ class KNeighborsMG(NearestNeighbors):
 
             free(<void*><uintptr_t>input[input_type]['desc'])
 
-        f_local_parts = <vector[floatData_t *]*><uintptr_t>result['distances']
-        for i in range(f_local_parts.size()):
-            f_ptr = f_local_parts.at(i)
-            free(<void*>f_ptr)
-        free(<void*><uintptr_t>f_local_parts)
-
         cdef int64Data_t *i64_ptr
         cdef vector[int64Data_t*] *i64_local_parts
 
-        i64_local_parts = <vector[int64Data_t *]*><uintptr_t>result['indices']
-        for i in range(i64_local_parts.size()):
-            i64_ptr = i64_local_parts.at(i)
-            free(<void*>i64_ptr)
-        free(<void*><uintptr_t>i64_local_parts)
+        if result:
+
+            f_local_parts = <vector[floatData_t *]*><uintptr_t>result['distances']
+            for i in range(f_local_parts.size()):
+                f_ptr = f_local_parts.at(i)
+                free(<void*>f_ptr)
+            free(<void*><uintptr_t>f_local_parts)
+
+            i64_local_parts = <vector[int64Data_t *]*><uintptr_t>result['indices']
+            for i in range(i64_local_parts.size()):
+                i64_ptr = i64_local_parts.at(i)
+                free(<void*>i64_ptr)
+            free(<void*><uintptr_t>i64_local_parts)
