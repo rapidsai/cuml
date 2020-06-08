@@ -283,8 +283,7 @@ class KNeighborsClassifier(NearestNeighbors):
 
         comms = KNeighborsClassifier._build_comms(self.data_handler,
                                                   query_handler,
-                                                  self.streams_per_handle,
-                                                  self.verbose)
+                                                  self.streams_per_handle)
 
         worker_info = comms.worker_info(comms.worker_addresses)
 

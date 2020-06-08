@@ -34,7 +34,7 @@ from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
-from cuml.neighbors import NearestNeighbors
+from cuml.neighbors import KNeighborsMG
 from cudf.core import DataFrame as cudfDataFrame
 
 cdef extern from "cumlprims/opg/selection/knn.hpp" namespace \
@@ -62,42 +62,21 @@ cdef extern from "cumlprims/opg/selection/knn.hpp" namespace \
     ) except +
 
 
-def _free_mem(out_vec, out_i_vec, out_d_vec,
-              idx_local_parts, idx_desc,
-              q_local_parts, q_desc,
-              lbls_local_parts,
-              uniq_labels, n_unique):
+def _free_mem(output_local_parts, uniq_labels, n_unique):
+    cdef intData_t *ptr
+    cdef vector[intData_t*] *i32_local_parts
 
-    free(<void*><uintptr_t>out_vec)
-    free(<void*><uintptr_t>out_i_vec)
-    free(<void*><uintptr_t>out_d_vec)
-
-    cdef floatData_t* ptr
-
-    cdef vector[floatData_t*] *idx_local_parts_v = \
-        <vector[floatData_t *]*><uintptr_t>idx_local_parts
-    for i in range(idx_local_parts_v.size()):
-        ptr = idx_local_parts_v.at(i)
+    i32_local_parts = <vector[intData_t *]*><uintptr_t>output_local_parts
+    for i in range(i32_local_parts.size()):
+        ptr = i32_local_parts.at(i)
         free(<void*>ptr)
-    free(<void*><uintptr_t>idx_local_parts)
-
-    cdef vector[floatData_t*] *q_local_parts_v = \
-        <vector[floatData_t *]*><uintptr_t>q_local_parts
-    for i in range(q_local_parts_v.size()):
-        ptr = q_local_parts_v.at(i)
-        free(<void*>ptr)
-    free(<void*><uintptr_t>q_local_parts)
-
-    free(<void*><uintptr_t>idx_desc)
-    free(<void*><uintptr_t>q_desc)
-
-    free(<void*><uintptr_t>lbls_local_parts)
+    free(<void*><uintptr_t>i32_local_parts)
 
     free(<void*><uintptr_t>uniq_labels)
     free(<void*><uintptr_t>n_unique)
 
 
-class KNeighborsClassifierMG(NearestNeighbors):
+class KNeighborsClassifierMG(KNeighborsMG):
     """
     Multi-node Multi-GPU K-Nearest Neighbors Classifier Model.
 
@@ -136,43 +115,17 @@ class KNeighborsClassifierMG(NearestNeighbors):
         -------
         predictions : labels, indices, distances
         """
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        if len(data) > 0:
-            self._set_output_type(data[0])
-        out_type = self.output_type
-        if len(query) > 0:
-            out_type = self._get_output_type(query[0])
+        out_type = self.get_out_type(data, query)
 
-        idx = [d[0] for d in data]
-        lbls = [d[1] for d in data]
-        self.n_dims = ncols
-        n_outputs = len(n_unique)
+        input = self.gen_local_input(data, data_parts_to_ranks, data_nrows,
+                                     query, query_parts_to_ranks, query_nrows,
+                                     ncols, rank, convert_dtype)
 
-        idx_cai, idx_local_parts, idx_desc = \
-            _build_part_inputs(idx, data_parts_to_ranks,
-                               data_nrows, ncols, rank, convert_dtype)
+        output = self.gen_local_output(data, convert_dtype)
 
-        q_cai, q_local_parts, q_desc = \
-            _build_part_inputs(query, query_parts_to_ranks,
-                               query_nrows, ncols, rank, convert_dtype)
-
-        cdef vector[int_ptr_vector] *lbls_local_parts = \
-            new vector[int_ptr_vector](<int>len(lbls))
-        lbls_dev_arr = []
-        for i, arr in enumerate(lbls):
-            for j in range(arr.shape[1]):
-                if isinstance(arr, cudfDataFrame):
-                    col = arr.iloc[:, j]
-                else:
-                    col = arr[:, j]
-                lbls_arr, _, _, _ = \
-                    input_to_cuml_array(col, order="F",
-                                        convert_to_dtype=(np.int32
-                                                          if convert_dtype
-                                                          else None),
-                                        check_dtype=[np.int32])
-                lbls_dev_arr.append(lbls_arr)
-                lbls_local_parts.at(i).push_back(<int*><uintptr_t>lbls_arr.ptr)
+        query_cais = input['cais']['query']
+        local_query_rows = list(map(lambda x: x.shape[0], query_cais))
+        result = self.alloc_local_output(local_query_rows)
 
         uniq_labels_d, _, _, _ = \
             input_to_cuml_array(uniq_labels, order='C', check_dtype=np.int32,
@@ -188,50 +141,33 @@ class KNeighborsClassifierMG(NearestNeighbors):
         for uniq_label in n_unique:
             n_unique_vec.push_back(uniq_label)
 
-        cdef vector[intData_t*] *out_vec \
+        n_outputs = len(n_unique)
+
+        cdef vector[intData_t*] *output_local_parts \
             = new vector[intData_t*]()
-        cdef vector[int64Data_t*] *out_i_vec \
-            = new vector[int64Data_t*]()
-        cdef vector[floatData_t*] *out_d_vec \
-            = new vector[floatData_t*]()
-
-        output = []
-        output_i = []
-        output_d = []
-
-        for query_part in q_cai:
-            n_rows = query_part.shape[0]
-            o_ary = CumlArray.zeros(shape=(n_rows, n_outputs),
+        output_cais = []
+        for n_rows in local_query_rows:
+            o_cai = CumlArray.zeros(shape=(n_rows, n_outputs),
                                     order="C", dtype=np.int32)
-            i_ary = CumlArray.zeros(shape=(n_rows, self.n_neighbors),
-                                    order="C", dtype=np.int64)
-            d_ary = CumlArray.zeros(shape=(n_rows, self.n_neighbors),
-                                    order="C", dtype=np.float32)
+            output_cais.append(o_cai)
+            output_local_parts.push_back(new intData_t(
+                <int*><uintptr_t>o_cai.ptr, n_rows * n_outputs))
 
-            output.append(o_ary)
-            output_i.append(i_ary)
-            output_d.append(d_ary)
-
-            out_vec.push_back(new intData_t(
-                <int*><uintptr_t>o_ary.ptr, n_rows * n_outputs))
-
-            out_i_vec.push_back(new int64Data_t(
-                <int64_t*><uintptr_t>i_ary.ptr, n_rows * self.n_neighbors))
-
-            out_d_vec.push_back(new floatData_t(
-                <float*><uintptr_t>d_ary.ptr, n_rows * self.n_neighbors))
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         knn_classify(
             handle_[0],
-            out_vec,
-            out_i_vec,
-            out_d_vec,
+            output_local_parts,
+            <vector[int64Data_t*]*><uintptr_t>result['indices'],
+            <vector[floatData_t*]*><uintptr_t>result['distances'],
             <vector[float_ptr_vector]*>0,
-            deref(<vector[floatData_t*]*><uintptr_t>idx_local_parts),
-            deref(<PartDescriptor*><uintptr_t>idx_desc),
-            deref(<vector[floatData_t*]*><uintptr_t>q_local_parts),
-            deref(<PartDescriptor*><uintptr_t>q_desc),
-            deref(<vector[int_ptr_vector]*><uintptr_t>lbls_local_parts),
+            deref(<vector[floatData_t*]*><uintptr_t>
+                  input['data']['local_parts']),
+            deref(<PartDescriptor*><uintptr_t>input['data']['desc']),
+            deref(<vector[floatData_t*]*><uintptr_t>
+                  input['query']['local_parts']),
+            deref(<PartDescriptor*><uintptr_t>input['query']['desc']),
+            deref(<vector[int_ptr_vector]*><uintptr_t>output['outputs']),
             deref(<vector[int*]*><uintptr_t>uniq_labels_vec),
             deref(<vector[int]*><uintptr_t>n_unique_vec),
             <bool>False,  # column-major index
@@ -244,20 +180,17 @@ class KNeighborsClassifierMG(NearestNeighbors):
 
         self.handle.sync()
 
-        _free_mem(<uintptr_t>out_vec,
-                  <uintptr_t>out_i_vec,
-                  <uintptr_t>out_d_vec,
-                  <uintptr_t>idx_local_parts,
-                  <uintptr_t>idx_desc,
-                  <uintptr_t>q_local_parts,
-                  <uintptr_t>q_desc,
-                  <uintptr_t>lbls_local_parts,
+        self.free_mem(input, result)
+
+        _free_mem(<uintptr_t>output_local_parts,
                   <uintptr_t>uniq_labels_vec,
                   <uintptr_t>n_unique_vec)
 
-        output = list(map(lambda o: o.to_output(out_type), output))
-        output_i = list(map(lambda o: o.to_output(out_type), output_i))
-        output_d = list(map(lambda o: o.to_output(out_type), output_d))
+        output = list(map(lambda o: o.to_output(out_type), output_cais))
+        output_i = list(map(lambda o: o.to_output(out_type),
+                            result['cais']['indices']))
+        output_d = list(map(lambda o: o.to_output(out_type),
+                            result['cais']['distances']))
 
         return output, output_i, output_d
 
@@ -288,43 +221,13 @@ class KNeighborsClassifierMG(NearestNeighbors):
         -------
         predictions : labels, indices, distances
         """
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        if len(data) > 0:
-            self._set_output_type(data[0])
-        out_type = self.output_type
-        if len(query) > 0:
-            out_type = self._get_output_type(query[0])
+        out_type = self.get_out_type(data, query)
 
-        idx = [d[0] for d in data]
-        lbls = [d[1] for d in data]
-        self.n_dims = ncols
-        n_outputs = len(n_unique)
+        input = self.gen_local_input(data, data_parts_to_ranks, data_nrows,
+                                     query, query_parts_to_ranks, query_nrows,
+                                     ncols, rank, convert_dtype)
 
-        idx_cai, idx_local_parts, idx_desc = \
-            _build_part_inputs(idx, data_parts_to_ranks,
-                               data_nrows, ncols, rank, convert_dtype)
-
-        q_cai, q_local_parts, q_desc = \
-            _build_part_inputs(query, query_parts_to_ranks,
-                               query_nrows, ncols, rank, convert_dtype)
-
-        cdef vector[int_ptr_vector] *lbls_local_parts = \
-            new vector[int_ptr_vector](<int>len(lbls))
-        lbls_dev_arr = []
-        for i, arr in enumerate(lbls):
-            for j in range(arr.shape[1]):
-                if isinstance(arr, cudfDataFrame):
-                    col = arr.iloc[:, j]
-                else:
-                    col = arr[:, j]
-                lbls_arr, _, _, _ = \
-                    input_to_cuml_array(col, order="F",
-                                        convert_to_dtype=(np.int32
-                                                          if convert_dtype
-                                                          else None),
-                                        check_dtype=[np.int32])
-                lbls_dev_arr.append(lbls_arr)
-                lbls_local_parts.at(i).push_back(<int*><uintptr_t>lbls_arr.ptr)
+        output = self.gen_local_output(data, convert_dtype)
 
         uniq_labels_d, _, _, _ = \
             input_to_cuml_array(uniq_labels, order='C', check_dtype=np.int32,
@@ -340,19 +243,25 @@ class KNeighborsClassifierMG(NearestNeighbors):
         for uniq_label in n_unique:
             n_unique_vec.push_back(uniq_label)
 
-        n_local_queries = len(q_cai)
+        query_cais = input['cais']['query']
+        local_query_rows = list(map(lambda x: x.shape[0], query_cais))
+        n_local_queries = len(local_query_rows)
+
         cdef vector[float_ptr_vector] *probas \
             = new vector[float_ptr_vector](n_local_queries)
 
-        proba_cai = [[] for i in range(n_outputs)]
-        for query_idx, query_part in enumerate(q_cai):
-            n_rows = query_part.shape[0]
-            for target_idx, n_classes in enumerate(n_unique):
-                p_ary = CumlArray.zeros(shape=(n_rows, n_classes),
-                                        order="C", dtype=np.float32)
-                proba_cai[target_idx].append(p_ary)
+        n_outputs = len(n_unique)
 
-                probas.at(query_idx).push_back(<float*><uintptr_t>p_ary.ptr)
+        proba_cais = [[] for i in range(n_outputs)]
+        for query_idx, n_rows in enumerate(local_query_rows):
+            for target_idx, n_classes in enumerate(n_unique):
+                p_cai = CumlArray.zeros(shape=(n_rows, n_classes),
+                                        order="C", dtype=np.float32)
+                proba_cais[target_idx].append(p_cai)
+
+                probas.at(query_idx).push_back(<float*><uintptr_t>p_cai.ptr)
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         knn_classify(
             handle_[0],
@@ -360,11 +269,13 @@ class KNeighborsClassifierMG(NearestNeighbors):
             <vector[int64Data_t*]*>0,
             <vector[floatData_t*]*>0,
             probas,
-            deref(<vector[floatData_t*]*><uintptr_t>idx_local_parts),
-            deref(<PartDescriptor*><uintptr_t>idx_desc),
-            deref(<vector[floatData_t*]*><uintptr_t>q_local_parts),
-            deref(<PartDescriptor*><uintptr_t>q_desc),
-            deref(<vector[int_ptr_vector]*><uintptr_t>lbls_local_parts),
+            deref(<vector[floatData_t*]*><uintptr_t>
+                  input['data']['local_parts']),
+            deref(<PartDescriptor*><uintptr_t>input['data']['desc']),
+            deref(<vector[floatData_t*]*><uintptr_t>
+                  input['query']['local_parts']),
+            deref(<PartDescriptor*><uintptr_t>input['query']['desc']),
+            deref(<vector[int_ptr_vector]*><uintptr_t>output['outputs']),
             deref(<vector[int*]*><uintptr_t>uniq_labels_vec),
             deref(<vector[int]*><uintptr_t>n_unique_vec),
             <bool>False,  # column-major index
@@ -380,6 +291,6 @@ class KNeighborsClassifierMG(NearestNeighbors):
         probas_out = []
         for i in range(n_outputs):
             probas_out.append(list(map(lambda o: o.to_output(out_type),
-                                       proba_cai[i])))
+                                       proba_cais[i])))
 
         return tuple(probas_out)
