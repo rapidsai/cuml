@@ -62,16 +62,7 @@ cdef extern from "cumlprims/opg/selection/knn.hpp" namespace \
     ) except +
 
 
-def _free_mem(output_local_parts, uniq_labels, n_unique):
-    cdef intData_t *ptr
-    cdef vector[intData_t*] *i32_local_parts
-
-    i32_local_parts = <vector[intData_t *]*><uintptr_t>output_local_parts
-    for i in range(i32_local_parts.size()):
-        ptr = i32_local_parts.at(i)
-        free(<void*>ptr)
-    free(<void*><uintptr_t>i32_local_parts)
-
+def _free_mem(uniq_labels, n_unique):
     free(<void*><uintptr_t>uniq_labels)
     free(<void*><uintptr_t>n_unique)
 
@@ -143,21 +134,21 @@ class KNeighborsClassifierMG(KNeighborsMG):
 
         n_outputs = len(n_unique)
 
-        cdef vector[intData_t*] *output_local_parts \
+        cdef vector[intData_t*] *out_result_local_parts \
             = new vector[intData_t*]()
         output_cais = []
         for n_rows in local_query_rows:
             o_cai = CumlArray.zeros(shape=(n_rows, n_outputs),
                                     order="C", dtype=np.int32)
             output_cais.append(o_cai)
-            output_local_parts.push_back(new intData_t(
+            out_result_local_parts.push_back(new intData_t(
                 <int*><uintptr_t>o_cai.ptr, n_rows * n_outputs))
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         knn_classify(
             handle_[0],
-            output_local_parts,
+            out_result_local_parts,
             <vector[int64Data_t*]*><uintptr_t>result['indices'],
             <vector[floatData_t*]*><uintptr_t>result['distances'],
             <vector[float_ptr_vector]*>0,
@@ -182,9 +173,12 @@ class KNeighborsClassifierMG(KNeighborsMG):
 
         self.free_mem(input, result)
 
-        _free_mem(<uintptr_t>output_local_parts,
-                  <uintptr_t>uniq_labels_vec,
+        _free_mem(<uintptr_t>uniq_labels_vec,
                   <uintptr_t>n_unique_vec)
+
+        for i in range(out_result_local_parts.size()):
+            free(<void*>out_result_local_parts.at(i))
+        free(<void*><uintptr_t>out_result_local_parts)
 
         output = list(map(lambda o: o.to_output(out_type), output_cais))
         output_i = list(map(lambda o: o.to_output(out_type),
@@ -247,7 +241,7 @@ class KNeighborsClassifierMG(KNeighborsMG):
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))
         n_local_queries = len(local_query_rows)
 
-        cdef vector[float_ptr_vector] *probas \
+        cdef vector[float_ptr_vector] *probas_local_parts \
             = new vector[float_ptr_vector](n_local_queries)
 
         n_outputs = len(n_unique)
@@ -259,7 +253,8 @@ class KNeighborsClassifierMG(KNeighborsMG):
                                         order="C", dtype=np.float32)
                 proba_cais[target_idx].append(p_cai)
 
-                probas.at(query_idx).push_back(<float*><uintptr_t>p_cai.ptr)
+                probas_local_parts.at(query_idx).push_back(<float*><uintptr_t>
+                                                           p_cai.ptr)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -268,7 +263,7 @@ class KNeighborsClassifierMG(KNeighborsMG):
             <vector[intData_t*]*>0,
             <vector[int64Data_t*]*>0,
             <vector[floatData_t*]*>0,
-            probas,
+            probas_local_parts,
             deref(<vector[floatData_t*]*><uintptr_t>
                   input['data']['local_parts']),
             deref(<PartDescriptor*><uintptr_t>input['data']['desc']),
@@ -287,6 +282,13 @@ class KNeighborsClassifierMG(KNeighborsMG):
         )
 
         self.handle.sync()
+
+        self.free_mem(input)
+
+        _free_mem(<uintptr_t>uniq_labels_vec,
+                  <uintptr_t>n_unique_vec)
+
+        free(<void*><uintptr_t>probas_local_parts)
 
         probas_out = []
         for i in range(n_outputs):
