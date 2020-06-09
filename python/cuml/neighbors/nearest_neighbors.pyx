@@ -256,7 +256,8 @@ class NearestNeighbors(Base):
         return ["n_neighbors", "algorithm", "metric",
                 "p", "metric_params"]
 
-    def _build_metric_type(self, metric):
+    @staticmethod
+    def _build_metric_type(metric):
 
         expanded = False
 
@@ -362,7 +363,7 @@ class NearestNeighbors(Base):
 
         cdef uintptr_t x_ctype_st = X_m.ptr
 
-        metric, expanded = self._build_metric_type(self.metric)
+        metric, expanded = _build_metric_type(self.metric)
 
         brute_force_knn(
             handle_[0],
