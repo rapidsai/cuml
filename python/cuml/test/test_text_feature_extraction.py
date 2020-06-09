@@ -252,3 +252,26 @@ def test_countvectorizer_separate_fit_transform():
     res = CountVectorizer().fit(DOCS_GPU).transform(DOCS_GPU)
     ref = SkCountVect().fit(DOCS).transform(DOCS)
     cp.testing.assert_array_equal(res.todense(), ref.toarray())
+
+
+def test_non_ascii():
+    non_ascii = ('This is ascii,',
+                 'but not this இந்தியா.')
+    non_ascii_gpu = Series(non_ascii)
+
+    cv = CountVectorizer()
+    res = cv.fit_transform(non_ascii_gpu)
+    ref = SkCountVect().fit_transform(non_ascii)
+
+    assert 'இந்தியா' in set(cv.get_feature_names().tolist())
+    cp.testing.assert_array_equal(res.todense(), ref.toarray())
+
+
+def test_only_delimiters():
+    data = ['abc def. 123',
+            '   ',
+            '456 789']
+    data_gpu = Series(data)
+    res = CountVectorizer().fit_transform(data_gpu)
+    ref = SkCountVect().fit_transform(data)
+    cp.testing.assert_array_equal(res.todense(), ref.toarray())
