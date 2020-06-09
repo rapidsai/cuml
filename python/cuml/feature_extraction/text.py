@@ -18,12 +18,12 @@ from cudf import Series
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 from string import punctuation
 from functools import partial
-import nvtext
 import cupy as cp
 import numbers
 import cudf
 from cuml.common.type_utils import CUPY_SPARSE_DTYPES
 from cuml.prims.label import make_monotonic
+from cudf.utils.dtypes import min_signed_type
 
 
 def _preprocess(doc, lower=False, remove_punctuation=False, delimiter=' '):
@@ -44,10 +44,10 @@ def _preprocess(doc, lower=False, remove_punctuation=False, delimiter=' '):
         preprocessed string
     """
     if lower:
-        doc = doc.lower()
+        doc = doc.str.lower()
     if remove_punctuation:
-        punctuation_list = Series(list(punctuation))._column.nvstrings
-        doc = doc.replace_multi(punctuation_list, delimiter, regex=False)
+        punctuation_list = list(punctuation)
+        doc = doc.str.replace(punctuation_list, [delimiter], regex=False)
     return doc
 
 
@@ -56,8 +56,9 @@ class _VectorizerMixin:
     def _remove_stop_words(self, doc):
         """Remove stop words only if needed."""
         if self.analyzer == 'word' and self.stop_words is not None:
-            stop_words = Series(self._get_stop_words())._column.nvstrings
-            doc = nvtext.replace_tokens(doc, stop_words, self.delimiter)
+            # stop_words = Series(self._get_stop_words())._column.nvstrings
+            # doc = nvtext.replace_tokens(doc, stop_words, self.delimiter)
+            raise NotImplementedError('Waiting for Series.str.replace_tokens.')
         return doc
 
     def build_preprocessor(self):
@@ -95,7 +96,7 @@ class _VectorizerMixin:
         else:  # assume it's a collection
             return list(self.stop_words)
 
-    def get_ngram(self, str_series, n, doc_id_sr, token_count_sr, separator):
+    def get_ngrams(self, str_series, n, doc_id_sr, token_count_sr, separator):
         """
         This returns the ngrams for the string series
         Parameters
@@ -118,9 +119,7 @@ class _VectorizerMixin:
             if n != 1:
                 raise NotImplementedError("Character-level ngrams is not yet"
                                           " supported by cuML.")
-            ngram_sr = Series(
-                nvtext.character_tokenize(str_series._column.nvstrings)
-            )
+            ngram_sr = str_series.str.character_tokenize()
 
         not_empty_docs = token_count_sr > 0
         token_count_sr = token_count_sr[not_empty_docs]
@@ -137,7 +136,7 @@ class _VectorizerMixin:
         tokenized_df["token"] = ngram_sr
         return tokenized_df
 
-    def _create_tokenized_df(self, str_series):
+    def _create_tokenized_df(self, docs):
         """Creates a tokenized DataFrame from a string Series.
 
         Each row describes the token string and the corresponding document id.
@@ -147,17 +146,16 @@ class _VectorizerMixin:
 
         if self.analyzer == 'word':
             ngram_separator = " "
-            token_count = str_series.str.token_count(delimiter=delimiter)
+            token_count = docs.str.token_count(delimiter=delimiter)
         else:
             ngram_separator = ""
-            token_count = cp.empty(len(str_series), dtype=cp.int32)
-            str_series.str.byte_count(token_count.data.ptr)
+            token_count = docs.str.len()
 
-        doc_id = cp.arange(start=0, stop=len(str_series), dtype=cp.int32)
+        doc_id = cp.arange(start=0, stop=len(docs), dtype=cp.int32)
         doc_id = Series(doc_id)
 
         tokenized_df_ls = [
-            self.get_ngram(str_series, n, doc_id, token_count, ngram_separator)
+            self.get_ngrams(docs, n, doc_id, token_count, ngram_separator)
             for n in range(min_n, max_n + 1)
         ]
 
@@ -190,7 +188,10 @@ class _VectorizerMixin:
         of documents.
         """
         remaining_docs = count_df['doc_id'].unique()
-        doc_ids = cudf.DataFrame(data={'all_ids': cp.arange(0, n_doc)})
+        dtype = min_signed_type(n_doc)
+        doc_ids = cudf.DataFrame(data={'all_ids': cp.arange(0, n_doc,
+                                                            dtype=dtype)},
+                                 dtype=dtype)
         empty_docs = doc_ids - doc_ids.iloc[remaining_docs]
         empty_ids = empty_docs[empty_docs['all_ids'].isnull()].index.values
         return empty_ids
@@ -426,22 +427,13 @@ class CountVectorizer(_VectorizerMixin):
         keep_mask = count_df['token'].isin(keep_idx)
         count_df = count_df.loc[count_df.index[keep_mask]]
         count_df['token'] = count_df['token'].astype(cp.int32)
-
-        if keep_num == 1 and isinstance(count_df, cudf.Series):
-            # Workaround for cudf bug where df.loc[[x]] returns a Series
-            # instead of a DataFrame. This if statement and its content can be
-            # safely removed once below issue is fixed.
-            # See https://github.com/rapidsai/cudf/issues/5330
-            count_df = cudf.DataFrame({x: count_df[x] for x in count_df.index})
-
         make_monotonic(count_df['token'])
 
         return count_df
 
     def _preprocess(self, raw_documents):
         preprocess = self.build_preprocessor()
-        docs = raw_documents._column.nvstrings
-        return Series(preprocess(docs))
+        return preprocess(raw_documents)
 
     def fit(self, raw_documents):
         """Build a vocabulary of all tokens in the raw documents.
