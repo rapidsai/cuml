@@ -224,19 +224,13 @@ class RandomForestClassifier(BaseRandomForestModel):
         Seed for the random number generator. Unseeded by default.
     """
 
-    def __init__(self, split_criterion=0, seed=None,
-                 n_streams=8, **kwargs):
-        if ((seed is not None) and (n_streams != 1)):
-            warnings.warn("For reproducible results, n_streams==1 is "
-                          "recommended. If n_streams is > 1, results may vary "
-                          "due to stream/thread timing differences, even when "
-                          "random_seed is set")
+    def __init__(self, split_criterion=0,
+                 **kwargs):
 
         self.RF_type = CLASSIFICATION
         self.num_classes = 2
-        super(RandomForestClassifier, self)._create_model(
+        super(RandomForestClassifier, self).__init__(
             split_criterion=split_criterion,
-            seed=seed, n_streams=n_streams,
             **kwargs)
 
     """
@@ -248,7 +242,6 @@ class RandomForestClassifier(BaseRandomForestModel):
     """
     def __getstate__(self):
         state = self.__dict__.copy()
-        del state['handle']
         cdef size_t params_t
         cdef  RandomForestMetaData[float, int] *rf_forest
         cdef  RandomForestMetaData[double, int] *rf_forest64
@@ -268,16 +261,19 @@ class RandomForestClassifier(BaseRandomForestModel):
                     <RandomForestMetaData[double, int]*>params_t64
                 state["rf_params64"] = rf_forest64.rf_params
 
-        state['n_cols'] = self.n_cols
+        state["n_cols"] = self.n_cols
         state["verbose"] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
         state["treelite_handle"] = None
-
+        state["split_criterion"] = self.split_criterion
+        state["handle"] = self.handle
         return state
 
     def __setstate__(self, state):
         super(RandomForestClassifier, self).__init__(
-            handle=None, verbose=state['verbose'])
+            split_criterion=state["split_criterion"],
+            handle=state["handle"],
+            verbose=state["verbose"])
         cdef  RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \

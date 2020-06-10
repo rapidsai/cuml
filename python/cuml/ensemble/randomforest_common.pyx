@@ -43,20 +43,20 @@ class BaseRandomForestModel(Base):
                  'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
 
-    def _create_model(self, seed, split_criterion,
-                      n_streams, n_estimators=100,
-                      max_depth=16, handle=None, max_features='auto',
-                      n_bins=8, split_algo=1, bootstrap=True,
-                      bootstrap_features=False,
-                      verbose=False, min_rows_per_node=2,
-                      rows_sample=1.0, max_leaves=-1,
-                      accuracy_metric=None, dtype=None,
-                      output_type=None, min_samples_leaf=None,
-                      min_weight_fraction_leaf=None, n_jobs=None,
-                      max_leaf_nodes=None, min_impurity_decrease=0.0,
-                      min_impurity_split=None, oob_score=None,
-                      random_state=None, warm_start=None, class_weight=None,
-                      quantile_per_tree=False, criterion=None):
+    def __init__(self, split_criterion, seed=None,
+                 n_streams=8, n_estimators=100,
+                 max_depth=16, handle=None, max_features='auto',
+                 n_bins=8, split_algo=1, bootstrap=True,
+                 bootstrap_features=False,
+                 verbose=False, min_rows_per_node=2,
+                 rows_sample=1.0, max_leaves=-1,
+                 accuracy_metric=None, dtype=None,
+                 output_type=None, min_samples_leaf=None,
+                 min_weight_fraction_leaf=None, n_jobs=None,
+                 max_leaf_nodes=None, min_impurity_decrease=0.0,
+                 min_impurity_split=None, oob_score=None,
+                 random_state=None, warm_start=None, class_weight=None,
+                 quantile_per_tree=False, criterion=None):
 
         if accuracy_metric:
             BaseRandomForestModel.variables.append('accuracy_metric')
@@ -78,6 +78,13 @@ class BaseRandomForestModel(Base):
                                 " please read the cuML documentation for"
                                 " more information")
 
+        if ((seed is not None) and (n_streams != 1)):
+            warnings.warn("For reproducible results in Random Forest"
+                          " Classifier and for almost reproducible results"
+                          " in Random Forest Regressor, n_streams==1 is "
+                          "recommended. If n_streams is > 1, results may vary "
+                          "due to stream/thread timing differences, even when "
+                          "random_seed is set")
         if handle is None:
             handle = Handle(n_streams)
 
