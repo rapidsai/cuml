@@ -212,13 +212,12 @@ class RandomForestRegressor(BaseRandomForestModel):
 
     """
 
-    def __init__(self, split_criterion=2, seed=None,
-                 accuracy_metric='mse', n_streams=8,
+    def __init__(self, split_criterion=2,
+                 accuracy_metric='mse',
                  **kwargs):
         self.RF_type = REGRESSION
-        super(RandomForestRegressor, self)._create_model(
+        super(RandomForestRegressor, self).__init__(
             split_criterion=split_criterion,
-            seed=seed, n_streams=n_streams,
             accuracy_metric=accuracy_metric,
             **kwargs)
     """
@@ -228,7 +227,6 @@ class RandomForestRegressor(BaseRandomForestModel):
     """
     def __getstate__(self):
         state = self.__dict__.copy()
-        del state['handle']
         cdef size_t params_t
         cdef  RandomForestMetaData[float, float] *rf_forest
         cdef  RandomForestMetaData[double, double] *rf_forest64
@@ -252,12 +250,15 @@ class RandomForestRegressor(BaseRandomForestModel):
         state["verbose"] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
         state["treelite_handle"] = None
+        state["split_criterion"] = self.split_criterion
+        state["handle"] = self.handle
 
         return state
 
     def __setstate__(self, state):
         super(RandomForestRegressor, self).__init__(
-            handle=None, verbose=state['verbose'])
+            split_criterion=state["split_criterion"],
+            handle=state["handle"], verbose=state['verbose'])
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         cdef  RandomForestMetaData[double, double] *rf_forest64 = \
