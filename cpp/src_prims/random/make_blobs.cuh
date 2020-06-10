@@ -18,7 +18,9 @@
 
 #include <common/cudart_utils.h>
 #include <common/device_buffer.hpp>
+#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
+#include <linalg/unary_op.cuh>
 #include <vector>
 #include "permute.cuh"
 #include "rng.cuh"
@@ -26,46 +28,116 @@
 namespace MLCommon {
 namespace Random {
 
-template <typename DataT, typename IdxT>
-__global__ void gatherKernel(DataT* out, const DataT* in, const IdxT* perms,
-                             IdxT len) {
-  IdxT tid = blockIdx.x * blockDim.x + threadIdx.x;
-  if (tid < len) out[tid] = in[perms[tid]];
+namespace {
+
+// generate the labels first and shuffle them instead of shuffling the dataset
+template <typename IdxT>
+void generate_labels(IdxT* labels, IdxT n_rows, IdxT n_clusters, bool shuffle,
+                     Rng& r, cudaStream_t stream) {
+  IdxT a, b;
+  r.affine_transform_params(n_clusters, a, b);
+  auto op = [=] __device__(IdxT * ptr, IdxT idx) {
+    if (shuffle) {
+      idx = IdxT((a * int64_t(idx)) + b);
+    }
+    idx %= n_clusters;
+    // in the unlikely case of n_clusters > n_rows, make sure that the writes
+    // do not go out-of-bounds
+    if (idx < n_rows) {
+      *ptr = idx;
+    }
+  };
+  LinAlg::writeOnlyUnaryOp<IdxT, decltype(op), IdxT>(labels, n_rows, op,
+                                                     stream);
 }
 
+template <typename DataT, typename IdxT>
+DI void get_mu_sigma(DataT& mu, DataT& sigma, IdxT idx, const IdxT* labels,
+                     bool row_major, const DataT* centers,
+                     const DataT* cluster_std, DataT cluster_std_scalar,
+                     IdxT n_rows, IdxT n_cols, IdxT n_clusters) {
+  IdxT cid, fid;
+  if (row_major) {
+    cid = idx / n_cols;
+    fid = idx % n_cols;
+  } else {
+    cid = idx % n_rows;
+    fid = idx / n_rows;
+  }
+  IdxT center_id;
+  if (cid < n_rows) {
+    center_id = labels[cid];
+  } else {
+    center_id = 0;
+  }
+  if (row_major) {
+    center_id = center_id * n_cols + fid;
+  } else {
+    center_id += fid * n_clusters;
+  }
+  sigma = cluster_std == nullptr ? cluster_std_scalar : cluster_std[cid];
+  mu = centers[center_id];
+}
+
+template <typename DataT, typename IdxT>
+void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
+                   IdxT n_clusters, cudaStream_t stream, bool row_major,
+                   const DataT* centers, const DataT* cluster_std,
+                   const DataT cluster_std_scalar, Rng& rng) {
+  auto op = [=] __device__(DataT & val1, DataT & val2, IdxT idx1, IdxT idx2) {
+    DataT mu1, sigma1, mu2, sigma2;
+    get_mu_sigma(mu1, sigma1, idx1, labels, row_major, centers, cluster_std,
+                 cluster_std_scalar, n_rows, n_cols, n_clusters);
+    get_mu_sigma(mu2, sigma2, idx2, labels, row_major, centers, cluster_std,
+                 cluster_std_scalar, n_rows, n_cols, n_clusters);
+    box_muller_transform<DataT>(val1, val2, sigma1, mu1, sigma2, mu2);
+  };
+  rng.custom_distribution2<DataT, DataT, IdxT>(out, n_rows * n_cols, op,
+                                               stream);
+}
+
+}  // namespace
+
 /**
- * @brief GPU-equivalent of sklearn.datasets.make_blobs as documented here:
- * https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_blobs.html
+ * @brief GPU-equivalent of sklearn.datasets.make_blobs
+ *
  * @tparam DataT output data type
- * @tparam IdxT indexing arithmetic type
- * @param out the generated data on device (dim = n_rows x n_cols) in row-major
- * layout
- * @param labels labels for the generated data on device (dim = n_rows x 1)
- * @param n_rows number of rows in the generated data
- * @param n_cols number of columns in the generated data
- * @param n_clusters number of clusters (or classes) to generate
- * @param allocator device allocator to help allocate temporary buffers
- * @param stream cuda stream to schedule the work on
- * @param centers centers of each of the cluster, pass a nullptr if you need
- * this also to be generated randomly (dim = n_clusters x n_cols). This is
- * expected to be on device
- * @param cluster_std standard deviation of each of the cluster center, pass a
- * nullptr if you need this to be read from 'cluster_std_scalar'.
- * (dim = n_clusters x 1) This is expected to be on device
- * @param cluster_std_scalar if 'cluster_std' is nullptr, then use this as the
- * standard deviation across all dimensions.
- * @param shuffle shuffle the generated dataset and labels
- * @param center_box_min min value of the box from which to pick the cluster
- * centers. Useful only if 'centers' is nullptr
- * @param center_box_max max value of the box from which to pick the cluster
- * centers. Useful only if 'centers' is nullptr
- * @param seed seed for the RNG
- * @param type dataset generator type
+ * @tparam IdxT  indexing arithmetic type
+ *
+ * @param[out] out                generated data [on device]
+ *                                [dim = n_rows x n_cols]
+ * @param[out] labels             labels for the generated data [on device]
+ *                                [len = n_rows]
+ * @param[in]  n_rows             number of rows in the generated data
+ * @param[in]  n_cols             number of columns in the generated data
+ * @param[in]  n_clusters         number of clusters (or classes) to generate
+ * @param[in]  allocator          device allocator for temporary allocations
+ * @param[in]  stream             cuda stream to schedule the work on
+ * @param[in]  row_major          whether input `centers` and output `out`
+ *                                buffers are to be stored in row or column
+ *                                major layout
+ * @param[in]  centers            centers of each of the cluster, pass a nullptr
+ *                                if you need this also to be generated randomly
+ *                                [on device] [dim = n_clusters x n_cols]
+ * @param[in]  cluster_std        standard deviation of each cluster center,
+ *                                pass a nullptr if this is to be read from the
+ *                                `cluster_std_scalar`. [on device]
+ *                                [len = n_clusters]
+ * @param[in]  cluster_std_scalar if 'cluster_std' is nullptr, then use this as
+ *                                the std-dev across all dimensions.
+ * @param[in]  shuffle            shuffle the generated dataset and labels
+ * @param[in]  center_box_min     min value of box from which to pick cluster
+ *                                centers. Useful only if 'centers' is nullptr
+ * @param[in]  center_box_max     max value of box from which to pick cluster
+ *                                centers. Useful only if 'centers' is nullptr
+ * @param[in]  seed               seed for the RNG
+ * @param[in]  type               RNG type
  */
 template <typename DataT, typename IdxT>
 void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
                 IdxT n_clusters, std::shared_ptr<deviceAllocator> allocator,
-                cudaStream_t stream, const DataT* centers = nullptr,
+                cudaStream_t stream, bool row_major = true,
+                const DataT* centers = nullptr,
                 const DataT* cluster_std = nullptr,
                 const DataT cluster_std_scalar = (DataT)1.0,
                 bool shuffle = true, DataT center_box_min = (DataT)-10.0,
@@ -83,50 +155,9 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
   } else {
     _centers = centers;
   }
-  // use the right output buffer
-  device_buffer<DataT> tmp_out(allocator, stream);
-  device_buffer<IdxT> perms(allocator, stream);
-  device_buffer<IdxT> tmp_labels(allocator, stream);
-  DataT* _out;
-  IdxT* _labels;
-  if (shuffle) {
-    tmp_out.resize(n_rows * n_cols, stream);
-    perms.resize(n_rows, stream);
-    tmp_labels.resize(n_rows, stream);
-    _out = tmp_out.data();
-    _labels = tmp_labels.data();
-  } else {
-    _out = out;
-    _labels = labels;
-  }
-  // get the std info transferred to host
-  std::vector<DataT> h_cluster_std(n_clusters, cluster_std_scalar);
-  if (cluster_std != nullptr) {
-    updateHost(&(h_cluster_std[0]), cluster_std, n_clusters, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
-  // generate data points for each cluster (assume equal distribution)
-  IdxT rows_per_cluster = ceildiv(n_rows, n_clusters);
-  for (IdxT i = 0, row_id = 0; i < n_clusters;
-       ++i, row_id += rows_per_cluster) {
-    IdxT current_rows = std::min(rows_per_cluster, n_rows - row_id);
-    if (current_rows > 0) {
-      r.normalTable<DataT, IdxT>(_out + row_id * n_cols, current_rows, n_cols,
-                                 _centers + i * n_cols, nullptr,
-                                 h_cluster_std[i], stream);
-      r.fill(_labels + row_id, current_rows, (IdxT)i, stream);
-    }
-  }
-  // shuffle, if asked for
-  ///@todo: currently using a poor quality shuffle for better perf!
-  if (shuffle) {
-    permute<DataT, IdxT, IdxT>(perms.data(), out, _out, n_cols, n_rows, true,
-                               stream);
-    constexpr long Nthreads = 256;
-    IdxT nblks = ceildiv<IdxT>(n_rows, Nthreads);
-    gatherKernel<<<nblks, Nthreads, 0, stream>>>(labels, _labels, perms.data(),
-                                                 n_rows);
-  }
+  generate_labels(labels, n_rows, n_clusters, shuffle, r, stream);
+  generate_data(out, labels, n_rows, n_cols, n_clusters, stream, row_major,
+                _centers, cluster_std, cluster_std_scalar, r);
 }
 
 }  // end namespace Random
