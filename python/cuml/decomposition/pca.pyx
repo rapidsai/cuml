@@ -358,10 +358,8 @@ class PCA(Base):
 
         cov = gram_matrix - cp.outer(self._mean_, self._mean_.T)
 
-        self._explained_variance_, self._components_ = cp.linalg.eigh(
-                                                                      cov,
-                                                                      UPLO='U'
-                                                                      )
+        self._explained_variance_, self._components_ = \
+            cp.linalg.eigh(cov, UPLO='U')
 
         # NOTE: We reverse the eigen vector and eigen values here
         # because cupy provides them in ascending order
@@ -370,7 +368,7 @@ class PCA(Base):
         self._components_ = cp.flip(self._components_, axis=1)
 
         self._components_ = self._components_.T[:self.n_components, :]
-        
+
         self._explained_variance_ratio_ = self._explained_variance_ / cp.sum(
             self._explained_variance_)
 
@@ -385,7 +383,7 @@ class PCA(Base):
 
         self._explained_variance_ratio_ = \
             self._explained_variance_ratio_[:self.n_components]
-        
+
         self._singular_values_ = cp.sqrt(self._explained_variance_)
 
     def fit(self, X, y=None):
@@ -398,7 +396,7 @@ class PCA(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-            
+
             sparse array-like (device) shape = (n_samples, n_features)
             Acceptable formats: cupy.sparse
 
@@ -493,14 +491,14 @@ class PCA(Base):
         """
 
         return self.fit(X).transform(X)
-    
+
     @with_cupy_rmm
     def _sparse_inverse_transform(self, X, return_sparse=True,
                                   sparse_tol=1e-10):
         if self.whiten:
             return cp.dot(X,
                           cp.sqrt(self._explained_variance_[:, cp.newaxis]) *
-                              self._components_) + self._mean_
+                          self._components_) + self._mean_
         else:
             return cp.dot(X, self._components_) + self._mean_
 
@@ -582,7 +580,7 @@ class PCA(Base):
         self.handle.sync()
 
         return input_data.to_output(out_type)
-    
+
     @with_cupy_rmm
     def _sparse_transform(self, X):
         X = X - self._mean_
@@ -591,7 +589,7 @@ class PCA(Base):
 
         if self.whiten:
             X_transformed /= cp.sqrt(self._explained_variance_)
-        
+
         return X_transformed
 
     def transform(self, X, convert_dtype=False):
