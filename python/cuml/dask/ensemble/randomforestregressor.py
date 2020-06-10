@@ -270,7 +270,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
 
         else:
             preds = \
-                self._predict_using_fil(X, predict_model=predict_model,
+                self._predict_using_fil(X, predict_model="GPU",
                                         algo=algo,
                                         convert_dtype=convert_dtype,
                                         fil_sparse_format=fil_sparse_format,
