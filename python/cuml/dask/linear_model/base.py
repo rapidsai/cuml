@@ -13,10 +13,9 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import raise_exception_from_futures
+from cuml.dask.common import wait_and_raise_from_futures
 from cuml.dask.common.comms import CommsContext
 from cuml.dask.common.input_utils import DistributedDataHandler
-from dask.distributed import wait
 
 
 class BaseLinearModelSyncFitMixin(object):
@@ -56,8 +55,7 @@ class BaseLinearModelSyncFitMixin(object):
             workers=[wf[0]]))
             for idx, wf in enumerate(data.worker_to_parts.items())])
 
-        wait(list(lin_fit.values()))
-        raise_exception_from_futures(list(lin_fit.values()))
+        wait_and_raise_from_futures(list(lin_fit.values()))
 
         self._set_internal_model(list(lin_models.values())[0])
 

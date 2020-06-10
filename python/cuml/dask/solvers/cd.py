@@ -51,7 +51,7 @@ class CD(BaseEstimator,
 
         models = self._fit(model_func=CD._create_model, data=(X, y))
 
-        self._set_internal_model(list(models.values())[0].result())
+        self._set_internal_model(list(models.values())[0])
 
         return self
 
