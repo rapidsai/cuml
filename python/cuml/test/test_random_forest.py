@@ -748,7 +748,7 @@ def test_rf_host_memory_leak(large_clf, estimator_type):
 
     X, y = large_clf
     X = X.astype(np.float32)
-
+    params = {'max_depth': 50}
     if estimator_type == 'classification':
         base_model = curfc(max_depth=10,
                            n_estimators=100,
@@ -768,6 +768,7 @@ def test_rf_host_memory_leak(large_clf, estimator_type):
 
     for i in range(5):
         base_model.fit(X, y)
+        base_model.set_params(**params)
         gc.collect()
         final_mem = process.memory_info().rss
 

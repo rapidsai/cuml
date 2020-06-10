@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. *
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -18,8 +18,8 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <random>
+#include <timeSeries/jones_transform.cuh>
 #include "test_utils.h"
-#include "timeSeries/jones_transform.cuh"
 
 namespace MLCommon {
 namespace TimeSeries {

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
@@ -32,11 +33,11 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include "sparse/coo.cuh"
-#include "sparse/csr.cuh"
+#include <sparse/coo.cuh>
+#include <sparse/csr.cuh>
 
 #include <common/cudart_utils.h>
-#include "cuda_utils.cuh"
+#include <cuda_utils.cuh>
 
 #include <cuda_runtime.h>
 

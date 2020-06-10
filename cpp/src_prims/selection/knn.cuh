@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include "cuda_utils.cuh"
+#include <cuda_utils.cuh>
 
-#include "distance/distance.cuh"
-#include "label/classlabels.cuh"
+#include <distance/distance.cuh>
+#include <label/classlabels.cuh>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -33,27 +33,13 @@
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
 
+#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
-#include "common/device_buffer.hpp"
 
 #include <iostream>
 
 namespace MLCommon {
 namespace Selection {
-
-/**
- * @brief Simple utility function to determine whether user_stream or one of the
- * internal streams should be used.
- * @param user_stream main user stream
- * @param int_streams array of internal streams
- * @param n_int_streams number of internal streams
- * @param idx the index for which to query the stream
- */
-inline cudaStream_t select_stream(cudaStream_t user_stream,
-                                  cudaStream_t *int_streams, int n_int_streams,
-                                  int idx) {
-  return n_int_streams > 0 ? int_streams[idx % n_int_streams] : user_stream;
-}
 
 template <int warp_q, int thread_q, int tpb>
 __global__ void knn_merge_parts_kernel(float *inK, int64_t *inV, float *outK,
