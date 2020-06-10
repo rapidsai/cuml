@@ -582,8 +582,7 @@ class RandomForestClassifier(Base):
 
         return self
 
-    def fit(self, X, y, convert_dtype=False,
-            convert_to_dtype=np.float32):
+    def fit(self, X, y, convert_dtype=False):
         """
         Perform Random Forest Classification on the input data
 
@@ -600,13 +599,8 @@ class RandomForestClassifier(Base):
             These labels should be contiguous integers from 0 to n_classes.
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
-            y to be of dtype int32 and X to be of the dtype specified in
-            convert_to_dtype. This will increase memory used for
+            y to be of dtype int32. This will increase memory used for
             the method.
-        convert_to_dtype : dtype (default=np.float32)
-            The training data, X is converted to the dtype specified here if
-            `convert_dtype` is True. If `convert_dtype` is False then the
-            dataset will not be convrted to the specified dtype
         """
         self._set_output_type(X)
 
@@ -618,9 +612,8 @@ class RandomForestClassifier(Base):
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(
                 X, check_dtype=[np.float32, np.float64],
-                convert_to_dtype=(convert_to_dtype if convert_dtype
-                                  else None),
                 order='F')
+
         if self.n_bins > n_rows:
             raise ValueError("The number of bins,`n_bins` can not be greater"
                              " than the number of samples used for training.")
