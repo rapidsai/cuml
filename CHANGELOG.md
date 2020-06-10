@@ -1,8 +1,8 @@
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
+- PR #2287: Single-GPU TfidfTransformer implementation
 - PR #2289: QR SVD solver for MNMG PCA
-
 - PR #2312: column-major support for make_blobs
 
 ## Improvements
