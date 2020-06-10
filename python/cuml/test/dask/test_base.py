@@ -27,8 +27,6 @@ import pytest
 
 from numpy.testing import assert_equal
 
-from dask.distributed import Client
-
 from cuml.dask.linear_model import LinearRegression
 
 from cuml.dask.datasets import make_regression
@@ -48,10 +46,8 @@ def make_dataset(datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize('keys', [cuml.dask.linear_model.LinearRegression])
 @pytest.mark.parametrize('data_size', [[500, 20, 10]])
 @pytest.mark.parametrize('fit_intercept', [True, False])
-def test_get_combined_model(tmpdir, datatype, keys, data_size, fit_intercept,
-                            cluster):
-
-    client = Client(cluster)
+def test_get_combined_model(datatype, keys, data_size, fit_intercept,
+                            client):
 
     nrows, ncols, n_info = data_size
     X_train, y_train, X_test = make_dataset(datatype, nrows,
@@ -70,9 +66,7 @@ def test_get_combined_model(tmpdir, datatype, keys, data_size, fit_intercept,
 @pytest.mark.parametrize('data_size', [[500, 20, 10]])
 @pytest.mark.parametrize('fit_intercept', [True, False])
 def test_regressor_mg_train_sg_predict(datatype, keys, data_size,
-                                       fit_intercept, cluster):
-
-    client = Client(cluster)
+                                       fit_intercept, client):
 
     nrows, ncols, n_info = data_size
     X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
