@@ -21,9 +21,73 @@ from cuml.test.dask.utils import load_text_corpus
 
 from cuml.dask.datasets import make_blobs
 
+import cuml
+import numpy as np
+import pytest
 
-def test_get_internal_model(client):
-    pass
+from numpy.testing import assert_equal
+
+from dask.distributed import Client
+
+from cuml.dask.linear_model import LinearRegression
+
+from cuml.dask.datasets import make_regression
+from sklearn.model_selection import train_test_split
+
+
+def make_dataset(datatype, nrows, ncols, n_info):
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
+                           n_informative=n_info, random_state=0)
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+    return X_train, y_train, X_test
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('keys', [cuml.dask.linear_model.LinearRegression])
+@pytest.mark.parametrize('data_size', [[500, 20, 10]])
+@pytest.mark.parametrize('fit_intercept', [True, False])
+def test_get_combined_model(tmpdir, datatype, keys, data_size, fit_intercept,
+                            cluster):
+
+    client = Client(cluster)
+
+    nrows, ncols, n_info = data_size
+    X_train, y_train, X_test = make_dataset(datatype, nrows,
+                                            ncols, n_info)
+    model = LinearRegression(fit_intercept=fit_intercept,
+                             client=client)
+    model.fit(X_train, y_train)
+
+    combined_model = model.get_combined_model()
+    assert combined_model.coef_ is not None
+    assert combined_model.intercept_ is not None
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('keys', [cuml.dask.linear_model.LinearRegression])
+@pytest.mark.parametrize('data_size', [[500, 20, 10]])
+@pytest.mark.parametrize('fit_intercept', [True, False])
+def test_regressor_mg_train_sg_predict(datatype, keys, data_size,
+                                       fit_intercept, cluster):
+
+    client = Client(cluster)
+
+    nrows, ncols, n_info = data_size
+    X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
+
+    X_test_local = X_test.compute()
+
+    dist_model = LinearRegression(fit_intercept=fit_intercept, client=client)
+    dist_model.fit(X_train, y_train)
+
+    expected = dist_model.predict(X_test).compute()
+
+    local_model = dist_model.get_combined_model()
+    actual = local_model.predict(X_test_local)
+
+    assert_equal(expected.get(), actual.get())
 
 
 def test_getattr(client):
