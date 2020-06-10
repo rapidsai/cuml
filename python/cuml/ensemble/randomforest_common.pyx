@@ -80,7 +80,7 @@ class BaseRandomForestModel(Base):
 
         if ((seed is not None) and (n_streams != 1)):
             warnings.warn("For reproducible results in Random Forest"
-                          " Classifier and for almost reproducible results"
+                          " Classifier or for almost reproducible results"
                           " in Random Forest Regressor, n_streams==1 is "
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
