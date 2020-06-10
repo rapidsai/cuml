@@ -294,20 +294,16 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
 
         else:
             preds = \
-                self.predict_using_fil(X, output_class=output_class,
-                                       algo=algo,
-                                       threshold=threshold,
-                                       convert_dtype=convert_dtype,
-                                       predict_model="GPU",
-                                       fil_sparse_format=fil_sparse_format,
-                                       delayed=delayed)
+                self._predict_using_fil(X, output_class=output_class,
+                                        algo=algo,
+                                        threshold=threshold,
+                                        convert_dtype=convert_dtype,
+                                        predict_model="GPU",
+                                        fil_sparse_format=fil_sparse_format,
+                                        delayed=delayed)
 
         return preds
 
-    def predict_using_fil(self, X, delayed, **kwargs):
-        return self._predict_using_fil(X=X,
-                                       delayed=delayed,
-                                       **kwargs)
     """
     TODO : Update function names used for CPU predict.
         Cuml issue #1854 has been created to track this.

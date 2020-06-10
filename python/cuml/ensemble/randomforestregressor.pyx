@@ -672,7 +672,7 @@ class RandomForestRegressor(Base):
                                                   else None),
                                 check_cols=self.n_cols)
 
-        if dtype == np.float64 and not convert_dtype:
+        if dtype == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \
                             Please set convert_dtype=True to convert the test \
                             data to the same dtype as the data used to train, \
