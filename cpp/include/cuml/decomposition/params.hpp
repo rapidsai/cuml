@@ -28,28 +28,12 @@ namespace ML {
  * @param COV_EIG_JACOBI: covariance of input will be used along with eigen decomposition using jacobi method for symmetric matrices
  * @{
  */
-enum solver {
+enum class solver : int {
   COV_EIG_DQ,
   COV_EIG_JACOBI,
   RANDOMIZED,
 };
 
-enum lr_type {
-  OPTIMAL,
-  CONSTANT,
-  INVSCALING,
-  ADAPTIVE,
-};
-
-enum loss_funct {
-  SQRD_LOSS,
-  HINGE,
-  LOG,
-};
-
-enum penalty { NONE, L1, L2, ELASTICNET };
-
-//template<typename math_t>
 class params {
  public:
   int n_rows;
@@ -57,8 +41,6 @@ class params {
   int gpu_id = 0;
 };
 
-//template<typename math_t>
-//class paramsSolver: public params<math_t> {
 class paramsSolver : public params {
  public:
   int n_rows;
@@ -70,13 +52,12 @@ class paramsSolver : public params {
   int verbose = 0;
 };
 
-//template<typename math_t>
-//class paramsTSVD: public paramsSolver<math_t> {
-class paramsTSVD : public paramsSolver {
+template <typename enum_solver = solver>
+class paramsTSVDTemplate : public paramsSolver {
  public:
   int n_components = 1;
   int max_sweeps = 15;
-  solver algorithm = solver::COV_EIG_DQ;
+  enum_solver algorithm = enum_solver::COV_EIG_DQ;
   bool trans_input = false;
 };
 
@@ -95,12 +76,16 @@ class paramsTSVD : public paramsSolver {
  * @param verbose: 0: no error message printing, 1: print error messages
  * @param max_sweeps: number of sweeps jacobi method uses. The more the better accuracy.
  */
-//template<typename math_t>
-//class paramsPCA: public paramsTSVD<math_t> {
-class paramsPCA : public paramsTSVD {
+
+template <typename enum_solver = solver>
+class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
  public:
   bool copy = true;
   bool whiten = false;
 };
+
+typedef paramsTSVDTemplate<> paramsTSVD;
+
+typedef paramsPCATemplate<> paramsPCA;
 
 };  // end namespace ML
