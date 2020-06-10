@@ -493,16 +493,24 @@ class PCA(Base):
         return self.fit(X).transform(X)
 
     @with_cupy_rmm
-    def _sparse_inverse_transform(self, X, return_sparse=True,
+    def _sparse_inverse_transform(self, X, return_sparse=False,
                                   sparse_tol=1e-10):
         if self.whiten:
-            return cp.dot(X,
-                          cp.sqrt(self._explained_variance_[:, cp.newaxis]) *
-                          self._components_) + self._mean_
+            X_inv = cp.dot(X,
+                           cp.sqrt(self._explained_variance_[:, cp.newaxis]) *
+                           self._components_) + self._mean_
         else:
-            return cp.dot(X, self._components_) + self._mean_
+            X_inv = cp.dot(X, self._components_) + self._mean_
+        
+        if return_sparse:
+            X_inv = cp.where(X_inv < sparse_tol, 0, X_inv)
 
-    def inverse_transform(self, X, convert_dtype=False):
+            X_inv = cp.sparse.csr_matrix(X_inv)
+        
+        return X_inv
+
+    def inverse_transform(self, X, convert_dtype=False,
+                          return_sparse=False, sparse_tol=1e-10):
         """
         Transform data back to its original space.
 
@@ -524,13 +532,29 @@ class PCA(Base):
             convert the input to the data type which was used to train the
             model. This will increase memory used for the method.
 
+        return_sparse : bool, optional (default = False)
+            Ignored when the model is not fit on a sparse matrix
+            If True, the method will convert the inverse transform to a 
+            cupy.sparse.csr_matrix object
+
+            NOTE: Currently, there is a loss of information when converting
+            to csr matrix (cusolver bug). Default can be switched to True
+            once this is solved
+
+        sparse_tol : float, optional (default = 1e-10)
+            Ignored when return_sparse=False
+            If True, values in the inverse transform below this parameter
+            are clipped to 0
+
         Returns
         -------
         X_original : cuDF DataFrame, shape (n_samples, n_features)
 
         """
         if cp.sparse.issparse(X) or self._sparse_model:
-            return self._sparse_inverse_transform(X)
+            return self._sparse_inverse_transform(X,
+                                                  return_sparse=return_sparse,
+                                                  sparse_tol=sparse_tol)
 
         out_type = self._get_output_type(X)
 

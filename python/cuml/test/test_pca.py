@@ -183,7 +183,8 @@ def test_pca_inverse_transform(datatype, input_type,
 @pytest.mark.parametrize('nrows', [1000, 2000])
 @pytest.mark.parametrize('ncols', [20, 40])
 @pytest.mark.parametrize('whiten', [True, False])
-def test_sparse_pca_inputs(nrows, ncols, whiten):
+@pytest.mark.parametrize('return_sparse', [True, False])
+def test_sparse_pca_inputs(nrows, ncols, return_sparse, whiten):
     a = cp.sparse.random(100000, 10, density=0.7)
 
     p = cuPCA(n_components=ncols/2, whiten=whiten)
@@ -192,8 +193,15 @@ def test_sparse_pca_inputs(nrows, ncols, whiten):
 
     t = p.transform(a)
 
-    i = p.inverse_transform(t)
+    i = p.inverse_transform(t, return_sparse=return_sparse)
 
-    assert isinstance(i, cp.core.ndarray)
+    if return_sparse:
+        pytest.skip("Loss of information in converting to cupy sparse csr")
 
-    assert array_equal(a.toarray(), i, 1e-10, with_sign=True)
+        assert isinstance(i, cp.sparse.csr_matrix)
+
+        assert array_equal(a.toarray(), i.toarray(), 1e-10, with_sign=True)
+    else:
+        assert isinstance(i, cp.core.ndarray)
+
+        assert array_equal(a.toarray(), i, 1e-10, with_sign=True)
