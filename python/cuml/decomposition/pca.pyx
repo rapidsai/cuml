@@ -22,6 +22,7 @@
 import ctypes
 import cudf
 import numpy as np
+import cupy as cp
 
 from enum import IntEnum
 
@@ -39,6 +40,7 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
+from cuml.common import with_cupy_rmm
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
@@ -296,6 +298,11 @@ class PCA(Base):
         self._mean_ = None  # accessed via estimator.mean_
         self._noise_variance_ = None  # accessed via estimator.noise_variance_
 
+        # These variables control whether a sparse model was fit
+        # and what sparse type was used
+        self._sparse_model = False
+        self._sparse_type = None
+
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
             'full': Solver.COV_EIG_DQ,
@@ -337,6 +344,50 @@ class PCA(Base):
                                                  dtype=self.dtype)
         self._noise_variance_ = CumlArray.zeros(1, dtype=self.dtype)
 
+    @with_cupy_rmm
+    def _sparse_fit(self, X):
+
+        self.n_rows = X.shape[0]
+        self.n_cols = X.shape[1]
+        self.dtype = X.dtype
+        self._sparse_model = True
+        self._sparse_type = type(X)
+
+        gram_matrix = X.T.dot(X) * (1 / X.shape[0])
+        self._mean_ = X.sum(axis=0) * (1 / X.shape[0])
+
+        cov = gram_matrix - cp.outer(self._mean_, self._mean_.T)
+
+        self._explained_variance_, self._components_ = cp.linalg.eigh(
+                                                                      cov,
+                                                                      UPLO='U'
+                                                                      )
+
+        # NOTE: We reverse the eigen vector and eigen values here
+        # because cupy provides them in ascending order
+        self._explained_variance_ = self._explained_variance_[::-1]
+
+        self._components_ = cp.flip(self._components_, axis=1)
+
+        self._components_ = self._components_.T[:self.n_components, :]
+        
+        self._explained_variance_ratio_ = self._explained_variance_ / cp.sum(
+            self._explained_variance_)
+
+        if self.n_components < min(self.n_rows, self.n_cols):
+            self._noise_variance_ = \
+                self._explained_variance_[self.n_components:].mean()
+        else:
+            self._noise_variance_ = 0.0
+
+        self._explained_variance_ = \
+            self._explained_variance_[:self.n_components]
+
+        self._explained_variance_ratio_ = \
+            self._explained_variance_ratio_[:self.n_components]
+        
+        self._singular_values_ = cp.sqrt(self._explained_variance_)
+
     def fit(self, X, y=None):
         """
         Fit the model with X.
@@ -347,6 +398,9 @@ class PCA(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+            
+            sparse array-like (device) shape = (n_samples, n_features)
+            Acceptable formats: cupy.sparse
 
         y : ignored
 
@@ -355,6 +409,9 @@ class PCA(Base):
         cluster labels
 
         """
+
+        if cp.sparse.issparse(X):
+            return self._sparse_fit(X)
 
         self._set_output_type(X)
 
@@ -436,6 +493,16 @@ class PCA(Base):
         """
 
         return self.fit(X).transform(X)
+    
+    @with_cupy_rmm
+    def _sparse_inverse_transform(self, X, return_sparse=True,
+                                  sparse_tol=1e-10):
+        if self.whiten:
+            return cp.dot(X,
+                          cp.sqrt(self._explained_variance_[:, cp.newaxis]) *
+                              self._components_) + self._mean_
+        else:
+            return cp.dot(X, self._components_) + self._mean_
 
     def inverse_transform(self, X, convert_dtype=False):
         """
@@ -445,11 +512,14 @@ class PCA(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X : dense array-like (device or host) shape = (n_samples, n_features)
             New data (floats or doubles), where n_samples is the number of
             samples and n_components is the number of components.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+            sparse array-like (device) shape = (n_samples, n_features)
+            Acceptable formats: cupy.sparse
 
         convert_dtype : bool, optional (default = False)
             When set to True, the inverse_transform method will automatically
@@ -461,6 +531,9 @@ class PCA(Base):
         X_original : cuDF DataFrame, shape (n_samples, n_features)
 
         """
+        if cp.sparse.issparse(X) or self._sparse_model:
+            return self._sparse_inverse_transform(X)
+
         out_type = self._get_output_type(X)
 
         X_m, n_rows, _, dtype = \
@@ -509,6 +582,17 @@ class PCA(Base):
         self.handle.sync()
 
         return input_data.to_output(out_type)
+    
+    @with_cupy_rmm
+    def _sparse_transform(self, X):
+        X = X - self._mean_
+        X_transformed = cp.dot(X, self._components_.T)
+        X = X + self._mean_
+
+        if self.whiten:
+            X_transformed /= cp.sqrt(self._explained_variance_)
+        
+        return X_transformed
 
     def transform(self, X, convert_dtype=False):
         """
@@ -525,6 +609,9 @@ class PCA(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+            sparse array-like (device) shape = (n_samples, n_features)
+            Acceptable formats: cupy.sparse
+
         convert_dtype : bool, optional (default = False)
             When set to True, the transform method will automatically
             convert the input to the data type which was used to train the
@@ -536,6 +623,10 @@ class PCA(Base):
         X_new : cuDF DataFrame, shape (n_samples, n_components)
 
         """
+
+        if cp.sparse.issparse(X) or self._sparse_model:
+            return self._sparse_transform(X)
+
         out_type = self._get_output_type(X)
 
         X_m, n_rows, n_cols, dtype = \
