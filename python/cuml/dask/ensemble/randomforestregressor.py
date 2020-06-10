@@ -278,7 +278,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         return preds
 
     def predict_using_fil(self, X, delayed, **kwargs):
-        if self.internal_model is None:
+        if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())
         return self._predict_using_fil(X=X,
                                        delayed=delayed,

@@ -151,8 +151,6 @@ class BaseEstimator(object):
         """
         real_name = '_' + attr
 
-        print(str(attr))
-
         internal_model = self._get_internal_model()
 
         # First check locally for _ prefixed attr
@@ -204,7 +202,7 @@ class DelayedParallelFunc(object):
         tasks that can execute concurrently on each worker.
 
         Note that this mixin assumes the subclass has been trained and
-        includes a `self.internal_model` attribute containing a subclass
+        includes a `self._get_internal_model()` attribute containing a subclass
         of `cuml.Base`.
 
         This is intended to abstract functions like predict, transform, and

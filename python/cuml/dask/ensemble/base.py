@@ -40,7 +40,7 @@ class BaseRandomForestModel(object):
 
         self.client = get_client(client)
         self.workers = self.client.scheduler_info()['workers'].keys()
-        self.internal_model = None
+        self._set_internal_model(None)
 
         self.n_estimators_per_worker = \
             self._estimators_per_worker(n_estimators)
