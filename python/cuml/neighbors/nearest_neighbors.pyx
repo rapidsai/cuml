@@ -363,7 +363,7 @@ class NearestNeighbors(Base):
 
         cdef uintptr_t x_ctype_st = X_m.ptr
 
-        metric, expanded = _build_metric_type(self.metric)
+        metric, expanded = self._build_metric_type(self.metric)
 
         brute_force_knn(
             handle_[0],
