@@ -16,6 +16,7 @@
 - PR #2363: Update threshold and make other changes for stress tests
 - PR #2371: Updating MBSGD tests to use larger batches
 - PR #2380: Pinning libcumlprims version to ease future updates
+- PR #2340: Import ARIMA in the root init file and fix the `test_fit_function` test
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -139,7 +140,6 @@
 - PR #2323: Change verbose levels and parameter name to match Scikit-learn API
 - PR #2324: Raise an error if n_bins > number of training samples in RF
 - PR #2335: Throw a warning if treelite cannot be imported and `load_from_sklearn` is used
-- PR #2340: Import ARIMA in the root init file and fix the `test_fit_function` test
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
