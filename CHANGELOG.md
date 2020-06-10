@@ -19,6 +19,7 @@
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
+- PR #2364: Fix for random projection
 - PR #2373: Use Treelite Pip package in GPU testing
 - PR #2376: Update documentation Links
 
