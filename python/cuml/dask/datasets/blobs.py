@@ -121,10 +121,7 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
     worker_rows = [rows_per_part] * n_parts
 
-    if rows_per_part == 1:
-        worker_rows[-1] += n_samples % n_parts
-    else:
-        worker_rows[-1] += n_samples % rows_per_part
+    worker_rows[-1] += (n_samples % n_parts)
 
     worker_rows = tuple(worker_rows)
 
