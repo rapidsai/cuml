@@ -97,11 +97,8 @@ class BaseRandomForestModel(object):
             self.num_classes = \
                 len(dask.array.unique(dataset[1]).compute())
 
-        if check and (convert_dtype is False):
-            raise TypeError("To use Dask RF data should have dtype float 32. "
-                            "To convert data to dtype=np.float32 set "
-                            "convert_dtype=True. This will consume more "
-                            "memory and time.")
+        if check:
+            raise TypeError("To use Dask RF data should have dtype float32.")
 
         futures = list()
         for idx, (worker, worker_data) in \

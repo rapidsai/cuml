@@ -188,7 +188,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             **y must be partitioned the same way as X**
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
-            y to be of dtype float32 and X to be float32. This will increase
+            y to be the same data type as X if they differ. This will increase
             memory used for the method.
         """
         self.local_model = None
