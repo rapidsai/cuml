@@ -391,10 +391,8 @@ class LogisticRegression(Base):
         out_type = self._get_output_type(X)
 
         # TODO:
-        # This is a bit messy since we delegate the fit responsibility
-        # down to a solver, rather than in the fit method itself.
-        # This causes a shallow copy problem with attribute assignment
-        # See Issue #XXX
+        # We currently need to grab the dtype and ncols attributes via the
+        # qn solver due to https://github.com/rapidsai/cuml/issues/2404
         X_m, _, _, self.dtype = input_to_cuml_array(
             X,
             check_dtype=self.qn.dtype,
