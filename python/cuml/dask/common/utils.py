@@ -12,22 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 import logging
 import os
 import numba.cuda
+import random
+import time
 
-from cuml.utils import device_of_gpu_matrix
-from cuml import Base
-from cuml.naive_bayes import MultinomialNB
+from dask.distributed import default_client, wait
+
+from cuml.common import device_of_gpu_matrix
 
 from asyncio import InvalidStateError
 
-import time
-
 from threading import Lock
-
-import cupy as cp
-import copyreg
 
 
 def get_visible_devices():
@@ -82,6 +80,10 @@ def select_device(dev, close=True):
             logging.warn("Current device " +
                          str(numba.cuda.get_current_device()) +
                          " does not match expected " + str(dev))
+
+
+def get_client(client=None):
+    return default_client() if client is None else client
 
 
 def parse_host_port(address):
@@ -143,39 +145,20 @@ def raise_exception_from_futures(futures):
             ))
 
 
+def wait_and_raise_from_futures(futures):
+    """
+    Returns the collected futures after all the futures
+    have finished and do not indicate any exceptions.
+    """
+    wait(futures)
+    raise_exception_from_futures(futures)
+    return futures
+
+
 def raise_mg_import_exception():
     raise Exception("cuML has not been built with multiGPU support "
                     "enabled. Build with the --multigpu flag to"
                     " enable multiGPU support.")
-
-
-def patch_cupy_sparse_serialization(client):
-    """
-    This function provides a temporary fix for a bug
-    in CuPy that doesn't properly serialize cuSPARSE handles.
-
-    Reference: https://github.com/cupy/cupy/issues/3061
-
-    Parameters
-    ----------
-
-    client : dask.distributed.Client client to use
-    """
-
-    from distributed.protocol import register_generic
-    def patch_func():
-        def serialize_mat_descriptor(m):
-            return cp.cupy.cusparse.MatDescriptor.create, ()
-
-        register_generic(Base)
-        # TODO: This should extend cuml.Base eventually
-        register_generic(MultinomialNB)
-
-        copyreg.pickle(cp.cupy.cusparse.MatDescriptor,
-                       serialize_mat_descriptor)
-
-    patch_func()
-    client.run(patch_func)
 
 
 class MultiHolderLock:
@@ -190,7 +173,7 @@ class MultiHolderLock:
     Note that this lock is only intended to be used per-process and
     the underlying threading.Lock will not be serialized.
     """
-   
+
     def __init__(self, n):
         """
         Initialize the lock
@@ -202,6 +185,7 @@ class MultiHolderLock:
 
     def _acquire(self, blocking=True, timeout=10):
         lock_acquired = False
+
         inner_lock_acquired = self.lock.acquire(blocking, timeout)
 
         if inner_lock_acquired and self.current_tasks < self.n - 1:
@@ -230,6 +214,7 @@ class MultiHolderLock:
                 raise TimeoutError()
 
             lock_acquired = self.acquire(blocking, timeout)
+            time.sleep(random.uniform(0, 0.01))
 
         return lock_acquired
 
@@ -255,7 +240,7 @@ class MultiHolderLock:
                          before failing.
         :return : True if lock was released successfully, False otherwise.
         """
-        
+
         if self.current_tasks == 0:
             raise InvalidStateError("Cannot release lock when no "
                                     "concurrent tasks are executing")

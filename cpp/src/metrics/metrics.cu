@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-// #include "metrics.h"
+#include <cuda_utils.cuh>
 #include <cuml/metrics/metrics.hpp>
-#include "cuda_utils.h"
-#include "metrics/adjustedRandIndex.h"
-#include "metrics/klDivergence.h"
-#include "metrics/randIndex.h"
-#include "metrics/silhouetteScore.h"
-#include "metrics/vMeasure.h"
-#include "score/scores.h"
+#include <metrics/adjustedRandIndex.cuh>
+#include <metrics/klDivergence.cuh>
+#include <metrics/randIndex.cuh>
+#include <metrics/silhouetteScore.cuh>
+#include <metrics/vMeasure.cuh>
+#include <score/scores.cuh>
 
 namespace ML {
 
@@ -51,21 +50,16 @@ double silhouetteScore(const cumlHandle &handle, double *y, int nRows,
 }
 
 double adjustedRandIndex(const cumlHandle &handle, const int64_t *y,
-                         const int64_t *y_hat, const int64_t n,
-                         const int64_t lower_class_range,
-                         const int64_t upper_class_range) {
-  return MLCommon::Metrics::computeAdjustedRandIndex(
-    y, y_hat, n, lower_class_range, upper_class_range,
-    handle.getDeviceAllocator(), handle.getStream());
+                         const int64_t *y_hat, const int64_t n) {
+  return MLCommon::Metrics::computeAdjustedRandIndex<int64_t,
+                                                     unsigned long long>(
+    y, y_hat, n, handle.getDeviceAllocator(), handle.getStream());
 }
 
 double adjustedRandIndex(const cumlHandle &handle, const int *y,
-                         const int *y_hat, const int n,
-                         const int lower_class_range,
-                         const int upper_class_range) {
-  return MLCommon::Metrics::computeAdjustedRandIndex(
-    y, y_hat, n, lower_class_range, upper_class_range,
-    handle.getDeviceAllocator(), handle.getStream());
+                         const int *y_hat, const int n) {
+  return MLCommon::Metrics::computeAdjustedRandIndex<int, unsigned long long>(
+    y, y_hat, n, handle.getDeviceAllocator(), handle.getStream());
 }
 
 double klDivergence(const cumlHandle &handle, const double *y,

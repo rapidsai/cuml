@@ -15,22 +15,17 @@
 #
 
 
-import math
-
-import numpy as np
 import cupy as cp
-import scipy.sparse
-
-from cuml.common.base import Base
-
 import cupy.prof
-
-from cuml.utils import with_cupy_rmm
-
+import math
 import warnings
 
-from cuml.utils import cuda_kernel_factory
-
+from cuml.common import with_cupy_rmm
+from cuml.common import CumlArray
+from cuml.common.base import Base
+from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.kernel_utils import cuda_kernel_factory
+from cuml.common.import_utils import has_scipy
 from cuml.prims.label import make_monotonic
 from cuml.prims.label import check_labels
 from cuml.prims.label import invert_labels
@@ -292,6 +287,9 @@ class GaussianNB(object):
 
 class MultinomialNB(Base):
 
+    # TODO: Make this extend cuml.Base:
+    # https://github.com/rapidsai/cuml/issues/1834
+
     """
     Naive Bayes classifier for multinomial models
 
@@ -357,9 +355,8 @@ class MultinomialNB(Base):
                  alpha=1.0,
                  fit_prior=True,
                  class_prior=None,
-                 verbose=False,
-                 output_type=None):
-
+                 output_type=None,
+                 handle=None):
         """
         Create new multinomial Naive Bayes instance
 
@@ -374,18 +371,15 @@ class MultinomialNB(Base):
                       classes. If specified, the priors are not adjusted
                       according to the data.
         """
-
-        super(MultinomialNB, self).__init__(handle=None,
-                                            verbose=verbose,
+        super(MultinomialNB, self).__init__(handle=handle,
                                             output_type=output_type)
-
         self.alpha = alpha
         self.fit_prior = fit_prior
 
         if class_prior is not None:
-            class_prior = cp.asarray(class_prior, dtype=class_prior.dtype)
-
-        self.class_prior = class_prior
+            self._class_prior, *_ = input_to_cuml_array(class_prior)
+        else:
+            self.class_prior = None
 
         self.fit_called_ = False
 
@@ -393,6 +387,9 @@ class MultinomialNB(Base):
         self.n_classes_ = 0
 
         self.n_features_ = None
+
+        # Needed until Base no longer assumed cumlHandle
+        self.handle = None
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     @with_cupy_rmm
@@ -413,36 +410,46 @@ class MultinomialNB(Base):
         return self.partial_fit(X, y, sample_weight)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
+    @with_cupy_rmm
     def _partial_fit(self, X, y, sample_weight=None, _classes=None):
+        self._set_output_type(X)
 
-        if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
-            X = cp.asarray(X, X.dtype)
-        elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.common.import_utils import dummy_function_always_false \
+                as scipy_sparse_isspmatrix
+
+        # todo: use a sparse CumlArray style approach when ready
+        # https://github.com/rapidsai/cuml/issues/2216
+        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
             data = cp.asarray(X.data, dtype=X.data.dtype)
             X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
+        else:
+            X = input_to_cuml_array(X, order='K').array.to_output('cupy')
 
-        if isinstance(y, np.ndarray) or isinstance(y, cp.ndarray):
-            y = cp.asarray(y, y.dtype)
+        y = input_to_cuml_array(y).array.to_output('cupy')
 
         Y, label_classes = make_monotonic(y, copy=True)
 
         if not self.fit_called_:
             self.fit_called_ = True
             if _classes is not None:
-                check_labels(Y, _classes)
-                self.classes_ = _classes
+                _classes, *_ = input_to_cuml_array(_classes, order='K')
+                check_labels(Y, _classes.to_output('cupy'))
+                self._classes_ = _classes
             else:
-                self.classes_ = label_classes
+                self._classes_ = CumlArray(data=label_classes)
 
-            self.n_classes_ = self.classes_.shape[0]
+            self.n_classes_ = self._classes_.shape[0]
             self.n_features_ = X.shape[1]
             self._init_counters(self.n_classes_, self.n_features_,
                                 X.dtype)
         else:
-            check_labels(Y, self.classes_)
+            check_labels(Y, self._classes_)
 
         self._count(X, Y)
 
@@ -451,6 +458,7 @@ class MultinomialNB(Base):
 
         return self
 
+    @with_cupy_rmm
     def update_log_probs(self):
         """
         Updates the log probabilities. This enables lazy update for
@@ -461,6 +469,7 @@ class MultinomialNB(Base):
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
 
+    @with_cupy_rmm
     def partial_fit(self, X, y, classes=None, sample_weight=None):
         """
         Incremental fit on a batch of samples.
@@ -504,7 +513,6 @@ class MultinomialNB(Base):
     @cp.prof.TimeRangeDecorator(message="predict()", color_id=1)
     @with_cupy_rmm
     def predict(self, X):
-
         """
         Perform classification on an array of test vectors X.
 
@@ -519,25 +527,33 @@ class MultinomialNB(Base):
         C : cupy.ndarray of shape (n_samples)
 
         """
+        out_type = self._get_output_type(X)
 
-        if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
-            X = cp.asarray(X, X.dtype)
-        elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.common.import_utils import dummy_function_always_false \
+                as scipy_sparse_isspmatrix
+
+        # todo: use a sparse CumlArray style approach when ready
+        # https://github.com/rapidsai/cuml/issues/2216
+        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
             data = cp.asarray(X.data, dtype=X.data.dtype)
             X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
+        else:
+            X = input_to_cuml_array(X, order='K').array.to_output('cupy')
 
         jll = self._joint_log_likelihood(X)
-        indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
+        indices = cp.argmax(jll, axis=1).astype(self._classes_.dtype)
 
-        y_hat = invert_labels(indices, classes=self.classes_)
-        return y_hat
+        y_hat = invert_labels(indices, classes=self._classes_)
+        return CumlArray(data=y_hat).to_output(out_type)
 
     @with_cupy_rmm
     def predict_log_proba(self, X):
-
         """
         Return log-probability estimates for the test vector X.
 
@@ -555,15 +571,24 @@ class MultinomialNB(Base):
             model. The columns correspond to the classes in sorted order, as
             they appear in the attribute classes_.
         """
+        out_type = self._get_output_type(X)
 
-        if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
-            X = cp.asarray(X, X.dtype)
-        elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.common.import_utils import dummy_function_always_false \
+                as scipy_sparse_isspmatrix
+
+        # todo: use a sparse CumlArray style approach when ready
+        # https://github.com/rapidsai/cuml/issues/2216
+        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
             data = cp.asarray(X.data, dtype=X.data.dtype)
             X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
+        else:
+            X = input_to_cuml_array(X, order='K').array.to_output('cupy')
 
         jll = self._joint_log_likelihood(X)
 
@@ -583,7 +608,8 @@ class MultinomialNB(Base):
 
         if log_prob_x.ndim < 2:
             log_prob_x = log_prob_x.reshape((1, log_prob_x.shape[0]))
-        return jll - log_prob_x.T
+        result = jll - log_prob_x.T
+        return CumlArray(result).to_output(out_type)
 
     @with_cupy_rmm
     def predict_proba(self, X):
@@ -603,7 +629,9 @@ class MultinomialNB(Base):
             The columns correspond to the classes in sorted order, as they
             appear in the attribute classes_.
         """
-        return cp.exp(self.predict_log_proba(X))
+        out_type = self._get_output_type(X)
+        result = cp.exp(self.predict_log_proba(X))
+        return CumlArray(result).to_output(out_type)
 
     @with_cupy_rmm
     def score(self, X, y, sample_weight=None):
@@ -634,10 +662,11 @@ class MultinomialNB(Base):
         return accuracy_score(y_hat, cp.asarray(y, dtype=y.dtype))
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
-        self.class_count_ = cp.zeros(n_effective_classes,
-                                     order="F", dtype=dtype)
-        self.feature_count_ = cp.zeros((n_effective_classes, n_features),
-                                       order="F", dtype=dtype)
+        self._class_count_ = CumlArray.zeros(n_effective_classes,
+                                             order="F", dtype=dtype)
+        self._feature_count_ = CumlArray.zeros((n_effective_classes,
+                                                n_features),
+                                               order="F", dtype=dtype)
 
     def _count(self, X, Y):
         """
@@ -653,7 +682,7 @@ class MultinomialNB(Base):
         if X.ndim != 2:
             raise ValueError("Input samples should be a 2D array")
 
-        if Y.dtype != self.classes_.dtype:
+        if Y.dtype != self._classes_.dtype:
             warnings.warn("Y dtype does not match classes_ dtype. Y will be "
                           "converted, which will increase memory consumption")
 
@@ -665,7 +694,7 @@ class MultinomialNB(Base):
         n_rows = X.shape[0]
         n_cols = X.shape[1]
 
-        labels_dtype = self.classes_.dtype
+        labels_dtype = self._classes_.dtype
 
         if cp.sparse.isspmatrix(X):
             X = X.tocoo()
@@ -703,8 +732,8 @@ class MultinomialNB(Base):
         count_classes((math.ceil(n_rows / 32),), (32,),
                       (class_c, n_rows, Y))
 
-        self.feature_count_ += counts
-        self.class_count_ += class_c
+        self._feature_count_ += counts
+        self._class_count_ += class_c
 
     def _update_class_log_prior(self, class_prior=None):
 
@@ -725,7 +754,6 @@ class MultinomialNB(Base):
                                             -math.log(self.n_classes_))
 
     def _update_feature_log_prob(self, alpha):
-
         """
         Apply add-lambda smoothing to raw counts and recompute
         log probabilities

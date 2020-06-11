@@ -16,15 +16,15 @@
 
 #include <iostream>
 
-#include "common/device_buffer.hpp"
-#include "cuml/svm/svc.hpp"
-#include "kernelcache.h"
-#include "label/classlabels.h"
-#include "linalg/cublas_wrappers.h"
-#include "linalg/unary_op.h"
-#include "matrix/kernelfactory.h"
-#include "smosolver.h"
-#include "svr_impl.h"
+#include <linalg/cublas_wrappers.h>
+#include <common/device_buffer.hpp>
+#include <cuml/svm/svc.hpp>
+#include <label/classlabels.cuh>
+#include <linalg/unary_op.cuh>
+#include <matrix/kernelfactory.cuh>
+#include "kernelcache.cuh"
+#include "smosolver.cuh"
+#include "svr_impl.cuh"
 
 namespace ML {
 namespace SVM {

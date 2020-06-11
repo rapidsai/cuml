@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
+#include <cub/cub.cuh>
 #include "common_kernel.cuh"
-#include "cub/cub.cuh"
+
+namespace ML {
+namespace DecisionTree {
 
 template <typename T>
 struct MSEGain {
@@ -1044,3 +1048,6 @@ __global__ void best_split_gather_regression_mae_minmax_kernel(
     d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
   }
 }
+
+}  // namespace DecisionTree
+}  // namespace ML

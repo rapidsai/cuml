@@ -15,7 +15,6 @@
 import pytest
 from cuml.dask.preprocessing import LabelBinarizer
 from cuml.test.utils import array_equal
-from dask.distributed import Client
 
 import dask
 import numpy as np
@@ -28,38 +27,33 @@ import cupy as cp
                ([9, 8, 2, 1, 3, 4],
                 [8, 2, 1, 2, 2])]
 )
-def test_basic_functions(labels, cluster):
+def test_basic_functions(labels, client):
 
-    client = Client(cluster)
+    fit_labels, xform_labels = labels
 
-    try:
-        fit_labels, xform_labels = labels
+    s = cp.asarray(fit_labels, dtype=np.int32)
+    df = dask.array.from_array(s)
 
-        s = cp.asarray(fit_labels, dtype=np.int32)
-        df = dask.array.from_array(s)
+    s2 = cp.asarray(xform_labels, dtype=np.int32)
+    df2 = dask.array.from_array(s2)
 
-        s2 = cp.asarray(xform_labels, dtype=np.int32)
-        df2 = dask.array.from_array(s2)
+    binarizer = LabelBinarizer(client=client, sparse_output=False)
+    binarizer.fit(df)
 
-        binarizer = LabelBinarizer(client=client, sparse_output=False)
-        binarizer.fit(df)
+    assert array_equal(cp.asnumpy(binarizer.classes_),
+                       np.unique(cp.asnumpy(s)))
 
-        assert array_equal(cp.asnumpy(binarizer.classes_),
-                           np.unique(cp.asnumpy(s)))
+    xformed = binarizer.transform(df2)
 
-        xformed = binarizer.transform(df2)
+    xformed = xformed.map_blocks(lambda x: x.get(), dtype=cp.float32)
+    xformed.compute_chunk_sizes()
 
-        xformed = xformed.map_blocks(lambda x: x.get(), dtype=cp.float32)
-        xformed.compute_chunk_sizes()
+    assert xformed.compute().shape[1] == binarizer.classes_.shape[0]
 
-        assert xformed.compute().shape[1] == binarizer.classes_.shape[0]
+    original = binarizer.inverse_transform(xformed)
+    test = original.compute()
 
-        original = binarizer.inverse_transform(xformed)
-        test = original.compute()
-
-        assert array_equal(cp.asnumpy(test), xform_labels)
-    finally:
-        client.close()
+    assert array_equal(cp.asnumpy(test), xform_labels)
 
 
 @pytest.mark.parametrize(
@@ -71,10 +65,6 @@ def test_basic_functions(labels, cluster):
 @pytest.mark.xfail(raises=ValueError, reason="Sparse output disabled until "
                                              "Dask supports sparse CuPy "
                                              "arrays")
-def test_sparse_output_fails(labels, cluster):
+def test_sparse_output_fails(labels, client):
 
-    try:
-        client = Client(cluster)
-        LabelBinarizer(client=client, sparse_output=True)
-    finally:
-        client.close()
+    LabelBinarizer(client=client, sparse_output=True)

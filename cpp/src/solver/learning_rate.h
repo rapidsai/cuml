@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #pragma once
 
 #include <math.h>
-#include "ml_utils.h"
+#include <cuml/solvers/params.hpp>
 
 namespace ML {
 namespace Solver {
@@ -66,7 +66,6 @@ math_t calLearningRate(ML::lr_type lr_type, math_t eta, math_t power_t,
   }
 }
 
-/** @} */
 };  // namespace Solver
 };  // namespace ML
 // end namespace ML

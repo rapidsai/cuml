@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <cuda_utils.cuh>
+#include <random/rng.cuh>
 #include <set>
 #include <vector>
-#include "cuda_utils.h"
-#include "random/rng.h"
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -66,6 +67,7 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
   }
 
   void TearDown() override {
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(in));
     CUDA_CHECK(cudaFree(wts));

@@ -14,9 +14,6 @@
 #
 
 import pytest
-from dask_cuda import LocalCUDACluster
-
-from dask.distributed import Client
 from cuml.dask.common import utils as dask_utils
 from sklearn.metrics import mean_squared_error
 from sklearn.datasets import make_regression
@@ -64,35 +61,27 @@ def make_regression_dataset(datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("normalize", [False])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize("delayed", [True, False])
 def test_ridge(nrows, ncols, n_parts, fit_intercept,
-               normalize, datatype, client=None):
+               normalize, datatype, delayed, client):
 
-    if client is None:
-        cluster = LocalCUDACluster()
-        client = Client(cluster)
+    from cuml.dask.linear_model import Ridge as cumlRidge_dask
 
-    try:
-        from cuml.dask.linear_model import Ridge as cumlRidge_dask
+    n_info = 5
+    nrows = np.int(nrows)
+    ncols = np.int(ncols)
+    X, y = make_regression_dataset(datatype, nrows, ncols, n_info)
 
-        n_info = 5
-        nrows = np.int(nrows)
-        ncols = np.int(ncols)
-        X, y = make_regression_dataset(datatype, nrows, ncols, n_info)
+    X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
-        X_df, y_df = _prep_training_data(client, X, y, n_parts)
+    lr = cumlRidge_dask(alpha=0.5,
+                        fit_intercept=fit_intercept,
+                        normalize=normalize)
 
-        lr = cumlRidge_dask(alpha=0.5,
-                            fit_intercept=fit_intercept,
-                            normalize=normalize)
+    lr.fit(X_df, y_df)
 
-        lr.fit(X_df, y_df)
+    ret = lr.predict(X_df, delayed=delayed)
 
-        ret = lr.predict(X_df)
+    error_cuml = mean_squared_error(y, ret.compute().to_pandas().values)
 
-        error_cuml = mean_squared_error(y, ret.compute().to_pandas().values)
-
-        assert(error_cuml < 1e-1)
-
-    finally:
-        client.close()
-        cluster.close()
+    assert(error_cuml < 1e-1)

@@ -14,52 +14,52 @@
 #
 
 import pytest
-from dask_cuda import LocalCUDACluster
-
-from dask.distributed import Client, wait
-
 import numpy as np
+import cupy as cp
+
+from cuml.dask.common.dask_arr_utils import to_dask_cudf
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [6e5])
+@pytest.mark.parametrize("nrows", [1000])
 @pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [67])
-def test_pca_fit(nrows, ncols, n_parts, client=None):
-
-    owns_cluster = False
-    if client is None:
-        owns_cluster = True
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+@pytest.mark.parametrize("input_type", ["dataframe", "array"])
+def test_pca_fit(nrows, ncols, n_parts, input_type, client):
 
     from cuml.dask.decomposition import PCA as daskPCA
     from sklearn.decomposition import PCA
 
     from cuml.dask.datasets import make_blobs
 
-    X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                           cluster_std=0.5, verbose=False,
-                           random_state=10, dtype=np.float32)
+    X, _ = make_blobs(n_samples=nrows,
+                      n_features=ncols,
+                      centers=1,
+                      n_parts=n_parts,
+                      cluster_std=0.5,
+                      random_state=10, dtype=np.float32)
 
-    wait(X_cudf)
+    if input_type == "dataframe":
+        X_train = to_dask_cudf(X)
+        X_cpu = X_train.compute().to_pandas().values
+    elif input_type == "array":
+        X_train = X
+        X_cpu = cp.asnumpy(X_train.compute())
 
-    X = X_cudf.compute().to_pandas().values
+    try:
 
-    cupca = daskPCA(n_components=5, whiten=True)
-    cupca.fit(X_cudf)
+        cupca = daskPCA(n_components=5, whiten=True)
+        cupca.fit(X_train)
+    except Exception as e:
+        print(str(e))
 
     skpca = PCA(n_components=5, whiten=True, svd_solver="full")
-    skpca.fit(X)
+    skpca.fit(X_cpu)
 
     from cuml.test.utils import array_equal
 
     all_attr = ['singular_values_', 'components_',
                 'explained_variance_', 'explained_variance_ratio_']
-
-    if owns_cluster:
-        client.close()
-        cluster.close()
 
     for attr in all_attr:
         with_sign = False if attr in ['components_'] else True
@@ -67,62 +67,93 @@ def test_pca_fit(nrows, ncols, n_parts, client=None):
         if type(cuml_res) == np.ndarray:
             cuml_res = cuml_res.as_matrix()
         skl_res = getattr(skpca, attr)
-        assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
+        assert array_equal(cuml_res, skl_res, 1e-1, with_sign=with_sign)
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [4e3, 7e5])
-@pytest.mark.parametrize("ncols", [100, 1000])
-@pytest.mark.parametrize("n_parts", [46])
-def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client=None):
+@pytest.mark.parametrize("nrows", [1000])
+@pytest.mark.parametrize("ncols", [20])
+@pytest.mark.parametrize("n_parts", [5])
+@pytest.mark.parametrize("input_type", ["dataframe", "array"])
+def test_pca_tsqr(nrows, ncols, n_parts, input_type, ucx_client):
 
-    owns_cluster = False
-    if client is None:
-        owns_cluster = True
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+    from cuml.dask.decomposition import PCA as daskPCA
+    from sklearn.decomposition import PCA
+
+    from cuml.dask.datasets import make_blobs
+
+    X, _ = make_blobs(n_samples=nrows,
+                      n_features=ncols,
+                      centers=1,
+                      n_parts=n_parts,
+                      cluster_std=0.5,
+                      random_state=10, dtype=np.float32)
+
+    if input_type == "dataframe":
+        X_train = to_dask_cudf(X)
+        X_cpu = X_train.compute().to_pandas().values
+    elif input_type == "array":
+        X_train = X
+        X_cpu = cp.asnumpy(X_train.compute())
+
+    try:
+
+        cupca = daskPCA(n_components=5, svd_solver="tsqr")
+        cupca.fit(X_train)
+    except Exception as e:
+        print(str(e))
+
+    skpca = PCA(n_components=5, svd_solver="full")
+    skpca.fit(X_cpu)
+
+    from cuml.test.utils import array_equal
+
+    all_attr = ['singular_values_', 'components_',
+                'explained_variance_', 'explained_variance_ratio_']
+
+    for attr in all_attr:
+        cuml_res = (getattr(cupca, attr))
+        if type(cuml_res) == np.ndarray:
+            cuml_res = cuml_res.as_matrix()
+        skl_res = getattr(skpca, attr)
+        assert array_equal(cuml_res, skl_res, 1e-1, with_sign=True)
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("nrows", [1000])
+@pytest.mark.parametrize("ncols", [20])
+@pytest.mark.parametrize("n_parts", [46])
+def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client):
 
     from cuml.dask.decomposition import PCA as daskPCA
     from cuml.dask.datasets import make_blobs
 
-    X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                           cluster_std=1.5, verbose=False,
+    X_cudf, _ = make_blobs(n_samples=nrows,
+                           n_features=ncols,
+                           centers=1,
+                           n_parts=n_parts,
+                           cluster_std=1.5,
                            random_state=10, dtype=np.float32)
-
-    wait(X_cudf)
 
     cupca = daskPCA(n_components=20, whiten=True)
     cupca.fit_transform(X_cudf)
 
-    if owns_cluster:
-        client.close()
-        cluster.close()
-
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [7e5])
-@pytest.mark.parametrize("ncols", [200])
+@pytest.mark.parametrize("nrows", [1000])
+@pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [33])
-def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client=None):
-
-    owns_cluster = False
-    if client is None:
-        owns_cluster = True
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client):
 
     from cuml.dask.decomposition import PCA as daskPCA
     from cuml.dask.datasets import make_blobs
 
-    X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                           cluster_std=1.5, verbose=False,
+    X_cudf, _ = make_blobs(n_samples=nrows,
+                           n_features=ncols,
+                           centers=1,
+                           n_parts=n_parts,
+                           cluster_std=1.5,
                            random_state=10, dtype=np.float64)
-
-    wait(X_cudf)
 
     cupca = daskPCA(n_components=30, whiten=False)
     cupca.fit_transform(X_cudf)
-
-    if owns_cluster:
-        client.close()
-        cluster.close()

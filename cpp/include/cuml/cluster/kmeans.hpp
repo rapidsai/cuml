@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 
 namespace ML {
@@ -45,8 +46,8 @@ struct KMeansParams {
   // Relative tolerance with regards to inertia to declare convergence.
   double tol = 1e-4;
 
-  // verbosity mode.
-  int verbose = 0;
+  // verbosity level.
+  int verbosity = CUML_LEVEL_INFO;
 
   // Seed to the random number generator.
   int seed = 0;
@@ -54,6 +55,9 @@ struct KMeansParams {
   // Metric to use for distance computation. Any metric from
   // MLCommon::Distance::DistanceType can be used
   int metric = 0;
+
+  // Number of instance k-means algorithm will be run with different seeds.
+  int n_init = 1;
 
   // Oversampling factor for use in the k-means|| algorithm.
   double oversampling_factor = 2.0;
@@ -81,7 +85,8 @@ struct KMeansParams {
  * @param[in]     n_samples     Number of samples in the input X.
  * @param[in]     n_features    Number of features or the dimensions of each
  * sample.
- * @param[in|out] centroids     [in] When init is InitMethod::Array, use
+ * @param[in]     sample_weight The weights for each observation in X.
+ * @param[inout]  centroids     [in] When init is InitMethod::Array, use
  centroids  as the initial cluster centers
  *                              [out] Otherwise, generated centroids from the
  kmeans algorithm is stored at the address pointed by 'centroids'.
@@ -93,11 +98,13 @@ struct KMeansParams {
  */
 void fit_predict(const ML::cumlHandle &handle, const KMeansParams &params,
                  const float *X, int n_samples, int n_features,
-                 float *centroids, int *labels, float &inertia, int &n_iter);
+                 const float *sample_weight, float *centroids, int *labels,
+                 float &inertia, int &n_iter);
 
 void fit_predict(const ML::cumlHandle &handle, const KMeansParams &params,
                  const double *X, int n_samples, int n_features,
-                 double *centroids, int *labels, double &inertia, int &n_iter);
+                 const double *sample_weight, double *centroids, int *labels,
+                 double &inertia, int &n_iter);
 
 /**
  * @brief Compute k-means clustering.
@@ -111,7 +118,8 @@ void fit_predict(const ML::cumlHandle &handle, const KMeansParams &params,
  * @param[in]     n_samples     Number of samples in the input X.
  * @param[in]     n_features    Number of features or the dimensions of each
  * sample.
- * @param[in|out] centroids     [in] When init is InitMethod::Array, use
+ * @param[in]     sample_weight The weights for each observation in X.
+ * @param[inout]  centroids     [in] When init is InitMethod::Array, use
  centroids as the initial cluster centers
  *                              [out] Otherwise, generated centroids from the
  kmeans algorithm is stored at the address pointed by 'centroids'.
@@ -121,12 +129,14 @@ void fit_predict(const ML::cumlHandle &handle, const KMeansParams &params,
  */
 
 void fit(const ML::cumlHandle &handle, const KMeansParams &params,
-         const float *X, int n_samples, int n_features, float *centroids,
-         float &inertia, int &n_iter);
+         const float *X, int n_samples, int n_features,
+         const float *sample_weight, float *centroids, float &inertia,
+         int &n_iter);
 
 void fit(const ML::cumlHandle &handle, const KMeansParams &params,
-         const double *X, int n_samples, int n_features, double *centroids,
-         double &inertia, int &n_iter);
+         const double *X, int n_samples, int n_features,
+         const double *sample_weight, double *centroids, double &inertia,
+         int &n_iter);
 
 /**
  * @brief Predict the closest cluster each sample in X belongs to.
@@ -141,6 +151,7 @@ void fit(const ML::cumlHandle &handle, const KMeansParams &params,
  * @param[in]     n_features    Number of features or the dimensions of each
  * sample in 'X' (value should be same as the dimension for each cluster centers
  * in 'centroids').
+ * @param[in]     sample_weight The weights for each observation in X.
  * @param[out]    labels        Index of the cluster each sample in X belongs
  * to.
  * @param[out]    inertia       Sum of squared distances of samples to their
@@ -149,11 +160,13 @@ void fit(const ML::cumlHandle &handle, const KMeansParams &params,
 
 void predict(const ML::cumlHandle &handle, const KMeansParams &params,
              const float *centroids, const float *X, int n_samples,
-             int n_features, int *labels, float &inertia);
+             int n_features, const float *sample_weight, int *labels,
+             float &inertia);
 
 void predict(const ML::cumlHandle &handle, const KMeansParams &params,
              const double *centroids, const double *X, int n_samples,
-             int n_features, int *labels, double &inertia);
+             int n_features, const double *sample_weight, int *labels,
+             double &inertia);
 
 /**
  * @brief Transform X to a cluster-distance space.

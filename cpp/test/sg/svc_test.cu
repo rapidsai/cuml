@@ -13,34 +13,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cuda_utils.h>
+
+#include <common/cudart_utils.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <gtest/gtest.h>
+#include <linalg/transpose.h>
 #include <test_utils.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
+#include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
+#include <cuda_utils.cuh>
+#include <cuml/common/logger.hpp>
+#include <cuml/datasets/make_blobs.hpp>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svr.hpp>
 #include <iostream>
+#include <linalg/binary_op.cuh>
+#include <linalg/map_then_reduce.cuh>
+#include <matrix/grammatrix.cuh>
+#include <matrix/kernelmatrices.cuh>
+#include <random/make_blobs.cuh>
+#include <random/rng.cuh>
 #include <string>
+#include <svm/smoblocksolve.cuh>
+#include <svm/smosolver.cuh>
+#include <svm/workingset.cuh>
 #include <type_traits>
 #include <vector>
-#include "common/cumlHandle.hpp"
-#include "linalg/binary_op.h"
-#include "linalg/map_then_reduce.h"
-#include "linalg/transpose.h"
-#include "matrix/grammatrix.h"
-#include "matrix/kernelmatrices.h"
-#include "random/make_blobs.h"
-#include "random/rng.h"
-#include "svm/smoblocksolve.h"
-#include "svm/smosolver.h"
-#include "svm/workingset.h"
-#include "test_utils.h"
 
 namespace ML {
 namespace SVM {
@@ -227,7 +231,7 @@ TYPED_TEST_P(KernelCacheTest, EvalTest) {
         params, this->handle.getImpl().getCublasHandle());
     KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
                                  this->n_rows, this->n_cols, this->n_ws, kernel,
-                                 cache_size, C_SVC, false);
+                                 cache_size, C_SVC);
     TypeParam *tile_dev = cache.GetTile(this->ws_idx_dev);
     // apply nonlinearity on tile_host_expected
     this->ApplyNonlin(params);
@@ -247,7 +251,7 @@ TYPED_TEST_P(KernelCacheTest, CacheEvalTest) {
       param, this->handle.getImpl().getCublasHandle());
   KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
                                this->n_rows, this->n_cols, this->n_ws, kernel,
-                               cache_size, C_SVC, false);
+                               cache_size, C_SVC);
   for (int i = 0; i < 2; i++) {
     // We calculate cache tile multiple times to see if cache lookup works
     TypeParam *tile_dev = cache.GetTile(this->ws_idx_dev);
@@ -270,7 +274,7 @@ TYPED_TEST_P(KernelCacheTest, SvrEvalTest) {
       param, this->handle.getImpl().getCublasHandle());
   KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
                                this->n_rows, this->n_cols, this->n_ws, kernel,
-                               cache_size, EPSILON_SVR, false);
+                               cache_size, EPSILON_SVR);
 
   for (int i = 0; i < 2; i++) {
     // We calculate cache tile multiple times to see if cache lookup works
@@ -371,7 +375,7 @@ svmParameter getDefaultSvmParameter() {
   param.cache_size = 200;
   param.max_iter = -1;
   param.nochange_steps = 1000;
-  param.verbose = false;
+  param.verbosity = CUML_LEVEL_INFO;
   param.epsilon = 0.1;
   param.svmType = C_SVC;
   return param;
@@ -941,16 +945,17 @@ __global__ void cast(outType *out, int n, inType *in) {
 // To have the same input data for both single and double precision,
 // we generate the blobs in single precision only, and cast to dp if needed.
 template <typename math_t>
-void make_blobs(math_t *x, math_t *y, int n_rows, int n_cols, int n_cluster,
-                std::shared_ptr<MLCommon::deviceAllocator> &allocator,
-                cublasHandle_t cublas_h, cudaStream_t stream,
-                float *centers = nullptr) {
+void make_blobs(const cumlHandle &handle, math_t *x, math_t *y, int n_rows,
+                int n_cols, int n_cluster, float *centers = nullptr) {
+  auto allocator = handle.getDeviceAllocator();
+  auto cublas_h = handle.getImpl().getCublasHandle();
+  auto stream = handle.getStream();
   device_buffer<float> x_float(allocator, stream, n_rows * n_cols);
   device_buffer<int> y_int(allocator, stream, n_rows);
 
-  Random::make_blobs(x_float.data(), y_int.data(), n_rows, n_cols, n_cluster,
-                     allocator, stream, centers, (float *)nullptr, 1.0f, true,
-                     -2.0f, 2.0f, 0);
+  Datasets::make_blobs(handle, x_float.data(), y_int.data(), n_rows, n_cols,
+                       n_cluster, true, centers, (float *)nullptr, 1.0f, true,
+                       -2.0f, 2.0f, 0);
   int TPB = 256;
   if (std::is_same<float, math_t>::value) {
     LinAlg::transpose(x_float.data(), (float *)x, n_cols, n_rows, cublas_h,
@@ -1003,16 +1008,14 @@ TYPED_TEST(SmoSolverTest, BlobPredict) {
     device_buffer<TypeParam> x_pred(allocator, this->stream, n_pred * p.n_cols);
     device_buffer<TypeParam> y_pred(allocator, this->stream, n_pred);
 
-    make_blobs(x.data(), y.data(), p.n_rows, p.n_cols, 2, allocator,
-               this->handle.getImpl().getCublasHandle(), this->stream,
+    make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2,
                centers.data());
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params, 0, -1, 50,
-                       false);
+                       CUML_LEVEL_INFO);
     svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
 
     // Create a different dataset for prediction
-    make_blobs(x_pred.data(), y_pred.data(), n_pred, p.n_cols, 2, allocator,
-               this->handle.getImpl().getCublasHandle(), this->stream,
+    make_blobs(this->handle, x_pred.data(), y_pred.data(), n_pred, p.n_cols, 2,
                centers.data());
     device_buffer<TypeParam> y_pred2(this->handle.getDeviceAllocator(),
                                      this->stream, n_pred);
@@ -1062,8 +1065,7 @@ TYPED_TEST(SmoSolverTest, MemoryLeak) {
 
     device_buffer<TypeParam> x(allocator, this->stream, p.n_rows * p.n_cols);
     device_buffer<TypeParam> y(allocator, this->stream, p.n_rows);
-    make_blobs(x.data(), y.data(), p.n_rows, p.n_cols, 2, allocator,
-               this->handle.getImpl().getCublasHandle(), this->stream);
+    make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2);
 
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
 
@@ -1179,7 +1181,6 @@ class SvrTest : public ::testing::Test {
 
     ws =
       new WorkingSet<math_t>(handle.getImpl(), stream, n_rows, 10, EPSILON_SVR);
-    //ws->verbose = true;
     EXPECT_EQ(ws->GetSize(), 10);
     ws->Select(f, alpha, yc, C);
     int exp_idx2[] = {6, 12, 5, 11, 3, 9, 8, 1, 7, 0};
@@ -1216,7 +1217,7 @@ class SvrTest : public ::testing::Test {
   void TestSvrFitPredict() {
     std::vector<std::pair<SvrInput<math_t>, smoOutput2<math_t>>> data{
       {SvrInput<math_t>{
-         svmParameter{1, 0, 1, 10, 1e-3, false, 0.1, EPSILON_SVR},
+         svmParameter{1, 0, 1, 10, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          2,       // n_rows
          1,       // n_cols
@@ -1227,7 +1228,7 @@ class SvrTest : public ::testing::Test {
          2, {-0.8, 0.8}, 2.1, {0.8}, {0, 1}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
-         svmParameter{1, 10, 1, 1, 1e-3, false, 0.1, EPSILON_SVR},
+         svmParameter{1, 10, 1, 1, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          2,       // n_rows
          1,       // n_cols
@@ -1238,7 +1239,7 @@ class SvrTest : public ::testing::Test {
          2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
-         svmParameter{1, 0, 1, 1, 1e-3, false, 0.1, EPSILON_SVR},
+         svmParameter{1, 0, 1, 1, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          2,             // n_rows
          2,             // n_cols
@@ -1249,7 +1250,7 @@ class SvrTest : public ::testing::Test {
          2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2, 5, 5}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
-         svmParameter{1, 0, 100, 10, 1e-6, false, 0.1, EPSILON_SVR},
+         svmParameter{1, 0, 100, 10, 1e-6, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          7,                      // n_rows
          1,                      //n_cols
