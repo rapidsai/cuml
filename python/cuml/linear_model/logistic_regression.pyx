@@ -165,10 +165,11 @@ class LogisticRegression(Base):
     def __init__(self, penalty='l2', tol=1e-4, C=1.0, fit_intercept=True,
                  class_weight=None, max_iter=1000, linesearch_max_iter=50,
                  verbose=False, l1_ratio=None, solver='qn',
-                 handle=None):
+                 handle=None, output_type=None):
 
         super(LogisticRegression, self).__init__(handle=handle,
-                                                 verbose=verbose)
+                                                 verbose=verbose,
+                                                output_type=output_type)
 
         if class_weight:
             raise ValueError("`class_weight` not supported.")
@@ -253,6 +254,7 @@ class LogisticRegression(Base):
             will increase memory used for the method.
 
         """
+        self._set_output_type(X)
 
         # Converting y to device array here to use `unique` function
         # since calling input_to_dev_array again in QN has no cost
@@ -366,7 +368,18 @@ class LogisticRegression(Base):
         y: array-like (device)
            Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
-        scores = cp.asarray(self.decision_function(X,
+        # TODO:
+        # This is a bit messy since we delegate the fit responsibility
+        # down to a solver, rather than in the fit method itself.
+        # This causes a shallow copy problem with attribute assignment
+        # See Issue #XXX
+        X_m, _, _, self.dtype = input_to_cuml_array(
+            X, check_dtype=self.qn.dtype,
+            convert_to_dtype=(self.qn.dtype if convert_dtype else None),
+            check_cols=self.qn.n_cols
+        )
+        
+        scores = cp.asarray(self.decision_function(X_m,
                             convert_dtype=convert_dtype), order='F').T
         if self._num_classes == 2:
             proba = cp.zeros((scores.shape[0], 2))
