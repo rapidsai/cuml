@@ -33,9 +33,9 @@ import cuml.common.logger as logger
 from cuml.common import with_cupy_rmm
 
 
-supported_penalties = ['l1', 'l2', 'none', 'elasticnet']
+supported_penalties = ["l1", "l2", "none", "elasticnet"]
 
-supported_solvers = ['qn']
+supported_solvers = ["qn"]
 
 
 class LogisticRegression(Base):
@@ -163,14 +163,25 @@ class LogisticRegression(Base):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 
-    def __init__(self, penalty='l2', tol=1e-4, C=1.0, fit_intercept=True,
-                 class_weight=None, max_iter=1000, linesearch_max_iter=50,
-                 verbose=False, l1_ratio=None, solver='qn',
-                 handle=None, output_type=None):
+    def __init__(
+        self,
+        penalty="l2",
+        tol=1e-4,
+        C=1.0,
+        fit_intercept=True,
+        class_weight=None,
+        max_iter=1000,
+        linesearch_max_iter=50,
+        verbose=False,
+        l1_ratio=None,
+        solver="qn",
+        handle=None,
+        output_type=None,
+    ):
 
-        super(LogisticRegression, self).__init__(handle=handle,
-                                                 verbose=verbose,
-                                                output_type=output_type)
+        super(LogisticRegression, self).__init__(
+            handle=handle, verbose=verbose, output_type=output_type
+        )
 
         if class_weight:
             raise ValueError("`class_weight` not supported.")
@@ -179,8 +190,9 @@ class LogisticRegression(Base):
             raise ValueError("`penalty` " + str(penalty) + "not supported.")
 
         if solver not in supported_solvers:
-            raise ValueError("Only quasi-newton `qn` solver is "
-                             " supported, not %s" % solver)
+            raise ValueError(
+                "Only quasi-newton `qn` solver is " " supported, not %s" % solver
+            )
         self.solver = solver
 
         self.C = C
@@ -190,24 +202,23 @@ class LogisticRegression(Base):
         self.max_iter = max_iter
         self.linesearch_max_iter = linesearch_max_iter
         self.l1_ratio = None
-        if self.penalty == 'elasticnet':
+        if self.penalty == "elasticnet":
             if l1_ratio is None:
-                raise ValueError("l1_ratio has to be specified for"
-                                 "loss='elasticnet'")
+                raise ValueError("l1_ratio has to be specified for" "loss='elasticnet'")
             if l1_ratio < 0.0 or l1_ratio > 1.0:
                 msg = "l1_ratio value has to be between 0.0 and 1.0"
                 raise ValueError(msg.format(l1_ratio))
             self.l1_ratio = l1_ratio
 
-        if self.penalty == 'none':
+        if self.penalty == "none":
             l1_strength = 0.0
             l2_strength = 0.0
 
-        elif self.penalty == 'l1':
+        elif self.penalty == "l1":
             l1_strength = 1.0 / self.C
             l2_strength = 0.0
 
-        elif self.penalty == 'l2':
+        elif self.penalty == "l2":
             l1_strength = 0.0
             l2_strength = 1.0 / self.C
 
@@ -216,14 +227,19 @@ class LogisticRegression(Base):
             l1_strength = self.l1_ratio * strength
             l2_strength = (1.0 - self.l1_ratio) * strength
 
-        loss = 'sigmoid'
+        loss = "sigmoid"
 
-        self.qn = QN(loss=loss, fit_intercept=self.fit_intercept,
-                     l1_strength=l1_strength, l2_strength=l2_strength,
-                     max_iter=self.max_iter,
-                     linesearch_max_iter=self.linesearch_max_iter,
-                     tol=self.tol, verbose=self.verbose,
-                     handle=self.handle)
+        self.qn = QN(
+            loss=loss,
+            fit_intercept=self.fit_intercept,
+            l1_strength=l1_strength,
+            l2_strength=l2_strength,
+            max_iter=self.max_iter,
+            linesearch_max_iter=self.linesearch_max_iter,
+            tol=self.tol,
+            verbose=self.verbose,
+            handle=self.handle,
+        )
 
         if logger.should_log_for(logger.level_debug):
             self.verb_prefix = "CY::"
@@ -266,9 +282,9 @@ class LogisticRegression(Base):
         self._num_classes = len(unique_labels)
 
         if self._num_classes > 2:
-            loss = 'softmax'
+            loss = "softmax"
         else:
-            loss = 'sigmoid'
+            loss = "sigmoid"
 
         if logger.should_log_for(logger.level_debug):
             logger.debug(self.verb_prefix + "Setting loss to " + str(loss))
@@ -282,8 +298,7 @@ class LogisticRegression(Base):
 
         # coefficients and intercept are contained in the same array
         if logger.should_log_for(logger.level_debug):
-            logger.debug(self.verb_prefix + "Setting coefficients " +
-                         str(loss))
+            logger.debug(self.verb_prefix + "Setting coefficients " + str(loss))
 
         if self.fit_intercept:
             self.coef_ = self.qn.coef_[0:-1]
@@ -292,11 +307,15 @@ class LogisticRegression(Base):
             self.coef_ = self.qn.coef_
 
         if logger.should_log_for(logger.level_trace):
-            logger.trace(self.verb_prefix + "Coefficients: " +
-                         str(self.coef_.to_output('cupy')))
+            logger.trace(
+                self.verb_prefix + "Coefficients: " + str(self.coef_.to_output("cupy"))
+            )
             if self.fit_intercept:
-                logger.trace(self.verb_prefix + "Intercept: " +
-                             str(self.intercept_.to_output('cupy')))
+                logger.trace(
+                    self.verb_prefix
+                    + "Intercept: "
+                    + str(self.intercept_.to_output("cupy"))
+                )
 
         return self
 
@@ -370,20 +389,22 @@ class LogisticRegression(Base):
            Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
         out_type = self._get_output_type(X)
-        
+
         # TODO:
         # This is a bit messy since we delegate the fit responsibility
         # down to a solver, rather than in the fit method itself.
         # This causes a shallow copy problem with attribute assignment
         # See Issue #XXX
         X_m, _, _, self.dtype = input_to_cuml_array(
-            X, check_dtype=self.qn.dtype,
+            X,
+            check_dtype=self.qn.dtype,
             convert_to_dtype=(self.qn.dtype if convert_dtype else None),
-            check_cols=self.qn.n_cols
+            check_cols=self.qn.n_cols,
         )
-        
-        scores = cp.asarray(self.decision_function(X_m,
-                            convert_dtype=convert_dtype), order='F').T
+
+        scores = cp.asarray(
+            self.decision_function(X_m, convert_dtype=convert_dtype), order="F"
+        ).T
         if self._num_classes == 2:
             proba = cp.zeros((scores.shape[0], 2))
             proba[:, 1] = 1 / (1 + cp.exp(-scores.ravel()))
@@ -440,36 +461,43 @@ class LogisticRegression(Base):
         return accuracy_score(y, self.predict(X), handle=self.handle)
 
     def get_param_names(self):
-        return ["C", "penalty", "tol", "fit_intercept", "max_iter",
-                "linesearch_max_iter", "l1_ratio", "solver"]
+        return [
+            "C",
+            "penalty",
+            "tol",
+            "fit_intercept",
+            "max_iter",
+            "linesearch_max_iter",
+            "l1_ratio",
+            "solver",
+        ]
 
     def __getstate__(self):
         state = self.__dict__.copy()
         # Remove the unpicklable handle.
-        if 'handle' in state:
-            del state['handle']
+        if "handle" in state:
+            del state["handle"]
 
-        if 'coef_' in state:
-            del state['coef_']
-        if 'intercept_' in state:
-            del state['intercept_']
+        if "coef_" in state:
+            del state["coef_"]
+        if "intercept_" in state:
+            del state["intercept_"]
         return state
 
     def __setstate__(self, state):
-        super(LogisticRegression, self).__init__(handle=None,
-                                                 verbose=state['verbose'])
+        super(LogisticRegression, self).__init__(handle=None, verbose=state["verbose"])
 
-        if 'qn' in state:
-            qn = state['qn']
+        if "qn" in state:
+            qn = state["qn"]
             if qn.coef_ is not None:
                 if qn.fit_intercept:
-                    state['coef_'] = qn.coef_[0:-1]
-                    state['intercept_'] = qn.coef_[-1]
+                    state["coef_"] = qn.coef_[0:-1]
+                    state["intercept_"] = qn.coef_[-1]
                 else:
-                    state['coef_'] = qn.coef_
+                    state["coef_"] = qn.coef_
                     n_classes = qn.coef_.shape[1]
-                    state['intercept_'] = rmm.to_device(np.zeros(
-                        n_classes,
-                        dtype=qn.coef_.dtype))
+                    state["intercept_"] = rmm.to_device(
+                        np.zeros(n_classes, dtype=qn.coef_.dtype)
+                    )
 
         self.__dict__.update(state)
