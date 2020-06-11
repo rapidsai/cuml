@@ -25,6 +25,7 @@ from sklearn import datasets
 from sklearn.datasets import make_multilabel_classification
 from sklearn.decomposition import PCA as skPCA
 from sklearn.datasets.samples_generator import make_blobs
+from .test_naive_bayes import scipy_to_cp
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -180,23 +181,33 @@ def test_pca_inverse_transform(datatype, input_type,
                        5e-5, with_sign=True)
 
 
-@pytest.mark.parametrize('nrows', [1000, 2000])
-@pytest.mark.parametrize('ncols', [20, 40])
+# @pytest.mark.parametrize('nrows', [35000, 65000])
+# @pytest.mark.parametrize('ncols', [2500, 5000])
+@pytest.mark.parametrize('xdtype', [cp.float32])
 @pytest.mark.parametrize('whiten', [True, False])
 @pytest.mark.parametrize('return_sparse', [True, False])
-def test_sparse_pca_inputs(nrows, ncols, return_sparse, whiten):
-    a = cp.sparse.random(100000, 10, density=0.7)
+def test_sparse_pca_inputs(xdtype, whiten, return_sparse, nlp_20news):
 
-    p = cuPCA(n_components=ncols/2, whiten=whiten)
+    if return_sparse:
+        pytest.skip("Loss of information in converting to cupy sparse csr")
 
-    p.fit(a)
+    a, _ = nlp_20news
+    a = a[:, np.random.permutation(50000)]
+    print(a)
 
-    t = p.transform(a)
+    X = scipy_to_cp(a, xdtype).astype(xdtype)
+
+    p = cuPCA(n_components=50, whiten=whiten)
+
+    p.fit(X, sparse_batch_size=int(a.shape[1] / 100))
+
+    print(p.singular_values_)
+
+    t = p.transform(X)
 
     i = p.inverse_transform(t, return_sparse=return_sparse)
 
     if return_sparse:
-        pytest.skip("Loss of information in converting to cupy sparse csr")
 
         assert isinstance(i, cp.sparse.csr_matrix)
 
