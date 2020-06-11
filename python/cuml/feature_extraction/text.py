@@ -22,7 +22,6 @@ import cupy as cp
 import numbers
 import cudf
 from cuml.common.type_utils import CUPY_SPARSE_DTYPES
-from cuml.prims.label import make_monotonic
 from cudf.utils.dtypes import min_signed_type
 
 
@@ -389,6 +388,17 @@ class CountVectorizer(_VectorizerMixin):
 
         return count_df
 
+    def _filter_and_renumber(self, df, keep_values, column):
+        """Filter dataframe to keep only values from column matching
+        keep_values."""
+        df[column] = (
+            df[column].astype('category')
+            .cat.set_categories(keep_values)
+            ._column.codes
+        )
+        df = df.dropna(subset=column)
+        return df
+
     def _limit_features(self, count_df, vocab, high, low, limit):
         """Remove too rare or too common features.
 
@@ -421,13 +431,11 @@ class CountVectorizer(_VectorizerMixin):
             raise ValueError("After pruning, no terms remain. Try a lower"
                              " min_df or a higher max_df.")
 
+        if len(vocab) - keep_num != 0:
+            count_df = self._filter_and_renumber(count_df, keep_idx, 'token')
+
         self.stop_words_ = vocab[~mask].reset_index(drop=True)
         self.vocabulary_ = vocab[mask].reset_index(drop=True)
-
-        keep_mask = count_df['token'].isin(keep_idx)
-        count_df = count_df.loc[count_df.index[keep_mask]]
-        count_df['token'] = count_df['token'].astype(cp.int32)
-        make_monotonic(count_df['token'])
 
         return count_df
 
