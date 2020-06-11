@@ -74,7 +74,11 @@ def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
 )
 @pytest.mark.parametrize(
     "column_info",
-    [unit_param([20, 10]), quality_param([100, 50]), stress_param([1000, 500])],
+    [
+        unit_param([20, 10]),
+        quality_param([100, 50]),
+        stress_param([1000, 500])
+    ],
 )
 def test_linear_regression_model(datatype, algorithm, nrows, column_info):
 
@@ -84,7 +88,9 @@ def test_linear_regression_model(datatype, algorithm, nrows, column_info):
     )
 
     # Initialization of cuML's linear regression model
-    cuols = cuLinearRegression(fit_intercept=True, normalize=False, algorithm=algorithm)
+    cuols = cuLinearRegression(fit_intercept=True,
+                               normalize=False,
+                               algorithm=algorithm)
 
     # fit and predict cuml linear regression model
     cuols.fit(X_train, y_train)
@@ -147,7 +153,11 @@ def test_ridge_regression_model_default(datatype):
 )
 @pytest.mark.parametrize(
     "column_info",
-    [unit_param([20, 10]), quality_param([100, 50]), stress_param([1000, 500])],
+    [
+        unit_param([20, 10]),
+        quality_param([100, 50]),
+        stress_param([1000, 500])
+    ],
 )
 def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 
@@ -170,7 +180,10 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 
         skridge_predict = skridge.predict(X_test)
 
-        assert array_equal(skridge_predict, curidge_predict, 1e-1, with_sign=True)
+        assert array_equal(skridge_predict,
+                           curidge_predict,
+                           1e-1,
+                           with_sign=True)
 
 
 @pytest.mark.parametrize("num_classes", [2, 10])
@@ -183,7 +196,8 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 @pytest.mark.parametrize("C", [2.0, 1.0, 0.5])
 @pytest.mark.parametrize("tol", [1e-3, 1e-8])
 def test_logistic_regression(
-    num_classes, dtype, penalty, l1_ratio, fit_intercept, nrows, column_info, C, tol
+    num_classes, dtype, penalty, l1_ratio,
+    fit_intercept, nrows, column_info, C, tol
 ):
     if penalty in ["l1", "elasticnet"]:
         pytest.xfail("OWL numerical stability is being improved")
@@ -192,15 +206,19 @@ def test_logistic_regression(
     # Checking sklearn >= 0.21 for testing elasticnet
     sk_check = LooseVersion(str(sklearn.__version__)) >= LooseVersion("0.21.0")
     if not sk_check and penalty == "elasticnet":
-        pytest.skip("Need sklearn > 0.21 for testing logistic with" "elastic net.")
+        pytest.skip(
+            "Need sklearn > 0.21 for testing logistic with" "elastic net."
+        )
 
     X_train, X_test, y_train, y_test = make_classification_dataset(
-        datatype=dtype, nrows=nrows, ncols=ncols, n_info=n_info, num_classes=num_classes
+        datatype=dtype, nrows=nrows, ncols=ncols,
+        n_info=n_info, num_classes=num_classes
     )
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
     culog = cuLog(
-        penalty=penalty, l1_ratio=l1_ratio, C=C, fit_intercept=fit_intercept, tol=tol
+        penalty=penalty, l1_ratio=l1_ratio, C=C,
+        fit_intercept=fit_intercept, tol=tol
     )
     culog.fit(X_train, y_train)
 
@@ -267,7 +285,8 @@ def test_logistic_regression_decision_function(
 ):
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_classification_dataset(
-        datatype=dtype, nrows=nrows, ncols=ncols, n_info=n_info, num_classes=num_classes
+        datatype=dtype, nrows=nrows, ncols=ncols,
+        n_info=n_info, num_classes=num_classes
     )
 
     y_train = y_train.astype(dtype)
@@ -302,7 +321,8 @@ def test_logistic_regression_predict_proba(
 ):
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_classification_dataset(
-        datatype=dtype, nrows=nrows, ncols=ncols, n_info=n_info, num_classes=num_classes
+        datatype=dtype, nrows=nrows, ncols=ncols,
+        n_info=n_info, num_classes=num_classes
     )
 
     y_train = y_train.astype(dtype)
@@ -313,7 +333,9 @@ def test_logistic_regression_predict_proba(
 
     if num_classes > 2:
         sklog = skLog(
-            fit_intercept=fit_intercept, solver="lbfgs", multi_class="multinomial"
+            fit_intercept=fit_intercept,
+            solver="lbfgs",
+            multi_class="multinomial"
         )
     else:
         sklog = skLog(fit_intercept=fit_intercept)
