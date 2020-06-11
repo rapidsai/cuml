@@ -39,7 +39,52 @@ def _cov_kernel(dtype):
                                "map_labels_kernel")
 
 @with_cupy_rmm
-def cov(x, y, mean_x=None, mean_y=None, copy=False):
+def cov(x, y, mean_x=None, mean_y=None, return_gram=False,
+        return_mean=False):
+    """
+    Computes a covariance between two matrices using
+    the form Cov(X, Y) = E(XY) - E(X)E(Y)
+
+    This function prevents the need to explicitly
+    compute the outer product E(X)E(Y) by taking
+    advantage of the symmetricity of that matrix
+    and computers per element in a kernel
+
+    Parameters
+    ----------
+
+    x : device-array or cupy.sparse of size (m, n)
+    y : device-array or cupy.sparse of size (m, n)
+    mean_x : float (default = None)
+        device-array of size (n, ) which is the mean
+        of x across rows
+    mean_x : float (default = None)
+        device-array of size (n, ) which is the mean
+        of x across rows
+    return_gram : boolean (default = False)
+        If True, gram matrix of the form (1 / n) * X.T.dot(Y)
+        will be returned. 
+        When True, a copy will be created
+        to store the results of the covariance.
+        When False, the local gram matrix result
+        will be overwritten
+    return_mean: boolean (default = False)
+        If True, the Maximum Likelihood Estimate used to
+        calculate the mean of X and Y will be returned,
+        of the form (1 / n) * mean(X) and (1 / n) * mean(Y)
+
+    Returns
+    -------
+
+    result : cov(X, Y) when return_gram and return_mean are False
+             cov(X, Y), gram(X, Y) when return_gram is True,
+                return_mean is False
+             cov(X, Y), mean(X), mean(Y) when return_gram is False,
+                return_mean is True
+             cov(X, Y), gram(X, Y), mean(X), mean(Y)
+                when return_gram is True and return_mean is True
+    """
+
     if x.dtype != y.dtype:
         raise ValueError("X and Y must have same dtype (%s != %s)" %
                          (x.dtype, y.dtype))
@@ -68,7 +113,7 @@ def cov(x, y, mean_x=None, mean_y=None, copy=False):
     if mean_y is None:
         mean_y = y.sum(axis=0) * (1 / y.shape[0])
     
-    if copy:
+    if return_gram:
       cov_result = cp.zeros((gram_matrix.shape[0], gram_matrix.shape[1]),
                             dtype=gram_matrix.dtype)
     else:
@@ -85,4 +130,11 @@ def cov(x, y, mean_x=None, mean_y=None, copy=False):
         (cov_result, gram_matrix, mean_x, mean_y, gram_matrix.shape[0])
     )
 
-    return cov_result
+    if not return_gram and not return_mean:
+      return cov_result
+    elif return_gram and not return_mean:
+      return cov_result, gram_matrix
+    elif not return_gram and return_mean:
+      return cov_result, mean_x, mean_y
+    elif return_gram and return_mean:
+      return cov_result, gram_matrix, mean_x, mean_y
