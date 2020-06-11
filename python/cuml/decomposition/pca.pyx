@@ -41,6 +41,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common import with_cupy_rmm
+from cuml.prims.stats import cov
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
@@ -353,13 +354,10 @@ class PCA(Base):
         self._sparse_model = True
         self._sparse_type = type(X)
 
-        gram_matrix = X.T.dot(X) * (1 / X.shape[0])
-        self._mean_ = X.sum(axis=0) * (1 / X.shape[0])
-
-        cov = gram_matrix - cp.outer(self._mean_, self._mean_.T)
+        covariance, self._mean_, _ = cov(X, X, return_mean=True)
 
         self._explained_variance_, self._components_ = \
-            cp.linalg.eigh(cov, UPLO='U')
+            cp.linalg.eigh(covariance, UPLO='U')
 
         # NOTE: We reverse the eigen vector and eigen values here
         # because cupy provides them in ascending order

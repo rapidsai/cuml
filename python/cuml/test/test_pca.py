@@ -25,7 +25,6 @@ from sklearn import datasets
 from sklearn.datasets import make_multilabel_classification
 from sklearn.decomposition import PCA as skPCA
 from sklearn.datasets.samples_generator import make_blobs
-from .test_naive_bayes import scipy_to_cp
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -181,38 +180,38 @@ def test_pca_inverse_transform(datatype, input_type,
                        5e-5, with_sign=True)
 
 
-# @pytest.mark.parametrize('nrows', [35000, 65000])
-# @pytest.mark.parametrize('ncols', [2500, 5000])
-@pytest.mark.parametrize('xdtype', [cp.float32])
-@pytest.mark.parametrize('whiten', [True, False])
+@pytest.mark.parametrize('nrows', [4000, 8000])
+@pytest.mark.parametrize('ncols', [5000, 10000])
 @pytest.mark.parametrize('return_sparse', [True, False])
-def test_sparse_pca_inputs(xdtype, whiten, return_sparse, nlp_20news):
+def test_sparse_pca_inputs(nrows, ncols, return_sparse):
 
     if return_sparse:
         pytest.skip("Loss of information in converting to cupy sparse csr")
 
-    a, _ = nlp_20news
-    a = a[:, np.random.permutation(50000)]
-    print(a)
+    X = cp.sparse.random(nrows, ncols, density=0.07, dtype=cp.float32,
+                         random_state=10)
 
-    X = scipy_to_cp(a, xdtype).astype(xdtype)
+    p_sparse = cuPCA(n_components=ncols)
 
-    p = cuPCA(n_components=50, whiten=whiten)
+    p_sparse.fit(X)
+    t_sparse = p_sparse.transform(X)
+    i_sparse = p_sparse.inverse_transform(t_sparse,
+                                          return_sparse=return_sparse)
 
-    p.fit(X, sparse_batch_size=int(a.shape[1] / 100))
+    X_dense = X.todense()
+    p_dense = cuPCA(n_components=ncols)
 
-    print(p.singular_values_)
-
-    t = p.transform(X)
-
-    i = p.inverse_transform(t, return_sparse=return_sparse)
+    p_dense.fit(X_dense)
+    t_dense = p_dense.transform(X_dense)
+    i_dense = p_dense.inverse_transform(t_dense)
 
     if return_sparse:
 
-        assert isinstance(i, cp.sparse.csr_matrix)
+        assert isinstance(i_sparse, cp.sparse.csr_matrix)
 
-        assert array_equal(a.toarray(), i.toarray(), 1e-10, with_sign=True)
+        assert array_equal(i_sparse.todense(), i_dense, 1e-1,
+                           with_sign=True)
     else:
-        assert isinstance(i, cp.core.ndarray)
+        assert isinstance(i_sparse, cp.core.ndarray)
 
-        assert array_equal(a.toarray(), i, 1e-10, with_sign=True)
+        assert array_equal(i_sparse, i_dense, 1e-1, with_sign=True)
