@@ -438,7 +438,7 @@ class LogisticRegression(Base):
         y: array-like (device)
            Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
-        return cp.log(self.predict_proba(X, convert_dtype=convert_dtype))
+        return np.log(self.predict_proba(X, convert_dtype=convert_dtype))
 
     def score(self, X, y, convert_dtype=False):
         """
