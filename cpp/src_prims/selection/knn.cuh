@@ -33,6 +33,8 @@
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
 
+#include <selection/processing.cuh>
+
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/neighbors/knn.hpp>
@@ -162,6 +164,16 @@ inline void knn_merge_parts(float *inK, int64_t *inV, float *outK,
                                   stream, translations);
 }
 
+inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
+
+	switch(metric) {
+	case ML::MetricType::METRIC_Cosine:
+		return faiss::MetricType::METRIC_INNER_PRODUCT;
+	default:
+		return (faiss::MetricType)metric;
+	}
+}
+
 /**
    * Search the kNN for the k-nearest neighbors of a set of query vectors
    * @param input vector of device device memory array pointers to search
@@ -209,7 +221,7 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
 
-  faiss::MetricType m = (faiss::MetricType)metric;
+  faiss::MetricType m = build_faiss_metric(metric);
 
   std::vector<int64_t> *id_ranges;
   if (translations == nullptr) {
@@ -225,6 +237,19 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   } else {
     // otherwise, use the given translations
     id_ranges = translations;
+  }
+
+  // perform preprocessing
+  MetricProcessor<float> *query_metric_processor = nullptr;
+  std::vector<MetricProcessor<float>> metric_processors(0);
+  if(metric == ML::MetricType::METRIC_Cosine) {
+	  metric_processors.resize(input.size());
+	  query_metric_processor =  new CosineMetricProcessor<float>(n, D, k, rowMajorQuery, userStream, allocator);
+	  query_metric_processor->preprocess(search_items);
+	for(int i = 0; i < input.size(); i++) {
+		metric_processors[i] = CosineMetricProcessor<float>(sizes[i], D, k, rowMajorIndex, userStream, allocator);
+		metric_processors[i].preprocess(input[i]);
+	}
   }
 
   int device;
@@ -274,6 +299,11 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     args.outDistances = out_D + (i * k * n);
     args.outIndices = out_I + (i * k * n);
 
+    /**
+     * @todo: Until FAISS supports pluggable allocation strategies,
+     * we will not reap the benefits of the pool allocator for
+     * avoiding device-wide synchronizations from cudaMalloc/cudaFree
+     */
     bfKnn(&gpu_res, args);
 
     CUDA_CHECK(cudaPeekAtLastError());
@@ -296,18 +326,24 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
        m == faiss::MetricType::METRIC_Lp) &&
       !expanded_form) {
     /**
-	   * p-norm post-processing
-	   */
+	* post-processing
+	*/
     float p = 0.5;  // standard l2
     if (m == faiss::MetricType::METRIC_Lp) p = 1.0 / metricArg;
     MLCommon::LinAlg::unaryOp<float>(
       res_D, res_D, n * k,
       [p] __device__(float input) { return powf(input, p); }, userStream);
+  } else if(metric == ML::MetricType::METRIC_Cosine) {
+	query_metric_processor->revert(search_items);
+	query_metric_processor->postprocess(out_D);
+	for(int i = 0; i < input.size(); i++) {
+		// @todo: This is really a "revert" of the pre-processing, not post-processing
+		metric_processors[i].revert(input[i]);
+	}
   }
 
   if (translations == nullptr) delete id_ranges;
-
-  CUDA_CHECK(cudaStreamSynchronize(userStream));
+  if (query_metric_processor != nullptr) delete query_metric_processor;
 };
 
 template <typename OutType = float>
