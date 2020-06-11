@@ -26,6 +26,7 @@ import rmm
 
 from cuml.solvers import QN
 from cuml.common.base import Base
+from cuml.common.array import CumlArray
 from cuml.metrics.accuracy import accuracy_score
 from cuml.common import input_to_cuml_array
 import cuml.common.logger as logger
@@ -368,6 +369,8 @@ class LogisticRegression(Base):
         y: array-like (device)
            Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
+        out_type = self._get_output_type(X)
+        
         # TODO:
         # This is a bit messy since we delegate the fit responsibility
         # down to a solver, rather than in the fit method itself.
@@ -392,7 +395,8 @@ class LogisticRegression(Base):
             row_sum = cp.sum(proba, axis=1).reshape((-1, 1))
             proba /= row_sum
 
-        return proba
+        proba = CumlArray(proba)
+        return proba.to_output(out_type)
 
     def predict_log_proba(self, X, convert_dtype=False):
         """
