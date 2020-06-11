@@ -24,14 +24,13 @@ from cuml.test.utils import array_equal
 @pytest.mark.parametrize("ncols", [500, 1500])
 @pytest.mark.parametrize("sparse", [True, False])
 @pytest.mark.parametrize("dtype", [cp.float32, cp.float64])
-@pytest.mark.parametrize("copy", [True, False])
-def test_cov(nrows, ncols, sparse, dtype, copy):
+def test_cov(nrows, ncols, sparse, dtype):
     if sparse:
         x = cp.sparse.random(nrows, ncols, density=0.07)
     else:
         x = cp.random.random((nrows, ncols))
 
-    cov_result = cov(x, x, copy=copy)
+    cov_result = cov(x, x)
 
     assert cov_result.shape == (ncols, ncols)
 
