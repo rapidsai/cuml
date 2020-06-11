@@ -190,9 +190,8 @@ class LogisticRegression(Base):
             raise ValueError("`penalty` " + str(penalty) + "not supported.")
 
         if solver not in supported_solvers:
-            raise ValueError(
-                "Only quasi-newton `qn` solver is " " supported, not %s" % solver
-            )
+            raise ValueError("Only quasi-newton `qn` solver is "
+                             " supported, not %s" % solver)
         self.solver = solver
 
         self.C = C
@@ -204,7 +203,9 @@ class LogisticRegression(Base):
         self.l1_ratio = None
         if self.penalty == "elasticnet":
             if l1_ratio is None:
-                raise ValueError("l1_ratio has to be specified for" "loss='elasticnet'")
+                raise ValueError(
+                    "l1_ratio has to be specified for" "loss='elasticnet'"
+                )
             if l1_ratio < 0.0 or l1_ratio > 1.0:
                 msg = "l1_ratio value has to be between 0.0 and 1.0"
                 raise ValueError(msg.format(l1_ratio))
@@ -298,7 +299,9 @@ class LogisticRegression(Base):
 
         # coefficients and intercept are contained in the same array
         if logger.should_log_for(logger.level_debug):
-            logger.debug(self.verb_prefix + "Setting coefficients " + str(loss))
+            logger.debug(
+                self.verb_prefix + "Setting coefficients " + str(loss)
+            )
 
         if self.fit_intercept:
             self.coef_ = self.qn.coef_[0:-1]
@@ -307,9 +310,8 @@ class LogisticRegression(Base):
             self.coef_ = self.qn.coef_
 
         if logger.should_log_for(logger.level_trace):
-            logger.trace(
-                self.verb_prefix + "Coefficients: " + str(self.coef_.to_output("cupy"))
-            )
+            logger.trace(self.verb_prefix + "Coefficients: " +
+                         str(self.coef_.to_output("cupy")))
             if self.fit_intercept:
                 logger.trace(
                     self.verb_prefix
@@ -483,7 +485,8 @@ class LogisticRegression(Base):
         return state
 
     def __setstate__(self, state):
-        super(LogisticRegression, self).__init__(handle=None, verbose=state["verbose"])
+        super(LogisticRegression, self).__init__(handle=None,
+                                                 verbose=state["verbose"])
 
         if "qn" in state:
             qn = state["qn"]
