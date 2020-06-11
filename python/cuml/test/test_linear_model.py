@@ -302,11 +302,21 @@ def test_logistic_regression_predict_proba(dtype, nrows, column_info,
         skLog.intercept_ = 0
     sklog.classes_ = np.arange(num_classes)
 
-    cu_proba = culog.predict_proba(X_test).get()
+    cu_proba = culog.predict_proba(X_test)
     sk_proba = sklog.predict_proba(X_test)
 
-    cu_log_proba = culog.predict_log_proba(X_test).get()
+    cu_log_proba = culog.predict_log_proba(X_test)
     sk_log_proba = sklog.predict_log_proba(X_test)
 
     assert array_equal(cu_proba, sk_proba)
     assert array_equal(cu_log_proba, sk_log_proba)
+
+    
+@pytest.mark.parametrize('constructor', [np.array, cp.array])
+@pytest.mark.parametrize('dtype', ["float32", "float64"])
+def test_logistic_regression_input_type_consistency(constructor, dtype):
+    X = constructor([[5,10], [3,1], [7,8]]).astype(dtype)
+    y = constructor([0,1,1]).astype(dtype)
+    clf = cuLog().fit(X, y, convert_dtype=True)
+    assert isinstance(clf.predict_proba(X), type(X))
+    assert isinstance(clf.predict(X), type(X))
