@@ -30,7 +30,9 @@ enum MetricType {
 
   METRIC_Canberra = 20,
   METRIC_BrayCurtis,
-  METRIC_JensenShannon
+  METRIC_JensenShannon,
+
+  METRIC_Cosine = 100
 };
 
 /**

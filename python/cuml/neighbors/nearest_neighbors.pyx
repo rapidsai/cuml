@@ -74,7 +74,9 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
         METRIC_Canberra = 20,
         METRIC_BrayCurtis,
-        METRIC_JensenShannon
+        METRIC_JensenShannon,
+
+        METRIC_Cosine = 100
 
     void brute_force_knn(
         cumlHandle &handle,
@@ -279,6 +281,8 @@ class NearestNeighbors(Base):
             m = MetricType.METRIC_Linf
         elif metric == "jensenshannon":
             m = MetricType.METRIC_JensenShannon
+        elif metric == "cosine":
+            m = MetricType.METRIC_Cosine
         else:
             raise ValueError("Metric %s is not supported" % metric)
 
