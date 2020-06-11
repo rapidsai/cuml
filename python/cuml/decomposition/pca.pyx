@@ -499,12 +499,12 @@ class PCA(Base):
                            self._components_) + self._mean_
         else:
             X_inv = cp.dot(X, self._components_) + self._mean_
-        
+
         if return_sparse:
             X_inv = cp.where(X_inv < sparse_tol, 0, X_inv)
 
             X_inv = cp.sparse.csr_matrix(X_inv)
-        
+
         return X_inv
 
     def inverse_transform(self, X, convert_dtype=False,
@@ -532,7 +532,7 @@ class PCA(Base):
 
         return_sparse : bool, optional (default = False)
             Ignored when the model is not fit on a sparse matrix
-            If True, the method will convert the inverse transform to a 
+            If True, the method will convert the inverse transform to a
             cupy.sparse.csr_matrix object
 
             NOTE: Currently, there is a loss of information when converting
