@@ -23,6 +23,7 @@ import ctypes
 import cudf
 import numpy as np
 import cupy as cp
+import scipy
 
 from enum import IntEnum
 
@@ -37,11 +38,13 @@ from cython.operator cimport dereference as deref
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.common.base import _input_to_type
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common import with_cupy_rmm
 from cuml.prims.stats import cov
+from cuml.common.input_utils import sparse_scipy_to_cp
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
@@ -299,11 +302,6 @@ class PCA(Base):
         self._mean_ = None  # accessed via estimator.mean_
         self._noise_variance_ = None  # accessed via estimator.noise_variance_
 
-        # These variables control whether a sparse model was fit
-        # and what sparse type was used
-        self._sparse_model = False
-        self._sparse_type = None
-
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
             'full': Solver.COV_EIG_DQ,
@@ -345,14 +343,60 @@ class PCA(Base):
                                                  dtype=self.dtype)
         self._noise_variance_ = CumlArray.zeros(1, dtype=self.dtype)
 
+    def _instance_variables_to_cuml_array(self):
+
+        self._mean_= CumlArray(self._mean_,
+                               shape=self.n_cols,
+                               dtype=self.dtype,
+                               order='F')
+
+        self._components_= CumlArray(self._components_,
+                                     shape=((self.n_components, self.n_cols)),
+                                     dtype=self.dtype,
+                                     order='F')
+
+        self._explained_variance_ = CumlArray(self._explained_variance_,
+                                              shape=self.n_components,
+                                              dtype=self.dtype,
+                                              order='F')
+
+        self._explained_variance_ratio_ = \
+            CumlArray(self._explained_variance_ratio_,
+                      shape=self.n_components,
+                      dtype=self.dtype,
+                      order='F')
+
+        self._noise_variance_ = CumlArray(self._noise_variance_,
+                                          shape=1,
+                                          dtype=self.dtype,
+                                          order='F')
+
+        self._singular_values_ = CumlArray(self._singular_values_,
+                                           shape=self.n_components,
+                                           dtype=self.dtype,
+                                           order='F')
+    
+    def _instance_variables_to_cp(self):
+
+        self._mean_ = cp.asarray(self._mean_)
+
+        self._components_ = cp.asarray(self._components_)
+
+        self._explained_variance_ = cp.asarray(self._explained_variance_)
+
+        self._explained_variance_ratio_ = \
+            cp.asarray(self._explained_variance_ratio_)
+        
+        self._noise_variance_ = cp.asarray(self._noise_variance_)
+
+        self._singular_values_ = cp.asarray(self._singular_values_)
+
     @with_cupy_rmm
     def _sparse_fit(self, X):
 
         self.n_rows = X.shape[0]
         self.n_cols = X.shape[1]
         self.dtype = X.dtype
-        self._sparse_model = True
-        self._sparse_type = type(X)
 
         covariance, self._mean_, _ = cov(X, X, return_mean=True)
 
@@ -374,7 +418,7 @@ class PCA(Base):
             self._noise_variance_ = \
                 self._explained_variance_[self.n_components:].mean()
         else:
-            self._noise_variance_ = 0.0
+            self._noise_variance_ = cp.array([0.0])
 
         self._explained_variance_ = \
             self._explained_variance_[:self.n_components]
@@ -383,6 +427,10 @@ class PCA(Base):
             self._explained_variance_ratio_[:self.n_components]
 
         self._singular_values_ = cp.sqrt(self._explained_variance_)
+
+        self._instance_variables_to_cuml_array()
+
+        return self
 
     def fit(self, X, y=None):
         """
@@ -406,10 +454,13 @@ class PCA(Base):
 
         """
 
+        self._set_output_type(X)
+
         if cp.sparse.issparse(X):
             return self._sparse_fit(X)
-
-        self._set_output_type(X)
+        elif scipy.sparse.issparse(X):
+            X = sparse_scipy_to_cp(X)
+            return self._sparse_fit(X)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -493,19 +544,33 @@ class PCA(Base):
     @with_cupy_rmm
     def _sparse_inverse_transform(self, X, return_sparse=False,
                                   sparse_tol=1e-10):
+
+        self._instance_variables_to_cp()
+
         if self.whiten:
-            X_inv = cp.dot(X,
-                           cp.sqrt(self._explained_variance_[:, cp.newaxis]) *
-                           self._components_) + self._mean_
-        else:
-            X_inv = cp.dot(X, self._components_) + self._mean_
+            self._components_ *= (1 / cp.sqrt(self.n_rows - 1))
+            self._components_ *= self._singular_values_
+
+        X_inv = cp.dot(X, self._components_)
+        X_inv += self._mean_
+
+        if self.whiten:
+            self._components_ /= self._singular_values_
+            self._components_ *= cp.sqrt(self.nrows - 1)
+
+        self._instance_variables_to_cuml_array()
 
         if return_sparse:
             X_inv = cp.where(X_inv < sparse_tol, 0, X_inv)
 
             X_inv = cp.sparse.csr_matrix(X_inv)
-
-        return X_inv
+        
+            return X_inv
+        
+        if self._get_output_type(X) == 'cupy':
+            return X_inv
+        elif self._get_output_type(X) == 'numpy':
+            return X_inv.get()
 
     def inverse_transform(self, X, convert_dtype=False,
                           return_sparse=False, sparse_tol=1e-10):
@@ -549,7 +614,13 @@ class PCA(Base):
         X_original : cuDF DataFrame, shape (n_samples, n_features)
 
         """
-        if cp.sparse.issparse(X) or self._sparse_model:
+
+        if cp.sparse.issparse(X):
+            return self._sparse_inverse_transform(X,
+                                                  return_sparse=return_sparse,
+                                                  sparse_tol=sparse_tol)
+        elif scipy.sparse.issparse(X):
+            X = sparse_scipy_to_cp(X)
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
                                                   sparse_tol=sparse_tol)
@@ -605,14 +676,27 @@ class PCA(Base):
 
     @with_cupy_rmm
     def _sparse_transform(self, X):
+
+        self._instance_variables_to_cp()
+
+        if self.whiten:
+            self._components_ *= cp.sqrt(self.nrows - 1)
+            self._components_ /= self._singular_values_
+
         X = X - self._mean_
         X_transformed = cp.dot(X, self._components_.T)
         X = X + self._mean_
 
         if self.whiten:
-            X_transformed /= cp.sqrt(self._explained_variance_)
+            self._components_ *= self._singular_values_
+            self._components_ *= (1 / cp.sqrt(self.n_rows - 1))
 
-        return X_transformed
+        self._instance_variables_to_cuml_array()            
+
+        if self._get_output_type(X) == 'cupy':
+            return X_transformed
+        elif self._get_output_type(X) == 'numpy':
+            return X_transformed.get()
 
     def transform(self, X, convert_dtype=False):
         """
@@ -644,7 +728,10 @@ class PCA(Base):
 
         """
 
-        if cp.sparse.issparse(X) or self._sparse_model:
+        if cp.sparse.issparse(X):
+            return self._sparse_transform(X)
+        elif scipy.sparse.issparse(X):
+            X = sparse_scipy_to_cp(X)
             return self._sparse_transform(X)
 
         out_type = self._get_output_type(X)

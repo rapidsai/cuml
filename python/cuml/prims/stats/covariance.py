@@ -50,7 +50,12 @@ def cov(x, y, mean_x=None, mean_y=None, return_gram=False,
     This function prevents the need to explicitly
     compute the outer product E(X)E(Y) by taking
     advantage of the symmetricity of that matrix
-    and computers per element in a kernel
+    and computers per element in a kernel.
+
+    When E(XY) is approximately equal to E(X)E(Y),
+    this method is prone to catastrophic cancellation.
+    In such cases, a recentangular solver should be
+    preferred.
 
     Parameters
     ----------
