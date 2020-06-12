@@ -290,7 +290,7 @@ class Base:
             return _input_to_type(input)
         else:
             return self.output_type
-        
+
     def _set_n_features_in(self, X):
         """Method to be called by the fit method of the inheriting class.
         Sets the n_features_in_ attribute based on the data passed to fit.
