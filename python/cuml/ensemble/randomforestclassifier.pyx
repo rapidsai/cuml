@@ -711,6 +711,8 @@ class RandomForestClassifier(Base):
                               num_classes, convert_dtype,
                               fil_sparse_format, predict_proba):
         out_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype()
+        
         cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
@@ -740,11 +742,14 @@ class RandomForestClassifier(Base):
                                                  storage_type=storage_type)
 
         preds = tl_to_fil_model.predict(X, output_type=out_type,
+                                        output_dtype=out_dtype,
                                         predict_proba=predict_proba)
         return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):
         out_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype()
+        
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
@@ -753,7 +758,8 @@ class RandomForestClassifier(Base):
                                 check_cols=self.n_cols)
         X_ptr = X_m.ptr
 
-        preds = CumlArray.zeros(n_rows, dtype=np.int32)
+        preds_dtype = out_dtype or np.int32
+        preds = CumlArray.zeros(n_rows, dtype=preds_dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
         cdef cumlHandle* handle_ =\

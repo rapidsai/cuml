@@ -462,7 +462,6 @@ class SVMBase(Base):
         """
 
         self._set_output_type(X)
-        self._set_target_dtype(y)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, order='F')

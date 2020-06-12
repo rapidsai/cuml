@@ -196,7 +196,7 @@ class KNeighborsClassifier(NearestNeighbors):
         """
 
         out_type = self._get_output_type(X)
-        target_dtype = self._get_target_dtype()
+        desired_output_dtype = self._get_target_dtype()
 
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
@@ -211,8 +211,11 @@ class KNeighborsClassifier(NearestNeighbors):
         out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
 
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
-
-        classes = CumlArray.zeros(out_shape, dtype=np.int32, order="C")
+        
+        permissible_target_dtypes = (np.int32,)
+        preds_dtype = desired_output_dtype if desired_output_dtype in permissible_target_dtypes else dtype
+        
+        classes = CumlArray.zeros(out_shape, dtype=preds_dtype, order="C")
 
         cdef vector[int*] *y_vec = new vector[int*]()
 
@@ -239,8 +242,11 @@ class KNeighborsClassifier(NearestNeighbors):
         )
 
         self.handle.sync()
-
-        return classes.to_output(out_type).astype(target_dtype)
+        
+        preds = classes.to_output(out_type)
+        if desired_output_dtype:
+            preds = preds.astype(desired_output_dtype)
+        return preds
 
     @with_cupy_rmm
     def predict_proba(self, X, convert_dtype=True):
