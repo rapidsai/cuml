@@ -254,7 +254,6 @@ class RandomForestRegressor(Base):
         super(RandomForestRegressor, self).__init__(handle=handle,
                                                     verbose=verbose,
                                                     output_type=output_type)
-
         if max_depth < 0:
             raise ValueError("Must specify max_depth >0 ")
 
@@ -300,7 +299,6 @@ class RandomForestRegressor(Base):
     """
     def __getstate__(self):
         state = self.__dict__.copy()
-        del state['handle']
         cdef size_t params_t
         cdef  RandomForestMetaData[float, float] *rf_forest
         cdef  RandomForestMetaData[double, double] *rf_forest64
@@ -323,13 +321,14 @@ class RandomForestRegressor(Base):
         state['n_cols'] = self.n_cols
         state["verbose"] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
+        state['handle'] = self.handle
         state["treelite_handle"] = None
 
         return state
 
     def __setstate__(self, state):
         super(RandomForestRegressor, self).__init__(
-            handle=None, verbose=state['verbose'])
+            handle=state['handle'], verbose=state['verbose'])
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         cdef  RandomForestMetaData[double, double] *rf_forest64 = \
@@ -934,10 +933,7 @@ class RandomForestRegressor(Base):
         -----------
         params : dict of new params
         """
-        # Resetting handle as __setstate__ overwrites with handle=None
-        self.handle.__setstate__(self.n_streams)
         self.model_pbuf_bytes = []
-
         if not params:
             return self
         for key, value in params.items():

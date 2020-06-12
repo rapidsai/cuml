@@ -66,8 +66,8 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
                               n_samples);
 
     make_blobs(handle, X.data(), labels.data(), n_samples, n_features,
-               params.n_clusters, nullptr, nullptr, 1.0, false, -10.0f, 10.0f,
-               1234ULL);
+               params.n_clusters, true, nullptr, nullptr, 1.0, false, -10.0f,
+               10.0f, 1234ULL);
 
     allocate(d_labels, n_samples);
     allocate(d_labels_ref, n_samples);
