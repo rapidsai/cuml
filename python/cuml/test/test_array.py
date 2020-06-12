@@ -76,6 +76,7 @@ def test_array_init(input_type, dtype, shape, order):
     if input_type is not None:
         inp = create_input(input_type, dtype, shape, order)
         ary = CumlArray(data=inp)
+        ptr = ary.ptr
     else:
         inp = create_input('cupy', dtype, shape, order)
         ptr = inp.__cuda_array_interface__['data'][0]
@@ -97,9 +98,7 @@ def test_array_init(input_type, dtype, shape, order):
 
     assert ary.dtype == np.dtype(dtype)
 
-    if input_type == 'numpy':
-        assert isinstance(ary._owner, DeviceBuffer)
-    elif input_type in ['cupy', 'numba', 'series']:
+    if input_type in ['cupy', 'numba', 'series']:
         assert ary._owner is inp
         inp_copy = deepcopy(cp.asarray(inp))
 
@@ -108,6 +107,7 @@ def test_array_init(input_type, dtype, shape, order):
         assert cp.all(cp.asarray(ary._owner) == cp.asarray(inp_copy))
 
     else:
+        print(type(ary._owner))
         assert isinstance(ary._owner, cp.ndarray)
 
         truth = cp.asnumpy(inp)
@@ -152,6 +152,9 @@ def test_array_init_from_bytes(data_type, dtype, shape, order):
 @pytest.mark.parametrize('slice', test_slices)
 @pytest.mark.parametrize('order', ['C', 'F'])
 def test_get_set_item(slice, order):
+    if order == 'F' and slice != 'both':
+        pytest.skip("See issue https://github.com/rapidsai/cuml/issues/2412")
+
     inp = create_input('numpy', 'float32', (10, 10), order)
     ary = CumlArray(data=inp)
 
