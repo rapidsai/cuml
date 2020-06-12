@@ -158,17 +158,15 @@ def _order_to_strides(order, shape, dtype):
         raise ValueError('Order must be "F" or "C". ')
 
 
-def _get_size_from_shape(shape, dtype, ary=None):
+def _get_size_from_shape(shape, dtype):
     """
     Calculates size based on shape and dtype, returns (None, None) if either
     shape or dtype are None
     """
 
     if shape is None or dtype is None:
-        if ary is None:
-            return (None, None)
-        else:
-            return (ary.size, )
+        return (None, None)
+
     itemsize = cp.dtype(dtype).itemsize
     if isinstance(shape, int):
         size = itemsize * shape
