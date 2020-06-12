@@ -355,7 +355,7 @@ class PCA(Base):
         cluster labels
 
         """
-
+        self._set_n_features_in(X)
         self._set_output_type(X)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \

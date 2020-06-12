@@ -224,6 +224,7 @@ class ElasticNet(Base, RegressorMixin):
             will increase memory used for the method.
 
         """
+        self._set_n_features_in(X)
 
         self.cuElasticNet.fit(X, y, convert_dtype=convert_dtype)
 

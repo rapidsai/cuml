@@ -230,6 +230,7 @@ class SVC(SVMBase):
             ndarray, cuda array interface compliant array like CuPy
 
         """
+        self._set_n_features_in(X)
         self._set_output_type(X)
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, order='F')

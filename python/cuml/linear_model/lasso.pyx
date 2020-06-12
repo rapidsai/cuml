@@ -188,7 +188,8 @@ class Lasso(Base, RegressorMixin):
             will increase memory used for the method.
 
         """
-
+        self._set_n_features_in(X)
+        
         self.culasso.fit(X, y, convert_dtype=convert_dtype)
 
         self.coef_ = self.culasso.coef_

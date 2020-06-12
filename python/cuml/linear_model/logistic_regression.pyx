@@ -253,6 +253,7 @@ class LogisticRegression(Base):
             will increase memory used for the method.
 
         """
+        self._set_n_features_in(X)
 
         # Converting y to device array here to use `unique` function
         # since calling input_to_dev_array again in QN has no cost

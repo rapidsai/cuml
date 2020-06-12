@@ -570,6 +570,7 @@ class RandomForestRegressor(Base):
             These labels should be contiguous integers from 0 to n_classes.
         """
         self._set_output_type(X)
+        self._set_n_features_in(X)
 
         # Reset the old tree data for new fit call
         self._reset_forest_data()

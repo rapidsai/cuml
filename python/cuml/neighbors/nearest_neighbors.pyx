@@ -202,7 +202,7 @@ class NearestNeighbors(Base):
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
         """
-
+        self._set_n_features_in(X)
         self._set_output_type(X)
 
         if len(X.shape) != 2:
