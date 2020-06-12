@@ -37,7 +37,7 @@ cov_kernel_str = r'''
 def _cov_kernel(dtype):
     return cuda_kernel_factory(cov_kernel_str,
                                (dtype,),
-                               "map_labels_kernel")
+                               "cov_kernel")
 
 
 @with_cupy_rmm
