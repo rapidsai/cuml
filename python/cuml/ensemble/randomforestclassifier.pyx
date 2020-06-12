@@ -599,6 +599,7 @@ class RandomForestClassifier(Base):
 
         """
         self._set_output_type(X)
+        self._set_target_dtype(y)
 
         # Reset the old tree data for new fit call
         self._reset_forest_data()
@@ -851,6 +852,8 @@ class RandomForestClassifier(Base):
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
+        target_dtype = self._get_target_dtype()
+        
         if predict_model == "CPU" or self.num_classes > 2:
             if self.num_classes > 2 and predict_model == "GPU":
                 warnings.warn("Switching over to use the CPU predict since "
@@ -876,7 +879,7 @@ class RandomForestClassifier(Base):
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
 
-        return preds
+        return preds.astype(target_dtype)
 
     def _predict_get_all(self, X, convert_dtype=True):
         """
