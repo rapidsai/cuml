@@ -97,7 +97,7 @@ class DistributedDataHandler:
 
         client = cls.get_client(client)
 
-        datatype, multiple = get_datatype(data)
+        datatype, multiple = _get_datatype_from_inputs(data)
 
         gpu_futures = client.sync(_extract_partitions, data, client)
 
@@ -144,7 +144,22 @@ class DistributedDataHandler:
             self.total_rows += total
 
 
-def get_datatype(data):
+def _get_datatype_from_inputs(data):
+
+    """
+    Gets the datatype from a distributed data input.
+
+    Parameters
+    ----------
+
+    data : dask.DataFrame, dask.Series, dask.Array, or
+           Iterable containing either.
+
+    Returns
+    -------
+
+    datatype : str {'cupy', 'cudf}
+    """
 
     multiple = isinstance(data, Sequence)
 
