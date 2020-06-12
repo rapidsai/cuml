@@ -511,7 +511,7 @@ class UMAP(Base):
             CSR/COO preferred other formats will go through conversion to CSR
         """
         self._set_n_features_in(X)
-        
+
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
