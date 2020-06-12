@@ -40,6 +40,8 @@ def test_cov(nrows, ncols, sparse, dtype):
     if cp.sparse.issparse(local_gram):
         local_gram = local_gram.todense()
 
-    local_cov = local_gram - cp.outer(local_mean, local_mean)
+    if sparse:
+        x = x.todense()
+    local_cov = cp.cov(x, rowvar=False, ddof=0)
 
     assert array_equal(cov_result, local_cov, 1e-7, with_sign=True)
