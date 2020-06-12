@@ -22,7 +22,7 @@ from cuml.common.base import Base, RegressorMixin
 from cuml.solvers import SGD
 
 
-class MBSGDRegressor(Base):
+class MBSGDRegressor(Base, RegressorMixin):
     """
     Linear regression model fitted by minimizing a
     regularized empirical loss with mini-batch SGD.
