@@ -231,6 +231,8 @@ class SVC(SVMBase):
 
         """
         self._set_output_type(X)
+        self._set_target_dtype(y)
+        
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, order='F')
 
@@ -288,8 +290,9 @@ class SVC(SVMBase):
         y : cuDF Series
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
+        target_dtype = self._get_target_dtype()
 
-        return super(SVC, self).predict(X, True)
+        return super(SVC, self).predict(X, True).astype(target_dtype)
 
     def decision_function(self, X):
         """
