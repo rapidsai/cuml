@@ -51,6 +51,13 @@ class BaseEstimator(object):
     def get_combined_model(self):
         """
         Return single-GPU model for serialization
+
+        Returns
+        -------
+
+        mode : Trained single-GPU model or None if the model has not
+               yet been trained.
+
         """
 
         internal_model = self._check_internal_model(self._get_internal_model())
@@ -69,19 +76,31 @@ class BaseEstimator(object):
     def _set_internal_model(self, model):
 
         """
-        Standardizes upon the way we set the internal model so that it could
-         either be futures, a single future, or a class local to the client.
+        Assigns model (a Future or list of futures containins a single-GPU model)
+        to be an internal model.
 
-        In order for `get_serializable model` to provide a consistent output,
+        This function standardizes upon the way we set the internal model so that
+        it could either be futures, a single future, or a class local to the
+        client.
+
+        In order for `get_combined model()` to provide a consistent output,
         self.internal_model is expected to be either a single future
         containing a cuml.Base instance or a local cuml.Base on the client.
-        If an iterable is passed into this method, only the first item will
-        be used.
+        An iterable can be passed into this method when a trained model
+        has been duplicated across the workers. In this case, only the
+        first element of the iterable will be set as the internal_model
 
         If multiple different parameters have been trained across the cluster,
         such as in RandomForests or some approx. nearest neighbors algorithms,
-        they should be combined into a single model.
-       """
+        they should be combined into a single model and the combined model
+        should be passed to `set_internal_model()`
+
+        Parameters
+        ----------
+
+        model : distributed.client.Future[cuml.Base], cuml.Base, or None
+
+        """
         self.internal_model = self._check_internal_model(model)
 
     @staticmethod
@@ -104,7 +123,7 @@ class BaseEstimator(object):
             model = first(model)
 
         if isinstance(model, Future):
-            if issubclass(Base, model.type):
+            if not issubclass(model.type, Base):
                 warnings.warn("Dask Future expected to contain cuml.Base but"
                               "found %s instead." % model.type)
 
@@ -116,10 +135,11 @@ class BaseEstimator(object):
 
     def _get_internal_model(self):
         """
-        Internal method for subclasses to (optionally) override.
-        An example of when this might be useful is when a RandomForest
-        model has been trained but not yet concatencated. This allows
-        a reduction on-demand before the final model is returned.
+        Gets the internal model from the instance.
+
+        This function is a convenience for future maintenance and
+        should never perform any expensive operations like data
+        transfers between the client and the Dask cluster.
 
         Returns
         -------
@@ -151,7 +171,8 @@ class BaseEstimator(object):
         """
         real_name = '_' + attr
 
-        internal_model = self._get_internal_model()
+
+        ret_attr = None
 
         # First check locally for _ prefixed attr
         if real_name in self.__dict__:
@@ -164,7 +185,8 @@ class BaseEstimator(object):
 
         # If we didn't have an attribute on the local model, we might
         # have it on the distributed model.
-        elif internal_model is not None:
+        internal_model = self._get_internal_model()
+        if ret_attr is None and internal_model is not None:
             if isinstance(internal_model, Base):
                 # If model is not distributed, just return the
                 # requested attribute
@@ -240,19 +262,19 @@ class DelayedParallelFunc(object):
         if output_collection_type is None:
             output_collection_type = self.datatype
 
-        model = dask.delayed(self._get_internal_model(),
-                             pure=True,
-                             traverse=False)
+        model_delayed = dask.delayed(self._get_internal_model(),
+                                     pure=True,
+                                     traverse=False)
 
         func = dask.delayed(func, pure=False, nout=1)
 
         if isinstance(X, dcDataFrame):
 
-            preds = [func(model, part, **kwargs) for part in X_d]
+            preds = [func(model_delayed, part, **kwargs) for part in X_d]
             dtype = first(X.dtypes) if output_dtype is None else output_dtype
 
         else:
-            preds = [func(model, part[0])
+            preds = [func(model_delayed, part[0])
                      for part in X_d]
             dtype = X.dtype if output_dtype is None else output_dtype
 
