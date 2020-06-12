@@ -169,6 +169,8 @@ class KNeighborsClassifier(NearestNeighbors):
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
         """
+        self._set_target_dtype(y)
+        
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self.y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.int32,
@@ -194,6 +196,7 @@ class KNeighborsClassifier(NearestNeighbors):
         """
 
         out_type = self._get_output_type(X)
+        target_dtype = self._get_target_dtype()
 
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
@@ -237,7 +240,7 @@ class KNeighborsClassifier(NearestNeighbors):
 
         self.handle.sync()
 
-        return classes.to_output(out_type)
+        return classes.to_output(out_type).astype(target_dtype)
 
     @with_cupy_rmm
     def predict_proba(self, X, convert_dtype=True):
