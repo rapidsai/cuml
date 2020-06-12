@@ -23,6 +23,7 @@ import cuml
 import cuml.common.cuda
 import cuml.common.handle
 import cuml.common.logger as logger
+from cuml.common import input_to_cuml_array
 import inspect
 
 from cudf.core import Series as cuSeries
@@ -326,9 +327,9 @@ class RegressorMixin:
             handle = self.handle
         else:
             handle = None
-        return r2_score(y,
-                        cuda.to_device(self.predict(X)),
-                        handle=handle)
+
+        preds = self.predict(X)
+        return r2_score(y, preds, handle=handle)
 
 
 class ClassifierMixin:
@@ -354,7 +355,6 @@ class ClassifierMixin:
         from cuml.metrics.accuracy import accuracy_score
         from cuml.common import input_to_dev_array
 
-        X_m = input_to_dev_array(X)[0]
         y_m = input_to_dev_array(y)[0]
 
         if hasattr(self, 'handle'):
@@ -362,9 +362,8 @@ class ClassifierMixin:
         else:
             handle = None
 
-        return accuracy_score(y_m,
-                              cuda.to_device(self.predict(X_m)),
-                              handle=handle)
+        preds = self.predict(X)
+        return accuracy_score(y_m, preds, handle=handle)
 
 
 # Internal, non class owned helper functions
