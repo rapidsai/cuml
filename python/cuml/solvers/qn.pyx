@@ -285,6 +285,8 @@ class QN(Base):
             will increase memory used for the method.
         """
         self._set_output_type(X)
+        self._set_target_dtype(y)
+        
         X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
             X, order='F', check_dtype=[np.float32, np.float64]
         )
@@ -470,6 +472,8 @@ class QN(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         out_type = self._get_output_type(X)
+        target_dtype = self._get_target_dtype()
+        
         X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
             X, check_dtype=self.dtype,
             convert_to_dtype=(self.dtype if convert_dtype else None),
@@ -510,8 +514,8 @@ class QN(Base):
         self.handle.sync()
 
         del X_m
-
-        return preds.to_output(out_type)
+        
+        return preds.to_output(out_type).astype(target_dtype)
 
     def score(self, X, y):
         return accuracy_score(y, self.predict(X))

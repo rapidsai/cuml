@@ -290,6 +290,22 @@ class Base:
             return _input_to_type(input)
         else:
             return self.output_type
+        
+    def _set_target_dtype(self, input_target_array):
+        """
+        Method to be called by fit methods of inheriting classifier
+        classes to correctly set the output type depending on the dtype of
+        the target.
+        """
+        self.target_dtype = input_target_array.dtype
+        
+    def _get_target_dtype(self):
+        """
+        Method to be called by predict/transform methods of inheriting classifier
+        classes. Returns the appropriate output dtype depending on the
+        dtype of the target.
+        """
+        return self.target_dtype
 
 
 # Internal, non class owned helper functions
