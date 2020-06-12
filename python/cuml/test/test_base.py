@@ -17,6 +17,7 @@ import pytest
 import cuml
 from cuml.test.utils import small_classification_dataset
 
+
 def test_base_class_usage():
     base = cuml.Base()
     base.handle.sync()
@@ -40,6 +41,7 @@ def test_base_hasattr():
     # True only for valid attributes
     assert hasattr(base, "handle")
     assert not hasattr(base, "somefakeattr")
+
 
 @pytest.mark.parametrize('datatype', ["float32", "float64"])
 def test_base_n_features_in(datatype):
