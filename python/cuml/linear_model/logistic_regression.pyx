@@ -257,6 +257,8 @@ class LogisticRegression(Base):
         # Converting y to device array here to use `unique` function
         # since calling input_to_dev_array again in QN has no cost
         # Not needed to check dtype since qn class checks it already
+        self._set_target_dtype(y)
+        
         y_m, _, _, _ = input_to_cuml_array(y)
 
         unique_labels = cp.unique(y_m)

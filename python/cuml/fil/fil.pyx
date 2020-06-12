@@ -237,7 +237,7 @@ cdef class ForestInference_impl():
                              ' to the documentation')
         return storage_type_dict[storage_type_str]
 
-    def predict(self, X, output_type='numpy', predict_proba=False, preds=None):
+    def predict(self, X, output_type='numpy', output_dtype=np.float32, predict_proba=False, preds=None):
         """
         Returns the results of forest inference on the examples in X
 
@@ -272,7 +272,7 @@ cdef class ForestInference_impl():
             shape = (n_rows, )
             if predict_proba:
                 shape += (2,)
-            preds = CumlArray.empty(shape=shape, dtype=np.float32, order='C')
+            preds = CumlArray.empty(shape=shape, dtype=output_dtype, order='C')
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
             raise ValueError("Invalid type for output preds,"
