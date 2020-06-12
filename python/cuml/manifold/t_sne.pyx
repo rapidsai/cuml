@@ -430,6 +430,7 @@ class TSNE(Base):
 
         data = self._embedding_.to_output(out_type)
         del self._embedding_
+
         return data
 
     def __getstate__(self):

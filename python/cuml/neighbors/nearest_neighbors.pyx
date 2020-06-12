@@ -34,7 +34,6 @@ from cython.operator cimport dereference as deref
 
 from cuml.common.handle cimport cumlHandle
 
-
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
@@ -66,6 +65,17 @@ cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
+    enum MetricType:
+        METRIC_INNER_PRODUCT = 0,
+        METRIC_L2,
+        METRIC_L1,
+        METRIC_Linf,
+        METRIC_Lp,
+
+        METRIC_Canberra = 20,
+        METRIC_BrayCurtis,
+        METRIC_JensenShannon
+
     void brute_force_knn(
         cumlHandle &handle,
         vector[float*] &inputs,
@@ -77,7 +87,10 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         float *res_D,
         int k,
         bool rowMajorIndex,
-        bool rowMajorQuery
+        bool rowMajorQuery,
+        MetricType metric,
+        float metric_arg,
+        bool expanded
     ) except +
 
 
@@ -98,7 +111,16 @@ class NearestNeighbors(Base):
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.
     metric : string (default='euclidean').
-        Distance metric to use.
+        Distance metric to use. Supported distances are ['l1, 'cityblock',
+        'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
+        'minkowski', 'chebyshev', 'jensenshannon']
+    p : float (default=2) Parameter for the Minkowski metric. When p = 1, this
+        is equivalent to manhattan distance (l1), and euclidean distance (l2)
+        for p = 2. For arbitrary p, minkowski distance (lp) is used.
+    metric_expanded : bool
+        Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
+        by using the expanded form and not computing the n-th roots.
+    metric_params : dict, optional (default = None) This is currently ignored.
 
     Examples
     ---------
@@ -172,19 +194,28 @@ class NearestNeighbors(Base):
                  handle=None,
                  algorithm="brute",
                  metric="euclidean",
+                 p=2,
+                 metric_params=None,
                  output_type=None):
 
         super(NearestNeighbors, self).__init__(handle=handle,
                                                verbose=verbose,
                                                output_type=output_type)
 
-        if metric != "euclidean":
-            raise ValueError("Only Euclidean (euclidean) "
-                             "metric is supported currently")
+        if algorithm != "brute":
+            raise ValueError("Algorithm %s is not valid. Only 'brute' is"
+                             "supported currently." % algorithm)
+
+        if metric not in cuml.neighbors.VALID_METRICS[algorithm]:
+            raise ValueError("Metric %s is not valid. "
+                             "Use sorted(cuml.neighbors.VALID_METRICS[%s]) "
+                             "to get valid options." % (metric, algorithm))
 
         self.n_neighbors = n_neighbors
         self.n_indices = 0
         self.metric = metric
+        self.metric_params = metric_params
+        self.p = p
         self.algorithm = algorithm
 
     def fit(self, X, convert_dtype=True):
@@ -217,10 +248,41 @@ class NearestNeighbors(Base):
                                                   else None))
 
         self.n_rows = n_rows
-
         self.n_indices = 1
 
         return self
+
+    def get_param_names(self):
+        return ["n_neighbors", "algorithm", "metric",
+                "p", "metric_params"]
+
+    @staticmethod
+    def _build_metric_type(metric):
+
+        expanded = False
+
+        if metric == "euclidean" or metric == "l2":
+            m = MetricType.METRIC_L2
+        elif metric == "sqeuclidean":
+            m = MetricType.METRIC_L2
+            expanded = True
+        elif metric == "cityblock" or metric == "l1"\
+                or metric == "manhattan" or metric == 'taxicab':
+            m = MetricType.METRIC_L1
+        elif metric == "braycurtis":
+            m = MetricType.METRIC_BrayCurtis
+        elif metric == "canberra":
+            m = MetricType.METRIC_Canberra
+        elif metric == "minkowski" or metric == "lp":
+            m = MetricType.METRIC_Lp
+        elif metric == "chebyshev" or metric == "linf":
+            m = MetricType.METRIC_Linf
+        elif metric == "jensenshannon":
+            m = MetricType.METRIC_JensenShannon
+        else:
+            raise ValueError("Metric %s is not supported" % metric)
+
+        return m, expanded
 
     def kneighbors(self, X=None, n_neighbors=None,
                    return_distance=True, convert_dtype=True):
@@ -301,6 +363,8 @@ class NearestNeighbors(Base):
 
         cdef uintptr_t x_ctype_st = X_m.ptr
 
+        metric, expanded = self._build_metric_type(self.metric)
+
         brute_force_knn(
             handle_[0],
             deref(inputs),
@@ -312,7 +376,12 @@ class NearestNeighbors(Base):
             <float*>D_ptr,
             <int>n_neighbors,
             False,
-            False
+            False,
+            <MetricType>metric,
+
+            # minkowski order is currently the only metric argument.
+            <float>self.p,
+            < bool > expanded
         )
 
         self.handle.sync()
