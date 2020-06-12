@@ -72,27 +72,68 @@ def test__multinomial_basic_fit_predict_sparse(x_dtype, y_dtype, nlp_20news):
     assert accuracy_score(y, y_hat) >= 0.924
 
 
+def test_gnb():
+
+    from sklearn.utils._testing import assert_array_equal
+    from sklearn.utils._testing import assert_array_almost_equal
+    from sklearn.utils._testing import assert_raises
+
+    # Data is just 6 separable points in the plane
+    X = cp.array([[-2, -1], [-1, -1], [-1, -2], [1, 1], [1, 2], [2, 1]], dtype=cp.float32)
+    y = cp.array([1, 1, 1, 2, 2, 2])
+
+    from sklearn.naive_bayes import GaussianNB as GNB
+
+    skclf = GNB()
+    skclf.fit(X.get(), y.get())
+
+    print(str(skclf.theta_))
+    print(str(skclf.sigma_))
+
+    y_pred_sk = skclf.predict(X.get())
+
+    from cuml.common import logger
+
+    logger.set_level(logger.level_trace)
+
+    clf = GaussianNB(verbose=logger.level_trace)
+    clf.fit(X, y)
+
+    print(str(clf.theta_))
+    print(str(clf.sigma_))
+
+    y_pred = clf.predict(X)
+
+    print(str(y))
+    print(str(y_pred))
+
+    assert_array_equal(y_pred.get(), y.get())
+
+    # y_pred_proba = clf.predict_proba(X)
+    # y_pred_log_proba = clf.predict_log_proba(X)
+    # assert_array_almost_equal(np.log(y_pred_proba).get(), y_pred_log_proba.get(), 8)
+
+    # # Test whether label mismatch between target y and classes raises
+    # # an Error
+    # # FIXME Remove this test once the more general partial_fit tests are merged
+    # assert_raises(ValueError, GaussianNB().partial_fit, X, y, classes=[0, 1])
+
+
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_gaussian_basic_fit_predict_sparse(x_dtype, y_dtype, nlp_20news):
+@pytest.mark.parametrize("n_features", [10, 50])
+def test_gaussian_basic_fit_predict_sparse(n_features, x_dtype, y_dtype, nlp_20news):
     """
     Cupy Test
     """
 
     X, y = nlp_20news
 
-    X = scipy_to_cp(X, x_dtype).astype(x_dtype)
+    X = scipy_to_cp(X[:, :n_features], x_dtype).astype(x_dtype)
     y = y.astype(y_dtype)
 
-    # Priming it seems to lower the end-to-end runtime
     model = GaussianNB()
     model.fit(X, y)
-
-    cp.cuda.Stream.null.synchronize()
-
-    with cp.prof.time_range(message="start", color_id=10):
-        model = GaussianNB()
-        model.fit(X, y)
 
     y_hat = model.predict(X)
 

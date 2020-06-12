@@ -20,6 +20,8 @@ import cupy.prof
 import math
 import warnings
 
+from cuml.common import logger
+
 from cuml.common import with_cupy_rmm
 from cuml.common import CumlArray
 from cuml.common.base import Base
@@ -45,6 +47,8 @@ def count_features_coo_kernel(float_dtype, int_dtype):
                     {0} *vals, int nnz,
                     int n_rows, int n_cols,
                     {1} *labels,
+                    {0} *weights,
+                    bool has_weights,
                     int n_classes,
                     bool square) {
 
@@ -55,7 +59,14 @@ def count_features_coo_kernel(float_dtype, int_dtype):
       int row = rows[i];
       int col = cols[i];
       {0} val = vals[i];
+
+      printf("val=%f\n", val);
+      
+      if(has_weights)
+        val *= weights[i];
+          
       if(square) val *= val;
+      
       {1} label = labels[row];
       atomicAdd(out + ((col * n_classes) + label), val);
     }'''
@@ -72,7 +83,10 @@ def count_classes_kernel(float_dtype, int_dtype):
       int row = blockIdx.x * blockDim.x + threadIdx.x;
       if(row >= n_rows) return;
       {1} label = labels[row];
-      atomicAdd(out + label, 1);
+      
+      printf("label=%d\n", label);
+      
+      atomicAdd(out + label, ({0})1);
     }'''
 
     return cuda_kernel_factory(kernel_str,
@@ -88,6 +102,8 @@ def count_features_dense_kernel(float_dtype, int_dtype):
      int n_rows,
      int n_cols,
      {1} *labels,
+     {0} *weights,
+     bool has_weights,
      int n_classes,
      bool square,
      bool rowMajor) {
@@ -100,12 +116,20 @@ def count_features_dense_kernel(float_dtype, int_dtype):
       {0} val = !rowMajor ?
             in[col * n_rows + row] : in[row * n_cols + col];
 
+      if(has_weights)
+        val *= weights[row];
+
+      printf("val=%f\n", val);
+
       if(val == 0.0) return;
 
       if(square) val *= val;
+      
       {1} label = labels[row];
+      
+      {1} idx = !rowMajor ? col : row;
 
-      atomicAdd(out + ((col * n_classes) + label), val);
+      atomicAdd(out + ((idx * n_classes) + label), val);
     }'''
 
     return cuda_kernel_factory(kernel_str,
@@ -113,54 +137,196 @@ def count_features_dense_kernel(float_dtype, int_dtype):
                                "count_features_dense")
 
 
-class GaussianNB(object):
+class _BaseNB(Base):
 
-    def __init__(self, priors=None, var_smoothing=1e-9):
+    def __init__(self, verbose=False, output_type=None):
 
+        super(_BaseNB, self).__init__(verbose=verbose,
+                                      output_type=output_type)
+
+
+    @cp.prof.TimeRangeDecorator(message="predict()", color_id=1)
+    @with_cupy_rmm
+    def predict(self, X):
+        """
+        Perform classification on an array of test vectors X.
+
+        Parameters
+        ----------
+
+        X : array-like of shape (n_samples, n_features)
+
+        Returns
+        -------
+
+        C : cupy.ndarray of shape (n_samples)
+
+        """
+        out_type = self._get_output_type(X)
+
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.common.import_utils import dummy_function_always_false \
+                as scipy_sparse_isspmatrix
+
+        # todo: use a sparse CumlArray style approach when ready
+        # https://github.com/rapidsai/cuml/issues/2216
+        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+            X = X.tocoo()
+            rows = cp.asarray(X.row, dtype=X.row.dtype)
+            cols = cp.asarray(X.col, dtype=X.col.dtype)
+            data = cp.asarray(X.data, dtype=X.data.dtype)
+            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
+        else:
+            X = input_to_cuml_array(X, order='K').array.to_output('cupy')
+
+        jll = self._joint_log_likelihood(X)
+        indices = cp.argmax(jll, axis=1).astype(self._classes_.dtype)
+
+        y_hat = invert_labels(indices, classes=self._classes_)
+        return CumlArray(data=y_hat).to_output(out_type)
+
+    @with_cupy_rmm
+    def predict_log_proba(self, X):
+        """
+        Return log-probability estimates for the test vector X.
+
+        Parameters
+        ----------
+
+        X : array-like of shape (n_samples, n_features)
+
+
+        Returns
+        -------
+
+        C : array-like of shape (n_samples, n_classes)
+            Returns the log-probability of the samples for each class in the
+            model. The columns correspond to the classes in sorted order, as
+            they appear in the attribute classes_.
+        """
+        out_type = self._get_output_type(X)
+
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.common.import_utils import dummy_function_always_false \
+                as scipy_sparse_isspmatrix
+
+        # todo: use a sparse CumlArray style approach when ready
+        # https://github.com/rapidsai/cuml/issues/2216
+        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+            X = X.tocoo()
+            rows = cp.asarray(X.row, dtype=X.row.dtype)
+            cols = cp.asarray(X.col, dtype=X.col.dtype)
+            data = cp.asarray(X.data, dtype=X.data.dtype)
+            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
+        else:
+            X = input_to_cuml_array(X, order='K').array.to_output('cupy')
+
+        jll = self._joint_log_likelihood(X)
+
+        # normalize by P(X) = P(f_1, ..., f_n)
+
+        # Compute log(sum(exp()))
+
+        # Subtract max in exp to prevent inf
+        a_max = cp.amax(jll, axis=1, keepdims=True)
+
+        exp = cp.exp(jll - a_max)
+        logsumexp = cp.log(cp.sum(exp, axis=1))
+
+        a_max = cp.squeeze(a_max, axis=1)
+
+        log_prob_x = a_max + logsumexp
+
+        if log_prob_x.ndim < 2:
+            log_prob_x = log_prob_x.reshape((1, log_prob_x.shape[0]))
+        result = jll - log_prob_x.T
+        return CumlArray(result).to_output(out_type)
+
+    @with_cupy_rmm
+    def predict_proba(self, X):
+        """
+        Return probability estimates for the test vector X.
+
+        Parameters
+        ----------
+
+        X : array-like of shape (n_samples, n_features)
+
+        Returns
+        -------
+
+        C : array-like of shape (n_samples, n_classes)
+            Returns the probability of the samples for each class in the model.
+            The columns correspond to the classes in sorted order, as they
+            appear in the attribute classes_.
+        """
+        out_type = self._get_output_type(X)
+        result = cp.exp(self.predict_log_proba(X))
+        return CumlArray(result).to_output(out_type)
+
+
+class GaussianNB(_BaseNB):
+
+    def __init__(self, priors=None, var_smoothing=1e-9,
+                 output_type=None, verbose=False):
+
+        super(GaussianNB, self).__init__(verbose=verbose,
+                                         output_type=output_type)
         self.priors = priors
         self.var_smoothing = var_smoothing
         self.fit_called = False
+        self._classes_ = None
 
     def fit(self, X, y, sample_weight=None):
-        return self._partial_fit(X, y, cp.unique(y), _refit=True,
+        return self._partial_fit(X, y, classes=None, _refit=True,
                                  sample_weight=sample_weight)
 
     @with_cupy_rmm
     def _partial_fit(self, X, y, classes=None, _refit=False, sample_weight=None):
 
         if _refit:
-            self.classes_ = None
+            self._classes_ = None
+
+        Y, label_classes = make_monotonic(y, copy=True)
+
+        logger.debug("LABELS: "+ str(label_classes))
 
         self.epsilon_ = self.var_smoothing #* cp.var(X, axis=0).max()
 
         if not self.fit_called:
 
-            if self.classes_ is None:
-                self.classes_ = cp.unique(y) if classes is None else classes
+            # Original labels are stored on the instance
+            if self._classes_ is None:
+                self._classes_ = label_classes
+
+            logger.debug("self classes: " + str(self._classes_))
 
             n_features = X.shape[1]
-            n_classes = len(self.classes_)
+            n_classes = len(self._classes_)
 
             self.n_classes_ = n_classes
 
             self.theta_ = cp.zeros((n_classes, n_features))
             self.sigma_ = cp.zeros((n_classes, n_features))
 
-            self.class_count_ = cp.zeros(n_classes, dtype=cp.float64)
+            self.class_count_ = cp.zeros(n_classes, dtype=X.dtype)
+
         else:
             self.sigma_[:, :] -= self.epsilon_
 
-        classes = self.classes_
-
         unique_y = cp.unique(y)
-        unique_y_in_classes = cp.in1d(unique_y, classes)
+        unique_y_in_classes = cp.in1d(unique_y, self._classes_)
 
         if not cp.all(unique_y_in_classes):
             raise ValueError("The target label(s) %s in y do not exist "
                              "in the initial classes %s" %
-                             (unique_y[~unique_y_in_classes], classes))
+                             (unique_y[~unique_y_in_classes], self._classes_))
 
-        self.theta_, self.sigma_ = self._update_mean_variance(X, y,
+        self.theta_, self.sigma_ = self._update_mean_variance(X, Y,
                                                               n_classes,
                                                               n_features)
 
@@ -169,23 +335,41 @@ class GaussianNB(object):
         if self.priors is None:
             self.class_prior_ = self.class_count_ / self.class_count_.sum()
 
+        return self
+
     def partial_fit(self, X, y, classes=None, sample_weight=None):
         return self._partial_fit(X, y, classes, _refit=False,
                                  sample_weight=sample_weight)
+    #
+    # def predict(self, X):
+    #     jll = self._joint_log_likelihood(X)
+    #     return self._classes_[cp.argmax(jll, axis=1)]
 
-    def _update_mean_variance(self, X, Y, n_classes, n_features, sample_weight=None):
+    def _update_mean_variance(self, X, Y, n_classes, n_features,
+                              sample_weight=None):
 
-        labels_dtype = self.classes_.dtype
+        if sample_weight is None:
+            sample_weight = cp.zeros(0)
+
+        labels_dtype = self._classes_.dtype
+
+        logger.debug("CC: "+ str(self.class_count_))
 
         mu = self.theta_
         var = self.sigma_
+
+        early_return = self.class_count_.sum() == 0
         n_past = self.class_count_
 
+        if X.shape[0] == 0:
+            return mu, var
+
+        logger.debug(str(Y))
+
+        new_mu = cp.zeros((n_classes, n_features))
+        new_var = cp.zeros((n_classes, n_features))
         if cp.sparse.isspmatrix(X):
             X = X.tocoo()
-
-            new_mu = cp.zeros((n_classes, n_features))
-            new_var = cp.zeros((n_classes, n_features))
 
             count_features_coo = count_features_coo_kernel(X.dtype,
                                                            labels_dtype)
@@ -200,6 +384,8 @@ class GaussianNB(object):
                                 X.shape[0],
                                 X.shape[1],
                                 Y,
+                                sample_weight,
+                                sample_weight.shape[0] > 0,
                                 self.n_classes_, False))
 
             # Run again for variance
@@ -212,6 +398,8 @@ class GaussianNB(object):
                                 X.shape[0],
                                 X.shape[1],
                                 Y,
+                                sample_weight,
+                                sample_weight.shape[0] > 0,
                                 self.n_classes_, True))
 
         else:
@@ -223,11 +411,13 @@ class GaussianNB(object):
             count_features_dense((math.ceil(X.shape[0] / 32),
                                   math.ceil(X.shape[1] / 32), 1),
                                  (32, 32, 1),
-                                 (mu,
+                                 (new_mu,
                                   X,
                                   X.shape[0],
                                   X.shape[1],
                                   Y,
+                                  sample_weight,
+                                  sample_weight.shape[0] > 0,
                                   self.n_classes_,
                                   False,
                                   X.flags["C_CONTIGUOUS"]))
@@ -236,11 +426,13 @@ class GaussianNB(object):
             count_features_dense((math.ceil(X.shape[0] / 32),
                                   math.ceil(X.shape[1] / 32), 1),
                                  (32, 32, 1),
-                                 (var,
+                                 (new_var,
                                   X,
                                   X.shape[0],
                                   X.shape[1],
                                   Y,
+                                  sample_weight,
+                                  sample_weight.shape[0] > 0,
                                   self.n_classes_,
                                   True,
                                   X.flags["C_CONTIGUOUS"]))
@@ -249,43 +441,75 @@ class GaussianNB(object):
         count_classes((math.ceil(X.shape[0] / 32),), (32,),
                       (self.class_count_, X.shape[0], Y))
 
-        n_new = X.shape[0]
+        if early_return:
+            logger.debug("RETURNING EARLY")
+            return new_mu, new_var
+
+        # Compute (potentially weighted) mean and variance of new datapoints
+        if sample_weight is not None:
+            n_new = float(sample_weight.sum())
+        else:
+            n_new = X.shape[0]
 
         class_counts = cp.expand_dims(self.class_count_, axis=1)
         new_mu /= class_counts
 
+        logger.debug("n_past: "+ str(n_past))
+
         # Construct variance from sum squares
-        new_var = (var / class_counts) - new_mu**2
+        new_var = (var / class_counts) - new_mu ** 2
 
         n_total = n_past + n_new
 
-        total_mu = ((new_mu.T + (n_new + n_past)[:, cp.newaxis].T) * mu.T) #/ n_total
+        # TODO: This is really bad...
+        total_mu = ((new_mu.T + (n_new + n_past)[:, cp.newaxis].T) * mu.T).T #/ n_total
 
-        old_ssd = n_past * var
+        logger.debug("total_mu: " + str(total_mu.shape))
+
+        logger.debug("N_PAST: " + str(n_past.shape))
+        logger.debug("VAR: " + str(var.shape))
+
+        old_ssd = n_past[:, cp.newaxis] * var
         new_ssd = n_new * new_var
-        total_ssd = (old_ssd + new_ssd +
-                     (n_new * n_past / n_total) *
-                     (mu - new_mu) ** 2)
 
-        total_var = total_ssd / n_total
+        ssd_sum = old_ssd + new_ssd
+        combined_feature_counts = n_new * n_past / n_total
+        mean_adj = (mu - new_mu)**2
+
+        total_ssd = (ssd_sum +
+                     combined_feature_counts[:, cp.newaxis] *
+                     mean_adj)
+
+        total_var = total_ssd / n_total[:, cp.newaxis]
+
+        logger.debug("total_var: " + str(total_var.shape))
 
         return total_mu, total_var
 
     def _joint_log_likelihood(self, X):
         joint_log_likelihood = []
 
-        for i in range(cp.size(self.classes_)):
+        for i in range(cp.size(self._classes_)):
             joint1 = cp.log(self.class_prior_[i])
 
             n_ij = -0.5 * cp.sum(cp.log(2. * cp.pi * self.sigma_[i, :]))
-            n_ij -= 0.5 * cp.sum(((X - self.theta_[i, :]) ** 2) \
-                                     (self.sigma_[i, :]), 1)
+
+            centered = X - self.theta_[i, :] ** 2
+            zvals = centered / self.sigma_[i, :]
+            summed = cp.sum(zvals, axis=1)
+            logger.debug("normalized: "+ str(zvals.shape))
+            logger.debug("nij: "+ str(n_ij.shape))
+            logger.debug("summed: " + str(summed.shape))
+
+            n_ij = -(0.5 * summed) + n_ij
             joint_log_likelihood.append(joint1 + n_ij)
+
+        logger.debug(str(cp.argmax(cp.array(joint_log_likelihood), axis=0)))
 
         return cp.array(joint_log_likelihood).T
 
 
-class MultinomialNB(Base):
+class MultinomialNB(_BaseNB):
 
     # TODO: Make this extend cuml.Base:
     # https://github.com/rapidsai/cuml/issues/1834
@@ -383,7 +607,7 @@ class MultinomialNB(Base):
 
         self.fit_called_ = False
 
-        self.classes_ = None
+        self._classes_ = None
         self.n_classes_ = 0
 
         self.n_features_ = None
@@ -510,128 +734,6 @@ class MultinomialNB(Base):
         return self._partial_fit(X, y, sample_weight=sample_weight,
                                  _classes=classes)
 
-    @cp.prof.TimeRangeDecorator(message="predict()", color_id=1)
-    @with_cupy_rmm
-    def predict(self, X):
-        """
-        Perform classification on an array of test vectors X.
-
-        Parameters
-        ----------
-
-        X : array-like of shape (n_samples, n_features)
-
-        Returns
-        -------
-
-        C : cupy.ndarray of shape (n_samples)
-
-        """
-        out_type = self._get_output_type(X)
-
-        if has_scipy():
-            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
-        else:
-            from cuml.common.import_utils import dummy_function_always_false \
-                as scipy_sparse_isspmatrix
-
-        # todo: use a sparse CumlArray style approach when ready
-        # https://github.com/rapidsai/cuml/issues/2216
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
-            X = X.tocoo()
-            rows = cp.asarray(X.row, dtype=X.row.dtype)
-            cols = cp.asarray(X.col, dtype=X.col.dtype)
-            data = cp.asarray(X.data, dtype=X.data.dtype)
-            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
-        else:
-            X = input_to_cuml_array(X, order='K').array.to_output('cupy')
-
-        jll = self._joint_log_likelihood(X)
-        indices = cp.argmax(jll, axis=1).astype(self._classes_.dtype)
-
-        y_hat = invert_labels(indices, classes=self._classes_)
-        return CumlArray(data=y_hat).to_output(out_type)
-
-    @with_cupy_rmm
-    def predict_log_proba(self, X):
-        """
-        Return log-probability estimates for the test vector X.
-
-        Parameters
-        ----------
-
-        X : array-like of shape (n_samples, n_features)
-
-
-        Returns
-        -------
-
-        C : array-like of shape (n_samples, n_classes)
-            Returns the log-probability of the samples for each class in the
-            model. The columns correspond to the classes in sorted order, as
-            they appear in the attribute classes_.
-        """
-        out_type = self._get_output_type(X)
-
-        if has_scipy():
-            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
-        else:
-            from cuml.common.import_utils import dummy_function_always_false \
-                as scipy_sparse_isspmatrix
-
-        # todo: use a sparse CumlArray style approach when ready
-        # https://github.com/rapidsai/cuml/issues/2216
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
-            X = X.tocoo()
-            rows = cp.asarray(X.row, dtype=X.row.dtype)
-            cols = cp.asarray(X.col, dtype=X.col.dtype)
-            data = cp.asarray(X.data, dtype=X.data.dtype)
-            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
-        else:
-            X = input_to_cuml_array(X, order='K').array.to_output('cupy')
-
-        jll = self._joint_log_likelihood(X)
-
-        # normalize by P(X) = P(f_1, ..., f_n)
-
-        # Compute log(sum(exp()))
-
-        # Subtract max in exp to prevent inf
-        a_max = cp.amax(jll, axis=1, keepdims=True)
-
-        exp = cp.exp(jll - a_max)
-        logsumexp = cp.log(cp.sum(exp, axis=1))
-
-        a_max = cp.squeeze(a_max, axis=1)
-
-        log_prob_x = a_max + logsumexp
-
-        if log_prob_x.ndim < 2:
-            log_prob_x = log_prob_x.reshape((1, log_prob_x.shape[0]))
-        result = jll - log_prob_x.T
-        return CumlArray(result).to_output(out_type)
-
-    @with_cupy_rmm
-    def predict_proba(self, X):
-        """
-        Return probability estimates for the test vector X.
-
-        Parameters
-        ----------
-
-        X : array-like of shape (n_samples, n_features)
-
-        Returns
-        -------
-
-        C : array-like of shape (n_samples, n_classes)
-            Returns the probability of the samples for each class in the model.
-            The columns correspond to the classes in sorted order, as they
-            appear in the attribute classes_.
-        """
-        out_type = self._get_output_type(X)
-        result = cp.exp(self.predict_log_proba(X))
-        return CumlArray(result).to_output(out_type)
 
     @with_cupy_rmm
     def score(self, X, y, sample_weight=None):
