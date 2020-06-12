@@ -18,7 +18,7 @@
 # distutils: language = c++
 # cython: embedsignature = True
 # cython: language_level = 3
-from cuml.common.base import Base
+from cuml.common.base import Base, RegressorMixin
 from cuml.solvers import SGD
 
 
