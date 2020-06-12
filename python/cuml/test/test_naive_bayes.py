@@ -109,9 +109,19 @@ def test_gnb():
 
     assert_array_equal(y_pred.get(), y.get())
 
-    # y_pred_proba = clf.predict_proba(X)
-    # y_pred_log_proba = clf.predict_log_proba(X)
-    # assert_array_almost_equal(np.log(y_pred_proba).get(), y_pred_log_proba.get(), 8)
+    y_pred_proba = clf.predict_proba(X)
+
+    logger.debug("cuml predict_proba: " + str(y_pred_proba))
+
+    logger.debug("sklearn predict_proba: "+ str(skclf.predict_proba(X.get())))
+
+    y_pred_log_proba = clf.predict_log_proba(X)
+
+    logger.debug(str(y_pred_log_proba))
+
+    logger.debug(str(skclf.predict_log_proba(X.get())))
+
+    assert_array_almost_equal(np.log(y_pred_proba.get()), y_pred_log_proba.get(), 8)
 
     # # Test whether label mismatch between target y and classes raises
     # # an Error
