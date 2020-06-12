@@ -12,6 +12,7 @@
 - PR #2329: Add short commit hash to conda package name
 
 ## Bug Fixes
+- PR #2407: fixed batch count in DBScan for integer overflow case
 
 # cuML 0.14.0 (Date TBD)
 
