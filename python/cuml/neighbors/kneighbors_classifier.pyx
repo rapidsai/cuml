@@ -23,6 +23,7 @@ from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.common.array import CumlArray
 from cuml.common import input_to_cuml_array
+from cuml.common.base import ClassifierMixin
 
 import numpy as np
 import cupy as cp
@@ -77,7 +78,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     ) except +
 
 
-class KNeighborsClassifier(NearestNeighbors):
+class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
     """
     K-Nearest Neighbors Classifier is an instance-based learning technique,
     that keeps training samples around for prediction, rather than trying
@@ -311,32 +312,3 @@ class KNeighborsClassifier(NearestNeighbors):
     def get_param_names(self):
         return super(KNeighborsClassifier, self).get_param_names()\
             + ["weights"]
-
-    def score(self, X, y, convert_dtype=True):
-        """
-        Compute the accuracy score using the given labels and
-        the trained k-nearest neighbors classifier to predict
-        the classes for X.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
-        """
-        y_hat = self.predict(X, convert_dtype=convert_dtype)
-        if isinstance(y_hat, tuple):
-            return (accuracy_score(y, y_hat_i, convert_dtype=convert_dtype)
-                    for y_hat_i in y_hat)
-        else:
-            return accuracy_score(y, y_hat, convert_dtype=convert_dtype)
