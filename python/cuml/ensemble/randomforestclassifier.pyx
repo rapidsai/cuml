@@ -36,7 +36,7 @@ from cython.operator cimport dereference as deref
 
 from cuml import ForestInference
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.common.base import Base, ClassifierMixin
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
@@ -123,7 +123,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                           bool) except +
 
 
-class RandomForestClassifier(Base):
+class RandomForestClassifier(Base, ClassifierMixin):
     """
     Implements a Random Forest classifier model which fits multiple decision
     tree classifiers in an ensemble.
