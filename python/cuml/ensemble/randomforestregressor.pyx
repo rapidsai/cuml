@@ -32,7 +32,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml import ForestInference
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.common.base import Base, RegressorMixin
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
@@ -103,7 +103,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                           int) except +
 
 
-class RandomForestRegressor(Base):
+class RandomForestRegressor(Base, RegressorMixin):
 
     """
     Implements a Random Forest regressor model which fits multiple decision
