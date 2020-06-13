@@ -107,7 +107,6 @@ def test_array_init(input_type, dtype, shape, order):
         assert cp.all(cp.asarray(ary._owner) == cp.asarray(inp_copy))
 
     else:
-        print(type(ary._owner))
         assert isinstance(ary._owner, cp.ndarray)
 
         truth = cp.asnumpy(inp)
