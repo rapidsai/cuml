@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <ml_utils.h>
-
 #include <limits.h>
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
