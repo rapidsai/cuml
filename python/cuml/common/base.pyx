@@ -362,7 +362,7 @@ class ClassifierMixin:
         else:
             handle = None
 
-        preds = self.predict(X)
+        preds = self.predict(X, **kwargs)
         return accuracy_score(y_m, preds, handle=handle)
 
 
