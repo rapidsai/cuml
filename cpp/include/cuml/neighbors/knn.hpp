@@ -21,6 +21,18 @@
 
 namespace ML {
 
+enum MetricType {
+  METRIC_INNER_PRODUCT = 0,
+  METRIC_L2,
+  METRIC_L1,
+  METRIC_Linf,
+  METRIC_Lp,
+
+  METRIC_Canberra = 20,
+  METRIC_BrayCurtis,
+  METRIC_JensenShannon
+};
+
 /**
    * @brief Flat C++ API function to perform a brute force knn on
    * a series of input arrays and combine the results into a single
@@ -41,7 +53,9 @@ namespace ML {
 void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k,
-                     bool rowMajorIndex = false, bool rowMajorQuery = false);
+                     bool rowMajorIndex = false, bool rowMajorQuery = false,
+                     MetricType metric = MetricType::METRIC_L2,
+                     float metric_arg = 2.0f, bool expanded = false);
 
 /**
  * @brief Flat C++ API function to perform a knn classification using a
@@ -96,51 +110,4 @@ void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
 void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
                      int64_t *knn_indices, std::vector<int *> &y,
                      size_t n_labels, size_t n_samples, int k);
-
-class kNN {
-  float **ptrs;
-  int *sizes;
-
-  int total_n;
-  int indices;
-  int D;
-
-  bool rowMajorIndex;
-
-  cumlHandle *handle;
-
- public:
-  /**
-   * Build a kNN object for training and querying a k-nearest neighbors model.
-   * @param[in] handle    cuml handle
-   * @param[in] D         number of features in each vector
-   * @param[in] verbosity verbosity level for logging messages during execution
-   */
-  kNN(const cumlHandle &handle, int D, int verbosity = CUML_LEVEL_INFO);
-  ~kNN();
-
-  void reset();
-
-  /**
-     * Search the kNN for the k-nearest neighbors of a set of query vectors
-     * @param search_items      set of vectors to query for neighbors
-     * @param search_items_size number of items in search_items
-     * @param res_I             pointer to device memory for returning k nearest indices
-     * @param res_D             pointer to device memory for returning k nearest distances
-     * @param k                 number of neighbors to query
-     * @param rowMajor          is the query array in row major layout?
-     */
-  void search(float *search_items, int search_items_size, int64_t *res_I,
-              float *res_D, int k, bool rowMajor = false);
-
-  /**
-     * Fit a kNN model by creating separate indices for multiple given
-     * instances of kNNParams.
-     * @param input    an array of pointers to data on (possibly different) devices
-     * @param sizes    number of items in input array.
-     * @param rowMajor is the index array in rowMajor layout?
-     */
-  void fit(std::vector<float *> &input, std::vector<int> &sizes,
-           bool rowMajor = false);
-};
 };  // namespace ML
