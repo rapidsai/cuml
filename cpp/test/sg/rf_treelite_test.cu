@@ -19,7 +19,6 @@
 #include <gtest/gtest.h>
 #include <linalg/gemv.h>
 #include <linalg/transpose.h>
-#include <ml_utils.h>
 #include <sys/stat.h>
 #include <test_utils.h>
 #include <treelite/c_api.h>
