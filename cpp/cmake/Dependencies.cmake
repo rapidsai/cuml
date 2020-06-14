@@ -126,7 +126,7 @@ set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
   "Path to treelite install directory")
 ExternalProject_Add(treelite
     GIT_REPOSITORY    https://github.com/dmlc/treelite.git
-    GIT_TAG           107faa5b63082f5054ae18873a3716e180f64514
+    GIT_TAG           0.92rc2
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                       -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
