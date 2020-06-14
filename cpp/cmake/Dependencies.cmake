@@ -130,6 +130,7 @@ ExternalProject_Add(treelite
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                       -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
+                      -DENABLE_PROTOBUF=ON
     BUILD_BYPRODUCTS  ${TREELITE_DIR}/src/treelite-build/libtreelite_static.a
                       ${TREELITE_DIR}/src/treelite-build/_deps/dmlccore-build/libdmlc.a
                       ${TREELITE_DIR}/src/treelite-build/libtreelite_runtime.so
