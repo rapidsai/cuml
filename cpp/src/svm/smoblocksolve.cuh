@@ -19,7 +19,6 @@
 #pragma once
 
 #include <cuml/svm/svm_parameter.h>
-#include <ml_utils.h>
 #include <stdlib.h>
 #include <cuda_utils.cuh>
 #include <selection/kselection.cuh>

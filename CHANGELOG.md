@@ -1,7 +1,9 @@
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
-
+- PR #2261: Exposing new FAISS metrics through Python API
+- PR #2287: Single-GPU TfidfTransformer implementation
+- PR #2289: QR SVD solver for MNMG PCA
 - PR #2312: column-major support for make_blobs
 
 ## Improvements
@@ -12,12 +14,16 @@
 - PR #1945: enable clang tidy
 - PR #2345: make C++ logger level definition to be the same as python layer
 - PR #2329: Add short commit hash to conda package name
+- PR #2363: Update threshold and make other changes for stress tests
 - PR #2371: Updating MBSGD tests to use larger batches
+- PR #2380: Pinning libcumlprims version to ease future updates
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
+- PR #2364: Fix for random projection
 - PR #2373: Use Treelite Pip package in GPU testing
 - PR #2376: Update documentation Links
+- PR #2413: CumlArray and related methods updates to account for cuDF.Buffer contiguity update
 
 # cuML 0.14.0 (03 Jun 2020)
 

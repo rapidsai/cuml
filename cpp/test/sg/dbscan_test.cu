@@ -28,7 +28,6 @@
 #include <linalg/cublas_wrappers.h>
 #include <linalg/transpose.h>
 
-#include <ml_utils.h>
 #include <test_utils.h>
 
 #include <common/device_buffer.hpp>
