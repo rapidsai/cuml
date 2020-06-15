@@ -577,7 +577,7 @@ class RandomForestClassifier(Base):
 
         return self
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
 

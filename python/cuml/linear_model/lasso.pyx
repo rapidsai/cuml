@@ -166,7 +166,7 @@ class Lasso(Base, RegressorMixin):
             msg = "alpha value has to be positive"
             raise ValueError(msg.format(alpha))
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 

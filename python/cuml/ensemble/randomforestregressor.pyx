@@ -553,7 +553,7 @@ class RandomForestRegressor(Base):
 
         return self
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Regression on the input data
 
