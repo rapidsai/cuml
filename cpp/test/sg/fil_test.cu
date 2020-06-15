@@ -17,7 +17,6 @@
 #include <common/cudart_utils.h>
 #include <cuml/fil/fil.h>
 #include <gtest/gtest.h>
-#include <ml_utils.h>
 #include <test_utils.h>
 #include <treelite/c_api.h>
 #include <treelite/frontend.h>

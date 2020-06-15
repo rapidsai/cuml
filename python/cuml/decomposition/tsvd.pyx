@@ -23,6 +23,8 @@ import ctypes
 import cudf
 import numpy as np
 
+from enum import IntEnum
+
 import rmm
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -93,6 +95,11 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
                             double *components,
                             double *trans_input,
                             const paramsTSVD &prms) except +
+
+
+class Solver(IntEnum):
+    COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
+    COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
 class TruncatedSVD(Base):
@@ -250,9 +257,9 @@ class TruncatedSVD(Base):
 
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
-            'full': COV_EIG_DQ,
-            'auto': COV_EIG_DQ,
-            'jacobi': COV_EIG_JACOBI
+            'full': Solver.COV_EIG_DQ,
+            'auto': Solver.COV_EIG_DQ,
+            'jacobi': Solver.COV_EIG_JACOBI
         }
         if algorithm not in algo_map:
             msg = "algorithm {!r} is not supported"
@@ -266,7 +273,8 @@ class TruncatedSVD(Base):
         params.n_cols = n_cols
         params.n_iterations = self.n_iter
         params.tol = self.tol
-        params.algorithm = self.c_algorithm
+        params.algorithm = <solver> (<underlying_type_t_solver> (
+            self.c_algorithm))
 
         return <size_t>params
 
