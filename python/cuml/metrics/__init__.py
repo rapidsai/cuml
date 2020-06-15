@@ -27,3 +27,5 @@ from cuml.metrics.cluster.completeness_score import completeness_score
 from cuml.metrics.cluster.mutual_info_score import mutual_info_score
 from cuml.metrics.confusion_matrix import confusion_matrix
 from cuml.metrics.cluster.entropy import cython_entropy as entropy
+from cuml.metrics.pairwise_distances import pairwise_distances
+# from cuml.metrics.pairwise_distances import pairwise_distances_chunked

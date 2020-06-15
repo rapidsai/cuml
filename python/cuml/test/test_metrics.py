@@ -54,6 +54,8 @@ from cuml.common import has_scipy
 from cuml.metrics import roc_auc_score
 from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
 
+from cuml.metrics import pairwise_distances
+from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('use_handle', [True, False])
@@ -643,3 +645,39 @@ def test_roc_auc_score_at_limits():
 
     with pytest.raises(ValueError, match=err_msg):
         roc_auc_score(y_true, y_pred)
+
+@pytest.mark.parametrize("metric", ["cosine", "euclidean", "l1", "l2"])
+@pytest.mark.parametrize("matrix_size", [(5, 4), (1000, 3), (1, 10)])
+def test_pairwise_distances(metric: str, matrix_size):
+    # Test the pairwise_distance helper function.
+    rng = np.random.RandomState(0)
+
+    # Compare to sklearn, single input
+    X = rng.random_sample(matrix_size)
+    S = pairwise_distances(X, metric=metric)
+    S2 = sklearn_pairwise_distances(X, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2)
+
+    # Compare to sklearn, double input with same dimensions
+    Y = X
+    S = pairwise_distances(X, Y, metric=metric)
+    S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2)
+
+    # TODO: Compare single and double inputs to eachother
+
+    # Compare to sklearn, with Y dim != X dim
+    Y = rng.random_sample((2, matrix_size[1]))
+    S = pairwise_distances(X, Y, metric=metric)
+    S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2)
+
+    # Change precision of one parameter
+    Y = np.asfarray(Y, dtype=np.float32)
+    S = pairwise_distances(X, Y, metric=metric)
+    S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2)
+
+    # Test that uppercase on the metric name throws an error. 
+    with pytest.raises(ValueError):
+        pairwise_distances(X, Y, metric=metric.capitalize())
