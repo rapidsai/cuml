@@ -214,7 +214,7 @@ cdef class BaseRandomProjection():
 
         return self
 
-    def transform(self, X, convert_dtype=False):
+    def transform(self, X, convert_dtype=True):
         """
         Apply transformation on provided data. This function outputs
         a multiplication between the input matrix and the generated random
@@ -272,7 +272,7 @@ cdef class BaseRandomProjection():
 
         return X_new.to_output(out_type)
 
-    def fit_transform(self, X, convert_dtype=False):
+    def fit_transform(self, X, convert_dtype=True):
         return self.fit(X).transform(X, convert_dtype)
 
 

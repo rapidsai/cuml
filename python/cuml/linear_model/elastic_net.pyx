@@ -202,7 +202,7 @@ class ElasticNet(Base, RegressorMixin):
             msg = "l1_ratio value has to be between 0.0 and 1.0"
             raise ValueError(msg.format(l1_ratio))
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 

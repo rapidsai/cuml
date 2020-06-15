@@ -231,7 +231,7 @@ class LogisticRegression(Base):
             self.verb_prefix = ""
 
     @with_cupy_rmm
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 

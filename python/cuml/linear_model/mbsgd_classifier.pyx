@@ -150,7 +150,7 @@ class MBSGDClassifier(Base):
         self.n_iter_no_change = n_iter_no_change
         self.cu_mbsgd_classifier = SGD(**self.get_params())
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 

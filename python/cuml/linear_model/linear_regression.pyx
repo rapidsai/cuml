@@ -211,7 +211,7 @@ class LinearRegression(Base):
             'eig': 1
         }[algorithm]
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
