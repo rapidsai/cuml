@@ -396,7 +396,6 @@ class LogisticRegression(Base):
             log_proba=False
         )
 
-
     def predict_log_proba(self, X, convert_dtype=False):
         """
         Predicts the log class probabilities for each class in X
@@ -423,8 +422,7 @@ class LogisticRegression(Base):
             convert_dtype=convert_dtype,
             log_proba=True
         )
-    
-    
+
     def _predict_proba_impl(self, X, convert_dtype=False, log_proba=False):
         out_type = self._get_output_type(X)
 
