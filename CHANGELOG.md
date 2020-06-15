@@ -25,6 +25,7 @@
 - PR #2373: Use Treelite Pip package in GPU testing
 - PR #2376: Update documentation Links
 - PR #2413: CumlArray and related methods updates to account for cuDF.Buffer contiguity update
+- PR #2424: --singlegpu flag fix on build.sh script
 
 # cuML 0.14.0 (03 Jun 2020)
 
