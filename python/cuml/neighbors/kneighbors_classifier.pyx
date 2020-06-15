@@ -28,8 +28,6 @@ from cuml.common.base import ClassifierMixin
 import numpy as np
 import cupy as cp
 
-from cuml.metrics import accuracy_score
-
 import cudf
 
 from cython.operator cimport dereference as deref
