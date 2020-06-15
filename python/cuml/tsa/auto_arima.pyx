@@ -160,8 +160,6 @@ class AutoARIMA(Base):
         super().__init__(handle, output_type=output_type, verbose=verbose)
         self._set_output_type(endog)
 
-        logger.set_level(self.verbose)
-
         # Get device array. Float64 only for now.
         self._d_y, self.n_obs, self.batch_size, self.dtype \
             = input_to_cuml_array(endog, check_dtype=np.float64)

@@ -29,6 +29,7 @@
 
 #include <common/cudart_utils.h>
 #include <common/device_buffer.hpp>
+#include <common/fast_int_div.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 
 namespace ML {
@@ -166,9 +167,9 @@ inline void divide_by_mask_execute(const DataT* d_in, const bool* d_mask,
  * Found in thrust/examples/scan_matrix_by_rows.cu
  */
 struct which_col : thrust::unary_function<int, int> {
-  int col_length;
-  __host__ __device__ which_col(int col_length_) : col_length(col_length_) {}
-  __host__ __device__ int operator()(int idx) const { return idx / col_length; }
+  MLCommon::FastIntDiv divisor;
+  __host__ __device__ which_col(int col_length) : divisor(col_length) {}
+  __host__ __device__ int operator()(int idx) const { return idx / divisor; }
 };
 
 /**
