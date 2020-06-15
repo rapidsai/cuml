@@ -90,6 +90,7 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
                     algo,           /* split_algo */
                     2,              /* min_rows_per_node */
                     0.f,            /* min_impurity_decrease */
+                    0,              /* seed */
                     false,          /* bootstrap_features */
                     sc,             /* split_criterion */
                     false,          /* quantile_per_tree */

@@ -64,6 +64,7 @@ void get_histogram_classification(
                ncols_sampled, n_nodes, tempmem->max_nodes_minmax,
                tempmem->d_globalminmax->data(), tempmem->h_globalminmax->data(),
                tempmem->stream);
+  T *h_minmax = tempmem->h_globalminmax->data();
     if ((n_nodes == node_batch)) {
       get_hist_kernel<T, MinMaxQues<T>>
         <<<blocks, threads, shmem, tempmem->stream>>>(
@@ -93,15 +94,17 @@ void get_histogram_classification(
           n_nodes, tempmem->d_quantile->data(), histout);
     }
   }
+
   CUDA_CHECK(cudaGetLastError());
 }
+
 template <typename T, typename F, typename DF>
 void get_best_split_classification(
   unsigned int *hist, unsigned int *d_hist, unsigned int *h_colids,
   unsigned int *d_colids, unsigned int *h_colstart, unsigned int *d_colstart,
   const int Ncols, const int ncols_sampled, const int nbins,
   const int n_unique_labels, const int n_nodes, const int depth,
-  const int min_rpn, const int split_algo, float *gain,
+  const int min_rpn, const int split_algo, int seed, float *gain,
   unsigned int *h_parent_hist, unsigned int *h_child_hist,
   std::vector<SparseTreeNode<T, int>> &sparsetree, const int sparsesize,
   std::vector<int> &sparse_nodelist, int *split_colidx, int *split_binidx,
@@ -209,7 +212,13 @@ void get_best_split_classification(
       std::vector<unsigned int> besthist_right(n_unique_labels, 0);
       unsigned int *parent_hist =
         &h_parent_hist[sparse_nodeid * n_unique_labels];
-      for (int colid = 0; colid < ncols_sampled; colid++) {
+      // Create a vector of column ids which is shuffled to select columns at random
+      std::vector<int> cols(ncols_sampled) ; // vector with ncols_sampled ints.
+      std::iota (std::begin(cols), std::end(cols), 0); 
+      std::srand(seed);
+      std::random_shuffle(cols.begin(), cols.end());
+      for (int column_id = 0; column_id < ncols_sampled; column_id++) {
+        int colid = cols[column_id];
         int coloffset = colid * nbins * n_unique_labels * n_nodes;
         for (int binid = 0; binid < nbins; binid++) {
           int binoffset = binid * n_unique_labels;
@@ -245,7 +254,6 @@ void get_best_split_classification(
           float impurity = (tmp_lnrows * 1.0f / totalrows) * tmp_gini_left +
                            (tmp_rnrows * 1.0f / totalrows) * tmp_gini_right;
           float info_gain = sparsetree[parentid].best_metric_val - impurity;
-
           // Compute best information col_gain so far
           if (info_gain > gain[nodecnt]) {
             gain[nodecnt] = info_gain;
@@ -258,6 +266,7 @@ void get_best_split_classification(
           }
         }
       }
+
       split_colidx[nodecnt] = best_col_id;
       split_binidx[nodecnt] = best_bin_id;
       //Sparse tree
@@ -271,7 +280,7 @@ void get_best_split_classification(
       curr_node.quesval = getQuesValue(
         minmax, quantile, nbins, split_colidx[nodecnt], split_binidx[nodecnt],
         nodecnt, n_nodes, curr_node.colid, split_algo);
-
+      
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       SparseTreeNode<T, int> leftnode, rightnode;
       leftnode.best_metric_val = bestmetric[0];

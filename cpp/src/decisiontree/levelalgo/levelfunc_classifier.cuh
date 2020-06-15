@@ -134,18 +134,18 @@ void grow_deep_tree_classification(
       get_best_split_classification<T, GiniFunctor, GiniDevFunctor>(
         h_histogram, d_histogram, h_colids, d_colids, h_colstart, d_colstart,
         Ncols, ncols_sampled, tree_params.n_bins, n_unique_labels, n_nodes,
-        depth, tree_params.min_rows_per_node, tree_params.split_algo, infogain,
-        h_parent_hist, h_child_hist, sparsetree, sparsesize, sparse_nodelist,
-        h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
-        tempmem);
+        depth, tree_params.min_rows_per_node, tree_params.split_algo,
+        tree_params.seed, infogain, h_parent_hist, h_child_hist, sparsetree,
+        sparsesize, sparse_nodelist, h_split_colidx, h_split_binidx,
+        d_split_colidx, d_split_binidx, tempmem);
     } else {
       get_best_split_classification<T, EntropyFunctor, EntropyDevFunctor>(
         h_histogram, d_histogram, h_colids, d_colids, h_colstart, d_colstart,
         Ncols, ncols_sampled, tree_params.n_bins, n_unique_labels, n_nodes,
-        depth, tree_params.min_rows_per_node, tree_params.split_algo, infogain,
-        h_parent_hist, h_child_hist, sparsetree, sparsesize, sparse_nodelist,
-        h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
-        tempmem);
+        depth, tree_params.min_rows_per_node, tree_params.split_algo,
+        tree_params.seed, infogain, h_parent_hist, h_child_hist, sparsetree,
+        sparsesize, sparse_nodelist,h_split_colidx, h_split_binidx,
+        d_split_colidx, d_split_binidx, tempmem);
     }
 
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));

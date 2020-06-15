@@ -335,7 +335,12 @@ void get_best_split_regression(
       unsigned int bestcount_right = 0;
       T parent_mean = sparse_meanstate[parentid];
       unsigned int parent_count = sparse_countstate[parentid];
-      for (int colid = 0; colid < ncols_sampled; colid++) {
+      std::vector<int> cols;
+      for (int i=0; i<ncols_sampled; i++) cols.push_back(i);
+      std::random_shuffle(cols.begin(), cols.end());
+      for (int column_id = 0; column_id < ncols_sampled; column_id++) {
+        //std::cout << " cols[column_id] " << cols[column_id] << std::flush << std::endl;
+        int colid = cols[column_id];
         int coloff_mse = colid * nbins * 2 * n_nodes;
         int coloff_pred = colid * nbins * n_nodes;
         for (int binid = 0; binid < nbins; binid++) {

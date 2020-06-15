@@ -183,10 +183,12 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
 
     DecisionTree::DecisionTreeParams tree_params;
+    int seed = 10;
     set_tree_params(tree_params, params.max_depth, params.max_leaves,
                     params.max_features, params.n_bins, params.split_algo,
                     params.min_rows_per_node, params.min_impurity_decrease,
-                    params.bootstrap_features, params.split_criterion, false);
+                    seed, params.bootstrap_features, params.split_criterion,
+                    false);
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
                       params.rows_sample, -1, params.n_streams, tree_params);
     handle.reset(new cumlHandle(rf_params.n_streams));
