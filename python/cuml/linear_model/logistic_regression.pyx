@@ -26,7 +26,6 @@ import rmm
 
 from cuml.solvers import QN
 from cuml.common.base import Base, ClassifierMixin
-from cuml.metrics.accuracy import accuracy_score
 from cuml.common import input_to_cuml_array
 import cuml.common.logger as logger
 from cuml.common import with_cupy_rmm
