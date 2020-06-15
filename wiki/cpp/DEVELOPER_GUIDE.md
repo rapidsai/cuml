@@ -178,6 +178,28 @@ From the root of the cuML repository.
 ### clang-format version?
 To avoid spurious code style violations we specify the exact clang-format version required, currently `8.0.0`. This is enforced by the [run-clang-format.py](../../cpp/scripts/run-clang-format.py) script itself. Refer [here](../../cpp/README.md#dependencies) for the list of build-time dependencies.
 
+### Additional scripts
+Along with clang, there are are the include checker and copyright checker scripts for checking style, which can be performed as part of CI, as well as manually.
+
+#### #include style
+[include_checker.py](../../cpp/scripts/include_checker.py) is used to enforce the include style as follows:
+1. `#include "..."` should be used for referencing local files only. It is acceptable to be used for referencing files in a sub-folder/parent-folder of the same algorithm, but should never be used to include files in other algorithms or between algorithms and the primitives or other dependencies.
+2. `#include <...>` should be used for referencing everything else
+
+Manually, run the following to bulk-fix include style issues:
+```bash
+python ./cpp/scripts/include_checker.py --inplace [cpp/include cpp/src cpp/src_prims cpp/test ... list of folders which you want to fix]
+```
+
+#### Copyright header
+[copyright.py](../../ci/checks/copyright.py) checks the Copyright header for all git-modified files
+
+Manually, you can run the following to bulk-fix the header if only the years need to be updated:
+```bash
+python ./ci/checks/copyright.py --update-current-year
+```
+Keep in mind that this only applies to files tracked by git and having been modified.
+
 ## Error handling
 Call CUDA APIs via the provided helper macros `CUDA_CHECK`, `CUBLAS_CHECK` and `CUSOLVER_CHECK`. These macros take care of checking the return values of the used API calls and generate an exception when the command is not successful. If you need to avoid an exception, e.g. inside a destructor, use `CUDA_CHECK_NO_THROW`, `CUBLAS_CHECK_NO_THROW ` and `CUSOLVER_CHECK_NO_THROW ` (currently not available, see https://github.com/rapidsai/cuml/issues/229). These macros log the error but do not throw an exception.
 

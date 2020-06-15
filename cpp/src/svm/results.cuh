@@ -23,17 +23,17 @@
 #include <memory>
 
 #include <common/cudart_utils.h>
+#include <linalg/init.h>
+#include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
+#include <common/host_buffer.hpp>
 #include <cub/device/device_select.cuh>
 #include <cuml/common/cuml_allocator.hpp>
-#include "common/cumlHandle.hpp"
-#include "common/device_buffer.hpp"
-#include "common/host_buffer.hpp"
-#include "linalg/add.cuh"
-#include "linalg/binary_op.cuh"
-#include "linalg/init.h"
-#include "linalg/map_then_reduce.cuh"
-#include "linalg/unary_op.cuh"
-#include "matrix/matrix.cuh"
+#include <linalg/add.cuh>
+#include <linalg/binary_op.cuh>
+#include <linalg/map_then_reduce.cuh>
+#include <linalg/unary_op.cuh>
+#include <matrix/matrix.cuh>
 #include "ws_util.cuh"
 
 namespace ML {

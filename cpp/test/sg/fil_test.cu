@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #include <common/cudart_utils.h>
+#include <cuml/fil/fil.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <treelite/c_api.h>
@@ -25,11 +26,8 @@
 #include <cuda_utils.cuh>
 #include <limits>
 #include <memory>
+#include <random/rng.cuh>
 #include <utility>
-#include "cuml/fil/fil.h"
-#include "ml_utils.h"
-#include "random/rng.cuh"
-#include "test_utils.h"
 
 #define TL_CPP_CHECK(call) ASSERT(int(call) >= 0, "treelite call error")
 

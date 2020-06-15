@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@
 #include <common/cumlHandle.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/cuml.hpp>
+#include <cuml/datasets/make_blobs.hpp>
 #include <fstream>
 #include <iostream>
 #include <linalg/unary_op.cuh>
-#include <random/make_blobs.cuh>
 #include <random/make_regression.cuh>
 #include <sstream>
 #include <string>
@@ -110,12 +110,6 @@ struct Dataset {
     auto cublas_handle = handle_impl.getCublasHandle();
     auto allocator = handle_impl.getDeviceAllocator();
 
-    D* tmpX = X;
-
-    if (!p.rowMajor) {
-      tmpX = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
-    }
-
     // Make blobs will generate labels of type IdxT which has to be an integer
     // type. We cast it to a different output type if needed.
     IdxT* tmpY;
@@ -125,15 +119,10 @@ struct Dataset {
       tmpY = (IdxT*)allocator->allocate(p.nrows * sizeof(IdxT), stream);
     }
 
-    MLCommon::Random::make_blobs<D, IdxT>(
-      tmpX, tmpY, p.nrows, p.ncols, p.nclasses, allocator, stream, nullptr,
-      nullptr, D(b.cluster_std), b.shuffle, D(b.center_box_min),
-      D(b.center_box_max), b.seed);
-    if (!p.rowMajor) {
-      MLCommon::LinAlg::transpose(tmpX, X, p.nrows, p.ncols, cublas_handle,
-                                  stream);
-      allocator->deallocate(tmpX, p.nrows * p.ncols * sizeof(D), stream);
-    }
+    ML::Datasets::make_blobs(handle, X, tmpY, p.nrows, p.ncols, p.nclasses,
+                             p.rowMajor, nullptr, nullptr, D(b.cluster_std),
+                             b.shuffle, D(b.center_box_min),
+                             D(b.center_box_max), b.seed);
     if (!std::is_same<L, IdxT>::value) {
       MLCommon::LinAlg::unaryOp(
         y, tmpY, p.nrows, [] __device__(IdxT z) { return (L)z; }, stream);

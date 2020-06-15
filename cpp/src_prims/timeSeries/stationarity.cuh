@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 /**
 * @file stationarity.cuh
 * @brief Test a batched times series for stationarity
@@ -33,13 +34,13 @@
 #include <vector>
 
 #include <common/cudart_utils.h>
-#include "arima_helpers.cuh"
-#include "common/device_buffer.hpp"
-#include "cuml/common/cuml_allocator.hpp"
-#include "linalg/cublas_wrappers.h"
-#include "linalg/matrix_vector_op.cuh"
-#include "linalg/reduce.cuh"
-#include "stats/mean.cuh"
+#include <linalg/cublas_wrappers.h>
+#include <common/device_buffer.hpp>
+#include <cuml/common/cuml_allocator.hpp>
+#include <linalg/matrix_vector_op.cuh>
+#include <linalg/reduce.cuh>
+#include <stats/mean.cuh>
+#include <timeSeries/arima_helpers.cuh>
 
 namespace MLCommon {
 

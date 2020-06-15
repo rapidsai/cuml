@@ -17,18 +17,17 @@
 #pragma once
 
 #include <common/cudart_utils.h>
+#include <cuml/svm/svm_parameter.h>
 #include <limits.h>
+#include <linalg/init.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/permutation_iterator.h>
+#include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
-#include "common/cumlHandle.hpp"
-#include "common/device_buffer.hpp"
-#include "cuml/svm/svm_parameter.h"
-#include "linalg/add.cuh"
-#include "linalg/init.h"
-#include "linalg/unary_op.cuh"
-#include "ml_utils.h"
+#include <linalg/add.cuh>
+#include <linalg/unary_op.cuh>
 #include "smo_sets.cuh"
 #include "ws_util.cuh"
 
