@@ -86,6 +86,7 @@ class BaseRandomForestModel(object):
     def _fit(self, model, dataset, convert_dtype):
         data = DistributedDataHandler.create(dataset, client=self.client)
         self.datatype = data.datatype
+        dataset = self.client.persists(dataset)
         if self.datatype == 'cudf':
             dtype = dataset[0].dtypes
             has_float64 = (dtype.any() == np.float64)
