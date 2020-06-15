@@ -166,6 +166,7 @@ def _get_size_from_shape(shape, dtype):
 
     if shape is None or dtype is None:
         return (None, None)
+
     itemsize = cp.dtype(dtype).itemsize
     if isinstance(shape, int):
         size = itemsize * shape
