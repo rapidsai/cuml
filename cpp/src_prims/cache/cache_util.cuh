@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,10 @@
 
 #pragma once
 
+#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
-#include "common/device_buffer.hpp"
-#include "ml_utils.h"
-#include "selection/kselection.cuh"
+#include <selection/kselection.cuh>
 
 namespace MLCommon {
 namespace Cache {

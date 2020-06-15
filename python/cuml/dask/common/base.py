@@ -23,6 +23,7 @@ from cuml.common.array import CumlArray
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.dask.common.comms import CommsContext
 from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common import parts_to_ranks
 
 from dask_cudf.core import DataFrame as dcDataFrame
 from dask.distributed import default_client
@@ -246,6 +247,11 @@ class SyncFitMixinLinearModel(object):
         data.calculate_parts_to_sizes(comms)
         self.ranks = data.ranks
 
+        worker_info = comms.worker_info(comms.worker_addresses)
+        parts_to_sizes, _ = parts_to_ranks(self.client,
+                                           worker_info,
+                                           data.gpu_futures)
+
         lin_models = dict([(data.worker_info[worker_data[0]]["rank"],
                             self.client.submit(
             model_func,
@@ -264,7 +270,7 @@ class SyncFitMixinLinearModel(object):
             worker_data[1],
             data.total_rows,
             n_cols,
-            data.parts_to_sizes[data.worker_info[worker_data[0]]["rank"]],
+            parts_to_sizes,
             data.worker_info[worker_data[0]]["rank"],
             pure=False,
             workers=[worker_data[0]]))

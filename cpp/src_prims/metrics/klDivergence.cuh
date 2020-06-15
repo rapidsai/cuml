@@ -23,10 +23,10 @@
 
 #include <common/cudart_utils.h>
 #include <math.h>
+#include <common/device_buffer.hpp>
+#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
-#include "common/device_buffer.hpp"
-#include "cuda_utils.cuh"
-#include "linalg/map_then_reduce.cuh"
+#include <linalg/map_then_reduce.cuh>
 
 namespace MLCommon {
 

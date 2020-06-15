@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,11 @@
 
 #include <linalg/cublas_wrappers.h>
 #include <linalg/transpose.h>
+#include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/cuml.hpp>
+#include <cuml/decomposition/params.hpp>
 #include <linalg/eig.cuh>
 #include <linalg/eltwise.cuh>
 #include <matrix/math.cuh>
@@ -27,19 +30,17 @@
 #include <stats/cov.cuh>
 #include <stats/mean.cuh>
 #include <stats/mean_center.cuh>
-#include "common/cumlHandle.hpp"
-#include "common/device_buffer.hpp"
-#include "ml_utils.h"
-#include "tsvd/tsvd.cuh"
+#include <tsvd/tsvd.cuh>
 
 namespace ML {
 
 using namespace MLCommon;
 
-template <typename math_t>
+template <typename math_t, typename enum_solver = solver>
 void truncCompExpVars(const cumlHandle_impl &handle, math_t *in,
                       math_t *components, math_t *explained_var,
-                      math_t *explained_var_ratio, const paramsTSVD prms,
+                      math_t *explained_var_ratio,
+                      const paramsTSVDTemplate<enum_solver> prms,
                       cudaStream_t stream) {
   int len = prms.n_cols * prms.n_cols;
   auto allocator = handle.getDeviceAllocator();
@@ -47,8 +48,8 @@ void truncCompExpVars(const cumlHandle_impl &handle, math_t *in,
   device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
   device_buffer<math_t> explained_var_ratio_all(allocator, stream, prms.n_cols);
 
-  calEig(handle, in, components_all.data(), explained_var_all.data(), prms,
-         stream);
+  calEig<math_t, enum_solver>(handle, in, components_all.data(),
+                              explained_var_all.data(), prms, stream);
   Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
                           prms.n_components, prms.n_cols, stream);
   Matrix::ratio(explained_var_all.data(), explained_var_ratio_all.data(),
