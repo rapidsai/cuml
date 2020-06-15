@@ -628,7 +628,7 @@ class RandomForestClassifier(Base):
             raise TypeError("The labels `y` need to be of dtype `np.int32`")
 
         if self.dtype == np.float64:
-            warnings.warn("To use GPU-based prediction and pickling first\
+            warnings.warn("To use pickling or GPU-based prediction first\
                           train using float 32 data to fit the estimator.")
 
         cdef cumlHandle* handle_ =\

@@ -298,7 +298,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                                         algo=algo,
                                         threshold=threshold,
                                         convert_dtype=convert_dtype,
-                                        predict_model="GPU",
                                         fil_sparse_format=fil_sparse_format,
                                         delayed=delayed)
 
