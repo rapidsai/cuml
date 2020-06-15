@@ -628,8 +628,8 @@ class RandomForestClassifier(Base):
             raise TypeError("The labels `y` need to be of dtype `np.int32`")
 
         if self.dtype == np.float64:
-            warnings.warn("To use GPU-based prediction, first train \
-                          using float 32 data to fit the estimator.")
+            warnings.warn("To use GPU-based prediction and pickling first\
+                          train using float 32 data to fit the estimator.")
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><uintptr_t>self.handle.getHandle()
@@ -837,8 +837,8 @@ class RandomForestClassifier(Base):
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = 2)
-            number of different classes present in the dataset. This varaible
-            will be depricated in 0.16
+            number of different classes present in the dataset. This variable
+            will be deprecated in 0.16
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -986,7 +986,8 @@ class RandomForestClassifier(Base):
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = 2)
-            number of different classes present in the dataset
+            number of different classes present in the dataset. This variable
+            will be deprecated in 0.16
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -1062,7 +1063,8 @@ class RandomForestClassifier(Base):
             This is optional and required only while performing the
             predict operation on the GPU.
         num_classes : integer
-            number of different classes present in the dataset
+            number of different classes present in the dataset. This variable
+            will be deprecated in 0.16
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
         predict_model : String (default = 'GPU')
