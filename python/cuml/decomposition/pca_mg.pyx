@@ -144,6 +144,8 @@ class PCAMG(BaseDecompositionMG, PCA):
 
         cdef paramsPCAMG *params = <paramsPCAMG*><size_t>arg_params
 
+        self._set_n_features_in(X)
+
         if self.dtype == np.float32:
 
             fit(handle_[0],
