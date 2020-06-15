@@ -17,6 +17,7 @@
 - PR #2363: Update threshold and make other changes for stress tests
 - PR #2371: Updating MBSGD tests to use larger batches
 - PR #2380: Pinning libcumlprims version to ease future updates
+- PR #2417: Move doc customization scripts to Jenkins
 - PR #2410 Add `_n_features_in_` attribute to all estimators that implement fit
 
 ## Bug Fixes
@@ -24,6 +25,7 @@
 - PR #2364: Fix for random projection
 - PR #2373: Use Treelite Pip package in GPU testing
 - PR #2376: Update documentation Links
+- PR #2413: CumlArray and related methods updates to account for cuDF.Buffer contiguity update
 
 # cuML 0.14.0 (03 Jun 2020)
 
