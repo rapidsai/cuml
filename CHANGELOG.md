@@ -17,6 +17,7 @@
 - PR #2363: Update threshold and make other changes for stress tests
 - PR #2371: Updating MBSGD tests to use larger batches
 - PR #2380: Pinning libcumlprims version to ease future updates
+- PR #2411 Refactor Mixin classes and use in classifier/regressor estimators
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
