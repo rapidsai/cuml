@@ -24,7 +24,6 @@ from cuml.neighbors.nearest_neighbors import NearestNeighbors
 from cuml.common.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.common.base import RegressorMixin
-from cuml.metrics import r2_score
 
 import numpy as np
 
