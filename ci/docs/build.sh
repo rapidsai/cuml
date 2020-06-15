@@ -61,15 +61,3 @@ done
 mv $PROJECT_WORKSPACE/cpp/build/html/* $DOCS_WORKSPACE/api/libcuml/$BRANCH_VERSION
 mv $PROJECT_WORKSPACE/docs/build/html/* $DOCS_WORKSPACE/api/cuml/$BRANCH_VERSION
 
-# Customize HTML documentation
-./update_symlinks.sh $NIGHTLY_VERSION
-./customization/lib_map.sh
-
-
-for PROJECT in ${PROJECTS[@]}; do
-    echo ""
-    echo "Customizing: $PROJECT"
-    ./customization/customize_docs_in_folder.sh api/$PROJECT/ $NIGHTLY_VERSION
-    git add $DOCS_WORKSPACE/api/$PROJECT/*
-done
-
