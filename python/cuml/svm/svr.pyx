@@ -214,7 +214,7 @@ class SVR(SVMBase):
                                   verbose, epsilon)
         self.svmType = EPSILON_SVR
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
@@ -230,6 +230,11 @@ class SVR(SVMBase):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = False)
+            When set to True, the fit method will, when necessary, convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
+
         """
 
         self._set_output_type(X)
@@ -239,7 +244,12 @@ class SVR(SVMBase):
             input_to_cuml_array(X, order='F')
         X_ptr = X_m.ptr
 
-        y_m, _, _, _ = input_to_cuml_array(y, convert_to_dtype=self.dtype)
+        y_m, _, _, _ = \
+            input_to_cuml_array(y, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_rows=self.n_rows, check_cols=1)
+
         y_ptr = y_m.ptr
 
         self._dealloc()  # delete any previously fitted model
