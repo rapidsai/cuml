@@ -18,6 +18,8 @@
 - PR #2371: Updating MBSGD tests to use larger batches
 - PR #2380: Pinning libcumlprims version to ease future updates
 - PR #2417: Move doc customization scripts to Jenkins
+- PR #2420: Add and set convert_dtype default to True in estimator fit methods
+
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
