@@ -390,6 +390,42 @@ class LogisticRegression(Base):
         y: array-like (device)
            Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
+        return self._predict_proba_impl(
+            X,
+            convert_dtype=convert_dtype,
+            log_proba=False
+        )
+
+
+    def predict_log_proba(self, X, convert_dtype=False):
+        """
+        Predicts the log class probabilities for each class in X
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+
+        Returns
+        ----------
+        y: array-like (device)
+           Dense matrix (floats or doubles) of shape (n_samples, n_classes)
+        """
+        return self._predict_proba_impl(
+            X,
+            convert_dtype=convert_dtype,
+            log_proba=True
+        )
+    
+    
+    def _predict_proba_impl(self, X, convert_dtype=False, log_proba=False):
         out_type = self._get_output_type(X)
 
         # TODO:
@@ -416,31 +452,11 @@ class LogisticRegression(Base):
             row_sum = cp.sum(proba, axis=1).reshape((-1, 1))
             proba /= row_sum
 
+        if log_proba:
+            proba = cp.log(proba)
+
         proba = CumlArray(proba)
         return proba.to_output(out_type)
-
-    def predict_log_proba(self, X, convert_dtype=False):
-        """
-        Predicts the log class probabilities for each class in X
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y: array-like (device)
-           Dense matrix (floats or doubles) of shape (n_samples, n_classes)
-        """
-        return np.log(self.predict_proba(X, convert_dtype=convert_dtype))
 
     def score(self, X, y, convert_dtype=False):
         """
