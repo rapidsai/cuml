@@ -54,11 +54,11 @@ void gaussian_random_matrix(const cumlHandle& h,
 }
 
 /**
-	 * @brief generates a sparse random matrix
-	 * @param[in] h: cuML handle
-	 * @param[out] random_matrix: the random matrix to be allocated and generated
-	 * @param[in] params: data structure that includes all the parameters of the model
-	 */
+ * @brief generates a sparse random matrix
+ * @param[in] h: cuML handle
+ * @param[out] random_matrix: the random matrix to be allocated and generated
+ * @param[in] params: data structure that includes all the parameters of the model
+ */
 template <typename math_t>
 void sparse_random_matrix(const cumlHandle& h, rand_mat<math_t>* random_matrix,
                           paramsRPROJ& params) {
