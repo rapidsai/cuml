@@ -198,12 +198,14 @@ def test_sparse_pca_inputs(nrows, ncols, return_sparse):
     i_sparse = p_sparse.inverse_transform(t_sparse,
                                           return_sparse=return_sparse)
 
-    X_dense = X.todense()
-    p_dense = cuPCA(n_components=ncols)
+    # X_dense = X.todense()
+    # p_dense = cuPCA(n_components=ncols)
 
-    p_dense.fit(X_dense)
-    t_dense = p_dense.transform(X_dense)
-    i_dense = p_dense.inverse_transform(t_dense)
+    # p_dense.fit(X_dense)
+    # print(p_dense.singular_values_)
+    # print(p_dense.explained_variance_)
+    # t_dense = p_dense.transform(X_dense)
+    # i_dense = p_dense.inverse_transform(t_dense)
 
     if return_sparse:
 

@@ -353,7 +353,7 @@ class PCA(Base):
         self._components_= CumlArray(self._components_,
                                      shape=((self.n_components, self.n_cols)),
                                      dtype=self.dtype,
-                                     order='F')
+                                     order='C')
 
         self._explained_variance_ = CumlArray(self._explained_variance_,
                                               shape=self.n_components,
@@ -378,18 +378,18 @@ class PCA(Base):
     
     def _instance_variables_to_cp(self):
 
-        self._mean_ = cp.asarray(self._mean_)
+        self._mean_ = self._mean_.to_output('cupy')
 
-        self._components_ = cp.asarray(self._components_)
+        self._components_ = self._components_.to_output('cupy')
 
-        self._explained_variance_ = cp.asarray(self._explained_variance_)
+        self._explained_variance_ = self._explained_variance_.to_output('cupy')
 
         self._explained_variance_ratio_ = \
-            cp.asarray(self._explained_variance_ratio_)
+            self._explained_variance_ratio_.to_output('cupy')
         
-        self._noise_variance_ = cp.asarray(self._noise_variance_)
+        self._noise_variance_ = self._noise_variance_.to_output('cupy')
 
-        self._singular_values_ = cp.asarray(self._singular_values_)
+        self._singular_values_ = self._singular_values_.to_output('cupy')
 
     @with_cupy_rmm
     def _sparse_fit(self, X):
@@ -426,7 +426,9 @@ class PCA(Base):
         self._explained_variance_ratio_ = \
             self._explained_variance_ratio_[:self.n_components]
 
-        self._singular_values_ = cp.sqrt(self._explained_variance_)
+        self._singular_values_ = \
+            cp.where(self._explained_variance_ < 0, 0, self._explained_variance_)
+        self._singular_values_ = cp.sqrt(self._singular_values_ * (self.n_rows - 1))
 
         self._instance_variables_to_cuml_array()
 
@@ -551,7 +553,7 @@ class PCA(Base):
             self._components_ *= (1 / cp.sqrt(self.n_rows - 1))
             self._components_ *= self._singular_values_
 
-        X_inv = cp.dot(X, self._components_)
+        X_inv = X.dot(self._components_)
         X_inv += self._mean_
 
         if self.whiten:
@@ -684,7 +686,19 @@ class PCA(Base):
             self._components_ /= self._singular_values_
 
         X = X - self._mean_
-        X_transformed = cp.dot(X, self._components_.T)
+        print(self._mean_)
+        print(self._explained_variance_)
+        print(self._singular_values_)
+        print(self._explained_variance_ratio_)
+        print(self._noise_variance_)
+        print(self._components_)
+        X_transformed = X.dot(self._components_.T)
+        print(self._mean_)
+        print(self._components_)
+        print(self._singular_values_)
+        print(self._explained_variance_)
+        print(self._explained_variance_ratio_)
+        print(self._noise_variance_)
         X = X + self._mean_
 
         if self.whiten:
