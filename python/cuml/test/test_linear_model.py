@@ -16,7 +16,7 @@ import cupy as cp
 import numpy as np
 import pytest
 from distutils.version import LooseVersion
-
+import cudf
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
@@ -356,11 +356,18 @@ def test_logistic_regression_predict_proba(
     assert array_equal(cu_log_proba, sk_log_proba)
 
 
-@pytest.mark.parametrize("constructor", [np.array, cp.array])
+@pytest.mark.parametrize("constructor", [np.array, cp.array, cudf.DataFrame])
 @pytest.mark.parametrize("dtype", ["float32", "float64"])
 def test_logistic_regression_input_type_consistency(constructor, dtype):
+    from cudf.core.frame import Frame
+
     X = constructor([[5, 10], [3, 1], [7, 8]]).astype(dtype)
     y = constructor([0, 1, 1]).astype(dtype)
     clf = cuLog().fit(X, y, convert_dtype=True)
-    assert isinstance(clf.predict_proba(X), type(X))
-    assert isinstance(clf.predict(X), type(X))
+
+    original_type = type(X)
+    if constructor == cudf.DataFrame:
+        original_type = Frame
+
+    assert isinstance(clf.predict_proba(X), original_type)
+    assert isinstance(clf.predict(X), original_type)
