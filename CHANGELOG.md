@@ -1,6 +1,7 @@
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
+- PR #2261: Exposing new FAISS metrics through Python API
 - PR #2287: Single-GPU TfidfTransformer implementation
 - PR #2289: QR SVD solver for MNMG PCA
 - PR #2312: column-major support for make_blobs
@@ -23,6 +24,7 @@
 - PR #2364: Fix for random projection
 - PR #2373: Use Treelite Pip package in GPU testing
 - PR #2376: Update documentation Links
+- PR #2413: CumlArray and related methods updates to account for cuDF.Buffer contiguity update
 
 # cuML 0.14.0 (03 Jun 2020)
 
