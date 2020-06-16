@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include <comm_utils.h>
 #include <gtest/gtest.h>
 #include <mpi.h>
 #include <cuda_utils.cuh>
-#include <comm_utils.h>
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/descriptor.hpp>
 

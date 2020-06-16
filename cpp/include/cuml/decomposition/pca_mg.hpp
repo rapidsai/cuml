@@ -49,9 +49,9 @@
 
 #pragma once
 
-#include "pca.hpp"
-#include <opg/matrix/part_descriptor.hpp>
 #include <opg/matrix/data.hpp>
+#include <opg/matrix/part_descriptor.hpp>
+#include "pca.hpp"
 
 #include <common/cumlHandle.hpp>
 

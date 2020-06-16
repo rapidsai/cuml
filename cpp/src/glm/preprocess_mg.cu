@@ -15,14 +15,14 @@
  */
 
 #include <common/cumlHandle.hpp>
+#include <common/cuml_comms_int.hpp>
+#include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/linear_model/preprocess_mg.hpp>
 #include <linalg/gemm.cuh>
 #include <linalg/subtract.cuh>
 #include <matrix/math.cuh>
-#include <common/cuml_comms_int.hpp>
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/linear_model/preprocess_mg.hpp>
 #include <opg/linalg/norm.hpp>
 #include <opg/matrix/math.hpp>
 #include <opg/stats/mean.hpp>
