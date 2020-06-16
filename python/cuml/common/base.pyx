@@ -338,7 +338,8 @@ class ClassifierMixin:
     _estimator_type = "classifier"
 
     def score(self, X, y, **kwargs):
-        """Scoring function for based on mean accuracy.
+        """
+        Scoring function for classifier estimators based on mean accuracy.
 
         Parameters
         ----------
