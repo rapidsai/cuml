@@ -19,11 +19,13 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from cuml.common.handle cimport cumlHandle
 import cuml.common.handle
 import cupy as cp
 import numpy as np
+from cuml.common.base import _input_to_type
 from cuml.common import (get_cudf_column_ptr, get_dev_array_ptr,
                          input_to_cuml_array, CumlArray, logger, with_cupy_rmm)
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
@@ -35,9 +37,9 @@ cdef extern from "metrics/trustworthiness_c.h" namespace "MLCommon::Distance":
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     void pairwiseDistance(const cumlHandle &handle, const double *x, const double *y, double *dist, int m,
-                        int n, int k, int metric) except +
+                        int n, int k, int metric, bool isRowMajor) except +
     void pairwiseDistance(const cumlHandle &handle, const float *x, const float *y, float *dist, int m,
-                        int n, int k, int metric) except +
+                        int n, int k, int metric, bool isRowMajor) except +
 
 def determine_metric(metric_str):
 
@@ -75,69 +77,29 @@ def pairwise_distances(X, Y=None, metric="euclidean", force_all_finite=True, han
     """ 
     Compute the distance matrix from a vector array X and optional Y.
 
-    This method takes either a vector array or a distance matrix, and returns
-    a distance matrix. If the input is a vector array, the distances are
-    computed. If the input is a distances matrix, it is returned instead.
-
-    This method provides a safe way to take a distance matrix as input, while
-    preserving compatibility with many other algorithms that take a vector
-    array.
+    This method takes either one or two vector arrays, and returns
+    a distance matrix.
 
     If Y is given (default is None), then the returned matrix is the pairwise
     distance between the arrays from both X and Y.
 
     Valid values for metric are:
 
-    - From scikit-learn: ['cityblock', 'cosine', 'euclidean', 'l1', 'l2',
-      'manhattan']. These metrics support sparse matrix
-      inputs.
-      ['nan_euclidean'] but it does not yet support sparse matrices.
-
-    - From scipy.spatial.distance: ['braycurtis', 'canberra', 'chebyshev',
-      'correlation', 'dice', 'hamming', 'jaccard', 'kulsinski', 'mahalanobis',
-      'minkowski', 'rogerstanimoto', 'russellrao', 'seuclidean',
-      'sokalmichener', 'sokalsneath', 'sqeuclidean', 'yule']
-      See the documentation for scipy.spatial.distance for details on these
-      metrics. These metrics do not support sparse matrix inputs.
-
-    Note that in the case of 'cityblock', 'cosine' and 'euclidean' (which are
-    valid scipy.spatial.distance metrics), the scikit-learn implementation
-    will be used, which is faster and has support for sparse matrices (except
-    for 'cityblock'). For a verbose description of the metrics from
-    scikit-learn, see the __doc__ of the sklearn.pairwise.distance_metrics
-    function.
-
-    Read more in the :ref:`User Guide <metrics>`.
+    - From scikit-learn: ['cosine', 'euclidean', 'l1', 'l2']. Sparse matrices are not supported.
 
     Parameters
     ----------
-    X : array [n_samples_a, n_samples_a] if metric == "precomputed", or, \
-             [n_samples_a, n_features] otherwise
-        Array of pairwise distances between samples, or a feature array.
+    X : array-like (device or host) shape = (n_samples_a, n_features)
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy
 
-    Y : array [n_samples_b, n_features], optional
-        An optional second feature array. Only allowed if
-        metric != "precomputed".
+    Y : array-like (device or host), optional shape = (n_samples_b, n_features)
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy
 
-    metric : string, or callable
+    metric : string
         The metric to use when calculating distance between instances in a
-        feature array. If metric is a string, it must be one of the options
-        allowed by scipy.spatial.distance.pdist for its metric parameter, or
-        a metric listed in pairwise.PAIRWISE_DISTANCE_FUNCTIONS.
-        If metric is "precomputed", X is assumed to be a distance matrix.
-        Alternatively, if metric is a callable function, it is called on each
-        pair of instances (rows) and the resulting value recorded. The callable
-        should take two arrays from X as input and return a value indicating
-        the distance between them.
-
-    n_jobs : int or None, optional (default=None)
-        The number of jobs to use for the computation. This works by breaking
-        down the pairwise matrix into n_jobs even slices and computing them in
-        parallel.
-
-        ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
-        ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
-        for more details.
+        feature array.
 
     force_all_finite : boolean or 'allow-nan', (default=True)
         Whether to raise an error on np.inf, np.nan, pd.NA in array. The
@@ -153,6 +115,11 @@ def pairwise_distances(X, Y=None, metric="euclidean", force_all_finite=True, han
 
         .. versionchanged:: 0.23
            Accepts `pd.NA` and converts it into `np.nan`
+
+    convert_dtype : bool, optional (default = True)
+        When set to True, the fit method will, when necessary, convert
+        Y to be the same data type as X if they differ. This
+        will increase memory used for the method.
 
     **kwds : optional keyword parameters
         Any further parameters are passed directly to the distance function.
@@ -179,62 +146,74 @@ def pairwise_distances(X, Y=None, metric="euclidean", force_all_finite=True, han
     handle = cuml.common.handle.Handle() if handle is None else handle
     cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
 
-    # Get the input arrays
+    # Determine the input type to convert to when returning
+    output_type = _input_to_type(X)
+
+    # Get the input arrays, preserve order and type where possible
     X_m, n_samples_x, n_features_x, dtype_x = \
-        input_to_cuml_array(X, order='C', check_dtype=[np.float32, np.float64])
+        input_to_cuml_array(X, order="K", check_dtype=[np.float32, np.float64])
     
+    # Get the order from the CumlArray
+    input_order = X_m.order
+    is_row_major = input_order == "C"
+
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_Y_ptr
     cdef uintptr_t d_dest_ptr
     
-    with logger.set_level(logger.LEVEL_DEBUG):
+    if (Y is not None):
+        Y_m, n_samples_y, n_features_y, dtype_y = \
+            input_to_cuml_array(Y, order="K", convert_to_dtype=(dtype_x if convert_dtype
+                                              else None), check_dtype=[dtype_x])
+    else:
+        # Shallow copy X variables
+        Y_m = X_m
+        n_samples_y = n_samples_x
+        n_features_y = n_features_x
+        dtype_y = dtype_x
 
-        logger.debug("Input Vals: {}, {}, {}".format(n_features_x, n_features_x, dtype_x))
+    # Check feature sizes are equal
+    if (n_features_x != n_features_y):
+        raise ValueError("Incompatible dimension for X and Y matrices: X.shape[1] == {} while Y.shape[1] == {}".format(n_features_x, n_features_y))
 
-        if (Y is not None):
-            Y_m, n_samples_y, n_features_y, dtype_y = \
-                input_to_cuml_array(Y, order='C', convert_to_dtype=dtype_x)
-        else:
-            # Shallow copy X variables
-            Y_m = X_m
-            n_samples_y = n_samples_x
-            n_features_y = n_features_x
-            dtype_y = dtype_x
+    if (X_m.order != Y_m.order):
+        raise ValueError("Incompatible order for X and Y matrices: X.order == {} while Y.order == {}".format(X_m.order, Y_m.order))
 
-        # TODO: Assert the n_features_x == n_features_y
+    # Get the metric string to int
+    metric_val = determine_metric(metric)
 
-        metric_val = determine_metric(metric)
+    # Create the output array
+    dest_m = CumlArray.zeros((n_samples_x, n_samples_y), dtype=dtype_x, order=input_order)
 
-        # Create the output array
-        dest_m = CumlArray.zeros((n_samples_x, n_samples_y), dtype=dtype_x, order='C')
+    d_X_ptr = X_m.ptr
+    d_Y_ptr = Y_m.ptr
+    d_dest_ptr = dest_m.ptr
 
-        d_X_ptr = X_m.ptr
-        d_Y_ptr = Y_m.ptr
-        d_dest_ptr = dest_m.ptr
+    # Now execute the functions
+    if (dtype_x == np.float32):
+        pairwiseDistance(handle_[0],
+            <float*> d_X_ptr, 
+            <float*> d_Y_ptr, 
+            <float*> d_dest_ptr,
+            <int> n_samples_x,
+            <int> n_samples_y,
+            <int> n_features_x,
+            <int> metric_val,
+            <bool> is_row_major)
+    elif (dtype_x == np.float64):
+        pairwiseDistance(handle_[0],
+            <double*> d_X_ptr, 
+            <double*> d_Y_ptr, 
+            <double*> d_dest_ptr,
+            <int> n_samples_x,
+            <int> n_samples_y,
+            <int> n_features_x,
+            <int> metric_val,
+            <bool> is_row_major)
+    else:
+        raise NotImplementedError("Unsupported dtype: {}".format(dtype_x))
 
-        if (dtype_x == np.float32):
-            pairwiseDistance(handle_[0],
-                <float*> d_X_ptr, 
-                <float*> d_Y_ptr, 
-                <float*> d_dest_ptr,
-                <int> n_samples_x,
-                <int> n_samples_y,
-                <int> n_features_x,
-                <int> metric_val)
-        elif (dtype_x == np.float64):
-            pairwiseDistance(handle_[0],
-                <double*> d_X_ptr, 
-                <double*> d_Y_ptr, 
-                <double*> d_dest_ptr,
-                <int> n_samples_x,
-                <int> n_samples_y,
-                <int> n_features_x,
-                <int> metric_val)
-        else:
-            # TODO: raise error. Should never get here
-            pass
+    del X_m
+    del Y_m
 
-        del X_m
-        del Y_m
-
-        return dest_m.to_output("numpy")
+    return dest_m.to_output(output_type)

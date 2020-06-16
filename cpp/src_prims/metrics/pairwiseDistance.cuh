@@ -48,7 +48,7 @@ template <typename DataT, typename IndexT>
 void pairwiseDistance(const DataT *x, const DataT *y, DataT *dist, IndexT m,
                       IndexT n, IndexT k, int metric,
                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                      cudaStream_t stream) {
+                      cudaStream_t stream, bool isRowMajor = true) {
   //TODO: Assert valid config
   // ASSERT(nLabels >= 2 && nLabels <= (nRows - 1),
   //        "silhouette Score not defined for the given number of labels!");
@@ -57,7 +57,7 @@ void pairwiseDistance(const DataT *x, const DataT *y, DataT *dist, IndexT m,
   MLCommon::device_buffer<char> workspace(allocator, stream, 1);
 
   //Call the distance function
-  Distance::pairwiseDistance(x, y, dist, m, n, k, workspace, static_cast<Distance::DistanceType>(metric), stream);
+  Distance::pairwiseDistance(x, y, dist, m, n, k, workspace, static_cast<Distance::DistanceType>(metric), stream, isRowMajor);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }

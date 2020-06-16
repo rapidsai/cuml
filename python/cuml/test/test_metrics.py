@@ -49,7 +49,7 @@ from cuml.metrics import confusion_matrix
 from sklearn.metrics.regression import mean_absolute_error as sklearn_mae
 from sklearn.metrics.regression import mean_squared_log_error as sklearn_msle
 
-from cuml.common import has_scipy
+from cuml.common import has_scipy, input_to_cuml_array
 
 from cuml.metrics import roc_auc_score
 from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
@@ -648,12 +648,18 @@ def test_roc_auc_score_at_limits():
 
 @pytest.mark.parametrize("metric", ["cosine", "euclidean", "l1", "l2"])
 @pytest.mark.parametrize("matrix_size", [(5, 4), (1000, 3), (1, 10)])
-def test_pairwise_distances(metric: str, matrix_size):
+@pytest.mark.parametrize("is_col_major", [True, False])
+def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     # Test the pairwise_distance helper function.
     rng = np.random.RandomState(0)
 
+    np.asfortranarray(np.zeros((1, 10)))
+
+    def prep_array(array):
+        return np.asfortranarray(array) if is_col_major else array
+
     # Compare to sklearn, single input
-    X = rng.random_sample(matrix_size)
+    X = prep_array(rng.random_sample(matrix_size))
     S = pairwise_distances(X, metric=metric)
     S2 = sklearn_pairwise_distances(X, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2)
@@ -664,10 +670,13 @@ def test_pairwise_distances(metric: str, matrix_size):
     S2 = sklearn_pairwise_distances(X, Y, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2)
 
-    # TODO: Compare single and double inputs to eachother
+    # Compare single and double inputs to eachother
+    S = pairwise_distances(X, metric=metric)
+    S2 = pairwise_distances(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2)
 
     # Compare to sklearn, with Y dim != X dim
-    Y = rng.random_sample((2, matrix_size[1]))
+    Y = prep_array(rng.random_sample((2, matrix_size[1])))
     S = pairwise_distances(X, Y, metric=metric)
     S2 = sklearn_pairwise_distances(X, Y, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2)
@@ -678,6 +687,59 @@ def test_pairwise_distances(metric: str, matrix_size):
     S2 = sklearn_pairwise_distances(X, Y, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2)
 
+    # Change precision of both parameters to float
+    X = np.asfarray(X, dtype=np.float32)
+    Y = np.asfarray(Y, dtype=np.float32)
+    S = pairwise_distances(X, Y, metric=metric)
+    S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2)
+
+    # Test sending an int type with convert_dtype=True
+    Y = prep_array(rng.randint(10, size=Y.shape))
+    S = pairwise_distances(X, Y, metric=metric, convert_dtype=True)
+    S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2)
+
     # Test that uppercase on the metric name throws an error. 
     with pytest.raises(ValueError):
         pairwise_distances(X, Y, metric=metric.capitalize())
+
+def test_pairwise_distances_exceptions():
+
+    rng = np.random.RandomState(0)
+
+    X_int = rng.randint(10, size=(5, 4))
+    X_double = rng.random_sample((5, 4))
+    X_float = np.asfarray(X_double, dtype=np.float32)
+    X_bool = rng.choice([True, False], size=(5, 4))
+
+    # Test int inputs (only float/double accepted at this time)
+    with pytest.raises(TypeError):
+        pairwise_distances(X_int, metric="euclidean")
+
+    # # Test second int inputs (types must match)
+    # with pytest.raises(TypeError):
+    #     pairwise_distances(X_double, X_int, metric="euclidean")
+
+    # Test bool inputs (only float/double accepted at this time)
+    with pytest.raises(TypeError):
+        pairwise_distances(X_bool, metric="euclidean")
+
+    # Test sending both a C and F order array
+    with pytest.raises(ValueError):
+        pairwise_distances(X_double, np.asfortranarray(X_double), metric="euclidean")
+
+    # Test sending different types with convert_dtype=False
+    with pytest.raises(TypeError):
+        pairwise_distances(X_double, X_float, metric="euclidean", convert_dtype=False)
+
+    # Invalid metric name
+    with pytest.raises(ValueError):
+        pairwise_distances(X_double, metric="Not a metric")
+
+    # Invalid dimensions
+    X = rng.random_sample((5, 4))
+    Y = rng.random_sample((5, 7))
+
+    with pytest.raises(ValueError):
+        pairwise_distances(X, Y, metric="euclidean")
