@@ -17,7 +17,7 @@
 - PR #2363: Update threshold and make other changes for stress tests
 - PR #2371: Updating MBSGD tests to use larger batches
 - PR #2380: Pinning libcumlprims version to ease future updates
-- PR #2410: Update DT to select column order at random while calculating best split
+- PR #2419: Update DT to select column order at random while calculating best split
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
