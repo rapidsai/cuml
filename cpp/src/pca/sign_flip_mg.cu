@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-#include "cuml/decomposition/sign_flip_mg.hpp"
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
-#include <cuda_utils.cuh>
-#include <common/cumlHandle.hpp>
-#include "common/cuml_comms_int.hpp"
-#include "cuml/common/cuml_allocator.hpp"
-#include "common/device_buffer.hpp"
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
+#include <common/cumlHandle.hpp>
+#include <cuda_utils.cuh>
+#include <matrix/math.cuh>
+#include <matrix/matrix.cuh>
 #include "common/allocatorAdapter.hpp"
+#include "common/cuml_comms_int.hpp"
+#include "common/device_buffer.hpp"
+#include "cuml/common/cuml_allocator.hpp"
+#include "cuml/decomposition/sign_flip_mg.hpp"
 
 using namespace MLCommon;
 
@@ -35,8 +35,8 @@ namespace opg {
 // TODO: replace these thrust code with cuda kernels or prims
 template <typename T>
 void findMaxAbsOfColumns(T *input, int n_rows, int n_cols, T *max_vals,
-				std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
-				bool row_major = false) {
+                         std::shared_ptr<deviceAllocator> allocator,
+                         cudaStream_t stream, bool row_major = false) {
   auto counting = thrust::make_counting_iterator(0);
   auto m = n_rows;
   auto n = n_cols;
@@ -45,53 +45,52 @@ void findMaxAbsOfColumns(T *input, int n_rows, int n_cols, T *max_vals,
   auto execution_policy = thrust::cuda::par(alloc).on(stream);
 
   if (row_major) {
-	  thrust::for_each(execution_policy, counting, counting + n_rows,
-	                [=] __device__(int idx) {
-	                  T max = 0.0;
-	                  int max_index = 0;
-	                  int d_i = idx;
-	                  int end = d_i + (m * n);
+    thrust::for_each(execution_policy, counting, counting + n_rows,
+                     [=] __device__(int idx) {
+                       T max = 0.0;
+                       int max_index = 0;
+                       int d_i = idx;
+                       int end = d_i + (m * n);
 
-	                  for (int i = d_i; i < end; i = i + m) {
-	                    T val = input[i];
-	                    if (val < 0.0) {
-	                       val = -val;
-	                    }
-	                    if (val > max) {
-	                       max = val;
-	                       max_index = i;
-	                    }
-	                  }
-	                  max_vals[idx] = input[max_index];
-	                });
+                       for (int i = d_i; i < end; i = i + m) {
+                         T val = input[i];
+                         if (val < 0.0) {
+                           val = -val;
+                         }
+                         if (val > max) {
+                           max = val;
+                           max_index = i;
+                         }
+                       }
+                       max_vals[idx] = input[max_index];
+                     });
   } else {
-      thrust::for_each(execution_policy, counting, counting + n_cols,
-                   [=] __device__(int idx) {
-                     T max = 0.0;
-                     int max_index = 0;
-                     int d_i = idx * m;
-                     int end = d_i + m;
+    thrust::for_each(execution_policy, counting, counting + n_cols,
+                     [=] __device__(int idx) {
+                       T max = 0.0;
+                       int max_index = 0;
+                       int d_i = idx * m;
+                       int end = d_i + m;
 
-                     for (int i = d_i; i < end; i++) {
-                       T val = input[i];
-                       if (val < 0.0) {
-                         val = -val;
+                       for (int i = d_i; i < end; i++) {
+                         T val = input[i];
+                         if (val < 0.0) {
+                           val = -val;
+                         }
+                         if (val > max) {
+                           max = val;
+                           max_index = i;
+                         }
                        }
-                       if (val > max) {
-                         max = val;
-                         max_index = i;
-                       }
-                     }
-                     max_vals[idx] = input[max_index];
-                   });
+                       max_vals[idx] = input[max_index];
+                     });
   }
 }
 
 // TODO: replace these thrust code with cuda kernels or prims
 template <typename T>
-void flip(T *input, int n_rows, int n_cols,
-		T *max_vals, std::shared_ptr<deviceAllocator> allocator,
-		cudaStream_t stream) {
+void flip(T *input, int n_rows, int n_cols, T *max_vals,
+          std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
   auto counting = thrust::make_counting_iterator(0);
   auto m = n_rows;
 
@@ -103,9 +102,9 @@ void flip(T *input, int n_rows, int n_cols,
                      int end = d_i + m;
 
                      if (max_vals[idx] < 0.0) {
-                        for (int i = d_i; i < end; i++) {
-                           input[i] = -input[i];
-                        }
+                       for (int i = d_i; i < end; i++) {
+                         input[i] = -input[i];
+                       }
                      }
                    });
 }
@@ -122,71 +121,69 @@ void flip(T *input, int n_rows, int n_cols,
  * @{
  */
 template <typename T>
-void sign_flip_imp(cumlHandle &handle, std::vector<Matrix::Data<T>*> &input,
-		Matrix::PartDescriptor &input_desc,
-		T *components, int n_components,
-        cudaStream_t *streams, int n_stream) {
-	
-	int rank = handle.getImpl().getCommunicator().getRank();
+void sign_flip_imp(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input,
+                   Matrix::PartDescriptor &input_desc, T *components,
+                   int n_components, cudaStream_t *streams, int n_stream) {
+  int rank = handle.getImpl().getCommunicator().getRank();
 
-	const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
-	const std::shared_ptr<deviceAllocator> allocator = handle.getImpl().getDeviceAllocator();
+  const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
+  const std::shared_ptr<deviceAllocator> allocator =
+    handle.getImpl().getDeviceAllocator();
 
-	std::vector<Matrix::RankSizePair*> local_blocks = input_desc.blocksOwnedBy(rank);
-	device_buffer<T> max_vals(allocator, streams[0], std::max(size_t(comm.getSize()),
-			local_blocks.size()) * n_components);
+  std::vector<Matrix::RankSizePair *> local_blocks =
+    input_desc.blocksOwnedBy(rank);
+  device_buffer<T> max_vals(
+    allocator, streams[0],
+    std::max(size_t(comm.getSize()), local_blocks.size()) * n_components);
 
-	for (int i = 0; i < input.size(); i++) {
-		T *mv_loc = max_vals.data() + (i * n_components);
-		findMaxAbsOfColumns(input[i]->ptr, local_blocks[i]->size, n_components, mv_loc,
-				allocator, streams[i % n_stream]);
-	}
+  for (int i = 0; i < input.size(); i++) {
+    T *mv_loc = max_vals.data() + (i * n_components);
+    findMaxAbsOfColumns(input[i]->ptr, local_blocks[i]->size, n_components,
+                        mv_loc, allocator, streams[i % n_stream]);
+  }
 
-	for (int i = 0; i < n_stream; i++) {
-		CUDA_CHECK(cudaStreamSynchronize(streams[i]));
-	}
+  for (int i = 0; i < n_stream; i++) {
+    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+  }
 
-	findMaxAbsOfColumns(max_vals.data(), n_components, local_blocks.size(), max_vals.data(),
-				allocator, streams[0], true);
+  findMaxAbsOfColumns(max_vals.data(), n_components, local_blocks.size(),
+                      max_vals.data(), allocator, streams[0], true);
 
-	comm.allgather(max_vals.data(), max_vals.data(), n_components, streams[0]);
-	comm.syncStream(streams[0]);
+  comm.allgather(max_vals.data(), max_vals.data(), n_components, streams[0]);
+  comm.syncStream(streams[0]);
 
-	findMaxAbsOfColumns(max_vals.data(), n_components, comm.getSize(), max_vals.data(),
-			allocator, streams[0], true);
+  findMaxAbsOfColumns(max_vals.data(), n_components, comm.getSize(),
+                      max_vals.data(), allocator, streams[0], true);
 
-	for (int i = 0; i < local_blocks.size(); i++) {
-		flip(input[i]->ptr, local_blocks[i]->size, n_components, max_vals.data(), allocator, streams[i % n_stream]);
-	}
+  for (int i = 0; i < local_blocks.size(); i++) {
+    flip(input[i]->ptr, local_blocks[i]->size, n_components, max_vals.data(),
+         allocator, streams[i % n_stream]);
+  }
 
-	for (int i = 0; i < n_stream; i++) {
-		CUDA_CHECK(cudaStreamSynchronize(streams[i]));
-	}
+  for (int i = 0; i < n_stream; i++) {
+    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+  }
 
-	flip(components, input_desc.N, n_components, max_vals.data(), allocator, streams[0]);
+  flip(components, input_desc.N, n_components, max_vals.data(), allocator,
+       streams[0]);
 }
 
-void sign_flip(cumlHandle &handle, std::vector<Matrix::Data<float>*> &input_data,
-		Matrix::PartDescriptor &input_desc,
-		float *components, int n_components,
-        cudaStream_t *streams, int n_stream) {
-
-	sign_flip_imp(handle, input_data, input_desc, components, n_components,
-	        streams, n_stream);
-
+void sign_flip(cumlHandle &handle,
+               std::vector<Matrix::Data<float> *> &input_data,
+               Matrix::PartDescriptor &input_desc, float *components,
+               int n_components, cudaStream_t *streams, int n_stream) {
+  sign_flip_imp(handle, input_data, input_desc, components, n_components,
+                streams, n_stream);
 }
 
-void sign_flip(cumlHandle &handle, std::vector<Matrix::Data<double>*> &input_data,
-		Matrix::PartDescriptor &input_desc,
-		double *components, int n_components,
-        cudaStream_t *streams, int n_stream) {
-
-	sign_flip_imp(handle, input_data, input_desc, components, n_components,
-		        streams, n_stream);
-
+void sign_flip(cumlHandle &handle,
+               std::vector<Matrix::Data<double> *> &input_data,
+               Matrix::PartDescriptor &input_desc, double *components,
+               int n_components, cudaStream_t *streams, int n_stream) {
+  sign_flip_imp(handle, input_data, input_desc, components, n_components,
+                streams, n_stream);
 }
 
-}
-}
-}
-
+}  // namespace opg
+}  // namespace PCA
+}  // namespace ML

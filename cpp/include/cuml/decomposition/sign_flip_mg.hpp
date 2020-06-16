@@ -49,15 +49,13 @@
 
 #pragma once
 
-
-#include "opg/matrix/part_descriptor.hpp"
-#include "opg/matrix/data.hpp"
 #include <common/cumlHandle.hpp>
+#include "opg/matrix/data.hpp"
+#include "opg/matrix/part_descriptor.hpp"
 
 namespace ML {
 namespace PCA {
 namespace opg {
-
 
 /**
  * @brief sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen vectors
@@ -71,22 +69,15 @@ namespace opg {
  * @{
  */
 void sign_flip(cumlHandle &handle,
-		std::vector<MLCommon::Matrix::Data<float>*> &input_data,
-		MLCommon::Matrix::PartDescriptor &input_desc,
-		float *components,
-		int n_components,
-        cudaStream_t *streams,
-        int n_stream);
+               std::vector<MLCommon::Matrix::Data<float> *> &input_data,
+               MLCommon::Matrix::PartDescriptor &input_desc, float *components,
+               int n_components, cudaStream_t *streams, int n_stream);
 
 void sign_flip(cumlHandle &handle,
-		std::vector<MLCommon::Matrix::Data<double>*> &input_data,
-		MLCommon::Matrix::PartDescriptor &input_desc,
-		double *components,
-		int n_components,
-        cudaStream_t *streams,
-        int n_stream);
+               std::vector<MLCommon::Matrix::Data<double> *> &input_data,
+               MLCommon::Matrix::PartDescriptor &input_desc, double *components,
+               int n_components, cudaStream_t *streams, int n_stream);
 
-
-}; // end namespace opg
-}; // end namespace PCA
-}; // end namespace ML
+};  // end namespace opg
+};  // end namespace PCA
+};  // end namespace ML

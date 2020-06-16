@@ -49,72 +49,50 @@
 
 #pragma once
 
-#include "opg/matrix/part_descriptor.hpp"
-#include "opg/matrix/data.hpp"
+#include <common/cumlHandle.hpp>
 #include "common/cuml_comms_int.hpp"
 #include "cuml/common/cuml_allocator.hpp"
-#include <common/cumlHandle.hpp>
+#include "opg/matrix/data.hpp"
+#include "opg/matrix/part_descriptor.hpp"
 
 namespace ML {
 namespace GLM {
 namespace opg {
 
 void preProcessData(cumlHandle &handle,
-		std::vector<MLCommon::Matrix::Data<float>*> &input_data,
-		MLCommon::Matrix::PartDescriptor &input_desc,
-		std::vector<MLCommon::Matrix::Data<float>*> &labels,
-		float *mu_input,
-		float *mu_labels,
-		float *norm2_input,
-		bool fit_intercept,
-		bool normalize,
-		cudaStream_t *streams,
-		int n_streams,
-		bool verbose);
+                    std::vector<MLCommon::Matrix::Data<float> *> &input_data,
+                    MLCommon::Matrix::PartDescriptor &input_desc,
+                    std::vector<MLCommon::Matrix::Data<float> *> &labels,
+                    float *mu_input, float *mu_labels, float *norm2_input,
+                    bool fit_intercept, bool normalize, cudaStream_t *streams,
+                    int n_streams, bool verbose);
 
 void preProcessData(cumlHandle &handle,
-		std::vector<MLCommon::Matrix::Data<double>*> &input_data,
-		MLCommon::Matrix::PartDescriptor &input_desc,
-		std::vector<MLCommon::Matrix::Data<double>*> &labels,
-		double *mu_input,
-		double *mu_labels,
-		double *norm2_input,
-		bool fit_intercept,
-		bool normalize,
-		cudaStream_t *streams,
-		int n_streams,
-		bool verbose);
+                    std::vector<MLCommon::Matrix::Data<double> *> &input_data,
+                    MLCommon::Matrix::PartDescriptor &input_desc,
+                    std::vector<MLCommon::Matrix::Data<double> *> &labels,
+                    double *mu_input, double *mu_labels, double *norm2_input,
+                    bool fit_intercept, bool normalize, cudaStream_t *streams,
+                    int n_streams, bool verbose);
 
 void postProcessData(cumlHandle &handle,
-		std::vector<MLCommon::Matrix::Data<float>*> &input_data,
-		MLCommon::Matrix::PartDescriptor &input_desc,
-		std::vector<MLCommon::Matrix::Data<float>*> &labels,
-		float *coef,
-		float *intercept,
-		float *mu_input,
-		float *mu_labels,
-		float *norm2_input,
-		bool fit_intercept,
-		bool normalize,
-		cudaStream_t *streams,
-		int n_streams,
-		bool verbose);
+                     std::vector<MLCommon::Matrix::Data<float> *> &input_data,
+                     MLCommon::Matrix::PartDescriptor &input_desc,
+                     std::vector<MLCommon::Matrix::Data<float> *> &labels,
+                     float *coef, float *intercept, float *mu_input,
+                     float *mu_labels, float *norm2_input, bool fit_intercept,
+                     bool normalize, cudaStream_t *streams, int n_streams,
+                     bool verbose);
 
 void postProcessData(cumlHandle &handle,
-		std::vector<MLCommon::Matrix::Data<double>*> &input_data,
-		MLCommon::Matrix::PartDescriptor &input_desc,
-		std::vector<MLCommon::Matrix::Data<double>*> &labels,
-		double *coef,
-		double *intercept,
-		double *mu_input,
-		double *mu_labels,
-		double *norm2_input,
-		bool fit_intercept,
-		bool normalize,
-		cudaStream_t *streams,
-		int n_streams,
-		bool verbose);
+                     std::vector<MLCommon::Matrix::Data<double> *> &input_data,
+                     MLCommon::Matrix::PartDescriptor &input_desc,
+                     std::vector<MLCommon::Matrix::Data<double> *> &labels,
+                     double *coef, double *intercept, double *mu_input,
+                     double *mu_labels, double *norm2_input, bool fit_intercept,
+                     bool normalize, cudaStream_t *streams, int n_streams,
+                     bool verbose);
 
-}; // end namespace opg
-}; // end namespace OLS
-}; // end namespace ML
+};  // end namespace opg
+};  // namespace GLM
+};  // end namespace ML
