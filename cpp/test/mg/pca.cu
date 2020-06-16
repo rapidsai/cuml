@@ -50,12 +50,12 @@
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <cuda_utils.cuh>
-#include "cuml/decomposition/pca_mg.hpp"
-#include "cuml/test/prims/test_utils.h"
-#include "cumlprims/opg/linalg/gemm.hpp"
-#include "cumlprims/opg/matrix/matrix_utils.hpp"
-#include "linalg/cublas_wrappers.h"
-#include "matrix/matrix.cuh"
+#include <cuml/decomposition/pca_mg.hpp>
+#include <cuml/test/prims/test_utils.h>
+#include <cumlprims/opg/linalg/gemm.hpp>
+#include <cumlprims/opg/matrix/matrix_utils.hpp>
+#include <linalg/cublas_wrappers.h>
+#include <matrix/matrix.cuh>
 #include "test_opg_utils.h"
 
 namespace MLCommon {

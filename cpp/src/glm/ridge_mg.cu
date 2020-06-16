@@ -20,14 +20,14 @@
 #include <linalg/gemm.cuh>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
-#include "common/cuml_comms_int.hpp"
-#include "common/device_buffer.hpp"
-#include "cuml/common/cuml_allocator.hpp"
-#include "cuml/linear_model/ridge_mg.hpp"
-#include "opg/linalg/mv_aTb.hpp"
-#include "opg/linalg/svd.hpp"
-#include "opg/preprocess.hpp"
-#include "opg/stats/mean.hpp"
+#include <common/cuml_comms_int.hpp>
+#include <common/device_buffer.hpp>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/linear_model/ridge_mg.hpp>
+#include <opg/linalg/mv_aTb.hpp>
+#include <opg/linalg/svd.hpp>
+#include <opg/preprocess.hpp>
+#include <opg/stats/mean.hpp>
 
 using namespace MLCommon;
 

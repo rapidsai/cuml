@@ -20,16 +20,16 @@
 #include <linalg/eltwise.cuh>
 #include <matrix/math.cuh>
 #include <stats/mean_center.cuh>
-#include <tsvd/tsvd.cuh>
-#include "common/cuml_comms_int.hpp"
-#include "common/device_buffer.hpp"
-#include "cuml/common/cuml_allocator.hpp"
-#include "cuml/decomposition/sign_flip_mg.hpp"
-#include "cuml/decomposition/tsvd_mg.hpp"
-#include "opg/linalg/mm_aTa.hpp"
-#include "opg/stats/mean.hpp"
-#include "opg/stats/mean_center.hpp"
-#include "opg/stats/stddev.hpp"
+#include "tsvd.cuh"
+#include <common/cuml_comms_int.hpp>
+#include <common/device_buffer.hpp>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/decomposition/sign_flip_mg.hpp>
+#include <cuml/decomposition/tsvd_mg.hpp>
+#include <opg/linalg/mm_aTa.hpp>
+#include <opg/stats/mean.hpp>
+#include <opg/stats/mean_center.hpp>
+#include <opg/stats/stddev.hpp>
 
 using namespace MLCommon;
 

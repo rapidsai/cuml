@@ -50,8 +50,8 @@
 #pragma once
 
 #include <cuml/linear_model/glm.hpp>
-#include "opg/matrix/data.hpp"
-#include "opg/matrix/part_descriptor.hpp"
+#include <opg/matrix/data.hpp>
+#include <opg/matrix/part_descriptor.hpp>
 
 #include <common/cumlHandle.hpp>
 

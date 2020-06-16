@@ -20,17 +20,17 @@
 #include <cuml/decomposition/pca.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
 #include <matrix/math.cuh>
-#include <pca/pca.cuh>
+#include "pca.cuh"
 #include <stats/mean_center.cuh>
-#include "common/cuml_comms_int.hpp"
-#include "common/device_buffer.hpp"
-#include "cuml/common/cuml_allocator.hpp"
-#include "cuml/decomposition/sign_flip_mg.hpp"
-#include "opg/linalg/qr_based_svd.hpp"
-#include "opg/matrix/matrix_utils.hpp"
-#include "opg/stats/cov.hpp"
-#include "opg/stats/mean.hpp"
-#include "opg/stats/mean_center.hpp"
+#include <common/cuml_comms_int.hpp>
+#include <common/device_buffer.hpp>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/decomposition/sign_flip_mg.hpp>
+#include <opg/linalg/qr_based_svd.hpp>
+#include <opg/matrix/matrix_utils.hpp>
+#include <opg/stats/cov.hpp>
+#include <opg/stats/mean.hpp>
+#include <opg/stats/mean_center.hpp>
 
 using namespace MLCommon;
 

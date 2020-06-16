@@ -19,13 +19,13 @@
 #include <gtest/gtest.h>
 #include <mpi.h>
 #include <cuda_utils.cuh>
-#include "comm_utils.h"
-#include "opg/matrix/data.hpp"
-#include "opg/matrix/descriptor.hpp"
+#include <comm_utils.h>
+#include <opg/matrix/data.hpp>
+#include <opg/matrix/descriptor.hpp>
 
-#include "common/cumlHandle.hpp"
-#include "common/cuml_comms_int.hpp"
-#include "cuML_comms.hpp"
+#include <common/cumlHandle.hpp>
+#include <common/cuml_comms_int.hpp>
+#include <cuML_comms.hpp>
 
 namespace MLCommon {
 namespace Test {

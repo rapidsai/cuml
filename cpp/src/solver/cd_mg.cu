@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <solver/shuffle.h>
+#include "shuffle.h"
 #include <common/cumlHandle.hpp>
 #include <cuda_utils.cuh>
 #include <functions/softThres.cuh>
@@ -25,13 +25,13 @@
 #include <linalg/subtract.cuh>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
-#include "common/cuml_comms_int.hpp"
-#include "common/device_buffer.hpp"
-#include "cuml/common/cuml_allocator.hpp"
-#include "cuml/linear_model/preprocess_mg.hpp"
-#include "cuml/solvers/cd_mg.hpp"
-#include "opg/linalg/mv_aTb.hpp"
-#include "opg/linalg/norm.hpp"
+#include <common/cuml_comms_int.hpp>
+#include <common/device_buffer.hpp>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/linear_model/preprocess_mg.hpp>
+#include <cuml/solvers/cd_mg.hpp>
+#include <opg/linalg/mv_aTb.hpp>
+#include <opg/linalg/norm.hpp>
 
 using namespace MLCommon;
 
