@@ -292,7 +292,7 @@ class RandomForestRegressor(Base):
                           " the exact same results at this time.")
         self.rf_forest = None
         self.rf_forest64 = None
-        self.model_serialized = None
+        self.treelite_serialized_model = None
 
     """
     TODO:
@@ -307,7 +307,7 @@ class RandomForestRegressor(Base):
         cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
-            self._get_model_serialized()  # Ensure we have this cached
+            self._get_serialized_model()  # Ensure we have this cached
             if self.rf_forest:
                 params_t = <uintptr_t> self.rf_forest
                 rf_forest = \
@@ -322,7 +322,7 @@ class RandomForestRegressor(Base):
 
         state['n_cols'] = self.n_cols
         state["verbose"] = self.verbose
-        state["model_serialized"] = self.model_serialized
+        state["treelite_serialized_model"] = self.treelite_serialized_model
         state['handle'] = self.handle
         state["treelite_handle"] = None
 
@@ -344,7 +344,7 @@ class RandomForestRegressor(Base):
             rf_forest64.rf_params = state["rf_params64"]
             state["rf_forest64"] = <uintptr_t>rf_forest64
 
-        self.model_serialized = state["model_serialized"]
+        self.treelite_serialized_model = state["treelite_serialized_model"]
         self.__dict__.update(state)
 
     def __del__(self):
@@ -367,7 +367,7 @@ class RandomForestRegressor(Base):
             TreeliteModel.free_treelite_model(self.treelite_handle)
 
         self.treelite_handle = None
-        self.model_serialized = None
+        self.treelite_serialized_model = None
         self.n_cols = None
 
     def _get_max_feat_val(self):
@@ -397,11 +397,12 @@ class RandomForestRegressor(Base):
         cdef ModelHandle tl_handle = NULL
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
-        assert self.model_serialized or self.rf_forest, \
+        assert self.treelite_serialized_model or self.rf_forest, \
             "Attempting to create treelite from un-fit forest."
 
-        if self.model_serialized:  # bytes -> Treelite
-            tl_handle_int = treelite_deserialize(self.model_serialized)
+        if self.treelite_serialized_model:  # bytes -> Treelite
+            tl_handle_int = \
+                treelite_deserialize(self.treelite_serialized_model)
             tl_handle = <ModelHandle>tl_handle_int
         else:                 # RF -> Treelite
             task_category = REGRESSION_MODEL
@@ -413,25 +414,26 @@ class RandomForestRegressor(Base):
         self.treelite_handle = ctypes.c_void_p(<uintptr_t>tl_handle).value
         return self.treelite_handle
 
-    def _get_model_serialized(self):
+    def _get_serialized_model(self):
         """
-        Returns the self.model_serialized.
+        Returns the self.treelite_serialized_model.
         Cuml RF model gets converted to treelite protobuf bytes by:
             1. converting the cuml RF model to a treelite model. The treelite
             models handle (pointer) is returned
             2. The treelite model handle is converted to bytes.
-        The treelite model bytes are stored in `self.model_serialized`. If the
-        model bytes are present, we can skip _obtain_treelite_handle().
+        The treelite model bytes are stored in
+        `self.treelite_serialized_model`. If the model bytes are present, we
+        can skip _obtain_treelite_handle().
         """
-        if self.model_serialized:
-            return self.model_serialized
+        if self.treelite_serialized_model:
+            return self.treelite_serialized_model
         elif self.treelite_handle:
             fit_mod_ptr = self.treelite_handle
         else:
             fit_mod_ptr = self._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
-        self.model_serialized = treelite_serialize(model_ptr)
-        return self.model_serialized
+        self.treelite_serialized_model = treelite_serialize(model_ptr)
+        return self.treelite_serialized_model
 
     def convert_to_treelite_model(self):
         """
@@ -499,11 +501,11 @@ class RandomForestRegressor(Base):
     TODO : Move functions duplicated in the RF classifier and regressor
            to a shared file. Cuml issue #1854 has been created to track this.
     """
-    def _tl_handle_from_bytes(self, model_serialized):
-        if not model_serialized:
+    def _tl_handle_from_bytes(self, treelite_serialized_model):
+        if not treelite_serialized_model:
             raise ValueError(
                 '_tl_handle_from_bytes() requires non-empty serialized model')
-        tl_handle_int = treelite_deserialize(model_serialized)
+        tl_handle_int = treelite_deserialize(treelite_serialized_model)
         return ctypes.c_void_p(tl_handle_int).value
 
     def _concatenate_treelite_handle(self, treelite_handle):
@@ -520,7 +522,7 @@ class RandomForestRegressor(Base):
         concat_model_handle = concatenate_trees(deref(model_handles))
         cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
         self.treelite_handle = concat_model_ptr
-        self.model_serialized = treelite_serialize(concat_model_ptr)
+        self.treelite_serialized_model = treelite_serialize(concat_model_ptr)
 
         # Fix up some instance variables that should match the new TL model
         tl_model = TreeliteModel.from_treelite_model_handle(
@@ -910,7 +912,7 @@ class RandomForestRegressor(Base):
         -----------
         params : dict of new params
         """
-        self.model_serialized = None
+        self.treelite_serialized_model = None
         if not params:
             return self
         for key, value in params.items():
