@@ -597,7 +597,7 @@ class RandomForestRegressor(Base):
         y_ptr = y_m.ptr
 
         if self.dtype == np.float64:
-            warnings.warn("To use pickling and GPU-based prediction first \
+            warnings.warn("To use pickling or GPU-based prediction first \
                           train using float 32 data to fit the estimator.")
 
         cdef cumlHandle* handle_ =\

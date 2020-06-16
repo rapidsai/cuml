@@ -86,23 +86,21 @@ class BaseRandomForestModel(object):
     def _fit(self, model, dataset, convert_dtype):
         data = DistributedDataHandler.create(dataset, client=self.client)
         self.datatype = data.datatype
-        dataset = self.client.persist(dataset)
         if self.datatype == 'cudf':
             dtype = dataset[0].dtypes
             has_float64 = (dtype.any() == np.float64)
         else:
             dtype = dataset[0].dtype
             has_float64 = (dtype == np.float64)
-
         if has_float64:
             raise TypeError("To use Dask RF data should have dtype float32.")
 
+        dataset[1] = self.client.persist(dataset[1])
         if self.datatype == 'cudf':
             self.num_classes = len(dataset[1].unique())
         else:
             self.num_classes = \
                 len(dask.array.unique(dataset[1]).compute())
-
         futures = list()
         for idx, (worker, worker_data) in \
                 enumerate(data.worker_to_parts.items()):
