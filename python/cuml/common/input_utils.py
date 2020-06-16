@@ -433,6 +433,9 @@ def _typecast_will_lose_information(X, target_dtype):
         target_dtype_range = np.finfo(target_dtype)
 
     if isinstance(X, (np.ndarray, cp.ndarray, pd.Series, cudf.Series)):
+        if X.dtype.type == target_dtype:
+            return False
+
         return (
             (X < target_dtype_range.min) |
             (X > target_dtype_range.max)
