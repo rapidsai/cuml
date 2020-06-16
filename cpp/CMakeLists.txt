@@ -50,7 +50,7 @@ option(BUILD_CUML_CPP_LIBRARY "Build libcuml++ shared library" ON)
 
 option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
 
-option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" ON)
+option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
 
 option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
 
@@ -141,6 +141,11 @@ if(NOT BUILD_CUML_CPP_LIBRARY)
   set(BUILD_CUML_EXAMPLES OFF)
 endif(NOT BUILD_CUML_CPP_LIBRARY)
 
+# Enabling building cuML MPI Comms when BUILD_CUML_MG_TESTS=ON
+if(BUILD_CUML_MG_TESTS)
+  set(BUILD_CUML_MPI_COMMS ON)
+endif(BUILD_CUML_MG_TESTS)
+
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
@@ -160,6 +165,20 @@ if(NOT DEFINED BLAS_LIBRARIES)
 else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
+
+if(BUILD_CUML_STD_COMMS)
+  find_library(_CUMLPRIMS_LIB NAMES libcumlprims++ cumlprims
+                HINTS ${CMAKE_INSTALL_PREFIX}/lib
+                      "$ENV{CONDA_PREFIX}/include"
+                PATH_SUFFIXES lib build)
+
+  set(CUMLPRIMS_LIB ${_CUMLPRIMS_LIB}
+      CACHE STRING "Path to the cumlprims lib")
+  
+  set(CUMLPRIMS_DIR $ENV{CONDA_PREFIX}/include/cumlprims)
+
+  message(STATUS "libcumlprims found in ${CUMLPRIMS_LIB}")
+endif(BUILD_CUML_STD_COMMS)
 
 set(Protobuf_USE_STATIC_LIBS ON)
 find_package(Protobuf REQUIRED)
@@ -285,7 +304,8 @@ set(CUML_INCLUDE_DIRECTORIES
   ${SPDLOG_DIR}/src/spdlog/include
   ${TREELITE_DIR}/include
   ${TREELITE_DIR}/include/fmt
-  ${RAFT_DIR}/cpp/include)
+  ${RAFT_DIR}/cpp/include
+  ${CUMLPRIMS_DIR})
 
 set(CUML_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
@@ -324,6 +344,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/metrics/metrics.cu
     src/metrics/trustworthiness.cu
     src/pca/pca.cu
+    src/pca/pca_mg.cu
+    src/pca/sign_flip_mg.cu
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
     src/solver/solver.cu
@@ -334,6 +356,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/tsa/stationarity.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
+    src/tsvd/tsvd_mg.cu
     src/umap/umap.cu)
 
   if(OPENMP_FOUND)
@@ -344,6 +367,10 @@ if(BUILD_CUML_CPP_LIBRARY)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} nvToolsExt)
     link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
   endif(NVTX)
+
+  if(BUILD_CUML_STD_COMMS)
+    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} ${CUMLPRIMS_LIB})
+  endif(BUILD_CUML_STD_COMMS)
 
   target_include_directories(${CUML_CPP_TARGET}
     PRIVATE ${CUML_INCLUDE_DIRECTORIES})
