@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-#include <common/cumlHandle.hpp>
-#include <common/cuml_comms_int.hpp>
-#include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/decomposition/sign_flip_mg.hpp>
+#include "cuml/decomposition/tsvd_mg.hpp"
 #include <cuml/decomposition/tsvd.hpp>
-#include <cuml/decomposition/tsvd_mg.hpp>
-#include <linalg/eltwise.cuh>
+#include "opg/stats/mean.hpp"
+#include "opg/stats/mean_center.hpp"
+#include "opg/stats/stddev.hpp"
+#include <tsvd/tsvd.cuh>
 #include <matrix/math.cuh>
-#include <opg/linalg/mm_aTa.hpp>
-#include <opg/stats/mean.hpp>
-#include <opg/stats/mean_center.hpp>
-#include <opg/stats/stddev.hpp>
+#include <cuda_utils.cuh>
+#include <common/cumlHandle.hpp>
+#include "common/cuml_comms_int.hpp"
+#include "cuml/common/cuml_allocator.hpp"
+#include "common/device_buffer.hpp"
 #include <stats/mean_center.cuh>
-#include "tsvd.cuh"
+#include "cuml/decomposition/sign_flip_mg.hpp"
+#include "opg/linalg/mm_aTa.hpp"
+#include <linalg/eltwise.cuh>
 
 using namespace MLCommon;
 
@@ -37,37 +37,38 @@ namespace ML {
 namespace TSVD {
 namespace opg {
 
-template <typename T>
-void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
-              Matrix::PartDescriptor &input_desc, T *components,
-              T *singular_vals, paramsTSVD prms, cudaStream_t *streams,
-              int n_streams, bool verbose) {
-  const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
-  cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
-  const std::shared_ptr<deviceAllocator> allocator =
-    handle.getImpl().getDeviceAllocator();
+template<typename T>
+void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T>*> &input_data,
+		Matrix::PartDescriptor &input_desc, T *components, T *singular_vals,
+		paramsTSVD prms, cudaStream_t *streams, int n_streams, bool verbose) {
 
-  int len = prms.n_cols * prms.n_cols;
+	const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
+	cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
+	const std::shared_ptr<deviceAllocator> allocator =
+			handle.getImpl().getDeviceAllocator();
 
-  device_buffer<T> cov_data(allocator, streams[0], len);
-  size_t cov_data_size = cov_data.size();
-  Matrix::Data<T> cov{cov_data.data(), cov_data_size};
+	int len = prms.n_cols * prms.n_cols;
 
-  LinAlg::opg::mm_aTa(cov, input_data, input_desc, comm, allocator, streams,
-                      n_streams, cublas_handle);
+	device_buffer<T> cov_data(allocator, streams[0], len);
+	size_t cov_data_size = cov_data.size();
+	Matrix::Data<T> cov { cov_data.data(), cov_data_size };
 
-  device_buffer<T> components_all(allocator, streams[0], len);
-  device_buffer<T> explained_var_all(allocator, streams[0], prms.n_cols);
+	LinAlg::opg::mm_aTa(cov, input_data, input_desc, comm, allocator, streams,
+			n_streams, cublas_handle);
 
-  ML::calEig(handle.getImpl(), cov.ptr, components_all.data(),
-             explained_var_all.data(), prms, streams[0]);
+	device_buffer<T> components_all(allocator, streams[0], len);
+	device_buffer<T> explained_var_all(allocator, streams[0], prms.n_cols);
 
-  Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
-                          prms.n_components, prms.n_cols, streams[0]);
+	ML::calEig(handle.getImpl(), cov.ptr, components_all.data(),
+			explained_var_all.data(), prms, streams[0]);
 
-  T scalar = T(1);
-  Matrix::seqRoot(explained_var_all.data(), singular_vals, scalar,
-                  prms.n_components, streams[0]);
+	Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
+			prms.n_components, prms.n_cols, streams[0]);
+
+	T scalar = T(1);
+	Matrix::seqRoot(explained_var_all.data(), singular_vals, scalar,
+			prms.n_components, streams[0]);
+
 }
 
 /**
@@ -81,67 +82,67 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
  * @input param prms: data structure that includes all the parameters from input size to algorithm
  * @input param verbose
  */
-template <typename T>
+template<typename T>
 void fit_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
-              size_t n_parts, Matrix::Data<T> **input, T *components,
-              T *singular_vals, paramsTSVD prms, bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+		size_t n_parts, Matrix::Data<T> **input, T *components,
+		T *singular_vals, paramsTSVD prms, bool verbose) {
 
-  std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
-                                                    rank_sizes + n_parts);
+	int rank = handle.getImpl().getCommunicator().getRank();
 
-  std::vector<Matrix::Data<T> *> input_data(input, input + n_parts);
-  Matrix::PartDescriptor input_desc(prms.n_rows, prms.n_cols, ranksAndSizes,
-                                    rank);
+	std::vector<Matrix::RankSizePair*> ranksAndSizes(rank_sizes,
+			rank_sizes + n_parts);
 
-  // TODO: These streams should come from cumlHandle
-  int n_streams = n_parts;
-  cudaStream_t streams[n_streams];
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamCreate(&streams[i]));
-  }
+	std::vector<Matrix::Data<T>*> input_data(input, input + n_parts);
+	Matrix::PartDescriptor input_desc(prms.n_rows, prms.n_cols, ranksAndSizes,
+			rank);
 
-  fit_impl(handle, input_data, input_desc, components, singular_vals, prms,
-           streams, n_streams, verbose);
+	// TODO: These streams should come from cumlHandle
+	int n_streams = n_parts;
+	cudaStream_t streams[n_streams];
+	for (int i = 0; i < n_streams; i++) {
+		CUDA_CHECK(cudaStreamCreate(&streams[i]));
+	}
 
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
-  }
+	fit_impl(handle, input_data, input_desc, components, singular_vals, prms,
+			streams, n_streams, verbose);
 
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamDestroy(streams[i]));
-  }
+	for (int i = 0; i < n_streams; i++) {
+		CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+	}
+
+	for (int i = 0; i < n_streams; i++) {
+		CUDA_CHECK(cudaStreamDestroy(streams[i]));
+	}
 }
 
-template <typename T>
-void transform_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input,
-                    Matrix::PartDescriptor input_desc, T *components,
-                    std::vector<Matrix::Data<T> *> &trans_input,
-                    paramsTSVD prms, cudaStream_t *streams, int n_streams,
-                    bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+template<typename T>
+void transform_impl(cumlHandle &handle, std::vector<Matrix::Data<T>*> &input,
+		Matrix::PartDescriptor input_desc, T *components,
+		std::vector<Matrix::Data<T>*> &trans_input, paramsTSVD prms,
+		cudaStream_t *streams, int n_streams, bool verbose) {
 
-  cublasHandle_t cublas_h = handle.getImpl().getCublasHandle();
-  const std::shared_ptr<deviceAllocator> allocator =
-    handle.getImpl().getDeviceAllocator();
+	int rank = handle.getImpl().getCommunicator().getRank();
 
-  std::vector<Matrix::RankSizePair *> local_blocks =
-    input_desc.blocksOwnedBy(rank);
+	cublasHandle_t cublas_h = handle.getImpl().getCublasHandle();
+	const std::shared_ptr<deviceAllocator> allocator =
+			handle.getImpl().getDeviceAllocator();
 
-  for (int i = 0; i < input.size(); i++) {
-    int si = i % n_streams;
+	std::vector<Matrix::RankSizePair*> local_blocks = input_desc.blocksOwnedBy(rank);
 
-    T alpha = T(1);
-    T beta = T(0);
-    LinAlg::gemm(input[i]->ptr, local_blocks[i]->size, size_t(prms.n_cols),
-                 components, trans_input[i]->ptr, local_blocks[i]->size,
-                 int(prms.n_components), CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta,
-                 cublas_h, streams[si]);
-  }
+	for (int i = 0; i < input.size(); i++) {
+		int si = i % n_streams;
 
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
-  }
+		T alpha = T(1);
+		T beta = T(0);
+		LinAlg::gemm(input[i]->ptr, local_blocks[i]->size, size_t(prms.n_cols),
+				components, trans_input[i]->ptr, local_blocks[i]->size,
+				int(prms.n_components), CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta,
+				cublas_h, streams[si]);
+	}
+
+	for (int i = 0; i < n_streams; i++) {
+		CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+	}
 }
 
 /**
@@ -155,67 +156,68 @@ void transform_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input,
  * @input param prms: data structure that includes all the parameters from input size to algorithm
  * @input param verbose
  */
-template <typename T>
+template<typename T>
 void transform_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
-                    size_t n_parts, Matrix::Data<T> **input, T *components,
-                    Matrix::Data<T> **trans_input, paramsTSVD prms,
-                    bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+		size_t n_parts, Matrix::Data<T> **input, T *components,
+		Matrix::Data<T> **trans_input, paramsTSVD prms, bool verbose) {
 
-  std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
-                                                    rank_sizes + n_parts);
-  std::vector<Matrix::Data<T> *> input_data(input, input + n_parts);
-  Matrix::PartDescriptor input_desc(prms.n_rows, prms.n_cols, ranksAndSizes,
-                                    rank);
-  std::vector<Matrix::Data<T> *> trans_data(trans_input, trans_input + n_parts);
+	int rank = handle.getImpl().getCommunicator().getRank();
 
-  // TODO: These streams should come from cumlHandle
-  int n_streams = n_parts;
-  cudaStream_t streams[n_streams];
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamCreate(&streams[i]));
-  }
+	std::vector<Matrix::RankSizePair*> ranksAndSizes(rank_sizes,
+			rank_sizes + n_parts);
+	std::vector<Matrix::Data<T>*> input_data(input, input + n_parts);
+	Matrix::PartDescriptor input_desc(prms.n_rows, prms.n_cols, ranksAndSizes,
+			rank);
+	std::vector<Matrix::Data<T>*> trans_data(trans_input,
+			trans_input + n_parts);
 
-  transform_impl(handle, input_data, input_desc, components, trans_data, prms,
-                 streams, n_streams, verbose);
+	// TODO: These streams should come from cumlHandle
+	int n_streams = n_parts;
+	cudaStream_t streams[n_streams];
+	for (int i = 0; i < n_streams; i++) {
+		CUDA_CHECK(cudaStreamCreate(&streams[i]));
+	}
 
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
-  }
+	transform_impl(handle, input_data, input_desc, components, trans_data, prms,
+			streams, n_streams, verbose);
 
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamDestroy(streams[i]));
-  }
+	for (int i = 0; i < n_streams; i++) {
+		CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+	}
+
+	for (int i = 0; i < n_streams; i++) {
+		CUDA_CHECK(cudaStreamDestroy(streams[i]));
+	}
 }
 
-template <typename T>
+template<typename T>
 void inverse_transform_impl(cumlHandle &handle,
-                            std::vector<Matrix::Data<T> *> &trans_input,
-                            Matrix::PartDescriptor trans_input_desc,
-                            T *components,
-                            std::vector<Matrix::Data<T> *> &input,
-                            paramsTSVD prms, cudaStream_t *streams,
-                            int n_streams, bool verbose) {
-  cublasHandle_t cublas_h = handle.getImpl().getCublasHandle();
-  const std::shared_ptr<deviceAllocator> allocator =
-    handle.getImpl().getDeviceAllocator();
-  std::vector<Matrix::RankSizePair *> local_blocks =
-    trans_input_desc.partsToRanks;
+		std::vector<Matrix::Data<T>*> &trans_input,
+		Matrix::PartDescriptor trans_input_desc, T *components,
+		std::vector<Matrix::Data<T>*> &input, paramsTSVD prms,
+		cudaStream_t *streams, int n_streams, bool verbose) {
 
-  for (int i = 0; i < local_blocks.size(); i++) {
-    int si = i % n_streams;
-    T alpha = T(1);
-    T beta = T(0);
+	cublasHandle_t cublas_h = handle.getImpl().getCublasHandle();
+	const std::shared_ptr<deviceAllocator> allocator =
+			handle.getImpl().getDeviceAllocator();
+	std::vector<Matrix::RankSizePair*> local_blocks =
+			trans_input_desc.partsToRanks;
 
-    LinAlg::gemm(trans_input[i]->ptr, local_blocks[i]->size,
-                 size_t(prms.n_components), components, input[i]->ptr,
-                 local_blocks[i]->size, prms.n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
-                 alpha, beta, cublas_h, streams[si]);
-  }
+	for (int i = 0; i < local_blocks.size(); i++) {
+		int si = i % n_streams;
+		T alpha = T(1);
+		T beta = T(0);
 
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
-  }
+		LinAlg::gemm(trans_input[i]->ptr, local_blocks[i]->size,
+				size_t(prms.n_components), components, input[i]->ptr,
+				local_blocks[i]->size, prms.n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
+				alpha, beta, cublas_h, streams[si]);
+
+	}
+
+	for (int i = 0; i < n_streams; i++) {
+		CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+	}
 }
 
 /**
@@ -229,39 +231,40 @@ void inverse_transform_impl(cumlHandle &handle,
  * @input param prms: data structure that includes all the parameters from input size to algorithm
  * @input param verbose
  */
-template <typename T>
+template<typename T>
 void inverse_transform_impl(cumlHandle &handle,
-                            Matrix::RankSizePair **rank_sizes, size_t n_parts,
-                            Matrix::Data<T> **trans_input, T *components,
-                            Matrix::Data<T> **input, paramsTSVD prms,
-                            bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+		Matrix::RankSizePair **rank_sizes, size_t n_parts,
+		Matrix::Data<T> **trans_input, T *components, Matrix::Data<T> **input,
+		paramsTSVD prms, bool verbose) {
 
-  std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
-                                                    rank_sizes + n_parts);
-  Matrix::PartDescriptor trans_desc(prms.n_rows, prms.n_components,
-                                    ranksAndSizes, rank);
-  std::vector<Matrix::Data<T> *> trans_data(trans_input, trans_input + n_parts);
+	int rank = handle.getImpl().getCommunicator().getRank();
 
-  std::vector<Matrix::Data<T> *> input_data(input, input + n_parts);
+	std::vector<Matrix::RankSizePair*> ranksAndSizes(rank_sizes,
+			rank_sizes + n_parts);
+	Matrix::PartDescriptor trans_desc(prms.n_rows, prms.n_components,
+			ranksAndSizes, rank);
+	std::vector<Matrix::Data<T>*> trans_data(trans_input,
+			trans_input + n_parts);
 
-  // TODO: These streams should come from cumlHandle
-  int n_streams = n_parts;
-  cudaStream_t streams[n_streams];
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamCreate(&streams[i]));
-  }
+	std::vector<Matrix::Data<T>*> input_data(input, input + n_parts);
 
-  inverse_transform_impl(handle, trans_data, trans_desc, components, input_data,
-                         prms, streams, n_streams, verbose);
+	// TODO: These streams should come from cumlHandle
+	int n_streams = n_parts;
+	cudaStream_t streams[n_streams];
+	for (int i = 0; i < n_streams; i++) {
+		CUDA_CHECK(cudaStreamCreate(&streams[i]));
+	}
 
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
-  }
+	inverse_transform_impl(handle, trans_data, trans_desc, components,
+			input_data, prms, streams, n_streams, verbose);
 
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamDestroy(streams[i]));
-  }
+	for (int i = 0; i < n_streams; i++) {
+		CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+	}
+
+	for (int i = 0; i < n_streams; i++) {
+		CUDA_CHECK(cudaStreamDestroy(streams[i]));
+	}
 }
 
 /**
@@ -278,159 +281,160 @@ void inverse_transform_impl(cumlHandle &handle,
  * @input param prms: data structure that includes all the parameters from input size to algorithm
  * @input param verbose
  */
-template <typename T>
-void fit_transform_impl(cumlHandle &handle,
-                        std::vector<Matrix::Data<T> *> &input_data,
-                        Matrix::PartDescriptor &input_desc,
-                        std::vector<Matrix::Data<T> *> &trans_data,
-                        Matrix::PartDescriptor &trans_desc, T *components,
-                        T *explained_var, T *explained_var_ratio,
-                        T *singular_vals, paramsTSVD prms, bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+template<typename T>
+void fit_transform_impl(cumlHandle &handle, std::vector<Matrix::Data<T>*> &input_data,
+		Matrix::PartDescriptor &input_desc, 
+		std::vector<Matrix::Data<T>*> &trans_data, Matrix::PartDescriptor &trans_desc, 
+		T *components, T *explained_var, T *explained_var_ratio,
+		T *singular_vals, paramsTSVD prms, bool verbose) {
 
-  // TODO: These streams should come from cumlHandle
-  int n_streams = input_desc.blocksOwnedBy(rank).size();
-  ;
-  cudaStream_t streams[n_streams];
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamCreate(&streams[i]));
-  }
+	int rank = handle.getImpl().getCommunicator().getRank();
 
-  fit_impl(handle, input_data, input_desc, components, singular_vals, prms,
-           streams, n_streams, verbose);
+	// TODO: These streams should come from cumlHandle
+	int n_streams = input_desc.blocksOwnedBy(rank).size();;
+	cudaStream_t streams[n_streams];
+	for (int i = 0; i < n_streams; i++) {
+		CUDA_CHECK(cudaStreamCreate(&streams[i]));
+	}
 
-  transform_impl(handle, input_data, input_desc, components, trans_data, prms,
-                 streams, n_streams, verbose);
+	fit_impl(handle, input_data, input_desc, components, singular_vals, prms,
+			streams, n_streams, verbose);
 
-  PCA::opg::sign_flip(handle, trans_data, input_desc, components,
-                      prms.n_components, streams, n_streams);
+	transform_impl(handle, input_data, input_desc, components, trans_data, prms,
+			streams, n_streams, verbose);
 
-  device_buffer<T> mu_trans(handle.getImpl().getDeviceAllocator(), streams[0],
-                            prms.n_components);
-  Matrix::Data<T> mu_trans_data{mu_trans.data(), size_t(prms.n_components)};
+	PCA::opg::sign_flip(handle, trans_data, input_desc, components,
+			prms.n_components, streams, n_streams);
 
-  Stats::opg::mean(mu_trans_data, trans_data, trans_desc,
-                   handle.getImpl().getCommunicator(),
-                   handle.getImpl().getDeviceAllocator(), streams, n_streams,
-                   handle.getImpl().getCublasHandle());
+	device_buffer<T> mu_trans(handle.getImpl().getDeviceAllocator(), streams[0],
+			prms.n_components);
+	Matrix::Data<T> mu_trans_data { mu_trans.data(), size_t(prms.n_components) };
 
-  Matrix::Data<T> explained_var_data{explained_var, size_t(prms.n_components)};
+	Stats::opg::mean(mu_trans_data, trans_data, trans_desc,
+			handle.getImpl().getCommunicator(),
+			handle.getImpl().getDeviceAllocator(), streams, n_streams,
+			handle.getImpl().getCublasHandle());
 
-  Stats::opg::var(explained_var_data, trans_data, trans_desc, mu_trans_data.ptr,
-                  handle.getImpl().getCommunicator(),
-                  handle.getImpl().getDeviceAllocator(), streams, n_streams,
-                  handle.getImpl().getCublasHandle());
+	Matrix::Data<T> explained_var_data { explained_var, size_t(
+			prms.n_components) };
 
-  device_buffer<T> mu(handle.getImpl().getDeviceAllocator(), streams[0],
-                      prms.n_rows);
-  Matrix::Data<T> mu_data{mu.data(), size_t(prms.n_rows)};
+	Stats::opg::var(explained_var_data, trans_data, trans_desc,
+			mu_trans_data.ptr, handle.getImpl().getCommunicator(),
+			handle.getImpl().getDeviceAllocator(), streams, n_streams,
+			handle.getImpl().getCublasHandle());
 
-  Stats::opg::mean(mu_data, input_data, input_desc,
-                   handle.getImpl().getCommunicator(),
-                   handle.getImpl().getDeviceAllocator(), streams, n_streams,
-                   handle.getImpl().getCublasHandle());
+	device_buffer<T> mu(handle.getImpl().getDeviceAllocator(), streams[0],
+			prms.n_rows);
+	Matrix::Data<T> mu_data { mu.data(), size_t(prms.n_rows) };
 
-  device_buffer<T> var_input(handle.getImpl().getDeviceAllocator(), streams[0],
-                             prms.n_rows);
-  Matrix::Data<T> var_input_data{var_input.data(), size_t(prms.n_rows)};
+	Stats::opg::mean(mu_data, input_data, input_desc,
+			handle.getImpl().getCommunicator(),
+			handle.getImpl().getDeviceAllocator(), streams, n_streams,
+			handle.getImpl().getCublasHandle());
 
-  Stats::opg::var(var_input_data, input_data, input_desc, mu_data.ptr,
-                  handle.getImpl().getCommunicator(),
-                  handle.getImpl().getDeviceAllocator(), streams, n_streams,
-                  handle.getImpl().getCublasHandle());
+	device_buffer<T> var_input(handle.getImpl().getDeviceAllocator(),
+			streams[0], prms.n_rows);
+	Matrix::Data<T> var_input_data { var_input.data(), size_t(prms.n_rows) };
 
-  device_buffer<T> total_vars(handle.getImpl().getDeviceAllocator(), streams[0],
-                              1);
-  Stats::sum(total_vars.data(), var_input_data.ptr, 1, prms.n_cols, false,
-             streams[0]);
+	Stats::opg::var(var_input_data, input_data, input_desc, mu_data.ptr,
+			handle.getImpl().getCommunicator(),
+			handle.getImpl().getDeviceAllocator(), streams, n_streams,
+			handle.getImpl().getCublasHandle());
 
-  T total_vars_h;
-  updateHost(&total_vars_h, total_vars.data(), 1, streams[0]);
-  CUDA_CHECK(cudaStreamSynchronize(streams[0]));
-  T scalar = T(1) / total_vars_h;
+	device_buffer<T> total_vars(handle.getImpl().getDeviceAllocator(),
+			streams[0], 1);
+	Stats::sum(total_vars.data(), var_input_data.ptr, 1, prms.n_cols, false,
+			streams[0]);
 
-  LinAlg::scalarMultiply(explained_var_ratio, explained_var, scalar,
-                         prms.n_components, streams[0]);
+	T total_vars_h;
+	updateHost(&total_vars_h, total_vars.data(), 1, streams[0]);
+	CUDA_CHECK(cudaStreamSynchronize(streams[0]));
+	T scalar = T(1) / total_vars_h;
 
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
-  }
+	LinAlg::scalarMultiply(explained_var_ratio, explained_var, scalar,
+			prms.n_components, streams[0]);
 
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamDestroy(streams[i]));
-  }
+	for (int i = 0; i < n_streams; i++) {
+		CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+	}
+
+	for (int i = 0; i < n_streams; i++) {
+		CUDA_CHECK(cudaStreamDestroy(streams[i]));
+	}
 }
 
 void fit(cumlHandle &handle, Matrix::RankSizePair **rank_sizes, size_t n_parts,
-         Matrix::floatData_t **input, float *components, float *singular_vals,
-         paramsTSVD prms, bool verbose) {
-  fit_impl(handle, rank_sizes, n_parts, input, components, singular_vals, prms,
-           verbose);
+		Matrix::floatData_t **input, float *components, float *singular_vals,
+		paramsTSVD prms, bool verbose) {
+
+	fit_impl(handle, rank_sizes, n_parts, input, components, singular_vals,
+			prms, verbose);
 }
 
 void fit(cumlHandle &handle, Matrix::RankSizePair **rank_sizes, size_t n_parts,
-         Matrix::doubleData_t **input, double *components,
-         double *singular_vals, paramsTSVD prms, bool verbose) {
-  fit_impl(handle, rank_sizes, n_parts, input, components, singular_vals, prms,
-           verbose);
+		Matrix::doubleData_t **input, double *components, double *singular_vals,
+		paramsTSVD prms, bool verbose) {
+
+	fit_impl(handle, rank_sizes, n_parts, input, components, singular_vals,
+			prms, verbose);
+
 }
 
-void fit_transform(cumlHandle &handle,
-                   std::vector<Matrix::Data<float> *> &input_data,
-                   Matrix::PartDescriptor &input_desc,
-                   std::vector<Matrix::Data<float> *> &trans_data,
-                   Matrix::PartDescriptor &trans_desc, float *components,
-                   float *explained_var, float *explained_var_ratio,
-                   float *singular_vals, paramsTSVD prms, bool verbose) {
-  fit_transform_impl(handle, input_data, input_desc, trans_data, trans_desc,
-                     components, explained_var, explained_var_ratio,
-                     singular_vals, prms, verbose);
+void fit_transform(cumlHandle &handle, std::vector<Matrix::Data<float>*> &input_data,
+		Matrix::PartDescriptor &input_desc, 
+		std::vector<Matrix::Data<float>*> &trans_data, Matrix::PartDescriptor &trans_desc, float *components,
+		float *explained_var, float *explained_var_ratio, float *singular_vals,
+		paramsTSVD prms, bool verbose) {
+
+	fit_transform_impl(handle, input_data, input_desc, trans_data, trans_desc,
+			components, explained_var, explained_var_ratio, singular_vals, prms,
+			verbose);
 }
 
-void fit_transform(cumlHandle &handle,
-                   std::vector<Matrix::Data<double> *> &input_data,
-                   Matrix::PartDescriptor &input_desc,
-                   std::vector<Matrix::Data<double> *> &trans_data,
-                   Matrix::PartDescriptor &trans_desc, double *components,
-                   double *explained_var, double *explained_var_ratio,
-                   double *singular_vals, paramsTSVD prms, bool verbose) {
-  fit_transform_impl(handle, input_data, input_desc, trans_data, trans_desc,
-                     components, explained_var, explained_var_ratio,
-                     singular_vals, prms, verbose);
-}
+void fit_transform(cumlHandle &handle, std::vector<Matrix::Data<double>*> &input_data,
+		Matrix::PartDescriptor &input_desc, 
+		std::vector<Matrix::Data<double>*> &trans_data, Matrix::PartDescriptor &trans_desc, double *components,
+		double *explained_var, double *explained_var_ratio,
+		double *singular_vals, paramsTSVD prms, bool verbose) {
 
-void transform(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
-               size_t n_parts, Matrix::Data<float> **input, float *components,
-               Matrix::Data<float> **trans_input, paramsTSVD prms,
-               bool verbose) {
-  transform_impl(handle, rank_sizes, n_parts, input, components, trans_input,
-                 prms, verbose);
+	fit_transform_impl(handle, input_data, input_desc, trans_data, trans_desc,
+			components, explained_var, explained_var_ratio, singular_vals, prms,
+			verbose);
 }
 
 void transform(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
-               size_t n_parts, Matrix::Data<double> **input, double *components,
-               Matrix::Data<double> **trans_input, paramsTSVD prms,
-               bool verbose) {
-  transform_impl(handle, rank_sizes, n_parts, input, components, trans_input,
-                 prms, verbose);
+		size_t n_parts, Matrix::Data<float> **input, float *components,
+		Matrix::Data<float> **trans_input, paramsTSVD prms, bool verbose) {
+
+	transform_impl(handle, rank_sizes, n_parts, input, components, trans_input,
+			prms, verbose);
+}
+
+void transform(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
+		size_t n_parts, Matrix::Data<double> **input, double *components,
+		Matrix::Data<double> **trans_input, paramsTSVD prms, bool verbose) {
+
+	transform_impl(handle, rank_sizes, n_parts, input, components, trans_input,
+			prms, verbose);
 }
 
 void inverse_transform(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
-                       size_t n_parts, Matrix::Data<float> **trans_input,
-                       float *components, Matrix::Data<float> **input,
-                       paramsTSVD prms, bool verbose) {
-  inverse_transform_impl(handle, rank_sizes, n_parts, trans_input, components,
-                         input, prms, verbose);
+		size_t n_parts, Matrix::Data<float> **trans_input, float *components,
+		Matrix::Data<float> **input, paramsTSVD prms, bool verbose) {
+
+	inverse_transform_impl(handle, rank_sizes, n_parts, trans_input, components,
+			input, prms, verbose);
 }
 
 void inverse_transform(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
-                       size_t n_parts, Matrix::Data<double> **trans_input,
-                       double *components, Matrix::Data<double> **input,
-                       paramsTSVD prms, bool verbose) {
-  inverse_transform_impl(handle, rank_sizes, n_parts, trans_input, components,
-                         input, prms, verbose);
+		size_t n_parts, Matrix::Data<double> **trans_input, double *components,
+		Matrix::Data<double> **input, paramsTSVD prms, bool verbose) {
+
+	inverse_transform_impl(handle, rank_sizes, n_parts, trans_input, components,
+			input, prms, verbose);
 }
 
-}  // namespace opg
-}  // namespace TSVD
-}  // namespace ML
+}
+}
+}
+
