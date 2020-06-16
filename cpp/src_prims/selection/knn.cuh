@@ -200,8 +200,7 @@ inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
    * @param metricArg metric argument to use. Corresponds to the p arg for lp norm
    * @param expanded_form whether or not lp variants should be reduced w/ lp-root
    */
-template <typename IntType = int,
-          Distance::DistanceType DistanceType = Distance::EucUnexpandedL2>
+template <typename IntType = int>
 void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
                      IntType D, float *search_items, IntType n, int64_t *res_I,
                      float *res_D, IntType k,
@@ -213,10 +212,6 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
                      std::vector<int64_t> *translations = nullptr,
                      ML::MetricType metric = ML::MetricType::METRIC_L2,
                      float metricArg = 0, bool expanded_form = false) {
-  ASSERT(DistanceType == Distance::EucUnexpandedL2 ||
-           DistanceType == Distance::EucUnexpandedL2Sqrt,
-         "Only EucUnexpandedL2Sqrt and EucUnexpandedL2 metrics are supported "
-         "currently.");
 
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
@@ -241,14 +236,14 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
 
   // perform preprocessing
   MetricProcessor<float> *query_metric_processor = nullptr;
-  std::vector<MetricProcessor<float>> metric_processors(0);
+  std::vector<MetricProcessor<float>*> metric_processors(0);
   if(metric == ML::MetricType::METRIC_Cosine) {
 	  metric_processors.resize(input.size());
 	  query_metric_processor =  new CosineMetricProcessor<float>(n, D, k, rowMajorQuery, userStream, allocator);
 	  query_metric_processor->preprocess(search_items);
 	for(int i = 0; i < input.size(); i++) {
-		metric_processors[i] = CosineMetricProcessor<float>(sizes[i], D, k, rowMajorIndex, userStream, allocator);
-		metric_processors[i].preprocess(input[i]);
+		metric_processors[i] = new CosineMetricProcessor<float>(sizes[i], D, k, rowMajorIndex, userStream, allocator);
+		metric_processors[i]->preprocess(input[i]);
 	}
   }
 
@@ -338,12 +333,14 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
 	query_metric_processor->postprocess(out_D);
 	for(int i = 0; i < input.size(); i++) {
 		// @todo: This is really a "revert" of the pre-processing, not post-processing
-		metric_processors[i].revert(input[i]);
+		metric_processors[i]->revert(input[i]);
 	}
   }
 
   if (translations == nullptr) delete id_ranges;
   if (query_metric_processor != nullptr) delete query_metric_processor;
+  for(auto mp : metric_processors)
+	  delete mp;
 };
 
 template <typename OutType = float>
