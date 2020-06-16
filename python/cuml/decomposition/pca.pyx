@@ -573,12 +573,16 @@ class PCA(Base):
 
         """
 
-        if cp.sparse.issparse(X) or self._sparse_model:
+        if cp.sparse.issparse(X):
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
                                                   sparse_tol=sparse_tol)
-        elif scipy.sparse.issparse(X) or self._sparse_model:
+        elif scipy.sparse.issparse(X):
             X = sparse_scipy_to_cp(X)
+            return self._sparse_inverse_transform(X,
+                                                  return_sparse=return_sparse,
+                                                  sparse_tol=sparse_tol)
+        elif self._sparse_model:
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
                                                   sparse_tol=sparse_tol)
@@ -682,10 +686,12 @@ class PCA(Base):
 
         """
 
-        if cp.sparse.issparse(X) or self._sparse_model:
+        if cp.sparse.issparse(X):
             return self._sparse_transform(X)
-        elif scipy.sparse.issparse(X) or self._sparse_model:
+        elif scipy.sparse.issparse(X):
             X = sparse_scipy_to_cp(X)
+            return self._sparse_transform(X)
+        elif self._sparse_model:
             return self._sparse_transform(X)
 
         out_type = self._get_output_type(X)
