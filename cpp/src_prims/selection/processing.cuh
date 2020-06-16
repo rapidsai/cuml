@@ -71,16 +71,16 @@ public:
 		       row_major_, stream_, [] __device__(math_t in) {return sqrtf(in); });
 
 		LinAlg::matrixVectorOp(data, data, colsums_.data(), n_cols_,
-		               n_rows_, row_major_, true,
-		               [=] __device__(math_t mat_in, math_t vec_in) {
+		               n_rows_, row_major_, false,
+		               [] __device__(math_t mat_in, math_t vec_in) {
 							return mat_in / vec_in;
 						}, stream_);
 	}
 
 	void revert(math_t *data) {
 		LinAlg::matrixVectorOp(data, data, colsums_.data(), n_cols_,
-		               n_rows_, row_major_, true,
-		               [=] __device__(math_t mat_in, math_t vec_in) {
+		               n_rows_, row_major_, false,
+		               [] __device__(math_t mat_in, math_t vec_in) {
 							return mat_in * vec_in;
 						}, stream_);
 	}
