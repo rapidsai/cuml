@@ -95,11 +95,12 @@ def init_from_frames(frames: List[np.ndarray],
     cdef vector[PyBufferFrame] cpp_frames
     cdef Py_buffer* buf
     cdef PyBufferFrame cpp_frame
+    format_bytes = [s.encode('utf-8') for s in format_str]
     for i, frame in enumerate(frames):
         x = memoryview(frame)
         buf = PyMemoryView_GET_BUFFER(<PyObject*>x)
         cpp_frame.buf = buf.buf
-        cpp_frame.format = format_str[i]
+        cpp_frame.format = format_bytes[i]
         cpp_frame.itemsize = itemsize[i]
         cpp_frame.nitem = buf.len // itemsize[i]
         cpp_frames.push_back(cpp_frame)
@@ -110,7 +111,7 @@ def treelite_serialize(
     model: uintptr_t
 ) -> Dict[str, Union[List[str], List[np.ndarray]]]:
     frames = get_frames(model)
-    header = {'format_str': [x.format.encode('utf-8') for x in frames],
+    header = {'format_str': [x.format for x in frames],
               'itemsize': [x.itemsize for x in frames]}
     return {'header': header, 'frames': [np.asarray(x) for x in frames]}
 
