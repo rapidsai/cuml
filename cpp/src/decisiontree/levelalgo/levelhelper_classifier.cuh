@@ -64,7 +64,6 @@ void get_histogram_classification(
                ncols_sampled, n_nodes, tempmem->max_nodes_minmax,
                tempmem->d_globalminmax->data(), tempmem->h_globalminmax->data(),
                tempmem->stream);
-  T *h_minmax = tempmem->h_globalminmax->data();
     if ((n_nodes == node_batch)) {
       get_hist_kernel<T, MinMaxQues<T>>
         <<<blocks, threads, shmem, tempmem->stream>>>(
@@ -104,7 +103,7 @@ void get_best_split_classification(
   unsigned int *d_colids, unsigned int *h_colstart, unsigned int *d_colstart,
   const int Ncols, const int ncols_sampled, const int nbins,
   const int n_unique_labels, const int n_nodes, const int depth,
-  const int min_rpn, const int split_algo, int seed, float *gain,
+  const int min_rpn, const int split_algo, const int seed, float *gain,
   unsigned int *h_parent_hist, unsigned int *h_child_hist,
   std::vector<SparseTreeNode<T, int>> &sparsetree, const int sparsesize,
   std::vector<int> &sparse_nodelist, int *split_colidx, int *split_binidx,
@@ -215,7 +214,8 @@ void get_best_split_classification(
       // Create a vector of column ids which is shuffled to select columns at random
       std::vector<int> cols(ncols_sampled) ; // vector with ncols_sampled ints.
       std::iota (std::begin(cols), std::end(cols), 0); 
-      std::srand(seed);
+      std::srand(seed+depth);
+      //std::cout << " seed + depth : " << seed+depth << std::flush << std::endl;
       std::random_shuffle(cols.begin(), cols.end());
       for (int column_id = 0; column_id < ncols_sampled; column_id++) {
         int colid = cols[column_id];
