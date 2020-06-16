@@ -400,7 +400,7 @@ class RandomForestRegressor(Base):
 
         if self.treelite_serialized_model:  # bytes -> Treelite
             tl_handle = <ModelHandle><uintptr_t>treelite_deserialize(
-                    self.treelite_serialized_model)
+                self.treelite_serialized_model)
         else:                 # RF -> Treelite
             task_category = REGRESSION_MODEL
             build_treelite_forest(
