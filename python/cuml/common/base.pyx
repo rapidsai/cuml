@@ -333,7 +333,7 @@ class RegressorMixin:
 
 
 class ClassifierMixin:
-    """Mixin class for classifier estimators in"""
+    """Mixin class for classifier estimators in cuML"""
 
     _estimator_type = "classifier"
 
