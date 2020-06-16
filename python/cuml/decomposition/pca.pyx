@@ -385,9 +385,12 @@ class PCA(Base):
         self._explained_variance_ratio_ = \
             self._explained_variance_ratio_[:self.n_components]
 
+        # Truncating negative explained variance values to 0
         self._singular_values_ = \
-            cp.where(self._explained_variance_ < 0, 0, self._explained_variance_)
-        self._singular_values_ = cp.sqrt(self._singular_values_ * (self.n_rows - 1))
+            cp.where(self._explained_variance_ < 0, 0,
+                     self._explained_variance_)
+        self._singular_values_ = \
+            cp.sqrt(self._singular_values_ * (self.n_rows - 1))
 
         return self
 
@@ -519,9 +522,9 @@ class PCA(Base):
             X_inv = cp.where(X_inv < sparse_tol, 0, X_inv)
 
             X_inv = cp.sparse.csr_matrix(X_inv)
-        
+
             return X_inv
-        
+
         if self._get_output_type(X) == 'cupy':
             return X_inv
         elif self._get_output_type(X) == 'numpy':
