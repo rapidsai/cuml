@@ -77,22 +77,13 @@ cdef PyBufferFrameWrapper MakePyBufferFrameWrapper(PyBufferFrame handle):
     return wrapper
 
 cdef list _get_frames(ModelHandle model):
-    frames = []
-    cdef Model* model_obj = <Model*>model
-    cdef vector[PyBufferFrame] interface = model_obj.GetPyBuffer()
-    cdef vector[PyBufferFrame].iterator it = interface.begin()
-    while it != interface.end():
-        v = deref(it)
-        w = MakePyBufferFrameWrapper(v)
-        frames.append(memoryview(w))
-        inc(it)
-    return frames
+    return [memoryview(MakePyBufferFrameWrapper(v))
+            for v in (<Model*>model).GetPyBuffer()]
 
 cdef ModelHandle _init_from_frames(vector[PyBufferFrame] frames) except *:
     cdef Model* model_obj = new Model()
     model_obj.InitFromPyBuffer(frames)
-    cdef ModelHandle handle = <ModelHandle>model_obj
-    return handle
+    return <ModelHandle>model_obj
 
 
 def get_frames(model: uintptr_t) -> List[memoryview]:

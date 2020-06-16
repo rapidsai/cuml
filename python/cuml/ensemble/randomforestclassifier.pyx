@@ -19,7 +19,6 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import ctypes
 import cudf
 import cupy as cp
 import math
@@ -407,7 +406,6 @@ class RandomForestClassifier(Base):
         delete the returned model."""
         if self.treelite_handle is not None:
             return self.treelite_handle  # Cached version
-        cdef uintptr_t tl_handle_int
         cdef ModelHandle tl_handle = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
@@ -421,9 +419,8 @@ class RandomForestClassifier(Base):
                                       "implemented. Please check cuml issue "
                                       "#1679 for more information.")
         if self.treelite_serialized_model:  # bytes -> Treelite
-            tl_handle_int = \
-                treelite_deserialize(self.treelite_serialized_model)
-            tl_handle = <ModelHandle>tl_handle_int
+            tl_handle = <ModelHandle><uintptr_t>treelite_deserialize(
+                    self.treelite_serialized_model)
         else:                 # RF -> Treelite
             task_category = CLASSIFICATION_MODEL
             build_treelite_forest(
@@ -431,7 +428,7 @@ class RandomForestClassifier(Base):
                 rf_forest,
                 <int> self.n_cols,
                 <int> task_category)
-        self.treelite_handle = ctypes.c_void_p(<uintptr_t>tl_handle).value
+        self.treelite_handle = <uintptr_t>tl_handle
         return self.treelite_handle
 
     def _get_serialized_model(self):
@@ -528,8 +525,7 @@ class RandomForestClassifier(Base):
         if not treelite_serialized_model:
             raise ValueError(
                 '_tl_handle_from_bytes() requires non-empty serialized model')
-        tl_handle_int = treelite_deserialize(treelite_serialized_model)
-        return ctypes.c_void_p(tl_handle_int).value
+        return treelite_deserialize(treelite_serialized_model)
 
     def _concatenate_treelite_handle(self, treelite_handle):
         cdef ModelHandle concat_model_handle = NULL
