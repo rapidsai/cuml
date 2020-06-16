@@ -182,8 +182,9 @@ def test_pca_inverse_transform(datatype, input_type,
 
 @pytest.mark.parametrize('nrows', [4000, 8000])
 @pytest.mark.parametrize('ncols', [5000, 10000])
+@pytest.mark.parametrize('whiten', [True, False])
 @pytest.mark.parametrize('return_sparse', [True, False])
-def test_sparse_pca_inputs(nrows, ncols, return_sparse):
+def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse):
 
     if return_sparse:
         pytest.skip("Loss of information in converting to cupy sparse csr")
@@ -191,29 +192,20 @@ def test_sparse_pca_inputs(nrows, ncols, return_sparse):
     X = cp.sparse.random(nrows, ncols, density=0.07, dtype=cp.float32,
                          random_state=10)
 
-    p_sparse = cuPCA(n_components=ncols)
+    p_sparse = cuPCA(n_components=ncols, whiten=whiten)
 
     p_sparse.fit(X)
     t_sparse = p_sparse.transform(X)
     i_sparse = p_sparse.inverse_transform(t_sparse,
                                           return_sparse=return_sparse)
 
-    # X_dense = X.todense()
-    # p_dense = cuPCA(n_components=ncols)
-
-    # p_dense.fit(X_dense)
-    # print(p_dense.singular_values_)
-    # print(p_dense.explained_variance_)
-    # t_dense = p_dense.transform(X_dense)
-    # i_dense = p_dense.inverse_transform(t_dense)
-
     if return_sparse:
 
         assert isinstance(i_sparse, cp.sparse.csr_matrix)
 
-        assert array_equal(i_sparse.todense(), i_dense, 1e-1,
+        assert array_equal(i_sparse.todense(), X.todense(), 1e-1,
                            with_sign=True)
     else:
         assert isinstance(i_sparse, cp.core.ndarray)
 
-        assert array_equal(i_sparse, i_dense, 1e-1, with_sign=True)
+        assert array_equal(i_sparse, X.todense(), 1e-1, with_sign=True)
