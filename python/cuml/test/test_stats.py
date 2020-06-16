@@ -34,12 +34,6 @@ def test_cov(nrows, ncols, sparse, dtype):
 
     assert cov_result.shape == (ncols, ncols)
 
-    local_gram = x.T.dot(x) * (1 / x.shape[0])
-    local_mean = x.sum(axis=0) * (1 / x.shape[0])
-
-    if cp.sparse.issparse(local_gram):
-        local_gram = local_gram.todense()
-
     if sparse:
         x = x.todense()
     local_cov = cp.cov(x, rowvar=False, ddof=0)
