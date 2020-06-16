@@ -165,13 +165,12 @@ inline void knn_merge_parts(float *inK, int64_t *inV, float *outK,
 }
 
 inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
-
-	switch(metric) {
-	case ML::MetricType::METRIC_Cosine:
-		return faiss::MetricType::METRIC_INNER_PRODUCT;
-	default:
-		return (faiss::MetricType)metric;
-	}
+  switch (metric) {
+    case ML::MetricType::METRIC_Cosine:
+      return faiss::MetricType::METRIC_INNER_PRODUCT;
+    default:
+      return (faiss::MetricType)metric;
+  }
 }
 
 /**
@@ -212,7 +211,6 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
                      std::vector<int64_t> *translations = nullptr,
                      ML::MetricType metric = ML::MetricType::METRIC_L2,
                      float metricArg = 0, bool expanded_form = false) {
-
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
 
@@ -236,15 +234,17 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
 
   // perform preprocessing
   MetricProcessor<float> *query_metric_processor = nullptr;
-  std::vector<MetricProcessor<float>*> metric_processors(0);
-  if(metric == ML::MetricType::METRIC_Cosine) {
-	  metric_processors.resize(input.size());
-	  query_metric_processor =  new CosineMetricProcessor<float>(n, D, k, rowMajorQuery, userStream, allocator);
-	  query_metric_processor->preprocess(search_items);
-	for(int i = 0; i < input.size(); i++) {
-		metric_processors[i] = new CosineMetricProcessor<float>(sizes[i], D, k, rowMajorIndex, userStream, allocator);
-		metric_processors[i]->preprocess(input[i]);
-	}
+  std::vector<MetricProcessor<float> *> metric_processors(0);
+  if (metric == ML::MetricType::METRIC_Cosine) {
+    metric_processors.resize(input.size());
+    query_metric_processor = new CosineMetricProcessor<float>(
+      n, D, k, rowMajorQuery, userStream, allocator);
+    query_metric_processor->preprocess(search_items);
+    for (int i = 0; i < input.size(); i++) {
+      metric_processors[i] = new CosineMetricProcessor<float>(
+        sizes[i], D, k, rowMajorIndex, userStream, allocator);
+      metric_processors[i]->preprocess(input[i]);
+    }
   }
 
   int device;
@@ -328,19 +328,18 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     MLCommon::LinAlg::unaryOp<float>(
       res_D, res_D, n * k,
       [p] __device__(float input) { return powf(input, p); }, userStream);
-  } else if(metric == ML::MetricType::METRIC_Cosine) {
-	query_metric_processor->revert(search_items);
-	query_metric_processor->postprocess(out_D);
-	for(int i = 0; i < input.size(); i++) {
-		// @todo: This is really a "revert" of the pre-processing, not post-processing
-		metric_processors[i]->revert(input[i]);
-	}
+  } else if (metric == ML::MetricType::METRIC_Cosine) {
+    query_metric_processor->revert(search_items);
+    query_metric_processor->postprocess(out_D);
+    for (int i = 0; i < input.size(); i++) {
+      // @todo: This is really a "revert" of the pre-processing, not post-processing
+      metric_processors[i]->revert(input[i]);
+    }
   }
 
   if (translations == nullptr) delete id_ranges;
   if (query_metric_processor != nullptr) delete query_metric_processor;
-  for(auto mp : metric_processors)
-	  delete mp;
+  for (auto mp : metric_processors) delete mp;
 };
 
 template <typename OutType = float>
