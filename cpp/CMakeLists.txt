@@ -338,6 +338,9 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/fil/fil.cu
     src/fil/infer.cu
     src/glm/glm.cu
+    src/glm/ols_mg.cu
+    src/glm/preprocess_mg.cu
+    src/glm/ridge_mg.cu
     src/holtwinters/holtwinters.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
@@ -349,6 +352,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
     src/solver/solver.cu
+    src/solver/cd_mg.cu
     src/spectral/spectral.cu
     src/svm/svc.cu
     src/svm/svr.cu
