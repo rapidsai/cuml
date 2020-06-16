@@ -296,7 +296,7 @@ class Base:
 
 
 class RegressorMixin:
-    """Mixin class for regression estimators in"""
+    """Mixin class for regression estimators in cuML"""
 
     _estimator_type = "regressor"
 
