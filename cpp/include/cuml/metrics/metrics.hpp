@@ -249,9 +249,9 @@ float accuracy_score_py(const cumlHandle &handle, const int *predictions,
 
 
 void pairwiseDistance(const cumlHandle &handle, const double *x, const double *y, double *dist, int m,
-                      int n, int k, int metric);
+                      int n, int k, int metric, bool isRowMajor = true);
 
 void pairwiseDistance(const cumlHandle &handle, const float *x, const float *y, float *dist, int m,
-                      int n, int k, int metric);
+                      int n, int k, int metric, bool isRowMajor = true);
 }  // namespace Metrics
 }  // namespace ML
