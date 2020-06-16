@@ -423,7 +423,7 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True):
 def _typecast_will_lose_information(X, target_dtype):
     """
     Returns True if typecast will cause information loss, else False.
-    Handles both float <> int and int <> int typecasts.
+    Handles float/float, float/int, and int/int typecasts.
     """
     target_dtype = np.dtype(target_dtype).type
 
