@@ -301,7 +301,7 @@ class RegressorMixin:
     _estimator_type = "regressor"
 
     def score(self, X, y, **kwargs):
-        """Scoring function for linear classifiers
+        """Scoring function for regression estimators
 
         Returns the coefficient of determination R^2 of the prediction.
 
