@@ -37,10 +37,6 @@ class CumlArray(Buffer):
     the owner of the data referred to by the pointer should be specified
     explicitly.
 
-    To standardize our code, please import this using:
-
-    from cuml.common.array import Array as cumlArray
-
     Parameters
     ----------
 
@@ -112,11 +108,14 @@ class CumlArray(Buffer):
                  order=None):
 
         # Checks of parameters
+        memview_construction = False
         if data is None:
             raise TypeError("To create an empty Array, use the class method" +
                             " Array.empty().")
         elif isinstance(data, memoryview):
             data = np.asarray(data)
+            memview_construction = True
+
         if dtype is not None:
             dtype = np.dtype(dtype)
 
@@ -135,7 +134,19 @@ class CumlArray(Buffer):
 
         # Base class (Buffer) constructor call
         size, shape = _get_size_from_shape(shape, dtype)
-        super(CumlArray, self).__init__(data=data, owner=owner, size=size)
+
+        if not memview_construction and not detailed_construction:
+            flattened_data = cp.asarray(data).ravel(order='A').view('u1')
+        else:
+            flattened_data = data
+
+        super(CumlArray, self).__init__(data=flattened_data,
+                                        owner=owner,
+                                        size=size)
+
+        if owner is None and not isinstance(data, np.ndarray):
+            # need to reference original owner instead of flattened_data
+            self._owner = data
 
         # Post processing of meta data
         if detailed_construction:
