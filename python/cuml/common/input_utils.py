@@ -427,7 +427,7 @@ def _typecast_will_lose_information(X, target_dtype):
     """
     target_dtype = np.dtype(target_dtype).type
 
-    if target_dtype in (np.int16, np.int32, np.int64):
+    if target_dtype in (np.int8, np.int16, np.int32, np.int64):
         target_dtype_range = np.iinfo(target_dtype)
     else:
         target_dtype_range = np.finfo(target_dtype)
