@@ -137,9 +137,6 @@ class KNeighborsClassifier(NearestNeighbors):
     """
 
     def __init__(self, weights="uniform", **kwargs):
-        """
-
-        """
         super(KNeighborsClassifier, self).__init__(**kwargs)
 
         self.y = None
@@ -196,7 +193,7 @@ class KNeighborsClassifier(NearestNeighbors):
         """
 
         out_type = self._get_output_type(X)
-        desired_output_dtype = self._get_target_dtype()
+        out_dtype = self._get_target_dtype()
 
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
@@ -211,11 +208,8 @@ class KNeighborsClassifier(NearestNeighbors):
         out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
 
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
-        
-        permissible_target_dtypes = (np.int32,)
-        preds_dtype = desired_output_dtype if desired_output_dtype in permissible_target_dtypes else dtype
-        
-        classes = CumlArray.zeros(out_shape, dtype=preds_dtype, order="C")
+
+        classes = CumlArray.zeros(out_shape, dtype=np.int32, order="C")
 
         cdef vector[int*] *y_vec = new vector[int*]()
 
@@ -242,11 +236,9 @@ class KNeighborsClassifier(NearestNeighbors):
         )
 
         self.handle.sync()
-        
-        preds = classes.to_output(out_type)
-        if desired_output_dtype:
-            preds = preds.astype(desired_output_dtype)
-        return preds
+        print(classes.ptr)
+
+        return classes.to_output(out_type, out_dtype)
 
     @with_cupy_rmm
     def predict_proba(self, X, convert_dtype=True):
@@ -321,7 +313,8 @@ class KNeighborsClassifier(NearestNeighbors):
             if len(final_classes) == 1 else tuple(final_classes)
 
     def get_param_names(self):
-        return ["n_neighbors", "algorithm", "metric", "weights"]
+        return super(KNeighborsClassifier, self).get_param_names()\
+            + ["weights"]
 
     def score(self, X, y, convert_dtype=True):
         """
