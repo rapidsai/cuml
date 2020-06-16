@@ -338,6 +338,9 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/fil/fil.cu
     src/fil/infer.cu
     src/glm/glm.cu
+    src/glm/ols_mg.cu
+    src/glm/preprocess_mg.cu
+    src/glm/ridge_mg.cu
     src/holtwinters/holtwinters.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
