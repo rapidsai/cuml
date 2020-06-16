@@ -420,7 +420,7 @@ class RandomForestClassifier(Base):
                                       "#1679 for more information.")
         if self.treelite_serialized_model:  # bytes -> Treelite
             tl_handle = <ModelHandle><uintptr_t>treelite_deserialize(
-                    self.treelite_serialized_model)
+                self.treelite_serialized_model)
         else:                 # RF -> Treelite
             task_category = CLASSIFICATION_MODEL
             build_treelite_forest(
