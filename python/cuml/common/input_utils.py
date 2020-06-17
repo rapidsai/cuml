@@ -126,6 +126,11 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
 
     # dtype conversion
 
+    # force_contiguous set to True always for now
+    # upcoming CumlArray improvements will affect this
+    # https://github.com/rapidsai/cuml/issues/2412
+    force_contiguous = True
+
     if convert_to_dtype:
         X = convert_dtype(X, to_dtype=convert_to_dtype)
         check_dtype = False
