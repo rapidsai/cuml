@@ -19,6 +19,9 @@
 #include <linalg/norm.cuh>
 #include <linalg/unary_op.cuh>
 
+#include <stats/mean.cuh>
+#include <stats/mean_center.cuh>
+
 #include <common/device_buffer.hpp>
 
 #include <cuml/common/cuml_allocator.hpp>
@@ -40,14 +43,26 @@ class MetricProcessor {
 
   virtual void revert(math_t *data) {}
 
-  virtual void postprocess(math_t *data) {}
+  virtual void postprocess(math_t *data)  {}
 
   virtual ~MetricProcessor() = default;
 };
 
 template <typename math_t>
 class CosineMetricProcessor : public MetricProcessor<math_t> {
+
+protected:
+ int k_;
+ bool row_major_;
+ size_t n_rows_;
+ size_t n_cols_;
+ cudaStream_t stream_;
+ std::shared_ptr<deviceAllocator> device_allocator_;
+ device_buffer<math_t> colsums_;
+
+
  public:
+
   CosineMetricProcessor(size_t n_rows, size_t n_cols, int k, bool row_major,
                         cudaStream_t stream,
                         std::shared_ptr<deviceAllocator> allocator)
@@ -85,18 +100,57 @@ class CosineMetricProcessor : public MetricProcessor<math_t> {
 
   ~CosineMetricProcessor() = default;
 
-  int k_;
-  bool row_major_;
-  size_t n_rows_;
-  size_t n_cols_;
-  cudaStream_t stream_;
-  std::shared_ptr<deviceAllocator> device_allocator_;
-  device_buffer<math_t> colsums_;
 };
+
+
+template <typename math_t>
+class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
+
+ using cosine = CosineMetricProcessor<math_t>;
+
+ public:
+	CorrelationMetricProcessor(size_t n_rows, size_t n_cols,
+			int k, bool row_major,
+                        cudaStream_t stream,
+                        std::shared_ptr<deviceAllocator> allocator)
+    : CosineMetricProcessor<math_t>(n_rows, n_cols, k, row_major, stream, allocator),
+    means_(allocator, stream, n_cols) {}
+
+  void preprocess(math_t *data) {
+
+  	  float normalizer_const = 1 / cosine::n_rows_;
+
+  	  LinAlg::colNorm(means_.data(), data, cosine::n_cols_, cosine::n_rows_,
+					LinAlg::NormType::L1Norm, cosine::row_major_, cosine::stream_,
+					[=] __device__(math_t in) { return in * normalizer_const; });
+
+	  Stats::meanCenter(data, data, means_.data(), cosine::n_cols_,
+			  cosine::n_rows_, cosine::row_major_, false, cosine::stream_);
+
+	  CosineMetricProcessor<math_t>::preprocess(data);
+  }
+
+  void revert(math_t *data) {
+	  CosineMetricProcessor<math_t>::revert(data);
+
+	  Stats::meanAdd(data, data, means_.data(), cosine::n_cols_, cosine::n_rows_,
+			  cosine::row_major_, false, cosine::stream_);
+  }
+
+  void postprocess(math_t *data) {
+	  CosineMetricProcessor<math_t>::postprocess(data);
+  }
+
+  ~CorrelationMetricProcessor() = default;
+
+  device_buffer<math_t> means_;
+};
+
 
 // Currently only being used by floats
 template class MetricProcessor<float>;
 template class CosineMetricProcessor<float>;
+template class CorrelationMetricProcessor<float>;
 
 };  // namespace Selection
 };  // namespace MLCommon
