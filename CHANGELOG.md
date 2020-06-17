@@ -20,6 +20,7 @@
 - PR #2408: Install meta packages for dependencies
 - PR #2417: Move doc customization scripts to Jenkins
 - PR #2433: Add libcumlprims to CMake
+- PR #2427: Moving MNMG decomposition to cuml
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
