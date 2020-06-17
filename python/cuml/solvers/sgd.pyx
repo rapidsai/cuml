@@ -477,7 +477,7 @@ class SGD(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         output_type = self._get_output_type(X)
-        desired_output_dtype = self._get_target_dtype() 
+        out_dtype = self._get_target_dtype()
 
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -488,10 +488,7 @@ class SGD(Base):
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t coef_ptr = self.coef_.ptr
         
-        permissible_target_dtypes = (np.float32, np.float64)
-        preds_dtype = desired_output_dtype if desired_output_dtype in permissible_target_dtypes else dtype
-        
-        preds = CumlArray.zeros(n_rows, dtype=preds_dtype)
+        preds = CumlArray.zeros(n_rows, dtype=dtype)
         cdef uintptr_t preds_ptr = preds.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -518,7 +515,4 @@ class SGD(Base):
 
         del(X_m)
         
-        preds = preds.to_output(output_type)
-        if desired_output_dtype:
-            preds = preds.astype(desired_output_dtype)
-        return preds
+        return preds.to_output(output_type=output_type, output_dtype=out_dtype)
