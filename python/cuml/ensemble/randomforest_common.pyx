@@ -338,7 +338,7 @@ class BaseRandomForestModel(Base):
                                 check_cols=self.n_cols)
 
         if dtype == np.float64 and not convert_dtype:
-            raise TypeError("GPU based predict only accepts np.float32 data. \
+            raise TypeError("GPU based predict only accepts float32 data. \
                             Please set convert_dtype=True to convert the test \
                             data to the same dtype as the data used to train, \
                             ie. float32. If you would like to use test \
@@ -437,20 +437,6 @@ def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
             "(https://docs.rapids.ai/api/cuml/nightly/api.html"
             "#forest-inferencing) to see the accepted values.")
     return fil_sparse_format
-
-
-def _obtain_treelite_model(treelite_handle):
-    """
-    Creates a Treelite model using the treelite handle
-    obtained from the cuML Random Forest model.
-
-    Returns
-    ----------
-    tl_to_fil_model : Treelite version of this model
-    """
-    treelite_model = \
-        TreeliteModel.from_treelite_model_handle(treelite_handle)
-    return treelite_model
 
 
 def _obtain_fil_model(treelite_handle, depth,

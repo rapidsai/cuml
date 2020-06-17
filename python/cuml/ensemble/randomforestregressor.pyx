@@ -249,7 +249,6 @@ class RandomForestRegressor(BaseRandomForestModel):
         state['n_cols'] = self.n_cols
         state["verbose"] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
-        state['handle'] = self.handle
         state["treelite_handle"] = None
         state["split_criterion"] = self.split_criterion
         state["handle"] = self.handle
@@ -307,8 +306,8 @@ class RandomForestRegressor(BaseRandomForestModel):
         ----------
         tl_to_fil_model : Treelite version of this model
         """
-        handle = self._obtain_treelite_handle()
-        return _obtain_treelite_model(handle)
+        treelite_handle = self._obtain_treelite_handle()
+        return TreeliteModel.from_treelite_model_handle(treelite_handle)
 
     def convert_to_fil_model(self, output_class=False,
                              algo='auto',

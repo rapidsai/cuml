@@ -321,8 +321,8 @@ class RandomForestClassifier(BaseRandomForestModel):
         ----------
         tl_to_fil_model : Treelite version of this model
         """
-        handle = self._obtain_treelite_handle()
-        return _obtain_treelite_model(handle)
+        treelite_handle = self._obtain_treelite_handle()
+        return TreeliteModel.from_treelite_model_handle(treelite_handle)
 
     def convert_to_fil_model(self, output_class=True,
                              threshold=0.5, algo='auto',
