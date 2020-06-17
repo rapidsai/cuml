@@ -710,7 +710,6 @@ class RandomForestClassifier(Base):
                               threshold, algo,
                               num_classes, convert_dtype,
                               fil_sparse_format, predict_proba):
-        print('GPU predict')
         out_type = self._get_output_type(X)
         out_dtype = self._get_target_dtype()
         
@@ -749,7 +748,6 @@ class RandomForestClassifier(Base):
         return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):
-        print('cpu predict')
         out_type = self._get_output_type(X)
         out_dtype = self._get_target_dtype()
         
