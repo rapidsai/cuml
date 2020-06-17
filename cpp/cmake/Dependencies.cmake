@@ -51,6 +51,33 @@ endif(DEFINED ENV{RAFT_PATH})
 
 
 ##############################################################################
+# - cumlprims (binary dependency) --------------------------------------------
+
+if(NOT DISABLE_CUMLPRIMS_MG)
+
+    if(DEFINED ENV{CUMLPRIMS_MG_PATH})
+      set(CUMLPRIMS_MG_PATH ENV{CUMLPRIMS_MG_PATH}})
+    endif(DEFINED ENV{CUMLPRIMS_MG_PATH})
+
+    if(NOT CUMLPRIMS_MG_PATH)
+      find_package(cumlprims_mg REQUIRED)
+
+    else()
+      message("-- Manually setting CUMLPRIMS_MG_PATH to ${CUMLPRIMS_MG_PATH}")
+      if(EXISTS "${CUMLPRIMS_MG_PATH}/lib/libcumlprims.so")
+        set(CUMLPRIMS_MG_FOUND TRUE)
+        set(CUMLPRIMS_MG_INCLUDE_DIRS ${CUMLPRIMS_MG_PATH}/include)
+        set(CUMLPRIMS_MG_FOUND TRUE)
+        set(CUMLPRIMS_MG_LIBRARIES ${CUMLPRIMS_MG_PATH}/lib/libcumlprims.so)
+      else()
+        message(FATAL_ERROR "libcumlprims library NOT found in ${CUMLPRIMS_MG_PATH}")
+      endif(EXISTS "${CUMLPRIMS_MG_PATH}/lib/libcumlprims.so")
+    endif(NOT CUMLPRIMS_MG_PATH)
+
+endif(NOT DISABLE_CUMLPRIMS_MG)
+
+
+##############################################################################
 # - cub - (header only) ------------------------------------------------------
 
 set(CUB_DIR ${CMAKE_CURRENT_BINARY_DIR}/cub CACHE STRING "Path to cub repo")
