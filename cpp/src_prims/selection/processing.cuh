@@ -114,20 +114,31 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
                         cudaStream_t stream,
                         std::shared_ptr<deviceAllocator> allocator)
     : CosineMetricProcessor<math_t>(n_rows, n_cols, k, row_major, stream, allocator),
-    means_(allocator, stream, n_cols) {}
+    means_(allocator, stream, n_rows) {}
 
   void preprocess(math_t *data) {
 
-  	  float normalizer_const = 1 / cosine::n_rows_;
+  	  math_t normalizer_const =  1.0 / (math_t)cosine::n_cols_;
 
-  	  LinAlg::colNorm(means_.data(), data, cosine::n_cols_, cosine::n_rows_,
-					LinAlg::NormType::L1Norm, cosine::row_major_, cosine::stream_,
-					[=] __device__(math_t in) { return in * normalizer_const; });
+  	  LinAlg::reduce(means_.data(), data, cosine::n_cols_, cosine::n_rows_,
+              (math_t)0.0, cosine::row_major_, true, cosine::stream_);
+
+  	  LinAlg::unaryOp(
+        means_.data(), means_.data(), cosine::n_rows_,
+        [=] __device__(math_t in) { return in * normalizer_const; },
+        cosine::stream_);
+
+  	  std::cout << MLCommon::arr2Str(means_.data(), cosine::n_rows_, "means", cosine::stream_);
 
 	  Stats::meanCenter(data, data, means_.data(), cosine::n_cols_,
 			  cosine::n_rows_, cosine::row_major_, false, cosine::stream_);
 
+  	  std::cout << MLCommon::arr2Str(data, cosine::n_rows_*cosine::n_cols_, "centered", cosine::stream_);
+
 	  CosineMetricProcessor<math_t>::preprocess(data);
+
+  	  std::cout << MLCommon::arr2Str(data, cosine::n_rows_*cosine::n_cols_, "unit_var", cosine::stream_);
+
   }
 
   void revert(math_t *data) {
