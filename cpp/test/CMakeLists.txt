@@ -65,14 +65,40 @@ endif(BUILD_CUML_TESTS)
 # - build test_ml_mg executable ----------------------------------------------
 
 if(BUILD_CUML_MG_TESTS)
-  # (please keep the filenames in alphabetical order)
-  add_executable(ml_mg
-    mg/test_ml_mg_utils.cu
-    mg/pca.cu)
+  find_package(MPI)
 
-  target_include_directories(ml_mg PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+  # find_library(_CUMLCOMMS_LIBRARY NAMES libcumlcommsmpi cumlcommsmpi
+  #            HINTS ${CMAKE_INSTALL_PREFIX}/lib
+  #                  "$ENV{CONDA_PREFIX}/include"
+  #            PATH_SUFFIXES lib build)
 
-  target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
+  # set(CUMLCOMMS_LIBRARY ${_CUMLCOMMS_LIBRARY}
+  #  CACHE STRING "Path to the CUML COMMS MPI lib")
+
+  if(MPI_CXX_FOUND)
+    # (please keep the filenames in alphabetical order)
+    add_executable(ml_mg
+      mg/test_ml_mg_utils.cu
+      mg/pca.cu)
+    
+    add_dependencies(ml_mg cumlcommsmpi)
+
+    set(CUML_TEST_INCLUDE_DIRS
+        ${CUML_TEST_INCLUDE_DIRS}
+        ${MPI_CXX_INCLUDE_PATH}
+        ${MPICOMMS_INCLUDE_DIRS})
+
+    set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} ${MPI_CXX_LIBRARIES})
+
+    # set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} ${CUMLCOMMS_LIBRARY})
+
+    target_include_directories(ml_mg PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+
+    target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
+
+  else(MPI_CXX_FOUND)
+   message("OpenMPI not found. Skipping 'ml_mg'")
+  endif(MPI_CXX_FOUND)
 endif(BUILD_CUML_MG_TESTS)
 
 ##############################################################################

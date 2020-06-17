@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <comm_utils.h>
 #include <gtest/gtest.h>
 #include <mpi.h>
 #include <cuda_utils.cuh>
