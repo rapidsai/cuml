@@ -46,6 +46,7 @@ Current cmake offers the following configuration options:
 | KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
 | LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
 | NVTX | [ON, OFF]  | OFF  | Enable/disable nvtx markers in libcuml++.  |
+| SINGLEGPU | [ON, OFF] | OFF | Disable all mnmg components. Disables building of all multi-GPU algorithms and all comms library components. Removes libcumlprims, UCX-py and NCCL dependencies. Overrides values of  BUILD_CUML_MG_TESTS, BUILD_CUML_STD_COMMS, WITH_UCX and BUILD_CUML_MPI_COMMS. |
 
 After running CMake in a `build` directory, if the `BUILD_*` options were not turned `OFF`, the following targets can be built:
 
