@@ -227,12 +227,12 @@ cdef class ForestInference_impl():
 
     def get_storage_type(self, storage_type_str):
         storage_type_dict={'auto': storage_type_t.AUTO,
-                           'False': storage_type_t.DENSE,
-                           'True': storage_type_t.SPARSE}
+                           False: storage_type_t.DENSE,
+                           True: storage_type_t.SPARSE}
 
         if storage_type_str not in storage_type_dict.keys():
             raise ValueError(
-                "The value entered for spares_forest is not "
+                "The value entered for storage_type is not "
                 "supported. Please refer to the documentation at"
                 "(https://docs.rapids.ai/api/cuml/nightly/api.html#"
                 "forest-inferencing) to see the accepted values.")
@@ -508,11 +508,11 @@ class ForestInference(Base):
             only if output_class == True, else it is ignored.
         storage_type : string (default='auto')
             In-memory storage format to be used for the FIL model.
-             'AUTO' or 'auto' - choose the storage type automatically
-                                (currently DENSE is always used)
-             'DENSE' or 'dense' - create a dense forest
-             'SPARSE' or 'sparse' - create a sparse forest;
-                                    requires algo='NAIVE' or algo='AUTO'
+             'auto' - choose the storage type automatically
+                      (currently DENSE is always used)
+             'False' - create a dense forest
+             'True' - create a sparse forest;
+                      requires algo='NAIVE' or algo='AUTO'
 
         Returns
         ----------
@@ -563,11 +563,11 @@ class ForestInference(Base):
             only if output_class == True, else it is ignored.
         storage_type : string (default='auto')
             In-memory storage format to be used for the FIL model.
-             'AUTO' or 'auto' - choose the storage type automatically
-                                (currently DENSE is always used)
-             'DENSE' or 'dense' - create a dense forest
-             'SPARSE' or 'sparse' - create a sparse forest;
-                                    requires algo='NAIVE' or algo='AUTO'.
+             'auto' - choose the storage type automatically
+                      (currently DENSE is always used)
+             'False' - create a dense forest
+             'True' - create a sparse forest;
+                      requires algo='NAIVE' or algo='AUTO'
 
         Returns
         ----------
