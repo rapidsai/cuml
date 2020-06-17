@@ -42,6 +42,8 @@ class BaseRandomForestModel(Base):
                  'bootstrap', 'bootstrap_features',
                  'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
+    criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
+                      '3': MAE, '4': CRITERION_END}
 
     def __init__(self, split_criterion, seed=None,
                  n_streams=8, n_estimators=100,
@@ -73,10 +75,12 @@ class BaseRandomForestModel(Base):
 
         for key, vals in sklearn_params.items():
             if vals:
-                raise TypeError(" The Scikit-learn variable ", key,
-                                " is not supported in cuML,"
-                                " please read the cuML documentation for"
-                                " more information")
+                raise TypeError(
+                    " The Scikit-learn variable ", key,
+                    " is not supported in cuML,"
+                    " please read the cuML documentation at "
+                    "(https://docs.rapids.ai/api/cuml/nightly/"
+                    "api.html#random-forest) for more information")
 
         if ((seed is not None) and (n_streams != 1)):
             warnings.warn("For reproducible results in Random Forest"
@@ -97,15 +101,15 @@ class BaseRandomForestModel(Base):
             raise ValueError("Must specify max_depth >0 ")
 
         self.split_algo = split_algo
-        criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
-                          '3': MAE, '4': CRITERION_END}
-        if str(split_criterion) not in criterion_dict.keys():
+        if (str(split_criterion) not in
+                BaseRandomForestModel.criterion_dict.keys()):
             warnings.warn("The split criterion chosen was not present"
                           " in the list of options accepted by the model"
                           " and so the CRITERION_END option has been chosen.")
             self.split_criterion = CRITERION_END
         else:
-            self.split_criterion = criterion_dict[str(split_criterion)]
+            self.split_criterion = \
+                BaseRandomForestModel.criterion_dict[str(split_criterion)]
 
         self.min_rows_per_node = min_rows_per_node
         self.min_impurity_decrease = min_impurity_decrease
@@ -143,27 +147,33 @@ class BaseRandomForestModel(Base):
             else:
                 return 1.0
         else:
-            raise ValueError("Wrong value passed in for max_features"
-                             " please read the documentation")
+            raise ValueError(
+                "Wrong value passed in for max_features"
+                " please read the documentation present at "
+                "(https://docs.rapids.ai/api/cuml/nightly/api.html"
+                "#random-forest)")
 
     def _get_protobuf_bytes(self):
         """
         Returns the self.model_pbuf_bytes.
         Cuml RF model gets converted to treelite protobuf bytes by:
+
             1. converting the cuml RF model to a treelite model. The treelite
             models handle (pointer) is returned
+
             2. The treelite model handle is used to convert the treelite model
             to a treelite protobuf model which is stored in a temporary file.
             The protobuf model information is read from the temporary file and
             the byte information is returned.
+
         The treelite handle is stored `self.treelite_handle` and the treelite
         protobuf model bytes are stored in `self.model_pbuf_bytes`. If either
         of information is already present in the model then the respective
         step is skipped.
         """
         if self.dtype == np.float64:
-            raise TypeError("To use pickling, first train the model"
-                            " using float 32 data.")
+            raise TypeError("Pickling is only supported on models trained"
+                            " on float32 data.")
         if self.model_pbuf_bytes:
             return self.model_pbuf_bytes
         elif self.treelite_handle:
@@ -197,7 +207,7 @@ class BaseRandomForestModel(Base):
                 raise NotImplementedError("Pickling for multi-class "
                                           "classification models is currently"
                                           "  not implemented. Please check"
-                                          "  cuml issue #1679 for more"
+                                          "  cuml GitHub issue #1679 for more"
                                           "  information.")
             build_treelite_forest(
                 & cuml_model_ptr,
@@ -239,7 +249,7 @@ class BaseRandomForestModel(Base):
                     check_rows=self.n_rows, check_cols=1)
             if y_dtype != np.int32:
                 raise TypeError("The labels `y` need to be of dtype"
-                                " `np.int32`")
+                                " `int32`")
             unique_labels = rmm_cupy_ary(cp.unique, y_m)
             self.num_classes = len(unique_labels)
             for i in range(self.num_classes):
@@ -271,14 +281,14 @@ class BaseRandomForestModel(Base):
         cdef ModelHandle cuml_model_ptr = NULL
         if self.RF_type == CLASSIFICATION:
             build_treelite_forest(
-                & cuml_model_ptr,
+                &cuml_model_ptr,
                 <RandomForestMetaData[float, int]*><size_t> self.rf_forest,
                 <int> self.n_cols,
                 <int> self.num_classes,
                 <vector[unsigned char] &> model_bytes)
         else:
             build_treelite_forest(
-                & cuml_model_ptr,
+                &cuml_model_ptr,
                 <RandomForestMetaData[float, float]*><size_t> self.rf_forest,
                 <int> self.n_cols,
                 <int> REGRESSION_MODEL,
@@ -292,14 +302,18 @@ class BaseRandomForestModel(Base):
         cdef vector[ModelHandle] *model_handles \
             = new vector[ModelHandle]()
         cdef uintptr_t mod_ptr
+
         for i in treelite_handle:
             mod_ptr = <uintptr_t>i
             model_handles.push_back((
                 <ModelHandle> mod_ptr))
+
         self._reset_forest_data()
+
         concat_model_handle = concatenate_trees(deref(model_handles))
         cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
         self.treelite_handle = concat_model_ptr
+
         cdef vector[unsigned char] pbuf_mod_info = \
             save_model(<ModelHandle> concat_model_ptr)
         cdef unsigned char[::1] pbuf_mod_view = \
@@ -327,8 +341,8 @@ class BaseRandomForestModel(Base):
             raise TypeError("GPU based predict only accepts np.float32 data. \
                             Please set convert_dtype=True to convert the test \
                             data to the same dtype as the data used to train, \
-                            ie. np.float32. If you would like to use test \
-                            data of dtype=np.float64 please set \
+                            ie. float32. If you would like to use test \
+                            data of dtype=float64 please set \
                             predict_model='CPU' to use the CPU implementation \
                             of predict.")
 
@@ -360,8 +374,6 @@ class BaseRandomForestModel(Base):
         return params
 
     def _set_params(self, **params):
-        # Resetting handle as __setstate__ overwrites with handle=None
-        self.handle.__setstate__(self.n_streams)
         self.model_pbuf_bytes = []
 
         if not params:
@@ -375,8 +387,40 @@ class BaseRandomForestModel(Base):
 
 
 def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
-    storage_format = _check_fil_sparse_format_value(fil_sparse_format)
-    if (depth > 16 and (storage_format == 'dense' or
+    """
+    Check if the FIL storage format type passed by the user is right
+    for the trained cuml Random Forest model they have.
+
+    Parameters
+    ----------
+    depth : max depth value used to train model
+    algo : string (default = 'auto')
+        This is optional and required only while performing the
+        predict operation on the GPU.
+        'naive' - simple inference using shared memory
+        'tree_reorg' - similar to naive but trees rearranged to be more
+        coalescing-friendly
+        'batch_tree_reorg' - similar to tree_reorg but predicting
+        multiple rows per thread block
+        `auto` - choose the algorithm automatically. Currently
+        'batch_tree_reorg' is used for dense storage
+        and 'naive' for sparse storage
+    fil_sparse_format : boolean or string (default = 'auto')
+        This variable is used to choose the type of forest that will be
+        created in the Forest Inference Library. It is not required
+        while using predict_model='CPU'.
+        'auto' - choose the storage type automatically
+        (currently True is chosen by auto)
+        False - create a dense forest
+        True - create a sparse forest, requires algo='naive'
+        or algo='auto'
+    Returns
+    ----------
+    fil_sparse_format converted to string
+    """
+    accepted_fil_spars_format = {True, False, 'auto'}
+
+    if (depth > 16 and (fil_sparse_format is False or
                         algo == 'tree_reorg' or
                         algo == 'batch_tree_reorg')):
         raise ValueError("While creating a forest with max_depth greater "
@@ -386,22 +430,13 @@ def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
                          "large and the process will be aborted. In "
                          "addition, `algo` must be either set to `naive' "
                          "or `auto` to set 'fil_sparse_format=True`.")
-    return storage_format
-
-
-def _check_fil_sparse_format_value(fil_sparse_format):
-    accepted_vals = [True, False, 'auto']
-    if fil_sparse_format == 'auto':
-        storage_format = fil_sparse_format
-    elif not fil_sparse_format:
-        storage_format = 'dense'
-    elif fil_sparse_format not in accepted_vals:
-        raise ValueError("The value entered for spares_forest is not "
-                         "supported. Please refer to the documentation "
-                         "to see the accepted values.")
-    else:
-        storage_format = 'sparse'
-    return storage_format
+    if fil_sparse_format not in accepted_fil_spars_format:
+        raise ValueError(
+            "The value entered for spares_forest is not "
+            "supported. Please refer to the documentation at "
+            "(https://docs.rapids.ai/api/cuml/nightly/api.html"
+            "#forest-inferencing) to see the accepted values.")
+    return str(fil_sparse_format)
 
 
 def _obtain_treelite_model(treelite_handle):
