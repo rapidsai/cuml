@@ -147,10 +147,13 @@ endif(NOT BUILD_CUML_CPP_LIBRARY)
 
 # SingleGPU build disables cumlprims_mg and comms components
 if(SINGLEGPU)
+  message(STATUS "Detected SINGLEGPU build option")
+  message(STATUS "Disabling Multi-GPU components and comms libraries")
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_STD_COMMS OFF)
   set(BUILD_CUML_MPI_COMMS OFF)
   set(DISABLE_CUMLPRIMS_MG ON)
+  set(WITH_UCX OFF)
 endif(SINGLEGPU)
 
 ##############################################################################

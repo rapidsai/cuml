@@ -54,7 +54,8 @@ VERBOSE=""
 BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_ALL_GPU_ARCH=0
-SINGLEGPU=""
+SINGLEGPU_CPP_FLAG=""
+SINGLEGPU_PYTHON_FLAG=""
 NVTX=OFF
 CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
@@ -110,8 +111,8 @@ if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
 if hasArg --singlegpu; then
-    SINGLEGPU="--singlegpu"
-    BUILD_CUML_STD_COMMS=OFF
+    SINGLEGPU_PYTHON_FLAG="--singlegpu"
+    SINGLEGPU_CPP_FLAG=ON
 fi
 if hasArg --nvtx; then
     NVTX=ON
@@ -161,7 +162,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
-          -DBUILD_CUML_STD_COMMS=${BUILD_CUML_STD_COMMS} \
+          -DSINGLEGPU=${SINGLEGPU_CPP_FLAG} \
           -DWITH_UCX=ON \
           -DBUILD_CUML_MPI_COMMS=OFF \
           -DNVTX=${NVTX} \
@@ -206,10 +207,10 @@ fi
 if completeBuild || hasArg cuml || hasArg pydocs; then
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPU}
-        python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPU_PYTHON_FLAG}
+        python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU_PYTHON_FLAG}
     else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU_PYTHON_FLAG}
     fi
 
     if hasArg pydocs; then
