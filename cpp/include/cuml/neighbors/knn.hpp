@@ -32,7 +32,8 @@ enum MetricType {
   METRIC_BrayCurtis,
   METRIC_JensenShannon,
 
-  METRIC_Cosine = 100
+  METRIC_Cosine = 100,
+  METRIC_Correlation
 };
 
 /**
