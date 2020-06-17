@@ -20,9 +20,7 @@
 # cython: language_level = 3
 
 import cupy as cp
-import numpy as np
 import pprint
-import rmm
 
 from cuml.solvers import QN
 from cuml.common.base import Base
@@ -488,10 +486,6 @@ class LogisticRegression(Base):
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        # Remove the unpicklable handle.
-        if "handle" in state:
-            del state["handle"]
-
         if "coef_" in state:
             del state["coef_"]
         if "intercept_" in state:
@@ -511,8 +505,8 @@ class LogisticRegression(Base):
                 else:
                     state["coef_"] = qn.coef_
                     n_classes = qn.coef_.shape[1]
-                    state["intercept_"] = rmm.to_device(
-                        np.zeros(n_classes, dtype=qn.coef_.dtype)
+                    state["intercept_"] = CumlArray.zeros(
+                        n_classes, dtype=qn.coef_.dtype
                     )
 
         self.__dict__.update(state)
