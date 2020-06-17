@@ -710,8 +710,10 @@ class RandomForestClassifier(Base):
                               threshold, algo,
                               num_classes, convert_dtype,
                               fil_sparse_format, predict_proba):
+        print('GPU predict')
         out_type = self._get_output_type(X)
         out_dtype = self._get_target_dtype()
+        
         
         cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
@@ -747,6 +749,7 @@ class RandomForestClassifier(Base):
         return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):
+        print('cpu predict')
         out_type = self._get_output_type(X)
         out_dtype = self._get_target_dtype()
         
@@ -758,8 +761,7 @@ class RandomForestClassifier(Base):
                                 check_cols=self.n_cols)
         X_ptr = X_m.ptr
 
-        preds_dtype = out_dtype or np.int32
-        preds = CumlArray.zeros(n_rows, dtype=preds_dtype)
+        preds = CumlArray.zeros(n_rows, dtype=np.int32)
         cdef uintptr_t preds_ptr = preds.ptr
 
         cdef cumlHandle* handle_ =\
@@ -795,7 +797,7 @@ class RandomForestClassifier(Base):
         self.handle.sync()
         # synchronous w/o a stream
         del(X_m)
-        return preds.to_output(out_type)
+        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
@@ -858,8 +860,6 @@ class RandomForestClassifier(Base):
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-        target_dtype = self._get_target_dtype()
-        
         if predict_model == "CPU" or self.num_classes > 2:
             if self.num_classes > 2 and predict_model == "GPU":
                 warnings.warn("Switching over to use the CPU predict since "
@@ -885,7 +885,7 @@ class RandomForestClassifier(Base):
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
 
-        return preds.astype(target_dtype)
+        return preds
 
     def _predict_get_all(self, X, convert_dtype=True):
         """
