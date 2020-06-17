@@ -19,7 +19,7 @@ ARGS=$*
 REPODIR=$(cd $(dirname $0); pwd)
 
 VALIDTARGETS="clean libcuml cuml prims bench prims-bench cppdocs pydocs"
-VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help"
+VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help --cpp_mg_tests"
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
@@ -38,6 +38,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -n               - no install step
    --allgpuarch     - build for all supported GPU architectures
    --singlegpu      - Build libcuml and cuml without multigpu components
+   --cpp_mg_tests   - Build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
@@ -60,6 +61,7 @@ NVTX=OFF
 CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
 BUILD_CUML_STD_COMMS=ON
+BUILD_CPP_MG_TESTS=OFF
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -114,6 +116,9 @@ if hasArg --singlegpu; then
     SINGLEGPU_PYTHON_FLAG="--singlegpu"
     SINGLEGPU_CPP_FLAG=ON
 fi
+if hasArg --cpp_mg_tests; then
+    BUILD_CPP_MG_TESTS=ON
+fi
 if hasArg --nvtx; then
     NVTX=ON
 fi
@@ -164,7 +169,8 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DBUILD_CUML_C_LIBRARY=ON \
           -DSINGLEGPU=${SINGLEGPU_CPP_FLAG} \
           -DWITH_UCX=ON \
-          -DBUILD_CUML_MPI_COMMS=OFF \
+          -DBUILD_CUML_MPI_COMMS=${BUILD_CPP_MG_TESTS} \
+          -DBUILD_CUML_MG_TESTS=${BUILD_CPP_MG_TESTS} \
           -DNVTX=${NVTX} \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
           -DNCCL_PATH=${INSTALL_PREFIX} \
