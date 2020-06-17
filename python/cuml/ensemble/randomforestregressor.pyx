@@ -32,8 +32,7 @@ from cuml.common.handle import Handle
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
-from cuml.ensemble.randomforest_common import _obtain_treelite_model, \
-    _obtain_fil_model
+from cuml.ensemble.randomforest_common import _obtain_fil_model
 from cuml.ensemble.randomforest_shared cimport *
 
 from cuml.fil.fil import TreeliteModel

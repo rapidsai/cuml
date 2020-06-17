@@ -266,15 +266,13 @@ class BaseRandomForestModel(Base):
                     check_rows=self.n_rows, check_cols=1)
 
         if self.dtype == np.float64:
-            warnings.warn("To use GPU-based prediction, first train using \
-                          float 32 data to fit the estimator.")
+            warnings.warn("To use pickling or GPU-based prediction first "
+                          "train using float32 data to fit the estimator")
 
         max_feature_val = self._get_max_feat_val()
         if type(self.min_rows_per_node) == float:
             self.min_rows_per_node = \
                 math.ceil(self.min_rows_per_node*self.n_rows)
-        del X
-        del y
         return X_m, y_m, max_feature_val
 
     def _tl_model_handles(self, model_bytes):
@@ -334,10 +332,13 @@ class BaseRandomForestModel(Base):
         out_type = self._get_output_type(X)
         cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='F',
-                                check_cols=self.n_cols)
+            input_to_cuml_array(
+                X, order='F',
+                check_cols=self.n_cols,
+                convert_to_dtype=(self.dtype if convert_dtype
+                                  else None))
 
-        if dtype == np.float64 and not convert_dtype:
+        if dtype == np.float64:
             raise TypeError("GPU based predict only accepts float32 data. \
                             Please set convert_dtype=True to convert the test \
                             data to the same dtype as the data used to train, \
@@ -416,7 +417,7 @@ def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
         or algo='auto'
     Returns
     ----------
-    fil_sparse_format
+    fil_sparse_format as a string
     """
     accepted_fil_spars_format = {True, False, 'auto'}
 
@@ -436,7 +437,7 @@ def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
             "supported. Please refer to the documentation at "
             "(https://docs.rapids.ai/api/cuml/nightly/api.html"
             "#forest-inferencing) to see the accepted values.")
-    return fil_sparse_format
+    return str(fil_sparse_format)
 
 
 def _obtain_fil_model(treelite_handle, depth,
