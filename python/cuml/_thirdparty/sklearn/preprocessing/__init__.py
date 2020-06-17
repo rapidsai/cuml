@@ -44,6 +44,7 @@ __all__ = [
     'PowerTransformer',
     'RobustScaler',
     'StandardScaler',
+    'SimpleImputer',
     'add_dummy_feature',
     'PolynomialFeatures',
     'binarize',
