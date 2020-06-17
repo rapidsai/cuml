@@ -342,10 +342,10 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
       [p] __device__(float input) { return powf(input, p); }, userStream);
   } else if (metric == ML::MetricType::METRIC_Cosine ||
 		  metric == ML::MetricType::METRIC_Correlation) {
+	std::cout << "Postprocessing" << std::endl;
     query_metric_processor->revert(search_items);
     query_metric_processor->postprocess(out_D);
     for (int i = 0; i < input.size(); i++) {
-      // @todo: This is really a "revert" of the pre-processing, not post-processing
       metric_processors[i]->revert(input[i]);
     }
   }
