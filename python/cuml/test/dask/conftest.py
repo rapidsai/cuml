@@ -34,8 +34,7 @@ def ucx_cluster():
     cluster = LocalCUDACluster(protocol="ucx",
                                enable_tcp_over_ucx=enable_tcp_over_ucx,
                                enable_nvlink=enable_nvlink,
-                               enable_infiniband=enable_infiniband,
-                               ucx_net_devices="auto")
+                               enable_infiniband=enable_infiniband)
     yield cluster
     cluster.close()
 
