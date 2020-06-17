@@ -169,7 +169,7 @@ inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
     case ML::MetricType::METRIC_Cosine:
       return faiss::MetricType::METRIC_INNER_PRODUCT;
     case ML::MetricType::METRIC_Correlation:
-  	  return faiss::MetricType::METRIC_INNER_PRODUCT;
+      return faiss::MetricType::METRIC_INNER_PRODUCT;
     default:
       return (faiss::MetricType)metric;
   }
@@ -247,16 +247,16 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
         sizes[i], D, k, rowMajorIndex, userStream, allocator);
       metric_processors[i]->preprocess(input[i]);
     }
-  } else if(metric == ML::MetricType::METRIC_Correlation) {
-	metric_processors.resize(input.size());
-	query_metric_processor = new CorrelationMetricProcessor<float>(
-	  n, D, k, rowMajorQuery, userStream, allocator);
-	query_metric_processor->preprocess(search_items);
-	for (int i = 0; i < input.size(); i++) {
-	  metric_processors[i] = new CorrelationMetricProcessor<float>(
-		sizes[i], D, k, rowMajorIndex, userStream, allocator);
-	  metric_processors[i]->preprocess(input[i]);
-	}
+  } else if (metric == ML::MetricType::METRIC_Correlation) {
+    metric_processors.resize(input.size());
+    query_metric_processor = new CorrelationMetricProcessor<float>(
+      n, D, k, rowMajorQuery, userStream, allocator);
+    query_metric_processor->preprocess(search_items);
+    for (int i = 0; i < input.size(); i++) {
+      metric_processors[i] = new CorrelationMetricProcessor<float>(
+        sizes[i], D, k, rowMajorIndex, userStream, allocator);
+      metric_processors[i]->preprocess(input[i]);
+    }
   }
 
   int device;
@@ -341,8 +341,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
       res_D, res_D, n * k,
       [p] __device__(float input) { return powf(input, p); }, userStream);
   } else if (metric == ML::MetricType::METRIC_Cosine ||
-		  metric == ML::MetricType::METRIC_Correlation) {
-	std::cout << "Postprocessing" << std::endl;
+             metric == ML::MetricType::METRIC_Correlation) {
+    std::cout << "Postprocessing" << std::endl;
     query_metric_processor->revert(search_items);
     query_metric_processor->postprocess(out_D);
     for (int i = 0; i < input.size(); i++) {

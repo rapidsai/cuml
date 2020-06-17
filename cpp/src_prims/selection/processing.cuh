@@ -43,26 +43,23 @@ class MetricProcessor {
 
   virtual void revert(math_t *data) {}
 
-  virtual void postprocess(math_t *data)  {}
+  virtual void postprocess(math_t *data) {}
 
   virtual ~MetricProcessor() = default;
 };
 
 template <typename math_t>
 class CosineMetricProcessor : public MetricProcessor<math_t> {
-
-protected:
- int k_;
- bool row_major_;
- size_t n_rows_;
- size_t n_cols_;
- cudaStream_t stream_;
- std::shared_ptr<deviceAllocator> device_allocator_;
- device_buffer<math_t> colsums_;
-
+ protected:
+  int k_;
+  bool row_major_;
+  size_t n_rows_;
+  size_t n_cols_;
+  cudaStream_t stream_;
+  std::shared_ptr<deviceAllocator> device_allocator_;
+  device_buffer<math_t> colsums_;
 
  public:
-
   CosineMetricProcessor(size_t n_rows, size_t n_cols, int k, bool row_major,
                         cudaStream_t stream,
                         std::shared_ptr<deviceAllocator> allocator)
@@ -99,64 +96,62 @@ protected:
   }
 
   ~CosineMetricProcessor() = default;
-
 };
-
 
 template <typename math_t>
 class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
-
- using cosine = CosineMetricProcessor<math_t>;
+  using cosine = CosineMetricProcessor<math_t>;
 
  public:
-	CorrelationMetricProcessor(size_t n_rows, size_t n_cols,
-			int k, bool row_major,
-                        cudaStream_t stream,
-                        std::shared_ptr<deviceAllocator> allocator)
-    : CosineMetricProcessor<math_t>(n_rows, n_cols, k, row_major, stream, allocator),
-    means_(allocator, stream, n_rows) {}
+  CorrelationMetricProcessor(size_t n_rows, size_t n_cols, int k,
+                             bool row_major, cudaStream_t stream,
+                             std::shared_ptr<deviceAllocator> allocator)
+    : CosineMetricProcessor<math_t>(n_rows, n_cols, k, row_major, stream,
+                                    allocator),
+      means_(allocator, stream, n_rows) {}
 
   void preprocess(math_t *data) {
+    math_t normalizer_const = 1.0 / (math_t)cosine::n_cols_;
 
-  	  math_t normalizer_const =  1.0 / (math_t)cosine::n_cols_;
+    LinAlg::reduce(means_.data(), data, cosine::n_cols_, cosine::n_rows_,
+                   (math_t)0.0, cosine::row_major_, true, cosine::stream_);
 
-  	  LinAlg::reduce(means_.data(), data, cosine::n_cols_, cosine::n_rows_,
-              (math_t)0.0, cosine::row_major_, true, cosine::stream_);
+    LinAlg::unaryOp(
+      means_.data(), means_.data(), cosine::n_rows_,
+      [=] __device__(math_t in) { return in * normalizer_const; },
+      cosine::stream_);
 
-  	  LinAlg::unaryOp(
-        means_.data(), means_.data(), cosine::n_rows_,
-        [=] __device__(math_t in) { return in * normalizer_const; },
-        cosine::stream_);
+    std::cout << MLCommon::arr2Str(means_.data(), cosine::n_rows_, "means",
+                                   cosine::stream_);
 
-  	  std::cout << MLCommon::arr2Str(means_.data(), cosine::n_rows_, "means", cosine::stream_);
+    Stats::meanCenter(data, data, means_.data(), cosine::n_cols_,
+                      cosine::n_rows_, cosine::row_major_, false,
+                      cosine::stream_);
 
-	  Stats::meanCenter(data, data, means_.data(), cosine::n_cols_,
-			  cosine::n_rows_, cosine::row_major_, false, cosine::stream_);
+    std::cout << MLCommon::arr2Str(data, cosine::n_rows_ * cosine::n_cols_,
+                                   "centered", cosine::stream_);
 
-  	  std::cout << MLCommon::arr2Str(data, cosine::n_rows_*cosine::n_cols_, "centered", cosine::stream_);
+    CosineMetricProcessor<math_t>::preprocess(data);
 
-	  CosineMetricProcessor<math_t>::preprocess(data);
-
-  	  std::cout << MLCommon::arr2Str(data, cosine::n_rows_*cosine::n_cols_, "unit_var", cosine::stream_);
-
+    std::cout << MLCommon::arr2Str(data, cosine::n_rows_ * cosine::n_cols_,
+                                   "unit_var", cosine::stream_);
   }
 
   void revert(math_t *data) {
-	  CosineMetricProcessor<math_t>::revert(data);
+    CosineMetricProcessor<math_t>::revert(data);
 
-	  Stats::meanAdd(data, data, means_.data(), cosine::n_cols_, cosine::n_rows_,
-			  cosine::row_major_, false, cosine::stream_);
+    Stats::meanAdd(data, data, means_.data(), cosine::n_cols_, cosine::n_rows_,
+                   cosine::row_major_, false, cosine::stream_);
   }
 
   void postprocess(math_t *data) {
-	  CosineMetricProcessor<math_t>::postprocess(data);
+    CosineMetricProcessor<math_t>::postprocess(data);
   }
 
   ~CorrelationMetricProcessor() = default;
 
   device_buffer<math_t> means_;
 };
-
 
 // Currently only being used by floats
 template class MetricProcessor<float>;
