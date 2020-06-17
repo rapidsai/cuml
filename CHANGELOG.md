@@ -136,6 +136,7 @@
 - PR #2257: Update QN and LogisticRegression to use CumlArray
 - PR #2259: Add CumlArray support to Naive Bayes
 - PR #2252: Add benchmark for the Gram matrix prims
+- PR #2263: Faster serialization for Treelite objects with RF
 - PR #2264: Reduce build time for cuML by using make_blobs from libcuml++ interface
 - PR #2269: Add docs targets to build.sh and fix python cuml.common docs
 - PR #2271: Clarify doc for `_unique` default implementation in OneHotEncoder
