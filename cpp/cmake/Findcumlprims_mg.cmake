@@ -33,9 +33,9 @@ Result variables
 This module will set the following variables in your project:
 
 ``CUMLPRIMS_MG_INCLUDE_DIRS``
-  where to find CUMLPRIMS_MG.h , etc.
+  where to find cumlprims_mg.hpp , etc.
 ``CUMLPRIMS_MG_LIBRARIES``
-  the libraries to link against to use CUMLPRIMS_MG.
+  the libraries to link against to use libcumlprims_mg.
 ``CUMLPRIMS_MG_FOUND``
   If false, do not try to use CUMLPRIMS_MG.
 ``CUMLPRIMS_MG_VERSION_STRING``
