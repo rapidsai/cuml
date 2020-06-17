@@ -236,9 +236,8 @@ class KNeighborsClassifier(NearestNeighbors):
         )
 
         self.handle.sync()
-        print(classes.ptr)
 
-        return classes.to_output(out_type, out_dtype)
+        return classes.to_output(output_type=out_type, output_dtype=out_dtype)
 
     @with_cupy_rmm
     def predict_proba(self, X, convert_dtype=True):
