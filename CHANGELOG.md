@@ -19,6 +19,7 @@
 - PR #2380: Pinning libcumlprims version to ease future updates
 - PR #2408: Install meta packages for dependencies
 - PR #2417: Move doc customization scripts to Jenkins
+- PR #2433: Add libcumlprims to CMake
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
