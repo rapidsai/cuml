@@ -110,7 +110,8 @@ def test_semisupervised_umap_trustworthiness_on_iris():
 def test_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
-    embedding = cuUMAP(n_neighbors=10, min_dist=0.01).fit_transform(
+    embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
+                       random_state=0).fit_transform(
         data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
