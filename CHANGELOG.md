@@ -9,6 +9,9 @@
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
 - PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
+- PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
+- PR #1945: enable clang tidy
+- PR #2339: umap performance improvements
 - PR #2308: Using fixture for Dask client to eliminate possiblity of not closing
 - PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
 - PR #1945: enable clang tidy
@@ -18,6 +21,7 @@
 - PR #2371: Updating MBSGD tests to use larger batches
 - PR #2380: Pinning libcumlprims version to ease future updates
 - PR #2405: Remove references to deprecated RMM headers.
+- PR #2408: Install meta packages for dependencies
 - PR #2417: Move doc customization scripts to Jenkins
 
 ## Bug Fixes
@@ -26,6 +30,8 @@
 - PR #2373: Use Treelite Pip package in GPU testing
 - PR #2376: Update documentation Links
 - PR #2413: CumlArray and related methods updates to account for cuDF.Buffer contiguity update
+- PR #2424: --singlegpu flag fix on build.sh script
+- PR #2432: Using correct algo_name for UMAP in benchmark tests
 
 # cuML 0.14.0 (03 Jun 2020)
 
