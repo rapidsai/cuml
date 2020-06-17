@@ -29,6 +29,7 @@ import cuml.common.logger as logger
 
 from cuml import ForestInference
 from cuml.common.array import CumlArray
+from cuml.common.base import ClassifierMixin
 from cuml.common.handle import Handle
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
@@ -123,7 +124,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                           bool) except +
 
 
-class RandomForestClassifier(BaseRandomForestModel):
+class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     """
     Implements a Random Forest classifier model which fits multiple decision
     tree classifiers in an ensemble.

@@ -28,6 +28,8 @@ import cuml.common.logger as logger
 
 from cuml import ForestInference
 from cuml.common.array import CumlArray
+
+from cuml.common.base import RegressorMixin
 from cuml.common.handle import Handle
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
@@ -104,7 +106,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                           int) except +
 
 
-class RandomForestRegressor(BaseRandomForestModel):
+class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
     """
     Implements a Random Forest regressor model which fits multiple decision
