@@ -17,7 +17,9 @@
 - PR #2363: Update threshold and make other changes for stress tests
 - PR #2371: Updating MBSGD tests to use larger batches
 - PR #2380: Pinning libcumlprims version to ease future updates
+- PR #2408: Install meta packages for dependencies
 - PR #2417: Move doc customization scripts to Jenkins
+- PR #2433: Add libcumlprims to CMake
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -25,6 +27,7 @@
 - PR #2373: Use Treelite Pip package in GPU testing
 - PR #2376: Update documentation Links
 - PR #2413: CumlArray and related methods updates to account for cuDF.Buffer contiguity update
+- PR #2424: --singlegpu flag fix on build.sh script
 
 # cuML 0.14.0 (03 Jun 2020)
 
