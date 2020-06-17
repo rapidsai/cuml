@@ -307,7 +307,7 @@ set(CUML_LINK_LIBRARIES
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
   ${CUDA_nvgraph_LIBRARY}
-  ${CUMLPRIMS_MG_LIBRARIES}})
+  ${CUMLPRIMS_MG_LIBRARIES})
 
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
@@ -352,6 +352,12 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/umap/umap.cu)
 
   # mnmg components
+
+  # if(NOT SINGLEGPU)
+  #   target_sources(${CUML_CPP_TARGET}
+  #     PRIVATE src/kmeans/kmeans_mg.cu
+  #   )
+  # endif(NOT SINGLEGPU)
 
   if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} ${OpenMP_CXX_LIB_NAMES} Threads::Threads)
