@@ -216,8 +216,8 @@ void get_best_split_regression(
   unsigned int *d_count, unsigned int *h_colids, unsigned int *d_colids,
   unsigned int *h_colstart, unsigned int *d_colstart, const int Ncols,
   const int ncols_sampled, const int nbins, const int n_nodes, const int depth,
-  const int min_rpn, const int split_algo, const int seed, const int sparsesize, float *gain,
-  std::vector<T> &sparse_meanstate,
+  const int min_rpn, const int split_algo, const int seed, const int sparsesize,
+  float *gain, std::vector<T> &sparse_meanstate,
   std::vector<unsigned int> &sparse_countstate,
   std::vector<SparseTreeNode<T, T>> &sparsetree,
   std::vector<int> &sparse_nodelist, int *split_colidx, int *split_binidx,
@@ -336,9 +336,9 @@ void get_best_split_regression(
       T parent_mean = sparse_meanstate[parentid];
       unsigned int parent_count = sparse_countstate[parentid];
       // Create a vector of column ids which is shuffled to select columns at random
-      std::vector<int> cols(ncols_sampled) ; // vector with ncols_sampled ints.
-      std::iota (std::begin(cols), std::end(cols), 0);
-      std::srand(seed+depth);
+      std::vector<int> cols(ncols_sampled);  // vector with ncols_sampled ints.
+      std::iota(std::begin(cols), std::end(cols), 0);
+      std::srand(seed + depth);
       std::random_shuffle(cols.begin(), cols.end());
       for (int column_id = 0; column_id < ncols_sampled; column_id++) {
         int colid = cols[column_id];

@@ -144,7 +144,8 @@ void grow_deep_tree_regression(
         tree_params.n_bins, n_nodes, depth, tree_params.min_rows_per_node,
         tree_params.split_algo, tree_params.seed, sparsesize, infogain,
         sparse_meanstate, sparse_countstate, sparsetree, sparse_nodelist,
-        h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
+        h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
+        tempmem);
 
     } else {
       get_mse_regression<T, AbsFunctor>(
@@ -157,7 +158,8 @@ void grow_deep_tree_regression(
         tree_params.n_bins, n_nodes, depth, tree_params.min_rows_per_node,
         tree_params.split_algo, tree_params.seed, sparsesize, infogain,
         sparse_meanstate, sparse_countstate, sparsetree, sparse_nodelist,
-        h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
+        h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
+        tempmem);
     }
 
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));

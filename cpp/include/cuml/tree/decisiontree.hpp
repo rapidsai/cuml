@@ -65,7 +65,7 @@ struct DecisionTreeParams {
    * Weahther to fully reshuffle the features for subsampling at each tree node. Default is one shuffle per depth with random start point in the shuffled feature list per node
    */
   bool shuffle_features;
-    /**
+  /**
    * Seed value passed by the user, default value is 0
    */
   int seed;
@@ -96,8 +96,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      int cfg_max_leaves = -1, float cfg_max_features = 1.0f,
                      int cfg_n_bins = 8, int cfg_split_algo = SPLIT_ALGO::HIST,
                      int cfg_min_rows_per_node = 2,
-                     float cfg_min_impurity_decrease = 0.0f,
-                     int seed = NULL,
+                     float cfg_min_impurity_decrease = 0.0f, int seed = NULL,
                      bool cfg_bootstrap_features = false,
                      CRITERION cfg_split_criterion = CRITERION_END,
                      bool cfg_quantile_per_tree = false,

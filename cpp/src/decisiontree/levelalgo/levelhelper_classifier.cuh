@@ -212,9 +212,9 @@ void get_best_split_classification(
       unsigned int *parent_hist =
         &h_parent_hist[sparse_nodeid * n_unique_labels];
       // Create a vector of column ids which is shuffled to select columns at random
-      std::vector<int> cols(ncols_sampled) ; // vector with ncols_sampled ints.
-      std::iota (std::begin(cols), std::end(cols), 0); 
-      std::srand(seed+depth);
+      std::vector<int> cols(ncols_sampled);  // vector with ncols_sampled ints.
+      std::iota(std::begin(cols), std::end(cols), 0);
+      std::srand(seed + depth);
       //std::cout << " seed + depth : " << seed+depth << std::flush << std::endl;
       std::random_shuffle(cols.begin(), cols.end());
       for (int column_id = 0; column_id < ncols_sampled; column_id++) {
@@ -280,7 +280,7 @@ void get_best_split_classification(
       curr_node.quesval = getQuesValue(
         minmax, quantile, nbins, split_colidx[nodecnt], split_binidx[nodecnt],
         nodecnt, n_nodes, curr_node.colid, split_algo);
-      
+
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       SparseTreeNode<T, int> leftnode, rightnode;
       leftnode.best_metric_val = bestmetric[0];

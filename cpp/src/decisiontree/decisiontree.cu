@@ -33,7 +33,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
   params.n_bins = cfg_n_bins;
   params.split_algo = cfg_split_algo;
   params.min_rows_per_node = cfg_min_rows_per_node;
-  params.seed  = cfg_seed;
+  params.seed = cfg_seed;
   params.bootstrap_features = cfg_bootstrap_features;
   params.split_criterion = cfg_split_criterion;
   params.quantile_per_tree = cfg_quantile_per_tree;

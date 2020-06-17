@@ -144,7 +144,7 @@ void grow_deep_tree_classification(
         Ncols, ncols_sampled, tree_params.n_bins, n_unique_labels, n_nodes,
         depth, tree_params.min_rows_per_node, tree_params.split_algo,
         tree_params.seed, infogain, h_parent_hist, h_child_hist, sparsetree,
-        sparsesize, sparse_nodelist,h_split_colidx, h_split_binidx,
+        sparsesize, sparse_nodelist, h_split_colidx, h_split_binidx,
         d_split_colidx, d_split_binidx, tempmem);
     }
 
