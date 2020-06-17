@@ -234,7 +234,9 @@ class CumlArray(Buffer):
 
         elif output_type == 'numpy':
             if output_dtype and self.dtype != output_dtype:
-                return cp.asnumpy(cp.asarray(self, dtype=output_dtype), order=self.order)
+                return cp.asnumpy(
+                    cp.asarray(self, dtype=output_dtype), order=self.order
+                )
             return cp.asnumpy(cp.asarray(self), order=self.order)
 
         elif output_type == 'dataframe':

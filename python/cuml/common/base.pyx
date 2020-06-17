@@ -290,7 +290,7 @@ class Base:
             return _input_to_type(input)
         else:
             return self.output_type
-        
+
     def _set_target_dtype(self, target):
         """
         Method to be called by fit methods of inheriting classifier
@@ -298,12 +298,12 @@ class Base:
         the target.
         """
         self.target_dtype = _input_target_to_dtype(target)
-        
+
     def _get_target_dtype(self):
         """
-        Method to be called by predict/transform methods of inheriting classifier
-        classes. Returns the appropriate output dtype depending on the
-        dtype of the target.
+        Method to be called by predict/transform methods of
+        inheriting classifier classes. Returns the appropriate output
+        dtype depending on the dtype of the target.
         """
         return self.target_dtype
 
@@ -340,9 +340,10 @@ def _check_output_type_str(output_str):
             raise ValueError("output_type must be one of " +
                              "'numpy', 'cupy', 'cudf' or 'numba'")
 
+
 def _input_target_to_dtype(target):
     canonical_input_types = tuple(_input_type_to_str.keys())
-    
+
     if isinstance(target, (cuDataFrame, pdDataFrame)):
         # Assume single-label target
         dtype = target[target.columns[0]].dtype

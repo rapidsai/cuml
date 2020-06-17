@@ -712,8 +712,7 @@ class RandomForestClassifier(Base):
                               fil_sparse_format, predict_proba):
         out_type = self._get_output_type(X)
         out_dtype = self._get_target_dtype()
-        
-        
+
         cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
@@ -750,7 +749,7 @@ class RandomForestClassifier(Base):
     def _predict_model_on_cpu(self, X, convert_dtype):
         out_type = self._get_output_type(X)
         out_dtype = self._get_target_dtype()
-        
+
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
