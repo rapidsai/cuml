@@ -290,9 +290,7 @@ class SVC(SVMBase):
         y : cuDF Series
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
-        target_dtype = self._get_target_dtype()
-
-        return super(SVC, self).predict(X, True).astype(target_dtype)
+        return super(SVC, self).predict(X, True)
 
     def decision_function(self, X):
         """
