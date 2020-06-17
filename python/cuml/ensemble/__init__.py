@@ -18,4 +18,4 @@
 from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
 from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
-    _obtain_treelite_model, _obtain_fil_model
+    _obtain_fil_model
