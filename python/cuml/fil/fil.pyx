@@ -226,15 +226,16 @@ cdef class ForestInference_impl():
         return algo_dict[algo_str]
 
     def get_storage_type(self, storage_type_str):
-        storage_type_dict={'AUTO': storage_type_t.AUTO,
-                           'auto': storage_type_t.AUTO,
-                           'DENSE': storage_type_t.DENSE,
-                           'dense': storage_type_t.DENSE,
-                           'SPARSE': storage_type_t.SPARSE,
-                           'sparse': storage_type_t.SPARSE}
+        storage_type_dict={'auto': storage_type_t.AUTO,
+                           'False': storage_type_t.DENSE,
+                           'True': storage_type_t.SPARSE}
+
         if storage_type_str not in storage_type_dict.keys():
-            raise ValueError(' Wrong sparsity selected please refer'
-                             ' to the documentation')
+            raise ValueError(
+                "The value entered for spares_forest is not "
+                "supported. Please refer to the documentation at"
+                "(https://docs.rapids.ai/api/cuml/nightly/api.html#"
+                "forest-inferencing) to see the accepted values.")
         return storage_type_dict[storage_type_str]
 
     def predict(self, X, output_type='numpy', predict_proba=False, preds=None):
@@ -336,7 +337,6 @@ cdef class ForestInference_impl():
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
         treelite_params.storage_type = self.get_storage_type(storage_type)
-
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>model_handle

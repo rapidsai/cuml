@@ -400,8 +400,8 @@ class RandomForestClassifier(BaseRandomForestModel):
             These labels should be contiguous integers from 0 to n_classes.
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This will increase
-            memory used for the method.
+            y to be of dtype int32. This will increase memory used for
+            the method.
 
         """
 
