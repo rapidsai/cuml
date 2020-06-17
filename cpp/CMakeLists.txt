@@ -284,7 +284,7 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUB_DIR}/src/cub
   ${SPDLOG_DIR}/src/spdlog/include
   ${TREELITE_DIR}/include
-  ${TREELITE_DIR}/include/fmt
+  ${TREELITE_DIR}/src/treelite/include
   ${RAFT_DIR}/cpp/include)
 
 set(CUML_LINK_LIBRARIES
