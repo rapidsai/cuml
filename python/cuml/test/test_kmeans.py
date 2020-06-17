@@ -31,8 +31,6 @@ import cupy as cp
 
 dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
 
-SCORE_EPS = 0.06
-
 
 @pytest.fixture
 def get_data_consistency_test():
@@ -284,7 +282,8 @@ def test_all_kmeans_params(n_clusters, max_iter, init,
 @pytest.mark.parametrize("ncols", [10, 30])
 @pytest.mark.parametrize("nclusters", [unit_param(5), quality_param(10),
                                        stress_param(50)])
-def test_score(nrows, ncols, nclusters):
+@pytest.mark.parametrize("score_eps", [unit_param(0.06), stress_param(6.00)])
+def test_score(nrows, ncols, score_eps, nclusters):
 
     X, y = make_blobs(int(nrows), ncols, nclusters,
                       cluster_std=0.01,
@@ -312,6 +311,6 @@ def test_score(nrows, ncols, nclusters):
         dist = cp.sqrt(cp.sum((x - y)**2))
         expected_score += dist**2
 
-    assert actual_score + SCORE_EPS \
+    assert actual_score + score_eps \
         >= (-1*expected_score) \
-        >= actual_score - SCORE_EPS
+        >= actual_score - score_eps

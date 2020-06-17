@@ -240,6 +240,10 @@ class KNeighborsRegressor(NearestNeighbors):
 
         return results.to_output(out_type)
 
+    def get_param_names(self):
+        return super(KNeighborsRegressor, self).get_param_names() \
+            + ["weights"]
+
     def score(self, X, y, convert_dtype=True):
         """
         Fit a GPU index for k-nearest neighbors regression model.
