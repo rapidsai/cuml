@@ -158,10 +158,9 @@ class BaseRandomForestModel(Base):
         Returns the self.model_pbuf_bytes.
         Cuml RF model gets converted to treelite protobuf bytes by:
 
-            1. converting the cuml RF model to a treelite model. The treelite
+            * Converting the cuml RF model to a treelite model. The treelite
             models handle (pointer) is returned
-
-            2. The treelite model handle is used to convert the treelite model
+            * The treelite model handle is used to convert the treelite model
             to a treelite protobuf model which is stored in a temporary file.
             The protobuf model information is read from the temporary file and
             the byte information is returned.
