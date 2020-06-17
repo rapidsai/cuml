@@ -514,9 +514,7 @@ class QN(Base):
 
         del X_m
         
-        if out_dtype:
-        
-        return preds.to_output(out_type)
+        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
     def score(self, X, y):
         return accuracy_score(y, self.predict(X))
