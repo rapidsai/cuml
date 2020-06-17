@@ -23,12 +23,10 @@ import cupy as cp
 import pprint
 
 from cuml.solvers import QN
-from cuml.common.base import Base
+from cuml.common.base import Base, ClassifierMixin
 from cuml.common.array import CumlArray
-from cuml.metrics.accuracy import accuracy_score
-from cuml.common import input_to_cuml_array
 import cuml.common.logger as logger
-from cuml.common import with_cupy_rmm
+from cuml.common import input_to_cuml_array, with_cupy_rmm
 
 
 supported_penalties = ["l1", "l2", "none", "elasticnet"]
@@ -36,7 +34,7 @@ supported_penalties = ["l1", "l2", "none", "elasticnet"]
 supported_solvers = ["qn"]
 
 
-class LogisticRegression(Base):
+class LogisticRegression(Base, ClassifierMixin):
     """
     LogisticRegression is a linear model that is used to model probability of
     occurrence of certain events, for example probability of success or fail of
@@ -453,24 +451,6 @@ class LogisticRegression(Base):
 
         proba = CumlArray(proba)
         return proba.to_output(out_type)
-
-    def score(self, X, y, convert_dtype=False):
-        """
-        Calculates the accuracy metric score of the model for X.
-
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Observations for which labels score will be calculated.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Ground truth labels to compare predictions to for the score.
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        """
-        return accuracy_score(y, self.predict(X), handle=self.handle)
 
     def get_param_names(self):
         return [
