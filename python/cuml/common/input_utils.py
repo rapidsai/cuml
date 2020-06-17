@@ -168,7 +168,11 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
         X_m = CumlArray(data=X)
 
         if deepcopy:
+            shape, dtype = X_m.shape, X_m.dtype
+            order, strides = X_m.order, X_m.strides
             X_m = copy.deepcopy(X_m)
+            X_m.shape, X_m.dtype = shape, dtype
+            X_m.order, X_m.strides = order, strides
 
     else:
         msg = "X matrix format " + str(X.__class__) + " not supported"

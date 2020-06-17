@@ -1,4 +1,3 @@
-#
 # Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,13 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.preprocessing.model_selection import train_test_split
-from cuml.preprocessing.LabelEncoder import LabelEncoder
-from cuml.preprocessing.label import LabelBinarizer, label_binarize
-from cuml.preprocessing.encoders import OneHotEncoder
 
-
-from cuml._thirdparty.sklearn.preprocessing import scale, minmax_scale, normalize
-from cuml._thirdparty.sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler
-from cuml._thirdparty.sklearn.preprocessing import SimpleImputer
-from cuml._thirdparty.sklearn.preprocessing import PolynomialFeatures
+from .adapters import check_array, get_input_type, to_output_type
