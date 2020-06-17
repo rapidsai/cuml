@@ -67,11 +67,16 @@ class KNNTest : public ::testing::Test {
     ptrs[0] = d_train_inputs;
     sizes[0] = n;
 
+    std::vector<float *> input_vec(1);
+    std::vector<int> sizes_vec(1);
+    input_vec.push_back(ptrs[0]);
+    sizes_vec.push_back(sizes[0]);
+
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    brute_force_knn(ptrs, sizes, 1, d, d_train_inputs, n, d_pred_I, d_pred_D, n,
-                    alloc, stream);
+    brute_force_knn(input_vec, sizes_vec, d, d_train_inputs, n, d_pred_I,
+                    d_pred_D, n, alloc, stream);
 
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
@@ -101,7 +106,8 @@ class KNNTest : public ::testing::Test {
 
 typedef KNNTest<float> KNNTestF;
 TEST_F(KNNTestF, Fit) {
-  ASSERT_TRUE(devArrMatch(d_ref_D, d_pred_D, n * n, Compare<float>()));
+  ASSERT_TRUE(
+    devArrMatch(d_ref_D, d_pred_D, n * n, CompareApprox<float>(1e-3)));
   ASSERT_TRUE(devArrMatch(d_ref_I, d_pred_I, n * n, Compare<long>()));
 }
 
