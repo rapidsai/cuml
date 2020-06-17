@@ -41,8 +41,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
-# set(BLAS_LIBRARIES "" CACHE STRING
-#     "Location of BLAS library for FAISS build.")
+set(BLAS_LIBRARIES "" CACHE STRING
+    "Location of BLAS library for FAISS build.")
 
 option(BUILD_CUML_C_LIBRARY "Build libcuml shared library. Contains the cuML C API" ON)
 
@@ -155,6 +155,11 @@ if(SINGLEGPU)
   set(DISABLE_CUMLPRIMS_MG ON)
   set(WITH_UCX OFF)
 endif(SINGLEGPU)
+
+if(NOT BUILD_CUML_MPI_COMMS AND NOT SINGLEGPU)
+  message(STATUS "Detected BUILD_CUML_MPI_COMMS set to OFF. Disabling BUILD_CUML_MG_TESTS")
+  set(BUILD_CUML_MG_TESTS OFF)
+endif(NOT BUILD_CUML_MPI_COMMS AND NOT SINGLEGPU)
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
@@ -290,7 +295,7 @@ include(cmake/Dependencies.cmake)
 
 set(CUML_INCLUDE_DIRECTORIES
   ${CUML_INCLUDE_DIR}
-  ${CUMLPRIMS_INCLUDE_DIRS}
+  ${CUMLPRIMS_MG_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/src_prims
   ${CMAKE_CURRENT_SOURCE_DIR}/test/prims
