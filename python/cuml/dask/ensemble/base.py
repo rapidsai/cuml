@@ -95,12 +95,13 @@ class BaseRandomForestModel(object):
         if has_float64:
             raise TypeError("To use Dask RF data should have dtype float32.")
 
-        dataset[1] = self.client.persist(dataset[1])
+        labels = self.client.persist(dataset[1])
         if self.datatype == 'cudf':
-            self.num_classes = len(dataset[1].unique())
+            self.num_classes = len(labels.unique())
         else:
             self.num_classes = \
-                len(dask.array.unique(dataset[1]).compute())
+                len(dask.array.unique(labels).compute())
+        labels = self.client.persist(dataset[1])
         futures = list()
         for idx, (worker, worker_data) in \
                 enumerate(data.worker_to_parts.items()):
