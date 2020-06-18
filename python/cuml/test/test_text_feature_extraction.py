@@ -272,3 +272,18 @@ def test_only_delimiters():
     res = CountVectorizer().fit_transform(data_gpu)
     ref = SkCountVect().fit_transform(data)
     cp.testing.assert_array_equal(res.todense(), ref.toarray())
+
+
+@pytest.mark.parametrize('analyzer', ['char', 'char_wb'])
+@pytest.mark.parametrize('ngram_range', NGRAM_RANGES, ids=NGRAM_IDS)
+def test_character_ngrams(analyzer, ngram_range):
+    data = ['ab c',
+            ''
+            'edf gh']
+
+    res = CountVectorizer(analyzer=analyzer, ngram_range=ngram_range)
+    res.fit(Series(data))
+
+    ref = SkCountVect(analyzer=analyzer, ngram_range=ngram_range).fit(data)
+
+    assert ref.get_feature_names() == res.get_feature_names().tolist()
