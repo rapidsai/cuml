@@ -154,6 +154,13 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         """
         return self._print_summary()
 
+    def print_detailed(self):
+        """
+        Print detailed information of the forest used to train
+        and test the model.
+        """
+        return self._print_detailed()
+
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the input data with a Random Forest regression model
