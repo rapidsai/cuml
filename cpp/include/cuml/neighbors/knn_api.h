@@ -43,7 +43,8 @@ extern "C" {
 cumlError_t knn_search(const cumlHandle_t handle, float **input, int *size,
                        int n_params, int D, const float *search_items, int n,
                        int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
-                       bool rowMajorQuery);
+                       bool rowMajorQuery, int metric_type = 0,
+                       float metric_arg = 2.0f, bool expanded = 0);
 
 #ifdef __cplusplus
 }
