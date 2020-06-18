@@ -20,8 +20,7 @@
 # cython: language_level = 3
 
 from cuml.solvers import CD
-from cuml.metrics.base import RegressorMixin
-from cuml.common.base import Base
+from cuml.common.base import Base, RegressorMixin
 
 
 class Lasso(Base, RegressorMixin):
