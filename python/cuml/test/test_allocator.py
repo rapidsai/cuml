@@ -22,7 +22,7 @@ import numpy as np
 from cuml import LogisticRegression
 from cuml.naive_bayes import MultinomialNB
 from cuml.test.utils import small_classification_dataset
-from cuml.test.test_naive_bayes import scipy_to_cp
+from cuml.common.input_utils import sparse_scipy_to_cp
 
 try:
     from cupy.cuda import using_allocator as cupy_using_allocator
@@ -55,7 +55,7 @@ def test_logistic_regression():
 def test_naive_bayes(nlp_20news):
     X, y = nlp_20news
 
-    X = scipy_to_cp(X, cp.float32).astype(cp.float32)
+    X = sparse_scipy_to_cp(X, cp.float32).astype(cp.float32)
     y = y.astype(cp.int32)
 
     with cupy_using_allocator(dummy_allocator):
