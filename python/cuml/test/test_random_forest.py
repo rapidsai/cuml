@@ -19,7 +19,7 @@ import pytest
 import random
 import rmm
 
-from numba import cuda
+import pynvml
 
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
@@ -538,20 +538,26 @@ def test_rf_memory_leakage(small_clf, fil_sparse_format, n_iter):
     # Create a handle for the cuml model
     handle, stream = get_handle(use_handle, n_streams=1)
 
+    def get_device_free_memory(index=0):
+        pynvml.nvmlInit()
+        return pynvml.nvmlDeviceGetMemoryInfo(
+            pynvml.nvmlDeviceGetHandleByIndex(index)
+        ).free
+
     # Warmup. Some modules that are used in RF allocate space on the device
     # and consume memory. This is to make sure that the allocation is done
     # before the first call to get_memory_info.
     base_model = curfc(handle=handle)
     base_model.fit(X_train, y_train)
     handle.sync()  # just to be sure
-    free_mem = cuda.current_context().get_memory_info()[0]
+    free_mem = get_device_free_memory()
 
     def test_for_memory_leak():
         cuml_mods = curfc(handle=handle)
         cuml_mods.fit(X_train, y_train)
         handle.sync()  # just to be sure
         # Calculate the memory free after fitting the cuML model
-        delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
+        delta_mem = free_mem - get_device_free_memory()
         assert delta_mem == 0
 
         for i in range(2):
@@ -559,7 +565,7 @@ def test_rf_memory_leakage(small_clf, fil_sparse_format, n_iter):
                               fil_sparse_format=fil_sparse_format)
             handle.sync()  # just to be sure
             # Calculate the memory free after predicting the cuML model
-            delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
+            delta_mem = free_mem - get_device_free_memory()
             assert delta_mem == 0
 
     for i in range(n_iter):
