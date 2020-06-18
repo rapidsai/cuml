@@ -53,7 +53,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "xgboost==1.0.2dev.rapidsai0.13" \
       "rapids-build-env=$MINOR_VERSION.*" \
       "rapids-notebook-env=$MINOR_VERSION.*" \
-      "treelite==0.92"
+      "treelite=0.92"
 
 # https://docs.rapids.ai/maintainers/depmgmt/ 
 # conda remove -f rapids-build-env rapids-notebook-env
@@ -95,9 +95,6 @@ logger "Resetting LD_LIBRARY_PATH..."
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
-
-logger "Install Treelite for GPU testing..."
-python -m pip install -v treelite==0.92 treelite_runtime==0.92
 
 cd $WORKSPACE
 
