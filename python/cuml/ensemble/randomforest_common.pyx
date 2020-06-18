@@ -28,6 +28,8 @@ from cuml.common.array import CumlArray
 
 from cython.operator cimport dereference as deref
 
+from cuml.ensemble.randomforest_shared import treelite_serialize, \
+    treelite_deserialize
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
@@ -131,6 +133,7 @@ class BaseRandomForestModel(Base):
         self.rf_forest64 = 0
         self.model_pbuf_bytes = bytearray()
         self.treelite_handle = None
+        self.treelite_serialized_model = None
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
@@ -153,7 +156,7 @@ class BaseRandomForestModel(Base):
                 "(https://docs.rapids.ai/api/cuml/nightly/api.html"
                 "#random-forest)")
 
-    def _get_protobuf_bytes(self):
+    def _get_serialized_model(self):
         """
         Returns the self.model_pbuf_bytes.
         Cuml RF model gets converted to treelite protobuf bytes by:
@@ -170,36 +173,27 @@ class BaseRandomForestModel(Base):
         of information is already present in the model then the respective
         step is skipped.
         """
-        if self.dtype == np.float64:
-            raise TypeError("Pickling is only supported on models trained"
-                            " on float32 data.")
-        if self.model_pbuf_bytes:
-            return self.model_pbuf_bytes
+        if self.treelite_serialized_model:
+            return self.treelite_serialized_model
         elif self.treelite_handle:
             fit_mod_ptr = self.treelite_handle
         else:
             fit_mod_ptr = self._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
-        cdef vector[unsigned char] pbuf_mod_info = \
-            save_model(<ModelHandle> model_ptr)
-        cdef unsigned char[::1] pbuf_mod_view = \
-            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
-        return self.model_pbuf_bytes
+        self.treelite_serialized_model = treelite_serialize(model_ptr)
+        return self.treelite_serialized_model
 
     def _obtain_treelite_handle(self):
         if self.treelite_handle:
             return self.treelite_handle  # Use cached version
-        cdef ModelHandle cuml_model_ptr = NULL
-        cdef unsigned char[::1] model_pbuf_mv
-        cdef vector[unsigned char] model_pbuf_vec
-        if self.model_pbuf_bytes:
-            model_pbuf_mv = self.model_pbuf_bytes
-            with cython.boundscheck(False):
-                model_pbuf_vec.assign(& model_pbuf_mv[0],
-                                      & model_pbuf_mv[model_pbuf_mv.shape[0]])
-        else:
-            model_pbuf_vec = <vector[unsigned char] &> bytearray()
+        cdef ModelHandle tl_handle = NULL
+
+        if self.treelite_serialized_model:  # bytes -> Treelite
+            tl_handle = <ModelHandle><uintptr_t>treelite_deserialize(
+                self.treelite_serialized_model)
+
+        assert self.treelite_serialized_model or self.rf_forest, \
+            "Attempting to create treelite from un-fit forest."
 
         if self.RF_type == CLASSIFICATION:
             if self.num_classes > 2:
@@ -209,21 +203,20 @@ class BaseRandomForestModel(Base):
                                           "  cuml GitHub issue #1679 for more"
                                           "  information.")
             build_treelite_forest(
-                &cuml_model_ptr,
+                &tl_handle,
                 <RandomForestMetaData[float, int]*><size_t> self.rf_forest,
                 <int> self.n_cols,
                 <int> self.num_classes,
                 model_pbuf_vec)
         else:
             build_treelite_forest(
-                &cuml_model_ptr,
+                &tl_handle,
                 <RandomForestMetaData[float, float]*><size_t> self.rf_forest,
                 <int> self.n_cols,
                 <int> REGRESSION_MODEL,
                 model_pbuf_vec)
 
-        mod_ptr = <uintptr_t> cuml_model_ptr
-        self.treelite_handle = ctypes.c_void_p(mod_ptr).value
+        self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
 
     def _dataset_setup_for_fit(self, X, y, convert_dtype):
@@ -274,48 +267,27 @@ class BaseRandomForestModel(Base):
                 math.ceil(self.min_rows_per_node*self.n_rows)
         return X_m, y_m, max_feature_val
 
-    def _tl_model_handles(self, model_bytes):
-        cdef ModelHandle cuml_model_ptr = NULL
-        if self.RF_type == CLASSIFICATION:
-            build_treelite_forest(
-                &cuml_model_ptr,
-                <RandomForestMetaData[float, int]*><size_t> self.rf_forest,
-                <int> self.n_cols,
-                <int> self.num_classes,
-                <vector[unsigned char] &> model_bytes)
-        else:
-            build_treelite_forest(
-                &cuml_model_ptr,
-                <RandomForestMetaData[float, float]*><size_t> self.rf_forest,
-                <int> self.n_cols,
-                <int> REGRESSION_MODEL,
-                <vector[unsigned char] &> model_bytes)
-        mod_handle = <uintptr_t> cuml_model_ptr
-
-        return ctypes.c_void_p(mod_handle).value
+    def _tl_handle_from_bytes(self, treelite_serialized_model):
+        if not treelite_serialized_model:
+            raise ValueError(
+                '_tl_handle_from_bytes() requires non-empty serialized model')
+        return treelite_deserialize(treelite_serialized_model)
 
     def _concatenate_treelite_handle(self, treelite_handle):
         cdef ModelHandle concat_model_handle = NULL
         cdef vector[ModelHandle] *model_handles \
             = new vector[ModelHandle]()
         cdef uintptr_t mod_ptr
-
         for i in treelite_handle:
             mod_ptr = <uintptr_t>i
             model_handles.push_back((
                 <ModelHandle> mod_ptr))
 
         self._reset_forest_data()
-
         concat_model_handle = concatenate_trees(deref(model_handles))
         cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
         self.treelite_handle = concat_model_ptr
-
-        cdef vector[unsigned char] pbuf_mod_info = \
-            save_model(<ModelHandle> concat_model_ptr)
-        cdef unsigned char[::1] pbuf_mod_view = \
-            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+        self.treelite_serialized_model = treelite_serialize(concat_model_ptr)
 
         # Fix up some instance variables that should match the new TL model
         tl_model = TreeliteModel.from_treelite_model_handle(
@@ -323,26 +295,24 @@ class BaseRandomForestModel(Base):
             take_handle_ownership=False)
         self.n_cols = tl_model.num_features
         self.n_estimators = tl_model.num_trees
+
         return self
 
-    def _predict_model_on_gpu(self, X, algo, convert_dtype,
-                              fil_sparse_format, threshold=0.5,
-                              output_class=False, predict_proba=False):
+    def _predict_model_on_gpu(self, X, output_class,
+                              threshold, algo,
+                              num_classes, convert_dtype,
+                              fil_sparse_format, predict_proba):
         out_type = self._get_output_type(X)
-        cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
-            input_to_cuml_array(
-                X, order='F',
-                check_cols=self.n_cols,
-                convert_to_dtype=(self.dtype if convert_dtype
-                                  else None))
+            input_to_cuml_array(X, order='F',
+                                check_cols=self.n_cols)
 
-        if dtype == np.float64:
-            raise TypeError("GPU based predict only accepts float32 data. \
+        if dtype == np.float64 and not convert_dtype:
+            raise TypeError("GPU based predict only accepts np.float32 data. \
                             Please set convert_dtype=True to convert the test \
                             data to the same dtype as the data used to train, \
-                            ie. float32. If you would like to use test \
-                            data of dtype=float64 please set \
+                            ie. np.float32. If you would like to use test \
+                            data of dtype=np.float64 please set \
                             predict_model='CPU' to use the CPU implementation \
                             of predict.")
 
@@ -374,7 +344,7 @@ class BaseRandomForestModel(Base):
         return params
 
     def _set_params(self, **params):
-        self.model_pbuf_bytes = []
+        self.treelite_serialized_model = None
 
         if not params:
             return self

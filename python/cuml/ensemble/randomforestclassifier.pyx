@@ -20,7 +20,6 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import ctypes
 import numpy as np
 import rmm
 import warnings
@@ -57,7 +56,7 @@ cimport cython
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
-    cdef void fit(cumlHandle & handle,
+    cdef void fit(cumlHandle& handle,
                   RandomForestMetaData[float, int]*,
                   float*,
                   int,
@@ -67,7 +66,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   RF_params,
                   int) except +
 
-    cdef void fit(cumlHandle & handle,
+    cdef void fit(cumlHandle& handle,
                   RandomForestMetaData[double, int]*,
                   double*,
                   int,
@@ -248,7 +247,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
-            self._get_protobuf_bytes()  # Ensure we have this cached
+            self._get_serialized_model()  # Ensure we have this cached
             if self.rf_forest:
                 params_t = <uintptr_t> self.rf_forest
                 rf_forest = \
@@ -263,7 +262,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         state["n_cols"] = self.n_cols
         state["verbose"] = self.verbose
-        state["model_pbuf_bytes"] = self.model_pbuf_bytes
+        state["treelite_serialized_model"] = self.treelite_serialized_model
         state["treelite_handle"] = None
         state["split_criterion"] = self.split_criterion
         state["handle"] = self.handle
@@ -287,7 +286,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             rf_forest64.rf_params = state["rf_params64"]
             state["rf_forest64"] = <uintptr_t>rf_forest64
 
-        self.model_pbuf_bytes = state["model_pbuf_bytes"]
+        self.treelite_serialized_model = state["treelite_serialized_model"]
         self.__dict__.update(state)
 
     def __del__(self):
@@ -310,7 +309,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             TreeliteModel.free_treelite_model(self.treelite_handle)
 
         self.treelite_handle = None
-        self.model_pbuf_bytes = bytearray()
+        self.treelite_serialized_model = None
         self.n_cols = None
 
     def convert_to_treelite_model(self):
