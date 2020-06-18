@@ -55,9 +55,10 @@ class _VectorizerMixin:
     def _remove_stop_words(self, doc):
         """Remove stop words only if needed."""
         if self.analyzer == 'word' and self.stop_words is not None:
-            # stop_words = Series(self._get_stop_words())._column.nvstrings
-            # doc = nvtext.replace_tokens(doc, stop_words, self.delimiter)
-            raise NotImplementedError('Waiting for Series.str.replace_tokens.')
+            stop_words = Series(self._get_stop_words())
+            doc = doc.str.replace_tokens(stop_words,
+                                         replacements=self.delimiter,
+                                         delimiter=self.delimiter)
         return doc
 
     def build_preprocessor(self):
