@@ -149,7 +149,7 @@ def _build_treelite_classifier(m, data, args, tmpdir):
     from cuml.common.import_utils import has_treelite, has_xgboost
     if has_treelite():
         import treelite
-        import treelite.runtime
+        import treelite_runtime
     else:
         raise ImportError("No treelite package found")
     if has_xgboost():
@@ -168,10 +168,11 @@ def _build_treelite_classifier(m, data, args, tmpdir):
     bst.load_model(model_path)
     tl_model = treelite.Model.from_xgboost(bst)
     tl_model.export_lib(
-        toolchain="gcc", libpath=model_path+"treelite.so",
+        toolchain="gcc", libpath=os.path.join(tmpdir, 'treelite.so'),
         params={'parallel_comp': 40}, verbose=False
     )
-    return treelite.runtime.Predictor(model_path+"treelite.so", verbose=False)
+    return treelite_runtime.Predictor(os.path.join(tmpdir, 'treelite.so'),
+                                      verbose=False)
 
 
 def _treelite_fil_accuracy_score(y_true, y_pred):
