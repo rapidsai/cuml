@@ -52,7 +52,8 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "ucx-py=${MINOR_VERSION}" \
       "xgboost==1.0.2dev.rapidsai0.13" \
       "rapids-build-env=$MINOR_VERSION.*" \
-      "rapids-notebook-env=$MINOR_VERSION.*"
+      "rapids-notebook-env=$MINOR_VERSION.*" \
+      "treelite==0.92"
 
 # https://docs.rapids.ai/maintainers/depmgmt/ 
 # conda remove -f rapids-build-env rapids-notebook-env
