@@ -30,8 +30,7 @@ endif(NOT NCCL_PATH)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(MPICOMMS_INCLUDE_DIRS
-  include
+include_directories(include
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${MPI_CXX_INCLUDE_PATH}
   ../../include
@@ -49,7 +48,6 @@ endif()
 
 add_library(cumlcommsmpi SHARED src/cuML_comms_mpi_impl.cpp)
 target_link_libraries(cumlcommsmpi ${MPI_COMMS_LINK_LIBRARIES})
-target_include_directories(cumlcommsmpi PRIVATE ${MPICOMMS_INCLUDE_DIRS})
 target_compile_options(cumlcommsmpi PUBLIC ${MPI_C_COMPILE_FLAGS})
 
 install(TARGETS cumlcommsmpi DESTINATION lib)

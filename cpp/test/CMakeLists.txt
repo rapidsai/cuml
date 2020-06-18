@@ -67,17 +67,10 @@ endif(BUILD_CUML_TESTS)
 if(BUILD_CUML_MG_TESTS)
   find_package(MPI)
 
-  # find_library(_CUMLCOMMS_LIBRARY NAMES libcumlcommsmpi cumlcommsmpi
-  #            HINTS ${CMAKE_INSTALL_PREFIX}/lib
-  #                  "$ENV{CONDA_PREFIX}/include"
-  #            PATH_SUFFIXES lib build)
-
-  # set(CUMLCOMMS_LIBRARY ${_CUMLCOMMS_LIBRARY}
-  #  CACHE STRING "Path to the CUML COMMS MPI lib")
-
   if(MPI_CXX_FOUND)
     # (please keep the filenames in alphabetical order)
     add_executable(ml_mg
+      mg/main.cu
       mg/test_ml_mg_utils.cu
       mg/pca.cu)
     
@@ -86,13 +79,13 @@ if(BUILD_CUML_MG_TESTS)
     set(CUML_TEST_INCLUDE_DIRS
         ${CUML_TEST_INCLUDE_DIRS}
         ${MPI_CXX_INCLUDE_PATH}
-        ${MPICOMMS_INCLUDE_DIRS})
+        ${CMAKE_CURRENT_SOURCE_DIR}/../comms/mpi/include)
+
+    target_include_directories(ml_mg PUBLIC ${CUML_TEST_INCLUDE_DIRS})
 
     set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} ${MPI_CXX_LIBRARIES})
 
-    # set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} ${CUMLCOMMS_LIBRARY})
-
-    target_include_directories(ml_mg PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+    set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} cumlcommsmpi)
 
     target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
 
