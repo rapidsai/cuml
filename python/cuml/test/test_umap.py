@@ -87,7 +87,8 @@ def test_umap_fit_transform_score(nrows, n_feats):
 def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
-    embedding = cuUMAP(n_neighbors=10, min_dist=0.01).fit_transform(
+    embedding = cuUMAP(n_neighbors=10, random_state=0,
+                       min_dist=0.01).fit_transform(
         data, iris.target, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
@@ -98,7 +99,8 @@ def test_semisupervised_umap_trustworthiness_on_iris():
     data = iris.data
     target = iris.target.copy()
     target[25:75] = -1
-    embedding = cuUMAP(n_neighbors=10, min_dist=0.01).fit_transform(
+    embedding = cuUMAP(n_neighbors=10, random_state=0,
+                       min_dist=0.01).fit_transform(
         data, target, convert_dtype=True)
 
     trust = trustworthiness(iris.data, embedding, 10)
@@ -108,7 +110,8 @@ def test_semisupervised_umap_trustworthiness_on_iris():
 def test_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
-    embedding = cuUMAP(n_neighbors=10, min_dist=0.01).fit_transform(
+    embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
+                       random_state=0).fit_transform(
         data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97

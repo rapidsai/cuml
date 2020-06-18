@@ -342,7 +342,6 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
 
     for (int i = 0; i < 3; i++) {
       ModelHandle model;
-      std::vector<unsigned char> vec_data;
 
       this->rf_params.n_trees = this->rf_params.n_trees + i;
 
@@ -350,7 +349,7 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
           this->params.n_rows, this->params.n_cols, this->labels_d,
           labels_map.size(), this->rf_params);
       build_treelite_forest(&model, this->all_forest_info[i],
-                            this->params.n_cols, this->task_category, vec_data);
+                            this->params.n_cols, this->task_category);
       this->treelite_indiv_handles.push_back(model);
     }
 
@@ -412,14 +411,14 @@ class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
 
     for (int i = 0; i < 3; i++) {
       ModelHandle model;
-      std::vector<unsigned char> vec_data;
+
       this->rf_params.n_trees = this->rf_params.n_trees + i;
 
       fit(*(this->handle), this->all_forest_info[i], this->data_d,
           this->params.n_rows, this->params.n_cols, this->labels_d,
           this->rf_params);
       build_treelite_forest(&model, this->all_forest_info[i],
-                            this->params.n_cols, this->task_category, vec_data);
+                            this->params.n_cols, this->task_category);
       CUDA_CHECK(cudaStreamSynchronize(this->stream));
       this->treelite_indiv_handles.push_back(model);
     }
