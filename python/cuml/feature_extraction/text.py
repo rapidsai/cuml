@@ -96,7 +96,38 @@ class _VectorizerMixin:
         else:  # assume it's a collection
             return list(self.stop_words)
 
-    def get_ngrams(self, str_series, n, doc_id_sr, token_count_sr, separator):
+    def get_char_ngrams(self, n, str_series, doc_id_sr):
+        """
+        Handles ngram generation for characters analyzers.
+
+        When analyzer is 'char_wb', we generate ngrams within word boundaries,
+        meaning we need to first tokenize and pad each token with a delimiter.
+        """
+        if self.analyzer == 'char':
+            token_count = str_series.str.len()
+            ngram_sr = str_series.str.character_ngrams(n=n)
+            ngram_count = None
+        else:
+            # here analyzer is 'char_wb'
+            tokens = str_series.str.tokenize(self.delimiter)
+
+            padding = Series(self.delimiter).repeat(len(tokens))
+            tokens = padding.str.cat(tokens.str.cat(padding))
+            tokens = tokens.reset_index(drop=True)
+
+            ngram_sr = tokens.str.character_ngrams(n=n)
+
+            token_count = str_series.str.token_count(self.delimiter)
+            doc_id_df = cudf.DataFrame({
+                'doc_id': doc_id_sr.repeat(token_count).reset_index(drop=True),
+                # formula to count ngrams given number of letters per token:
+                'ngram_count': tokens.str.len() - (n - 1)
+            })
+            ngram_count = doc_id_df.groupby('doc_id').sum()['ngram_count']
+
+        return ngram_sr, ngram_count, token_count
+
+    def get_ngrams(self, str_series, n, doc_id_sr):
         """
         This returns the ngrams for the string series
         Parameters
@@ -107,28 +138,28 @@ class _VectorizerMixin:
             Gram level to get (1 for unigram, 2 for bigram etc)
         doc_id_sr : cudf.Series
             Int series containing documents ids
-        token_count_sr : cudf.Series
-            Int series containing number of tokens per doc
-        separator : string
-            Ngram separator
         """
+        ngram_count = None
         if self.analyzer == 'word':
-            ngram_sr = str_series.str.ngrams_tokenize(n=n, separator=separator,
+            token_count_sr = str_series.str.token_count(self.delimiter)
+            ngram_sr = str_series.str.ngrams_tokenize(n=n, separator=" ",
                                                       delimiter=self.delimiter)
         else:
             if n != 1:
-                raise NotImplementedError("Character-level ngrams is not yet"
-                                          " supported by cuML.")
-            ngram_sr = str_series.str.character_tokenize()
+                ngram_sr, ngram_count, token_count_sr = self.get_char_ngrams(
+                    n, str_series, doc_id_sr
+                )
+            else:
+                token_count_sr = str_series.str.len()
+                ngram_sr = str_series.str.character_tokenize()
 
         not_empty_docs = token_count_sr > 0
         token_count_sr = token_count_sr[not_empty_docs]
         doc_id_sr = doc_id_sr[not_empty_docs]
 
-        # for ngram we have `x-(n-1)`  grams per doc
-        # where x = total number of tokens in the doc
-        # eg: for bigram we have `x-1` bigrams per doc
-        ngram_count = token_count_sr - (n - 1)
+        # formula to count ngrams given number of tokens x per doc: `x-(n-1)`
+        if ngram_count is None:
+            ngram_count = token_count_sr - (n - 1)
 
         doc_id_sr = doc_id_sr.repeat(ngram_count).reset_index(drop=True)
         tokenized_df = cudf.DataFrame()
@@ -141,21 +172,13 @@ class _VectorizerMixin:
 
         Each row describes the token string and the corresponding document id.
         """
-        delimiter = self.delimiter
         min_n, max_n = self.ngram_range
-
-        if self.analyzer == 'word':
-            ngram_separator = " "
-            token_count = docs.str.token_count(delimiter=delimiter)
-        else:
-            ngram_separator = ""
-            token_count = docs.str.len()
 
         doc_id = cp.arange(start=0, stop=len(docs), dtype=cp.int32)
         doc_id = Series(doc_id)
 
         tokenized_df_ls = [
-            self.get_ngrams(docs, n, doc_id, token_count, ngram_separator)
+            self.get_ngrams(docs, n, doc_id)
             for n in range(min_n, max_n + 1)
         ]
 
