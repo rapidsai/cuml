@@ -253,14 +253,14 @@ def test_countvectorizer_separate_fit_transform():
 
 def test_non_ascii():
     non_ascii = ('This is ascii,',
-                 'but not this இந்தியா.')
+                 'but not this Αγγλικά.')
     non_ascii_gpu = Series(non_ascii)
 
     cv = CountVectorizer()
     res = cv.fit_transform(non_ascii_gpu)
     ref = SkCountVect().fit_transform(non_ascii)
 
-    assert 'இந்தியா' in set(cv.get_feature_names().tolist())
+    assert 'αγγλικά' in set(cv.get_feature_names().tolist())
     cp.testing.assert_array_equal(res.todense(), ref.toarray())
 
 

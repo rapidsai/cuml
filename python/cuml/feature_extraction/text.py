@@ -16,7 +16,6 @@ import warnings
 
 from cudf import Series
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
-from string import punctuation
 from functools import partial
 import cupy as cp
 import numbers
@@ -25,7 +24,13 @@ from cuml.common.type_utils import CUPY_SPARSE_DTYPES
 from cudf.utils.dtypes import min_signed_type
 
 
-def _preprocess(doc, lower=False, remove_punctuation=False, delimiter=' '):
+def _get_non_alphanumeric_characters(docs):
+    characters = docs.str.character_tokenize().unique()
+    non_alpha = characters.str.extract(r'([^\w])', expand=False).dropna()
+    return non_alpha.tolist() + ['\n']
+
+
+def _preprocess(doc, lower=False, remove_non_words=False, delimiter=' '):
     """Chain together an optional series of text preprocessing steps to
     apply to a document.
     Parameters
@@ -34,9 +39,8 @@ def _preprocess(doc, lower=False, remove_punctuation=False, delimiter=' '):
         The string to preprocess
     lower: bool
         Whether to use str.lower to lowercase all of the text
-    remove_punctuation: bool
-        Whether to remove all punctuation from the text before tokenizing.
-        Punctuation characters are taken from string.punctuation
+    remove_non_words: bool
+        Whether or not to remove non-alphanumeric characters.
     Returns
     -------
     doc: nvstrings
@@ -44,9 +48,11 @@ def _preprocess(doc, lower=False, remove_punctuation=False, delimiter=' '):
     """
     if lower:
         doc = doc.str.lower()
-    if remove_punctuation:
-        punctuation_list = list(punctuation)
-        doc = doc.str.replace(punctuation_list, [delimiter], regex=False)
+    if remove_non_words:
+        non_alpha = _get_non_alphanumeric_characters(doc)
+        delimiter_code = ord(delimiter)
+        translation_table = {ord(char): delimiter_code for char in non_alpha}
+        doc = doc.str.translate(translation_table)
     return doc
 
 
@@ -76,7 +82,7 @@ class _VectorizerMixin:
             preprocess = self.preprocessor
         else:
             preprocess = partial(_preprocess, lower=self.lowercase,
-                                 remove_punctuation=self.remove_punctuation,
+                                 remove_non_words=self.analyzer == 'word',
                                  delimiter=self.delimiter)
         return lambda doc: self._remove_stop_words(preprocess(doc))
 
@@ -337,12 +343,9 @@ class CountVectorizer(_VectorizerMixin):
         counts.
     dtype : type, optional
         Type of the matrix returned by fit_transform() or transform().
-    remove_punctuation : boolean, True by default
-        Remove all characters from string.punctuation before tokenizing.
     delimiter : str, whitespace by default
-        String used as a replacement for punctuation if remove_punctuation is
-        True and for stop words if stop_words is not None. Typically the
-        delimiting character between words is a good choice. Default is space.
+        String used as a replacement for stop words if stop_words is not None.
+        Typically the delimiting character between words is a good choice.
     Attributes
     ----------
     vocabulary_ : nvstrings
@@ -359,11 +362,10 @@ class CountVectorizer(_VectorizerMixin):
                  tokenizer=None, stop_words=None, token_pattern=None,
                  ngram_range=(1, 1), analyzer='word', max_df=1.0, min_df=1,
                  max_features=None, vocabulary=None, binary=False,
-                 dtype=cp.float32, remove_punctuation=True, delimiter=' '):
+                 dtype=cp.float32, delimiter=' '):
         self.preprocessor = preprocessor
         self.analyzer = analyzer
         self.lowercase = lowercase
-        self.remove_punctuation = remove_punctuation
         self.stop_words = stop_words
         self.max_df = max_df
         self.min_df = min_df
