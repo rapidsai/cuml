@@ -126,6 +126,11 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
 
     # dtype conversion
 
+    # force_contiguous set to True always for now
+    # upcoming CumlArray improvements will affect this
+    # https://github.com/rapidsai/cuml/issues/2412
+    force_contiguous = True
+
     if convert_to_dtype:
         X = convert_dtype(X, to_dtype=convert_to_dtype)
         check_dtype = False
@@ -422,3 +427,19 @@ def order_to_str(order):
         return 'column (\'F\')'
     elif order == 'C':
         return 'row (\'C\')'
+
+
+def sparse_scipy_to_cp(sp, dtype):
+    """
+    Convert object of scipy.sparse to
+    cupy.sparse.coo_matrix
+    """
+
+    coo = sp.tocoo()
+    values = coo.data
+
+    r = cp.asarray(coo.row)
+    c = cp.asarray(coo.col)
+    v = cp.asarray(values, dtype=dtype)
+
+    return cp.sparse.coo_matrix((v, (r, c)), sp.shape)
