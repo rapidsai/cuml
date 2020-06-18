@@ -427,3 +427,19 @@ def order_to_str(order):
         return 'column (\'F\')'
     elif order == 'C':
         return 'row (\'C\')'
+
+
+def sparse_scipy_to_cp(sp, dtype):
+    """
+    Convert object of scipy.sparse to
+    cupy.sparse.coo_matrix
+    """
+
+    coo = sp.tocoo()
+    values = coo.data
+
+    r = cp.asarray(coo.row)
+    c = cp.asarray(coo.col)
+    v = cp.asarray(values, dtype=dtype)
+
+    return cp.sparse.coo_matrix((v, (r, c)), sp.shape)
