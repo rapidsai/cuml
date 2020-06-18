@@ -97,7 +97,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
 
 logger "Install Treelite for GPU testing..."
-python -m pip install -v treelite==0.91
+python -m pip install -v treelite==0.92 treelite_runtime==0.92
 
 cd $WORKSPACE
 
