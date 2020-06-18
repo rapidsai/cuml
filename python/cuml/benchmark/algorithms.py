@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,7 +44,6 @@ from cuml.common.import_utils import has_treelite
 
 if has_treelite():
     import treelite
-    import treelite.runtime
 
 if has_umap():
     import umap
@@ -193,11 +192,10 @@ def _treelite_format_hook(data):
     from cuml.common.import_utils import has_treelite
 
     if has_treelite():
-        import treelite
-        import treelite.runtime
+        import treelite_runtime
     else:
         raise ImportError("No treelite package found")
-    return treelite.runtime.Batch.from_npy2d(data[0]), data[1]
+    return treelite_runtime.Batch.from_npy2d(data[0]), data[1]
 
 
 def all_algorithms():

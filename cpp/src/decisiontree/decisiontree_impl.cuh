@@ -96,7 +96,6 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
                          int num_output_group) {
   int node_id = 0;
   TREELITE_CHECK(TreeliteTreeBuilderCreateNode(tree_builder, node_id));
-  TREELITE_CHECK(TreeliteTreeBuilderSetRootNode(tree_builder, node_id));
 
   std::queue<Node_ID_info<T, L>> cur_level_queue;
   std::queue<Node_ID_info<T, L>> next_level_queue;
@@ -138,7 +137,7 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
           TREELITE_CHECK(TreeliteTreeBuilderSetLeafNode(
             tree_builder, q_node.unique_node_id, q_node.node.prediction));
         } else {
-          std::vector<double> leaf_vector(num_output_group);
+          std::vector<float> leaf_vector(num_output_group);
           for (int j = 0; j < num_output_group; j++) {
             if (q_node.node.prediction == j) {
               leaf_vector[j] = 1;
@@ -157,6 +156,7 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
     // The cur_level_queue is empty here, as all the elements are already poped out.
     cur_level_queue.swap(next_level_queue);
   }
+  TREELITE_CHECK(TreeliteTreeBuilderSetRootNode(tree_builder, 0));
 }
 
 /**
