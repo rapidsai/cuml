@@ -35,6 +35,7 @@
 - PR #2424: --singlegpu flag fix on build.sh script
 - PR #2432: Using correct algo_name for UMAP in benchmark tests
 - PR #2441: Change p2p_enabled definition to work without ucx
+- PR #2447: Drop `nvstrings`
 
 # cuML 0.14.0 (03 Jun 2020)
 
