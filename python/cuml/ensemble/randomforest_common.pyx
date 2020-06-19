@@ -386,7 +386,7 @@ def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
         or algo='auto'
     Returns
     ----------
-    fil_sparse_format as a string
+    fil_sparse_format
     """
     accepted_fil_spars_format = {True, False, 'auto'}
 
@@ -406,7 +406,7 @@ def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
             "supported. Please refer to the documentation at "
             "(https://docs.rapids.ai/api/cuml/nightly/api.html"
             "#forest-inferencing) to see the accepted values.")
-    return str(fil_sparse_format)
+    return fil_sparse_format
 
 
 def _obtain_fil_model(treelite_handle, depth,

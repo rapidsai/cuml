@@ -506,12 +506,12 @@ class ForestInference(Base):
         threshold : float (default=0.5)
             Threshold is used to for classification. It is applied
             only if output_class == True, else it is ignored.
-        storage_type : string (default='auto')
+        storage_type : string or boolean (default='auto')
             In-memory storage format to be used for the FIL model.
              'auto' - choose the storage type automatically
                       (currently DENSE is always used)
-             'False' - create a dense forest
-             'True' - create a sparse forest;
+             False - create a dense forest
+             True - create a sparse forest;
                       requires algo='NAIVE' or algo='AUTO'
 
         Returns
@@ -523,12 +523,12 @@ class ForestInference(Base):
         if isinstance(model, TreeliteModel):
             # TreeliteModel defined in this file
             return self._impl.load_from_treelite_model(
-                model, output_class, algo, threshold, storage_type)
+                model, output_class, algo, threshold, str(storage_type))
         else:
             # assume it is treelite.Model
             return self._impl.load_from_treelite_model_handle(
                 model.handle.value, output_class, algo, threshold,
-                storage_type)
+                str(storage_type))
 
     @staticmethod
     def load_from_sklearn(skl_model,
@@ -561,12 +561,12 @@ class ForestInference(Base):
         threshold : float (default=0.5)
             Threshold is used to for classification. It is applied
             only if output_class == True, else it is ignored.
-        storage_type : string (default='auto')
+        storage_type : string or boolean (default='auto')
             In-memory storage format to be used for the FIL model.
              'auto' - choose the storage type automatically
                       (currently DENSE is always used)
-             'False' - create a dense forest
-             'True' - create a sparse forest;
+             False - create a dense forest
+             True - create a sparse forest;
                       requires algo='NAIVE' or algo='AUTO'
 
         Returns
@@ -584,7 +584,7 @@ class ForestInference(Base):
         tl_model = tl_skl.import_model(skl_model)
         cuml_fm.load_from_treelite_model(
             tl_model, algo=algo, output_class=output_class,
-            storage_type=storage_type, threshold=threshold)
+            storage_type=str(storage_type), threshold=threshold)
         return cuml_fm
 
     @staticmethod
@@ -632,7 +632,7 @@ class ForestInference(Base):
         cuml_fm.load_from_treelite_model(tl_model,
                                          algo=algo,
                                          output_class=output_class,
-                                         storage_type=storage_type,
+                                         storage_type=str(storage_type),
                                          threshold=threshold)
         return cuml_fm
 
@@ -673,4 +673,4 @@ class ForestInference(Base):
         return self._impl.load_using_treelite_handle(model_handle,
                                                      output_class,
                                                      algo, threshold,
-                                                     storage_type)
+                                                     str(storage_type))
