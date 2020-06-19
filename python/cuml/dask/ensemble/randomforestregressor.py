@@ -270,19 +270,12 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
 
         else:
             preds = \
-                self.predict_using_fil(X, predict_model=predict_model,
-                                       algo=algo,
-                                       convert_dtype=convert_dtype,
-                                       fil_sparse_format=fil_sparse_format,
-                                       delayed=delayed)
+                self._predict_using_fil(X,
+                                        algo=algo,
+                                        convert_dtype=convert_dtype,
+                                        fil_sparse_format=fil_sparse_format,
+                                        delayed=delayed)
         return preds
-
-    def predict_using_fil(self, X, delayed, **kwargs):
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
-        return self._predict_using_fil(X=X,
-                                       delayed=delayed,
-                                       **kwargs)
 
     """
     TODO : Update function names used for CPU predict.

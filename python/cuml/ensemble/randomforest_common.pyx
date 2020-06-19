@@ -184,37 +184,38 @@ class BaseRandomForestModel(Base):
         return self.treelite_serialized_model
 
     def _obtain_treelite_handle(self):
-        if self.treelite_handle:
-            return self.treelite_handle  # Use cached version
-        cdef ModelHandle tl_handle = NULL
-
-        if self.treelite_serialized_model:  # bytes -> Treelite
-            tl_handle = <ModelHandle><uintptr_t>treelite_deserialize(
-                self.treelite_serialized_model)
-
         assert self.treelite_serialized_model or self.rf_forest, \
             "Attempting to create treelite from un-fit forest."
 
-        if self.RF_type == CLASSIFICATION:
-            if self.num_classes > 2:
-                raise NotImplementedError("Pickling for multi-class "
-                                          "classification models is currently"
-                                          "  not implemented. Please check"
-                                          "  cuml GitHub issue #1679 for more"
-                                          "  information.")
-            build_treelite_forest(
-                &tl_handle,
-                <RandomForestMetaData[float, int]*><size_t> self.rf_forest,
-                <int> self.n_cols,
-                <int> self.num_classes,
-                model_pbuf_vec)
+        cdef ModelHandle tl_handle = NULL
+        if self.treelite_handle:
+            return self.treelite_handle  # Use cached version
+
+        elif self.treelite_serialized_model:  # bytes -> Treelite
+            tl_handle = <ModelHandle><uintptr_t>treelite_deserialize(
+                self.treelite_serialized_model)
+
         else:
-            build_treelite_forest(
-                &tl_handle,
-                <RandomForestMetaData[float, float]*><size_t> self.rf_forest,
-                <int> self.n_cols,
-                <int> REGRESSION_MODEL,
-                model_pbuf_vec)
+            if self.RF_type == CLASSIFICATION:
+                if self.num_classes > 2:
+                    raise NotImplementedError(
+                        "Pickling for multi-class classification models"
+                        " is currently not implemented. Please check"
+                        " cuml GitHub issue #1679 for more information.")
+
+                build_treelite_forest(
+                    &tl_handle,
+                    <RandomForestMetaData[float, int]*>
+                    <uintptr_t> self.rf_forest,
+                    <int> self.n_cols,
+                    <int> self.num_classes)
+            else:
+                build_treelite_forest(
+                    &tl_handle,
+                    <RandomForestMetaData[float, float]*>
+                    <uintptr_t> self.rf_forest,
+                    <int> self.n_cols,
+                    <int> REGRESSION_MODEL)
 
         self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
@@ -298,10 +299,9 @@ class BaseRandomForestModel(Base):
 
         return self
 
-    def _predict_model_on_gpu(self, X, output_class,
-                              threshold, algo,
-                              num_classes, convert_dtype,
-                              fil_sparse_format, predict_proba):
+    def _predict_model_on_gpu(self, X, algo, convert_dtype,
+                              fil_sparse_format, threshold=0.5,
+                              output_class=False, predict_proba=False):
         out_type = self._get_output_type(X)
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',

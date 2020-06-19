@@ -15,6 +15,7 @@
 
 import dask
 import math
+from dask.distributed import wait
 
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
@@ -124,10 +125,12 @@ class BaseRandomForestModel(object):
         model._concatenate_treelite_handle(all_tl_mod_handles)
         for tl_handle in all_tl_mod_handles:
             TreeliteModel.free_treelite_model(tl_handle)
-
+        wait(model)
         return model
 
     def _predict_using_fil(self, X, delayed, **kwargs):
+        if self.local_model is None:
+            self.local_model = self._concat_treelite_models()
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
         return self._predict(X, delayed=delayed, **kwargs)
