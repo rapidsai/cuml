@@ -63,12 +63,8 @@ class DecompositionSyncFitMixin(object):
         X : dask cuDF input
 
         """
+        
         n_cols = X.shape[1]
-        print("decomp sync mixin")
-#         print(type(X))
-#         print(type(self))
-#         print(self)
-#         self._set_n_features_in(X)
 
         data = DistributedDataHandler.create(data=X, client=self.client)
         self.datatype = data.datatype
