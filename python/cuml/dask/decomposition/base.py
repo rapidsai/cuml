@@ -63,7 +63,7 @@ class DecompositionSyncFitMixin(object):
         X : dask cuDF input
 
         """
-        
+
         n_cols = X.shape[1]
 
         data = DistributedDataHandler.create(data=X, client=self.client)
