@@ -31,6 +31,7 @@
 - PR #2364: Fix for random projection
 - PR #2373: Use Treelite Pip package in GPU testing
 - PR #2376: Update documentation Links
+- PR #2407: fixed batch count in DBScan for integer overflow case
 - PR #2413: CumlArray and related methods updates to account for cuDF.Buffer contiguity update
 - PR #2424: --singlegpu flag fix on build.sh script
 - PR #2432: Using correct algo_name for UMAP in benchmark tests
