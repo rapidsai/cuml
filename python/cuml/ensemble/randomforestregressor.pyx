@@ -19,7 +19,6 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import ctypes
 import cudf
 import math
 import numpy as np
@@ -32,13 +31,15 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml import ForestInference
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.common.base import Base, RegressorMixin
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
     _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
 
 from cuml.ensemble.randomforest_shared cimport *
+from cuml.ensemble.randomforest_shared import treelite_serialize, \
+    treelite_deserialize
 from cuml.fil.fil import TreeliteModel
 from cuml.common import input_to_cuml_array, input_to_dev_array, \
     zeros, get_cudf_column_ptr
@@ -103,7 +104,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                           int) except +
 
 
-class RandomForestRegressor(Base):
+class RandomForestRegressor(Base, RegressorMixin):
 
     """
     Implements a Random Forest regressor model which fits multiple decision
@@ -277,10 +278,10 @@ class RandomForestRegressor(Base):
         self.max_depth = max_depth
         self.max_features = max_features
         self.bootstrap = bootstrap
+        self.treelite_handle = None
         self.n_bins = n_bins
         self.n_cols = None
         self.dtype = None
-        self.treelite_handle = None
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = handle.getNumInternalStreams()
@@ -290,7 +291,7 @@ class RandomForestRegressor(Base):
                           " the exact same results at this time.")
         self.rf_forest = None
         self.rf_forest64 = None
-        self.model_pbuf_bytes = bytearray()
+        self.treelite_serialized_model = None
 
     """
     TODO:
@@ -305,7 +306,7 @@ class RandomForestRegressor(Base):
         cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
-            self._get_protobuf_bytes()  # Ensure we have this cached
+            self._get_serialized_model()  # Ensure we have this cached
             if self.rf_forest:
                 params_t = <uintptr_t> self.rf_forest
                 rf_forest = \
@@ -320,7 +321,7 @@ class RandomForestRegressor(Base):
 
         state['n_cols'] = self.n_cols
         state["verbose"] = self.verbose
-        state["model_pbuf_bytes"] = self.model_pbuf_bytes
+        state["treelite_serialized_model"] = self.treelite_serialized_model
         state['handle'] = self.handle
         state["treelite_handle"] = None
 
@@ -342,7 +343,7 @@ class RandomForestRegressor(Base):
             rf_forest64.rf_params = state["rf_params64"]
             state["rf_forest64"] = <uintptr_t>rf_forest64
 
-        self.model_pbuf_bytes = state["model_pbuf_bytes"]
+        self.treelite_serialized_model = state["treelite_serialized_model"]
         self.__dict__.update(state)
 
     def __del__(self):
@@ -365,7 +366,7 @@ class RandomForestRegressor(Base):
             TreeliteModel.free_treelite_model(self.treelite_handle)
 
         self.treelite_handle = None
-        self.model_pbuf_bytes = bytearray()
+        self.treelite_serialized_model = None
         self.n_cols = None
 
     def _get_max_feat_val(self):
@@ -391,58 +392,45 @@ class RandomForestRegressor(Base):
         delete the returned model."""
         if self.treelite_handle is not None:
             return self.treelite_handle  # Cached version
-
-        cdef ModelHandle cuml_model_ptr = NULL
+        cdef ModelHandle tl_handle = NULL
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
-        assert len(self.model_pbuf_bytes) > 0 or self.rf_forest, \
+        assert self.treelite_serialized_model or self.rf_forest, \
             "Attempting to create treelite from un-fit forest."
 
-        cdef unsigned char[::1] model_pbuf_mv = self.model_pbuf_bytes
-        cdef vector[unsigned char] model_pbuf_vec
-        with cython.boundscheck(False):
-            model_pbuf_vec.assign(& model_pbuf_mv[0],
-                                  & model_pbuf_mv[model_pbuf_mv.shape[0]])
-
-        task_category = REGRESSION_MODEL
-        build_treelite_forest(
-            & cuml_model_ptr,
-            rf_forest,
-            <int> self.n_cols,
-            <int> task_category,
-            model_pbuf_vec)
-        mod_ptr = <uintptr_t> cuml_model_ptr
-        self.treelite_handle = ctypes.c_void_p(mod_ptr).value
+        if self.treelite_serialized_model:  # bytes -> Treelite
+            tl_handle = <ModelHandle><uintptr_t>treelite_deserialize(
+                self.treelite_serialized_model)
+        else:                 # RF -> Treelite
+            task_category = REGRESSION_MODEL
+            build_treelite_forest(
+                &tl_handle,
+                rf_forest,
+                <int> self.n_cols,
+                <int> task_category)
+        self.treelite_handle = <uintptr_t>tl_handle
         return self.treelite_handle
 
-    def _get_protobuf_bytes(self):
+    def _get_serialized_model(self):
         """
-        Returns the self.model_pbuf_bytes.
+        Returns the self.treelite_serialized_model.
         Cuml RF model gets converted to treelite protobuf bytes by:
             1. converting the cuml RF model to a treelite model. The treelite
             models handle (pointer) is returned
-            2. The treelite model handle is used to convert the treelite model
-            to a treelite protobuf model which is stored in a temporary file.
-            The protobuf model information is read from the temporary file and
-            the byte information is returned.
-        The treelite handle is stored `self.treelite_handle` and the treelite
-        protobuf model bytes are stored in `self.model_pbuf_bytes`. If either
-        of information is already present in the model then the respective
-        step is skipped.
+            2. The treelite model handle is converted to bytes.
+        The treelite model bytes are stored in
+        `self.treelite_serialized_model`. If the model bytes are present, we
+        can skip _obtain_treelite_handle().
         """
-        if self.model_pbuf_bytes:
-            return self.model_pbuf_bytes
+        if self.treelite_serialized_model:
+            return self.treelite_serialized_model
         elif self.treelite_handle:
             fit_mod_ptr = self.treelite_handle
         else:
             fit_mod_ptr = self._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
-        cdef vector[unsigned char] pbuf_mod_info = \
-            save_model(<ModelHandle> model_ptr)
-        cdef unsigned char[::1] pbuf_mod_view = \
-            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
-        return self.model_pbuf_bytes
+        self.treelite_serialized_model = treelite_serialize(model_ptr)
+        return self.treelite_serialized_model
 
     def convert_to_treelite_model(self):
         """
@@ -510,19 +498,11 @@ class RandomForestRegressor(Base):
     TODO : Move functions duplicated in the RF classifier and regressor
            to a shared file. Cuml issue #1854 has been created to track this.
     """
-    def _tl_model_handles(self, model_bytes):
-        task_category = REGRESSION_MODEL
-        cdef ModelHandle tl_model_ptr = NULL
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
-        build_treelite_forest(& tl_model_ptr,
-                              rf_forest,
-                              <int> self.n_cols,
-                              <int> task_category,
-                              <vector[unsigned char] &> model_bytes)
-        mod_handle = <uintptr_t> tl_model_ptr
-
-        return ctypes.c_void_p(mod_handle).value
+    def _tl_handle_from_bytes(self, treelite_serialized_model):
+        if not treelite_serialized_model:
+            raise ValueError(
+                '_tl_handle_from_bytes() requires non-empty serialized model')
+        return treelite_deserialize(treelite_serialized_model)
 
     def _concatenate_treelite_handle(self, treelite_handle):
         cdef ModelHandle concat_model_handle = NULL
@@ -538,11 +518,7 @@ class RandomForestRegressor(Base):
         concat_model_handle = concatenate_trees(deref(model_handles))
         cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
         self.treelite_handle = concat_model_ptr
-        cdef vector[unsigned char] pbuf_mod_info = \
-            save_model(<ModelHandle> concat_model_ptr)
-        cdef unsigned char[::1] pbuf_mod_view = \
-            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+        self.treelite_serialized_model = treelite_serialize(concat_model_ptr)
 
         # Fix up some instance variables that should match the new TL model
         tl_model = TreeliteModel.from_treelite_model_handle(
@@ -660,7 +636,6 @@ class RandomForestRegressor(Base):
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
                               fil_sparse_format):
         out_type = self._get_output_type(X)
-        cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
                                 check_cols=self.n_cols)
@@ -934,7 +909,7 @@ class RandomForestRegressor(Base):
         -----------
         params : dict of new params
         """
-        self.model_pbuf_bytes = []
+        self.treelite_serialized_model = None
         if not params:
             return self
         for key, value in params.items():

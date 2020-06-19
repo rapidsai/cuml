@@ -29,7 +29,7 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.common.base import Base, ClassifierMixin
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
 from libcpp cimport bool
@@ -95,7 +95,7 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                                      svmModel[math_t] &m) except +
 
 
-class SVC(SVMBase):
+class SVC(SVMBase, ClassifierMixin):
     """
     SVC (C-Support Vector Classification)
 

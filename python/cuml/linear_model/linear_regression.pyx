@@ -32,7 +32,7 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.common.base import Base, RegressorMixin
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
 
@@ -75,7 +75,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                          double *preds) except +
 
 
-class LinearRegression(Base):
+class LinearRegression(Base, RegressorMixin):
 
     """
     LinearRegression is a simple machine learning model where the response y is
