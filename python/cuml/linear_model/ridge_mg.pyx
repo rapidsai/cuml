@@ -83,7 +83,7 @@ class RidgeMG(MGFitMixin, Ridge):
         cdef double double_alpha
         # Only one alpha is supported.
         self.n_alpha = 1
-        self._set_n_features_in(X)
+#         self._set_n_features_in(X)
 
         if self.dtype == np.float32:
             float_alpha = self.alpha

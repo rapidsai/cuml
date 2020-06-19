@@ -83,8 +83,6 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
 
         cdef paramsTSVD *params = <paramsTSVD*><size_t>arg_params
 
-        self._set_n_features_in(X)
-
         if self.dtype == np.float32:
 
             fit_transform(handle_[0],

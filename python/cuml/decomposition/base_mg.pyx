@@ -58,7 +58,10 @@ class BaseDecompositionMG(object):
         :param partsToRanks: array of tuples in the format: [(rank,size)]
         :return: self
         """
+        print('base_mg fit from non-dask folder')
         self._set_output_type(X[0])
+        print(type(X[0]))
+        self._set_n_features_in(X[0])
 
         X_arys = []
         for i in range(len(X)):
