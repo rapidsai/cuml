@@ -224,7 +224,7 @@ class NearestNeighbors(BaseEstimator):
         Returns
         -------
         ret : tuple (dask_cudf.DataFrame, dask_cudf.DataFrame)
-            First dask-cuDF DataFrame contains distances, second conains the
+            First dask-cuDF DataFrame contains distances, second contains the
             indices.
         """
         n_neighbors = self.get_neighbors(n_neighbors)
@@ -267,3 +267,28 @@ class NearestNeighbors(BaseEstimator):
                                                  self.datatype))
 
         return ret
+
+    def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):
+        """
+        Query the distributed nearest neighbors index
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe
+            Vectors to query. If not provided, neighbors of each indexed point
+            are returned.
+        n_neighbors : int
+            Number of neighbors to query for each row in X. If not provided,
+            the n_neighbors on the model are used.
+        return_distance : boolean (default=True)
+            If false, only indices are returned
+
+        Returns
+        -------
+        ret : tuple (dask_cudf.DataFrame, dask_cudf.DataFrame)
+            First dask-cuDF DataFrame contains distances, second conains the
+            indices.
+        """
+
+        self.kneighbors(X=X, n_neighbors=None, return_distance=True,
+                   _return_futures=False)

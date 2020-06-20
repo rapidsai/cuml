@@ -21,6 +21,7 @@
 
 import numpy as np
 import pandas as pd
+import cupy as cp
 import cudf
 import ctypes
 import cuml
@@ -319,3 +320,39 @@ class NearestNeighbors(Base):
 
         return (D_ndarr.to_output(out_type), I_ndarr.to_output(out_type)) \
             if return_distance else I_ndarr.to_output(out_type)
+
+    def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):
+
+        # catch errors for X and n_neighbors here
+
+
+        if mode == 'connectivity':
+            indices = self.kneighbors(X, n_neighbors, return_distance=False)
+            n_samples = indices.shape[0]
+            distances = cp.ones(n_samples * n_neighbors)
+
+        elif mode == 'distance':
+            distances, indices = self.kneighbors(X, n_neighbors)
+            distances = np.ravel(distances)
+
+        else:
+            raise ValueError('Unsupported mode, must be one of "connectivity" '
+                'or "distance" but got "%s" instead' % mode)
+        
+        n_samples = distances.shape[0]
+        # find samples_fit
+        n_nonzero = n_samples * n_neighbors
+        rowptr = cupy.arange(0, n_nonzero + 1, n_neighbors)
+
+        return cp.sparse.csr_matrix(distances, indices.ravel(), rowptr, shape=(n_samples, n_sampels_fit))
+        # CSR goes value, column, rowindex
+        # distances is our value
+        # indices is our column indices
+        # 
+
+
+        
+
+
+
+   
