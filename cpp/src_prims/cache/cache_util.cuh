@@ -31,34 +31,105 @@ namespace Cache {
  * column vectors into a column major out buffer, or row vectors into a row
  * major output buffer.
  *
- * On exit, the output array is filled the following way:
- * out[i + n_vec*k] = cache[i + n_vec * cache_idx[k]]), where i=0..n_vec-1, and
- *   k = 0..n-1 where cache_idx[k] >= 0
+ * On exit, get_vecs(cache, ld_vec, cache_idx, n, out) fills the output array
+ * the following way:
+ *
+ * out[i + j*k] = cache[i + offset + ld_vec * cache_idx[j]]), where i=0..k-1,
+ * and j = 0..n-1 where cache_idx[j] >= 0
+ *
+ * out[i + n_vec*k] = cache[offset + i + ld_vec * cache_idx[k]]), where
+ * i=0..n_vec-1, and k = 0..n-1 where cache_idx[k] >= 0
  *
  *  We ignore vectors where cache_idx[k] < 0.
  *
- * @param [in] cache stores the cached data, size [n_vec x n_cached_vectors]
- * @param [in] n_vec number of elements in a cached vector
+ * Examles:
+ * Assuming that the cache stores the following data in a column major layout:
+ *  cache = [0 10 20     (ld_vec = 4, n_cached_vectors = 3)
+ *           1 11 21
+ *           2 12 22
+ *           3 13 23]
+ * to retreive out = [0 20   we need to set cache_idx={0,2}
+ *                    1 21
+ *                    2 22
+ *                    3 23]
+ * and call get_vecs(cache, 4, chache_idx, 2, out, 0, 4).
+ *
+ * To retrieve out = [1 21 , call get_vecs(cache, 4, chache_idx, 2, out, 1, 2).
+ *                    2 22]
+ *
+ * @param [in] cache stores the cached data, size [ld_vec x n_cached_vectors]
+ * @param [in] ld_vec stride of the cached vectors
  * @param [in] cache_idx cache indices, size [n]
- * @param [in] n the number of elements that need to be collected
- * @param [out] out vectors collected from the cache, size [n_vec * n]
+ * @param [in] n the number of vectors that need to be collected
+ * @param [out] out vectors collected from the cache, size [k * n]
+ * @param [in] offset within each vector
+ * @param [in] k number of elements to collect from each vector
  */
 template <typename math_t>
-__global__ void get_vecs(const math_t *cache, int n_vec, const int *cache_idx,
-                         int n, math_t *out) {
+__global__ void get_vecs(const math_t *cache, int ld_vec, const int *cache_idx,
+                         int n, math_t *out, int offset, int k) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  int row = tid % n_vec;  // row idx
-  if (tid < n_vec * n) {
-    int out_col = tid / n_vec;  // col idx
+  int row = tid % k;  // row idx [0..k-1]
+  if (tid < k * n) {
+    int out_col = tid / k;  // col idx
     int cache_col = cache_idx[out_col];
     if (cache_idx[out_col] >= 0) {
-      if (row + out_col * n_vec < n_vec * n) {
-        out[tid] = cache[row + cache_col * n_vec];
+      if (row + out_col * k < k * n) {
+        out[tid] = cache[row + offset + cache_col * ld_vec];
       }
     }
   }
 }
 
+/**
+ * @brief Collect data from the cache into a contiguous memory buffer.
+ *
+ * We assume contiguous memory layout for the output buffer, i.e. we get
+ * column vectors into a column major out buffer, or row vectors into a row
+ * major output buffer.
+ *
+ * On exit, get_vecs(cache, ld_vec, cache_idx, n, out) fills the output array
+ * the following way:
+ *
+ * out[i + j*k] = cache[offset[i] + ld_vec * cache_idx[j]]), where i=0..k-1,
+ * and j = 0..n-1 where cache_idx[j] >= 0
+ *
+ *  We ignore vectors where cache_idx[k] < 0.
+ *
+ * Examles:
+ * Assuming that the cache stores the following data in a column major layout:
+ *  cache = [0 10 20     (ld_vec = 4, n_cached_vectors = 3)
+ *           1 11 21
+ *           2 12 22
+ *           3 13 23]
+ * to retreive out = [1 21
+ *                    3 23]
+ * we need to set cache_idx={0,2}, offset= {1, 3}
+ * and call get_vecs(cache, 4, chache_idx, 2, out, offset).
+ *
+ * @param [in] cache stores the cached data, size [ld_vec x n_cached_vectors]
+ * @param [in] ld_vec stride of the cached vectors
+ * @param [in] cache_idx cache indices, size [n]
+ * @param [in] n the number of vectors that need to be collected
+ * @param [out] out vectors collected from the cache, size [k * n]
+ * @param [in] offset array within each vector, size [k]
+ * @param [in] k number of elements to collect from each vector
+ */
+template <typename math_t>
+__global__ void get_vecs(const math_t *cache, int ld_vec, const int *cache_idx,
+                         int n, math_t *out, const int *offset, int k) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  int row = tid % k;  // row idx [0..k-1]
+  if (tid < k * n) {
+    int out_col = tid / k;  // col idx
+    int cache_col = cache_idx[out_col];
+    if (cache_idx[out_col] >= 0) {
+      if (row + out_col * k < k * n) {
+        out[tid] = cache[offset[row] + cache_col * ld_vec];
+      }
+    }
+  }
+}
 /**
  * @brief Store vectors of data into the cache.
  *
@@ -67,14 +138,15 @@ __global__ void get_vecs(const math_t *cache, int n_vec, const int *cache_idx,
  *
  * If tile_idx==nullptr then the operation is the opposite of get_vecs,
  * i.e. we store
- * cache[i + cache_idx[k]*n_vec] = tile[i + k*n_vec], for i=0..n_vec-1, k=0..n-1
+ * cache[i + offset + cache_idx[j]*ld_vec] = tile[i + j*k], for i=0..k-1,
+ * j=0..n-1
  *
  * If tile_idx != nullptr, then  we permute the vectors from tile according
  * to tile_idx. This allows to store vectors from a buffer where the individual
  * vectors are not stored contiguously (but the elements of each vector shall
  * be contiguous):
- * cache[i + cache_idx[k]*n_vec] = tile[i + tile_idx[k]*n_vec],
- * for i=0..n_vec-1, k=0..n-1
+ * cache[i + offset + cache_idx[j]*ld_vec] = tile[i + tile_idx[j]*k],
+ * for i=0..k-1, j=0..n-1
  *
  * @param [in] tile stores the data to be cashed cached, size [n_vec x n_tile]
  * @param [in] n_tile number of vectors in the input tile
@@ -84,22 +156,24 @@ __global__ void get_vecs(const math_t *cache, int n_vec, const int *cache_idx,
  * @param [in] cache_idx cache indices, size [n], negative values are ignored
  * @param [inout] cache updated cache
  * @param [in] n_cache_vecs
+ * @param [in] offset
+ * @param [in] k number of elements to store for each vector
  */
 template <typename math_t>
-__global__ void store_vecs(const math_t *tile, int n_tile, int n_vec,
+__global__ void store_vecs(const math_t *tile, int n_tile, int ld_vec,
                            const int *tile_idx, int n, const int *cache_idx,
-                           math_t *cache, int n_cache_vecs) {
+                           math_t *cache, int n_cache_vecs, int offset, int k) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  int row = tid % n_vec;  // row idx
-  if (tid < n_vec * n) {
-    int tile_col = tid / n_vec;  // col idx
+  int row = tid % k;  // row idx [0..k-1]
+  if (tid < k * n) {
+    int tile_col = tid / k;  // col idx
     int data_col = tile_idx ? tile_idx[tile_col] : tile_col;
     int cache_col = cache_idx[tile_col];
 
     // We ignore negative values. The rest of the checks should be fulfilled
     // if the cache is used properly
     if (cache_col >= 0 && cache_col < n_cache_vecs && data_col < n_tile) {
-      cache[row + cache_col * n_vec] = tile[row + data_col * n_vec];
+      cache[row + offset + cache_col * ld_vec] = tile[row + data_col * k];
     }
   }
 }

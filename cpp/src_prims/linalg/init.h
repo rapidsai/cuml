@@ -39,7 +39,7 @@ template <typename T>
 void range(T *out, int start, int end, cudaStream_t stream) {
   thrust::counting_iterator<int> first(start);
   thrust::counting_iterator<int> last = first + (end - start);
-  thrust::device_ptr<int> ptr(out);
+  thrust::device_ptr<T> ptr(out);
   thrust::copy(thrust::cuda::par.on(stream), first, last, ptr);
 }
 

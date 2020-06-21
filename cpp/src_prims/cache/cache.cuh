@@ -17,6 +17,14 @@
 #pragma once
 
 #include <common/cudart_utils.h>
+#include <cuda_utils.h>
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
+#include <thrust/fill.h>
+#include <thrust/host_vector.h>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/transform.h>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
@@ -173,17 +181,63 @@ class Cache {
    * out[i + n_vec*k] = cache[i + n_vec * idx[k]]), where i=0..n_vec-1,
    * k = 0..n-1
    *
-   * Idx values less than 0 are ignored. 
+   * Idx values less than 0 are ignored.
    *
    * @param [in] idx cache indices, size [n]
    * @param [in] n the number of vectors that need to be collected
    * @param [out] out vectors collected from cache, size [n_vec*n]
    * @param [in] stream cuda stream
+   * @param [in] offset within each cached vector
+   * @param [in] k number of elements to retrive from each cached vector
    */
-  void GetVecs(const int *idx, int n, math_t *out, cudaStream_t stream) {
+  void GetVecs(const int *idx, int n, math_t *out, cudaStream_t stream,
+               int offset = 0, int k = -1) {
     if (n > 0) {
-      get_vecs<<<ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(cache.data(), n_vec,
-                                                            idx, n, out);
+      if (k == -1) k = n_vec;
+      get_vecs<<<ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(
+        cache.data(), n_vec, idx, n, out, offset, k);
+      CUDA_CHECK(cudaPeekAtLastError());
+    }
+  }
+
+  void PrintCache(cudaStream_t stream) {
+    int n = cached_keys.size();  //number of vectors that can be cached
+    thrust::device_ptr<int> time(cache_time.data());
+    thrust::device_ptr<int> key(cached_keys.data());
+    thrust::host_vector<int> hv(n);
+    std::cout << "PrintCache\n";
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    auto nonzero = [] __device__(int a) { return a != 0; };
+    for (int i = 0; i < n; i++) {
+      if (time[i] > 0) {
+        std::cout << "key[" << i << "] = " << key[i] << std::endl;
+        MLCommon::myPrintDevVector("vec", cache.data() + i * n_vec, n_vec);
+      }
+    }
+    MLCommon::myPrintDevVector("full cache", cache.data(), n * n_vec);
+    MLCommon::myPrintDevVector("keys", cached_keys.data(), n);
+    MLCommon::myPrintDevVector("time", cache_time.data(), n);
+  }
+  /** @brief Collect cached data into contiguous memory space.
+     *
+     * On exit, the tile array is filled the following way:
+     * out[i + n_vec*k] = cache[i + n_vec * idx[k]]), where i=0..n_vec-1,
+     * k = 0..n-1
+     *
+     * Idx values less than 0 are ignored.
+     *
+     * @param [in] idx cache indices, size [n]
+     * @param [in] n the number of vectors that need to be collected
+     * @param [out] out vectors collected from cache, size [n_vec*n]
+     * @param [in] stream cuda stream
+     * @param [in] array of offsets within each cached vector, size [k]
+     * @param [in] k number of elements to retrive from each cached vector
+     */
+  void GetVecs(const int *idx, int n, math_t *out, cudaStream_t stream,
+               const int *offset, int k) {
+    if (n > 0) {
+      get_vecs<<<ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(
+        cache.data(), n_vec, idx, n, out, offset, k);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
@@ -211,11 +265,13 @@ class Cache {
   * @param [in] tile_idx indices of vectors that need to be stored
   */
   void StoreVecs(const math_t *tile, int n_tile, int n, int *cache_idx,
-                 cudaStream_t stream, const int *tile_idx = nullptr) {
+                 cudaStream_t stream, const int *tile_idx = nullptr,
+                 int offset = 0, int k = -1) {
     if (n > 0) {
+      if (k == -1) k = n_vec;
       store_vecs<<<ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(
         tile, n_tile, n_vec, tile_idx, n, cache_idx, cache.data(),
-        cache.size() / n_vec);
+        cache.size() / n_vec, offset, k);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }

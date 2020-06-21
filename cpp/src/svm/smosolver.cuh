@@ -113,13 +113,14 @@ class SmoSolver {
    */
   void Solve(math_t *x, int n_rows, int n_cols, math_t *y, math_t **dual_coefs,
              int *n_support, math_t **x_support, int **idx, math_t *b,
-             int max_outer_iter = -1, int max_inner_iter = 10000) {
+             int max_outer_iter = -1, int max_inner_iter = 10000,
+             int n_batch = 4096) {
     // Prepare data structures for SMO
     WorkingSet<math_t> ws(handle, stream, n_rows, SMO_WS_SIZE, svmType);
     n_ws = ws.GetSize();
     Initialize(&y, n_rows, n_cols);
     KernelCache<math_t> cache(handle, x, n_rows, n_cols, n_ws, kernel,
-                              cache_size, svmType);
+                              cache_size, -1, svmType);
     // Init counters
     max_outer_iter = GetDefaultMaxIter(n_train, max_outer_iter);
     int n_iter = 0;
@@ -133,18 +134,17 @@ class SmoSolver {
         cudaMemsetAsync(delta_alpha.data(), 0, n_ws * sizeof(math_t), stream));
       ws.Select(f.data(), alpha.data(), y, C);
 
-      math_t *cacheTile = cache.GetTile(ws.GetIndices());
+      math_t *cacheTile = cache.GetWsTile(ws.GetIndices());
       SmoBlockSolve<math_t, SMO_WS_SIZE><<<1, n_ws, 0, stream>>>(
-        y, n_train, alpha.data(), n_ws, delta_alpha.data(), f.data(), cacheTile,
-        cache.GetWsIndices(), C, tol, return_buff.data(), max_inner_iter,
-        svmType, cache.GetColIdxMap());
+        y, n_train, alpha.data(), n_ws, cache.GetUniqueSize(),
+        delta_alpha.data(), f.data(), cacheTile, cache.GetWsIndices(), C, tol,
+        return_buff.data(), max_inner_iter, svmType, cache.GetColIdxMap());
 
       CUDA_CHECK(cudaPeekAtLastError());
 
       MLCommon::updateHost(host_return_buff, return_buff.data(), 2, stream);
 
-      UpdateF(f.data(), n_rows, delta_alpha.data(), cache.GetUniqueSize(),
-              cacheTile);
+      UpdateF(f.data(), n_rows, delta_alpha.data(), n_ws, &cache);
 
       CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -171,8 +171,9 @@ class SmoSolver {
    * @brief Update the f vector after a block solve step.
    *
    * \f[ f_i = f_i + \sum_{k\in WS} K_{i,k} * \Delta \alpha_k, \f]
-   * where i = [0..n_train-1], WS is the set of workspace indices,
-   * and \f$K_{i,k}\f$ is the kernel function evaluated for training vector x_i and workspace vector x_k.
+   * where i = [0..n_train-1], WS is the set of workspace indices, and
+   * \f$K_{i,k}\f$ is the kernel function evaluated for training vector x_i and
+   * workspace vector x_k.
    *
    * @param f size [n_train]
    * @param n_rows
@@ -182,19 +183,9 @@ class SmoSolver {
    *   size [n_rows, n_ws]
    */
   void UpdateF(math_t *f, int n_rows, const math_t *delta_alpha, int n_ws,
-               const math_t *cacheTile) {
+               KernelCache<math_t> *cache) {
     // multipliers used in the equation : f = 1*cachtile * delta_alpha + 1*f
-    math_t one = 1;
-    CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
-      handle.getCublasHandle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
-      n_rows, delta_alpha, 1, &one, f, 1, stream));
-    if (svmType == EPSILON_SVR) {
-      // SVR has doubled the number of trainig vectors and we need to update
-      // alpha for both batches individually
-      CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
-        handle.getCublasHandle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
-        n_rows, delta_alpha, 1, &one, f + n_rows, 1, stream));
-    }
+    cache->KernelMV(delta_alpha, n_ws, (math_t)1, f);
   }
 
   /** @brief Initialize the problem to solve.
