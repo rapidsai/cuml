@@ -26,7 +26,7 @@
 - PR #2417: Move doc customization scripts to Jenkins
 - PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
 - PR #2442: fix setting RAFT_DIR from the RAFT_PATH env var
-- PR #2403 Support for input and output type consistency in logistic regression predict_proba
+- PR #2403: Support for input and output type consistency in logistic regression predict_proba
 - PR #2410: Add `_n_features_in_` attribute to all estimators that implement fit
 
 ## Bug Fixes
