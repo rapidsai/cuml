@@ -99,7 +99,7 @@ Dataset Generation (Dask-based Multi-GPU)
   .. automodule:: cuml.dask.datasets.regression
      :members:
 
-Array classes
+Array Wrappers
 -------------
 
 .. autoclass:: cuml.common.CumlArray
