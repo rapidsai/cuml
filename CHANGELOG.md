@@ -24,7 +24,8 @@
 - PR #2340: Import ARIMA in the root init file and fix the `test_fit_function` test
 - PR #2408: Install meta packages for dependencies
 - PR #2417: Move doc customization scripts to Jenkins
-- PR #2411 Refactor Mixin classes and use in classifier/regressor estimators
+- PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
+- PR #2403: Support for input and output type consistency in logistic regression predict_proba
 - PR #2410: Add `_n_features_in_` attribute to all estimators that implement fit
 
 ## Bug Fixes
@@ -32,11 +33,14 @@
 - PR #2364: Fix for random projection
 - PR #2373: Use Treelite Pip package in GPU testing
 - PR #2376: Update documentation Links
+- PR #2407: fixed batch count in DBScan for integer overflow case
 - PR #2413: CumlArray and related methods updates to account for cuDF.Buffer contiguity update
 - PR #2424: --singlegpu flag fix on build.sh script
 - PR #2432: Using correct algo_name for UMAP in benchmark tests
+- PR #2441: Change p2p_enabled definition to work without ucx
 - PR #2447: Drop `nvstrings`
 - PR #2450: Update local build to use new gpuCI image
+- PR #2455: Use correct field to store data type in `LabelEncoder.fit_transform`
 
 # cuML 0.14.0 (03 Jun 2020)
 
