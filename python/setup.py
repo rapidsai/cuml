@@ -108,7 +108,7 @@ if clean_artifacts:
 
 # Use RAFT repository in cuml.raft
 
-use_raft_package(raft_path, libcuml_path)
+raft_include_dir = use_raft_package(raft_path, libcuml_path)
 
 ##############################################################################
 # - Cython extensions build and parameters -----------------------------------
@@ -122,6 +122,7 @@ libs = ['cuda',
 include_dirs = ['../cpp/src',
                 '../cpp/include',
                 '../cpp/src_prims',
+                raft_include_dir,
                 '../cpp/comms/std/src',
                 '../cpp/comms/std/include',
                 cuda_include_dir,

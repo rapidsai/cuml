@@ -24,6 +24,8 @@
 - PR #2340: Import ARIMA in the root init file and fix the `test_fit_function` test
 - PR #2408: Install meta packages for dependencies
 - PR #2417: Move doc customization scripts to Jenkins
+- PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
+- PR #2442: fix setting RAFT_DIR from the RAFT_PATH env var
 - PR #2411 Refactor Mixin classes and use in classifier/regressor estimators
 - PR #2440: Use Treelite Conda package
 - PR #2403 Support for input and output type consistency in logistic regression predict_proba
@@ -40,6 +42,8 @@
 - PR #2441: Change p2p_enabled definition to work without ucx
 - PR #2447: Drop `nvstrings`
 - PR #2450: Update local build to use new gpuCI image
+- PR #2454: Mark RF memleak test as XFAIL, because we can't detect memleak reliably
+- PR #2455: Use correct field to store data type in `LabelEncoder.fit_transform`
 
 # cuML 0.14.0 (03 Jun 2020)
 
