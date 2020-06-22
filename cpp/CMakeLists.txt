@@ -72,7 +72,7 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 
-option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
+option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" OFF)
 
 option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 
@@ -305,7 +305,7 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUB_DIR}/src/cub
   ${SPDLOG_DIR}/src/spdlog/include
   ${TREELITE_DIR}/include
-  ${TREELITE_DIR}/include/fmt
+  ${TREELITE_DIR}/src/treelite/include
   ${RAFT_DIR}/cpp/include)
 
 set(CUML_LINK_LIBRARIES
