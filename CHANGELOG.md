@@ -26,15 +26,18 @@
 - PR #2417: Move doc customization scripts to Jenkins
 - PR #2411 Refactor Mixin classes and use in classifier/regressor estimators
 - PR #2440: Use Treelite Conda package
+- PR #2403 Support for input and output type consistency in logistic regression predict_proba
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
 - PR #2364: Fix for random projection
 - PR #2373: Use Treelite Pip package in GPU testing
 - PR #2376: Update documentation Links
+- PR #2407: fixed batch count in DBScan for integer overflow case
 - PR #2413: CumlArray and related methods updates to account for cuDF.Buffer contiguity update
 - PR #2424: --singlegpu flag fix on build.sh script
 - PR #2432: Using correct algo_name for UMAP in benchmark tests
+- PR #2441: Change p2p_enabled definition to work without ucx
 - PR #2447: Drop `nvstrings`
 - PR #2450: Update local build to use new gpuCI image
 
