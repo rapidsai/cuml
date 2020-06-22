@@ -41,6 +41,7 @@
 - PR #2441: Change p2p_enabled definition to work without ucx
 - PR #2447: Drop `nvstrings`
 - PR #2450: Update local build to use new gpuCI image
+- PR #2454: Mark RF memleak test as XFAIL, because we can't detect memleak reliably
 - PR #2455: Use correct field to store data type in `LabelEncoder.fit_transform`
 
 # cuML 0.14.0 (03 Jun 2020)
