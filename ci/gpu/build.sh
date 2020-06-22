@@ -46,7 +46,6 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
-      "nvstrings=${MINOR_VERSION}" \
       "libcumlprims=0.15.0a200607" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
@@ -97,7 +96,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
 
 logger "Install Treelite for GPU testing..."
-python -m pip install -v treelite==0.91
+python -m pip install -v treelite==0.92 treelite_runtime==0.92
 
 cd $WORKSPACE
 

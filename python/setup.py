@@ -109,7 +109,7 @@ if clean_artifacts:
 
 # Use RAFT repository in cuml.raft
 
-use_raft_package(raft_path, libcuml_path)
+raft_include_dir = use_raft_package(raft_path, libcuml_path)
 
 # Use treelite from the libcuml build folder, otherwise clone it
 # Needed until there is a treelite distribution
@@ -131,6 +131,7 @@ include_dirs = ['../cpp/src',
                 '../cpp/include',
                 '../cpp/src_prims',
                 treelite_path,
+                raft_include_dir,
                 '../cpp/comms/std/src',
                 '../cpp/comms/std/include',
                 cuda_include_dir,
