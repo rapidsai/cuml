@@ -50,7 +50,7 @@ class MGFitMixin(object):
         :return: self
         """
         self._set_output_type(input_data[0][0])
-        self._set_n_features_in(input_data[0][0])
+        self._set_n_features_in(n_cols)
 
         X_arys = []
         y_arys = []
