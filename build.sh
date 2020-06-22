@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDTARGETS="clean libcuml cuml mgtests prims bench prims-bench cppdocs pydocs"
+VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
 VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
