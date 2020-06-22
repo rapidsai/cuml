@@ -70,7 +70,7 @@ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies"
 
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 
-option(ENABLE_CUMLPRIMS_MG "Disable algorithms that use libcumlprims" ON)
+option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 
 option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
 
