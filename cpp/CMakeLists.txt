@@ -68,9 +68,9 @@ option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 
-option(DISABLE_CUMLPRIMS_MG "Disable algorithms that use libcumlprims")
-
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
+
+option(ENABLE_CUMLPRIMS_MG "Disable algorithms that use libcumlprims" ON)
 
 option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
 
@@ -152,7 +152,7 @@ if(SINGLEGPU)
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_STD_COMMS OFF)
   set(BUILD_CUML_MPI_COMMS OFF)
-  set(DISABLE_CUMLPRIMS_MG ON)
+  set(ENABLE_CUMLPRIMS_MG OFF)
   set(WITH_UCX OFF)
 endif(SINGLEGPU)
 
@@ -421,8 +421,8 @@ if(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
   add_subdirectory(test ${PROJECT_BINARY_DIR}/test)
 endif(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
 
-###################################################################################################
-# - build comms ------------------------------------------------------------------------
+##############################################################################
+# - build comms ------------------------------------------------------------------------------
 
 if(BUILD_CUML_STD_COMMS)
   add_subdirectory(comms/std)
@@ -432,8 +432,8 @@ if(BUILD_CUML_MPI_COMMS)
   add_subdirectory(comms/mpi)
 endif(BUILD_CUML_MPI_COMMS)
 
-###################################################################################################
-# - build examples -------------------------------------------------------------------------
+##############################################################################
+# - build examples ------------------------------------------------------------------------------
 
 if(BUILD_CUML_EXAMPLES)
   add_subdirectory(examples)
