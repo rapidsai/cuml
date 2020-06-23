@@ -80,12 +80,12 @@ class BaseEstimator(object):
     def _set_internal_model(self, model):
 
         """
-        Assigns model (a Future or list of futures containins a single-GPU model)
-        to be an internal model.
+        Assigns model (a Future or list of futures containins a single-GPU
+        model) to be an internal model.
 
-        This function standardizes upon the way we set the internal model so that
-        it could either be futures, a single future, or a class local to the
-        client.
+        This function standardizes upon the way we set the internal model
+        so that it could either be futures, a single future, or a class local
+        to the client.
 
         In order for `get_combined model()` to provide a consistent output,
         self.internal_model is expected to be either a single future
@@ -203,7 +203,7 @@ class BaseEstimator(object):
                     internal_model, attr).compute()
         else:
             raise AttributeError("Attribute %s not found in %s" %
-                             (attr, type(self)))
+                                 (attr, type(self)))
 
         if isinstance(ret_attr, CumlArray):
             # Dask wrappers aren't meant to be pickled, so we can
