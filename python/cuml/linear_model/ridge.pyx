@@ -30,8 +30,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.metrics.base import RegressorMixin
-from cuml.common.base import Base
+from cuml.common.base import Base, RegressorMixin
 from cuml.common.array import CumlArray
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
