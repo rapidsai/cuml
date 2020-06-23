@@ -20,7 +20,8 @@ set(CUML_TEST_INCLUDE_DIRS
   ${TREELITE_DIR}/runtime/native/include)
 
 set(CUML_TEST_LINK_LIBRARIES
-  treelite_runtimelib
+  treelite::treelite
+  treelite::treelite_runtime
   ${CUML_LINK_LIBRARIES}
   ${CUML_CPP_TARGET}
   gtestlib
