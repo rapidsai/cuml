@@ -24,10 +24,13 @@
 - PR #2340: Import ARIMA in the root init file and fix the `test_fit_function` test
 - PR #2408: Install meta packages for dependencies
 - PR #2417: Move doc customization scripts to Jenkins
+- PR #2420: Add and set convert_dtype default to True in estimator fit methods
 - PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
 - PR #2442: fix setting RAFT_DIR from the RAFT_PATH env var
+- PR #2453: Add CumlArray to API doc
+- PR #2440: Use Treelite Conda package
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
-- PR #2410: Add `_n_features_in_` attribute to all estimators that implement fit
+- PR #2410: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -38,9 +41,11 @@
 - PR #2413: CumlArray and related methods updates to account for cuDF.Buffer contiguity update
 - PR #2424: --singlegpu flag fix on build.sh script
 - PR #2432: Using correct algo_name for UMAP in benchmark tests
+- PR #2445: Restore access to coef_ property of Lasso
 - PR #2441: Change p2p_enabled definition to work without ucx
 - PR #2447: Drop `nvstrings`
 - PR #2450: Update local build to use new gpuCI image
+- PR #2454: Mark RF memleak test as XFAIL, because we can't detect memleak reliably
 - PR #2455: Use correct field to store data type in `LabelEncoder.fit_transform`
 
 # cuML 0.14.0 (03 Jun 2020)
@@ -215,7 +220,7 @@
 - PR #2305: Fixed race condition in DBScan
 - PR #2354: Fix broken links in README
 
-# cuML 0.13.0 (Date TBD)
+# cuML 0.13.0 (31 Mar 2020)
 
 ## New Features
 - PR #1777: Python bindings for entropy
@@ -334,7 +339,10 @@
 - PR #1950: Fix UMAP test failure
 
 
+<<<<<<< HEAD
+=======
 
+>>>>>>> origin/branch-0.14
 # cuML 0.12.0 (04 Feb 2020)
 
 ## New Features
