@@ -23,6 +23,7 @@ import cuml
 import cuml.common.cuda
 import cuml.common.handle
 import cuml.common.logger as logger
+from cuml.common import input_to_cuml_array
 import inspect
 
 from cudf.core import Series as cuSeries
@@ -33,6 +34,8 @@ from numba.cuda import devicearray as numbaArray
 from numpy import ndarray as numpyArray
 from pandas import DataFrame as pdDataFrame
 from pandas import Series as pdSeries
+
+from numba import cuda
 
 
 class Base:
@@ -292,6 +295,78 @@ class Base:
             return _input_to_type(input)
         else:
             return self.output_type
+
+
+class RegressorMixin:
+    """Mixin class for regression estimators in cuML"""
+
+    _estimator_type = "regressor"
+
+    def score(self, X, y, **kwargs):
+        """Scoring function for regression estimators
+
+        Returns the coefficient of determination R^2 of the prediction.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Test samples on which we predict
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        y : array-like (device or host) shape = (n_samples, n_features)
+            Ground truth values for predict(X)
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        Returns
+        -------
+        score : float
+            R^2 of self.predict(X) wrt. y.
+        """
+        from cuml.metrics.regression import r2_score
+
+        if hasattr(self, 'handle'):
+            handle = self.handle
+        else:
+            handle = None
+
+        preds = self.predict(X)
+        return r2_score(y, preds, handle=handle)
+
+
+class ClassifierMixin:
+    """Mixin class for classifier estimators in cuML"""
+
+    _estimator_type = "classifier"
+
+    def score(self, X, y, **kwargs):
+        """
+        Scoring function for classifier estimators based on mean accuracy.
+
+        Parameters
+        ----------
+        X : [cudf.DataFrame]
+            Test samples on which we predict
+        y : [cudf.Series, device array, or numpy array]
+            Ground truth values for predict(X)
+
+        Returns
+        -------
+        score : float
+            Accuracy of self.predict(X) wrt. y (fraction where y == pred_y)
+        """
+        from cuml.metrics.accuracy import accuracy_score
+        from cuml.common import input_to_dev_array
+
+        y_m = input_to_dev_array(y)[0]
+
+        if hasattr(self, 'handle'):
+            handle = self.handle
+        else:
+            handle = None
+
+        preds = self.predict(X, **kwargs)
+        return accuracy_score(y_m, preds, handle=handle)
 
 
 # Internal, non class owned helper functions
