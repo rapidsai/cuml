@@ -324,7 +324,7 @@ class NearestNeighbors(Base):
     def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):
 
         # catch errors for X and n_neighbors here
-        if n_neighbors is None
+        if n_neighbors is None:
             n_neighbors = self.n_neighbors 
 
         if mode == 'connectivity':
@@ -343,7 +343,7 @@ class NearestNeighbors(Base):
         n_samples = distances.shape[0]
         n_sampels_fit = self.n_rows
         n_nonzero = n_samples * n_neighbors
-        rowptr = cupy.arange(0, n_nonzero + 1, n_neighbors)
+        rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
 
         return cp.sparse.csr_matrix(distances, indices.ravel(), rowptr, shape=(n_samples, n_sampels_fit))
 
