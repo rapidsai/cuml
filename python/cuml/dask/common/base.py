@@ -20,6 +20,7 @@ import numpy as np
 import warnings
 from toolz import first
 from collections.abc import Iterable
+from sklearn.exceptions import NotFittedError
 
 from cuml.dask.common.utils import get_client
 
@@ -60,6 +61,9 @@ class BaseEstimator(object):
 
         """
 
+        if self.internal_model is None:
+            raise NotFittedError("fit() has not been called.")
+
         internal_model = self._check_internal_model(self._get_internal_model())
 
         if isinstance(self.internal_model, Iterable):
@@ -87,7 +91,7 @@ class BaseEstimator(object):
         self.internal_model is expected to be either a single future
         containing a cuml.Base instance or a local cuml.Base on the client.
         An iterable can be passed into this method when a trained model
-        has been duplicated across the workers. In this case, only the
+        has been replicated across the workers. In this case, only the
         first element of the iterable will be set as the internal_model
 
         If multiple different parameters have been trained across the cluster,
@@ -106,6 +110,8 @@ class BaseEstimator(object):
     @staticmethod
     def _check_internal_model(model):
         """
+        Performs a brief validation that a model meets the requirements
+        to be set as an `internal_model`
 
         Parameters
         ----------
@@ -154,8 +160,8 @@ class BaseEstimator(object):
         if hasattr(model, name):
             return getattr(model, name)
         else:
-            raise ValueError("Attribute %s does not exist on model %s" %
-                             (name, type(model)))
+            raise AttributeError("Attribute %s does not exist on model %s" %
+                                 (name, type(model)))
 
     def __getattr__(self, attr):
         """
@@ -170,7 +176,6 @@ class BaseEstimator(object):
         self.internal_model is a local object instance or a future.
         """
         real_name = '_' + attr
-
 
         ret_attr = None
 
@@ -197,7 +202,7 @@ class BaseEstimator(object):
                 ret_attr = BaseEstimator._get_model_attr(
                     internal_model, attr).compute()
         else:
-            raise ValueError("Attribute %s not found in %s" %
+            raise AttributeError("Attribute %s not found in %s" %
                              (attr, type(self)))
 
         if isinstance(ret_attr, CumlArray):

@@ -89,6 +89,10 @@ def test_getattr(client):
     # Test getattr on local param
     kmeans_model = KMeans(client=client)
 
+    # Test AttributeError
+    with pytest.raises(AttributeError):
+        kmeans_model.cluster_centers_
+
     assert kmeans_model.client is not None
 
     # Test getattr on local_model param with a non-distributed model
