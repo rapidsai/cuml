@@ -18,11 +18,11 @@
 # distutils: language = c++
 # cython: embedsignature = True
 # cython: language_level = 3
-from cuml.common.base import Base
+from cuml.common.base import Base, RegressorMixin
 from cuml.solvers import SGD
 
 
-class MBSGDRegressor(Base):
+class MBSGDRegressor(Base, RegressorMixin):
     """
     Linear regression model fitted by minimizing a
     regularized empirical loss with mini-batch SGD.
@@ -146,7 +146,7 @@ class MBSGDRegressor(Base):
         self.n_iter_no_change = n_iter_no_change
         self.cu_mbsgd_classifier = SGD(**self.get_params())
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
@@ -162,7 +162,7 @@ class MBSGDRegressor(Base):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the fit method will, when necessary, convert
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
