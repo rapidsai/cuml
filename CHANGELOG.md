@@ -28,6 +28,7 @@
 - PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
 - PR #2442: fix setting RAFT_DIR from the RAFT_PATH env var
 - PR #2411 Refactor Mixin classes and use in classifier/regressor estimators
+- PR #2440: Use Treelite Conda package
 - PR #2403 Support for input and output type consistency in logistic regression predict_proba
 
 ## Bug Fixes

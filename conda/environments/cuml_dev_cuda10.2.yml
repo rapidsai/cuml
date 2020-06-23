@@ -28,6 +28,7 @@ dependencies:
 - libcumlprims=0.15.0a200622
 - statsmodels
 - protobuf >=3.4.1,<4.0.0
+- treelite=0.92
 - doxygen
 - sphinx
 - sphinx_rtd_theme
