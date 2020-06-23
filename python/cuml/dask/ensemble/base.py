@@ -107,16 +107,18 @@ class BaseRandomForestModel(object):
         to create a single model. The concatenated model is then converted to
         bytes format.
         """
-        model_protobuf_futures = list()
+        model_serialized_futures = list()
         for w in self.workers:
-            model_protobuf_futures.append(
-                dask.delayed(_get_protobuf_bytes)
+            model_serialized_futures.append(
+                dask.delayed(_get_serialized_model)
                 (self.rfs[w]))
-        mod_bytes = self.client.compute(model_protobuf_futures, sync=True)
+        mod_bytes = self.client.compute(model_serialized_futures, sync=True)
         last_worker = w
         model = self.rfs[last_worker].result()
-        all_tl_mod_handles = [model._tl_model_handles(pbuf_bytes)
-                              for pbuf_bytes in mod_bytes]
+        all_tl_mod_handles = [
+                model._tl_handle_from_bytes(indiv_worker_model_bytes)
+                for indiv_worker_model_bytes in mod_bytes
+        ]
 
         model._concatenate_treelite_handle(all_tl_mod_handles)
         for tl_handle in all_tl_mod_handles:
@@ -193,5 +195,5 @@ def _func_set_params(model, **params):
     return model.set_params(**params)
 
 
-def _get_protobuf_bytes(model):
-    return model._get_protobuf_bytes()
+def _get_serialized_model(model):
+    return model._get_serialized_model()

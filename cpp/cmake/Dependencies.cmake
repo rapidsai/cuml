@@ -24,7 +24,7 @@ include(ExternalProject)
 if(DEFINED ENV{RAFT_PATH})
   message(STATUS "RAFT_PATH environment variable detected.")
   message(STATUS "RAFT_DIR set to $ENV{RAFT_PATH}")
-  set(RAFT_DIR ENV{RAFT_PATH})
+  set(RAFT_DIR "$ENV{RAFT_PATH}")
 
   ExternalProject_Add(raft
     DOWNLOAD_COMMAND  ""
@@ -122,36 +122,7 @@ set_property(TARGET faisslib PROPERTY
 ##############################################################################
 # - treelite build -----------------------------------------------------------
 
-set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
-  "Path to treelite install directory")
-ExternalProject_Add(treelite
-    GIT_REPOSITORY    https://github.com/dmlc/treelite.git
-    GIT_TAG           6fd01e4f1890950bbcf9b124da24e886751bffe6
-    PREFIX            ${TREELITE_DIR}
-    CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
-                      -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-                      -DENABLE_PROTOBUF=ON
-                      -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
-    BUILD_BYPRODUCTS  ${TREELITE_DIR}/lib/libtreelite.a
-                      ${TREELITE_DIR}/lib/libdmlc.a
-                      ${TREELITE_DIR}/lib/libtreelite_runtime.so
-    UPDATE_COMMAND    ""
-    PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch || true)
-
-add_library(dmlclib STATIC IMPORTED)
-add_library(treelitelib STATIC IMPORTED)
-add_library(treelite_runtimelib SHARED IMPORTED)
-
-set_property(TARGET dmlclib PROPERTY
-  IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdmlc.a)
-set_property(TARGET treelitelib PROPERTY
-  IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
-set_property(TARGET treelite_runtimelib PROPERTY
-  IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
-
-add_dependencies(dmlclib treelite)
-add_dependencies(treelitelib treelite)
-add_dependencies(treelite_runtimelib treelite)
+find_package(Treelite 0.92 REQUIRED)
 
 ##############################################################################
 # - googletest ---------------------------------------------------------------
@@ -223,4 +194,3 @@ add_dependencies(googletest spdlog)
 add_dependencies(benchmark googletest)
 add_dependencies(faiss benchmark)
 add_dependencies(faisslib faiss)
-add_dependencies(treelite faiss)

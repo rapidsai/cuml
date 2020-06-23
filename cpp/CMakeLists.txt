@@ -70,7 +70,7 @@ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies"
 
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 
-option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
+option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" OFF)
 
 option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 
@@ -283,8 +283,6 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
   ${SPDLOG_DIR}/src/spdlog/include
-  ${TREELITE_DIR}/include
-  ${TREELITE_DIR}/include/fmt
   ${RAFT_DIR}/cpp/include)
 
 set(CUML_LINK_LIBRARIES
@@ -354,8 +352,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     PRIVATE
       ${Protobuf_LIBRARIES}
       faisslib
-      treelitelib
-      dmlclib)
+      treelite::treelite
+      treelite::treelite_runtime)
   # If we export the libdmlc symbols, they can lead to weird crashes with other
   # libraries that use libdmlc. This just hides the symbols internally.
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
