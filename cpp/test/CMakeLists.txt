@@ -26,6 +26,14 @@ set(CUML_TEST_LINK_LIBRARIES
   gtestlib
   gtest_mainlib)
 
+set(PRIMS_TEST_LINK_LIBRARIES
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  ${CUDA_nvgraph_LIBRARY})
+
 ##############################################################################
 # - build ml_test executable -------------------------------------------------
 
@@ -189,6 +197,6 @@ if(BUILD_PRIMS_TESTS)
   target_link_libraries(prims
     gtestlib
     gtest_mainlib
-    ${CUML_LINK_LIBRARIES}
+    ${PRIMS_TEST_LINK_LIBRARIES}
     faisslib)
 endif(BUILD_PRIMS_TESTS)
