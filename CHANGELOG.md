@@ -25,9 +25,11 @@
 - PR #2408: Install meta packages for dependencies
 - PR #2417: Move doc customization scripts to Jenkins
 - PR #2433: Add libcumlprims_mg to CMake
+- PR #2420: Add and set convert_dtype default to True in estimator fit methods
 - PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
 - PR #2442: fix setting RAFT_DIR from the RAFT_PATH env var
 - PR #2411 Refactor Mixin classes and use in classifier/regressor estimators
+- PR #2453: Add CumlArray to API doc
 - PR #2440: Use Treelite Conda package
 - PR #2403 Support for input and output type consistency in logistic regression predict_proba
 
@@ -40,6 +42,7 @@
 - PR #2413: CumlArray and related methods updates to account for cuDF.Buffer contiguity update
 - PR #2424: --singlegpu flag fix on build.sh script
 - PR #2432: Using correct algo_name for UMAP in benchmark tests
+- PR #2445: Restore access to coef_ property of Lasso
 - PR #2441: Change p2p_enabled definition to work without ucx
 - PR #2447: Drop `nvstrings`
 - PR #2450: Update local build to use new gpuCI image
