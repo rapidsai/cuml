@@ -258,11 +258,10 @@ class Ridge(Base, RegressorMixin):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the fit method will, when necessary, convert
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
-
         """
         self._set_output_type(X)
 
