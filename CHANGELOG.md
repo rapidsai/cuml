@@ -213,7 +213,7 @@
 - PR #2305: Fixed race condition in DBScan
 - PR #2354: Fix broken links in README
 
-# cuML 0.13.0 (Date TBD)
+# cuML 0.13.0 (31 Mar 2020)
 
 ## New Features
 - PR #1777: Python bindings for entropy
@@ -332,7 +332,10 @@
 - PR #1950: Fix UMAP test failure
 
 
+<<<<<<< HEAD
+=======
 
+>>>>>>> origin/branch-0.14
 # cuML 0.12.0 (04 Feb 2020)
 
 ## New Features
