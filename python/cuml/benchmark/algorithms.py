@@ -40,10 +40,8 @@ from cuml.benchmark.bench_helper_funcs import (
     _build_treelite_classifier,
     _treelite_fil_accuracy_score,
 )
-from cuml.common.import_utils import has_treelite
-
-if has_treelite():
-    import treelite
+import treelite
+import treelite_runtime
 
 if has_umap():
     import umap
@@ -189,12 +187,6 @@ def _labels_to_int_hook(data):
 
 def _treelite_format_hook(data):
     """Helper function converting data into treelite format"""
-    from cuml.common.import_utils import has_treelite
-
-    if has_treelite():
-        import treelite_runtime
-    else:
-        raise ImportError("No treelite package found")
     return treelite_runtime.Batch.from_npy2d(data[0]), data[1]
 
 
@@ -397,7 +389,7 @@ def all_algorithms():
             accuracy_function=cuml.metrics.accuracy_score
         ),
         AlgorithmPair(
-            treelite if has_treelite() else None,
+            treelite,
             cuml.ForestInference,
             shared_args=dict(num_rounds=100, max_depth=10),
             cuml_args=dict(
@@ -415,7 +407,7 @@ def all_algorithms():
             bench_func=predict,
         ),
         AlgorithmPair(
-            treelite if has_treelite() else None,
+            treelite,
             cuml.ForestInference,
             shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
             cuml_args=dict(
