@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <cuml/neighbors/knn.hpp>
+
 #include <linalg/matrix_vector_op.cuh>
 #include <linalg/norm.cuh>
 #include <linalg/unary_op.cuh>
@@ -121,20 +123,11 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
       [=] __device__(math_t in) { return in * normalizer_const; },
       cosine::stream_);
 
-    std::cout << MLCommon::arr2Str(means_.data(), cosine::n_rows_, "means",
-                                   cosine::stream_);
-
     Stats::meanCenter(data, data, means_.data(), cosine::n_cols_,
                       cosine::n_rows_, cosine::row_major_, false,
                       cosine::stream_);
 
-    std::cout << MLCommon::arr2Str(data, cosine::n_rows_ * cosine::n_cols_,
-                                   "centered", cosine::stream_);
-
     CosineMetricProcessor<math_t>::preprocess(data);
-
-    std::cout << MLCommon::arr2Str(data, cosine::n_rows_ * cosine::n_cols_,
-                                   "unit_var", cosine::stream_);
   }
 
   void revert(math_t *data) {
@@ -153,10 +146,46 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
   device_buffer<math_t> means_;
 };
 
+template <typename math_t>
+class DefaultMetricProcessor : public MetricProcessor<math_t> {
+ public:
+  void preprocess(math_t *data) {}
+
+  void revert(math_t *data) {}
+
+  void postprocess(math_t *data) {}
+
+  ~DefaultMetricProcessor() = default;
+};
+
+template <typename math_t>
+inline std::unique_ptr<MetricProcessor<math_t>> create_processor(
+  ML::MetricType metric, int n, int D, int k, bool rowMajorQuery,
+  cudaStream_t userStream, std::shared_ptr<deviceAllocator> allocator) {
+  MetricProcessor<math_t> *mp = nullptr;
+
+  switch (metric) {
+    case ML::MetricType::METRIC_Cosine:
+      mp = new CosineMetricProcessor<math_t>(n, D, k, rowMajorQuery, userStream,
+                                             allocator);
+      break;
+
+    case ML::MetricType::METRIC_Correlation:
+      mp = new CorrelationMetricProcessor<math_t>(n, D, k, rowMajorQuery,
+                                                  userStream, allocator);
+      break;
+    default:
+      mp = new DefaultMetricProcessor<math_t>();
+  }
+
+  return std::unique_ptr<MetricProcessor<math_t>>(mp);
+}
+
 // Currently only being used by floats
 template class MetricProcessor<float>;
 template class CosineMetricProcessor<float>;
 template class CorrelationMetricProcessor<float>;
+template class DefaultMetricProcessor<float>;
 
 };  // namespace Selection
 };  // namespace MLCommon

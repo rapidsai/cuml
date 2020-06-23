@@ -139,8 +139,6 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k, metric):
         D_cuml_arr = D_cuml
         I_cuml_arr = I_cuml
 
-    print(str(D_cuml_arr))
-
     # Allow a max relative diff of 10% and absolute diff of 1%
     np.testing.assert_allclose(D_cuml_arr, D_sk, atol=1e-2,
                                rtol=1e-1)

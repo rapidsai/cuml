@@ -235,28 +235,17 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   }
 
   // perform preprocessing
-  MetricProcessor<float> *query_metric_processor = nullptr;
-  std::vector<MetricProcessor<float> *> metric_processors(0);
-  if (metric == ML::MetricType::METRIC_Cosine) {
-    metric_processors.resize(input.size());
-    query_metric_processor = new CosineMetricProcessor<float>(
-      n, D, k, rowMajorQuery, userStream, allocator);
-    query_metric_processor->preprocess(search_items);
-    for (int i = 0; i < input.size(); i++) {
-      metric_processors[i] = new CosineMetricProcessor<float>(
-        sizes[i], D, k, rowMajorIndex, userStream, allocator);
-      metric_processors[i]->preprocess(input[i]);
-    }
-  } else if (metric == ML::MetricType::METRIC_Correlation) {
-    metric_processors.resize(input.size());
-    query_metric_processor = new CorrelationMetricProcessor<float>(
-      n, D, k, rowMajorQuery, userStream, allocator);
-    query_metric_processor->preprocess(search_items);
-    for (int i = 0; i < input.size(); i++) {
-      metric_processors[i] = new CorrelationMetricProcessor<float>(
-        sizes[i], D, k, rowMajorIndex, userStream, allocator);
-      metric_processors[i]->preprocess(input[i]);
-    }
+  std::unique_ptr<MetricProcessor<float>> query_metric_processor =
+    create_processor<float>(metric, n, D, k, rowMajorQuery, userStream,
+                            allocator);
+  query_metric_processor->preprocess(search_items);
+
+  std::vector<std::unique_ptr<MetricProcessor<float>>> metric_processors(
+    input.size());
+  for (int i = 0; i < input.size(); i++) {
+    metric_processors[i] = create_processor<float>(
+      metric, n, D, k, rowMajorQuery, userStream, allocator);
+    metric_processors[i]->preprocess(input[i]);
   }
 
   int device;
@@ -340,19 +329,15 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     MLCommon::LinAlg::unaryOp<float>(
       res_D, res_D, n * k,
       [p] __device__(float input) { return powf(input, p); }, userStream);
-  } else if (metric == ML::MetricType::METRIC_Cosine ||
-             metric == ML::MetricType::METRIC_Correlation) {
-    std::cout << "Postprocessing" << std::endl;
-    query_metric_processor->revert(search_items);
-    query_metric_processor->postprocess(out_D);
-    for (int i = 0; i < input.size(); i++) {
-      metric_processors[i]->revert(input[i]);
-    }
+  }
+
+  query_metric_processor->revert(search_items);
+  query_metric_processor->postprocess(out_D);
+  for (int i = 0; i < input.size(); i++) {
+    metric_processors[i]->revert(input[i]);
   }
 
   if (translations == nullptr) delete id_ranges;
-  if (query_metric_processor != nullptr) delete query_metric_processor;
-  for (auto mp : metric_processors) delete mp;
 };
 
 template <typename OutType = float>
