@@ -179,3 +179,17 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
     knn_cu = cuKNN()
     with pytest.raises(Exception):
         knn_cu.fit(X, convert_dtype=False)
+
+
+# https://github.com/scikit-learn/scikit-learn/blob/62fc8bb94dcd65e72878c0599ff91391d9983424/sklearn/neighbors/tests/test_neighbors.py#L1029-L1066
+# Very work in progress test
+def test_kneighbors_graph():
+
+    X = np.array([[0, 1], [1.01, 1.], [2, 0]])
+
+    knn_cu = cuKNN.kneighbors_graph(X, 1, mode='connectivity',
+                                   include_self=True) 
+    knn_sk = skKNN.kneighbors_graph(X, 1, mode='connectivity',
+                                   include_self=True) 
+
+    assert_array_almost_equal(knn_cu, knn_sk)
