@@ -194,7 +194,7 @@ class CD(Base):
         self.tol = tol
         self.shuffle = shuffle
         self.intercept_value = 0.0
-        self.coef_ = None
+        self._coef_ = None   # accessed via estimator.coef_
         self.intercept_ = None
 
     def _check_alpha(self, alpha):
