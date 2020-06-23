@@ -146,12 +146,9 @@ def _build_cpu_skl_classifier(m, data, args, tmpdir):
 
 def _build_treelite_classifier(m, data, args, tmpdir):
     """Setup function for treelite classification benchmarking"""
-    from cuml.common.import_utils import has_treelite, has_xgboost
-    if has_treelite():
-        import treelite
-        import treelite_runtime
-    else:
-        raise ImportError("No treelite package found")
+    from cuml.common.import_utils import has_xgboost
+    import treelite
+    import treelite_runtime
     if has_xgboost():
         import xgboost as xgb
     else:
