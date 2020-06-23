@@ -217,11 +217,10 @@ class ElasticNet(Base, RegressorMixin):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the transform method will, when necessary,
             convert y to be the same data type as X if they differ. This
             will increase memory used for the method.
-
         """
 
         self.cuElasticNet.fit(X, y, convert_dtype=convert_dtype)

@@ -227,6 +227,10 @@ cdef class BaseRandomProjection():
                 n_features).
                 Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
                 ndarray, cuda array interface compliant array like CuPy
+            convert_dtype : bool, optional (default = True)
+                When set to True, the fit method will, when necessary, convert
+                y to be the same data type as X if they differ. This will
+                increase memory used for the method.
 
         Returns
         -------
