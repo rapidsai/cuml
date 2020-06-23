@@ -18,11 +18,11 @@
 # distutils: language = c++
 # cython: embedsignature = True
 # cython: language_level = 3
-from cuml.common.base import Base
+from cuml.common.base import Base, ClassifierMixin
 from cuml.solvers import SGD
 
 
-class MBSGDClassifier(Base):
+class MBSGDClassifier(Base, ClassifierMixin):
     """
     Linear models (linear SVM, logistic regression, or linear regression)
     fitted by minimizing a regularized empirical loss with mini-batch SGD.
