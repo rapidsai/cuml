@@ -39,6 +39,7 @@
 - PR #2413: CumlArray and related methods updates to account for cuDF.Buffer contiguity update
 - PR #2424: --singlegpu flag fix on build.sh script
 - PR #2432: Using correct algo_name for UMAP in benchmark tests
+- PR #2445: Restore access to coef_ property of Lasso
 - PR #2441: Change p2p_enabled definition to work without ucx
 - PR #2447: Drop `nvstrings`
 - PR #2450: Update local build to use new gpuCI image
