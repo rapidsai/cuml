@@ -529,7 +529,7 @@ class RandomForestRegressor(Base, RegressorMixin):
 
         return self
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Regression on the input data
 
@@ -544,6 +544,10 @@ class RandomForestRegressor(Base, RegressorMixin):
             Acceptable formats: NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
             These labels should be contiguous integers from 0 to n_classes.
+        convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will, when necessary, convert
+            y to be the same data type as X if they differ. This will increase
+            memory used for the method.
         """
         self._set_output_type(X)
 
