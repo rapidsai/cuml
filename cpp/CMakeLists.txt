@@ -18,7 +18,7 @@ set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
-project(CUML VERSION 0.14.0 LANGUAGES C CXX CUDA)
+project(CUML VERSION 0.15.0 LANGUAGES C CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -70,6 +70,8 @@ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies"
 
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 
+option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
+
 option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" OFF)
 
 option(KERNEL_INFO "Enable kernel resource usage info" OFF)
@@ -77,6 +79,8 @@ option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(LINE_INFO "Enable lineinfo in nvcc" OFF)
 
 option(NVTX "Enable nvtx markers" OFF)
+
+option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 
 set(BUILD_RPATH_USE_ORIGIN "Whether to use relative paths for the build RPATH." TRUE)
 
@@ -140,6 +144,22 @@ if(NOT BUILD_CUML_CPP_LIBRARY)
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_EXAMPLES OFF)
 endif(NOT BUILD_CUML_CPP_LIBRARY)
+
+# SingleGPU build disables cumlprims_mg and comms components
+if(SINGLEGPU)
+  message(STATUS "Detected SINGLEGPU build option")
+  message(STATUS "Disabling Multi-GPU components and comms libraries")
+  set(BUILD_CUML_MG_TESTS OFF)
+  set(BUILD_CUML_STD_COMMS OFF)
+  set(BUILD_CUML_MPI_COMMS OFF)
+  set(ENABLE_CUMLPRIMS_MG OFF)
+  set(WITH_UCX OFF)
+endif(SINGLEGPU)
+
+if(NOT BUILD_CUML_MPI_COMMS AND NOT SINGLEGPU)
+  message(STATUS "Detected BUILD_CUML_MPI_COMMS set to OFF. Disabling BUILD_CUML_MG_TESTS")
+  set(BUILD_CUML_MG_TESTS OFF)
+endif(NOT BUILD_CUML_MPI_COMMS AND NOT SINGLEGPU)
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
@@ -275,6 +295,7 @@ include(cmake/Dependencies.cmake)
 
 set(CUML_INCLUDE_DIRECTORIES
   ${CUML_INCLUDE_DIR}
+  ${CUMLPRIMS_MG_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/src_prims
   ${CMAKE_CURRENT_SOURCE_DIR}/test/prims
@@ -291,7 +312,8 @@ set(CUML_LINK_LIBRARIES
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
-  ${CUDA_nvgraph_LIBRARY})
+  ${CUDA_nvgraph_LIBRARY}
+  ${CUMLPRIMS_MG_LIBRARIES})
 
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
@@ -299,6 +321,7 @@ set(CUML_LINK_LIBRARIES
 if(BUILD_CUML_CPP_LIBRARY)
   set(CUML_CPP_TARGET "cuml++")
 
+  # single GPU components
   add_library(${CUML_CPP_TARGET} SHARED
     src/arima/batched_kalman.cu
     src/arima/batched_arima.cu
@@ -334,8 +357,16 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/tsvd/tsvd.cu
     src/umap/umap.cu)
 
+  # mnmg components
+
+  # if(NOT SINGLEGPU)
+  #   target_sources(${CUML_CPP_TARGET}
+  #     PRIVATE src/kmeans/kmeans_mg.cu
+  #   )
+  # endif(NOT SINGLEGPU)
+
   if(OPENMP_FOUND)
-    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
+    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} ${OpenMP_CXX_LIB_NAMES} Threads::Threads)
   endif(OPENMP_FOUND)
 
   if(NVTX)
@@ -388,8 +419,8 @@ if(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
   add_subdirectory(test ${PROJECT_BINARY_DIR}/test)
 endif(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
 
-###################################################################################################
-# - build comms ------------------------------------------------------------------------
+##############################################################################
+# - build comms ------------------------------------------------------------------------------
 
 if(BUILD_CUML_STD_COMMS)
   add_subdirectory(comms/std)
@@ -399,8 +430,8 @@ if(BUILD_CUML_MPI_COMMS)
   add_subdirectory(comms/mpi)
 endif(BUILD_CUML_MPI_COMMS)
 
-###################################################################################################
-# - build examples -------------------------------------------------------------------------
+##############################################################################
+# - build examples ------------------------------------------------------------------------------
 
 if(BUILD_CUML_EXAMPLES)
   add_subdirectory(examples)
