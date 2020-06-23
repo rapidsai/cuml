@@ -21,7 +21,6 @@ from setuptools import find_packages
 from setuptools import setup
 from setuptools.extension import Extension
 from setuputils import clean_folder
-from setuputils import clone_repo_if_needed
 from setuputils import get_environment_option
 from setuputils import get_cli_option
 from setuputils import use_raft_package
@@ -111,13 +110,6 @@ if clean_artifacts:
 
 raft_include_dir = use_raft_package(raft_path, libcuml_path)
 
-# Use treelite from the libcuml build folder, otherwise clone it
-# Needed until there is a treelite distribution
-
-treelite_path, _ = clone_repo_if_needed('treelite', libcuml_path)
-treelite_path = os.path.join(treelite_path, "include")
-
-
 ##############################################################################
 # - Cython extensions build and parameters -----------------------------------
 
@@ -130,7 +122,6 @@ libs = ['cuda',
 include_dirs = ['../cpp/src',
                 '../cpp/include',
                 '../cpp/src_prims',
-                treelite_path,
                 raft_include_dir,
                 '../cpp/comms/std/src',
                 '../cpp/comms/std/include',
