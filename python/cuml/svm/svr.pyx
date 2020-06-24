@@ -235,7 +235,7 @@ class SVR(SVMBase, RegressorMixin):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
-
+        self._set_n_features_in(X)
         self._set_output_type(X)
         cdef uintptr_t X_ptr, y_ptr
 
