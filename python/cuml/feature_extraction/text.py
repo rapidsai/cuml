@@ -30,25 +30,26 @@ def _get_non_alphanumeric_characters(docs):
     return non_alpha.tolist() + ['\n']
 
 
-def _preprocess(doc, lower=False, remove_non_words=False, delimiter=' '):
+def _preprocess(doc, lower=False, remove_non_alphanumeric=False,
+                delimiter=' '):
     """Chain together an optional series of text preprocessing steps to
     apply to a document.
     Parameters
     ----------
-    doc: nvstrings
+    doc: cudf.Series[str]
         The string to preprocess
     lower: bool
         Whether to use str.lower to lowercase all of the text
-    remove_non_words: bool
+    remove_non_alphanumeric: bool
         Whether or not to remove non-alphanumeric characters.
     Returns
     -------
-    doc: nvstrings
+    doc: cudf.Series[str]
         preprocessed string
     """
     if lower:
         doc = doc.str.lower()
-    if remove_non_words:
+    if remove_non_alphanumeric:
         non_alpha = _get_non_alphanumeric_characters(doc)
         delimiter_code = ord(delimiter)
         translation_table = {ord(char): delimiter_code for char in non_alpha}
@@ -81,8 +82,9 @@ class _VectorizerMixin:
         if self.preprocessor is not None:
             preprocess = self.preprocessor
         else:
+            remove_non_alpha = self.analyzer == 'word'
             preprocess = partial(_preprocess, lower=self.lowercase,
-                                 remove_non_words=self.analyzer == 'word',
+                                 remove_non_alphanumeric=remove_non_alpha,
                                  delimiter=self.delimiter)
         return lambda doc: self._remove_stop_words(preprocess(doc))
 
@@ -255,7 +257,7 @@ class _VectorizerMixin:
         if min_n < 1:
             msg += "lower boundary must be >= 1. "
         if min_n > max_m:
-            msg += "lower boundary larger than the upper boundary."
+            msg += "lower boundary larger than the upper boundary. "
         if msg != "":
             msg = f"Invalid value for ngram_range={self.ngram_range} {msg}"
             raise ValueError(msg)
@@ -348,9 +350,9 @@ class CountVectorizer(_VectorizerMixin):
         Typically the delimiting character between words is a good choice.
     Attributes
     ----------
-    vocabulary_ : nvstrings
+    vocabulary_ : cudf.Series[str]
         Array mapping from feature integer indices to feature name.
-    stop_words_ : nvstrings
+    stop_words_ : cudf.Series[str]
         Terms that were ignored because they either:
           - occurred in too many documents (`max_df`)
           - occurred in too few documents (`min_df`)
@@ -431,6 +433,8 @@ class CountVectorizer(_VectorizerMixin):
         Prune features that are non zero in more samples than high or less
         documents than low, modifying the vocabulary, and restricting it to
         at most the limit most frequent.
+
+        Sets self.vocabulary_ and self.stop_words_ with the new values.
         """
         if high is None and low is None and limit is None:
             self.stop_words_ = None
@@ -496,7 +500,7 @@ class CountVectorizer(_VectorizerMixin):
 
         Returns
         -------
-        X : array of shape (n_samples, n_features)
+        X : cupy csr array of shape (n_samples, n_features)
             Document-term matrix.
         """
         self._warn_for_unused_params()
@@ -551,7 +555,7 @@ class CountVectorizer(_VectorizerMixin):
 
         Returns
         -------
-        X : array of shape (n_samples, n_features)
+        X : cupy csr array of shape (n_samples, n_features)
             Document-term matrix.
         """
         docs = self._preprocess(raw_documents)
