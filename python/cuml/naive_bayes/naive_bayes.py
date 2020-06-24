@@ -30,7 +30,7 @@ from cuml.common.kernel_utils import cuda_kernel_factory
 from cuml.common.import_utils import has_scipy
 from cuml.prims.label import make_monotonic
 from cuml.prims.label import check_labels
-from cuml.prims.label import invert_labels
+from cuml.prims.array import binarize
 
 from cuml.metrics import accuracy_score
 
@@ -509,7 +509,223 @@ class GaussianNB(_BaseNB):
         return cp.array(joint_log_likelihood).T
 
 
-class MultinomialNB(_BaseNB):
+class _BaseDiscreteNB(_BaseNB):
+
+    def _update_class_log_prior(self, class_prior=None):
+
+        if class_prior is not None:
+
+            if class_prior.shape[0] != self.n_classes:
+                raise ValueError("Number of classes must match "
+                                 "number of priors")
+
+            self.class_log_prior_ = cp.log(class_prior)
+
+        elif self.fit_prior:
+            log_class_count = cp.log(self.class_count_)
+            self.class_log_prior_ = log_class_count - \
+                cp.log(self.class_count_.sum())
+        else:
+            self.class_log_prior_ = cp.full(self.n_classes_,
+                                            -math.log(self.n_classes_))
+
+    @with_cupy_rmm
+    def partial_fit(self, X, y, classes=None, sample_weight=None):
+        """
+        Incremental fit on a batch of samples.
+
+        This method is expected to be called several times consecutively on
+        different chunks of a dataset so as to implement out-of-core or online
+        learning.
+
+        This is especially useful when the whole dataset is too big to fit in
+        memory at once.
+
+        This method has some performance overhead hence it is better to call
+        partial_fit on chunks of data that are as large as possible (as long
+        as fitting in the memory budget) to hide the overhead.
+
+        Parameters
+        ----------
+
+        X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features
+
+        y : array-like of shape (n_samples) Target values.
+        classes : array-like of shape (n_classes)
+                  List of all the classes that can possibly appear in the y
+                  vector. Must be provided at the first call to partial_fit,
+                  can be omitted in subsequent calls.
+
+        sample_weight : array-like of shape (n_samples)
+                        Weights applied to individual samples (1. for
+                        unweighted). Currently sample weight is ignored
+
+        Returns
+        -------
+
+        self : object
+        """
+        return self._partial_fit(X, y, sample_weight=sample_weight,
+                                 _classes=classes)
+
+    @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
+    @with_cupy_rmm
+    def _partial_fit(self, X, y, sample_weight=None, _classes=None):
+        self._set_output_type(X)
+
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.common.import_utils import dummy_function_always_false \
+                as scipy_sparse_isspmatrix
+
+        # todo: use a sparse CumlArray style approach when ready
+        # https://github.com/rapidsai/cuml/issues/2216
+        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+            X = X.tocoo()
+            rows = cp.asarray(X.row, dtype=X.row.dtype)
+            cols = cp.asarray(X.col, dtype=X.col.dtype)
+            data = cp.asarray(X.data, dtype=X.data.dtype)
+            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
+        else:
+            X = input_to_cuml_array(X, order='K').array.to_output('cupy')
+
+        y = input_to_cuml_array(y).array.to_output('cupy')
+
+        Y, label_classes = make_monotonic(y, copy=True)
+
+        if not self.fit_called_:
+            self.fit_called_ = True
+            if _classes is not None:
+                _classes, *_ = input_to_cuml_array(_classes, order='K')
+                check_labels(Y, _classes.to_output('cupy'))
+                self._classes_ = _classes
+            else:
+                self._classes_ = CumlArray(data=label_classes)
+
+            self.n_classes_ = self._classes_.shape[0]
+            self.n_features_ = X.shape[1]
+            self._init_counters(self.n_classes_, self.n_features_,
+                                X.dtype)
+        else:
+            check_labels(Y, self._classes_)
+
+        self._count(X, Y, self._classes_)
+
+        self._update_feature_log_prob(self.alpha)
+        self._update_class_log_prior(class_prior=self.class_prior)
+
+        return self
+
+    @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
+    @with_cupy_rmm
+    def fit(self, X, y, sample_weight=None):
+        """
+        Fit Naive Bayes classifier according to X, y
+
+        Parameters
+        ----------
+
+        X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features.
+        y : array-like shape (n_samples) Target values.
+        sample_weight : array-like of shape (n_samples)
+            Weights applied to individial samples (1. for unweighted).
+        """
+        return self.partial_fit(X, y, sample_weight)
+
+    def _init_counters(self, n_effective_classes, n_features, dtype):
+        self._class_count_ = CumlArray.zeros(n_effective_classes,
+                                             order="F", dtype=dtype)
+        self._feature_count_ = CumlArray.zeros((n_effective_classes,
+                                                n_features),
+                                               order="F", dtype=dtype)
+
+    @with_cupy_rmm
+    def update_log_probs(self):
+        """
+        Updates the log probabilities. This enables lazy update for
+        applications like distributed Naive Bayes, so that the model
+        can be updated incrementally without incurring this cost each
+        time.
+        """
+        self._update_feature_log_prob(self.alpha)
+        self._update_class_log_prior(class_prior=self.class_prior)
+
+    def _count(self, X, Y, classes):
+        """
+        Sum feature counts & class prior counts and add to current model.
+
+        Parameters
+        ----------
+        X : cupy.ndarray or cupy.sparse matrix of size
+                  (n_rows, n_features)
+        Y : cupy.array of monotonic class labels
+        """
+
+        n_classes = classes.shape[0]
+
+        if X.ndim != 2:
+            raise ValueError("Input samples should be a 2D array")
+
+        if Y.dtype != classes.dtype:
+            warnings.warn("Y dtype does not match classes_ dtype. Y will be "
+                          "converted, which will increase memory consumption")
+
+        counts = cp.zeros((n_classes, self.n_features_), order="F",
+                          dtype=X.dtype)
+
+        class_c = cp.zeros(n_classes, order="F", dtype=X.dtype)
+
+        n_rows = X.shape[0]
+        n_cols = X.shape[1]
+
+        labels_dtype = classes.dtype
+
+        if cp.sparse.isspmatrix(X):
+            X = X.tocoo()
+
+            count_features_coo = count_features_coo_kernel(X.dtype,
+                                                           labels_dtype)
+            count_features_coo((math.ceil(X.nnz / 32),), (32,),
+                               (counts,
+                                X.row,
+                                X.col,
+                                X.data,
+                                X.nnz,
+                                n_rows,
+                                n_cols,
+                                Y,
+                                n_classes, False))
+
+        else:
+
+            count_features_dense = count_features_dense_kernel(X.dtype,
+                                                               labels_dtype)
+            count_features_dense((math.ceil(n_rows / 32),
+                                  math.ceil(n_cols / 32), 1),
+                                 (32, 32, 1),
+                                 (counts,
+                                  X,
+                                  n_rows,
+                                  n_cols,
+                                  Y,
+                                  n_classes,
+                                  False,
+                                  X.flags["C_CONTIGUOUS"]))
+
+        count_classes = count_classes_kernel(X.dtype, labels_dtype)
+        count_classes((math.ceil(n_rows / 32),), (32,),
+                      (class_c, n_rows, Y))
+
+        self._feature_count_ += counts
+        self._class_count_ += class_c
+
+
+class MultinomialNB(_BaseDiscreteNB):
 
     # TODO: Make this extend cuml.Base:
     # https://github.com/rapidsai/cuml/issues/1834
@@ -615,126 +831,6 @@ class MultinomialNB(_BaseNB):
         # Needed until Base no longer assumed cumlHandle
         self.handle = None
 
-    @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
-    @with_cupy_rmm
-    def fit(self, X, y, sample_weight=None):
-        """
-        Fit Naive Bayes classifier according to X, y
-
-        Parameters
-        ----------
-
-        X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
-            Training vectors, where n_samples is the number of samples and
-            n_features is the number of features.
-        y : array-like shape (n_samples) Target values.
-        sample_weight : array-like of shape (n_samples)
-            Weights applied to individial samples (1. for unweighted).
-        """
-        return self.partial_fit(X, y, sample_weight)
-
-    @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
-    @with_cupy_rmm
-    def _partial_fit(self, X, y, sample_weight=None, _classes=None):
-        self._set_output_type(X)
-
-        if has_scipy():
-            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
-        else:
-            from cuml.common.import_utils import dummy_function_always_false \
-                as scipy_sparse_isspmatrix
-
-        # todo: use a sparse CumlArray style approach when ready
-        # https://github.com/rapidsai/cuml/issues/2216
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
-            X = X.tocoo()
-            rows = cp.asarray(X.row, dtype=X.row.dtype)
-            cols = cp.asarray(X.col, dtype=X.col.dtype)
-            data = cp.asarray(X.data, dtype=X.data.dtype)
-            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
-        else:
-            X = input_to_cuml_array(X, order='K').array.to_output('cupy')
-
-        y = input_to_cuml_array(y).array.to_output('cupy')
-
-        Y, label_classes = make_monotonic(y, copy=True)
-
-        if not self.fit_called_:
-            self.fit_called_ = True
-            if _classes is not None:
-                _classes, *_ = input_to_cuml_array(_classes, order='K')
-                check_labels(Y, _classes.to_output('cupy'))
-                self._classes_ = _classes
-            else:
-                self._classes_ = CumlArray(data=label_classes)
-
-            self.n_classes_ = self._classes_.shape[0]
-            self.n_features_ = X.shape[1]
-            self._init_counters(self.n_classes_, self.n_features_,
-                                X.dtype)
-        else:
-            check_labels(Y, self._classes_)
-
-        self._count(X, Y)
-
-        self._update_feature_log_prob(self.alpha)
-        self._update_class_log_prior(class_prior=self.class_prior)
-
-        return self
-
-    @with_cupy_rmm
-    def update_log_probs(self):
-        """
-        Updates the log probabilities. This enables lazy update for
-        applications like distributed Naive Bayes, so that the model
-        can be updated incrementally without incurring this cost each
-        time.
-        """
-        self._update_feature_log_prob(self.alpha)
-        self._update_class_log_prior(class_prior=self.class_prior)
-
-    @with_cupy_rmm
-    def partial_fit(self, X, y, classes=None, sample_weight=None):
-        """
-        Incremental fit on a batch of samples.
-
-        This method is expected to be called several times consecutively on
-        different chunks of a dataset so as to implement out-of-core or online
-        learning.
-
-        This is especially useful when the whole dataset is too big to fit in
-        memory at once.
-
-        This method has some performance overhead hence it is better to call
-        partial_fit on chunks of data that are as large as possible (as long
-        as fitting in the memory budget) to hide the overhead.
-
-        Parameters
-        ----------
-
-        X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
-            Training vectors, where n_samples is the number of samples and
-            n_features is the number of features
-
-        y : array-like of shape (n_samples) Target values.
-        classes : array-like of shape (n_classes)
-                  List of all the classes that can possibly appear in the y
-                  vector. Must be provided at the first call to partial_fit,
-                  can be omitted in subsequent calls.
-
-        sample_weight : array-like of shape (n_samples)
-                        Weights applied to individual samples (1. for
-                        unweighted). Currently sample weight is ignored
-
-        Returns
-        -------
-
-        self : object
-        """
-        return self._partial_fit(X, y, sample_weight=sample_weight,
-                                 _classes=classes)
-
-
     @with_cupy_rmm
     def score(self, X, y, sample_weight=None):
         """
@@ -762,98 +858,6 @@ class MultinomialNB(_BaseNB):
         """
         y_hat = self.predict(X)
         return accuracy_score(y_hat, cp.asarray(y, dtype=y.dtype))
-
-    def _init_counters(self, n_effective_classes, n_features, dtype):
-        self._class_count_ = CumlArray.zeros(n_effective_classes,
-                                             order="F", dtype=dtype)
-        self._feature_count_ = CumlArray.zeros((n_effective_classes,
-                                                n_features),
-                                               order="F", dtype=dtype)
-
-    def _count(self, X, Y):
-        """
-        Sum feature counts & class prior counts and add to current model.
-
-        Parameters
-        ----------
-        X : cupy.ndarray or cupy.sparse matrix of size
-                  (n_rows, n_features)
-        Y : cupy.array of monotonic class labels
-        """
-
-        if X.ndim != 2:
-            raise ValueError("Input samples should be a 2D array")
-
-        if Y.dtype != self._classes_.dtype:
-            warnings.warn("Y dtype does not match classes_ dtype. Y will be "
-                          "converted, which will increase memory consumption")
-
-        counts = cp.zeros((self.n_classes_, self.n_features_), order="F",
-                          dtype=X.dtype)
-
-        class_c = cp.zeros(self.n_classes_, order="F", dtype=X.dtype)
-
-        n_rows = X.shape[0]
-        n_cols = X.shape[1]
-
-        labels_dtype = self._classes_.dtype
-
-        if cp.sparse.isspmatrix(X):
-            X = X.tocoo()
-
-            count_features_coo = count_features_coo_kernel(X.dtype,
-                                                           labels_dtype)
-            count_features_coo((math.ceil(X.nnz / 32),), (32,),
-                               (counts,
-                                X.row,
-                                X.col,
-                                X.data,
-                                X.nnz,
-                                n_rows,
-                                n_cols,
-                                Y,
-                                self.n_classes_, False))
-
-        else:
-
-            count_features_dense = count_features_dense_kernel(X.dtype,
-                                                               labels_dtype)
-            count_features_dense((math.ceil(n_rows / 32),
-                                  math.ceil(n_cols / 32), 1),
-                                 (32, 32, 1),
-                                 (counts,
-                                  X,
-                                  n_rows,
-                                  n_cols,
-                                  Y,
-                                  self.n_classes_,
-                                  False,
-                                  X.flags["C_CONTIGUOUS"]))
-
-        count_classes = count_classes_kernel(X.dtype, labels_dtype)
-        count_classes((math.ceil(n_rows / 32),), (32,),
-                      (class_c, n_rows, Y))
-
-        self._feature_count_ += counts
-        self._class_count_ += class_c
-
-    def _update_class_log_prior(self, class_prior=None):
-
-        if class_prior is not None:
-
-            if class_prior.shape[0] != self.n_classes:
-                raise ValueError("Number of classes must match "
-                                 "number of priors")
-
-            self.class_log_prior_ = cp.log(class_prior)
-
-        elif self.fit_prior:
-            log_class_count = cp.log(self.class_count_)
-            self.class_log_prior_ = log_class_count - \
-                cp.log(self.class_count_.sum())
-        else:
-            self.class_log_prior_ = cp.full(self.n_classes_,
-                                            -math.log(self.n_classes_))
 
     def _update_feature_log_prob(self, alpha):
         """
@@ -883,3 +887,279 @@ class MultinomialNB(_BaseNB):
         ret = X.dot(self.feature_log_prob_.T)
         ret += self.class_log_prior_
         return ret
+
+
+class BernoulliNB(_BaseDiscreteNB):
+    """
+    Naive Bayes classifier for multivariate Bernoulli models.
+    Like MultinomialNB, this classifier is suitable for discrete data. The
+    difference is that while MultinomialNB works with occurrence counts,
+    BernoulliNB is designed for binary/boolean features.
+    Read more in the :ref:`User Guide <bernoulli_naive_bayes>`.
+    Parameters
+    ----------
+    alpha : float, default=1.0
+        Additive (Laplace/Lidstone) smoothing parameter
+        (0 for no smoothing).
+    binarize : float or None, default=0.0
+        Threshold for binarizing (mapping to booleans) of sample features.
+        If None, input is presumed to already consist of binary vectors.
+    fit_prior : bool, default=True
+        Whether to learn class prior probabilities or not.
+        If false, a uniform prior will be used.
+    class_prior : array-like of shape (n_classes,), default=None
+        Prior probabilities of the classes. If specified the priors are not
+        adjusted according to the data.
+    Attributes
+    ----------
+    class_count_ : ndarray of shape (n_classes)
+        Number of samples encountered for each class during fitting. This
+        value is weighted by the sample weight when provided.
+    class_log_prior_ : ndarray of shape (n_classes)
+        Log probability of each class (smoothed).
+    classes_ : ndarray of shape (n_classes,)
+        Class labels known to the classifier
+    feature_count_ : ndarray of shape (n_classes, n_features)
+        Number of samples encountered for each (class, feature)
+        during fitting. This value is weighted by the sample weight when
+        provided.
+    feature_log_prob_ : ndarray of shape (n_classes, n_features)
+        Empirical log probability of features given a class, P(x_i|y).
+    n_features_ : int
+        Number of features of each sample.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> rng = np.random.RandomState(1)
+    >>> X = rng.randint(5, size=(6, 100))
+    >>> Y = np.array([1, 2, 3, 4, 4, 5])
+    >>> from sklearn.naive_bayes import BernoulliNB
+    >>> clf = BernoulliNB()
+    >>> clf.fit(X, Y)
+    BernoulliNB()
+    >>> print(clf.predict(X[2:3]))
+    [3]
+    References
+    ----------
+    C.D. Manning, P. Raghavan and H. Schuetze (2008). Introduction to
+    Information Retrieval. Cambridge University Press, pp. 234-265.
+    https://nlp.stanford.edu/IR-book/html/htmledition/the-bernoulli-model-1.html
+    A. McCallum and K. Nigam (1998). A comparison of event models for naive
+    Bayes text classification. Proc. AAAI/ICML-98 Workshop on Learning for
+    Text Categorization, pp. 41-48.
+    V. Metsis, I. Androutsopoulos and G. Paliouras (2006). Spam filtering with
+    naive Bayes -- Which naive Bayes? 3rd Conf. on Email and Anti-Spam (CEAS).
+    """
+    def __init__(self, alpha=1.0, binarize=.0, fit_prior=True,
+                 class_prior=None):
+        self.alpha = alpha
+        self.binarize = binarize
+        self.fit_prior = fit_prior
+        self.n_classes_ = 2
+        self._classes_ = cp.array([0, 1], cp.int32)
+
+    def _check_X(self, X):
+        X = super()._check_X(X)
+        if self.binarize is not None:
+            X = binarize(X, threshold=self.binarize)
+        return X
+
+    def _check_X_y(self, X, y):
+        X, y = super()._check_X_y(X, y)
+        if self.binarize is not None:
+            X = binarize(X, threshold=self.binarize)
+        return X, y
+
+    def _joint_log_likelihood(self, X):
+        """Calculate the posterior log probability of the samples X"""
+        n_classes, n_features = self.feature_log_prob_.shape
+        n_samples, n_features_X = X.shape
+
+        if n_features_X != n_features:
+            raise ValueError("Expected input with %d features, got %d instead"
+                             % (n_features, n_features_X))
+
+        neg_prob = cp.log(1 - cp.exp(self.feature_log_prob_))
+
+        # Compute  neg_prob · (1 - X).T  as  ∑neg_prob - X · neg_prob
+        jll = X.dot(self.feature_log_prob_ - neg_prob).T
+        jll += self.class_log_prior_ + neg_prob.sum(axis=1)
+
+        return jll
+
+    def _update_feature_log_prob(self, alpha):
+        """
+        Apply add-lambda smoothing to raw counts and recompute
+        log probabilities
+
+        Parameters
+        ----------
+
+        alpha : float amount of smoothing to apply (0. means no smoothing)
+        """
+        smoothed_fc = self.feature_count_ + alpha
+        smoothed_cc = self._class_count_ + alpha * 2
+        self.feature_log_prob_ = (cp.log(smoothed_fc) -
+                                  cp.log(smoothed_cc.reshape(-1, 1)))
+
+
+class CategoricalNB(_BaseDiscreteNB):
+    """
+    Naive Bayes classifier for categorical features
+    The categorical Naive Bayes classifier is suitable for classification with
+    discrete features that are categorically distributed. The categories of
+    each feature are drawn from a categorical distribution.
+    Read more in the :ref:`User Guide <categorical_naive_bayes>`.
+    Parameters
+    ----------
+    alpha : float, default=1.0
+        Additive (Laplace/Lidstone) smoothing parameter
+        (0 for no smoothing).
+    fit_prior : bool, default=True
+        Whether to learn class prior probabilities or not.
+        If false, a uniform prior will be used.
+    class_prior : array-like of shape (n_classes,), default=None
+        Prior probabilities of the classes. If specified the priors are not
+        adjusted according to the data.
+    Attributes
+    ----------
+    category_count_ : list of arrays of shape (n_features,)
+        Holds arrays of shape (n_classes, n_categories of respective feature)
+        for each feature. Each array provides the number of samples
+        encountered for each class and category of the specific feature.
+    class_count_ : ndarray of shape (n_classes,)
+        Number of samples encountered for each class during fitting. This
+        value is weighted by the sample weight when provided.
+    class_log_prior_ : ndarray of shape (n_classes,)
+        Smoothed empirical log probability for each class.
+    classes_ : ndarray of shape (n_classes,)
+        Class labels known to the classifier
+    feature_log_prob_ : list of arrays of shape (n_features,)
+        Holds arrays of shape (n_classes, n_categories of respective feature)
+        for each feature. Each array provides the empirical log probability
+        of categories given the respective feature and class, ``P(x_i|y)``.
+    n_features_ : int
+        Number of features of each sample.
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> rng = cp.random.RandomState(1)
+    >>> X = rng.randint(5, size=(6, 100))
+    >>> y = cp.array([1, 2, 3, 4, 5, 6])
+    >>> from cuml.naive_bayes import CategoricalNB
+    >>> clf = CategoricalNB()
+    >>> clf.fit(X, y)
+    CategoricalNB()
+    >>> print(clf.predict(X[2:3]))
+    [3]
+    """
+    def __init__(self, *, alpha=1.0, fit_prior=True, class_prior=None):
+        self.alpha = alpha
+        self.fit_prior = fit_prior
+        self.class_prior = class_prior
+
+    def fit(self, X, y, sample_weight=None):
+        """Fit Naive Bayes classifier according to X, y
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features. Here, each feature of X is
+            assumed to be from a different categorical distribution.
+            It is further assumed that all categories of each feature are
+            represented by the numbers 0, ..., n - 1, where n refers to the
+            total number of categories for the given feature. This can, for
+            instance, be achieved with the help of OrdinalEncoder.
+        y : array-like of shape (n_samples,)
+            Target values.
+        sample_weight : array-like of shape (n_samples), default=None
+            Weights applied to individual samples (1. for unweighted).
+        Returns
+        -------
+        self : object
+        """
+        return super().fit(X, y, sample_weight=sample_weight)
+
+    def partial_fit(self, X, y, classes=None, sample_weight=None):
+        """Incremental fit on a batch of samples.
+        This method is expected to be called several times consecutively
+        on different chunks of a dataset so as to implement out-of-core
+        or online learning.
+        This is especially useful when the whole dataset is too big to fit in
+        memory at once.
+        This method has some performance overhead hence it is better to call
+        partial_fit on chunks of data that are as large as possible
+        (as long as fitting in the memory budget) to hide the overhead.
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features. Here, each feature of X is
+            assumed to be from a different categorical distribution.
+            It is further assumed that all categories of each feature are
+            represented by the numbers 0, ..., n - 1, where n refers to the
+            total number of categories for the given feature. This can, for
+            instance, be achieved with the help of OrdinalEncoder.
+        y : array-like of shape (n_samples)
+            Target values.
+        classes : array-like of shape (n_classes), default=None
+            List of all the classes that can possibly appear in the y vector.
+            Must be provided at the first call to partial_fit, can be omitted
+            in subsequent calls.
+        sample_weight : array-like of shape (n_samples), default=None
+            Weights applied to individual samples (1. for unweighted).
+        Returns
+        -------
+        self : object
+        """
+        return super().partial_fit(X, y, classes,
+                                   sample_weight=sample_weight)
+
+    def _count(self, X, Y, classes):
+        def _update_cat_count_dims(cat_count, highest_feature):
+            diff = highest_feature + 1 - cat_count.shape[1]
+            if diff > 0:
+                # we append a column full of zeros for each new category
+                return cp.pad(cat_count, [(0, 0), (0, diff)], 'constant')
+            return cat_count
+
+        def _update_cat_count(X_feature, Y, cat_count, n_classes):
+            for j in range(n_classes):
+                mask = Y[:, j].astype(bool)
+                if Y.dtype.type == cp.int64:
+                    weights = None
+                else:
+                    weights = Y[mask, j]
+                counts = cp.bincount(X_feature[mask], weights=weights)
+                indices = cp.nonzero(counts)[0]
+                cat_count[j, indices] += counts[indices]
+
+        self.class_count_ += Y.sum(axis=0)
+        for i in range(self.n_features_):
+            X_feature = X[:, i]
+            self.category_count_[i] = _update_cat_count_dims(
+                self.category_count_[i], X_feature.max())
+            _update_cat_count(X_feature, Y,
+                              self.category_count_[i],
+                              self.class_count_.shape[0])
+
+    def _update_feature_log_prob(self, alpha):
+        feature_log_prob = []
+        for i in range(self.n_features_):
+            smoothed_cat_count = self.category_count_[i] + alpha
+            smoothed_class_count = smoothed_cat_count.sum(axis=1)
+            feature_log_prob.append(
+                cp.log(smoothed_cat_count) -
+                cp.log(smoothed_class_count.reshape(-1, 1)))
+        self.feature_log_prob_ = feature_log_prob
+
+    def _joint_log_likelihood(self, X):
+        if not X.shape[1] == self.n_features_:
+            raise ValueError("Expected input with %d features, got %d instead"
+                             % (self.n_features_, X.shape[1]))
+        jll = cp.zeros((X.shape[0], self.class_count_.shape[0]))
+        for i in range(self.n_features_):
+            indices = X[:, i]
+            jll += self.feature_log_prob_[i][:, indices].T
+        total_ll = jll + self.class_log_prior_
+        return total_ll
