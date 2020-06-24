@@ -133,10 +133,6 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
 
     device_buffer<T> vMatrix(allocator, stream, prms.n_cols * prms.n_cols);
 
-    // T *sVector = (T *)allocator->allocate(prms.n_cols * sizeof(T), stream);
-
-    // T *vMatrix =
-    //   (T *)allocator->allocate(prms.n_cols * prms.n_cols * sizeof(T), stream);
     CUDA_CHECK(
       cudaMemset(vMatrix.data(), 0, prms.n_cols * prms.n_cols * sizeof(T)));
 
@@ -171,10 +167,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
                             prms.n_components, prms.n_cols, stream);
 
     Matrix::opg::deallocate(h, uMatrixParts, input_desc, rank, stream);
-    // allocator->deallocate(sVector, prms.n_cols * sizeof(T), stream);
-    // allocator->deallocate(vMatrix, prms.n_cols * prms.n_cols * sizeof(T),
-    //                       stream);
-
+  
     // Re-add mean to centered data
     Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams,
                          n_streams);
