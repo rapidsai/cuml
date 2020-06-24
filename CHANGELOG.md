@@ -29,10 +29,11 @@
 - PR #2420: Add and set convert_dtype default to True in estimator fit methods
 - PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
 - PR #2442: fix setting RAFT_DIR from the RAFT_PATH env var
-- PR #2411 Refactor Mixin classes and use in classifier/regressor estimators
+- PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
 - PR #2453: Add CumlArray to API doc
 - PR #2440: Use Treelite Conda package
-- PR #2403 Support for input and output type consistency in logistic regression predict_proba
+- PR #2403: Support for input and output type consistency in logistic regression predict_proba
+- PR #2469: Updating KNN c-api to document all arguments
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
