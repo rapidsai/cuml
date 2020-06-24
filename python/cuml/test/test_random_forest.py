@@ -522,6 +522,7 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
             assert fil_r2 >= (sk_r2 - 0.07)
 
 
+@pytest.mark.xfail(reason='Need rapidsai/rmm#415 to detect memleak robustly')
 @pytest.mark.memleak
 @pytest.mark.parametrize('fil_sparse_format', [True, False, 'auto'])
 @pytest.mark.parametrize('n_iter', [unit_param(5), quality_param(30),
