@@ -6,6 +6,7 @@
 - PR #2287: Single-GPU TfidfTransformer implementation
 - PR #2289: QR SVD solver for MNMG PCA
 - PR #2312: column-major support for make_blobs
+- PR #2394: Adding cosine & correlation distance for KNN
 - PR #2392: PCA can accept sparse inputs, and sparse prim for computing covariance
 
 ## Improvements
@@ -29,10 +30,10 @@
 - PR #2420: Add and set convert_dtype default to True in estimator fit methods
 - PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
 - PR #2442: fix setting RAFT_DIR from the RAFT_PATH env var
-- PR #2411 Refactor Mixin classes and use in classifier/regressor estimators
 - PR #2453: Add CumlArray to API doc
 - PR #2440: Use Treelite Conda package
-- PR #2403 Support for input and output type consistency in logistic regression predict_proba
+- PR #2403: Support for input and output type consistency in logistic regression predict_proba
+- PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -222,7 +223,7 @@
 - PR #2305: Fixed race condition in DBScan
 - PR #2354: Fix broken links in README
 
-# cuML 0.13.0 (Date TBD)
+# cuML 0.13.0 (31 Mar 2020)
 
 ## New Features
 - PR #1777: Python bindings for entropy
@@ -339,7 +340,6 @@
 - PR #1951: Dask Random forest regression CPU predict bug fix
 - PR #1948: Adjust BatchedMargin margin and disable tests temporarily
 - PR #1950: Fix UMAP test failure
-
 
 
 # cuML 0.12.0 (04 Feb 2020)
