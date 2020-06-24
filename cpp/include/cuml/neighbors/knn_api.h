@@ -41,9 +41,11 @@ extern "C" {
  * @param rowMajorQuery is the query array in row major layout?
  * @param metric_type the type of distance metric to use. This corresponds
  * 					  to the value in the ML::MetricType enum. Default is
- * 					  Euclidean.
+ * 					  Euclidean (L2).
  * @param metric_arg the value of `p` for Minkowski (l-p) distances. This
  * 					 is ignored if the metric_type is not Minkowski.
+ * @param expanded should lp-based distances be returned in their expanded
+ * 					 form (e.g., without raising to the 1/p power).
  */
 cumlError_t knn_search(const cumlHandle_t handle, float **input, int *size,
                        int n_params, int D, const float *search_items, int n,
