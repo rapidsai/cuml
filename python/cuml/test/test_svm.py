@@ -352,6 +352,7 @@ def get_memsize(svc):
     return ms
 
 
+@pytest.mark.xfail(reason='Need rapidsai/rmm#415 to detect memleak robustly')
 @pytest.mark.memleak
 @pytest.mark.parametrize('params', [
     {'kernel': 'rbf', 'C': 1, 'gamma': 1}
@@ -405,6 +406,7 @@ def test_svm_memleak(params, n_rows, n_iter, n_cols,
     assert delta_mem == 0
 
 
+@pytest.mark.xfail(reason='Need rapidsai/rmm#415 to detect memleak robustly')
 @pytest.mark.memleak
 @pytest.mark.parametrize('params', [
     {'kernel': 'poly', 'degree': 30, 'C': 1, 'gamma': 1}

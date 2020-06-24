@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,17 +14,4 @@
 # limitations under the License.
 #
 
-from cuml.neighbors.nearest_neighbors import NearestNeighbors
-from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
-from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
-
-
-VALID_METRICS = {"brute": set([
-        "l2", "euclidean",
-        "l1", "cityblock", "manhattan", "taxicab",
-        "braycurtis", "canberra",
-        "minkowski", "lp",
-        "chebyshev", "linf",
-        "jensenshannon",
-        "cosine", "correlation"
-    ])}
+from cuml.prims.stats.covariance import cov

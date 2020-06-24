@@ -68,11 +68,11 @@ option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 
-option(DISABLE_CUMLPRIMS_MG "Disable algorithms that use libcumlprims")
-
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 
-option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
+option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
+
+option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" OFF)
 
 option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 
@@ -152,7 +152,7 @@ if(SINGLEGPU)
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_STD_COMMS OFF)
   set(BUILD_CUML_MPI_COMMS OFF)
-  set(DISABLE_CUMLPRIMS_MG ON)
+  set(ENABLE_CUMLPRIMS_MG OFF)
   set(WITH_UCX OFF)
 endif(SINGLEGPU)
 
@@ -304,8 +304,6 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
   ${SPDLOG_DIR}/src/spdlog/include
-  ${TREELITE_DIR}/include
-  ${TREELITE_DIR}/include/fmt
   ${RAFT_DIR}/cpp/include)
 
 set(CUML_LINK_LIBRARIES
@@ -388,8 +386,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     PRIVATE
       ${Protobuf_LIBRARIES}
       faisslib
-      treelitelib
-      dmlclib)
+      treelite::treelite
+      treelite::treelite_runtime)
   # If we export the libdmlc symbols, they can lead to weird crashes with other
   # libraries that use libdmlc. This just hides the symbols internally.
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
@@ -424,8 +422,8 @@ if(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
   add_subdirectory(test ${PROJECT_BINARY_DIR}/test)
 endif(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
 
-###################################################################################################
-# - build comms ------------------------------------------------------------------------
+##############################################################################
+# - build comms ------------------------------------------------------------------------------
 
 if(BUILD_CUML_STD_COMMS)
   add_subdirectory(comms/std)
@@ -435,8 +433,8 @@ if(BUILD_CUML_MPI_COMMS)
   add_subdirectory(comms/mpi)
 endif(BUILD_CUML_MPI_COMMS)
 
-###################################################################################################
-# - build examples -------------------------------------------------------------------------
+##############################################################################
+# - build examples ------------------------------------------------------------------------------
 
 if(BUILD_CUML_EXAMPLES)
   add_subdirectory(examples)

@@ -389,19 +389,17 @@ def input_to_dev_array(X, order='F', deepcopy=False,
 @with_cupy_rmm
 def convert_dtype(X, to_dtype=np.float32, legacy=True):
     """
-    Convert X to be of dtype `dtype`
-
-    Supported float dtypes for overflow checking.
-    Todo: support other dtypes if needed.
+    Convert X to be of dtype `dtype`, raising a TypeError
+    if the conversion would lose information.
     """
+    would_lose_info = _typecast_will_lose_information(X, to_dtype)
+    if would_lose_info:
+        raise TypeError("Data type conversion would lose information.")
 
     if isinstance(X, np.ndarray):
         dtype = X.dtype
         if dtype != to_dtype:
             X_m = X.astype(to_dtype)
-            if len(X[X == np.inf]) > 0:
-                raise TypeError("Data type conversion resulted"
-                                "in data loss.")
             return X_m
 
     elif isinstance(X, (cudf.Series, cudf.DataFrame, pd.Series, pd.DataFrame)):
@@ -422,8 +420,59 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True):
     return X
 
 
+def _typecast_will_lose_information(X, target_dtype):
+    """
+    Returns True if typecast will cause information loss, else False.
+    Handles float/float, float/int, and int/int typecasts.
+    """
+    target_dtype = np.dtype(target_dtype).type
+
+    if target_dtype in (np.int8, np.int16, np.int32, np.int64):
+        target_dtype_range = np.iinfo(target_dtype)
+    else:
+        target_dtype_range = np.finfo(target_dtype)
+
+    if isinstance(X, (np.ndarray, cp.ndarray, pd.Series, cudf.Series)):
+        if X.dtype.type == target_dtype:
+            return False
+
+        return (
+            (X < target_dtype_range.min) |
+            (X > target_dtype_range.max)
+        ).any()
+
+    elif isinstance(X, (pd.DataFrame, cudf.DataFrame)):
+        X_m = X.values
+        return _typecast_will_lose_information(X_m, target_dtype)
+
+    elif cuda.is_cuda_array(X):
+        X_m = cp.asarray(X)
+        return _typecast_will_lose_information(X_m, target_dtype)
+
+    else:
+        raise TypeError("Received unsupported input type: %s" % type(X))
+
+    return False
+
+
 def order_to_str(order):
     if order == 'F':
         return 'column (\'F\')'
     elif order == 'C':
         return 'row (\'C\')'
+
+
+def sparse_scipy_to_cp(sp, dtype):
+    """
+    Convert object of scipy.sparse to
+    cupy.sparse.coo_matrix
+    """
+
+    coo = sp.tocoo()
+    values = coo.data
+
+    r = cp.asarray(coo.row)
+    c = cp.asarray(coo.col)
+    v = cp.asarray(values, dtype=dtype)
+
+    return cp.sparse.coo_matrix((v, (r, c)), sp.shape)

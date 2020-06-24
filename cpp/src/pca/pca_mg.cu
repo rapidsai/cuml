@@ -129,17 +129,21 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
     std::vector<Matrix::Data<T> *> uMatrixParts;
     Matrix::opg::allocate(h, uMatrixParts, input_desc, rank, stream);
 
-    T *sVector = (T *)allocator->allocate(prms.n_cols * sizeof(T), stream);
+    device_buffer<T> sVector(allocator, stream, prms.n_cols);
 
-    T *vMatrix =
-      (T *)allocator->allocate(prms.n_cols * prms.n_cols * sizeof(T), stream);
-    CUDA_CHECK(cudaMemset(vMatrix, 0, prms.n_cols * prms.n_cols * sizeof(T)));
+    device_buffer<T> vMatrix(allocator, stream, prms.n_cols * prms.n_cols);
 
-    LinAlg::opg::svdQR(h, sVector, uMatrixParts, vMatrix, true, true, prms.tol,
+    // T *sVector = (T *)allocator->allocate(prms.n_cols * sizeof(T), stream);
+
+    // T *vMatrix =
+    //   (T *)allocator->allocate(prms.n_cols * prms.n_cols * sizeof(T), stream);
+    CUDA_CHECK(cudaMemset(vMatrix.data(), 0, prms.n_cols * prms.n_cols * sizeof(T)));
+
+    LinAlg::opg::svdQR(h, sVector.data(), uMatrixParts, vMatrix.data(), true, true, prms.tol,
                        prms.n_iterations, input_data, input_desc, rank);
 
     // sign flip
-    sign_flip(handle, uMatrixParts, input_desc, vMatrix, prms.n_cols, streams,
+    sign_flip(handle, uMatrixParts, input_desc, vMatrix.data(), prms.n_cols, streams,
               n_streams);
 
     // Calculate instance variables
@@ -147,12 +151,12 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
     device_buffer<T> explained_var_ratio_all(allocator, stream, prms.n_cols);
 
     T scalar = 1.0 / (prms.n_rows - 1);
-    Matrix::power(sVector, explained_var_all.data(), scalar, prms.n_cols,
+    Matrix::power(sVector.data(), explained_var_all.data(), scalar, prms.n_cols,
                   stream);
     Matrix::ratio(explained_var_all.data(), explained_var_ratio_all.data(),
                   prms.n_cols, allocator, stream);
 
-    Matrix::truncZeroOrigin(sVector, prms.n_cols, singular_vals,
+    Matrix::truncZeroOrigin(sVector.data(), prms.n_cols, singular_vals,
                             prms.n_components, 1, stream);
 
     Matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols,
@@ -160,14 +164,14 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
     Matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
                             explained_var_ratio, prms.n_components, 1, stream);
 
-    MLCommon::LinAlg::transpose(vMatrix, prms.n_cols, stream);
-    Matrix::truncZeroOrigin(vMatrix, prms.n_cols, components, prms.n_components,
+    MLCommon::LinAlg::transpose(vMatrix.data(), prms.n_cols, stream);
+    Matrix::truncZeroOrigin(vMatrix.data(), prms.n_cols, components, prms.n_components,
                             prms.n_cols, stream);
 
     Matrix::opg::deallocate(h, uMatrixParts, input_desc, rank, stream);
-    allocator->deallocate(sVector, prms.n_cols * sizeof(T), stream);
-    allocator->deallocate(vMatrix, prms.n_cols * prms.n_cols * sizeof(T),
-                          stream);
+    // allocator->deallocate(sVector, prms.n_cols * sizeof(T), stream);
+    // allocator->deallocate(vMatrix, prms.n_cols * prms.n_cols * sizeof(T),
+    //                       stream);
 
     // Re-add mean to centered data
     Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams,
@@ -185,9 +189,9 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
 
 template <typename T>
 void transform_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input,
-                    Matrix::PartDescriptor input_desc, T *components,
+                    const Matrix::PartDescriptor input_desc, T *components,
                     std::vector<Matrix::Data<T> *> &trans_input,
-                    T *singular_vals, T *mu, paramsPCAMG prms,
+                    T *singular_vals, T *mu, const paramsPCAMG prms,
                     cudaStream_t *streams, int n_streams, bool verbose) {
   cublasHandle_t cublas_h = handle.getImpl().getCublasHandle();
   const std::shared_ptr<deviceAllocator> allocator =

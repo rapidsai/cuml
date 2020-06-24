@@ -18,8 +18,8 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDTARGETS="clean libcuml cuml prims bench prims-bench cppdocs pydocs"
-VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help --cpp_mg_tests"
+VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
+VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
@@ -27,6 +27,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    libcuml          - build the cuml C++ code only. Also builds the C-wrapper library
                       around the C++ code.
    cuml             - build the cuml Python package
+   cpp-mgtests   - Build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
    prims            - build the ML prims tests
    bench            - build the cuml C++ benchmark
    prims-bench      - build the ml-prims C++ benchmark
@@ -38,7 +39,6 @@ HELP="$0 [<target> ...] [<flag> ...]
    -n               - no install step
    --allgpuarch     - build for all supported GPU architectures
    --singlegpu      - Build libcuml and cuml without multigpu components
-   --cpp_mg_tests   - Build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
@@ -116,7 +116,7 @@ if hasArg --singlegpu; then
     SINGLEGPU_PYTHON_FLAG="--singlegpu"
     SINGLEGPU_CPP_FLAG=ON
 fi
-if hasArg --cpp_mg_tests; then
+if hasArg cpp-mgtests; then
     BUILD_CPP_MG_TESTS=ON
 fi
 if hasArg --nvtx; then
@@ -149,7 +149,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs; then
+if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs || hasArg cpp-mgtests; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         GPU_ARCH=""
         echo "Building for the architecture of the GPU in the system..."
@@ -183,7 +183,10 @@ fi
 
 MAKE_TARGETS=
 if hasArg libcuml; then
-    MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml ml ml_mg"
+    MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml ml"
+fi
+if hasArg cpp-mgtests; then
+    MAKE_TARGETS="${MAKE_TARGETS} ml_mg"
 fi
 if hasArg prims; then
     MAKE_TARGETS="${MAKE_TARGETS} prims"
@@ -196,7 +199,7 @@ if hasArg prims-bench; then
 fi
 
 # If `./build.sh cuml` is called, don't build C/C++ components
-if completeBuild || hasArg libcuml || hasArg prims || hasArg bench; then
+if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests; then
     # If there are no targets specified when calling build.sh, it will
     # just call `make -j`. This avoids a lot of extra printing
     cd ${LIBCUML_BUILD_DIR}
