@@ -83,14 +83,17 @@ __device__ void MM_l(const double* A, const double* B, double* out) {
  * @param[out] Fs         Batched variance of prediction errors (nobs)    
  * @param[out] sum_logFs  Batched sum of the logs of Fs         (1)
  * @param[in]  fc_steps   Number of steps to forecast
- * @param[in]  d_fc       Array to store the forecast
+ * @param[out] d_fc       Array to store the forecast
+ * @param[in]  conf_int   Whether to compute confidence intervals
+ * @param[in]  d_F_fc     Batched variance of forecast errors   (fc_steps)
  */
 template <int r>
 __global__ void batched_kalman_loop_kernel(
   const double* ys, int nobs, const double* T, const double* Z,
   const double* RRT, const double* P, const double* alpha, bool intercept,
   const double* d_mu, int batch_size, double* vs, double* Fs, double* sum_logFs,
-  int fc_steps = 0, double* d_fc = nullptr) {
+  int fc_steps = 0, double* d_fc = nullptr, bool conf_int = false,
+  double* d_F_fc = nullptr) {
   constexpr int r2 = r * r;
   double l_RRT[r2];
   double l_T[r2];
@@ -176,16 +179,33 @@ __global__ void batched_kalman_loop_kernel(
     sum_logFs[bid] = b_sum_logFs;
 
     // Forecast
-    double* b_fc = fc_steps ? d_fc + bid * fc_steps : nullptr;
-    for (int i = 0; i < fc_steps; i++) {
-      b_fc[i] = l_alpha[0];
+    {
+      double* b_fc = fc_steps ? d_fc + bid * fc_steps : nullptr;
+      double* b_F_fc = conf_int ? d_F_fc + bid * fc_steps : nullptr;
+      for (int it = 0; it < fc_steps; it++) {
+        b_fc[it] = l_alpha[0];
 
-      // alpha = T*alpha + c
-      Mv_l<r>(l_T, l_alpha, l_tmp);
-      for (int i = 0; i < r; i++) {
-        l_alpha[i] = l_tmp[i];
+        // alpha = T*alpha + c
+        Mv_l<r>(l_T, l_alpha, l_tmp);
+        for (int i = 0; i < r; i++) {
+          l_alpha[i] = l_tmp[i];
+        }
+        l_alpha[0] += mu;
+
+        if (conf_int) {
+          b_F_fc[it] = l_P[0];
+
+          // P = T*P*T' + RR'
+          // TP = T*P
+          MM_l<r>(l_T, l_P, l_TP);
+          // P = TP*T'
+          MM_l<r, false, true>(l_TP, l_T, l_P);
+          // P = P + RR'
+          for (int i = 0; i < r2; i++) {
+            l_P[i] += l_RRT[i];
+          }
+        }
       }
-      l_alpha[0] += mu;
     }
   }
 }
@@ -208,7 +228,9 @@ __global__ void batched_kalman_loop_kernel(
  * @param[out] d_Fs         Batched variance of prediction errors (nobs)    
  * @param[out] d_sum_logFs  Batched sum of the logs of Fs         (1)
  * @param[in]  fc_steps     Number of steps to forecast
- * @param[in]  d_fc         Array to store the forecast
+ * @param[out] d_fc         Array to store the forecast
+ * @param[in]  conf_int     Whether to compute confidence intervals
+ * @param[out] d_F_fc       Batched variance of forecast errors   (fc_steps)
  */
 void _batched_kalman_loop_large(
   const double* d_ys, int nobs,
@@ -219,7 +241,8 @@ void _batched_kalman_loop_large(
   MLCommon::LinAlg::Batched::Matrix<double>& P,
   MLCommon::LinAlg::Batched::Matrix<double>& alpha, bool intercept,
   const double* d_mu, int r, double* d_vs, double* d_Fs, double* d_sum_logFs,
-  int fc_steps = 0, double* d_fc = nullptr) {
+  int fc_steps = 0, double* d_fc = nullptr, bool conf_int = false,
+  double* d_F_fc = nullptr) {
   auto stream = T.stream();
   auto allocator = T.allocator();
   auto cublasHandle = T.cublasHandle();
@@ -314,18 +337,43 @@ void _batched_kalman_loop_large(
   }
 
   // Forecast
-  for (int i = 0; i < fc_steps; i++) {
-    thrust::for_each(
-      thrust::cuda::par.on(stream), counting, counting + nb,
-      [=] __device__(int bid) { d_fc[bid * fc_steps + i] = d_alpha[bid * r]; });
+  for (int it = 0; it < fc_steps; it++) {
+    thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
+                     [=] __device__(int bid) {
+                       d_fc[bid * fc_steps + it] = d_alpha[bid * r];
+                     });
 
+    // alpha = T*alpha + c
+    // alpha = T*alpha
     MLCommon::Sparse::Batched::b_spmv(1.0, T_sparse, alpha, 0.0, v_tmp);
     MLCommon::copy(d_alpha, v_tmp.raw_data(), r * nb, stream);
-
+    // alpha += c
     if (intercept) {
       thrust::for_each(
         thrust::cuda::par.on(stream), counting, counting + nb,
         [=] __device__(int bid) { d_alpha[bid * r] += d_mu[bid]; });
+    }
+
+    if (conf_int) {
+      thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
+                       [=] __device__(int bid) {
+                         d_F_fc[bid * fc_steps + it] = d_P[bid * r2];
+                       });
+
+      // P = T*P*T' + R*R'
+      // TP = T*P
+      if (r <= 32)
+        MLCommon::Sparse::Batched::b_spmm(1.0, T_sparse, P, 0.0, TP);
+      else
+        MLCommon::LinAlg::Batched::b_gemm(false, false, r, r, r, 1.0, T, P, 0.0,
+                                          TP);
+      // P = TP*T'
+      MLCommon::LinAlg::Batched::b_gemm(false, true, r, r, r, 1.0, TP, T, 0.0,
+                                        P);
+      // P = P + R*R'
+      MLCommon::LinAlg::binaryOp(
+        d_P, d_P, RRT.raw_data(), r2 * nb,
+        [=] __device__(double a, double b) { return a + b; }, stream);
     }
   }
 }
@@ -340,7 +388,8 @@ void batched_kalman_loop(cumlHandle& handle, const double* ys, int nobs,
                          std::vector<bool>& T_mask, bool intercept,
                          const double* d_mu, int r, double* vs, double* Fs,
                          double* sum_logFs, int fc_steps = 0,
-                         double* d_fc = nullptr) {
+                         double* d_fc = nullptr, bool conf_int = false,
+                         double* d_F_fc = nullptr) {
   const int batch_size = T.batches();
   auto stream = T.stream();
   dim3 numThreadsPerBlock(32, 1);
@@ -352,56 +401,56 @@ void batched_kalman_loop(cumlHandle& handle, const double* ys, int nobs,
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc);
+            fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 2:
         batched_kalman_loop_kernel<2>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc);
+            fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 3:
         batched_kalman_loop_kernel<3>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc);
+            fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 4:
         batched_kalman_loop_kernel<4>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc);
+            fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 5:
         batched_kalman_loop_kernel<5>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc);
+            fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 6:
         batched_kalman_loop_kernel<6>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc);
+            fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 7:
         batched_kalman_loop_kernel<7>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc);
+            fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 8:
         batched_kalman_loop_kernel<8>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc);
+            fc_steps, d_fc, conf_int, d_F_fc);
         break;
     }
     CUDA_CHECK(cudaPeekAtLastError());
@@ -412,24 +461,21 @@ void batched_kalman_loop(cumlHandle& handle, const double* ys, int nobs,
         T, T_mask, handle.getImpl().getcusolverSpHandle());
     _batched_kalman_loop_large(ys, nobs, T, T_sparse, Z, RRT, P0, alpha,
                                intercept, d_mu, r, vs, Fs, sum_logFs, fc_steps,
-                               d_fc);
+                               d_fc, conf_int, d_F_fc);
   }
 }
 
 template <int NUM_THREADS>
-__global__ void batched_kalman_loglike_kernel(const double* d_vs,
-                                              const double* d_Fs,
-                                              const double* d_sumLogFs,
-                                              int nobs, int batch_size,
-                                              double* loglike) {
+__global__ void batched_kalman_loglike_kernel(
+  const double* d_vs, const double* d_Fs, const double* d_sumLogFs, int nobs,
+  int batch_size, double* d_loglike, double* d_sigma2, double level) {
   using BlockReduce = cub::BlockReduce<double, NUM_THREADS>;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
   int tid = threadIdx.x;
   int bid = blockIdx.x;
-  int num_threads = blockDim.x;
   double bid_sigma2 = 0.0;
-  for (int it = 0; it < nobs; it += num_threads) {
+  for (int it = 0; it < nobs; it += NUM_THREADS) {
     // vs and Fs are in time-major order (memory layout: column major)
     int idx = (it + tid) + bid * nobs;
     double d_vs2_Fs = 0.0;
@@ -444,19 +490,25 @@ __global__ void batched_kalman_loglike_kernel(const double* d_vs,
   if (tid == 0) {
     double nobs_f = static_cast<double>(nobs);
     bid_sigma2 /= nobs_f;
-    loglike[bid] =
+    if (level != 0) d_sigma2[bid] = bid_sigma2;
+    d_loglike[bid] =
       -.5 * (d_sumLogFs[bid] + nobs_f * bid_sigma2 + nobs_f * (log(2 * M_PI)));
   }
 }
 
-void batched_kalman_loglike(const double* d_vs, const double* d_Fs,
-                            const double* d_sumLogFs, int nobs, int batch_size,
-                            double* loglike, cudaStream_t stream) {
-  constexpr int NUM_THREADS = 128;
-  batched_kalman_loglike_kernel<NUM_THREADS>
-    <<<batch_size, NUM_THREADS, 0, stream>>>(d_vs, d_Fs, d_sumLogFs, nobs,
-                                             batch_size, loglike);
-  CUDA_CHECK(cudaGetLastError());
+/**
+ * @todo: docs
+ * @note: - one block per batch member, one thread
+ *        - F values are stored in d_lower
+ */
+__global__ void confidence_intervals(const double* d_fc, const double* d_sigma2,
+                                     double* d_lower, double* d_upper,
+                                     int fc_steps, double multiplier) {
+  int idx = blockIdx.x * fc_steps + threadIdx.x;
+  double fc = d_fc[idx];
+  double margin = multiplier * sqrt(d_lower[idx] * d_sigma2[blockIdx.x]);
+  d_lower[idx] = fc - margin;
+  d_upper[idx] = fc + margin;
 }
 
 /// Internal Kalman filter implementation that assumes data exists on GPU.
@@ -467,8 +519,8 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                             std::vector<bool>& T_mask, int r, double* d_vs,
                             double* d_Fs, double* d_loglike,
                             const double* d_sigma2, bool intercept,
-                            const double* d_mu, int fc_steps = 0,
-                            double* d_fc = nullptr) {
+                            const double* d_mu, int fc_steps, double* d_fc,
+                            double level, double* d_lower, double* d_upper) {
   const size_t batch_size = Zb.batches();
   auto stream = handle.getStream();
   auto cublasHandle = handle.getImpl().getCublasHandle();
@@ -547,20 +599,31 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
 
   // init vs, Fs
   // In batch-major format.
-  double* d_sumlogFs;
+  double* d_sumLogFs;
 
-  d_sumlogFs = (double*)handle.getDeviceAllocator()->allocate(
+  d_sumLogFs = (double*)handle.getDeviceAllocator()->allocate(
     sizeof(double) * batch_size, stream);
 
   batched_kalman_loop(handle, d_ys, nobs, Tb, Zb, RRT, P, alpha, T_mask,
-                      intercept, d_mu, r, d_vs, d_Fs, d_sumlogFs, fc_steps,
-                      d_fc);
+                      intercept, d_mu, r, d_vs, d_Fs, d_sumLogFs, fc_steps,
+                      d_fc, level > 0, d_lower);
 
-  // Finalize loglikelihood
-  batched_kalman_loglike(d_vs, d_Fs, d_sumlogFs, nobs, batch_size, d_loglike,
-                         stream);
+  // Finalize loglikelihood and prediction intervals
+  MLCommon::device_buffer<double> sigma2_buffer(allocator, stream, batch_size);
+  constexpr int NUM_THREADS = 128;
+  batched_kalman_loglike_kernel<NUM_THREADS>
+    <<<batch_size, NUM_THREADS, 0, stream>>>(d_vs, d_Fs, d_sumLogFs, nobs,
+                                             batch_size, d_loglike,
+                                             sigma2_buffer.data(), level);
+  CUDA_CHECK(cudaPeekAtLastError());
+  if (level > 0) {
+    confidence_intervals<<<batch_size, fc_steps, 0, stream>>>(
+      d_fc, sigma2_buffer.data(), d_lower, d_upper, fc_steps,
+      sqrt(2.0) * erfinv(level));
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
 
-  handle.getDeviceAllocator()->deallocate(d_sumlogFs,
+  handle.getDeviceAllocator()->deallocate(d_sumLogFs,
                                           sizeof(double) * batch_size, stream);
 }
 
@@ -642,7 +705,8 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                            const ARIMAParams<double>& params,
                            const ARIMAOrder& order, int batch_size,
                            double* d_loglike, double* d_vs, int fc_steps,
-                           double* d_fc) {
+                           double* d_fc, double level, double* d_lower,
+                           double* d_upper) {
   ML::PUSH_RANGE(__func__);
 
   const size_t ys_len = nobs;
@@ -674,7 +738,7 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
 
   _batched_kalman_filter(handle, d_ys, nobs, Zb, Tb, Rb, T_mask, r, d_vs, d_Fs,
                          d_loglike, params.sigma2, static_cast<bool>(order.k),
-                         params.mu, fc_steps, d_fc);
+                         params.mu, fc_steps, d_fc, level, d_lower, d_upper);
 
   allocator->deallocate(d_Fs, ys_len * batch_size * sizeof(double), stream);
 

@@ -400,6 +400,7 @@ class AutoARIMA(Base):
             logger.debug("Fitting {} ({})".format(model, method))
             model.fit(h=h, maxiter=maxiter, method=method, truncate=truncate)
 
+    # TODO: prediction intervals
     def predict(self, start=0, end=None):
         """Compute in-sample and/or out-of-sample prediction for each series
 
@@ -425,6 +426,7 @@ class AutoARIMA(Base):
         return _merge_series(predictions, self.id_to_model, self.id_to_pos,
                              self.batch_size).to_output(self.output_type)
 
+    # TODO: prediction intervals
     def forecast(self, nsteps):
         """Forecast `nsteps` into the future.
 
