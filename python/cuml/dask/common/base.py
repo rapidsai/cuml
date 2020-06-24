@@ -57,7 +57,6 @@ class BaseEstimator(object):
 
         mode : Trained single-GPU model or None if the model has not
                yet been trained.
-
         """
 
         internal_model = self._check_internal_model(self._get_internal_model())
