@@ -24,6 +24,7 @@
 - PR #2340: Import ARIMA in the root init file and fix the `test_fit_function` test
 - PR #2408: Install meta packages for dependencies
 - PR #2417: Move doc customization scripts to Jenkins
+- PR #2433: Add libcumlprims_mg to CMake
 - PR #2420: Add and set convert_dtype default to True in estimator fit methods
 - PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
 - PR #2442: fix setting RAFT_DIR from the RAFT_PATH env var
@@ -220,7 +221,7 @@
 - PR #2305: Fixed race condition in DBScan
 - PR #2354: Fix broken links in README
 
-# cuML 0.13.0 (Date TBD)
+# cuML 0.13.0 (31 Mar 2020)
 
 ## New Features
 - PR #1777: Python bindings for entropy
@@ -337,7 +338,6 @@
 - PR #1951: Dask Random forest regression CPU predict bug fix
 - PR #1948: Adjust BatchedMargin margin and disable tests temporarily
 - PR #1950: Fix UMAP test failure
-
 
 
 # cuML 0.12.0 (04 Feb 2020)
