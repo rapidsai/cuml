@@ -29,7 +29,7 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.common.base import Base, RegressorMixin
 from cuml.metrics import r2_score
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
@@ -98,7 +98,7 @@ cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM":
                              svmModel[math_t] &model) except+
 
 
-class SVR(SVMBase):
+class SVR(SVMBase, RegressorMixin):
     """
     SVR (Epsilon Support Vector Regression)
 
@@ -214,7 +214,7 @@ class SVR(SVMBase):
                                   verbose, epsilon)
         self.svmType = EPSILON_SVR
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
@@ -230,6 +230,10 @@ class SVR(SVMBase):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will, when necessary, convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
         """
 
         self._set_output_type(X)
@@ -239,7 +243,12 @@ class SVR(SVMBase):
             input_to_cuml_array(X, order='F')
         X_ptr = X_m.ptr
 
-        y_m, _, _, _ = input_to_cuml_array(y, convert_to_dtype=self.dtype)
+        y_m, _, _, _ = \
+            input_to_cuml_array(y, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_rows=self.n_rows, check_cols=1)
+
         y_ptr = y_m.ptr
 
         self._dealloc()  # delete any previously fitted model
@@ -293,27 +302,3 @@ class SVR(SVMBase):
         """
 
         return super(SVR, self).predict(X, False)
-
-    def score(self, X, y):
-        """
-        Return R^2 score of the prediction.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of target values.
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        score: float R^2 score
-        """
-
-        y_hat = self.predict(X)
-        return r2_score(y, y_hat)
