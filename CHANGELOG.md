@@ -31,7 +31,7 @@
 - PR #2453: Add CumlArray to API doc
 - PR #2440: Use Treelite Conda package
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
-- PR #2410: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
+- PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
