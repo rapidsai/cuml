@@ -322,7 +322,34 @@ class NearestNeighbors(Base):
             if return_distance else I_ndarr.to_output(out_type)
 
     def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):
+        """
+        Find the k nearest neighbors of column vectors in X and return as 
+        a sparse matrix in CSR format.
 
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        n_neighbors : Integer
+            Number of neighbors to search. If not provided, the n_neighbors
+            from the model instance is used (default=10)
+
+        mode : string (default='connectivity')
+            Values in connectivity matrix: 'connectivity' returns the
+            connectivity matrix with ones and zeros, 'distance' returns the
+            edges as the Euclidean distance between points
+
+        Returns
+        -------
+        A: sparse graph in CSR format, shape = (n_samples, n_samples_fit)
+            n_samples_fit is the number of samples in the fitted data where 
+            A[i, j] is assigned the weight of the edge that connects i to k.
+            Values will be ones/zeros or Euclidean distance based on mode.
+
+        """
         # catch errors for X and n_neighbors here
         if n_neighbors is None:
             n_neighbors = self.n_neighbors 
@@ -341,11 +368,11 @@ class NearestNeighbors(Base):
                 'or "distance" but got "%s" instead' % mode)
         
         n_samples = distances.shape[0]
-        n_sampels_fit = self.n_rows
+        n_samples_fit = self.n_rows
         n_nonzero = n_samples * n_neighbors
         rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
 
-        return cp.sparse.csr_matrix(distances, indices.ravel(), rowptr, shape=(n_samples, n_sampels_fit))
+        return cp.sparse.csr_matrix(distances, indices.ravel(), rowptr, shape=(n_samples, n_samples_fit))
 
 
 
