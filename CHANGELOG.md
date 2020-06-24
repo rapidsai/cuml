@@ -11,30 +11,31 @@
 - PR #2465: Support pandas 1.0+
 
 ## Improvements
-- PR #2336: Eliminate `rmm.device_array` usage
-- PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
-- PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
 - PR #1945: enable clang tidy
-- PR #2339: umap performance improvements
+- PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
 - PR #2308: Using fixture for Dask client to eliminate possiblity of not closing
-- PR #2345: make C++ logger level definition to be the same as python layer
+- PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
+- PR #2311: Provide access to `cuml.DBSCAN` core samples
 - PR #2329: Add short commit hash to conda package name
+- PR #2336: Eliminate `rmm.device_array` usage
+- PR #2339: umap performance improvements
+- PR #2340: Import ARIMA in the root init file and fix the `test_fit_function` test
+- PR #2345: make C++ logger level definition to be the same as python layer
 - PR #2363: Update threshold and make other changes for stress tests
 - PR #2371: Updating MBSGD tests to use larger batches
 - PR #2380: Pinning libcumlprims version to ease future updates
-- PR #2405: Remove references to deprecated RMM headers.
-- PR #2340: Import ARIMA in the root init file and fix the `test_fit_function` test
-- PR #2408: Install meta packages for dependencies
-- PR #2417: Move doc customization scripts to Jenkins
-- PR #2433: Add libcumlprims_mg to CMake
-- PR #2420: Add and set convert_dtype default to True in estimator fit methods
-- PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
-- PR #2442: fix setting RAFT_DIR from the RAFT_PATH env var
-- PR #2469: Updating KNN c-api to document all arguments
-- PR #2453: Add CumlArray to API doc
-- PR #2440: Use Treelite Conda package
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
+- PR #2405: Remove references to deprecated RMM headers.
+- PR #2408: Install meta packages for dependencies
+- PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
+- PR #2417: Move doc customization scripts to Jenkins
+- PR #2420: Add and set convert_dtype default to True in estimator fit methods
+- PR #2433: Add libcumlprims_mg to CMake
+- PR #2440: Use Treelite Conda package
+- PR #2442: fix setting RAFT_DIR from the RAFT_PATH env var
+- PR #2453: Add CumlArray to API doc
 - PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
+- PR #2469: Updating KNN c-api to document all arguments
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
