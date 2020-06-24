@@ -6,6 +6,7 @@
 - PR #2289: QR SVD solver for MNMG PCA
 - PR #2312: column-major support for make_blobs
 - PR #2392: PCA can accept sparse inputs, and sparse prim for computing covariance
+- PR #2465: Support pandas 1.0+
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
