@@ -116,7 +116,7 @@ class NearestNeighbors(Base):
     metric : string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
-        'minkowski', 'chebyshev', 'jensenshannon']
+        'minkowski', 'chebyshev', 'jensenshannon', 'cosine', 'correlation']
     p : float (default=2) Parameter for the Minkowski metric. When p = 1, this
         is equivalent to manhattan distance (l1), and euclidean distance (l2)
         for p = 2. For arbitrary p, minkowski distance (lp) is used.
