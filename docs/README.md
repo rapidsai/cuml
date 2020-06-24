@@ -27,7 +27,7 @@ Pull or create the cuML [docker container](https://hub.docker.com/r/rapidsai/rap
 docker run -p 8000:8000 -it cuml bash
 ```
 
-###Setup container's conda env for building docs:
+### Setup container's conda env for building docs:
 ```
 sudo sh setup.sh ${cuML-container-id}
 ```
