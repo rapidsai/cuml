@@ -55,7 +55,7 @@ class BaseEstimator(object):
         Returns
         -------
 
-        mode : Trained single-GPU model or None if the model has not
+        model : Trained single-GPU model or None if the model has not
                yet been trained.
         """
 
