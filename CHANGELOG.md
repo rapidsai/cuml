@@ -31,6 +31,7 @@
 - PR #2453: Add CumlArray to API doc
 - PR #2440: Use Treelite Conda package
 - PR #2403 Support for input and output type consistency in logistic regression predict_proba
+- PR #2421 Add metrics.roc_auc_score to API docs. Additional readability and minor docs bug fixes
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak

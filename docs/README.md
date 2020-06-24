@@ -1,37 +1,43 @@
 # Building Documentation
+## Building locally:
 
-A basic python environment with packages listed in `./requirement.txt` is
-enough to build the docs.
+#### [Build and install cuML](../BUILD.md)
 
-## For building locally:
+#### Use your current cuml dev environment, or build a new one doc building environment.
+```shell script
+(new) conda env create --name docs -f ./conda/environment/builddocs_py37.yml
+(existing) pip install -r docs/requirements.txt
 ```
-# From project root:
-conda create env --name docs -f conda/environments/builddocs_py37.yml
-source activate docs
-cd python
-python setup.py install
-cd ../docs
-make html
+#### Generate the docs
+```shell script
+cd docs
+make clean; make html
 ```
 
-## For building via Docker
+#### Once the process finishes, documentation can be found in build/html
+```shell script
+xdg-open build/html/api.html`
+```
 
-## Start cuML container:
+## Building via Docker
+Pull or create the cuML [docker container](https://hub.docker.com/r/rapidsai/rapidsai/).
+
+### Start cuML container:
 ```
 docker run -p 8000:8000 -it cuml bash
 ```
 
-## Setup container's conda env for building docs:
+###Setup container's conda env for building docs:
 ```
 sudo sh setup.sh ${cuML-container-id}
 ```
 
-## Build & host docs from container:
+### Build & host docs from container:
 ```
 sudo sh build.sh ${cuML-container-id}
 ```
 
-## Copy docs from container to host:
+### Copy docs from container to host:
 ```
 docker cp ${cuML-container-id}:/docs/build/html .
 ```

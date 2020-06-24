@@ -1,6 +1,10 @@
-sphinx
-sphinx_rtd_theme
-numpydoc
-sphinx_markdown_tables
+ipython
 nbsphinx
+numpydoc
+pandoc<=2.0.0
 recommonmark
+sphinx
+sphinxcontrib-websupport
+sphinx_markdown_tables
+sphinx_rtd_theme
+
