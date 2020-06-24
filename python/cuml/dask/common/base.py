@@ -20,7 +20,6 @@ import numpy as np
 import warnings
 from toolz import first
 from collections.abc import Iterable
-from sklearn.exceptions import NotFittedError
 
 from cuml.dask.common.utils import get_client
 
@@ -60,9 +59,6 @@ class BaseEstimator(object):
                yet been trained.
 
         """
-
-        if self.internal_model is None:
-            raise NotFittedError("fit() has not been called.")
 
         internal_model = self._check_internal_model(self._get_internal_model())
 
