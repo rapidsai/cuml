@@ -137,14 +137,16 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
 
     // T *vMatrix =
     //   (T *)allocator->allocate(prms.n_cols * prms.n_cols * sizeof(T), stream);
-    CUDA_CHECK(cudaMemset(vMatrix.data(), 0, prms.n_cols * prms.n_cols * sizeof(T)));
+    CUDA_CHECK(
+      cudaMemset(vMatrix.data(), 0, prms.n_cols * prms.n_cols * sizeof(T)));
 
-    LinAlg::opg::svdQR(h, sVector.data(), uMatrixParts, vMatrix.data(), true, true, prms.tol,
-                       prms.n_iterations, input_data, input_desc, rank);
+    LinAlg::opg::svdQR(h, sVector.data(), uMatrixParts, vMatrix.data(), true,
+                       true, prms.tol, prms.n_iterations, input_data,
+                       input_desc, rank);
 
     // sign flip
-    sign_flip(handle, uMatrixParts, input_desc, vMatrix.data(), prms.n_cols, streams,
-              n_streams);
+    sign_flip(handle, uMatrixParts, input_desc, vMatrix.data(), prms.n_cols,
+              streams, n_streams);
 
     // Calculate instance variables
     device_buffer<T> explained_var_all(allocator, stream, prms.n_cols);
@@ -165,8 +167,8 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
                             explained_var_ratio, prms.n_components, 1, stream);
 
     MLCommon::LinAlg::transpose(vMatrix.data(), prms.n_cols, stream);
-    Matrix::truncZeroOrigin(vMatrix.data(), prms.n_cols, components, prms.n_components,
-                            prms.n_cols, stream);
+    Matrix::truncZeroOrigin(vMatrix.data(), prms.n_cols, components,
+                            prms.n_components, prms.n_cols, stream);
 
     Matrix::opg::deallocate(h, uMatrixParts, input_desc, rank, stream);
     // allocator->deallocate(sVector, prms.n_cols * sizeof(T), stream);

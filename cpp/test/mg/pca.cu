@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include <cuml/common/logger.hpp>
 #include <common/cudart_utils.h>
-#include <test_utils.h>
 #include <gtest/gtest.h>
 #include <linalg/cublas_wrappers.h>
+#include <test_utils.h>
 #include <cuda_utils.cuh>
+#include <cuml/common/logger.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
+#include <matrix/matrix.cuh>
 #include <opg/linalg/gemm.hpp>
 #include <opg/matrix/matrix_utils.hpp>
-#include <matrix/matrix.cuh>
 #include "test_opg_utils.h"
 
 namespace MLCommon {
@@ -178,13 +178,21 @@ typedef PCAOpgTest<float> PCAOpgTestF;
 
 TEST_P(PCAOpgTestF, Result) {
   if (myRank == 0) {
-    CUML_LOG_DEBUG(MLCommon::arr2Str(singular_vals, params.N_components, "Singular Vals", stream).c_str());
+    CUML_LOG_DEBUG(MLCommon::arr2Str(singular_vals, params.N_components,
+                                     "Singular Vals", stream)
+                     .c_str());
 
-    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var, params.N_components, "Explained Variance", stream).c_str());
+    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var, params.N_components,
+                                     "Explained Variance", stream)
+                     .c_str());
 
-    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var_ratio, params.N_components, "Explained Variance Ratio", stream).c_str());
+    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var_ratio, params.N_components,
+                                     "Explained Variance Ratio", stream)
+                     .c_str());
 
-    CUML_LOG_DEBUG(MLCommon::arr2Str(components, params.N_components * params.N, "Components", stream).c_str());
+    CUML_LOG_DEBUG(MLCommon::arr2Str(components, params.N_components * params.N,
+                                     "Components", stream)
+                     .c_str());
 
     ASSERT_TRUE(true);
   }
@@ -196,13 +204,21 @@ typedef PCAOpgTest<double> PCAOpgTestD;
 
 TEST_P(PCAOpgTestD, Result) {
   if (myRank == 0) {
-    CUML_LOG_DEBUG(MLCommon::arr2Str(singular_vals, params.N_components, "Singular Vals", stream).c_str());
+    CUML_LOG_DEBUG(MLCommon::arr2Str(singular_vals, params.N_components,
+                                     "Singular Vals", stream)
+                     .c_str());
 
-    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var, params.N_components, "Explained Variance", stream).c_str());
+    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var, params.N_components,
+                                     "Explained Variance", stream)
+                     .c_str());
 
-    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var_ratio, params.N_components, "Explained Variance Ratio", stream).c_str());
+    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var_ratio, params.N_components,
+                                     "Explained Variance Ratio", stream)
+                     .c_str());
 
-    CUML_LOG_DEBUG(MLCommon::arr2Str(components, params.N_components * params.N, "Components", stream).c_str());
+    CUML_LOG_DEBUG(MLCommon::arr2Str(components, params.N_components * params.N,
+                                     "Components", stream)
+                     .c_str());
 
     ASSERT_TRUE(true);
   }

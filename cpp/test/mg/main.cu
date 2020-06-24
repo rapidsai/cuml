@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-
 #include <gtest/gtest.h>
 
 #include "test_opg_utils.h"
 
 int main(int argc, char **argv) {
-
   ::testing::InitGoogleTest(&argc, argv);
-  ::testing::AddGlobalTestEnvironment(new MLCommon::Test::opg::MPIEnvironment());
+  ::testing::AddGlobalTestEnvironment(
+    new MLCommon::Test::opg::MPIEnvironment());
 
   return RUN_ALL_TESTS();
 }
