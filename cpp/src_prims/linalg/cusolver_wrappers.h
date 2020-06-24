@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,62 +16,53 @@
 
 #pragma once
 
-#include <cuda_utils.h>
 #include <cusolverDn.h>
 #include <cusolverSp.h>
+#include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
 
-/** check for cusolver runtime API errors and assert accordingly */
-#define CUSOLVER_CHECK(call)                                             \
-  {                                                                      \
-    cusolverStatus_t err;                                                \
-    if ((err = (call)) != CUSOLVER_STATUS_SUCCESS) {                     \
-      fprintf(stderr, "Got CUSOLVER error %d at %s:%d\n", err, __FILE__, \
-              __LINE__);                                                 \
-      switch (err) {                                                     \
-        case CUSOLVER_STATUS_NOT_INITIALIZED:                            \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_NOT_INITIALIZED");    \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_ALLOC_FAILED:                               \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_ALLOC_FAILED");       \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_INVALID_VALUE:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_INVALID_VALUE");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_ARCH_MISMATCH:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_ARCH_MISMATCH");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_MAPPING_ERROR:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_MAPPING_ERROR");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_EXECUTION_FAILED:                           \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_EXECUTION_FAILED");   \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_INTERNAL_ERROR:                             \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_INTERNAL_ERROR");     \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_MATRIX_TYPE_NOT_SUPPORTED:                  \
-          fprintf(stderr, "%s\n",                                        \
-                  "CUSOLVER_STATUS_MATRIX_TYPE_NOT_SUPPORTED");          \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_NOT_SUPPORTED:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_NOT_SUPPORTED");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_ZERO_PIVOT:                                 \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_ZERO_PIVOT");         \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_INVALID_LICENSE:                            \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_INVALID_LICENSE");    \
-          exit(1);                                                       \
-      }                                                                  \
-      exit(1);                                                           \
-    }                                                                    \
-  }
+#define _CUSOLVER_ERR_TO_STR(err) \
+  case err:                       \
+    return #err;
+inline const char *cusolverErr2Str(cusolverStatus_t err) {
+  switch (err) {
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_SUCCESS);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_NOT_INITIALIZED);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_ALLOC_FAILED);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_INVALID_VALUE);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_ARCH_MISMATCH);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_EXECUTION_FAILED);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_INTERNAL_ERROR);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_ZERO_PIVOT);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_NOT_SUPPORTED);
+    default:
+      return "CUSOLVER_STATUS_UNKNOWN";
+  };
+}
+#undef _CUSOLVER_ERR_TO_STR
 
-///@todo: add a similar CUSOLVER_CHECK_NO_THROW
-/// (Ref: https://github.com/rapidsai/cuml/issues/229)
+/** check for cusolver runtime API errors and assert accordingly */
+#define CUSOLVER_CHECK(call)                                         \
+  do {                                                               \
+    cusolverStatus_t err = call;                                     \
+    ASSERT(err == CUSOLVER_STATUS_SUCCESS,                           \
+           "CUSOLVER call='%s' got errorcode=%d err=%s", #call, err, \
+           MLCommon::LinAlg::cusolverErr2Str(err));                  \
+  } while (0)
+
+/** check for cusolver runtime API errors but do not assert */
+#define CUSOLVER_CHECK_NO_THROW(call)                                          \
+  do {                                                                         \
+    cusolverStatus_t err = call;                                               \
+    if (err != CUSOLVER_STATUS_SUCCESS) {                                      \
+      CUML_LOG_ERROR("CUSOLVER call='%s' got errorcode=%d err=%s", #call, err, \
+                     MLCommon::LinAlg::cusolverErr2Str(err));                  \
+    }                                                                          \
+  } while (0)
 
 /**
  * @defgroup Getrf cusolver getrf operations
@@ -338,7 +329,6 @@ inline cusolverStatus_t cusolverDnsyevdx(
  * @defgroup svd cusolver svd operations
  * @{
  */
-
 template <typename T>
 cusolverStatus_t cusolverDngesvd_bufferSize(cusolverDnHandle_t handle, int m,
                                             int n, int *lwork) {
@@ -348,14 +338,12 @@ cusolverStatus_t cusolverDngesvd_bufferSize(cusolverDnHandle_t handle, int m,
     return cusolverDnDgesvd_bufferSize(handle, m, n, lwork);
   }
 }
-
 template <typename T>
 cusolverStatus_t cusolverDngesvd(cusolverDnHandle_t handle, signed char jobu,
                                  signed char jobvt, int m, int n, T *A, int lda,
                                  T *S, T *U, int ldu, T *VT, int ldvt, T *work,
                                  int lwork, T *rwork, int *devInfo,
                                  cudaStream_t stream);
-
 template <>
 inline cusolverStatus_t cusolverDngesvd(
   cusolverDnHandle_t handle, signed char jobu, signed char jobvt, int m, int n,
@@ -365,7 +353,6 @@ inline cusolverStatus_t cusolverDngesvd(
   return cusolverDnSgesvd(handle, jobu, jobvt, m, n, A, lda, S, U, ldu, VT,
                           ldvt, work, lwork, rwork, devInfo);
 }
-
 template <>
 inline cusolverStatus_t cusolverDngesvd(
   cusolverDnHandle_t handle, signed char jobu, signed char jobvt, int m, int n,
@@ -376,19 +363,11 @@ inline cusolverStatus_t cusolverDngesvd(
                           ldvt, work, lwork, rwork, devInfo);
 }
 
-/** @} */
-
-/**
- * @defgroup svd cusolver svd operations with Jacobi method
- * @{
- */
-
 template <typename T>
 inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj_bufferSize(
   cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ, int m, int n,
   const T *A, int lda, const T *S, const T *U, int ldu, const T *V, int ldv,
   int *lwork, gesvdjInfo_t params);
-
 template <>
 inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj_bufferSize(
   cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ, int m, int n,
@@ -397,7 +376,6 @@ inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj_bufferSize(
   return cusolverDnSgesvdj_bufferSize(handle, jobz, econ, m, n, A, lda, S, U,
                                       ldu, V, ldv, lwork, params);
 }
-
 template <>
 inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj_bufferSize(
   cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ, int m, int n,
@@ -406,13 +384,11 @@ inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj_bufferSize(
   return cusolverDnDgesvdj_bufferSize(handle, jobz, econ, m, n, A, lda, S, U,
                                       ldu, V, ldv, lwork, params);
 }
-
 template <typename T>
 inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj(
   cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ, int m, int n,
   T *A, int lda, T *S, T *U, int ldu, T *V, int ldv, T *work, int lwork,
   int *info, gesvdjInfo_t params, cudaStream_t stream);
-
 template <>
 inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj(
   cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ, int m, int n,
@@ -422,7 +398,6 @@ inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj(
   return cusolverDnSgesvdj(handle, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv,
                            work, lwork, info, params);
 }
-
 template <>
 inline cusolverStatus_t CUSOLVERAPI
 cusolverDngesvdj(cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ,
@@ -433,7 +408,6 @@ cusolverDngesvdj(cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ,
   return cusolverDnDgesvdj(handle, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv,
                            work, lwork, info, params);
 }
-
 /** @} */
 
 /**

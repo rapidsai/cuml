@@ -31,6 +31,8 @@ import numpy as np
 
 from cuml.test.utils import array_equal
 
+import cupy as cp
+
 
 def test_kneighbors_regressor(n_samples=40,
                               n_features=5,
@@ -103,24 +105,30 @@ def test_score(nrows, ncols, n_neighbors, n_clusters, datatype):
     assert knn_cu.score(X, y) >= 0.9999
 
 
-@pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
-def test_predict_multioutput(datatype):
+@pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
+@pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
+def test_predict_multioutput(input_type, output_type):
 
     X = np.array([[0, 0, 1], [1, 0, 1]]).astype(np.float32)
-    y = np.array([[15.0, 2.0], [5.0, 4.0]]).astype(np.int32)
+    y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 
-    if datatype == "dataframe":
+    if input_type == "cudf":
         X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
         y = cudf.DataFrame.from_gpu_matrix(rmm.to_device(y))
+    elif input_type == "cupy":
+        X = cp.asarray(X)
+        y = cp.asarray(y)
 
-    knn_cu = cuKNN(n_neighbors=1)
+    knn_cu = cuKNN(n_neighbors=1, output_type=output_type)
     knn_cu.fit(X, y)
 
     p = knn_cu.predict(X)
 
-    if datatype == "dataframe":
+    if output_type == "cudf":
         assert isinstance(p, cudf.DataFrame)
-    else:
+    elif output_type == "numpy":
         assert isinstance(p, np.ndarray)
+    elif output_type == "cupy":
+        assert isinstance(p, cp.core.core.ndarray)
 
     assert array_equal(p.astype(np.int32), y)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,12 +23,13 @@ namespace MLCommon {
 namespace LinAlg {
 
 /**
- * @defgroup transpose on the column major input matrix using Jacobi method
+ * @brief transpose on the column major input matrix using Jacobi method
  * @param in: input matrix
  * @param out: output. Transposed input matrix
  * @param n_rows: number rows of input matrix
  * @param n_cols: number columns of input matrix
- * @{
+ * @param cublas_h: cublas handle
+ * @param stream: cuda stream
  */
 template <typename math_t>
 void transpose(math_t *in, math_t *out, int n_rows, int n_cols,
@@ -44,10 +45,10 @@ void transpose(math_t *in, math_t *out, int n_rows, int n_cols,
 }
 
 /**
- * @defgroup transpose on the column major input matrix using Jacobi method
+ * @brief transpose on the column major input matrix using Jacobi method
  * @param inout: input and output matrix
  * @param n: number of rows and columns of input matrix
- * @{
+ * @param stream: cuda stream
  */
 template <typename math_t>
 void transpose(math_t *inout, int n, cudaStream_t stream) {
@@ -56,17 +57,18 @@ void transpose(math_t *inout, int n, cudaStream_t stream) {
   auto d_inout = inout;
   auto counting = thrust::make_counting_iterator<int>(0);
 
-  thrust::for_each(counting, counting + size, [=] __device__(int idx) {
-    int s_row = idx % m;
-    int s_col = idx / m;
-    int d_row = s_col;
-    int d_col = s_row;
-    if (s_row < s_col) {
-      auto temp = d_inout[d_col * m + d_row];
-      d_inout[d_col * m + d_row] = d_inout[s_col * m + s_row];
-      d_inout[s_col * m + s_row] = temp;
-    }
-  });
+  thrust::for_each(thrust::cuda::par.on(stream), counting, counting + size,
+                   [=] __device__(int idx) {
+                     int s_row = idx % m;
+                     int s_col = idx / m;
+                     int d_row = s_col;
+                     int d_col = s_row;
+                     if (s_row < s_col) {
+                       auto temp = d_inout[d_col * m + d_row];
+                       d_inout[d_col * m + d_row] = d_inout[s_col * m + s_row];
+                       d_inout[s_col * m + s_row] = temp;
+                     }
+                   });
 }
 
 };  // end namespace LinAlg

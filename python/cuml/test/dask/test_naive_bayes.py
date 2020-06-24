@@ -15,7 +15,6 @@
 #
 
 
-from dask.distributed import Client
 from cuml.test.dask.utils import load_text_corpus
 
 from sklearn.metrics import accuracy_score
@@ -24,71 +23,54 @@ from cuml.dask.naive_bayes import MultinomialNB
 from cuml.naive_bayes.naive_bayes import MultinomialNB as SGNB
 
 
-def test_basic_fit_predict(cluster):
+def test_basic_fit_predict(client):
 
-    client = Client(cluster)
+    X, y = load_text_corpus(client)
 
-    try:
+    model = MultinomialNB()
 
-        X, y = load_text_corpus(client)
+    model.fit(X, y)
 
-        model = MultinomialNB()
+    y_hat = model.predict(X)
 
-        model.fit(X, y)
+    y_hat = y_hat.compute()
+    y = y.compute()
 
-        y_hat = model.predict(X)
-
-        y_hat = y_hat.compute()
-        y = y.compute()
-
-        assert(accuracy_score(y_hat.get(), y) > .97)
-    finally:
-        client.close()
+    assert(accuracy_score(y_hat.get(), y) > .97)
 
 
-def test_single_distributed_exact_results(cluster):
+def test_single_distributed_exact_results(client):
 
-    client = Client(cluster)
+    X, y = load_text_corpus(client)
 
-    try:
+    sgX, sgy = (X.compute(), y.compute())
 
-        X, y = load_text_corpus(client)
+    model = MultinomialNB()
+    model.fit(X, y)
 
-        sgX, sgy = (X.compute(), y.compute())
+    sg_model = SGNB()
+    sg_model.fit(sgX, sgy)
 
-        model = MultinomialNB()
-        model.fit(X, y)
+    y_hat = model.predict(X)
+    sg_y_hat = sg_model.predict(sgX).get()
 
-        sg_model = SGNB()
-        sg_model.fit(sgX, sgy)
+    y_hat = y_hat.compute().get()
 
-        y_hat = model.predict(X)
-        sg_y_hat = sg_model.predict(sgX).get()
-
-        y_hat = y_hat.compute().get()
-
-        assert(accuracy_score(y_hat, sg_y_hat) == 1.0)
-    finally:
-        client.close()
+    assert(accuracy_score(y_hat, sg_y_hat) == 1.0)
 
 
-def test_score(cluster):
+def test_score(client):
 
-    client = Client(cluster)
+    X, y = load_text_corpus(client)
 
-    try:
-        X, y = load_text_corpus(client)
+    model = MultinomialNB()
+    model.fit(X, y)
 
-        model = MultinomialNB()
-        model.fit(X, y)
+    y_hat = model.predict(X)
 
-        y_hat = model.predict(X)
+    score = model.score(X, y)
 
-        score = model.score(X, y)
+    y_hat_local = y_hat.compute()
+    y_local = y.compute()
 
-        y_hat_local = y_hat.compute()
-        y_local = y.compute()
-
-        assert(accuracy_score(y_hat_local.get(), y_local) == score)
-    finally:
-        client.close()
+    assert(accuracy_score(y_hat_local.get(), y_local) == score)

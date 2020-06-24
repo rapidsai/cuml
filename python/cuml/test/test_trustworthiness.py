@@ -25,7 +25,7 @@ import numpy as np
 
 
 @pytest.mark.parametrize('input_type', ['ndarray', 'dataframe'])
-@pytest.mark.parametrize('n_samples', [10, 100])
+@pytest.mark.parametrize('n_samples', [10, 500])
 @pytest.mark.parametrize('batch_size', [512, 2])
 @pytest.mark.parametrize('n_features', [10, 100])
 @pytest.mark.parametrize('n_components', [2, 8])
@@ -51,4 +51,4 @@ def test_trustworthiness(input_type, n_samples, n_features, n_components,
 
     score = cuml_trustworthiness(X, X_embedded, batch_size=batch_size)
 
-    assert score == sk_score
+    assert abs(score - sk_score) <= 1e-3

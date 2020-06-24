@@ -14,6 +14,6 @@
  * limitations under the License.
  */
 
-#include <benchmark/benchmark.h>
+#include <benchmark/benchmark.h>  // NOLINT
 
 BENCHMARK_MAIN();

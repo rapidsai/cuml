@@ -53,7 +53,7 @@ enum algo_t {
  * output of the previous stage:
  * - one of RAW or AVG, indicating how to combine individual tree outputs into the forest output
  * - optional SIGMOID for applying the sigmoid transform
- * - optional THRESHOLD, for thresholding for classification
+ * - optional CLASS, to output the class label
  */
 enum output_t {
   /** raw output: the sum of the tree outputs; use for GBM models for
@@ -68,9 +68,9 @@ enum output_t {
   /** sigmoid transformation: apply 1/(1+exp(-x)) to the sum or average of tree
       outputs; use for GBM binary classification models for probability */
   SIGMOID = 0x10,
-  /** threshold: apply threshold to the output of the previous stage to get the
-      class (0 or 1) */
-  THRESHOLD = 0x100,
+  /** output class label: either apply threshold to the output of the previous stage (for binary classification),
+      or select the class with the most votes to get the class label (for multi-class classification).  */
+  CLASS = 0x100,
 };
 
 /** storage_type_t defines whether to import the forests as dense or sparse */
@@ -83,36 +83,70 @@ enum storage_type_t {
   SPARSE
 };
 
+/** val_t is the payload within a FIL leaf */
+union val_t {
+  /** threshold value for branch node or output value (e.g. class
+      probability or regression summand) for leaf node */
+  float f;
+  /** class label */
+  int idx;
+};
+
 /** dense_node_t is a node in a densely-stored forest */
 struct dense_node_t {
-  float val;
+  val_t val;
   int bits;
+};
+
+/** sparse_node_extra_data is what's missing from a dense node to store
+    a sparse node, that is, extra indexing information due to compressing
+    a sparse tree. */
+struct sparse_node_extra_data {
+  int left_idx;
+  int dummy;  // make alignment explicit and reserve for future use
 };
 
 /** sparse_node_t is a node in a sparsely-stored forest */
-struct sparse_node_t {
-  float val;
-  int bits;
-  int left_idx;
-  // pad the size to 16 bytes to match sparse_node
-  // (in cpp/src/fil/common.cuh)
-  int dummy;
+struct sparse_node_t : dense_node_t, sparse_node_extra_data {
+  sparse_node_t() = default;
+  sparse_node_t(dense_node_t dn, sparse_node_extra_data ed)
+    : dense_node_t(dn), sparse_node_extra_data(ed) {}
+};
+
+/** leaf_value_t describes what the leaves in a FIL forest store (predict) */
+enum leaf_value_t {
+  /** storing a class probability or regression summand */
+  FLOAT_SCALAR = 0,
+  /** storing a class label */
+  INT_CLASS_LABEL = 1
+  // to be extended
+};
+
+template <leaf_value_t leaf_payload_type>
+struct leaf_output_t {};
+template <>
+struct leaf_output_t<leaf_value_t::FLOAT_SCALAR> {
+  typedef float T;
+};
+template <>
+struct leaf_output_t<leaf_value_t::INT_CLASS_LABEL> {
+  typedef int T;
 };
 
 /** dense_node_init initializes node from paramters */
-void dense_node_init(dense_node_t* n, float output, float thresh, int fid,
+void dense_node_init(dense_node_t* n, val_t output, float thresh, int fid,
                      bool def_left, bool is_leaf);
 
 /** dense_node_decode extracts individual members from node */
-void dense_node_decode(const dense_node_t* node, float* output, float* thresh,
+void dense_node_decode(const dense_node_t* node, val_t* output, float* thresh,
                        int* fid, bool* def_left, bool* is_leaf);
 
 /** sparse_node_init initializes node from parameters */
-void sparse_node_init(sparse_node_t* node, float output, float thresh, int fid,
+void sparse_node_init(sparse_node_t* node, val_t output, float thresh, int fid,
                       bool def_left, bool is_leaf, int left_index);
 
 /** sparse_node_decode extracts individual members from node */
-void sparse_node_decode(const sparse_node_t* node, float* output, float* thresh,
+void sparse_node_decode(const sparse_node_t* node, val_t* output, float* thresh,
                         int* fid, bool* def_left, bool* is_leaf,
                         int* left_index);
 
@@ -131,17 +165,23 @@ struct forest_params_t {
   int num_trees;
   // num_cols is the number of columns in the data
   int num_cols;
+  // leaf_payload_type determines what the leaves store (predict)
+  leaf_value_t leaf_payload_type;
   // algo is the inference algorithm;
   // sparse forests do not distinguish between NAIVE and TREE_REORG
   algo_t algo;
   // output is the desired output type
   output_t output;
-  // threshold is used to for classification if output == OUTPUT_CLASS,
+  // threshold is used to for classification if leaf_payload_type == FLOAT_SCALAR && (output & OUTPUT_CLASS) != 0 && !predict_proba,
   // and is ignored otherwise
   float threshold;
   // global_bias is added to the sum of tree predictions
   // (after averaging, if it is used, but before any further transformations)
   float global_bias;
+  // only used for INT_CLASS_LABEL inference. since we're storing the
+  // labels in leaves instead of the whole vector, this keeps track
+  // of the number of classes
+  int num_classes;
 };
 
 /** treelite_params_t are parameters for importing treelite models */
@@ -151,8 +191,10 @@ struct treelite_params_t {
   // output_class indicates whether thresholding will be applied
   // to the model output
   bool output_class;
-  // threshold is used for thresholding if output_class == true,
-  // and is ignored otherwise
+  // threshold may be used for thresholding if output_class == true,
+  // and is ignored otherwise. threshold is ignored if leaves store
+  // vectorized class labels. in that case, a class with most votes
+  // is returned regardless of the absolute vote count
   float threshold;
   // storage_type indicates whether the forest should be imported as dense or sparse
   storage_type_t storage_type;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <test_utils.h>
+#include <cuda_utils.cuh>
 #include <iostream>
+#include <label/classlabels.cuh>
+#include <random/make_blobs.cuh>
+#include <selection/knn.cuh>
 #include <vector>
-#include "label/classlabels.h"
-#include "random/make_blobs.h"
-#include "selection/knn.h"
+#include "test_utils.h"
 
 namespace MLCommon {
 namespace Selection {
@@ -55,7 +56,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
 
     MLCommon::Random::make_blobs<float, int>(
       train_samples, train_labels, params.rows, params.cols, params.n_labels,
-      alloc, stream, nullptr, nullptr, params.cluster_std);
+      alloc, stream, true, nullptr, nullptr, params.cluster_std);
 
     int n_classes;
     MLCommon::Label::getUniqueLabels(train_labels, params.rows, &unique_labels,
@@ -78,8 +79,8 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
     std::vector<int> n_unique;
     n_unique.push_back(n_classes);
 
-    knn_classify(pred_labels, knn_indices, y, params.rows, params.k,
-                 uniq_labels, n_unique, alloc, stream);
+    knn_classify(pred_labels, knn_indices, y, params.rows, params.rows,
+                 params.k, uniq_labels, n_unique, alloc, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));

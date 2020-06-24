@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 #pragma once
+#include <common/cudart_utils.h>
 #include "levelkernel_regressor.cuh"
+
+namespace ML {
+namespace DecisionTree {
+
 template <typename T, typename F>
 void initial_metric_regression(const T *labels, unsigned int *sample_cnt,
                                const int nrows, T &mean, unsigned int &count,
@@ -521,3 +526,6 @@ void make_leaf_gather_regression(
     labels, nodestart, samplelist, d_sparsenodes, nodelist);
   CUDA_CHECK(cudaGetLastError());
 }
+
+}  // namespace DecisionTree
+}  // namespace ML

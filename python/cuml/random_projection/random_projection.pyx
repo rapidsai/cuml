@@ -22,15 +22,17 @@
 import cudf
 import numpy as np
 
-import rmm
-
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array
+from cuml.common.handle cimport *
+from cuml.common import input_to_cuml_array
+
+cdef extern from * nogil:
+    ctypedef void* _Stream "cudaStream_t"
+    ctypedef void* _DevAlloc "std::shared_ptr<MLCommon::deviceAllocator>"
 
 cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
@@ -47,7 +49,7 @@ cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
     # Structure describing random matrix
     cdef cppclass rand_mat[T]:
-        rand_mat() except +     # random matrix structure constructor (set all to nullptr) # noqa E501
+        rand_mat(_DevAlloc, _Stream stream) except +     # random matrix structure constructor (set all to nullptr) # noqa E501
         T *dense_data           # dense random matrix data
         int *indices            # sparse CSC random matrix indices
         int *indptr             # sparse CSC random matrix indptr
@@ -140,7 +142,7 @@ cdef class BaseRandomProjection():
 
         rand_matS/rand_matD : Cython pointers to structures
             Structures holding pointers to data describing random matrix.
-            S for simple/float and D for double.
+            S for single/float and D for double.
 
     Notes
     ------
@@ -153,16 +155,19 @@ cdef class BaseRandomProjection():
     cdef rand_mat[float]* rand_matS
     cdef rand_mat[double]* rand_matD
 
-    def __cinit__(self):
-        self.rand_matS = new rand_mat[float]()
-        self.rand_matD = new rand_mat[double]()
-
     def __dealloc__(self):
         del self.rand_matS
         del self.rand_matD
 
     def __init__(self, n_components='auto', eps=0.1,
                  dense_output=True, random_state=None):
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef _DevAlloc alloc = <_DevAlloc>handle_.getDeviceAllocator()
+        cdef _Stream stream = handle_.getStream()
+        self.rand_matS = new rand_mat[float](alloc, stream)
+        self.rand_matD = new rand_mat[double](alloc, stream)
+
         self.params.n_components = n_components if n_components != 'auto'\
             else -1
         self.params.eps = eps
@@ -191,8 +196,10 @@ cdef class BaseRandomProjection():
 
         """
 
-        _, _, n_samples, n_features, self.dtype = \
-            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
+        self._set_output_type(X)
+
+        _, n_samples, n_features, self.dtype = \
+            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         self.params.n_samples = n_samples
@@ -228,18 +235,19 @@ cdef class BaseRandomProjection():
 
         """
 
-        cdef uintptr_t input_ptr
+        out_type = self._get_output_type(X)
 
-        X_m, input_ptr, n_samples, n_features, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None))
+        X_m, n_samples, n_features, dtype = \
+            input_to_cuml_array(X, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None))
+        cdef uintptr_t input_ptr = X_m.ptr
 
-        X_new = rmm.device_array((n_samples, self.params.n_components),
-                                 dtype=self.dtype,
-                                 order='F')
+        X_new = CumlArray.empty((n_samples, self.params.n_components),
+                                dtype=self.dtype,
+                                order='F')
 
-        cdef uintptr_t output_ptr = get_dev_array_ptr(X_new)
+        cdef uintptr_t output_ptr = X_new.ptr
 
         if self.params.n_features != n_features:
             raise ValueError("n_features must be same as on fitting: %d" %
@@ -262,20 +270,7 @@ cdef class BaseRandomProjection():
 
         self.handle.sync()
 
-        if (isinstance(X, cudf.DataFrame)):
-            del(X_m)
-            h_X_new = X_new.copy_to_host()
-            del(X_new)
-            gdf_X_new = cudf.DataFrame()
-            for i in range(0, h_X_new.shape[1]):
-                gdf_X_new[str(i)] = h_X_new[:, i]
-            return gdf_X_new
-
-        elif isinstance(X, np.ndarray):
-            return X_new.copy_to_host()
-
-        else:
-            return X_new
+        return X_new.to_output(out_type)
 
     def fit_transform(self, X, convert_dtype=False):
         return self.fit(X).transform(X, convert_dtype)
@@ -351,9 +346,9 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
 
     Attributes
     ----------
-        gaussian_method : boolean
-            To be passed to base class in order to determine
-            random matrix generation method
+    gaussian_method : boolean
+        To be passed to base class in order to determine
+        random matrix generation method
 
     Notes
     ------
@@ -474,7 +469,8 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     """
 
     def __init__(self, handle=None, n_components='auto', density='auto',
-                 eps=0.1, dense_output=True, random_state=None, verbose=False):
+                 eps=0.1, dense_output=True, random_state=None,
+                 verbose=False):
         Base.__init__(self, handle, verbose)
         self.gaussian_method = False
         self.density = density if density != 'auto' else -1.0

@@ -22,9 +22,8 @@
 
 #include <cuml/cuml.hpp>
 
+#include <common/cudart_utils.h>
 #include <cuml/common/cuml_allocator.hpp>
-// todo: change utils.h in src_prims
-#include "utils.h"
 
 namespace ML {
 

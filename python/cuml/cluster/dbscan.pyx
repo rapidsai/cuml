@@ -30,7 +30,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 
 from collections import defaultdict
 
@@ -44,7 +44,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         int min_pts,
                         int *labels,
                         size_t max_mbytes_per_batch,
-                        bool verbose) except +
+                        int verbosity) except +
 
     cdef void dbscanFit(cumlHandle& handle,
                         double *input,
@@ -54,7 +54,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         int min_pts,
                         int *labels,
                         size_t max_mbytes_per_batch,
-                        bool verbose) except +
+                        int verbosity) except +
 
     cdef void dbscanFit(cumlHandle& handle,
                         float *input,
@@ -64,7 +64,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         int min_pts,
                         int64_t *labels,
                         size_t max_mbytes_per_batch,
-                        bool verbose) except +
+                        int verbosity) except +
 
     cdef void dbscanFit(cumlHandle& handle,
                         double *input,
@@ -74,7 +74,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         int min_pts,
                         int64_t *labels,
                         size_t max_mbytes_per_batch,
-                        bool verbose) except +
+                        int verbosity) except +
 
 
 class DBSCAN(Base):
@@ -126,8 +126,8 @@ class DBSCAN(Base):
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
-    verbose : bool
-        Whether to print debug spews
+    verbose : int or boolean (default = False)
+        Logging level
     max_mbytes_per_batch : (optional) int64
         Calculate batch size using no more than this number of megabytes for
         the pairwise distance computation. This enables the trade-off between
@@ -147,7 +147,7 @@ class DBSCAN(Base):
         If set, the estimator will override the global option for its behavior.
 
     Attributes
-    -----------
+    ----------
     labels_ : array-like or cuDF series
         Which cluster each datapoint belongs to. Noisy samples are labeled as
         -1. Format depends on cuml global output type and estimator
@@ -168,20 +168,17 @@ class DBSCAN(Base):
         Large Hadron Collider, customer segmentation in marketing analyses,
         and much more.
 
-
-    For an additional example, see `the DBSCAN notebook
-    <https://github.com/rapidsai/notebooks/blob/master/cuml/dbscan_demo.ipynb>`_.
     For additional docs, see `scikitlearn's DBSCAN
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """
 
-    def __init__(self, eps=0.5, handle=None, min_samples=5, verbose=False,
-                 max_mbytes_per_batch=None, output_type=None):
+    def __init__(self, eps=0.5, handle=None, min_samples=5,
+                 verbose=False, max_mbytes_per_batch=None,
+                 output_type=None):
         super(DBSCAN, self).__init__(handle, verbose, output_type)
         self.eps = eps
         self.min_samples = min_samples
         self.max_mbytes_per_batch = max_mbytes_per_batch
-        self.verbose = verbose
 
         # internal array attributes
         self._labels_ = None  # accessed via estimator.labels_
@@ -236,7 +233,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int*> labels_ptr,
                           <size_t>self.max_mbytes_per_batch,
-                          <bool>self.verbose)
+                          <int> self.verbose)
             else:
                 dbscanFit(handle_[0],
                           <float*>input_ptr,
@@ -246,7 +243,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int64_t*> labels_ptr,
                           <size_t>self.max_mbytes_per_batch,
-                          <bool>self.verbose)
+                          <int> self.verbose)
 
         else:
             if out_dtype is "int32" or out_dtype is np.int32:
@@ -258,7 +255,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int*> labels_ptr,
                           <size_t> self.max_mbytes_per_batch,
-                          <bool>self.verbose)
+                          <int> self.verbose)
             else:
                 dbscanFit(handle_[0],
                           <double*>input_ptr,
@@ -268,7 +265,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int64_t*> labels_ptr,
                           <size_t> self.max_mbytes_per_batch,
-                          <bool>self.verbose)
+                          <int> self.verbose)
 
         # make sure that the `dbscanFit` is complete before the following
         # delete call happens

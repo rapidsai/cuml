@@ -26,7 +26,7 @@ import cupy as cp
 from libc.stdint cimport uintptr_t
 
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import with_cupy_rmm, input_to_cuml_array
+from cuml.common import with_cupy_rmm, input_to_cuml_array
 import cuml.common.handle
 cimport cuml.common.cuda
 

@@ -46,6 +46,8 @@ import statsmodels.api as sm
 import cudf
 import cuml.tsa.arima as arima
 
+from cuml.test.utils import stress_param
+
 
 ###############################################################################
 #                                  Test data                                  #
@@ -55,14 +57,14 @@ import cuml.tsa.arima as arima
 ARIMAData = namedtuple('ARIMAData', ['batch_size', 'n_obs', 'dataset', 'start',
                                      'end', 'tolerance_integration'])
 
-# ARIMA(2,0,0)
-test_200 = ARIMAData(
+# ARIMA(1,0,1) with intercept
+test_101c = ARIMAData(
     batch_size=8,
     n_obs=15,
     dataset="long_term_arrivals_by_citizenship",
     start=10,
     end=25,
-    tolerance_integration=0.001
+    tolerance_integration=0.06
 )
 
 # ARIMA(0,0,2) with intercept
@@ -72,7 +74,7 @@ test_002c = ARIMAData(
     dataset="net_migrations_auckland_by_age",
     start=15,
     end=30,
-    tolerance_integration=0.001
+    tolerance_integration=0.15
 )
 
 # ARIMA(0,1,0) with intercept
@@ -95,18 +97,18 @@ test_110 = ARIMAData(
     tolerance_integration=0.001
 )
 
-# ARIMA(0,1,1)
-test_011 = ARIMAData(
+# ARIMA(0,1,1) with intercept
+test_011c = ARIMAData(
     batch_size=16,
     n_obs=28,
     dataset="deaths_by_region",
     start=20,
     end=40,
-    tolerance_integration=0.005
+    tolerance_integration=0.007
 )
 
-# ARIMA(1,2,1)
-test_121 = ARIMAData(
+# ARIMA(1,2,1) with intercept
+test_121c = ARIMAData(
     batch_size=2,
     n_obs=137,
     dataset="population_estimate",
@@ -125,8 +127,8 @@ test_101_111_4 = ARIMAData(
     tolerance_integration=0.02
 )
 
-# ARIMA(1,1,1)(2,0,0)_4
-test_111_200_4 = ARIMAData(
+# ARIMA(1,1,1)(2,0,0)_4 with intercept
+test_111_200_4c = ARIMAData(
     batch_size=14,
     n_obs=123,
     dataset="hourly_earnings_by_industry",
@@ -158,18 +160,18 @@ test_111_111_12 = ARIMAData(
 # Dictionary matching a test case to a tuple of model parameters
 # (a test case could be used with different models)
 # (p, d, q, P, D, Q, s, k) -> ARIMAData
-test_data = {
-    (2, 0, 0, 0, 0, 0, 0, 0): test_200,
-    (0, 0, 2, 0, 0, 0, 0, 1): test_002c,
-    (0, 1, 0, 0, 0, 0, 0, 1): test_010c,
-    (1, 1, 0, 0, 0, 0, 0, 0): test_110,
-    (0, 1, 1, 0, 0, 0, 0, 0): test_011,
-    (1, 2, 1, 0, 0, 0, 0, 0): test_121,
-    (1, 0, 1, 1, 1, 1, 4, 0): test_101_111_4,
-    (1, 1, 1, 2, 0, 0, 4, 0): test_111_200_4,
-    (1, 1, 2, 0, 1, 2, 4, 0): test_112_012_4,
-    (1, 1, 1, 1, 1, 1, 12, 0): test_111_111_12,
-}
+test_data = [
+    # (1, 0, 1, 0, 0, 0, 0, 1): test_101c,
+    ((0, 0, 2, 0, 0, 0, 0, 1), test_002c),
+    ((0, 1, 0, 0, 0, 0, 0, 1), test_010c),
+    ((1, 1, 0, 0, 0, 0, 0, 0), test_110),
+    ((0, 1, 1, 0, 0, 0, 0, 1), test_011c),
+    ((1, 2, 1, 0, 0, 0, 0, 1), test_121c),
+    ((1, 0, 1, 1, 1, 1, 4, 0), test_101_111_4),
+    ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c),
+    ((1, 1, 2, 0, 1, 2, 4, 0), test_112_012_4),
+    stress_param((1, 1, 1, 1, 1, 1, 12, 0), test_111_111_12),
+]
 
 # Dictionary for lazy-loading of datasets
 # (name, dtype) -> (pandas dataframe, cuDF dataframe)
@@ -225,12 +227,11 @@ def get_ref_fit(data, order, seasonal_order, intercept, dtype):
 #                                    Tests                                    #
 ###############################################################################
 
-@pytest.mark.parametrize('test_case', test_data.items())
+@pytest.mark.parametrize('key, data', test_data)
 @pytest.mark.parametrize('dtype', [np.float64])
-def test_integration(test_case, dtype):
+def test_integration(key, data, dtype):
     """Full integration test: estimate, fit, predict (in- and out-of-sample)
     """
-    key, data = test_case
     order, seasonal_order, intercept = extract_order(key)
 
     y, y_cudf = get_dataset(data, dtype)
@@ -239,12 +240,12 @@ def test_integration(test_case, dtype):
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create and fit cuML model
-    cuml_model = arima.ARIMA(
-        y_cudf, order, seasonal_order, fit_intercept=intercept)
+    cuml_model = arima.ARIMA(y_cudf, order, seasonal_order,
+                             fit_intercept=intercept, output_type='numpy')
     cuml_model.fit()
 
     # Predict
-    cuml_pred = cuml_model.predict(data.start, data.end).copy_to_host()
+    cuml_pred = cuml_model.predict(data.start, data.end)
     ref_preds = np.zeros((data.end - data.start, data.batch_size))
     for i in range(data.batch_size):
         ref_preds[:, i] = ref_fits[i].get_prediction(
@@ -273,11 +274,10 @@ def _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
     cuml_model.unpack(x)
 
 
-def _predict_common(test_case, dtype, start, end, num_steps=None):
+def _predict_common(key, data, dtype, start, end, num_steps=None):
     """Utility function used by test_predict and test_forecast to avoid
     code duplication.
     """
-    key, data = test_case
     order, seasonal_order, intercept = extract_order(key)
 
     y, y_cudf = get_dataset(data, dtype)
@@ -286,8 +286,8 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create cuML model
-    cuml_model = arima.ARIMA(
-        y_cudf, order, seasonal_order, fit_intercept=intercept)
+    cuml_model = arima.ARIMA(y_cudf, order, seasonal_order,
+                             fit_intercept=intercept, output_type='numpy')
 
     # Feed the parameters to the cuML model
     _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
@@ -299,41 +299,40 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
         ref_preds[:, i] = ref_fits[i].get_prediction(
             start, end - 1).predicted_mean
     if num_steps is None:
-        cuml_pred = cuml_model.predict(start, end).copy_to_host()
+        cuml_pred = cuml_model.predict(start, end)
     else:
-        cuml_pred = cuml_model.forecast(num_steps).copy_to_host()
+        cuml_pred = cuml_model.forecast(num_steps)
 
     # Compare results
     np.testing.assert_allclose(cuml_pred, ref_preds, rtol=0.001, atol=0.01)
 
 
-@pytest.mark.parametrize('test_case', test_data.items())
+@pytest.mark.parametrize('key, data', test_data)
 @pytest.mark.parametrize('dtype', [np.float64])
-def test_predict(test_case, dtype):
+def test_predict(key, data, dtype):
     """Test in-sample prediction against statsmodels (with the same values
     for the model parameters)
     """
-    n_obs = test_case[1].n_obs
-    _predict_common(test_case, dtype, n_obs // 2, n_obs)
+    n_obs = data.n_obs
+    _predict_common(key, data, dtype, n_obs // 2, n_obs)
 
 
-@pytest.mark.parametrize('test_case', test_data.items())
+@pytest.mark.parametrize('key, data', test_data)
 @pytest.mark.parametrize('dtype', [np.float64])
-def test_forecast(test_case, dtype):
+def test_forecast(key, data, dtype):
     """Test out-of-sample forecasting against statsmodels (with the same
     values for the model parameters)
     """
-    n_obs = test_case[1].n_obs
-    _predict_common(test_case, dtype, n_obs, n_obs + 10, 10)
+    n_obs = data.n_obs
+    _predict_common(key, data, dtype, n_obs, n_obs + 10, 10)
 
 
-@pytest.mark.parametrize('test_case', test_data.items())
+@pytest.mark.parametrize('key, data', test_data)
 @pytest.mark.parametrize('dtype', [np.float64])
-def test_loglikelihood(test_case, dtype):
+def test_loglikelihood(key, data, dtype):
     """Test loglikelihood against statsmodels (with the same values for the
     model parameters)
     """
-    key, data = test_case
     order, seasonal_order, intercept = extract_order(key)
 
     y, y_cudf = get_dataset(data, dtype)
@@ -357,13 +356,12 @@ def test_loglikelihood(test_case, dtype):
     np.testing.assert_allclose(cuml_llf, ref_llf, rtol=0.01, atol=0.01)
 
 
-@pytest.mark.parametrize('test_case', test_data.items())
+@pytest.mark.parametrize('key, data', test_data)
 @pytest.mark.parametrize('dtype', [np.float64])
-def test_gradient(test_case, dtype):
+def test_gradient(key, data, dtype):
     """Test batched gradient implementation against scipy non-batched
     gradient. Note: it doesn't test that the loglikelihood is correct!
     """
-    key, data = test_case
     order, seasonal_order, intercept = extract_order(key)
     p, _, q = order
     P, _, Q, _ = seasonal_order
@@ -400,12 +398,11 @@ def test_gradient(test_case, dtype):
     np.testing.assert_allclose(batched_grad, scipy_grad, rtol=0.001, atol=0.01)
 
 
-@pytest.mark.parametrize('test_case', test_data.items())
+@pytest.mark.parametrize('key, data', test_data)
 @pytest.mark.parametrize('dtype', [np.float64])
-def test_start_params(test_case, dtype):
+def test_start_params(key, data, dtype):
     """Test starting parameters against statsmodels
     """
-    key, data = test_case
     order, seasonal_order, intercept = extract_order(key)
 
     y, y_cudf = get_dataset(data, dtype)

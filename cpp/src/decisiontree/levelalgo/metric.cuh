@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,11 @@
  */
 
 #pragma once
-#include "cuda_utils.h"
-#include "metric_def.h"
+#include <cuda_utils.cuh>
+#include "metric_def.cuh"
+
+namespace ML {
+namespace DecisionTree {
 
 template <class T>
 DI T SquareFunctor::exec(T x) {
@@ -53,3 +56,6 @@ float EntropyFunctor::exec(std::vector<unsigned int> &hist, int nrows) {
   }
   return (-1 * eval);
 }
+
+}  // namespace DecisionTree
+}  // namespace ML

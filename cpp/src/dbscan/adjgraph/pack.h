@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 namespace Dbscan {
 namespace AdjGraph {
 
-template <typename Type, typename Index_ = int>
+template <typename Index_ = int>
 struct Pack {
   /**
      * vertex degree array
@@ -41,7 +41,7 @@ struct Pack {
   /** number of poTypes in the dataset */
   Index_ N;
   /** Minpts for classifying core pts */
-  Type minPts;
+  Index_ minPts;
 };
 
 }  // namespace AdjGraph

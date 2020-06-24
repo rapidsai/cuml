@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,14 +47,12 @@ cdef extern from "cuML_comms_py.hpp" namespace "ML":
                          void *ucp_worker,
                          void *eps,
                          int size,
-                         int rank,
-                         bool verbose) except +
+                         int rank) except +
 
     void inject_comms_py_coll(cumlHandle *handle,
                               ncclComm_t comm,
                               int size,
-                              int rank,
-                              bool verbose) except +
+                              int rank) except +
 
     bool ucx_enabled()
 
@@ -98,7 +96,7 @@ def perform_test_comms_recv_any_rank(handle, n_trials):
     return test_pointToPoint_recv_any_rank(deref(h), < int > n_trials)
 
 
-def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank, verbose):
+def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank):
     """
     Given a handle and initialized nccl comm, creates a cumlCommunicator
     instance and injects it into the handle.
@@ -117,12 +115,11 @@ def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank, verbose):
     inject_comms_py_coll(handle_,
                          deref(nccl_comm_),
                          size,
-                         rank,
-                         verbose)
+                         rank)
 
 
 def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size,
-                           rank, verbose):
+                           rank):
     """
     Given a handle and initialized comms, creates a cumlCommunicator instance
     and injects it into the handle.
@@ -155,7 +152,6 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size,
                     <void*>ucp_worker_st,
                     <void*>ucp_eps,
                     size,
-                    rank,
-                    <bool>verbose)
+                    rank)
 
     free(ucp_eps)

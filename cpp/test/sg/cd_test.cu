@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <linalg/cusolver_wrappers.h>
-#include <matrix/matrix.h>
 #include <test_utils.h>
-#include "ml_utils.h"
-#include "solver/cd.h"
+#include <matrix/matrix.cuh>
+#include <solver/cd.cuh>
 
 namespace ML {
 namespace Solver {

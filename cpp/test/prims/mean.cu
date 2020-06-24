@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "cuda_utils.h"
-#include "random/rng.h"
-#include "stats/mean.h"
+#include <cuda_utils.cuh>
+#include <random/rng.cuh>
+#include <stats/mean.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <stdlib.h>
 #include <algorithm>
 #include <limits>
-#include "random/rng.h"
-#include "selection/kselection.h"
+#include <random/rng.cuh>
+#include <selection/kselection.cuh>
 
 namespace MLCommon {
 namespace Selection {

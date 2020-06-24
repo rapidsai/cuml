@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include "logger.hpp"
 
 namespace MLCommon {
 /** base exception class for the cuML or ml-prims project */
@@ -76,16 +77,16 @@ class Exception : public std::exception {
 };
 
 /** macro to throw a runtime error */
-#define THROW(fmt, ...)                                                    \
-  do {                                                                     \
-    std::string msg;                                                       \
-    char errMsg[2048];                                                     \
-    std::sprintf(errMsg, "Exception occured! file=%s line=%d: ", __FILE__, \
-                 __LINE__);                                                \
-    msg += errMsg;                                                         \
-    std::sprintf(errMsg, fmt, ##__VA_ARGS__);                              \
-    msg += errMsg;                                                         \
-    throw MLCommon::Exception(msg);                                        \
+#define THROW(fmt, ...)                                                        \
+  do {                                                                         \
+    std::string msg;                                                           \
+    char errMsg[2048];                                                         \
+    std::snprintf(errMsg, sizeof(errMsg),                                      \
+                  "Exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
+    msg += errMsg;                                                             \
+    std::snprintf(errMsg, sizeof(errMsg), fmt, ##__VA_ARGS__);                 \
+    msg += errMsg;                                                             \
+    throw MLCommon::Exception(msg);                                            \
   } while (0)
 
 /** macro to check for a conditional and assert on failure */
@@ -95,25 +96,23 @@ class Exception : public std::exception {
   } while (0)
 
 /** check for cuda runtime API errors and assert accordingly */
-#define CUDA_CHECK(call)                                                 \
-  do {                                                                   \
-    cudaError_t status = call;                                           \
-    ASSERT(status == cudaSuccess, "FAIL: call='%s'. Reason:%s\n", #call, \
-           cudaGetErrorString(status));                                  \
+#define CUDA_CHECK(call)                                               \
+  do {                                                                 \
+    cudaError_t status = call;                                         \
+    ASSERT(status == cudaSuccess, "FAIL: call='%s'. Reason:%s", #call, \
+           cudaGetErrorString(status));                                \
   } while (0)
 
-/** check for cuda runtime API errors but log error instead of raising
- *  exception.
- *  @todo: This will need to use our common logging infrastructure once
- *  that is in place.
+/**
+ * @brief check for cuda runtime API errors but log error instead of raising
+ *        exception.
  */
-#define CUDA_CHECK_NO_THROW(call)                                              \
-  do {                                                                         \
-    cudaError_t status = call;                                                 \
-    if (status != cudaSuccess) {                                               \
-      std::fprintf(stderr,                                                     \
-                   "ERROR: CUDA call='%s' at file=%s line=%d failed with %s ", \
-                   #call, __FILE__, __LINE__, cudaGetErrorString(status));     \
-    }                                                                          \
+#define CUDA_CHECK_NO_THROW(call)                                            \
+  do {                                                                       \
+    cudaError_t status = call;                                               \
+    if (status != cudaSuccess) {                                             \
+      CUML_LOG_ERROR("CUDA call='%s' at file=%s line=%d failed with %s ",    \
+                     #call, __FILE__, __LINE__, cudaGetErrorString(status)); \
+    }                                                                        \
   } while (0)
 };  // namespace MLCommon

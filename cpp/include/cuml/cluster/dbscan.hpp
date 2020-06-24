@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 
 namespace ML {
@@ -27,28 +28,28 @@ namespace ML {
  * @param[in] input row-major input feature matrix
  * @param[in] n_rows number of samples in the input feature matrix
  * @param[in] n_cols number of features in the input feature matrix
- * @param[in] eps the epsilon value to use for epsilon-neighborhood determination
+ * @param[in] eps epsilon value to use for epsilon-neighborhood determination
  * @param[in] min_pts minimum number of points to determine a cluster
  * @param[out] labels (size n_rows) output labels array
- * @param[in] max_mem_mbytes: the maximum number of megabytes to be used for each batch of
- *            the pairwise distance calculation. This enables the trade off between
- *            memory usage and algorithm execution time.
- * @param[in] verbose: print useful information as algorithm executes
+ * @param[in] max_mem_mbytes: the maximum number of megabytes to be used for
+ *            each batch of the pairwise distance calculation. This enables the
+ *            trade off between memory usage and algorithm execution time.
+ * @param[in] verbosity: verbosity level for logging messages during execution
  * @{
  */
 void dbscanFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
                float eps, int min_pts, int *labels,
-               size_t max_bytes_per_batch = 0, bool verbose = false);
+               size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
 void dbscanFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
                double eps, int min_pts, int *labels,
-               size_t max_bytes_per_batch = 0, bool verbose = false);
+               size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
 
 void dbscanFit(const cumlHandle &handle, float *input, int64_t n_rows,
                int64_t n_cols, float eps, int min_pts, int64_t *labels,
-               size_t max_bytes_per_batch = 0, bool verbose = false);
+               size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
 void dbscanFit(const cumlHandle &handle, double *input, int64_t n_rows,
                int64_t n_cols, double eps, int min_pts, int64_t *labels,
-               size_t max_bytes_per_batch = 0, bool verbose = false);
+               size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
 
 /** @} */
 

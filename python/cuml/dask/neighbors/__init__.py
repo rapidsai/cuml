@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.utils.import_utils import has_dask
+from cuml.common.import_utils import has_dask
 import warnings
 
 if has_dask():

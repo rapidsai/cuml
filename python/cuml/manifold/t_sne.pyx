@@ -30,8 +30,10 @@ import warnings
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+import cuml.common.logger as logger
 
-from cuml.utils import input_to_dev_array
+from cuml.common.array import CumlArray
+from cuml.common import input_to_cuml_array
 import rmm
 
 from libcpp cimport bool
@@ -65,7 +67,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         const float pre_momentum,
         const float post_momentum,
         const long long random_state,
-        const bool verbose,
+        int verbosity,
         const bool intialize_embeddings,
         bool barnes_hut) except +
 
@@ -109,8 +111,8 @@ class TSNE(Base):
         a future release.
     init : str 'random' (default 'random')
         Currently supports random intialization.
-    verbose : int (default 0)
-        Level of verbosity. If > 0, prints all help messages and warnings.
+    verbose : int or boolean (default = False) (default logger.level_info)
+        Level of verbosity.
         Most messages will be printed inside the Python Console.
     random_state : int (default None)
         Setting this can allow future runs of TSNE to look mostly the same.
@@ -191,7 +193,7 @@ class TSNE(Base):
                  float min_grad_norm=1e-07,
                  str metric='euclidean',
                  str init='random',
-                 int verbose=0,
+                 int verbose=False,
                  random_state=None,
                  str method='barnes_hut',
                  float angle=0.5,
@@ -203,7 +205,7 @@ class TSNE(Base):
                  float post_momentum=0.8,
                  handle=None):
 
-        super(TSNE, self).__init__(handle=handle, verbose=(verbose != 0))
+        super(TSNE, self).__init__(handle=handle, verbose=verbose)
 
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
@@ -239,8 +241,6 @@ class TSNE(Base):
                           "intialization. Will do in the near "
                           "future.".format(init))
             init = 'random'
-        if verbose != 0:
-            verbose = 1
         if angle < 0 or angle > 1:
             raise ValueError("angle = {} should be > 0 and less "
                              "than 1.".format(angle))
@@ -280,7 +280,6 @@ class TSNE(Base):
         self.min_grad_norm = min_grad_norm
         self.metric = metric
         self.init = init
-        self.verbose = verbose
         self.random_state = random_state
         self.method = method
         self.angle = angle
@@ -298,14 +297,6 @@ class TSNE(Base):
         self.min_gain = 0.01
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
-
-    @property
-    def Y(self):
-        warnings.warn("Attribute Y is deprecated and will be dropped in "
-                      "version 0.14, access the embeddings using the "
-                      "attribute ‘embedding_’ instead.",
-                      DeprecationWarning)
-        return self.embedding_
 
     def fit(self, X, convert_dtype=True):
         """Fit X into an embedded space.
@@ -329,10 +320,11 @@ class TSNE(Base):
             raise ValueError("data should be two dimensional")
 
         cdef uintptr_t X_ptr
-        _X, X_ptr, n, p, dtype = \
-            input_to_dev_array(X, order='C', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32 if convert_dtype
-                                                 else None))
+        X_m, n, p, dtype = \
+            input_to_cuml_array(X, order='C', check_dtype=np.float32,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None))
+        X_ptr = X_m.ptr
 
         if n <= 1:
             raise ValueError("There needs to be more than 1 sample to build "
@@ -345,23 +337,22 @@ class TSNE(Base):
             self.perplexity = n
 
         # Prepare output embeddings
-        Y = rmm.device_array(
+        Y = CumlArray.zeros(
             (n, self.n_components),
             order="F",
             dtype=np.float32)
 
-        cdef uintptr_t embed_ptr = Y.device_ctypes_pointer.value
+        cdef uintptr_t embed_ptr = Y.ptr
 
         # Find best params if learning rate method is adaptive
         if self.learning_rate_method=='adaptive' and self.method=="barnes_hut":
-            if self.verbose:
-                print("Learning rate is adaptive. In TSNE paper, "
-                      "it has been shown that as n->inf, "
-                      "Barnes Hut works well if n_neighbors->30, "
-                      "learning_rate->20000, early_exaggeration->24.")
-                print("cuML uses an adpative method."
-                      "n_neighbors decreases to 30 as n->inf. "
-                      "Likewise for the other params.")
+            logger.debug("Learning rate is adaptive. In TSNE paper, "
+                         "it has been shown that as n->inf, "
+                         "Barnes Hut works well if n_neighbors->30, "
+                         "learning_rate->20000, early_exaggeration->24.")
+            logger.debug("cuML uses an adpative method."
+                         "n_neighbors decreases to 30 as n->inf. "
+                         "Likewise for the other params.")
             if n <= 2000:
                 self.n_neighbors = min(max(self.n_neighbors, 90), n)
             else:
@@ -370,12 +361,11 @@ class TSNE(Base):
             self.pre_learning_rate = max(n / 3.0, 1)
             self.post_learning_rate = self.pre_learning_rate
             self.early_exaggeration = 24.0 if n > 10000 else 12.0
-            if self.verbose:
-                print("New n_neighbors = {}, "
-                      "learning_rate = {}, "
-                      "exaggeration = {}".format(self.n_neighbors,
-                                                 self.pre_learning_rate,
-                                                 self.early_exaggeration))
+            if logger.should_log_for(logger.level_debug):
+                logger.debug("New n_neighbors = {}, learning_rate = {}, "
+                             "exaggeration = {}"
+                             .format(self.n_neighbors, self.pre_learning_rate,
+                                     self.early_exaggeration))
 
         cdef long long seed = -1
         if self.random_state is not None:
@@ -403,19 +393,18 @@ class TSNE(Base):
                  <float> self.pre_momentum,
                  <float> self.post_momentum,
                  <long long> seed,
-                 <bool> self.verbose,
+                 <int> self.verbose,
                  <bool> True,
                  <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory
-        del _X
-        self.embedding_ = Y
+        self._embedding_ = Y
         return self
 
     def __del__(self):
-        if hasattr(self, 'embedding_'):
-            del self.embedding_
-            self.embedding_ = None
+        if hasattr(self, '_embedding_'):
+            del self._embedding_
+            self._embedding_ = None
 
     def fit_transform(self, X, convert_dtype=True):
         """Fit X into an embedded space and return that transformed output.
@@ -436,31 +425,20 @@ class TSNE(Base):
                 Embedding of the training data in low-dimensional space.
         """
         self.fit(X, convert_dtype=convert_dtype)
+        out_type = self._get_output_type(X)
 
-        if isinstance(X, cudf.DataFrame):
-            if isinstance(self.embedding_, cudf.DataFrame):
-                return self.embedding_
-            else:
-                return cudf.DataFrame.from_gpu_matrix(self.embedding_)
-        elif isinstance(X, np.ndarray):
-            data = self.embedding_.copy_to_host()
-            del self.embedding_
-            return data
-        return None  # is this even possible?
+        data = self._embedding_.to_output(out_type)
+        del self._embedding_
+        return data
 
     def __getstate__(self):
         state = self.__dict__.copy()
-
-        if "embedding_" in state:
-            state["embedding_"] = cudf.DataFrame.from_gpu_matrix(
-                state["embedding_"])
-
         if "handle" in state:
             del state["handle"]
         return state
 
     def __setstate__(self, state):
         super(TSNE, self).__init__(handle=None,
-                                   verbose=(state['verbose'] != 0))
+                                   verbose=state['verbose'])
         self.__dict__.update(state)
         return state

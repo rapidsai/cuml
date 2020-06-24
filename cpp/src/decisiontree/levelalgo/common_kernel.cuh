@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 #pragma once
-#include "cuda_utils.h"
+#include <cuda_utils.cuh>
 #define LEAF 0xFFFFFFFF
 #define PUSHRIGHT 0x00000001
-#include "stats/minmax.h"
+#include <stats/minmax.cuh>
+
+namespace ML {
+namespace DecisionTree {
 
 template <typename T>
 DI T get_data(const T* __restrict__ data, const T local_data,
@@ -370,3 +373,6 @@ __global__ void split_nodes_compute_counts_kernel(
     }
   }
 }
+
+}  // namespace DecisionTree
+}  // namespace ML
