@@ -74,7 +74,10 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
         METRIC_Canberra = 20,
         METRIC_BrayCurtis,
-        METRIC_JensenShannon
+        METRIC_JensenShannon,
+
+        METRIC_Cosine = 100,
+        METRIC_Correlation
 
     void brute_force_knn(
         cumlHandle &handle,
@@ -113,7 +116,7 @@ class NearestNeighbors(Base):
     metric : string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
-        'minkowski', 'chebyshev', 'jensenshannon']
+        'minkowski', 'chebyshev', 'jensenshannon', 'cosine', 'correlation']
     p : float (default=2) Parameter for the Minkowski metric. When p = 1, this
         is equivalent to manhattan distance (l1), and euclidean distance (l2)
         for p = 2. For arbitrary p, minkowski distance (lp) is used.
@@ -279,6 +282,10 @@ class NearestNeighbors(Base):
             m = MetricType.METRIC_Linf
         elif metric == "jensenshannon":
             m = MetricType.METRIC_JensenShannon
+        elif metric == "cosine":
+            m = MetricType.METRIC_Cosine
+        elif metric == "correlation":
+            m = MetricType.METRIC_Correlation
         else:
             raise ValueError("Metric %s is not supported" % metric)
 
