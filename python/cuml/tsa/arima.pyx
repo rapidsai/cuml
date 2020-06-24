@@ -69,7 +69,8 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
     void cpp_predict "predict" (
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
         int start, int end, const ARIMAOrder& order,
-        const ARIMAParams[double]& params, double* d_vs_ptr, double* d_y_p)
+        const ARIMAParams[double]& params, double* d_vs_ptr, double* d_y_p,
+        double level, double* d_lower, double* d_upper)
 
     void information_criterion(
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
@@ -404,21 +405,31 @@ class ARIMA(Base):
                 array, _, _, _, _ = input_to_host_array(params[param_name])
                 setattr(self, param_name, array)
 
+    # TODO: unit test of prediction intervals!
     @nvtx_range_wrap
-    def predict(self, start=0, end=None):
+    def predict(self, start=0, end=None, level=None):
         """Compute in-sample and/or out-of-sample prediction for each series
 
         Parameters:
         -----------
         start: int
             Index where to start the predictions (0 <= start <= num_samples)
-        end:
+        end: int
             Index where to end the predictions, excluded (end > start)
+        level: float or None
+            Confidence level for prediction intervals, or None to return only
+            the point forecasts. 0 < level < 1
 
         Returns:
         --------
         y_p : array-like (device)
             Predictions. Shape = (end - start, batch_size)
+        lower: array-like (device) (optional)
+            Lower limit of the prediction interval if level != None
+            Shape = (end - start, batch_size)
+        upper: array-like (device) (optional)
+            Upper limit of the prediction interval if level != None
+            Shape = (end - start, batch_size)
 
         Example:
         --------
@@ -442,6 +453,14 @@ class ARIMA(Base):
             logger.warn("WARNING(`predict`): predictions before {} are"
                         " undefined, will be set to NaN"
                         .format(order.d + order.D * order.s))
+
+        if level is not None:
+            if level <= 0 or level >= 1:
+                raise ValueError("ERROR: Invalid confidence level: {}"
+                                .format(level))
+            elif level > 0 and start < self.n_obs:
+                raise ValueError("ERROR: Prediction intervals can only be"
+                                 " computed for out-of-sample predictions")
 
         if end is None:
             end = self.n_obs
@@ -482,38 +501,63 @@ class ARIMA(Base):
 
         predict_size = end - start
 
-        # allocate residual (vs) and prediction (y_p) device memory and get
-        # pointers
+        # allocate residual (vs), prediction (y_p) and intervals device memory
+        # and get pointers
         cdef uintptr_t d_vs_ptr
         cdef uintptr_t d_y_p_ptr
+        cdef uintptr_t d_lower_ptr
+        cdef uintptr_t d_upper_ptr
         d_vs = cumlArray.empty((self.n_obs - order.d - order.D * order.s,
                                 self.batch_size), dtype=np.float64, order="F")
         d_y_p = cumlArray.empty((predict_size, self.batch_size),
                                 dtype=np.float64, order="F")
         d_vs_ptr = d_vs.ptr
         d_y_p_ptr = d_y_p.ptr
+        if level is not None:
+            d_lower = cumlArray.empty((predict_size, self.batch_size),
+                                      dtype=np.float64, order="F")
+            d_upper = cumlArray.empty((predict_size, self.batch_size),
+                                      dtype=np.float64, order="F")
+            d_lower_ptr = d_lower.ptr
+            d_upper_ptr = d_upper.ptr
 
         cdef uintptr_t d_y_ptr = self._d_y.ptr
 
         cpp_predict(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
                     <int> self.n_obs, <int> start, <int> end, order,
-                    cpp_params, <double*>d_vs_ptr, <double*>d_y_p_ptr)
+                    cpp_params, <double*>d_vs_ptr, <double*>d_y_p_ptr,
+                    <double> (0 if level is None else level),
+                    <double*> d_lower_ptr, <double*> d_upper_ptr)
 
-        return d_y_p.to_output(self.output_type)
+        if level is None:
+            return d_y_p.to_output(self.output_type)
+        else:
+            return (d_y_p.to_output(self.output_type),
+                    d_lower.to_output(self.output_type),
+                    d_upper.to_output(self.output_type),)
 
     @nvtx_range_wrap
-    def forecast(self, nsteps: int):
+    def forecast(self, nsteps: int, level=None):
         """Forecast the given model `nsteps` into the future.
 
         Parameters:
         ----------
         nsteps : int
             The number of steps to forecast beyond end of the given series
+        level: float or None
+            Confidence level for prediction intervals, or None to return only
+            the point forecasts. 0 < level < 1
 
         Returns:
         --------
         y_fc : array-like
-               Forecasts. Shape = (nsteps, batch_size)
+            Forecasts. Shape = (nsteps, batch_size)
+        lower: array-like (device) (optional)
+            Lower limit of the prediction interval if level != None
+            Shape = (end - start, batch_size)
+        upper: array-like (device) (optional)
+            Upper limit of the prediction interval if level != None
+            Shape = (end - start, batch_size)
 
         Example:
         --------
@@ -525,7 +569,7 @@ class ARIMA(Base):
             y_fc = model.forecast(10)
         """
 
-        return self.predict(self.n_obs, self.n_obs + nsteps)
+        return self.predict(self.n_obs, self.n_obs + nsteps, level)
 
     @nvtx_range_wrap
     def _estimate_x0(self):
