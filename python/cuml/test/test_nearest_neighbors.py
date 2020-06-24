@@ -121,6 +121,8 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k, metric):
     knn_sk.fit(X)
     D_sk, I_sk = knn_sk.kneighbors(X, k)
 
+    X_orig = X
+
     if input_type == "dataframe":
         X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
 
@@ -138,6 +140,10 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k, metric):
         assert isinstance(I_cuml, np.ndarray)
         D_cuml_arr = D_cuml
         I_cuml_arr = I_cuml
+
+    # Assert the cuml model was properly reverted
+    np.testing.assert_allclose(knn_cu.X_m.to_output("numpy"), X_orig,
+                               atol=1e-5, rtol=1e-4)
 
     # Allow a max relative diff of 10% and absolute diff of 1%
     np.testing.assert_allclose(D_cuml_arr, D_sk, atol=1e-2,
