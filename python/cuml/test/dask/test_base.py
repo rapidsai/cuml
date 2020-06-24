@@ -15,6 +15,8 @@
 
 import cupy
 
+from dask_ml.wrappers import ParallelPostFit
+
 from cuml.dask.cluster import KMeans
 from cuml.dask.naive_bayes.naive_bayes import MultinomialNB
 from cuml.test.dask.utils import load_text_corpus
@@ -82,6 +84,39 @@ def test_regressor_mg_train_sg_predict(datatype, keys, data_size,
     actual = local_model.predict(X_test_local)
 
     assert_equal(expected.get(), actual.get())
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('keys', [cuml.linear_model.LinearRegression])
+@pytest.mark.parametrize('data_size', [[500, 20, 10]])
+@pytest.mark.parametrize('fit_intercept', [True, False])
+def test_regressor_sg_train_mg_predict(datatype, keys, data_size,
+                                       fit_intercept, client):
+
+    # Just testing for basic compatibility w/ dask-ml's ParallelPostFit.
+    # Refer to test_pickle.py for more extensive testing of single-GPU
+    # model serialization.
+
+    nrows, ncols, n_info = data_size
+    X_train, y_train, _ = make_dataset(datatype, nrows, ncols, n_info)
+
+    X_train_local = X_train.compute()
+    y_train_local = y_train.compute()
+
+    local_model = cuml.linear_model.LinearRegression(
+        fit_intercept=fit_intercept)
+    local_model.fit(X_train_local, y_train_local)
+
+    dist_model = ParallelPostFit(estimator=local_model)
+
+    predictions = dist_model.predict(X_train).compute()
+
+    assert isinstance(predictions, cupy.core.ndarray)
+
+    # Dataset should be fairly linear already so the predictions should
+    # be very close to the training data.
+    np.testing.assert_allclose(predictions.get(), y_train.compute().get(),
+                               atol=1e-3, rtol=1e-3)
 
 
 def test_getattr(client):

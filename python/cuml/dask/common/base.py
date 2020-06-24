@@ -17,7 +17,6 @@ import cudf.comm.serialize  # noqa: F401
 import cupy as cp
 import dask
 import numpy as np
-import warnings
 from toolz import first
 from collections.abc import Iterable
 
@@ -29,6 +28,8 @@ from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.dask.common.comms import CommsContext
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common import parts_to_ranks
+
+from cuml.common import logger
 
 from dask_cudf.core import DataFrame as dcDataFrame
 from functools import wraps
@@ -125,12 +126,12 @@ class BaseEstimator(object):
 
         if isinstance(model, Future):
             if not issubclass(model.type, Base):
-                warnings.warn("Dask Future expected to contain cuml.Base but"
-                              "found %s instead." % model.type)
+                logger.warn("Dask Future expected to contain cuml.Base but"
+                            "found %s instead." % model.type)
 
         elif model is not None and not isinstance(model, Base):
-            warnings.warn("Expected model of type cuml.Base but found %s "
-                          "instead." % type(model))
+            logger.warn("Expected model of type cuml.Base but found %s "
+                        "instead." % type(model))
 
         return model
 
@@ -224,7 +225,7 @@ class DelayedParallelFunc(object):
         tasks that can execute concurrently on each worker.
 
         Note that this mixin assumes the subclass has been trained and
-        includes a `self._get_internal_model()` attribute containing a subclass
+        includes a `self._get_internal_model()` function containing a subclass
         of `cuml.Base`.
 
         This is intended to abstract functions like predict, transform, and
