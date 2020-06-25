@@ -513,7 +513,7 @@ class QN(Base):
         self.handle.sync()
 
         del X_m
-        
+
         return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
     def score(self, X, y):

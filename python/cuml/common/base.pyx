@@ -299,7 +299,7 @@ class Base:
     def _set_target_dtype(self, target):
         """
         Method to be called by fit methods of inheriting classifier
-        classes to correctly set the output type depending on the dtype of
+        classes to correctly set the output dtype depending on the dtype of
         the target.
         """
         self.target_dtype = _input_target_to_dtype(target)
@@ -310,7 +310,12 @@ class Base:
         inheriting classifier classes. Returns the appropriate output
         dtype depending on the dtype of the target.
         """
-        return self.target_dtype
+        try:
+            out_dtype = self.target_dtype
+        except AttributeError:
+            out_dtype = None
+        return out_dtype
+
 
     def _set_n_features_in(self, X):
         """Method to be called by the fit method of the inheriting class.
