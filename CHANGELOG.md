@@ -7,6 +7,7 @@
 - PR #2312: column-major support for make_blobs
 - PR #2394: Adding cosine & correlation distance for KNN
 - PR #2392: PCA can accept sparse inputs, and sparse prim for computing covariance
+- PR #2465: Support pandas 1.0+
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
@@ -15,8 +16,6 @@
 - PR #1945: enable clang tidy
 - PR #2339: umap performance improvements
 - PR #2308: Using fixture for Dask client to eliminate possiblity of not closing
-- PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
-- PR #1945: enable clang tidy
 - PR #2345: make C++ logger level definition to be the same as python layer
 - PR #2329: Add short commit hash to conda package name
 - PR #2363: Update threshold and make other changes for stress tests
@@ -29,11 +28,11 @@
 - PR #2420: Add and set convert_dtype default to True in estimator fit methods
 - PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
 - PR #2442: fix setting RAFT_DIR from the RAFT_PATH env var
-- PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
+- PR #2469: Updating KNN c-api to document all arguments
 - PR #2453: Add CumlArray to API doc
 - PR #2440: Use Treelite Conda package
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
-- PR #2469: Updating KNN c-api to document all arguments
+- PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -223,7 +222,7 @@
 - PR #2305: Fixed race condition in DBScan
 - PR #2354: Fix broken links in README
 
-# cuML 0.13.0 (Date TBD)
+# cuML 0.13.0 (31 Mar 2020)
 
 ## New Features
 - PR #1777: Python bindings for entropy
@@ -340,7 +339,6 @@
 - PR #1951: Dask Random forest regression CPU predict bug fix
 - PR #1948: Adjust BatchedMargin margin and disable tests temporarily
 - PR #1950: Fix UMAP test failure
-
 
 
 # cuML 0.12.0 (04 Feb 2020)
