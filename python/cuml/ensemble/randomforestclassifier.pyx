@@ -828,8 +828,8 @@ class RandomForestClassifier(Base, ClassifierMixin):
 
         Returns
         ----------
-        y : NumPy
-           Dense vector (int) of shape (n_samples, 1)
+        y : (same as the input datatype)
+            Dense vector (ints, floats, or doubles) of shape (n_samples, 1)
         """
         if predict_model == "CPU" or self.num_classes > 2:
             if self.num_classes > 2 and predict_model == "GPU":

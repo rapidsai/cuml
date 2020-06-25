@@ -360,9 +360,8 @@ class LogisticRegression(Base, ClassifierMixin):
 
         Returns
         ----------
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
-
+        y : (same as the input datatype)
+            Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
         return self.qn.predict(X, convert_dtype=convert_dtype)
 

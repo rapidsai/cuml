@@ -189,6 +189,11 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
+
+        Returns
+        ----------
+        y : (same as the input datatype)
+            Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
 
         out_type = self._get_output_type(X)
