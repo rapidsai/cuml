@@ -211,6 +211,9 @@ class CumlArray(Buffer):
             'series' - to cuDF Series
             'cudf' - to cuDF Series if array is single dimensional, to
                 DataFrame otherwise
+        output_dtype : string, optional
+            Optionally cast the array to a specified dtype, creating
+            a copy if necessary.
         """
 
         # check to translate cudf to actual type converted
