@@ -284,6 +284,11 @@ cdef class ForestInference_impl():
                 <size_t> n_rows,
                 <bool> predict_proba)
         self.handle.sync()
+        
+        # special case due to predict and predict_proba
+        # both coming from the same CUDA/C++ function
+        if predict_proba:
+            output_dtype = None
         return preds.to_output(output_type=output_type, output_dtype=output_dtype)
 
     def load_from_treelite_model_handle(self,
