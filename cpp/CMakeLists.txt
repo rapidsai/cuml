@@ -361,9 +361,13 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   if(NOT SINGLEGPU)
     target_sources(${CUML_CPP_TARGET}
-      PRIVATE     
+      PRIVATE
+        src/glm/ols_mg.cu
+        src/glm/preprocess_mg.cu
+        src/glm/ridge_mg.cu     
         src/pca/pca_mg.cu
         src/pca/sign_flip_mg.cu
+        src/solver/cd_mg.cu
         src/tsvd/tsvd_mg.cu
     )
   endif(NOT SINGLEGPU)
