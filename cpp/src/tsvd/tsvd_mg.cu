@@ -47,6 +47,8 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
   const std::shared_ptr<deviceAllocator> allocator =
     handle.getImpl().getDeviceAllocator();
 
+  // This variable should be updated to use `size_t`
+  // Reference issue https://github.com/rapidsai/cuml/issues/2459
   int len = prms.n_cols * prms.n_cols;
 
   device_buffer<T> cov_data(allocator, streams[0], len);
