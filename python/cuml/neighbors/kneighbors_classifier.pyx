@@ -166,7 +166,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
             convert the inputs to np.float32.
         """
         self._set_target_dtype(y)
-        
+
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self.y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.int32,

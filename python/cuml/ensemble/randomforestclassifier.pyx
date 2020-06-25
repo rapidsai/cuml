@@ -687,7 +687,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
                               fil_sparse_format, predict_proba):
         out_type = self._get_output_type(X)
         out_dtype = self._get_target_dtype()
-        
+
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
                                 check_cols=self.n_cols)
