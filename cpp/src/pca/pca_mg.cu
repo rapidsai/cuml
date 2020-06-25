@@ -167,7 +167,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
                             prms.n_components, prms.n_cols, stream);
 
     Matrix::opg::deallocate(h, uMatrixParts, input_desc, rank, stream);
-  
+
     // Re-add mean to centered data
     Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams,
                          n_streams);
