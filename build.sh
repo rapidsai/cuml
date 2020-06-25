@@ -185,7 +185,7 @@ MAKE_TARGETS=
 if hasArg libcuml; then
     MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml ml"
 fi
-if hasarg mgtests; then
+if hasArg mgtests; then
     MAKE_TARGETS="${MAKE_TARGETS} ml_mg"
 fi
 if hasArg prims; then
