@@ -299,7 +299,7 @@ class SVC(SVMBase, ClassifierMixin):
         y : (same as the input datatype)
             Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
-        
+
         return super(SVC, self).predict(X, True)
 
     def decision_function(self, X):
