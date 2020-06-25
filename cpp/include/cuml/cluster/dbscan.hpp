@@ -37,6 +37,15 @@ namespace ML {
  * @param[in] verbosity: verbosity level for logging messages during execution
  * @{
  */
+// void dbscanFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
+//                float eps, int min_pts, int *labels,
+//                size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO,
+//                int *core_sample_indices = nullptr);
+// void dbscanFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
+//                double eps, int min_pts, int *labels,
+//                size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO,
+//                int *core_sample_indices = nullptr);
+
 void dbscanFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
                float eps, int min_pts, int *labels,
                size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
@@ -44,11 +53,34 @@ void dbscanFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
                double eps, int min_pts, int *labels,
                size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
 
+void dbscanFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
+               float eps, int min_pts, int *labels, int *core_sample_indices,
+               size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
+void dbscanFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
+               double eps, int min_pts, int *labels, int *core_sample_indices,
+               size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
+
+// void dbscanFit(const cumlHandle &handle, float *input, int64_t n_rows,
+//                int64_t n_cols, float eps, int min_pts, int64_t *labels,
+//                size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO,
+//                int64_t *core_sample_indices = nullptr);
+// void dbscanFit(const cumlHandle &handle, double *input, int64_t n_rows,
+//                int64_t n_cols, double eps, int min_pts, int64_t *labels,
+//                size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO,
+//                int64_t *core_sample_indices = nullptr);
+
 void dbscanFit(const cumlHandle &handle, float *input, int64_t n_rows,
                int64_t n_cols, float eps, int min_pts, int64_t *labels,
                size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
 void dbscanFit(const cumlHandle &handle, double *input, int64_t n_rows,
                int64_t n_cols, double eps, int min_pts, int64_t *labels,
+               size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
+
+void dbscanFit(const cumlHandle &handle, float *input, int64_t n_rows,
+               int64_t n_cols, float eps, int min_pts, int64_t *labels, int64_t *core_sample_indices,
+               size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
+void dbscanFit(const cumlHandle &handle, double *input, int64_t n_rows,
+               int64_t n_cols, double eps, int min_pts, int64_t *labels, int64_t *core_sample_indices,
                size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
 
 /** @} */
