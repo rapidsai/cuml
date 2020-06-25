@@ -573,6 +573,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
             memory used for the method.
         """
         self._set_output_type(X)
+        self._set_n_features_in(X)
 
         # Reset the old tree data for new fit call
         self._reset_forest_data()
