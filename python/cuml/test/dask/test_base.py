@@ -63,6 +63,26 @@ def test_get_combined_model(datatype, keys, data_size, fit_intercept,
     assert combined_model.intercept_ is not None
 
 
+def test_check_internal_model_failures(client):
+
+    # Test model not trained yet
+    model = LinearRegression(client=client)
+    assert model.get_combined_model() is None
+
+    # Test single Int future fails
+    int_future = client.submit(lambda: 1)
+    with pytest.raises(ValueError):
+        model._set_internal_model(int_future)
+
+    # Test list Int future fails
+    with pytest.raises(ValueError):
+        model._set_internal_model([int_future])
+
+    # Test directly setting Int fails
+    with pytest.raises(ValueError):
+        model._set_internal_model(1)
+
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', [cuml.dask.linear_model.LinearRegression])
 @pytest.mark.parametrize('data_size', [[500, 20, 10]])

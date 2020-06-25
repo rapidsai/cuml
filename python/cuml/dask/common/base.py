@@ -29,8 +29,6 @@ from cuml.dask.common.comms import CommsContext
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common import parts_to_ranks
 
-from cuml.common import logger
-
 from dask_cudf.core import DataFrame as dcDataFrame
 from functools import wraps
 
@@ -125,14 +123,16 @@ class BaseEstimator(object):
             model = first(model)
 
         if isinstance(model, Future):
-            if not issubclass(model.type, Base):
-                logger.warn("Dask Future expected to contain cuml.Base but"
-                            "found %s instead." % model.type)
+            if model.type is None:
+                wait_and_raise_from_futures([model])
+
+            if not isinstance(model.type, Base):
+                raise ValueError("Dask Future expected to contain cuml.Base "
+                                 "but found %s instead." % model.type)
 
         elif model is not None and not isinstance(model, Base):
-            logger.warn("Expected model of type cuml.Base but found %s "
-                        "instead." % type(model))
-
+            raise ValueError("Expected model of type cuml.Base but found %s "
+                             "instead." % type(model))
         return model
 
     def _get_internal_model(self):
