@@ -85,6 +85,9 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
     dbscanFit(handle, out.data(), params.n_row, params.n_col, params.eps,
               params.min_pts, labels, params.max_bytes_per_batch);
 
+    MLCommon::myPrintDevVector("out", out.data(), std::min(1000, (int)out.size()));
+    MLCommon::myPrintDevVector("labels", labels, std::min(1000, (int)params.n_row));
+
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     score = adjustedRandIndex(handle, labels_ref, labels, params.n_row);
@@ -190,15 +193,20 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     allocate(inputs, params.n_row * 2);
     allocate(labels, params.n_row);
     allocate(labels_ref, params.n_out);
+    allocate(core_sample_indices, params.n_row);
 
     MLCommon::copy(inputs, params.points, params.n_row * 2, handle.getStream());
     MLCommon::copy(labels_ref, params.out, params.n_out, handle.getStream());
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     dbscanFit(handle, inputs, (int)params.n_row, 2, params.eps, params.min_pts,
-              labels);
+              labels, core_sample_indices);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+
+    MLCommon::myPrintDevVector("labels", labels, std::min(1000, (int)params.n_row));
+    MLCommon::myPrintDevVector("labels_ref", labels_ref, std::min(1000, (int)params.n_out));
+    MLCommon::myPrintDevVector("core_sample_indices", core_sample_indices, std::min(1000, (int)params.n_row));
 
     score = adjustedRandIndex(handle, labels_ref, labels, (int)params.n_out);
 
@@ -218,11 +226,13 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     CUDA_CHECK(cudaFree(labels_ref));
     CUDA_CHECK(cudaFree(labels));
     CUDA_CHECK(cudaFree(inputs));
+    CUDA_CHECK(cudaFree(core_sample_indices));
   }
 
  protected:
   DBScan2DArrayInputs<T> params;
   int *labels, *labels_ref;
+  int *core_sample_indices;
   T *inputs;
 
   double score;
