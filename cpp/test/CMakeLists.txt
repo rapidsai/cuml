@@ -32,6 +32,13 @@ set(CUML_TEST_LINK_LIBRARIES
   gtestlib
   gtest_mainlib)
 
+if(ENABLE_CUMLPRIMS_MG)
+
+  list(APPEND CUML_TEST_LINK_LIBRARIES
+       ${CUMLPRIMS_MG_LIBRARIES})
+
+endif(ENABLE_CUMLPRIMS_MG)
+
 set(PRIMS_TEST_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
   ${CUDA_curand_LIBRARY}
@@ -87,7 +94,7 @@ if(BUILD_CUML_MG_TESTS)
       mg/main.cu
       mg/pca.cu
       mg/test_ml_mg_utils.cu)
-    
+
     add_dependencies(ml_mg cumlcommsmpi)
 
     set(CUML_TEST_INCLUDE_DIRS
