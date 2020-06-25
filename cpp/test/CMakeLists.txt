@@ -91,6 +91,7 @@ if(BUILD_CUML_MG_TESTS)
   if(MPI_CXX_FOUND)
     # (please keep the filenames in alphabetical order)
     add_executable(ml_mg
+      mg/knn.cu
       mg/main.cu
       mg/pca.cu
       mg/test_ml_mg_utils.cu)
