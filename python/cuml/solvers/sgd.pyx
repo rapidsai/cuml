@@ -513,5 +513,5 @@ class SGD(Base):
         self.handle.sync()
 
         del(X_m)
-        
+
         return preds.to_output(output_type=output_type, output_dtype=out_dtype)
