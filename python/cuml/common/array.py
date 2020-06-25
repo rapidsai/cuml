@@ -215,8 +215,8 @@ class CumlArray(Buffer):
             Optionally cast the array to a specified dtype, creating
             a copy if necessary.
         """
-        if output_type is None:
-            output_type = self.dtype
+        if output_dtype is None:
+            output_dtype = self.dtype
 
         # check to translate cudf to actual type converted
         if output_type == 'cudf':
