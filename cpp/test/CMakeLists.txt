@@ -29,7 +29,6 @@ set(CUML_TEST_LINK_LIBRARIES
   ${CUDA_cusparse_LIBRARY}
   ${CUDA_nvgraph_LIBRARY}
   ${CUML_CPP_TARGET}
-  ${CUMLPRIMS_MG_LIBRARIES}
   gtestlib
   gtest_mainlib)
 
