@@ -312,6 +312,15 @@ class Base:
         """
         return self.target_dtype
 
+    def _set_n_features_in(self, X):
+        """Method to be called by the fit method of the inheriting class.
+        Sets the n_features_in_ attribute based on the data passed to fit.
+        """
+        if isinstance(X, int):
+            self.n_features_in_ = X
+        else:
+            self.n_features_in_ = X.shape[1]
+
 
 class RegressorMixin:
     """Mixin class for regression estimators in cuML"""

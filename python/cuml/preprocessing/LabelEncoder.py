@@ -193,7 +193,7 @@ class LabelEncoder(object):
         This is functionally equivalent to (but faster than)
         `LabelEncoder().fit(y).transform(y)`
         """
-        self._dtype = y.dtype
+        self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
 
         y = y.astype('category')
         self.classes_ = y._column.categories
