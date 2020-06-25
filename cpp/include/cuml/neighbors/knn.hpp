@@ -52,6 +52,12 @@ enum MetricType {
    * @param k the number of nearest neighbors to return
    * @param rowMajorIndex are the index arrays in row-major order?
    * @param rowMajorQuery are the query arrays in row-major order?
+   * @param metric distance metric to use. Euclidean (L2) is used by
+   * 			   default
+ * @param metric_arg the value of `p` for Minkowski (l-p) distances. This
+ * 					 is ignored if the metric_type is not Minkowski.
+ * @param expanded should lp-based distances be returned in their expanded
+ * 					 form (e.g., without raising to the 1/p power).
    */
 void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
