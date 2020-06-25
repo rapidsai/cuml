@@ -552,7 +552,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
 
         return self
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
 
@@ -567,14 +567,14 @@ class RandomForestClassifier(Base, ClassifierMixin):
             Acceptable formats: NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
             These labels should be contiguous integers from 0 to n_classes.
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the fit method will, when necessary, convert
             y to be the same data type as X if they differ. This will increase
             memory used for the method.
-
         """
         self._set_output_type(X)
         self._set_target_dtype(y)
+        self._set_n_features_in(X)
 
         # Reset the old tree data for new fit call
         self._reset_forest_data()
