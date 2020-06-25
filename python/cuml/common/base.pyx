@@ -23,6 +23,7 @@ import cuml
 import cuml.common.cuda
 import cuml.common.handle
 import cuml.common.logger as logger
+from cuml.common import input_to_cuml_array
 import inspect
 
 from cudf.core import Series as cuSeries
@@ -33,6 +34,8 @@ from numba.cuda import devicearray as numbaArray
 from numpy import ndarray as numpyArray
 from pandas import DataFrame as pdDataFrame
 from pandas import Series as pdSeries
+
+from numba import cuda
 
 
 class Base:
@@ -149,7 +152,6 @@ class Base:
         stream = cuml.cuda.Stream()
         handle = cuml.Handle()
         handle.setStream(stream)
-        handle.enableRMM()   # Enable RMM as the device-side allocator
 
         algo = MyAlgo(handle=handle)
         algo.fit(...)
@@ -178,8 +180,7 @@ class Base:
         elif verbose is False:
             self.verbose = logger.level_info
         else:
-            # Using max in case user gives a verbosity value greater than 6
-            self.verbose = max(6 - verbose, 0)
+            self.verbose = verbose
 
         self.output_type = cuml.global_output_type if output_type is None \
             else _check_output_type_str(output_type)
@@ -206,6 +207,9 @@ class Base:
                     string += "{}={}, ".format(key, state[key])
         string = string.rstrip(', ')
         return string + ')'
+
+    def enable_rmm_pool(self):
+        self.handle.enable_rmm_pool()
 
     def get_param_names(self):
         """
@@ -291,6 +295,87 @@ class Base:
             return _input_to_type(input)
         else:
             return self.output_type
+
+    def _set_n_features_in(self, X):
+        """Method to be called by the fit method of the inheriting class.
+        Sets the n_features_in_ attribute based on the data passed to fit.
+        """
+        if isinstance(X, int):
+            self.n_features_in_ = X
+        else:
+            self.n_features_in_ = X.shape[1]
+
+
+class RegressorMixin:
+    """Mixin class for regression estimators in cuML"""
+
+    _estimator_type = "regressor"
+
+    def score(self, X, y, **kwargs):
+        """Scoring function for regression estimators
+
+        Returns the coefficient of determination R^2 of the prediction.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Test samples on which we predict
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        y : array-like (device or host) shape = (n_samples, n_features)
+            Ground truth values for predict(X)
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        Returns
+        -------
+        score : float
+            R^2 of self.predict(X) wrt. y.
+        """
+        from cuml.metrics.regression import r2_score
+
+        if hasattr(self, 'handle'):
+            handle = self.handle
+        else:
+            handle = None
+
+        preds = self.predict(X)
+        return r2_score(y, preds, handle=handle)
+
+
+class ClassifierMixin:
+    """Mixin class for classifier estimators in cuML"""
+
+    _estimator_type = "classifier"
+
+    def score(self, X, y, **kwargs):
+        """
+        Scoring function for classifier estimators based on mean accuracy.
+
+        Parameters
+        ----------
+        X : [cudf.DataFrame]
+            Test samples on which we predict
+        y : [cudf.Series, device array, or numpy array]
+            Ground truth values for predict(X)
+
+        Returns
+        -------
+        score : float
+            Accuracy of self.predict(X) wrt. y (fraction where y == pred_y)
+        """
+        from cuml.metrics.accuracy import accuracy_score
+        from cuml.common import input_to_dev_array
+
+        y_m = input_to_dev_array(y)[0]
+
+        if hasattr(self, 'handle'):
+            handle = self.handle
+        else:
+            handle = None
+
+        preds = self.predict(X, **kwargs)
+        return accuracy_score(y_m, preds, handle=handle)
 
 
 # Internal, non class owned helper functions
