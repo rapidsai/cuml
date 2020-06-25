@@ -49,7 +49,6 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "libcumlprims=0.15.0a200607" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "dask-ml" \
       "ucx-py=${MINOR_VERSION}" \
       "xgboost==1.1.0dev.rapidsai0.15" \
       "rapids-build-env=$MINOR_VERSION.*" \
