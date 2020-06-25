@@ -78,7 +78,7 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
  */
 template <typename Type_f, typename Index_ = int>
 size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
-           Type_f eps, Index_ minPts, Index_* labels, int algoVd, int algoAdj,
+           Type_f eps, Index_ minPts, Index_* labels, Index_* core_sample_indices, int algoVd, int algoAdj,
            int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream) {
   const size_t align = 256;
   size_t batchSize = ceildiv<size_t>(N, nBatches);
@@ -200,12 +200,54 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
   }
 
+  MLCommon::myPrintDevVector("core_pts", core_pts, std::min(1000, (int)N));
+
   ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
   if (algoCcl == 2) final_relabel(labels, N, stream);
   size_t nblks = ceildiv<size_t>(N, TPB);
   relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
   CUDA_CHECK(cudaPeekAtLastError());
   ML::POP_RANGE();
+
+  // Calculate the core_sample_indices only if an array was passed in
+  if (core_sample_indices != nullptr){
+    ML::PUSH_RANGE("Trace::Dbscan::CoreSampleIndices");
+
+    CUML_LOG_INFO("Calculating CoreSampleIndices.");
+
+    // Create the execution policy
+    ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
+    auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
+
+    // Get wrappers for the device ptrs
+    thrust::device_ptr<bool> dev_core_pts = thrust::device_pointer_cast(core_pts);
+    thrust::device_ptr<Index_> dev_core_sample_indices = thrust::device_pointer_cast(core_sample_indices);
+
+    // First fill the core_sample_indices with -1 which will be used if core_point_count < N
+    thrust::fill_n(thrust_exec_policy, dev_core_sample_indices, N, (Index_)-1);
+
+    auto index_iterator = thrust::counting_iterator<int>(0);
+
+    MLCommon::myPrintDevVector("core_sample_indices: fill", core_sample_indices, std::min(1000, (int)N));
+
+    //Perform stream reduction on the core points. The core_pts acts as the stencil and we use thrust::counting_iterator to return the index
+    auto core_point_count = thrust::copy_if(
+      thrust_exec_policy, 
+      index_iterator,
+      index_iterator + N,
+      dev_core_pts,
+      dev_core_sample_indices,
+      [=] __device__(const bool is_core_point) {
+        return is_core_point;
+      }
+    );
+
+    CUML_LOG_INFO("Core Point Count: %d.", core_point_count);
+
+    MLCommon::myPrintDevVector("core_sample_indices: fill", core_sample_indices, std::min(1000, (int)N));
+
+    ML::POP_RANGE();
+  }
 
   CUML_LOG_DEBUG("Done.");
   return (size_t)0;
