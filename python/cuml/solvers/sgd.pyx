@@ -424,7 +424,7 @@ class SGD(Base):
 
         cdef uintptr_t X_ptr = X_m.ptr
 
-        cdef uintptr_t coef_ptr = self.coef_.ptr    
+        cdef uintptr_t coef_ptr = self.coef_.ptr
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
@@ -487,7 +487,6 @@ class SGD(Base):
 
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t coef_ptr = self.coef_.ptr
-        
         preds = CumlArray.zeros(n_rows, dtype=dtype)
         cdef uintptr_t preds_ptr = preds.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
