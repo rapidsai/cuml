@@ -90,53 +90,47 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
     prmsPCA.tol = 0.01;
     prmsPCA.algorithm = params.algorithm;
 
-    components = (T*)allocator->allocate(
-      prmsPCA.n_components * prmsPCA.n_cols * sizeof(T), stream);
+    device_buffer<T> components(allocator, stream,
+                                prmsPCA.n_components * prmsPCA.n_cols);
 
-    explained_var =
-      (T*)allocator->allocate(prmsPCA.n_components * sizeof(T), stream);
+    device_buffer<T> explained_var(allocator, stream, prmsPCA.n_components);
 
-    explained_var_ratio =
-      (T*)allocator->allocate(prmsPCA.n_components * sizeof(T), stream);
+    device_buffer<T> explained_var_ratio(allocator, stream,
+                                         prmsPCA.n_components);
 
-    singular_vals =
-      (T*)allocator->allocate(prmsPCA.n_components * sizeof(T), stream);
+    device_buffer<T> singular_vals(allocator, stream, prmsPCA.n_components);
 
-    mu = (T*)allocator->allocate(prmsPCA.n_cols * sizeof(T), stream);
+    device_buffer<T> mu(allocator, stream, prmsPCA.n_cols);
 
-    noise_vars =
-      (T*)allocator->allocate(prmsPCA.n_components * sizeof(T), stream);
+    device_buffer<T> noise_vars(allocator, stream, prmsPCA.n_components);
 
-    ML::PCA::opg::fit(*handle, inParts, desc, components, explained_var,
-                      explained_var_ratio, singular_vals, mu, noise_vars,
+    ML::PCA::opg::fit(*handle, inParts, desc, components.data(),
+                      explained_var.data(), explained_var_ratio.data(),
+                      singular_vals.data(), mu.data(), noise_vars.data(),
                       prmsPCA, false);
+
+    CUML_LOG_DEBUG(MLCommon::arr2Str(singular_vals.data(), params.N_components,
+                                     "Singular Vals", stream)
+                     .c_str());
+
+    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var.data(), params.N_components,
+                                     "Explained Variance", stream)
+                     .c_str());
+
+    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var_ratio.data(),
+                                     params.N_components,
+                                     "Explained Variance Ratio", stream)
+                     .c_str());
+
+    CUML_LOG_DEBUG(MLCommon::arr2Str(components.data(),
+                                     params.N_components * params.N,
+                                     "Components", stream)
+                     .c_str());
 
     Matrix::opg::deallocate(h, inParts, desc, myRank, stream);
   }
 
-  void TearDown() {
-    const std::shared_ptr<deviceAllocator> allocator =
-      handle->getDeviceAllocator();
-    cudaStream_t stream = handle->getStream();
-
-    allocator->deallocate(
-      components, prmsPCA.n_components * prmsPCA.n_cols * sizeof(T), stream);
-
-    allocator->deallocate(explained_var, prmsPCA.n_components * sizeof(T),
-                          stream);
-
-    allocator->deallocate(explained_var_ratio, prmsPCA.n_components * sizeof(T),
-                          stream);
-
-    allocator->deallocate(singular_vals, prmsPCA.n_components * sizeof(T),
-                          stream);
-
-    allocator->deallocate(mu, prmsPCA.n_cols * sizeof(T), stream);
-
-    allocator->deallocate(noise_vars, prmsPCA.n_components * sizeof(T), stream);
-
-    delete handle;
-  }
+  void TearDown() { delete handle; }
 
  protected:
   PCAOpgParams params;
@@ -145,8 +139,6 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
   int myRank;
   int totalRanks;
   ML::paramsPCAMG prmsPCA;
-  T *components, *explained_var, *explained_var_ratio, *singular_vals, *mu,
-    *noise_vars;
 };
 
 const std::vector<PCAOpgParams> inputs = {{20,
@@ -178,21 +170,8 @@ typedef PCAOpgTest<float> PCAOpgTestF;
 
 TEST_P(PCAOpgTestF, Result) {
   if (myRank == 0) {
-    CUML_LOG_DEBUG(MLCommon::arr2Str(singular_vals, params.N_components,
-                                     "Singular Vals", stream)
-                     .c_str());
-
-    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var, params.N_components,
-                                     "Explained Variance", stream)
-                     .c_str());
-
-    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var_ratio, params.N_components,
-                                     "Explained Variance Ratio", stream)
-                     .c_str());
-
-    CUML_LOG_DEBUG(MLCommon::arr2Str(components, params.N_components * params.N,
-                                     "Components", stream)
-                     .c_str());
+    // We should be inverse transforming and checking against the original
+    // data here. Github reference: https://github.com/rapidsai/cuml/issues/2474
 
     ASSERT_TRUE(true);
   }
@@ -204,21 +183,8 @@ typedef PCAOpgTest<double> PCAOpgTestD;
 
 TEST_P(PCAOpgTestD, Result) {
   if (myRank == 0) {
-    CUML_LOG_DEBUG(MLCommon::arr2Str(singular_vals, params.N_components,
-                                     "Singular Vals", stream)
-                     .c_str());
-
-    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var, params.N_components,
-                                     "Explained Variance", stream)
-                     .c_str());
-
-    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var_ratio, params.N_components,
-                                     "Explained Variance Ratio", stream)
-                     .c_str());
-
-    CUML_LOG_DEBUG(MLCommon::arr2Str(components, params.N_components * params.N,
-                                     "Components", stream)
-                     .c_str());
+    // We should be inverse transforming and checking against the original
+    // data here. Github reference: https://github.com/rapidsai/cuml/issues/2474
 
     ASSERT_TRUE(true);
   }

@@ -22,7 +22,12 @@ set(CUML_TEST_INCLUDE_DIRS
 set(CUML_TEST_LINK_LIBRARIES
   treelite::treelite
   treelite::treelite_runtime
-  ${CUML_LINK_LIBRARIES}
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  ${CUDA_nvgraph_LIBRARY}
   ${CUML_CPP_TARGET}
   gtestlib
   gtest_mainlib)

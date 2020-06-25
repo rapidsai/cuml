@@ -95,6 +95,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
   int rank = handle.getImpl().getCommunicator().getRank();
 
   // TODO: These streams should come from cumlHandle
+  // Reference issue https://github.com/rapidsai/cuml/issues/2470
   int n_streams = input_desc.blocksOwnedBy(rank).size();
   cudaStream_t streams[n_streams];
   for (int i = 0; i < n_streams; i++) {
@@ -251,6 +252,9 @@ void transform_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
                     size_t n_parts, Matrix::Data<T> **input, T *components,
                     Matrix::Data<T> **trans_input, T *singular_vals, T *mu,
                     paramsPCAMG prms, bool verbose) {
+  // We want to update the API of this function, and other functions with
+  // regards to https://github.com/rapidsai/cuml/issues/2471
+
   int rank = handle.getImpl().getCommunicator().getRank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
