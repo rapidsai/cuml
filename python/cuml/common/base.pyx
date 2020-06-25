@@ -316,7 +316,6 @@ class Base:
             out_dtype = None
         return out_dtype
 
-
     def _set_n_features_in(self, X):
         """Method to be called by the fit method of the inheriting class.
         Sets the n_features_in_ attribute based on the data passed to fit.
