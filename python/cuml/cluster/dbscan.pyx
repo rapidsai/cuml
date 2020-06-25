@@ -22,6 +22,7 @@
 import ctypes
 import cudf
 import numpy as np
+import cupy as cp
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
@@ -43,6 +44,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         float eps,
                         int min_pts,
                         int *labels,
+                        int *core_sample_indices,
                         size_t max_mbytes_per_batch,
                         int verbosity) except +
 
@@ -53,6 +55,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         double eps,
                         int min_pts,
                         int *labels,
+                        int *core_sample_indices,
                         size_t max_mbytes_per_batch,
                         int verbosity) except +
 
@@ -63,6 +66,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         double eps,
                         int min_pts,
                         int64_t *labels,
+                        int64_t *core_sample_indices,
                         size_t max_mbytes_per_batch,
                         int verbosity) except +
 
@@ -73,6 +77,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         double eps,
                         int min_pts,
                         int64_t *labels,
+                        int64_t *core_sample_indices,
                         size_t max_mbytes_per_batch,
                         int verbosity) except +
 
@@ -174,14 +179,16 @@ class DBSCAN(Base):
 
     def __init__(self, eps=0.5, handle=None, min_samples=5,
                  verbose=False, max_mbytes_per_batch=None,
-                 output_type=None):
+                 output_type=None, calc_core_sample_indices=True):
         super(DBSCAN, self).__init__(handle, verbose, output_type)
         self.eps = eps
         self.min_samples = min_samples
         self.max_mbytes_per_batch = max_mbytes_per_batch
+        self.calc_core_sample_indices = calc_core_sample_indices
 
         # internal array attributes
         self._labels_ = None  # accessed via estimator.labels_
+        self._core_sample_indices_ = None # accessed via estimator._core_sample_indices_ when self.calc_core_sample_indices == True
 
         # C++ API expects this to be numeric.
         if self.max_mbytes_per_batch is None:
@@ -223,6 +230,12 @@ class DBSCAN(Base):
         self._labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
         cdef uintptr_t labels_ptr = self._labels_.ptr
 
+        cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL
+
+        if self.calc_core_sample_indices:
+            self._core_sample_indices_ = CumlArray.empty(n_rows, dtype=out_dtype)
+            core_sample_indices_ptr = self._core_sample_indices_.ptr
+
         if self.dtype == np.float32:
             if out_dtype is "int32" or out_dtype is np.int32:
                 dbscanFit(handle_[0],
@@ -232,6 +245,7 @@ class DBSCAN(Base):
                           <float> self.eps,
                           <int> self.min_samples,
                           <int*> labels_ptr,
+                          <int*> core_sample_indices_ptr,
                           <size_t>self.max_mbytes_per_batch,
                           <int> self.verbose)
             else:
@@ -242,6 +256,7 @@ class DBSCAN(Base):
                           <float> self.eps,
                           <int> self.min_samples,
                           <int64_t*> labels_ptr,
+                          <int64_t*> core_sample_indices_ptr,
                           <size_t>self.max_mbytes_per_batch,
                           <int> self.verbose)
 
@@ -254,6 +269,7 @@ class DBSCAN(Base):
                           <double> self.eps,
                           <int> self.min_samples,
                           <int*> labels_ptr,
+                          <int*> core_sample_indices_ptr,
                           <size_t> self.max_mbytes_per_batch,
                           <int> self.verbose)
             else:
@@ -264,6 +280,7 @@ class DBSCAN(Base):
                           <double> self.eps,
                           <int> self.min_samples,
                           <int64_t*> labels_ptr,
+                          <int64_t*> core_sample_indices_ptr,
                           <size_t> self.max_mbytes_per_batch,
                           <int> self.verbose)
 
@@ -271,6 +288,23 @@ class DBSCAN(Base):
         # delete call happens
         self.handle.sync()
         del(X_m)
+
+        # Finally, resize the core_sample_indices array if necessary
+        if self.calc_core_sample_indices:
+
+            # Temp convert to cupy array only once
+            core_samples_cupy = self._core_sample_indices_.to_output("cupy")
+
+            # First get the min index. These have to monotonically increasing, so the min index should be the first returned -1
+            min_index = cp.argmin(core_samples_cupy).item()
+
+            # Check for the case where there are no -1's
+            if (min_index == 0 and core_samples_cupy[min_index].item() != -1):
+                # Nothing to delete. The array has no -1's
+                pass
+            else:
+                self._core_sample_indices_ = self._core_sample_indices_[:min_index]
+
         return self
 
     def fit_predict(self, X, out_dtype="int32"):

@@ -18,6 +18,7 @@ import pytest
 
 from cuml.test.utils import get_handle
 from cuml import DBSCAN as cuDBSCAN
+from cuml.common.array import CumlArray
 from cuml.test.utils import get_pattern, unit_param, \
     quality_param, stress_param
 
@@ -52,11 +53,19 @@ def test_dbscan(datatype, use_handle, nrows, ncols,
                       n_features=n_feats, random_state=0)
 
     handle, stream = get_handle(use_handle)
-    cudbscan = cuDBSCAN(handle=handle, eps=1, min_samples=2,
-                        max_mbytes_per_batch=max_mbytes_per_batch,
-                        output_type='numpy')
 
-    cu_labels = cudbscan.fit_predict(X, out_dtype=out_dtype)
+    import cuml.common.logger as logger
+    with logger.set_level(logger.level_debug):
+
+        temp = CumlArray.zeros((200,))
+
+        temp = temp[:100]
+
+        cudbscan = cuDBSCAN(handle=handle, eps=1, min_samples=2,
+                            max_mbytes_per_batch=max_mbytes_per_batch,
+                            output_type='numpy', calc_core_sample_indices=False)
+
+        cu_labels = cudbscan.fit_predict(X, out_dtype=out_dtype)
 
     if nrows < 500000:
         skdbscan = skDBSCAN(eps=1, min_samples=2, algorithm="brute")
