@@ -16,8 +16,6 @@
 - PR #1945: enable clang tidy
 - PR #2339: umap performance improvements
 - PR #2308: Using fixture for Dask client to eliminate possiblity of not closing
-- PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
-- PR #1945: enable clang tidy
 - PR #2345: make C++ logger level definition to be the same as python layer
 - PR #2329: Add short commit hash to conda package name
 - PR #2363: Update threshold and make other changes for stress tests
@@ -31,6 +29,7 @@
 - PR #2420: Add and set convert_dtype default to True in estimator fit methods
 - PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
 - PR #2442: fix setting RAFT_DIR from the RAFT_PATH env var
+- PR #2469: Updating KNN c-api to document all arguments
 - PR #2453: Add CumlArray to API doc
 - PR #2440: Use Treelite Conda package
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
