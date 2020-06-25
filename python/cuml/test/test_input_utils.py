@@ -309,8 +309,8 @@ def check_ptr(a, b, input_type):
                 return x.__array_interface__['data'][0]
 
         if input_type == 'pandas':
-            a = a.as_matrix()
-            b = b.as_matrix()
+            a = a.values
+            b = b.values
 
         assert get_ptr(a) == get_ptr(b)
 
