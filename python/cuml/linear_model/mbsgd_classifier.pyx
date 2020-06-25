@@ -196,8 +196,8 @@ class MBSGDClassifier(Base, ClassifierMixin):
 
         Returns
         ----------
-        y: Type specified by `output_type`
-           Dense vector (floats or doubles) of shape (n_samples, 1)
+        y : (same as the input datatype)
+            Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
         preds = \
             self.cu_mbsgd_classifier.predictClass(X,

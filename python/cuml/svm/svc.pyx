@@ -296,8 +296,8 @@ class SVC(SVMBase, ClassifierMixin):
 
         Returns
         -------
-        y : cuDF Series
-           Dense vector (floats or doubles) of shape (n_samples, 1)
+        y : (same as the input datatype)
+            Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
         
         return super(SVC, self).predict(X, True)
