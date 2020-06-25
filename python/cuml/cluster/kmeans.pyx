@@ -337,7 +337,7 @@ class KMeans(Base):
             are assigned equal weight.
 
         """
-
+        self._set_n_features_in(X)
         self._set_output_type(X)
 
         if self.init == 'preset':
