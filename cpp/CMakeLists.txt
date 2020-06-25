@@ -295,7 +295,6 @@ include(cmake/Dependencies.cmake)
 
 set(CUML_INCLUDE_DIRECTORIES
   ${CUML_INCLUDE_DIR}
-  ${CUMLPRIMS_MG_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/src_prims
   ${CMAKE_CURRENT_SOURCE_DIR}/test/prims
@@ -304,7 +303,8 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
   ${SPDLOG_DIR}/src/spdlog/include
-  ${RAFT_DIR}/cpp/include)
+  ${RAFT_DIR}/cpp/include
+  )
 
 set(CUML_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
@@ -313,7 +313,15 @@ set(CUML_LINK_LIBRARIES
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
   ${CUDA_nvgraph_LIBRARY}
-  ${CUMLPRIMS_MG_LIBRARIES})
+  )
+
+if(ENABLE_CUMLPRIMS_MG)
+  list(APPEND CUML_INCLUDE_DIRECTORIES
+       ${CUMLPRIMS_MG_INCLUDE_DIRS})
+
+  list(APPEND CUML_LINK_LIBRARIES
+       ${CUMLPRIMS_MG_LIBRARIES})
+endif(ENABLE_CUMLPRIMS_MG)
 
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
@@ -361,7 +369,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   if(NOT SINGLEGPU)
     target_sources(${CUML_CPP_TARGET}
-      PRIVATE     
+      PRIVATE
         src/pca/pca_mg.cu
         src/pca/sign_flip_mg.cu
         src/tsvd/tsvd_mg.cu
