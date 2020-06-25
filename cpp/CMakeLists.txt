@@ -156,10 +156,10 @@ if(SINGLEGPU)
   set(WITH_UCX OFF)
 endif(SINGLEGPU)
 
-if(NOT BUILD_CUML_MPI_COMMS AND NOT SINGLEGPU)
-  message(STATUS "Detected BUILD_CUML_MPI_COMMS set to OFF. Disabling BUILD_CUML_MG_TESTS")
-  set(BUILD_CUML_MG_TESTS OFF)
-endif(NOT BUILD_CUML_MPI_COMMS AND NOT SINGLEGPU)
+if(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
+  message(STATUS "Detected BUILD_CUML_MG_TESTS set to ON. Enabling BUILD_CUML_MPI_COMMS")
+  set(BUILD_CUML_MPI_COMMS ON)
+endif(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
