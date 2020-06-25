@@ -62,6 +62,11 @@ def test_get_combined_model(datatype, keys, data_size, fit_intercept,
     assert combined_model.coef_ is not None
     assert combined_model.intercept_ is not None
 
+    y_hat = combined_model.predict(X_train.compute())
+
+    np.testing.assert_allclose(y_hat.get(), y_train.compute().get(),
+                               atol=1e-3, rtol=1e-3)
+
 
 def test_check_internal_model_failures(client):
 
