@@ -145,6 +145,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
             raise ValueError("Only uniform weighting strategy is "
                              "supported currently.")
 
+    @with_cupy_rmm
     def fit(self, X, y, convert_dtype=True):
         """
         Fit a GPU index for k-nearest neighbors classifier model.
@@ -171,6 +172,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                                 convert_to_dtype=(np.int32
                                                   if convert_dtype
                                                   else None))
+        self.classes_ = cp.unique(self.y)
         return self
 
     def predict(self, X, convert_dtype=True):
