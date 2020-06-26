@@ -3,15 +3,10 @@
 
 #### [Build and install cuML](../BUILD.md)
 
-#### Use your current cuml dev environment, or build a new one doc building environment.
-```shell script
-(new) conda env create --name docs -f ./conda/environment/builddocs_py37.yml
-(existing) pip install -r docs/requirements.txt
-```
 #### Generate the docs
 ```shell script
-cd docs
-make clean; make html
+bash build.sh pydocs
+bash build.sh cppdocs
 ```
 
 #### Once the process finishes, documentation can be found in build/html
