@@ -15,15 +15,15 @@
  */
 
 #include <gtest/gtest.h>
+#include <cuml/neighbors/knn_mg.hpp>
 #include <memory>
 #include <random/make_blobs.cuh>
 #include "../prims/test_utils.h"
-#include <cuml/neighbors/knn_mg.hpp>
 #include "test_opg_utils.h"
 
-#include <cuml/common/cuml_allocator.hpp>
 #include <common/cuml_comms_int.hpp>
 #include <common/device_buffer.hpp>
+#include <cuml/common/cuml_allocator.hpp>
 
 #include <common/cuml_comms_iface.hpp>
 #include <common/cuml_comms_int.hpp>
