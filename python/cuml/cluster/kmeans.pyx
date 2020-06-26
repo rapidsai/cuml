@@ -320,7 +320,6 @@ class KMeans(Base):
                     input_to_cuml_array(init, order='C',
                                         check_dtype=[np.float32, np.float64])
 
-
         params.max_iter = <int>self.max_iter
         params.tol = <double>self.tol
         params.verbosity = <int>self.verbose
