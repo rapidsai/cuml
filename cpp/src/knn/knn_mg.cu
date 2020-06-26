@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <selection/knn.cuh>
 #include <cuml/neighbors/knn_mg.hpp>
+#include <selection/knn.cuh>
 
 #include <common/cumlHandle.hpp>
 
-#include <cuml/common/cuml_allocator.hpp>
 #include <common/cuml_comms_int.hpp>
 #include <common/device_buffer.hpp>
+#include <cuml/common/cuml_allocator.hpp>
 
 #include <set>
 
