@@ -41,9 +41,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
-set(BLAS_LIBRARIES "" CACHE STRING
-    "Location of BLAS library for FAISS build.")
-
 option(BUILD_CUML_C_LIBRARY "Build libcuml shared library. Contains the cuML C API" ON)
 
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml++ shared library" ON)
@@ -264,12 +261,10 @@ message("-- Building for GPU_ARCHS = ${GPU_ARCHS}")
 
 foreach(arch ${GPU_ARCHS})
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
-  set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${arch},code=sm_${arch}")
 endforeach()
 
 list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
-set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
 
 if(CMAKE_COMPILER_IS_GNUCXX)
   if(NOT CMAKE_CXX11_ABI)
@@ -299,12 +294,13 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/src_prims
   ${CMAKE_CURRENT_SOURCE_DIR}/test/prims
-  ${FAISS_DIR}/src/
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
   ${SPDLOG_DIR}/src/spdlog/include
+  ${FAISS_FAISS_INCLUDE_DIR}
   ${RAFT_DIR}/cpp/include)
+  
 
 set(CUML_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
@@ -314,6 +310,8 @@ set(CUML_LINK_LIBRARIES
   ${CUDA_cusparse_LIBRARY}
   ${CUDA_nvgraph_LIBRARY}
   ${CUMLPRIMS_MG_LIBRARIES})
+
+ message("FAISS: ${CUML_LINK_LIBRARIES}")
 
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
@@ -380,10 +378,10 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
+      FAISS::FAISS
       ${CUML_LINK_LIBRARIES}
     PRIVATE
       ${Protobuf_LIBRARIES}
-      faisslib
       treelite::treelite
       treelite::treelite_runtime)
   # If we export the libdmlc symbols, they can lead to weird crashes with other
@@ -391,7 +389,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
   # same as above, but for protobuf library
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
-
+  
 endif(BUILD_CUML_CPP_LIBRARY)
 
 ##############################################################################
