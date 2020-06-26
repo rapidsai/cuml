@@ -275,8 +275,8 @@ class LogisticRegression(Base, ClassifierMixin):
         # Not needed to check dtype since qn class checks it already
         y_m, _, _, _ = input_to_cuml_array(y)
 
-        unique_labels = cp.unique(y_m)
-        self._num_classes = len(unique_labels)
+        self.classes_ = cp.unique(y_m)
+        self._num_classes = len(self.classes_)
 
         if self._num_classes > 2:
             loss = "softmax"
