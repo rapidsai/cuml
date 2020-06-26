@@ -263,6 +263,7 @@ class MultinomialNB(Base):
         y = input_to_cuml_array(y).array.to_output('cupy')
 
         Y, label_classes = make_monotonic(y, copy=True)
+        self.classes_ = label_classes
 
         if not self.fit_called_:
             self.fit_called_ = True
