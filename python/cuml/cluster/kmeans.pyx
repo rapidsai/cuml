@@ -33,27 +33,9 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
-
-cdef extern from "cuml/cluster/kmeans.hpp" namespace \
-        "ML::kmeans::KMeansParams":
-    enum InitMethod:
-        KMeansPlusPlus, Random, Array
+from cuml.cluster.kmeans_utils cimport *
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
-
-    cdef struct KMeansParams:
-        int n_clusters,
-        InitMethod init
-        int max_iter,
-        double tol,
-        int verbosity,
-        int seed,
-        int metric,
-        int n_init,
-        double oversampling_factor,
-        int batch_samples,
-        int batch_centroids,
-        bool inertia_check
 
     cdef void fit_predict(cumlHandle& handle,
                           KMeansParams& params,

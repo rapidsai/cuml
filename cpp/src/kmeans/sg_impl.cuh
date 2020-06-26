@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <common/cudart_utils.h>
+#include <ml_cuda_utils.h>
 #include "common.cuh"
 
 namespace ML {
