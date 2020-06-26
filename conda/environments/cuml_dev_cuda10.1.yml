@@ -37,6 +37,7 @@ dependencies:
 - recommonmark
 - pip
 - pip:
+    - ipython
     - sphinx_markdown_tables
     - git+https://github.com/dask/dask.git
     - git+https://github.com/dask/distributed.git
