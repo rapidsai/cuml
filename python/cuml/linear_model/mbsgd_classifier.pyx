@@ -19,10 +19,7 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 from cuml.common.base import Base, ClassifierMixin
-from cuml.common import input_to_cuml_array, with_cupy_rmm
 from cuml.solvers import SGD
-import numpy as np
-import cupy as cp
 
 
 class MBSGDClassifier(Base, ClassifierMixin):
@@ -153,7 +150,6 @@ class MBSGDClassifier(Base, ClassifierMixin):
         self.n_iter_no_change = n_iter_no_change
         self.cu_mbsgd_classifier = SGD(**self.get_params())
 
-    @with_cupy_rmm
     def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
@@ -176,19 +172,11 @@ class MBSGDClassifier(Base, ClassifierMixin):
             will increase memory used for the method.
         """
         self._set_n_features_in(X)
-
-        X_m, n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
-
-        y_m, _, _, _ = \
-            input_to_cuml_array(y, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_rows=n_rows, check_cols=1)
-
-        self.classes_ = cp.unique(y_m)
-        self.cu_mbsgd_classifier.fit(X_m, y_m, convert_dtype=convert_dtype)
+        self.cu_mbsgd_classifier._estimator_type = self._estimator_type
+        
+        self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
         self.coef_ = self.cu_mbsgd_classifier.coef_
+        self.classes_ = self.cu_mbsgd_classifier.classes_
         self.intercept_ = self.cu_mbsgd_classifier.intercept_
 
         return self
