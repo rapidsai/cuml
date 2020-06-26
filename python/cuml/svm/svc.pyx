@@ -20,7 +20,7 @@
 
 import ctypes
 import cudf
-import cupy
+import cupy as cp
 import numpy as np
 
 from numba import cuda
@@ -31,7 +31,7 @@ from libc.stdint cimport uintptr_t
 from cuml.common.array import CumlArray
 from cuml.common.base import Base, ClassifierMixin
 from cuml.common.handle cimport cumlHandle
-from cuml.common import input_to_cuml_array
+from cuml.common import input_to_cuml_array, with_cupy_rmm
 from libcpp cimport bool
 from cuml.svm.svm_base import SVMBase
 
@@ -213,6 +213,7 @@ class SVC(SVMBase, ClassifierMixin):
                                   verbose)
         self.svmType = C_SVC
 
+    @with_cupy_rmm
     def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
@@ -245,6 +246,8 @@ class SVC(SVMBase, ClassifierMixin):
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
                                 check_rows=self.n_rows, check_cols=1)
+
+        self.classes_ = cp.unique(y_m)
 
         cdef uintptr_t y_ptr = y_m.ptr
         self._dealloc()  # delete any previously fitted model
