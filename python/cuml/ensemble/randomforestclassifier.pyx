@@ -604,11 +604,11 @@ class RandomForestClassifier(Base, ClassifierMixin):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><uintptr_t>self.handle.getHandle()
 
-        unique_labels = rmm_cupy_ary(cp.unique, y_m)
-        num_unique_labels = len(unique_labels)
+        self.classes_ = rmm_cupy_ary(cp.unique, y_m)
+        num_unique_labels = len(self.classes_)
 
         for i in range(num_unique_labels):
-            if i not in unique_labels:
+            if i not in self.classes_:
                 raise ValueError("The labels need "
                                  "to be consecutive values from "
                                  "0 to the number of unique label values")
