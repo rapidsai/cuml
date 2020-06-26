@@ -28,8 +28,6 @@
 #include <random/rng.cuh>
 #include <random>
 
-#include <ml_cuda_utils.h>
-
 #include <thrust/equal.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
@@ -44,7 +42,6 @@
 #include <common/host_buffer.hpp>
 #include <common/tensor.hpp>
 
-#include <cuml/cluster/kmeans.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <fstream>
