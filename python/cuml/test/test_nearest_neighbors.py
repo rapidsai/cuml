@@ -24,6 +24,7 @@ from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.neighbors import NearestNeighbors as skKNN
 from sklearn.datasets.samples_generator import make_blobs
+from sklearn.exceptions import NotFittedError
 import cudf
 import pandas as pd
 import numpy as np
@@ -182,8 +183,8 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
 
 
 # https://github.com/scikit-learn/scikit-learn/blob/62fc8bb94dcd65e72878c0599ff91391d9983424/sklearn/neighbors/tests/test_neighbors.py#L1029-L1066
-# Very work in progress test
-def test_kneighbors_graph():
+# Compare knieghbors_graph against expected output and then to cuml.NearestNeighbors
+def test_kneighbors_graph_against_cuml():
 
     X = np.array([[0, 1], [1.01, 1.], [2, 0]])
 
@@ -193,3 +194,9 @@ def test_kneighbors_graph():
                                    include_self=True) 
 
     assert_array_almost_equal(knn_cu, knn_sk)
+
+
+def test_not_fitted_error():
+    # Test to check if used and not fitted, that error returns
+    X = [[1]]
+

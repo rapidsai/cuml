@@ -350,7 +350,7 @@ class NearestNeighbors(Base):
             Values will be ones/zeros or Euclidean distance based on mode.
 
         """
-        # catch errors for X and n_neighbors here
+        # Check if not fitted, if not fitted, return error that not fitted
         if n_neighbors is None:
             n_neighbors = self.n_neighbors 
 
