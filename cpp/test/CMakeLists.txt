@@ -197,6 +197,6 @@ if(BUILD_PRIMS_TESTS)
   target_link_libraries(prims
     gtestlib
     gtest_mainlib
-    ${PRIMS_TEST_LINK_LIBRARIES}
-    faisslib)
+	FAISS::FAISS
+    ${PRIMS_TEST_LINK_LIBRARIES})
 endif(BUILD_PRIMS_TESTS)
