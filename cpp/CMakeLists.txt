@@ -311,8 +311,6 @@ set(CUML_LINK_LIBRARIES
   ${CUDA_nvgraph_LIBRARY}
   ${CUMLPRIMS_MG_LIBRARIES})
 
- message("FAISS: ${CUML_LINK_LIBRARIES}")
-
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
 
