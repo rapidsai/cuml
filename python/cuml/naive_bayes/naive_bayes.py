@@ -263,28 +263,28 @@ class MultinomialNB(Base):
         y = input_to_cuml_array(y).array.to_output('cupy')
 
         Y, label_classes = make_monotonic(y, copy=True)
-        self.classes_ = label_classes
 
         if not self.fit_called_:
             self.fit_called_ = True
             if _classes is not None:
                 _classes, *_ = input_to_cuml_array(_classes, order='K')
                 check_labels(Y, _classes.to_output('cupy'))
-                self._classes_ = _classes
+                self.classes_ = _classes
             else:
-                self._classes_ = CumlArray(data=label_classes)
+                self.classes_ = CumlArray(data=label_classes)
 
-            self.n_classes_ = self._classes_.shape[0]
+            self.n_classes_ = self.classes_.shape[0]
             self.n_features_ = X.shape[1]
             self._init_counters(self.n_classes_, self.n_features_,
                                 X.dtype)
         else:
-            check_labels(Y, self._classes_)
+            check_labels(Y, self.classes_)
 
         self._count(X, Y)
 
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
+        self.classes_ = self.classes_.to_output("cupy")
 
         return self
 
@@ -377,9 +377,9 @@ class MultinomialNB(Base):
             X = input_to_cuml_array(X, order='K').array.to_output('cupy')
 
         jll = self._joint_log_likelihood(X)
-        indices = cp.argmax(jll, axis=1).astype(self._classes_.dtype)
+        indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
-        y_hat = invert_labels(indices, classes=self._classes_)
+        y_hat = invert_labels(indices, classes=self.classes_)
         return CumlArray(data=y_hat).to_output(out_type)
 
     @with_cupy_rmm
@@ -512,7 +512,7 @@ class MultinomialNB(Base):
         if X.ndim != 2:
             raise ValueError("Input samples should be a 2D array")
 
-        if Y.dtype != self._classes_.dtype:
+        if Y.dtype != self.classes_.dtype:
             warnings.warn("Y dtype does not match classes_ dtype. Y will be "
                           "converted, which will increase memory consumption")
 
@@ -524,7 +524,7 @@ class MultinomialNB(Base):
         n_rows = X.shape[0]
         n_cols = X.shape[1]
 
-        labels_dtype = self._classes_.dtype
+        labels_dtype = self.classes_.dtype
 
         if cp.sparse.isspmatrix(X):
             X = X.tocoo()
