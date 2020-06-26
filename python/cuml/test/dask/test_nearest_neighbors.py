@@ -19,6 +19,7 @@ import dask_cudf
 import pandas as pd
 
 import numpy as np
+import cupy as cp
 
 from cuml.common import has_scipy
 
@@ -102,6 +103,9 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
     skl_y_hat = sklModel.predict(X)
 
     y_hat, _ = predict(local_i, y, n_neighbors)
+
+    ne = cp.where(cp.array(y_hat) != cp.array(skl_y_hat), 1, 0)
+    print(cp.sum(ne))
 
     assert array_equal(y_hat, skl_y_hat)
 
