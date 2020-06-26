@@ -291,7 +291,6 @@ class KMeans(Base):
         cdef KMeansParams params
         params.n_clusters = <int>self.n_clusters
 
-        
         # cuPy does not allow comparing with string. See issue #2372
         if isinstance(init, cupy.ndarray):
             self.init = 'preset'
