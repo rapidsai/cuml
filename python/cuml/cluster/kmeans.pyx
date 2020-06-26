@@ -24,7 +24,6 @@ import cudf
 import numpy as np
 import rmm
 import warnings
-import cupy
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
@@ -291,8 +290,8 @@ class KMeans(Base):
         cdef KMeansParams params
         params.n_clusters = <int>self.n_clusters
 
-        init_str = init if isinstance(init, str) else None
         # cuPy does not allow comparing with string. See issue #2372
+        init_str = init if isinstance(init, str) else None
 
         # K-means++ is the constrained case of k-means||
         # w/ oversampling factor = 0
