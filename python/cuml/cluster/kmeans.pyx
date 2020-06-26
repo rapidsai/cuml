@@ -291,34 +291,29 @@ class KMeans(Base):
         cdef KMeansParams params
         params.n_clusters = <int>self.n_clusters
 
+        init_str = init if isinstance(init, str) else None
         # cuPy does not allow comparing with string. See issue #2372
-        if isinstance(init, cupy.ndarray):
+
+        # K-means++ is the constrained case of k-means||
+        # w/ oversampling factor = 0
+        if (init_str == 'k-means++'):
+            init_str = 'k-means||'
+            self.oversampling_factor = 0
+
+        if (init_str in ['scalable-k-means++', 'k-means||']):
+            self.init = init
+            params.init = KMeansPlusPlus
+
+        elif (init_str == 'random'):
+            self.init = init
+            params.init = Random
+
+        else:
             self.init = 'preset'
             params.init = Array
             self._cluster_centers_, n_rows, self.n_cols, self.dtype = \
                 input_to_cuml_array(init, order='C',
                                     check_dtype=[np.float32, np.float64])
-        else:
-            # K-means++ is the constrained case of k-means||
-            # w/ oversampling factor = 0
-            if (init == 'k-means++'):
-                init = 'k-means||'
-                self.oversampling_factor = 0
-
-            if (init in ['scalable-k-means++', 'k-means||']):
-                self.init = init
-                params.init = KMeansPlusPlus
-
-            elif (init == 'random'):
-                self.init = init
-                params.init = Random
-
-            else:
-                self.init = 'preset'
-                params.init = Array
-                self._cluster_centers_, n_rows, self.n_cols, self.dtype = \
-                    input_to_cuml_array(init, order='C',
-                                        check_dtype=[np.float32, np.float64])
 
         params.max_iter = <int>self.max_iter
         params.tol = <double>self.tol
