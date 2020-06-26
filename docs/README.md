@@ -5,8 +5,7 @@
 
 #### Generate the docs
 ```shell script
-bash build.sh pydocs
-bash build.sh cppdocs
+bash build.sh cppdocs pydocs
 ```
 
 #### Once the process finishes, documentation can be found in build/html
