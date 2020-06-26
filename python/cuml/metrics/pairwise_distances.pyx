@@ -44,30 +44,33 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 def determine_metric(metric_str):
 
     # Available options in scikit-learn and their pairs. See sklearn.metrics.pairwise.PAIRWISE_DISTANCE_FUNCTIONS:
-    # 'cityblock': N/A
+    # 'cityblock': EucUnexpandedL1
     # 'cosine': EucExpandedCosine
     # 'euclidean': EucUnexpandedL2Sqrt
     # 'haversine': N/A
-    # 'l2': EucUnexpandedL2
+    # 'l2': EucUnexpandedL2Sqrt
     # 'l1': EucUnexpandedL1
-    # 'manhattan': N/A
+    # 'manhattan': EucUnexpandedL1
     # 'nan_euclidean': N/A
+    # Note: many are duplicates following this: https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/metrics/pairwise.py#L1321
 
     # TODO: Pull int values from actual enum
-    if metric_str == 'cosine':
+    if metric_str == 'cityblock':
+        return 3
+    elif metric_str == 'cosine':
         return 2
     elif metric_str == 'euclidean':
         return 5
+    elif metric_str == 'haversine':
+        raise ValueError(" The metric: '{}', is not supported at this time.".format(metric_str))
     elif metric_str == 'l2':
-        return 1
-    elif metric_str == '0':
-        return 0
-    elif metric_str == '4':
-        return 4
-    elif metric_str == '2':
-        return 2
+        return 5
     elif metric_str == 'l1':
         return 3
+    elif metric_str == 'manhattan':
+        return 3
+    elif metric_str == 'nan_euclidean':
+        raise ValueError(" The metric: '{}', is not supported at this time.".format(metric_str))
     else:
         raise ValueError("Unknown metric: {}".format(metric_str))
 
@@ -155,16 +158,24 @@ def pairwise_distances(X, Y=None, metric="euclidean", force_all_finite=True, han
     
     # Get the order from the CumlArray
     input_order = X_m.order
-    is_row_major = input_order == "C"
 
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_Y_ptr
     cdef uintptr_t d_dest_ptr
     
     if (Y is not None):
+
+        # Check for the odd case where one dimension of X is 1. In this case, CumlArray always returns order=="C" so instead get the order from Y
+        if (n_samples_x == 1 or n_features_x == 1):
+            input_order = "K"
+
         Y_m, n_samples_y, n_features_y, dtype_y = \
-            input_to_cuml_array(Y, order="K", convert_to_dtype=(dtype_x if convert_dtype
+            input_to_cuml_array(Y, order=input_order, convert_to_dtype=(dtype_x if convert_dtype
                                               else None), check_dtype=[dtype_x])
+
+        # Get the order from Y if necessary (It's possible to set order="F" in input_to_cuml_array and have Y_m.order=="C")
+        if (input_order == "K"):
+            input_order = Y_m.order
     else:
         # Shallow copy X variables
         Y_m = X_m
@@ -172,12 +183,11 @@ def pairwise_distances(X, Y=None, metric="euclidean", force_all_finite=True, han
         n_features_y = n_features_x
         dtype_y = dtype_x
 
+    is_row_major = input_order == "C"
+
     # Check feature sizes are equal
     if (n_features_x != n_features_y):
         raise ValueError("Incompatible dimension for X and Y matrices: X.shape[1] == {} while Y.shape[1] == {}".format(n_features_x, n_features_y))
-
-    if (X_m.order != Y_m.order):
-        raise ValueError("Incompatible order for X and Y matrices: X.order == {} while Y.order == {}".format(X_m.order, Y_m.order))
 
     # Get the metric string to int
     metric_val = determine_metric(metric)
