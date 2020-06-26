@@ -39,7 +39,8 @@ from cuml.cluster import KMeans
 from cuml.cluster.kmeans_utils cimport *
 
 
-cdef extern from "cuml/cluster/kmeans_mg.hpp" namespace "ML::kmeans::opg" nogil:
+cdef extern from "cuml/cluster/kmeans_mg.hpp" \
+        namespace "ML::kmeans::opg" nogil:
 
     cdef void fit(cumlHandle& handle,
                   KMeansParams& params,
