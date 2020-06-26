@@ -16,20 +16,19 @@
 
 #include <gtest/gtest.h>
 #include <memory>
-#include "test_opg_utils.h"
-#include "cuml/neighbors/knn_mg.hpp"
-#include "../prims/test_utils.h"
 #include <random/make_blobs.cuh>
+#include "../prims/test_utils.h"
+#include <cuml/neighbors/knn_mg.hpp>
+#include "test_opg_utils.h"
 
-#include "common/cuml_comms_int.hpp"
 #include <cuml/common/cuml_allocator.hpp>
-#include "common/device_buffer.hpp"
+#include <common/cuml_comms_int.hpp>
+#include <common/device_buffer.hpp>
 
+#include <common/cuml_comms_iface.hpp>
+#include <common/cuml_comms_int.hpp>
 
-#include "common/cuml_comms_iface.hpp"
-#include "common/cuml_comms_int.hpp"
-
-#include "common/cumlHandle.hpp"
+#include <common/cumlHandle.hpp>
 
 #include <cuda_utils.cuh>
 
@@ -38,230 +37,213 @@ namespace Selection {
 namespace opg {
 
 struct KNNParams {
+  int k;
 
-    int k;
+  size_t min_rows;
+  size_t n_cols;
 
-    size_t min_rows;
-    size_t n_cols;
+  int n_query_parts;
+  int n_index_parts;
 
-    int n_query_parts;
-    int n_index_parts;
-
-    size_t batch_size;
-
+  size_t batch_size;
 };
 
 class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
-public:
+ public:
+  void generate_partition(Matrix::floatData_t *part, size_t n_rows, int n_cols,
+                          int n_clusters, int part_num,
+                          std::shared_ptr<deviceAllocator> allocator,
+                          cudaStream_t stream) {
+    device_buffer<int> labels(allocator, stream, n_rows);
 
+    Random::make_blobs<float, int>(part->ptr, labels.data(), (int)n_rows,
+                                   (int)n_cols, 5, allocator, stream);
+  }
 
-    void generate_partition(Matrix::floatData_t *part,
-        size_t n_rows, int n_cols,
-        int n_clusters,
-        int part_num,
-        std::shared_ptr<deviceAllocator> allocator,
-        cudaStream_t stream) {
-      device_buffer<int> labels(allocator, stream, n_rows);
+  bool runTest(const KNNParams &params) {
+    ML::cumlHandle *handle = new ML::cumlHandle();
+    ML::initialize_mpi_comms(*handle, MPI_COMM_WORLD);
+    const ML::cumlHandle_impl &h = handle->getImpl();
+    const cumlCommunicator &comm = h.getCommunicator();
+    const std::shared_ptr<deviceAllocator> allocator = h.getDeviceAllocator();
 
-      Random::make_blobs<float, int>(part->ptr, labels.data(),
-          (int)n_rows, (int)n_cols, 5, allocator, stream);
+    cudaStream_t stream = h.getStream();
+
+    int my_rank = comm.getRank();
+    int size = comm.getSize();
+
+    int index_parts_per_rank = MLCommon::ceildiv(params.n_index_parts, size);
+    int query_parts_per_rank = MLCommon::ceildiv(params.n_query_parts, size);
+    std::vector<Matrix::RankSizePair *> idxPartsToRanks;
+    std::vector<Matrix::RankSizePair *> queryPartsToRanks;
+    for (int cur_rank = 0; cur_rank < size; cur_rank++) {
+      int ippr = index_parts_per_rank;
+      int qppr = query_parts_per_rank;
+      if (cur_rank == size - 1) {
+        ippr = params.n_index_parts - (cur_rank * index_parts_per_rank);
+        qppr = params.n_query_parts - (cur_rank * query_parts_per_rank);
+      }
+
+      std::cout << "Generating " << ippr << " partitions for rank " << cur_rank
+                << std::endl;
+
+      std::cout << "min_rows: " << params.min_rows << std::endl;
+
+      for (int part_n = 0; part_n < ippr; part_n++) {
+        Matrix::RankSizePair *rsp =
+          new Matrix::RankSizePair(cur_rank, params.min_rows);
+        idxPartsToRanks.push_back(rsp);
+      }
+
+      for (int part_n = 0; part_n < qppr; part_n++) {
+        Matrix::RankSizePair *rsp =
+          new Matrix::RankSizePair(cur_rank, params.min_rows);
+        queryPartsToRanks.push_back(rsp);
+      }
     }
 
-    bool runTest(const KNNParams & params){
+    std::cout << idxPartsToRanks.size() << std::endl;
 
-        ML::cumlHandle *handle = new ML::cumlHandle();
-        ML::initialize_mpi_comms(*handle, MPI_COMM_WORLD);
-        const ML::cumlHandle_impl &h = handle->getImpl();
-        const cumlCommunicator &comm = h.getCommunicator();
-        const std::shared_ptr<deviceAllocator> allocator = h.getDeviceAllocator();
+    if (my_rank == size - 1) {
+      index_parts_per_rank =
+        params.n_index_parts - ((size - 1) * index_parts_per_rank);
+      query_parts_per_rank =
+        params.n_query_parts - ((size - 1) * query_parts_per_rank);
+    }
 
-        cudaStream_t stream = h.getStream();
+    std::cout << "Generating " << index_parts_per_rank
+              << " partitions for rank " << my_rank << std::endl;
 
-        int my_rank = comm.getRank();
-        int size = comm.getSize();
+    std::vector<Matrix::floatData_t *> query_parts;
+    std::vector<Matrix::floatData_t *> out_d_parts;
+    std::vector<Matrix::Data<int64_t> *> out_i_parts;
+    for (int i = 0; i < query_parts_per_rank; i++) {
+      float *q = (float *)allocator.get()->allocate(
+        params.min_rows * params.n_cols * sizeof(float *), stream);
 
-        int index_parts_per_rank = MLCommon::ceildiv(params.n_index_parts, size);
-        int query_parts_per_rank = MLCommon::ceildiv(params.n_query_parts, size);
-        std::vector<Matrix::RankSizePair*> idxPartsToRanks;
-        std::vector<Matrix::RankSizePair*> queryPartsToRanks;
-        for(int cur_rank = 0; cur_rank < size; cur_rank++) {
-          int ippr = index_parts_per_rank;
-          int qppr = query_parts_per_rank;
-          if(cur_rank == size-1) {
-            ippr = params.n_index_parts - (cur_rank*index_parts_per_rank);
-            qppr = params.n_query_parts - (cur_rank*query_parts_per_rank);
-          }
+      float *o = (float *)allocator.get()->allocate(
+        params.min_rows * params.k * sizeof(float *), stream);
 
-          std::cout << "Generating " << ippr <<
-              " partitions for rank " << cur_rank << std::endl;
+      int64_t *ind = (int64_t *)allocator.get()->allocate(
+        params.min_rows * params.k * sizeof(int64_t), stream);
 
-          std::cout << "min_rows: " << params.min_rows << std::endl;
+      Matrix::Data<float> *query_d =
+        new Matrix::Data<float>(q, params.min_rows * params.n_cols);
 
-          for(int part_n = 0; part_n < ippr; part_n++) {
-            Matrix::RankSizePair *rsp = new Matrix::RankSizePair(cur_rank, params.min_rows);
-            idxPartsToRanks.push_back(rsp);
-          }
+      Matrix::floatData_t *out_d =
+        new Matrix::floatData_t(o, params.min_rows * params.k);
 
-          for(int part_n = 0; part_n < qppr; part_n++) {
-            Matrix::RankSizePair *rsp = new Matrix::RankSizePair(cur_rank, params.min_rows);
-            queryPartsToRanks.push_back(rsp);
-          }
-        }
+      Matrix::Data<int64_t> *out_i =
+        new Matrix::Data<int64_t>(ind, params.min_rows * params.k);
 
-        std::cout << idxPartsToRanks.size() << std::endl;
+      query_parts.push_back(query_d);
+      out_d_parts.push_back(out_d);
+      out_i_parts.push_back(out_i);
 
+      generate_partition(query_d, params.min_rows, params.n_cols, 5, i,
+                         allocator, stream);
+    }
 
-        if(my_rank == size-1) {
-          index_parts_per_rank = params.n_index_parts - ((size-1)*index_parts_per_rank);
-          query_parts_per_rank = params.n_query_parts - ((size-1)*query_parts_per_rank);
-        }
+    std::vector<Matrix::floatData_t *> index_parts;
 
-        std::cout << "Generating " << index_parts_per_rank <<
-            " partitions for rank " << my_rank << std::endl;
+    for (int i = 0; i < index_parts_per_rank; i++) {
+      float *ind = (float *)allocator.get()->allocate(
+        params.min_rows * params.n_cols * sizeof(float), stream);
 
-        std::vector<Matrix::floatData_t*> query_parts;
-        std::vector<Matrix::floatData_t*> out_d_parts;
-        std::vector<Matrix::Data<int64_t>*> out_i_parts;
-        for(int i = 0; i < query_parts_per_rank; i++) {
-          float *q = (float*)allocator.get()->
-              allocate(params.min_rows * params.n_cols * sizeof(float*), stream);
+      Matrix::Data<float> *i_d =
+        new Matrix::Data<float>(ind, params.min_rows * params.n_cols);
 
-          float *o = (float*)allocator.get()->
-              allocate(params.min_rows * params.k * sizeof(float*), stream);
+      index_parts.push_back(i_d);
 
-          int64_t *ind = (int64_t*)allocator.get()->
-              allocate(params.min_rows*params.k * sizeof(int64_t), stream);
+      generate_partition(i_d, params.min_rows, params.n_cols, 5, i, allocator,
+                         stream);
+    }
 
-          Matrix::Data<float> *query_d =
-              new Matrix::Data<float>(q, params.min_rows*params.n_cols);
+    Matrix::PartDescriptor idx_desc(params.min_rows * params.n_index_parts,
+                                    params.n_cols, idxPartsToRanks,
+                                    comm.getRank());
 
-          Matrix::floatData_t *out_d =
-              new Matrix::floatData_t(o, params.min_rows*params.k);
+    Matrix::PartDescriptor query_desc(params.min_rows * params.n_query_parts,
+                                      params.n_cols, queryPartsToRanks,
+                                      comm.getRank());
 
-          Matrix::Data<int64_t> *out_i =
-              new Matrix::Data<int64_t>(ind, params.min_rows*params.k);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
-          query_parts.push_back(query_d);
-          out_d_parts.push_back(out_d);
-          out_i_parts.push_back(out_i);
+    std::cout << "Ready to call KNN" << std::endl;
 
-          generate_partition(query_d,
-                  params.min_rows, params.n_cols,
-                  5, i, allocator, stream);
-        }
-
-        std::vector<Matrix::floatData_t*> index_parts;
-
-        for(int i = 0; i < index_parts_per_rank; i++) {
-          float *ind = (float*)allocator.get()->
-              allocate(params.min_rows*params.n_cols *sizeof(float), stream);
-
-          Matrix::Data<float> *i_d =
-              new Matrix::Data<float>(ind, params.min_rows*params.n_cols);
-
-          index_parts.push_back(i_d);
-
-          generate_partition(i_d,
-                  params.min_rows, params.n_cols,
-                  5, i, allocator, stream);
-        }
-
-        Matrix::PartDescriptor idx_desc(
-            params.min_rows*params.n_index_parts,
-            params.n_cols,
-            idxPartsToRanks,
-            comm.getRank()
-        );
-
-        Matrix::PartDescriptor query_desc(
-            params.min_rows*params.n_query_parts,
-            params.n_cols,
-            queryPartsToRanks,
-            comm.getRank()
-        );
-
-        CUDA_CHECK(cudaStreamSynchronize(stream));
-
-        std::cout << "Ready to call KNN" << std::endl;
-
-        /**
+    /**
          * Execute brute_force_knn()
          */
-        brute_force_knn(*handle,
-            out_i_parts, out_d_parts,
-            index_parts, idx_desc,
-            query_parts, query_desc,
-            params.k, params.batch_size,
-            true);
+    brute_force_knn(*handle, out_i_parts, out_d_parts, index_parts, idx_desc,
+                    query_parts, query_desc, params.k, params.batch_size, true);
 
-        CUDA_CHECK(cudaStreamSynchronize(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
-        std::cout << "Finished!" << std::endl;
+    std::cout << "Finished!" << std::endl;
 
-        std::cout << MLCommon::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I", stream) << std::endl;
-        std::cout << MLCommon::arr2Str(out_d_parts[0]->ptr, 10, "final_out_D", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I",
+                                   stream)
+              << std::endl;
+    std::cout << MLCommon::arr2Str(out_d_parts[0]->ptr, 10, "final_out_D",
+                                   stream)
+              << std::endl;
 
-        /**
+    /**
          * Verify expected results
          */
 
-        for(Matrix::floatData_t *fd : query_parts) {
-          allocator.get()->deallocate(fd->ptr, fd->totalSize*sizeof(float), stream);
-          delete fd;
-        }
-
-        for(Matrix::floatData_t *fd : index_parts) {
-          allocator.get()->deallocate(fd->ptr, fd->totalSize*sizeof(float), stream);
-          delete fd;
-        }
-
-        for(Matrix::Data<int64_t> *fd : out_i_parts) {
-          allocator.get()->deallocate(fd->ptr, fd->totalSize*sizeof(int64_t), stream);
-          delete fd;
-        }
-
-        for(Matrix::floatData_t *fd : out_d_parts) {
-          allocator.get()->deallocate(fd->ptr, fd->totalSize*sizeof(float), stream);
-          delete fd;
-        }
-
-        for(Matrix::RankSizePair* rsp : queryPartsToRanks) {
-          delete rsp;
-        }
-
-        for(Matrix::RankSizePair* rsp : idxPartsToRanks) {
-          delete rsp;
-        }
-
-        delete handle;
-
-        int actual = 1;
-        int expected = 1;
-        return CompareApprox<int>(1)(actual,expected);
-
+    for (Matrix::floatData_t *fd : query_parts) {
+      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(float),
+                                  stream);
+      delete fd;
     }
+
+    for (Matrix::floatData_t *fd : index_parts) {
+      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(float),
+                                  stream);
+      delete fd;
+    }
+
+    for (Matrix::Data<int64_t> *fd : out_i_parts) {
+      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(int64_t),
+                                  stream);
+      delete fd;
+    }
+
+    for (Matrix::floatData_t *fd : out_d_parts) {
+      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(float),
+                                  stream);
+      delete fd;
+    }
+
+    for (Matrix::RankSizePair *rsp : queryPartsToRanks) {
+      delete rsp;
+    }
+
+    for (Matrix::RankSizePair *rsp : idxPartsToRanks) {
+      delete rsp;
+    }
+
+    delete handle;
+
+    int actual = 1;
+    int expected = 1;
+    return CompareApprox<int>(1)(actual, expected);
+  }
 };
 
 const std::vector<KNNParams> inputs = {
-    {5, 50, 3, 5, 5, 12},
-    {10, 50, 3, 5, 5, 50},
-    {5, 50, 3, 5, 5, 50},
-    {5, 500, 5, 5, 5, 50},
-    {10, 500, 50, 5, 5, 50},
-    {15, 500, 5, 5, 5, 50},
-    {5, 500, 10, 5, 5, 50},
-    {10, 500, 10, 5, 5, 50},
-    {15, 500, 10, 5, 5, 50}
-};
+  {5, 50, 3, 5, 5, 12},   {10, 50, 3, 5, 5, 50},   {5, 50, 3, 5, 5, 50},
+  {5, 500, 5, 5, 5, 50},  {10, 500, 50, 5, 5, 50}, {15, 500, 5, 5, 5, 50},
+  {5, 500, 10, 5, 5, 50}, {10, 500, 10, 5, 5, 50}, {15, 500, 10, 5, 5, 50}};
 
 typedef BruteForceKNNTest KNNTest;
 
-TEST_P(KNNTest, Result) {
-  ASSERT_TRUE(runTest(GetParam()));
-}
+TEST_P(KNNTest, Result) { ASSERT_TRUE(runTest(GetParam())); }
 
-INSTANTIATE_TEST_CASE_P(BruteForceKNNTest, KNNTest, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(BruteForceKNNTest, KNNTest,
+                        ::testing::ValuesIn(inputs));
 
-} // end namespace Multi
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // namespace opg
+}  // namespace Selection
+}  // end namespace MLCommon

@@ -16,8 +16,8 @@
 
 #include <vector>
 
-#include "opg/matrix/data.hpp"
-#include "opg/matrix/part_descriptor.hpp"
+#include <opg/matrix/data.hpp>
+#include <opg/matrix/part_descriptor.hpp>
 
 #include <common/cumlHandle.hpp>
 
@@ -44,20 +44,17 @@ namespace opg {
  * @param batch_size the max number of rows to broadcast at a time
  * @param verbose print extra logging info
  */
-void brute_force_knn(
-    ML::cumlHandle &handle,
-    std::vector<Matrix::Data<int64_t>*> &out_I,
-    std::vector<Matrix::floatData_t*> &out_D,
-    std::vector<Matrix::floatData_t*> &idx_data,
-    Matrix::PartDescriptor &idx_desc,
-    std::vector<Matrix::floatData_t*> &query_data,
-    Matrix::PartDescriptor &query_desc,
-    bool rowMajorIndex = false,
-    bool rowMajorQuery = false,
-    int k = 10,
-    size_t batch_size = 1<<15,
-    bool verbose = false);
+void brute_force_knn(ML::cumlHandle &handle,
+                     std::vector<Matrix::Data<int64_t> *> &out_I,
+                     std::vector<Matrix::floatData_t *> &out_D,
+                     std::vector<Matrix::floatData_t *> &idx_data,
+                     Matrix::PartDescriptor &idx_desc,
+                     std::vector<Matrix::floatData_t *> &query_data,
+                     Matrix::PartDescriptor &query_desc,
+                     bool rowMajorIndex = false, bool rowMajorQuery = false,
+                     int k = 10, size_t batch_size = 1 << 15,
+                     bool verbose = false);
 
-}; // END namespace opg
-}; // END namespace KNN
-}; // END namespace ML
+};  // END namespace opg
+};  // namespace Selection
+};  // namespace MLCommon
