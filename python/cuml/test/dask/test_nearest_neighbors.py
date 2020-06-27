@@ -100,7 +100,9 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
     wait(X_cudf)
 
-    print(str(client.has_what()))
+    dist = np.array([len(v) for v in client.has_what().values()])
+
+    assert np.all(dist == dist[0])
 
     cumlModel = daskNN(n_neighbors=n_neighbors,
                        streams_per_handle=streams_per_handle)
@@ -118,12 +120,10 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
     sk_i = sk_i.astype("int64")
 
-    print(str(sk_i[:,0]))
-    print(str(local_i[:,0]))
+    assert array_equal(local_i[:, 0], np.arange(nrows))
 
     diff = sk_i-local_i
-
-    n_diff = len(diff[diff>0])
+    n_diff = len(diff[diff > 0])
 
     perc_diff = n_diff / (nrows * n_neighbors)
 
