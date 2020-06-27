@@ -252,7 +252,7 @@ class NearestNeighbors(Base):
             The distances of the k-nearest neighbors for each column vector
             in X
 
-        indices: cuDF DataFrame of numpy ndarray
+        indices: cuDF DataFrame or numpy ndarray
             The indices of the k-nearest neighbors for each column vector in X
         """
 
@@ -355,25 +355,32 @@ class NearestNeighbors(Base):
             n_neighbors = self.n_neighbors 
 
         if mode == 'connectivity':
-            indices = self.kneighbors(X, n_neighbors, return_distance=False)
+            indices = self.kneighbors(X, n_neighbors, return_distance=False) # cuDF DataFrame or numpy ndarray
             n_samples = indices.shape[0]
-            distances = cp.ones(n_samples * n_neighbors)
+            distances = cp.ones(n_samples * n_neighbors) # returns cupy.ndarray
 
         elif mode == 'distance':
-            distances, indices = self.kneighbors(X, n_neighbors)
-            distances = np.ravel(distances)
+            distances, indices = self.kneighbors(X, n_neighbors) # cuDF DataFrames or numpy ndarrays
+
+            if isinstance(distances, cudf.DataFrame):
+                distances = cp.asarray(distances.as_gpu_matrix())
+            else:
+                distances = cp.array(distances)
+            distances = cp.ravel(distances)
 
         else:
             raise ValueError('Unsupported mode, must be one of "connectivity" '
                 'or "distance" but got "%s" instead' % mode)
         
+        if isinstance(indices, cudf.DataFrame):
+            indices = cp.asarray(indices.as_gpu_matrix())
+        else:
+            indices = cp.array(indices)
         n_samples = distances.shape[0]
         n_samples_fit = self.n_rows
         n_nonzero = n_samples * n_neighbors
         rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
-
-        return cp.sparse.csr_matrix(distances, indices.ravel(), rowptr, shape=(n_samples, n_samples_fit))
-
+        return cp.sparse.csr_matrix((distances, cp.ravel(indices), rowptr), shape=(n_samples, n_samples_fit))
 
 
         
