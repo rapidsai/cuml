@@ -68,7 +68,9 @@ def _scale_rows(client, nrows):
     return n_workers * nrows
 
 
-@pytest.mark.parametrize("nrows", [unit_param(100), unit_param(1e4),
+@pytest.mark.parametrize("nrows", [unit_param(100),
+                                   unit_param(1e3),
+                                   unit_param(1e4),
                                    quality_param(1e6),
                                    stress_param(5e8)])
 @pytest.mark.parametrize("ncols", [10, 30])
