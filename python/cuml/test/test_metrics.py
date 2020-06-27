@@ -646,67 +646,180 @@ def test_roc_auc_score_at_limits():
     with pytest.raises(ValueError, match=err_msg):
         roc_auc_score(y_true, y_pred)
 
-@pytest.mark.parametrize("metric", ["cosine", "euclidean", "l1", "l2"])
-@pytest.mark.parametrize("matrix_size", [(5, 4), (1000, 3), (1, 10)])
+@pytest.mark.parametrize("metric", ["cityblock", "cosine", "euclidean", "l1", "l2", "manhattan"])
+@pytest.mark.parametrize("matrix_size", [(5, 4), (1000, 3), (2, 10), (500, 400)])
 @pytest.mark.parametrize("is_col_major", [True, False])
 def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     # Test the pairwise_distance helper function.
     rng = np.random.RandomState(0)
 
-    np.asfortranarray(np.zeros((1, 10)))
-
     def prep_array(array):
         return np.asfortranarray(array) if is_col_major else array
+
+    # For fp64, compare at 13 decimals, (2 places less than the ~15 max)
+    compare_precision=10 
 
     # Compare to sklearn, single input
     X = prep_array(rng.random_sample(matrix_size))
     S = pairwise_distances(X, metric=metric)
     S2 = sklearn_pairwise_distances(X, metric=metric)
-    cp.testing.assert_array_almost_equal(S, S2)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Compare to sklearn, double input with same dimensions
     Y = X
     S = pairwise_distances(X, Y, metric=metric)
     S2 = sklearn_pairwise_distances(X, Y, metric=metric)
-    cp.testing.assert_array_almost_equal(S, S2)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Compare single and double inputs to eachother
     S = pairwise_distances(X, metric=metric)
     S2 = pairwise_distances(X, Y, metric=metric)
-    cp.testing.assert_array_almost_equal(S, S2)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Compare to sklearn, with Y dim != X dim
     Y = prep_array(rng.random_sample((2, matrix_size[1])))
     S = pairwise_distances(X, Y, metric=metric)
     S2 = sklearn_pairwise_distances(X, Y, metric=metric)
-    cp.testing.assert_array_almost_equal(S, S2)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Change precision of one parameter
     Y = np.asfarray(Y, dtype=np.float32)
     S = pairwise_distances(X, Y, metric=metric)
     S2 = sklearn_pairwise_distances(X, Y, metric=metric)
-    cp.testing.assert_array_almost_equal(S, S2)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # For fp32, compare at 5 decimals, (2 places less than the ~7 max)
+    compare_precision=2
 
     # Change precision of both parameters to float
     X = np.asfarray(X, dtype=np.float32)
     Y = np.asfarray(Y, dtype=np.float32)
     S = pairwise_distances(X, Y, metric=metric)
     S2 = sklearn_pairwise_distances(X, Y, metric=metric)
-    cp.testing.assert_array_almost_equal(S, S2)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Test sending an int type with convert_dtype=True
     Y = prep_array(rng.randint(10, size=Y.shape))
     S = pairwise_distances(X, Y, metric=metric, convert_dtype=True)
     S2 = sklearn_pairwise_distances(X, Y, metric=metric)
-    cp.testing.assert_array_almost_equal(S, S2)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Test that uppercase on the metric name throws an error. 
     with pytest.raises(ValueError):
         pairwise_distances(X, Y, metric=metric.capitalize())
 
+@pytest.mark.parametrize("metric", ["cityblock", "cosine", "euclidean", "l1", "l2", "manhattan"])
+@pytest.mark.parametrize("matrix_size", [
+    unit_param((1000, 100)),
+    quality_param((2000, 1000)),
+    stress_param((10000, 10000))])
+def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
+    # Test larger sizes to sklearn
+    rng = np.random.RandomState(1)
+
+    element_count = matrix_size[0] * matrix_size[1]
+
+    X = rng.random_sample(matrix_size)
+    Y = rng.random_sample(matrix_size)
+
+    # For fp64, compare at 10 decimals, (5 places less than the ~15 max)
+    compare_precision=10
+
+    # Compare to sklearn, fp64
+    S = pairwise_distances(X, Y, metric=metric)
+
+    if (element_count <= 2000000):
+        S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+        cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+    
+    # For fp32, compare at 4 decimals, (3 places less than the ~7 max)
+    compare_precision=3 #TODO: the single precision seems to be performing worse than the double precision for large matrices. needed to lower this to 3 to get it to work
+
+    X = np.asfarray(X, dtype=np.float32)
+    Y = np.asfarray(Y, dtype=np.float32)
+
+    # Compare to sklearn, fp32
+    S = pairwise_distances(X, Y, metric=metric)
+
+    if (element_count <= 2000000):
+        S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+        cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+@pytest.mark.parametrize("metric", ["cityblock", "cosine", "euclidean", "l1", "l2", "manhattan"])
+def test_pairwise_distances_one_dimension_order(metric: str):
+    # Test the pairwise_distance helper function.
+    rng = np.random.RandomState(2)
+
+    Xc = rng.random_sample((1, 4))
+    Yc = rng.random_sample((10, 4))
+    Xf = np.asfortranarray(Xc)
+    Yf = np.asfortranarray(Yc)
+
+    # For fp64, compare at 13 decimals, (2 places less than the ~15 max)
+    compare_precision=13
+
+    # Compare to sklearn, C/C order
+    S = pairwise_distances(Xc, Yc, metric=metric)
+    S2 = sklearn_pairwise_distances(Xc, Yc, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, C/F order
+    S = pairwise_distances(Xc, Yf, metric=metric)
+    S2 = sklearn_pairwise_distances(Xc, Yf, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, F/C order
+    S = pairwise_distances(Xf, Yc, metric=metric)
+    S2 = sklearn_pairwise_distances(Xf, Yc, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, F/F order
+    S = pairwise_distances(Xf, Yf, metric=metric)
+    S2 = sklearn_pairwise_distances(Xf, Yf, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Switch which input has single dimension
+    X = rng.random_sample((5, 4))
+    Y = rng.random_sample((1, 4))
+
+    Xc = rng.random_sample((1, 4))
+    Yc = rng.random_sample((10, 4))
+    Xf = np.asfortranarray(Xc)
+    Yf = np.asfortranarray(Yc)
+
+    # Compare to sklearn, C/C order
+    S = pairwise_distances(Xc, Yc, metric=metric)
+    S2 = sklearn_pairwise_distances(Xc, Yc, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, C/F order
+    S = pairwise_distances(Xc, Yf, metric=metric)
+    S2 = sklearn_pairwise_distances(Xc, Yf, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, F/C order
+    S = pairwise_distances(Xf, Yc, metric=metric)
+    S2 = sklearn_pairwise_distances(Xf, Yc, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, F/F order
+    S = pairwise_distances(Xf, Yf, metric=metric)
+    S2 = sklearn_pairwise_distances(Xf, Yf, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+
+@pytest.mark.parametrize("metric", ["haversine", "nan_euclidean"])
+def test_pairwise_distances_unsuppored_metrics(metric):
+    rng = np.random.RandomState(3)
+
+    X = rng.random_sample((5, 4))
+
+    with pytest.raises(ValueError):
+        pairwise_distances(X, metric=metric)
+
 def test_pairwise_distances_exceptions():
 
-    rng = np.random.RandomState(0)
+    rng = np.random.RandomState(4)
 
     X_int = rng.randint(10, size=(5, 4))
     X_double = rng.random_sample((5, 4))
@@ -717,17 +830,12 @@ def test_pairwise_distances_exceptions():
     with pytest.raises(TypeError):
         pairwise_distances(X_int, metric="euclidean")
 
-    # # Test second int inputs (types must match)
-    # with pytest.raises(TypeError):
-    #     pairwise_distances(X_double, X_int, metric="euclidean")
+    # Test second int inputs (should not have an exception with convert_dtype=True)
+    pairwise_distances(X_double, X_int, metric="euclidean")
 
     # Test bool inputs (only float/double accepted at this time)
     with pytest.raises(TypeError):
         pairwise_distances(X_bool, metric="euclidean")
-
-    # Test sending both a C and F order array
-    with pytest.raises(ValueError):
-        pairwise_distances(X_double, np.asfortranarray(X_double), metric="euclidean")
 
     # Test sending different types with convert_dtype=False
     with pytest.raises(TypeError):

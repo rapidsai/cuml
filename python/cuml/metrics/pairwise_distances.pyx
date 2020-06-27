@@ -30,10 +30,15 @@ from cuml.common import (get_cudf_column_ptr, get_dev_array_ptr,
                          input_to_cuml_array, CumlArray, logger, with_cupy_rmm)
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 
-cdef extern from "metrics/trustworthiness_c.h" namespace "MLCommon::Distance":
+cdef extern from "cuml/distance/distance_type.h" namespace "ML::Distance":
 
-    ctypedef int DistanceType
-    ctypedef DistanceType euclidean "(MLCommon::Distance::DistanceType)5"
+    cdef enum DistanceType:
+        EucExpandedL2 "ML::Distance::DistanceType::EucExpandedL2"
+        EucExpandedL2Sqrt "ML::Distance::DistanceType::EucExpandedL2Sqrt"
+        EucExpandedCosine "ML::Distance::DistanceType::EucExpandedCosine"
+        EucUnexpandedL1 "ML::Distance::DistanceType::EucUnexpandedL1"
+        EucUnexpandedL2 "ML::Distance::DistanceType::EucUnexpandedL2"
+        EucUnexpandedL2Sqrt "ML::Distance::DistanceType::EucUnexpandedL2Sqrt"
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     void pairwiseDistance(const cumlHandle &handle, const double *x, const double *y, double *dist, int m,
@@ -56,19 +61,19 @@ def determine_metric(metric_str):
 
     # TODO: Pull int values from actual enum
     if metric_str == 'cityblock':
-        return 3
+        return DistanceType.EucUnexpandedL1
     elif metric_str == 'cosine':
-        return 2
+        return DistanceType.EucExpandedCosine
     elif metric_str == 'euclidean':
-        return 5
+        return DistanceType.EucUnexpandedL2Sqrt
     elif metric_str == 'haversine':
         raise ValueError(" The metric: '{}', is not supported at this time.".format(metric_str))
     elif metric_str == 'l2':
-        return 5
+        return DistanceType.EucUnexpandedL2Sqrt
     elif metric_str == 'l1':
-        return 3
+        return DistanceType.EucUnexpandedL1
     elif metric_str == 'manhattan':
-        return 3
+        return DistanceType.EucUnexpandedL1
     elif metric_str == 'nan_euclidean':
         raise ValueError(" The metric: '{}', is not supported at this time.".format(metric_str))
     else:
@@ -76,7 +81,7 @@ def determine_metric(metric_str):
 
 
 @with_cupy_rmm
-def pairwise_distances(X, Y=None, metric="euclidean", force_all_finite=True, handle=None, convert_dtype=True, **kwds):
+def pairwise_distances(X, Y=None, metric="euclidean", handle=None, convert_dtype=True, **kwds):
     """ 
     Compute the distance matrix from a vector array X and optional Y.
 
@@ -88,15 +93,15 @@ def pairwise_distances(X, Y=None, metric="euclidean", force_all_finite=True, han
 
     Valid values for metric are:
 
-    - From scikit-learn: ['cosine', 'euclidean', 'l1', 'l2']. Sparse matrices are not supported.
+    - From scikit-learn: ['cityblock', 'cosine', 'euclidean', 'haversine', 'l1', 'l2', 'manhattan']. Sparse matrices are not supported.
 
     Parameters
     ----------
-    X : array-like (device or host) shape = (n_samples_a, n_features)
+    X : array-like (device or host) shape = (n_samples_x, n_features)
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy
 
-    Y : array-like (device or host), optional shape = (n_samples_b, n_features)
+    Y : array-like (device or host), optional shape = (n_samples_y, n_features)
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy
 
@@ -104,46 +109,18 @@ def pairwise_distances(X, Y=None, metric="euclidean", force_all_finite=True, han
         The metric to use when calculating distance between instances in a
         feature array.
 
-    force_all_finite : boolean or 'allow-nan', (default=True)
-        Whether to raise an error on np.inf, np.nan, pd.NA in array. The
-        possibilities are:
-
-        - True: Force all values of array to be finite.
-        - False: accepts np.inf, np.nan, pd.NA in array.
-        - 'allow-nan': accepts only np.nan and pd.NA values in array. Values
-          cannot be infinite.
-
-        .. versionadded:: 0.22
-           ``force_all_finite`` accepts the string ``'allow-nan'``.
-
-        .. versionchanged:: 0.23
-           Accepts `pd.NA` and converts it into `np.nan`
-
     convert_dtype : bool, optional (default = True)
-        When set to True, the fit method will, when necessary, convert
+        When set to True, the method will, when necessary, convert
         Y to be the same data type as X if they differ. This
         will increase memory used for the method.
 
-    **kwds : optional keyword parameters
-        Any further parameters are passed directly to the distance function.
-        If using a scipy.spatial.distance metric, the parameters are still
-        metric dependent. See the scipy docs for usage examples.
-
     Returns
     -------
-    D : array [n_samples_a, n_samples_a] or [n_samples_a, n_samples_b]
+    D : array [n_samples_x, n_samples_x] or [n_samples_x, n_samples_y]
         A distance matrix D such that D_{i, j} is the distance between the
         ith and jth vectors of the given matrix X, if Y is None.
         If Y is not None, then D_{i, j} is the distance between the ith array
         from X and the jth array from Y.
-
-    See also
-    --------
-    pairwise_distances_chunked : performs the same calculation as this
-        function, but returns a generator of chunks of the distance matrix, in
-        order to limit memory usage.
-    paired_distances : Computes the distances between corresponding
-                       elements of two arrays
     """
 
     handle = cuml.common.handle.Handle() if handle is None else handle
