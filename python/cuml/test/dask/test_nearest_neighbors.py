@@ -20,7 +20,6 @@ import dask_cudf
 import pandas as pd
 
 import numpy as np
-import cupy as cp
 
 from cuml.common import has_scipy
 
