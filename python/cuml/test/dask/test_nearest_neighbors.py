@@ -45,8 +45,12 @@ def predict(neigh_ind, _y, n_neighbors):
     return ypred.ravel(), count.ravel() * 1.0 / n_neighbors
 
 
-def _prep_training_data(c, X_train, partitions_per_worker):
+def _prep_training_data(c, X_train, partitions_per_worker, reverse_order):
     workers = c.has_what().keys()
+
+    if reverse_order:
+        workers = list(workers)[::-1]
+
     n_partitions = partitions_per_worker * len(workers)
 
     X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
@@ -54,7 +58,7 @@ def _prep_training_data(c, X_train, partitions_per_worker):
     X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
     X_train_df, = dask_utils.persist_across_workers(c,
                                                     [X_train_df],
-                                                    workers=workers)
+                                                    workers=list(workers))
 
     return X_train_df
 
@@ -65,7 +69,9 @@ def _scale_rows(client, nrows):
     return n_workers * nrows
 
 
-@pytest.mark.parametrize("nrows", [unit_param(1e3), unit_param(1e4),
+@pytest.mark.parametrize("nrows", [unit_param(100),
+                                   unit_param(1e3),
+                                   unit_param(1e4),
                                    quality_param(1e6),
                                    stress_param(5e8)])
 @pytest.mark.parametrize("ncols", [10, 30])
@@ -76,8 +82,9 @@ def _scale_rows(client, nrows):
 @pytest.mark.parametrize("n_parts", [unit_param(1), unit_param(5),
                                      quality_param(7), stress_param(50)])
 @pytest.mark.parametrize("streams_per_handle", [5, 10])
+@pytest.mark.parametrize("reverse_worker_order", [True, False])
 def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
-                     streams_per_handle, client):
+                     streams_per_handle, reverse_worker_order, client):
 
     from cuml.dask.neighbors import NearestNeighbors as daskNN
 
@@ -90,13 +97,15 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
                       centers=nclusters)
     X = X.astype(np.float32)
 
-    X_cudf = _prep_training_data(client, X, n_parts)
+    X_cudf = _prep_training_data(client, X, n_parts, reverse_worker_order)
 
     from dask.distributed import wait
 
     wait(X_cudf)
 
-    print(str(client.has_what()))
+    dist = np.array([len(v) for v in client.has_what().values()])
+
+    assert np.all(dist == dist[0])
 
     cumlModel = daskNN(n_neighbors=n_neighbors,
                        streams_per_handle=streams_per_handle)
@@ -114,12 +123,10 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
     sk_i = sk_i.astype("int64")
 
-    print(str(sk_i))
-    print(str(local_i))
+    assert array_equal(local_i[:, 0], np.arange(nrows))
 
     diff = sk_i-local_i
-
-    n_diff = len(diff[diff>0])
+    n_diff = len(diff[diff > 0])
 
     perc_diff = n_diff / (nrows * n_neighbors)
 
