@@ -16,6 +16,7 @@ import pytest
 
 import cudf
 import dask_cudf
+
 import pandas as pd
 
 import numpy as np
@@ -91,21 +92,38 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
     X_cudf = _prep_training_data(client, X, n_parts)
 
+    from dask.distributed import wait
+
+    wait(X_cudf)
+
+    print(str(client.has_what()))
+
     cumlModel = daskNN(n_neighbors=n_neighbors,
                        streams_per_handle=streams_per_handle)
     cumlModel.fit(X_cudf)
 
     out_d, out_i = cumlModel.kneighbors(X_cudf)
 
-    local_i = np.array(out_i.compute().as_gpu_matrix())
+    local_i = np.array(out_i.compute().as_gpu_matrix(), dtype="int64")
 
     sklModel = KNeighborsClassifier(n_neighbors=n_neighbors).fit(X, y)
     skl_y_hat = sklModel.predict(X)
-
     y_hat, _ = predict(local_i, y, n_neighbors)
 
-    ne = cp.where(cp.array(y_hat) != cp.array(skl_y_hat), 1, 0)
-    print(cp.sum(ne))
+    sk_d, sk_i = sklModel.kneighbors(X)
+
+    sk_i = sk_i.astype("int64")
+
+    print(str(sk_i))
+    print(str(local_i))
+
+    diff = sk_i-local_i
+
+    n_diff = len(diff[diff>0])
+
+    perc_diff = n_diff / (nrows * n_neighbors)
+
+    assert perc_diff < 1e-3
 
     assert array_equal(y_hat, skl_y_hat)
 

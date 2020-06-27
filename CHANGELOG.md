@@ -5,6 +5,7 @@
 - PR #2287: Single-GPU TfidfTransformer implementation
 - PR #2289: QR SVD solver for MNMG PCA
 - PR #2312: column-major support for make_blobs
+- PR #2172: Initial support for auto-ARIMA
 - PR #2394: Adding cosine & correlation distance for KNN
 - PR #2392: PCA can accept sparse inputs, and sparse prim for computing covariance
 - PR #2465: Support pandas 1.0+
