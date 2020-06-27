@@ -151,7 +151,7 @@ class GramMatrixBase {
                         int ld2, int ld_out) {
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
     auto fin_op = [] __device__(math_t d_val, int idx) { return d_val; };
-    Distance::distance<Distance::EucUnexpandedL2, math_t, math_t, math_t,
+    Distance::distance<ML::Distance::DistanceType::EucUnexpandedL2, math_t, math_t, math_t,
                        OutputTile_t>(x1, x2, out, n1, n2, n_cols, NULL, 0,
                                      fin_op, stream, false);
   }

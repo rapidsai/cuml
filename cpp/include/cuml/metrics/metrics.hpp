@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/cuml.hpp>
+#include <cuml/distance/distance_type.h>
 
 namespace ML {
 
@@ -247,11 +248,39 @@ double vMeasure(const cumlHandle &handle, const int *y, const int *y_hat,
 float accuracy_score_py(const cumlHandle &handle, const int *predictions,
                         const int *ref_predictions, int n);
 
-
+/**
+ * @brief Calculates the ij pairwise distances between two input arrays of double type
+ * 
+ * @param handle cumlHandle
+ * @param x pointer to the input data samples array (mRows x kCols)
+ * @param y pointer to the second input data samples array. Can use the same pointer as x (nRows x kCols)
+ * @param dist output pointer where the results will be stored (mRows x nCols)
+ * @param m number of rows in x
+ * @param n number of rows in y
+ * @param k number of cols in x and y (must be the same)
+ * @param metric the numerical value that maps to the type of distance metric to be used in the calculations. See MLCommon::Distance::DistanceTypes for accepted values
+ * @param isRowMajor specifies whether the x and y data pointers are row (C type array) or col (F type array) major
+ */
 void pairwiseDistance(const cumlHandle &handle, const double *x, const double *y, double *dist, int m,
                       int n, int k, int metric, bool isRowMajor = true);
 
+/**
+ * @brief Calculates the ij pairwise distances between two input arrays of float type
+ * 
+ * @param handle cumlHandle
+ * @param x pointer to the input data samples array (mRows x kCols)
+ * @param y pointer to the second input data samples array. Can use the same pointer as x (nRows x kCols)
+ * @param dist output pointer where the results will be stored (mRows x nCols)
+ * @param m number of rows in x
+ * @param n number of rows in y
+ * @param k number of cols in x and y (must be the same)
+ * @param metric the numerical value that maps to the type of distance metric to be used in the calculations. See MLCommon::Distance::DistanceTypes for accepted values
+ * @param isRowMajor specifies whether the x and y data pointers are row (C type array) or col (F type array) major
+ */
 void pairwiseDistance(const cumlHandle &handle, const float *x, const float *y, float *dist, int m,
                       int n, int k, int metric, bool isRowMajor = true);
+
+void pairwiseDistance(const cumlHandle &handle, const float *x, const float *y, float *dist, int m,
+                      int n, int k, ML::Distance::DistanceType metric, bool isRowMajor = true);
 }  // namespace Metrics
 }  // namespace ML

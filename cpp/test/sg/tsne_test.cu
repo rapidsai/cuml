@@ -76,7 +76,7 @@ class TSNETest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test trustworthiness
-    score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    score_bh = trustworthiness_score<float, ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
       X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
       handle.getStream());
 
@@ -103,7 +103,7 @@ class TSNETest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test trustworthiness
-    score_exact = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    score_exact = trustworthiness_score<float, ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
       X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
       handle.getStream());
 

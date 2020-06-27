@@ -20,7 +20,7 @@ namespace MLCommon {
 namespace Bench {
 namespace Distance {
 
-DIST_BENCH_REGISTER(DistanceCosine, MLCommon::Distance::EucExpandedCosine);
+DIST_BENCH_REGISTER(DistanceCosine, ML::Distance::DistanceType::EucExpandedCosine);
 
 }  // namespace Distance
 }  // namespace Bench

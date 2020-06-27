@@ -49,8 +49,8 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
 
-  MLCommon::Distance::DistanceType metric =
-    static_cast<MLCommon::Distance::DistanceType>(params.metric);
+  ML::Distance::DistanceType metric =
+    static_cast<ML::Distance::DistanceType>(params.metric);
 
   // stores (key, value) pair corresponding to each sample where
   //   - key is the index of nearest cluster
@@ -79,8 +79,8 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
   // L2 norm of X: ||x||^2
   Tensor<DataT, 1> L2NormX({n_samples}, handle.getDeviceAllocator(), stream);
-  if (metric == MLCommon::Distance::EucExpandedL2 ||
-      metric == MLCommon::Distance::EucExpandedL2Sqrt) {
+  if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
+      metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
     MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
                               X.getSize(0), MLCommon::LinAlg::L2Norm, true,
                               stream);
@@ -270,8 +270,8 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
-  MLCommon::Distance::DistanceType metric =
-    static_cast<MLCommon::Distance::DistanceType>(params.metric);
+  ML::Distance::DistanceType metric =
+    static_cast<ML::Distance::DistanceType>(params.metric);
   centroidsRawData.resize(n_clusters * n_features, stream);
   kmeans::detail::kmeansPlusPlus(handle, params, X, metric, workspace,
                                  centroidsRawData, stream);
@@ -307,8 +307,8 @@ void initScalableKMeansPlusPlus(
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
-  MLCommon::Distance::DistanceType metric =
-    static_cast<MLCommon::Distance::DistanceType>(params.metric);
+  ML::Distance::DistanceType metric =
+    static_cast<ML::Distance::DistanceType>(params.metric);
 
   MLCommon::Random::Rng rng(params.seed,
                             MLCommon::Random::GeneratorType::GenPhilox);
@@ -354,8 +354,8 @@ void initScalableKMeansPlusPlus(
 
   // L2 norm of X: ||x||^2
   Tensor<DataT, 1> L2NormX({n_samples}, handle.getDeviceAllocator(), stream);
-  if (metric == MLCommon::Distance::EucExpandedL2 ||
-      metric == MLCommon::Distance::EucExpandedL2Sqrt) {
+  if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
+      metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
     MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
                               X.getSize(0), MLCommon::LinAlg::L2Norm, true,
                               stream);
@@ -628,8 +628,8 @@ void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
   ASSERT(memory_type(cptr) == cudaMemoryTypeDevice,
          "centroid data must be device accessible");
 
-  MLCommon::Distance::DistanceType metric =
-    static_cast<MLCommon::Distance::DistanceType>(params.metric);
+  ML::Distance::DistanceType metric =
+    static_cast<ML::Distance::DistanceType>(params.metric);
 
   Tensor<DataT, 2, IndexT> X((DataT *)Xptr, {n_samples, n_features});
   Tensor<DataT, 2, IndexT> centroids((DataT *)cptr, {n_clusters, n_features});
@@ -664,8 +664,8 @@ void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
   // L2 norm of X: ||x||^2
   Tensor<DataT, 1> L2NormX({n_samples}, handle.getDeviceAllocator(), stream);
-  if (metric == MLCommon::Distance::EucExpandedL2 ||
-      metric == MLCommon::Distance::EucExpandedL2Sqrt) {
+  if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
+      metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
     MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
                               X.getSize(0), MLCommon::LinAlg::L2Norm, true,
                               stream);
@@ -730,8 +730,8 @@ void transform(const ML::cumlHandle_impl &handle, const KMeansParams &params,
   ML::Logger::get().setLevel(params.verbosity);
   cudaStream_t stream = handle.getStream();
   auto n_clusters = params.n_clusters;
-  MLCommon::Distance::DistanceType metric =
-    static_cast<MLCommon::Distance::DistanceType>(transform_metric);
+  ML::Distance::DistanceType metric =
+    static_cast<ML::Distance::DistanceType>(transform_metric);
 
   ASSERT(n_clusters > 0 && cptr != nullptr, "no clusters exist");
 
