@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+import cupy as cp
+
 from cuml.dask.common import parts_to_ranks
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common import flatten_grouped_results
@@ -270,25 +272,57 @@ class NearestNeighbors(BaseEstimator):
 
     def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):
         """
-        Query the distributed nearest neighbors index
+        Find the k nearest neighbors of column vectors in X and return as 
+        a sparse matrix in CSR format.
 
         Parameters
         ----------
         X : dask_cudf.Dataframe
             Vectors to query. If not provided, neighbors of each indexed point
             are returned.
-        n_neighbors : int
-            Number of neighbors to query for each row in X. If not provided,
-            the n_neighbors on the model are used.
-        return_distance : boolean (default=True)
-            If false, only indices are returned
+
+        n_neighbors : Integer
+            Number of neighbors to search. If not provided, the n_neighbors
+            from the model instance is used (default=10)
+
+        mode : string (default='connectivity')
+            Values in connectivity matrix: 'connectivity' returns the
+            connectivity matrix with ones and zeros, 'distance' returns the
+            edges as the Euclidean distance between points
 
         Returns
         -------
-        ret : tuple (dask_cudf.DataFrame, dask_cudf.DataFrame)
-            First dask-cuDF DataFrame contains distances, second conains the
-            indices.
-        """
+        A: sparse graph in CSR format, shape = (n_samples, n_samples_fit)
+            n_samples_fit is the number of samples in the fitted data where 
+            A[i, j] is assigned the weight of the edge that connects i to k.
+            Values will be ones/zeros or Euclidean distance based on mode.
 
-        self.kneighbors(X=X, n_neighbors=None, return_distance=True,
-                   _return_futures=False)
+        """
+        # Check if not fitted, if not fitted, return error that not fitted
+        if n_neighbors is None:
+            n_neighbors = self.n_neighbors 
+
+        if mode == 'connectivity':
+            indices = self.kneighbors(X, n_neighbors, return_distance=False) # cuDF DataFrame or numpy ndarray
+            n_samples = indices.shape[0]
+            distances = cp.ones(n_samples * n_neighbors) # returns cupy.ndarray
+
+        elif mode == 'distance':
+            distances, indices = self.kneighbors(X, n_neighbors) # cuDF DataFrames or numpy ndarrays
+            distances = cp.asarray(distances.as_gpu_matrix())
+            distances = cp.ravel(distances)
+
+        else:
+            raise ValueError('Unsupported mode, must be one of "connectivity" '
+                'or "distance" but got "%s" instead' % mode)
+        
+        indices = cp.asarray(indices.as_gpu_matrix())
+
+        n_samples = distances.shape[0]
+        n_samples_fit = self.n_rows
+        n_nonzero = n_samples * n_neighbors
+        rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
+        return cp.sparse.csr_matrix((distances, cp.ravel(indices), rowptr), shape=(n_samples, n_samples_fit))
+
+
+        

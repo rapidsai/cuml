@@ -350,7 +350,7 @@ class NearestNeighbors(Base):
             Values will be ones/zeros or Euclidean distance based on mode.
 
         """
-        # Check if not fitted, if not fitted, return error that not fitted
+        # Check if not fitted by checking if certain attribute is filled, otherwise throw error not fitted
         if n_neighbors is None:
             n_neighbors = self.n_neighbors 
 
