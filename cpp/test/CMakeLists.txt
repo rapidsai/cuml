@@ -20,11 +20,20 @@ set(CUML_TEST_INCLUDE_DIRS
   ${TREELITE_DIR}/runtime/native/include)
 
 set(CUML_TEST_LINK_LIBRARIES
-  treelite_runtimelib
+  treelite::treelite
+  treelite::treelite_runtime
   ${CUML_LINK_LIBRARIES}
   ${CUML_CPP_TARGET}
   gtestlib
   gtest_mainlib)
+
+set(PRIMS_TEST_LINK_LIBRARIES
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  ${CUDA_nvgraph_LIBRARY})
 
 ##############################################################################
 # - build ml_test executable -------------------------------------------------
@@ -167,7 +176,6 @@ if(BUILD_PRIMS_TESTS)
     prims/sigmoid.cu
     prims/silhouetteScore.cu
     prims/sqrt.cu
-    prims/stationarity.cu
     prims/stddev.cu
     prims/strided_reduction.cu
     prims/subtract.cu
@@ -189,6 +197,6 @@ if(BUILD_PRIMS_TESTS)
   target_link_libraries(prims
     gtestlib
     gtest_mainlib
-    ${CUML_LINK_LIBRARIES}
+    ${PRIMS_TEST_LINK_LIBRARIES}
     faisslib)
 endif(BUILD_PRIMS_TESTS)

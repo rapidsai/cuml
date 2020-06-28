@@ -201,7 +201,7 @@ class DBSCAN(Base):
             default: "int32". Valid values are { "int32", np.int32,
             "int64", np.int64}. When the number of samples exceed
         """
-
+        self._set_n_features_in(X)
         self._set_output_type(X)
 
         if self._labels_ is not None:
