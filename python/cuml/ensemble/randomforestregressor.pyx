@@ -432,6 +432,62 @@ class RandomForestRegressor(Base, RegressorMixin):
         self.treelite_serialized_model = treelite_serialize(model_ptr)
         return self.treelite_serialized_model
 
+    def total_nodes_(self):
+        """
+        Calculates the number of nodes in the trained RF model
+
+        Returns
+        ----------
+        num_nodes : int, number of nodes
+        """
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
+        cdef RandomForestMetaData[double, int] *rf_forest64 = \
+            <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
+
+        if self.dtype == np.float32:
+          num_nodes = calc_num_nodes(rf_forest)
+        else:
+          num_nodes = calc_num_nodes(rf_forest64)
+
+        return num_nodes
+
+    def forest_info_(self, forest_param):
+        """
+        Returns the requested forest parameter values as a vector. These
+        values are in the order of their depth, starting from the root node.
+
+        Parameters
+        ----------
+        forest_param = string (default=threshold)
+            This parameter accepts the following values:
+            1. "threshold" :  Returns a vector of vaules used as threshold at
+                each node.
+            2. "best_metric" : Returns a vector of the the best metric value
+                for each node.
+            3. "column_id" : Returns the column/feature id used to create the
+                split at each node.
+        Returns
+        ----------
+        forest_info vector containing values of the requested forest
+        """
+        select_feature = {"threshold" : 1,
+                          "best_metric" : 2,
+                          "column_id" : 3}
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
+        cdef RandomForestMetaData[double, int] *rf_forest64 = \
+            <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
+
+        if self.dtype == np.float32:
+          forest_info_vector = obtain_forest_info(rf_forest,
+                                                  select_feature[str(forest_param)])
+        else:
+          forest_info_vector = obtain_forest_info(rf_forest64,
+                                                  select_feature[str(forest_param)])
+
+        return forest_info_vector
+
     def convert_to_treelite_model(self):
         """
         Converts the cuML RF model to a Treelite model
@@ -529,7 +585,7 @@ class RandomForestRegressor(Base, RegressorMixin):
 
         return self
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Regression on the input data
 
@@ -544,8 +600,13 @@ class RandomForestRegressor(Base, RegressorMixin):
             Acceptable formats: NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
             These labels should be contiguous integers from 0 to n_classes.
+        convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will, when necessary, convert
+            y to be the same data type as X if they differ. This will increase
+            memory used for the method.
         """
         self._set_output_type(X)
+        self._set_n_features_in(X)
 
         # Reset the old tree data for new fit call
         self._reset_forest_data()

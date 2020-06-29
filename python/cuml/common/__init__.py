@@ -33,7 +33,6 @@ from cuml.common.import_utils import has_cupy
 from cuml.common.import_utils import has_dask
 from cuml.common.import_utils import check_min_numba_version
 from cuml.common.import_utils import check_min_cupy_version, has_scipy
-from cuml.common.import_utils import check_min_treelite_version
 
 ## legacy to be removed after complete CumlAray migration
 
