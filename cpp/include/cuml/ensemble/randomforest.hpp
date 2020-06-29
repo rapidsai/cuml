@@ -141,8 +141,7 @@ void compare_concat_forest_to_subforests(
 
 template <class T, class L>
 std::vector<std::vector<double>> obtain_forest_info(
-  const RandomForestMetaData<T, L>* forest,
-  int param_requested);
+  const RandomForestMetaData<T, L>* forest, int param_requested);
 
 template <class T, class L>
 int calc_num_nodes(const RandomForestMetaData<T, L>* forest);
