@@ -150,6 +150,10 @@ class DBSCAN(Base):
         default the estimator will mirror the type of the data used for each
         fit or predict call.
         If set, the estimator will override the global option for its behavior.
+    calc_core_sample_indices : (optional) boolean (default = True)
+        Indicates whether the indices of the core samples should be calculated.
+        The the attribute `core_sample_indices_` will not be used, setting this
+        to False will avoid unnecessary kernel launches
 
     Attributes
     ----------
@@ -157,6 +161,9 @@ class DBSCAN(Base):
         Which cluster each datapoint belongs to. Noisy samples are labeled as
         -1. Format depends on cuml global output type and estimator
         output_type.
+    core_sample_indices_ : array-like or cuDF series
+        The indices of the core samples. Only calculated if 
+        calc_core_sample_indices==True
 
     Notes
     ------
@@ -232,6 +239,7 @@ class DBSCAN(Base):
 
         cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL
 
+        # Create the output core_sample_indices only if needed
         if self.calc_core_sample_indices:
             self._core_sample_indices_ = CumlArray.empty(n_rows, dtype=out_dtype)
             core_sample_indices_ptr = self._core_sample_indices_.ptr
