@@ -222,7 +222,7 @@ class BaseRandomForestModel(Base):
 
     def _dataset_setup_for_fit(self, X, y, convert_dtype):
         self._set_output_type(X)
-
+        self._set_n_features_in(X)
         # Reset the old tree data for new fit call
         self._reset_forest_data()
 

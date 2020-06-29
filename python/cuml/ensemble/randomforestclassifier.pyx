@@ -382,7 +382,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
            to a shared file. Cuml issue #1854 has been created to track this.
     """
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
 
@@ -397,11 +397,10 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             Acceptable formats: NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
             These labels should be contiguous integers from 0 to n_classes.
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the fit method will, when necessary, convert
-            y to be of dtype int32. This will increase memory used for
-            the method.
-
+            y to be the same data type as X if they differ. This will increase
+            memory used for the method.
         """
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
