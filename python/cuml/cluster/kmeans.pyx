@@ -300,7 +300,7 @@ class KMeans(Base):
             self.oversampling_factor = 0
 
         if (init_str in ['scalable-k-means++', 'k-means||']):
-            self.init = init
+            self.init = init_str
             params.init = KMeansPlusPlus
 
         elif (init_str == 'random'):
