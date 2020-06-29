@@ -26,11 +26,6 @@
 - PR #2340: Import ARIMA in the root init file and fix the `test_fit_function` test
 - PR #2408: Install meta packages for dependencies
 - PR #2417: Move doc customization scripts to Jenkins
-<<<<<<< HEAD
-- PR #2411 Refactor Mixin classes and use in classifier/regressor estimators
-- PR #2237: Refactor RF cython code
-- PR #2403 Support for input and output type consistency in logistic regression predict_proba
-=======
 - PR #2433: Add libcumlprims_mg to CMake
 - PR #2420: Add and set convert_dtype default to True in estimator fit methods
 - PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
@@ -40,7 +35,7 @@
 - PR #2440: Use Treelite Conda package
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
 - PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
->>>>>>> 119f8b61d7613b50fec63be10633415101c978a5
+- PR #2237: Refactor RF cython code
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
