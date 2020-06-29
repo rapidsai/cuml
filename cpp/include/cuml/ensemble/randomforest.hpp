@@ -28,12 +28,6 @@ enum RF_type {
   REGRESSION,
 };
 
-enum RF_tree_info {
-  THRESHOLD = 1,
-  BEST_METRIC = 2,
-  COLUMN_ID = 3
-};
-
 enum task_category { REGRESSION_MODEL = 1, CLASSIFICATION_MODEL = 2 };
 
 struct RF_metrics {

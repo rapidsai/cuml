@@ -124,5 +124,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef int calc_num_nodes[T, L](const RandomForestMetaData[T, L]*) except +
 
-    cdef vector[vector[double]] obtain_forest_info[T, L](const RandomForestMetaData[T, L]*,
-                                                 int) except +
+    cdef vector[vector[double]] obtain_forest_info[T, L](
+        const RandomForestMetaData[T, L]*,
+        int) except +

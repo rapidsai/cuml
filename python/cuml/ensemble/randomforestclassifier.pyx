@@ -466,47 +466,48 @@ class RandomForestClassifier(Base, ClassifierMixin):
             <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float32:
-          num_nodes = calc_num_nodes(rf_forest)
+            num_nodes = calc_num_nodes(rf_forest)
         else:
-          num_nodes = calc_num_nodes(rf_forest64)
+            num_nodes = calc_num_nodes(rf_forest64)
 
         return num_nodes
 
     def forest_info_(self, forest_param):
         """
-        Returns the requested forest parameter values as a vector. These
-        values are in the order of their depth, starting from the root node.
+        Returns the requested forest parameter values as a 2d vector. The
+        2 dimensions of the vector represent (num_trees, num_splits).
 
         Parameters
         ----------
-        forest_param = string (default=threshold)
+        forest_param : string (default=threshold)
             This parameter accepts the following values:
-            1. "threshold" :  Returns a vector of vaules used as threshold at
-                each node.
-            2. "best_metric" : Returns a vector of the the best metric value
-                for each node.
-            3. "column_id" : Returns the column/feature id used to create the
-                split at each node.
+            "threshold" :  Returns a 2d vector of vaules used as threshold
+            at each node.
+            "best_metric" : Returns a 2d vector of the the best metric value
+            for each node.
+            "column_id" : Returns a 2d vector of column/feature id used to
+            create the split at each node.
+
         Returns
         ----------
-        forest_info vector containing values of the requested forest
+        forest_info 2d vector containing requested values of the forest
         """
-        select_feature = {"threshold" : 1,
-                          "best_metric" : 2,
-                          "column_id" : 3}
+        select_feature = {"threshold": 1,
+                          "best_metric": 2,
+                          "column_id": 3}
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float32:
-          forest_info_vector = obtain_forest_info(
-            rf_forest,
-            <int> select_feature[str(forest_param)])
+            forest_info_vector = obtain_forest_info(
+                rf_forest,
+                <int> select_feature[str(forest_param)])
         else:
-          forest_info_vector = obtain_forest_info(
-            rf_forest64,
-            <int> select_feature[str(forest_param)])
+            forest_info_vector = obtain_forest_info(
+                rf_forest64,
+                <int> select_feature[str(forest_param)])
 
         return forest_info_vector
 
