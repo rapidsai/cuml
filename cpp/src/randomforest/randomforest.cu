@@ -273,44 +273,45 @@ void print_rf_summary(const RandomForestMetaData<T, L>* forest) {
 template <class T, class L>
 int calc_num_nodes(const RandomForestMetaData<T, L>* forest) {
   int num_nodes = 0;
-  for(int i = 0; i <= forest->rf_params.n_trees; i ++){
+  for(int i = 0; i < forest->rf_params.n_trees; i ++){
     int j = 0;
     DecisionTree::TreeMetaDataNode<T, L>* tree_info = &forest->trees[i];
     while(tree_info->sparsetree[j].left_child_id != -1){
       num_nodes ++;
       j ++;
     }
+
   }
   return num_nodes;
 }
 
 template <class T, class L>
-std::vector<double> obtain_forest_info(
-    const RandomForestMetaData<T, L>* forest,
-    int param_requested) {
-  int depth_info = 0;
-  std::vector<double> forest_info(calc_num_nodes(forest));
+std::vector<std::vector<double>> obtain_forest_info(
+  const RandomForestMetaData<T, L>* forest,
+  int param_requested) {
 
+  std::vector<std::vector<double>> forest_info;
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     DecisionTree::TreeMetaDataNode<T, L>* tree_info = &forest->trees[i];
+    forest_info.push_back(std::vector<double>());
     int j = 0;
     while ((tree_info->sparsetree[j].colid  != -1)) {
       if(param_requested == 1){
         // collect the threshold values used to split the nodes
-        forest_info[i+j+depth_info] = tree_info->sparsetree[j].quesval;
+        forest_info[i].push_back(tree_info->sparsetree[j].quesval);
       }
       else if(param_requested == 2){
         // collect the best metric value for each node
-        forest_info[i+j+depth_info] = tree_info->sparsetree[j].best_metric_val;
+        forest_info[i].push_back(tree_info->sparsetree[j].best_metric_val);
       }
       else{
         // collect the ids of columns used at each node
-        forest_info[i+j+depth_info] = tree_info->sparsetree[j].colid;
+        forest_info[i].push_back(tree_info->sparsetree[j].colid);
       }
       j ++;
     }
-    depth_info = depth_info + j;
   }
+  return forest_info;
 }
 
 
@@ -783,16 +784,17 @@ template void print_rf_detailed<float, float>(
 template void print_rf_detailed<double, double>(
   const RandomForestRegressorD* forest);
 
-template std::vector<double> obtain_forest_info(
+
+template std::vector<std::vector<double>> obtain_forest_info(
   const RandomForestMetaData<float, int>* forest,
   int param_requested);
-template std::vector<double> obtain_forest_info(
+template std::vector<std::vector<double>> obtain_forest_info(
   const RandomForestMetaData<double, int>* forest,
   int param_requested);
-template std::vector<double> obtain_forest_info(
+template std::vector<std::vector<double>> obtain_forest_info(
   const RandomForestMetaData<float, float>* forest,
   int param_requested);
-template std::vector<double> obtain_forest_info(
+template std::vector<std::vector<double>> obtain_forest_info(
   const RandomForestMetaData<double, double>* forest,
   int param_requested);
 

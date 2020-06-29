@@ -9,7 +9,7 @@
 - PR #2394: Adding cosine & correlation distance for KNN
 - PR #2392: PCA can accept sparse inputs, and sparse prim for computing covariance
 - PR #2465: Support pandas 1.0+
-- PR #2439: Update RF code to return some forest features for each split and total numb of nodes.
+- PR #2493: Update RF code to return some forest features for each split and total numb of nodes.
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage

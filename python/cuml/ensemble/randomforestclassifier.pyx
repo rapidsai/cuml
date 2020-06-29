@@ -452,7 +452,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
         self.treelite_serialized_model = treelite_serialize(model_ptr)
         return self.treelite_serialized_model
 
-    def total_nodes_(self):
+    def n_nodes_(self):
         """
         Calculates the number of nodes in the trained RF model
 
@@ -494,18 +494,19 @@ class RandomForestClassifier(Base, ClassifierMixin):
         select_feature = {"threshold" : 1,
                           "best_metric" : 2,
                           "column_id" : 3}
-        print(select_feature[forest_param])
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float32:
-          forest_info_vector = obtain_forest_info(rf_forest,
-                                                  select_feature[str(forest_param)])
+          forest_info_vector = obtain_forest_info(
+            rf_forest,
+            <int> select_feature[str(forest_param)])
         else:
-          forest_info_vector = obtain_forest_info(rf_forest64,
-                                                  select_feature[str(forest_param)])
+          forest_info_vector = obtain_forest_info(
+            rf_forest64,
+            <int> select_feature[str(forest_param)])
 
         return forest_info_vector
 
