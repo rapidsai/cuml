@@ -292,16 +292,18 @@ std::vector<std::vector<double>> obtain_forest_info(
     DecisionTree::TreeMetaDataNode<T, L>* tree_info = &forest->trees[i];
     forest_info.push_back(std::vector<double>());
     int j = 0;
-    while ((tree_info->sparsetree[j].colid != -1)) {
-      if (param_requested == 1) {
-        // collect the threshold values used to split the nodes
-        forest_info[i].push_back(tree_info->sparsetree[j].quesval);
-      } else if (param_requested == 2) {
-        // collect the best metric value for each node
-        forest_info[i].push_back(tree_info->sparsetree[j].best_metric_val);
-      } else {
-        // collect the ids of columns used at each node
-        forest_info[i].push_back(tree_info->sparsetree[j].colid);
+    while (j < tree_info->sparsetree.size()) {
+      if (tree_info->sparsetree[j].colid != -1) {
+        if (param_requested == 1) {
+          // collect the threshold values used to split the nodes
+          forest_info[i].push_back(tree_info->sparsetree[j].quesval);
+        } else if (param_requested == 2) {
+          // collect the best metric value for each node
+          forest_info[i].push_back(tree_info->sparsetree[j].best_metric_val);
+        } else {
+          // collect the ids of columns used at each node
+          forest_info[i].push_back(tree_info->sparsetree[j].colid);
+        }
       }
       j++;
     }
