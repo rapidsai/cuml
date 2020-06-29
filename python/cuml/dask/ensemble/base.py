@@ -174,23 +174,7 @@ class BaseRandomForestModel(object):
                 )
             )
 
-            wait_and_raise_from_futures(futures)
-        return self
-
-    def _print_detailed(self):
-        """
-        Print the summary of the forest used to train and test the model.
-        """
-        futures = list()
-        for n, w in enumerate(self.workers):
-            futures.append(
-                self.client.submit(
-                    _print_detailed_func,
-                    self.rfs[w],
-                    workers=[w],
-                )
-            )
-            wait_and_raise_from_futures(futures)
+        wait_and_raise_from_futures(futures)
         return self
 
 
@@ -202,10 +186,6 @@ def _func_fit(model, input_data, convert_dtype):
 
 def _print_summary_func(model):
     model.print_summary()
-
-
-def _print_detailed_func(model):
-    model.print_detailed()
 
 
 def _func_get_params(model, deep):
