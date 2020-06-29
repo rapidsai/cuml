@@ -59,23 +59,23 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
         cumlHandle& handle, const double* y, int batch_size, int nobs,
         const ARIMAOrder& order, const double* params, double* loglike,
         double* d_vs, bool trans, bool host_loglike, LoglikeMethod method,
-        int truncate)
+        bool pre_diff, int truncate)
 
     void batched_loglike_grad(
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
         const ARIMAOrder& order, const double* d_x, double* d_grad, double h,
-        bool trans, LoglikeMethod method, int truncate)
+        bool trans, LoglikeMethod method, bool pre_diff, int truncate)
 
     void cpp_predict "predict" (
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
         int start, int end, const ARIMAOrder& order,
         const ARIMAParams[double]& params, double* d_vs_ptr, double* d_y_p,
-        double level, double* d_lower, double* d_upper)
+        bool pre_diff, double level, double* d_lower, double* d_upper)
 
     void information_criterion(
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
         const ARIMAOrder& order, const ARIMAParams[double]& params,
-        double* ic, int ic_type)
+        double* ic, int ic_type, bool pre_diff)
 
     void estimate_x0(
         cumlHandle& handle, ARIMAParams[double]& params, const double* d_y,
@@ -260,7 +260,11 @@ class ARIMA(Base):
             raise ValueError("ERROR: Number of observations too small for the"
                              " given order")
 
+        # TODO: this is temporary!
+        self.simple_differencing = False
+
         # Compute the differenced series
+        # TODO: only with simple_differencing!
         self._d_y_diff = cumlArray.empty(
             (self.n_obs - d - s * D, self.batch_size), self.dtype)
         cdef uintptr_t d_y_ptr = self._d_y.ptr
@@ -342,7 +346,8 @@ class ARIMA(Base):
         information_criterion(handle_[0], <double*> d_y_ptr,
                               <int> self.batch_size, <int> self.n_obs,
                               <ARIMAOrder> order, cpp_params,
-                              <double*> d_ic_ptr, <int> ic_type_id)
+                              <double*> d_ic_ptr, <int> ic_type_id,
+                              <bool> self.simple_differencing)
 
         return ic.to_output(self.output_type)
 
@@ -507,8 +512,10 @@ class ARIMA(Base):
         cdef uintptr_t d_y_p_ptr
         cdef uintptr_t d_lower_ptr
         cdef uintptr_t d_upper_ptr
-        d_vs = cumlArray.empty((self.n_obs - order.d - order.D * order.s,
-                                self.batch_size), dtype=np.float64, order="F")
+        # TODO: don't create residuals here + use the right size
+        # (can be n_obs - d - s*D)
+        d_vs = cumlArray.empty((self.n_obs, self.batch_size),
+                               dtype=np.float64, order="F")
         d_y_p = cumlArray.empty((predict_size, self.batch_size),
                                 dtype=np.float64, order="F")
         d_vs_ptr = d_vs.ptr
@@ -526,6 +533,7 @@ class ARIMA(Base):
         cpp_predict(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
                     <int> self.n_obs, <int> start, <int> end, order,
                     cpp_params, <double*>d_vs_ptr, <double*>d_y_p_ptr,
+                    <bool> self.simple_differencing,
                     <double> (0 if level is None else level),
                     <double*> d_lower_ptr, <double*> d_upper_ptr)
 
@@ -534,7 +542,7 @@ class ARIMA(Base):
         else:
             return (d_y_p.to_output(self.output_type),
                     d_lower.to_output(self.output_type),
-                    d_upper.to_output(self.output_type),)
+                    d_upper.to_output(self.output_type))
 
     @nvtx_range_wrap
     def forecast(self, nsteps: int, level=None):
@@ -761,19 +769,33 @@ class ARIMA(Base):
             input_to_cuml_array(x, check_dtype=np.float64, order='C')
         cdef uintptr_t d_x_ptr = d_x_array.ptr
 
+        cdef uintptr_t d_y_ptr = self._d_y.ptr
         cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
+
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        d_vs = cumlArray.empty((self.n_obs - order.d - order.D * order.s,
-                                self.batch_size), dtype=np.float64, order="F")
+        cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
+        diff = ll_method != MLE or self.simple_differencing
+        n_obs_kf = (self.n_obs_diff if diff else self.n_obs)
+        d_vs = cumlArray.empty((n_obs_kf, self.batch_size), dtype=np.float64,
+                               order="F")
         cdef uintptr_t d_vs_ptr = d_vs.ptr
 
-        cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
-        batched_loglike(handle_[0], <double*> d_y_diff_ptr,
-                        <int> self.batch_size, <int> self.n_obs_diff,
-                        order_diff, <double*> d_x_ptr,
-                        <double*> vec_loglike.data(), <double*> d_vs_ptr,
-                        <bool> trans, <bool> True, ll_method, <int> truncate)
+        # TODO: combine in single call
+        if diff:
+            batched_loglike(handle_[0], <double*> d_y_diff_ptr,
+                            <int> self.batch_size, <int> n_obs_kf,
+                            order_diff, <double*> d_x_ptr,
+                            <double*> vec_loglike.data(), <double*> d_vs_ptr,
+                            <bool> trans, <bool> True, ll_method, <bool> diff,
+                            <int> truncate)
+        else:
+            batched_loglike(handle_[0], <double*> d_y_ptr,
+                            <int> self.batch_size, <int> n_obs_kf,
+                            order, <double*> d_x_ptr,
+                            <double*> vec_loglike.data(), <double*> d_vs_ptr,
+                            <bool> trans, <bool> True, ll_method, <bool> diff,
+                            <int> truncate)
 
         return np.array(vec_loglike, dtype=np.float64)
 
@@ -818,15 +840,27 @@ class ARIMA(Base):
             input_to_cuml_array(x, check_dtype=np.float64, order='C')
         cdef uintptr_t d_x_ptr = d_x_array.ptr
 
+        cdef uintptr_t d_y_ptr = self._d_y.ptr
         cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
+
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
-        batched_loglike_grad(handle_[0], <double*> d_y_diff_ptr,
-                             <int> self.batch_size, <int> self.n_obs_diff,
-                             order_diff, <double*> d_x_ptr, <double*> d_grad,
-                             <double> h, <bool> trans, ll_method,
-                             <int> truncate)
+        diff = ll_method != MLE or self.simple_differencing
+
+        # TODO: combine in single call
+        if diff:
+            batched_loglike_grad(handle_[0], <double*> d_y_diff_ptr,
+                                <int> self.batch_size, <int> self.n_obs_diff,
+                                order_diff, <double*> d_x_ptr, <double*> d_grad,
+                                <double> h, <bool> trans, ll_method, <bool> diff,
+                                <int> truncate)
+        else:
+            batched_loglike_grad(handle_[0], <double*> d_y_ptr,
+                                <int> self.batch_size, <int> self.n_obs,
+                                order, <double*> d_x_ptr, <double*> d_grad,
+                                <double> h, <bool> trans, ll_method, <bool> diff,
+                                <int> truncate)
 
         return grad.to_output("numpy")
 

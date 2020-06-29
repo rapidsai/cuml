@@ -368,7 +368,7 @@ def test_gradient(key, data, dtype):
     N = p + P + q + Q + intercept + 1
     h = 1e-8
 
-    y, y_cudf = get_dataset(data, dtype)
+    _, y_cudf = get_dataset(data, dtype)
 
     # Create cuML model
     cuml_model = arima.ARIMA(y_cudf, order, seasonal_order,

@@ -27,16 +27,19 @@
 #include <common/cudart_utils.h>
 #include <linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 #include <common/nvtx.hpp>
 #include <cuda_utils.cuh>
 #include <linalg/batched/matrix.cuh>
 #include <linalg/binary_op.cuh>
+#include <matrix/matrix.cuh>  // TODO: remove
 #include <sparse/batched/csr.cuh>
 #include <timeSeries/arima_helpers.cuh>
 
 namespace ML {
 
 //! Thread-local Matrix-Vector multiplication.
+//! TODO: inline?
 template <int r>
 __device__ void Mv_l(const double* A, const double* v, double* out) {
   for (int i = 0; i < r; i++) {
@@ -45,6 +48,18 @@ __device__ void Mv_l(const double* A, const double* v, double* out) {
       sum += A[i + j * r] * v[j];
     }
     out[i] = sum;
+  }
+}
+
+template <int r>
+__device__ void Mv_l(double alpha, const double* A, const double* v,
+                     double beta, double* out) {
+  for (int i = 0; i < r; i++) {
+    double sum = 0.0;
+    for (int j = 0; j < r; j++) {
+      sum += A[i + j * r] * v[j];
+    }
+    out[i] = alpha * sum + beta * out[i];
   }
 }
 
@@ -64,6 +79,9 @@ __device__ void MM_l(const double* A, const double* B, double* out) {
   }
 }
 
+/// TODO: update comments to show time-varying matrices & vectors
+///       rename RRT -> RQRt
+///       exclude d+s*D obs from log-likelihood computation
 /**
  * Kalman loop kernel. Each thread computes kalman filter for a single series
  * and stores relevant matrices in registers.
@@ -82,6 +100,7 @@ __device__ void MM_l(const double* A, const double* B, double* out) {
  * @param[out] vs         Batched residuals                     (nobs)
  * @param[out] Fs         Batched variance of prediction errors (nobs)    
  * @param[out] sum_logFs  Batched sum of the logs of Fs         (1)
+ * @param[in]  d_sD       d + s*D
  * @param[in]  fc_steps   Number of steps to forecast
  * @param[out] d_fc       Array to store the forecast
  * @param[in]  conf_int   Whether to compute confidence intervals
@@ -92,12 +111,12 @@ __global__ void batched_kalman_loop_kernel(
   const double* ys, int nobs, const double* T, const double* Z,
   const double* RRT, const double* P, const double* alpha, bool intercept,
   const double* d_mu, int batch_size, double* vs, double* Fs, double* sum_logFs,
-  int fc_steps = 0, double* d_fc = nullptr, bool conf_int = false,
+  int d_sD, int fc_steps = 0, double* d_fc = nullptr, bool conf_int = false,
   double* d_F_fc = nullptr) {
   constexpr int r2 = r * r;
   double l_RRT[r2];
   double l_T[r2];
-  // double l_Z[r]; // note: will be used when introducing exogeneous var.
+  double l_Z[r];
   double l_P[r2];
   double l_alpha[r];
   double l_K[r];
@@ -117,7 +136,7 @@ __global__ void batched_kalman_loop_kernel(
         l_P[i] = P[b_r2_offset + i];
       }
       for (int i = 0; i < r; i++) {
-        // l_Z[i] = Z[b_r_offset + i];
+        if (d_sD > 0) l_Z[i] = Z[b_r_offset + i];
         l_alpha[i] = alpha[b_r_offset + i];
       }
     }
@@ -130,22 +149,43 @@ __global__ void batched_kalman_loop_kernel(
     double mu = intercept ? d_mu[bid] : 0.0;
 
     for (int it = 0; it < nobs; it++) {
-      // 1. & 2.
-      double vs_it;
-      double _Fs = l_P[0];
-      vs_it = b_ys[it] - l_alpha[0];
+      // 1. v = y - Z*alpha
+      double vs_it = b_ys[it];
+      if (d_sD == 0)
+        vs_it -= l_alpha[0];
+      else {
+        for (int i = 0; i < r; i++) {
+          vs_it -= l_alpha[i] * l_Z[i];
+        }
+      }
       b_vs[it] = vs_it;
+
+      // 2. F = Z*P*Z'
+      double _Fs;
+      if (d_sD == 0)
+        _Fs = l_P[0];
+      else {
+        _Fs = 0.0;
+        for (int i = 0; i < r; i++) {
+          for (int j = 0; j < r; j++) {
+            _Fs += l_P[j * r + i] * l_Z[i] * l_Z[j];
+          }
+        }
+      }
       b_Fs[it] = _Fs;
-      b_sum_logFs += log(_Fs);
+      if (it >= d_sD) b_sum_logFs += log(_Fs);  /// TODO: abs to avoid NaN?
 
       // 3. K = 1/Fs[it] * T*P*Z'
       // TP = T*P
       MM_l<r>(l_T, l_P, l_TP);
-      // K = 1/Fs[it] * TP*Z' ; optimized for Z = (1 0 ... 0)
+      // K = 1/Fs[it] * TP*Z'
       double _1_Fs = 1.0 / _Fs;
-      for (int i = 0; i < r; i++) {
-        l_K[i] = _1_Fs * l_TP[i];
-      }
+      if (d_sD == 0) {
+        for (int i = 0; i < r; i++) {
+          l_K[i] = _1_Fs * l_TP[i];
+        }
+      } else
+        Mv_l<r>(_1_Fs, l_TP, l_Z, 0.0, l_K);
 
       // 4. alpha = T*alpha + K*vs[it] + c
       // tmp = T*alpha
@@ -154,18 +194,25 @@ __global__ void batched_kalman_loop_kernel(
       for (int i = 0; i < r; i++) {
         l_alpha[i] = l_tmp[i] + l_K[i] * vs_it;
       }
-      // alpha_0 = alpha_0 + mu
-      l_alpha[0] += mu;
+      // alpha = alpha + c
+      l_alpha[d_sD] += mu;
 
       // 5. L = T - K * Z
       // L = T (L is tmp)
       for (int i = 0; i < r2; i++) {
         l_tmp[i] = l_T[i];
       }
-      // L = L - K * Z ; optimized for Z = (1 0 ... 0):
-      // substract K to the first column of L
-      for (int i = 0; i < r; i++) {
-        l_tmp[i] -= l_K[i];
+      // L = L - K * Z
+      if (d_sD == 0) {
+        for (int i = 0; i < r; i++) {
+          l_tmp[i] -= l_K[i];
+        }
+      } else {
+        for (int i = 0; i < r; i++) {
+          for (int j = 0; j < r; j++) {
+            l_tmp[j * r + i] -= l_K[i] * l_Z[j];
+          }
+        }
       }
 
       // 6. P = T*P*L' + R*R'
@@ -183,17 +230,35 @@ __global__ void batched_kalman_loop_kernel(
       double* b_fc = fc_steps ? d_fc + bid * fc_steps : nullptr;
       double* b_F_fc = conf_int ? d_F_fc + bid * fc_steps : nullptr;
       for (int it = 0; it < fc_steps; it++) {
-        b_fc[it] = l_alpha[0];
+        if (d_sD == 0)
+          b_fc[it] = l_alpha[0];
+        else {
+          double pred = 0.0;
+          for (int i = 0; i < r; i++) {
+            pred += l_alpha[i] * l_Z[i];
+          }
+          b_fc[it] = pred;
+        }
 
         // alpha = T*alpha + c
         Mv_l<r>(l_T, l_alpha, l_tmp);
         for (int i = 0; i < r; i++) {
           l_alpha[i] = l_tmp[i];
         }
-        l_alpha[0] += mu;
+        l_alpha[d_sD] += mu;
 
         if (conf_int) {
-          b_F_fc[it] = l_P[0];
+          if (d_sD == 0)
+            b_F_fc[it] = l_P[0];
+          else {
+            double _Fs = 0.0;
+            for (int i = 0; i < r; i++) {
+              for (int j = 0; j < r; j++) {
+                _Fs += l_P[j * r + i] * l_Z[i] * l_Z[j];
+              }
+            }
+            b_F_fc[it] = _Fs;
+          }
 
           // P = T*P*T' + RR'
           // TP = T*P
@@ -210,6 +275,7 @@ __global__ void batched_kalman_loop_kernel(
   }
 }
 
+/// TODO: there's probably a bug in there
 /**
  * Kalman loop for large matrices (r > 8).
  *
@@ -227,6 +293,7 @@ __global__ void batched_kalman_loop_kernel(
  * @param[out] d_vs         Batched residuals                     (nobs)
  * @param[out] d_Fs         Batched variance of prediction errors (nobs)    
  * @param[out] d_sum_logFs  Batched sum of the logs of Fs         (1)
+ * @param[in]  d_sD         d + s*D
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[out] d_fc         Array to store the forecast
  * @param[in]  conf_int     Whether to compute confidence intervals
@@ -241,7 +308,7 @@ void _batched_kalman_loop_large(
   MLCommon::LinAlg::Batched::Matrix<double>& P,
   MLCommon::LinAlg::Batched::Matrix<double>& alpha, bool intercept,
   const double* d_mu, int r, double* d_vs, double* d_Fs, double* d_sum_logFs,
-  int fc_steps = 0, double* d_fc = nullptr, bool conf_int = false,
+  int d_sD, int fc_steps = 0, double* d_fc = nullptr, bool conf_int = false,
   double* d_F_fc = nullptr) {
   auto stream = T.stream();
   auto allocator = T.allocator();
@@ -261,6 +328,7 @@ void _batched_kalman_loop_large(
                                                allocator, stream, false);
 
   // Shortcuts
+  const double* d_Z = Z.raw_data();
   double* d_P = P.raw_data();
   double* d_alpha = alpha.raw_data();
   double* d_K = K.raw_data();
@@ -274,11 +342,33 @@ void _batched_kalman_loop_large(
     // 1. & 2.
     thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
                      [=] __device__(int bid) {
-                       d_vs[bid * nobs + it] =
-                         d_ys[bid * nobs + it] - d_alpha[bid * r];
-                       double l_P = d_P[bid * r2];
-                       d_Fs[bid * nobs + it] = l_P;
-                       d_sum_logFs[bid] += log(l_P);
+                       const double* b_P = d_P + bid * r2;
+                       const double* b_Z = d_Z + bid * r;
+                       const double* b_alpha = d_alpha + bid * r;
+
+                       double vt = d_ys[bid * nobs + it];
+                       if (d_sD == 0) {
+                         vt -= b_alpha[0];
+                       } else {
+                         for (int i = 0; i < r; i++) {
+                           vt -= b_alpha[i] * b_Z[i];
+                         }
+                       }
+                       d_vs[bid * nobs + it] = vt;
+
+                       double _F;
+                       if (d_sD == 0)
+                         _F = b_P[0];
+                       else {
+                         _F = 0.0;
+                         for (int i = 0; i < r; i++) {
+                           for (int j = 0; j < r; j++) {
+                             _F += b_P[j * r + i] * b_Z[i] * b_Z[j];
+                           }
+                         }
+                       }
+                       d_Fs[bid * nobs + it] = _F;
+                       if (it >= d_sD) d_sum_logFs[bid] += log(_F);
                      });
 
     // 3. K = 1/Fs[it] * T*P*Z'
@@ -288,39 +378,66 @@ void _batched_kalman_loop_large(
     else
       MLCommon::LinAlg::Batched::b_gemm(false, false, r, r, r, 1.0, T, P, 0.0,
                                         TP);
-    // K = 1/Fs[it] * TP*Z' ; optimized for Z = (1 0 ... 0)
+    // K = 1/Fs[it] * TP*Z'
     thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
                      [=] __device__(int bid) {
+                       const double* b_TP = d_TP + bid * r2;
+                       double* b_K = d_K + bid * r;
+
                        double _1_Fs = 1.0 / d_Fs[bid * nobs + it];
-                       for (int i = 0; i < r; i++) {
-                         d_K[bid * r + i] = _1_Fs * d_TP[bid * r2 + i];
+                       if (d_sD == 0) {
+                         for (int i = 0; i < r; i++) {
+                           b_K[i] = _1_Fs * b_TP[i];
+                         }
+                       } else {
+                         const double* b_Z = d_Z + bid * r;
+                         for (int i = 0; i < r; i++) {
+                           double acc = 0.0;
+                           for (int j = 0; j < r; j++) {
+                             acc += b_TP[r * j + i] * b_Z[j];
+                           }
+                           b_K[i] = _1_Fs * acc;
+                         }
                        }
                      });
 
     // 4. alpha = T*alpha + K*vs[it] + c
     // v_tmp = T*alpha
     MLCommon::Sparse::Batched::b_spmv(1.0, T_sparse, alpha, 0.0, v_tmp);
-    // alpha = v_tmp + K*vs[it]
-    // alpha_0 = alpha_0 + mu
+    // alpha = v_tmp + K*vs[it] + c
     thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
                      [=] __device__(int bid) {
+                       const double* b_Talpha = d_v_tmp + bid * r;
+                       const double* b_K = d_K + bid * r;
+                       double* b_alpha = d_alpha + bid * r;
+
                        double _vs = d_vs[bid * nobs + it];
                        for (int i = 0; i < r; i++) {
-                         double mu = (intercept && i == 0) ? d_mu[bid] : 0.0;
-                         d_alpha[bid * r + i] =
-                           d_v_tmp[bid * r + i] + _vs * d_K[bid * r + i] + mu;
+                         double mu = (intercept && i == d_sD) ? d_mu[bid] : 0.0;
+                         b_alpha[i] = b_Talpha[i] + b_K[i] * _vs + mu;
                        }
                      });
 
     // 5. L = T - K * Z
     // L = T (L is m_tmp)
     MLCommon::copy(m_tmp.raw_data(), T.raw_data(), nb * r2, stream);
-    // L = L - K * Z ; optimized for Z = (1 0 ... 0):
-    // substract K to the first column of L
+    // L = L - K * Z
     thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
                      [=] __device__(int bid) {
-                       for (int i = 0; i < r; i++) {
-                         d_m_tmp[bid * r2 + i] -= d_K[bid * r + i];
+                       const double* b_K = d_K + bid * r;
+                       double* b_L = d_m_tmp + bid * r2;
+
+                       if (d_sD == 0) {
+                         for (int i = 0; i < r; i++) {
+                           b_L[i] -= b_K[i];
+                         }
+                       } else {
+                         const double* b_Z = d_Z + bid * r;
+                         for (int i = 0; i < r; i++) {
+                           for (int j = 0; j < r; j++) {
+                             b_L[j * r + i] -= b_K[i] * b_Z[j];
+                           }
+                         }
                        }
                      });
     // MLCommon::LinAlg::Batched::b_gemm(false, false, r, r, 1, -1.0, K, Z, 1.0,
@@ -340,7 +457,20 @@ void _batched_kalman_loop_large(
   for (int it = 0; it < fc_steps; it++) {
     thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
                      [=] __device__(int bid) {
-                       d_fc[bid * fc_steps + it] = d_alpha[bid * r];
+                       const double* b_alpha = d_alpha + bid * r;
+
+                       double pred;
+                       if (d_sD == 0) {
+                         pred = b_alpha[0];
+                       } else {
+                         const double* b_Z = d_Z + bid * r;
+
+                         pred = 0.0;
+                         for (int i = 0; i < r; i++) {
+                           pred += b_alpha[i] * b_Z[i];
+                         }
+                       }
+                       d_fc[bid * fc_steps + it] = pred;
                      });
 
     // alpha = T*alpha + c
@@ -351,13 +481,28 @@ void _batched_kalman_loop_large(
     if (intercept) {
       thrust::for_each(
         thrust::cuda::par.on(stream), counting, counting + nb,
-        [=] __device__(int bid) { d_alpha[bid * r] += d_mu[bid]; });
+        [=] __device__(int bid) { d_alpha[bid * r + d_sD] += d_mu[bid]; });
     }
 
     if (conf_int) {
       thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
                        [=] __device__(int bid) {
-                         d_F_fc[bid * fc_steps + it] = d_P[bid * r2];
+                         const double* b_P = d_P + bid * r2;
+
+                         double Ft;
+                         if (d_sD == 0)
+                           Ft = b_P[0];
+                         else {
+                           const double* b_Z = d_Z + bid * r;
+                           Ft = 0.0;
+                           for (int i = 0; i < r; i++) {
+                             for (int j = 0; j < r; j++) {
+                               Ft += b_P[j * r + i] * b_Z[i] * b_Z[j];
+                             }
+                           }
+                         }
+
+                         d_F_fc[bid * fc_steps + it] = Ft;
                        });
 
       // P = T*P*T' + R*R'
@@ -386,12 +531,14 @@ void batched_kalman_loop(cumlHandle& handle, const double* ys, int nobs,
                          MLCommon::LinAlg::Batched::Matrix<double>& P0,
                          MLCommon::LinAlg::Batched::Matrix<double>& alpha,
                          std::vector<bool>& T_mask, bool intercept,
-                         const double* d_mu, int r, double* vs, double* Fs,
-                         double* sum_logFs, int fc_steps = 0,
-                         double* d_fc = nullptr, bool conf_int = false,
-                         double* d_F_fc = nullptr) {
+                         const double* d_mu, const ARIMAOrder& order,
+                         double* vs, double* Fs, double* sum_logFs,
+                         int fc_steps = 0, double* d_fc = nullptr,
+                         bool conf_int = false, double* d_F_fc = nullptr) {
   const int batch_size = T.batches();
   auto stream = T.stream();
+  int r = order.r();
+  int d_sD = order.d + order.s * order.D;
   dim3 numThreadsPerBlock(32, 1);
   dim3 numBlocks(MLCommon::ceildiv<int>(batch_size, numThreadsPerBlock.x), 1);
   if (r <= 8) {
@@ -401,56 +548,56 @@ void batched_kalman_loop(cumlHandle& handle, const double* ys, int nobs,
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc, conf_int, d_F_fc);
+            d_sD, fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 2:
         batched_kalman_loop_kernel<2>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc, conf_int, d_F_fc);
+            d_sD, fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 3:
         batched_kalman_loop_kernel<3>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc, conf_int, d_F_fc);
+            d_sD, fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 4:
         batched_kalman_loop_kernel<4>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc, conf_int, d_F_fc);
+            d_sD, fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 5:
         batched_kalman_loop_kernel<5>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc, conf_int, d_F_fc);
+            d_sD, fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 6:
         batched_kalman_loop_kernel<6>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc, conf_int, d_F_fc);
+            d_sD, fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 7:
         batched_kalman_loop_kernel<7>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc, conf_int, d_F_fc);
+            d_sD, fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 8:
         batched_kalman_loop_kernel<8>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
             alpha.raw_data(), intercept, d_mu, batch_size, vs, Fs, sum_logFs,
-            fc_steps, d_fc, conf_int, d_F_fc);
+            d_sD, fc_steps, d_fc, conf_int, d_F_fc);
         break;
     }
     CUDA_CHECK(cudaPeekAtLastError());
@@ -460,15 +607,15 @@ void batched_kalman_loop(cumlHandle& handle, const double* ys, int nobs,
       MLCommon::Sparse::Batched::CSR<double>::from_dense(
         T, T_mask, handle.getImpl().getcusolverSpHandle());
     _batched_kalman_loop_large(ys, nobs, T, T_sparse, Z, RRT, P0, alpha,
-                               intercept, d_mu, r, vs, Fs, sum_logFs, fc_steps,
-                               d_fc, conf_int, d_F_fc);
+                               intercept, d_mu, r, vs, Fs, sum_logFs, d_sD,
+                               fc_steps, d_fc, conf_int, d_F_fc);
   }
 }
 
 template <int NUM_THREADS>
 __global__ void batched_kalman_loglike_kernel(
   const double* d_vs, const double* d_Fs, const double* d_sumLogFs, int nobs,
-  int batch_size, double* d_loglike, double* d_sigma2, double level) {
+  int batch_size, double* d_loglike, double* d_sigma2, int d_sD, double level) {
   using BlockReduce = cub::BlockReduce<double, NUM_THREADS>;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
@@ -479,7 +626,7 @@ __global__ void batched_kalman_loglike_kernel(
     // vs and Fs are in time-major order (memory layout: column major)
     int idx = (it + tid) + bid * nobs;
     double d_vs2_Fs = 0.0;
-    if (it + tid < nobs) {
+    if (it + tid >= d_sD && it + tid < nobs) {
       double _vi = d_vs[idx];
       d_vs2_Fs = _vi * _vi / d_Fs[idx];
     }
@@ -488,11 +635,11 @@ __global__ void batched_kalman_loglike_kernel(
     bid_sigma2 += partial_sum;
   }
   if (tid == 0) {
-    double nobs_f = static_cast<double>(nobs);
-    bid_sigma2 /= nobs_f;
+    double nobs_diff_f = static_cast<double>(nobs - d_sD);
+    bid_sigma2 /= nobs_diff_f;
     if (level != 0) d_sigma2[bid] = bid_sigma2;
-    d_loglike[bid] =
-      -.5 * (d_sumLogFs[bid] + nobs_f * bid_sigma2 + nobs_f * (log(2 * M_PI)));
+    d_loglike[bid] = -.5 * (d_sumLogFs[bid] + nobs_diff_f * bid_sigma2 +
+                            nobs_diff_f * (log(2 * M_PI)));
   }
 }
 
@@ -513,10 +660,11 @@ __global__ void confidence_intervals(const double* d_fc, const double* d_sigma2,
 
 /// Internal Kalman filter implementation that assumes data exists on GPU.
 void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
+                            const ARIMAOrder& order,
                             const MLCommon::LinAlg::Batched::Matrix<double>& Zb,
                             const MLCommon::LinAlg::Batched::Matrix<double>& Tb,
                             const MLCommon::LinAlg::Batched::Matrix<double>& Rb,
-                            std::vector<bool>& T_mask, int r, double* d_vs,
+                            std::vector<bool>& T_mask, double* d_vs,
                             double* d_Fs, double* d_loglike,
                             const double* d_sigma2, bool intercept,
                             const double* d_mu, int fc_steps, double* d_fc,
@@ -527,6 +675,10 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   auto allocator = handle.getDeviceAllocator();
 
   auto counting = thrust::make_counting_iterator(0);
+
+  int d_sD = order.d + order.s * order.D;
+  int r = order.r();
+  int r_diff = order.r_diff();
 
   MLCommon::LinAlg::Batched::Matrix<double> RQb(r, 1, batch_size, cublasHandle,
                                                 allocator, stream, true);
@@ -544,35 +696,73 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
 
   // Durbin Koopman "Time Series Analysis" pg 138
   ML::PUSH_RANGE("Init P");
-  MLCommon::LinAlg::Batched::Matrix<double> P =
-    MLCommon::LinAlg::Batched::b_lyapunov(Tb, RRT);
+  MLCommon::LinAlg::Batched::Matrix<double> P(r, r, batch_size, cublasHandle,
+                                              allocator, stream, true);
+  {
+    double* d_P = P.raw_data();
+
+    if (d_sD > 0) {
+      // Initialize the diffuse part with a large variance
+      /// TODO: pass this as a parameter?
+      constexpr double kappa = 1e6;
+      thrust::for_each(thrust::cuda::par.on(stream), counting,
+                       counting + batch_size, [=] __device__(int bid) {
+                         double* b_P = d_P + r * r * bid;
+                         for (int i = 0; i < d_sD; i++) {
+                           b_P[(r + 1) * i] = kappa;
+                         }
+                       });
+
+      // Initialize the stationary part by solving a Lyapunov equation
+      /// TODO: reduce amount of memory copies
+      MLCommon::LinAlg::Batched::Matrix<double> Ts =
+        MLCommon::LinAlg::Batched::b_2dcopy(Tb, d_sD, d_sD, r_diff, r_diff);
+      MLCommon::LinAlg::Batched::Matrix<double> RRTs =
+        MLCommon::LinAlg::Batched::b_2dcopy(RRT, d_sD, d_sD, r_diff, r_diff);
+      MLCommon::LinAlg::Batched::Matrix<double> Ps =
+        MLCommon::LinAlg::Batched::b_lyapunov(Ts, RRTs);
+      MLCommon::LinAlg::Batched::b_2dcopy(Ps, P, 0, 0, r_diff, r_diff, d_sD,
+                                          d_sD);
+    } else {
+      // Initialize by solving a Lyapunov equation
+      /// TODO: avoid copy
+      P = MLCommon::LinAlg::Batched::b_lyapunov(Tb, RRT);
+    }
+  }
   ML::POP_RANGE();
 
-  // Initialize the state alpha as the solution of (I - T) x = c
-  // Note: optimized as c = (mu 0 ... 0)'
+  // Initialize the state alpha by solving (I - T*) x* = c with:
+  //     | mu |
+  // c = | 0  |
+  //     | .  |
+  //     | 0  |
+  // T* = T[d+s*D:, d+s*D:]
+  // x* = alpha_0[d+s*D:]
   MLCommon::LinAlg::Batched::Matrix<double> alpha(
     r, 1, batch_size, handle.getImpl().getCublasHandle(),
     handle.getDeviceAllocator(), stream, true);
+  /// TODO: remove memset and set to 0 only the elements that need to
   if (intercept) {
-    // Compute I-T
+    // Compute I-T*
     MLCommon::LinAlg::Batched::Matrix<double> ImT(
-      r, r, batch_size, cublasHandle, allocator, stream, false);
+      r_diff, r_diff, batch_size, cublasHandle, allocator, stream, false);
     const double* d_T = Tb.raw_data();
     double* d_ImT = ImT.raw_data();
     thrust::for_each(thrust::cuda::par.on(stream), counting,
                      counting + batch_size, [=] __device__(int bid) {
                        const double* b_T = d_T + r * r * bid;
-                       double* b_ImT = d_ImT + r * r * bid;
-                       for (int i = 0; i < r; i++) {
-                         for (int j = 0; j < r; j++) {
-                           b_ImT[r * j + i] =
-                             (i == j ? 1.0 : 0.0) - b_T[r * j + i];
+                       double* b_ImT = d_ImT + r_diff * r_diff * bid;
+                       for (int i = 0; i < r_diff; i++) {
+                         for (int j = 0; j < r_diff; j++) {
+                           b_ImT[r_diff * j + i] =
+                             (i == j ? 1.0 : 0.0) -
+                             b_T[r * (j + d_sD) + i + d_sD];
                          }
                        }
                      });
 
     // For r=1, prevent I-T from being too close to [[0]] -> no solution
-    if (r == 1) {
+    if (r_diff == 1) {
       thrust::for_each(thrust::cuda::par.on(stream), counting,
                        counting + batch_size, [=] __device__(int bid) {
                          if (abs(d_ImT[bid]) < 1e-3)
@@ -580,41 +770,37 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                        });
     }
 
-    // Compute (I-T)^-1
+    // Compute (I-T*)^-1
     MLCommon::LinAlg::Batched::Matrix<double> ImT_inv = ImT.inv();
 
-    // Compute (I-T)^-1 * c -> multiply 1st column by mu
+    // Compute (I-T*)^-1 * c -> multiply 1st column by mu
     const double* d_ImT_inv = ImT_inv.raw_data();
     double* d_alpha = alpha.raw_data();
     thrust::for_each(thrust::cuda::par.on(stream), counting,
                      counting + batch_size, [=] __device__(int bid) {
-                       const double* b_ImT_inv = d_ImT_inv + r * r * bid;
+                       const double* b_ImT_inv =
+                         d_ImT_inv + r_diff * r_diff * bid;
                        double* b_alpha = d_alpha + r * bid;
                        double mu = d_mu[bid];
-                       for (int i = 0; i < r; i++) {
-                         b_alpha[i] = b_ImT_inv[i] * mu;
+                       for (int i = 0; i < r_diff; i++) {
+                         b_alpha[i + d_sD] = b_ImT_inv[i] * mu;
                        }
                      });
   }
 
-  // init vs, Fs
-  // In batch-major format.
-  double* d_sumLogFs;
-
-  d_sumLogFs = (double*)handle.getDeviceAllocator()->allocate(
-    sizeof(double) * batch_size, stream);
+  MLCommon::device_buffer<double> sumLogF_buffer(allocator, stream, batch_size);
 
   batched_kalman_loop(handle, d_ys, nobs, Tb, Zb, RRT, P, alpha, T_mask,
-                      intercept, d_mu, r, d_vs, d_Fs, d_sumLogFs, fc_steps,
-                      d_fc, level > 0, d_lower);
+                      intercept, d_mu, order, d_vs, d_Fs, sumLogF_buffer.data(),
+                      fc_steps, d_fc, level > 0, d_lower);
 
   // Finalize loglikelihood and prediction intervals
   MLCommon::device_buffer<double> sigma2_buffer(allocator, stream, batch_size);
   constexpr int NUM_THREADS = 128;
   batched_kalman_loglike_kernel<NUM_THREADS>
-    <<<batch_size, NUM_THREADS, 0, stream>>>(d_vs, d_Fs, d_sumLogFs, nobs,
-                                             batch_size, d_loglike,
-                                             sigma2_buffer.data(), level);
+    <<<batch_size, NUM_THREADS, 0, stream>>>(d_vs, d_Fs, sumLogF_buffer.data(),
+                                             nobs, batch_size, d_loglike,
+                                             sigma2_buffer.data(), d_sD, level);
   CUDA_CHECK(cudaPeekAtLastError());
   if (level > 0) {
     confidence_intervals<<<batch_size, fc_steps, 0, stream>>>(
@@ -622,9 +808,6 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
       sqrt(2.0) * erfinv(level));
     CUDA_CHECK(cudaPeekAtLastError());
   }
-
-  handle.getDeviceAllocator()->deallocate(d_sumLogFs,
-                                          sizeof(double) * batch_size, stream);
 }
 
 void init_batched_kalman_matrices(cumlHandle& handle, const double* d_ar,
@@ -643,59 +826,130 @@ void init_batched_kalman_matrices(cumlHandle& handle, const double* d_ar,
   cudaMemsetAsync(d_R_b, 0.0, r * nb * sizeof(double), stream);
   cudaMemsetAsync(d_T_b, 0.0, r * r * nb * sizeof(double), stream);
 
+  int d_sD = order.d + order.s * order.D;
+  int r_diff = order.r_diff();
+
   auto counting = thrust::make_counting_iterator(0);
   thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
                    [=] __device__(int bid) {
-                     // See TSA pg. 54 for Z,R,T matrices
-                     // Z = [1 0 0 0 ... 0]
-                     d_Z_b[bid * r] = 1.0;
+                     // See TSA pg. 54 for Z, R, T matrices
 
-                     //     |1.0        |
-                     // R = |theta_1    |
-                     //     | ...       |
-                     //     |theta_{r-1}|
+                     // Z = [ 1 | 0 . . 0 1 0 . . 0 1 | 1 0 . . 0 ]
+                     //       d |         s*D         |     l
+                     for (int i = 0; i < order.d; i++) d_Z_b[bid * r + i] = 1.0;
+                     for (int i = 1; i <= order.D; i++)
+                       d_Z_b[bid * r + order.d + i * order.s - 1] = 1.0;
+                     d_Z_b[bid * r + d_sD] = 1.0;
+
+                     //     |     0     |
+                     //     |     .     |  d + s*D
+                     //     |     0     |_ _
+                     // R = |     1     |
+                     //     |  theta_1  |  l
+                     //     |     .     |
+                     //     |theta_{l-1}|
                      //
-                     d_R_b[bid * r] = 1.0;
-                     for (int i = 0; i < r - 1; i++) {
-                       d_R_b[bid * r + i + 1] =
+                     d_R_b[bid * r + d_sD] = 1.0;
+                     for (int i = 0; i < order.n_theta(); i++) {
+                       d_R_b[bid * r + d_sD + i + 1] =
                          MLCommon::TimeSeries::reduced_polynomial<false>(
                            bid, d_ma, order.q, d_sma, order.Q, order.s, i + 1);
                      }
 
-                     //     |phi_1  1.0  0.0  ...  0.0|
-                     //     | .          1.0          |
-                     //     | .              .        |
-                     // T = | .                .   0.0|
-                     //     | .                  .    |
-                     //     | .                    1.0|
-                     //     |phi_r  0.0  0.0  ...  0.0|
+                     //     | 1 | 0 .. 0 1 | 1                |  d
+                     //     |_ _|_ _ _ _ _ |_ _ _ _ _ _ _ _ _ |_ _
+                     //     |   | 0 .. 0 1 | 1                |
+                     //     |   | 1      0 |                  |
+                     //     |   |   .    . |                  |  s*D
+                     //     |   |    .   . |                  |
+                     // T = |   | 0    1 0 |                  |
+                     //     |_ _|_ _ _ _ _ |_ _ _ _ _ _ _ _ _ |_ _
+                     //     |   |          | phi_1  1         |
+                     //     |   |          |  .       1    0  |
+                     //     |   |          |  .         .     |  l
+                     //     |   |          |  .     0     .   |
+                     //     |   |          |  .             1 |
+                     //     |   |          | phi_l  0  . .  0 |
+                     //
+                     // (non-comprehensive example with d=1 and D=1)
                      //
                      double* batch_T = d_T_b + bid * r * r;
-                     for (int i = 0; i < r; i++) {
-                       batch_T[i] =
+                     // 1. Differencing component
+                     for (int i = 0; i < order.d; i++) {
+                       for (int j = i; j < order.d; j++) {
+                         batch_T[j * r + i] = 1.0;
+                       }
+                     }
+                     for (int id = 0; id < order.d; id++) {
+                       batch_T[d_sD * r + id] = 1.0;
+                       for (int iD = 1; iD <= order.D; iD++) {
+                         batch_T[(order.d + order.s * iD - 1) * r + id] = 1.0;
+                       }
+                     }
+                     // 2. Seasonal differencing component
+                     for (int iD = 0; iD < order.D; iD++) {
+                       int offset = order.d + iD * order.s;
+                       for (int i = 0; i < order.s - 1; i++) {
+                         batch_T[(offset + i) * r + offset + i + 1] = 1.0;
+                       }
+                       batch_T[(offset + order.s - 1) * r + offset] = 1.0;
+                       batch_T[d_sD * r + offset] = 1.0;
+                     }
+                     if (order.D == 2) {
+                       batch_T[(d_sD - 1) * r + order.d] = 1.0;
+                     }
+                     // 3. Auto-Regressive component
+                     for (int i = 0; i < order.n_phi(); i++) {
+                       batch_T[d_sD * (r + 1) + i] =
                          MLCommon::TimeSeries::reduced_polynomial<true>(
                            bid, d_ar, order.p, d_sar, order.P, order.s, i + 1);
                      }
-                     // shifted identity
-                     for (int i = 0; i < r - 1; i++) {
-                       batch_T[(i + 1) * r + i] = 1.0;
+                     for (int i = 0; i < r_diff - 1; i++) {
+                       batch_T[(d_sD + i + 1) * r + d_sD + i] = 1.0;
                      }
 
                      // If r=2 and phi_2=-1, I-TxT is singular
+                     /// TODO: take diff into account here
                      if (r == 2 && order.p == 2 && abs(batch_T[1] + 1) < 0.01) {
                        batch_T[1] = -0.99;
                      }
                    });
 
+  // T density/sparsity mask
   T_mask.resize(r * r, false);
+  // 1. Differencing component
+  for (int i = 0; i < order.d; i++) {
+    for (int j = i; j < order.d; j++) {
+      T_mask[j * r + i] = true;
+    }
+  }
+  for (int id = 0; id < order.d; id++) {
+    T_mask[d_sD * r + id] = true;
+    for (int iD = 1; iD <= order.D; iD++) {
+      T_mask[(order.d + order.s * iD - 1) * r + id] = true;
+    }
+  }
+  // 2. Seasonal differencing component
+  for (int iD = 0; iD < order.D; iD++) {
+    int offset = order.d + iD * order.s;
+    for (int i = 0; i < order.s - 1; i++) {
+      T_mask[(offset + i) * r + offset + i + 1] = true;
+    }
+    T_mask[(offset + order.s - 1) * r + offset] = true;
+    T_mask[d_sD * r + offset] = true;
+  }
+  if (order.D == 2) {
+    T_mask[(d_sD - 1) * r + order.d] = true;
+  }
+  // 3. Auto-Regressive component
   for (int iP = 0; iP < order.P + 1; iP++) {
     for (int ip = 0; ip < order.p + 1; ip++) {
       int i = iP * order.s + ip - 1;
-      if (i >= 0) T_mask[i] = true;
+      if (i >= 0) T_mask[d_sD * (r + 1) + i] = true;
     }
   }
-  for (int i = 0; i < r - 1; i++) {
-    T_mask[(i + 1) * r + i] = true;
+  for (int i = 0; i < r_diff - 1; i++) {
+    T_mask[(d_sD + i + 1) * r + d_sD + i] = true;
   }
 
   ML::POP_RANGE();
@@ -708,8 +962,6 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                            double* d_fc, double level, double* d_lower,
                            double* d_upper) {
   ML::PUSH_RANGE(__func__);
-
-  const size_t ys_len = nobs;
 
   auto cublasHandle = handle.getImpl().getCublasHandle();
   auto stream = handle.getStream();
@@ -733,14 +985,13 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   ////////////////////////////////////////////////////////////
   // Computation
 
-  double* d_Fs =
-    (double*)allocator->allocate(ys_len * batch_size * sizeof(double), stream);
+  MLCommon::device_buffer<double> F_buffer(allocator, stream,
+                                           nobs * batch_size);
 
-  _batched_kalman_filter(handle, d_ys, nobs, Zb, Tb, Rb, T_mask, r, d_vs, d_Fs,
-                         d_loglike, params.sigma2, static_cast<bool>(order.k),
-                         params.mu, fc_steps, d_fc, level, d_lower, d_upper);
-
-  allocator->deallocate(d_Fs, ys_len * batch_size * sizeof(double), stream);
+  _batched_kalman_filter(handle, d_ys, nobs, order, Zb, Tb, Rb, T_mask, d_vs,
+                         F_buffer.data(), d_loglike, params.sigma2,
+                         static_cast<bool>(order.k), params.mu, fc_steps, d_fc,
+                         level, d_lower, d_upper);
 
   ML::POP_RANGE();
 }
