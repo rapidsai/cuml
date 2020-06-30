@@ -85,9 +85,6 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
     dbscanFit(handle, out.data(), params.n_row, params.n_col, params.eps,
               params.min_pts, labels, params.max_bytes_per_batch);
 
-    MLCommon::myPrintDevVector("out", out.data(), std::min(1000, (int)out.size()));
-    MLCommon::myPrintDevVector("labels", labels, std::min(1000, (int)params.n_row));
-
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     score = adjustedRandIndex(handle, labels_ref, labels, params.n_row);
@@ -180,6 +177,7 @@ struct DBScan2DArrayInputs {
   size_t n_out;
   T eps;
   int min_pts;
+  const int *core_indices; //Expected core_indices
 };
 
 template <typename T>
@@ -193,20 +191,16 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     allocate(inputs, params.n_row * 2);
     allocate(labels, params.n_row);
     allocate(labels_ref, params.n_out);
-    allocate(core_sample_indices, params.n_row);
+    allocate(core_sample_indices_d, params.n_row);
 
     MLCommon::copy(inputs, params.points, params.n_row * 2, handle.getStream());
     MLCommon::copy(labels_ref, params.out, params.n_out, handle.getStream());
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     dbscanFit(handle, inputs, (int)params.n_row, 2, params.eps, params.min_pts,
-              labels, core_sample_indices);
+              labels, core_sample_indices_d);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
-
-    MLCommon::myPrintDevVector("labels", labels, std::min(1000, (int)params.n_row));
-    MLCommon::myPrintDevVector("labels_ref", labels_ref, std::min(1000, (int)params.n_out));
-    MLCommon::myPrintDevVector("core_sample_indices", core_sample_indices, std::min(1000, (int)params.n_row));
 
     score = adjustedRandIndex(handle, labels_ref, labels, (int)params.n_out);
 
@@ -218,6 +212,8 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
       CUML_LOG_DEBUG("y_hat: %s", str.c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }
+
+    EXPECT_TRUE(devArrMatchHost(params.core_indices, core_sample_indices_d, params.n_row, Compare<int>(), handle.getStream()));
   }
 
   void SetUp() override { basicTest(); }
@@ -226,13 +222,13 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     CUDA_CHECK(cudaFree(labels_ref));
     CUDA_CHECK(cudaFree(labels));
     CUDA_CHECK(cudaFree(inputs));
-    CUDA_CHECK(cudaFree(core_sample_indices));
+    CUDA_CHECK(cudaFree(core_sample_indices_d));
   }
 
  protected:
   DBScan2DArrayInputs<T> params;
   int *labels, *labels_ref;
-  int *core_sample_indices;
+  int *core_sample_indices_d;
   T *inputs;
 
   double score;
@@ -250,6 +246,7 @@ const std::vector<float> test2d1_f = {0,  0, 1, 0, 1, 1, 1,
                                       -1, 2, 0, 3, 0, 4, 0};
 const std::vector<double> test2d1_d(test2d1_f.begin(), test2d1_f.end());
 const std::vector<int> test2d1_l = {0, 0, 0, 0, 0, -1, -1};
+const std::vector<int> test2d1c_l = {1, -1, -1, -1, -1, -1, -1};
 
 // The input looks like a long two-barred (orhodox) cross or
 // two stars next to each other:
@@ -262,6 +259,7 @@ const std::vector<float> test2d2_f = {0, 0, 1, 0, 1, 1, 1, -1, 2, 0,
                                       3, 0, 4, 0, 4, 1, 4, -1, 5, 0};
 const std::vector<double> test2d2_d(test2d2_f.begin(), test2d2_f.end());
 const std::vector<int> test2d2_l = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1};
+const std::vector<int> test2d2c_l = {1,6,-1,-1,-1,-1,-1,-1,-1,-1};
 
 // The input looks like a two-barred (orhodox) cross or
 // two stars sharing a link:
@@ -279,23 +277,24 @@ const std::vector<float> test2d3_f = {
 };
 const std::vector<double> test2d3_d(test2d3_f.begin(), test2d3_f.end());
 const std::vector<int> test2d3_l = {0, 0, 0, 0, 1, 1, 1, 1};
+const std::vector<int> test2d3c_l = {1,4,-1,-1,-1,-1,-1,-1,-1};
 
 const std::vector<DBScan2DArrayInputs<float>> inputs2d_f = {
   {test2d1_f.data(), test2d1_l.data(), test2d1_f.size() / 2, test2d1_l.size(),
-   1.1f, 4},
+   1.1f, 4, test2d1c_l.data()},
   {test2d2_f.data(), test2d2_l.data(), test2d2_f.size() / 2, test2d2_l.size(),
-   1.1f, 4},
+   1.1f, 4, test2d2c_l.data()},
   {test2d3_f.data(), test2d3_l.data(), test2d3_f.size() / 2, test2d3_l.size(),
-   1.1f, 4},
+   1.1f, 4, test2d3c_l.data()},
 };
 
 const std::vector<DBScan2DArrayInputs<double>> inputs2d_d = {
   {test2d1_d.data(), test2d1_l.data(), test2d1_d.size() / 2, test2d1_l.size(),
-   1.1, 4},
+   1.1, 4, test2d1c_l.data()},
   {test2d2_d.data(), test2d2_l.data(), test2d2_d.size() / 2, test2d2_l.size(),
-   1.1, 4},
+   1.1, 4, test2d2c_l.data()},
   {test2d3_d.data(), test2d3_l.data(), test2d3_d.size() / 2, test2d3_l.size(),
-   1.1, 4},
+   1.1, 4, test2d3c_l.data()},
 };
 
 typedef Dbscan2DSimple<float> Dbscan2DSimple_F;
