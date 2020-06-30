@@ -160,85 +160,42 @@ void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
   device_buffer<int> labels(d_alloc, stream, n);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
-#ifdef OLD_NVGRAPH
-  int weight_index = 0;
-
-  nvgraphHandle_t grapHandle;
-  cudaDataType_t edge_dimT = CUDA_R_32F;
-  NVGRAPH_CHECK(nvgraphCreate(&grapHandle));
-
-  nvgraphCSRTopology32I_st CSR_input;
-  CSR_input.destination_indices = dst_cols.data();
-  CSR_input.nedges = nnz;
-  CSR_input.nvertices = n;
-  CSR_input.source_offsets = src_offsets.data();
-
-  // Spectral clustering parameters
-  struct SpectralClusteringParameter clustering_params;
-  clustering_params.n_clusters = n_components + 1;
-  clustering_params.n_eig_vects = n_components + 1;
-  clustering_params.algorithm = NVGRAPH_BALANCED_CUT_LANCZOS;
-  clustering_params.evs_tolerance = 0.01f;
-  clustering_params.evs_max_iter = 0;
-  clustering_params.kmean_tolerance = 0.0f;
-  clustering_params.kmean_max_iter = 1;
-
-  nvgraphGraphDescr_t graph;
-  NVGRAPH_CHECK(nvgraphCreateGraphDescr(grapHandle, &graph));
-  NVGRAPH_CHECK(nvgraphSetGraphStructure(grapHandle, graph, (void *)&CSR_input,
-                                         NVGRAPH_CSR_32));
-  NVGRAPH_CHECK(nvgraphAllocateEdgeData(grapHandle, graph, 1, &edge_dimT));
-  NVGRAPH_CHECK(nvgraphSetEdgeData(grapHandle, graph, (void *)vals, 0));
-
-  NVGRAPH_CHECK(nvgraphSpectralClustering(grapHandle, graph, weight_index,
-                                          &clustering_params, labels.data(),
-                                          eigVals.data(), eigVecs.data()));
-
-  NVGRAPH_CHECK(nvgraphDestroyGraphDescr(grapHandle, graph));
-  NVGRAPH_CHECK(nvgraphDestroy(grapHandle));
-#else
-  //raft replacement code:
+  //raft spectral clustering:
   //
-  {
-    using index_type = int;
-    using value_type = T;
+  using index_type = int;
+  using value_type = T;
 
-    raft::handle_t r_handle;
-    r_handle.set_stream(stream);
+  raft::handle_t r_handle;
+  r_handle.set_stream(stream);
 
-    //TODO: must set r_handle.cusparse_handle_ = handle, somehow;
+  //TODO: r_handle to be passed as argument;
+  //this will be fixed in a separate refactoring PR;
 
-    index_type *ro = src_offsets.data();
-    index_type *ci = dst_cols.data();
-    value_type *vs = dst_vals.data();
+  index_type *ro = src_offsets.data();
+  index_type *ci = dst_cols.data();
+  value_type *vs = dst_vals.data();
 
-    raft::matrix::GraphCSRView<index_type, index_type, value_type> const
-      r_graph{ro, ci, vs, n, nnz};
+  raft::matrix::GraphCSRView<index_type, index_type, value_type> const r_graph{
+    ro, ci, vs, n, nnz};
 
-    //raft::matrix::sparse_matrix_t<index_type, value_type> sm{r_handle, ro, ci, vs, n, nnz};
+  index_type neigvs = n_components + 1;
+  index_type maxiter = 4000;  //default reset value (when set to 0);
+  value_type tol = 0.01;
+  index_type restart_iter = 15 + neigvs;  //what cugraph is using
+  auto t_exe_p = thrust::cuda::par.on(stream);
 
-    index_type neigvs = n_components + 1;
-    index_type maxiter = 4000;  //default reset value (when set to 0);
-    value_type tol = 0.01;
-    index_type restart_iter = 15 + neigvs;  //what cugraph is using
-    auto t_exe_p = thrust::cuda::par.on(stream);
+  raft::eigen_solver_config_t<index_type, value_type> cfg{neigvs, maxiter,
+                                                          restart_iter, tol};
 
-    raft::eigen_solver_config_t<index_type, value_type> cfg{neigvs, maxiter,
-                                                            restart_iter, tol};
+  raft::lanczos_solver_t<index_type, value_type> eig_solver{cfg};
 
-    raft::lanczos_solver_t<index_type, value_type> eig_solver{cfg};
+  raft::cluster_solver_config_t<index_type, value_type> clust_cfg{
+    n_components + 1, 1, 0.1};  // kmeans is not really meant to be run, here
+  raft::kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
 
-    //eig_solver.solve_smallest_eigenvectors(r_handle, sm, eigVals.data(), eigVecs.data());
-
-    raft::cluster_solver_config_t<index_type, value_type> clust_cfg{
-      n_components + 1, 1, 0.1};  // kmeans is not really meant to be run, here
-    raft::kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
-
-    raft::spectral::partition(r_handle, t_exe_p, r_graph, eig_solver,
-                              cluster_solver, labels.data(), eigVals.data(),
-                              eigVecs.data());
-  }
-#endif
+  raft::spectral::partition(r_handle, t_exe_p, r_graph, eig_solver,
+                            cluster_solver, labels.data(), eigVals.data(),
+                            eigVecs.data());
 
   MLCommon::copy<T>(out, eigVecs.data() + n, n * n_components, stream);
 
