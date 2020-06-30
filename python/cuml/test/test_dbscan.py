@@ -18,7 +18,6 @@ import pytest
 
 from cuml.test.utils import get_handle
 from cuml import DBSCAN as cuDBSCAN
-from cuml.common.array import CumlArray
 from cuml.test.utils import get_pattern, unit_param, \
     quality_param, stress_param, array_equal
 
@@ -78,7 +77,8 @@ def test_dbscan(datatype, use_handle, nrows, ncols,
                                  'no_structure'])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('eps', [0.05, 0.1, 0.5]) #Needed for a wide variety of core point counts
+# Vary the eps to get a range of core point counts
+@pytest.mark.parametrize('eps', [0.05, 0.1, 0.5])
 def test_dbscan_sklearn_comparison(name, nrows, eps):
     default_base = {'quantile': .2,
                     'eps': eps,
@@ -105,7 +105,9 @@ def test_dbscan_sklearn_comparison(name, nrows, eps):
         assert(score == 1.0)
 
         # Check the core points are equal
-        array_equal(cuml_dbscan.core_sample_indices_, dbscan.core_sample_indices_)
+        array_equal(cuml_dbscan.core_sample_indices_,
+                    dbscan.core_sample_indices_)
+
 
 @pytest.mark.parametrize("name", [
                                  'noisy_moons',
@@ -264,8 +266,9 @@ def test_dbscan_propagation(datatype, use_handle, out_dtype):
     score = adjusted_rand_score(sk_y_pred, cu_y_pred)
     assert(score == 1.0)
 
+
 def test_dbscan_no_calc_core_point_indices():
-    
+
     params = {'eps': 1.1, 'min_samples': 4}
     n_samples = 1000
     pat = get_pattern("noisy_moons", n_samples)
