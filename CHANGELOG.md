@@ -15,7 +15,6 @@
 - PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
 - PR #2308: Using fixture for Dask client to eliminate possiblity of not closing
 - PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
-- PR #2311: Provide access to `cuml.DBSCAN` core samples
 - PR #2329: Add short commit hash to conda package name
 - PR #2336: Eliminate `rmm.device_array` usage
 - PR #2339: umap performance improvements
@@ -36,6 +35,7 @@
 - PR #2453: Add CumlArray to API doc
 - PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
 - PR #2469: Updating KNN c-api to document all arguments
+- PR #2499: Provide access to `cuml.DBSCAN` core samples
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
