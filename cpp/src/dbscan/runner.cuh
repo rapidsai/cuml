@@ -200,8 +200,6 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
   }
 
-  MLCommon::myPrintDevVector("core_pts", core_pts, std::min(1000, (int)N));
-
   ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
   if (algoCcl == 2) final_relabel(labels, N, stream);
   size_t nblks = ceildiv<size_t>(N, TPB);
@@ -228,8 +226,6 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
     auto index_iterator = thrust::counting_iterator<int>(0);
 
-    MLCommon::myPrintDevVector("core_sample_indices: fill", core_sample_indices, std::min(1000, (int)N));
-
     //Perform stream reduction on the core points. The core_pts acts as the stencil and we use thrust::counting_iterator to return the index
     auto core_point_count = thrust::copy_if(
       thrust_exec_policy, 
@@ -241,10 +237,6 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
         return is_core_point;
       }
     );
-
-    CUML_LOG_INFO("Core Point Count: %d.", core_point_count);
-
-    MLCommon::myPrintDevVector("core_sample_indices: fill", core_sample_indices, std::min(1000, (int)N));
 
     ML::POP_RANGE();
   }
