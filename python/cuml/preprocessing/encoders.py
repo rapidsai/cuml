@@ -283,17 +283,14 @@ class OneHotEncoder:
         for feature in X.columns:
             encoder = self._encoders[feature]
             col_idx = encoder.transform(X[feature])
-            col_idx = cp.asarray(col_idx.fillna(np.uint8(-1)).to_gpu_array())
-
-            # np.uint8(-1) translates to 255
-            idx_to_keep = col_idx < 255
+            idx_to_keep = cp.asarray(col_idx.notnull().to_gpu_array())
+            col_idx = cp.asarray(col_idx.dropna().to_gpu_array())
 
             # increase indices to take previous features into account
             col_idx += j
 
             # Filter out rows with null values
             row_idx = cp.arange(len(X))[idx_to_keep]
-            col_idx = col_idx[idx_to_keep]
 
             if self.drop_idx_ is not None:
                 drop_idx = self.drop_idx_[feature] + j
