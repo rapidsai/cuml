@@ -283,8 +283,10 @@ class OneHotEncoder:
         for feature in X.columns:
             encoder = self._encoders[feature]
             col_idx = encoder.transform(X[feature])
-            col_idx = cp.asarray(col_idx.to_gpu_array(fillna="pandas"))
-            idx_to_keep = col_idx > -1
+            col_idx = cp.asarray(col_idx.fillna(np.uint8(-1)).to_gpu_array())
+
+            # np.uint8(-1) translates to 255
+            idx_to_keep = col_idx < 255
 
             # increase indices to take previous features into account
             col_idx += j
