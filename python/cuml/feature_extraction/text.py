@@ -223,13 +223,7 @@ class _VectorizerMixin:
                                                             dtype=dtype)},
                                  dtype=dtype)
 
-        remaining_docs = doc_ids.iloc[remaining_docs]
-        # this if statement is a temporary patch until following issue is fixed
-        # https://github.com/rapidsai/cudf/issues/5604
-        if not isinstance(remaining_docs, cudf.DataFrame):
-            remaining_docs = remaining_docs.to_frame(name='all_ids')
-
-        empty_docs = doc_ids - remaining_docs
+        empty_docs = doc_ids - doc_ids.iloc[remaining_docs]
         empty_ids = empty_docs[empty_docs['all_ids'].isnull()].index.values
         return empty_ids
 
