@@ -126,8 +126,7 @@ Metrics
   .. automodule:: cuml.metrics.cluster.entropy
     :members:
 
-  .. automodule:: cuml.metrics._ranking
-    :members:
+  .. automethod:: cuml.metrics.roc_auc_score
 
 Benchmarking
 -------------
