@@ -140,27 +140,28 @@ class _VectorizerMixin:
 
         return ngram_sr, ngram_count, token_count
 
-    def get_ngrams(self, str_series, n, doc_id_sr):
+    def get_ngrams(self, str_series, ngram_size, doc_id_sr):
         """
         This returns the ngrams for the string series
         Parameters
         ----------
         str_series : (cudf.Series)
             String series to tokenize
-        n : int
+        ngram_size : int
             Gram level to get (1 for unigram, 2 for bigram etc)
         doc_id_sr : cudf.Series
             Int series containing documents ids
         """
         if self.analyzer == 'word':
             token_count_sr = str_series.str.token_count(self.delimiter)
-            ngram_sr = str_series.str.ngrams_tokenize(n=n, separator=" ",
+            ngram_sr = str_series.str.ngrams_tokenize(n=ngram_size,
+                                                      separator=" ",
                                                       delimiter=self.delimiter)
             # formula to count ngrams given number of tokens x per doc: x-(n-1)
-            ngram_count = token_count_sr - (n - 1)
+            ngram_count = token_count_sr - (ngram_size - 1)
         else:
             ngram_sr, ngram_count, token_count_sr = self.get_char_ngrams(
-                n, str_series, doc_id_sr
+                ngram_size, str_series, doc_id_sr
             )
 
         not_empty_docs = token_count_sr > 0
