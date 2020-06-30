@@ -8,6 +8,7 @@
 - PR #2394: Adding cosine & correlation distance for KNN
 - PR #2392: PCA can accept sparse inputs, and sparse prim for computing covariance
 - PR #2465: Support pandas 1.0+
+- PR #2500: Replace UMAP functionality dependency on nvgraph with RAFT Spectral Clustering
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
