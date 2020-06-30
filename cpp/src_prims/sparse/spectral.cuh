@@ -23,6 +23,8 @@
 #include "coo.cuh"
 #include "cusparse_wrappers.h"
 
+#include <raft/spectral/partition.hpp>
+
 namespace MLCommon {
 namespace Spectral {
 
@@ -147,29 +149,29 @@ void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
                    int nnz, int n, int n_components, T *out,
                    std::shared_ptr<deviceAllocator> d_alloc,
                    cudaStream_t stream) {
-  nvgraphHandle_t grapHandle;
-  cudaDataType_t edge_dimT = CUDA_R_32F;
-  NVGRAPH_CHECK(nvgraphCreate(&grapHandle));
-
   device_buffer<int> src_offsets(d_alloc, stream, n + 1);
   device_buffer<int> dst_cols(d_alloc, stream, nnz);
   device_buffer<T> dst_vals(d_alloc, stream, nnz);
   coo2csr(handle, rows, cols, vals, nnz, n, src_offsets.data(), dst_cols.data(),
           dst_vals.data(), d_alloc, stream);
 
-  nvgraphCSRTopology32I_st CSR_input;
-  CSR_input.destination_indices = dst_cols.data();
-  CSR_input.nedges = nnz;
-  CSR_input.nvertices = n;
-  CSR_input.source_offsets = src_offsets.data();
-
-  int weight_index = 0;
-
   device_buffer<T> eigVals(d_alloc, stream, n_components + 1);
   device_buffer<T> eigVecs(d_alloc, stream, n * (n_components + 1));
   device_buffer<int> labels(d_alloc, stream, n);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
+#ifdef OLD_NVGRAPH
+  int weight_index = 0;
+
+  nvgraphHandle_t grapHandle;
+  cudaDataType_t edge_dimT = CUDA_R_32F;
+  NVGRAPH_CHECK(nvgraphCreate(&grapHandle));
+
+  nvgraphCSRTopology32I_st CSR_input;
+  CSR_input.destination_indices = dst_cols.data();
+  CSR_input.nedges = nnz;
+  CSR_input.nvertices = n;
+  CSR_input.source_offsets = src_offsets.data();
 
   // Spectral clustering parameters
   struct SpectralClusteringParameter clustering_params;
@@ -194,6 +196,49 @@ void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
 
   NVGRAPH_CHECK(nvgraphDestroyGraphDescr(grapHandle, graph));
   NVGRAPH_CHECK(nvgraphDestroy(grapHandle));
+#else
+  //raft replacement code:
+  //
+  {
+    using index_type = int;
+    using value_type = T;
+
+    raft::handle_t r_handle;
+    r_handle.set_stream(stream);
+
+    //TODO: must set r_handle.cusparse_handle_ = handle, somehow;
+
+    index_type *ro = src_offsets.data();
+    index_type *ci = dst_cols.data();
+    value_type *vs = dst_vals.data();
+
+    raft::matrix::GraphCSRView<index_type, index_type, value_type> const
+      r_graph{ro, ci, vs, n, nnz};
+
+    //raft::matrix::sparse_matrix_t<index_type, value_type> sm{r_handle, ro, ci, vs, n, nnz};
+
+    index_type neigvs = n_components + 1;
+    index_type maxiter = 4000;  //default reset value (when set to 0);
+    value_type tol = 0.01;
+    index_type restart_iter = 15 + neigvs;  //what cugraph is using
+    auto t_exe_p = thrust::cuda::par.on(stream);
+
+    raft::eigen_solver_config_t<index_type, value_type> cfg{neigvs, maxiter,
+                                                            restart_iter, tol};
+
+    raft::lanczos_solver_t<index_type, value_type> eig_solver{cfg};
+
+    //eig_solver.solve_smallest_eigenvectors(r_handle, sm, eigVals.data(), eigVecs.data());
+
+    raft::cluster_solver_config_t<index_type, value_type> clust_cfg{
+      n_components + 1, 1, 0.0};  // kmeans is not really meant to be run, here
+    raft::kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
+
+    raft::spectral::partition(r_handle, t_exe_p, r_graph, eig_solver,
+                              cluster_solver, labels.data(), eigVals.data(),
+                              eigVecs.data());
+  }
+#endif
 
   MLCommon::copy<T>(out, eigVecs.data() + n, n * n_components, stream);
 
