@@ -64,8 +64,11 @@ void dbscanFit(const cumlHandle &handle, double *input, int64_t n_rows,
  * @param[in] eps epsilon value to use for epsilon-neighborhood determination
  * @param[in] min_pts minimum number of points to determine a cluster
  * @param[out] labels (size n_rows) output labels array
- * @param[out] core_sample_indices (size n_rows) output array containing the indices of each core point. If the number of core points is less than n_rows, the right will be padded with -1. Setting this to NULL will prevent calculating the core sample indices
- * @param[in] max_bytes_per_batch: the maximum number of megabytes to be used for
+ * @param[out] core_sample_indices (size n_rows) output array containing the 
+ *             indices of each core point. If the number of core points is less
+ *             than n_rows, the right will be padded with -1. Setting this to 
+ *             NULL will prevent calculating the core sample indices
+ * @param[in] max_bytes_per_batch the maximum number of megabytes to be used for
  *            each batch of the pairwise distance calculation. This enables the
  *            trade off between memory usage and algorithm execution time.
  * @param[in] verbosity: verbosity level for logging messages during execution
