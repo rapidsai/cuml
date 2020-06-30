@@ -177,7 +177,7 @@ struct DBScan2DArrayInputs {
   size_t n_out;
   T eps;
   int min_pts;
-  const int *core_indices; //Expected core_indices
+  const int *core_indices;  //Expected core_indices
 };
 
 template <typename T>
@@ -213,7 +213,9 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
       CUML_LOG_DEBUG("Score = %lf", score);
     }
 
-    EXPECT_TRUE(devArrMatchHost(params.core_indices, core_sample_indices_d, params.n_row, Compare<int>(), handle.getStream()));
+    EXPECT_TRUE(devArrMatchHost(params.core_indices, core_sample_indices_d,
+                                params.n_row, Compare<int>(),
+                                handle.getStream()));
   }
 
   void SetUp() override { basicTest(); }
@@ -259,7 +261,7 @@ const std::vector<float> test2d2_f = {0, 0, 1, 0, 1, 1, 1, -1, 2, 0,
                                       3, 0, 4, 0, 4, 1, 4, -1, 5, 0};
 const std::vector<double> test2d2_d(test2d2_f.begin(), test2d2_f.end());
 const std::vector<int> test2d2_l = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1};
-const std::vector<int> test2d2c_l = {1,6,-1,-1,-1,-1,-1,-1,-1,-1};
+const std::vector<int> test2d2c_l = {1, 6, -1, -1, -1, -1, -1, -1, -1, -1};
 
 // The input looks like a two-barred (orhodox) cross or
 // two stars sharing a link:
@@ -277,7 +279,7 @@ const std::vector<float> test2d3_f = {
 };
 const std::vector<double> test2d3_d(test2d3_f.begin(), test2d3_f.end());
 const std::vector<int> test2d3_l = {0, 0, 0, 0, 1, 1, 1, 1};
-const std::vector<int> test2d3c_l = {1,4,-1,-1,-1,-1,-1,-1,-1};
+const std::vector<int> test2d3c_l = {1, 4, -1, -1, -1, -1, -1, -1, -1};
 
 const std::vector<DBScan2DArrayInputs<float>> inputs2d_f = {
   {test2d1_f.data(), test2d1_l.data(), test2d1_f.size() / 2, test2d1_l.size(),
