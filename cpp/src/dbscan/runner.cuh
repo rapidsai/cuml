@@ -212,8 +212,6 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   if (core_sample_indices != nullptr) {
     ML::PUSH_RANGE("Trace::Dbscan::CoreSampleIndices");
 
-    CUML_LOG_INFO("Calculating CoreSampleIndices.");
-
     // Create the execution policy
     ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
     auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
