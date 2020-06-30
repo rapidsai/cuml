@@ -287,3 +287,20 @@ def test_character_ngrams(analyzer, ngram_range):
     ref = SkCountVect(analyzer=analyzer, ngram_range=ngram_range).fit(data)
 
     assert ref.get_feature_names() == res.get_feature_names().tolist()
+
+
+@pytest.mark.parametrize('query', [Series(['science aa', '', 'a aa aaa']),
+                                   Series(['science aa', '']),
+                                   Series(['science'])])
+def test_transform_unsigned_categories(query):
+    token = 'a'
+    thousand_tokens = list()
+    for i in range(1000):
+        thousand_tokens.append(token)
+        token += 'a'
+    thousand_tokens[128] = 'science'
+
+    vec = CountVectorizer().fit(Series(thousand_tokens))
+    res = vec.transform(query)
+
+    assert res.shape[0] == len(query)

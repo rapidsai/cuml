@@ -221,11 +221,18 @@ class _VectorizerMixin:
         doc_ids = cudf.DataFrame(data={'all_ids': cp.arange(0, n_doc,
                                                             dtype=dtype)},
                                  dtype=dtype)
-        empty_docs = doc_ids - doc_ids.iloc[remaining_docs]
+
+        remaining_docs = doc_ids.iloc[remaining_docs]
+        # this if statement is a temporary patch until following issue is fixed
+        # https://github.com/rapidsai/cudf/issues/5604
+        if not isinstance(remaining_docs, cudf.DataFrame):
+            remaining_docs = remaining_docs.to_frame(name='all_ids')
+
+        empty_docs = doc_ids - remaining_docs
         empty_ids = empty_docs[empty_docs['all_ids'].isnull()].index.values
         return empty_ids
 
-    def _create_csr_matrix_from_count_df(self, count_df, empty_doc_ids):
+    def _create_csr_matrix_from_count_df(self, count_df, empty_doc_ids, n_doc):
         """Create a sparse matrix from the count of tokens by document"""
         n_features = len(self.vocabulary_)
 
@@ -241,11 +248,9 @@ class _VectorizerMixin:
         indptr = token_counts.cumsum()
         indptr = cp.pad(indptr, (1, 0), "constant")
 
-        n_rows = len(doc_token_counts) + len(empty_doc_ids)
-
         return cp.sparse.csr_matrix(
             arg1=(data, indices, indptr), dtype=self.dtype,
-            shape=(n_rows, n_features)
+            shape=(n_doc, n_features)
         )
 
     def _validate_params(self):
@@ -357,6 +362,7 @@ class CountVectorizer(_VectorizerMixin):
           - were cut off by feature selection (`max_features`).
         This is only available if no vocabulary was given.
     """
+
     def __init__(self, input=None, encoding=None, decode_error=None,
                  strip_accents=None, lowercase=True, preprocessor=None,
                  tokenizer=None, stop_words=None, token_pattern=None,
@@ -535,7 +541,8 @@ class CountVectorizer(_VectorizerMixin):
 
         empty_doc_ids = self._compute_empty_doc_ids(count_df, n_doc)
 
-        X = self._create_csr_matrix_from_count_df(count_df, empty_doc_ids)
+        X = self._create_csr_matrix_from_count_df(count_df, empty_doc_ids,
+                                                  n_doc)
         if self.binary:
             X.data.fill(1)
         return X
@@ -561,7 +568,8 @@ class CountVectorizer(_VectorizerMixin):
         tokenized_df = self._create_tokenized_df(docs)
         count_df = self._count_vocab(tokenized_df)
         empty_doc_ids = self._compute_empty_doc_ids(count_df, n_doc)
-        X = self._create_csr_matrix_from_count_df(count_df, empty_doc_ids)
+        X = self._create_csr_matrix_from_count_df(count_df, empty_doc_ids,
+                                                  n_doc)
         if self.binary:
             X.data.fill(1)
         return X
