@@ -231,7 +231,7 @@ void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
     //eig_solver.solve_smallest_eigenvectors(r_handle, sm, eigVals.data(), eigVecs.data());
 
     raft::cluster_solver_config_t<index_type, value_type> clust_cfg{
-      n_components + 1, 1, 0.0};  // kmeans is not really meant to be run, here
+      n_components + 1, 1, 0.1};  // kmeans is not really meant to be run, here
     raft::kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
 
     raft::spectral::partition(r_handle, t_exe_p, r_graph, eig_solver,
