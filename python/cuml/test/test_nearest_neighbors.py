@@ -135,7 +135,7 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k):
     assert I_cuml_arr.all() == I_sk.all()
 
 
-    CSR_cu = knn_cu.kneighbors_graph(X, k)
+    CSR_cu = knn_cu.kneighbors_graph(X, k, mode='connectivity')
 
     # assert array_equal(CSR_cu, CSR_sk)
 
