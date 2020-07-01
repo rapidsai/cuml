@@ -25,7 +25,8 @@ namespace ML {
 
 /**
  * @defgroup DbscanCpp C++ implementation of Dbscan algo
- * @brief Fits a DBSCAN model on an input feature matrix and outputs the labels and core_sample_indices.
+ * @brief Fits a DBSCAN model on an input feature matrix and outputs the labels
+ *        and core_sample_indices.
  * @param[in] handle cuml handle to use across the algorithm
  * @param[in] input row-major input feature matrix
  * @param[in] n_rows number of samples in the input feature matrix
@@ -45,20 +46,22 @@ namespace ML {
  */
 
 void dbscanFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
-               float eps, int min_pts, int *labels, int *core_sample_indices = nullptr,
+               float eps, int min_pts, int *labels,
+               int *core_sample_indices = nullptr,
                size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
 void dbscanFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
-               double eps, int min_pts, int *labels, int *core_sample_indices = nullptr,
+               double eps, int min_pts, int *labels,
+               int *core_sample_indices = nullptr,
                size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
 
 void dbscanFit(const cumlHandle &handle, float *input, int64_t n_rows,
                int64_t n_cols, float eps, int min_pts, int64_t *labels,
-               int64_t *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
-               int verbosity = CUML_LEVEL_INFO);
+               int64_t *core_sample_indices = nullptr,
+               size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
 void dbscanFit(const cumlHandle &handle, double *input, int64_t n_rows,
                int64_t n_cols, double eps, int min_pts, int64_t *labels,
-               int64_t *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
-               int verbosity = CUML_LEVEL_INFO);
+               int64_t *core_sample_indices = nullptr,
+               size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
 
 /** @} */
 
