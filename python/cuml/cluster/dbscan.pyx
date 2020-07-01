@@ -196,9 +196,9 @@ class DBSCAN(Base):
         # internal array attributes
         self._labels_ = None  # accessed via estimator.labels_
 
-        # accessed via estimator._core_sample_indices_ when 
+        # accessed via estimator._core_sample_indices_ when
         # self.calc_core_sample_indices == True
-        self._core_sample_indices_ = None  
+        self._core_sample_indices_ = None
 
         # C++ API expects this to be numeric.
         if self.max_mbytes_per_batch is None:
