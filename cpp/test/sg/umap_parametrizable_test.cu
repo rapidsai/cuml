@@ -197,9 +197,11 @@ class UMAPParametrizableTest : public ::testing::Test {
     ASSERT_TRUE(!has_nan(embedding_ptr, n_samples * umap_params.n_components,
                          alloc, stream));
 
-    double trustworthiness = trustworthiness_score<float, ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
-      handle, X, embedding_ptr, n_samples, n_features, umap_params.n_components,
-      umap_params.n_neighbors);
+    double trustworthiness =
+      trustworthiness_score<float,
+                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+        handle, X, embedding_ptr, n_samples, n_features,
+        umap_params.n_components, umap_params.n_neighbors);
 
     std::cout << "min. expected trustworthiness: "
               << test_params.min_trustworthiness << std::endl;

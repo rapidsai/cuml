@@ -27,7 +27,8 @@ namespace Distance {
 template <typename DataType>
 __global__ void naiveDistanceKernel(DataType *dist, const DataType *x,
                                     const DataType *y, int m, int n, int k,
-                                    ML::Distance::DistanceType type, bool isRowMajor) {
+                                    ML::Distance::DistanceType type,
+                                    bool isRowMajor) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n) return;
@@ -38,7 +39,8 @@ __global__ void naiveDistanceKernel(DataType *dist, const DataType *x,
     auto diff = x[xidx] - y[yidx];
     acc += diff * diff;
   }
-  if (type == ML::Distance::DistanceType::EucExpandedL2Sqrt || type == ML::Distance::DistanceType::EucUnexpandedL2Sqrt)
+  if (type == ML::Distance::DistanceType::EucExpandedL2Sqrt ||
+      type == ML::Distance::DistanceType::EucUnexpandedL2Sqrt)
     acc = mySqrt(acc);
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
@@ -98,7 +100,8 @@ __global__ void naiveCosineDistanceKernel(DataType *dist, const DataType *x,
 
 template <typename DataType>
 void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
-                   int n, int k, ML::Distance::DistanceType type, bool isRowMajor) {
+                   int n, int k, ML::Distance::DistanceType type,
+                   bool isRowMajor) {
   static const dim3 TPB(16, 32, 1);
   dim3 nblks(ceildiv(m, (int)TPB.x), ceildiv(n, (int)TPB.y), 1);
 
@@ -138,7 +141,8 @@ template <typename DataType>
   return os;
 }
 
-template <ML::Distance::DistanceType distanceType, typename DataType, typename OutputTile_t>
+template <ML::Distance::DistanceType distanceType, typename DataType,
+          typename OutputTile_t>
 void distanceLauncher(DataType *x, DataType *y, DataType *dist, DataType *dist2,
                       int m, int n, int k, DistanceInputs<DataType> &params,
                       DataType threshold, char *workspace, size_t worksize,

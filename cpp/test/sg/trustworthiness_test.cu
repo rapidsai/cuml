@@ -422,7 +422,8 @@ class TrustworthinessScoreTest : public ::testing::Test {
 
     // euclidean test
     score =
-      trustworthiness_score<float, ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+      trustworthiness_score<float,
+                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
         h, d_X, d_X_embedded, 50, 30, 8, 5);
 
     d_alloc->deallocate(d_X, X.size() * sizeof(float), stream);

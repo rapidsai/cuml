@@ -17,13 +17,13 @@
 #pragma once
 
 #include <cuda_runtime_api.h>
+#include <cuml/distance/distance_type.h>
 #include <cutlass/shape.h>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include "cosine.cuh"
 #include "euclidean.cuh"
 #include "l1.cuh"
-#include <cuml/distance/distance_type.h>
 
 namespace MLCommon {
 namespace Distance {
@@ -31,9 +31,9 @@ namespace Distance {
 typedef cutlass::Shape<8, 128, 128> OutputTile_8x128x128;
 
 namespace {
-template <ML::Distance::DistanceType distanceType, typename InType, typename AccType,
-          typename OutType, typename OutputTile_, typename FinalLambda,
-          typename Index_>
+template <ML::Distance::DistanceType distanceType, typename InType,
+          typename AccType, typename OutType, typename OutputTile_,
+          typename FinalLambda, typename Index_>
 struct DistanceImpl {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
@@ -42,8 +42,8 @@ struct DistanceImpl {
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
-struct DistanceImpl<ML::Distance::DistanceType::EucExpandedL2, InType, AccType, OutType, OutputTile_,
-                    FinalLambda, Index_> {
+struct DistanceImpl<ML::Distance::DistanceType::EucExpandedL2, InType, AccType,
+                    OutType, OutputTile_, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
@@ -55,8 +55,8 @@ struct DistanceImpl<ML::Distance::DistanceType::EucExpandedL2, InType, AccType, 
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
-struct DistanceImpl<ML::Distance::DistanceType::EucExpandedL2Sqrt, InType, AccType, OutType, OutputTile_,
-                    FinalLambda, Index_> {
+struct DistanceImpl<ML::Distance::DistanceType::EucExpandedL2Sqrt, InType,
+                    AccType, OutType, OutputTile_, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
@@ -68,8 +68,8 @@ struct DistanceImpl<ML::Distance::DistanceType::EucExpandedL2Sqrt, InType, AccTy
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
-struct DistanceImpl<ML::Distance::DistanceType::EucExpandedCosine, InType, AccType, OutType, OutputTile_,
-                    FinalLambda, Index_> {
+struct DistanceImpl<ML::Distance::DistanceType::EucExpandedCosine, InType,
+                    AccType, OutType, OutputTile_, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
@@ -81,8 +81,8 @@ struct DistanceImpl<ML::Distance::DistanceType::EucExpandedCosine, InType, AccTy
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
-struct DistanceImpl<ML::Distance::DistanceType::EucUnexpandedL2, InType, AccType, OutType, OutputTile_,
-                    FinalLambda, Index_> {
+struct DistanceImpl<ML::Distance::DistanceType::EucUnexpandedL2, InType,
+                    AccType, OutType, OutputTile_, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
@@ -93,8 +93,8 @@ struct DistanceImpl<ML::Distance::DistanceType::EucUnexpandedL2, InType, AccType
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
-struct DistanceImpl<ML::Distance::DistanceType::EucUnexpandedL2Sqrt, InType, AccType, OutType, OutputTile_,
-                    FinalLambda, Index_> {
+struct DistanceImpl<ML::Distance::DistanceType::EucUnexpandedL2Sqrt, InType,
+                    AccType, OutType, OutputTile_, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
@@ -105,8 +105,8 @@ struct DistanceImpl<ML::Distance::DistanceType::EucUnexpandedL2Sqrt, InType, Acc
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
-struct DistanceImpl<ML::Distance::DistanceType::EucUnexpandedL1, InType, AccType, OutType, OutputTile_,
-                    FinalLambda, Index_> {
+struct DistanceImpl<ML::Distance::DistanceType::EucUnexpandedL1, InType,
+                    AccType, OutType, OutputTile_, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
@@ -133,12 +133,13 @@ struct DistanceImpl<ML::Distance::DistanceType::EucUnexpandedL1, InType, AccType
  * @note If the specifed distanceType doesn't need the workspace at all, it
  * returns 0.
  */
-template <ML::Distance::DistanceType distanceType, typename InType, typename AccType,
-          typename OutType, typename Index_ = int>
+template <ML::Distance::DistanceType distanceType, typename InType,
+          typename AccType, typename OutType, typename Index_ = int>
 size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
                         Index_ k) {
   size_t worksize = 0;
-  constexpr bool is_allocated = distanceType <= ML::Distance::DistanceType::EucExpandedCosine;
+  constexpr bool is_allocated =
+    distanceType <= ML::Distance::DistanceType::EucExpandedCosine;
   if (is_allocated) {
     worksize += m * sizeof(AccType);
     if (x != y) worksize += n * sizeof(AccType);
@@ -178,9 +179,9 @@ size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
  * as follows:  <pre>OutType fin_op(AccType in, int g_idx);</pre>. If one needs
  * any other parameters, feel free to pass them via closure.
  */
-template <ML::Distance::DistanceType distanceType, typename InType, typename AccType,
-          typename OutType, typename OutputTile_, typename FinalLambda,
-          typename Index_ = int>
+template <ML::Distance::DistanceType distanceType, typename InType,
+          typename AccType, typename OutType, typename OutputTile_,
+          typename FinalLambda, typename Index_ = int>
 void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
               FinalLambda fin_op, cudaStream_t stream, bool isRowMajor = true) {
@@ -213,8 +214,9 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
  * @note if workspace is passed as nullptr, this will return in
  *  worksize, the number of bytes of workspace required
  */
-template <ML::Distance::DistanceType distanceType, typename InType, typename AccType,
-          typename OutType, typename OutputTile_, typename Index_ = int>
+template <ML::Distance::DistanceType distanceType, typename InType,
+          typename AccType, typename OutType, typename OutputTile_,
+          typename Index_ = int>
 void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
               cudaStream_t stream, bool isRowMajor = true) {
@@ -270,27 +272,33 @@ void pairwiseDistance(const Type *x, const Type *y, Type *dist, Index_ m,
                       bool isRowMajor = true) {
   switch (metric) {
     case ML::Distance::DistanceType::EucExpandedL2:
-      pairwiseDistanceImpl<Type, Index_, ML::Distance::DistanceType::EucExpandedL2>(
+      pairwiseDistanceImpl<Type, Index_,
+                           ML::Distance::DistanceType::EucExpandedL2>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
     case ML::Distance::DistanceType::EucExpandedL2Sqrt:
-      pairwiseDistanceImpl<Type, Index_, ML::Distance::DistanceType::EucExpandedL2Sqrt>(
+      pairwiseDistanceImpl<Type, Index_,
+                           ML::Distance::DistanceType::EucExpandedL2Sqrt>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
     case ML::Distance::DistanceType::EucExpandedCosine:
-      pairwiseDistanceImpl<Type, Index_, ML::Distance::DistanceType::EucExpandedCosine>(
+      pairwiseDistanceImpl<Type, Index_,
+                           ML::Distance::DistanceType::EucExpandedCosine>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
     case ML::Distance::DistanceType::EucUnexpandedL1:
-      pairwiseDistanceImpl<Type, Index_, ML::Distance::DistanceType::EucUnexpandedL1>(
+      pairwiseDistanceImpl<Type, Index_,
+                           ML::Distance::DistanceType::EucUnexpandedL1>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
     case ML::Distance::DistanceType::EucUnexpandedL2:
-      pairwiseDistanceImpl<Type, Index_, ML::Distance::DistanceType::EucUnexpandedL2>(
+      pairwiseDistanceImpl<Type, Index_,
+                           ML::Distance::DistanceType::EucUnexpandedL2>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
     case ML::Distance::DistanceType::EucUnexpandedL2Sqrt:
-      pairwiseDistanceImpl<Type, Index_, ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+      pairwiseDistanceImpl<Type, Index_,
+                           ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
     default:

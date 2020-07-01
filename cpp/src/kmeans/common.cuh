@@ -246,8 +246,7 @@ void pairwiseDistance(const cumlHandle_impl &handle,
                       Tensor<DataT, 2, IndexT> &centroids,
                       Tensor<DataT, 2, IndexT> &pairwiseDistance,
                       MLCommon::device_buffer<char> &workspace,
-                      ML::Distance::DistanceType metric,
-                      cudaStream_t stream) {
+                      ML::Distance::DistanceType metric, cudaStream_t stream) {
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = centroids.getSize(0);
@@ -269,8 +268,8 @@ void minClusterAndDistance(
   Tensor<cub::KeyValuePair<IndexT, DataT>, 1, IndexT> &minClusterAndDistance,
   Tensor<DataT, 1, IndexT> &L2NormX,
   MLCommon::device_buffer<DataT> &L2NormBuf_OR_DistBuf,
-  MLCommon::device_buffer<char> &workspace,
-  ML::Distance::DistanceType metric, cudaStream_t stream) {
+  MLCommon::device_buffer<char> &workspace, ML::Distance::DistanceType metric,
+  cudaStream_t stream) {
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = centroids.getSize(0);
@@ -340,8 +339,8 @@ void minClusterAndDistance(
           minClusterAndDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
           ns, nc, n_features, (void *)workspace.data(), redOp,
-          (metric == ML::Distance::DistanceType::EucExpandedL2) ? false : true, false,
-          stream);
+          (metric == ML::Distance::DistanceType::EucExpandedL2) ? false : true,
+          false, stream);
       } else {
         // pairwiseDistanceView [ns x nc] - view representing the pairwise
         // distance for current batch
@@ -455,8 +454,8 @@ void minClusterDistance(const cumlHandle_impl &handle,
           minClusterDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
           ns, nc, n_features, (void *)workspace.data(), redOp,
-          (metric == ML::Distance::DistanceType::EucExpandedL2) ? false : true, false,
-          stream);
+          (metric == ML::Distance::DistanceType::EucExpandedL2) ? false : true,
+          false, stream);
       } else {
         // pairwiseDistanceView [ns x nc] - view representing the pairwise
         // distance for current batch

@@ -76,9 +76,11 @@ class TSNETest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test trustworthiness
-    score_bh = trustworthiness_score<float, ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
-      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
-      handle.getStream());
+    score_bh =
+      trustworthiness_score<float,
+                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+        X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
+        handle.getStream());
 
     // Test Exact TSNE
     TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, 2, 90, 0.5, 0.0025, 50, 100,
@@ -103,9 +105,11 @@ class TSNETest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test trustworthiness
-    score_exact = trustworthiness_score<float, ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
-      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
-      handle.getStream());
+    score_exact =
+      trustworthiness_score<float,
+                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+        X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
+        handle.getStream());
 
     // Free space
     free(embeddings_h);
