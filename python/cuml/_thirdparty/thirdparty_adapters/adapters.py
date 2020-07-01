@@ -13,10 +13,15 @@
 # limitations under the License.
 #
 
-from cuml.common import input_to_cuml_array
-from cupy import sparse
 import numpy as np
 import cupy as cp
+from cuml.common import input_to_cuml_array
+from cupy.sparse import csr_matrix as gpu_csr_matrix
+from cupy.sparse import csc_matrix as gpu_csc_matrix
+from scipy.sparse import csr_matrix as cpu_csr_matrix
+from scipy.sparse import csc_matrix as cpu_csc_matrix
+from scipy import sparse as cpu_sparse
+from cupy import sparse as gpu_sparse
 
 from numpy import ndarray as numpyArray
 from cupy import ndarray as cupyArray
@@ -36,21 +41,81 @@ numeric_types = [
 ]
 
 
+def check_sparse(array, accept_sparse):
+    def display_error():
+        err_msg = "This algorithm does not support the sparse " + \
+                  "input in the current configuration."
+        raise ValueError(err_msg)
+    if cpu_sparse.issparse(array) or gpu_sparse.issparse(array):
+        if accept_sparse is False:
+            display_error()
+
+        if accept_sparse is True:
+            return
+
+        if isinstance(array, (cpu_csr_matrix, gpu_csr_matrix)):
+            sptype = 'csr'
+        elif isinstance(array, (cpu_csc_matrix, gpu_csc_matrix)):
+            sptype = 'csc'
+        else:
+            sptype = 'other'
+
+        if isinstance(accept_sparse, (tuple, list)):
+            if sptype not in accept_sparse:
+                display_error()
+        elif sptype != accept_sparse:
+            display_error()
+
+
+def check_f16(dtype):
+    # fp16 is not supported, so remove from the list of dtypes if present
+    if isinstance(dtype, (list, tuple)):
+        return [d for d in dtype if d != np.float16]
+    elif dtype == np.float16:
+        raise NotImplementedError("Float16 not supported by cuML")
+
+
+def check_dtype(array, dtypes):
+    if dtypes is None:
+        return
+    if not isinstance(array, cuDataFrame):
+        if array.dtype not in dtypes:
+            raise ValueError("Wrong dtype")
+    elif any([dt not in dtypes for dt in array.dtypes.tolist()]):
+        raise ValueError("Wrong dtype")
+
+
+def check_finite(X, force_all_finite):
+    if force_all_finite is True and not cp.all(cp.isfinite(X)):
+        raise ValueError("Non-finite value encountered in array")
+
+
 def check_array(array, accept_sparse=False, accept_large_sparse=True,
                 dtype=numeric_types, order=None, copy=False,
                 force_all_finite=True, ensure_2d=True, allow_nd=False,
                 ensure_min_samples=1, ensure_min_features=1,
                 warn_on_dtype=None, estimator=None):
-    # TODO: build this out with input_utils for real checks
-    if sparse.issparse(array):
-        raise NotImplementedError("Sparse matrix support not "
-                                  "available yet in cuML check_array")
 
-    # fp16 is not supported, so remove from the list of dtypes if present
-    if isinstance(dtype, (list, tuple)):
-        dtype = [d for d in dtype if d != np.float16]
-    elif dtype == np.float16:
-        raise NotImplementedError("Float16 not supported by cuML")
+    dtype = check_f16(dtype)
+    check_dtype(array, dtype)
+
+    check_sparse(array, accept_sparse)
+
+    if cpu_sparse.issparse(array):
+        if isinstance(array, cpu_csr_matrix):
+            array = gpu_csr_matrix(array)
+        else:
+            array = gpu_csc_matrix(array)
+        check_finite(array.data, force_all_finite)
+        return array
+
+    if gpu_sparse.issparse(array):
+        if isinstance(array, gpu_csr_matrix):
+            array = gpu_csr_matrix(array, copy=True)
+        else:
+            array = gpu_csc_matrix(array, copy=True)
+        check_finite(array.data, force_all_finite)
+        return array
 
     X, n_rows, n_cols, dtype = input_to_cuml_array(array,
                                                    deepcopy=copy,
@@ -58,9 +123,7 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
 
     X = X.to_output('cupy')
 
-    # TODO: implement other checks
-    if force_all_finite is True and not cp.all(cp.isfinite(X)):
-        raise NotImplementedError("Non-finite value encountered in array")
+    check_finite(X, force_all_finite)
 
     return X
 
@@ -82,10 +145,39 @@ def get_input_type(input):
         return _input_type_to_str[type(input)]
     elif numbaArray.is_cuda_ndarray(input):
         return 'numba'
+    elif isinstance(input, cpu_sparse.csr_matrix):
+        return 'numpy_csr'
+    elif isinstance(input, cpu_sparse.csc_matrix):
+        return 'numpy_csc'
+    elif isinstance(input, gpu_sparse.csr_matrix):
+        return 'cupy_csr'
+    elif isinstance(input, gpu_sparse.csc_matrix):
+        return 'cupy_csc'
     else:
         return 'cupy'
 
 
 def to_output_type(array, output_type, order='F'):
+    print('output_type', output_type)
+    if output_type == 'numpy_csr':
+        return cpu_sparse.csr_matrix(array.get())
+    if output_type == 'numpy_csc':
+        return cpu_sparse.csc_matrix(array.get())
+    if output_type == 'cupy_csr':
+        return array
+    if output_type == 'cupy_csc':
+        return array
+
+    if cpu_sparse.issparse(array):
+        if output_type == 'numpy':
+            return array.todense()
+        elif output_type == 'cupy':
+            return cp.array(array.todense())
+    elif gpu_sparse.issparse(array):
+        if output_type == 'numpy':
+            return cp.asnumpy(array.todense())
+        elif output_type == 'cupy':
+            return array.todense()
+
     cuml_array = input_to_cuml_array(array, order=order)[0]
     return cuml_array.to_output(output_type)

@@ -26,6 +26,13 @@ from ..utils.extmath import _incremental_mean_and_var
 from ..utils.validation import (check_is_fitted, check_random_state,
                                 FLOAT_DTYPES, _deprecate_positional_args)
 
+from ..utils.sparsefuncs import (inplace_column_scale,
+                                 min_max_axis)
+
+from ...thirdparty_adapters.sparsefuncs_fast import \
+    (inplace_csr_row_normalize_l1, inplace_csr_row_normalize_l2,
+     csr_polynomial_expansion)
+
 
 BOUNDS_THRESHOLD = 1e-7
 
@@ -357,10 +364,6 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
         if feature_range[0] >= feature_range[1]:
             raise ValueError("Minimum of desired feature range must be smaller"
                              " than maximum. Got %s." % str(feature_range))
-
-        if sparse.issparse(X):
-            raise TypeError("MinMaxScaler does not support sparse input. "
-                            "Consider using MaxAbsScaler instead.")
 
         first_pass = not hasattr(self, 'n_samples_seen_')
         X = self._validate_data(X, reset=first_pass,
@@ -997,12 +1000,10 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
                                 dtype=FLOAT_DTYPES,
                                 force_all_finite='allow-nan')
 
-        """
         if sparse.issparse(X):
             mins, maxs = min_max_axis(X, axis=0, ignore_nan=True)
             max_abs = np.maximum(np.abs(mins), np.abs(maxs))
-        """
-        if not sparse.issparse(X):
+        else:
             max_abs = np.nanmax(np.abs(X), axis=0)
 
         if first_pass:
@@ -1030,11 +1031,9 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
                         estimator=self, dtype=FLOAT_DTYPES,
                         force_all_finite='allow-nan')
 
-        """
         if sparse.issparse(X):
             inplace_column_scale(X, 1.0 / self.scale_)
-        """
-        if not sparse.issparse(X):
+        else:
             X /= self.scale_
 
         X = to_output_type(X, output_type)
@@ -1055,11 +1054,9 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
                         estimator=self, dtype=FLOAT_DTYPES,
                         force_all_finite='allow-nan')
 
-        """
         if sparse.issparse(X):
             inplace_column_scale(X, self.scale_)
-        """
-        if not sparse.issparse(X):
+        else:
             X *= self.scale_
 
         X = to_output_type(X, output_type)
@@ -1600,26 +1597,25 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
         if n_features != self.n_input_features_:
             raise ValueError("X shape does not match training shape")
 
-        """
         if sparse.isspmatrix_csr(X):
             if self.degree > 3:
-                return self.transform(X.tocsc()).tocsr()
+                res = self.transform(X.tocsc()).tocsr()
+                return to_output_type(res, output_type, order=self.order)
             to_stack = []
             if self.include_bias:
-                to_stack.append(np.ones(shape=(n_samples, 1), dtype=X.dtype))
+                bias = np.ones(shape=(n_samples, 1), dtype=X.dtype)
+                to_stack.append(sparse.csr_matrix(bias))
             to_stack.append(X)
             for deg in range(2, self.degree+1):
-                Xp_next = _csr_polynomial_expansion(X.data, X.indices,
-                                                    X.indptr, X.shape[1],
-                                                    self.interaction_only,
-                                                    deg)
+                Xp_next = csr_polynomial_expansion(X, self.interaction_only,
+                                                   deg)
                 if Xp_next is None:
                     break
                 to_stack.append(Xp_next)
             XP = sparse.hstack(to_stack, format='csr')
-        """
-        if sparse.isspmatrix_csc(X) and self.degree < 4:
-            return self.transform(X.tocsr()).tocsc()
+        elif sparse.isspmatrix_csc(X) and self.degree < 4:
+            res = self.transform(X.tocsr()).tocsc()
+            return to_output_type(res, output_type, order=self.order)
         else:
             if sparse.isspmatrix(X):
                 combinations = self._combinations(n_features, self.degree,
@@ -1758,10 +1754,10 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
     output_type = get_input_type(X)
     X = check_array(X, accept_sparse=sparse_format, copy=copy,
                     estimator='the normalize function', dtype=FLOAT_DTYPES)
+
     if axis == 0:
         X = X.T
 
-    """
     if sparse.issparse(X):
         if return_norm and norm in ('l1', 'l2'):
             raise NotImplementedError("return_norm=True is not implemented "
@@ -1774,11 +1770,10 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
         elif norm == 'max':
             mins, maxes = min_max_axis(X, 1)
             norms = np.maximum(abs(mins), maxes)
-            norms_elementwise = norms.repeat(np.diff(X.indptr))
+            norms_elementwise = norms.repeat(np.diff(X.indptr).tolist())
             mask = norms_elementwise != 0
             X.data[mask] /= norms_elementwise[mask]
-    """
-    if not sparse.issparse(X):
+    else:
         if norm == 'l1':
             norms = np.abs(X).sum(axis=1)
         elif norm == 'l2':

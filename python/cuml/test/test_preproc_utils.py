@@ -17,53 +17,57 @@ import pytest
 from cuml.common import input_to_cuml_array
 from sklearn.datasets import make_classification
 import numpy as np
+from cupy.sparse import csr_matrix as gpu_csr_matrix
+from cupy.sparse import csc_matrix as gpu_csc_matrix
+from scipy.sparse import csr_matrix as cpu_csr_matrix
+from scipy.sparse import csc_matrix as cpu_csc_matrix
 
 
-np_X_cl, np_y_cl = make_classification(n_samples=500,
-                                       n_features=20,
-                                       n_clusters_per_class=1,
-                                       n_informative=12,
-                                       random_state=123, n_classes=5)
+clf_np, _ = make_classification(n_samples=500,
+                                n_features=20,
+                                n_clusters_per_class=1,
+                                n_informative=12,
+                                random_state=123, n_classes=5)
 
-np_X_int = np.random.randint(100, size=(500, 20)).astype(np.float64)
-np_X_int.ravel()[np.random.choice(np_X_int.size,
-                                  int(np_X_int.size*0.02),
-                                  replace=False)] = np.nan
+
+clf_sp_np = np.array(clf_np, copy=True)
+clf_sp_np.ravel()[np.random.choice(clf_sp_np.size,
+                                   int(clf_sp_np.size*0.1),
+                                   replace=False)] = 0.
+
+randint_sp_np = np.random.randint(100, size=(500, 20)).astype(np.float64)
+randint_sp_np.ravel()[np.random.choice(randint_sp_np.size,
+                                       int(randint_sp_np.size*0.1),
+                                       replace=False)] = np.nan
 
 
 @pytest.fixture(scope="session",
                 params=["numpy", "dataframe", "cupy", "cudf", "numba"])
 def small_clf_dataset(request):
-    elms = tuple(map(lambda x: input_to_cuml_array(x)[0], [np_X_cl, np_y_cl]))
-    X, y = tuple(map(lambda x: x.to_output(request.param), elms))
-    return (np_X_cl, np_y_cl), (X, y)
+    clf_conv = input_to_cuml_array(clf_np)[0]
+    clf_conv = clf_conv.to_output(request.param)
+    return clf_np, clf_conv
+
+
+@pytest.fixture(scope="session",
+                params=["numpy-csr", "numpy-csc", "cupy-csr", "cupy-csc"])
+def small_sparse_dataset(request):
+    if request.param == "numpy-csr":
+        clf_sp_conv = cpu_csr_matrix(clf_sp_np)
+    elif request.param == "numpy-csc":
+        clf_sp_conv = cpu_csc_matrix(clf_sp_np)
+    elif request.param == "cupy-csr":
+        clf_sp_conv = cpu_csr_matrix(clf_sp_np)
+        clf_sp_conv = gpu_csr_matrix(clf_sp_conv)
+    elif request.param == "cupy-csc":
+        clf_sp_conv = cpu_csc_matrix(clf_sp_np)
+        clf_sp_conv = gpu_csc_matrix(clf_sp_conv)
+    return clf_sp_np, clf_sp_conv
 
 
 @pytest.fixture(scope="session",
                 params=["numpy", "dataframe", "cupy", "cudf", "numba"])
 def small_int_dataset(request):
-    X = input_to_cuml_array(np_X_int)[0]
-    X = X.to_output(request.param)
-    return np_X_int, X
-
-
-def assert_array_equal(x, y, mean_diff_tol=0.0, max_diff_tol=None,
-                       ratio_diff_tol=None):
-    if x.shape != y.shape:
-        raise ValueError('Shape mismatch')
-
-    n_elements = x.size
-
-    diff = np.abs(x - y)
-    mean_diff = np.nanmean(diff)
-    max_diff = np.nanmax(diff)
-    ratio_diff = np.nansum(diff != 0) / n_elements
-
-    if (mean_diff_tol is not None and mean_diff > mean_diff_tol) or \
-       (max_diff_tol is not None and max_diff > max_diff_tol) or \
-       (ratio_diff_tol is not None and ratio_diff > ratio_diff_tol):
-        err_msg = """Too much difference:\n\t
-                     Mean diff: {}\n\t
-                     Max diff: {}\n\t
-                     Ratio of diff: {}"""
-        raise ValueError(err_msg.format(mean_diff, max_diff, ratio_diff))
+    randint_sp_conv = input_to_cuml_array(randint_sp_np)[0]
+    randint_sp_conv = randint_sp_conv.to_output(request.param)
+    return randint_sp_np, randint_sp_conv

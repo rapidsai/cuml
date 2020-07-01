@@ -6,6 +6,7 @@ import numbers
 import warnings
 
 import cupy as np
+import numpy as cpu_np
 from cupy import sparse
 
 from ...thirdparty_adapters import get_input_type, to_output_type
@@ -277,11 +278,10 @@ class SimpleImputer(_BaseImputer):
                                  "== 0 and input is sparse. Provide a dense "
                                  "array instead.")
             else:
-                pass
-                # self.statistics_ = self._sparse_fit(X,
-                #                                     self.strategy,
-                #                                     self.missing_values,
-                #                                     fill_value)
+                self.statistics_ = self._sparse_fit(X,
+                                                    self.strategy,
+                                                    self.missing_values,
+                                                    fill_value)
         else:
             self.statistics_ = self._dense_fit(X,
                                                self.strategy,
@@ -291,8 +291,6 @@ class SimpleImputer(_BaseImputer):
 
     def _sparse_fit(self, X, strategy, missing_values, fill_value):
         """Fit the transformer on sparse data."""
-        pass
-        """
         mask_data = _get_mask(X.data, missing_values)
         n_implicit_zeros = X.shape[0] - np.diff(X.indptr)
 
@@ -319,15 +317,14 @@ class SimpleImputer(_BaseImputer):
                     statistics[i] = np.nan if s == 0 else column.sum() / s
 
                 elif strategy == "median":
-                    statistics[i] = _get_median(column,
-                                                n_zeros)
+                    raise NotImplementedError
 
                 elif strategy == "most_frequent":
-                    statistics[i] = _most_frequent(column,
-                                                   0,
-                                                   n_zeros)
+                    values, counts = np.unique(column,
+                                               return_counts=True)
+                    max_idx = np.argmax(counts)
+                    statistics[i] = values[max_idx]
         return statistics
-        """
 
     def _dense_fit(self, X, strategy, missing_values, fill_value):
         """Fit the transformer on dense data."""
@@ -336,11 +333,11 @@ class SimpleImputer(_BaseImputer):
         # Mean
         if strategy == "mean":
             n_features = X.shape[1]
-            means = np.empty(n_features, dtype=X.dtype)
+            means = cpu_np.empty(n_features, dtype=X.dtype)
             for i in range(n_features):
                 feature_mask_idxs = np.where(~mask[:, i])[0]
                 means[i] = np.nanmean(X[feature_mask_idxs, i])
-            return means
+            return np.array(means)
 
         # Median
         elif strategy == "median":
@@ -349,14 +346,14 @@ class SimpleImputer(_BaseImputer):
         # Most frequent
         elif strategy == "most_frequent":
             n_features = X.shape[1]
-            most_frequent = np.empty(n_features, dtype=X.dtype)
+            most_frequent = cpu_np.empty(n_features, dtype=X.dtype)
             for i in range(n_features):
                 feature_mask_idxs = np.where(~mask[:, i])[0]
                 values, counts = np.unique(X[feature_mask_idxs, i],
                                            return_counts=True)
                 max_idx = np.argmax(counts)
                 most_frequent[i] = values[max_idx]
-            return most_frequent
+            return np.array(most_frequent)
 
         # Constant
         elif strategy == "constant":
@@ -409,7 +406,7 @@ class SimpleImputer(_BaseImputer):
                 mask = _get_mask(X.data, self.missing_values)
                 indexes = np.repeat(
                     np.arange(len(X.indptr) - 1, dtype=np.int),
-                    np.diff(X.indptr))[mask]
+                    np.diff(X.indptr).tolist())[mask]
 
                 X.data[mask] = valid_statistics[indexes].astype(X.dtype,
                                                                 copy=False)
