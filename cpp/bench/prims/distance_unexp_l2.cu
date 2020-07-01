@@ -20,9 +20,10 @@ namespace MLCommon {
 namespace Bench {
 namespace Distance {
 
-DIST_BENCH_REGISTER(DistanceUnexpL2Sq, ML::Distance::DistanceType::EucUnexpandedL2);
+DIST_BENCH_REGISTER(DistanceUnexpL2Sq,
+                    ML::Distance::DistanceType::EucUnexpandedL2);
 DIST_BENCH_REGISTER(DistanceUnexpL2Sqrt,
-   ML::Distance::DistanceType::EucUnexpandedL2Sqrt);
+                    ML::Distance::DistanceType::EucUnexpandedL2Sqrt);
 
 }  // namespace Distance
 }  // namespace Bench

@@ -41,14 +41,18 @@ cdef extern from "cuml/distance/distance_type.h" namespace "ML::Distance":
         EucUnexpandedL2Sqrt "ML::Distance::DistanceType::EucUnexpandedL2Sqrt"
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    void pairwiseDistance(const cumlHandle &handle, const double *x, const double *y, double *dist, int m,
-                        int n, int k, int metric, bool isRowMajor) except +
-    void pairwiseDistance(const cumlHandle &handle, const float *x, const float *y, float *dist, int m,
-                        int n, int k, int metric, bool isRowMajor) except +
+    void pairwiseDistance(const cumlHandle &handle, const double *x,
+                          const double *y, double *dist, int m, int n, int k,
+                          DistanceType metric, bool isRowMajor) except +
+    void pairwiseDistance(const cumlHandle &handle, const float *x,
+                          const float *y, float *dist, int m, int n, int k,
+                          DistanceType metric, bool isRowMajor) except +
+
 
 def determine_metric(metric_str):
 
-    # Available options in scikit-learn and their pairs. See sklearn.metrics.pairwise.PAIRWISE_DISTANCE_FUNCTIONS:
+    # Available options in scikit-learn and their pairs. See
+    # sklearn.metrics.pairwise.PAIRWISE_DISTANCE_FUNCTIONS:
     # 'cityblock': EucUnexpandedL1
     # 'cosine': EucExpandedCosine
     # 'euclidean': EucUnexpandedL2Sqrt
@@ -57,9 +61,9 @@ def determine_metric(metric_str):
     # 'l1': EucUnexpandedL1
     # 'manhattan': EucUnexpandedL1
     # 'nan_euclidean': N/A
-    # Note: many are duplicates following this: https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/metrics/pairwise.py#L1321
+    # Note: many are duplicates following this:
+    # https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/metrics/pairwise.py#L1321
 
-    # TODO: Pull int values from actual enum
     if metric_str == 'cityblock':
         return DistanceType.EucUnexpandedL1
     elif metric_str == 'cosine':
@@ -67,7 +71,8 @@ def determine_metric(metric_str):
     elif metric_str == 'euclidean':
         return DistanceType.EucUnexpandedL2Sqrt
     elif metric_str == 'haversine':
-        raise ValueError(" The metric: '{}', is not supported at this time.".format(metric_str))
+        raise ValueError(" The metric: '{}', is not supported at this time."
+                         .format(metric_str))
     elif metric_str == 'l2':
         return DistanceType.EucUnexpandedL2Sqrt
     elif metric_str == 'l1':
@@ -75,14 +80,16 @@ def determine_metric(metric_str):
     elif metric_str == 'manhattan':
         return DistanceType.EucUnexpandedL1
     elif metric_str == 'nan_euclidean':
-        raise ValueError(" The metric: '{}', is not supported at this time.".format(metric_str))
+        raise ValueError(" The metric: '{}', is not supported at this time."
+                         .format(metric_str))
     else:
         raise ValueError("Unknown metric: {}".format(metric_str))
 
 
 @with_cupy_rmm
-def pairwise_distances(X, Y=None, metric="euclidean", handle=None, convert_dtype=True, **kwds):
-    """ 
+def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
+                       convert_dtype=True, **kwds):
+    """
     Compute the distance matrix from a vector array X and optional Y.
 
     This method takes either one or two vector arrays, and returns
@@ -93,7 +100,9 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None, convert_dtype
 
     Valid values for metric are:
 
-    - From scikit-learn: ['cityblock', 'cosine', 'euclidean', 'haversine', 'l1', 'l2', 'manhattan']. Sparse matrices are not supported.
+    - From scikit-learn: ['cityblock', 'cosine', 'euclidean', 'haversine',
+                          'l1', 'l2', 'manhattan'].
+                          Sparse matrices are not supported.
 
     Parameters
     ----------
@@ -132,25 +141,29 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None, convert_dtype
     # Get the input arrays, preserve order and type where possible
     X_m, n_samples_x, n_features_x, dtype_x = \
         input_to_cuml_array(X, order="K", check_dtype=[np.float32, np.float64])
-    
+
     # Get the order from the CumlArray
     input_order = X_m.order
 
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_Y_ptr
     cdef uintptr_t d_dest_ptr
-    
+
     if (Y is not None):
 
-        # Check for the odd case where one dimension of X is 1. In this case, CumlArray always returns order=="C" so instead get the order from Y
+        # Check for the odd case where one dimension of X is 1. In this case,
+        # CumlArray always returns order=="C" so instead get the order from Y
         if (n_samples_x == 1 or n_features_x == 1):
             input_order = "K"
 
         Y_m, n_samples_y, n_features_y, dtype_y = \
-            input_to_cuml_array(Y, order=input_order, convert_to_dtype=(dtype_x if convert_dtype
-                                              else None), check_dtype=[dtype_x])
+            input_to_cuml_array(Y, order=input_order,
+                                convert_to_dtype=(dtype_x if convert_dtype
+                                                  else None),
+                                check_dtype=[dtype_x])
 
-        # Get the order from Y if necessary (It's possible to set order="F" in input_to_cuml_array and have Y_m.order=="C")
+        # Get the order from Y if necessary (It's possible to set order="F" in
+        # input_to_cuml_array and have Y_m.order=="C")
         if (input_order == "K"):
             input_order = Y_m.order
     else:
@@ -164,13 +177,16 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None, convert_dtype
 
     # Check feature sizes are equal
     if (n_features_x != n_features_y):
-        raise ValueError("Incompatible dimension for X and Y matrices: X.shape[1] == {} while Y.shape[1] == {}".format(n_features_x, n_features_y))
+        raise ValueError("Incompatible dimension for X and Y matrices: \
+                         X.shape[1] == {} while Y.shape[1] == {}"
+                         .format(n_features_x, n_features_y))
 
     # Get the metric string to int
     metric_val = determine_metric(metric)
 
     # Create the output array
-    dest_m = CumlArray.zeros((n_samples_x, n_samples_y), dtype=dtype_x, order=input_order)
+    dest_m = CumlArray.zeros((n_samples_x, n_samples_y), dtype=dtype_x,
+                             order=input_order)
 
     d_X_ptr = X_m.ptr
     d_Y_ptr = Y_m.ptr
@@ -179,24 +195,24 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None, convert_dtype
     # Now execute the functions
     if (dtype_x == np.float32):
         pairwiseDistance(handle_[0],
-            <float*> d_X_ptr, 
-            <float*> d_Y_ptr, 
-            <float*> d_dest_ptr,
-            <int> n_samples_x,
-            <int> n_samples_y,
-            <int> n_features_x,
-            <int> metric_val,
-            <bool> is_row_major)
+                         <float*> d_X_ptr,
+                         <float*> d_Y_ptr,
+                         <float*> d_dest_ptr,
+                         <int> n_samples_x,
+                         <int> n_samples_y,
+                         <int> n_features_x,
+                         <DistanceType> metric_val,
+                         <bool> is_row_major)
     elif (dtype_x == np.float64):
         pairwiseDistance(handle_[0],
-            <double*> d_X_ptr, 
-            <double*> d_Y_ptr, 
-            <double*> d_dest_ptr,
-            <int> n_samples_x,
-            <int> n_samples_y,
-            <int> n_features_x,
-            <int> metric_val,
-            <bool> is_row_major)
+                         <double*> d_X_ptr,
+                         <double*> d_Y_ptr,
+                         <double*> d_dest_ptr,
+                         <int> n_samples_x,
+                         <int> n_samples_y,
+                         <int> n_features_x,
+                         <DistanceType> metric_val,
+                         <bool> is_row_major)
     else:
         raise NotImplementedError("Unsupported dtype: {}".format(dtype_x))
 

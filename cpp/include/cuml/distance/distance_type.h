@@ -4,7 +4,7 @@ namespace ML {
 namespace Distance {
 
 /** enum to tell how to compute euclidean distance */
-enum DistanceType: unsigned short {
+enum DistanceType : unsigned short {
   /** evaluate as dist_ij = sum(x_ik^2) + sum(y_ij)^2 - 2*sum(x_ik * y_jk) */
   EucExpandedL2 = 0,
   /** same as above, but inside the epilogue, perform square root operation */
