@@ -162,7 +162,7 @@ class DBSCAN(Base):
         -1. Format depends on cuml global output type and estimator
         output_type.
     core_sample_indices_ : array-like or cuDF series
-        The indices of the core samples. Only calculated if 
+        The indices of the core samples. Only calculated if
         calc_core_sample_indices==True
 
     Notes
@@ -195,7 +195,10 @@ class DBSCAN(Base):
 
         # internal array attributes
         self._labels_ = None  # accessed via estimator.labels_
-        self._core_sample_indices_ = None # accessed via estimator._core_sample_indices_ when self.calc_core_sample_indices == True
+
+        # accessed via estimator._core_sample_indices_ when 
+        # self.calc_core_sample_indices == True
+        self._core_sample_indices_ = None  
 
         # C++ API expects this to be numeric.
         if self.max_mbytes_per_batch is None:
@@ -241,7 +244,8 @@ class DBSCAN(Base):
 
         # Create the output core_sample_indices only if needed
         if self.calc_core_sample_indices:
-            self._core_sample_indices_ = CumlArray.empty(n_rows, dtype=out_dtype)
+            self._core_sample_indices_ = \
+                CumlArray.empty(n_rows, dtype=out_dtype)
             core_sample_indices_ptr = self._core_sample_indices_.ptr
 
         if self.dtype == np.float32:
@@ -303,7 +307,8 @@ class DBSCAN(Base):
             # Temp convert to cupy array only once
             core_samples_cupy = self._core_sample_indices_.to_output("cupy")
 
-            # First get the min index. These have to monotonically increasing, so the min index should be the first returned -1
+            # First get the min index. These have to monotonically increasing,
+            # so the min index should be the first returned -1
             min_index = cp.argmin(core_samples_cupy).item()
 
             # Check for the case where there are no -1's
@@ -311,7 +316,8 @@ class DBSCAN(Base):
                 # Nothing to delete. The array has no -1's
                 pass
             else:
-                self._core_sample_indices_ = self._core_sample_indices_[:min_index]
+                self._core_sample_indices_ = \
+                    self._core_sample_indices_[:min_index]
 
         return self
 
