@@ -35,6 +35,7 @@
 - PR #2440: Use Treelite Conda package
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
 - PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
+- PR #2431: Match output of classifier predict with target dtype
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -53,6 +54,7 @@
 - PR #2455: Use correct field to store data type in `LabelEncoder.fit_transform`
 - PR #2475: Fix typo in build.sh
 - PR #2494: Set QN regularization strength consistent with scikit-learn
+- PR #2486: Fix cupy input to kmeans init
 - PR #2497: Changes to accomodate cuDF unsigned categorical changes
 
 # cuML 0.14.0 (03 Jun 2020)
