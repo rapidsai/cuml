@@ -175,8 +175,8 @@ void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
   index_type *ci = dst_cols.data();
   value_type *vs = dst_vals.data();
 
-  raft::matrix::GraphCSRView<index_type, index_type, value_type> const r_graph{
-    ro, ci, vs, n, nnz};
+  raft::matrix::sparse_matrix_t<index_type, value_type> const r_csr_m{
+    r_handle, ro, ci, vs, n, nnz};
 
   index_type neigvs = n_components + 1;
   index_type maxiter = 4000;  //default reset value (when set to 0);
@@ -193,7 +193,7 @@ void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
     n_components + 1, 1, 0.1};  // kmeans is not really meant to be run, here
   raft::kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
 
-  raft::spectral::partition(r_handle, t_exe_p, r_graph, eig_solver,
+  raft::spectral::partition(r_handle, t_exe_p, r_csr_m, eig_solver,
                             cluster_solver, labels.data(), eigVals.data(),
                             eigVecs.data());
 
