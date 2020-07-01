@@ -53,6 +53,7 @@
 - PR #2455: Use correct field to store data type in `LabelEncoder.fit_transform`
 - PR #2475: Fix typo in build.sh
 - PR #2486: Fix cupy input to kmeans init
+- PR #2497: Changes to accomodate cuDF unsigned categorical changes
 
 # cuML 0.14.0 (03 Jun 2020)
 
