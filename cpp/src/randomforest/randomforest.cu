@@ -318,25 +318,28 @@ void check_forest_info(const RandomForestMetaData<T, L>* forest,
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     DecisionTree::TreeMetaDataNode<T, L>* tree_info = &forest->trees[i];
     int j = 0;
+    int split_posi = 0;
     while (j < tree_info->sparsetree.size()) {
       if (tree_info->sparsetree[j].colid != -1) {
         if (param_requested == 1) {
-          // collect the threshold values used to split the nodes
-          ASSERT(forest_info[i][j] == tree_info->sparsetree[j].quesval,
+          // check the threshold values used to split the nodes
+          ASSERT(forest_info[i][split_posi] == tree_info->sparsetree[j].quesval,
                  " Error! The threshold value returned by obtain_forest_info"
                  "function does not match the information in the forest.");
         } else if (param_requested == 2) {
-          // collect the best metric value for each node
-          ASSERT(forest_info[i][j] == tree_info->sparsetree[j].best_metric_val,
+          // check the best metric value for each node
+          ASSERT(forest_info[i][split_posi] ==
+                   tree_info->sparsetree[j].best_metric_val,
                  " Error! The best metric value returned by obtain_forest_info"
                  " function does not match the information in the forest.");
         } else {
-          // collect the ids of columns used at each node
+          // check the ids of columns used at each node
           ASSERT(
-            forest_info[i][j] == tree_info->sparsetree[j].colid,
+            forest_info[i][split_posi] == tree_info->sparsetree[j].colid,
             " Error! The feature/column id value returned by obtain_forest_info"
             " function does not match the information in the forest.");
         }
+        split_posi++;
       }
       j++;
     }
