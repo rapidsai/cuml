@@ -402,6 +402,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be the same data type as X if they differ. This will increase
             memory used for the method.
         """
+        self._set_target_dtype(y)
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
@@ -475,6 +476,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
     def _predict_model_on_cpu(self, X, convert_dtype):
         out_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype()
+
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
@@ -519,7 +522,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         self.handle.sync()
         # synchronous w/o a stream
         del(X_m)
-        return preds.to_output(out_type)
+        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
@@ -580,8 +583,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         Returns
         ----------
-        y : NumPy
-           Dense vector (int) of shape (n_samples, 1)
+        y : (same as the input datatype)
+            Dense vector (ints, floats, or doubles) of shape (n_samples, 1)
         """
         if (num_classes and self.num_classes != num_classes):
             raise ValueError("The number of classes in the test dataset"
