@@ -50,7 +50,7 @@ class Dbscan : public BlobsFixture<D, long> {
     this->loopOnState(state, [this]() {
       dbscanFit(*this->handle, this->data.X, this->params.nrows,
                 this->params.ncols, D(dParams.eps), dParams.min_pts,
-                this->data.y, dParams.max_bytes_per_batch);
+                this->data.y, nullptr, dParams.max_bytes_per_batch);
     });
   }
 
