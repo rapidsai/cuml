@@ -267,6 +267,7 @@ class LogisticRegression(Base, ClassifierMixin):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
+        self.qn._set_target_dtype(y)
         self._set_output_type(X)
         self._set_n_features_in(X)
 
@@ -358,9 +359,8 @@ class LogisticRegression(Base, ClassifierMixin):
 
         Returns
         ----------
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
-
+        y : (same as the input datatype)
+            Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
         return self.qn.predict(X, convert_dtype=convert_dtype)
 

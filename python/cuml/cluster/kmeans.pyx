@@ -290,17 +290,20 @@ class KMeans(Base):
         cdef KMeansParams params
         params.n_clusters = <int>self.n_clusters
 
+        # cuPy does not allow comparing with string. See issue #2372
+        init_str = init if isinstance(init, str) else None
+
         # K-means++ is the constrained case of k-means||
         # w/ oversampling factor = 0
-        if (init == 'k-means++'):
-            init = 'k-means||'
+        if (init_str == 'k-means++'):
+            init_str = 'k-means||'
             self.oversampling_factor = 0
 
-        if (init in ['scalable-k-means++', 'k-means||']):
-            self.init = init
+        if (init_str in ['scalable-k-means++', 'k-means||']):
+            self.init = init_str
             params.init = KMeansPlusPlus
 
-        elif (init == 'random'):
+        elif (init_str == 'random'):
             self.init = init
             params.init = Random
 
