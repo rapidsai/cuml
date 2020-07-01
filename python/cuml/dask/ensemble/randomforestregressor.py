@@ -32,8 +32,10 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     Currently, this API makes the following assumptions:
     * The set of Dask workers used between instantiation, fit,
     and predict are all consistent
-    * Training data is comes in the form of cuDF dataframes,
+    * Training data comes in the form of cuDF dataframes or Dask Arrays
     distributed so that each worker has at least one partition.
+    * The print_summary and print_detailed functions print the
+    information of the forest on the worker.
 
     Future versions of the API will support more flexible data
     distribution and additional input types. User-facing APIs are
@@ -150,14 +152,17 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
 
     def print_summary(self):
         """
-        Print the summary of the forest used to train and test the model.
+        Print summary of the forest used to train the model
+        on each worker. This information is displayed on the
+        workers and not the client.
         """
         return self._print_summary()
 
     def print_detailed(self):
         """
         Print detailed information of the forest used to train
-        and test the model.
+        the model on each worker. This information is displayed on the
+        workers and not the client.
         """
         return self._print_detailed()
 
