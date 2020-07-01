@@ -41,6 +41,7 @@ struct RfInputs {
   int min_rows_per_node;
   float min_impurity_decrease;
   int n_streams;
+  int split_info;
   CRITERION split_criterion;
 };
 
@@ -98,6 +99,10 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
         labels_map.size(), rf_params);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
+    std::vector<std::vector<double>> forest_info;
+    forest_info = obtain_forest_info(forest, params.split_info);
+    check_forest_info(forest, forest_info, params.split_info);
+
     //print_rf_detailed(forest);
     // Inference data: same as train, but row major
     int inference_data_len = params.n_inference_rows * params.n_cols;
@@ -197,6 +202,10 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
+    std::vector<std::vector<double>> forest_info;
+    forest_info = obtain_forest_info(forest, params.split_info);
+    //check_forest_info(forest, forest_info, params.split_info);
+
     // Inference data: same as train, but row major
     int inference_data_len = params.n_inference_rows * params.n_cols;
     inference_data_h = {0.0, 10.0, 0.0, 20.0, 0.0, 30.0, 0.0, 40.0};
@@ -246,51 +255,55 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
 
 const std::vector<RfInputs<float>> inputsf2_clf = {
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+   SPLIT_INFO::THRESHOLD,
    CRITERION::GINI},  // single tree forest, bootstrap false, depth 8, 4 bins
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+   SPLIT_INFO::THRESHOLD,
    CRITERION::GINI},  // single tree forest, bootstrap false, depth of 8, 4 bins
   {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+   SPLIT_INFO::THRESHOLD,
    CRITERION::
      GINI},  //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
+   SPLIT_INFO::THRESHOLD,
    CRITERION::
      GINI},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 0.0, 2,
+   2, 0.0, 2, SPLIT_INFO::FEATURES,
    CRITERION::
      CRITERION_END},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::ENTROPY},
+   SPLIT_INFO::FEATURES, CRITERION::ENTROPY},
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::ENTROPY},
+   SPLIT_INFO::FEATURES, CRITERION::ENTROPY},
   {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::ENTROPY},
+   SPLIT_INFO::BEST_METRIC, CRITERION::ENTROPY},
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::ENTROPY},
+   SPLIT_INFO::BEST_METRIC, CRITERION::ENTROPY},
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 0.0, 2, CRITERION::ENTROPY}};
+   2, 0.0, 2, SPLIT_INFO::BEST_METRIC, CRITERION::ENTROPY}};
 
 const std::vector<RfInputs<double>> inputsd2_clf = {  // Same as inputsf2_clf
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::GINI},
+   SPLIT_INFO::THRESHOLD, CRITERION::GINI},
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::GINI},
+   SPLIT_INFO::THRESHOLD, CRITERION::GINI},
   {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::GINI},
+   SPLIT_INFO::THRESHOLD, CRITERION::GINI},
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::GINI},
+   SPLIT_INFO::FEATURES, CRITERION::GINI},
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 0.0, 2, CRITERION::CRITERION_END},
+   2, 0.0, 2, SPLIT_INFO::FEATURES, CRITERION::CRITERION_END},
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::ENTROPY},
+   SPLIT_INFO::FEATURES, CRITERION::ENTROPY},
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::ENTROPY},
+   SPLIT_INFO::BEST_METRIC, CRITERION::ENTROPY},
   {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::ENTROPY},
+   SPLIT_INFO::BEST_METRIC, CRITERION::ENTROPY},
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::ENTROPY},
+   SPLIT_INFO::BEST_METRIC, CRITERION::ENTROPY},
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 0.0, 2, CRITERION::ENTROPY}};
+   2, 0.0, 2, SPLIT_INFO::THRESHOLD, CRITERION::ENTROPY}};
 
 typedef RfClassifierTest<float> RfClassifierTestF;
 TEST_P(RfClassifierTestF, Fit) {

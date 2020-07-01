@@ -311,6 +311,38 @@ std::vector<std::vector<double>> obtain_forest_info(
   return forest_info;
 }
 
+template <class T, class L>
+void check_forest_info(const RandomForestMetaData<T, L>* forest,
+                       std::vector<std::vector<double>> forest_info,
+                       int param_requested) {
+  for (int i = 0; i < forest->rf_params.n_trees; i++) {
+    DecisionTree::TreeMetaDataNode<T, L>* tree_info = &forest->trees[i];
+    int j = 0;
+    while (j < tree_info->sparsetree.size()) {
+      if (tree_info->sparsetree[j].colid != -1) {
+        if (param_requested == 1) {
+          // collect the threshold values used to split the nodes
+          ASSERT(forest_info[i][j] == tree_info->sparsetree[j].quesval,
+                 " Error! The threshold value returned by obtain_forest_info"
+                 "function does not match the information in the forest.");
+        } else if (param_requested == 2) {
+          // collect the best metric value for each node
+          ASSERT(forest_info[i][j] == tree_info->sparsetree[j].best_metric_val,
+                 " Error! The best metric value returned by obtain_forest_info"
+                 " function does not match the information in the forest.");
+        } else {
+          // collect the ids of columns used at each node
+          ASSERT(
+            forest_info[i][j] == tree_info->sparsetree[j].colid,
+            " Error! The feature/column id value returned by obtain_forest_info"
+            " function does not match the information in the forest.");
+        }
+      }
+      j++;
+    }
+  }
+}
+
 /**
  * @brief Print detailed view of all trees in the random forest.
  * @tparam T: data type for input data (float or double).
@@ -788,6 +820,19 @@ template std::vector<std::vector<double>> obtain_forest_info(
   const RandomForestMetaData<float, float>* forest, int param_requested);
 template std::vector<std::vector<double>> obtain_forest_info(
   const RandomForestMetaData<double, double>* forest, int param_requested);
+
+template void check_forest_info(const RandomForestMetaData<float, int>* forest,
+                                std::vector<std::vector<double>> forest_info,
+                                int param_requested);
+template void check_forest_info(const RandomForestMetaData<double, int>* forest,
+                                std::vector<std::vector<double>> forest_info,
+                                int param_requested);
+template void check_forest_info(
+  const RandomForestMetaData<float, float>* forest,
+  std::vector<std::vector<double>> forest_info, int param_requested);
+template void check_forest_info(
+  const RandomForestMetaData<double, double>* forest,
+  std::vector<std::vector<double>> forest_info, int param_requested);
 
 template int calc_num_nodes(const RandomForestMetaData<float, int>* forest);
 template int calc_num_nodes(const RandomForestMetaData<double, int>* forest);
