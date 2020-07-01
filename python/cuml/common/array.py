@@ -196,7 +196,7 @@ class CumlArray(Buffer):
         return output
 
     @with_cupy_rmm
-    def to_output(self, output_type='cupy'):
+    def to_output(self, output_type='cupy', output_dtype=None):
         """
         Convert array to output format
 
@@ -211,7 +211,12 @@ class CumlArray(Buffer):
             'series' - to cuDF Series
             'cudf' - to cuDF Series if array is single dimensional, to
                 DataFrame otherwise
+        output_dtype : string, optional
+            Optionally cast the array to a specified dtype, creating
+            a copy if necessary.
         """
+        if output_dtype is None:
+            output_dtype = self.dtype
 
         # check to translate cudf to actual type converted
         if output_type == 'cudf':
@@ -223,18 +228,20 @@ class CumlArray(Buffer):
                 output_type = 'dataframe'
 
         if output_type == 'cupy':
-            return cp.asarray(self)
+            return cp.asarray(self, dtype=output_dtype)
 
         elif output_type == 'numba':
-            return cuda.as_cuda_array(self)
+            return cuda.as_cuda_array(cp.asarray(self, dtype=output_dtype))
 
         elif output_type == 'numpy':
-            return cp.asnumpy(cp.asarray(self), order=self.order)
+            return cp.asnumpy(
+                cp.asarray(self, dtype=output_dtype), order=self.order
+            )
 
         elif output_type == 'dataframe':
             if self.dtype not in [np.uint8, np.uint16, np.uint32,
                                   np.uint64, np.float16]:
-                mat = cuda.as_cuda_array(self)
+                mat = cp.asarray(self, dtype=output_dtype)
                 if len(mat.shape) == 1:
                     mat = mat.reshape(mat.shape[0], 1)
                 return DataFrame.from_gpu_matrix(mat)
@@ -247,7 +254,7 @@ class CumlArray(Buffer):
             if len(self.shape) == 1:
                 if self.dtype not in [np.uint8, np.uint16, np.uint32,
                                       np.uint64, np.float16]:
-                    return Series(self, dtype=self.dtype)
+                    return Series(self, dtype=output_dtype)
                 else:
                     raise ValueError('cuDF unsupported Array dtype')
             elif self.shape[1] > 1:
@@ -256,7 +263,7 @@ class CumlArray(Buffer):
             else:
                 if self.dtype not in [np.uint8, np.uint16, np.uint32,
                                       np.uint64, np.float16]:
-                    return Series(self, dtype=self.dtype)
+                    return Series(self, dtype=output_dtype)
                 else:
                     raise ValueError('cuDF unsupported Array dtype')
 
