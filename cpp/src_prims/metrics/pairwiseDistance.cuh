@@ -15,11 +15,11 @@
  */
 
 #include <common/cudart_utils.h>
+#include <common/device_buffer.hpp>
+#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <distance/distance.cuh>
 #include <linalg/binary_op.cuh>
-#include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
 
 namespace MLCommon {
 namespace Metrics {

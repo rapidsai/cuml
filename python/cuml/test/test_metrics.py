@@ -661,7 +661,7 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
         return np.asfortranarray(array) if is_col_major else array
 
     # For fp64, compare at 13 decimals, (2 places less than the ~15 max)
-    compare_precision=10
+    compare_precision = 10
 
     # Compare to sklearn, single input
     X = prep_array(rng.random_sample(matrix_size))
@@ -693,7 +693,7 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # For fp32, compare at 5 decimals, (2 places less than the ~7 max)
-    compare_precision=2
+    compare_precision = 2
 
     # Change precision of both parameters to float
     X = np.asfarray(X, dtype=np.float32)
@@ -729,7 +729,7 @@ def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
     Y = rng.random_sample(matrix_size)
 
     # For fp64, compare at 10 decimals, (5 places less than the ~15 max)
-    compare_precision=10
+    compare_precision = 10
 
     # Compare to sklearn, fp64
     S = pairwise_distances(X, Y, metric=metric)
@@ -739,7 +739,7 @@ def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
         cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # For fp32, compare at 4 decimals, (3 places less than the ~7 max)
-    compare_precision=4
+    compare_precision = 4
 
     X = np.asfarray(X, dtype=np.float32)
     Y = np.asfarray(Y, dtype=np.float32)
@@ -764,7 +764,7 @@ def test_pairwise_distances_one_dimension_order(metric: str):
     Yf = np.asfortranarray(Yc)
 
     # For fp64, compare at 13 decimals, (2 places less than the ~15 max)
-    compare_precision=13
+    compare_precision = 13
 
     # Compare to sklearn, C/C order
     S = pairwise_distances(Xc, Yc, metric=metric)
