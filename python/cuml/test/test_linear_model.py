@@ -256,7 +256,9 @@ def test_logistic_regression(
     # as much as possible
     cu_preds = culog.predict(X_test)
 
-    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.06
+    assert culog.score(X_train, y_train) >= sklog.score(X_train, y_train) - \
+        0.003
+    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.006
     assert len(np.unique(cu_preds)) == len(np.unique(y_test))
 
 
