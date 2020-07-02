@@ -459,13 +459,19 @@ class NearestNeighbors(Base):
         return cp.sparse.csr_matrix((distances, cp.ravel(indices), rowptr), shape=(n_samples, n_samples_fit))
 
 # Try implementing wrapper component here
-def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False, handle=None, algorithm="brute",
-                 metric="euclidean", p=2,
-                 output_type=None)):
+def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False, handle=None, algorithm="brute", metric="euclidean", p=2, include_self=False, metric_expanded=False, metric_params=None):
         
     # check if class NearestNeighbors already instantiated, if not then instantiate
     if not isinstance(X, NearestNeighbors):
-        NeighborsInstance = NearestNeighbors()
+        X = NearestNeighbors(n_neighbors=n_neighbors, verbose=verbose, handle=handle, algorithm=algorithm, metric=metric, p=p, metric_expanded=metric_expanded, metric_params=metric_params).fit(X)
 
+    if include_self == 'auto':
+        include_self = mode == 'connectivity'
 
-   return NeighborsInstance.kneighbors_graph()
+    # it does not include each sample as its own neighbors
+    if not include_self:
+        query = None
+    else:
+        query = X
+
+    return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)
