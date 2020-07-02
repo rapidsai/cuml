@@ -95,7 +95,9 @@ __global__ void naiveCosineDistanceKernel(DataType *dist, const DataType *x,
   }
 
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
-  dist[outidx] = acc_ab / (mySqrt(acc_a) * mySqrt(acc_b));
+
+  // Use 1.0 - (cosine similarity) to calc the distance
+  dist[outidx] = (DataType)1.0 - acc_ab / (mySqrt(acc_a) * mySqrt(acc_b));
 }
 
 template <typename DataType>
