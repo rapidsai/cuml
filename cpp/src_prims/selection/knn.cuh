@@ -33,8 +33,11 @@
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
 
+#include <selection/processing.cuh>
+
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/neighbors/knn.hpp>
 
 #include <iostream>
 
@@ -161,6 +164,17 @@ inline void knn_merge_parts(float *inK, int64_t *inV, float *outK,
                                   stream, translations);
 }
 
+inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
+  switch (metric) {
+    case ML::MetricType::METRIC_Cosine:
+      return faiss::MetricType::METRIC_INNER_PRODUCT;
+    case ML::MetricType::METRIC_Correlation:
+      return faiss::MetricType::METRIC_INNER_PRODUCT;
+    default:
+      return (faiss::MetricType)metric;
+  }
+}
+
 /**
    * Search the kNN for the k-nearest neighbors of a set of query vectors
    * @param input vector of device device memory array pointers to search
@@ -183,9 +197,11 @@ inline void knn_merge_parts(float *inK, int64_t *inV, float *outK,
    * @param rowMajorQuery are the query array in row-major layout?
    * @param translations translation ids for indices when index rows represent
    *        non-contiguous partitions
+   * @param metric corresponds to the FAISS::metricType enum (default is euclidean)
+   * @param metricArg metric argument to use. Corresponds to the p arg for lp norm
+   * @param expanded_form whether or not lp variants should be reduced w/ lp-root
    */
-template <typename IntType = int,
-          Distance::DistanceType DistanceType = Distance::EucUnexpandedL2>
+template <typename IntType = int>
 void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
                      IntType D, float *search_items, IntType n, int64_t *res_I,
                      float *res_D, IntType k,
@@ -194,14 +210,13 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
                      cudaStream_t *internalStreams = nullptr,
                      int n_int_streams = 0, bool rowMajorIndex = true,
                      bool rowMajorQuery = true,
-                     std::vector<int64_t> *translations = nullptr) {
-  ASSERT(DistanceType == Distance::EucUnexpandedL2 ||
-           DistanceType == Distance::EucUnexpandedL2Sqrt,
-         "Only EucUnexpandedL2Sqrt and EucUnexpandedL2 metrics are supported "
-         "currently.");
-
+                     std::vector<int64_t> *translations = nullptr,
+                     ML::MetricType metric = ML::MetricType::METRIC_L2,
+                     float metricArg = 0, bool expanded_form = false) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
+
+  faiss::MetricType m = build_faiss_metric(metric);
 
   std::vector<int64_t> *id_ranges;
   if (translations == nullptr) {
@@ -219,14 +234,39 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     id_ranges = translations;
   }
 
+  // perform preprocessing
+  std::unique_ptr<MetricProcessor<float>> query_metric_processor =
+    create_processor<float>(metric, n, D, k, rowMajorQuery, userStream,
+                            allocator);
+  query_metric_processor->preprocess(search_items);
+
+  std::vector<std::unique_ptr<MetricProcessor<float>>> metric_processors(
+    input.size());
+  for (int i = 0; i < input.size(); i++) {
+    metric_processors[i] = create_processor<float>(
+      metric, n, D, k, rowMajorQuery, userStream, allocator);
+    metric_processors[i]->preprocess(input[i]);
+  }
+
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
 
   device_buffer<int64_t> trans(allocator, userStream, id_ranges->size());
   updateDevice(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
 
-  device_buffer<float> all_D(allocator, userStream, input.size() * k * n);
-  device_buffer<int64_t> all_I(allocator, userStream, input.size() * k * n);
+  device_buffer<float> all_D(allocator, userStream, 0);
+  device_buffer<int64_t> all_I(allocator, userStream, 0);
+
+  float *out_D = res_D;
+  int64_t *out_I = res_I;
+
+  if (input.size() > 1) {
+    all_D.resize(input.size() * k * n, userStream);
+    all_I.resize(input.size() * k * n, userStream);
+
+    out_D = all_D.data();
+    out_I = all_I.data();
+  }
 
   // Sync user stream only if using other streams to parallelize query
   if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
@@ -242,7 +282,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     gpu_res.setDefaultStream(device, stream);
 
     faiss::gpu::GpuDistanceParams args;
-    args.metric = faiss::METRIC_L2;
+    args.metric = m;
+    args.metricArg = metricArg;
     args.k = k;
     args.dims = D;
     args.vectors = input[i];
@@ -251,9 +292,14 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     args.queries = search_items;
     args.queriesRowMajor = rowMajorQuery;
     args.numQueries = n;
-    args.outDistances = all_D.data() + (i * k * n);
-    args.outIndices = all_I.data() + (i * k * n);
+    args.outDistances = out_D + (i * k * n);
+    args.outIndices = out_I + (i * k * n);
 
+    /**
+     * @todo: Until FAISS supports pluggable allocation strategies,
+     * we will not reap the benefits of the pool allocator for
+     * avoiding device-wide synchronizations from cudaMalloc/cudaFree
+     */
     bfKnn(&gpu_res, args);
 
     CUDA_CHECK(cudaPeekAtLastError());
@@ -266,42 +312,33 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
   }
 
-  knn_merge_parts(all_D.data(), all_I.data(), res_D, res_I, n, input.size(), k,
-                  userStream, trans.data());
-
-  MLCommon::LinAlg::unaryOp<float>(
-    res_D, res_D, n * k, [] __device__(float input) { return sqrt(input); },
-    userStream);
-
-  if (translations == nullptr) delete id_ranges;
-
-  CUDA_CHECK(cudaStreamSynchronize(userStream));
-};
-
-template <typename IntType = int,
-          Distance::DistanceType DistanceType = Distance::EucUnexpandedL2>
-void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
-                     float *search_items, IntType n, int64_t *res_I,
-                     float *res_D, IntType k,
-                     std::shared_ptr<deviceAllocator> allocator,
-                     cudaStream_t userStream,
-                     cudaStream_t *internalStreams = nullptr,
-                     int n_int_streams = 0, bool rowMajorIndex = true,
-                     bool rowMajorQuery = true,
-                     std::vector<int64_t> *translations = nullptr) {
-  std::vector<float *> input_vec(n_params);
-  std::vector<int> sizes_vec(n_params);
-
-  for (int i = 0; i < n_params; i++) {
-    input_vec.push_back(input[i]);
-    sizes_vec.push_back(sizes[i]);
+  if (input.size() > 1) {
+    knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k, userStream,
+                    trans.data());
   }
 
-  brute_force_knn<IntType, DistanceType>(
-    input_vec, sizes_vec, D, search_items, n, res_I, res_D, k, allocator,
-    userStream, internalStreams, n_int_streams, rowMajorIndex, rowMajorQuery,
-    translations);
-}
+  // Perform necessary post-processing
+  if ((m == faiss::MetricType::METRIC_L2 ||
+       m == faiss::MetricType::METRIC_Lp) &&
+      !expanded_form) {
+    /**
+	* post-processing
+	*/
+    float p = 0.5;  // standard l2
+    if (m == faiss::MetricType::METRIC_Lp) p = 1.0 / metricArg;
+    MLCommon::LinAlg::unaryOp<float>(
+      res_D, res_D, n * k,
+      [p] __device__(float input) { return powf(input, p); }, userStream);
+  }
+
+  query_metric_processor->revert(search_items);
+  query_metric_processor->postprocess(out_D);
+  for (int i = 0; i < input.size(); i++) {
+    metric_processors[i]->revert(input[i]);
+  }
+
+  if (translations == nullptr) delete id_ranges;
+};
 
 template <typename OutType = float>
 __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
@@ -365,7 +402,6 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
   LabelType pred = 0;
   for (int j = 0; j < n_neighbors; j++) {
     int64_t neighbor_idx = knn_indices[i + j];
-    int n = neighbor_idx;
     pred += labels[neighbor_idx];
   }
 

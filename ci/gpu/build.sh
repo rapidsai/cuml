@@ -43,30 +43,20 @@ nvidia-smi
 logger "Activate conda env..."
 source activate gdf
 conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
-      "cupy>=7,<8.0.0a0" \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
-      "nvstrings=${MINOR_VERSION}" \
-      "libcumlprims=0.15.0a200607" \
-      "lapack" \
-      "cmake==3.14.3" \
-      "umap-learn" \
-      "protobuf>=3.4.1,<4.0.0" \
-      "nccl>=2.5" \
-      "dask>=2.12.0" \
-      "distributed>=2.12.0" \
+      "libcumlprims=0.15.0a200622" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
-      "statsmodels" \
-      "xgboost==1.0.2dev.rapidsai0.13" \
-      "psutil" \
-      "lightgbm" \
-      "matplotlib" \
-      "ipython=7.3*" \
-      "jupyterlab"
-      
+      "xgboost==1.1.0dev.rapidsai0.15" \
+      "rapids-build-env=$MINOR_VERSION.*" \
+      "rapids-notebook-env=$MINOR_VERSION.*"
+
+# https://docs.rapids.ai/maintainers/depmgmt/
+# conda remove -f rapids-build-env rapids-notebook-env
+# conda install "your-pkg=1.0.0"
 
 
 # Install contextvars on Python 3.6
@@ -104,9 +94,6 @@ logger "Resetting LD_LIBRARY_PATH..."
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
-
-logger "Install Treelite for GPU testing..."
-python -m pip install -v treelite==0.91
 
 cd $WORKSPACE
 
