@@ -27,8 +27,12 @@ from libcpp cimport bool
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.common.handle cimport *
 from cuml.common import input_to_cuml_array
+
+cdef extern from * nogil:
+    ctypedef void* _Stream "cudaStream_t"
+    ctypedef void* _DevAlloc "std::shared_ptr<MLCommon::deviceAllocator>"
 
 cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
@@ -45,7 +49,7 @@ cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
     # Structure describing random matrix
     cdef cppclass rand_mat[T]:
-        rand_mat() except +     # random matrix structure constructor (set all to nullptr) # noqa E501
+        rand_mat(_DevAlloc, _Stream stream) except +     # random matrix structure constructor (set all to nullptr) # noqa E501
         T *dense_data           # dense random matrix data
         int *indices            # sparse CSC random matrix indices
         int *indptr             # sparse CSC random matrix indptr
@@ -151,16 +155,19 @@ cdef class BaseRandomProjection():
     cdef rand_mat[float]* rand_matS
     cdef rand_mat[double]* rand_matD
 
-    def __cinit__(self):
-        self.rand_matS = new rand_mat[float]()
-        self.rand_matD = new rand_mat[double]()
-
     def __dealloc__(self):
         del self.rand_matS
         del self.rand_matD
 
     def __init__(self, n_components='auto', eps=0.1,
                  dense_output=True, random_state=None):
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef _DevAlloc alloc = <_DevAlloc>handle_.getDeviceAllocator()
+        cdef _Stream stream = handle_.getStream()
+        self.rand_matS = new rand_mat[float](alloc, stream)
+        self.rand_matD = new rand_mat[double](alloc, stream)
+
         self.params.n_components = n_components if n_components != 'auto'\
             else -1
         self.params.eps = eps

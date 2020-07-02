@@ -17,7 +17,6 @@
 #pragma once
 
 #include <linalg/gemv.h>
-#include <ml_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <linalg/add.cuh>
