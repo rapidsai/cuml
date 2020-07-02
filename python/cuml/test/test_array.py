@@ -227,9 +227,10 @@ def test_create_full(shape, dtype, order):
 
 @pytest.mark.parametrize('output_type', test_output_types)
 @pytest.mark.parametrize('dtype', test_dtypes_output)
+@pytest.mark.parametrize('out_dtype', test_dtypes_output)
 @pytest.mark.parametrize('order', ['F', 'C'])
 @pytest.mark.parametrize('shape', test_shapes)
-def test_output(output_type, dtype, order, shape):
+def test_output(output_type, dtype, out_dtype, order, shape):
     inp = create_input('numpy', dtype, shape, order)
     ary = CumlArray(inp)
 
@@ -283,6 +284,43 @@ def test_output(output_type, dtype, order, shape):
                 assert np.all(inp.reshape((1, 10)) == res2)
             else:
                 assert np.all(inp == res2)
+
+
+@pytest.mark.parametrize('output_type', test_output_types)
+@pytest.mark.parametrize('dtype', [
+    np.float32, np.float64,
+    np.int8, np.int16, np.int32, np.int64,
+])
+@pytest.mark.parametrize('out_dtype', [
+    np.float32, np.float64,
+    np.int8, np.int16, np.int32, np.int64,
+])
+@pytest.mark.parametrize('shape', test_shapes)
+def test_output_dtype(output_type, dtype, out_dtype, shape):
+    inp = create_input('numpy', dtype, shape, order="F")
+    ary = CumlArray(inp)
+
+    if dtype in unsupported_cudf_dtypes and \
+            output_type in ['series', 'dataframe', 'cudf']:
+        with pytest.raises(ValueError):
+            res = ary.to_output(
+                output_type=output_type,
+                output_dtype=out_dtype
+            )
+
+    elif shape in [(10, 5), (1, 10)] and output_type == 'series':
+        with pytest.raises(ValueError):
+            res = ary.to_output(
+                output_type=output_type,
+                output_dtype=out_dtype
+            )
+    else:
+        res = ary.to_output(output_type=output_type, output_dtype=out_dtype)
+
+        if isinstance(res, cudf.DataFrame):
+            res.values.dtype == out_dtype
+        else:
+            res.dtype == out_dtype
 
 
 @pytest.mark.parametrize('dtype', test_dtypes_all)
