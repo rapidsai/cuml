@@ -40,7 +40,8 @@ template <typename D>
 class Dbscan : public BlobsFixture<D, int> {
  public:
   Dbscan(const std::string& name, const Params& p)
-    : BlobsFixture<D, int>(name, p.data, p.blobs), dParams(p.dbscan),
+    : BlobsFixture<D, int>(name, p.data, p.blobs),
+      dParams(p.dbscan),
       core_sample_indices(nullptr) {}
 
  protected:
@@ -59,7 +60,7 @@ class Dbscan : public BlobsFixture<D, int> {
   }
 
   void allocateTempBuffers(const ::benchmark::State& state) override {
-    if (this->dParams.calc_core_sample_indices){
+    if (this->dParams.calc_core_sample_indices) {
       this->alloc(this->core_sample_indices, this->params.nrows);
     }
   }
@@ -70,7 +71,7 @@ class Dbscan : public BlobsFixture<D, int> {
 
  private:
   AlgoParams dParams;
-  int * core_sample_indices;
+  int* core_sample_indices;
 };
 
 std::vector<Params> getInputs(bool calc_core_sample_indices) {
