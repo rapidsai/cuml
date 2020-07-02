@@ -49,13 +49,14 @@ from cuml.metrics import confusion_matrix
 from sklearn.metrics.regression import mean_absolute_error as sklearn_mae
 from sklearn.metrics.regression import mean_squared_log_error as sklearn_msle
 
-from cuml.common import has_scipy, input_to_cuml_array
+from cuml.common import has_scipy
 
 from cuml.metrics import roc_auc_score
 from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
 
 from cuml.metrics import pairwise_distances
 from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
+
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('use_handle', [True, False])
@@ -372,8 +373,8 @@ def test_regression_metrics_random(n_samples, dtype, function):
         lambda rng: rng.randint(0, 1000, n_samples).astype(dtype))
 
     cuml_reg, sklearn_reg = {
-        'mse':  (mean_squared_error, sklearn_mse),
-        'mae':  (mean_absolute_error, sklearn_mae),
+        'mse': (mean_squared_error, sklearn_mse),
+        'mae': (mean_absolute_error, sklearn_mae),
         'msle': (mean_squared_log_error, sklearn_msle)
     }[function]
 
@@ -646,8 +647,11 @@ def test_roc_auc_score_at_limits():
     with pytest.raises(ValueError, match=err_msg):
         roc_auc_score(y_true, y_pred)
 
-@pytest.mark.parametrize("metric", ["cityblock", "cosine", "euclidean", "l1", "l2", "manhattan"])
-@pytest.mark.parametrize("matrix_size", [(5, 4), (1000, 3), (2, 10), (500, 400)])
+
+@pytest.mark.parametrize("metric", ["cityblock", "cosine", "euclidean", "l1",
+                                    "l2", "manhattan"])
+@pytest.mark.parametrize("matrix_size", [(5, 4), (1000, 3), (2, 10),
+                                         (500, 400)])
 @pytest.mark.parametrize("is_col_major", [True, False])
 def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     # Test the pairwise_distance helper function.
@@ -657,7 +661,7 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
         return np.asfortranarray(array) if is_col_major else array
 
     # For fp64, compare at 13 decimals, (2 places less than the ~15 max)
-    compare_precision=10 
+    compare_precision=10
 
     # Compare to sklearn, single input
     X = prep_array(rng.random_sample(matrix_size))
@@ -704,11 +708,13 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     S2 = sklearn_pairwise_distances(X, Y, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
-    # Test that uppercase on the metric name throws an error. 
+    # Test that uppercase on the metric name throws an error.
     with pytest.raises(ValueError):
         pairwise_distances(X, Y, metric=metric.capitalize())
 
-@pytest.mark.parametrize("metric", ["cityblock", "cosine", "euclidean", "l1", "l2", "manhattan"])
+
+@pytest.mark.parametrize("metric", ["cityblock", "cosine", "euclidean", "l1",
+                                    "l2", "manhattan"])
 @pytest.mark.parametrize("matrix_size", [
     unit_param((1000, 100)),
     quality_param((2000, 1000)),
@@ -731,9 +737,9 @@ def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
     if (element_count <= 2000000):
         S2 = sklearn_pairwise_distances(X, Y, metric=metric)
         cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
-    
+
     # For fp32, compare at 4 decimals, (3 places less than the ~7 max)
-    compare_precision=3 #TODO: the single precision seems to be performing worse than the double precision for large matrices. needed to lower this to 3 to get it to work
+    compare_precision=4
 
     X = np.asfarray(X, dtype=np.float32)
     Y = np.asfarray(Y, dtype=np.float32)
@@ -745,7 +751,9 @@ def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
         S2 = sklearn_pairwise_distances(X, Y, metric=metric)
         cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
-@pytest.mark.parametrize("metric", ["cityblock", "cosine", "euclidean", "l1", "l2", "manhattan"])
+
+@pytest.mark.parametrize("metric", ["cityblock", "cosine", "euclidean", "l1",
+                                    "l2", "manhattan"])
 def test_pairwise_distances_one_dimension_order(metric: str):
     # Test the pairwise_distance helper function.
     rng = np.random.RandomState(2)
@@ -779,9 +787,6 @@ def test_pairwise_distances_one_dimension_order(metric: str):
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Switch which input has single dimension
-    X = rng.random_sample((5, 4))
-    Y = rng.random_sample((1, 4))
-
     Xc = rng.random_sample((1, 4))
     Yc = rng.random_sample((10, 4))
     Xf = np.asfortranarray(Xc)
@@ -817,6 +822,7 @@ def test_pairwise_distances_unsuppored_metrics(metric):
     with pytest.raises(ValueError):
         pairwise_distances(X, metric=metric)
 
+
 def test_pairwise_distances_exceptions():
 
     rng = np.random.RandomState(4)
@@ -830,7 +836,8 @@ def test_pairwise_distances_exceptions():
     with pytest.raises(TypeError):
         pairwise_distances(X_int, metric="euclidean")
 
-    # Test second int inputs (should not have an exception with convert_dtype=True)
+    # Test second int inputs (should not have an exception with
+    # convert_dtype=True)
     pairwise_distances(X_double, X_int, metric="euclidean")
 
     # Test bool inputs (only float/double accepted at this time)
@@ -839,7 +846,8 @@ def test_pairwise_distances_exceptions():
 
     # Test sending different types with convert_dtype=False
     with pytest.raises(TypeError):
-        pairwise_distances(X_double, X_float, metric="euclidean", convert_dtype=False)
+        pairwise_distances(X_double, X_float, metric="euclidean",
+                           convert_dtype=False)
 
     # Invalid metric name
     with pytest.raises(ValueError):
