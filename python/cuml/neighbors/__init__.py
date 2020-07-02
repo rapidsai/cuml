@@ -22,3 +22,12 @@ from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
 
 if has_dask():
     from cuml.neighbors.kneighbors_mg import KNeighborsMG
+
+VALID_METRICS = {"brute": set([
+        "l2", "euclidean",
+        "l1", "cityblock", "manhattan", "taxicab",
+        "braycurtis", "canberra",
+        "minkowski", "lp",
+        "chebyshev", "linf",
+        "jensenshannon"
+    ])}

@@ -56,6 +56,7 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/fused_l2_nn.cu
     prims/gram_matrix.cu
     prims/main.cpp
+    prims/make_blobs.cu
     prims/map_then_reduce.cu
     prims/matrix_vector_op.cu
     prims/permute.cu
