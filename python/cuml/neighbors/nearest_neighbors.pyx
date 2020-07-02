@@ -382,9 +382,14 @@ class NearestNeighbors(Base):
         rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
         return cp.sparse.csr_matrix((distances, cp.ravel(indices), rowptr), shape=(n_samples, n_samples_fit))
 
-
+# Try implementing wrapper component here
+def kneighbors_graph(X=None, n_neighbors=None, mode='connectivity', verbose=False, handle=None, algorithm="brute",
+                 metric="euclidean",
+                 output_type=None)):
         
+    # check if class NearestNeighbors already instantiated, if not then instantiate
+    if not isinstance(X, NearestNeighbors):
+        NeighborsInstance = NearestNeighbors()
 
 
-
-   
+   return NeighborsInstance.kneighbors_graph()
