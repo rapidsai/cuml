@@ -178,7 +178,7 @@ def test_accuracy_runner():
 def test_real_algos_runner(algo_name):
     pair = algorithms.algorithm_by_name(algo_name)
 
-    if (algo_name == 'UMAP' and not has_umap()) or \
+    if (algo_name == 'UMAP-Supervised' and not has_umap()) or \
        (algo_name == 'FIL' and not has_xgboost()):
         pytest.xfail()
 

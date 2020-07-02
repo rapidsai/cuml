@@ -309,8 +309,8 @@ def check_ptr(a, b, input_type):
                 return x.__array_interface__['data'][0]
 
         if input_type == 'pandas':
-            a = a.as_matrix()
-            b = b.as_matrix()
+            a = a.values
+            b = b.values
 
         assert get_ptr(a) == get_ptr(b)
 
@@ -338,7 +338,7 @@ def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
         result = result.to_pandas()
 
     if type == 'cuml':
-        result = CumlArray(data=rand_mat, dtype=dtype, shape=rand_mat.shape,
+        result = CumlArray(data=rand_mat,
                            order=order if order != 'K' else None)
 
     if out_dtype:
