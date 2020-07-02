@@ -116,7 +116,7 @@ if hasArg --singlegpu; then
     SINGLEGPU_PYTHON_FLAG="--singlegpu"
     SINGLEGPU_CPP_FLAG=ON
 fi
-if hasArg mgtests; then
+if hasArg cpp-mgtests; then
     BUILD_CPP_MG_TESTS=ON
 fi
 if hasArg --nvtx; then
@@ -149,7 +149,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs; then
+if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs || hasArg cpp-mgtests; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         GPU_ARCH=""
         echo "Building for the architecture of the GPU in the system..."
@@ -185,7 +185,7 @@ MAKE_TARGETS=
 if hasArg libcuml; then
     MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml ml"
 fi
-if hasArg mgtests; then
+if hasArg cpp-mgtests; then
     MAKE_TARGETS="${MAKE_TARGETS} ml_mg"
 fi
 if hasArg prims; then
@@ -199,7 +199,7 @@ if hasArg prims-bench; then
 fi
 
 # If `./build.sh cuml` is called, don't build C/C++ components
-if completeBuild || hasArg libcuml || hasArg prims || hasArg bench; then
+if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests; then
     # If there are no targets specified when calling build.sh, it will
     # just call `make -j`. This avoids a lot of extra printing
     cd ${LIBCUML_BUILD_DIR}
