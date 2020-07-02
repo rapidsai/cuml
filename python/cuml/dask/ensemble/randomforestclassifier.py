@@ -156,9 +156,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
 
     def print_summary(self):
         """
-        Print summary of the forest used to train the model
+        Print the summary of the forest used to train the model
         on each worker. This information is displayed on the
-        workers and not the client.
+        individual workers and not the client.
         """
         return self._print_summary()
 
