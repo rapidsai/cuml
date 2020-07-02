@@ -33,8 +33,6 @@ from cuml.ensemble.randomforest_shared import treelite_serialize, \
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
-cimport cython
-
 
 class BaseRandomForestModel(Base):
     variables = ['n_estimators', 'max_depth', 'handle',
