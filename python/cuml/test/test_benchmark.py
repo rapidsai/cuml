@@ -203,7 +203,6 @@ def test_fil_input_types(input_type):
         [20], [5], dataset_name='classification', test_fraction=0.5,
         input_type=input_type)
     results = runner.run(pair, run_cpu=False)[0]
-    print(results)
     assert results["cuml_acc"] is not None
 
 
