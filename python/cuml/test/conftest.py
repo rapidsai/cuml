@@ -2,18 +2,22 @@ import os
 
 import cupy as cp
 import pytest
-from _pytest.runner import CallInfo, CollectReport, TestReport
 from pytest import Item
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
 
-# Stores incorrect uses of CumlArray on cuml.common.base.Base to print at the end
+# Stores incorrect uses of CumlArray on cuml.common.base.Base to print at the
+# end
 bad_cuml_array_loc = set()
+
 
 def pytest_configure(config):
     cp.cuda.set_allocator(None)
 
-# Use the runtest_makereport hook to get the result of the test. This is necessary because pytest has some magic to extract the Cython source file from the traceback
+
+# Use the runtest_makereport hook to get the result of the test. This is
+# necessary because pytest has some magic to extract the Cython source file
+# from the traceback
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item: Item, call):
 
@@ -24,17 +28,23 @@ def pytest_runtest_makereport(item: Item, call):
     # report = TestReport.from_item_and_call(item, call)
 
     if (report.failed):
-        # Ensure these attributes exist. They can be missing if something else failed outside of the test
-        if (hasattr(report.longrepr, "reprtraceback") and hasattr(report.longrepr.reprtraceback, "reprentries")):
+        # Ensure these attributes exist. They can be missing if something else
+        # failed outside of the test
+        if (hasattr(report.longrepr, "reprtraceback") and
+                hasattr(report.longrepr.reprtraceback, "reprentries")):
+
             for entry in reversed(report.longrepr.reprtraceback.reprentries):
-                
+
                 if (os.path.splitext(entry.reprfileloc.path)[1] == ".pyx"):
 
-                    true_path = "{}:{}".format(entry.reprfileloc.path, entry.reprfileloc.lineno)
+                    true_path = "{}:{}".format(entry.reprfileloc.path,
+                                               entry.reprfileloc.lineno)
 
-                    bad_cuml_array_loc.add((true_path, entry.reprfileloc.message))
+                    bad_cuml_array_loc.add((true_path,
+                                            entry.reprfileloc.message))
 
                     break
+
 
 # Closing hook to display the file/line numbers at the end of the test
 def pytest_unconfigure(config):
@@ -45,14 +55,19 @@ def pytest_unconfigure(config):
 
         prefix = ""
 
-        # Depending on where pytest was launched from, it may need to append "python"
-        if (not os.path.basename(os.path.abspath(os.curdir)).endswith("python")):
+        # Depending on where pytest was launched from, it may need to append
+        # "python"
+        if (not os.path.basename(os.path.abspath(os.curdir))
+                .endswith("python")):
             prefix = "python"
 
         for location, message in bad_cuml_array_loc:
-            print("{} {}".format(os.path.abspath(os.path.join(prefix, location)), message))
+            print("{} {}".format(os.path.abspath(
+                os.path.join(prefix, location)), message))
 
-# This fixture will monkeypatch cuml.common.base.Base to check for incorrect uses of CumlArray. 
+
+# This fixture will monkeypatch cuml.common.base.Base to check for incorrect
+# uses of CumlArray.
 @pytest.fixture(autouse=True)
 def fail_on_bad_cuml_array_name(monkeypatch):
 
@@ -62,11 +77,13 @@ def fail_on_bad_cuml_array_name(monkeypatch):
     def patched__setattr__(self, name, value):
 
         if isinstance(value, CumlArray):
-            assert name.startswith("_"), "Invalid CumlArray Use! Attribute: '{}' In: {}".format(name, self.__repr__())
+            assert name.startswith("_"), "Invalid CumlArray Use! Attribute: \
+                '{}' In: {}".format(name, self.__repr__())
 
         return super(Base, self).__setattr__(name, value)
 
-    """Monkeypatch CumlArray.__setattr__ to assert array attributes have a leading underscore. i.e. `self._my_variable_ = CumlArray.ones(10)`."""
+    """Monkeypatch CumlArray.__setattr__ to assert array attributes have a
+       leading underscore. i.e. `self._my_variable_ = CumlArray.ones(10)`."""
     monkeypatch.setattr(Base, "__setattr__",  patched__setattr__)
 
 
