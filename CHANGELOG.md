@@ -57,6 +57,7 @@
 - PR #2494: Set QN regularization strength consistent with scikit-learn
 - PR #2486: Fix cupy input to kmeans init
 - PR #2497: Changes to accomodate cuDF unsigned categorical changes
+- PR #2508: Use positional parameters in sklearn.datasets.make_* functions
 
 # cuML 0.14.0 (03 Jun 2020)
 
