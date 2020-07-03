@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,18 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/host_buffer.hpp>
-#include "dbscan/common.cuh"
+#include <cuda_utils.cuh>
+#include "../common.cuh"
 #include "pack.h"
 
 namespace Dbscan {
 namespace AdjGraph {
 namespace Naive {
 
-template <typename Type, typename Index_ = int>
-void launcher(const ML::cumlHandle_impl& handle, Pack<Type, Index_> data,
+template <typename Index_ = int>
+void launcher(const ML::cumlHandle_impl& handle, Pack<Index_> data,
               Index_ batchSize, cudaStream_t stream) {
   Index_ k = 0;
   Index_ N = data.N;

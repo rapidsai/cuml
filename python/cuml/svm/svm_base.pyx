@@ -31,7 +31,7 @@ from libc.stdint cimport uintptr_t
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 from libcpp cimport bool
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
@@ -156,8 +156,8 @@ class SVMBase(Base):
             We monitor how much our stopping criteria changes during outer
             iterations. If it does not change (changes less then 1e-3*tol)
             for nochange_steps consecutive steps, then we stop training.
-        verbose : bool (default = False)
-            verbose mode
+        verbose : int or boolean (default = False)
+            verbosity level
 
         Attributes
         ----------
@@ -194,7 +194,6 @@ class SVMBase(Base):
         self.cache_size = cache_size
         self.max_iter = max_iter
         self.nochange_steps = nochange_steps
-        self.verbose = verbose
         self.epsilon = epsilon
         self.svmType = None  # Child class should set self.svmType
 
@@ -313,7 +312,7 @@ class SVMBase(Base):
         param.max_iter = self.max_iter
         param.nochange_steps = self.nochange_steps
         param.tol = self.tol
-        param.verbosity = self.verbosity
+        param.verbosity = self.verbose
         param.epsilon = self.epsilon
         param.svmType = self.svmType
         return param
@@ -528,6 +527,7 @@ class SVMBase(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         out_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype()
 
         if self._model is None:
             raise RuntimeError("Call fit before prediction")
@@ -559,11 +559,11 @@ class SVMBase(Base):
 
         del(X_m)
 
-        return preds.to_output(out_type)
+        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
     def get_param_names(self):
         return ["C", "kernel", "degree", "gamma", "coef0", "cache_size",
-                "max_iter", "tol", "verbose"]
+                "max_iter", "tol"]
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -572,7 +572,8 @@ class SVMBase(Base):
         return state
 
     def __setstate__(self, state):
-        super(SVMBase, self).__init__(handle=None, verbose=state['verbose'])
+        super(SVMBase, self).__init__(handle=None,
+                                      verbose=state['verbose'])
         self.__dict__.update(state)
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False

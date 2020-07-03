@@ -20,8 +20,7 @@
 # cython: language_level = 3
 
 from cuml.solvers import CD
-from cuml.metrics.base import RegressorMixin
-from cuml.common.base import Base
+from cuml.common.base import Base, RegressorMixin
 
 
 class ElasticNet(Base, RegressorMixin):
@@ -85,14 +84,15 @@ class ElasticNet(Base, RegressorMixin):
 
     Parameters
     -----------
-    alpha : float or double
-        Constant that multiplies the L1 term. Defaults to 1.0.
+    alpha : float (default = 1.0)
+        Constant that multiplies the L1 term.
         alpha = 0 is equivalent to an ordinary least square, solved by the
         LinearRegression object.
         For numerical reasons, using alpha = 0 with the Lasso object is not
         advised.
         Given this, you should use the LinearRegression object.
-    l1_ratio: The ElasticNet mixing parameter, with 0 <= l1_ratio <= 1.
+    l1_ratio: float (default = 0.5)
+        The ElasticNet mixing parameter, with 0 <= l1_ratio <= 1.
         For l1_ratio = 0 the penalty is an L2 penalty. For l1_ratio = 1 it is
         an L1 penalty.
         For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
@@ -103,19 +103,26 @@ class ElasticNet(Base, RegressorMixin):
         If True, the predictors in X will be normalized by dividing by it's L2
         norm.
         If False, no scaling will be done.
-    max_iter : int
+    max_iter : int (default = 1000)
         The maximum number of iterations
-    tol : float, optional
+    tol : float (default = 1e-3)
         The tolerance for the optimization: if the updates are smaller than
         tol, the optimization code checks the dual gap for optimality and
         continues until it is smaller than tol.
-    selection : str, default ‘cyclic’
+    selection : {'cyclic', 'random'} (default='cyclic')
         If set to ‘random’, a random coefficient is updated every iteration
         rather than looping over features sequentially by default.
         This (setting to ‘random’) often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
     handle : cuml.Handle
         If it is None, a new one is created just for this class.
+    output_type : (optional) {'input', 'cudf', 'cupy', 'numpy'} default = None
+        Use it to control output type of the results and attributes.
+        If None it'll inherit the output type set at the
+        module level, cuml.output_type. If that has not been changed, by
+        default the estimator will mirror the type of the data used for each
+        fit or predict call.
+        If set, the estimator will override the global option for its behavior.
 
     Attributes
     -----------
@@ -124,15 +131,15 @@ class ElasticNet(Base, RegressorMixin):
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
 
-
+    Notes
+    -----
     For additional docs, see `scikitlearn's ElasticNet
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
 
     def __init__(self, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3, selection='cyclic',
-                 handle=None):
-
+                 handle=None, output_type=None):
         """
         Initializes the elastic-net regression class.
 
@@ -151,7 +158,9 @@ class ElasticNet(Base, RegressorMixin):
         """
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(ElasticNet, self).__init__(handle=handle, verbose=0)
+        super(ElasticNet, self).__init__(handle=handle,
+                                         verbose=False,
+                                         output_type=output_type)
 
         self._check_alpha(alpha)
         self._check_l1_ratio(l1_ratio)
@@ -192,7 +201,7 @@ class ElasticNet(Base, RegressorMixin):
             msg = "l1_ratio value has to be between 0.0 and 1.0"
             raise ValueError(msg.format(l1_ratio))
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
@@ -208,12 +217,12 @@ class ElasticNet(Base, RegressorMixin):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the transform method will, when necessary,
             convert y to be the same data type as X if they differ. This
             will increase memory used for the method.
-
         """
+        self._set_n_features_in(X)
 
         self.cuElasticNet.fit(X, y, convert_dtype=convert_dtype)
 

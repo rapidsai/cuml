@@ -14,21 +14,15 @@
 #
 
 import cupy
-import cudf
 
 from cuml.dask.cluster import KMeans
 from cuml.dask.naive_bayes.naive_bayes import MultinomialNB
 from cuml.test.dask.utils import load_text_corpus
 
-from dask.distributed import Client
-from dask.distributed import wait
-
 from cuml.dask.datasets import make_blobs
 
 
-def test_getattr(cluster):
-
-    client = Client(cluster)
+def test_getattr(client):
 
     # Test getattr on local param
     kmeans_model = KMeans(client=client)
@@ -37,26 +31,21 @@ def test_getattr(cluster):
 
     # Test getattr on local_model param with a non-distributed model
 
-    X_cudf, y = make_blobs(n_samples=5,
-                           n_features=5,
-                           centers=2,
-                           n_parts=2,
-                           cluster_std=0.01,
-                           verbose=False,
-                           random_state=10)
+    X, y = make_blobs(n_samples=5,
+                      n_features=5,
+                      centers=2,
+                      n_parts=2,
+                      cluster_std=0.01,
+                      random_state=10)
 
-    wait(X_cudf)
-
-    kmeans_model.fit(X_cudf)
+    kmeans_model.fit(X)
 
     assert kmeans_model.cluster_centers_ is not None
-    assert isinstance(kmeans_model.cluster_centers_, cudf.DataFrame)
+    assert isinstance(kmeans_model.cluster_centers_, cupy.core.ndarray)
 
     # Test getattr on trained distributed model
 
     X, y = load_text_corpus(client)
-
-    print(str(X.compute()))
 
     nb_model = MultinomialNB(client=client)
     nb_model.fit(X, y)

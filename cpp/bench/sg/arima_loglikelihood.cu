@@ -21,8 +21,8 @@
 #include <thrust/iterator/counting_iterator.h>
 
 #include <cuml/tsa/arima_common.h>
-#include <random/rng.h>
 #include <cuml/tsa/batched_arima.hpp>
+#include <random/rng.cuh>
 
 #include "benchmark.cuh"
 
@@ -72,6 +72,8 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
   }
 
   void allocateBuffers(const ::benchmark::State& state) {
+    Fixture::allocateBuffers(state);
+
     auto& handle = *this->handle;
     auto stream = handle.getStream();
     auto allocator = handle.getDeviceAllocator();
@@ -90,6 +92,8 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
   }
 
   void deallocateBuffers(const ::benchmark::State& state) {
+    Fixture::deallocateBuffers(state);
+
     auto& handle = *this->handle;
     auto stream = handle.getStream();
     auto allocator = handle.getDeviceAllocator();

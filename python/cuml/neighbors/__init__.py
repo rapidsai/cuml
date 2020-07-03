@@ -17,3 +17,14 @@
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
 from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
+
+
+VALID_METRICS = {"brute": set([
+        "l2", "euclidean",
+        "l1", "cityblock", "manhattan", "taxicab",
+        "braycurtis", "canberra",
+        "minkowski", "lp",
+        "chebyshev", "linf",
+        "jensenshannon",
+        "cosine", "correlation"
+    ])}

@@ -22,7 +22,7 @@ from dask.distributed import wait
 import dask.array
 
 
-from cuml.utils import with_cupy_rmm
+from cuml.common import with_cupy_rmm
 
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
@@ -31,7 +31,7 @@ from cuml.dask.common.func import reduce
 from cuml.dask.common.func import tree_reduce
 
 from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.utils import rmm_cupy_ary
+from cuml.common import rmm_cupy_ary
 
 from cuml.naive_bayes import MultinomialNB as MNB
 

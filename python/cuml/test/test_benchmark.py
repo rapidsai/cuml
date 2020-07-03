@@ -16,7 +16,8 @@ from cuml.benchmark import datagen, algorithms
 from cuml.benchmark.bench_helper_funcs import _training_data_to_numpy
 from cuml.benchmark.runners import AccuracyComparisonRunner, \
     SpeedupComparisonRunner, run_variations
-from cuml.utils.import_utils import has_umap, has_xgboost
+from cuml.common.import_utils import has_umap
+from cuml.common.import_utils import has_xgboost
 
 import numpy as np
 import cudf
@@ -177,7 +178,7 @@ def test_accuracy_runner():
 def test_real_algos_runner(algo_name):
     pair = algorithms.algorithm_by_name(algo_name)
 
-    if (algo_name == 'UMAP' and not has_umap()) or \
+    if (algo_name == 'UMAP-Supervised' and not has_umap()) or \
        (algo_name == 'FIL' and not has_xgboost()):
         pytest.xfail()
 

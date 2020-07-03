@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,22 +17,22 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <cuda_utils.h>
-#include <functions/linearReg.h>
-#include <functions/penalty.h>
-#include <functions/softThres.h>
-#include <linalg/add.h>
 #include <linalg/cublas_wrappers.h>
-#include <linalg/eltwise.h>
-#include <linalg/gemm.h>
-#include <linalg/multiply.h>
-#include <linalg/subtract.h>
-#include <linalg/unary_op.h>
-#include <matrix/math.h>
-#include <matrix/matrix.h>
-#include "common/cumlHandle.hpp"
-#include "glm/preprocess.cuh"
-#include "ml_utils.h"
+#include <common/cumlHandle.hpp>
+#include <cuda_utils.cuh>
+#include <cuml/solvers/params.hpp>
+#include <functions/linearReg.cuh>
+#include <functions/penalty.cuh>
+#include <functions/softThres.cuh>
+#include <glm/preprocess.cuh>
+#include <linalg/add.cuh>
+#include <linalg/eltwise.cuh>
+#include <linalg/gemm.cuh>
+#include <linalg/multiply.cuh>
+#include <linalg/subtract.cuh>
+#include <linalg/unary_op.cuh>
+#include <matrix/math.cuh>
+#include <matrix/matrix.cuh>
 #include "shuffle.h"
 
 namespace ML {
