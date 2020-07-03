@@ -220,6 +220,7 @@ class NearestNeighbors(Base):
         self.metric_params = metric_params
         self.p = p
         self.algorithm = algorithm
+        self._X_m = None  # accessed via X_m
 
     def fit(self, X, convert_dtype=True):
         """
@@ -244,7 +245,7 @@ class NearestNeighbors(Base):
 
         self.n_dims = X.shape[1]
 
-        self.X_m, n_rows, n_cols, dtype = \
+        self._X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F', check_dtype=np.float32,
                                 convert_to_dtype=(np.float32
                                                   if convert_dtype
@@ -325,7 +326,7 @@ class NearestNeighbors(Base):
         """
 
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
-        X = self.X_m if X is None else X
+        X = self._X_m if X is None else X
 
         out_type = self._get_output_type(X)
 
@@ -333,7 +334,7 @@ class NearestNeighbors(Base):
                 or n_neighbors <= 0:
             raise ValueError("k or n_neighbors must be a positive integers")
 
-        if n_neighbors > self.X_m.shape[0]:
+        if n_neighbors > self._X_m.shape[0]:
             raise ValueError("n_neighbors must be <= number of "
                              "samples in index")
 
@@ -362,9 +363,9 @@ class NearestNeighbors(Base):
         cdef vector[float*] *inputs = new vector[float*]()
         cdef vector[int] *sizes = new vector[int]()
 
-        cdef uintptr_t idx_ptr = self.X_m.ptr
+        cdef uintptr_t idx_ptr = self._X_m.ptr
         inputs.push_back(<float*>idx_ptr)
-        sizes.push_back(<int>self.X_m.shape[0])
+        sizes.push_back(<int>self._X_m.shape[0])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 

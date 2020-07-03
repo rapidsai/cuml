@@ -248,7 +248,7 @@ class QN(Base):
         self.linesearch_max_iter = linesearch_max_iter
         self.lbfgs_memory = lbfgs_memory
         self.num_iter = 0
-        self.coef_ = None
+        self._coef_ = None  # accessed via _coef_
 
         if loss not in ['sigmoid', 'softmax', 'normal']:
             raise ValueError("loss " + str(loss) + " not supported.")
@@ -319,8 +319,8 @@ class QN(Base):
         else:
             coef_size = (self.n_cols, self._num_classes_dim)
 
-        self.coef_ = CumlArray.ones(coef_size, dtype=self.dtype, order='C')
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        self._coef_ = CumlArray.ones(coef_size, dtype=self.dtype, order='C')
+        cdef uintptr_t coef_ptr = self._coef_.ptr
 
         cdef float objective32
         cdef double objective64
@@ -414,7 +414,7 @@ class QN(Base):
         scores = CumlArray.zeros(shape=(self._num_classes_dim, n_rows),
                                  dtype=self.dtype, order='F')
 
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t coef_ptr = self._coef_.ptr
         cdef uintptr_t scores_ptr = scores.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -481,7 +481,7 @@ class QN(Base):
         cdef uintptr_t X_ptr = X_m.ptr
 
         preds = CumlArray.zeros(shape=n_rows, dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t coef_ptr = self._coef_.ptr
         cdef uintptr_t pred_ptr = preds.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -522,7 +522,7 @@ class QN(Base):
     def __getattr__(self, attr):
         if attr == 'intercept_':
             if self.fit_intercept:
-                return self.coef_[-1]
+                return self._coef_[-1]
             else:
                 return CumlArray.zeros(shape=1)
         else:
