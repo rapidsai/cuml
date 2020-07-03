@@ -236,9 +236,9 @@ class QN(Base):
     def __init__(self, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
                  linesearch_max_iter=50, lbfgs_memory=5,
-                 verbose=False, handle=None):
+                 verbose=False, handle=None, output_type=None):
 
-        super(QN, self).__init__(handle=handle, verbose=verbose)
+        super(QN, self).__init__(handle=handle, verbose=verbose, output_type=output_type)
 
         self.fit_intercept = fit_intercept
         self.l1_strength = l1_strength
@@ -248,7 +248,7 @@ class QN(Base):
         self.linesearch_max_iter = linesearch_max_iter
         self.lbfgs_memory = lbfgs_memory
         self.num_iter = 0
-        self._coef_ = None  # accessed via _coef_
+        self._coef_ = None  # accessed via coef_
 
         if loss not in ['sigmoid', 'softmax', 'normal']:
             raise ValueError("loss " + str(loss) + " not supported.")
@@ -526,7 +526,7 @@ class QN(Base):
             else:
                 return CumlArray.zeros(shape=1)
         else:
-            raise AttributeError(attr)
+            return super().__getattr__(attr)
 
     def get_param_names(self):
         return ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
