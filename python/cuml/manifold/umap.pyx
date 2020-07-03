@@ -542,7 +542,7 @@ class UMAP(Base):
 
         self._embedding_ = CumlArray.zeros((self.n_rows,
                                            self.n_components),
-                                          order="C", dtype=np.float32)
+                                           order="C", dtype=np.float32)
 
         if self.hash_input:
             self.input_hash = joblib.hash(self._X_m.to_output('numpy'))

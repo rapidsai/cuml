@@ -238,7 +238,8 @@ class QN(Base):
                  linesearch_max_iter=50, lbfgs_memory=5,
                  verbose=False, handle=None, output_type=None):
 
-        super(QN, self).__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super(QN, self).__init__(handle=handle, verbose=verbose,
+                                 output_type=output_type)
 
         self.fit_intercept = fit_intercept
         self.l1_strength = l1_strength
