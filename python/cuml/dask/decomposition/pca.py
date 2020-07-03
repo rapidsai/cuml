@@ -55,7 +55,8 @@ class PCA(BaseDecomposition,
         n_parts = 2
 
         X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                        cluster_std=0.01, verbose=False,
+                        cluster_std=0.01,
+                        verbose=cuml.logger.level_info,
                         random_state=10, dtype=np.float32)
 
         wait(X_cudf)
@@ -101,11 +102,12 @@ class PCA(BaseDecomposition,
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
-    svd_solver : 'full'
-        Only Full algorithm is supported since it's significantly faster on GPU
-        then the other solvers including randomized SVD.
-    verbose : bool
-        Whether to print debug spews
+    svd_solver : 'full', 'jacobi', or 'tsqr'
+        'full': run exact full SVD and select the components by postprocessing
+        'jacobi': iteratively compute SVD of the covariance matrix
+        'tsqr': compute qr decomposition of the data matrix
+    verbose : int or boolean (default = False)
+        Logging level
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by
         the corresponding singular values then multiplying by sqrt(n_samples).

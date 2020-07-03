@@ -19,10 +19,10 @@ import numpy as np
 
 from rmm import DeviceBuffer
 from cudf.core import Buffer, Series, DataFrame
-from cuml.utils import with_cupy_rmm
-from cuml.utils.memory_utils import _get_size_from_shape
-from cuml.utils.memory_utils import _order_to_strides
-from cuml.utils.memory_utils import _strides_to_order
+from cuml.common.memory_utils import with_cupy_rmm
+from cuml.common.memory_utils import _get_size_from_shape
+from cuml.common.memory_utils import _order_to_strides
+from cuml.common.memory_utils import _strides_to_order
 from numba import cuda
 
 
@@ -37,14 +37,10 @@ class CumlArray(Buffer):
     the owner of the data referred to by the pointer should be specified
     explicitly.
 
-    To standardize our code, please import this using:
-
-    from cuml.common.array import Array as cumlArray
-
     Parameters
     ----------
 
-    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearrar or
+    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearray or
            memoryview
         An array-like object or integer representing a
         device or host pointer to pre-allocated memory.
@@ -112,11 +108,16 @@ class CumlArray(Buffer):
                  order=None):
 
         # Checks of parameters
+        memview_construction = False
         if data is None:
             raise TypeError("To create an empty Array, use the class method" +
                             " Array.empty().")
         elif isinstance(data, memoryview):
             data = np.asarray(data)
+            memview_construction = True
+
+        if dtype is not None:
+            dtype = np.dtype(dtype)
 
         if _check_low_level_type(data):
             if dtype is None or shape is None or order is None:
@@ -133,12 +134,24 @@ class CumlArray(Buffer):
 
         # Base class (Buffer) constructor call
         size, shape = _get_size_from_shape(shape, dtype)
-        super(CumlArray, self).__init__(data=data, owner=owner, size=size)
+
+        if not memview_construction and not detailed_construction:
+            flattened_data = cp.asarray(data).ravel(order='A').view('u1')
+        else:
+            flattened_data = data
+
+        super(CumlArray, self).__init__(data=flattened_data,
+                                        owner=owner,
+                                        size=size)
+
+        if owner is None and not isinstance(data, np.ndarray):
+            # need to reference original owner instead of flattened_data
+            self._owner = data
 
         # Post processing of meta data
         if detailed_construction:
             self.shape = shape
-            self.dtype = np.dtype(dtype)
+            self.dtype = dtype
             self.order = order
             self.strides = _order_to_strides(order, shape, dtype)
 
@@ -168,9 +181,6 @@ class CumlArray(Buffer):
     def __setitem__(self, slice, value):
         cp.asarray(self).__setitem__(slice, value)
 
-    def __reduce__(self):
-        return self.__class__, (self.to_output('numpy'),)
-
     def __len__(self):
         return self.shape[0]
 
@@ -186,7 +196,7 @@ class CumlArray(Buffer):
         return output
 
     @with_cupy_rmm
-    def to_output(self, output_type='cupy'):
+    def to_output(self, output_type='cupy', output_dtype=None):
         """
         Convert array to output format
 
@@ -201,7 +211,12 @@ class CumlArray(Buffer):
             'series' - to cuDF Series
             'cudf' - to cuDF Series if array is single dimensional, to
                 DataFrame otherwise
+        output_dtype : string, optional
+            Optionally cast the array to a specified dtype, creating
+            a copy if necessary.
         """
+        if output_dtype is None:
+            output_dtype = self.dtype
 
         # check to translate cudf to actual type converted
         if output_type == 'cudf':
@@ -213,18 +228,20 @@ class CumlArray(Buffer):
                 output_type = 'dataframe'
 
         if output_type == 'cupy':
-            return cp.asarray(self)
+            return cp.asarray(self, dtype=output_dtype)
 
         elif output_type == 'numba':
-            return cuda.as_cuda_array(self)
+            return cuda.as_cuda_array(cp.asarray(self, dtype=output_dtype))
 
         elif output_type == 'numpy':
-            return cp.asnumpy(cp.asarray(self), order=self.order)
+            return cp.asnumpy(
+                cp.asarray(self, dtype=output_dtype), order=self.order
+            )
 
         elif output_type == 'dataframe':
             if self.dtype not in [np.uint8, np.uint16, np.uint32,
                                   np.uint64, np.float16]:
-                mat = cuda.as_cuda_array(self)
+                mat = cp.asarray(self, dtype=output_dtype)
                 if len(mat.shape) == 1:
                     mat = mat.reshape(mat.shape[0], 1)
                 return DataFrame.from_gpu_matrix(mat)
@@ -237,7 +254,7 @@ class CumlArray(Buffer):
             if len(self.shape) == 1:
                 if self.dtype not in [np.uint8, np.uint16, np.uint32,
                                       np.uint64, np.float16]:
-                    return Series(self, dtype=self.dtype)
+                    return Series(self, dtype=output_dtype)
                 else:
                     raise ValueError('cuDF unsupported Array dtype')
             elif self.shape[1] > 1:
@@ -246,7 +263,7 @@ class CumlArray(Buffer):
             else:
                 if self.dtype not in [np.uint8, np.uint16, np.uint32,
                                       np.uint64, np.float16]:
-                    return Series(self, dtype=self.dtype)
+                    return Series(self, dtype=output_dtype)
                 else:
                     raise ValueError('cuDF unsupported Array dtype')
 

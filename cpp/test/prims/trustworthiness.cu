@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <score/scores.h>
+#include <cuda_utils.cuh>
+#include <distance/distance.cuh>
 #include <iostream>
+#include <score/scores.cuh>
 #include <vector>
-#include "distance/distance.h"
 #include "test_utils.h"
 
 namespace MLCommon {

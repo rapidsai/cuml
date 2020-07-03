@@ -24,8 +24,9 @@
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
-from cuml.utils.cython_utils import *
+from cuml.common.cython_utils import *
 from cython.operator cimport dereference as deref
+from libcpp.vector cimport vector
 
 
 cdef extern from "cumlprims/opg/matrix/data.hpp" \
@@ -47,3 +48,9 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
     cdef cppclass RankSizePair:
         int rank
         size_t size
+
+    cdef cppclass PartDescriptor:
+        PartDescriptor(size_t M,
+                       size_t N,
+                       vector[RankSizePair *] &partsToRanks,
+                       int myrank)

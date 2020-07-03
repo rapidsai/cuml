@@ -23,6 +23,8 @@ import ctypes
 import cudf
 import numpy as np
 
+from enum import IntEnum
+
 import rmm
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -33,9 +35,10 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
+
 
 cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
 
@@ -92,6 +95,11 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
                             double *components,
                             double *trans_input,
                             const paramsTSVD &prms) except +
+
+
+class Solver(IntEnum):
+    COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
+    COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
 class TruncatedSVD(Base):
@@ -189,8 +197,8 @@ class TruncatedSVD(Base):
     tol : float (default = 1e-7)
         Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
         but but will slow down the algorithm's convergence.
-    verbose : bool
-        Whether to print debug spews
+    verbose : int or boolean (default = False)
+        Logging level
 
     Attributes
     -----------
@@ -219,15 +227,13 @@ class TruncatedSVD(Base):
         TruncatedSVD is also used in information retrieval tasks,
         recommendation systems and data compression.
 
-    For additional examples, see `the Truncated SVD  notebook
-    <https://github.com/rapidsai/notebooks/blob/master/cuml/tsvd_demo.ipynb>`_.
     For additional documentation, see `scikitlearn's TruncatedSVD docs
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
     """
 
     def __init__(self, algorithm='full', handle=None, n_components=1,
-                 n_iter=15, random_state=None, tol=1e-7, verbose=False,
-                 output_type=None):
+                 n_iter=15, random_state=None, tol=1e-7,
+                 verbose=False, output_type=None):
         # params
         super(TruncatedSVD, self).__init__(handle=handle, verbose=verbose,
                                            output_type=output_type)
@@ -251,9 +257,9 @@ class TruncatedSVD(Base):
 
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
-            'full': COV_EIG_DQ,
-            'auto': COV_EIG_DQ,
-            'jacobi': COV_EIG_JACOBI
+            'full': Solver.COV_EIG_DQ,
+            'auto': Solver.COV_EIG_DQ,
+            'jacobi': Solver.COV_EIG_JACOBI
         }
         if algorithm not in algo_map:
             msg = "algorithm {!r} is not supported"
@@ -267,7 +273,8 @@ class TruncatedSVD(Base):
         params.n_cols = n_cols
         params.n_iterations = self.n_iter
         params.tol = self.tol
-        params.algorithm = self.c_algorithm
+        params.algorithm = <solver> (<underlying_type_t_solver> (
+            self.c_algorithm))
 
         return <size_t>params
 
@@ -322,6 +329,7 @@ class TruncatedSVD(Base):
             Reduced version of X as a dense cuDF DataFrame
         """
         self._set_output_type(X)
+        self._set_n_features_in(X)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])

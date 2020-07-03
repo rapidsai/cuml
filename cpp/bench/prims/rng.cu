@@ -15,7 +15,7 @@
  */
 
 #include <common/cudart_utils.h>
-#include <random/rng.h>
+#include <random/rng.cuh>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {

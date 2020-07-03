@@ -29,6 +29,11 @@ TEST(Logger, Test) {
   ASSERT_EQ(CUML_LEVEL_WARN, Logger::get().getLevel());
   Logger::get().setLevel(CUML_LEVEL_INFO);
   ASSERT_EQ(CUML_LEVEL_INFO, Logger::get().getLevel());
+
+  ASSERT_FALSE(Logger::get().shouldLogFor(CUML_LEVEL_TRACE));
+  ASSERT_FALSE(Logger::get().shouldLogFor(CUML_LEVEL_DEBUG));
+  ASSERT_TRUE(Logger::get().shouldLogFor(CUML_LEVEL_INFO));
+  ASSERT_TRUE(Logger::get().shouldLogFor(CUML_LEVEL_WARN));
 }
 
 }  // namespace ML

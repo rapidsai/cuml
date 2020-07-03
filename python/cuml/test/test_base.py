@@ -13,7 +13,9 @@
 # limitations under the License.
 #
 
+import pytest
 import cuml
+from cuml.test.utils import small_classification_dataset
 
 
 def test_base_class_usage():
@@ -39,3 +41,18 @@ def test_base_hasattr():
     # True only for valid attributes
     assert hasattr(base, "handle")
     assert not hasattr(base, "somefakeattr")
+
+
+@pytest.mark.parametrize('datatype', ["float32", "float64"])
+@pytest.mark.parametrize('use_integer_n_features', [True, False])
+def test_base_n_features_in(datatype, use_integer_n_features):
+    X_train, _, _, _ = small_classification_dataset(datatype)
+    integer_n_features = 8
+    clf = cuml.Base()
+
+    if use_integer_n_features:
+        clf._set_n_features_in(integer_n_features)
+        assert clf.n_features_in_ == integer_n_features
+    else:
+        clf._set_n_features_in(X_train)
+        assert clf.n_features_in_ == X_train.shape[1]
