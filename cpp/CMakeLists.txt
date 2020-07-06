@@ -306,7 +306,7 @@ set(CUML_INCLUDE_DIRECTORIES
   ${RAFT_DIR}/cpp/include
   )
 
-set(CUML_LINK_LIBRARIES
+set(CUML_PUBLIC_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
   ${CUDA_curand_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
@@ -315,12 +315,20 @@ set(CUML_LINK_LIBRARIES
   ${CUDA_nvgraph_LIBRARY}
   )
 
+set(CUML_PRIVATE_LINK_LIBRARIES
+  ${Protobuf_LIBRARIES}
+  faisslib
+  treelite::treelite
+  treelite::treelite_runtime
+  )
+
 if(ENABLE_CUMLPRIMS_MG)
   list(APPEND CUML_INCLUDE_DIRECTORIES
        ${CUMLPRIMS_MG_INCLUDE_DIRS})
 
-  list(APPEND CUML_LINK_LIBRARIES
-       ${CUMLPRIMS_MG_LIBRARIES})
+  list(APPEND CUML_PRIVATE_LINK_LIBRARIES
+       CUMLPRIMS_MG::CUMLPRIMS_MG)
+
 endif(ENABLE_CUMLPRIMS_MG)
 
 ##############################################################################
@@ -379,11 +387,11 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif(NOT SINGLEGPU)
 
   if(OPENMP_FOUND)
-    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} ${OpenMP_CXX_LIB_NAMES} Threads::Threads)
+    set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} ${OpenMP_CXX_LIB_NAMES} Threads::Threads)
   endif(OPENMP_FOUND)
 
   if(NVTX)
-    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} nvToolsExt)
+    set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} nvToolsExt)
     link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
   endif(NVTX)
 
@@ -392,12 +400,10 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
-      ${CUML_LINK_LIBRARIES}
+      ${CUML_PUBLIC_LINK_LIBRARIES}
     PRIVATE
-      ${Protobuf_LIBRARIES}
-      faisslib
-      treelite::treelite
-      treelite::treelite_runtime)
+      ${CUML_PRIVATE_LINK_LIBRARIES}
+  )
   # If we export the libdmlc symbols, they can lead to weird crashes with other
   # libraries that use libdmlc. This just hides the symbols internally.
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
