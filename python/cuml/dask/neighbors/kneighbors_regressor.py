@@ -177,8 +177,7 @@ class KNeighborsRegressor(NearestNeighbors):
                            for idx, worker in enumerate(comms.worker_addresses)
                             ])
 
-        wait(list(knn_reg_res.values()))
-        raise_exception_from_futures(list(knn_reg_res.values()))
+        wait_and_raise_from_futures(list(knn_reg_res.values()))
 
         """
         Gather resulting partitions and return result

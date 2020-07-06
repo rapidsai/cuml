@@ -202,8 +202,7 @@ class KNeighborsClassifier(NearestNeighbors):
                            for idx, worker in enumerate(comms.worker_addresses)
                             ])
 
-        wait(list(knn_clf_res.values()))
-        raise_exception_from_futures(list(knn_clf_res.values()))
+        wait_and_raise_from_futures(list(knn_clf_res.values()))
 
         """
         Gather resulting partitions and return result
@@ -341,8 +340,7 @@ class KNeighborsClassifier(NearestNeighbors):
                            for idx, worker in enumerate(comms.worker_addresses)
                             ])
 
-        wait(list(knn_prob_res.values()))
-        raise_exception_from_futures(list(knn_prob_res.values()))
+        wait_and_raise_from_futures(list(knn_prob_res.values()))
 
         n_outputs = len(self.n_unique)
 
