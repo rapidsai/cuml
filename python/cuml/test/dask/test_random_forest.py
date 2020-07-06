@@ -114,7 +114,7 @@ def test_rf_regression_dask_fil(partitions_per_worker,
                                                         random_state=123)
 
     if dtype == np.float64:
-        pytest.xfail(reason=" Dask RF does not support float64 data")
+        pytest.xfail(reason=" Dask RF does not support np.float64 data")
 
     cu_rf_params = {
         'n_estimators': 50,
