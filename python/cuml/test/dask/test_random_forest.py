@@ -98,22 +98,22 @@ def test_rf_classification_dask_cudf(partitions_per_worker, client):
     assert acc_score > 0.8
 
 
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
 @pytest.mark.parametrize('partitions_per_worker', [5])
 def test_rf_regression_dask_fil(partitions_per_worker,
-                                datatype, client):
+                                dtype, client):
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
     X, y = make_regression(n_samples=10000, n_features=20,
                            n_informative=10, random_state=123)
 
-    X = X.astype(datatype)
-    y = y.astype(datatype)
+    X = X.astype(dtype)
+    y = y.astype(dtype)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                         test_size=1000,
                                                         random_state=123)
 
-    if datatype == np.float64:
+    if dtype == np.float64:
         pytest.xfail(reason=" Dask RF does not support float64 data")
 
     cu_rf_params = {

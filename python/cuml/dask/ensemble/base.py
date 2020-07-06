@@ -87,11 +87,9 @@ class BaseRandomForestModel(object):
         data = DistributedDataHandler.create(dataset, client=self.client)
         self.datatype = data.datatype
         if self.datatype == 'cudf':
-            dtype = dataset[0].dtypes
-            has_float64 = (dtype.any() == np.float64)
+            has_float64 = (dataset[0].dtypes.any() == np.float64)
         else:
-            dtype = dataset[0].dtype
-            has_float64 = (dtype == np.float64)
+            has_float64 = (dataset[0].dtype == np.float64)
         if has_float64:
             raise TypeError("To use Dask RF data should have dtype float32.")
 
