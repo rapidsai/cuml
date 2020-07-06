@@ -38,6 +38,7 @@
 - PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
 - PR #2439: Update dask RF code to have print_detailed function
 - PR #2431: Match output of classifier predict with target dtype
+- PR #2513: Fixing LGTM Analysis Issues
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
