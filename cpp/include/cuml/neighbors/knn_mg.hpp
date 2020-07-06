@@ -23,8 +23,10 @@
 
 #pragma once
 
-namespace MLCommon {
-namespace Selection {
+using namespace MLCommon;
+
+namespace ML {
+namespace KNN {
 namespace opg {
 
 /**
@@ -56,5 +58,5 @@ void brute_force_knn(ML::cumlHandle &handle,
                      bool verbose = false);
 
 };  // END namespace opg
-};  // namespace Selection
-};  // namespace MLCommon
+};  // namespace KNN
+};  // namespace ML
