@@ -35,6 +35,8 @@
 #include <thrust/scan.h>
 #include <numeric>
 
+#include <ml_cuda_utils.h>
+
 #include <common/allocatorAdapter.hpp>
 #include <common/cumlHandle.hpp>
 #include <common/cuml_comms_int.hpp>
@@ -43,6 +45,8 @@
 #include <common/tensor.hpp>
 
 #include <cuml/common/logger.hpp>
+
+#include <cuml/cluster/kmeans_mg.hpp>
 
 #include <fstream>
 
