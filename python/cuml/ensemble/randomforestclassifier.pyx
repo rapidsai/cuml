@@ -577,6 +577,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
             the method.
         """
         self._set_output_type(X)
+        self._set_target_dtype(y)
         self._set_n_features_in(X)
 
         # Reset the old tree data for new fit call
@@ -691,6 +692,8 @@ class RandomForestClassifier(Base, ClassifierMixin):
                               num_classes, convert_dtype,
                               fil_sparse_format, predict_proba):
         out_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype()
+
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
                                 convert_to_dtype=(self.dtype if convert_dtype
@@ -721,11 +724,14 @@ class RandomForestClassifier(Base, ClassifierMixin):
                                                  storage_type=storage_type)
 
         preds = tl_to_fil_model.predict(X, output_type=out_type,
+                                        output_dtype=out_dtype,
                                         predict_proba=predict_proba)
         return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):
         out_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype()
+
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
@@ -769,7 +775,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
         self.handle.sync()
         # synchronous w/o a stream
         del(X_m)
-        return preds.to_output(out_type)
+        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
@@ -830,8 +836,8 @@ class RandomForestClassifier(Base, ClassifierMixin):
 
         Returns
         ----------
-        y : NumPy
-           Dense vector (int) of shape (n_samples, 1)
+        y : (same as the input datatype)
+            Dense vector (ints, floats, or doubles) of shape (n_samples, 1)
         """
         if predict_model == "CPU" or self.num_classes > 2:
             if self.num_classes > 2 and predict_model == "GPU":
