@@ -54,6 +54,7 @@
 - PR #2454: Mark RF memleak test as XFAIL, because we can't detect memleak reliably
 - PR #2455: Use correct field to store data type in `LabelEncoder.fit_transform`
 - PR #2475: Fix typo in build.sh
+- PR #2496: Fixing indentation for simulate_data in test_fil.py
 - PR #2494: Set QN regularization strength consistent with scikit-learn
 - PR #2486: Fix cupy input to kmeans init
 - PR #2497: Changes to accomodate cuDF unsigned categorical changes
