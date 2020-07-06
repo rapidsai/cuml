@@ -20,6 +20,7 @@
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 #include <rmm/mr/device/default_memory_resource.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 
@@ -32,7 +33,15 @@ namespace ML {
  */
 class rmmAllocatorAdapter : public ML::deviceAllocator {
  public:
-  rmmAllocatorAdapter() {}
+  raft::mr::device::allocator raft_resource_allocator = nullptr;
+
+  rmmAllocatorAdapter() {
+    raft_resource_allocator = new default_allocator();
+  }
+
+  rmmAllocatorAdapter(raft::mr::device::allocator raft_allocator) {
+    raft_resource_allocator = raft_allocator;
+  }
 
   /**
    * @brief asynchronosly allocate n bytes that can be used after all work in
@@ -43,7 +52,7 @@ class rmmAllocatorAdapter : public ML::deviceAllocator {
    */
   virtual void* allocate(std::size_t n, cudaStream_t stream) {
     void* ptr = 0;
-    ptr = rmm::mr::get_default_resource()->allocate(n, stream);
+    ptr = raft_resource_allocator->allocate(n, stream);
     return ptr;
   }
 
@@ -56,7 +65,7 @@ class rmmAllocatorAdapter : public ML::deviceAllocator {
    * @param[in] stream    the stream to use for the asynchronous free
    */
   virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) {
-    rmm::mr::get_default_resource()->deallocate(p, n, stream);
+    raft_resource_allocator->deallocate(p, n, stream);
   }
 
   virtual ~rmmAllocatorAdapter() {}
