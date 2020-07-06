@@ -129,8 +129,6 @@ class DecompositionSyncFitMixin(object):
 
         return self
 
-        return self
-
     @staticmethod
     def _create_model(sessionId, model_func, datatype, **kwargs):
         handle = worker_state(sessionId)["handle"]
