@@ -37,7 +37,7 @@
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
 - PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
 - PR #2431: Match output of classifier predict with target dtype
-- PR #2099: Raise an error or convert dtype when float64 data is used with dask RF
+- PR #2099: Raise an error when float64 data is used with dask RF
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
