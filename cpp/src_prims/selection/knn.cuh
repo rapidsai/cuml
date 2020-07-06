@@ -42,6 +42,17 @@
 namespace MLCommon {
 namespace Selection {
 
+template <bool precomp_lbls, typename T>
+inline __device__ T get_lbls(const T *labels, const int64_t *knn_indices,
+                             int64_t idx) {
+  if (precomp_lbls) {
+    return labels[idx];
+  } else {
+    int64_t neighbor_idx = knn_indices[idx];
+    return labels[neighbor_idx];
+  }
+}
+
 template <int warp_q, int thread_q, int tpb>
 __global__ void knn_merge_parts_kernel(float *inK, int64_t *inV, float *outK,
                                        int64_t *outV, size_t n_samples,
@@ -346,13 +357,7 @@ __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
   if (row >= n_samples) return;
 
   for (int j = 0; j < n_neighbors; j++) {
-    int out_label;
-    if (precomp_lbls) {
-      out_label = labels[i + j];
-    } else {
-      int64_t neighbor_idx = knn_indices[i + j];
-      out_label = labels[neighbor_idx];
-    }
+    int out_label = get_lbls<precomp_lbls>(labels, knn_indices, i + j);
     int out_idx = row * n_uniq_labels + out_label;
     out[out_idx] += n_neigh_inv;
   }
@@ -399,12 +404,7 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
   // should work for moderately small number of classes
   LabelType pred = 0;
   for (int j = 0; j < n_neighbors; j++) {
-    if (precomp_lbls) {
-      pred += labels[i + j];
-    } else {
-      int64_t neighbor_idx = knn_indices[i + j];
-      pred += labels[neighbor_idx];
-    }
+    pred = get_lbls<precomp_lbls>(labels, knn_indices, i + j);
   }
 
   out[row * n_outputs + output_offset] = pred / (LabelType)n_neighbors;
