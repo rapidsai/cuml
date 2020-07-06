@@ -25,7 +25,6 @@ from cuml.dask.neighbors import KNeighborsRegressor as dKNNReg
 from sklearn.datasets import make_multilabel_classification
 from sklearn.model_selection import train_test_split
 
-from dask.distributed import Client
 import dask.array as da
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 from cudf.core.dataframe import DataFrame
@@ -113,93 +112,81 @@ def match_test(output1, output2):
 @pytest.mark.parametrize("n_neighbors", [1, 3, 8])
 @pytest.mark.parametrize("n_parts", [None, 2, 3, 5])
 @pytest.mark.parametrize("batch_size", [128, 512, 1024])
-def test_predict(dataset, datatype, n_neighbors, n_parts, batch_size, cluster):
-    client = Client(cluster)
+def test_predict(dataset, datatype, n_neighbors, n_parts, batch_size, client):
+    X_train, X_test, y_train, y_test = dataset
 
-    try:
-        X_train, X_test, y_train, y_test = dataset
+    l_model = lKNNReg(n_neighbors=n_neighbors)
+    l_model.fit(X_train, y_train)
+    l_distances, l_indices = l_model.kneighbors(X_test)
+    l_outputs = l_model.predict(X_test)
+    local_out = (l_outputs, l_indices, l_distances)
 
-        l_model = lKNNReg(n_neighbors=n_neighbors)
-        l_model.fit(X_train, y_train)
-        l_distances, l_indices = l_model.kneighbors(X_test)
-        l_outputs = l_model.predict(X_test)
-        local_out = (l_outputs, l_indices, l_distances)
+    if not n_parts:
+        n_parts = len(client.has_what().keys())
 
-        if not n_parts:
-            n_parts = len(client.has_what().keys())
+    X_train = generate_dask_array(X_train, n_parts)
+    X_test = generate_dask_array(X_test, n_parts)
+    y_train = generate_dask_array(y_train, n_parts)
 
-        X_train = generate_dask_array(X_train, n_parts)
-        X_test = generate_dask_array(X_test, n_parts)
-        y_train = generate_dask_array(y_train, n_parts)
+    if datatype == 'dask_cudf':
+        X_train = to_dask_cudf(X_train, client)
+        X_test = to_dask_cudf(X_test, client)
+        y_train = to_dask_cudf(y_train, client)
 
-        if datatype == 'dask_cudf':
-            X_train = to_dask_cudf(X_train, client)
-            X_test = to_dask_cudf(X_test, client)
-            y_train = to_dask_cudf(y_train, client)
+    d_model = dKNNReg(client=client, n_neighbors=n_neighbors,
+                      batch_size=batch_size)
+    d_model.fit(X_train, y_train)
+    d_outputs, d_indices, d_distances = \
+        d_model.predict(X_test, convert_dtype=True)
+    distributed_out = da.compute(d_outputs, d_indices, d_distances)
 
-        d_model = dKNNReg(client=client, n_neighbors=n_neighbors,
-                          batch_size=batch_size)
-        d_model.fit(X_train, y_train)
-        d_outputs, d_indices, d_distances = \
-            d_model.predict(X_test, convert_dtype=True)
-        distributed_out = da.compute(d_outputs, d_indices, d_distances)
+    if datatype == 'dask_cudf':
+        distributed_out = list(map(lambda o: o.as_matrix()
+                                   if isinstance(o, DataFrame)
+                                   else o.to_array()[..., np.newaxis],
+                                   distributed_out))
 
-        if datatype == 'dask_cudf':
-            distributed_out = list(map(lambda o: o.as_matrix()
-                                       if isinstance(o, DataFrame)
-                                       else o.to_array()[..., np.newaxis],
-                                       distributed_out))
-
-        match_test(local_out, distributed_out)
-        accuracy_score(local_out[0], distributed_out[0]) > 0.12
-
-    finally:
-        client.close()
+    match_test(local_out, distributed_out)
+    accuracy_score(local_out[0], distributed_out[0]) > 0.12
 
 
 @pytest.mark.parametrize("datatype", ['dask_array'])
 @pytest.mark.parametrize("n_neighbors", [1, 3, 8])
 @pytest.mark.parametrize("n_parts", [None, 2, 3, 5])
-def test_score(dataset, datatype, n_neighbors, n_parts, cluster):
-    client = Client(cluster)
+def test_score(dataset, datatype, n_neighbors, n_parts, client):
+    X_train, X_test, y_train, y_test = dataset
 
-    try:
-        X_train, X_test, y_train, y_test = dataset
+    if not n_parts:
+        n_parts = len(client.has_what().keys())
 
-        if not n_parts:
-            n_parts = len(client.has_what().keys())
+    X_train = generate_dask_array(X_train, n_parts)
+    X_test = generate_dask_array(X_test, n_parts)
+    y_train = generate_dask_array(y_train, n_parts)
+    y_test = generate_dask_array(y_test, n_parts)
 
-        X_train = generate_dask_array(X_train, n_parts)
-        X_test = generate_dask_array(X_test, n_parts)
-        y_train = generate_dask_array(y_train, n_parts)
-        y_test = generate_dask_array(y_test, n_parts)
+    if datatype == 'dask_cudf':
+        X_train = to_dask_cudf(X_train, client)
+        X_test = to_dask_cudf(X_test, client)
+        y_train = to_dask_cudf(y_train, client)
+        y_test = to_dask_cudf(y_test, client)
 
-        if datatype == 'dask_cudf':
-            X_train = to_dask_cudf(X_train, client)
-            X_test = to_dask_cudf(X_test, client)
-            y_train = to_dask_cudf(y_train, client)
-            y_test = to_dask_cudf(y_test, client)
+    d_model = dKNNReg(client=client, n_neighbors=n_neighbors)
+    d_model.fit(X_train, y_train)
+    d_outputs, d_indices, d_distances = \
+        d_model.predict(X_test, convert_dtype=True)
+    distributed_out = da.compute(d_outputs, d_indices, d_distances)
 
-        d_model = dKNNReg(client=client, n_neighbors=n_neighbors)
-        d_model.fit(X_train, y_train)
-        d_outputs, d_indices, d_distances = \
-            d_model.predict(X_test, convert_dtype=True)
-        distributed_out = da.compute(d_outputs, d_indices, d_distances)
+    if datatype == 'dask_cudf':
+        distributed_out = list(map(lambda o: o.as_matrix()
+                                   if isinstance(o, DataFrame)
+                                   else o.to_array()[..., np.newaxis],
+                                   distributed_out))
+    cuml_score = d_model.score(X_test, y_test)
 
-        if datatype == 'dask_cudf':
-            distributed_out = list(map(lambda o: o.as_matrix()
-                                       if isinstance(o, DataFrame)
-                                       else o.to_array()[..., np.newaxis],
-                                       distributed_out))
-        cuml_score = d_model.score(X_test, y_test)
+    if datatype == 'dask_cudf':
+        y_test = y_test.compute().as_matrix()
+    else:
+        y_test = y_test.compute()
+    manual_score = accuracy_score(y_test, distributed_out[0])
 
-        if datatype == 'dask_cudf':
-            y_test = y_test.compute().as_matrix()
-        else:
-            y_test = y_test.compute()
-        manual_score = accuracy_score(y_test, distributed_out[0])
-
-        assert cuml_score == manual_score
-
-    finally:
-        client.close()
+    assert cuml_score == manual_score
