@@ -44,7 +44,8 @@ def predict(neigh_ind, _y, n_neighbors):
     return ypred.ravel(), count.ravel() * 1.0 / n_neighbors
 
 
-def _prep_training_data(c, X_train, partitions_per_worker, reverse_order):
+def _prep_training_data(c, X_train, partitions_per_worker,
+                        reverse_order=False):
     workers = c.has_what().keys()
 
     if reverse_order:

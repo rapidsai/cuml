@@ -82,7 +82,7 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" namespace \
                        int myrank)
 
 cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
-        "MLCommon::Selection::opg":
+        "ML::KNN::opg":
 
     cdef void brute_force_knn(
         cumlHandle &handle,

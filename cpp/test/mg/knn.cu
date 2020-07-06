@@ -32,8 +32,8 @@
 
 #include <cuda_utils.cuh>
 
-namespace MLCommon {
-namespace Selection {
+namespace ML {
+namespace KNN {
 namespace opg {
 
 struct KNNParams {
@@ -245,5 +245,5 @@ INSTANTIATE_TEST_CASE_P(BruteForceKNNTest, KNNTest,
                         ::testing::ValuesIn(inputs));
 
 }  // namespace opg
-}  // namespace Selection
-}  // end namespace MLCommon
+}  // namespace KNN
+}  // namespace ML

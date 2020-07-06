@@ -27,8 +27,8 @@
 
 #include <cuda_utils.cuh>
 
-namespace MLCommon {
-namespace Selection {
+namespace ML {
+namespace KNN {
 namespace opg {
 
 void reduce(Matrix::Data<int64_t> *&out_I, Matrix::floatData_t *&out_D,
@@ -358,5 +358,5 @@ void brute_force_knn(ML::cumlHandle &handle,
 }
 
 };  // namespace opg
-};  // namespace Selection
-};  // namespace MLCommon
+};  // namespace KNN
+};  // namespace ML
