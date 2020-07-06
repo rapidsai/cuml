@@ -472,7 +472,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
 
         return num_nodes
 
-    def forest_info_(self, forest_param):
+    def forest_info_(self, forest_param="threshold"):
         """
         Returns the requested forest parameter values as a 2d vector. The
         2 dimensions of the vector represent (num_trees, num_splits).
@@ -492,9 +492,9 @@ class RandomForestClassifier(Base, ClassifierMixin):
         ----------
         forest_info 2d vector containing requested values of the forest
         """
-        select_feature = {"threshold": 1,
-                          "best_metric": 2,
-                          "column_id": 3}
+        select_feature = {"threshold": 0,
+                          "best_metric": 1,
+                          "column_id": 2}
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
         cdef RandomForestMetaData[double, int] *rf_forest64 = \

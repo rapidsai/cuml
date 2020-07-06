@@ -294,10 +294,10 @@ std::vector<std::vector<double>> obtain_forest_info(
     int j = 0;
     while (j < tree_info->sparsetree.size()) {
       if (tree_info->sparsetree[j].colid != -1) {
-        if (param_requested == 1) {
+        if (param_requested == 0) {
           // collect the threshold values used to split the nodes
           forest_info[i].push_back(tree_info->sparsetree[j].quesval);
-        } else if (param_requested == 2) {
+        } else if (param_requested == 1) {
           // collect the best metric value for each node
           forest_info[i].push_back(tree_info->sparsetree[j].best_metric_val);
         } else {
@@ -321,12 +321,12 @@ void check_forest_info(const RandomForestMetaData<T, L>* forest,
     int split_posi = 0;
     while (j < tree_info->sparsetree.size()) {
       if (tree_info->sparsetree[j].colid != -1) {
-        if (param_requested == 1) {
+        if (param_requested == 0) {
           // check the threshold values used to split the nodes
           ASSERT(forest_info[i][split_posi] == tree_info->sparsetree[j].quesval,
                  " Error! The threshold value returned by obtain_forest_info"
                  "function does not match the information in the forest.");
-        } else if (param_requested == 2) {
+        } else if (param_requested == 1) {
           // check the best metric value for each node
           ASSERT(forest_info[i][split_posi] ==
                    tree_info->sparsetree[j].best_metric_val,

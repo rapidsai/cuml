@@ -29,9 +29,10 @@ enum RF_type {
 };
 
 enum SPLIT_INFO {
-  THRESHOLD = 1,
-  FEATURES = 2,
-  BEST_METRIC = 3,
+  THRESHOLD,
+  FEATURES,
+  BEST_METRIC,
+  SPLIT_INFO_END,
 };
 
 enum task_category { REGRESSION_MODEL = 1, CLASSIFICATION_MODEL = 2 };

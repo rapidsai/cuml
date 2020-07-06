@@ -452,7 +452,7 @@ class RandomForestRegressor(Base, RegressorMixin):
 
         return num_nodes
 
-    def forest_info_(self, forest_param):
+    def forest_info_(self, forest_param="threshold"):
         """
         Returns the requested forest parameter values as a 2d vector. The
         2 dimensions of the vector represent (num_trees, num_splits).
@@ -473,9 +473,9 @@ class RandomForestRegressor(Base, RegressorMixin):
         ----------
         Forest_info 2d vector containing requested values of the forest
         """
-        select_feature = {"threshold": 1,
-                          "best_metric": 2,
-                          "column_id": 3}
+        select_feature = {"threshold": 0,
+                          "best_metric": 1,
+                          "column_id": 2}
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
@@ -484,11 +484,11 @@ class RandomForestRegressor(Base, RegressorMixin):
         if self.dtype == np.float32:
             forest_info_vector = obtain_forest_info(
                 rf_forest,
-                <int> select_feature[str(forest_param)])
+                <int> select_feature[forest_param])
         else:
             forest_info_vector = obtain_forest_info(
                 rf_forest64,
-                <int> select_feature[str(forest_param)])
+                <int> select_feature[forest_param])
 
         return forest_info_vector
 
