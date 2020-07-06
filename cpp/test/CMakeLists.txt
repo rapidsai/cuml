@@ -19,7 +19,9 @@ set(CUML_TEST_INCLUDE_DIRS
   ${GTEST_DIR}/include
   ${TREELITE_DIR}/runtime/native/include)
 
+
 set(CUML_TEST_LINK_LIBRARIES
+  ${CUML_CPP_TARGET}
   treelite::treelite
   treelite::treelite_runtime
   ${CUDA_cublas_LIBRARY}
@@ -28,16 +30,10 @@ set(CUML_TEST_LINK_LIBRARIES
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
   ${CUDA_nvgraph_LIBRARY}
-  ${CUML_CPP_TARGET}
   gtestlib
-  gtest_mainlib)
+  gtest_mainlib
+  )
 
-if(ENABLE_CUMLPRIMS_MG)
-
-  list(APPEND CUML_TEST_LINK_LIBRARIES
-       ${CUMLPRIMS_MG_LIBRARIES})
-
-endif(ENABLE_CUMLPRIMS_MG)
 
 set(PRIMS_TEST_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
