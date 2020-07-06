@@ -51,6 +51,6 @@ void fit(const ML::cumlHandle &handle, const KMeansParams &params,
          const double *X, int n_samples, int n_features, double *centroids,
          double &inertia, int &n_iter);
 
-}; // end namespace opg
-}; // end namespace kmeans
-}; // end namespace ML
+};  // end namespace opg
+};  // end namespace kmeans
+};  // end namespace ML
