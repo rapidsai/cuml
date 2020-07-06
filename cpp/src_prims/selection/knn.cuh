@@ -286,10 +286,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
   }
 
-  if (input.size() > 1) {
-    knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k, userStream,
-                    trans.data());
-  }
+  knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k, userStream,
+                  trans.data());
 
   // Perform necessary post-processing
   if ((m == faiss::MetricType::METRIC_L2 ||
