@@ -130,7 +130,7 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
     perc_diff = n_diff / (nrows * n_neighbors)
 
-    assert perc_diff < 1e-3
+    assert perc_diff <= 1e-3
 
     assert array_equal(y_hat, skl_y_hat)
 
