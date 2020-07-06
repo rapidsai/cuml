@@ -49,9 +49,9 @@
 
 #pragma once
 
-#include "glm.hpp"
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>
+#include "glm.hpp"
 
 #include <common/cumlHandle.hpp>
 
