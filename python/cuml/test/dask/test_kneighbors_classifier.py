@@ -48,12 +48,12 @@ def generate_dask_array(np_array, n_parts):
                     'n_classes': 5, 'n_targets': 2}),
         quality_param({'n_samples': 5000, 'n_features': 100,
                        'n_classes': 12, 'n_targets': 4}),
-        stress_param({'n_samples': 50000, 'n_features': 400,
-                      'n_classes': 20, 'n_targets': 8})
+        stress_param({'n_samples': 12000, 'n_features': 40,
+                      'n_classes': 5, 'n_targets': 2})
     ])
 def dataset(request):
     X, y = make_multilabel_classification(
-        n_samples=int(request.param['n_samples'] * 1.5),
+        n_samples=int(request.param['n_samples'] * 1.2),
         n_features=request.param['n_features'],
         n_classes=request.param['n_classes'],
         n_labels=request.param['n_classes'],
@@ -84,6 +84,7 @@ def accuracy_score(y_true, y_pred):
 def match_test(output1, output2):
     l1, i1, d1 = output1
     l2, i2, d2 = output2
+    l2 = l2.squeeze()
 
     # Check shapes
     assert l1.shape == l2.shape
@@ -117,9 +118,10 @@ def check_probabilities(l_probas, d_probas):
 
 
 @pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
-@pytest.mark.parametrize("n_neighbors", [1, 3, 8])
+@pytest.mark.parametrize("n_neighbors", [1, 3, 6])
 @pytest.mark.parametrize("n_parts", [None, 2, 3, 5])
-def test_predict(dataset, datatype, n_neighbors, n_parts, cluster):
+@pytest.mark.parametrize("batch_size", [128, 512, 1024])
+def test_predict(dataset, datatype, n_neighbors, n_parts, batch_size, cluster):
     client = Client(cluster)
 
     try:
@@ -143,7 +145,8 @@ def test_predict(dataset, datatype, n_neighbors, n_parts, cluster):
             X_test = to_dask_cudf(X_test, client)
             y_train = to_dask_cudf(y_train, client)
 
-        d_model = dKNNClf(client=client, n_neighbors=n_neighbors)
+        d_model = dKNNClf(client=client, n_neighbors=n_neighbors,
+                          batch_size=batch_size)
         d_model.fit(X_train, y_train)
         d_labels, d_indices, d_distances = \
             d_model.predict(X_test, convert_dtype=True)
@@ -156,14 +159,14 @@ def test_predict(dataset, datatype, n_neighbors, n_parts, cluster):
                                        distributed_out))
 
         match_test(local_out, distributed_out)
-        assert accuracy_score(y_test, distributed_out[0]) > 0.15
+        assert accuracy_score(y_test, distributed_out[0]) > 0.12
 
     finally:
         client.close()
 
 
 @pytest.mark.parametrize("datatype", ['dask_array'])
-@pytest.mark.parametrize("n_neighbors", [1, 3, 8])
+@pytest.mark.parametrize("n_neighbors", [1, 3, 6])
 @pytest.mark.parametrize("n_parts", [None, 2, 3, 5])
 def test_score(dataset, datatype, n_neighbors, n_parts, cluster):
     client = Client(cluster)
@@ -211,7 +214,7 @@ def test_score(dataset, datatype, n_neighbors, n_parts, cluster):
 
 
 @pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
-@pytest.mark.parametrize("n_neighbors", [1, 3, 8])
+@pytest.mark.parametrize("n_neighbors", [1, 3, 6])
 @pytest.mark.parametrize("n_parts", [None, 2, 3, 5])
 def test_predict_proba(dataset, datatype, n_neighbors, n_parts, cluster):
     client = Client(cluster)
