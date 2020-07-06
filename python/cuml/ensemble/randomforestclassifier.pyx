@@ -605,7 +605,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
 
         if self.dtype == np.float64:
             warnings.warn("To use pickling or GPU-based prediction first\
-                          train using float 32 data to fit the estimator.")
+                          train the RF model using np.float32 data.")
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><uintptr_t>self.handle.getHandle()
