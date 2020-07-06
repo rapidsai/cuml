@@ -16,7 +16,6 @@
 
 
 import cupy as cp
-import cupy.prof
 import math
 import warnings
 
