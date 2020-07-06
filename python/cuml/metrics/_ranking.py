@@ -24,8 +24,9 @@ import math
 @with_cupy_rmm
 def roc_auc_score(y_true, y_score):
     """
-    Compute Area Under the Receiver Operating Characteristic Curve (ROC AUC) from prediction scores.
-    Note -- this implementation can only be used with binary classification.
+    Compute Area Under the Receiver Operating Characteristic Curve
+    (ROC AUC) from prediction scores. Note -- this implementation can 
+    only be used with binary classification.
 
     Parameters
     ----------
