@@ -50,7 +50,7 @@ option(BUILD_CUML_CPP_LIBRARY "Build libcuml++ shared library" ON)
 
 option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
 
-option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" ON)
+option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
 
 option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
 
@@ -156,10 +156,10 @@ if(SINGLEGPU)
   set(WITH_UCX OFF)
 endif(SINGLEGPU)
 
-if(NOT BUILD_CUML_MPI_COMMS AND NOT SINGLEGPU)
-  message(STATUS "Detected BUILD_CUML_MPI_COMMS set to OFF. Disabling BUILD_CUML_MG_TESTS")
-  set(BUILD_CUML_MG_TESTS OFF)
-endif(NOT BUILD_CUML_MPI_COMMS AND NOT SINGLEGPU)
+if(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
+  message(STATUS "Detected BUILD_CUML_MG_TESTS set to ON. Enabling BUILD_CUML_MPI_COMMS")
+  set(BUILD_CUML_MPI_COMMS ON)
+endif(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
@@ -295,7 +295,6 @@ include(cmake/Dependencies.cmake)
 
 set(CUML_INCLUDE_DIRECTORIES
   ${CUML_INCLUDE_DIR}
-  ${CUMLPRIMS_MG_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/src_prims
   ${CMAKE_CURRENT_SOURCE_DIR}/test/prims
@@ -304,16 +303,33 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
   ${SPDLOG_DIR}/src/spdlog/include
-  ${RAFT_DIR}/cpp/include)
+  ${RAFT_DIR}/cpp/include
+  )
 
-set(CUML_LINK_LIBRARIES
+set(CUML_PUBLIC_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
   ${CUDA_curand_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
   ${CUDA_nvgraph_LIBRARY}
-  ${CUMLPRIMS_MG_LIBRARIES})
+  )
+
+set(CUML_PRIVATE_LINK_LIBRARIES
+  ${Protobuf_LIBRARIES}
+  faisslib
+  treelite::treelite
+  treelite::treelite_runtime
+  )
+
+if(ENABLE_CUMLPRIMS_MG)
+  list(APPEND CUML_INCLUDE_DIRECTORIES
+       ${CUMLPRIMS_MG_INCLUDE_DIRS})
+
+  list(APPEND CUML_PRIVATE_LINK_LIBRARIES
+       CUMLPRIMS_MG::CUMLPRIMS_MG)
+
+endif(ENABLE_CUMLPRIMS_MG)
 
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
@@ -361,18 +377,22 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # mnmg components
 
-  # if(NOT SINGLEGPU)
-  #   target_sources(${CUML_CPP_TARGET}
-  #     PRIVATE src/kmeans/kmeans_mg.cu
-  #   )
-  # endif(NOT SINGLEGPU)
+  if(NOT SINGLEGPU)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/knn/knn_mg.cu
+        src/pca/pca_mg.cu
+        src/pca/sign_flip_mg.cu
+        src/tsvd/tsvd_mg.cu
+    )
+  endif(NOT SINGLEGPU)
 
   if(OPENMP_FOUND)
-    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} ${OpenMP_CXX_LIB_NAMES} Threads::Threads)
+    set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} ${OpenMP_CXX_LIB_NAMES} Threads::Threads)
   endif(OPENMP_FOUND)
 
   if(NVTX)
-    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} nvToolsExt)
+    set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} nvToolsExt)
     link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
   endif(NVTX)
 
@@ -381,12 +401,10 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
-      ${CUML_LINK_LIBRARIES}
+      ${CUML_PUBLIC_LINK_LIBRARIES}
     PRIVATE
-      ${Protobuf_LIBRARIES}
-      faisslib
-      treelite::treelite
-      treelite::treelite_runtime)
+      ${CUML_PRIVATE_LINK_LIBRARIES}
+  )
   # If we export the libdmlc symbols, they can lead to weird crashes with other
   # libraries that use libdmlc. This just hides the symbols internally.
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")

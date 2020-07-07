@@ -314,6 +314,8 @@ class SGD(Base):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
+        self._set_output_type(X)
+        self._set_target_dtype(y)
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -412,6 +414,7 @@ class SGD(Base):
         y: Type specified in `output_type`
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
+        output_type = self._get_output_type(X)
 
         X_m, n_rows, n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -450,8 +453,6 @@ class SGD(Base):
 
         del(X_m)
 
-        output_type = self._get_output_type(X)
-
         return preds.to_output(output_type)
 
     def predictClass(self, X, convert_dtype=False):
@@ -475,6 +476,8 @@ class SGD(Base):
         y : Type specified in `output_type`
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
+        output_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype()
 
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -511,6 +514,4 @@ class SGD(Base):
 
         del(X_m)
 
-        output_type = self._get_output_type(X)
-
-        return preds.to_output(output_type)
+        return preds.to_output(output_type=output_type, output_dtype=out_dtype)
