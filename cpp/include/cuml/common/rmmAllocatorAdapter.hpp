@@ -19,8 +19,8 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
-#include <rmm/mr/device/default_memory_resource.hpp>
 #include <raft/mr/device/allocator.hpp>
+#include <rmm/mr/device/default_memory_resource.hpp>
 
 namespace ML {
 
@@ -34,11 +34,12 @@ namespace ML {
 class rmmAllocatorAdapter : public ML::deviceAllocator {
  public:
   std::shared_ptr<raft::mr::device::allocator> raft_resource_allocator;
-  rmmAllocatorAdapter() :
-    raft_resource_allocator(std::make_shared<raft::mr::device::default_allocator>()) {
-  }
+  rmmAllocatorAdapter()
+    : raft_resource_allocator(
+        std::make_shared<raft::mr::device::default_allocator>()) {}
 
-  rmmAllocatorAdapter(std::shared_ptr<raft::mr::device::allocator> raft_allocator) {
+  rmmAllocatorAdapter(
+    std::shared_ptr<raft::mr::device::allocator> raft_allocator) {
     raft_resource_allocator = raft_allocator;
   }
 
@@ -67,7 +68,7 @@ class rmmAllocatorAdapter : public ML::deviceAllocator {
     raft_resource_allocator->deallocate(p, n, stream);
   }
 
-  virtual ~rmmAllocatorAdapter() { }
+  virtual ~rmmAllocatorAdapter() {}
 };
 
 }  // end namespace ML

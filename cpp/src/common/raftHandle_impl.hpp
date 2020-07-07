@@ -43,7 +43,7 @@ using MLCommon::hostAllocator;
 /**
  * @todo: Add doxygen documentation
  */
-class raftHandle_impl : public cumlHandle_impl{
+class raftHandle_impl : public cumlHandle_impl {
  public:
   raftHandle_impl(int n_streams = cumlHandle::getDefaultNumInternalStreams());
   ~raftHandle_impl();
@@ -84,7 +84,6 @@ class raftHandle_impl : public cumlHandle_impl{
   std::shared_ptr<MLCommon::cumlCommunicator> _communicator;
 
   raft::handle_t* _raftHandle;
-
 };
 
-} // end namespace ML
+}  // end namespace ML
