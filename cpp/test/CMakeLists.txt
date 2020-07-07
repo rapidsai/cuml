@@ -19,13 +19,21 @@ set(CUML_TEST_INCLUDE_DIRS
   ${GTEST_DIR}/include
   ${TREELITE_DIR}/runtime/native/include)
 
+
 set(CUML_TEST_LINK_LIBRARIES
+  ${CUML_CPP_TARGET}
   treelite::treelite
   treelite::treelite_runtime
-  ${CUML_LINK_LIBRARIES}
-  ${CUML_CPP_TARGET}
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  ${CUDA_nvgraph_LIBRARY}
   gtestlib
-  gtest_mainlib)
+  gtest_mainlib
+  )
+
 
 set(PRIMS_TEST_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
@@ -74,13 +82,34 @@ endif(BUILD_CUML_TESTS)
 # - build test_ml_mg executable ----------------------------------------------
 
 if(BUILD_CUML_MG_TESTS)
-  # (please keep the filenames in alphabetical order)
-  add_executable(ml_mg
-    mg/test_ml_mg_utils.cu)
+  find_package(MPI)
 
-  target_include_directories(ml_mg PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+  if(MPI_CXX_FOUND)
+    # (please keep the filenames in alphabetical order)
+    add_executable(ml_mg
+      mg/knn.cu
+      mg/main.cu
+      mg/pca.cu
+      mg/test_ml_mg_utils.cu)
 
-  target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
+    add_dependencies(ml_mg cumlcommsmpi)
+
+    set(CUML_TEST_INCLUDE_DIRS
+        ${CUML_TEST_INCLUDE_DIRS}
+        ${MPI_CXX_INCLUDE_PATH}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../comms/mpi/include)
+
+    target_include_directories(ml_mg PUBLIC ${CUML_TEST_INCLUDE_DIRS})
+
+    set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} ${MPI_CXX_LIBRARIES})
+
+    set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} cumlcommsmpi)
+
+    target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
+
+  else(MPI_CXX_FOUND)
+   message("OpenMPI not found. Skipping 'ml_mg'")
+  endif(MPI_CXX_FOUND)
 endif(BUILD_CUML_MG_TESTS)
 
 ##############################################################################
@@ -176,7 +205,6 @@ if(BUILD_PRIMS_TESTS)
     prims/sigmoid.cu
     prims/silhouetteScore.cu
     prims/sqrt.cu
-    prims/stationarity.cu
     prims/stddev.cu
     prims/strided_reduction.cu
     prims/subtract.cu

@@ -171,7 +171,7 @@ class MBSGDClassifier(Base, ClassifierMixin):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
-
+        self._set_n_features_in(X)
         self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
         self.coef_ = self.cu_mbsgd_classifier.coef_
         self.intercept_ = self.cu_mbsgd_classifier.intercept_
@@ -196,10 +196,9 @@ class MBSGDClassifier(Base, ClassifierMixin):
 
         Returns
         ----------
-        y: Type specified by `output_type`
-           Dense vector (floats or doubles) of shape (n_samples, 1)
+        y : (same as the input datatype)
+            Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
-
         preds = \
             self.cu_mbsgd_classifier.predictClass(X,
                                                   convert_dtype=convert_dtype)
