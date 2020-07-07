@@ -14,9 +14,11 @@
 # limitations under the License.
 #
 from cuml.feature_extraction.text import CountVectorizer
+from cuml.feature_extraction.text import TfidfVectorizer
 import cupy as cp
 import pytest
 from sklearn.feature_extraction.text import CountVectorizer as SkCountVect
+from sklearn.feature_extraction.text import TfidfVectorizer as SkTfidfVect
 from cudf import Series
 from numpy.testing import assert_array_equal
 import numpy as np
@@ -304,3 +306,37 @@ def test_transform_unsigned_categories(query):
     res = vec.transform(query)
 
     assert res.shape[0] == len(query)
+
+
+# ----------------------------------------------------------------
+# TfidfVectorizer tests are already covered by CountVectorizer and
+# TfidfTransformer so we only do the bare minimum tests here
+# ----------------------------------------------------------------
+
+def test_tfidf_vectorizer_setters():
+    tv = TfidfVectorizer(norm='l2', use_idf=False, smooth_idf=False,
+                         sublinear_tf=False)
+    tv.norm = 'l1'
+    assert tv._tfidf.norm == 'l1'
+    tv.use_idf = True
+    assert tv._tfidf.use_idf
+    tv.smooth_idf = True
+    assert tv._tfidf.smooth_idf
+    tv.sublinear_tf = True
+    assert tv._tfidf.sublinear_tf
+
+
+def test_tfidf_vectorizer_idf_setter():
+    orig = TfidfVectorizer(use_idf=True)
+    orig.fit(DOCS_GPU)
+    copy = TfidfVectorizer(vocabulary=orig.vocabulary_, use_idf=True)
+    copy.idf_ = orig.idf_[0]
+    cp.testing.assert_array_almost_equal(copy.transform(DOCS_GPU).todense(),
+                                         orig.transform(DOCS_GPU).todense())
+
+
+def test_tfidf_vectorizer():
+    tfidf_mat = TfidfVectorizer(use_idf=True).fit_transform(DOCS_GPU)
+    ref = SkTfidfVect(use_idf=True).fit_transform(DOCS)
+
+    cp.testing.assert_array_almost_equal(tfidf_mat.todense(), ref.toarray())
