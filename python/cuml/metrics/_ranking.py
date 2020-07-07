@@ -91,10 +91,7 @@ def _binary_roc_auc_score(y_true, y_score):
     ones = y_true[ids]
     zeros = 1 - ones
 
-    mask = cp.empty(sorted_score.shape, dtype=cp.bool_)
-    mask[0] = True
-    mask[1:] = sorted_score[1:] != sorted_score[:-1]
-    group = cp.cumsum(mask, dtype=cp.int32)
+    group = _group_same_scores(sorted_score)
 
     sum_ones = cp.sum(ones)
     sum_zeros = cp.sum(zeros)
@@ -104,30 +101,40 @@ def _binary_roc_auc_score(y_true, y_score):
     tps = cp.zeros(num, dtype='float32')  # true positives
     fps = cp.zeros(num, dtype='float32')  # false positives
 
-    update_counter_kernel = cp.RawKernel(r'''
-        extern "C" __global__
-        void update_counter(const int* group, const float* truth,
-            float* counter, int N)
-        {
-            int tid = blockDim.x * blockIdx.x + threadIdx.x;
-            if(tid<N){
-                atomicAdd(counter + group[tid] - 1, truth[tid]);
-            }
-        }
-    ''', 'update_counter')
-
-    N = ones.shape[0]
-    tpb = 256
-    bpg = math.ceil(N/tpb)
-    update_counter_kernel((bpg,), (tpb,),
-                          (group, ones, tps, N))  # grid, block and arguments
-    update_counter_kernel((bpg,), (tpb,), (group, zeros, fps, N))
+    tps = _addup_x_in_group(group, ones, tps)
+    fps = _addup_x_in_group(group, zeros, fps)
 
     tpr = cp.cumsum(tps)/sum_ones
     fpr = cp.cumsum(fps)/sum_zeros
 
     return _calculate_area_under_curve(fpr, tpr)
 
+def _addup_x_in_group(group, x, result):
+    addup_x_in_group_kernel = cp.RawKernel(r'''
+        extern "C" __global__
+        void addup_x_in_group(const int* group, const float* x,
+            float* result, int N)
+        {
+            int tid = blockDim.x * blockIdx.x + threadIdx.x;
+            if(tid<N){
+                atomicAdd(result + group[tid] - 1, x[tid]);
+            }
+        }
+    ''', 'addup_x_in_group')
+
+    N = x.shape[0]
+    tpb = 256
+    bpg = math.ceil(N/tpb)
+    addup_x_in_group_kernel((bpg,), (tpb,),
+                          (group, x, result, N))  # grid, block and arguments
+    return result
+
+def _group_same_scores(sorted_score):
+    mask = cp.empty(sorted_score.shape, dtype=cp.bool_)
+    mask[0] = True
+    mask[1:] = sorted_score[1:] != sorted_score[:-1]
+    group = cp.cumsum(mask, dtype=cp.int32)
+    return group
 
 def _calculate_area_under_curve(fpr, tpr):
     """helper function to calculate area under curve given fpr & tpr arrays"""
