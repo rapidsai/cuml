@@ -1,6 +1,7 @@
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
+- PR #2267: CountVectorizer estimator
 - PR #2261: Exposing new FAISS metrics through Python API
 - PR #2287: Single-GPU TfidfTransformer implementation
 - PR #2289: QR SVD solver for MNMG PCA
@@ -36,9 +37,12 @@
 - PR #2440: Use Treelite Conda package
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
 - PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
+- PR #2483: Moving MNMG KNN to cuml
+- PR #2492: Adding additional assertions to mnmg nearest neighbors pytests
 - PR #2439: Update dask RF code to have print_detailed function
 - PR #2431: Match output of classifier predict with target dtype
 - PR #2513: Fixing LGTM Analysis Issues
+- PR #2099: Raise an error when float64 data is used with dask RF
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -60,6 +64,7 @@
 - PR #2494: Set QN regularization strength consistent with scikit-learn
 - PR #2486: Fix cupy input to kmeans init
 - PR #2497: Changes to accomodate cuDF unsigned categorical changes
+- PR #2507: Import `treelite.sklearn`
 
 # cuML 0.14.0 (03 Jun 2020)
 
