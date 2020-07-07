@@ -15,6 +15,7 @@
 
 import dask
 import math
+import numpy as np
 
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
@@ -85,6 +86,20 @@ class BaseRandomForestModel(object):
     def _fit(self, model, dataset, convert_dtype):
         data = DistributedDataHandler.create(dataset, client=self.client)
         self.datatype = data.datatype
+        if self.datatype == 'cudf':
+            has_float64 = (dataset[0].dtypes.any() == np.float64)
+        else:
+            has_float64 = (dataset[0].dtype == np.float64)
+        if has_float64:
+            raise TypeError("To use Dask RF data should have dtype float32.")
+
+        labels = self.client.persist(dataset[1])
+        if self.datatype == 'cudf':
+            self.num_classes = len(labels.unique())
+        else:
+            self.num_classes = \
+                len(dask.array.unique(labels).compute())
+        labels = self.client.persist(dataset[1])
         futures = list()
         for idx, (worker, worker_data) in \
                 enumerate(data.worker_to_parts.items()):
@@ -130,6 +145,8 @@ class BaseRandomForestModel(object):
     def _predict_using_fil(self, X, delayed, **kwargs):
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
+        if self.local_model is None:
+            self.local_model = self._concat_treelite_models()
         return self._predict(X, delayed=delayed, **kwargs)
 
     def _get_params(self, deep):
