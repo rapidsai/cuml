@@ -36,6 +36,9 @@
 - PR #2440: Use Treelite Conda package
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
 - PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
+- PR #2483: Moving MNMG KNN to cuml
+- PR #2492: Adding additional assertions to mnmg nearest neighbors pytests
+- PR #2439: Update dask RF code to have print_detailed function
 - PR #2431: Match output of classifier predict with target dtype
 
 ## Bug Fixes
@@ -54,10 +57,12 @@
 - PR #2454: Mark RF memleak test as XFAIL, because we can't detect memleak reliably
 - PR #2455: Use correct field to store data type in `LabelEncoder.fit_transform`
 - PR #2475: Fix typo in build.sh
+- PR #2496: Fixing indentation for simulate_data in test_fil.py
 - PR #2494: Set QN regularization strength consistent with scikit-learn
 - PR #2486: Fix cupy input to kmeans init
 - PR #2497: Changes to accomodate cuDF unsigned categorical changes
 - PR #2209: Fix FIL benchmark for gpuarray-c input
+- PR #2507: Import `treelite.sklearn`
 
 # cuML 0.14.0 (03 Jun 2020)
 
