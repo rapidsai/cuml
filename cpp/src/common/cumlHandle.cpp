@@ -29,8 +29,14 @@ int cumlHandle::getDefaultNumInternalStreams() {
   return _default_num_internal_streams;
 }
 
-cumlHandle::cumlHandle(int n_streams) : _impl(new raftHandle_impl(n_streams)) {}
-cumlHandle::cumlHandle() : _impl(new raftHandle_impl()) {}
+cumlHandle::cumlHandle(int n_streams) {
+  std::cout << "impl: " << (_impl?"not null":"null") << '\n';
+  _impl = std::make_unique<raftHandle_impl>(n_streams);
+}
+cumlHandle::cumlHandle() {
+    std::cout << "impl: " << (_impl?"not null":"null") << '\n';
+  _impl = std::make_unique<raftHandle_impl>();
+}
 cumlHandle::~cumlHandle() {}
 
 void cumlHandle::setStream(cudaStream_t stream) { _impl->setStream(stream); }
@@ -94,6 +100,7 @@ cumlHandle_impl::cumlHandle_impl(int n_streams)
     _cusolverSpInitialized(false),
     _cusparseInitialized(false),
     _devicePropInitialized(false) {
+      std::cout << "WHEN DID I GET HERE " << std::endl;
   createResources();
 }
 
@@ -167,7 +174,10 @@ cudaStream_t cumlHandle_impl::getInternalStream(int sid) const {
   return _streams[sid];
 }
 
-int cumlHandle_impl::getNumInternalStreams() const { return _num_streams; }
+int cumlHandle_impl::getNumInternalStreams() const { 
+  std::cout << "AM I HERE??? " << std::endl;
+  return _num_streams; 
+  }
 
 std::vector<cudaStream_t> cumlHandle_impl::getInternalStreams() const {
   std::vector<cudaStream_t> int_streams_vec(_num_streams);
