@@ -272,10 +272,10 @@ def test_umap_pickle(tmpdir, datatype, keys):
     def create_mod():
         X_train = load_iris().data
 
-        model = umap_model[keys]()
+        model = umap_model[keys](output_type="numpy")
         cu_before_pickle_transform = model.fit_transform(X_train)
 
-        result["umap_embedding"] = model.embedding_.to_output('numpy')
+        result["umap_embedding"] = model.embedding_
         n_neighbors = model.n_neighbors
 
         result["umap"] = trustworthiness(X_train,
@@ -284,7 +284,7 @@ def test_umap_pickle(tmpdir, datatype, keys):
         return model, X_train
 
     def assert_model(pickled_model, X_train):
-        cu_after_embed = pickled_model.embedding_.to_output('numpy')
+        cu_after_embed = pickled_model.embedding_
 
         n_neighbors = pickled_model.n_neighbors
         assert array_equal(result["umap_embedding"], cu_after_embed)
@@ -402,7 +402,7 @@ def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
         assert array_equal(result["neighbors"], D_after)
         state = pickled_model.__dict__
         assert state["n_indices"] == 1
-        assert "X_m" in state
+        assert "_X_m" in state
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -429,13 +429,13 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
     def assert_model(loaded_model, X):
         state = loaded_model.__dict__
         assert state["n_indices"] == 0
-        assert "X_m" not in state
+        assert "_X_m" not in state
         loaded_model.fit(X[0])
 
         state = loaded_model.__dict__
 
         assert state["n_indices"] == 1
-        assert "X_m" in state
+        assert "_X_m" in state
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
