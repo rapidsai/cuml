@@ -79,6 +79,11 @@ Feature and Label Encoding (Dask-based Multi-GPU)
  .. autoclass:: cuml.dask.preprocessing.OneHotEncoder
     :members:
 
+Feature Extraction (Single-GPU)
+-------------------------------
+ .. autoclass:: cuml.feature_extraction.text.CountVectorizer
+    :members:
+
 Dataset Generation (Single-GPU)
 -------------------------------
 
