@@ -339,7 +339,8 @@ class LogisticRegression(Base, ClassifierMixin):
         y: array-like (device)
            Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
-        return self.qn._decision_function(X, convert_dtype=convert_dtype)
+        return self.qn._decision_function(X, convert_dtype=convert_dtype) \
+            .to_output(output_type=self._get_output_type(X))
 
     def predict(self, X, convert_dtype=False):
         """

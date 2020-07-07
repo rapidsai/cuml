@@ -142,7 +142,7 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k, metric):
         I_cuml_arr = I_cuml
 
     # Assert the cuml model was properly reverted
-    np.testing.assert_allclose(knn_cu.X_m, X_orig,
+    np.testing.assert_allclose(knn_cu._X_m.to_output("numpy"), X_orig,
                                atol=1e-5, rtol=1e-4)
 
     # Allow a max relative diff of 10% and absolute diff of 1%

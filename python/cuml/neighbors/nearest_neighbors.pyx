@@ -220,7 +220,6 @@ class NearestNeighbors(Base):
         self.metric_params = metric_params
         self.p = p
         self.algorithm = algorithm
-        self._X_m = None  # accessed via X_m
 
     def fit(self, X, convert_dtype=True):
         """

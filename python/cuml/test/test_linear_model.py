@@ -294,18 +294,18 @@ def test_logistic_regression_decision_function(
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
 
-    culog = cuLog(fit_intercept=fit_intercept)
+    culog = cuLog(fit_intercept=fit_intercept, output_type="numpy")
     culog.fit(X_train, y_train)
 
     sklog = skLog(fit_intercept=fit_intercept)
-    sklog.coef_ = cp.asnumpy(culog.coef_.to_output("cupy").T)
+    sklog.coef_ = culog.coef_.T
     if fit_intercept:
-        sklog.intercept_ = cp.asnumpy(culog.intercept_.to_output("cupy"))
+        sklog.intercept_ = culog.intercept_
     else:
         skLog.intercept_ = 0
     sklog.classes_ = np.arange(num_classes)
 
-    cu_dec_func = culog.decision_function(X_test).to_output("cupy")
+    cu_dec_func = culog.decision_function(X_test)
     if num_classes > 2:
         cu_dec_func = cu_dec_func.T
     sk_dec_func = sklog.decision_function(X_test)
@@ -330,7 +330,7 @@ def test_logistic_regression_predict_proba(
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
 
-    culog = cuLog(fit_intercept=fit_intercept)
+    culog = cuLog(fit_intercept=fit_intercept, output_type="numpy")
     culog.fit(X_train, y_train)
 
     if num_classes > 2:
@@ -341,9 +341,9 @@ def test_logistic_regression_predict_proba(
         )
     else:
         sklog = skLog(fit_intercept=fit_intercept)
-    sklog.coef_ = cp.asnumpy(culog.coef_.to_output("cupy")).T
+    sklog.coef_ = culog.coef_.T
     if fit_intercept:
-        sklog.intercept_ = cp.asnumpy(culog.intercept_.to_output("cupy"))
+        sklog.intercept_ = culog.intercept_
     else:
         skLog.intercept_ = 0
     sklog.classes_ = np.arange(num_classes)
