@@ -20,6 +20,8 @@ from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common import input_to_cuml_array
 import math
 
+def precision_recall_curve_cupy(y_true, y_score):
+    pass
 
 @with_cupy_rmm
 def roc_auc_score(y_true, y_score):
