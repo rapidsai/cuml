@@ -71,7 +71,7 @@ cdef class Handle:
     def __cinit__(self, n_streams=0):
         self.n_streams = n_streams
         self.h = <size_t>(new cumlHandle(n_streams))
-  
+
         cdef cumlHandle* h_ = <cumlHandle*>self.h
 
     def __dealloc__(self):
