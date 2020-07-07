@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,10 +24,13 @@ from cuml.solvers import QN as cuQN
 @pytest.mark.parametrize('loss', ['sigmoid', 'softmax'])
 @pytest.mark.parametrize('dtype', [np.float32, np.float64])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
-@pytest.mark.parametrize('l1_strength', [0.00, 0.01])
-@pytest.mark.parametrize('l2_strength', [0.00, 0.01])
+@pytest.mark.parametrize('l1_strength', [0.00, 0.10])
+@pytest.mark.parametrize('l2_strength', [0.00, 0.10])
 @pytest.mark.parametrize('fit_intercept', [True, False])
 def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
+
+    if penalty == "none" and (l1_strength > 0 or l2_strength > 0):
+        pytest.skip("`none` penalty does not take l1/l2_strength")
 
     tol = 1e-6
 
@@ -204,7 +207,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
 
                 print()
 
-    elif penalty == 'softmax':
+    elif loss == 'softmax':
         pytest.skip("Better initial conditions for softmax tests are "
                     "in progress.")
 
@@ -435,9 +438,6 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
         #                                                      -0.60578823,
         #                                                      -0.26777366]]),
         #                                            decimal=3)
-
-    if penalty == "none" and (l1_strength > 0 or l2_strength > 0):
-        pytest.skip("`none` penalty does not take l1/l2_strength")
 
 
 precomputed_X = [
