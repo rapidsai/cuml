@@ -31,14 +31,15 @@ models = models_config.get_models()
 
 @pytest.mark.parametrize('model_name', list(models.keys()))
 def test_fit_function(dataset, model_name):
-    if model_name in ['SparseRandomProjection', 'TSNE', 'TruncatedSVD']:
+    if model_name in ['SparseRandomProjection', 'TSNE', 'TruncatedSVD',
+                      'AutoARIMA']:
         pytest.xfail("These models are not tested yet")
 
     n_pos_args_constr = func_positional_arg(models[model_name].__init__)
 
     if model_name in ['SparseRandomProjection', 'GaussianRandomProjection']:
         model = models[model_name](n_components=2)
-    elif model_name in ['ARIMA', 'ExponentialSmoothing']:
+    elif model_name in ['ARIMA', 'AutoARIMA', 'ExponentialSmoothing']:
         model = models[model_name](np.random.normal(0.0, 1.0, (10,)))
     else:
         if n_pos_args_constr == 1:
