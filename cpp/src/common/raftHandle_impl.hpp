@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 
 #include <mutex>
@@ -31,6 +47,7 @@ class raftHandle_impl : public cumlHandle_impl{
  public:
   raftHandle_impl(int n_streams = cumlHandle::getDefaultNumInternalStreams());
   ~raftHandle_impl();
+
   int getDevice() const;
   void setStream(cudaStream_t stream);
   cudaStream_t getStream() const;
@@ -59,26 +76,15 @@ class raftHandle_impl : public cumlHandle_impl{
 
   const cudaDeviceProp& getDeviceProperties() const;
 
+  raft::handle_t& getRaftHandle();
+
  private:
-  mutable cublasHandle_t _cublas_handle;
-  mutable cusolverDnHandle_t _cusolverDn_handle;
-  mutable cusolverSpHandle_t _cusolverSp_handle;
-  mutable cusparseHandle_t _cusparse_handle;
-  cudaStream_t _userStream;
-  cudaEvent_t _event;
   std::shared_ptr<deviceAllocator> _deviceAllocator;
   std::shared_ptr<hostAllocator> _hostAllocator;
   std::shared_ptr<MLCommon::cumlCommunicator> _communicator;
-  std::vector<cudaStream_t> _streams;
-  mutable cudaDeviceProp _prop;
-  const int _dev_id;
-  const int _num_streams;
-  mutable bool _cublasInitialized;
-  mutable bool _cusolverDnInitialized;
-  mutable bool _cusolverSpInitialized;
-  mutable bool _cusparseInitialized;
-  mutable bool _devicePropInitialized;
 
-  void createResources();
-  void destroyResources();
+  raft::handle_t* _raftHandle;
+
 };
+
+} // end namespace ML

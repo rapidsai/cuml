@@ -71,10 +71,8 @@ cdef class Handle:
     def __cinit__(self, n_streams=0):
         self.n_streams = n_streams
         self.h = <size_t>(new cumlHandle(n_streams))
-        cdef shared_ptr[deviceAllocator] rmmAlloc = (
-            shared_ptr[deviceAllocator](new rmmAllocatorAdapter()))
+  
         cdef cumlHandle* h_ = <cumlHandle*>self.h
-        h_.setDeviceAllocator(rmmAlloc)
 
     def __dealloc__(self):
         h_ = <cumlHandle*>self.h

@@ -330,6 +330,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/common/cuML_comms_impl.cpp
     src/common/logger.cpp
     src/common/nvtx.cu
+    src/common/raftHandle_impl.cpp
     src/comms/cuML_comms_test.cpp
     src/datasets/make_arima.cu
     src/datasets/make_blobs.cu

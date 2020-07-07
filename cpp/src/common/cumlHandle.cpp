@@ -15,6 +15,7 @@
  */
 
 #include "cumlHandle.hpp"
+#include "raftHandle_impl.hpp"
 #include <common/cudart_utils.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/cusolver_wrappers.h>
@@ -28,8 +29,8 @@ int cumlHandle::getDefaultNumInternalStreams() {
   return _default_num_internal_streams;
 }
 
-cumlHandle::cumlHandle(int n_streams) : _impl(new cumlHandle_impl(n_streams)) {}
-cumlHandle::cumlHandle() : _impl(new cumlHandle_impl()) {}
+cumlHandle::cumlHandle(int n_streams) : _impl(new raftHandle_impl(n_streams)) {}
+cumlHandle::cumlHandle() : _impl(new raftHandle_impl()) {}
 cumlHandle::~cumlHandle() {}
 
 void cumlHandle::setStream(cudaStream_t stream) { _impl->setStream(stream); }

@@ -33,13 +33,12 @@ namespace ML {
  */
 class rmmAllocatorAdapter : public ML::deviceAllocator {
  public:
-  raft::mr::device::allocator raft_resource_allocator = nullptr;
-
-  rmmAllocatorAdapter() {
-    raft_resource_allocator = new default_allocator();
+  std::shared_ptr<raft::mr::device::allocator> raft_resource_allocator;
+  rmmAllocatorAdapter() :
+    raft_resource_allocator(std::make_shared<raft::mr::device::default_allocator>()) {
   }
 
-  rmmAllocatorAdapter(raft::mr::device::allocator raft_allocator) {
+  rmmAllocatorAdapter(std::shared_ptr<raft::mr::device::allocator> raft_allocator) {
     raft_resource_allocator = raft_allocator;
   }
 
@@ -68,7 +67,7 @@ class rmmAllocatorAdapter : public ML::deviceAllocator {
     raft_resource_allocator->deallocate(p, n, stream);
   }
 
-  virtual ~rmmAllocatorAdapter() {}
+  virtual ~rmmAllocatorAdapter() { }
 };
 
 }  // end namespace ML
