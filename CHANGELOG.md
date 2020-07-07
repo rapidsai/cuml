@@ -37,6 +37,7 @@
 - PR #2440: Use Treelite Conda package
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
 - PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
+- PR #2490: Moving MNMG KMeans to cuml
 - PR #2483: Moving MNMG KNN to cuml
 - PR #2492: Adding additional assertions to mnmg nearest neighbors pytests
 - PR #2439: Update dask RF code to have print_detailed function
