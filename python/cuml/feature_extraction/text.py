@@ -15,6 +15,7 @@
 import warnings
 
 from cudf import Series
+from sklearn.exceptions import NotFittedError
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 from functools import partial
 import cupy as cp
@@ -22,7 +23,7 @@ import numbers
 import cudf
 from cuml.common.type_utils import CUPY_SPARSE_DTYPES
 from cudf.utils.dtypes import min_signed_type
-from cudf.feature_extraction.tfidf import TfidfTransformer
+from cuml.feature_extraction.tfidf import TfidfTransformer
 
 
 def _get_non_alphanumeric_characters(docs):
@@ -560,6 +561,12 @@ class CountVectorizer(_VectorizerMixin):
         X : cupy csr array of shape (n_samples, n_features)
             Document-term matrix.
         """
+        if not hasattr(self, 'vocabulary_'):
+            if self.vocabulary is not None:
+                self.vocabulary_ = self.vocabulary
+            else:
+                raise NotFittedError()
+
         docs = self._preprocess(raw_documents)
         n_doc = len(docs)
         tokenized_df = self._create_tokenized_df(docs)
