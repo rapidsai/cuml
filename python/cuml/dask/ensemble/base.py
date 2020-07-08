@@ -144,8 +144,8 @@ class BaseRandomForestModel(object):
     def _predict_using_fil(self, X, delayed, **kwargs):
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
         return self._predict(X, delayed=delayed, **kwargs)
 
     def _get_params(self, deep):
