@@ -67,16 +67,16 @@ class KNeighborsMG(NearestNeighbors):
 
         return {
             'data': {
-                        'local_parts': <uintptr_t>data_local_parts,
-                        'desc': <uintptr_t>data_desc
+                'local_parts': <uintptr_t>data_local_parts,
+                'desc': <uintptr_t>data_desc
             },
             'query': {
-                        'local_parts': <uintptr_t>query_local_parts,
-                        'desc': <uintptr_t>query_desc
+                'local_parts': <uintptr_t>query_local_parts,
+                'desc': <uintptr_t>query_desc
             },
             'cais': {
-                        'data': data_cai,
-                        'query': query_cai
+                'data': data_cai,
+                'query': query_cai
             },
         }
 
