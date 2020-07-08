@@ -24,21 +24,22 @@ import math
 @with_cupy_rmm
 def roc_auc_score(y_true, y_score):
     """
-    Compute Area Under the Receiver Operating Characteristic Curve (ROC AUC)
-    from prediction scores.
-    Note: this implementation can only be used with binary classification.
+    Compute Area Under the Receiver Operating Characteristic Curve
+    (ROC AUC) from prediction scores. Note -- this implementation can
+    only be used with binary classification.
+
     Parameters
     ----------
-        y_true : array-like of shape (n_samples,)
+    y_true : array-like of shape (n_samples,)
         True labels. The binary cases
         expect labels with shape (n_samples,)
-
     y_score : array-like of shape (n_samples,)
         Target scores. In the binary cases, these can be either
         probability estimates or non-thresholded decision values (as returned
         by `decision_function` on some classifiers). The binary
         case expects a shape (n_samples,), and the scores must be the scores of
         the class with the greater label.
+
     Returns
     -------
         auc : float
@@ -51,6 +52,7 @@ def roc_auc_score(y_true, y_score):
     >>> y_scores = np.array([0.1, 0.4, 0.35, 0.8])
     >>> roc_auc_score(y_true, y_scores)
     0.75
+
     """
 
     y_true, n_rows, n_cols, ytype = \

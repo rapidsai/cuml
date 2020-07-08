@@ -35,6 +35,7 @@ dependencies:
 - numpydoc
 - nbsphinx
 - recommonmark
+- ipython
 - pip
 - pip:
     - sphinx_markdown_tables
