@@ -520,7 +520,6 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
    * Note: Since class_probs will use the same round robin strategy for distributing
    * work to the streams, we don't need to explicitly synchronize the streams here.
    */
-
   class_probs(probs, knn_indices, y, n_labels, n_rows, k, uniq_labels, n_unique,
               allocator, user_stream, int_streams, n_int_streams);
 
@@ -536,7 +535,8 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
     /**
      * Choose max probability
      */
-    int smem = sizeof(int) * n_labels;
+
+    int smem = sizeof(int) * n_unique_labels;
     class_vote_kernel<<<grid, blk, smem, stream>>>(
       out, probs[i], uniq_labels[i], n_unique_labels, n_labels, n_rows,
       y.size(), i);
