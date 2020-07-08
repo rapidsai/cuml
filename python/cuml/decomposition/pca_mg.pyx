@@ -110,7 +110,6 @@ class PCAMG(BaseDecompositionMG, PCA):
             'auto': MGSolver.COV_EIG_JACOBI,
             # 'arpack': NOT_SUPPORTED,
             # 'randomized': NOT_SUPPORTED,
-            'tsqr': MGSolver.QR
         }
         if algorithm not in algo_map:
             msg = "algorithm {!r} is not supported"
