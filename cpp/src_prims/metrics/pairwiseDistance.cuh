@@ -54,8 +54,6 @@ void pairwiseDistance(const DataT *x, const DataT *y, DataT *dist, IndexT m,
   //Call the distance function
   Distance::pairwiseDistance(x, y, dist, m, n, k, workspace, metric, stream,
                              isRowMajor);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 };  // namespace Metrics

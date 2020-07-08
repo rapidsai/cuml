@@ -54,7 +54,7 @@ from cuml.common import has_scipy
 from cuml.metrics import roc_auc_score
 from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
 
-from cuml.metrics import pairwise_distances
+from cuml.metrics import pairwise_distances, PAIRWISE_DISTANCE_METRICS
 from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
 
 
@@ -648,8 +648,7 @@ def test_roc_auc_score_at_limits():
         roc_auc_score(y_true, y_pred)
 
 
-@pytest.mark.parametrize("metric", ["cityblock", "cosine", "euclidean", "l1",
-                                    "l2", "manhattan"])
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS)
 @pytest.mark.parametrize("matrix_size", [(5, 4), (1000, 3), (2, 10),
                                          (500, 400)])
 @pytest.mark.parametrize("is_col_major", [True, False])
@@ -713,8 +712,7 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
         pairwise_distances(X, Y, metric=metric.capitalize())
 
 
-@pytest.mark.parametrize("metric", ["cityblock", "cosine", "euclidean", "l1",
-                                    "l2", "manhattan"])
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS)
 @pytest.mark.parametrize("matrix_size", [
     unit_param((1000, 100)),
     quality_param((2000, 1000)),
@@ -752,8 +750,7 @@ def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
         cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
 
-@pytest.mark.parametrize("metric", ["cityblock", "cosine", "euclidean", "l1",
-                                    "l2", "manhattan"])
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS)
 def test_pairwise_distances_one_dimension_order(metric: str):
     # Test the pairwise_distance helper function.
     rng = np.random.RandomState(2)
