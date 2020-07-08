@@ -20,16 +20,60 @@ from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common import input_to_cuml_array
 import math
 
-@with_cupy_rmm
-def precision_recall_curve(y_true, y_score):
 
+@with_cupy_rmm
+def precision_recall_curve(y_true, probs_pred):
+    """Compute precision-recall pairs for different probability thresholds
+    Note: this implementation is restricted to the binary classification task.
+    The precision is the ratio ``tp / (tp + fp)`` where ``tp`` is the number of
+    true positives and ``fp`` the number of false positives. The precision is
+    intuitively the ability of the classifier not to label as positive a sample
+    that is negative.
+    The recall is the ratio ``tp / (tp + fn)`` where ``tp`` is the number of
+    true positives and ``fn`` the number of false negatives. The recall is
+    intuitively the ability of the classifier to find all the positive samples.
+    The last precision and recall values are 1. and 0. respectively and do not
+    have a corresponding threshold.  This ensures that the graph starts on the
+    y axis.
+    Read more in the :ref:`User Guide <precision_recall_f_measure_metrics>`.
+    Parameters
+    ----------
+    y_true : array, shape = [n_samples]
+        True binary labels, {0, 1}.
+    probas_pred : array, shape = [n_samples]
+        Estimated probabilities or decision function.
+    Returns
+    -------
+    precision : array, shape = [n_thresholds + 1]
+        Precision values such that element i is the precision of
+        predictions with score >= thresholds[i] and the last element is 1.
+    recall : array, shape = [n_thresholds + 1]
+        Decreasing recall values such that element i is the recall of
+        predictions with score >= thresholds[i] and the last element is 0.
+    thresholds : array, shape = [n_thresholds <= len(np.unique(probas_pred))]
+        Increasing thresholds on the decision function used to compute
+        precision and recall.
+    --------
+    >>> import numpy as np
+    >>> from cuml.metrics import precision_recall_curve
+    >>> y_true = np.array([0, 0, 1, 1])
+    >>> y_scores = np.array([0.1, 0.4, 0.35, 0.8])
+    >>> precision, recall, thresholds = precision_recall_curve(
+    ...     y_true, y_scores)
+    >>> precision
+    array([0.66666667, 0.5       , 1.        , 1.        ])
+    >>> recall
+    array([1. , 0.5, 0.5, 0. ])
+    >>> thresholds
+    array([0.35, 0.4 , 0.8 ])
+    """
     y_true, n_rows, n_cols, ytype = \
         input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64,
                                                  np.float32, np.float64])
 
     y_score, _, _, _ = \
-        input_to_cuml_array(y_score, check_dtype=[np.int32, np.int64,
-                                                  np.float32, np.float64],
+        input_to_cuml_array(probs_pred, check_dtype=[np.int32, np.int64,
+                            np.float32, np.float64],
                             check_rows=n_rows, check_cols=n_cols)
 
     y_true = y_true.to_output('cupy')
@@ -41,44 +85,18 @@ def precision_recall_curve(y_true, y_score):
 
     fps, tps, thresholds = _binary_clf_curve(y_true, y_score)
     precision = cp.flip(tps/(tps+fps), axis=0)
-    recall = cp.flip(tps/tps[-1],axis=0)
-    n = (recall==1).sum()
+    recall = cp.flip(tps/tps[-1], axis=0)
+    n = (recall == 1).sum()
 
-    if n>1:
+    if n > 1:
         precision = precision[n-1:]
         recall = recall[n-1:]
         thresholds = thresholds[n-1:]
-    precision = cp.concatenate([precision,cp.ones(1)])
-    recall = cp.concatenate([recall,cp.zeros(1)])
+    precision = cp.concatenate([precision, cp.ones(1)])
+    recall = cp.concatenate([recall, cp.zeros(1)])
 
-    return precision,recall,thresholds
+    return precision, recall, thresholds
 
-def _binary_clf_curve(y_true, y_score):
-
-    if y_true.dtype.kind == 'f' and np.any(y_true != y_true.astype(int)):
-        raise ValueError("Continuous format of y_true  "
-                         "is not supported.")
-
-    ids = cp.argsort(-y_score) 
-    sorted_score = y_score[ids]
-    
-    ones = y_true[ids].astype('float32') # for calculating true positives 
-    zeros = 1 - ones # for calculating predicted positives
-    
-    # calculate groups
-    group = _group_same_scores(sorted_score)    
-    num = int(group[-1])
-
-    tps = cp.zeros(num, dtype='float32') 
-    fps = cp.zeros(num, dtype='float32') 
-
-    tps = _addup_x_in_group(group, ones, tps)    
-    fps = _addup_x_in_group(group, zeros, fps)  
-
-    tps = cp.cumsum(tps)
-    fps = cp.cumsum(fps)
-    thresholds = cp.unique(y_score) 
-    return fps, tps, thresholds
 
 @with_cupy_rmm
 def roc_auc_score(y_true, y_score):
@@ -111,7 +129,6 @@ def roc_auc_score(y_true, y_score):
     >>> roc_auc_score(y_true, y_scores)
     0.75
     """
-
     y_true, n_rows, n_cols, ytype = \
         input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64,
                                                  np.float32, np.float64])
@@ -120,8 +137,35 @@ def roc_auc_score(y_true, y_score):
         input_to_cuml_array(y_score, check_dtype=[np.int32, np.int64,
                                                   np.float32, np.float64],
                             check_rows=n_rows, check_cols=n_cols)
-
     return _binary_roc_auc_score(y_true, y_score)
+
+
+def _binary_clf_curve(y_true, y_score):
+
+    if y_true.dtype.kind == 'f' and np.any(y_true != y_true.astype(int)):
+        raise ValueError("Continuous format of y_true  "
+                         "is not supported.")
+
+    ids = cp.argsort(-y_score)
+    sorted_score = y_score[ids]
+
+    ones = y_true[ids].astype('float32')  # for calculating true positives
+    zeros = 1 - ones  # for calculating predicted positives
+
+    # calculate groups
+    group = _group_same_scores(sorted_score)
+    num = int(group[-1])
+
+    tps = cp.zeros(num, dtype='float32')
+    fps = cp.zeros(num, dtype='float32')
+
+    tps = _addup_x_in_group(group, ones, tps)
+    fps = _addup_x_in_group(group, zeros, fps)
+
+    tps = cp.cumsum(tps)
+    fps = cp.cumsum(fps)
+    thresholds = cp.unique(y_score)
+    return fps, tps, thresholds
 
 
 def _binary_roc_auc_score(y_true, y_score):
@@ -143,6 +187,7 @@ def _binary_roc_auc_score(y_true, y_score):
 
     return _calculate_area_under_curve(fpr, tpr).item()
 
+
 def _addup_x_in_group(group, x, result):
     addup_x_in_group_kernel = cp.RawKernel(r'''
         extern "C" __global__
@@ -159,9 +204,9 @@ def _addup_x_in_group(group, x, result):
     N = x.shape[0]
     tpb = 256
     bpg = math.ceil(N/tpb)
-    addup_x_in_group_kernel((bpg,), (tpb,),
-                          (group, x, result, N))  # grid, block and arguments
+    addup_x_in_group_kernel((bpg,), (tpb,), (group, x, result, N))
     return result
+
 
 def _group_same_scores(sorted_score):
     mask = cp.empty(sorted_score.shape, dtype=cp.bool_)
@@ -169,6 +214,7 @@ def _group_same_scores(sorted_score):
     mask[1:] = sorted_score[1:] != sorted_score[:-1]
     group = cp.cumsum(mask, dtype=cp.int32)
     return group
+
 
 def _calculate_area_under_curve(fpr, tpr):
     """helper function to calculate area under curve given fpr & tpr arrays"""
