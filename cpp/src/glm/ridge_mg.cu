@@ -157,23 +157,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
   }
 
   if (algo == 0 || input_desc.N == 1) {
-    ASSERT(fal /*
-      * Copyright (c) 2020 NVIDIA CORPORATION.
-      *
-      * Licensed under the Apache License, Version 2.0 (the "License");
-      * you may not use this file except in compliance with the License.
-      * You may obtain a copy of the License at
-      *
-      *     http://www.apache.org/licenses/LICENSE-2.0
-      *
-      * Unless required by applicable law or agreed to in writing, software
-      * distributed under the License is distributed on an "AS IS" BASIS,
-      * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-      * See the License for the specific language governing permissions and
-      * limitations under the License.
-      */
-             se,
-           "olsFit: no algorithm with this id has been implemented");
+    ASSERT(false, "olsFit: no algorithm with this id has been implemented");
   } else if (algo == 1) {
     ridgeEig(handle, input_data, input_desc, labels, alpha, n_alpha, coef,
              streams, n_streams, verbose);
