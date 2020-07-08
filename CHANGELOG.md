@@ -43,6 +43,7 @@
 - PR #2439: Update dask RF code to have print_detailed function
 - PR #2431: Match output of classifier predict with target dtype
 - PR #2099: Raise an error when float64 data is used with dask RF
+- PR #2522: Renaming a few arguments in KNeighbors* to be more readable
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
