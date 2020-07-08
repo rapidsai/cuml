@@ -345,8 +345,7 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
 template <typename OutType = float>
 __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
                                    const int *labels, int n_uniq_labels,
-                                   size_t n_samples,
-                                   int n_neighbors) {
+                                   size_t n_samples, int n_neighbors) {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i = row * n_neighbors;
 
@@ -392,9 +391,9 @@ __global__ void class_vote_kernel(OutType *out, const float *class_proba,
 
 template <typename LabelType>
 __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
-                                   const LabelType *labels,
-                                   size_t n_samples, int n_neighbors,
-                                   int n_outputs, int output_offset) {
+                                   const LabelType *labels, size_t n_samples,
+                                   int n_neighbors, int n_outputs,
+                                   int output_offset) {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i = row * n_neighbors;
 
@@ -434,8 +433,9 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  */
 template <int TPB_X = 32>
 void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
-                 std::vector<int *> &y, size_t n_index_rows, size_t n_query_rows,
-                 int k, std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
+                 std::vector<int *> &y, size_t n_index_rows,
+                 size_t n_query_rows, int k, std::vector<int *> &uniq_labels,
+                 std::vector<int> &n_unique,
                  std::shared_ptr<deviceAllocator> allocator,
                  cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
                  int n_int_streams = 0) {
@@ -462,8 +462,8 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
       y_normalized.data(), y_normalized.data(), n_index_rows,
       [] __device__(int input) { return input - 1; }, stream);
     class_probs_kernel<<<grid, blk, 0, stream>>>(
-      out[i], knn_indices, y_normalized.data(), n_unique_labels,
-      n_query_rows, k);
+      out[i], knn_indices, y_normalized.data(), n_unique_labels, n_query_rows,
+      k);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 }
@@ -520,8 +520,8 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
    * Note: Since class_probs will use the same round robin strategy for distributing
    * work to the streams, we don't need to explicitly synchronize the streams here.
    */
-  class_probs(probs, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique,
-              allocator, user_stream, int_streams, n_int_streams);
+  class_probs(probs, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels,
+              n_unique, allocator, user_stream, int_streams, n_int_streams);
 
   dim3 grid(MLCommon::ceildiv(n_query_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
@@ -538,8 +538,8 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
 
     int smem = sizeof(int) * n_unique_labels;
     class_vote_kernel<<<grid, blk, smem, stream>>>(
-      out, probs[i], uniq_labels[i], n_unique_labels, n_query_rows,
-      y.size(), i);
+      out, probs[i], uniq_labels[i], n_unique_labels, n_query_rows, y.size(),
+      i);
     CUDA_CHECK(cudaPeekAtLastError());
 
     delete tmp_probs[i];
@@ -577,8 +577,9 @@ void knn_regress(ValType *out, const int64_t *knn_indices,
     cudaStream_t stream =
       select_stream(user_stream, int_streams, n_int_streams, i);
 
-    regress_avg_kernel<<<ceildiv(n_query_rows, (size_t)TPB_X), TPB_X, 0, stream>>>(
-      out, knn_indices, y[i], n_query_rows, k, y.size(), i);
+    regress_avg_kernel<<<ceildiv(n_query_rows, (size_t)TPB_X), TPB_X, 0,
+                         stream>>>(out, knn_indices, y[i], n_query_rows, k,
+                                   y.size(), i);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaPeekAtLastError());
