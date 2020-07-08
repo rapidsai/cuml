@@ -15,8 +15,8 @@
 import warnings
 
 from cudf import Series
-from sklearn.exceptions import NotFittedError
-from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+from cuml.common.exceptions import NotFittedError
+from cuml.feature_extraction._stop_words import ENGLISH_STOP_WORDS
 from functools import partial
 import cupy as cp
 import numbers
