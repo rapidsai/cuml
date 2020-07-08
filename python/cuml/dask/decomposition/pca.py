@@ -105,7 +105,6 @@ class PCA(BaseDecomposition,
     svd_solver : 'full', 'jacobi', or 'tsqr'
         'full': run exact full SVD and select the components by postprocessing
         'jacobi': iteratively compute SVD of the covariance matrix
-        'tsqr': compute qr decomposition of the data matrix
     verbose : int or boolean (default = False)
         Logging level
     whiten : boolean (default = False)
