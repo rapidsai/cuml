@@ -40,6 +40,7 @@
 - PR #2453: Add CumlArray to API doc
 - PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
 - PR #2469: Updating KNN c-api to document all arguments
+- PR #2490: Moving MNMG KMeans to cuml
 - PR #2483: Moving MNMG KNN to cuml
 - PR #2492: Adding additional assertions to mnmg nearest neighbors pytests
 - PR #2499: Provide access to `cuml.DBSCAN` core samples
@@ -65,6 +66,7 @@
 - PR #2496: Fixing indentation for simulate_data in test_fil.py
 - PR #2497: Changes to accomodate cuDF unsigned categorical changes
 - PR #2507: Import `treelite.sklearn`
+- PR #2515: Increase tolerance for LogisticRegression test
 
 # cuML 0.14.0 (03 Jun 2020)
 
