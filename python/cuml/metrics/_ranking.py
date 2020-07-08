@@ -134,35 +134,12 @@ def _binary_roc_auc_score(y_true, y_score):
                          "only one class present in y_true. ROC AUC score "
                          "is not defined in that case.")
 
-    if y_true.dtype.kind == 'f' and np.any(y_true != y_true.astype(int)):
-        raise ValueError("Continuous format of y_true  "
-                         "is not supported by roc_auc_score")
-
     if cp.unique(y_score).shape[0] == 1:
         return 0.5
 
-    y_true = y_true.astype('float32')
-    ids = cp.argsort(-y_score)  # we want descedning order
-
-    sorted_score = y_score[ids]
-    ones = y_true[ids]
-    zeros = 1 - ones
-
-    group = _group_same_scores(sorted_score)
-
-    sum_ones = cp.sum(ones)
-    sum_zeros = cp.sum(zeros)
-
-    num = int(group[-1])
-
-    tps = cp.zeros(num, dtype='float32')  # true positives
-    fps = cp.zeros(num, dtype='float32')  # false positives
-
-    tps = _addup_x_in_group(group, ones, tps)
-    fps = _addup_x_in_group(group, zeros, fps)
-
-    tpr = cp.cumsum(tps)/sum_ones
-    fpr = cp.cumsum(fps)/sum_zeros
+    fps, tps, thresholds = _binary_clf_curve(y_true, y_score)
+    tpr = tps/tps[-1]
+    fpr = fps/fps[-1]
 
     return _calculate_area_under_curve(fpr, tpr).item()
 

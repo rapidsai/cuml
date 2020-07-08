@@ -640,7 +640,7 @@ def test_roc_auc_score_at_limits():
     y_pred = np.array([0., 0.5, 1.], dtype=np.float)
 
     err_msg = ("Continuous format of y_true  "
-               "is not supported by roc_auc_score")
+               "is not supported.")
 
     with pytest.raises(ValueError, match=err_msg):
         roc_auc_score(y_true, y_pred)
