@@ -55,34 +55,24 @@ namespace opg {
 
 using namespace knn_common;
 
-void knn_classify(
-  ML::cumlHandle &handle,
-  std::vector<Matrix::Data<int>*> *out,
-  std::vector<Matrix::Data<int64_t>*> *out_I,
-  std::vector<Matrix::floatData_t*> *out_D,
-  std::vector<std::vector<float*>> *probas,
-  std::vector<Matrix::floatData_t*> &idx_data,
-  Matrix::PartDescriptor &idx_desc,
-  std::vector<Matrix::floatData_t*> &query_data,
-  Matrix::PartDescriptor &query_desc,
-  std::vector<std::vector<int*>> &y,
-  std::vector<int*> &uniq_labels,
-  std::vector<int> &n_unique,
-  bool rowMajorIndex,
-  bool rowMajorQuery,
-  bool probas_only,
-  int k,
-  size_t batch_size,
-  bool verbose) {
-    int n_outputs = n_unique.size();
+void knn_classify(ML::cumlHandle &handle, std::vector<Matrix::Data<int> *> *out,
+                  std::vector<Matrix::Data<int64_t> *> *out_I,
+                  std::vector<Matrix::floatData_t *> *out_D,
+                  std::vector<std::vector<float *>> *probas,
+                  std::vector<Matrix::floatData_t *> &idx_data,
+                  Matrix::PartDescriptor &idx_desc,
+                  std::vector<Matrix::floatData_t *> &query_data,
+                  Matrix::PartDescriptor &query_desc,
+                  std::vector<std::vector<int *>> &y,
+                  std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
+                  bool rowMajorIndex, bool rowMajorQuery, bool probas_only,
+                  int k, size_t batch_size, bool verbose) {
+  int n_outputs = n_unique.size();
 
-    opg_knn(handle, out, out_I, out_D,
-      idx_data, idx_desc, query_data, query_desc,
-      y, rowMajorIndex, rowMajorQuery,
-      k, n_outputs, batch_size, verbose,
-      probas, &uniq_labels, &n_unique,
-      probas_only);
-  }
-};
-};
-};
+  opg_knn(handle, out, out_I, out_D, idx_data, idx_desc, query_data, query_desc,
+          y, rowMajorIndex, rowMajorQuery, k, n_outputs, batch_size, verbose,
+          probas, &uniq_labels, &n_unique, probas_only);
+}
+};  // namespace opg
+};  // namespace KNN
+};  // namespace ML

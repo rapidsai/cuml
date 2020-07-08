@@ -55,28 +55,20 @@ namespace opg {
 
 using namespace knn_common;
 
-void knn_regress(
-  ML::cumlHandle &handle,
-  std::vector<Matrix::Data<float>*> *out,
-  std::vector<Matrix::Data<int64_t>*> *out_I,
-  std::vector<Matrix::floatData_t*> *out_D,
-  std::vector<Matrix::floatData_t*> &idx_data,
-  Matrix::PartDescriptor &idx_desc,
-  std::vector<Matrix::floatData_t*> &query_data,
-  Matrix::PartDescriptor &query_desc,
-  std::vector<std::vector<float*>> &y,
-  bool rowMajorIndex,
-  bool rowMajorQuery,
-  int k,
-  int n_outputs,
-  size_t batch_size,
-  bool verbose) {
-
-    opg_knn(handle, out, out_I, out_D,
-      idx_data, idx_desc, query_data, query_desc,
-      y, rowMajorIndex, rowMajorQuery,
-      k, n_outputs, batch_size, verbose);
-  }
-};
-};
-};
+void knn_regress(ML::cumlHandle &handle,
+                 std::vector<Matrix::Data<float> *> *out,
+                 std::vector<Matrix::Data<int64_t> *> *out_I,
+                 std::vector<Matrix::floatData_t *> *out_D,
+                 std::vector<Matrix::floatData_t *> &idx_data,
+                 Matrix::PartDescriptor &idx_desc,
+                 std::vector<Matrix::floatData_t *> &query_data,
+                 Matrix::PartDescriptor &query_desc,
+                 std::vector<std::vector<float *>> &y, bool rowMajorIndex,
+                 bool rowMajorQuery, int k, int n_outputs, size_t batch_size,
+                 bool verbose) {
+  opg_knn(handle, out, out_I, out_D, idx_data, idx_desc, query_data, query_desc,
+          y, rowMajorIndex, rowMajorQuery, k, n_outputs, batch_size, verbose);
+}
+};  // namespace opg
+};  // namespace KNN
+};  // namespace ML
