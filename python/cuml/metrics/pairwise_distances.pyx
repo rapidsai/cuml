@@ -49,7 +49,21 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                           DistanceType metric, bool isRowMajor) except +
 
 
-def determine_metric(metric_str):
+"""
+List of available distance metrics in `pairwise_distances`
+"""
+PAIRWISE_DISTANCE_METRICS = [
+    "cityblock",
+    "cosine",
+    "euclidean",
+    "l1",
+    "l2",
+    "manhattan",
+    "sqeuclidean"
+]
+
+
+def _determine_metric(metric_str):
 
     # Available options in scikit-learn and their pairs. See
     # sklearn.metrics.pairwise.PAIRWISE_DISTANCE_FUNCTIONS:
@@ -61,6 +75,7 @@ def determine_metric(metric_str):
     # 'l1': EucUnexpandedL1
     # 'manhattan': EucUnexpandedL1
     # 'nan_euclidean': N/A
+    # 'sqeuclidean': EucUnexpandedL2
     # Note: many are duplicates following this:
     # https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/metrics/pairwise.py#L1321
 
@@ -82,6 +97,8 @@ def determine_metric(metric_str):
     elif metric_str == 'nan_euclidean':
         raise ValueError(" The metric: '{}', is not supported at this time."
                          .format(metric_str))
+    elif metric_str == 'sqeuclidean':
+        return DistanceType.EucUnexpandedL2
     else:
         raise ValueError("Unknown metric: {}".format(metric_str))
 
@@ -90,31 +107,36 @@ def determine_metric(metric_str):
 def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                        convert_dtype=True, **kwds):
     """
-    Compute the distance matrix from a vector array X and optional Y.
+    Compute the distance matrix from a vector array `X` and optional `Y`.
 
-    This method takes either one or two vector arrays, and returns
-    a distance matrix.
+    This method takes either one or two vector arrays, and returns a distance
+    matrix.
 
-    If Y is given (default is None), then the returned matrix is the pairwise
-    distance between the arrays from both X and Y.
+    If `Y` is given (default is `None`), then the returned matrix is the
+    pairwise distance between the arrays from both `X` and `Y`.
 
     Valid values for metric are:
 
-    - From scikit-learn: ['cityblock', 'cosine', 'euclidean', 'haversine',
-                          'l1', 'l2', 'manhattan'].
-                          Sparse matrices are not supported.
+    - From scikit-learn: ['cityblock', 'cosine', 'euclidean', 'l1', 'l2', \
+        'manhattan'].
+        Sparse matrices are not supported.
+    - From scipy.spatial.distance: ['sqeuclidean']
+        See the documentation for scipy.spatial.distance for details on this
+        metric. Sparse matrices are not supported.
 
     Parameters
     ----------
-    X : array-like (device or host) shape = (n_samples_x, n_features)
+    X : array-like (device or host) of shape (n_samples_x, n_features)
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy
 
-    Y : array-like (device or host), optional shape = (n_samples_y, n_features)
+    Y : array-like (device or host) of shape (n_samples_y, n_features),\
+        optional
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy
 
-    metric : string
+    metric : {"cityblock", "cosine", "euclidean", "l1", "l2", "manhattan", \
+        "sqeuclidean"}
         The metric to use when calculating distance between instances in a
         feature array.
 
@@ -127,9 +149,35 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     -------
     D : array [n_samples_x, n_samples_x] or [n_samples_x, n_samples_y]
         A distance matrix D such that D_{i, j} is the distance between the
-        ith and jth vectors of the given matrix X, if Y is None.
-        If Y is not None, then D_{i, j} is the distance between the ith array
-        from X and the jth array from Y.
+        ith and jth vectors of the given matrix `X`, if `Y` is None.
+        If `Y` is not `None`, then D_{i, j} is the distance between the ith
+        array from `X` and the jth array from `Y`.
+
+    Examples
+    ---------
+        >>> import numpy as np
+        >>> from cuml.metrics import pairwise_distances
+        >>>
+        >>> X = np.array([[2.0, 3.0], [3.0, 5.0], [5.0, 8.0]])
+        >>> Y = np.array([[1.0, 0.0], [2.0, 1.0]])
+        >>>
+        >>> # Euclidean Pairwise Distance, Single Input:
+        >>> pairwise_distances(X, metric='euclidean')
+        array([[0.        , 2.23606798, 5.83095189],
+            [2.23606798, 0.        , 3.60555128],
+            [5.83095189, 3.60555128, 0.        ]])
+        >>>
+        >>> # Cosine Pairwise Distance, Multi-Input:
+        >>> pairwise_distances(X, Y, metric='cosine')
+        array([[0.4452998 , 0.13175686],
+            [0.48550424, 0.15633851],
+            [0.47000106, 0.14671817]])
+        >>>
+        >>> # Manhattan Pairwise Distance, Multi-Input:
+        >>> pairwise_distances(X, Y, metric='manhattan')
+        array([[ 4.,  2.],
+            [ 7.,  5.],
+            [12., 10.]])
     """
 
     handle = cuml.common.handle.Handle() if handle is None else handle
@@ -182,7 +230,7 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                          .format(n_features_x, n_features_y))
 
     # Get the metric string to int
-    metric_val = determine_metric(metric)
+    metric_val = _determine_metric(metric)
 
     # Create the output array
     dest_m = CumlArray.zeros((n_samples_x, n_samples_y), dtype=dtype_x,
@@ -215,6 +263,9 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                          <bool> is_row_major)
     else:
         raise NotImplementedError("Unsupported dtype: {}".format(dtype_x))
+
+    # Sync on the stream before exiting. pairwiseDistance does not sync.
+    handle.sync()
 
     del X_m
     del Y_m
