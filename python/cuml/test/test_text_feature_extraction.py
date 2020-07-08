@@ -335,8 +335,19 @@ def test_tfidf_vectorizer_idf_setter():
                                          orig.transform(DOCS_GPU).todense())
 
 
-def test_tfidf_vectorizer():
-    tfidf_mat = TfidfVectorizer(use_idf=True).fit_transform(DOCS_GPU)
-    ref = SkTfidfVect(use_idf=True).fit_transform(DOCS)
+@pytest.mark.parametrize('norm', ['l1', 'l2', None])
+@pytest.mark.parametrize('use_idf', [True, False])
+@pytest.mark.parametrize('smooth_idf', [True, False])
+@pytest.mark.parametrize('sublinear_tf', [True, False])
+def test_tfidf_vectorizer(norm, use_idf, smooth_idf, sublinear_tf):
+    tfidf_mat = TfidfVectorizer(
+        norm=norm, use_idf=use_idf,
+        smooth_idf=smooth_idf, sublinear_tf=sublinear_tf
+    ).fit_transform(DOCS_GPU)
+
+    ref = SkTfidfVect(
+        norm=norm, use_idf=use_idf,
+        smooth_idf=smooth_idf, sublinear_tf=sublinear_tf
+    ).fit_transform(DOCS)
 
     cp.testing.assert_array_almost_equal(tfidf_mat.todense(), ref.toarray())
