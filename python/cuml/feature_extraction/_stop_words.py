@@ -1,3 +1,17 @@
+# Portion of this code are derived from the scikit-learn feature_extraction
+# package, which has the following license:
+#
+#    -*- coding: utf-8 -*-
+#    Authors: Olivier Grisel <olivier.grisel@ensta.org>
+#             Mathieu Blondel <mathieu@mblondel.org>
+#             Lars Buitinck
+#             Robert Layton <robertlayton@gmail.com>
+#             Jochen Wersdörfer <jochen@wersdoerfer.de>
+#             Roman Sinayev <roman.sinayev@gmail.com>
+#
+#    License: BSD 3 clause
+#
+
 # This list of English stop words is taken from the "Glasgow Information
 # Retrieval Group". The original list can be found at
 # http://ir.dcs.gla.ac.uk/resources/linguistic_utils/stop_words
