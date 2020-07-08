@@ -196,7 +196,7 @@ class TfidfVectorizer(CountVectorizer):
                                  (len(value), len(self.vocabulary)))
         self._tfidf.idf_ = value
 
-    def fit(self, raw_documents, y=None):
+    def fit(self, raw_documents):
         """Learn vocabulary and idf from training set.
 
         Parameters
