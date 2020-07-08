@@ -32,8 +32,10 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     Currently, this API makes the following assumptions:
     * The set of Dask workers used between instantiation, fit,
     and predict are all consistent
-    * Training data is comes in the form of cuDF dataframes,
+    * Training data comes in the form of cuDF dataframes or Dask Arrays
     distributed so that each worker has at least one partition.
+    * The print_summary and print_detailed functions print the
+    information of the forest on the worker.
 
     Future versions of the API will support more flexible data
     distribution and additional input types. User-facing APIs are
@@ -150,9 +152,19 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
 
     def print_summary(self):
         """
-        Print the summary of the forest used to train and test the model.
+        Print the summary of the forest used to train the model
+        on each worker. This information is displayed on the
+        individual workers and not the client.
         """
         return self._print_summary()
+
+    def print_detailed(self):
+        """
+        Print detailed information of the forest used to train
+        the model on each worker. This information is displayed on the
+        workers and not the client.
+        """
+        return self._print_detailed()
 
     def fit(self, X, y, convert_dtype=False):
         """
@@ -188,8 +200,8 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             **y must be partitioned the same way as X**
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
+            y to be the same data type as X if they differ. This will increase
+            memory used for the method.
         """
         self.local_model = None
         self._fit(model=self.rfs,
@@ -270,19 +282,12 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
 
         else:
             preds = \
-                self.predict_using_fil(X, predict_model=predict_model,
-                                       algo=algo,
-                                       convert_dtype=convert_dtype,
-                                       fil_sparse_format=fil_sparse_format,
-                                       delayed=delayed)
+                self._predict_using_fil(X,
+                                        algo=algo,
+                                        convert_dtype=convert_dtype,
+                                        fil_sparse_format=fil_sparse_format,
+                                        delayed=delayed)
         return preds
-
-    def predict_using_fil(self, X, delayed, **kwargs):
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
-        return self._predict_using_fil(X=X,
-                                       delayed=delayed,
-                                       **kwargs)
 
     """
     TODO : Update function names used for CPU predict.
