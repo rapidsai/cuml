@@ -37,8 +37,8 @@ from libcpp.memory cimport shared_ptr
 from cuml.neighbors import KNeighborsMG
 from cudf.core import DataFrame as cudfDataFrame
 
-cdef extern from "cumlprims/opg/selection/knn.hpp" namespace \
-        "MLCommon::Selection::opg":
+cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
+        "ML::KNN::opg":
 
     cdef void knn_regress(
         cumlHandle &handle,
