@@ -44,6 +44,7 @@
 - PR #2492: Adding additional assertions to mnmg nearest neighbors pytests
 - PR #2439: Update dask RF code to have print_detailed function
 - PR #2431: Match output of classifier predict with target dtype
+- PR #2513: Fixing LGTM Analysis Issues
 - PR #2099: Raise an error when float64 data is used with dask RF
 - PR #2526: Removing PCA TSQR as a solver due to scalability issues
 
