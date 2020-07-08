@@ -20,8 +20,39 @@ from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common import input_to_cuml_array
 import math
 
+@with_cupy_rmm
 def precision_recall_curve_cupy(y_true, y_score):
-    pass
+    ids = cp.argsort(-y_pred) 
+    sorted_score = y_pred[ids]
+    
+    tps = y_true[ids].astype('float32') # for calculating true positives 
+    pps = cp.ones_like(y_true).astype('float32') # for calculating predicted positives
+    
+    # calculate groups
+    group = _group_same_scores(sorted_score)    
+    num = int(group[-1])
+
+    r = cp.zeros(num, dtype='float32') 
+    p = cp.zeros(num, dtype='float32') 
+
+    r = _addup_x_in_group(group, tps, r)    
+    p = _addup_x_in_group(group, pps, p)  
+
+    sum_one = cp.sum(y_true)
+    r = cp.cumsum(r)
+    
+    precision = cp.flip(r/cp.cumsum(p), axis=0)
+    recall = cp.flip(r/sum_one,axis=0)
+    n = (recall==1).sum()
+    
+    if n>1:
+        precision = precision[n-1:]
+        recall = recall[n-1:]
+    precision = cp.concatenate([precision,cp.ones(1)])
+    recall = cp.concatenate([recall,cp.zeros(1)])
+    
+    thresholds = cp.unique(y_pred)
+    return precision,recall,thresholds
 
 @with_cupy_rmm
 def roc_auc_score(y_true, y_score):
