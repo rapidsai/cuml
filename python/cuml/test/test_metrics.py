@@ -52,8 +52,9 @@ from sklearn.metrics.regression import mean_squared_log_error as sklearn_msle
 from cuml.common import has_scipy
 
 from cuml.metrics import roc_auc_score
+from cuml.metrics import precision_recall_curve
 from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
-
+from sklearn.metrics import precision_recall_curve as sklearn_precision_recall_curve 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('use_handle', [True, False])
@@ -643,3 +644,55 @@ def test_roc_auc_score_at_limits():
 
     with pytest.raises(ValueError, match=err_msg):
         roc_auc_score(y_true, y_pred)
+
+def test_precision_recall_curve():
+    y_true = np.array([0, 0, 1, 1])
+    y_score = np.array([0.1, 0.4, 0.35, 0.8])
+    precision_using_sk, recall_using_sk, thresholds_using_sk = sklearn_precision_recall_curve(
+        y_true, y_score)
+
+    precision, recall, thresholds = precision_recall_curve(
+        y_true, y_score)
+
+    assert array_equal(precision, precision_using_sk)
+    assert array_equal(recall, recall_using_sk)
+    assert array_equal(thresholds, thresholds_using_sk)
+
+def test_precision_recall_curve_at_limits():
+    y_true = np.array([0., 0., 0.], dtype=np.float)
+    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+
+    err_msg = ("precision_recall_curve cannot be used when "
+               "y_true is all zero.")
+
+    with pytest.raises(ValueError, match=err_msg):
+        precision_recall_curve(y_true, y_pred)
+
+    y_true = np.array([0., 0.5, 1.0], dtype=np.float)
+    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+
+    err_msg = ("Continuous format of y_true  "
+               "is not supported by roc_auc_score")
+
+    with pytest.raises(ValueError, match=err_msg):
+        precision_recall_curve(y_true, y_pred)
+
+@pytest.mark.parametrize('n_samples', [50, 500000])
+@pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
+def test_precision_recall_curve_random(n_samples, dtype):
+
+    y_true, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 2, n_samples).astype(dtype))
+
+    y_score, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 1000, n_samples).astype(dtype))
+
+    precision_using_sk, recall_using_sk, thresholds_using_sk = sklearn_precision_recall_curve(
+        y_true, y_score)
+
+    precision, recall, thresholds = precision_recall_curve(
+        y_true, y_score)
+
+    assert array_equal(precision, precision_using_sk)
+    assert array_equal(recall, recall_using_sk)
+    assert array_equal(thresholds, thresholds_using_sk)
