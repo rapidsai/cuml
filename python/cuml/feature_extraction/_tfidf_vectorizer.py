@@ -126,6 +126,9 @@ class TfidfVectorizer(CountVectorizer):
     The ``stop_words_`` attribute can get large and increase the model size
     when pickling. This attribute is provided only for introspection and can
     be safely removed using delattr or set to None before pickling.
+
+    This class is largely based on scikit-learn 0.23.1's TfIdfVectorizer code,
+    which is provided under the BSD-3 license.
     """
     def __init__(self, input=None, encoding=None, decode_error=None,
                  strip_accents=None, lowercase=True, preprocessor=None,
