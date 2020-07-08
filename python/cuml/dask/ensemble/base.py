@@ -15,6 +15,7 @@
 
 import dask
 import math
+import numpy as np
 
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
@@ -85,6 +86,20 @@ class BaseRandomForestModel(object):
     def _fit(self, model, dataset, convert_dtype):
         data = DistributedDataHandler.create(dataset, client=self.client)
         self.datatype = data.datatype
+        if self.datatype == 'cudf':
+            has_float64 = (dataset[0].dtypes.any() == np.float64)
+        else:
+            has_float64 = (dataset[0].dtype == np.float64)
+        if has_float64:
+            raise TypeError("To use Dask RF data should have dtype float32.")
+
+        labels = self.client.persist(dataset[1])
+        if self.datatype == 'cudf':
+            self.num_classes = len(labels.unique())
+        else:
+            self.num_classes = \
+                len(dask.array.unique(labels).compute())
+        labels = self.client.persist(dataset[1])
         futures = list()
         for idx, (worker, worker_data) in \
                 enumerate(data.worker_to_parts.items()):
@@ -107,17 +122,19 @@ class BaseRandomForestModel(object):
         to create a single model. The concatenated model is then converted to
         bytes format.
         """
-        model_protobuf_futures = list()
+        model_serialized_futures = list()
         for w in self.workers:
-            model_protobuf_futures.append(
-                dask.delayed(_get_protobuf_bytes)
+            model_serialized_futures.append(
+                dask.delayed(_get_serialized_model)
                 (self.rfs[w]))
-        mod_bytes = self.client.compute(model_protobuf_futures, sync=True)
+        mod_bytes = self.client.compute(model_serialized_futures, sync=True)
         last_worker = w
         all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
-        all_tl_mod_handles = [model._tl_model_handles(pbuf_bytes)
-                              for pbuf_bytes in mod_bytes]
+        all_tl_mod_handles = [
+                model._tl_handle_from_bytes(indiv_worker_model_bytes)
+                for indiv_worker_model_bytes in mod_bytes
+        ]
 
         model._concatenate_treelite_handle(all_tl_mod_handles)
         for tl_handle in all_tl_mod_handles:
@@ -128,6 +145,8 @@ class BaseRandomForestModel(object):
     def _predict_using_fil(self, X, delayed, **kwargs):
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
+        if self.local_model is None:
+            self.local_model = self._concat_treelite_models()
         return self._predict(X, delayed=delayed, **kwargs)
 
     def _get_params(self, deep):
@@ -172,7 +191,23 @@ class BaseRandomForestModel(object):
                 )
             )
 
-        wait_and_raise_from_futures(futures)
+            wait_and_raise_from_futures(futures)
+        return self
+
+    def _print_detailed(self):
+        """
+        Print the summary of the forest used to train and test the model.
+        """
+        futures = list()
+        for n, w in enumerate(self.workers):
+            futures.append(
+                self.client.submit(
+                    _print_detailed_func,
+                    self.rfs[w],
+                    workers=[w],
+                )
+            )
+            wait_and_raise_from_futures(futures)
         return self
 
 
@@ -186,6 +221,10 @@ def _print_summary_func(model):
     model.print_summary()
 
 
+def _print_detailed_func(model):
+    model.print_detailed()
+
+
 def _func_get_params(model, deep):
     return model.get_params(deep)
 
@@ -194,5 +233,5 @@ def _func_set_params(model, **params):
     return model.set_params(**params)
 
 
-def _get_protobuf_bytes(model):
-    return model._get_protobuf_bytes()
+def _get_serialized_model(model):
+    return model._get_serialized_model()

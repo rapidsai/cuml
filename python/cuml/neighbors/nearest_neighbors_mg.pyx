@@ -82,8 +82,8 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" namespace \
                        vector[RankSizePair*] &partsToRanks,
                        int myrank)
 
-cdef extern from "cumlprims/opg/selection/knn.hpp" namespace \
-        "MLCommon::Selection::opg":
+cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
+        "ML::KNN::opg":
 
     cdef void brute_force_knn(
         cumlHandle &handle,

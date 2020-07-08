@@ -284,71 +284,40 @@ void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
 template <class T, class L>
 void build_treelite_forest(ModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
-                           int num_features, int task_category,
-                           std::vector<unsigned char>& data) {
-  bool check_val = (data).empty();
-  if (not check_val) {
-    // create a temp file
-    const char* filename = std::tmpnam(nullptr);
-    // write the model bytes into the temp file
-    {
-      std::ofstream file(filename, std::ios::binary);
-      file.write((char*)&data[0], data.size());
-    }
-    // read the file as a protobuf model
-    TREELITE_CHECK(TreeliteLoadProtobufModel(filename, model));
+                           int num_features, int task_category) {
+  // Non-zero value here for random forest models.
+  // The value should be set to 0 if the model is gradient boosted trees.
+  int random_forest_flag = 1;
+  ModelBuilderHandle model_builder;
+  // num_output_group is 1 for binary classification and regression
+  // num_output_group is #class for multiclass classification which is the same as task_category
+  int num_output_group = task_category > 2 ? task_category : 1;
+  TREELITE_CHECK(TreeliteCreateModelBuilder(
+    num_features, num_output_group, random_forest_flag, &model_builder));
+
+  if (task_category > 2) {
+    // Multi-class classification
+    TREELITE_CHECK(TreeliteModelBuilderSetModelParam(
+      model_builder, "pred_transform", "max_index"));
   }
 
-  else {
-    // Non-zero value here for random forest models.
-    // The value should be set to 0 if the model is gradient boosted trees.
-    int random_forest_flag = 1;
-    ModelBuilderHandle model_builder;
-    // num_output_group is 1 for binary classification and regression
-    // num_output_group is #class for multiclass classification which is the same as task_category
-    int num_output_group = task_category > 2 ? task_category : 1;
-    TREELITE_CHECK(TreeliteCreateModelBuilder(
-      num_features, num_output_group, random_forest_flag, &model_builder));
+  for (int i = 0; i < forest->rf_params.n_trees; i++) {
+    DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
+    TreeBuilderHandle tree_builder;
 
-    if (task_category > 2) {
-      // Multi-class classification
-      TREELITE_CHECK(TreeliteModelBuilderSetModelParam(
-        model_builder, "pred_transform", "max_index"));
+    TREELITE_CHECK(TreeliteCreateTreeBuilder(&tree_builder));
+    if (tree_ptr->sparsetree.size() != 0) {
+      DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr,
+                                              num_output_group);
+
+      // The third argument -1 means append to the end of the tree list.
+      TREELITE_CHECK(
+        TreeliteModelBuilderInsertTree(model_builder, tree_builder, -1));
     }
-
-    for (int i = 0; i < forest->rf_params.n_trees; i++) {
-      DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
-      TreeBuilderHandle tree_builder;
-
-      TREELITE_CHECK(TreeliteCreateTreeBuilder(&tree_builder));
-      if (tree_ptr->sparsetree.size() != 0) {
-        DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr,
-                                                num_output_group);
-
-        // The third argument -1 means append to the end of the tree list.
-        TREELITE_CHECK(
-          TreeliteModelBuilderInsertTree(model_builder, tree_builder, -1));
-      }
-    }
-
-    TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
-    TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
   }
-}
 
-std::vector<unsigned char> save_model(ModelHandle model) {
-  // create a temp file
-  const char* filename = std::tmpnam(nullptr);
-  // export the treelite model to protobuf nd save it in the temp file
-  TreeliteExportProtobufModel(filename, model);
-  // read from the temp file and obtain the model bytes
-  std::ifstream in(filename, std::ifstream::ate | std::ifstream::binary);
-  in.seekg(0, std::ios::end);
-  int size_of_file = in.tellg();
-  vector<unsigned char> bytes_info(size_of_file, 0);
-  ifstream infile(filename, ios::in | ios::binary);
-  infile.read((char*)&bytes_info[0], bytes_info.size());
-  return bytes_info;
+  TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
+  TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
 }
 
 /**
@@ -367,31 +336,28 @@ void compare_trees(tl::Tree& tree_from_concatenated_forest,
          " the tree present in the individual forests");
   for (int each_node = 0; each_node < tree_from_concatenated_forest.num_nodes;
        each_node++) {
-    tl::Tree::Node& node_from_concat = tree_from_concatenated_forest[each_node];
-    tl::Tree::Node& node_from_indiv = tree_from_individual_forest[each_node];
-    ASSERT(node_from_concat.is_root() == node_from_indiv.is_root(),
-           "Error! root position mismatch between concatenated forest and the"
-           " individual forests ");
-    ASSERT(node_from_concat.parent() == node_from_indiv.parent(),
-           "Error! node parent mismatch between concatenated forest and the"
-           " individual forests ");
-    ASSERT(node_from_concat.is_leaf() == node_from_indiv.is_leaf(),
+    ASSERT(tree_from_concatenated_forest.IsLeaf(each_node) ==
+             tree_from_individual_forest.IsLeaf(each_node),
            "Error! mismatch in the position of a leaf between concatenated "
            "forest and the"
            " individual forests ");
-    ASSERT(node_from_concat.leaf_value() == node_from_indiv.leaf_value(),
+    ASSERT(tree_from_concatenated_forest.LeafValue(each_node) ==
+             tree_from_individual_forest.LeafValue(each_node),
            "Error! leaf value mismatch between concatenated forest and the"
            " individual forests ");
-    ASSERT(node_from_concat.cright() == node_from_indiv.cright(),
+    ASSERT(tree_from_concatenated_forest.RightChild(each_node) ==
+             tree_from_individual_forest.RightChild(each_node),
            "Error! mismatch in the position of the node between concatenated "
            "forest and the"
            " individual forests ");
-    ASSERT(node_from_concat.cleft() == node_from_indiv.cleft(),
+    ASSERT(tree_from_concatenated_forest.LeftChild(each_node) ==
+             tree_from_individual_forest.LeftChild(each_node),
            "Error! mismatch in the position of the node between concatenated "
            "forest and the"
            " individual forests ");
     ASSERT(
-      node_from_concat.split_index() == node_from_indiv.split_index(),
+      tree_from_concatenated_forest.SplitIndex(each_node) ==
+        tree_from_individual_forest.SplitIndex(each_node),
       "Error! split index value mismatch between concatenated forest and the"
       " individual forests ");
   }
@@ -462,8 +428,9 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
   tl::Model* concat_model = new tl::Model;
   for (int forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
     tl::Model& model = *(tl::Model*)treelite_handles[forest_idx];
-    concat_model->trees.insert(concat_model->trees.end(), model.trees.begin(),
-                               model.trees.end());
+    for (const tl::Tree& tree : model.trees) {
+      concat_model->trees.push_back(tree.Clone());
+    }
   }
   concat_model->num_feature = first_model.num_feature;
   concat_model->num_output_group = first_model.num_output_group;
@@ -785,14 +752,14 @@ template void delete_rf_metadata<double, double>(
 
 template void build_treelite_forest<float, int>(
   ModelHandle* model, const RandomForestMetaData<float, int>* forest,
-  int num_features, int task_category, std::vector<unsigned char>& data);
+  int num_features, int task_category);
 template void build_treelite_forest<double, int>(
   ModelHandle* model, const RandomForestMetaData<double, int>* forest,
-  int num_features, int task_category, std::vector<unsigned char>& data);
+  int num_features, int task_category);
 template void build_treelite_forest<float, float>(
   ModelHandle* model, const RandomForestMetaData<float, float>* forest,
-  int num_features, int task_category, std::vector<unsigned char>& data);
+  int num_features, int task_category);
 template void build_treelite_forest<double, double>(
   ModelHandle* model, const RandomForestMetaData<double, double>* forest,
-  int num_features, int task_category, std::vector<unsigned char>& data);
+  int num_features, int task_category);
 }  // End namespace ML
