@@ -197,6 +197,9 @@ class CD(Base):
         self._coef_ = None   # accessed via estimator.coef_
         self.intercept_ = None
 
+        # Define Hyperparams for getter-setter
+        self._hyperparams = ["loss", "alpha", "l1_ratio", "fit_intercept", "normalize", "max_iter", "tol", "shuffle"] 
+
     def _check_alpha(self, alpha):
         for el in alpha:
             if el <= 0.0:
@@ -355,3 +358,6 @@ class CD(Base):
         del(X_m)
 
         return preds.to_output(out_type)
+
+    def get_param_names(self):
+        return self._hyperparams

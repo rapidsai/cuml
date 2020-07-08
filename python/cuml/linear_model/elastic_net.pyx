@@ -185,7 +185,12 @@ class ElasticNet(Base, RegressorMixin):
         shuffle = False
         if self.selection == 'random':
             shuffle = True
-
+        
+        # Define Hyperparams for getter-setter
+        self._hyperparams = [
+            'alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
+            'selection', 'l1_ratio' 
+        ]
         self.cuElasticNet = CD(fit_intercept=self.fit_intercept,
                                normalize=self.normalize, alpha=self.alpha,
                                l1_ratio=self.l1_ratio, shuffle=shuffle,
@@ -256,38 +261,6 @@ class ElasticNet(Base, RegressorMixin):
 
         return self.cuElasticNet.predict(X)
 
-    def get_params(self, deep=True):
-        """
-        Scikit-learn style function that returns the estimator parameters.
 
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-                     'selection']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
-
-    def set_params(self, **params):
-        """
-        Sklearn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-                     'selection']
-        for key, value in params.items():
-            if key not in variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-
-        return self
+    def get_param_names(self):
+        return self._hyperparams

@@ -255,6 +255,10 @@ class QN(Base):
 
         self.loss = loss
 
+        # Define Hyperparams for getter-setter
+        self._hyperparams = ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
+                'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory']
+
     def _get_loss_int(self, loss):
         return {
             'sigmoid': 0,
@@ -529,5 +533,4 @@ class QN(Base):
             raise AttributeError(attr)
 
     def get_param_names(self):
-        return ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
-                'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory']
+        return self._hyperparams

@@ -244,6 +244,19 @@ class LogisticRegression(Base, ClassifierMixin):
             logger.debug(pprint.pformat(self.__dict__))
         else:
             self.verb_prefix = ""
+        
+        # Define Hyperparams for getter-setter
+        self._hyperparams = [
+            "C",
+            "penalty",
+            "tol",
+            "fit_intercept",
+            "max_iter",
+            "linesearch_max_iter",
+            "l1_ratio",
+            "solver",
+        ]
+
 
     @with_cupy_rmm
     def fit(self, X, y, convert_dtype=True):
@@ -452,18 +465,6 @@ class LogisticRegression(Base, ClassifierMixin):
         proba = CumlArray(proba)
         return proba.to_output(out_type)
 
-    def get_param_names(self):
-        return [
-            "C",
-            "penalty",
-            "tol",
-            "fit_intercept",
-            "max_iter",
-            "linesearch_max_iter",
-            "l1_ratio",
-            "solver",
-        ]
-
     def __getstate__(self):
         state = self.__dict__.copy()
         if "coef_" in state:
@@ -490,3 +491,8 @@ class LogisticRegression(Base, ClassifierMixin):
                     )
 
         self.__dict__.update(state)
+
+
+    def get_param_names(self):
+        return self._hyperparams
+

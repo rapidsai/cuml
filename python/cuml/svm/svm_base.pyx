@@ -214,6 +214,9 @@ class SVMBase(Base):
         self.dtype = None
         self._model = None  # structure of the model parameters
         self._freeSvmBuffers = False  # whether to call the C++ lib for cleanup
+        # Define Hyperparams for getter-setter
+        self._hyperparams = ["C", "kernel", "degree", "gamma", "coef0", "cache_size",
+                "max_iter", "tol", "epsilon", "nochange_steps"] 
 
     def __del__(self):
         self._dealloc()
@@ -562,8 +565,7 @@ class SVMBase(Base):
         return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
     def get_param_names(self):
-        return ["C", "kernel", "degree", "gamma", "coef0", "cache_size",
-                "max_iter", "tol"]
+        return self._hyperparams
 
     def __getstate__(self):
         state = self.__dict__.copy()

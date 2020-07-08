@@ -366,6 +366,8 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
         Base.__init__(self, handle, verbose)
         self.gaussian_method = True
         self.density = -1.0  # not used
+        # Define Hyperparams for getter-setter
+        self._hyperparams = ["n_components", "eps"]
 
         BaseRandomProjection.__init__(
             self,
@@ -373,7 +375,9 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
             eps=eps,
             dense_output=True,
             random_state=random_state)
-
+    
+    def get_param_names(self):
+        return self._hyperparams
 
 class SparseRandomProjection(Base, BaseRandomProjection):
     """
@@ -478,6 +482,9 @@ class SparseRandomProjection(Base, BaseRandomProjection):
         Base.__init__(self, handle, verbose)
         self.gaussian_method = False
         self.density = density if density != 'auto' else -1.0
+        
+        # Define Hyperparams for getter-setter
+        self._hyperparams = ["n_components", "density", "eps"]
 
         BaseRandomProjection.__init__(
             self,
@@ -485,3 +492,6 @@ class SparseRandomProjection(Base, BaseRandomProjection):
             eps=eps,
             dense_output=dense_output,
             random_state=random_state)
+    
+    def get_param_names(self):
+        return self._hyperparams
