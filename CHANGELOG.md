@@ -65,6 +65,7 @@
 - PR #2486: Fix cupy input to kmeans init
 - PR #2497: Changes to accomodate cuDF unsigned categorical changes
 - PR #2507: Import `treelite.sklearn`
+- PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
 
 # cuML 0.14.0 (03 Jun 2020)
 
