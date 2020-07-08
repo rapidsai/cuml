@@ -39,33 +39,10 @@ def precision_recall_curve(y_true, y_score):
         raise ValueError("precision_recall_curve cannot be used when "
                          "y_true is all zero.")
 
-    if y_true.dtype.kind == 'f' and np.any(y_true != y_true.astype(int)):
-        raise ValueError("Continuous format of y_true  "
-                         "is not supported by roc_auc_score")
-
-    ids = cp.argsort(-y_score) 
-    sorted_score = y_score[ids]
-    
-    tps = y_true[ids].astype('float32') # for calculating true positives 
-    pps = cp.ones_like(y_true).astype('float32') # for calculating predicted positives
-    
-    # calculate groups
-    group = _group_same_scores(sorted_score)    
-    num = int(group[-1])
-
-    r = cp.zeros(num, dtype='float32') 
-    p = cp.zeros(num, dtype='float32') 
-
-    r = _addup_x_in_group(group, tps, r)    
-    p = _addup_x_in_group(group, pps, p)  
-
-    sum_one = cp.sum(y_true)
-    r = cp.cumsum(r)
-    
-    precision = cp.flip(r/cp.cumsum(p), axis=0)
-    recall = cp.flip(r/sum_one,axis=0)
+    fps, tps, thresholds = _binary_clf_curve(y_true, y_score)
+    precision = cp.flip(tps/(tps+fps), axis=0)
+    recall = cp.flip(tps/tps[-1],axis=0)
     n = (recall==1).sum()
-    thresholds = cp.unique(y_score)
 
     if n>1:
         precision = precision[n-1:]
@@ -73,8 +50,35 @@ def precision_recall_curve(y_true, y_score):
         thresholds = thresholds[n-1:]
     precision = cp.concatenate([precision,cp.ones(1)])
     recall = cp.concatenate([recall,cp.zeros(1)])
-    
+
     return precision,recall,thresholds
+
+def _binary_clf_curve(y_true, y_score):
+
+    if y_true.dtype.kind == 'f' and np.any(y_true != y_true.astype(int)):
+        raise ValueError("Continuous format of y_true  "
+                         "is not supported.")
+
+    ids = cp.argsort(-y_score) 
+    sorted_score = y_score[ids]
+    
+    ones = y_true[ids].astype('float32') # for calculating true positives 
+    zeros = 1 - ones # for calculating predicted positives
+    
+    # calculate groups
+    group = _group_same_scores(sorted_score)    
+    num = int(group[-1])
+
+    tps = cp.zeros(num, dtype='float32') 
+    fps = cp.zeros(num, dtype='float32') 
+
+    tps = _addup_x_in_group(group, ones, tps)    
+    fps = _addup_x_in_group(group, zeros, fps)  
+
+    tps = cp.cumsum(tps)
+    fps = cp.cumsum(fps)
+    thresholds = cp.unique(y_score) 
+    return fps, tps, thresholds
 
 @with_cupy_rmm
 def roc_auc_score(y_true, y_score):
