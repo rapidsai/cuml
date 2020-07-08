@@ -88,6 +88,8 @@ if(BUILD_CUML_MG_TESTS)
     # (please keep the filenames in alphabetical order)
     add_executable(ml_mg
       mg/knn.cu
+      mg/knn_classify.cu
+      mg/knn_regress.cu
       mg/main.cu
       mg/pca.cu
       mg/test_ml_mg_utils.cu)
@@ -104,6 +106,8 @@ if(BUILD_CUML_MG_TESTS)
     set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} ${MPI_CXX_LIBRARIES})
 
     set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} cumlcommsmpi)
+
+    set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} cumlprims)
 
     target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
 
