@@ -14,6 +14,7 @@
 #
 
 import numpy as np
+import cupy as cp
 import pytest
 
 from cuml import PCA as cuPCA
@@ -177,3 +178,34 @@ def test_pca_inverse_transform(datatype, input_type,
     cupca.handle.sync()
     assert array_equal(input_gdf, X,
                        5e-5, with_sign=True)
+
+
+@pytest.mark.parametrize('nrows', [4000, 8000])
+@pytest.mark.parametrize('ncols', [5000, 10000])
+@pytest.mark.parametrize('whiten', [True, False])
+@pytest.mark.parametrize('return_sparse', [True, False])
+def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse):
+
+    if return_sparse:
+        pytest.skip("Loss of information in converting to cupy sparse csr")
+
+    X = cp.sparse.random(nrows, ncols, density=0.07, dtype=cp.float32,
+                         random_state=10)
+
+    p_sparse = cuPCA(n_components=ncols, whiten=whiten)
+
+    p_sparse.fit(X)
+    t_sparse = p_sparse.transform(X)
+    i_sparse = p_sparse.inverse_transform(t_sparse,
+                                          return_sparse=return_sparse)
+
+    if return_sparse:
+
+        assert isinstance(i_sparse, cp.sparse.csr_matrix)
+
+        assert array_equal(i_sparse.todense(), X.todense(), 1e-1,
+                           with_sign=True)
+    else:
+        assert isinstance(i_sparse, cp.core.ndarray)
+
+        assert array_equal(i_sparse, X.todense(), 1e-1, with_sign=True)

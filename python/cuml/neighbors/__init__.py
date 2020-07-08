@@ -29,5 +29,6 @@ VALID_METRICS = {"brute": set([
         "braycurtis", "canberra",
         "minkowski", "lp",
         "chebyshev", "linf",
-        "jensenshannon"
+        "jensenshannon",
+        "cosine", "correlation"
     ])}

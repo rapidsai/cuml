@@ -38,12 +38,8 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
 
-from cuml.common.import_utils import has_treelite, \
-    check_min_treelite_version
-
-if has_treelite():
-    import treelite
-    import treelite.gallery.sklearn as tl_skl
+import treelite
+import treelite.sklearn as tl_skl
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
@@ -237,7 +233,8 @@ cdef class ForestInference_impl():
                              ' to the documentation')
         return storage_type_dict[storage_type_str]
 
-    def predict(self, X, output_type='numpy', predict_proba=False, preds=None):
+    def predict(self, X, output_type='numpy',
+                output_dtype=None, predict_proba=False, preds=None):
         """
         Returns the results of forest inference on the examples in X
 
@@ -288,7 +285,15 @@ cdef class ForestInference_impl():
                 <size_t> n_rows,
                 <bool> predict_proba)
         self.handle.sync()
-        return preds.to_output(output_type)
+
+        # special case due to predict and predict_proba
+        # both coming from the same CUDA/C++ function
+        if predict_proba:
+            output_dtype = None
+        return preds.to_output(
+            output_type=output_type,
+            output_dtype=output_dtype
+        )
 
     def load_from_treelite_model_handle(self,
                                         uintptr_t model_handle,
@@ -576,10 +581,6 @@ class ForestInference(Base):
             model passed.
 
         """
-        if(not has_treelite()):
-            raise ImportError("Treelite version 0.90 needs to be installed.")
-        if(not check_min_treelite_version()):
-            raise ImportError("Treelite version 0.90 required")
         cuml_fm = ForestInference(handle=handle)
         tl_model = tl_skl.import_model(skl_model)
         cuml_fm.load_from_treelite_model(

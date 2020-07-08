@@ -50,10 +50,21 @@ cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
 
 
 cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
+    ctypedef enum LoglikeMethod: CSS, MLE
+
+    void batched_diff(cumlHandle& handle, double* d_y_diff, const double* d_y,
+                      int batch_size, int n_obs, const ARIMAOrder& order)
+
     void batched_loglike(
         cumlHandle& handle, const double* y, int batch_size, int nobs,
         const ARIMAOrder& order, const double* params, double* loglike,
-        double* d_vs, bool trans, bool host_loglike)
+        double* d_vs, bool trans, bool host_loglike, LoglikeMethod method,
+        int truncate)
+
+    void batched_loglike_grad(
+        cumlHandle& handle, const double* d_y, int batch_size, int nobs,
+        const ARIMAOrder& order, const double* d_x, double* d_grad, double h,
+        bool trans, LoglikeMethod method, int truncate)
 
     void cpp_predict "predict" (
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
@@ -131,7 +142,7 @@ class ARIMA(Base):
 
     Parameters
     ----------
-    y : dataframe or array-like (device or host)
+    endog : dataframe or array-like (device or host)
         The time series data, assumed to have each time series in columns.
         Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
         Numba device ndarray, cuda array interface compliant array like CuPy.
@@ -146,10 +157,9 @@ class ARIMA(Base):
     verbose : int or boolean (default = False)
         Controls verbose level of logging.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
-        Variable to control output type of the results and attributes of
-        the estimators. If None, it'll inherit the output type set at the
-        module level, cuml.output_type. If set, the estimator will override
-        the global option for its behavior.
+        Variable to control output type of the results and attributes.
+        If None, it'll inherit the output type set at the module level,
+        cuml.output_type. If set, it will override the global option.
 
     Attributes
     ----------
@@ -193,7 +203,7 @@ class ARIMA(Base):
     """
 
     def __init__(self,
-                 y,
+                 endog,
                  order: Tuple[int, int, int] = (1, 1, 1),
                  seasonal_order: Tuple[int, int, int, int]
                  = (0, 0, 0, 0),
@@ -209,7 +219,7 @@ class ARIMA(Base):
 
         # Initialize base class
         super().__init__(handle, verbose, output_type)
-        self._set_output_type(y)
+        self._set_output_type(endog)
 
         # Set the ARIMA order
         cdef ARIMAOrder cpp_order
@@ -237,16 +247,33 @@ class ARIMA(Base):
                              " non-zero")
         if p > 4 or P > 4 or q > 4 or Q > 4:
             raise ValueError("ERROR: Invalid order. Required: p,q,P,Q <= 4")
+        if max(p + s * P, q + s * Q) > 1024:
+            raise ValueError("ERROR: Invalid order. "
+                             "Required: max(p+s*P, q+s*Q) <= 1024")
 
         # Get device array. Float64 only for now.
         self._d_y, self.n_obs, self.batch_size, self.dtype \
-            = input_to_cuml_array(y, check_dtype=np.float64)
+            = input_to_cuml_array(endog, check_dtype=np.float64)
 
         if self.n_obs < d + s * D + 1:
             raise ValueError("ERROR: Number of observations too small for the"
                              " given order")
 
-        self.niter = None  # number of iterations used during fit
+        # Compute the differenced series
+        self._d_y_diff = cumlArray.empty(
+            (self.n_obs - d - s * D, self.batch_size), self.dtype)
+        cdef uintptr_t d_y_ptr = self._d_y.ptr
+        cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        batched_diff(handle_[0], <double*> d_y_diff_ptr, <double*> d_y_ptr,
+                     <int> self.batch_size, <int> self.n_obs, self.order)
+
+        # Create a version of the order for the differenced series
+        cdef ARIMAOrder cpp_order_diff = cpp_order
+        cpp_order_diff.d = 0
+        cpp_order_diff.D = 0
+        self.order_diff = cpp_order_diff
+        self.n_obs_diff = self.n_obs - d - D * s
 
     def __str__(self):
         cdef ARIMAOrder order = self.order
@@ -300,8 +327,8 @@ class ARIMA(Base):
         cpp_params.sma = <double*> d_sma_ptr
         cpp_params.sigma2 = <double*> d_sigma2_ptr
 
-        cdef vector[double] ic
-        ic.resize(self.batch_size)
+        ic = cumlArray.empty(self.batch_size, self.dtype)
+        cdef uintptr_t d_ic_ptr = ic.ptr
         cdef uintptr_t d_y_ptr = self._d_y.ptr
 
         ic_name_to_number = {"aic": 0, "aicc": 1, "bic": 2}
@@ -314,9 +341,9 @@ class ARIMA(Base):
         information_criterion(handle_[0], <double*> d_y_ptr,
                               <int> self.batch_size, <int> self.n_obs,
                               <ARIMAOrder> order, cpp_params,
-                              <double*> ic.data(), <int> ic_type_id)
+                              <double*> d_ic_ptr, <int> ic_type_id)
 
-        return ic
+        return ic.to_output(self.output_type)
 
     @property
     def aic(self):
@@ -568,8 +595,10 @@ class ARIMA(Base):
     def fit(self,
             start_params: Optional[Mapping[str, object]] = None,
             opt_disp: int = -1,
-            h: float = 1e-9,
-            maxiter=1000):
+            h: float = 1e-8,
+            maxiter: int = 1000,
+            method="ml",
+            truncate: int = 0):
         """Fit the ARIMA model to each time series.
 
         Parameters
@@ -594,50 +623,69 @@ class ARIMA(Base):
                           2 * h
         maxiter : int
             Maximum number of iterations of L-BFGS-B
+        method : str
+            Estimation method - "css", "css-ml" or "ml".
+            CSS uses a sum-of-squares approximation.
+            ML estimates the log-likelihood with statespace methods.
+            CSS-ML starts with CSS and refines with ML.
+        truncate : int
+            When using CSS, start the sum of squares after a given number of
+            observations
         """
+        def fit_helper(x_in, fit_method):
+            cdef uintptr_t d_y_ptr = self._d_y.ptr
+
+            def f(x: np.ndarray) -> np.ndarray:
+                """The (batched) energy functional returning the negative
+                log-likelihood (foreach series)."""
+                # Recall: We maximize LL by minimizing -LL
+                n_llf = -self._loglike(x, True, fit_method, truncate)
+                return n_llf / (self.n_obs - 1)
+
+            # Optimized finite differencing gradient for batches
+            def gf(x) -> np.ndarray:
+                """The gradient of the (batched) energy functional."""
+                # Recall: We maximize LL by minimizing -LL
+                n_gllf = -self._loglike_grad(x, h, True, fit_method, truncate)
+                return n_gllf / (self.n_obs - 1)
+
+            # Check initial parameter sanity
+            if ((np.isnan(x_in).any()) or (np.isinf(x_in).any())):
+                raise FloatingPointError(
+                    "Initial parameter vector x has NaN or Inf.")
+
+            # Optimize parameters by minimizing log likelihood.
+            x_out, niter, flags = batched_fmin_lbfgs_b(
+                f, x_in, self.batch_size, gf, iprint=opt_disp, factr=1000,
+                maxiter=maxiter)
+
+            # Handle non-zero flags with Warning
+            if (flags != 0).any():
+                logger.warn("fit: Some batch members had optimizer problems")
+
+            return x_out, niter
+
         if start_params is None:
             self._estimate_x0()
         else:
             self.set_params(start_params)
 
-        cdef uintptr_t d_y_ptr = self._d_y.ptr
-
-        def f(x: np.ndarray) -> np.ndarray:
-            """The (batched) energy functional returning the negative
-            log-likelihood (foreach series)."""
-            # Recall: We maximize LL by minimizing -LL
-            n_llf = -self._loglike(x, trans=True)
-            return n_llf / (self.n_obs - 1)
-
-        # Optimized finite differencing gradient for batches
-        def gf(x):
-            """The gradient of the (batched) energy functional."""
-            # Recall: We maximize LL by minimizing -LL
-            n_gllf = -self._loglike_grad(x, h, trans=True)
-            return n_gllf / (self.n_obs - 1)
-
         x0 = self._batched_transform(self.pack(), True)
 
-        # check initial parameter sanity
-        if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
-            raise FloatingPointError("Initial condition 'x0' has NaN or Inf.")
-
-        # Optimize parameters by minimizing log likelihood.
-        x, niter, flags = batched_fmin_lbfgs_b(f, x0, self.batch_size, gf,
-                                               iprint=opt_disp, factr=1000,
-                                               maxiter=maxiter)
-
-        # Handle non-zero flags with Warning
-        if (flags != 0).any():
-            logger.warn("WARNING(`fit`): Some batch members had optimizer"
-                        " problems.")
+        method = method.lower()
+        if method not in {"css", "css-ml", "ml"}:
+            raise ValueError("Unknown method: {}".format(method))
+        if method == "css" or method == "css-ml":
+            x, self.niter = fit_helper(x0, "css")
+        if method == "css-ml" or method == "ml":
+            x, niter = fit_helper(x if method == "css-ml" else x0, "ml")
+            self.niter = (self.niter + niter) if method == "css-ml" else niter
 
         self.unpack(self._batched_transform(x))
-        self.niter = niter
         return self
 
     @nvtx_range_wrap
-    def _loglike(self, x, trans=True):
+    def _loglike(self, x, trans=True, method="ml", truncate=0):
         """Compute the batched log-likelihood for the given parameters.
 
         Parameters:
@@ -647,6 +695,12 @@ class ARIMA(Base):
         trans : bool
             Should the Jones' transform be applied?
             Note: The parameters from a fit model are already transformed.
+        method : str
+            Estimation method: "css" for sum-of-squares, "ml" for
+            an estimation with statespace methods
+        truncate : int
+            When using CSS, start the sum of squares after a given number of
+            observations
 
         Returns:
         --------
@@ -657,27 +711,30 @@ class ARIMA(Base):
         vec_loglike.resize(self.batch_size)
 
         cdef ARIMAOrder order = self.order
+        cdef ARIMAOrder order_diff = self.order_diff
 
         d_x_array, *_ = \
             input_to_cuml_array(x, check_dtype=np.float64, order='C')
         cdef uintptr_t d_x_ptr = d_x_array.ptr
 
-        cdef uintptr_t d_y_ptr = self._d_y.ptr
+        cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         d_vs = cumlArray.empty((self.n_obs - order.d - order.D * order.s,
                                 self.batch_size), dtype=np.float64, order="F")
         cdef uintptr_t d_vs_ptr = d_vs.ptr
 
-        batched_loglike(handle_[0], <double*> d_y_ptr, <int> self.batch_size,
-                        <int> self.n_obs, order, <double*> d_x_ptr,
+        cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
+        batched_loglike(handle_[0], <double*> d_y_diff_ptr,
+                        <int> self.batch_size, <int> self.n_obs_diff,
+                        order_diff, <double*> d_x_ptr,
                         <double*> vec_loglike.data(), <double*> d_vs_ptr,
-                        <bool> trans, <bool> True)
+                        <bool> trans, <bool> True, ll_method, <int> truncate)
 
         return np.array(vec_loglike, dtype=np.float64)
 
     @nvtx_range_wrap
-    def _loglike_grad(self, x, h=1e-8, trans=True):
+    def _loglike_grad(self, x, h=1e-8, trans=True, method="ml", truncate=0):
         """Compute the gradient (via finite differencing) of the batched
         log-likelihood.
 
@@ -691,6 +748,12 @@ class ARIMA(Base):
         trans : bool
             Should the Jones' transform be applied?
             Note: The parameters from a fit model are already transformed.
+        method : str
+            Estimation method: "css" for sum-of-squares, "ml" for
+            an estimation with statespace methods
+        truncate : int
+            When using CSS, start the sum of squares after a given number of
+            observations
 
         Returns:
         --------
@@ -701,38 +764,27 @@ class ARIMA(Base):
         N = self.complexity
         assert len(x) == N * self.batch_size
 
-        fd = np.zeros(N)
-        grad = np.zeros(len(x))
+        grad = cumlArray.empty(N * self.batch_size, np.float64)
+        cdef uintptr_t d_grad = <uintptr_t> grad.ptr
 
-        # Get current numpy error level and change all to 'raise'
-        err_lvl = np.seterr(all='raise')
+        cdef ARIMAOrder order = self.order
+        cdef ARIMAOrder order_diff = self.order_diff
 
-        for i in range(N):
-            fd[i] = h
+        d_x_array, *_ = \
+            input_to_cuml_array(x, check_dtype=np.float64, order='C')
+        cdef uintptr_t d_x_ptr = d_x_array.ptr
 
-            # duplicate the perturbation across batches (they are independent)
-            fdph = np.tile(fd, self.batch_size)
+        cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-            # reset perturbation
-            fd[i] = 0.0
+        cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
+        batched_loglike_grad(handle_[0], <double*> d_y_diff_ptr,
+                             <int> self.batch_size, <int> self.n_obs_diff,
+                             order_diff, <double*> d_x_ptr, <double*> d_grad,
+                             <double> h, <bool> trans, ll_method,
+                             <int> truncate)
 
-            ll_b_ph = self._loglike(x + fdph, trans=trans)
-            ll_b_mh = self._loglike(x - fdph, trans=trans)
-
-            # first derivative second order accuracy
-            grad_i_b = (ll_b_ph - ll_b_mh) / (2 * h)
-
-            if self.batch_size == 1:
-                grad[i] = grad_i_b
-            else:
-                assert len(grad[i::N]) == len(grad_i_b)
-                # Distribute the result to all batches
-                grad[i::N] = grad_i_b
-
-        # Reset numpy error levels
-        np.seterr(**err_lvl)
-
-        return grad
+        return grad.to_output("numpy")
 
     @property
     def llf(self):
@@ -838,85 +890,3 @@ class ARIMA(Base):
                                 <bool> isInv, <double*>x_ptr, <double*>Tx_ptr)
 
         return (Tx)
-
-
-# TODO: later replace with an AutoARIMA class
-def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic", fit_intercept=None):
-    """Grid search to find optimal model order (p, q), weighing
-    model complexity against likelihood.
-    Optimality is based on minimizing BIC or AIC, which
-    both sum negative log-likelihood against model complexity; Higher model
-    complexity might yield a lower negative LL, but at higher `bic` due to
-    complexity term.
-
-    Deprecation warning:
-    --------------------
-    This function will be removed and replaced with an auto-ARIMA class with
-    more functionality, support for seasonality, and a more efficient search
-    algorithm.
-
-    Parameters:
-    -----------
-    y_b : array-like shape = (n_samples, n_series)
-        The batched time-series data.
-    d : int
-        Trend (d>0) or not (d==0)
-    max_p : int
-        Maximum `p` in search
-    max_q : int
-        Maximum `q` in search
-    method : str
-        Complexity method to use ("bic" or "aic")
-    fit_intercept : bool or int
-        Whether to include a constant trend mu in the model
-        Leave to None for automatic selection based on the model order
-
-    Returns:
-    --------
-    Tuple of "best" order, mu, ar, and ma parameters with the
-    corresponding IC for each series.
-
-    (best_order: List[Tuple[int, int, int]],
-     best_mu: array,
-     best_ar: List[array],
-     best_ma: List[array],
-     best_ic: array)
-
-    """
-
-    batch_size = y_b.shape[1] if len(y_b.shape) > 1 else 1
-    best_ic = np.full(batch_size, np.finfo(np.float64).max/2)
-
-    best_order = batch_size*[None]
-    best_mu = np.zeros(batch_size)
-    best_ar = batch_size*[None]
-    best_ma = batch_size*[None]
-
-    for p in range(0, max_p):
-        for q in range(0, max_q):
-            # skip 0,0 case
-            if p == 0 and q == 0:
-                continue
-
-            b_model = ARIMA(y_b, (p, d, q), fit_intercept=fit_intercept)
-            b_model.fit()
-
-            ic = b_model._ic(method)
-
-            for (i, ic_i) in enumerate(ic):
-                if ic_i < best_ic[i]:
-                    best_order[i] = (p, d, q)
-                    best_mu[i] = b_model.mu[i]
-
-                    if p > 0:
-                        best_ar[i] = b_model.ar[:, i]
-                    else:
-                        best_ar[i] = []
-                    if q > 0:
-                        best_ma[i] = b_model.ma[:, i]
-                    else:
-                        best_ma[i] = []
-
-                    best_ic[i] = ic_i
-
-    return (best_order, best_mu, best_ar, best_ma, best_ic)
