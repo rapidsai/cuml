@@ -382,6 +382,8 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/glm/ols_mg.cu
         src/glm/preprocess_mg.cu
         src/glm/ridge_mg.cu     
+        src/kmeans/kmeans_mg.cu
+        src/knn/knn_mg.cu
         src/pca/pca_mg.cu
         src/pca/sign_flip_mg.cu
         src/solver/cd_mg.cu
