@@ -21,6 +21,7 @@ import rmm
 from cuml.test.utils import array_equal, unit_param, quality_param, \
     stress_param
 from cuml.neighbors import NearestNeighbors as cuKNN
+from cuml.neighbors import kneighbors_graph as knn_graph_instance
 
 from sklearn.neighbors import NearestNeighbors as skKNN
 from sklearn.datasets.samples_generator import make_blobs
@@ -132,6 +133,9 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k, metric):
     knn_cu = cuKNN(metric=metric, p=p)
     knn_cu.fit(X)
     D_cuml, I_cuml = knn_cu.kneighbors(X, k)
+    CSR_cu = knn_cu.kneighbors_graph(X, k, mode='connectivity')
+
+    # assert array_equal(CSR_cu, CSR_sk)
 
     if input_type == "dataframe":
         assert isinstance(D_cuml, cudf.DataFrame)
@@ -152,11 +156,6 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k, metric):
     np.testing.assert_allclose(D_cuml_arr, D_sk, atol=1e-2,
                                rtol=1e-1)
     assert I_cuml_arr.all() == I_sk.all()
-
-
-    CSR_cu = knn_cu.kneighbors_graph(X, k, mode='connectivity')
-
-    # assert array_equal(CSR_cu, CSR_sk)
 
 
 def test_knn_fit_twice():
@@ -207,7 +206,6 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
     with pytest.raises(Exception):
         knn_cu.fit(X, convert_dtype=False)
 
-
 # # https://github.com/scikit-learn/scikit-learn/blob/62fc8bb94dcd65e72878c0599ff91391d9983424/sklearn/neighbors/tests/test_neighbors.py#L1029-L1066
 # # Compare knieghbors_graph against expected output and then to cuml.NearestNeighbors
 # def test_kneighbors_graph_output():
@@ -226,3 +224,41 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
 #     # Test to check if used and not fitted, that error returns
 #     X = [[1]]
 
+def test_kneighbors_graph():
+    # Test kneighbors_graph to build the k-Nearest Neighbor graph.
+    X = np.array([[0, 1], [1.01, 1.], [2, 0]])
+
+    # n_neighbors = 1
+    A = knn_graph_instance(X, 1, mode='connectivity',
+                                   include_self=False)
+    # assert_array_equal(A.toarray(), np.eye(A.shape[0]))
+
+    A = knn_graph_instance(X, 1, mode='distance')
+    assert_array_almost_equal(
+        A.toarray(),
+        [[0.00, 1.01, 0.],
+         [1.01, 0., 0.],
+         [0.00, 1.40716026, 0.]])
+
+    # n_neighbors = 2
+    A = knn_graph_instance(X, 2, mode='connectivity',
+                                   include_self=True)
+    assert_array_equal(
+        A.toarray(),
+        [[1., 1., 0.],
+         [1., 1., 0.],
+         [0., 1., 1.]])
+
+    A = knn_graph_instance(X, 2, mode='distance')
+    assert_array_almost_equal(
+        A.toarray(),
+        [[0., 1.01, 2.23606798],
+         [1.01, 0., 1.40716026],
+         [2.23606798, 1.40716026, 0.]])
+
+    # n_neighbors = 3
+    A = knn_graph_instance(X, 3, mode='connectivity',
+                                   include_self=True)
+    assert_array_almost_equal(
+        A.toarray(),
+        [[1, 1, 1], [1, 1, 1], [1, 1, 1]])
