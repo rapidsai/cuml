@@ -183,19 +183,34 @@ void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
   value_type tol = 0.01;
   index_type restart_iter = 15 + neigvs;  //what cugraph is using
   auto t_exe_p = thrust::cuda::par.on(stream);
+  using thrust_exe_policy_t = decltype(t_exe_p);
 
   raft::eigen_solver_config_t<index_type, value_type> cfg{neigvs, maxiter,
                                                           restart_iter, tol};
 
   raft::lanczos_solver_t<index_type, value_type> eig_solver{cfg};
 
-  raft::cluster_solver_config_t<index_type, value_type> clust_cfg{
-    n_components + 1, 1, 0.1};  // kmeans is not really meant to be run, here
-  raft::kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
+  //cluster computation here is irrelevant,
+  //hence define a no-op such solver to
+  //feed partition():
+  //
+  struct no_op_cluster_solver_t {
+    using index_type_t = index_type;
+    using size_type_t = index_type;
+    using value_type_t = value_type;
+
+    std::pair<value_type_t, index_type_t> solve(
+      handle_t const &handle, thrust_exe_policy_t t_exe_policy,
+      size_type_t n_obs_vecs, size_type_t dim,
+      value_type_t const *__restrict__ obs,
+      index_type_t *__restrict__ codes) const {
+      return std::make_pair<value_type_t, index_type_t>(0, 0);
+    }
+  };
 
   raft::spectral::partition(r_handle, t_exe_p, r_csr_m, eig_solver,
-                            cluster_solver, labels.data(), eigVals.data(),
-                            eigVecs.data());
+                            no_op_cluster_solver_t{}, labels.data(),
+                            eigVals.data(), eigVecs.data());
 
   MLCommon::copy<T>(out, eigVecs.data() + n, n * n_components, stream);
 
