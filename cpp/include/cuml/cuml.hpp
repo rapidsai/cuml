@@ -23,7 +23,7 @@
 
 namespace ML {
 
-class cumlHandle_impl;
+class handle_impl;
 
 using MLCommon::deviceAllocator;
 using MLCommon::hostAllocator;
@@ -106,11 +106,11 @@ class cumlHandle {
   /**
      * @brief for internal use only.
      */
-  const cumlHandle_impl& getImpl() const;
+  const handle_impl& getImpl() const;
   /**
      * @brief for internal use only.
      */
-  cumlHandle_impl& getImpl();
+  handle_impl& getImpl();
 
   /** for internal use only */
   static int getDefaultNumInternalStreams();
