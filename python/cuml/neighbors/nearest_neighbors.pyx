@@ -426,17 +426,24 @@ class NearestNeighbors(Base):
             Values will be ones/zeros or Euclidean distance based on mode.
 
         """
-        # Check if not fitted by checking if certain attribute is filled, otherwise throw error not fitted
+        print(X.shape[0])
+        print(X.shape[1])
+        print(self.n_dims)
+
+        if not self.X_m:
+            raise ValueError('This NearestNeighbors instance has not been fitted '
+                'yet, call "fit" before using this estimator')
+
         if n_neighbors is None:
             n_neighbors = self.n_neighbors 
 
         if mode == 'connectivity':
-            indices = self.kneighbors(X, n_neighbors, return_distance=False) # cuDF DataFrame or numpy ndarray
+            indices = self.kneighbors(X, n_neighbors, return_distance=False)
             n_samples = indices.shape[0]
-            distances = cp.ones(n_samples * n_neighbors) # returns cupy.ndarray
+            distances = cp.ones(n_samples * n_neighbors)
 
         elif mode == 'distance':
-            distances, indices = self.kneighbors(X, n_neighbors) # cuDF DataFrames or numpy ndarrays
+            distances, indices = self.kneighbors(X, n_neighbors)
 
             if isinstance(distances, cudf.DataFrame):
                 distances = cp.asarray(distances.as_gpu_matrix())
@@ -452,23 +459,81 @@ class NearestNeighbors(Base):
             indices = cp.asarray(indices.as_gpu_matrix())
         else:
             indices = cp.array(indices)
+        
         n_samples = distances.shape[0]
-        n_samples_fit = self.n_rows
+        n_samples_fit = self.X_m.shape[0]
         n_nonzero = n_samples * n_neighbors
         rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
-        return cp.sparse.csr_matrix((distances, cp.ravel(indices), rowptr), shape=(n_samples, n_samples_fit))
+        return cp.sparse.csr_matrix((distances, cp.ravel(indices), rowptr), 
+                                    shape=(n_samples, n_samples_fit))
 
-# Try implementing wrapper component here
-def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False, handle=None, algorithm="brute", metric="euclidean", p=2, include_self=False, metric_expanded=False, metric_params=None):
-        
-    # check if class NearestNeighbors already instantiated, if not then instantiate
+
+def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False, 
+                    handle=None, algorithm="brute", metric="euclidean", p=2, 
+                    include_self=False, metric_params=None):
+    """
+    Computes the (weighted) graph of k-Neighbors for points in X.
+
+    Parameters
+    ----------
+    X : array-like (device or host) shape = (n_samples, n_features)
+        Dense matrix (floats or doubles) of shape (n_samples, n_features).
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy
+
+    n_neighbors : Integer
+        Number of neighbors to search. If not provided, the n_neighbors
+        from the model instance is used (default=10)
+
+    mode : string (default='connectivity')
+        Values in connectivity matrix: 'connectivity' returns the
+        connectivity matrix with ones and zeros, 'distance' returns the
+        edges as the Euclidean distance between points
+
+    n_neighbors : int (default=5)
+        Default number of neighbors to query
+
+    verbose : int or boolean (default = False)
+        Logging level
+
+    handle : cumlHandle
+        The cumlHandle resources to use
+
+    algorithm : string (default='brute')
+        The query algorithm to use. Currently, only 'brute' is supported.
+
+    metric : string (default='euclidean').
+        Distance metric to use. Supported distances are ['l1, 'cityblock',
+        'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
+        'minkowski', 'chebyshev', 'jensenshannon', 'cosine', 'correlation']
+
+    p : float (default=2) Parameter for the Minkowski metric. When p = 1, this
+        is equivalent to manhattan distance (l1), and euclidean distance (l2)
+        for p = 2. For arbitrary p, minkowski distance (lp) is used.
+
+    include_self : bool or 'auto' (default=False)
+        Whether or not to mark each sample as the first nearest neighbor to
+        itself. If 'auto', then True is used for mode='connectivity' and False
+        for mode='distance'.
+
+    metric_params : dict, optional (default = None) This is currently ignored.
+
+    Returns
+    -------
+    A: sparse graph in CSR format, shape = (n_samples, n_samples_fit)
+        n_samples_fit is the number of samples in the fitted data where 
+        A[i, j] is assigned the weight of the edge that connects i to k.
+        Values will be ones/zeros or Euclidean distance based on mode.
+
+    """    
     if not isinstance(X, NearestNeighbors):
-        X = NearestNeighbors(n_neighbors=n_neighbors, verbose=verbose, handle=handle, algorithm=algorithm, metric=metric, p=p, metric_expanded=metric_expanded, metric_params=metric_params).fit(X)
-
+        X = NearestNeighbors(n_neighbors=n_neighbors, verbose=verbose, handle=handle, 
+                            algorithm=algorithm, metric=metric, p=p, 
+                            metric_params=metric_params).fit(X)
+    
     if include_self == 'auto':
         include_self = mode == 'connectivity'
 
-    # it does not include each sample as its own neighbors
     if not include_self:
         query = None
     else:
