@@ -57,7 +57,7 @@ def _build_train_test_data(X, y, datatype, train_ratio=0.9):
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
-@pytest.mark.parametrize("nrows", [1000, 10000])
+@pytest.mark.parametrize("nrows", [1000, 20000])
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
@@ -91,7 +91,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors,
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
-@pytest.mark.parametrize("nrows", [1000, 10000])
+@pytest.mark.parametrize("nrows", [1000, 20000])
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
@@ -111,7 +111,7 @@ def test_score(nrows, ncols, n_neighbors, n_clusters, datatype):
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
-@pytest.mark.parametrize("nrows", [1000, 10000])
+@pytest.mark.parametrize("nrows", [1000, 20000])
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])

@@ -1,4 +1,3 @@
-#
 # Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,3 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+
+"""
+The following imports are needed so that we can import those classes
+from cuml.feature_extraction.text just like scikit-learn. Do not remove.
+"""
+from cuml.feature_extraction._tfidf import TfidfTransformer  # noqa # pylint: disable=unused-import
+from cuml.feature_extraction._tfidf_vectorizer import TfidfVectorizer  # noqa # pylint: disable=unused-import
+from cuml.feature_extraction._vectorizers import CountVectorizer  # noqa # pylint: disable=unused-import

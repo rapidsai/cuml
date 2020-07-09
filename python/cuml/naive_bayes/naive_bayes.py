@@ -207,14 +207,14 @@ class MultinomialNB(Base):
         if class_prior is not None:
             self._class_prior, *_ = input_to_cuml_array(class_prior)
         else:
-            self.class_prior = None
+            self._class_prior_ = None
 
         self.fit_called_ = False
 
-        self.classes_ = None
-        self.n_classes_ = 0
+        self._classes_ = None
+        self._n_classes_ = 0
 
-        self.n_features_ = None
+        self._n_features_ = None
 
         # Needed until Base no longer assumed cumlHandle
         self.handle = None
@@ -273,9 +273,9 @@ class MultinomialNB(Base):
             else:
                 self._classes_ = CumlArray(data=label_classes)
 
-            self.n_classes_ = self._classes_.shape[0]
-            self.n_features_ = X.shape[1]
-            self._init_counters(self.n_classes_, self.n_features_,
+            self._n_classes_ = self._classes_.shape[0]
+            self._n_features_ = X.shape[1]
+            self._init_counters(self._n_classes_, self._n_features_,
                                 X.dtype)
         else:
             check_labels(Y, self._classes_)
@@ -283,7 +283,7 @@ class MultinomialNB(Base):
         self._count(X, Y)
 
         self._update_feature_log_prob(self.alpha)
-        self._update_class_log_prior(class_prior=self.class_prior)
+        self._update_class_log_prior(class_prior=self._class_prior_)
 
         return self
 
@@ -296,7 +296,7 @@ class MultinomialNB(Base):
         time.
         """
         self._update_feature_log_prob(self.alpha)
-        self._update_class_log_prior(class_prior=self.class_prior)
+        self._update_class_log_prior(class_prior=self._class_prior_)
 
     @with_cupy_rmm
     def partial_fit(self, X, y, classes=None, sample_weight=None):
@@ -515,10 +515,10 @@ class MultinomialNB(Base):
             warnings.warn("Y dtype does not match classes_ dtype. Y will be "
                           "converted, which will increase memory consumption")
 
-        counts = cp.zeros((self.n_classes_, self.n_features_), order="F",
+        counts = cp.zeros((self._n_classes_, self._n_features_), order="F",
                           dtype=X.dtype)
 
-        class_c = cp.zeros(self.n_classes_, order="F", dtype=X.dtype)
+        class_c = cp.zeros(self._n_classes_, order="F", dtype=X.dtype)
 
         n_rows = X.shape[0]
         n_cols = X.shape[1]
@@ -539,7 +539,7 @@ class MultinomialNB(Base):
                                 n_rows,
                                 n_cols,
                                 Y,
-                                self.n_classes_, False))
+                                self._n_classes_, False))
 
         else:
 
@@ -553,7 +553,7 @@ class MultinomialNB(Base):
                                   n_rows,
                                   n_cols,
                                   Y,
-                                  self.n_classes_,
+                                  self._n_classes_,
                                   False,
                                   X.flags["C_CONTIGUOUS"]))
 
@@ -568,19 +568,19 @@ class MultinomialNB(Base):
 
         if class_prior is not None:
 
-            if class_prior.shape[0] != self.n_classes:
+            if class_prior.shape[0] != self._n_classes_:
                 raise ValueError("Number of classes must match "
                                  "number of priors")
 
-            self.class_log_prior_ = cp.log(class_prior)
+            self._class_log_prior_ = cp.log(class_prior)
 
         elif self.fit_prior:
-            log_class_count = cp.log(self.class_count_)
-            self.class_log_prior_ = log_class_count - \
-                cp.log(self.class_count_.sum())
+            log_class_count = cp.log(self._class_count_)
+            self._class_log_prior_ = log_class_count - \
+                cp.log(self._class_count_.sum())
         else:
-            self.class_log_prior_ = cp.full(self.n_classes_,
-                                            -math.log(self.n_classes_))
+            self._class_log_prior_ = cp.full(self._n_classes_,
+                                             -1*math.log(self._n_classes_))
 
     def _update_feature_log_prob(self, alpha):
         """
@@ -592,10 +592,10 @@ class MultinomialNB(Base):
 
         alpha : float amount of smoothing to apply (0. means no smoothing)
         """
-        smoothed_fc = self.feature_count_ + alpha
+        smoothed_fc = self._feature_count_ + alpha
         smoothed_cc = smoothed_fc.sum(axis=1).reshape(-1, 1)
-        self.feature_log_prob_ = (cp.log(smoothed_fc) -
-                                  cp.log(smoothed_cc.reshape(-1, 1)))
+        self._feature_log_prob_ = (cp.log(smoothed_fc) -
+                                   cp.log(smoothed_cc.reshape(-1, 1)))
 
     def _joint_log_likelihood(self, X):
         """
@@ -607,6 +607,6 @@ class MultinomialNB(Base):
         X : array-like of size (n_samples, n_features)
         """
 
-        ret = X.dot(self.feature_log_prob_.T)
-        ret += self.class_log_prior_
+        ret = X.dot(self._feature_log_prob_.T)
+        ret += self._class_log_prior_
         return ret

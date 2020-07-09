@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/cluster/kmeans.hpp>
 #include "sg_impl.cuh"
 
 namespace ML {
