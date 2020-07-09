@@ -4,25 +4,28 @@ import subprocess
 import os
 import sys
 from functools import partial
+import re
+import typing
 
-# orig = inspect.isfunction
+orig = inspect.isfunction
 
-# # See https://opendreamkit.org/2017/06/09/CythonSphinx/
-# def isfunction(obj):
+# See https://opendreamkit.org/2017/06/09/CythonSphinx/
+def isfunction(obj):
 
-#     orig_val = orig(obj)
+    orig_val = orig(obj)
 
-#     new_val = hasattr(type(obj), "__code__")
+    new_val = hasattr(type(obj), "__code__")
 
-#     if (orig_val != new_val):
-#         pass
+    if (orig_val != new_val):
+        return new_val
 
-#     return orig_val
+    return orig_val
 
-# inspect.isfunction = isfunction
+inspect.isfunction = isfunction
 
 REVISION_CMD = 'git rev-parse --short HEAD'
 
+source_regex = re.compile(r"^File: (.*?) \(starting at line ([0-9]*?)\)$", re.MULTILINE)
 
 def _get_git_revision():
     try:
@@ -63,6 +66,9 @@ def _linkcode_resolve(domain, info, package, url_fmt, revision):
     # file in case that is wrapped by a decorator
     obj = inspect.unwrap(obj)
 
+    fn: str = None
+    lineno: str = None
+
     try:
         fn = inspect.getsourcefile(obj)
     except Exception:
@@ -72,15 +78,31 @@ def _linkcode_resolve(domain, info, package, url_fmt, revision):
             fn = inspect.getsourcefile(sys.modules[obj.__module__])
         except Exception:
             fn = None
-    if not fn:
-        return
 
-    fn = os.path.relpath(fn,
-                         start=os.path.dirname(__import__(package).__file__))
-    try:
-        lineno = inspect.getsourcelines(obj)[1]
-    except Exception:
-        lineno = ''
+    if not fn:
+        # Possibly Cython code. Search docstring for source
+        m = source_regex.search(obj.__doc__)
+
+        if (m is not None):
+            source_file = m.group(1)
+            lineno = m.group(2)
+
+            # fn is expected to be the absolute path.
+            fn = os.path.relpath(source_file, start=package)
+            print("{}:{}".format(os.path.abspath(os.path.join("..", "python", "cuml", fn)), lineno))
+        else:
+            return
+    else:
+        # Convert to relative from module root
+        fn = os.path.relpath(fn,
+                            start=os.path.dirname(__import__(package).__file__))
+
+    # Get the line number if we need it. (Can work without it)
+    if (lineno is None):
+        try:
+            lineno = inspect.getsourcelines(obj)[1]
+        except Exception:
+            lineno = ''
     return url_fmt.format(revision=revision, package=package,
                           path=fn, lineno=lineno)
 
