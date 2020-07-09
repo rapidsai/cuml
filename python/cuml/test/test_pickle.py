@@ -95,7 +95,6 @@ all_models.update({
 def pickle_save_load(tmpdir, func_create_model, func_assert):
     model, X_test = func_create_model()
     pickle_file = tmpdir.join('cu_model.pickle')
-
     try:
         with open(pickle_file, 'wb') as pf:
             pickle.dump(model, pf)
@@ -131,7 +130,7 @@ def make_dataset(datatype, nrows, ncols, n_info):
     return X_train, y_train, X_test
 
 
-@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('key', rf_models.keys())
 @pytest.mark.parametrize('nrows', [unit_param(500)])
 @pytest.mark.parametrize('ncols', [unit_param(16)])
@@ -141,6 +140,9 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info,
                               n_classes, key):
 
     result = {}
+    if datatype == np.float64:
+        pytest.xfail("Pickling is not supported for dataset with"
+                     " dtype float64")
 
     def create_mod():
         if key == 'RandomForestRegressor':
@@ -156,8 +158,14 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info,
                                                                    n_classes)
 
         model = rf_models[key]()
+
         model.fit(X_train, y_train)
-        result["rf_res"] = model.predict(X_test)
+        if datatype == np.float32:
+            predict_model = "GPU"
+        else:
+            predict_model = "CPU"
+        result["rf_res"] = model.predict(X_test,
+                                         predict_model=predict_model)
         return model, X_test
 
     def assert_model(pickled_model, X_test):

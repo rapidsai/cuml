@@ -388,6 +388,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         cdef uintptr_t X_ptr, y_ptr
         X_ptr = X_m.ptr
         y_ptr = y_m.ptr
+
         cdef cumlHandle* handle_ =\
             <cumlHandle*><uintptr_t>self.handle.getHandle()
 
@@ -397,7 +398,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
             new RandomForestMetaData[double, double]()
         self.rf_forest64 = <uintptr_t> rf_forest64
-
         if self.seed is None:
             seed_val = <uintptr_t>NULL
         else:
