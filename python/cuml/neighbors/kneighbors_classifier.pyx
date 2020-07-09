@@ -60,7 +60,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int* out,
         int64_t *knn_indices,
         vector[int*] &y,
-        size_t n_labels,
+        size_t n_index_rows,
         size_t n_samples,
         int k
     ) except +
@@ -70,7 +70,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         vector[float*] &out,
         int64_t *knn_indices,
         vector[int*] &y,
-        size_t n_labels,
+        size_t n_index_rows,
         size_t n_samples,
         int k
     ) except +
@@ -165,6 +165,8 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
         """
+        self._set_target_dtype(y)
+
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self.y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.int32,
@@ -187,9 +189,15 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
+
+        Returns
+        ----------
+        y : (same as the input datatype)
+            Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
 
         out_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype()
 
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
@@ -233,7 +241,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
         self.handle.sync()
 
-        return classes.to_output(out_type)
+        return classes.to_output(output_type=out_type, output_dtype=out_dtype)
 
     @with_cupy_rmm
     def predict_proba(self, X, convert_dtype=True):

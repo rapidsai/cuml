@@ -98,21 +98,23 @@ def test_rf_classification_dask_cudf(partitions_per_worker, client):
     assert acc_score > 0.8
 
 
-@pytest.mark.xfail(reason="Intermittent failure of test observed. For"
-                   "more information please check cuml issue #1934")
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
 @pytest.mark.parametrize('partitions_per_worker', [5])
-def test_rf_regression_dask_fil(partitions_per_worker, client):
-
+def test_rf_regression_dask_fil(partitions_per_worker,
+                                dtype, client):
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
     X, y = make_regression(n_samples=10000, n_features=20,
                            n_informative=10, random_state=123)
 
-    X = X.astype(np.float32)
-    y = y.astype(np.float32)
+    X = X.astype(dtype)
+    y = y.astype(dtype)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                         test_size=1000,
                                                         random_state=123)
+
+    if dtype == np.float64:
+        pytest.xfail(reason=" Dask RF does not support np.float64 data")
 
     cu_rf_params = {
         'n_estimators': 50,
@@ -134,14 +136,11 @@ def test_rf_regression_dask_fil(partitions_per_worker, client):
     X_test_df = \
         dask_cudf.from_cudf(X_cudf_test, npartitions=n_partitions)
 
-    X_train_df, y_train_df = dask_utils.persist_across_workers(
-        client, [X_train_df, y_train_df], workers=workers)
-
     cuml_mod = cuRFR_mg(**cu_rf_params)
     cuml_mod.fit(X_train_df, y_train_df)
 
-    cuml_mod_predict = cuml_mod.predict(X_test_df).compute()
-    cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict))
+    cuml_mod_predict = cuml_mod.predict(X_test_df)
+    cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict.compute()))
 
     acc_score = r2_score(cuml_mod_predict, y_test)
 
@@ -294,7 +293,7 @@ def test_rf_concatenation_dask(client, model_type):
     res1 = cu_rf_mg.predict(X_df)
     res1.compute()
     local_tl = TreeliteModel.from_treelite_model_handle(
-        cu_rf_mg.local_model._obtain_treelite_handle(),
+        cu_rf_mg.internal_model._obtain_treelite_handle(),
         take_handle_ownership=False)
 
     assert local_tl.num_trees == n_estimators
