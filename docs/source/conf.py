@@ -20,6 +20,14 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../../python'))
 
+# If extensions (or modules to document with autodoc) are in another
+# directory, add these directories to sys.path here. If the directory
+# is relative to the documentation root, use os.path.abspath to make it
+# absolute, like shown here.
+sys.path.insert(0, os.path.abspath('./sphinxext'))
+
+from github_link import make_linkcode_resolve
+
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
@@ -30,15 +38,17 @@ sys.path.insert(0, os.path.abspath('../../python'))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.intersphinx',
+    'numpydoc',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
-    'numpydoc',
-    "sphinx_markdown_tables",
+    'sphinx.ext.doctest',
+    'sphinx.ext.intersphinx',
+    'sphinx.ext.linkcode',
     "IPython.sphinxext.ipython_console_highlighting",
     "IPython.sphinxext.ipython_directive",
     "nbsphinx",
     "recommonmark",
+    "sphinx_markdown_tables",
 ]
 
 ipython_mplbackend = "str"
@@ -46,11 +56,14 @@ ipython_mplbackend = "str"
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
+# generate autosummary even if no references
+# autosummary_generate = True
+
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
 # source_suffix = ['.rst', '.md']
-source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
+source_suffix = {".rst": "restructuredtext", ".md": "markdown"}                                                              
 
 # The master toctree document.
 master_doc = 'index'
@@ -120,6 +133,10 @@ if not on_rtd:
 html_static_path = ['_static']
 
 
+html_js_files = [
+    "example_mod.js"
+]
+
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
@@ -188,3 +205,11 @@ numpydoc_class_members_toctree = False
 
 def setup(app):
     app.add_css_file('params.css')
+    app.add_css_file('copybutton.css')
+
+# The following is used by sphinx.ext.linkcode to provide links to github
+linkcode_resolve = make_linkcode_resolve('cuml',
+                                         'https://github.com/rapidsai/'
+                                         'cuml/blob/{revision}/python/'
+                                         '{package}/{path}#L{lineno}')
+
