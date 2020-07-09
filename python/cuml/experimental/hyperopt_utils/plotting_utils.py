@@ -96,7 +96,6 @@ def plot_search_results(res):
             fig.suptitle('Score per parameter')
             fig.text(0.04, 0.5, 'MEAN SCORE', va='center', rotation='vertical')
 
-            results = pd.DataFrame(res.cv_results_)
             for i, p in enumerate(masks_names):
                 results = pd.DataFrame(res.cv_results_)
                 select_names = masks_names[:i] + masks_names[i+1:]
