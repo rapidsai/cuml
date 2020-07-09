@@ -33,14 +33,8 @@ int cumlHandle::getDefaultNumInternalStreams() {
   return _default_num_internal_streams;
 }
 
-cumlHandle::cumlHandle(int n_streams) {
-  std::cout << "impl: " << (_impl?"not null":"null") << '\n';
-  _impl = std::make_unique<raftHandle_impl>(n_streams);
-}
-cumlHandle::cumlHandle() {
-    std::cout << "impl: " << (_impl?"not null":"null") << '\n';
-  _impl = std::make_unique<raftHandle_impl>();
-}
+cumlHandle::cumlHandle(int n_streams) : _impl(new raftHandle_impl(n_streams)) {}
+cumlHandle::cumlHandle() : _impl(new raftHandle_impl()) {}
 cumlHandle::~cumlHandle() {}
 
 void cumlHandle::setStream(cudaStream_t stream) { _impl->setStream(stream); }

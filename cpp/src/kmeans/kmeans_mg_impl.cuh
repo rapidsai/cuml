@@ -25,7 +25,7 @@ namespace opg {
 
 // Selects 'n_clusters' samples randomly from X
 template <typename DataT, typename IndexT>
-void initRandom(const ML::cumlHandle_impl &handle, const KMeansParams &params,
+void initRandom(const ML::handle_impl &handle, const KMeansParams &params,
                 Tensor<DataT, 2, IndexT> &X,
                 MLCommon::device_buffer<DataT> &centroidsRawData) {
   const MLCommon::cumlCommunicator &comm = handle.getCommunicator();
@@ -101,7 +101,7 @@ void initRandom(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 * 8: Recluster the weighted points in C into k clusters
 */
 template <typename DataT, typename IndexT>
-void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
+void initKMeansPlusPlus(const ML::handle_impl &handle,
                         const KMeansParams &params, Tensor<DataT, 2, IndexT> &X,
                         MLCommon::device_buffer<DataT> &centroidsRawData,
                         MLCommon::device_buffer<char> &workspace) {
@@ -378,7 +378,7 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
 }
 
 template <typename DataT, typename IndexT>
-void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
+void fit(const ML::handle_impl &handle, const KMeansParams &params,
          Tensor<DataT, 2, IndexT> &X,
          MLCommon::device_buffer<DataT> &centroidsRawData, DataT &inertia,
          int &n_iter, MLCommon::device_buffer<char> &workspace) {
@@ -598,7 +598,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 }
 
 template <typename DataT, typename IndexT = int>
-void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
+void fit(const ML::handle_impl &handle, const KMeansParams &params,
          const DataT *X, const int n_local_samples, const int n_features,
          DataT *centroids, DataT &inertia, int &n_iter) {
   cudaStream_t stream = handle.getStream();

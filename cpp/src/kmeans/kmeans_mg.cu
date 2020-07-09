@@ -26,7 +26,7 @@ namespace opg {
 void fit(const ML::cumlHandle &handle, const KMeansParams &params,
          const float *X, int n_samples, int n_features, float *centroids,
          float &inertia, int &n_iter) {
-  const ML::cumlHandle_impl &h = handle.getImpl();
+  const ML::handle_impl &h = handle.getImpl();
 
   ML::detail::streamSyncer _(h);
   ML::kmeans::opg::fit(h, params, X, n_samples, n_features, centroids, inertia,
@@ -36,7 +36,7 @@ void fit(const ML::cumlHandle &handle, const KMeansParams &params,
 void fit(const ML::cumlHandle &handle, const KMeansParams &params,
          const double *X, int n_samples, int n_features, double *centroids,
          double &inertia, int &n_iter) {
-  const ML::cumlHandle_impl &h = handle.getImpl();
+  const ML::handle_impl &h = handle.getImpl();
   ML::detail::streamSyncer _(h);
   ML::kmeans::opg::fit(h, params, X, n_samples, n_features, centroids, inertia,
                        n_iter);

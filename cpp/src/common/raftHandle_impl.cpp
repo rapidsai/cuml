@@ -23,13 +23,9 @@ namespace ML {
 
 raftHandle_impl::raftHandle_impl(int n_streams) : 
     _hostAllocator(std::make_shared<defaultHostAllocator>()),
-    _communicator() {
+    _communicator(),
+    _deviceAllocator(std::make_shared<rmmAllocatorAdapter>(_raftHandle->get_device_allocator())) {
   _raftHandle = new raft::handle_t(n_streams);
-  std::cout << n_streams << std::endl;
-  std::cout << _raftHandle->get_num_internal_streams();
-
-  _deviceAllocator = std::shared_ptr<rmmAllocatorAdapter>(
-    new rmmAllocatorAdapter(_raftHandle->get_device_allocator()));
 }
 
 raftHandle_impl::~raftHandle_impl() { delete _raftHandle; }
