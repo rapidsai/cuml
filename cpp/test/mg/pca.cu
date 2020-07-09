@@ -50,7 +50,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
     ML::initialize_mpi_comms(*handle, MPI_COMM_WORLD);
 
     // Prepare resource
-    const ML::cumlHandle_impl& h = handle->getImpl();
+    const ML::handle_impl& h = handle->getImpl();
     const cumlCommunicator& comm = h.getCommunicator();
     stream = h.getStream();
     const std::shared_ptr<deviceAllocator> allocator = h.getDeviceAllocator();

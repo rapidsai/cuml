@@ -72,7 +72,7 @@ namespace SVM {
 template <typename math_t>
 class SmoSolver {
  public:
-  SmoSolver(const cumlHandle_impl &handle, svmParameter param,
+  SmoSolver(const handle_impl &handle, svmParameter param,
             MLCommon::Matrix::GramMatrixBase<math_t> *kernel)
     : handle(handle),
       n_rows(n_rows),
@@ -312,7 +312,7 @@ class SmoSolver {
   }
 
  private:
-  const cumlHandle_impl &handle;
+  const handle_impl &handle;
   cudaStream_t stream;
 
   int n_rows = 0;  //!< training data number of rows

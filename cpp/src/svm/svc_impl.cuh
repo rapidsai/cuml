@@ -55,7 +55,7 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
   // KernelCache could use multiple streams, not implemented currently
   // See Issue #948.
   //ML::detail::streamSyncer _(handle_impl.getImpl());
-  const cumlHandle_impl &handle_impl = handle.getImpl();
+  const auto &handle_impl = handle.getImpl();
 
   cudaStream_t stream = handle_impl.getStream();
   MLCommon::Label::getUniqueLabels(labels, n_rows, &(model.unique_labels),
@@ -100,7 +100,7 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
     if (n_batch < 1) n_batch = 1;
   }
 
-  const cumlHandle_impl &handle_impl = handle.getImpl();
+  const auto &handle_impl = handle.getImpl();
   cudaStream_t stream = handle_impl.getStream();
 
   MLCommon::device_buffer<math_t> K(handle_impl.getDeviceAllocator(), stream,

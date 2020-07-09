@@ -55,7 +55,7 @@ void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
   // KernelCache could use multiple streams, not implemented currently
   // See Issue #948.
   //ML::detail::streamSyncer _(handle_impl.getImpl());
-  const cumlHandle_impl &handle_impl = handle.getImpl();
+  const auto &handle_impl = handle.getImpl();
 
   cudaStream_t stream = handle_impl.getStream();
 

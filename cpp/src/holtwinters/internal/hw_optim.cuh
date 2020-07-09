@@ -414,7 +414,7 @@ __global__ void holtwinters_optim_gpu_global_kernel(
 // https://github.com/rapidsai/cuml/issues/890
 template <typename Dtype>
 void holtwinters_optim_gpu(
-  const ML::cumlHandle_impl &handle, const Dtype *ts, int n, int batch_size,
+  const ML::handle_impl &handle, const Dtype *ts, int n, int batch_size,
   int frequency, const Dtype *start_level, const Dtype *start_trend,
   const Dtype *start_season, Dtype *alpha, bool optim_alpha, Dtype *beta,
   bool optim_beta, Dtype *gamma, bool optim_gamma, Dtype *level, Dtype *trend,

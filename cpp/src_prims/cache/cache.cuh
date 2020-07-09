@@ -63,7 +63,7 @@ namespace Cache {
 * // We assume that our ML algo repeatedly calls calc, and the set of keys have
 * // an overlap. We will use the cache to avoid repeated calculations.
 *
-* // Assume we have cumlHandle_impl& h, and cudaStream_t stream
+* // Assume we have handle_impl& h, and cudaStream_t stream
 * Cache<float> cache(h.getDeviceAllocator(), stream, m);
 *
 * // A buffer that we will reuse to store the cache indices.

@@ -42,7 +42,7 @@ namespace ML {
 using namespace MLCommon;
 
 template <typename math_t>
-void calCompExpVarsSvd(const cumlHandle_impl &handle, math_t *in,
+void calCompExpVarsSvd(const handle_impl &handle, math_t *in,
                        math_t *components, math_t *singular_vals,
                        math_t *explained_vars, math_t *explained_var_ratio,
                        const paramsTSVD &prms, cudaStream_t stream) {
@@ -83,7 +83,7 @@ void calCompExpVarsSvd(const cumlHandle_impl &handle, math_t *in,
 }
 
 template <typename math_t, typename enum_solver = solver>
-void calEig(const cumlHandle_impl &handle, math_t *in, math_t *components,
+void calEig(const handle_impl &handle, math_t *in, math_t *components,
             math_t *explained_var, const paramsTSVDTemplate<enum_solver> &prms,
             cudaStream_t stream) {
   auto cusolver_handle = handle.getcusolverDnHandle();
@@ -165,7 +165,7 @@ void signFlip(math_t *input, int n_rows, int n_cols, math_t *components,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void tsvdFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
+void tsvdFit(const handle_impl &handle, math_t *input, math_t *components,
              math_t *singular_vals, const paramsTSVD &prms,
              cudaStream_t stream) {
   auto cublas_handle = handle.getCublasHandle();
@@ -218,7 +218,7 @@ void tsvdFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void tsvdFitTransform(const cumlHandle_impl &handle, math_t *input,
+void tsvdFitTransform(const handle_impl &handle, math_t *input,
                       math_t *trans_input, math_t *components,
                       math_t *explained_var, math_t *explained_var_ratio,
                       math_t *singular_vals, const paramsTSVD &prms,
@@ -266,7 +266,7 @@ void tsvdFitTransform(const cumlHandle_impl &handle, math_t *input,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void tsvdTransform(const cumlHandle_impl &handle, math_t *input,
+void tsvdTransform(const handle_impl &handle, math_t *input,
                    math_t *components, math_t *trans_input,
                    const paramsTSVD &prms, cudaStream_t stream) {
   auto cublas_handle = handle.getCublasHandle();
@@ -296,7 +296,7 @@ void tsvdTransform(const cumlHandle_impl &handle, math_t *input,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void tsvdInverseTransform(const cumlHandle_impl &handle, math_t *trans_input,
+void tsvdInverseTransform(const handle_impl &handle, math_t *trans_input,
                           math_t *components, math_t *input,
                           const paramsTSVD &prms, cudaStream_t stream) {
   auto cublas_handle = handle.getCublasHandle();

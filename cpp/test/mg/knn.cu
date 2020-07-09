@@ -63,7 +63,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
   bool runTest(const KNNParams &params) {
     ML::cumlHandle *handle = new ML::cumlHandle();
     ML::initialize_mpi_comms(*handle, MPI_COMM_WORLD);
-    const ML::cumlHandle_impl &h = handle->getImpl();
+    const ML::handle_impl &h = handle->getImpl();
     const cumlCommunicator &comm = h.getCommunicator();
     const std::shared_ptr<deviceAllocator> allocator = h.getDeviceAllocator();
 

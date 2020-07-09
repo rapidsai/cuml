@@ -37,7 +37,7 @@ namespace ML {
 using namespace MLCommon;
 
 template <typename math_t, typename enum_solver = solver>
-void truncCompExpVars(const cumlHandle_impl &handle, math_t *in,
+void truncCompExpVars(const handle_impl &handle, math_t *in,
                       math_t *components, math_t *explained_var,
                       math_t *explained_var_ratio,
                       const paramsTSVDTemplate<enum_solver> prms,
@@ -74,7 +74,7 @@ void truncCompExpVars(const cumlHandle_impl &handle, math_t *in,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
+void pcaFit(const handle_impl &handle, math_t *input, math_t *components,
             math_t *explained_var, math_t *explained_var_ratio,
             math_t *singular_vals, math_t *mu, math_t *noise_vars,
             const paramsPCA &prms, cudaStream_t stream) {
@@ -124,7 +124,7 @@ void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void pcaFitTransform(const cumlHandle_impl &handle, math_t *input,
+void pcaFitTransform(const handle_impl &handle, math_t *input,
                      math_t *trans_input, math_t *components,
                      math_t *explained_var, math_t *explained_var_ratio,
                      math_t *singular_vals, math_t *mu, math_t *noise_vars,
@@ -161,7 +161,7 @@ void pcaGetPrecision() {
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void pcaInverseTransform(const cumlHandle_impl &handle, math_t *trans_input,
+void pcaInverseTransform(const handle_impl &handle, math_t *trans_input,
                          math_t *components, math_t *singular_vals, math_t *mu,
                          math_t *input, const paramsPCA &prms,
                          cudaStream_t stream) {
@@ -220,7 +220,7 @@ void pcaScoreSamples() {
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void pcaTransform(const cumlHandle_impl &handle, math_t *input,
+void pcaTransform(const handle_impl &handle, math_t *input,
                   math_t *components, math_t *trans_input,
                   math_t *singular_vals, math_t *mu, const paramsPCA &prms,
                   cudaStream_t stream) {

@@ -51,7 +51,7 @@ using namespace MLCommon;
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2: QR-decomposition)
  */
 template <typename math_t>
-void olsFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
+void olsFit(const handle_impl &handle, math_t *input, int n_rows,
             int n_cols, math_t *labels, math_t *coef, math_t *intercept,
             bool fit_intercept, bool normalize, cudaStream_t stream,
             int algo = 0) {
@@ -113,7 +113,7 @@ void olsFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
  * @param stream        cuda stream
  */
 template <typename math_t>
-void olsPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
+void olsPredict(const handle_impl &handle, const math_t *input, int n_rows,
                 int n_cols, const math_t *coef, math_t intercept, math_t *preds,
                 cudaStream_t stream) {
   auto cublas_handle = handle.getCublasHandle();

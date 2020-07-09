@@ -144,7 +144,7 @@ CountT getCentroidsBatchSize(const KMeansParams &params,
 
 // Computes the intensity histogram from a sequence of labels
 template <typename SampleIteratorT, typename CounterT>
-void countLabels(const cumlHandle_impl &handle, SampleIteratorT labels,
+void countLabels(const handle_impl &handle, SampleIteratorT labels,
                  CounterT *count, int n_samples, int n_clusters,
                  MLCommon::device_buffer<char> &workspace,
                  cudaStream_t stream) {
@@ -166,7 +166,7 @@ void countLabels(const cumlHandle_impl &handle, SampleIteratorT labels,
 
 template <typename DataT, typename IndexT>
 Tensor<DataT, 2, IndexT> sampleCentroids(
-  const cumlHandle_impl &handle, Tensor<DataT, 2, IndexT> &X,
+  const handle_impl &handle, Tensor<DataT, 2, IndexT> &X,
   Tensor<DataT, 1, IndexT> &minClusterDistance,
   Tensor<int, 1, IndexT> &isSampleCentroid,
   typename kmeans::detail::SamplingOp<DataT> &select_op,
@@ -220,7 +220,7 @@ Tensor<DataT, 2, IndexT> sampleCentroids(
 }
 
 template <typename DataT, typename IndexT, typename ReductionOpT>
-void computeClusterCost(const cumlHandle_impl &handle,
+void computeClusterCost(const handle_impl &handle,
                         Tensor<DataT, 1, IndexT> &minClusterDistance,
                         MLCommon::device_buffer<char> &workspace,
                         DataT *clusterCost, ReductionOpT reduction_op,
@@ -241,7 +241,7 @@ void computeClusterCost(const cumlHandle_impl &handle,
 // calculate pairwise distance between 'dataset[n x d]' and 'centroids[k x d]',
 // result will be stored in 'pairwiseDistance[n x k]'
 template <typename DataT, typename IndexT>
-void pairwiseDistance(const cumlHandle_impl &handle,
+void pairwiseDistance(const handle_impl &handle,
                       Tensor<DataT, 2, IndexT> &X,
                       Tensor<DataT, 2, IndexT> &centroids,
                       Tensor<DataT, 2, IndexT> &pairwiseDistance,
@@ -264,7 +264,7 @@ void pairwiseDistance(const cumlHandle_impl &handle,
 // is the distance between the sample and the 'centroid[key]'
 template <typename DataT, typename IndexT>
 void minClusterAndDistance(
-  const cumlHandle_impl &handle, const KMeansParams &params,
+  const handle_impl &handle, const KMeansParams &params,
   Tensor<DataT, 2, IndexT> &X, Tensor<DataT, 2, IndexT> &centroids,
   Tensor<cub::KeyValuePair<IndexT, DataT>, 1, IndexT> &minClusterAndDistance,
   Tensor<DataT, 1, IndexT> &L2NormX,
@@ -380,7 +380,7 @@ void minClusterAndDistance(
 }
 
 template <typename DataT, typename IndexT>
-void minClusterDistance(const cumlHandle_impl &handle,
+void minClusterDistance(const handle_impl &handle,
                         const KMeansParams &params, Tensor<DataT, 2, IndexT> &X,
                         Tensor<DataT, 2, IndexT> &centroids,
                         Tensor<DataT, 1, IndexT> &minClusterDistance,
@@ -490,7 +490,7 @@ void minClusterDistance(const cumlHandle_impl &handle,
 // shuffle and randomly select 'n_samples_to_gather' from input 'in' and stores
 // in 'out' does not modify the input
 template <typename DataT, typename IndexT>
-void shuffleAndGather(const cumlHandle_impl &handle,
+void shuffleAndGather(const handle_impl &handle,
                       const Tensor<DataT, 2, IndexT> &in,
                       Tensor<DataT, 2, IndexT> &out, size_t n_samples_to_gather,
                       int seed, cudaStream_t stream,
@@ -526,7 +526,7 @@ void shuffleAndGather(const cumlHandle_impl &handle,
 
 template <typename DataT, typename IndexT>
 void countSamplesInCluster(
-  const cumlHandle_impl &handle, const KMeansParams &params,
+  const handle_impl &handle, const KMeansParams &params,
   Tensor<DataT, 2, IndexT> &X, Tensor<DataT, 1, IndexT> &L2NormX,
   Tensor<DataT, 2, IndexT> &centroids, MLCommon::device_buffer<char> &workspace,
   MLCommon::Distance::DistanceType metric,
@@ -583,7 +583,7 @@ void countSamplesInCluster(
  * 5: end for
  */
 template <typename DataT, typename IndexT>
-void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
+void kmeansPlusPlus(const handle_impl &handle, const KMeansParams &params,
                     Tensor<DataT, 2, IndexT> &X,
                     MLCommon::Distance::DistanceType metric,
                     MLCommon::device_buffer<char> &workspace,
@@ -750,7 +750,7 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
 }
 
 template <typename DataT, typename IndexT>
-void checkWeights(const cumlHandle_impl &handle,
+void checkWeights(const handle_impl &handle,
                   MLCommon::device_buffer<char> &workspace,
                   Tensor<DataT, 1, IndexT> &weight, cudaStream_t stream) {
   MLCommon::device_buffer<DataT> wt_aggr(handle.getDeviceAllocator(), stream,

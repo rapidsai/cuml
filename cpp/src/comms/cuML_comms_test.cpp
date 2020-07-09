@@ -25,7 +25,7 @@ namespace ML {
 namespace Comms {
 
 bool test_collective_allreduce(const ML::cumlHandle& h) {
-  const cumlHandle_impl& handle = h.getImpl();
+  const auto& handle = h.getImpl();
   ML::detail::streamSyncer _(handle);
   const MLCommon::cumlCommunicator& communicator = handle.getCommunicator();
 
@@ -53,7 +53,7 @@ bool test_collective_allreduce(const ML::cumlHandle& h) {
 
 bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
                                         int numTrials) {
-  const cumlHandle_impl& handle = h.getImpl();
+  const auto& handle = h.getImpl();
   const MLCommon::cumlCommunicator& communicator = handle.getCommunicator();
   const int rank = communicator.getRank();
 
@@ -112,7 +112,7 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
 }
 
 bool test_pointToPoint_recv_any_rank(const ML::cumlHandle& h, int numTrials) {
-  const cumlHandle_impl& handle = h.getImpl();
+  const auto& handle = h.getImpl();
   const MLCommon::cumlCommunicator& communicator = handle.getCommunicator();
   const int rank = communicator.getRank();
 

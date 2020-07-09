@@ -202,7 +202,7 @@ void brute_force_knn(ML::cumlHandle &handle,
            "k must be <= the number of rows in the smallest index partition.");
   }
 
-  const ML::cumlHandle_impl &h = handle.getImpl();
+  const auto &h = handle.getImpl();
   const cumlCommunicator &comm = h.getCommunicator();
   cudaStream_t stream = h.getStream();
 

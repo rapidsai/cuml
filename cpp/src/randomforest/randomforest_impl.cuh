@@ -170,7 +170,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
                           RandomForestMetaData<T, int>*& forest) {
   this->error_checking(input, labels, n_rows, n_cols, false);
 
-  const cumlHandle_impl& handle = user_handle.getImpl();
+  const auto& handle = user_handle.getImpl();
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
   ASSERT(n_streams <= handle.getNumInternalStreams(),
@@ -265,7 +265,7 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
   ML::Logger::get().setLevel(verbosity);
   this->error_checking(input, predictions, n_rows, n_cols, true);
   std::vector<int> h_predictions(n_rows);
-  const cumlHandle_impl& handle = user_handle.getImpl();
+  const auto& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.getStream();
 
   std::vector<T> h_input(n_rows * n_cols);
@@ -332,7 +332,7 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
   std::vector<int> h_predictions(n_rows * num_trees);
 
   std::vector<T> h_input(n_rows * n_cols);
-  const cumlHandle_impl& handle = user_handle.getImpl();
+  const auto& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.getStream();
   MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -439,7 +439,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
                          RandomForestMetaData<T, T>*& forest) {
   this->error_checking(input, labels, n_rows, n_cols, false);
 
-  const cumlHandle_impl& handle = user_handle.getImpl();
+  const auto& handle = user_handle.getImpl();
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
   ASSERT(n_streams <= handle.getNumInternalStreams(),
@@ -532,7 +532,7 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T* input,
   this->error_checking(input, predictions, n_rows, n_cols, true);
 
   std::vector<T> h_predictions(n_rows);
-  const cumlHandle_impl& handle = user_handle.getImpl();
+  const auto& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.getStream();
 
   std::vector<T> h_input(n_rows * n_cols);

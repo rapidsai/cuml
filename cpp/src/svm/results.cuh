@@ -59,7 +59,7 @@ class Results {
    * @param n_cols number of features
    * @param C penalty parameter
    */
-  Results(const cumlHandle_impl &handle, const math_t *x, const math_t *y,
+  Results(const handle_impl &handle, const math_t *x, const math_t *y,
           int n_rows, int n_cols, math_t C, SvmType svmType)
     : allocator(handle.getDeviceAllocator()),
       stream(handle.getStream()),
@@ -245,7 +245,7 @@ class Results {
   std::shared_ptr<deviceAllocator> allocator;
 
  private:
-  const cumlHandle_impl &handle;
+  const handle_impl &handle;
   cudaStream_t stream;
 
   int n_rows;       //!< number of rows in the training vector matrix

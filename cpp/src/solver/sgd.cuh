@@ -91,7 +91,7 @@ using namespace MLCommon;
  *        cuda stream
  */
 template <typename math_t>
-void sgdFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
+void sgdFit(const handle_impl &handle, math_t *input, int n_rows,
             int n_cols, math_t *labels, math_t *coef, math_t *intercept,
             bool fit_intercept, int batch_size, int epochs, ML::lr_type lr_type,
             math_t eta0, math_t power_t, ML::loss_funct loss,
@@ -266,7 +266,7 @@ void sgdFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
  *        cuda stream
  */
 template <typename math_t>
-void sgdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
+void sgdPredict(const handle_impl &handle, const math_t *input, int n_rows,
                 int n_cols, const math_t *coef, math_t intercept, math_t *preds,
                 ML::loss_funct loss, cudaStream_t stream) {
   ASSERT(n_cols > 0,
@@ -310,7 +310,7 @@ void sgdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
  *        cuda stream
  */
 template <typename math_t>
-void sgdPredictBinaryClass(const cumlHandle_impl &handle, const math_t *input,
+void sgdPredictBinaryClass(const handle_impl &handle, const math_t *input,
                            int n_rows, int n_cols, const math_t *coef,
                            math_t intercept, math_t *preds, ML::loss_funct loss,
                            cudaStream_t stream) {

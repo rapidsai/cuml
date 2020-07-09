@@ -318,7 +318,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
  * Chooses the right algorithm, depending on presence of l1 term
  */
 template <typename T, typename LossFunction>
-inline int qn_minimize(const cumlHandle_impl &handle, SimpleVec<T> &x, T *fx,
+inline int qn_minimize(const handle_impl &handle, SimpleVec<T> &x, T *fx,
                        int *num_iters, LossFunction &loss, const T l1,
                        const LBFGSParam<T> &opt_param, cudaStream_t stream,
                        const int verbosity = 0) {

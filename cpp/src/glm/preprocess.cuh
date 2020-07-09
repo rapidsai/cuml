@@ -32,7 +32,7 @@ namespace GLM {
 using namespace MLCommon;
 
 template <typename math_t>
-void preProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
+void preProcessData(const handle_impl &handle, math_t *input, int n_rows,
                     int n_cols, math_t *labels, math_t *intercept,
                     math_t *mu_input, math_t *mu_labels, math_t *norm2_input,
                     bool fit_intercept, bool normalize, cudaStream_t stream) {
@@ -61,7 +61,7 @@ void preProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
 }
 
 template <typename math_t>
-void postProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
+void postProcessData(const handle_impl &handle, math_t *input, int n_rows,
                      int n_cols, math_t *labels, math_t *coef,
                      math_t *intercept, math_t *mu_input, math_t *mu_labels,
                      math_t *norm2_input, bool fit_intercept, bool normalize,

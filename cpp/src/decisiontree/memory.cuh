@@ -38,7 +38,7 @@ TemporaryMemory<T, L>::TemporaryMemory(
 
 template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(
-  const ML::cumlHandle_impl& handle, cudaStream_t stream_in, int N, int Ncols,
+  const ML::handle_impl& handle, cudaStream_t stream_in, int N, int Ncols,
   int n_unique, const ML::DecisionTree::DecisionTreeParams& tree_params) {
   stream = stream_in;
   max_shared_mem = MLCommon::getSharedMemPerBlock();

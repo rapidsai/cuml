@@ -92,7 +92,7 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
 }
 
 template <typename T, typename Index_ = int>
-void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
+void dbscanFitImpl(const ML::handle_impl &handle, T *input, Index_ n_rows,
                    Index_ n_cols, T eps, Index_ min_pts, Index_ *labels,
                    size_t max_mbytes_per_batch, cudaStream_t stream,
                    int verbosity) {

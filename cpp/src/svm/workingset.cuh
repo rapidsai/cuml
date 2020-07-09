@@ -64,7 +64,7 @@ class WorkingSet {
    * @param n_ws number of elements in the working set (default 1024)
    * @param svmType classification or regression
    */
-  WorkingSet(const cumlHandle_impl &handle, cudaStream_t stream, int n_rows = 0,
+  WorkingSet(const handle_impl &handle, cudaStream_t stream, int n_rows = 0,
              int n_ws = 0, SvmType svmType = C_SVC)
     : handle(handle),
       stream(stream),
@@ -282,7 +282,7 @@ class WorkingSet {
   }
 
  private:
-  const cumlHandle_impl &handle;
+  const handle_impl &handle;
   cudaStream_t stream;
 
   bool firstcall = true;

@@ -155,7 +155,7 @@ __global__ void holtwinters_eval_gpu_global_kernel(
 // Test global and shared kernels
 // https://github.com/rapidsai/cuml/issues/890
 template <typename Dtype>
-void holtwinters_eval_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
+void holtwinters_eval_gpu(const ML::handle_impl &handle, const Dtype *ts,
                           int n, int batch_size, int frequency,
                           const Dtype *start_level, const Dtype *start_trend,
                           const Dtype *start_season, const Dtype *alpha,

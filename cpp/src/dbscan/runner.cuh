@@ -77,7 +77,7 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
  * @return in case the temp buffer is null, this returns the size needed.
  */
 template <typename Type_f, typename Index_ = int>
-size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
+size_t run(const ML::handle_impl& handle, Type_f* x, Index_ N, Index_ D,
            Type_f eps, Index_ minPts, Index_* labels, int algoVd, int algoAdj,
            int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream) {
   const size_t align = 256;

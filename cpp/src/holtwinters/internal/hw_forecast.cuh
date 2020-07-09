@@ -61,7 +61,7 @@ __global__ void holtwinters_level_forecast_kernel(Dtype *forecast, int h,
 }
 
 template <typename Dtype>
-void holtwinters_forecast_gpu(const ML::cumlHandle_impl &handle,
+void holtwinters_forecast_gpu(const ML::handle_impl &handle,
                               Dtype *forecast, int h, int batch_size,
                               int frequency, const Dtype *level_coef,
                               const Dtype *trend_coef, const Dtype *season_coef,

@@ -38,7 +38,7 @@ struct QuasiNewtonTest : ::testing::Test {
   const static double tol;
   const static double X[N][D];
   cumlHandle cuml_handle;
-  const cumlHandle_impl &handle;
+  const handle_impl &handle;
   cudaStream_t stream;
   std::shared_ptr<SimpleMatOwning<double>> Xdev;
   std::shared_ptr<SimpleVecOwning<double>> ydev;
@@ -75,7 +75,7 @@ const double QuasiNewtonTest::X[QuasiNewtonTest::N][QuasiNewtonTest::D] = {
   {1.6690253095248706, -0.4385697358355719}};
 
 template <typename T, class Comp>
-::testing::AssertionResult checkParamsEqual(const cumlHandle_impl &handle,
+::testing::AssertionResult checkParamsEqual(const handle_impl &handle,
                                             const T *host_weights,
                                             const T *host_bias, const T *w,
                                             const GLMDims &dims, Comp &comp,
@@ -100,7 +100,7 @@ template <typename T, class Comp>
 }
 
 template <typename T, class LossFunction>
-T run(const cumlHandle_impl &handle, LossFunction &loss, const SimpleMat<T> &X,
+T run(const handle_impl &handle, LossFunction &loss, const SimpleMat<T> &X,
       const SimpleVec<T> &y, T l1, T l2, T *w, SimpleMat<T> &z, int verbosity,
       cudaStream_t stream) {
   int max_iter = 100;

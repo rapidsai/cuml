@@ -111,7 +111,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
       CUDA_CHECK(cudaStreamSynchronize(streams[i]));
     }
   } else if (prms.algorithm == mg_solver::QR) {
-    const ML::cumlHandle_impl &h = handle.getImpl();
+    const auto &h = handle.getImpl();
     cudaStream_t stream = h.getStream();
     const std::shared_ptr<deviceAllocator> allocator = h.getDeviceAllocator();
     const cumlCommunicator &comm = h.getCommunicator();

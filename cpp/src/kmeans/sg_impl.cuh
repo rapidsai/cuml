@@ -23,7 +23,7 @@ namespace kmeans {
 
 // Selects 'n_clusters' samples randomly from X
 template <typename DataT, typename IndexT>
-void initRandom(const ML::cumlHandle_impl &handle, const KMeansParams &params,
+void initRandom(const ML::handle_impl &handle, const KMeansParams &params,
                 Tensor<DataT, 2, IndexT> &X,
                 MLCommon::device_buffer<DataT> &centroidsRawData) {
   cudaStream_t stream = handle.getStream();
@@ -39,7 +39,7 @@ void initRandom(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 }
 
 template <typename DataT, typename IndexT>
-void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
+void fit(const ML::handle_impl &handle, const KMeansParams &params,
          Tensor<DataT, 2, IndexT> &X, Tensor<DataT, 1, IndexT> &weight,
          MLCommon::device_buffer<DataT> &centroidsRawData, DataT &inertia,
          int &n_iter, MLCommon::device_buffer<char> &workspace) {
@@ -262,7 +262,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 }
 
 template <typename DataT, typename IndexT>
-void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
+void initKMeansPlusPlus(const ML::handle_impl &handle,
                         const KMeansParams &params, Tensor<DataT, 2, IndexT> &X,
                         MLCommon::device_buffer<DataT> &centroidsRawData,
                         MLCommon::device_buffer<char> &workspace) {
@@ -300,7 +300,7 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
  */
 template <typename DataT, typename IndexT>
 void initScalableKMeansPlusPlus(
-  const ML::cumlHandle_impl &handle, const KMeansParams &params,
+  const ML::handle_impl &handle, const KMeansParams &params,
   Tensor<DataT, 2, IndexT> &X, MLCommon::device_buffer<DataT> &centroidsRawData,
   MLCommon::device_buffer<char> &workspace) {
   cudaStream_t stream = handle.getStream();
@@ -492,7 +492,7 @@ void initScalableKMeansPlusPlus(
 }
 
 template <typename DataT, typename IndexT = int>
-void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
+void fit(const ML::handle_impl &handle, const KMeansParams &km_params,
          const DataT *X, const int n_samples, const int n_features,
          const DataT *sample_weight, DataT *centroids, DataT &inertia,
          int &n_iter) {
@@ -612,7 +612,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
 }
 
 template <typename DataT, typename IndexT = int>
-void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
+void predict(const ML::handle_impl &handle, const KMeansParams &params,
              const DataT *cptr, const DataT *Xptr, const int n_samples,
              const int n_features, const DataT *sample_weight,
              IndexT *labelsRawPtr, DataT &inertia) {
@@ -724,7 +724,7 @@ void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 }
 
 template <typename DataT, typename IndexT = int>
-void transform(const ML::cumlHandle_impl &handle, const KMeansParams &params,
+void transform(const ML::handle_impl &handle, const KMeansParams &params,
                const DataT *cptr, const DataT *Xptr, int n_samples,
                int n_features, int transform_metric, DataT *X_new) {
   ML::Logger::get().setLevel(params.verbosity);

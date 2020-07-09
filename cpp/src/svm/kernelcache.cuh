@@ -93,11 +93,12 @@ class KernelCache {
    * @param cache_size (default 200 MiB)
    * @param svmType is this SVR or SVC
    */
-  KernelCache(const cumlHandle_impl &handle, const math_t *x, int n_rows,
+  KernelCache(const handle_impl &handle, const math_t *x, int n_rows,
               int n_cols, int n_ws,
               MLCommon::Matrix::GramMatrixBase<math_t> *kernel,
               float cache_size = 200, SvmType svmType = C_SVC)
-    : cache(handle.getDeviceAllocator(), handle.getStream(), n_rows,
+    : handle(handle),
+      cache(handle.getDeviceAllocator(), handle.getStream(), n_rows,
             cache_size),
       kernel(kernel),
       x(x),
@@ -306,7 +307,7 @@ class KernelCache {
 
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel;
 
-  const cumlHandle_impl handle;
+  const handle_impl& handle;
 
   const int TPB = 256;  //!< threads per block for kernels launched
 

@@ -112,7 +112,7 @@ struct TemporaryMemory {
     const cudaStream_t stream_in, int N, int Ncols, int n_unique,
     const ML::DecisionTree::DecisionTreeParams &tree_params);
 
-  TemporaryMemory(const ML::cumlHandle_impl &handle, cudaStream_t stream_in,
+  TemporaryMemory(const ML::handle_impl &handle, cudaStream_t stream_in,
                   int N, int Ncols, int n_unique,
                   const ML::DecisionTree::DecisionTreeParams &tree_params);
 

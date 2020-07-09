@@ -78,7 +78,7 @@ using namespace MLCommon;
  *        cuda stream
  */
 template <typename math_t>
-void cdFit(const cumlHandle_impl &handle, math_t *input, int n_rows, int n_cols,
+void cdFit(const handle_impl &handle, math_t *input, int n_rows, int n_cols,
            math_t *labels, math_t *coef, math_t *intercept, bool fit_intercept,
            bool normalize, int epochs, ML::loss_funct loss, math_t alpha,
            math_t l1_ratio, bool shuffle, math_t tol, cudaStream_t stream) {
@@ -221,7 +221,7 @@ void cdFit(const cumlHandle_impl &handle, math_t *input, int n_rows, int n_cols,
  *        cuda stream
  */
 template <typename math_t>
-void cdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
+void cdPredict(const handle_impl &handle, const math_t *input, int n_rows,
                int n_cols, const math_t *coef, math_t intercept, math_t *preds,
                ML::loss_funct loss, cudaStream_t stream) {
   ASSERT(n_cols > 0,

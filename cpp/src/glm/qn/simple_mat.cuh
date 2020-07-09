@@ -56,7 +56,7 @@ struct SimpleMat {
 
   void print(std::ostream &oss) const { oss << (*this) << std::endl; }
 
-  inline void assign_gemm(const cumlHandle_impl &handle, const T alpha,
+  inline void assign_gemm(const handle_impl &handle, const T alpha,
                           const SimpleMat<T> &A, const bool transA,
                           const SimpleMat<T> &B, const bool transB,
                           const T beta, cudaStream_t stream) {
@@ -188,7 +188,7 @@ struct SimpleVec : SimpleMat<T> {
 
   SimpleVec(T *data, const int n) : Super(data, n, 1, COL_MAJOR) {}
   // this = alpha * A * x + beta * this
-  void assign_gemv(const cumlHandle_impl &handle, const T alpha,
+  void assign_gemv(const handle_impl &handle, const T alpha,
                    const SimpleMat<T> &A, bool transA, const SimpleVec<T> &x,
                    const T beta, cudaStream_t stream) {
     Super::assign_gemm(handle, alpha, A, transA, x, false, beta, stream);
