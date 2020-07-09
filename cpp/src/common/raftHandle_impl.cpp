@@ -119,6 +119,6 @@ bool raftHandle_impl::commsInitialized() const {
   return (nullptr != _communicator.get());
 }
 
-raft::handle_t& raftHandle_impl::getRaftHandle() { return *_raftHandle; }
+raft::handle_t& raftHandle_impl::getRaftHandle() const { return *_raftHandle; }
 
 }  // end namespace ML

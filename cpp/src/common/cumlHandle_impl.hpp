@@ -32,7 +32,6 @@
 
 #include <cuml/common/cuml_allocator.hpp>
 
-#include <raft/handle.hpp>
 #include "handle_impl.hpp"
 
 namespace ML {
@@ -43,10 +42,10 @@ using MLCommon::hostAllocator;
 /**
  * @todo: Add doxygen documentation
  */
-class raftHandle_impl : public handle_impl {
- public:
-  raftHandle_impl(int n_streams = cumlHandle::getDefaultNumInternalStreams());
-  ~raftHandle_impl();
+class cumlHandle_impl : public handle_impl {
+  public:
+  cumlHandle_impl(int n_streams = cumlHandle::getDefaultNumInternalStreams());
+  ~cumlHandle_impl();
 
   virtual int getDevice() const;
   virtual void setStream(cudaStream_t stream);
@@ -76,14 +75,29 @@ class raftHandle_impl : public handle_impl {
 
   virtual const cudaDeviceProp& getDeviceProperties() const;
 
-  raft::handle_t& getRaftHandle() const;
-
- private:
+  private:
+  mutable cublasHandle_t _cublas_handle;
+  mutable cusolverDnHandle_t _cusolverDn_handle;
+  mutable cusolverSpHandle_t _cusolverSp_handle;
+  mutable cusparseHandle_t _cusparse_handle;
+  cudaStream_t _userStream;
+  cudaEvent_t _event;
   std::shared_ptr<deviceAllocator> _deviceAllocator;
   std::shared_ptr<hostAllocator> _hostAllocator;
   std::shared_ptr<MLCommon::cumlCommunicator> _communicator;
+  std::vector<cudaStream_t> _streams;
+  mutable cudaDeviceProp _prop;
+  const int _dev_id;
+  const int _num_streams;
+  mutable bool _cublasInitialized;
+  mutable bool _cusolverDnInitialized;
+  mutable bool _cusolverSpInitialized;
+  mutable bool _cusparseInitialized;
+  mutable bool _devicePropInitialized;
 
-  raft::handle_t* _raftHandle;
+  void createResources();
+  void destroyResources();
+
 };
 
-}  // end namespace ML
+} // end namespace ML

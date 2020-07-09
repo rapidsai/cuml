@@ -117,7 +117,7 @@ class cumlHandle {
 
  private:
   static constexpr int _default_num_internal_streams = 0;
-  std::unique_ptr<cumlHandle_impl> _impl;
+  std::unique_ptr<handle_impl> _impl;
 };
 
 }  // end namespace ML
