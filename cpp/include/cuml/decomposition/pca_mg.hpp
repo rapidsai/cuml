@@ -38,7 +38,7 @@ namespace opg {
  * @param[in] handle: the internal cuml handle object
  * @param[in] input_data: input data
  * @param[in] input_desc: descriptor for input data
- * @param[in] components: principal components of the input data
+ * @param[out] components: principal components of the input data
  * @param[out] explained_var: explained var
  * @param[out] explained_var_ratio: the explained var ratio
  * @param[out] singular_vals: singular values of the data
