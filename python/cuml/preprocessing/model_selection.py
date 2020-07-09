@@ -46,6 +46,10 @@ def train_test_split(
         Set of labels for the data, either a series of shape (n_samples) or
         the string label of a column in X (if it is a cuDF DataFrame)
         containing the labels
+    test_size : float or int, optional
+        If float, represents the proportion [0, 1] of the data
+        to be assigned to the training set. If an int, represents the number
+        of instances to be assigned to the training set. Defaults to 0.2
     train_size : float or int, optional
         If float, represents the proportion [0, 1] of the data
         to be assigned to the training set. If an int, represents the number
