@@ -39,7 +39,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
 
 import treelite
-import treelite.gallery.sklearn as tl_skl
+import treelite.sklearn as tl_skl
 
 cimport cuml.common.handle
 cimport cuml.common.cuda

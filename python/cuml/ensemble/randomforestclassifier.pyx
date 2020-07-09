@@ -399,16 +399,18 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             These labels should be contiguous integers from 0 to n_classes.
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This will increase
-            memory used for the method.
+            y to be of dtype int32. This will increase memory used for
+            the method.
         """
         self._set_target_dtype(y)
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
         cdef uintptr_t X_ptr, y_ptr
+
         X_ptr = X_m.ptr
         y_ptr = y_m.ptr
+
         cdef cumlHandle* handle_ =\
             <cumlHandle*><uintptr_t>self.handle.getHandle()
 
@@ -485,7 +487,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                                   else None),
                                 check_cols=self.n_cols)
         X_ptr = X_m.ptr
-
         preds = CumlArray.zeros(n_rows, dtype=np.int32)
         cdef uintptr_t preds_ptr = preds.ptr
 
@@ -596,7 +597,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                 warnings.warn("Switching over to use the CPU predict since "
                               "the GPU predict currently cannot perform "
                               "multi-class classification.")
-            preds = self._predict_model_on_cpu(X, convert_dtype)
+            preds = self._predict_model_on_cpu(X,
+                                               convert_dtype=convert_dtype)
 
         elif self.dtype == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \
