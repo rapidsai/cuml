@@ -442,6 +442,9 @@ class RandomForestClassifier(Base, ClassifierMixin):
         `self.treelite_serialized_model`. If the model bytes are present, we
         can skip _obtain_treelite_handle().
         """
+        if self.dtype == np.float64:
+            raise TypeError("Pickling is not supported for models trained"
+                            " using dataset of dtype float64.")
         if self.treelite_serialized_model:
             return self.treelite_serialized_model
         elif self.treelite_handle:
@@ -449,6 +452,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
         else:
             fit_mod_ptr = self._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
+
         self.treelite_serialized_model = treelite_serialize(model_ptr)
         return self.treelite_serialized_model
 
@@ -569,10 +573,11 @@ class RandomForestClassifier(Base, ClassifierMixin):
             These labels should be contiguous integers from 0 to n_classes.
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This will increase
-            memory used for the method.
+            y to be of dtype int32. This will increase memory used for
+            the method.
         """
         self._set_output_type(X)
+        self._set_target_dtype(y)
         self._set_n_features_in(X)
 
         # Reset the old tree data for new fit call
@@ -581,8 +586,10 @@ class RandomForestClassifier(Base, ClassifierMixin):
         cdef uintptr_t X_ptr, y_ptr
 
         X_m, n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
-                                order='F')
+            input_to_cuml_array(
+                X, check_dtype=[np.float32, np.float64],
+                order='F')
+
         if self.n_bins > n_rows:
             raise ValueError("The number of bins,`n_bins` can not be greater"
                              " than the number of samples used for training.")
@@ -598,8 +605,8 @@ class RandomForestClassifier(Base, ClassifierMixin):
             raise TypeError("The labels `y` need to be of dtype `np.int32`")
 
         if self.dtype == np.float64:
-            warnings.warn("To use GPU-based prediction, first train \
-                          using float 32 data to fit the estimator.")
+            warnings.warn("To use pickling or GPU-based prediction first\
+                          train the RF model using np.float32 data.")
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><uintptr_t>self.handle.getHandle()
@@ -685,11 +692,15 @@ class RandomForestClassifier(Base, ClassifierMixin):
                               num_classes, convert_dtype,
                               fil_sparse_format, predict_proba):
         out_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype()
+
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
                                 check_cols=self.n_cols)
 
-        if dtype == np.float64 and not convert_dtype:
+        if dtype == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \
                             Please set convert_dtype=True to convert the test \
                             data to the same dtype as the data used to train, \
@@ -713,11 +724,14 @@ class RandomForestClassifier(Base, ClassifierMixin):
                                                  storage_type=storage_type)
 
         preds = tl_to_fil_model.predict(X, output_type=out_type,
+                                        output_dtype=out_dtype,
                                         predict_proba=predict_proba)
         return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):
         out_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype()
+
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
@@ -725,7 +739,6 @@ class RandomForestClassifier(Base, ClassifierMixin):
                                                   else None),
                                 check_cols=self.n_cols)
         X_ptr = X_m.ptr
-
         preds = CumlArray.zeros(n_rows, dtype=np.int32)
         cdef uintptr_t preds_ptr = preds.ptr
 
@@ -762,7 +775,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
         self.handle.sync()
         # synchronous w/o a stream
         del(X_m)
-        return preds.to_output(out_type)
+        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
@@ -805,7 +818,8 @@ class RandomForestClassifier(Base, ClassifierMixin):
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = 2)
-            number of different classes present in the dataset
+            number of different classes present in the dataset. This variable
+            will be deprecated in 0.16
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -822,15 +836,16 @@ class RandomForestClassifier(Base, ClassifierMixin):
 
         Returns
         ----------
-        y : NumPy
-           Dense vector (int) of shape (n_samples, 1)
+        y : (same as the input datatype)
+            Dense vector (ints, floats, or doubles) of shape (n_samples, 1)
         """
         if predict_model == "CPU" or self.num_classes > 2:
             if self.num_classes > 2 and predict_model == "GPU":
                 warnings.warn("Switching over to use the CPU predict since "
                               "the GPU predict currently cannot perform "
                               "multi-class classification.")
-            preds = self._predict_model_on_cpu(X, convert_dtype)
+            preds = self._predict_model_on_cpu(X,
+                                               convert_dtype=convert_dtype)
 
         elif self.dtype == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \
@@ -952,7 +967,8 @@ class RandomForestClassifier(Base, ClassifierMixin):
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = 2)
-            number of different classes present in the dataset
+            number of different classes present in the dataset. This variable
+            will be deprecated in 0.16
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -1028,7 +1044,8 @@ class RandomForestClassifier(Base, ClassifierMixin):
             This is optional and required only while performing the
             predict operation on the GPU.
         num_classes : integer
-            number of different classes present in the dataset
+            number of different classes present in the dataset. This variable
+            will be deprecated in 0.16
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
         predict_model : String (default = 'GPU')
