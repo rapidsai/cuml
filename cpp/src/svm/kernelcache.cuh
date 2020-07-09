@@ -307,7 +307,7 @@ class KernelCache {
 
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel;
 
-  const handle_impl& handle;
+  const handle_impl &handle;
 
   const int TPB = 256;  //!< threads per block for kernels launched
 

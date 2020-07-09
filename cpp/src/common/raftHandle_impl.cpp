@@ -21,11 +21,12 @@
 
 namespace ML {
 
-raftHandle_impl::raftHandle_impl(int n_streams) : 
-    _hostAllocator(std::make_shared<defaultHostAllocator>()),
-    _communicator(),
-    _deviceAllocator(std::make_shared<rmmAllocatorAdapter>(_raftHandle->get_device_allocator())) {
+raftHandle_impl::raftHandle_impl(int n_streams)
+  : _hostAllocator(std::make_shared<defaultHostAllocator>()), _communicator() {
   _raftHandle = new raft::handle_t(n_streams);
+
+  _deviceAllocator =
+    std::make_shared<rmmAllocatorAdapter>(_raftHandle->get_device_allocator());
 }
 
 raftHandle_impl::~raftHandle_impl() { delete _raftHandle; }
@@ -83,8 +84,6 @@ cudaStream_t raftHandle_impl::getInternalStream(int sid) const {
 }
 
 int raftHandle_impl::getNumInternalStreams() const {
-  std::cout << "HERE" << std::endl;
-  std::cout << _raftHandle->get_num_internal_streams();
   return _raftHandle->get_num_internal_streams();
 }
 
@@ -115,6 +114,8 @@ bool raftHandle_impl::commsInitialized() const {
   return (nullptr != _communicator.get());
 }
 
-raft::handle_t& raftHandle_impl::getRaftHandle() const { return *_raftHandle; }
+const raft::handle_t& raftHandle_impl::getRaftHandle() const {
+  return *_raftHandle;
+}
 
 }  // end namespace ML

@@ -43,7 +43,7 @@ using MLCommon::hostAllocator;
  * @todo: Add doxygen documentation
  */
 class cumlHandle_impl : public handle_impl {
-  public:
+ public:
   cumlHandle_impl(int n_streams = cumlHandle::getDefaultNumInternalStreams());
   ~cumlHandle_impl();
 
@@ -75,7 +75,7 @@ class cumlHandle_impl : public handle_impl {
 
   virtual const cudaDeviceProp& getDeviceProperties() const;
 
-  private:
+ private:
   mutable cublasHandle_t _cublas_handle;
   mutable cusolverDnHandle_t _cusolverDn_handle;
   mutable cusolverSpHandle_t _cusolverSp_handle;
@@ -97,7 +97,6 @@ class cumlHandle_impl : public handle_impl {
 
   void createResources();
   void destroyResources();
-
 };
 
-} // end namespace ML
+}  // end namespace ML

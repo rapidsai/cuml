@@ -101,8 +101,8 @@ void qnFit(const handle_impl &handle, T *X, T *y, int N, int D, int C,
 }
 
 template <typename T>
-void qnDecisionFunction(const handle_impl &handle, T *Xptr, int N, int D,
-                        int C, bool fit_intercept, T *params, bool X_col_major,
+void qnDecisionFunction(const handle_impl &handle, T *Xptr, int N, int D, int C,
+                        bool fit_intercept, T *params, bool X_col_major,
                         int loss_type, T *scores, cudaStream_t stream) {
   // NOTE: While gtests pass X as row-major, and python API passes X as
   // col-major, no extensive testing has been done to ensure that

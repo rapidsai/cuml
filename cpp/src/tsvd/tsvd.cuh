@@ -266,9 +266,9 @@ void tsvdFitTransform(const handle_impl &handle, math_t *input,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void tsvdTransform(const handle_impl &handle, math_t *input,
-                   math_t *components, math_t *trans_input,
-                   const paramsTSVD &prms, cudaStream_t stream) {
+void tsvdTransform(const handle_impl &handle, math_t *input, math_t *components,
+                   math_t *trans_input, const paramsTSVD &prms,
+                   cudaStream_t stream) {
   auto cublas_handle = handle.getCublasHandle();
 
   ASSERT(prms.n_cols > 1,

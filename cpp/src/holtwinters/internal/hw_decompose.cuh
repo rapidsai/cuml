@@ -36,8 +36,8 @@ __global__ void conv1d_kernel(const Dtype *input, int batch_size,
 }
 
 template <typename Dtype>
-void conv1d(const ML::handle_impl &handle, const Dtype *input,
-            int batch_size, const Dtype *filter, int filter_size, Dtype *output,
+void conv1d(const ML::handle_impl &handle, const Dtype *input, int batch_size,
+            const Dtype *filter, int filter_size, Dtype *output,
             int output_size) {
   int total_threads = batch_size;
   conv1d_kernel<Dtype>
@@ -78,8 +78,8 @@ __global__ void season_mean_kernel(const Dtype *season, int len, int batch_size,
 }
 
 template <typename Dtype>
-void season_mean(const ML::handle_impl &handle, const Dtype *season,
-                 int len, int batch_size, Dtype *start_season, int frequency,
+void season_mean(const ML::handle_impl &handle, const Dtype *season, int len,
+                 int batch_size, Dtype *start_season, int frequency,
                  int half_filter_size, ML::SeasonalType seasonal) {
   cudaStream_t stream = handle.getStream();
   bool is_additive = seasonal == ML::SeasonalType::ADDITIVE;
@@ -121,8 +121,8 @@ __global__ void batched_ls_solver_kernel(const Dtype *B, const Dtype *rq,
 }
 
 template <typename Dtype>
-void batched_ls(const ML::handle_impl &handle, const Dtype *data,
-                int trend_len, int batch_size, Dtype *level, Dtype *trend) {
+void batched_ls(const ML::handle_impl &handle, const Dtype *data, int trend_len,
+                int batch_size, Dtype *level, Dtype *trend) {
   cudaStream_t stream = handle.getStream();
   cublasHandle_t cublas_h = handle.getCublasHandle();
   cusolverDnHandle_t cusolver_h = handle.getcusolverDnHandle();

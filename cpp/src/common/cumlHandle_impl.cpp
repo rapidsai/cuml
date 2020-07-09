@@ -124,9 +124,7 @@ cudaStream_t cumlHandle_impl::getInternalStream(int sid) const {
   return _streams[sid];
 }
 
-int cumlHandle_impl::getNumInternalStreams() const { 
-  return _num_streams; 
-  }
+int cumlHandle_impl::getNumInternalStreams() const { return _num_streams; }
 
 std::vector<cudaStream_t> cumlHandle_impl::getInternalStreams() const {
   std::vector<cudaStream_t> int_streams_vec(_num_streams);
@@ -197,4 +195,4 @@ void cumlHandle_impl::destroyResources() {
   CUDA_CHECK_NO_THROW(cudaEventDestroy(_event));
 }
 
-} // end namespace ML
+}  // end namespace ML

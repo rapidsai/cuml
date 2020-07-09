@@ -37,9 +37,8 @@ namespace ML {
 using namespace MLCommon;
 
 template <typename math_t, typename enum_solver = solver>
-void truncCompExpVars(const handle_impl &handle, math_t *in,
-                      math_t *components, math_t *explained_var,
-                      math_t *explained_var_ratio,
+void truncCompExpVars(const handle_impl &handle, math_t *in, math_t *components,
+                      math_t *explained_var, math_t *explained_var_ratio,
                       const paramsTSVDTemplate<enum_solver> prms,
                       cudaStream_t stream) {
   int len = prms.n_cols * prms.n_cols;
@@ -220,10 +219,9 @@ void pcaScoreSamples() {
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void pcaTransform(const handle_impl &handle, math_t *input,
-                  math_t *components, math_t *trans_input,
-                  math_t *singular_vals, math_t *mu, const paramsPCA &prms,
-                  cudaStream_t stream) {
+void pcaTransform(const handle_impl &handle, math_t *input, math_t *components,
+                  math_t *trans_input, math_t *singular_vals, math_t *mu,
+                  const paramsPCA &prms, cudaStream_t stream) {
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
   ASSERT(prms.n_rows > 1,

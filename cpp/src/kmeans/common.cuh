@@ -242,8 +242,7 @@ void computeClusterCost(const handle_impl &handle,
 // calculate pairwise distance between 'dataset[n x d]' and 'centroids[k x d]',
 // result will be stored in 'pairwiseDistance[n x k]'
 template <typename DataT, typename IndexT>
-void pairwiseDistance(const handle_impl &handle,
-                      Tensor<DataT, 2, IndexT> &X,
+void pairwiseDistance(const handle_impl &handle, Tensor<DataT, 2, IndexT> &X,
                       Tensor<DataT, 2, IndexT> &centroids,
                       Tensor<DataT, 2, IndexT> &pairwiseDistance,
                       MLCommon::device_buffer<char> &workspace,
@@ -381,8 +380,8 @@ void minClusterAndDistance(
 }
 
 template <typename DataT, typename IndexT>
-void minClusterDistance(const handle_impl &handle,
-                        const KMeansParams &params, Tensor<DataT, 2, IndexT> &X,
+void minClusterDistance(const handle_impl &handle, const KMeansParams &params,
+                        Tensor<DataT, 2, IndexT> &X,
                         Tensor<DataT, 2, IndexT> &centroids,
                         Tensor<DataT, 1, IndexT> &minClusterDistance,
                         Tensor<DataT, 1, IndexT> &L2NormX,
