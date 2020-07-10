@@ -28,7 +28,6 @@ requirements:
     - setuptools
     - cython>=0.29,<0.30
     - cmake>=3.14
-    - protobuf >=3.4.1,<4.0.0
     - treelite=0.92
     - cudf {{ minor_version }}
     - libcuml={{ version }}
