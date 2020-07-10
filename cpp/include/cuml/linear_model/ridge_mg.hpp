@@ -28,20 +28,18 @@ namespace opg {
 
 /**
  * @brief performs MNMG fit operation for the ridge regression
- * @input param handle: the internal cuml handle object
- * @input param rank_sizes: includes all the partition size information for the rank
- * @input param n_parts: number of partitions
- * @input param input: input data
- * @input param n_rows: number of rows of the input data
- * @input param n_cols: number of cols of the input data
- * @input param labels: labels data
- * @input param alpha: ridge parameter
- * @input param n_alpha: number of ridge parameters. Only one parameter is supported right now.
- * @output param coef: learned regression coefficients
- * @output param intercept: intercept value
- * @input param fit_intercept: fit intercept or not
- * @input param normalize: normalize the data or not
- * @input param verbose
+ * @param[in] handle: the internal cuml handle object
+ * @param[in] input_data: vector holding all partitions for that rank
+ * @param[in] input_desc: PartDescriptor object for the input
+ * @param[in] labels: labels data
+ * @param[in] alpha: ridge parameter
+ * @param[in] n_alpha: number of ridge parameters. Only one parameter is supported right now.
+ * @param[out] coef: learned regression coefficients
+ * @param[out] intercept: intercept value
+ * @param[in] fit_intercept: fit intercept or not
+ * @param[in] normalize: normalize the data or not
+ * @param[in] algo: the algorithm to use for fitting
+ * @param[in] verbose
  */
 void fit(cumlHandle &handle,
          std::vector<MLCommon::Matrix::Data<float> *> &input_data,
@@ -59,15 +57,16 @@ void fit(cumlHandle &handle,
 
 /**
  * @brief performs MNMG prediction for OLS
- * @input param handle: the internal cuml handle object
- * @input param rank_sizes: includes all the partition size information for the rank
- * @input param n_parts: number of partitions
- * @input param input: input data
- * @input param n_rows: number of rows of input data
- * @input param n_cols: number of cols of input data
- * @input param coef: OLS coefficients
- * @output param preds: predictions
- * @input param verbose
+ * @param[in] handle: the internal cuml handle object
+ * @param[in] rank_sizes: includes all the partition size information for the rank
+ * @param[in] n_parts: number of partitions
+ * @param[in] input: input data
+ * @param[in] n_rows: number of rows of input data
+ * @param[in] n_cols: number of cols of input data
+ * @param[in] coef: OLS coefficients
+ * @param[in] intercept: the fit intercept
+ * @param[out] preds: predictions
+ * @param[in] verbose
  */
 void predict(cumlHandle &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
              size_t n_parts, MLCommon::Matrix::Data<float> **input,
