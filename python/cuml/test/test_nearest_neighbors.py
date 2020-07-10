@@ -214,11 +214,24 @@ def test_kneighbors_graph():
     # n_neighbors = 1
     A = knn_graph_instance(X, 1, mode='connectivity',
                                    include_self=False)
-    A.toarray()
     cp.testing.assert_array_almost_equal(A.toarray(), cp.eye(A.shape[0]))
 
+    A = knn_graph_instance(X, 2, mode='connectivity',
+                                   include_self=False)
+    cp.testing.assert_array_almost_equal(
+        A.toarray(), 
+        [[0., 1., 1.],
+         [1., 0., 1.],
+         [1., 1., 0.]])
+         
+    A = knn_graph_instance(X, 2, mode='distance')
+    cp.testing.assert_array_almost_equal(
+        A.toarray(),
+        [[0., 1.01, 2.23606798],
+         [1.01, 0., 1.40716026],
+         [2.23606798, 1.40716026, 0.]])
+
     # n_neighbors = 3
-    import pdb; pdb.set_trace()
     A = knn_graph_instance(X, 3, mode='connectivity', include_self=True)
     cp.testing.assert_array_almost_equal(
         A.toarray(),
@@ -240,12 +253,28 @@ def test_kneighbors_graph():
          [1.01, 0., 0.],
          [0.00, 1.40716026, 0.]])
 
+def test_kneighbors_graph_compare():
+    # Test kneighbors_graph to build the k-Nearest Neighbor graph.
+    X = np.array([[0, 1], [1.01, 1.], [2, 0]])
 
+    knn_sk = skKNN(n_neighbors=2, metric='minkowski', p=2,
+                             metric_params=None, n_jobs=None).fit(X)
+    sk_csr = knn_sk.kneighbors_graph(X=None, n_neighbors=2, mode='connectivity')
+    indices = knn_sk.kneighbors(X=None, n_neighbors=2, return_distance=False)
+    # distances = np.ones(indices.shape[0] * 2)
+    print(indices)
+    print(sk_csr.toarray())
 
-    A = knn_graph_instance(X, 2, mode='distance')
+    knn_cu = cuKNN(n_neighbors=2, metric='minkowski', p=2,
+                             metric_params=None).fit(X)
+    cu_csr = knn_cu.kneighbors_graph(X=None, n_neighbors=2, mode='connectivity')
+    indices = knn_cu.kneighbors(X=None, n_neighbors=2, return_distance=False)
+    # distances = cp.ones(indices.shape[0] * 2)
+    print(indices)
+    # print(cu_csr.toarray())
+
     cp.testing.assert_array_almost_equal(
-        A.toarray(),
-        [[0., 1.01, 2.23606798],
-         [1.01, 0., 1.40716026],
-         [2.23606798, 1.40716026, 0.]])
+            sk_csr.toarray(), 
+            cu_csr.toarray())
+
 

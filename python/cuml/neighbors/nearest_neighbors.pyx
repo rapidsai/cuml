@@ -457,7 +457,7 @@ class NearestNeighbors(Base):
         else:
             indices = cp.array(indices)
         
-        n_samples = distances.shape[0]
+        n_samples = indices.shape[0]
         n_samples_fit = self.X_m.shape[0]
         n_nonzero = n_samples * n_neighbors
         rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
@@ -466,7 +466,7 @@ class NearestNeighbors(Base):
 
 
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False, 
-                    handle=None, algorithm="brute", metric="euclidean", p=2, 
+                    handle=None, algorithm="brute", metric="minkowski", p=2, 
                     include_self=False, metric_params=None):
     """
     Computes the (weighted) graph of k-Neighbors for points in X.
@@ -499,7 +499,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.
 
-    metric : string (default='euclidean').
+    metric : string (default='minkowski').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
         'minkowski', 'chebyshev', 'jensenshannon', 'cosine', 'correlation']
@@ -535,5 +535,5 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         query = None
     else:
         query = X.X_m
-
+        
     return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)
