@@ -75,6 +75,8 @@ class cumlHandle_impl : public handle_impl {
 
   virtual const cudaDeviceProp& getDeviceProperties() const;
 
+  virtual const raft::handle_t& getRaftHandle() const = 0;
+
  private:
   mutable cublasHandle_t _cublas_handle;
   mutable cusolverDnHandle_t _cusolverDn_handle;

@@ -32,6 +32,8 @@
 
 #include <cuml/common/cuml_allocator.hpp>
 
+#include <raft/handle.hpp>
+
 namespace ML {
 
 using MLCommon::deviceAllocator;
@@ -70,6 +72,8 @@ class handle_impl {
   virtual bool commsInitialized() const = 0;
 
   virtual const cudaDeviceProp& getDeviceProperties() const = 0;
+
+  virtual const raft::handle_t& getRaftHandle() const = 0;
 };
 
 }  // end namespace ML

@@ -76,7 +76,7 @@ class raftHandle_impl : public handle_impl {
 
   virtual const cudaDeviceProp& getDeviceProperties() const;
 
-  const raft::handle_t& getRaftHandle() const;
+  virtual const raft::handle_t& getRaftHandle() const;
 
  private:
   std::shared_ptr<deviceAllocator> _deviceAllocator;
