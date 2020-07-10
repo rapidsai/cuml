@@ -50,7 +50,7 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
 }
 
 void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
-                  std::vector<int *> &y, size_t n_labels, size_t n_samples,
+                  std::vector<int *> &y, size_t n_query_rows, size_t n_samples,
                   int k) {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
@@ -63,20 +63,21 @@ void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
                                      &(n_unique[i]), stream, d_alloc);
   }
 
-  MLCommon::Selection::knn_classify(out, knn_indices, y, n_labels, n_samples, k,
-                                    uniq_labels, n_unique, d_alloc, stream);
+  MLCommon::Selection::knn_classify(out, knn_indices, y, n_query_rows,
+                                    n_samples, k, uniq_labels, n_unique,
+                                    d_alloc, stream);
 }
 
 void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
-                 std::vector<float *> &y, size_t n_labels, size_t n_samples,
+                 std::vector<float *> &y, size_t n_query_rows, size_t n_samples,
                  int k) {
-  MLCommon::Selection::knn_regress(out, knn_indices, y, n_labels, n_samples, k,
-                                   handle.getStream());
+  MLCommon::Selection::knn_regress(out, knn_indices, y, n_query_rows, n_samples,
+                                   k, handle.getStream());
 }
 
 void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
                      int64_t *knn_indices, std::vector<int *> &y,
-                     size_t n_labels, size_t n_samples, int k) {
+                     size_t n_index_rows, size_t n_samples, int k) {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
@@ -88,8 +89,8 @@ void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
                                      &(n_unique[i]), stream, d_alloc);
   }
 
-  MLCommon::Selection::class_probs(out, knn_indices, y, n_labels, n_samples, k,
-                                   uniq_labels, n_unique, d_alloc, stream);
+  MLCommon::Selection::class_probs(out, knn_indices, y, n_index_rows, n_samples,
+                                   k, uniq_labels, n_unique, d_alloc, stream);
 }
 
 /**
