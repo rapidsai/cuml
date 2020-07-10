@@ -426,9 +426,6 @@ class NearestNeighbors(Base):
             Values will be ones/zeros or Euclidean distance based on mode.
 
         """
-        print(X.shape[0])
-        print(X.shape[1])
-        print(self.n_dims)
 
         if not self.X_m:
             raise ValueError('This NearestNeighbors instance has not been fitted '
@@ -537,6 +534,6 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     if not include_self:
         query = None
     else:
-        query = X
+        query = X.X_m
 
     return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)
