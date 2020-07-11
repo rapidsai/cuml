@@ -114,16 +114,17 @@ def test_return_dists():
 @pytest.mark.parametrize('k', [unit_param(3), quality_param(30),
                          stress_param(50)])
 @pytest.mark.parametrize("metric", valid_metrics())
-def test_cuml_against_sklearn(input_type, nrows, n_feats, k, metric):
+@pytest.mark.parametrize("mode", ['connectivity', 'distance'])
+def test_cuml_against_sklearn(input_type, nrows, n_feats, k, metric, mode):
     X, _ = make_blobs(n_samples=nrows,
                       n_features=n_feats, random_state=0)
 
     p = 5  # Testing 5-norm of the minkowski metric only
-
+    
     knn_sk = skKNN(metric=metric, p=p)  # Testing
     knn_sk.fit(X)
     D_sk, I_sk = knn_sk.kneighbors(X, k)
-    CSR_sk = knn_sk.kneighbors_graph(X, k)
+    CSR_sk = knn_sk.kneighbors_graph(X=X, mode=mode)
 
     X_orig = X
 
@@ -133,9 +134,12 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k, metric):
     knn_cu = cuKNN(metric=metric, p=p)
     knn_cu.fit(X)
     D_cuml, I_cuml = knn_cu.kneighbors(X, k)
-    CSR_cu = knn_cu.kneighbors_graph(X, k, mode='connectivity')
+    CSR_cu = knn_cu.kneighbors_graph(X=X, mode=mode)
 
-    # assert array_equal(CSR_cu, CSR_sk)
+    cp.testing.assert_array_almost_equal(
+        CSR_sk.toarray(), 
+        CSR_cu.toarray(), 
+        decimal=4)
 
     if input_type == "dataframe":
         assert isinstance(D_cuml, cudf.DataFrame)
@@ -156,7 +160,6 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k, metric):
     np.testing.assert_allclose(D_cuml_arr, D_sk, atol=1e-2,
                                rtol=1e-1)
     assert I_cuml_arr.all() == I_sk.all()
-
 
 def test_knn_fit_twice():
     """
@@ -206,8 +209,12 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
     with pytest.raises(Exception):
         knn_cu.fit(X, convert_dtype=False)
 
+
+
+
+
 # https://github.com/scikit-learn/scikit-learn/blob/62fc8bb94dcd65e72878c0599ff91391d9983424/sklearn/neighbors/tests/test_neighbors.py#L1029-L1066
-def test_kneighbors_graph():
+def test_kneighbors_graph_old():
     # Test kneighbors_graph to build the k-Nearest Neighbor graph.
     X = np.array([[0, 1], [1.01, 1.], [2, 0]])
 
@@ -216,20 +223,20 @@ def test_kneighbors_graph():
                                    include_self=False)
     cp.testing.assert_array_almost_equal(A.toarray(), cp.eye(A.shape[0]))
 
-    A = knn_graph_instance(X, 2, mode='connectivity',
-                                   include_self=False)
-    cp.testing.assert_array_almost_equal(
-        A.toarray(), 
-        [[0., 1., 1.],
-         [1., 0., 1.],
-         [1., 1., 0.]])
+    # A = knn_graph_instance(X, 2, mode='connectivity',
+    #                                include_self=False)
+    # cp.testing.assert_array_almost_equal(
+    #     A.toarray(), 
+    #     [[0., 1., 1.],
+    #      [1., 0., 1.],
+    #      [1., 1., 0.]])
          
-    A = knn_graph_instance(X, 2, mode='distance')
-    cp.testing.assert_array_almost_equal(
-        A.toarray(),
-        [[0., 1.01, 2.23606798],
-         [1.01, 0., 1.40716026],
-         [2.23606798, 1.40716026, 0.]])
+    # A = knn_graph_instance(X, 2, mode='distance')
+    # cp.testing.assert_array_almost_equal(
+    #     A.toarray(),
+    #     [[0., 1.01, 2.23606798],
+    #      [1.01, 0., 1.40716026],
+    #      [2.23606798, 1.40716026, 0.]])
 
     # n_neighbors = 3
     A = knn_graph_instance(X, 3, mode='connectivity', include_self=True)
@@ -246,12 +253,13 @@ def test_kneighbors_graph():
          [1., 1., 0.],
          [0., 1., 1.]])
 
-    A = knn_graph_instance(X, 1, mode='distance')
-    cp.testing.assert_array_almost_equal(
-        A.toarray(),
-        [[0.00, 1.01, 0.],
-         [1.01, 0., 0.],
-         [0.00, 1.40716026, 0.]])
+    # A = knn_graph_instance(X, 1, mode='distance')
+    # cp.testing.assert_array_almost_equal(
+    #     A.toarray(),
+    #     [[0.00, 1.01, 0.],
+    #      [1.01, 0., 0.],
+    #      [0.00, 1.40716026, 0.]])
+
 
 def test_kneighbors_graph_compare():
     # Test kneighbors_graph to build the k-Nearest Neighbor graph.
@@ -260,17 +268,19 @@ def test_kneighbors_graph_compare():
     knn_sk = skKNN(n_neighbors=2, metric='minkowski', p=2,
                              metric_params=None, n_jobs=None).fit(X)
     sk_csr = knn_sk.kneighbors_graph(X=None, n_neighbors=2, mode='connectivity')
-    indices = knn_sk.kneighbors(X=None, n_neighbors=2, return_distance=False)
+    indices, distances = knn_sk.kneighbors(X=None, n_neighbors=2)
     # distances = np.ones(indices.shape[0] * 2)
     print(indices)
-    print(sk_csr.toarray())
+    print(distances)
+    # print(sk_csr.toarray())
 
     knn_cu = cuKNN(n_neighbors=2, metric='minkowski', p=2,
                              metric_params=None).fit(X)
     cu_csr = knn_cu.kneighbors_graph(X=None, n_neighbors=2, mode='connectivity')
-    indices = knn_cu.kneighbors(X=None, n_neighbors=2, return_distance=False)
+    indices, distances = knn_cu.kneighbors(X=None, n_neighbors=2)
     # distances = cp.ones(indices.shape[0] * 2)
     print(indices)
+    print(distances)
     # print(cu_csr.toarray())
 
     cp.testing.assert_array_almost_equal(
