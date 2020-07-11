@@ -70,6 +70,7 @@
 - PR #2497: Changes to accomodate cuDF unsigned categorical changes
 - PR #2507: Import `treelite.sklearn`
 - PR #2515: Increase tolerance for LogisticRegression test
+- PR #2542: Fix small memory leak in TSNE
 
 # cuML 0.14.0 (03 Jun 2020)
 
