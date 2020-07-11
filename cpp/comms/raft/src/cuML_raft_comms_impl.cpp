@@ -196,7 +196,7 @@ void cumlRAFTCommunicator_impl::allgatherv(const void *sendbuf, void *recvbuf,
                                           const int displs[],
                                           datatype_t datatype,
                                           cudaStream_t stream) const {
-    _raftComms->allgatherv(sendbuf, recvbuf, recvcounts, displs, stream);
+    _raftComms->allgatherv(sendbuf, recvbuf, (size_t *) recvcounts, displs, stream);
 }
 
 void cumlRAFTCommunicator_impl::reducescatter(const void *sendbuff,
