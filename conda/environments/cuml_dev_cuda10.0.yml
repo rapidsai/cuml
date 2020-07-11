@@ -23,11 +23,11 @@ dependencies:
 - distributed>=2.12.0
 - dask-cuda=0.15*
 - dask-cudf=0.15*
+- dask-ml
 - ucx-py=0.15*
 - nccl>=2.5
 - libcumlprims=0.15.0a200622
 - statsmodels
-- protobuf >=3.4.1,<4.0.0
 - treelite=0.92
 - doxygen
 - sphinx
