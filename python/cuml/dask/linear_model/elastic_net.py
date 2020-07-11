@@ -117,10 +117,6 @@ class ElasticNet(BaseEstimator):
         """
 
         self.solver.fit(X, y)
-
-        self.coef_ = self.solver.coef_
-        self.intercept_ = self.solver.intercept_
-
         return self
 
     def predict(self, X, delayed=True):

@@ -73,55 +73,6 @@ def test_pca_fit(nrows, ncols, n_parts, input_type, client):
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [1000])
 @pytest.mark.parametrize("ncols", [20])
-@pytest.mark.parametrize("n_parts", [5])
-@pytest.mark.parametrize("input_type", ["dataframe", "array"])
-def test_pca_tsqr(nrows, ncols, n_parts, input_type, ucx_client):
-
-    from cuml.dask.decomposition import PCA as daskPCA
-    from sklearn.decomposition import PCA
-
-    from cuml.dask.datasets import make_blobs
-
-    X, _ = make_blobs(n_samples=nrows,
-                      n_features=ncols,
-                      centers=1,
-                      n_parts=n_parts,
-                      cluster_std=0.5,
-                      random_state=10, dtype=np.float32)
-
-    if input_type == "dataframe":
-        X_train = to_dask_cudf(X)
-        X_cpu = X_train.compute().to_pandas().values
-    elif input_type == "array":
-        X_train = X
-        X_cpu = cp.asnumpy(X_train.compute())
-
-    try:
-
-        cupca = daskPCA(n_components=5, svd_solver="tsqr")
-        cupca.fit(X_train)
-    except Exception as e:
-        print(str(e))
-
-    skpca = PCA(n_components=5, svd_solver="full")
-    skpca.fit(X_cpu)
-
-    from cuml.test.utils import array_equal
-
-    all_attr = ['singular_values_', 'components_',
-                'explained_variance_', 'explained_variance_ratio_']
-
-    for attr in all_attr:
-        cuml_res = (getattr(cupca, attr))
-        if type(cuml_res) == np.ndarray:
-            cuml_res = cuml_res.as_matrix()
-        skl_res = getattr(skpca, attr)
-        assert array_equal(cuml_res, skl_res, 1e-1, with_sign=True)
-
-
-@pytest.mark.mg
-@pytest.mark.parametrize("nrows", [1000])
-@pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [46])
 def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client):
 
