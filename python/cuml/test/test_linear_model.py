@@ -31,6 +31,7 @@ from cuml.test.utils import (
 
 import sklearn
 from sklearn.datasets import make_regression, make_classification
+from sklearn.datasets import load_breast_cancer
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import Ridge as skRidge
 from sklearn.linear_model import LogisticRegression as skLog
@@ -199,9 +200,6 @@ def test_logistic_regression(
     num_classes, dtype, penalty, l1_ratio,
     fit_intercept, nrows, column_info, C, tol
 ):
-    if penalty in ["l1", "elasticnet"]:
-        pytest.xfail("OWL numerical stability is being improved")
-
     ncols, n_info = column_info
     # Checking sklearn >= 0.21 for testing elasticnet
     sk_check = LooseVersion(str(sklearn.__version__)) >= LooseVersion("0.21.0")
@@ -255,10 +253,16 @@ def test_logistic_regression(
     # Setting tolerance to lowest possible per loss to detect regressions
     # as much as possible
     cu_preds = culog.predict(X_test)
+    tol_test = 0.012
+    tol_train = 0.006
+    if num_classes == 10 and penalty in ["elasticnet", "l1"]:
+        tol_test *= 10
+        tol_train *= 10
 
     assert culog.score(X_train, y_train) >= sklog.score(X_train, y_train) - \
-        0.006
-    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.012
+        tol_train
+    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - \
+        tol_test
     assert len(np.unique(cu_preds)) == len(np.unique(y_test))
 
 
