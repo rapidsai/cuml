@@ -267,6 +267,29 @@ def test_logistic_regression(
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("penalty", ["none", "l1", "l2", "elasticnet"])
+def test_logistic_regression_unscaled(dtype, penalty):
+    # Test logistic regression on the breast cancer dataset. We do not scale
+    # the dataset which could lead to numerical problems (fixed in PR #2543).
+    X, y = load_breast_cancer(return_X_y=True)
+    X = X.astype(dtype)
+    y = y.astype(dtype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
+    params = {"penalty": penalty, "C": 1, "tol": 1e-4, "fit_intercept": True,
+              'max_iter': 5000}
+    if penalty == "elasticnet":
+        params["l1_ratio"] = 1.0
+    culog = cuLog(**params)
+    culog.fit(X_train, y_train)
+
+    score_test = 0.95
+    score_train = 0.95
+
+    assert culog.score(X_train, y_train) >= score_train
+    assert culog.score(X_test, y_test) >= score_test
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_logistic_regression_model_default(dtype):
 
     X_train, X_test, y_train, y_test = small_classification_dataset(dtype)
