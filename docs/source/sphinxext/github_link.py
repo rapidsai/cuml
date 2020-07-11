@@ -1,13 +1,13 @@
-from operator import attrgetter
 import inspect
-import subprocess
 import os
+import re
+import subprocess
 import sys
 from functools import partial
-import re
-import typing
+from operator import attrgetter
 
 orig = inspect.isfunction
+
 
 # See https://opendreamkit.org/2017/06/09/CythonSphinx/
 def isfunction(obj):
@@ -21,11 +21,14 @@ def isfunction(obj):
 
     return orig_val
 
+
 inspect.isfunction = isfunction
 
 REVISION_CMD = 'git rev-parse --short HEAD'
 
-source_regex = re.compile(r"^File: (.*?) \(starting at line ([0-9]*?)\)$", re.MULTILINE)
+source_regex = re.compile(r"^File: (.*?) \(starting at line ([0-9]*?)\)$",
+                          re.MULTILINE)
+
 
 def _get_git_revision():
     try:
@@ -89,22 +92,37 @@ def _linkcode_resolve(domain, info, package, url_fmt, revision):
 
             # fn is expected to be the absolute path.
             fn = os.path.relpath(source_file, start=package)
-            print("{}:{}".format(os.path.abspath(os.path.join("..", "python", "cuml", fn)), lineno))
+            print("{}:{}".format(
+                os.path.abspath(os.path.join("..", "python", "cuml", fn)),
+                lineno))
         else:
             return
     else:
+        # Test if we are absolute or not (pyx are relative)
+        if (not os.path.isabs(fn)):
+            # Should be relative to docs right now
+            fn = os.path.abspath(os.path.join("..", "python", fn))
+
         # Convert to relative from module root
         fn = os.path.relpath(fn,
-                            start=os.path.dirname(__import__(package).__file__))
+                             start=os.path.dirname(
+                                 __import__(package).__file__))
 
     # Get the line number if we need it. (Can work without it)
     if (lineno is None):
         try:
             lineno = inspect.getsourcelines(obj)[1]
         except Exception:
-            lineno = ''
-    return url_fmt.format(revision=revision, package=package,
-                          path=fn, lineno=lineno)
+
+            # Can happen if its a cyfunction. See if it has `__code__`
+            if (hasattr(obj, "__code__")):
+                lineno = obj.__code__.co_firstlineno
+            else:
+                lineno = ''
+    return url_fmt.format(revision=revision,
+                          package=package,
+                          path=fn,
+                          lineno=lineno)
 
 
 def make_linkcode_resolve(package, url_fmt):
@@ -119,5 +137,7 @@ def make_linkcode_resolve(package, url_fmt):
                                    '{path}#L{lineno}')
     """
     revision = _get_git_revision()
-    return partial(_linkcode_resolve, revision=revision, package=package,
+    return partial(_linkcode_resolve,
+                   revision=revision,
+                   package=package,
                    url_fmt=url_fmt)
