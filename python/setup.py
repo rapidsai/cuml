@@ -199,8 +199,6 @@ class cuml_build(_build):
 
         # import cuml_build_ext
 
-        # self.distribution.cmdclass['build_ext'] = cuml_build_ext.new_build_ext
-
         # if you wanted to use the Extension class from Cython
         # from Cython.Distutils.extension import Extension
         # ext = Extension(....)

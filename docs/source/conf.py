@@ -18,15 +18,11 @@
 #
 import os
 import sys
+from sphinxext.github_link import make_linkcode_resolve
+
+
 sys.path.insert(0, os.path.abspath('../../python'))
 
-# If extensions (or modules to document with autodoc) are in another
-# directory, add these directories to sys.path here. If the directory
-# is relative to the documentation root, use os.path.abspath to make it
-# absolute, like shown here.
-sys.path.insert(0, os.path.abspath('./sphinxext'))
-
-from github_link import make_linkcode_resolve
 
 # -- General configuration ------------------------------------------------
 
@@ -63,7 +59,7 @@ templates_path = ['_templates']
 # You can specify multiple suffix as a list of string:
 #
 # source_suffix = ['.rst', '.md']
-source_suffix = {".rst": "restructuredtext", ".md": "markdown"}                                                              
+source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 
 # The master toctree document.
 master_doc = 'index'
@@ -100,7 +96,6 @@ pygments_style = 'sphinx'
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
 
-
 # -- Options for HTML output ----------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -120,7 +115,6 @@ if not on_rtd:
     html_theme = 'sphinx_rtd_theme'
     html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
-
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
@@ -132,16 +126,12 @@ if not on_rtd:
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-
-html_js_files = [
-    "example_mod.js"
-]
+html_js_files = ["example_mod.js"]
 
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'cuMLdoc'
-
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -167,20 +157,14 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'cuml.tex', 'cuml Documentation',
-     'nvidia', 'manual'),
+    (master_doc, 'cuml.tex', 'cuml Documentation', 'nvidia', 'manual'),
 ]
-
 
 # -- Options for manual page output ---------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (master_doc, 'cuml', 'cuml Documentation',
-     [author], 1)
-]
-
+man_pages = [(master_doc, 'cuml', 'cuml Documentation', [author], 1)]
 
 # -- Options for Texinfo output -------------------------------------------
 
@@ -188,15 +172,12 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'cuml', 'cuml Documentation',
-     author, 'cuml', 'One line description of project.',
-     'Miscellaneous'),
+    (master_doc, 'cuml', 'cuml Documentation', author, 'cuml',
+     'One line description of project.', 'Miscellaneous'),
 ]
-
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'https://docs.python.org/': None}
-
 
 # Config numpydoc
 numpydoc_show_inherited_class_members = False
@@ -207,9 +188,9 @@ def setup(app):
     app.add_css_file('params.css')
     app.add_css_file('copybutton.css')
 
-# The following is used by sphinx.ext.linkcode to provide links to github
-linkcode_resolve = make_linkcode_resolve('cuml',
-                                         'https://github.com/rapidsai/'
-                                         'cuml/blob/{revision}/python/'
-                                         '{package}/{path}#L{lineno}')
 
+# The following is used by sphinx.ext.linkcode to provide links to github
+linkcode_resolve = make_linkcode_resolve(
+    'cuml', 'https://github.com/rapidsai/'
+    'cuml/blob/{revision}/python/'
+    '{package}/{path}#L{lineno}')
