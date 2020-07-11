@@ -414,7 +414,7 @@ class RandomForestRegressor(Base, RegressorMixin):
     def _get_serialized_model(self):
         """
         Returns the self.treelite_serialized_model.
-        Cuml RF model gets converted to treelite protobuf bytes by:
+        Cuml RF model gets converted to treelite bytes by:
             1. converting the cuml RF model to a treelite model. The treelite
             models handle (pointer) is returned
             2. The treelite model handle is converted to bytes.
