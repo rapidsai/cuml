@@ -549,7 +549,7 @@ def test_confusion_matrix_random(n_samples, dtype, problem_type):
         lambda rng: rng.randint(0, upper_range, n_samples).astype(dtype))
     cm = confusion_matrix(y_true, y_pred)
     ref = sk_confusion_matrix(y_true, y_pred)
-    cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
+    cp.testing.assert_array_almost_equal(ref, cm, decimal=2)
 
 
 @pytest.mark.parametrize(

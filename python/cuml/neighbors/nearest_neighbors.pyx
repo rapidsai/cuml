@@ -535,5 +535,5 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         query = None
     else:
         query = X.X_m
-        
+
     return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)
