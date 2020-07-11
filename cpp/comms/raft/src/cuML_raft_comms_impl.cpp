@@ -20,6 +20,7 @@
 
 
 #include <common/cumlHandle.hpp>
+#include <common/raftHandle_impl.hpp>
 #include <cuML_comms.hpp>
 
 #include <cuml/common/logger.hpp>
@@ -55,25 +56,31 @@ ncclRedOp_t getNCCLOp(const cumlRAFTCommunicator_impl::op_t op) {
  */
 void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
                   std::shared_ptr<ucp_ep_h *> eps, int size, int rank) {
+  
+  auto& h_impl = cast_handle_impl(handle.getImpl());
+
   auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
     std::unique_ptr<MLCommon::cumlCommunicator_iface>(
-      new cumlRAFTCommunicator_impl(comm, ucp_worker, eps, size, rank, handle.getImpl().getRaftHandle().get_device_allocator(), handle.getImpl().getStream())));
-  handle.getImpl().setCommunicator(communicator);
+      new cumlRAFTCommunicator_impl(comm, ucp_worker, eps, size, rank, h_impl.getRaftHandle().get_device_allocator(), h_impl.getStream())));
+  h_impl.setCommunicator(communicator);
 
-  std::shared_ptr<raft::comms::std_comms> raftCommunicator = communicator.getRaftComms();
+  auto raftCommunicator = cast_comms(communicator->getImpl()).getRaftComms();
 
-  handle.getImpl().getRaftHandle().set_communicator(raftCommunicator);
+  h_impl.getRaftHandle().set_comms(raftCommunicator);
 }
 
 void inject_comms(cumlHandle &handle, ncclComm_t comm, int size, int rank) {
+  
+  auto& h_impl = cast_handle_impl(handle.getImpl());
+
   auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
     std::unique_ptr<MLCommon::cumlCommunicator_iface>(
-      new cumlRAFTCommunicator_impl(comm, size, rank, handle.getImpl().getRaftHandle().get_device_allocator(), handle.getImpl().getStream())));
-  handle.getImpl().setCommunicator(communicator);
+      new cumlRAFTCommunicator_impl(comm, size, rank, h_impl.getRaftHandle().get_device_allocator(), h_impl.getStream())));
+  h_impl.setCommunicator(communicator);
 
-  std::shared_ptr<raft::comms::std_comms> raftCommunicator = communicator.getRaftComms();
+  auto raftCommunicator = cast_comms(communicator->getImpl()).getRaftComms();
 
-  handle.getImpl().getRaftHandle().set_communicator(raftCommunicator);
+  h_impl.getRaftHandle().set_comms(raftCommunicator);
 }
 
 void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
@@ -111,19 +118,19 @@ void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId, int size) {
   raft::comms::nccl_unique_id_from_char(id, uniqueId, size);
 }
 
-void get_unique_id(char uid, int size) {
+void get_unique_id(char *uid, int size) {
   raft::comms::get_unique_id(uid, size);
 }
 
 cumlRAFTCommunicator_impl::cumlRAFTCommunicator_impl(
   ncclComm_t comm, ucp_worker_h ucp_worker, std::shared_ptr<ucp_ep_h *> eps,
   int size, int rank, std::shared_ptr<raft::mr::device::allocator> device_allocator, cudaStream_t stream) {
-    _raftComms = std::make_shared<raft::comms::std_comms>(comm, ucp_worker, eps, size, rank, device_allocator, stream);
+    _raftComms = std::make_shared<raft::comms::comms_t>(std::unique_ptr<raft::comms::comms_iface>(new raft::comms::std_comms(comm, ucp_worker, eps, size, rank, device_allocator, stream)));
 }
 
 cumlRAFTCommunicator_impl::cumlRAFTCommunicator_impl(ncclComm_t comm, int size,
                                                    int rank, std::shared_ptr<raft::mr::device::allocator> device_allocator, cudaStream_t stream) {
-    _raftComms = std::make_shared<raft::comms::std_comms>(comm, size, rank, device_allocator, stream);
+    _raftComms = std::make_shared<raft::comms::comms_t>(std::unique_ptr<raft::comms::comms_iface>(new raft::comms::std_comms(comm, size, rank, device_allocator, stream)));
 }
 
 cumlRAFTCommunicator_impl::~cumlRAFTCommunicator_impl() {
@@ -143,7 +150,7 @@ void cumlRAFTCommunicator_impl::barrier() const {
 }
 
 void cumlRAFTCommunicator_impl::get_request_id(request_t *req) const {
-    _raftComms->get_request_id(req);
+
 }
 
 void cumlRAFTCommunicator_impl::isend(const void *buf, int size, int dest,
@@ -164,24 +171,24 @@ void cumlRAFTCommunicator_impl::waitall(int count,
 void cumlRAFTCommunicator_impl::allreduce(const void *sendbuff, void *recvbuff,
                                          int count, datatype_t datatype,
                                          op_t op, cudaStream_t stream) const {
-    _raftComms->allreduce(sendbuff, recvbuff, count, (raft::comms::datatype_t) datatype, (raft::comms::op_t) op, stream);
+    _raftComms->allreduce(sendbuff, recvbuff, count, (raft::comms::op_t) op, stream);
 }
 
 void cumlRAFTCommunicator_impl::bcast(void *buff, int count, datatype_t datatype,
                                      int root, cudaStream_t stream) const {
-    _raftComms->bcast(buff, count, (raft::comms::datatype_t) datatype, root, stream);
+    _raftComms->bcast(buff, count, root, stream);
 }
 
 void cumlRAFTCommunicator_impl::reduce(const void *sendbuff, void *recvbuff,
                                       int count, datatype_t datatype, op_t op,
                                       int root, cudaStream_t stream) const {
-    _raftComms->reduce(sendbuff, recvbuff, count, (raft::comms::datatype_t) datatype, (raft::comms::op_t) op, root, stream);
+    _raftComms->reduce(sendbuff, recvbuff, count, (raft::comms::op_t) op, root, stream);
 }
 
 void cumlRAFTCommunicator_impl::allgather(const void *sendbuff, void *recvbuff,
                                          int sendcount, datatype_t datatype,
                                          cudaStream_t stream) const {
-    _raftComms->allgather(sendbuff, recvbuff, sendcount, (raft::comms::datatype_t) datatype, stream);
+    _raftComms->allgather(sendbuff, recvbuff, sendcount, stream);
 }
 
 void cumlRAFTCommunicator_impl::allgatherv(const void *sendbuf, void *recvbuf,
@@ -189,14 +196,14 @@ void cumlRAFTCommunicator_impl::allgatherv(const void *sendbuf, void *recvbuf,
                                           const int displs[],
                                           datatype_t datatype,
                                           cudaStream_t stream) const {
-    _raftComms->allgatherv(sendbuf, recvbuf, recvcounts, displs, (raft::comms::datatype_t) datatype, stream);
+    _raftComms->allgatherv(sendbuf, recvbuf, recvcounts, displs, stream);
 }
 
 void cumlRAFTCommunicator_impl::reducescatter(const void *sendbuff,
                                              void *recvbuff, int recvcount,
                                              datatype_t datatype, op_t op,
                                              cudaStream_t stream) const {
-    _raftComms->reducescatter(sendbuff, recvbuff, recvcount, (raft::comms::datatype_t) datatype, (raft::comms::op_t) op, stream);
+    _raftComms->reducescatter(sendbuff, recvbuff, recvcount, (raft::comms::op_t) op, stream);
 }
 
 MLCommon::cumlCommunicator::status_t cumlRAFTCommunicator_impl::syncStream(
@@ -204,8 +211,8 @@ MLCommon::cumlCommunicator::status_t cumlRAFTCommunicator_impl::syncStream(
     _raftComms->sync_stream(stream);
 }
 
-const std::shared_ptr<raft::comms::std_comms> cumlRAFTCommunicator_impl::getRaftComms() const {
-    retrun _raftComms;
+std::shared_ptr<raft::comms::comms_t> cumlRAFTCommunicator_impl::getRaftComms() const {
+    return _raftComms;
 }
 
 }  // end namespace ML

@@ -32,7 +32,9 @@
 
 #include <cuml/common/cuml_allocator.hpp>
 
-#include <raft/handle.hpp>
+namespace raft {
+  class handle_t;
+}
 
 namespace ML {
 
@@ -73,7 +75,6 @@ class handle_impl {
 
   virtual const cudaDeviceProp& getDeviceProperties() const = 0;
 
-  virtual const raft::handle_t& getRaftHandle() const = 0;
 };
 
 }  // end namespace ML

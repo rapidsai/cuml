@@ -34,6 +34,8 @@
 
 #include "handle_impl.hpp"
 
+#include <raft/handle.hpp>
+
 namespace ML {
 
 using MLCommon::deviceAllocator;
@@ -74,8 +76,6 @@ class cumlHandle_impl : public handle_impl {
   virtual bool commsInitialized() const;
 
   virtual const cudaDeviceProp& getDeviceProperties() const;
-
-  virtual const raft::handle_t& getRaftHandle() const = 0;
 
  private:
   mutable cublasHandle_t _cublas_handle;

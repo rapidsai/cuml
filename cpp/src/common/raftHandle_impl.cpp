@@ -114,7 +114,7 @@ bool raftHandle_impl::commsInitialized() const {
   return (nullptr != _communicator.get());
 }
 
-const raft::handle_t& raftHandle_impl::getRaftHandle() const {
+raft::handle_t& raftHandle_impl::getRaftHandle() const {
   return *_raftHandle;
 }
 

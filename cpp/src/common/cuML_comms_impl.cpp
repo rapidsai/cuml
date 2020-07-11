@@ -92,6 +92,10 @@ void cumlCommunicator::reducescatter(const void* sendbuff, void* recvbuff,
   _impl->reducescatter(sendbuff, recvbuff, recvcount, datatype, op, stream);
 }
 
+cumlCommunicator_iface& cumlCommunicator::getImpl() const {
+  return *_impl.get();
+}
+
 template <>
 cumlCommunicator::datatype_t cumlCommunicator::getDataType<char>() const {
   return cumlCommunicator::CHAR;

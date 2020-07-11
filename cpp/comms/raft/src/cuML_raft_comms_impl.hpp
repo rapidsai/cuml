@@ -101,12 +101,16 @@ class cumlRAFTCommunicator_impl : public MLCommon::cumlCommunicator_iface {
 
   virtual status_t syncStream(cudaStream_t stream) const;
 
-  std::shared_ptr<raft::comms::std_comms> getRaftComms() const;
+  std::shared_ptr<raft::comms::comms_t> getRaftComms() const;
 
  private:
-  std::shared_ptr<raft::comms::std_comms> _raftComms;
+  std::shared_ptr<raft::comms::comms_t> _raftComms;
 
   void get_request_id(request_t* req) const;
 };
+
+inline cumlRAFTCommunicator_impl& cast_comms(MLCommon::cumlCommunicator_iface& comms) {
+  return dynamic_cast<cumlRAFTCommunicator_impl&>(comms);
+}
 
 }  // end namespace ML

@@ -48,6 +48,8 @@ class raftHandle_impl : public handle_impl {
   raftHandle_impl(int n_streams = cumlHandle::getDefaultNumInternalStreams());
   ~raftHandle_impl();
 
+  raftHandle_impl& operator = (handle_impl& h);
+
   virtual int getDevice() const;
   virtual void setStream(cudaStream_t stream);
   virtual cudaStream_t getStream() const;
@@ -76,7 +78,7 @@ class raftHandle_impl : public handle_impl {
 
   virtual const cudaDeviceProp& getDeviceProperties() const;
 
-  virtual const raft::handle_t& getRaftHandle() const;
+  raft::handle_t& getRaftHandle() const;
 
  private:
   std::shared_ptr<deviceAllocator> _deviceAllocator;
@@ -85,5 +87,9 @@ class raftHandle_impl : public handle_impl {
 
   raft::handle_t* _raftHandle;
 };
+
+inline raftHandle_impl& cast_handle_impl(handle_impl& h) {
+  return dynamic_cast<raftHandle_impl&>(h);
+}
 
 }  // end namespace ML

@@ -325,6 +325,11 @@ class cumlCommunicator {
     reducescatter(sendbuff, recvbuff, recvcount, getDataType<T>(), op, stream);
   }
 
+  /**
+     * Method to get underlying implementation
+     */
+   cumlCommunicator_iface& getImpl() const;
+
  private:
   std::unique_ptr<cumlCommunicator_iface> _impl;
 };
