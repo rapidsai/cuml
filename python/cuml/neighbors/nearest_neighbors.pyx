@@ -292,8 +292,8 @@ class NearestNeighbors(Base):
 
         return m, expanded
 
-    def kneighbors(self, X=None, n_neighbors=None,
-                   return_distance=True, convert_dtype=True):
+    def kneighbors(self, X=None, n_neighbors=None, return_distance=True, 
+                   convert_dtype=True, return_cupy=False):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -314,6 +314,10 @@ class NearestNeighbors(Base):
         convert_dtype : bool, optional (default = True)
             When set to True, the kneighbors method will automatically
             convert the inputs to np.float32.
+        
+        return_cupy : bool, optional (default = False)
+            When set to True, returns the outputs as cupy.ndarrays. This
+            prevents double conversion when using 'kneighbors_graph'.
 
         Returns
         -------
@@ -328,7 +332,10 @@ class NearestNeighbors(Base):
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
         X = self.X_m if X is None else X
 
-        out_type = self._get_output_type(X)
+        if not return_cupy:
+            out_type = self._get_output_type(X)
+        else:
+            out_type = 'cupy'
 
         if (n_neighbors is None and self.n_neighbors is None) \
                 or n_neighbors <= 0:
@@ -426,7 +433,6 @@ class NearestNeighbors(Base):
             Values will be ones/zeros or Euclidean distance based on mode.
 
         """
-
         if not self.X_m:
             raise ValueError('This NearestNeighbors instance has not been fitted '
                 'yet, call "fit" before using this estimator')
@@ -435,28 +441,19 @@ class NearestNeighbors(Base):
             n_neighbors = self.n_neighbors 
 
         if mode == 'connectivity':
-            indices = self.kneighbors(X, n_neighbors, return_distance=False)
+            indices = self.kneighbors(X, n_neighbors, return_distance=False, 
+                                      return_cupy=True)
             n_samples = indices.shape[0]
             distances = cp.ones(n_samples * n_neighbors)
 
         elif mode == 'distance':
-            distances, indices = self.kneighbors(X, n_neighbors)
-
-            if isinstance(distances, cudf.DataFrame):
-                distances = cp.asarray(distances.as_gpu_matrix())
-            else:
-                distances = cp.array(distances)
+            distances, indices = self.kneighbors(X, n_neighbors, return_cupy=True)
             distances = cp.ravel(distances)
 
         else:
             raise ValueError('Unsupported mode, must be one of "connectivity" '
                 'or "distance" but got "%s" instead' % mode)
-        
-        if isinstance(indices, cudf.DataFrame):
-            indices = cp.asarray(indices.as_gpu_matrix())
-        else:
-            indices = cp.array(indices)
-        
+             
         n_samples = indices.shape[0]
         n_samples_fit = self.X_m.shape[0]
         n_nonzero = n_samples * n_neighbors
