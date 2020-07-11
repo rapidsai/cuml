@@ -32,7 +32,9 @@ struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
     : Super(handle, D, 1, has_bias) {}
 
   inline __device__ T log_sigmoid(T x) const {
-    return -MLCommon::myLog(1 + MLCommon::myExp(-x));
+    // To avoid floating point overflow in the exp function
+    return x < 0 ? x - MLCommon::myLog(1 + MLCommon::myExp(x))
+                 : -MLCommon::myLog(1 + MLCommon::myExp(-x));
   }
 
   inline __device__ T lz(const T y, const T z) const {
@@ -41,6 +43,11 @@ struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
   }
 
   inline __device__ T dlz(const T y, const T z) const {
+    if (z < 0) {
+      // To avoid fp overflow with exp(-z)
+      T ez = MLCommon::myExp(z);
+      return ez / (T(1.0) + ez) - y;
+    }
     return T(1.0) / (T(1.0) + MLCommon::myExp(-z)) - y;
   }
 };
