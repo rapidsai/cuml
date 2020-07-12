@@ -266,13 +266,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   PRINT_TIMES;
 
   // Copy final YY into true output Y
-  thrust::device_ptr<float> Y_begin = thrust::device_pointer_cast(Y);
-  thrust::copy(thrust::cuda::par.on(stream), YY.data(), YY.data() + n, Y_begin);
-  CUDA_CHECK(cudaPeekAtLastError());
-
-  thrust::copy(thrust::cuda::par.on(stream), YY.data() + nnodes + 1,
-               YY.data() + nnodes + 1 + n, Y_begin + n);
-  CUDA_CHECK(cudaPeekAtLastError());
+  MLCommon::copy(Y, YY.data(), n, stream);
+  MLCommon::copy(Y + n, YY.data() + nnodes + 1, n, stream);
 }
 
 }  // namespace TSNE
