@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 #include <cmath>
 #include <iostream>
+#include <random/mvg.cuh>
 #include <random>
-#include "random/mvg.cuh"
 #include "test_utils.h"
 
 // mvg.h takes in matrices that are colomn major (as in fortan)

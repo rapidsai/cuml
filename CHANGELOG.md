@@ -1,12 +1,81 @@
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
+- PR #2240: Making Dask models pickleable
+- PR #2267: CountVectorizer estimator
+- PR #2261: Exposing new FAISS metrics through Python API
+- PR #2287: Single-GPU TfidfTransformer implementation
+- PR #2289: QR SVD solver for MNMG PCA
+- PR #2312: column-major support for make_blobs
+- PR #2172: Initial support for auto-ARIMA
+- PR #2394: Adding cosine & correlation distance for KNN
+- PR #2392: PCA can accept sparse inputs, and sparse prim for computing covariance
+- PR #2465: Support pandas 1.0+
+- PR #2520: TfidfVectorizer estimator
 
 ## Improvements
+- PR #2336: Eliminate `rmm.device_array` usage
+- PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
+- PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
+- PR #1945: enable clang tidy
+- PR #2339: umap performance improvements
+- PR #2308: Using fixture for Dask client to eliminate possiblity of not closing
+- PR #2345: make C++ logger level definition to be the same as python layer
+- PR #2329: Add short commit hash to conda package name
+- PR #2363: Update threshold and make other changes for stress tests
+- PR #2371: Updating MBSGD tests to use larger batches
+- PR #2380: Pinning libcumlprims version to ease future updates
+- PR #2405: Remove references to deprecated RMM headers.
+- PR #2340: Import ARIMA in the root init file and fix the `test_fit_function` test
+- PR #2408: Install meta packages for dependencies
+- PR #2417: Move doc customization scripts to Jenkins
+- PR #2427: Moving MNMG decomposition to cuml
+- PR #2433: Add libcumlprims_mg to CMake
+- PR #2420: Add and set convert_dtype default to True in estimator fit methods
+- PR #2411: Refactor Mixin classes and use in classifier/regressor estimators
+- PR #2442: fix setting RAFT_DIR from the RAFT_PATH env var
+- PR #2469: Updating KNN c-api to document all arguments
+- PR #2453: Add CumlArray to API doc
+- PR #2440: Use Treelite Conda package
+- PR #2403: Support for input and output type consistency in logistic regression predict_proba
+- PR #2473: Add metrics.roc_auc_score to API docs. Additional readability and minor docs bug fixes
+- PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
+- PR #2490: Moving MNMG KMeans to cuml
+- PR #2483: Moving MNMG KNN to cuml
+- PR #2492: Adding additional assertions to mnmg nearest neighbors pytests
+- PR #2439: Update dask RF code to have print_detailed function
+- PR #2431: Match output of classifier predict with target dtype
+- PR #2513: Fixing LGTM Analysis Issues
+- PR #2099: Raise an error when float64 data is used with dask RF
+- PR #2526: Removing PCA TSQR as a solver due to scalability issues
+- PR #2538: Remove Protobuf dependency
 
 ## Bug Fixes
+- PR #2369: Update RF code to fix set_params memory leak
+- PR #2364: Fix for random projection
+- PR #2373: Use Treelite Pip package in GPU testing
+- PR #2376: Update documentation Links
+- PR #2407: fixed batch count in DBScan for integer overflow case
+- PR #2413: CumlArray and related methods updates to account for cuDF.Buffer contiguity update
+- PR #2424: --singlegpu flag fix on build.sh script
+- PR #2432: Using correct algo_name for UMAP in benchmark tests
+- PR #2445: Restore access to coef_ property of Lasso
+- PR #2441: Change p2p_enabled definition to work without ucx
+- PR #2447: Drop `nvstrings`
+- PR #2450: Update local build to use new gpuCI image
+- PR #2454: Mark RF memleak test as XFAIL, because we can't detect memleak reliably
+- PR #2455: Use correct field to store data type in `LabelEncoder.fit_transform`
+- PR #2475: Fix typo in build.sh
+- PR #2496: Fixing indentation for simulate_data in test_fil.py
+- PR #2494: Set QN regularization strength consistent with scikit-learn
+- PR #2486: Fix cupy input to kmeans init
+- PR #2497: Changes to accomodate cuDF unsigned categorical changes
+- PR #2507: Import `treelite.sklearn`
+- PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
+- PR #2515: Increase tolerance for LogisticRegression test
+- PR #2542: Fix small memory leak in TSNE
 
-# cuML 0.14.0 (Date TBD)
+# cuML 0.14.0 (03 Jun 2020)
 
 ## New Features
 - PR #1994: Support for distributed OneHotEncoder
@@ -27,6 +96,7 @@
 - PR #2245: ElasticNet, Lasso and Coordinate Descent MNMG
 - PR #2242: Pandas input support with output as NumPy arrays by default
 - PR #2248: Add cuML RF multiclass prediction using FIL from python
+- PR #1728: Added notebook testing to gpuCI gpu build
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
@@ -99,6 +169,7 @@
 - PR #2210: Updating KNN tests to evaluate multiple index partitions
 - PR #2205: Use timeout to add 2 hour hard limit to dask tests
 - PR #2212: Improve DBScan batch count / memory estimation
+- PR #2213: Standardized include statements across all cpp source files, updated copyright on all modified files
 - PR #2214: Remove utils folder and refactor to common folder
 - PR #2220: Final refactoring of all src_prims header files following rules as specified in #1675
 - PR #2225: input_to_cuml_array keep order option, test updates and cleanup
@@ -107,11 +178,21 @@
 - PR #2257: Update QN and LogisticRegression to use CumlArray
 - PR #2259: Add CumlArray support to Naive Bayes
 - PR #2252: Add benchmark for the Gram matrix prims
+- PR #2263: Faster serialization for Treelite objects with RF
+- PR #2264: Reduce build time for cuML by using make_blobs from libcuml++ interface
 - PR #2269: Add docs targets to build.sh and fix python cuml.common docs
 - PR #2271: Clarify doc for `_unique` default implementation in OneHotEncoder
 - PR #2272: Add docs build.sh script to repository
 - PR #2276: Ensure `CumlArray` provided `dtype` conforms
 - PR #2281: Rely on cuDF's `Serializable` in `CumlArray`
+- PR #2284: Reduce dataset size in SG RF notebook to reduce run time of sklearn
+- PR #2285: Increase the threshold for elastic_net test in dask/test_coordinate_descent
+- PR #2314: Update FIL default values, documentation and test
+- PR #2316: 0.14 release docs additions and fixes
+- PR #2320: Add prediction notes to RF docs
+- PR #2323: Change verbose levels and parameter name to match Scikit-learn API
+- PR #2324: Raise an error if n_bins > number of training samples in RF
+- PR #2335: Throw a warning if treelite cannot be imported and `load_from_sklearn` is used
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -149,6 +230,7 @@
 - PR #2183: Fix RAFT in nightly package
 - PR #2191: Fix placement of SVM parameter documentation and add examples
 - PR #2212: Fix DBScan results (no propagation of labels through border points)
+- PR #2215: Fix the printing of forest object
 - PR #2217: Fix opg_utils naming to fix singlegpu build
 - PR #2223: Fix bug in ARIMA C++ benchmark
 - PR #2224: Temporary fix for CI until new Dask version is released
@@ -159,8 +241,14 @@
 - PR #2275: Fix RF fit memory leak
 - PR #2274: Fix parameter name verbose to verbosity in mnmg OneHotEncoder
 - PR #2277: Updated cub repo path and branch name
+- PR #2282: Fix memory leak in Dask RF concatenation
+- PR #2301: Scaling KNN dask tests sample size with n GPUs
+- PR #2293: Contiguity fixes for input_to_cuml_array and train_test_split
+- PR #2295: Fix convert_to_dtype copy even with same dtype
+- PR #2305: Fixed race condition in DBScan
+- PR #2354: Fix broken links in README
 
-# cuML 0.13.0 (Date TBD)
+# cuML 0.13.0 (31 Mar 2020)
 
 ## New Features
 - PR #1777: Python bindings for entropy
@@ -277,7 +365,6 @@
 - PR #1951: Dask Random forest regression CPU predict bug fix
 - PR #1948: Adjust BatchedMargin margin and disable tests temporarily
 - PR #1950: Fix UMAP test failure
-
 
 
 # cuML 0.12.0 (04 Feb 2020)

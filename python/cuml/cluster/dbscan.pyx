@@ -30,7 +30,6 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 
 from collections import defaultdict
@@ -127,7 +126,7 @@ class DBSCAN(Base):
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
-    verbosity : int
+    verbose : int or boolean (default = False)
         Logging level
     max_mbytes_per_batch : (optional) int64
         Calculate batch size using no more than this number of megabytes for
@@ -148,7 +147,7 @@ class DBSCAN(Base):
         If set, the estimator will override the global option for its behavior.
 
     Attributes
-    -----------
+    ----------
     labels_ : array-like or cuDF series
         Which cluster each datapoint belongs to. Noisy samples are labeled as
         -1. Format depends on cuml global output type and estimator
@@ -169,17 +168,14 @@ class DBSCAN(Base):
         Large Hadron Collider, customer segmentation in marketing analyses,
         and much more.
 
-
-    For an additional example, see `the DBSCAN notebook
-    <https://github.com/rapidsai/notebooks/blob/master/cuml/dbscan_demo.ipynb>`_.
     For additional docs, see `scikitlearn's DBSCAN
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """
 
     def __init__(self, eps=0.5, handle=None, min_samples=5,
-                 verbosity=logger.LEVEL_INFO, max_mbytes_per_batch=None,
+                 verbose=False, max_mbytes_per_batch=None,
                  output_type=None):
-        super(DBSCAN, self).__init__(handle, verbosity, output_type)
+        super(DBSCAN, self).__init__(handle, verbose, output_type)
         self.eps = eps
         self.min_samples = min_samples
         self.max_mbytes_per_batch = max_mbytes_per_batch
@@ -205,7 +201,7 @@ class DBSCAN(Base):
             default: "int32". Valid values are { "int32", np.int32,
             "int64", np.int64}. When the number of samples exceed
         """
-
+        self._set_n_features_in(X)
         self._set_output_type(X)
 
         if self._labels_ is not None:
@@ -237,7 +233,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int*> labels_ptr,
                           <size_t>self.max_mbytes_per_batch,
-                          <int> self.verbosity)
+                          <int> self.verbose)
             else:
                 dbscanFit(handle_[0],
                           <float*>input_ptr,
@@ -247,7 +243,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int64_t*> labels_ptr,
                           <size_t>self.max_mbytes_per_batch,
-                          <int> self.verbosity)
+                          <int> self.verbose)
 
         else:
             if out_dtype is "int32" or out_dtype is np.int32:
@@ -259,7 +255,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int*> labels_ptr,
                           <size_t> self.max_mbytes_per_batch,
-                          <int> self.verbosity)
+                          <int> self.verbose)
             else:
                 dbscanFit(handle_[0],
                           <double*>input_ptr,
@@ -269,7 +265,7 @@ class DBSCAN(Base):
                           <int> self.min_samples,
                           <int64_t*> labels_ptr,
                           <size_t> self.max_mbytes_per_batch,
-                          <int> self.verbosity)
+                          <int> self.verbose)
 
         # make sure that the `dbscanFit` is complete before the following
         # delete call happens

@@ -109,18 +109,14 @@ class ElasticNet(BaseEstimator):
         Parameters
         ----------
         X : Dask cuDF DataFrame or CuPy backed Dask Array
-        Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         y : Dask cuDF DataFrame or CuPy backed Dask Array
-        Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         """
 
         self.solver.fit(X, y)
-
-        self.coef_ = self.solver.coef_
-        self.intercept_ = self.solver.intercept_
-
         return self
 
     def predict(self, X, delayed=True):
@@ -130,7 +126,7 @@ class ElasticNet(BaseEstimator):
         Parameters
         ----------
         X : Dask cuDF DataFrame or CuPy backed Dask Array
-        Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         delayed : bool (default = True)
             Whether to do a lazy prediction (and return Delayed objects) or an
@@ -140,7 +136,7 @@ class ElasticNet(BaseEstimator):
         Returns
         -------
         y : Dask cuDF DataFrame or CuPy backed Dask Array
-        Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         """
 

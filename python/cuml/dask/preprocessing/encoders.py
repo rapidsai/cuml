@@ -17,7 +17,6 @@ from cuml.common import with_cupy_rmm
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
-import cuml.common.logger as logger
 
 from toolz import first
 
@@ -42,22 +41,29 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
 
     Parameters
     ----------
-    categories : 'auto' an cupy.ndarray or a cudf.DataFrame, default='auto'
+    categories : 'auto', cupy.ndarray or cudf.DataFrame, default='auto'
         Categories (unique values) per feature. All categories are expected to
         fit on one GPU.
+
         - 'auto' : Determine categories automatically from the training data.
+
         - DataFrame/ndarray : ``categories[col]`` holds the categories expected
           in the feature col.
+
     drop : 'first', None or a dict, default=None
         Specifies a methodology to use to drop one of the categories per
         feature. This is useful in situations where perfectly collinear
         features cause problems, such as when feeding the resulting data
         into a neural network or an unregularized regression.
+
         - None : retain all features (the default).
+
         - 'first' : drop the first category in each feature. If only one
           category is present, the feature will be dropped entirely.
+
         - Dict : ``drop[col]`` is the category in feature col that
           should be dropped.
+
     sparse : bool, default=False
         This feature was deactivated and will give an exception when True.
         The reason is because sparse matrix are not fully supported by cupy
@@ -74,19 +80,21 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
         will be denoted as None.
     """
 
-    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=False, **kwargs):
         super(OneHotEncoder, self).__init__(client=client,
-                                            verbosity=verbosity,
+                                            verbose=verbose,
                                             **kwargs)
 
     @with_cupy_rmm
     def fit(self, X):
         """
         Fit a multi-node multi-gpu OneHotEncoder to X.
+
         Parameters
         ----------
         X : Dask cuDF DataFrame or CuPy backed Dask Array
             The data to determine the categories of each feature.
+
         Returns
         -------
         self
@@ -97,8 +105,7 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
         self.datatype = ('cudf' if isinstance(el, (dcDataFrame, daskSeries))
                          else 'cupy')
 
-        self.local_model = OneHotEncoderMG(**self.kwargs).fit(X)
-        self.categories_ = self.local_model.categories_
+        self._set_internal_model(OneHotEncoderMG(**self.kwargs).fit(X))
 
         return self
 
@@ -113,6 +120,7 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
             The data to encode.
         delayed : bool (default = True)
             Whether to execute as a delayed task or eager.
+
         Returns
         -------
         out : Dask cuDF DataFrame or CuPy backed Dask Array
@@ -124,19 +132,21 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
     def transform(self, X, delayed=True):
         """
         Transform X using one-hot encoding.
+
         Parameters
         ----------
         X : Dask cuDF DataFrame or CuPy backed Dask Array
             The data to encode.
         delayed : bool (default = True)
             Whether to execute as a delayed task or eager.
+
         Returns
         -------
         out : Dask cuDF DataFrame or CuPy backed Dask Array
             Distributed object containing the transformed input.
         """
         return self._transform(X, n_dims=2, delayed=delayed,
-                               output_dtype=self.local_model.dtype,
+                               output_dtype=self._get_internal_model().dtype,
                                output_collection_type='cupy')
 
     @with_cupy_rmm
@@ -145,17 +155,20 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
         Convert the data back to the original representation.
         In case unknown categories are encountered (all zeros in the
         one-hot encoding), ``None`` is used to represent this category.
+
         Parameters
         ----------
         X : CuPy backed Dask Array, shape [n_samples, n_encoded_features]
             The transformed data.
         delayed : bool (default = True)
             Whether to execute as a delayed task or eager.
+
         Returns
         -------
         X_tr : Dask cuDF DataFrame or CuPy backed Dask Array
             Distributed object containing the inverse transformed array.
         """
+        dtype = self._get_internal_model().dtype
         return self._inverse_transform(X, n_dims=2, delayed=delayed,
-                                       output_dtype=self.local_model.dtype,
+                                       output_dtype=dtype,
                                        output_collection_type=self.datatype)

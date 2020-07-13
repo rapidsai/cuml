@@ -18,8 +18,7 @@
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <cuda_utils.cuh>
-#include "cuml/ensemble/randomforest.hpp"
-#include "ml_utils.h"
+#include <cuml/ensemble/randomforest.hpp>
 
 namespace ML {
 

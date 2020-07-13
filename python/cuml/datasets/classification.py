@@ -70,6 +70,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     --------
 
     .. code-block:: python
+
         from cuml.datasets.classification import make_classification
 
         X, y = make_classification(n_samples=10, n_features=4,
@@ -84,6 +85,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     Output:
 
     .. code-block:: python
+
         X:
         [[-2.3249989  -0.8679415  -1.1511791   1.3525577 ]
         [ 2.2933831   1.3743551   0.63128835 -0.84648645]
@@ -168,22 +170,19 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         of shape (n_informative, n_redundant)
     _repeated_indices: array of indices for the repeated features
         of shape (n_repeated, )
+
     Returns
     -------
     X : device array of shape [n_samples, n_features]
         The generated samples.
     y : device array of shape [n_samples]
         The integer labels for class membership of each sample.
+
     Notes
     -----
     The algorithm is adapted from Guyon [1] and was designed to generate
-    the "Madelon" dataset.
-    References
-    ----------
-    .. [1] I. Guyon, "Design of experiments for the NIPS 2003 variable
-           selection benchmark", 2003.
+    the "Madelon" dataset. How we optimized for GPUs:
 
-    How we optimized to the GPU:
         1. Firstly, we generate X from a standard univariate instead of zeros.
            This saves memory as we don't need to generate univariates each
            time for each feature class (informative, repeated, etc.) while
@@ -199,6 +198,12 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
            permuted for each sample, and then we construct the data for
            each centroid. This shuffle works for both `order=C` and
            `order=F` and eliminates any need for secondary copies
+
+    References
+    ----------
+    .. [1] I. Guyon, "Design of experiments for the NIPS 2003 variable
+           selection benchmark", 2003.
+
     """
     generator = _create_rs_generator(random_state)
     np_seed = int(generator.randint(n_samples, size=1))

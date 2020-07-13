@@ -23,6 +23,7 @@ import cuml
 import cuml.common.cuda
 import cuml.common.handle
 import cuml.common.logger as logger
+from cuml.common import input_to_cuml_array
 import inspect
 
 from cudf.core import Series as cuSeries
@@ -33,6 +34,8 @@ from numba.cuda import devicearray as numbaArray
 from numpy import ndarray as numpyArray
 from pandas import DataFrame as pdDataFrame
 from pandas import Series as pdSeries
+
+from numba import cuda
 
 
 class Base:
@@ -62,7 +65,7 @@ class Base:
     .. code-block:: python
 
         def __init__(...)
-            super(KMeans, self).__init__(handle, verbosity, output_type)
+            super(KMeans, self).__init__(handle, verbose, output_type)
 
             # initialize numeric variables
 
@@ -108,15 +111,13 @@ class Base:
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created just for this class.
-    verbosity : int
-        Sets logging level. It must be one of `cuml.common.logger.LEVEL_*`.
+    verbose : int or boolean (default = False)
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes of
         the estimators. If None, it'll inherit the output type set at the
         module level, cuml.output_type. If set, the estimator will override
         the global option for its behavior.
-    verbose : boolean
-        Deprecated in favor of `verbosity` flag
 
     Examples
     --------
@@ -151,7 +152,6 @@ class Base:
         stream = cuml.cuda.Stream()
         handle = cuml.Handle()
         handle.setStream(stream)
-        handle.enableRMM()   # Enable RMM as the device-side allocator
 
         algo = MyAlgo(handle=handle)
         algo.fit(...)
@@ -164,16 +164,23 @@ class Base:
         del base  # optional!
     """
 
-    def __init__(self, handle=None, verbosity=logger.LEVEL_INFO,
-                 output_type=None, verbose=None):
+    def __init__(self, handle=None, verbose=False,
+                 output_type=None):
         """
         Constructor. All children must call init method of this base class.
 
         """
         self.handle = cuml.common.handle.Handle() if handle is None else handle
-        self.verbosity = verbosity
-        if verbose is not None:
-            logger.warn("'verbose' flag is deprecated in favor of 'verbosity'")
+
+        # Internally, self.verbose follows the spdlog/c++ standard of
+        # 0 is most logging, and logging decreases from there.
+        # So if the user passes an int value for logging, we convert it.
+        if verbose is True:
+            self.verbose = logger.level_debug
+        elif verbose is False:
+            self.verbose = logger.level_info
+        else:
+            self.verbose = verbose
 
         self.output_type = cuml.global_output_type if output_type is None \
             else _check_output_type_str(output_type)
@@ -200,6 +207,9 @@ class Base:
                     string += "{}={}, ".format(key, state[key])
         string = string.rstrip(', ')
         return string + ')'
+
+    def enable_rmm_pool(self):
+        self.handle.enable_rmm_pool()
 
     def get_param_names(self):
         """
@@ -286,6 +296,107 @@ class Base:
         else:
             return self.output_type
 
+    def _set_target_dtype(self, target):
+        """
+        Method to be called by fit methods of inheriting classifier
+        classes to correctly set the output dtype depending on the dtype of
+        the target.
+        """
+        self.target_dtype = _input_target_to_dtype(target)
+
+    def _get_target_dtype(self):
+        """
+        Method to be called by predict/transform methods of
+        inheriting classifier classes. Returns the appropriate output
+        dtype depending on the dtype of the target.
+        """
+        try:
+            out_dtype = self.target_dtype
+        except AttributeError:
+            out_dtype = None
+        return out_dtype
+
+    def _set_n_features_in(self, X):
+        """Method to be called by the fit method of the inheriting class.
+        Sets the n_features_in_ attribute based on the data passed to fit.
+        """
+        if isinstance(X, int):
+            self.n_features_in_ = X
+        else:
+            self.n_features_in_ = X.shape[1]
+
+
+class RegressorMixin:
+    """Mixin class for regression estimators in cuML"""
+
+    _estimator_type = "regressor"
+
+    def score(self, X, y, **kwargs):
+        """Scoring function for regression estimators
+
+        Returns the coefficient of determination R^2 of the prediction.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Test samples on which we predict
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        y : array-like (device or host) shape = (n_samples, n_features)
+            Ground truth values for predict(X)
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        Returns
+        -------
+        score : float
+            R^2 of self.predict(X) wrt. y.
+        """
+        from cuml.metrics.regression import r2_score
+
+        if hasattr(self, 'handle'):
+            handle = self.handle
+        else:
+            handle = None
+
+        preds = self.predict(X)
+        return r2_score(y, preds, handle=handle)
+
+
+class ClassifierMixin:
+    """Mixin class for classifier estimators in cuML"""
+
+    _estimator_type = "classifier"
+
+    def score(self, X, y, **kwargs):
+        """
+        Scoring function for classifier estimators based on mean accuracy.
+
+        Parameters
+        ----------
+        X : [cudf.DataFrame]
+            Test samples on which we predict
+        y : [cudf.Series, device array, or numpy array]
+            Ground truth values for predict(X)
+
+        Returns
+        -------
+        score : float
+            Accuracy of self.predict(X) wrt. y (fraction where y == pred_y)
+        """
+        from cuml.metrics.accuracy import accuracy_score
+        from cuml.common import input_to_dev_array
+
+        y_m = input_to_dev_array(y)[0]
+
+        if hasattr(self, 'handle'):
+            handle = self.handle
+        else:
+            handle = None
+
+        preds = self.predict(X, **kwargs)
+        return accuracy_score(y_m, preds, handle=handle)
+
 
 # Internal, non class owned helper functions
 
@@ -318,3 +429,16 @@ def _check_output_type_str(output_str):
         else:
             raise ValueError("output_type must be one of " +
                              "'numpy', 'cupy', 'cudf' or 'numba'")
+
+
+def _input_target_to_dtype(target):
+    canonical_input_types = tuple(_input_type_to_str.keys())
+
+    if isinstance(target, (cuDataFrame, pdDataFrame)):
+        # Assume single-label target
+        dtype = target[target.columns[0]].dtype
+    elif isinstance(target, canonical_input_types):
+        dtype = target.dtype
+    else:
+        dtype = None
+    return dtype

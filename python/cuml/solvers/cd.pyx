@@ -1,4 +1,4 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
 from cuml.common import get_cudf_column_ptr
 from cuml.common import get_dev_array_ptr
 from cuml.common import input_to_dev_array
@@ -185,7 +184,7 @@ class CD(Base):
             msg = "loss {!r} is not supported"
             raise NotImplementedError(msg.format(loss))
 
-        super(CD, self).__init__(handle=handle, verbosity=logger.LEVEL_INFO,
+        super(CD, self).__init__(handle=handle, verbose=False,
                                  output_type=output_type)
         self.alpha = alpha
         self.l1_ratio = l1_ratio
@@ -195,7 +194,7 @@ class CD(Base):
         self.tol = tol
         self.shuffle = shuffle
         self.intercept_value = 0.0
-        self.coef_ = None
+        self._coef_ = None   # accessed via estimator.coef_
         self.intercept_ = None
 
     def _check_alpha(self, alpha):
@@ -212,6 +211,7 @@ class CD(Base):
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -297,6 +297,7 @@ class CD(Base):
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -308,6 +309,7 @@ class CD(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
         ----------
         y: cuDF DataFrame

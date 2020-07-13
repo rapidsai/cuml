@@ -42,6 +42,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
                         shuffle=True, random_state=None, order='F',
                         dtype='float32', n_parts=None, client=None):
     """Generate a random n-class classification problem.
+
     This initially creates clusters of points normally distributed (std=1)
     about vertices of an ``n_informative``-dimensional hypercube with sides of
     length ``2*class_sep`` and assigns an equal number of clusters to each
@@ -59,6 +60,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     --------
 
     .. code-block:: python
+
         from dask.distributed import Client
         from dask_cuda import LocalCUDACluster
         from cuml.dask.datasets.classification import make_classification
@@ -76,6 +78,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     Output:
 
     .. code-block:: python
+
         X:
         [[-1.6990056  -0.8241044  -0.06997631  0.45107925]
         [-1.8105277   1.7829906   0.492909    0.05390119]
@@ -156,6 +159,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     n_parts : int (default = None)
         number of partitions to generate (this can be greater
         than the number of workers)
+
     Returns
     -------
     X : dask.array backed by CuPy array of shape [n_samples, n_features]
@@ -163,7 +167,10 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     y : dask.array backed by CuPy array of shape [n_samples]
         The integer labels for class membership of each sample.
 
+    Notes
+    -----
     How we extended the dask MNMG version from the single GPU version:
+
         1. We generate centroids of shape (n_centroids, n_informative)
         2. We generate an informative covariance of shape
            (n_centroids, n_informative, n_informative)
@@ -222,10 +229,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
 
     worker_rows = [rows_per_part] * n_parts
 
-    if rows_per_part == 1:
-        worker_rows[-1] += n_samples % n_parts
-    else:
-        worker_rows[-1] += n_samples % rows_per_part
+    worker_rows[-1] += (n_samples % n_parts)
 
     worker_rows = tuple(worker_rows)
 

@@ -20,9 +20,7 @@
 # cython: language_level = 3
 
 from cuml.solvers import CD
-from cuml.metrics.base import RegressorMixin
-from cuml.common.base import Base
-import cuml.common.logger as logger
+from cuml.common.base import Base, RegressorMixin
 
 
 class Lasso(Base, RegressorMixin):
@@ -122,6 +120,8 @@ class Lasso(Base, RegressorMixin):
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
 
+    Notes
+    -----
     For additional docs, see `scikitlearn's Lasso
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
@@ -129,24 +129,9 @@ class Lasso(Base, RegressorMixin):
     def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
                  max_iter=1000, tol=1e-3, selection='cyclic', handle=None,
                  output_type=None):
-        """
-        Initializes the lasso regression class.
-
-        Parameters
-        ----------
-        alpha : float or double.
-        fit_intercept: boolean.
-        normalize: boolean.
-        max_iter: int
-        tol: float or double.
-        selection : str, ‘cyclic’, or 'random'
-
-        For additional docs, see `scikitlearn's Lasso
-        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
-        """
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(Lasso, self).__init__(handle=handle, verbosity=logger.LEVEL_INFO,
+        super(Lasso, self).__init__(handle=handle, verbose=False,
                                     output_type=output_type)
 
         self._check_alpha(alpha)
@@ -180,7 +165,7 @@ class Lasso(Base, RegressorMixin):
             msg = "alpha value has to be positive"
             raise ValueError(msg.format(alpha))
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
@@ -196,12 +181,12 @@ class Lasso(Base, RegressorMixin):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the transform method will, when necessary,
             convert y to be the same data type as X if they differ. This
             will increase memory used for the method.
-
         """
+        self._set_n_features_in(X)
 
         self.culasso.fit(X, y, convert_dtype=convert_dtype)
 

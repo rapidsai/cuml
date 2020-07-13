@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 #pragma once
 #include <common/device_buffer.hpp>
-#include <glm/qn/glm_base.cuh>
-#include <glm/qn/glm_linear.cuh>
-#include <glm/qn/glm_logistic.cuh>
-#include <glm/qn/glm_regularizer.cuh>
-#include <glm/qn/glm_softmax.cuh>
-#include <glm/qn/qn_solvers.cuh>
 #include <matrix/math.cuh>
+#include "glm_base.cuh"
+#include "glm_linear.cuh"
+#include "glm_logistic.cuh"
+#include "glm_regularizer.cuh"
+#include "glm_softmax.cuh"
+#include "qn_solvers.cuh"
 
 namespace ML {
 namespace GLM {
@@ -38,6 +38,10 @@ int qn_fit(const cumlHandle_impl &handle, LossFunction &loss, T *Xptr, T *yptr,
   opt_param.m = lbfgs_memory;
   opt_param.max_linesearch = linesearch_max_iter;
   SimpleVec<T> w(w0, loss.n_param);
+
+  // Scale the regularization strenght with the number of samples.
+  l1 /= N;
+  l2 /= N;
 
   if (l2 == 0) {
     GLMWithData<T, LossFunction> lossWith(&loss, Xptr, yptr, zptr, N, ordX);

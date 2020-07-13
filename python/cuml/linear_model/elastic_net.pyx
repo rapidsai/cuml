@@ -20,9 +20,7 @@
 # cython: language_level = 3
 
 from cuml.solvers import CD
-from cuml.metrics.base import RegressorMixin
-from cuml.common.base import Base
-import cuml.common.logger as logger
+from cuml.common.base import Base, RegressorMixin
 
 
 class ElasticNet(Base, RegressorMixin):
@@ -133,7 +131,8 @@ class ElasticNet(Base, RegressorMixin):
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
 
-
+    Notes
+    -----
     For additional docs, see `scikitlearn's ElasticNet
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
@@ -160,7 +159,7 @@ class ElasticNet(Base, RegressorMixin):
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
         super(ElasticNet, self).__init__(handle=handle,
-                                         verbosity=logger.LEVEL_INFO,
+                                         verbose=False,
                                          output_type=output_type)
 
         self._check_alpha(alpha)
@@ -202,7 +201,7 @@ class ElasticNet(Base, RegressorMixin):
             msg = "l1_ratio value has to be between 0.0 and 1.0"
             raise ValueError(msg.format(l1_ratio))
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
@@ -218,12 +217,12 @@ class ElasticNet(Base, RegressorMixin):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the transform method will, when necessary,
             convert y to be the same data type as X if they differ. This
             will increase memory used for the method.
-
         """
+        self._set_n_features_in(X)
 
         self.cuElasticNet.fit(X, y, convert_dtype=convert_dtype)
 

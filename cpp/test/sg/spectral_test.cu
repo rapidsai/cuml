@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
-#include <cuml/cluster/spectral.hpp>
-#include <cuml/cuml.hpp>
-
-#include "random/rng.cuh"
-
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <cuda_utils.cuh>
+#include <cuml/cluster/spectral.hpp>
+#include <cuml/cuml.hpp>
 #include <iostream>
+#include <random/rng.cuh>
 #include <vector>
 
 namespace ML {

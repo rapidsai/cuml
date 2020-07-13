@@ -40,3 +40,4 @@ from cuml.common.numba_utils import zeros
 from cuml.common.input_utils import get_cudf_column_ptr
 from cuml.common.input_utils import get_dev_array_ptr
 from cuml.common.input_utils import input_to_dev_array
+from cuml.common.input_utils import sparse_scipy_to_cp

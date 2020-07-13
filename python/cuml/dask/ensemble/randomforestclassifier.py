@@ -25,8 +25,6 @@ from cuml.dask.ensemble.base import \
     BaseRandomForestModel
 from dask.distributed import default_client
 
-import cuml.common.logger as logger
-
 
 class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                              DelayedPredictionProbaMixin, BaseEstimator):
@@ -40,8 +38,10 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     Currently, this API makes the following assumptions:
     * The set of Dask workers used between instantiation, fit,
     and predict are all consistent
-    * Training data comes in the form of cuDF dataframes,
+    * Training data comes in the form of cuDF dataframes or Dask Arrays
     distributed so that each worker has at least one partition.
+    * The print_summary and print_detailed functions print the
+    information of the forest on the worker.
 
     Future versions of the API will support more flexible data
     distribution and additional input types.
@@ -120,14 +120,14 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         self,
         workers=None,
         client=None,
-        verbosity=logger.LEVEL_INFO,
+        verbose=False,
         n_estimators=10,
         seed=None,
         **kwargs
     ):
 
         super(RandomForestClassifier, self).__init__(client=client,
-                                                     verbosity=verbosity,
+                                                     verbose=verbose,
                                                      **kwargs)
 
         self._create_model(
@@ -156,9 +156,19 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
 
     def print_summary(self):
         """
-        Print the summary of the forest used to train and test the model.
+        Print the summary of the forest used to train the model
+        on each worker. This information is displayed on the
+        individual workers and not the client.
         """
         return self._print_summary()
+
+    def print_detailed(self):
+        """
+        Print detailed information of the forest used to train
+        the model on each worker. This information is displayed on the
+        workers and not the client.
+        """
+        return self._print_detailed()
 
     def fit(self, X, y, convert_dtype=False):
         """
@@ -198,12 +208,11 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             **y must be partitioned the same way as X**
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
-
+            y to be of dtype int32. This will increase memory used for
+            the method.
         """
         self.num_classes = len(y.unique())
-        self.local_model = None
+        self._set_internal_model(None)
         self._fit(model=self.rfs,
                   dataset=(X, y),
                   convert_dtype=convert_dtype)
@@ -214,6 +223,28 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                 fil_sparse_format='auto', delayed=True):
         """
         Predicts the labels for X.
+
+        GPU-based prediction in a multi-node, multi-GPU context works
+        by sending the sub-forest from each worker to the client,
+        concatenating these into one forest with the full
+        `n_estimators` set of trees, and sending this combined forest to
+        the workers, which will each infer on their local set of data.
+        Within the worker, this uses the cuML Forest Inference Library
+        (cuml.fil) for high-throughput prediction.
+
+        This allows inference to scale to large datasets, but the forest
+        transmission incurs overheads for very large trees. For inference
+        on small datasets, this overhead may dominate prediction time.
+
+        The 'CPU' fallback method works with sub-forests in-place,
+        broadcasting the datasets to all workers and combining predictions
+        via a voting method at the end. This method is slower
+        on a per-row basis but may be faster for problems with many trees
+        and few rows.
+
+        In the 0.15 cuML release, inference will be updated with much
+        faster tree transfer. Preliminary builds with this updated approach
+        will be available from rapids.ai
 
         Parameters
         ----------
@@ -267,30 +298,30 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         Returns
         ----------
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
+
         """
-        if self.num_classes > 2 or predict_model == "CPU":
+        if predict_model == "CPU" or self.num_classes > 2:
             preds = self.predict_model_on_cpu(X,
                                               convert_dtype=convert_dtype)
         else:
             preds = \
-                self.predict_using_fil(X, output_class=output_class,
-                                       algo=algo,
-                                       threshold=threshold,
-                                       num_classes=self.num_classes,
-                                       convert_dtype=convert_dtype,
-                                       predict_model="GPU",
-                                       fil_sparse_format=fil_sparse_format,
-                                       delayed=delayed)
+                self._predict_using_fil(X, output_class=output_class,
+                                        algo=algo,
+                                        threshold=threshold,
+                                        convert_dtype=convert_dtype,
+                                        fil_sparse_format=fil_sparse_format,
+                                        delayed=delayed)
 
         return preds
 
     def predict_using_fil(self, X, delayed, **kwargs):
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
 
         return self._predict_using_fil(X=X,
                                        delayed=delayed,
                                        **kwargs)
+
     """
     TODO : Update function names used for CPU predict.
         Cuml issue #1854 has been created to track this.
@@ -360,6 +391,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         """
         Predicts the probability of each class for X.
 
+        See documentation of `predict' for notes on performance.
+
         Parameters
         ----------
         X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
@@ -414,11 +447,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         y : NumPy
            Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
         """
-        assert self.num_classes <= 2, "multi-class predict_proba in dask is"\
-                                      " not supported yet"
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
-
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
         return self._predict_proba(X, delayed, **kwargs)

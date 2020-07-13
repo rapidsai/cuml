@@ -27,9 +27,12 @@ from libcpp cimport bool
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
+from cuml.common.handle cimport *
 from cuml.common import input_to_cuml_array
+
+cdef extern from * nogil:
+    ctypedef void* _Stream "cudaStream_t"
+    ctypedef void* _DevAlloc "std::shared_ptr<MLCommon::deviceAllocator>"
 
 cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
@@ -46,7 +49,7 @@ cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
     # Structure describing random matrix
     cdef cppclass rand_mat[T]:
-        rand_mat() except +     # random matrix structure constructor (set all to nullptr) # noqa E501
+        rand_mat(_DevAlloc, _Stream stream) except +     # random matrix structure constructor (set all to nullptr) # noqa E501
         T *dense_data           # dense random matrix data
         int *indices            # sparse CSC random matrix indices
         int *indptr             # sparse CSC random matrix indptr
@@ -152,16 +155,19 @@ cdef class BaseRandomProjection():
     cdef rand_mat[float]* rand_matS
     cdef rand_mat[double]* rand_matD
 
-    def __cinit__(self):
-        self.rand_matS = new rand_mat[float]()
-        self.rand_matD = new rand_mat[double]()
-
     def __dealloc__(self):
         del self.rand_matS
         del self.rand_matD
 
     def __init__(self, n_components='auto', eps=0.1,
                  dense_output=True, random_state=None):
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef _DevAlloc alloc = <_DevAlloc>handle_.getDeviceAllocator()
+        cdef _Stream stream = handle_.getStream()
+        self.rand_matS = new rand_mat[float](alloc, stream)
+        self.rand_matD = new rand_mat[double](alloc, stream)
+
         self.params.n_components = n_components if n_components != 'auto'\
             else -1
         self.params.eps = eps
@@ -189,7 +195,7 @@ cdef class BaseRandomProjection():
             generated random matrix as attributes
 
         """
-
+        self._set_n_features_in(X)
         self._set_output_type(X)
 
         _, n_samples, n_features, self.dtype = \
@@ -208,7 +214,7 @@ cdef class BaseRandomProjection():
 
         return self
 
-    def transform(self, X, convert_dtype=False):
+    def transform(self, X, convert_dtype=True):
         """
         Apply transformation on provided data. This function outputs
         a multiplication between the input matrix and the generated random
@@ -221,6 +227,10 @@ cdef class BaseRandomProjection():
                 n_features).
                 Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
                 ndarray, cuda array interface compliant array like CuPy
+            convert_dtype : bool, optional (default = True)
+                When set to True, the fit method will, when necessary, convert
+                y to be the same data type as X if they differ. This will
+                increase memory used for the method.
 
         Returns
         -------
@@ -266,7 +276,7 @@ cdef class BaseRandomProjection():
 
         return X_new.to_output(out_type)
 
-    def fit_transform(self, X, convert_dtype=False):
+    def fit_transform(self, X, convert_dtype=True):
         return self.fit(X).transform(X, convert_dtype)
 
 
@@ -340,9 +350,9 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
 
     Attributes
     ----------
-        gaussian_method : boolean
-            To be passed to base class in order to determine
-            random matrix generation method
+    gaussian_method : boolean
+        To be passed to base class in order to determine
+        random matrix generation method
 
     Notes
     ------
@@ -352,8 +362,8 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
     """
 
     def __init__(self, handle=None, n_components='auto', eps=0.1,
-                 random_state=None, verbosity=logger.LEVEL_INFO):
-        Base.__init__(self, handle, verbosity)
+                 random_state=None, verbose=False):
+        Base.__init__(self, handle, verbose)
         self.gaussian_method = True
         self.density = -1.0  # not used
 
@@ -464,8 +474,8 @@ class SparseRandomProjection(Base, BaseRandomProjection):
 
     def __init__(self, handle=None, n_components='auto', density='auto',
                  eps=0.1, dense_output=True, random_state=None,
-                 verbosity=logger.LEVEL_INFO):
-        Base.__init__(self, handle, verbosity)
+                 verbose=False):
+        Base.__init__(self, handle, verbose)
         self.gaussian_method = False
         self.density = density if density != 'auto' else -1.0
 
