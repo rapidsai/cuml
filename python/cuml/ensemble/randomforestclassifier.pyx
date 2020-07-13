@@ -774,7 +774,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
                 algo='auto',
-                num_classes='auto', convert_dtype=True,
+                num_classes=None, convert_dtype=True,
                 fil_sparse_format='auto'):
         """
         Predicts the labels for X.
@@ -811,9 +811,9 @@ class RandomForestClassifier(Base, ClassifierMixin):
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
-        num_classes : int (default = 'auto')
-            deprecated
-            number of different classes present in the dataset
+        num_classes : int (default = None)
+            number of different classes present in the dataset. This variable
+            will be deprecated in 0.16. The number of classes passed
             must match the number of classes the model was trained on
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
@@ -834,7 +834,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
         y : (same as the input datatype)
             Dense vector (ints, floats, or doubles) of shape (n_samples, 1)
         """
-        if num_classes != 'auto':
+        if num_classes:
             warnings.warn("num_classes is deprecated and will be removed"
                           " in an upcoming version")
             if num_classes != self.num_classes:
@@ -924,7 +924,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
 
     def predict_proba(self, X, output_class=True,
                       threshold=0.5, algo='auto',
-                      num_classes='auto', convert_dtype=True,
+                      num_classes=None, convert_dtype=True,
                       fil_sparse_format='auto'):
         """
         Predicts class probabilites for X. This function uses the GPU
@@ -958,9 +958,9 @@ class RandomForestClassifier(Base, ClassifierMixin):
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
-        num_classes : int (default = 'auto')
-            This variable will be deprecated in 0.16.
-            Number of different classes present in the dataset
+        num_classes : int (default = None)
+            number of different classes present in the dataset. This variable
+            will be deprecated in 0.16. The number of classes passed
             must match the number of classes the model was trained on
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
@@ -991,7 +991,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
                             then please use the CPU based predict by \
                             setting predict_model = 'CPU'")
 
-        if num_classes != 'auto':
+        if num_classes:
             warnings.warn("num_classes is deprecated and will be removed"
                           " in an upcoming version")
             if num_classes != self.num_classes:
@@ -1008,7 +1008,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
         return preds_proba
 
     def score(self, X, y, threshold=0.5,
-              algo='auto', num_classes='auto', predict_model="GPU",
+              algo='auto', num_classes=None, predict_model="GPU",
               convert_dtype=True, fil_sparse_format='auto'):
         """
         Calculates the accuracy metric score of the model for X.
@@ -1036,9 +1036,9 @@ class RandomForestClassifier(Base, ClassifierMixin):
             threshold is used to for classification
             This is optional and required only while performing the
             predict operation on the GPU.
-        num_classes : int (default = 'auto')
-            This variable will be deprecated in 0.16.
-            Number of different classes present in the dataset
+        num_classes : int (default = None)
+            number of different classes present in the dataset. This variable
+            will be deprecated in 0.16. The number of classes passed
             must match the number of classes the model was trained on
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
