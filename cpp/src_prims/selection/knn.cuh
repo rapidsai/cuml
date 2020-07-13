@@ -471,8 +471,8 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
 template <int TPB_X = 32, bool precomp_lbls = false>
 void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
                  std::vector<int *> &y, size_t n_index_rows,
-                 size_t n_query_rows, int k,
-                 std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
+                 size_t n_query_rows, int k, std::vector<int *> &uniq_labels,
+                 std::vector<int> &n_unique,
                  const std::shared_ptr<deviceAllocator> allocator,
                  cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
                  int n_int_streams = 0) {
@@ -563,9 +563,9 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
   class_probs(probs, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels,
               n_unique, allocator, user_stream, int_streams, n_int_streams);
 
-  class_probs<32, precomp_lbls>(probs, knn_indices, y, n_index_rows, n_query_rows, k,
-                                uniq_labels, n_unique, allocator, user_stream,
-                                int_streams, n_int_streams);
+  class_probs<32, precomp_lbls>(
+    probs, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique,
+    allocator, user_stream, int_streams, n_int_streams);
 
   dim3 grid(MLCommon::ceildiv(n_query_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
