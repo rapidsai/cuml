@@ -36,7 +36,6 @@ requirements:
     - ucx-py {{ minor_version }}
     - libcumlprims=0.15.0a200622
     - lapack
-    - protobuf >=3.4.1,<4.0.0
     - treelite=0.92
   run:
     - libcumlprims=0.15.0a200622

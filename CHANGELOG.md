@@ -48,6 +48,7 @@
 - PR #2513: Fixing LGTM Analysis Issues
 - PR #2099: Raise an error when float64 data is used with dask RF
 - PR #2526: Removing PCA TSQR as a solver due to scalability issues
+- PR #2538: Remove Protobuf dependency
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -73,6 +74,7 @@
 - PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
 - PR #2515: Increase tolerance for LogisticRegression test
 - PR #2535: Fix issue with incorrect docker image being used in local build script
+- PR #2542: Fix small memory leak in TSNE
 
 # cuML 0.14.0 (03 Jun 2020)
 

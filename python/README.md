@@ -57,7 +57,6 @@ To build cuML's Python package, the following dependencies are required:
 - cython >= 0.29, < 0.30
 - numpy
 - cmake >= 3.14
-- protobuf >= 3.4.1, < 4.0.0
 - cudf version matching the cuML version
 - libcuml version matching the cuML version
 - libcuml={{ version }}
