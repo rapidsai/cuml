@@ -95,6 +95,9 @@ class TfidfTransformer:
         self.smooth_idf = smooth_idf
         self.sublinear_tf = sublinear_tf
 
+        if self.norm not in ('l1', 'l2'):
+            raise ValueError(f"{self.norm} is not a supported norm")
+
     @with_cupy_rmm
     def fit(self, X):
         """Learn the idf vector (global term weights).

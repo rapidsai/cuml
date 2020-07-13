@@ -15,9 +15,12 @@
 #
 from cuml.feature_extraction.text import CountVectorizer
 from cuml.feature_extraction.text import TfidfVectorizer
+from cuml.feature_extraction.text import HashingVectorizer
 import cupy as cp
 import pytest
 from sklearn.feature_extraction.text import CountVectorizer as SkCountVect
+from sklearn.feature_extraction.text import HashingVectorizer as SkHashVect
+
 from sklearn.feature_extraction.text import TfidfVectorizer as SkTfidfVect
 from cudf import Series
 from numpy.testing import assert_array_equal
@@ -351,3 +354,75 @@ def test_tfidf_vectorizer(norm, use_idf, smooth_idf, sublinear_tf):
     ).fit_transform(DOCS)
 
     cp.testing.assert_array_almost_equal(tfidf_mat.todense(), ref.toarray())
+
+
+def test_almost_equal_hash_matrices(mat_1,mat_2):
+    """
+    Currently if all the sorted values in the row is equal we assume equality 
+    TODO: Find better way to test ig hash matrices are equal
+    """
+    assert mat_1.shape == mat_2.shape
+    count = 0
+    for row_id in range(mat_1.shape[0]):
+        row_m1 = mat_1[row_id]
+        row_m2 = mat_2[row_id]
+        nz_row_m1  = np.sort(row_m1[row_m1!=0])
+        nz_row_m2  = np.sort(row_m2[row_m2!=0])
+        np.testing.assert_almost_equal(nz_row_m1, nz_row_m2)
+
+# ----------------------------------------------------------------
+# HashingVectorizer tests 
+# ----------------------------------------------------------------
+def test_hash_vectorizer():
+    corpus = [
+        'This is the first document.',
+        'This document is the second document.',
+        'And this is the third one.',
+        'Is this the first document?',
+    ]
+
+    res = HashingVectorizer(alternate_sign=False).fit_transform(Series(corpus))
+    ref = SkHashVect(alternate_sign=False).fit_transform(corpus)
+    test_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
+
+def test_hashvectorizer_stop_word():
+    ref = SkHashVect(alternate_sign=False, stop_words='english').fit_transform(DOCS)
+    res = HashingVectorizer(alternate_sign=False, stop_words='english').fit_transform(DOCS_GPU)
+    test_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
+
+def test_hashvectorizer_n_features():
+    pass
+    # expected_vocabulary = {'burger', 'beer', 'salad', 'pizza'}
+    # expected_stop_words = {'celeri', 'tomato', 'copyright', 'coke',
+    #                        'sparkling', 'water', 'the'}
+
+    # # test bounded number of extracted features
+    # vec = SkHashVect(max_df=0.6, max_features=4)
+    # vec.fit(DOCS_GPU)
+    # #TODO
+
+
+def test_hash_binary_occurrences():
+    pass
+    #TODO
+    # by default multiple occurrences are counted as longs
+    # test_data = Series(['aaabc', 'abbde'])
+    # vect = CountVectorizer(analyzer='char', max_df=1.0)
+    # X = cp.asnumpy(vect.fit_transform(test_data).todense())
+    # assert_array_equal(['a', 'b', 'c', 'd', 'e'],
+    #                    vect.get_feature_names().tolist())
+    # assert_array_equal([[3, 1, 1, 0, 0],
+    #                     [1, 2, 0, 1, 1]], X)
+
+    # # using boolean features, we can fetch the binary occurrence info
+    # # instead.
+    # vect = CountVectorizer(analyzer='char', max_df=1.0, binary=True)
+    # X = cp.asnumpy(vect.fit_transform(test_data).todense())
+    # assert_array_equal([[1, 1, 1, 0, 0],
+    #                     [1, 1, 0, 1, 1]], X)
+
+    # # check the ability to change the dtype
+    # vect = HashVectorizer(analyzer='char', max_df=1.0,
+    #                        binary=True, dtype=cp.float32)
+    # X = vect.fit_transform(test_data)
+    # assert X.dtype == cp.float32

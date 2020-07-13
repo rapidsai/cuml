@@ -17,6 +17,8 @@ import warnings
 from cudf import Series
 from cuml.common.exceptions import NotFittedError
 from cuml.feature_extraction._stop_words import ENGLISH_STOP_WORDS
+from cuml.common.sparsefuncs import csr_row_normalize_l1
+from cuml.common.sparsefuncs import csr_row_normalize_l2
 from functools import partial
 import cupy as cp
 import numbers
@@ -51,6 +53,7 @@ def _preprocess(doc, lower=False, remove_non_alphanumeric=False,
     if lower:
         doc = doc.str.lower()
     if remove_non_alphanumeric:
+        #TODO: Use PR https://github.com/rapidsai/cudf/pull/5666
         non_alpha = _get_non_alphanumeric_characters(doc)
         delimiter_code = ord(delimiter)
         translation_table = {ord(char): delimiter_code for char in non_alpha}
@@ -228,14 +231,14 @@ class _VectorizerMixin:
         empty_ids = empty_docs[empty_docs['all_ids'].isnull()].index.values
         return empty_ids
 
-    def _create_csr_matrix_from_count_df(self, count_df, empty_doc_ids, n_doc):
+    def _create_csr_matrix_from_count_df(self, count_df, empty_doc_ids, n_doc, n_features):
         """Create a sparse matrix from the count of tokens by document"""
-        n_features = len(self.vocabulary_)
-
         data = count_df["count"].values
         indices = count_df["token"].values
 
         doc_token_counts = count_df["doc_id"].value_counts().reset_index()
+        # todo: add del count_df here
+        # del count_df
         doc_token_counts = doc_token_counts.rename(
             {"doc_id": "token_counts", "index": "doc_id"}, axis=1
         ).sort_values(by="doc_id")
@@ -265,6 +268,20 @@ class _VectorizerMixin:
         if self.analyzer != 'word' and self.stop_words is not None:
             warnings.warn("The parameter 'stop_words' will not be used"
                           " since 'analyzer' != 'word'")
+
+    def _check_sklearn_params(self, analyzer, sklearn_params):
+        # TODO: Move to the abstract class 
+        if callable(analyzer):
+            raise ValueError("cuML does not support callable analyzer,"
+                                " please refer to the cuML documentation for"
+                                " more information.")
+
+        for key, vals in sklearn_params.items():
+            if vals is not None:
+                raise TypeError("The Scikit-learn variable", key,
+                                " is not supported in cuML,"
+                                " please read the cuML documentation for"
+                                " more information.")
 
 
 def _document_frequency(X):
@@ -539,7 +556,7 @@ class CountVectorizer(_VectorizerMixin):
         empty_doc_ids = self._compute_empty_doc_ids(count_df, n_doc)
 
         X = self._create_csr_matrix_from_count_df(count_df, empty_doc_ids,
-                                                  n_doc)
+                                                  n_doc,len(self.vocabulary_))
         if self.binary:
             X.data.fill(1)
         return X
@@ -572,7 +589,7 @@ class CountVectorizer(_VectorizerMixin):
         count_df = self._count_vocab(tokenized_df)
         empty_doc_ids = self._compute_empty_doc_ids(count_df, n_doc)
         X = self._create_csr_matrix_from_count_df(count_df, empty_doc_ids,
-                                                  n_doc)
+                                                  n_doc,len(self.vocabulary_))
         if self.binary:
             X.data.fill(1)
         return X
@@ -602,15 +619,246 @@ class CountVectorizer(_VectorizerMixin):
         """
         return self.vocabulary_
 
-    def _check_sklearn_params(self, analyzer, sklearn_params):
-        if callable(analyzer):
-            raise ValueError("cuML does not support callable analyzer,"
-                             " please refer to the cuML documentation for"
-                             " more information.")
+    
 
-        for key, vals in sklearn_params.items():
-            if vals is not None:
-                raise TypeError("The Scikit-learn variable", key,
-                                " is not supported in cuML,"
-                                " please read the cuML documentation for"
-                                " more information.")
+class HashingVectorizer(_VectorizerMixin):
+    """Convert a collection of text documents to a matrix of token occurrences
+
+    It turns a collection of text documents into a cupy.sparse matrix holding
+    token occurrence counts (or binary occurrence information), possibly
+    normalized as token frequencies if norm='l1' or projected on the euclidean
+    unit sphere if norm='l2'.
+
+    This text vectorizer implementation uses the hashing trick to find the
+    token string name to feature integer index mapping.
+    This strategy has several advantages:
+    - it is very low memory scalable to large datasets as there is no need to
+      store a vocabulary dictionary in memory
+    - it is fast to pickle and un-pickle as it holds no state besides the
+      constructor parameters
+    - it can be used in a streaming (partial fit) or parallel pipeline as there
+      is no state computed during fit.
+    - #TODO: add point about gpu  importance 
+    There are also a couple of cons (vs using a CountVectorizer with an
+    in-memory vocabulary):
+    - there is no way to compute the inverse transform (from feature indices to
+      string feature names) which can be a problem when trying to introspect
+      which features are most important to a model.
+    - there can be collisions: distinct tokens can be mapped to the same
+      feature index. However in practice this is rarely an issue if n_features
+      is large enough (e.g. 2 ** 18 for text classification problems).
+    - no IDF weighting as this would render the transformer stateful.
+    The hash function employed is the signed 32-bit version of Murmurhash3.
+    Read more in the #TODO
+    Parameters
+    ----------
+    lowercase : bool, default=True
+        Convert all characters to lowercase before tokenizing.
+    preprocessor : callable, default=None
+        Override the preprocessing (string transformation) stage while
+        preserving the tokenizing and n-grams generation steps.
+        Only applies if ``analyzer is not callable``.
+    stop_words : string {'english'}, list, default=None
+        If 'english', a built-in stop word list for English is used.
+        There are several known issues with 'english' and you should
+        consider an alternative (see :ref:`stop_words`).
+        If a list, that list is assumed to contain stop words, all of which
+        will be removed from the resulting tokens.
+        Only applies if ``analyzer == 'word'``.
+    ngram_range : tuple (min_n, max_n), default=(1, 1)
+        The lower and upper boundary of the range of n-values for different
+        n-grams to be extracted. All values of n such that min_n <= n <= max_n
+        will be used. For example an ``ngram_range`` of ``(1, 1)`` means only
+        unigrams, ``(1, 2)`` means unigrams and bigrams, and ``(2, 2)`` means
+        only bigrams.
+        Only applies if ``analyzer is not callable``.
+    analyzer : string, {'word', 'char', 'char_wb'}
+        Whether the feature should be made of word n-gram or character
+        n-grams.
+        Option 'char_wb' creates character n-grams only from text inside
+        word boundaries; n-grams at the edges of words are padded with space.
+    n_features : int, default=(2 ** 20)
+        The number of features (columns) in the output matrices. Small numbers
+        of features are likely to cause hash collisions, but large numbers
+        will cause larger coefficient dimensions in linear learners.
+    binary : bool, default=False.
+        If True, all non zero counts are set to 1. This is useful for discrete
+        probabilistic models that model binary events rather than integer
+        counts.
+    norm : {'l1', 'l2'}, default='l2'
+        Norm used to normalize term vectors. None for no normalization.
+    alternate_sign : bool, default=True
+        When True, an alternating sign is added to the features as to
+        approximately conserve the inner product in the hashed space even for
+        small n_features. This approach is similar to sparse random projection.
+    dtype : type, default=np.float64
+        Type of the matrix returned by fit_transform() or transform().
+
+    delimiter : str, whitespace by default
+        String used as a replacement for stop words if stop_words is not None.
+        Typically the delimiting character between words is a good choice.
+
+    Examples
+    --------
+    >>> from cuml.feature_extraction.text import HashingVectorizer
+    >>> corpus = [
+    ...     'This is the first document.',
+    ...     'This document is the second document.',
+    ...     'And this is the third one.',
+    ...     'Is this the first document?',
+    ... ]
+    >>> vectorizer = HashingVectorizer(n_features=2**4)
+    >>> X = vectorizer.fit_transform(corpus)
+    >>> print(X.shape)
+    (4, 16)
+    See Also
+    --------
+    CountVectorizer, TfidfVectorizer
+    """
+    def __init__(self, input=None, encoding=None,
+                decode_error=None, strip_accents=None,
+                lowercase=True, preprocessor=None, tokenizer=None,
+                stop_words=None, token_pattern=None,
+                ngram_range=(1, 1), analyzer='word', n_features=(2 ** 20),
+                binary=False, norm='l2', alternate_sign=True,
+                dtype=cp.float32,delimiter=' '):
+        self.preprocessor = preprocessor
+        self.analyzer = analyzer
+        self.lowercase = lowercase
+        self.stop_words = stop_words
+        self.n_features = n_features
+        self.ngram_range = ngram_range
+        self.binary = binary
+        self.norm = norm
+        self.alternate_sign = alternate_sign
+        self.dtype = dtype
+        self.delimiter = delimiter
+
+        if dtype not in CUPY_SPARSE_DTYPES:
+            msg = f"Expected dtype in {CUPY_SPARSE_DTYPES}, got {dtype}"
+            raise ValueError(msg)
+
+        if self.norm not in ('l1', 'l2'):
+            raise ValueError(f"{self.norm} is not a supported norm")
+
+        if self.alternate_sign:
+            raise ValueError(f"Alternate_sign is not yet supported")
+
+        sklearn_params = {"input": input,
+                            "encoding": encoding,
+                            "decode_error": decode_error,
+                            "strip_accents": strip_accents,
+                            "tokenizer": tokenizer,
+                            "token_pattern": token_pattern}
+        # self._check_sklearn_params(analyzer, sklearn_params)
+    
+    def partial_fit(self, X, y=None):
+        """
+        #TODO: Remove maybe
+        Does nothing: this transformer is stateless.
+        This method is just there to mark the fact that this transformer
+        can work in a streaming setup.
+        Parameters
+        ----------
+        X : ndarray of shape [n_samples, n_features]
+            Training data.
+        """
+       
+        return self
+    
+    
+
+    def fit(self, X, y=None):
+        """Does nothing: this transformer is stateless.
+        #TODO: Remove Maybe
+        Parameters
+        ----------
+        X : ndarray of shape [n_samples, n_features]
+            Training data.
+        """
+        # triggers a parameter validation
+        #TODO: Add check for string series
+        if not isinstance(X, cudf.Series):
+            raise ValueError(
+                "cudf.String[Str] Expected")
+
+        #self._warn_for_unused_params()
+        # self._validate_params()
+        #TODO: add get feature hasher
+        #self._get_hasher().fit(X, y=y)
+        return self
+
+    def _preprocess(self, raw_documents):
+        preprocess = self.build_preprocessor()
+        return preprocess(raw_documents)
+
+    def _count_hash(self, tokenized_df):
+        """Count occurrences of tokens in each document."""
+        # Transform string tokens into token indexes from 0 to len(vocab)
+        # The indexes are based on lexicographical ordering.
+        tokenized_df['token'] = tokenized_df['token'].hash_values() % self.n_features
+        # Count of each token in each document
+        count_df = (
+            tokenized_df[["doc_id", "token"]]
+            .groupby(["doc_id", "token"])
+            .size()
+            .reset_index()
+            .rename({0: "count"}, axis=1)
+        )
+        del tokenized_df
+        return count_df
+
+    def fit_transform(self, X, y=None):
+        """Transform a sequence of documents to a document-term matrix.
+        Parameters
+        ----------
+        X : iterable over raw text documents, length = n_samples
+            Samples. Each sample must be a text document (either bytes or
+            unicode strings, file name or file object depending on the
+            constructor argument) which will be tokenized and hashed.
+        y : any
+            Ignored. This parameter exists only for compatibility with
+            sklearn.pipeline.Pipeline.
+        Returns
+        -------
+        X : sparse matrix of shape (n_samples, n_features)
+            Document-term matrix.
+        """
+        return self.fit(X, y).transform(X)
+
+    def transform(self, raw_documents):
+        """Transform documents to document-term matrix.
+
+        Extract token counts out of raw text documents using the vocabulary
+        fitted with fit or the one provided to the constructor.
+
+        Parameters
+        ----------
+        raw_documents : cudf.Series
+            A Series of string documents
+
+        Returns
+        -------
+        X : cupy csr array of shape (n_samples, n_features)
+            Document-term matrix.
+        """
+        docs = self._preprocess(raw_documents)
+        del raw_documents
+        n_doc = len(docs)
+        tokenized_df = self._create_tokenized_df(docs)
+        del docs
+        count_df = self._count_hash(tokenized_df)
+        del tokenized_df
+        empty_doc_ids = self._compute_empty_doc_ids(count_df, n_doc)
+        X = self._create_csr_matrix_from_count_df(count_df, empty_doc_ids,
+                                                  n_doc,self.n_features)
+        if self.binary:
+            X.data.fill(1)
+
+        if self.norm:
+            if self.norm == 'l1':
+                csr_row_normalize_l1(X, inplace=True)
+            elif self.norm == 'l2':
+                csr_row_normalize_l2(X, inplace=True)
+
+        return X
