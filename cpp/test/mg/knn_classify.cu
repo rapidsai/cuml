@@ -65,7 +65,9 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNParams> {
     knn_th.display_results();
     knn_th.release_ressources(params);
 
-    return true;
+    int actual = 1;
+    int expected = 1;
+    return CompareApprox<int>(1)(actual, expected);
   }
 };
 
