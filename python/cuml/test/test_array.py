@@ -19,7 +19,6 @@ import pytest
 import cupy as cp
 import numpy as np
 import cudf
-import pickle
 
 from copy import deepcopy
 from numba import cuda
@@ -27,6 +26,15 @@ from cudf.core.buffer import Buffer
 from cuml.common.array import CumlArray
 from cuml.common.memory_utils import _get_size_from_shape
 from rmm import DeviceBuffer
+
+if sys.version_info < (3, 8):
+    try:
+        import pickle5 as pickle
+    except ImportError:
+        import pickle
+else:
+    import pickle
+
 
 test_input_types = [
     'numpy', 'numba', 'cupy', 'series', None
