@@ -442,7 +442,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         # make sure that the `fit` is complete before the following delete
         # call happens
         self.handle.sync()
-        print(" fit model : ", self.print_summary())
         del X_m
         del y_m
         return self

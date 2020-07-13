@@ -1,6 +1,7 @@
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
+- PR #2240: Making Dask models pickleable
 - PR #2267: CountVectorizer estimator
 - PR #2261: Exposing new FAISS metrics through Python API
 - PR #2287: Single-GPU TfidfTransformer implementation
@@ -10,6 +11,7 @@
 - PR #2394: Adding cosine & correlation distance for KNN
 - PR #2392: PCA can accept sparse inputs, and sparse prim for computing covariance
 - PR #2465: Support pandas 1.0+
+- PR #2520: TfidfVectorizer estimator
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
@@ -36,6 +38,7 @@
 - PR #2453: Add CumlArray to API doc
 - PR #2440: Use Treelite Conda package
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
+- PR #2473: Add metrics.roc_auc_score to API docs. Additional readability and minor docs bug fixes
 - PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
 - PR #2490: Moving MNMG KMeans to cuml
 - PR #2483: Moving MNMG KNN to cuml
@@ -43,7 +46,10 @@
 - PR #2439: Update dask RF code to have print_detailed function
 - PR #2431: Match output of classifier predict with target dtype
 - PR #2237: Refactor RF cython code
+- PR #2513: Fixing LGTM Analysis Issues
 - PR #2099: Raise an error when float64 data is used with dask RF
+- PR #2526: Removing PCA TSQR as a solver due to scalability issues
+- PR #2538: Remove Protobuf dependency
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -66,7 +72,9 @@
 - PR #2486: Fix cupy input to kmeans init
 - PR #2497: Changes to accomodate cuDF unsigned categorical changes
 - PR #2507: Import `treelite.sklearn`
+- PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
 - PR #2515: Increase tolerance for LogisticRegression test
+- PR #2542: Fix small memory leak in TSNE
 
 # cuML 0.14.0 (03 Jun 2020)
 
