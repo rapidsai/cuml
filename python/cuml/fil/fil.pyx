@@ -125,18 +125,12 @@ cdef class TreeliteModel():
             Path to treelite model file to load
 
         model_type : string
-            Type of model: 'xgboost', 'protobuf', or 'lightgbm'
+            Type of model: 'xgboost', or 'lightgbm'
         """
         filename_bytes = filename.encode("UTF-8")
         cdef ModelHandle handle
         if model_type == "xgboost":
             res = TreeliteLoadXGBoostModel(filename_bytes, &handle)
-            if res < 0:
-                err = TreeliteGetLastError()
-                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
-        elif model_type == "protobuf":
-            # XXX Not tested
-            res = TreeliteLoadProtobufModel(filename_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
@@ -620,7 +614,7 @@ class ForestInference(Base):
             See documentation in FIL.load_from_treelite_model
         model_type : string (default="xgboost")
             Format of the saved treelite model to be load.
-            It can be 'xgboost', 'lightgbm', or 'protobuf'.
+            It can be 'xgboost', 'lightgbm'.
 
         Returns
         ----------

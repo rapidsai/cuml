@@ -14,13 +14,12 @@
 #
 
 from cuml.dask.common import parts_to_ranks
-from cuml.dask.common import raise_exception_from_futures
+from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common import raise_mg_import_exception
 from cuml.dask.common.base import BaseEstimator
 
 from cuml.dask.common.comms import worker_state, CommsContext
-from dask.distributed import wait
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common.input_utils import DistributedDataHandler
 
@@ -63,6 +62,13 @@ class NearestNeighbors(BaseEstimator):
                                                        client=self.client)
         self.datatype = self.X_handler.datatype
         self.n_cols = X.shape[1]
+
+        # Brute force nearest neighbors does not set an internal model so
+        # calls to get_combined_model() will just return None.
+        # Approximate methods that build specialized indices, such as the
+        # FAISS product quantized methods, will be combined into an internal
+        # model.
+
         return self
 
     @staticmethod
@@ -167,7 +173,6 @@ class NearestNeighbors(BaseEstimator):
         """
         Invoke kneighbors on Dask workers to perform distributed query
         """
-
         key = uuid1()
         nn_fit = dict([(worker_info[worker]["rank"], self.client.submit(
                         NearestNeighbors._func_kneighbors,
@@ -187,8 +192,7 @@ class NearestNeighbors(BaseEstimator):
                         workers=[worker]))
                        for idx, worker in enumerate(comms.worker_addresses)])
 
-        wait(list(nn_fit.values()))
-        raise_exception_from_futures(list(nn_fit.values()))
+        wait_and_raise_from_futures(list(nn_fit.values()))
 
         """
         Gather resulting partitions and return dask_cudfs
