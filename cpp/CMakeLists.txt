@@ -181,9 +181,6 @@ else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
-set(Protobuf_USE_STATIC_LIBS ON)
-find_package(Protobuf REQUIRED)
-
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 ##############################################################################
@@ -316,7 +313,6 @@ set(CUML_PUBLIC_LINK_LIBRARIES
   )
 
 set(CUML_PRIVATE_LINK_LIBRARIES
-  ${Protobuf_LIBRARIES}
   faisslib
   treelite::treelite
   treelite::treelite_runtime
