@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import sys
+
 import pytest
 
 import cupy as cp
