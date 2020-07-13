@@ -32,29 +32,10 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
-
-cdef extern from "cuml/cluster/kmeans.hpp" namespace \
-        "ML::kmeans::KMeansParams":
-    enum InitMethod:
-        KMeansPlusPlus, Random, Array
+from cuml.cluster.kmeans_utils cimport *
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
-
-    cdef struct KMeansParams:
-        int n_clusters,
-        InitMethod init
-        int max_iter,
-        double tol,
-        int verbosity,
-        int seed,
-        int metric,
-        int n_init,
-        double oversampling_factor,
-        int batch_samples,
-        int batch_centroids,
-        bool inertia_check
 
     cdef void fit_predict(cumlHandle& handle,
                           KMeansParams& params,
@@ -205,7 +186,7 @@ class KMeans(Base):
         The more iterations of EM, the more accurate, but slower.
     tol : float64 (default = 1e-4)
         Stopping criterion when centroid means do not change much.
-    verbosity : int (default = cuml.common.logger.LEVEL_INFO)
+    verbose : int or boolean (default = False)
         Logging level.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a
@@ -270,10 +251,10 @@ class KMeans(Base):
     """
 
     def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
-                 verbosity=logger.LEVEL_INFO, random_state=1,
+                 verbose=False, random_state=1,
                  init='scalable-k-means++', n_init=1, oversampling_factor=2.0,
                  max_samples_per_batch=1<<15, output_type=None):
-        super(KMeans, self).__init__(handle, verbosity, output_type)
+        super(KMeans, self).__init__(handle, verbose, output_type)
         self.n_clusters = n_clusters
         self.random_state = random_state
         self.max_iter = max_iter
@@ -291,17 +272,20 @@ class KMeans(Base):
         cdef KMeansParams params
         params.n_clusters = <int>self.n_clusters
 
+        # cuPy does not allow comparing with string. See issue #2372
+        init_str = init if isinstance(init, str) else None
+
         # K-means++ is the constrained case of k-means||
         # w/ oversampling factor = 0
-        if (init == 'k-means++'):
-            init = 'k-means||'
+        if (init_str == 'k-means++'):
+            init_str = 'k-means||'
             self.oversampling_factor = 0
 
-        if (init in ['scalable-k-means++', 'k-means||']):
-            self.init = init
+        if (init_str in ['scalable-k-means++', 'k-means||']):
+            self.init = init_str
             params.init = KMeansPlusPlus
 
-        elif (init == 'random'):
+        elif (init_str == 'random'):
             self.init = init
             params.init = Random
 
@@ -314,7 +298,7 @@ class KMeans(Base):
 
         params.max_iter = <int>self.max_iter
         params.tol = <double>self.tol
-        params.verbosity = <int>self.verbosity
+        params.verbosity = <int>self.verbose
         params.seed = <int>self.random_state
         params.metric = 0   # distance metric as squared L2: @todo - support other metrics # noqa: E501
         params.batch_samples=<int>self.max_samples_per_batch
@@ -338,7 +322,7 @@ class KMeans(Base):
             are assigned equal weight.
 
         """
-
+        self._set_n_features_in(X)
         self._set_output_type(X)
 
         if self.init == 'preset':
@@ -672,4 +656,4 @@ class KMeans(Base):
     def get_param_names(self):
         return ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
-                'tol', 'verbosity']
+                'tol']

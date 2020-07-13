@@ -20,8 +20,6 @@ from cuml.dask.ensemble.base import \
     BaseRandomForestModel
 from cuml.dask.common.base import BaseEstimator
 
-import cuml.common.logger as logger
-
 
 class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
                             BaseEstimator):
@@ -34,8 +32,10 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     Currently, this API makes the following assumptions:
     * The set of Dask workers used between instantiation, fit,
     and predict are all consistent
-    * Training data is comes in the form of cuDF dataframes,
+    * Training data comes in the form of cuDF dataframes or Dask Arrays
     distributed so that each worker has at least one partition.
+    * The print_summary and print_detailed functions print the
+    information of the forest on the worker.
 
     Future versions of the API will support more flexible data
     distribution and additional input types. User-facing APIs are
@@ -118,13 +118,13 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         self,
         workers=None,
         client=None,
-        verbosity=logger.LEVEL_INFO,
+        verbose=False,
         n_estimators=10,
         seed=None,
         **kwargs
     ):
         super(RandomForestRegressor, self).__init__(client=client,
-                                                    verbosity=verbosity,
+                                                    verbose=verbose,
                                                     **kwargs)
         self._create_model(
             model_func=RandomForestRegressor._construct_rf,
@@ -152,9 +152,19 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
 
     def print_summary(self):
         """
-        Print the summary of the forest used to train and test the model.
+        Print the summary of the forest used to train the model
+        on each worker. This information is displayed on the
+        individual workers and not the client.
         """
         return self._print_summary()
+
+    def print_detailed(self):
+        """
+        Print detailed information of the forest used to train
+        the model on each worker. This information is displayed on the
+        workers and not the client.
+        """
+        return self._print_detailed()
 
     def fit(self, X, y, convert_dtype=False):
         """
@@ -190,10 +200,10 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             **y must be partitioned the same way as X**
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
+            y to be the same data type as X if they differ. This will increase
+            memory used for the method.
         """
-        self.local_model = None
+        self.internal_model = None
         self._fit(model=self.rfs,
                   dataset=(X, y),
                   convert_dtype=convert_dtype)
@@ -204,6 +214,27 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
                 delayed=True):
         """
         Predicts the regressor outputs for X.
+
+
+        GPU-based prediction in a multi-node, multi-GPU context works
+        by sending the sub-forest from each worker to the client,
+        concatenating these into one forest with the full
+        `n_estimators` set of trees, and sending this combined forest to
+        the workers, which will each infer on their local set of data.
+        This allows inference to scale to large datasets, but the forest
+        transmission incurs overheads for very large trees. For inference
+        on small datasets, this overhead may dominate prediction time.
+        Within the worker, this uses the cuML Forest Inference Library
+        (cuml.fil) for high-throughput prediction.
+
+        The 'CPU' fallback method works with sub-forests in-place,
+        broadcasting the datasets to all workers and combining predictions
+        via an averaging method at the end. This method is slower
+        on a per-row basis but may be faster for problems with many trees
+        and few rows.
+
+        In the 0.15 cuML release, inference will be updated with much
+        faster tree transfer.
 
         Parameters
         ----------
@@ -251,16 +282,16 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
 
         else:
             preds = \
-                self.predict_using_fil(X, predict_model=predict_model,
-                                       algo=algo,
-                                       convert_dtype=convert_dtype,
-                                       fil_sparse_format=fil_sparse_format,
-                                       delayed=delayed)
+                self._predict_using_fil(X,
+                                        algo=algo,
+                                        convert_dtype=convert_dtype,
+                                        fil_sparse_format=fil_sparse_format,
+                                        delayed=delayed)
         return preds
 
     def predict_using_fil(self, X, delayed, **kwargs):
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
         return self._predict_using_fil(X=X,
                                        delayed=delayed,
                                        **kwargs)

@@ -18,10 +18,10 @@ import cupy as cp
 import numpy as np
 import warnings
 
+from cuml.common.memory_utils import _strides_to_order
+from cuml.common.memory_utils import rmm_cupy_ary
 from numba import cuda
 from typing import Union
-
-from cuml.common import rmm_cupy_ary
 
 
 def train_test_split(
@@ -46,6 +46,10 @@ def train_test_split(
         Set of labels for the data, either a series of shape (n_samples) or
         the string label of a column in X (if it is a cuDF DataFrame)
         containing the labels
+    test_size : float or int, optional
+        If float, represents the proportion [0, 1] of the data
+        to be assigned to the training set. If an int, represents the number
+        of instances to be assigned to the training set. Defaults to 0.2
     train_size : float or int, optional
         If float, represents the proportion [0, 1] of the data
         to be assigned to the training set. If an int, represents the number
@@ -98,9 +102,11 @@ def train_test_split(
 
     Returns
     -------
-    X_train, X_test, y_train, y_test : cudf.DataFrame
-        Partitioned dataframes. If `y` was provided as a column name, the
-        column was dropped from the `X`s
+    X_train, X_test, y_train, y_test : cudf.DataFrame or array-like objects
+        Partitioned dataframes if X and y were cuDF objects. If `y` was
+        provided as a column name, the column was dropped from the `X`s
+        Partitioned numba device arrays if X and y were Numba device arrays.
+        Partitioned CuPy arrays for any other input.
     """
     if isinstance(y, str):
         # Use the column with name `str` as y
@@ -113,14 +119,15 @@ def train_test_split(
                              string")
 
     # todo: this check will be replaced with upcoming improvements
-    # to input_utils with PR #1379
-    if not cuda.is_cuda_array(X) and not isinstance(X, cudf.DataFrame) \
-            and isinstance(y, cudf.Series):
+    # to input_utils
+    #
+    if not hasattr(X, "__cuda_array_interface__") and not \
+            isinstance(X, cudf.DataFrame) and isinstance(y, cudf.Series):
         raise TypeError("X needs to be either a cuDF DataFrame, Series or \
                         a cuda_array_interface compliant array.")
 
-    if not cuda.is_cuda_array(y) and not isinstance(y, cudf.DataFrame) \
-            and isinstance(y, cudf.Series):
+    if not hasattr(y, "__cuda_array_interface__") and not \
+            isinstance(y, cudf.DataFrame) and isinstance(y, cudf.Series):
         raise TypeError("y needs to be either a cuDF DataFrame, Series or \
                         a cuda_array_interface compliant array.")
 
@@ -158,8 +165,8 @@ def train_test_split(
                 "first dimension of X (found {})".format(test_size)
             )
 
-    x_numba = False
-    y_numba = False
+    x_numba = cuda.devicearray.is_cuda_ndarray(X)
+    y_numba = cuda.devicearray.is_cuda_ndarray(y)
 
     if seed is not None:
         if random_state is None:
@@ -191,19 +198,15 @@ def train_test_split(
         if isinstance(X, cudf.DataFrame) or isinstance(X, cudf.Series):
             X = X.iloc[idxs].reset_index(drop=True)
 
-        elif cuda.is_cuda_array(X):
+        elif hasattr(X, "__cuda_array_interface__"):
             # numba (and therefore rmm device_array) does not support
             # fancy indexing
-            if cuda.devicearray.is_cuda_ndarray(X):
-                x_numba = True
             X = cp.asarray(X)[idxs]
 
         if isinstance(y, cudf.DataFrame) or isinstance(y, cudf.Series):
             y = y.iloc[idxs]
 
-        elif cuda.is_cuda_array(y):
-            if cuda.devicearray.is_cuda_ndarray(y):
-                y_numba = True
+        elif hasattr(y, "__cuda_array_interface__"):
             y = cp.asarray(y)[idxs]
 
     # Determining sizes of splits
@@ -225,17 +228,27 @@ def train_test_split(
         if train_size is None:
             train_size = X.shape[0] - test_size
 
-    if cuda.is_cuda_array(X) or isinstance(X, cp.sparse.csr_matrix):
-        X_train = X[0:train_size]
-        y_train = y[0:train_size]
+    if hasattr(X, "__cuda_array_interface__"):
+        x_order = _strides_to_order(X.__cuda_array_interface__['strides'],
+                                    cp.dtype(X.dtype))
+
+    if hasattr(y, "__cuda_array_interface__"):
+        y_order = _strides_to_order(y.__cuda_array_interface__['strides'],
+                                    cp.dtype(y.dtype))
+
+    if hasattr(X, "__cuda_array_interface__") or \
+            isinstance(X, cp.sparse.csr_matrix):
+        X_train = cp.array(X[0:train_size], order=x_order)
+        y_train = cp.array(y[0:train_size], order=y_order)
     elif isinstance(X, cudf.DataFrame):
         X_train = X.iloc[0:train_size]
         y_train = y.iloc[0:train_size]
 
-    if cuda.is_cuda_array(y) or isinstance(X, cp.sparse.csr_matrix):
-        X_test = X[-1 * test_size:]
-        y_test = y[-1 * test_size:]
-    elif isinstance(y, cudf.DataFrame):
+    if hasattr(X, "__cuda_array_interface__") or \
+            isinstance(X, cp.sparse.csr_matrix):
+        X_test = cp.array(X[-1 * test_size:], order=x_order)
+        y_test = cp.array(y[-1 * test_size:], order=y_order)
+    elif isinstance(X, cudf.DataFrame):
         X_test = X.iloc[-1 * test_size:]
         y_test = y.iloc[-1 * test_size:]
 

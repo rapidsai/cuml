@@ -344,7 +344,9 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         The coefficient of the underlying linear model. It is returned only if
         coef is True.
 
-    Known Performance Limitations:
+    Notes
+    -----
+    - Known Performance Limitations:
         1. When `effective_rank` is set and `use_full_low_rank` is True,
            we cannot generate order `F` by construction, and an explicit
            transpose is performed on each part. This may cause memory to spike
@@ -355,7 +357,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         3. When `shuffle = True` and `order = F`, there are memory spikes to
            shuffle the `F` order arrays
 
-    NOTE: If out-of-memory errors are encountered in any of the above
+    - NOTE: If out-of-memory errors are encountered in any of the above \
           configurations, try increasing the `n_parts` parameter.
     """
 
@@ -369,10 +371,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
 
     data_chunksizes = [n_samples_per_part] * n_parts
 
-    if n_samples_per_part == 1:
-        data_chunksizes[-1] += n_samples % n_parts
-    else:
-        data_chunksizes[-1] += n_samples % n_samples_per_part
+    data_chunksizes[-1] += (n_samples % n_parts)
 
     data_chunksizes = tuple(data_chunksizes)
 

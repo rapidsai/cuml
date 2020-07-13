@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #########################################
 # cuML GPU build and test script for CI #
 #########################################
@@ -43,26 +43,20 @@ nvidia-smi
 logger "Activate conda env..."
 source activate gdf
 conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
-      "cupy>=7,<8.0.0a0" \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
-      "nvstrings=${MINOR_VERSION}" \
-      "libcumlprims=${MINOR_VERSION}" \
-      "lapack" \
-      "cmake==3.14.3" \
-      "umap-learn" \
-      "protobuf>=3.4.1,<4.0.0" \
-      "nccl>=2.5" \
-      "dask>=2.12.0" \
-      "distributed>=2.12.0" \
+      "libcumlprims=0.15.0a200622" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
-      "statsmodels" \
-      "xgboost====1.0.2dev.rapidsai0.13" \
-      "psutil" \
-      "lightgbm"
+      "xgboost==1.1.0dev.rapidsai0.15" \
+      "rapids-build-env=$MINOR_VERSION.*" \
+      "rapids-notebook-env=$MINOR_VERSION.*"
+
+# https://docs.rapids.ai/maintainers/depmgmt/
+# conda remove -f rapids-build-env rapids-notebook-env
+# conda install "your-pkg=1.0.0"
 
 
 # Install contextvars on Python 3.6
@@ -101,20 +95,7 @@ logger "Resetting LD_LIBRARY_PATH..."
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
 
-logger "Build treelite for GPU testing..."
-# Buildint treelite Python for testing is temporary while there is a pip/conda
-# treelite package
-
-cd $WORKSPACE/cpp/build/treelite/src/treelite
-mkdir build
-cd build
-cmake ..
-make -j${PARALLEL_LEVEL}
-cd ../python
-python setup.py install
-
 cd $WORKSPACE
-
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for libcuml and cuML
@@ -138,6 +119,14 @@ cd $WORKSPACE/python
 pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask
 
 timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
+
+
+################################################################################
+# TEST - Run notebook tests
+################################################################################
+
+${WORKSPACE}/ci/gpu/test-notebooks.sh 2>&1 | tee nbtest.log
+python ${WORKSPACE}/ci/utils/nbtestlog2junitxml.py nbtest.log
 
 ################################################################################
 # TEST - Run GoogleTest for ml-prims

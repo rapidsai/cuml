@@ -76,6 +76,7 @@ def test_array_init(input_type, dtype, shape, order):
     if input_type is not None:
         inp = create_input(input_type, dtype, shape, order)
         ary = CumlArray(data=inp)
+        ptr = ary.ptr
     else:
         inp = create_input('cupy', dtype, shape, order)
         ptr = inp.__cuda_array_interface__['data'][0]
@@ -97,9 +98,7 @@ def test_array_init(input_type, dtype, shape, order):
 
     assert ary.dtype == np.dtype(dtype)
 
-    if input_type == 'numpy':
-        assert isinstance(ary._owner, DeviceBuffer)
-    elif input_type in ['cupy', 'numba', 'series']:
+    if input_type in ['cupy', 'numba', 'series']:
         assert ary._owner is inp
         inp_copy = deepcopy(cp.asarray(inp))
 
@@ -152,6 +151,9 @@ def test_array_init_from_bytes(data_type, dtype, shape, order):
 @pytest.mark.parametrize('slice', test_slices)
 @pytest.mark.parametrize('order', ['C', 'F'])
 def test_get_set_item(slice, order):
+    if order == 'F' and slice != 'both':
+        pytest.skip("See issue https://github.com/rapidsai/cuml/issues/2412")
+
     inp = create_input('numpy', 'float32', (10, 10), order)
     ary = CumlArray(data=inp)
 
@@ -225,9 +227,10 @@ def test_create_full(shape, dtype, order):
 
 @pytest.mark.parametrize('output_type', test_output_types)
 @pytest.mark.parametrize('dtype', test_dtypes_output)
+@pytest.mark.parametrize('out_dtype', test_dtypes_output)
 @pytest.mark.parametrize('order', ['F', 'C'])
 @pytest.mark.parametrize('shape', test_shapes)
-def test_output(output_type, dtype, order, shape):
+def test_output(output_type, dtype, out_dtype, order, shape):
     inp = create_input('numpy', dtype, shape, order)
     ary = CumlArray(inp)
 
@@ -281,6 +284,43 @@ def test_output(output_type, dtype, order, shape):
                 assert np.all(inp.reshape((1, 10)) == res2)
             else:
                 assert np.all(inp == res2)
+
+
+@pytest.mark.parametrize('output_type', test_output_types)
+@pytest.mark.parametrize('dtype', [
+    np.float32, np.float64,
+    np.int8, np.int16, np.int32, np.int64,
+])
+@pytest.mark.parametrize('out_dtype', [
+    np.float32, np.float64,
+    np.int8, np.int16, np.int32, np.int64,
+])
+@pytest.mark.parametrize('shape', test_shapes)
+def test_output_dtype(output_type, dtype, out_dtype, shape):
+    inp = create_input('numpy', dtype, shape, order="F")
+    ary = CumlArray(inp)
+
+    if dtype in unsupported_cudf_dtypes and \
+            output_type in ['series', 'dataframe', 'cudf']:
+        with pytest.raises(ValueError):
+            res = ary.to_output(
+                output_type=output_type,
+                output_dtype=out_dtype
+            )
+
+    elif shape in [(10, 5), (1, 10)] and output_type == 'series':
+        with pytest.raises(ValueError):
+            res = ary.to_output(
+                output_type=output_type,
+                output_dtype=out_dtype
+            )
+    else:
+        res = ary.to_output(output_type=output_type, output_dtype=out_dtype)
+
+        if isinstance(res, cudf.DataFrame):
+            res.values.dtype == out_dtype
+        else:
+            res.dtype == out_dtype
 
 
 @pytest.mark.parametrize('dtype', test_dtypes_all)

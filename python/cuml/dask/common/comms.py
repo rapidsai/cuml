@@ -123,24 +123,24 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
     session_state["wid"] = worker_info[get_worker().address]["rank"]
     session_state["nworkers"] = len(worker_info)
 
-    if logger.should_log_for(logger.LEVEL_DEBUG):
+    if logger.should_log_for(logger.level_debug):
         logger.debug("Initializing NCCL")
         start = time.time()
 
     _func_init_nccl(sessionId, uniqueId)
 
-    if logger.should_log_for(logger.LEVEL_DEBUG):
+    if logger.should_log_for(logger.level_debug):
         elapsed = time.time() - start
         logger.debug("NCCL Initialization took: %f seconds." % elapsed)
 
     if comms_p2p:
         logger.debug("Initializing UCX Endpoints")
 
-        if logger.should_log_for(logger.LEVEL_DEBUG):
+        if logger.should_log_for(logger.level_debug):
             start = time.time()
         await _func_ucp_create_endpoints(sessionId, worker_info)
 
-        if logger.should_log_for(logger.LEVEL_DEBUG):
+        if logger.should_log_for(logger.level_debug):
             elapsed = time.time() - start
             logger.debug("Done initializing UCX endpoints. Took: %f seconds." %
                          elapsed)
@@ -233,21 +233,18 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     :param worker_info: dict Maps worker address to rank & UCX port
     :param r: float a random number to stop the function from being cached
     """
-    dask_worker = get_worker()
-    local_address = dask_worker.address
 
     eps = [None] * len(worker_info)
     count = 1
 
     for k in worker_info:
-        if str(k) != str(local_address):
 
-            ip, port = parse_host_port(k)
+        ip, port = parse_host_port(k)
 
-            ep = await get_ucx().get_endpoint(ip, worker_info[k]["port"])
+        ep = await get_ucx().get_endpoint(ip, worker_info[k]["port"])
 
-            eps[worker_info[k]["rank"]] = ep
-            count += 1
+        eps[worker_info[k]["rank"]] = ep
+        count += 1
 
     worker_state(sessionId)["ucp_eps"] = eps
 

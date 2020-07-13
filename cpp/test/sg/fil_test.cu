@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #include <common/cudart_utils.h>
+#include <cuml/fil/fil.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <treelite/c_api.h>
@@ -25,11 +26,8 @@
 #include <cuda_utils.cuh>
 #include <limits>
 #include <memory>
+#include <random/rng.cuh>
 #include <utility>
-#include "cuml/fil/fil.h"
-#include "ml_utils.h"
-#include "random/rng.cuh"
-#include "test_utils.h"
 
 #define TL_CPP_CHECK(call) ASSERT(int(call) >= 0, "treelite call error")
 
@@ -452,7 +450,7 @@ class TreeliteFilTest : public BaseFilTest {
   int node_to_treelite(tlf::TreeBuilder* builder, int* pkey, int root,
                        int node) {
     int key = (*pkey)++;
-    TL_CPP_CHECK(builder->CreateNode(key));
+    builder->CreateNode(key);
     int feature;
     float threshold;
     fil::val_t output;
@@ -463,13 +461,13 @@ class TreeliteFilTest : public BaseFilTest {
       switch (ps.leaf_payload_type) {
         case fil::leaf_value_t::FLOAT_SCALAR:
           // default is fil::FLOAT_SCALAR
-          TL_CPP_CHECK(builder->SetLeafNode(key, output.f));
+          builder->SetLeafNode(key, output.f);
           break;
         case fil::leaf_value_t::INT_CLASS_LABEL:
           std::vector<tl::tl_float> vec(ps.num_classes);
           for (int i = 0; i < ps.num_classes; ++i)
             vec[i] = i == output.idx ? 1.0f : 0.0f;
-          TL_CPP_CHECK(builder->SetLeafVectorNode(key, vec));
+          builder->SetLeafVectorNode(key, vec);
       }
     } else {
       int left = root + 2 * (node - root) + 1;
@@ -496,8 +494,8 @@ class TreeliteFilTest : public BaseFilTest {
       }
       int left_key = node_to_treelite(builder, pkey, root, left);
       int right_key = node_to_treelite(builder, pkey, root, right);
-      TL_CPP_CHECK(builder->SetNumericalTestNode(
-        key, feature, ps.op, threshold, default_left, left_key, right_key));
+      builder->SetNumericalTestNode(key, feature, ps.op, threshold,
+                                    default_left, left_key, right_key);
     }
     return key;
   }
@@ -531,14 +529,14 @@ class TreeliteFilTest : public BaseFilTest {
       int key_counter = 0;
       int root = i_tree * tree_num_nodes();
       int root_key = node_to_treelite(tree_builder, &key_counter, root, root);
-      TL_CPP_CHECK(tree_builder->SetRootNode(root_key));
+      tree_builder->SetRootNode(root_key);
       // InsertTree() consumes tree_builder
       TL_CPP_CHECK(model_builder->InsertTree(tree_builder));
     }
 
     // commit the model
     std::unique_ptr<tl::Model> model(new tl::Model);
-    TL_CPP_CHECK(model_builder->CommitModel(model.get()));
+    model_builder->CommitModel(model.get());
 
     // init FIL forest with the model
     fil::treelite_params_t params;

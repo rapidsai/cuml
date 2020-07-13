@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <common/device_buffer.hpp>
+#include <common/nvtx.hpp>
 #include <cuml/common/logger.hpp>
-#include "common/device_buffer.hpp"
-#include "common/nvtx.hpp"
 #include "runner.cuh"
 
 #include <algorithm>
@@ -62,12 +62,10 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
 
   Index_ nBatches =
     (Index_)ceildiv<size_t>(estimated_memory, max_mbytes_per_batch * 1000000);
-  size_t MAX_LABEL = (size_t)std::numeric_limits<Index_>::max();
-  // n_rows * n_rows_per_batch < MAX_LABEL
-  // => n_rows * (n_rows / nBatches) < MAX_LABEL
-  // => nBatches >= n_rows * n_rows / MAX_LABEL
-  Index_ nBatchesPrec =
-    (Index_)ceildiv<size_t>((size_t)n_rows * n_rows, MAX_LABEL);
+  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
+  // to avoid overflow, we need: batch_size <= MAX_LABEL / n_rows (floor div)
+  // -> num_batches >= ceildiv(n_rows / (MAX_LABEL / n_rows))
+  Index_ nBatchesPrec = ceildiv(n_rows, MAX_LABEL / n_rows);
   // at some point, if nBatchesPrec is larger than nBatches
   // (or larger by a given factor) and we know that there are clear
   // performance benefits of using a smaller number of batches,

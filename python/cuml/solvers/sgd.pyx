@@ -31,7 +31,6 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common import CumlArray
 from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
@@ -207,10 +206,6 @@ class SGD(Base):
         module level, cuml.output_type. If set, the estimator will override
         the global option for its behavior.
 
-    Notes
-    ------
-    For additional docs, see `scikitlearn's OLS
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>
     """
 
     def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001,
@@ -231,7 +226,7 @@ class SGD(Base):
             msg = "penalty {!r} is not supported"
             raise TypeError(msg.format(penalty))
 
-        super(SGD, self).__init__(handle=handle, verbosity=logger.LEVEL_INFO,
+        super(SGD, self).__init__(handle=handle, verbose=False,
                                   output_type=output_type)
         self.alpha = alpha
         self.l1_ratio = l1_ratio
@@ -319,6 +314,8 @@ class SGD(Base):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
+        self._set_output_type(X)
+        self._set_target_dtype(y)
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -411,11 +408,13 @@ class SGD(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
         ----------
         y: Type specified in `output_type`
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
+        output_type = self._get_output_type(X)
 
         X_m, n_rows, n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -454,8 +453,6 @@ class SGD(Base):
 
         del(X_m)
 
-        output_type = self._get_output_type(X)
-
         return preds.to_output(output_type)
 
     def predictClass(self, X, convert_dtype=False):
@@ -479,6 +476,8 @@ class SGD(Base):
         y : Type specified in `output_type`
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
+        output_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype()
 
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -515,6 +514,4 @@ class SGD(Base):
 
         del(X_m)
 
-        output_type = self._get_output_type(X)
-
-        return preds.to_output(output_type)
+        return preds.to_output(output_type=output_type, output_dtype=out_dtype)

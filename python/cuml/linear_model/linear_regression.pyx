@@ -32,9 +32,8 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.common.base import Base, RegressorMixin
 from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
@@ -76,7 +75,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                          double *preds) except +
 
 
-class LinearRegression(Base):
+class LinearRegression(Base, RegressorMixin):
 
     """
     LinearRegression is a simple machine learning model where the response y is
@@ -186,9 +185,9 @@ class LinearRegression(Base):
     """
 
     def __init__(self, algorithm='eig', fit_intercept=True, normalize=False,
-                 handle=None, verbosity=logger.LEVEL_INFO, output_type=None):
+                 handle=None, verbose=False, output_type=None):
         super(LinearRegression, self).__init__(handle=handle,
-                                               verbosity=verbosity,
+                                               verbose=verbose,
                                                output_type=output_type)
 
         # internal array attributes
@@ -212,7 +211,7 @@ class LinearRegression(Base):
             'eig': 1
         }[algorithm]
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
@@ -228,13 +227,12 @@ class LinearRegression(Base):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the fit method will, when necessary, convert
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
-
         """
-
+        self._set_n_features_in(X)
         self._set_output_type(X)
 
         cdef uintptr_t X_ptr, y_ptr
