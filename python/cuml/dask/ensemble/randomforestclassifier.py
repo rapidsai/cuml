@@ -438,9 +438,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         y : NumPy
            Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
         """
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
-
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
         return self._predict_proba(X, delayed, **kwargs)
