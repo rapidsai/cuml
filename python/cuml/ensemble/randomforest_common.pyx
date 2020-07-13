@@ -227,6 +227,8 @@ class BaseRandomForestModel(Base):
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
                                 order='F')
+        print(" shape of input data, rows : ", self.n_rows)
+        print(" shape of input data, cols : ", self.n_cols)
         if self.n_bins > self.n_rows:
             raise ValueError("The number of bins,`n_bins` can not be greater"
                              " than the number of samples used for training.")

@@ -85,6 +85,7 @@ class BaseRandomForestModel(object):
 
     def _fit(self, model, dataset, convert_dtype):
         data = DistributedDataHandler.create(dataset, client=self.client)
+        print(" data : ", data)
         self.datatype = data.datatype
         if self.datatype == 'cudf':
             has_float64 = (dataset[0].dtypes.any() == np.float64)
@@ -101,6 +102,7 @@ class BaseRandomForestModel(object):
                 len(dask.array.unique(labels).compute())
         labels = self.client.persist(dataset[1])
         futures = list()
+        print(" data.worker_to_parts.items() : ", data.worker_to_parts.items())
         for idx, (worker, worker_data) in \
                 enumerate(data.worker_to_parts.items()):
             futures.append(
@@ -112,6 +114,7 @@ class BaseRandomForestModel(object):
                     workers=[worker],
                     pure=False)
             )
+            print(" futures : ", futures)
         wait_and_raise_from_futures(futures)
         return self
 
@@ -142,8 +145,8 @@ class BaseRandomForestModel(object):
         return model
 
     def _predict_using_fil(self, X, delayed, **kwargs):
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
         if self.local_model is None:
