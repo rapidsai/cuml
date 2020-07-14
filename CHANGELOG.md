@@ -78,6 +78,7 @@
 - PR #2540: Update default value for n_epochs in UMAP to match documentation & sklearn API
 - PR #2535: Fix issue with incorrect docker image being used in local build script
 - PR #2542: Fix small memory leak in TSNE
+- PR #2552: Fixed the length argument of updateDevice calls in RF test
 
 # cuML 0.14.0 (03 Jun 2020)
 
