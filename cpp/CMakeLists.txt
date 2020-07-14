@@ -181,9 +181,6 @@ else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
-set(Protobuf_USE_STATIC_LIBS ON)
-find_package(Protobuf REQUIRED)
-
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 ##############################################################################
@@ -316,7 +313,6 @@ set(CUML_PUBLIC_LINK_LIBRARIES
   )
 
 set(CUML_PRIVATE_LINK_LIBRARIES
-  ${Protobuf_LIBRARIES}
   faisslib
   treelite::treelite
   treelite::treelite_runtime
@@ -379,6 +375,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(NOT SINGLEGPU)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
+        src/kmeans/kmeans_mg.cu
         src/knn/knn_mg.cu
         src/pca/pca_mg.cu
         src/pca/sign_flip_mg.cu
