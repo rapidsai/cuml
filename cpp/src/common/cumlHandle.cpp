@@ -34,6 +34,7 @@ int cumlHandle::getDefaultNumInternalStreams() {
 }
 
 cumlHandle::cumlHandle(int n_streams) : _impl(new raftHandle_impl(n_streams)) {}
+cumlHandle::cumlHandle(raft::handle_t* raftHandle) : _impl(new raftHandle_impl(raftHandle)) {}
 cumlHandle::cumlHandle() : _impl(new raftHandle_impl()) {}
 cumlHandle::~cumlHandle() {}
 

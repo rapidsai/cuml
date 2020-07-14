@@ -21,6 +21,11 @@
 #include <memory>
 #include <vector>
 
+
+namespace raft {
+   class handle_t;
+}
+
 namespace ML {
 
 class handle_impl;
@@ -47,6 +52,7 @@ class cumlHandle {
      * @{
      */
   cumlHandle(int n_streams);
+  cumlHandle(raft::handle_t* raftHandle);
   cumlHandle();
   /** @} */
   /**

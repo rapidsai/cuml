@@ -29,6 +29,14 @@ raftHandle_impl::raftHandle_impl(int n_streams)
     std::make_shared<rmmAllocatorAdapter>(_raftHandle->get_device_allocator());
 }
 
+raftHandle_impl::raftHandle_impl(raft::handle_t* raftHandle)
+  : _hostAllocator(std::make_shared<defaultHostAllocator>()), _communicator() {
+    _raftHandle = raftHandle;
+
+  _deviceAllocator =
+    std::make_shared<rmmAllocatorAdapter>(_raftHandle->get_device_allocator());
+}
+
 raftHandle_impl::~raftHandle_impl() { delete _raftHandle; }
 
 int raftHandle_impl::getDevice() const { return _raftHandle->get_device(); }

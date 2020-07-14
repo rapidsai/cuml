@@ -46,6 +46,7 @@ using MLCommon::hostAllocator;
 class raftHandle_impl : public handle_impl {
  public:
   raftHandle_impl(int n_streams = cumlHandle::getDefaultNumInternalStreams());
+  raftHandle_impl(raft::handle_t* raftHandle);
   ~raftHandle_impl();
 
   virtual int getDevice() const;
