@@ -22,6 +22,7 @@
 - PR #2308: Using fixture for Dask client to eliminate possiblity of not closing
 - PR #2345: make C++ logger level definition to be the same as python layer
 - PR #2329: Add short commit hash to conda package name
+- PR #2362: Implement binary/multi-classification log loss with cupy
 - PR #2363: Update threshold and make other changes for stress tests
 - PR #2371: Updating MBSGD tests to use larger batches
 - PR #2380: Pinning libcumlprims version to ease future updates
