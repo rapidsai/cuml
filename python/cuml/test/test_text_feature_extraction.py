@@ -356,24 +356,32 @@ def test_tfidf_vectorizer(norm, use_idf, smooth_idf, sublinear_tf):
     cp.testing.assert_array_almost_equal(tfidf_mat.todense(), ref.toarray())
 
 
-def test_almost_equal_hash_matrices(mat_1,mat_2):
+
+# ----------------------------------------------------------------
+# HashingVectorizer tests 
+# ----------------------------------------------------------------
+
+def test_almost_equal_hash_matrices(mat_1,mat_2,ignore_sign=True):
     """
     Currently if all the sorted values in the row is equal we assume equality 
     TODO: Find better way to test ig hash matrices are equal
     """
     assert mat_1.shape == mat_2.shape
-    count = 0
     for row_id in range(mat_1.shape[0]):
         row_m1 = mat_1[row_id]
         row_m2 = mat_2[row_id]
         nz_row_m1  = np.sort(row_m1[row_m1!=0])
         nz_row_m2  = np.sort(row_m2[row_m2!=0])
+        # print(nz_row_m1)
+        # print(nz_row_m2)
+        if ignore_sign:
+            nz_row_m1 = np.abs(nz_row_m1)
+            nz_row_m2 = np.abs(nz_row_m2)
+        nz_row_m1.sort()
+        nz_row_m2.sort()
         np.testing.assert_almost_equal(nz_row_m1, nz_row_m2)
 
-# ----------------------------------------------------------------
-# HashingVectorizer tests 
-# ----------------------------------------------------------------
-def test_hash_vectorizer():
+def test_hashingvectorizer():
     corpus = [
         'This is the first document.',
         'This document is the second document.',
@@ -381,48 +389,93 @@ def test_hash_vectorizer():
         'Is this the first document?',
     ]
 
-    res = HashingVectorizer(alternate_sign=False).fit_transform(Series(corpus))
-    ref = SkHashVect(alternate_sign=False).fit_transform(corpus)
+    res = HashingVectorizer().fit_transform(Series(corpus))
+    ref = SkHashVect().fit_transform(corpus)
     test_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
 
-def test_hashvectorizer_stop_word():
-    ref = SkHashVect(alternate_sign=False, stop_words='english').fit_transform(DOCS)
-    res = HashingVectorizer(alternate_sign=False, stop_words='english').fit_transform(DOCS_GPU)
+@pytest.mark.xfail
+def test_vectorizer_empty_token_case():
+    """
+    We ignore empty tokens right now but sklearn treats them as a character
+    we might want to look into this more but this should not be a concern for most piplines
+    """
+    corpus = [
+        'a b ',
+    ]
+
+    preprocessor = lambda s:s
+    sklearn_tokenizer = lambda s:s.split(' ')
+    ## we have extra null token here
+    ## we slightly diverge from sklearn here as not treating it as a token
+    res = CountVectorizer(preprocessor=preprocessor).fit_transform(Series(corpus))
+    ref = SkCountVect(preprocessor=preprocessor, tokenizer=sklearn_tokenizer).fit_transform(corpus)
+    cp.testing.assert_array_equal(res.todense(), ref.toarray())
+
+    res = HashingVectorizer(preprocessor=preprocessor).fit_transform(Series(corpus))
+    ref = SkHashVect(preprocessor=preprocessor, tokenizer=sklearn_tokenizer).fit_transform(corpus)
     test_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
 
-def test_hashvectorizer_n_features():
-    pass
-    # expected_vocabulary = {'burger', 'beer', 'salad', 'pizza'}
-    # expected_stop_words = {'celeri', 'tomato', 'copyright', 'coke',
-    #                        'sparkling', 'water', 'the'}
+@pytest.mark.parametrize('lowercase', [False,True])
+def test_hashingvectorizer_lowercase(lowercase):
+    corpus = [
+        'This Is DoC',
+        'this DoC is the second DoC.',
+        'And this document is the third one.',
+        'and Is this the first document?',
+    ]
+    res = HashingVectorizer(lowercase=lowercase).fit_transform(Series(corpus))
+    ref = SkHashVect(lowercase=lowercase).fit_transform(corpus)
+    test_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
 
-    # # test bounded number of extracted features
-    # vec = SkHashVect(max_df=0.6, max_features=4)
-    # vec.fit(DOCS_GPU)
-    # #TODO
+
+def test_hashingvectorizer_stop_word():
+    ref = SkHashVect(stop_words='english').fit_transform(DOCS)
+    res = HashingVectorizer(stop_words='english').fit_transform(DOCS_GPU)
+    test_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
 
 
-def test_hash_binary_occurrences():
-    pass
-    #TODO
-    # by default multiple occurrences are counted as longs
-    # test_data = Series(['aaabc', 'abbde'])
-    # vect = CountVectorizer(analyzer='char', max_df=1.0)
-    # X = cp.asnumpy(vect.fit_transform(test_data).todense())
-    # assert_array_equal(['a', 'b', 'c', 'd', 'e'],
-    #                    vect.get_feature_names().tolist())
-    # assert_array_equal([[3, 1, 1, 0, 0],
-    #                     [1, 2, 0, 1, 1]], X)
+def test_hashingvectorizer_n_features():
+    n_features = 10
+    res = HashingVectorizer(n_features=n_features).fit_transform(DOCS_GPU).todense().get()
+    ref = SkHashVect(n_features=n_features).fit_transform(DOCS).toarray()
+    assert res.shape == ref.shape
 
-    # # using boolean features, we can fetch the binary occurrence info
-    # # instead.
-    # vect = CountVectorizer(analyzer='char', max_df=1.0, binary=True)
-    # X = cp.asnumpy(vect.fit_transform(test_data).todense())
-    # assert_array_equal([[1, 1, 1, 0, 0],
-    #                     [1, 1, 0, 1, 1]], X)
 
-    # # check the ability to change the dtype
-    # vect = HashVectorizer(analyzer='char', max_df=1.0,
-    #                        binary=True, dtype=cp.float32)
-    # X = vect.fit_transform(test_data)
-    # assert X.dtype == cp.float32
+@pytest.mark.parametrize('norm', ['l1', 'l2', None, 'max'])
+def test_hashingvectorizer_norm(norm):
+    if norm not in ['l1','l2',None]:
+        with pytest.raises(ValueError):
+            res = HashingVectorizer(norm=norm).fit_transform(DOCS_GPU)
+    else:
+        res = HashingVectorizer(norm=norm).fit_transform(DOCS_GPU)
+        ref = SkHashVect(norm=norm).fit_transform(DOCS)
+        test_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
+
+
+def test_hashingvectorizer_alternate_sign():
+    # if alternate_sign = True
+    # we should have some negative and positive values
+    res = HashingVectorizer(alternate_sign=True).fit_transform(DOCS_GPU)
+    res_f_array = res.todense().get().flatten()
+    assert np.sum(res_f_array > 0, axis=0) > 0
+    assert np.sum(res_f_array < 0, axis=0) > 0  
+
+    # if alternate_sign = False
+    # we should have no negative values and some positive values
+    res = HashingVectorizer(alternate_sign=False).fit_transform(DOCS_GPU)
+    res_f_array = res.todense().get().flatten()
+    assert np.sum(res_f_array > 0, axis=0) > 0
+    assert np.sum(res_f_array < 0, axis=0) == 0
+
+@pytest.mark.parametrize('dtype', [np.float32, np.float64,cp.float64])
+def test_hashingvectorizer_dtype(dtype):
+    res = HashingVectorizer(dtype=dtype).fit_transform(DOCS_GPU)
+    assert res.dtype == dtype
+
+
+def test_hashingvectorizer_delimiter():
+    corpus = ['a0b0c','a 0 b0e','c0d0f']
+    res = HashingVectorizer(delimiter='0',norm=None,preprocessor=lambda s:s).fit_transform(Series(corpus))
+    # equivalent logic for sklearn
+    ref = SkHashVect(tokenizer=lambda s:s.split('0'), norm=None, token_pattern=None, preprocessor=lambda s:s).fit_transform(corpus)
+    test_almost_equal_hash_matrices(res.todense().get(), ref.toarray())

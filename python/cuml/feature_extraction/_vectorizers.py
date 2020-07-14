@@ -237,8 +237,7 @@ class _VectorizerMixin:
         indices = count_df["token"].values
 
         doc_token_counts = count_df["doc_id"].value_counts().reset_index()
-        # todo: add del count_df here
-        # del count_df
+        del count_df
         doc_token_counts = doc_token_counts.rename(
             {"doc_id": "token_counts", "index": "doc_id"}, axis=1
         ).sort_values(by="doc_id")
@@ -264,13 +263,16 @@ class _VectorizerMixin:
             msg = f"Invalid value for ngram_range={self.ngram_range} {msg}"
             raise ValueError(msg)
 
+        if hasattr(self, 'n_features'):
+            if not isinstance(self.n_features, numbers.Integral):
+                raise TypeError(f"n_features must be integral, got {self.n_features} ({type(self.n_features)}).")
+
     def _warn_for_unused_params(self):
         if self.analyzer != 'word' and self.stop_words is not None:
             warnings.warn("The parameter 'stop_words' will not be used"
                           " since 'analyzer' != 'word'")
 
     def _check_sklearn_params(self, analyzer, sklearn_params):
-        # TODO: Move to the abstract class 
         if callable(analyzer):
             raise ValueError("cuML does not support callable analyzer,"
                                 " please refer to the cuML documentation for"
@@ -633,12 +635,11 @@ class HashingVectorizer(_VectorizerMixin):
     token string name to feature integer index mapping.
     This strategy has several advantages:
     - it is very low memory scalable to large datasets as there is no need to
-      store a vocabulary dictionary in memory
+      store a vocabulary dictionary in memory which even more important as GPU's are often memory constrained
     - it is fast to pickle and un-pickle as it holds no state besides the
       constructor parameters
     - it can be used in a streaming (partial fit) or parallel pipeline as there
       is no state computed during fit.
-    - #TODO: add point about gpu  importance 
     There are also a couple of cons (vs using a CountVectorizer with an
     in-memory vocabulary):
     - there is no way to compute the inverse transform (from feature indices to
@@ -648,8 +649,7 @@ class HashingVectorizer(_VectorizerMixin):
       feature index. However in practice this is rarely an issue if n_features
       is large enough (e.g. 2 ** 18 for text classification problems).
     - no IDF weighting as this would render the transformer stateful.
-    The hash function employed is the signed 32-bit version of Murmurhash3.
-    Read more in the #TODO
+    he hash function employed is the signed 32-bit version of Murmurhash3.
     Parameters
     ----------
     lowercase : bool, default=True
@@ -691,7 +691,7 @@ class HashingVectorizer(_VectorizerMixin):
         When True, an alternating sign is added to the features as to
         approximately conserve the inner product in the hashed space even for
         small n_features. This approach is similar to sparse random projection.
-    dtype : type, default=np.float64
+    dtype : type, optional
         Type of the matrix returned by fit_transform() or transform().
 
     delimiter : str, whitespace by default
@@ -738,11 +738,9 @@ class HashingVectorizer(_VectorizerMixin):
             msg = f"Expected dtype in {CUPY_SPARSE_DTYPES}, got {dtype}"
             raise ValueError(msg)
 
-        if self.norm not in ('l1', 'l2'):
+        if self.norm not in ('l1', 'l2', None):
             raise ValueError(f"{self.norm} is not a supported norm")
 
-        if self.alternate_sign:
-            raise ValueError(f"Alternate_sign is not yet supported")
 
         sklearn_params = {"input": input,
                             "encoding": encoding,
@@ -750,42 +748,29 @@ class HashingVectorizer(_VectorizerMixin):
                             "strip_accents": strip_accents,
                             "tokenizer": tokenizer,
                             "token_pattern": token_pattern}
-        # self._check_sklearn_params(analyzer, sklearn_params)
+        self._check_sklearn_params(analyzer, sklearn_params)
     
     def partial_fit(self, X, y=None):
         """
-        #TODO: Remove maybe
         Does nothing: this transformer is stateless.
         This method is just there to mark the fact that this transformer
         can work in a streaming setup.
         Parameters
         ----------
-        X : ndarray of shape [n_samples, n_features]
-            Training data.
-        """
-       
+        X : cudf.Series(A Series of string documents).
+        """       
         return self
-    
-    
 
     def fit(self, X, y=None):
         """Does nothing: this transformer is stateless.
-        #TODO: Remove Maybe
         Parameters
         ----------
-        X : ndarray of shape [n_samples, n_features]
-            Training data.
+        X : cudf.Series(A Series of string documents)
         """
-        # triggers a parameter validation
-        #TODO: Add check for string series
-        if not isinstance(X, cudf.Series):
-            raise ValueError(
-                "cudf.String[Str] Expected")
-
-        #self._warn_for_unused_params()
-        # self._validate_params()
-        #TODO: add get feature hasher
-        #self._get_hasher().fit(X, y=y)
+        if not (isinstance(X,cudf.Series) and isinstance(X._column,cudf.core.column.StringColumn)):
+            raise ValueError(f"cudf.Series([str]) expected ,got {type(X)}")
+        self._warn_for_unused_params()
+        self._validate_params()
         return self
 
     def _preprocess(self, raw_documents):
@@ -794,18 +779,20 @@ class HashingVectorizer(_VectorizerMixin):
 
     def _count_hash(self, tokenized_df):
         """Count occurrences of tokens in each document."""
-        # Transform string tokens into token indexes from 0 to len(vocab)
-        # The indexes are based on lexicographical ordering.
-        tokenized_df['token'] = tokenized_df['token'].hash_values() % self.n_features
-        # Count of each token in each document
-        count_df = (
-            tokenized_df[["doc_id", "token"]]
-            .groupby(["doc_id", "token"])
-            .size()
-            .reset_index()
-            .rename({0: "count"}, axis=1)
-        )
-        del tokenized_df
+        # Transform string tokens into token indexes from 0 to n_features
+        tokenized_df['token'] = tokenized_df['token'].hash_values()
+        if self.alternate_sign:
+            # below logic is equivalent to: value *= ((h >= 0) * 2) - 1
+            tokenized_df['value']= ((tokenized_df['token'] >= 0) * 2) -1
+            count_ser = tokenized_df.groupby(["doc_id", "token"]).value.sum()
+            count_ser.name = 'count'    
+        else:
+            count_ser = tokenized_df.groupby(["doc_id", "token"]).size()
+            count_ser.name = 'count'
+        
+        count_df = count_ser.reset_index(drop=False)
+        del count_ser,tokenized_df
+        count_df['token'] = count_df['token'].abs()%self.n_features
         return count_df
 
     def fit_transform(self, X, y=None):
@@ -854,7 +841,6 @@ class HashingVectorizer(_VectorizerMixin):
                                                   n_doc,self.n_features)
         if self.binary:
             X.data.fill(1)
-
         if self.norm:
             if self.norm == 'l1':
                 csr_row_normalize_l1(X, inplace=True)
