@@ -361,7 +361,7 @@ def test_tfidf_vectorizer(norm, use_idf, smooth_idf, sublinear_tf):
 # ----------------------------------------------------------------
 # HashingVectorizer tests
 # ----------------------------------------------------------------
-def test_almost_equal_hash_matrices(mat_1, mat_2, ignore_sign=True):
+def assert_almost_equal_hash_matrices(mat_1, mat_2, ignore_sign=True):
     """
     Currently if all the sorted values in the row is equal we assume equality 
     TODO: Find better way to test ig hash matrices are equal
@@ -392,7 +392,7 @@ def test_hashingvectorizer():
 
     res = HashingVectorizer().fit_transform(Series(corpus))
     ref = SkHashVect().fit_transform(corpus)
-    test_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
+    assert_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
 
 
 @pytest.mark.xfail
@@ -417,7 +417,7 @@ def test_vectorizer_empty_token_case():
     ref = SkHashVect(
         preprocessor=lambda s: s, tokenizer=lambda s: s.split(" ")
     ).fit_transform(corpus)
-    test_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
+    assert_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
 
 
 @pytest.mark.parametrize("lowercase", [False, True])
@@ -430,13 +430,13 @@ def test_hashingvectorizer_lowercase(lowercase):
     ]
     res = HashingVectorizer(lowercase=lowercase).fit_transform(Series(corpus))
     ref = SkHashVect(lowercase=lowercase).fit_transform(corpus)
-    test_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
+    assert_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
 
 
 def test_hashingvectorizer_stop_word():
     ref = SkHashVect(stop_words="english").fit_transform(DOCS)
     res = HashingVectorizer(stop_words="english").fit_transform(DOCS_GPU)
-    test_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
+    assert_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
 
 
 def test_hashingvectorizer_n_features():
@@ -456,7 +456,7 @@ def test_hashingvectorizer_norm(norm):
     else:
         res = HashingVectorizer(norm=norm).fit_transform(DOCS_GPU)
         ref = SkHashVect(norm=norm).fit_transform(DOCS)
-        test_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
+        assert_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
 
 
 def test_hashingvectorizer_alternate_sign():
@@ -493,4 +493,4 @@ def test_hashingvectorizer_delimiter():
         token_pattern=None,
         preprocessor=lambda s: s,
     ).fit_transform(corpus)
-    test_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
+    assert_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
