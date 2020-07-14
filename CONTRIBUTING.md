@@ -29,143 +29,21 @@ into three categories:
 2. Find an issue to work on. The best way is to look for the [good first issue](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
     or [help wanted](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) labels
 3. Comment on the issue saying you are going to work on it.
-4. Get familiar with the developer guide relevant for you:
+4. Get familar with the developer guide relevant for you:
     * For C++ developers it is available here [DEVELOPER_GUIDE.md](wiki/cpp/DEVELOPER_GUIDE.md)
-    * For Python developers, a [Python DEVELOPER_GUIDE.md](wiki/python/DEVELOPER_GUIDE.md) is available as well.
+    * For Python developers, a [Python DEVELOPER_GUIDE.md](wiki/python/DEVELOPER_GUIDE.md) is availabe as well.
 5. Code! Make sure to update unit tests!
 6. When done, [create your pull request](https://github.com/rapidsai/cuml/compare).
 7. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/), or fix if needed.
 8. Wait for other developers to review your code and update code as needed.
 9. Once reviewed and approved, a RAPIDS developer will merge your pull request.
 
+### A note related to our CI process
+After you have started a PR (refer to step 6 in the previous section), every time you do a `git push <yourRemote> <pr-branch>`, it triggers a new CI run on all the commits thus far. Even though GPUCI has mechanisms to deal with this to a certain extent, if you keep `push`ing too frequently, it might just clog our GPUCI servers and slow down every PR and conda package generation! So, please be mindful of this and try not to do many frequent pushes.
+
+To quantify this, the average check in our CI takes between 25 and 32 minutes on our servers. The GPUCI infrastructure has limited resources, so if the servers get overwhelmed, every current active PR will not be able to correctly schedule CI.
+
 Remember, if you are unsure about anything, don't hesitate to comment on issues and ask for clarifications!
-
-
-## Code Formatting
-
-Consistent code formatting is important in the cuML project to ensure
-readability, maintainability, and thus simplifies collaboration.
-
-### Using pre-commit hooks
-
-cuML uses [pre-commit](https://pre-commit.com) to execute code linters and
-formatters that check the code for common issues, such as syntax errors, code
-style violations, and help to detect bugs. Using pre-commit ensures that linter
-versions and options are aligned for all developers. The same hooks are executed
-as part of the CI checks. This means running pre-commit checks locally avoids
-unnecessary CI iterations.
-
-To use `pre-commit`, install the tool via `conda` or `pip` into your development
-environment:
-
-```console
-conda install -c conda-forge pre-commit
-```
-Alternatively:
-```console
-pip install pre-commit
-```
-
-After installing pre-commit, it is recommended to install pre-commit hooks to
-run automatically before creating a git commit. In this way, it is less likely
-that style checks will fail as part of CI checks. To install pre-commit hooks,
-simply run the following command within the repository root directory:
-
-```console
-pre-commit install
-```
-
-By default, pre-commit runs on staged files only, meaning only on changes that
-are about to be committed. To run pre-commit checks on all files, execute:
-
-```bash
-pre-commit run --all-files
-```
-
-To skip the checks temporarily, use `git commit --no-verify` or its short form
-`-n`.
-
-_Note_: If the auto-formatters' changes affect each other, you may need to go
-through multiple iterations of `git commit` and `git add -u`.
-
-cuML also uses [codespell](https://github.com/codespell-project/codespell) to find spelling
-mistakes, and this check is run as part of the pre-commit hook. To apply the suggested spelling
-fixes, you can run  `codespell -i 3 -w .` from the command-line in the cuML root directory.
-This will bring up an interactive prompt to select which spelling fixes to apply.
-
-If you want to ignore errors highlighted by codespell you can:
- * Add the word to the ignore-words-list in pyproject.toml, to exclude for all of cuML
- * Exclude the entire file from spellchecking, by adding to the `exclude` regex in .pre-commit-config.yaml
- * Ignore only specific lines as shown in https://github.com/codespell-project/codespell/issues/1212#issuecomment-654191881
-
-### Summary of pre-commit hooks
-
-The pre-commit hooks configured for this repository consist of a number of
-linters and auto-formatters that we summarize here. For a full and current list,
-please see the `.pre-commit-config.yaml` file.
-
-- `clang-format`: Formats C++ and CUDA code for consistency and readability.
-- `black`: Auto-formats Python code to conform to the PEP 8 style guide.
-- `flake8`: Lints Python code for syntax errors and common code style issues.
-- `cython-lint`: Lints Cython code for syntax errors and common code style issues.
-- _`DeprecationWarning` checker_: Checks for new `DeprecationWarning` being
-  introduced in Python code, and instead `FutureWarning` should be used.
-- _`#include` syntax checker_: Ensures consistent syntax for C++ `#include` statements.
-- _Copyright header checker and auto-formatter_: Ensures the copyright headers
-  of files are up-to-date and in the correct format.
-- `codespell`: Checks for spelling mistakes
-
-### Clang-tidy
-
-In order to maintain high-quality code, cuML uses not only pre-commit hooks
-featuring various formatters and linters but also the clang-tidy tool.
-Clang-tidy is designed to detect potential issues within the C and C++ code. It
-is typically run as part of our continuous integration (CI) process.
-
-While it's generally unnecessary for contributors to run clang-tidy locally,
-there might be cases where you would want to do so. There are two primary
-methods to run clang-tidy on your local machine: using Docker or Conda.
-
-* **Docker**
-
-    1. Navigate to the repository root directory.
-    2. Run the following Docker command:
-
-        ```bash
-        docker run --rm --pull always \
-            --mount type=bind,source="$(pwd)",target=/opt/repo --workdir /opt/repo \
-            -e SCCACHE_S3_NO_CREDENTIALS=1 \
-            rapidsai/ci-conda:latest /opt/repo/ci/run_clang_tidy.sh
-        ```
-
-
-* **Conda**
-
-    1. Navigate to the repository root directory.
-    2. Create and activate the needed conda environment:
-        ```bash
-        conda env create --yes -n cuml-clang-tidy -f conda/environments/clang_tidy_cuda-118_arch-x86_64.yaml
-        conda activate cuml-clang-tidy
-        ```
-    3. Generate the compile command database with
-        ```bash
-        ./build.sh --configure-only libcuml
-        ```
-    3. Run clang-tidy with the following command:
-        ```bash
-        python cpp/scripts/run-clang-tidy.py --config pyproject.toml
-        ```
-
-### Managing PR labels
-
-Each PR must be labeled according to whether it is a "breaking" or "non-breaking" change (using Github labels). This is used to highlight changes that users should know about when upgrading.
-
-For cuML, a "breaking" change is one that modifies the public, non-experimental, Python API in a
-non-backward-compatible way. The C++ API does not have an expectation of backward compatibility at this
-time, so changes to it are not typically considered breaking. Backward-compatible API changes to the Python
-API (such as adding a new keyword argument to a function) do not need to be labeled.
-
-Additional labels must be applied to indicate whether the change is a feature, improvement, bugfix, or documentation change. See the shared RAPIDS documentation for these labels: https://github.com/rapidsai/kb/issues/42.
 
 ### Seasoned developers
 
@@ -182,30 +60,36 @@ implementation of the issue, ask them in the issue instead of the PR.
 
 ### Branches and Versions
 
-The cuML repository has two main branches:
+The cuML repository has two main branches: 
 
-1. `main` branch: it contains the last released version. Only hotfixes are targeted and merged into it.
+1. `main` branch: it contains the last released version. Only hotfixes are targeted and merged into it.  
 2. `branch-x.y`: it is the development branch which contains the upcoming release. All the new features should be based on this branch and Merge/Pull request should target this branch (with the exception of hotfixes).
-
+    
 ### Additional details
 
-For every new version `x.y` of cuML there is a corresponding branch called `branch-x.y`, from where new feature development starts and PRs will be targeted and merged before its release. The exceptions to this are the 'hotfixes' that target the `main` branch, which target critical issues raised by Github users and are directly merged to `main` branch, and create a new subversion of the project. While trying to patch an issue which requires a 'hotfix', please state the intent in the PR.
+For every new version `x.y` of cuML there is a corresponding branch called `branch-x.y`, from where new feature development starts and PRs will be targeted and merged before its release. The exceptions to this are the 'hotfixes' that target the `main` branch, which target critical issues raised by Github users and are directly merged to `main` branch, and create a new subversion of the project. While trying to patch an issue which requires a 'hotfix', please state the intent in the PR. 
 
-For all development, your changes should be pushed into a branch (created using the naming instructions below) in your own fork of cuML and then create a pull request when the code is ready.
+For all development, your changes should be pushed into a branch (created using the naming instructions below) in your own fork of cuML and then create a pull request when the code is ready. 
 
 A few days before releasing version `x.y` the code of the current development branch (`branch-x.y`) will be frozen and a new branch, 'branch-x+1.y' will be created to continue development.
 
-### Branch naming
+### Steps for feature development
 
-Branches used to create PRs should have a name of the form `<type>-<name>`
-which conforms to the following conventions:
-- Type:
-    - fea - For if the branch is for a new feature(s)
-    - enh - For if the branch is an enhancement of an existing feature(s)
-    - bug - For if the branch is for fixing a bug(s) or regression(s)
-- Name:
-    - A name to convey what is being worked on
-    - Please use dashes or underscores between words as opposed to spaces.
+1. Create a new branch based on `branch-x.y` named following the format `<type>-<name>`, where:
+    - Type: 
+        - fea - For if the branch is for a new feature(s)
+        - enh - For if the branch is an enhancement of an existing feature(s)
+        - bug - For if the branch is for fixing a bug(s) or regression(s)
+    - Name: 
+        - A name to convey what is being worked on
+        - Please use dashes or underscores between words as opposed to spaces.
+
+2. Add a line to the `CHANGELOG.md` file (located in the repository root folder) with a one line description of the functionality implemented in the Pull Request. Please put the line in the adequate section: New Feature, Improvement or Bug Fix. The cuML repository CI requires this change before a pull request can be merged.
+
+### Building and Testing on a gpuCI image locally
+
+Before submitting a pull request, you can do a local build and test on your machine that mimics our gpuCI environment using the `ci/local/build.sh` script.
+For detailed information on usage of this script, see [here](ci/local/README.md).
 
 ## Attribution
 Portions adopted from https://github.com/pytorch/pytorch/blob/master/CONTRIBUTING.md
