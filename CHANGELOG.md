@@ -50,6 +50,7 @@
 - PR #2526: Removing PCA TSQR as a solver due to scalability issues
 - PR #2536 Update conda upload versions for new supported CUDA/Python
 - PR #2538: Remove Protobuf dependency
+- PR #2553: Test pickle protocol 5 support
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
