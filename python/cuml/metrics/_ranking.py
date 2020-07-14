@@ -23,7 +23,8 @@ import math
 
 @with_cupy_rmm
 def precision_recall_curve(y_true, probs_pred):
-    """Compute precision-recall pairs for different probability thresholds
+    """
+    Compute precision-recall pairs for different probability thresholds
     Note: this implementation is restricted to the binary classification task.
     The precision is the ratio ``tp / (tp + fp)`` where ``tp`` is the number of
     true positives and ``fp`` the number of false positives. The precision is
