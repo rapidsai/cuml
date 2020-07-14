@@ -660,15 +660,14 @@ class HashingVectorizer(_VectorizerMixin):
       feature index. However in practice this is rarely an issue if n_features
       is large enough (e.g. 2 ** 18 for text classification problems).
     - no IDF weighting as this would render the transformer stateful.
-    he hash function employed is the signed 32-bit version of Murmurhash3.
+    The hash function employed is the signed 32-bit version of Murmurhash3.
     Parameters
     ----------
     lowercase : bool, default=True
         Convert all characters to lowercase before tokenizing.
-    preprocessor : callable, default=None
+    preprocessor : callable or None (default)
         Override the preprocessing (string transformation) stage while
         preserving the tokenizing and n-grams generation steps.
-        Only applies if ``analyzer is not callable``.
     stop_words : string {'english'}, list, default=None
         If 'english', a built-in stop word list for English is used.
         There are several known issues with 'english' and you should
@@ -678,11 +677,10 @@ class HashingVectorizer(_VectorizerMixin):
         Only applies if ``analyzer == 'word'``.
     ngram_range : tuple (min_n, max_n), default=(1, 1)
         The lower and upper boundary of the range of n-values for different
-        n-grams to be extracted. All values of n such that min_n <= n <= max_n
-        will be used. For example an ``ngram_range`` of ``(1, 1)`` means only
-        unigrams, ``(1, 2)`` means unigrams and bigrams, and ``(2, 2)`` means
-        only bigrams.
-        Only applies if ``analyzer is not callable``.
+        word n-grams or char n-grams to be extracted. All values of n such
+        such that min_n <= n <= max_n will be used. For example an
+        ``ngram_range`` of ``(1, 1)`` means only unigrams, ``(1, 2)`` means
+        unigrams and bigrams, and ``(2, 2)`` means only bigrams.
     analyzer : string, {'word', 'char', 'char_wb'}
         Whether the feature should be made of word n-gram or character
         n-grams.
@@ -704,7 +702,6 @@ class HashingVectorizer(_VectorizerMixin):
         small n_features. This approach is similar to sparse random projection.
     dtype : type, optional
         Type of the matrix returned by fit_transform() or transform().
-
     delimiter : str, whitespace by default
         String used as a replacement for stop words if stop_words is not None.
         Typically the delimiting character between words is a good choice.
