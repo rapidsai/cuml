@@ -48,7 +48,7 @@ from cuml.decomposition.base_mg import BaseDecompositionMG
 ctypedef int underlying_type_t_solver
 
 
-cdef extern from "cumlprims/opg/pca.hpp" namespace "ML":
+cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML":
 
     ctypedef enum mg_solver "ML::mg_solver":
         COV_EIG_DQ "ML::mg_solver::COV_EIG_DQ"
@@ -66,7 +66,7 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML":
         bool whiten
 
 
-cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
+cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg":
 
     cdef void fit(cumlHandle& handle,
                   vector[floatData_t *] input_data,
@@ -110,7 +110,6 @@ class PCAMG(BaseDecompositionMG, PCA):
             'auto': MGSolver.COV_EIG_JACOBI,
             # 'arpack': NOT_SUPPORTED,
             # 'randomized': NOT_SUPPORTED,
-            'tsqr': MGSolver.QR
         }
         if algorithm not in algo_map:
             msg = "algorithm {!r} is not supported"
