@@ -48,6 +48,7 @@
 - PR #2237: Refactor RF cython code
 - PR #2513: Fixing LGTM Analysis Issues
 - PR #2099: Raise an error when float64 data is used with dask RF
+- PR #2499: Provide access to `cuml.DBSCAN` core samples
 - PR #2526: Removing PCA TSQR as a solver due to scalability issues
 - PR #2536 Update conda upload versions for new supported CUDA/Python
 - PR #2538: Remove Protobuf dependency
