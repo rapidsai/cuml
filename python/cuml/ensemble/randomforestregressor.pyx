@@ -414,7 +414,7 @@ class RandomForestRegressor(Base, RegressorMixin):
     def _get_serialized_model(self):
         """
         Returns the self.treelite_serialized_model.
-        Cuml RF model gets converted to treelite protobuf bytes by:
+        Cuml RF model gets converted to treelite bytes by:
             1. converting the cuml RF model to a treelite model. The treelite
             models handle (pointer) is returned
             2. The treelite model handle is converted to bytes.
@@ -422,6 +422,9 @@ class RandomForestRegressor(Base, RegressorMixin):
         `self.treelite_serialized_model`. If the model bytes are present, we
         can skip _obtain_treelite_handle().
         """
+        if self.dtype == np.float64:
+            raise TypeError("Pickling is not supported for models trained"
+                            " using dataset of dtype float64.")
         if self.treelite_serialized_model:
             return self.treelite_serialized_model
         elif self.treelite_handle:
@@ -558,8 +561,9 @@ class RandomForestRegressor(Base, RegressorMixin):
         cdef uintptr_t X_ptr, y_ptr
 
         X_m, n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
-                                order='F')
+            input_to_cuml_array(
+                X, check_dtype=[np.float32, np.float64],
+                order='F')
         if self.n_bins > n_rows:
             raise ValueError("The number of bins,`n_bins` can not be greater"
                              " than the number of samples used for training.")
@@ -572,8 +576,8 @@ class RandomForestRegressor(Base, RegressorMixin):
         y_ptr = y_m.ptr
 
         if self.dtype == np.float64:
-            warnings.warn("To use GPU-based prediction, first train using \
-                          float 32 data to fit the estimator.")
+            warnings.warn("To use pickling or GPU-based prediction first \
+                          train the RF model using np.float32 data.")
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><uintptr_t>self.handle.getHandle()
@@ -588,7 +592,6 @@ class RandomForestRegressor(Base, RegressorMixin):
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
             new RandomForestMetaData[double, double]()
         self.rf_forest64 = <uintptr_t> rf_forest64
-
         if self.seed is None:
             seed_val = <uintptr_t>NULL
         else:
@@ -642,9 +645,11 @@ class RandomForestRegressor(Base, RegressorMixin):
         out_type = self._get_output_type(X)
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
                                 check_cols=self.n_cols)
 
-        if dtype == np.float64 and not convert_dtype:
+        if dtype == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \
                             Please set convert_dtype=True to convert the test \
                             data to the same dtype as the data used to train, \

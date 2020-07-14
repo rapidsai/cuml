@@ -124,10 +124,9 @@ def roc_auc_score(y_true, y_score):
 
     Parameters
     ----------
-        y_true : array-like of shape (n_samples,)
+    y_true : array-like of shape (n_samples,)
         True labels. The binary cases
         expect labels with shape (n_samples,)
-
     y_score : array-like of shape (n_samples,)
         Target scores. In the binary cases, these can be either
         probability estimates or non-thresholded decision values (as returned
