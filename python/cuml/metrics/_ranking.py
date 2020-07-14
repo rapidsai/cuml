@@ -25,25 +25,29 @@ import math
 def precision_recall_curve(y_true, probs_pred):
     """
     Compute precision-recall pairs for different probability thresholds
-    
+
     Note: this implementation is restricted to the binary classification task.
     The precision is the ratio ``tp / (tp + fp)`` where ``tp`` is the number of
     true positives and ``fp`` the number of false positives. The precision is
     intuitively the ability of the classifier not to label as positive a sample
     that is negative.
+
     The recall is the ratio ``tp / (tp + fn)`` where ``tp`` is the number of
     true positives and ``fn`` the number of false negatives. The recall is
     intuitively the ability of the classifier to find all the positive samples.
     The last precision and recall values are 1. and 0. respectively and do not
     have a corresponding threshold.  This ensures that the graph starts on the
     y axis.
+
     Read more in the :ref:`User Guide <precision_recall_f_measure_metrics>`.
+
     Parameters
     ----------
     y_true : array, shape = [n_samples]
         True binary labels, {0, 1}.
     probas_pred : array, shape = [n_samples]
         Estimated probabilities or decision function.
+
     Returns
     -------
     precision : array, shape = [n_thresholds + 1]
@@ -55,19 +59,29 @@ def precision_recall_curve(y_true, probs_pred):
     thresholds : array, shape = [n_thresholds <= len(np.unique(probas_pred))]
         Increasing thresholds on the decision function used to compute
         precision and recall.
+
+    Examples
     --------
-    >>> import numpy as np
-    >>> from cuml.metrics import precision_recall_curve
-    >>> y_true = np.array([0, 0, 1, 1])
-    >>> y_scores = np.array([0.1, 0.4, 0.35, 0.8])
-    >>> precision, recall, thresholds = precision_recall_curve(
-    ...     y_true, y_scores)
-    >>> precision
-    array([0.66666667, 0.5       , 1.        , 1.        ])
-    >>> recall
-    array([1. , 0.5, 0.5, 0. ])
-    >>> thresholds
-    array([0.35, 0.4 , 0.8 ])
+    .. code-block:: python
+
+            import numpy as np
+            from cuml.metrics import precision_recall_curve
+            y_true = np.array([0, 0, 1, 1])
+            y_scores = np.array([0.1, 0.4, 0.35, 0.8])
+            precision, recall, thresholds = precision_recall_curve(
+                y_true, y_scores)
+            print(precision)
+            print(recall)
+            print(thresholds)
+
+    Output:
+
+    .. code-block:: python
+
+            array([0.66666667, 0.5       , 1.        , 1.        ])
+            array([1. , 0.5, 0.5, 0. ])
+            array([0.35, 0.4 , 0.8 ])
+
     """
     y_true, n_rows, n_cols, ytype = \
         input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64,
@@ -81,7 +95,7 @@ def precision_recall_curve(y_true, probs_pred):
     y_true = y_true.to_output('cupy')
     y_score = y_score.to_output('cupy')
 
-    if cp.min(y_true) == 0 and cp.max(y_true) == 0:
+    if cp.any(y_true) == 0:
         raise ValueError("precision_recall_curve cannot be used when "
                          "y_true is all zero.")
 
@@ -105,7 +119,9 @@ def roc_auc_score(y_true, y_score):
     """
     Compute Area Under the Receiver Operating Characteristic Curve (ROC AUC)
     from prediction scores.
+
     Note: this implementation can only be used with binary classification.
+
     Parameters
     ----------
         y_true : array-like of shape (n_samples,)
@@ -118,18 +134,25 @@ def roc_auc_score(y_true, y_score):
         by `decision_function` on some classifiers). The binary
         case expects a shape (n_samples,), and the scores must be the scores of
         the class with the greater label.
+
     Returns
     -------
         auc : float
 
     Examples
     --------
-    >>> import numpy as np
-    >>> from cuml.metrics import roc_auc_score
-    >>> y_true = np.array([0, 0, 1, 1])
-    >>> y_scores = np.array([0.1, 0.4, 0.35, 0.8])
-    >>> roc_auc_score(y_true, y_scores)
-    0.75
+    .. code-block:: python
+
+            import numpy as np
+            from cuml.metrics import roc_auc_score
+            y_true = np.array([0, 0, 1, 1])
+            y_scores = np.array([0.1, 0.4, 0.35, 0.8])
+            print(roc_auc_score(y_true, y_scores))
+
+    Output:
+    .. code-block:: python
+
+            0.75
     """
     y_true, n_rows, n_cols, ytype = \
         input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64,
