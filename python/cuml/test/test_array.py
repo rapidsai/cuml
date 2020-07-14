@@ -407,9 +407,9 @@ def test_pickle(input_type, protocol):
     else:
         inp = create_input(input_type, np.float32, (10, 5), 'F')
     ary = CumlArray(data=inp)
-    f = []
     dumps_kwargs = {"protocol": protocol}
     loads_kwargs = {}
+    f = []
     len_f = 0
     if protocol >= 5:
         dumps_kwargs["buffer_callback"] = f.append
