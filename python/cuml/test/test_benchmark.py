@@ -190,6 +190,22 @@ def test_real_algos_runner(algo_name):
     assert results["cuml_acc"] is not None
 
 
+# Test FIL with several input types
+@pytest.mark.parametrize('input_type', ['numpy', 'cudf', 'gpuarray',
+                                        'gpuarray-c'])
+def test_fil_input_types(input_type):
+    pair = algorithms.algorithm_by_name('FIL')
+
+    if not has_xgboost():
+        pytest.xfail()
+
+    runner = AccuracyComparisonRunner(
+        [20], [5], dataset_name='classification', test_fraction=0.5,
+        input_type=input_type)
+    results = runner.run(pair, run_cpu=False)[0]
+    assert results["cuml_acc"] is not None
+
+
 @pytest.mark.parametrize('input_type', ['numpy', 'cudf', 'pandas', 'gpuarray'])
 def test_training_data_to_numpy(input_type):
     X, y, *_ = datagen.gen_data(
