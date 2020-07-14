@@ -296,6 +296,26 @@ class Base:
         else:
             return self.output_type
 
+    def _set_target_dtype(self, target):
+        """
+        Method to be called by fit methods of inheriting classifier
+        classes to correctly set the output dtype depending on the dtype of
+        the target.
+        """
+        self.target_dtype = _input_target_to_dtype(target)
+
+    def _get_target_dtype(self):
+        """
+        Method to be called by predict/transform methods of
+        inheriting classifier classes. Returns the appropriate output
+        dtype depending on the dtype of the target.
+        """
+        try:
+            out_dtype = self.target_dtype
+        except AttributeError:
+            out_dtype = None
+        return out_dtype
+
     def _set_n_features_in(self, X):
         """Method to be called by the fit method of the inheriting class.
         Sets the n_features_in_ attribute based on the data passed to fit.
@@ -409,3 +429,16 @@ def _check_output_type_str(output_str):
         else:
             raise ValueError("output_type must be one of " +
                              "'numpy', 'cupy', 'cudf' or 'numba'")
+
+
+def _input_target_to_dtype(target):
+    canonical_input_types = tuple(_input_type_to_str.keys())
+
+    if isinstance(target, (cuDataFrame, pdDataFrame)):
+        # Assume single-label target
+        dtype = target[target.columns[0]].dtype
+    elif isinstance(target, canonical_input_types):
+        dtype = target.dtype
+    else:
+        dtype = None
+    return dtype

@@ -79,9 +79,17 @@ Feature and Label Encoding (Dask-based Multi-GPU)
  .. autoclass:: cuml.dask.preprocessing.OneHotEncoder
     :members:
 
+Feature Extraction (Single-GPU)
+-------------------------------
+ .. autoclass:: cuml.feature_extraction.text.CountVectorizer
+    :members:
+
 Dataset Generation (Single-GPU)
 -------------------------------
-
+  .. glossary::
+    random_state
+        Determines random number generation for dataset creation. Pass an int
+        for reproducible output across multiple function calls.
   .. automethod:: cuml.datasets.make_blobs
   .. automethod:: cuml.datasets.make_classification
   .. automethod:: cuml.datasets.make_regression
@@ -123,6 +131,7 @@ Metrics
   .. automodule:: cuml.metrics.cluster.entropy
     :members:
 
+  .. automethod:: cuml.metrics.roc_auc_score
 
 Benchmarking
 -------------
