@@ -18,7 +18,6 @@ import cupy as cp
 import dask
 from toolz import first
 
-from dask.distributed import wait
 import dask.array
 
 
@@ -26,6 +25,8 @@ from cuml.common import with_cupy_rmm
 
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
+
+from cuml.dask.common.utils import wait_and_raise_from_futures
 
 from cuml.dask.common.func import reduce
 from cuml.dask.common.func import tree_reduce
@@ -113,7 +114,7 @@ class MultinomialNB(BaseEstimator,
 
         # Make any potential model args available and catch any potential
         # ValueErrors before distributed training begins.
-        self.local_model = MNB(**kwargs)
+        self._set_internal_model(MNB(**kwargs))
 
     @staticmethod
     @with_cupy_rmm
@@ -135,8 +136,8 @@ class MultinomialNB(BaseEstimator,
         modela = first(models)
 
         for model in models[1:]:
-            modela.feature_count_ += model.feature_count_
-            modela.class_count_ += model.class_count_
+            modela._feature_count_ += model._feature_count_
+            modela._class_count_ += model._class_count_
         return modela
 
     @staticmethod
@@ -184,14 +185,17 @@ class MultinomialNB(BaseEstimator,
                                      pure=False)
                   for w, part in futures.gpu_futures]
 
-        self.local_model = reduce(models,
-                                  self._merge_counts_to_model,
-                                  client=self.client)
-        self.local_model = self.client.submit(self._update_log_probs,
-                                              self.local_model,
-                                              pure=False)
+        models = reduce(models,
+                        self._merge_counts_to_model,
+                        client=self.client)
 
-        wait(self.local_model)
+        models = self.client.submit(self._update_log_probs,
+                                    models,
+                                    pure=False)
+
+        wait_and_raise_from_futures([models])
+
+        self._set_internal_model(models)
 
         return self
 
