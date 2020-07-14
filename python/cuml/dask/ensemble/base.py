@@ -138,10 +138,11 @@ class BaseRandomForestModel(object):
         model._concatenate_treelite_handle(all_tl_mod_handles)
         for tl_handle in all_tl_mod_handles:
             TreeliteModel.free_treelite_model(tl_handle)
-
         return model
 
     def _predict_using_fil(self, X, delayed, **kwargs):
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
         if self._get_internal_model() is None:
