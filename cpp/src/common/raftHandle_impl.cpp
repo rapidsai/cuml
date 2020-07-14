@@ -15,6 +15,7 @@
  */
 
 #include "raftHandle_impl.hpp"
+#include "cuML_comms_raft.hpp"
 
 #include <cuml/common/logger.hpp>
 #include <cuml/common/rmmAllocatorAdapter.hpp>
@@ -22,22 +23,26 @@
 namespace ML {
 
 raftHandle_impl::raftHandle_impl(int n_streams)
-  : _hostAllocator(std::make_shared<defaultHostAllocator>()), _communicator() {
+  : _hostAllocator(std::make_shared<defaultHostAllocator>()) {
   _raftHandle = new raft::handle_t(n_streams);
 
   _deviceAllocator =
     std::make_shared<rmmAllocatorAdapter>(_raftHandle->get_device_allocator());
+  
+  _communicator = std::make_shared<MLCommon::cumlCommunicator_raft>(_raftHandle->get_comms());
 }
 
 raftHandle_impl::raftHandle_impl(raft::handle_t* raftHandle)
-  : _hostAllocator(std::make_shared<defaultHostAllocator>()), _communicator() {
+  : _hostAllocator(std::make_shared<defaultHostAllocator>()) {
     _raftHandle = raftHandle;
 
   _deviceAllocator =
     std::make_shared<rmmAllocatorAdapter>(_raftHandle->get_device_allocator());
+  
+  _communicator = std::make_shared<MLCommon::cumlCommunicator_raft>(_raftHandle->get_comms());
 }
 
-raftHandle_impl::~raftHandle_impl() { delete _raftHandle; }
+raftHandle_impl::~raftHandle_impl() {}
 
 int raftHandle_impl::getDevice() const { return _raftHandle->get_device(); }
 
@@ -113,8 +118,6 @@ void raftHandle_impl::setCommunicator(
 }
 
 const MLCommon::cumlCommunicator& raftHandle_impl::getCommunicator() const {
-  ASSERT(nullptr != _communicator.get(),
-         "ERROR: Communicator was not initialized\n");
   return *_communicator;
 }
 
@@ -122,7 +125,7 @@ bool raftHandle_impl::commsInitialized() const {
   return (nullptr != _communicator.get());
 }
 
-const raft::handle_t& raftHandle_impl::getRaftHandle() const {
+raft::handle_t& raftHandle_impl::getRaftHandle() const {
   return *_raftHandle;
 }
 

@@ -77,7 +77,7 @@ class raftHandle_impl : public handle_impl {
 
   virtual const cudaDeviceProp& getDeviceProperties() const;
 
-  const raft::handle_t& getRaftHandle() const;
+  raft::handle_t& getRaftHandle() const;
 
  private:
   std::shared_ptr<deviceAllocator> _deviceAllocator;
@@ -85,6 +85,11 @@ class raftHandle_impl : public handle_impl {
   std::shared_ptr<MLCommon::cumlCommunicator> _communicator;
 
   raft::handle_t* _raftHandle;
+
 };
+
+inline raftHandle_impl& cast_handle_impl(handle_impl& handle) {
+  return dynamic_cast<raftHandle_impl&>(handle);
+}
 
 }  // end namespace ML
