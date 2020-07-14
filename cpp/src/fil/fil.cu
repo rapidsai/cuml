@@ -603,7 +603,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   } else {
     params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
     params->num_classes = 0;  // ignored
-    if (param.pred_transform == "max_index" &&
+    if (std::string(param.pred_transform) == "max_index" &&
         !(tl_params->output_class && tl_params->threshold == 0.5)) {
       ASSERT(false,
              "pred_transform == 'max_index' needs output_class && "
