@@ -45,9 +45,13 @@
 - PR #2492: Adding additional assertions to mnmg nearest neighbors pytests
 - PR #2439: Update dask RF code to have print_detailed function
 - PR #2431: Match output of classifier predict with target dtype
+- PR #2237: Refactor RF cython code
 - PR #2513: Fixing LGTM Analysis Issues
 - PR #2099: Raise an error when float64 data is used with dask RF
 - PR #2526: Removing PCA TSQR as a solver due to scalability issues
+- PR #2536 Update conda upload versions for new supported CUDA/Python
+- PR #2538: Remove Protobuf dependency
+- PR #2553: Test pickle protocol 5 support
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -69,10 +73,15 @@
 - PR #2494: Set QN regularization strength consistent with scikit-learn
 - PR #2486: Fix cupy input to kmeans init
 - PR #2497: Changes to accomodate cuDF unsigned categorical changes
+- PR #2209: Fix FIL benchmark for gpuarray-c input
 - PR #2507: Import `treelite.sklearn`
 - PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
 - PR #2515: Increase tolerance for LogisticRegression test
 - PR #2545: Fix documentation of n_iter_without_progress in tSNE Python bindings
+- PR #2540: Update default value for n_epochs in UMAP to match documentation & sklearn API
+- PR #2535: Fix issue with incorrect docker image being used in local build script
+- PR #2542: Fix small memory leak in TSNE
+- PR #2552: Fixed the length argument of updateDevice calls in RF test
 
 # cuML 0.14.0 (03 Jun 2020)
 
