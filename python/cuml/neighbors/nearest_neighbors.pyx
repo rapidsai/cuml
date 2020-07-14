@@ -435,7 +435,7 @@ class NearestNeighbors(Base):
         """
         if not self.X_m:
             raise ValueError('This NearestNeighbors instance has not been fitted '
-                'yet, call "fit" before using this estimator')
+                             'yet, call "fit" before using this estimator')
 
         if n_neighbors is None:
             n_neighbors = self.n_neighbors 
@@ -452,7 +452,7 @@ class NearestNeighbors(Base):
 
         else:
             raise ValueError('Unsupported mode, must be one of "connectivity" '
-                'or "distance" but got "%s" instead' % mode)
+                             'or "distance" but got "%s" instead' % mode)
              
         n_samples = indices.shape[0]
         n_samples_fit = self.X_m.shape[0]
@@ -483,9 +483,6 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         Values in connectivity matrix: 'connectivity' returns the
         connectivity matrix with ones and zeros, 'distance' returns the
         edges as the Euclidean distance between points
-
-    n_neighbors : int (default=5)
-        Default number of neighbors to query
 
     verbose : int or boolean (default = False)
         Logging level
@@ -524,6 +521,8 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         X = NearestNeighbors(n_neighbors=n_neighbors, verbose=verbose, handle=handle, 
                             algorithm=algorithm, metric=metric, p=p, 
                             metric_params=metric_params).fit(X)
+    else:
+        raise TypeError('Incorrect type, use kneighbors_graph as method of %s' % X)
     
     if include_self == 'auto':
         include_self = mode == 'connectivity'
