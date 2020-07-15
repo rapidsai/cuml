@@ -321,7 +321,12 @@ struct Builder {
       CUDA_CHECK(cudaGetLastError());
     }
     // create child nodes (or make the current ones leaf)
-    Traits::nodeSplit(*this, batchSize, s);
+    auto smemSize = Traits::nodeSplitSmemSize(*this);
+    nodeSplitKernel<DataT, LabelT, IdxT, typename Traits::DevTraits, Traits::TPB_SPLIT>
+      <<<batchSize, Traits::TPB_SPLIT, smemSize, s>>>(
+        params.max_depth, params.min_rows_per_node, params.max_leaves,
+        params.min_impurity_decrease, input, curr_nodes, next_nodes,
+        n_nodes, splits, n_leaves, h_total_nodes, n_depth);
     CUDA_CHECK(cudaGetLastError());
     // copy the updated (due to leaf creation) and newly created child nodes
     MLCommon::updateHost(h_nodes + node_start, curr_nodes, batchSize, s);
@@ -384,21 +389,14 @@ struct ClsTraits {
   }
 
   /**
-   * @brief Split the node into left/right children
+   * @brief Computes the smem size (in B) needed for `nodeSplitKernel`
    *
    * @param[in] b         builder object
-   * @param[in] batchSize number of nodes to be processed in this call
-   * @param[in] s         cuda stream
+   *
+   * @return the smem size (in B)
    */
-  static void nodeSplit(Builder<ClsTraits<DataT, LabelT, IdxT>>& b,
-                        IdxT batchSize, cudaStream_t s) {
-    auto smemSize =
-      std::max(2 * sizeof(IdxT) * TPB_SPLIT, sizeof(int) * b.input.nclasses);
-    nodeSplitKernel<DataT, LabelT, IdxT, DevTraits, TPB_SPLIT>
-      <<<batchSize, TPB_SPLIT, smemSize, s>>>(
-        b.params.max_depth, b.params.min_rows_per_node, b.params.max_leaves,
-        b.params.min_impurity_decrease, b.input, b.curr_nodes, b.next_nodes,
-        b.n_nodes, b.splits, b.n_leaves, b.h_total_nodes, b.n_depth);
+  static size_t nodeSplitSmemSize(Builder<ClsTraits<DataT, LabelT, IdxT>>& b) {
+    return std::max(2 * sizeof(IdxT) * TPB_SPLIT, sizeof(int) * b.input.nclasses);
   }
 };  // end ClsTraits
 
@@ -462,20 +460,14 @@ struct RegTraits {
   }
 
   /**
-   * @brief Split the node into left/right children
+   * @brief Computes the smem size (in B) needed for `nodeSplitKernel`
    *
    * @param[in] b         builder object
-   * @param[in] batchSize number of nodes to be processed in this call
-   * @param[in] s         cuda stream
+   *
+   * @return the smem size (in B)
    */
-  static void nodeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT batchSize,
-                        cudaStream_t s) {
-    auto smemSize = 2 * sizeof(IdxT) * TPB_SPLIT;
-    nodeSplitKernel<DataT, LabelT, IdxT, DevTraits, TPB_SPLIT>
-      <<<batchSize, TPB_SPLIT, smemSize, s>>>(
-        b.params.max_depth, b.params.min_rows_per_node, b.params.max_leaves,
-        b.params.min_impurity_decrease, b.input, b.curr_nodes, b.next_nodes,
-        b.n_nodes, b.splits, b.n_leaves, b.h_total_nodes, b.n_depth);
+  static size_t nodeSplitSmemSize(Builder<RegTraits<DataT, IdxT>>& b) {
+    return 2 * sizeof(IdxT) * TPB_SPLIT;
   }
 };  // end RegTraits
 
