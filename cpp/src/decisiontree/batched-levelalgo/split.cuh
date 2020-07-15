@@ -111,16 +111,19 @@ struct Split {
     auto lane = MLCommon::laneId();
     if (lane == 0) sbest[warp] = *this;
     __syncthreads();
-    if (lane < nWarps) *this = sbest[lane];
-    warpReduce();
-    // only the first thread will go ahead and update the best split info
-    // for current node
-    if (threadIdx.x == 0) {
-      while (atomicCAS(mutex, 0, 1))
-        ;
-      split->update(*this);
-      __threadfence();
-      atomicCAS(mutex, 1, 0);
+    if (warp == 0) {
+      if (lane < nWarps) *this = sbest[lane];
+      else this->init();
+      warpReduce();
+      // only the first thread will go ahead and update the best split info
+      // for current node
+      if (threadIdx.x == 0) {
+        while (atomicCAS(mutex, 0, 1))
+          ;
+        split->update(*this);
+        __threadfence();
+        atomicCAS(mutex, 1, 0);
+      }
     }
     __syncthreads();
   }
