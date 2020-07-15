@@ -354,46 +354,4 @@ class cumlCommunicator {
   const raft::comms::comms_t* _raftComms;
 };
 
-template <>
-cumlCommunicator::datatype_t cumlCommunicator::getDataType<char>() const {
-  return cumlCommunicator::CHAR;
-}
-
-template <>
-cumlCommunicator::datatype_t cumlCommunicator::getDataType<uint8_t>() const {
-  return cumlCommunicator::UINT8;
-}
-
-template <>
-cumlCommunicator::datatype_t cumlCommunicator::getDataType<int>() const {
-  return cumlCommunicator::INT;
-}
-
-template <>
-cumlCommunicator::datatype_t cumlCommunicator::getDataType<uint32_t>() const {
-  return cumlCommunicator::UINT;
-}
-
-template <>
-cumlCommunicator::datatype_t cumlCommunicator::getDataType<int64_t>() const {
-  return cumlCommunicator::INT64;
-}
-
-template <>
-cumlCommunicator::datatype_t cumlCommunicator::getDataType<uint64_t>() const {
-  return cumlCommunicator::UINT64;
-}
-
-template <>
-cumlCommunicator::datatype_t cumlCommunicator::getDataType<float>() const {
-  return cumlCommunicator::FLOAT;
-}
-
-template <>
-cumlCommunicator::datatype_t cumlCommunicator::getDataType<double>() const {
-  return cumlCommunicator::DOUBLE;
-}
-
-cumlCommunicator_iface::~cumlCommunicator_iface() {}
-
 }  // end namespace MLCommon
