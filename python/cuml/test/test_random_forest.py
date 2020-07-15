@@ -366,9 +366,9 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
     # random forest classification model
     cuml_model = curfc()
     if type == 'dataframe':
-        X_train_df = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_train))
+        X_train_df = cudf.DataFrame(rmm.to_device(X_train))
         y_train_df = cudf.Series(y_train)
-        X_test_df = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_test))
+        X_test_df = cudf.DataFrame(rmm.to_device(X_test))
         cuml_model.fit(X_train_df, y_train_df)
         cu_preds = cuml_model.predict(X_test_df,
                                       predict_model="CPU").to_array()

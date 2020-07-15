@@ -43,10 +43,10 @@ def test_trustworthiness(input_type, n_samples, n_features, n_components,
     sk_score = sklearn_trustworthiness(X, X_embedded)
 
     if input_type == 'dataframe':
-        X = cudf.DataFrame.from_gpu_matrix(
+        X = cudf.DataFrame(
             numba.cuda.to_device(X))
 
-        X_embedded = cudf.DataFrame.from_gpu_matrix(
+        X_embedded = cudf.DataFrame(
             numba.cuda.to_device(X_embedded))
 
     score = cuml_trustworthiness(X, X_embedded, batch_size=batch_size)
