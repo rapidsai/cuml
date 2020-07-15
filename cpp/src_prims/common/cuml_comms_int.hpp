@@ -23,7 +23,6 @@
 
 namespace MLCommon {
 
-class cumlCommunicator_iface;
 
 /**
  * Communicator class intended to be used by cuML and ml-prims.
@@ -126,8 +125,8 @@ class cumlCommunicator {
      * @param[in]   tag     message tag
      * @param[out]  request communication request (handle)
      */
-  void isend(const void* buf, int size, int dest, int tag,
-             request_t* request) const;
+//   void isend(const void* buf, int size, int dest, int tag,
+//              request_t* request) const;
   /**
      * Starts a nonblocking receive following the semantics of MPI_Irecv
      *
@@ -137,8 +136,8 @@ class cumlCommunicator {
      * @param[in]   tag     message tag
      * @param[out]  request communication request (handle)
      */
-  void irecv(void* buf, int size, int source, int tag,
-             request_t* request) const;
+//   void irecv(void* buf, int size, int source, int tag,
+//              request_t* request) const;
 
   /**
      * Convience wrapper around isend deducing message size from sizeof(T).
@@ -193,8 +192,8 @@ class cumlCommunicator {
      * @param[in]   op          reduction operation to perform.
      * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
      */
-  void allreduce(const void* sendbuff, void* recvbuff, int count,
-                 datatype_t datatype, op_t op, cudaStream_t stream) const;
+//   void allreduce(const void* sendbuff, void* recvbuff, int count,
+//                  datatype_t datatype, op_t op, cudaStream_t stream) const;
 
   /**
      * Convience wrapper around allreduce deducing datatype_t from T.
@@ -217,8 +216,8 @@ class cumlCommunicator {
      * @param[in]   root        rank of broadcast root
      * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
      */
-  void bcast(void* buff, int count, datatype_t datatype, int root,
-             cudaStream_t stream) const;
+//   void bcast(void* buff, int count, datatype_t datatype, int root,
+//              cudaStream_t stream) const;
 
   /**
      * Convience wrapper around bcast deducing datatype_t from T.
@@ -243,9 +242,9 @@ class cumlCommunicator {
      * @param[in]   root        rank of broadcast root
      * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
      */
-  void reduce(const void* sendbuff, void* recvbuff, int count,
-              datatype_t datatype, op_t op, int root,
-              cudaStream_t stream) const;
+//   void reduce(const void* sendbuff, void* recvbuff, int count,
+//               datatype_t datatype, op_t op, int root,
+//               cudaStream_t stream) const;
 
   /**
      * Convience wrapper around reduce deducing datatype_t from T.
@@ -273,8 +272,8 @@ class cumlCommunicator {
      * @param[in]   datatype    data type of sendbuff and recvbuff
      * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
      */
-  void allgather(const void* sendbuff, void* recvbuff, int sendcount,
-                 datatype_t datatype, cudaStream_t stream) const;
+//   void allgather(const void* sendbuff, void* recvbuff, int sendcount,
+//                  datatype_t datatype, cudaStream_t stream) const;
 
   /**
      * Convience wrapper around allgather deducing datatype_t from T.
@@ -307,9 +306,9 @@ class cumlCommunicator {
      * @param[in]   datatype    data type of sendbuff and recvbuff
      * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
      */
-  void allgatherv(const void* sendbuf, void* recvbuf, const int recvcounts[],
-                  const int displs[], datatype_t datatype,
-                  cudaStream_t stream) const;
+//   void allgatherv(const void* sendbuf, void* recvbuf, const int recvcounts[],
+//                   const int displs[], datatype_t datatype,
+//                   cudaStream_t stream) const;
 
   /**
      * Convience wrapper around allgatherv deducing datatype_t from T.
@@ -337,8 +336,8 @@ class cumlCommunicator {
      * @param[in]   op          reduction operation to perform.
      * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
      */
-  void reducescatter(const void* sendbuff, void* recvbuff, int recvcount,
-                     datatype_t datatype, op_t op, cudaStream_t stream) const;
+//   void reducescatter(const void* sendbuff, void* recvbuff, int recvcount,
+//                      datatype_t datatype, op_t op, cudaStream_t stream) const;
 
   /**
      * Convience wrapper around reducescatter deducing datatype_t from T.

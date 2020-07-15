@@ -23,6 +23,7 @@
 from libcpp.memory cimport shared_ptr
 cimport cuml.common.cuda
 
+from cuml.raft.common.handle cimport handle_t
 
 cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
     cdef cppclass deviceAllocator:
@@ -31,6 +32,7 @@ cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
     cdef cppclass cumlHandle:
         cumlHandle() except +
         cumlHandle(int ns) except +
+        cumlHandle(handle_t* raftHandle) except +
         void setStream(cuml.common.cuda._Stream s) except +
         void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
         cuml.common.cuda._Stream getStream() except +

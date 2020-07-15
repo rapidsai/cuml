@@ -37,6 +37,7 @@ include_directories(include
   ../../include
   ../../src
   ../../src_prims
+  ${RAFT_DIR}/cpp/include
 )
 
 set(COMMS_LINK_LIBRARIES ${CUML_CPP_TARGET})
@@ -54,7 +55,7 @@ add_definitions(-DHAVE_NCCL)
 include_directories( ${NCCL_INCLUDE_DIRS} )
 list(APPEND COMMS_LINK_LIBRARIES ${NCCL_LIBRARIES})
 
-add_library(cumlcomms SHARED src/cuML_std_comms_impl.cpp)
+add_library(cumlcomms SHARED src/cuml_raft_std_comms.cpp)
 target_link_libraries(cumlcomms ${COMMS_LINK_LIBRARIES})
 
 install(TARGETS cumlcomms DESTINATION lib)

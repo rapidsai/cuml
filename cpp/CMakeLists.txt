@@ -443,9 +443,9 @@ endif(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
 ##############################################################################
 # - build comms ------------------------------------------------------------------------------
 
-# if(BUILD_CUML_STD_COMMS)
-#  add_subdirectory(comms/std)
-# endif(BUILD_CUML_STD_COMMS)
+if(BUILD_CUML_STD_COMMS)
+  add_subdirectory(comms/std)
+endif(BUILD_CUML_STD_COMMS)
 
 if(BUILD_CUML_MPI_COMMS)
   add_subdirectory(comms/mpi)

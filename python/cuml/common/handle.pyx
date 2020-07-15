@@ -24,6 +24,7 @@ import cuml
 from libcpp.memory cimport shared_ptr
 from cuml.common.cuda cimport _Stream, _Error, cudaStreamSynchronize
 
+from cuml.raft.common.handle cimport handle_t
 
 cdef extern from "cuml/common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
     cdef cppclass rmmAllocatorAdapter(deviceAllocator):
@@ -70,9 +71,14 @@ cdef class Handle:
 
     def __cinit__(self, n_streams=0):
         self.n_streams = n_streams
-        self.h = <size_t>(new cumlHandle(n_streams))
+        self.h = <size_t>(new cumlHandle(<int>n_streams))
 
         cdef cumlHandle* h_ = <cumlHandle*>self.h
+    
+    def __cinit__(self, raftHandle_t):
+        cdef size_t raftHandle_ptr = <size_t> raftHandle_t.h
+        cdef handle_t* raftHandle = <handle_t*> raftHandle_ptr
+        self.h = <size_t>(new cumlHandle(raftHandle))
 
     def __dealloc__(self):
         h_ = <cumlHandle*>self.h
