@@ -216,7 +216,6 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
 
-
   faiss::MetricType m = build_faiss_metric(metric);
 
   std::vector<int64_t> *id_ranges;
