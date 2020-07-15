@@ -253,7 +253,7 @@ class cumlCommunicator {
   template <typename T>
   void reduce(const T* sendbuff, T* recvbuff, int count, op_t op, int root,
               cudaStream_t stream) const {
-   _raftComms->reduce(sendbuff, recvbuff, count, op, root, stream);
+   _raftComms->reduce(sendbuff, recvbuff, count, (raft::comms::op_t) op, root, stream);
    //  reduce(sendbuff, recvbuff, count, getDataType<T>(), op, root, stream);
   }
 
@@ -345,8 +345,8 @@ class cumlCommunicator {
      */
   template <typename T>
   void reducescatter(const T* sendbuff, T* recvbuff, int recvcount,
-                     datatype_t datatype, op_t op, cudaStream_t stream) const {
-      _raftComms->reducescatter(sendbuff, recvbuff, recvcount, datatype, op, stream);
+                     op_t op, cudaStream_t stream) const {
+      _raftComms->reducescatter(sendbuff, recvbuff, recvcount, (raft::comms::op_t) op, stream);
    //  reducescatter(sendbuff, recvbuff, recvcount, getDataType<T>(), op, stream);
   }
 
