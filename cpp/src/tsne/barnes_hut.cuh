@@ -78,8 +78,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   device_buffer<int> bottomd(d_alloc, stream, 1);
   device_buffer<float> radiusd(d_alloc, stream, 1);
 
-  TSNE::InitializationKernel<<<1, 1, 0, stream>>>(/*errl,*/ limiter.data(), maxdepthd.data(),
-                                                  radiusd.data());
+  TSNE::InitializationKernel<<<1, 1, 0, stream>>>(
+    /*errl,*/ limiter.data(), maxdepthd.data(), radiusd.data());
 
   CUDA_CHECK(cudaPeekAtLastError());
 
@@ -90,10 +90,11 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   bool h_chk_nan;
 
   // Actual mallocs
-  device_buffer<int> startl(d_alloc, stream, nnodes +1);
+  device_buffer<int> startl(d_alloc, stream, nnodes + 1);
   device_buffer<int> childl(d_alloc, stream, (nnodes + 1) * 4);
   device_buffer<float> massl(d_alloc, stream, nnodes + 1);
-  thrust::device_ptr<float> begin_massl = thrust::device_pointer_cast(massl.data());
+  thrust::device_ptr<float> begin_massl =
+    thrust::device_pointer_cast(massl.data());
   thrust::fill(thrust::cuda::par.on(stream), begin_massl,
                begin_massl + (nnodes + 1), 1.0f);
 
@@ -126,14 +127,16 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                begin_gains_bh + (n * 2), 1.0f);
 
   device_buffer<float> old_forces(d_alloc, stream, n * 2);
-  CUDA_CHECK(cudaMemsetAsync(old_forces.data(), 0, sizeof(float) * n * 2, stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(old_forces.data(), 0, sizeof(float) * n * 2, stream));
 
   device_buffer<float> YY(d_alloc, stream, (nnodes + 1) * 2);
   device_buffer<float> YY_prev(d_alloc, stream, (nnodes + 1) * 2);
-  random_vector(YY.data(), -0.0001f, 0.0001f, (nnodes + 1) * 2, stream, random_state);
-  ASSERT(YY.data() != NULL
-    && YY_prev.data() != NULL
-    && rep_forces.data() != NULL, "[ERROR] Possibly no more memory");
+  random_vector(YY.data(), -0.0001f, 0.0001f, (nnodes + 1) * 2, stream,
+                random_state);
+  ASSERT(
+    YY.data() != NULL && YY_prev.data() != NULL && rep_forces.data() != NULL,
+    "[ERROR] Possibly no more memory");
 
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
@@ -154,14 +157,15 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   float learning_rate = pre_learning_rate;
 
   for (int iter = 0; iter < max_iter; iter++) {
+    CUDA_CHECK(cudaMemsetAsync(rep_forces.data(), 0,
+                               sizeof(float) * (nnodes + 1) * 2, stream));
     CUDA_CHECK(
-      cudaMemsetAsync(rep_forces.data(), 0, sizeof(float) * (nnodes + 1) * 2, stream));
-    CUDA_CHECK(cudaMemsetAsync(attr_forces.data(), 0, sizeof(float) * n * 2, stream));
+      cudaMemsetAsync(attr_forces.data(), 0, sizeof(float) * n * 2, stream));
 
     MLCommon::copy(YY_prev.data(), YY.data(), (nnodes + 1) * 2, stream);
-    TSNE::Reset_Normalization<<<1, 1, 0, stream>>>(Z_norm.data(), radiusd_squared.data(),
-                                                   bottomd.data(),
-                                                   NNODES, radiusd.data());
+    TSNE::Reset_Normalization<<<1, 1, 0, stream>>>(
+      Z_norm.data(), radiusd_squared.data(), bottomd.data(), NNODES,
+      radiusd.data());
     CUDA_CHECK(cudaPeekAtLastError());
 
     if (iter == exaggeration_iter) {
@@ -173,8 +177,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     START_TIMER;
     TSNE::BoundingBoxKernel<<<blocks * FACTOR1, THREADS1, 0, stream>>>(
-      startl.data(), childl.data(), massl.data(), YY.data(), YY.data() + nnodes + 1, maxxl.data(), maxyl.data(),
-      minxl.data(), minyl.data(), FOUR_NNODES, NNODES, n, limiter.data(), radiusd.data());
+      startl.data(), childl.data(), massl.data(), YY.data(),
+      YY.data() + nnodes + 1, maxxl.data(), maxyl.data(), minxl.data(),
+      minyl.data(), FOUR_NNODES, NNODES, n, limiter.data(), radiusd.data());
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(BoundingBoxKernel_time);
@@ -188,37 +193,40 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     START_TIMER;
     TSNE::TreeBuildingKernel<<<blocks * FACTOR2, THREADS2, 0, stream>>>(
-      /*errl,*/ childl.data(), YY.data(), YY.data() + nnodes + 1, NNODES, n, maxdepthd.data(), bottomd.data(),
-      radiusd.data());
+      /*errl,*/ childl.data(), YY.data(), YY.data() + nnodes + 1, NNODES, n,
+      maxdepthd.data(), bottomd.data(), radiusd.data());
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(TreeBuildingKernel_time);
 
     START_TIMER;
-    TSNE::ClearKernel2<<<blocks * 1, 1024, 0, stream>>>(startl.data(), massl.data(), NNODES,
-                                                        bottomd.data());
+    TSNE::ClearKernel2<<<blocks * 1, 1024, 0, stream>>>(
+      startl.data(), massl.data(), NNODES, bottomd.data());
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(ClearKernel2_time);
 
     START_TIMER;
     TSNE::SummarizationKernel<<<blocks * FACTOR3, THREADS3, 0, stream>>>(
-      countl.data(), childl.data(), massl.data(), YY.data(), YY.data() + nnodes + 1, NNODES, n, bottomd.data());
+      countl.data(), childl.data(), massl.data(), YY.data(),
+      YY.data() + nnodes + 1, NNODES, n, bottomd.data());
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(SummarizationKernel_time);
 
     START_TIMER;
     TSNE::SortKernel<<<blocks * FACTOR4, THREADS4, 0, stream>>>(
-      sortl.data(), countl.data(), startl.data(), childl.data(), NNODES, n, bottomd.data());
+      sortl.data(), countl.data(), startl.data(), childl.data(), NNODES, n,
+      bottomd.data());
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(SortKernel_time);
 
     START_TIMER;
     TSNE::RepulsionKernel<<<blocks * FACTOR5, THREADS5, 0, stream>>>(
-      /*errl,*/ theta, epssq, sortl.data(), childl.data(), massl.data(), YY.data(), YY.data() + nnodes + 1,
-      rep_forces.data(), rep_forces.data() + nnodes + 1, Z_norm.data(), theta_squared, NNODES,
+      /*errl,*/ theta, epssq, sortl.data(), childl.data(), massl.data(),
+      YY.data(), YY.data() + nnodes + 1, rep_forces.data(),
+      rep_forces.data() + nnodes + 1, Z_norm.data(), theta_squared, NNODES,
       FOUR_NNODES, n, radiusd_squared.data(), maxdepthd.data());
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -239,24 +247,30 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     // For general embedding dimensions
     TSNE::
       attractive_kernel_bh<<<MLCommon::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
-        VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, norm.data(), norm_add1.data(), attr_forces.data(),
-        attr_forces.data() + n, NNZ);
+        VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, norm.data(),
+        norm_add1.data(), attr_forces.data(), attr_forces.data() + n, NNZ);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
 
     START_TIMER;
     TSNE::IntegrationKernel<<<blocks * FACTOR6, THREADS6, 0, stream>>>(
-      learning_rate, momentum, early_exaggeration, YY.data(), YY.data() + nnodes + 1,
-      attr_forces.data(), attr_forces.data() + n, rep_forces.data(), rep_forces.data() + nnodes + 1,
-      gains_bh.data(), gains_bh.data() + n, old_forces.data(), old_forces.data() + n, Z_norm.data(), n);
+      learning_rate, momentum, early_exaggeration, YY.data(),
+      YY.data() + nnodes + 1, attr_forces.data(), attr_forces.data() + n,
+      rep_forces.data(), rep_forces.data() + nnodes + 1, gains_bh.data(),
+      gains_bh.data() + n, old_forces.data(), old_forces.data() + n,
+      Z_norm.data(), n);
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(IntegrationKernel_time);
 
-    h_chk_nan = thrust::transform_reduce(thrust::cuda::par.on(stream), YY.data(), YY.data() + (nnodes + 1) * 2,
-                                         NaNTestKernel(), 0, thrust::plus<bool>());
+    h_chk_nan = thrust::transform_reduce(
+      thrust::cuda::par.on(stream), YY.data(), YY.data() + (nnodes + 1) * 2,
+      NaNTestKernel(), 0, thrust::plus<bool>());
     if (h_chk_nan) {
-      CUML_LOG_DEBUG("NaN result detected during Barnes Hut iteration: %d, returning last known good positions.", iter);
+      CUML_LOG_DEBUG(
+        "NaN result detected during Barnes Hut iteration: %d, returning last "
+        "known good positions.",
+        iter);
       MLCommon::copy(YY.data(), YY_prev.data(), (nnodes + 1) * 2, stream);
       break;
     }

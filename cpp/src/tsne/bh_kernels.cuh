@@ -43,11 +43,8 @@ namespace TSNE {
 /**
  * Unary op intended to be used as a Thrust transform, check if array elements are NaNs.
  */
-struct NaNTestKernel{
-  __host__ __device__ bool operator()(const float a) const
-  {
-    return isnan(a);
-  }
+struct NaNTestKernel {
+  __host__ __device__ bool operator()(const float a) const { return isnan(a); }
 };
 
 /**
@@ -209,7 +206,7 @@ __global__ __launch_bounds__(
   const int inc = blockDim.x * gridDim.x;
   int i = threadIdx.x + blockIdx.x * blockDim.x;
 
-  // Iterate over all bodies assigned to thread
+  // iterate over all bodies assigned to thread
   while (i < N) {
     if (skip != 0) {
       // new body, so start traversing at root
@@ -228,7 +225,7 @@ __global__ __launch_bounds__(
       y = rooty + ((rooty < (py = posyd[i])) ? (j |= 2, r) : (-r));
     }
 
-    // Follow path to leaf cell
+    // follow path to leaf cell
     while ((ch = childd[n * 4 + j]) >= N) {
       n = ch;
       depth++;
@@ -241,8 +238,10 @@ __global__ __launch_bounds__(
 
     // (ch)ild will be '-1' (nullptr), '-2' (locked), or an Integer corresponding to a body offset
     // in the lower [0, N) blocks of childd
-    if (ch != -2) { // skip if child pointer was locked when we examined it, and try again later.
-      locked = n * 4 + j; // store the locked position in case we need to patch in a cell later.
+    if (ch != -2) {
+      // skip if child pointer was locked when we examined it, and try again later.
+      locked = n * 4 + j;
+      // store the locked position in case we need to patch in a cell later.
 
       if (ch == -1) {
         // Child is a nullptr ('-1'), so we write our body index to the leaf, and move on to the next body.
@@ -263,22 +262,17 @@ __global__ __launch_bounds__(
             const int cell = atomicSub(bottomd, 1) - 1;
             if (cell == N) {
               // atomicExch(errd, 1);
-              int prev_bottom = atomicExch(bottomd, NNODES);
+              atomicExch(bottomd, NNODES);
               //printf("Cell Allocation Overflow, depth=%d, r=%f, rbound=%f, N=%d, NNODES=%d, bottomd=%d\n",
               //    depth, r, radius, N, NNODES, prev_bottom);
-            }
-            else if (cell < N) {
+            } else if (cell < N) {
               depth--;
               continue;
             }
 
-            if (patch != -1) {
-              childd[n * 4 + j] = cell;
-            }
+            if (patch != -1) childd[n * 4 + j] = cell;
 
-            if (cell > patch) {
-              patch = cell;
-            }
+            if (cell > patch) patch = cell;
 
             // Insert migrated child node
             j = (x < posxd[ch]) ? 1 : 0;
@@ -288,12 +282,10 @@ __global__ __launch_bounds__(
             n = cell;
             r *= 0.5f;
 
-
             x += ((x < px) ? (j = 1, r) : (j = 0, -r));
 
             y += ((y < py) ? (j |= 2, r) : (-r));
 
-            // Check the value of the j'th child at offset 'n' N <= n < 2*N, in childd
             ch = childd[n * 4 + j];
             if (r <= 1e-10) {
               break;
@@ -315,6 +307,7 @@ __global__ __launch_bounds__(
     if (skip == 2) childd[locked] = patch;
   }
 
+  // record maximum tree depth
   // if (localmaxdepth >= THREADS5)
   //   localmaxdepth = THREADS5 - 1;
   if (localmaxdepth > 32) localmaxdepth = 32;
