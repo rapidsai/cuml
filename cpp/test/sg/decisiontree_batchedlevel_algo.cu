@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
+#include <cuda_utils.cuh>
 #include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>
 #include <linalg/cublas_wrappers.h>
-#include <random/make_blobs.h>
-#include <random/make_regression.h>
+#include <random/make_blobs.cuh>
+#include <random/make_regression.cuh>
 #include <test_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/iota.cuh>

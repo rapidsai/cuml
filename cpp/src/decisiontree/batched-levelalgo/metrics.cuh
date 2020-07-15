@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <common/grid_sync.h>
-#include <cuda_utils.h>
+#include <common/grid_sync.cuh>
+#include <cuda_utils.cuh>
 #include "input.cuh"
 #include "node.cuh"
 #include "split.cuh"

@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <common/grid_sync.h>
-#include <cuda_utils.h>
+#include <common/grid_sync.cuh>
+#include <cuda_utils.cuh>
 #include <cuml/tree/flatnode.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
