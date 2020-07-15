@@ -79,6 +79,7 @@
 - PR #2507: Import `treelite.sklearn`
 - PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
 - PR #2515: Increase tolerance for LogisticRegression test
+- PR #2558: Disabled a long-running FIL test
 - PR #2540: Update default value for n_epochs in UMAP to match documentation & sklearn API
 - PR #2535: Fix issue with incorrect docker image being used in local build script
 - PR #2542: Fix small memory leak in TSNE
