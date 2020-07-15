@@ -77,6 +77,7 @@
 - PR #2497: Changes to accomodate cuDF unsigned categorical changes
 - PR #2209: Fix FIL benchmark for gpuarray-c input
 - PR #2507: Import `treelite.sklearn`
+- PR #2532: Updating doxygen in new MG headers
 - PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
 - PR #2515: Increase tolerance for LogisticRegression test
 - PR #2558: Disabled a long-running FIL test
