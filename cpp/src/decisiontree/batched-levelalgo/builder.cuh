@@ -27,7 +27,6 @@ template <typename Traits, typename DataT = typename Traits::DataT,
 void convertToSparse(const Builder<Traits>& b,
                      const Node<DataT, LabelT, IdxT>* h_nodes,
                      std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree) {
-  // to make sure that we can update from an arbitrary depth in future
   auto len = sparsetree.size();
   sparsetree.resize(len + b.h_total_nodes);
   for (IdxT i = 0; i < b.h_total_nodes; ++i) {
@@ -37,7 +36,6 @@ void convertToSparse(const Builder<Traits>& b,
   }
 }
 
-///@todo: support building from an arbitrary depth
 ///@todo: support col subsampling per node
 template <typename Traits, typename DataT = typename Traits::DataT,
           typename LabelT = typename Traits::LabelT,

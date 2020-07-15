@@ -258,7 +258,6 @@ struct Builder {
   }
 
  private:
-  ///@todo: support starting from arbitrary nodes
   /**
    * @brief Initialize buffers and state
    *
