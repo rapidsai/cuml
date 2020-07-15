@@ -44,13 +44,13 @@ def _build_train_test_data(X, y, datatype, train_ratio=0.9):
     y_test = y[~train_selection]
 
     if datatype == "dataframe":
-        X_train = cudf.DataFrame.from_gpu_matrix(
+        X_train = cudf.DataFrame(
             rmm.to_device(X_train))
-        y_train = cudf.DataFrame.from_gpu_matrix(
+        y_train = cudf.DataFrame(
             rmm.to_device(y_train.reshape(y_train.shape[0], 1)))
-        X_test = cudf.DataFrame.from_gpu_matrix(
+        X_test = cudf.DataFrame(
             rmm.to_device(X_test))
-        y_test = cudf.DataFrame.from_gpu_matrix(
+        y_test = cudf.DataFrame(
             rmm.to_device(y_test.reshape(y_test.shape[0], 1)))
 
     return X_train, X_test, y_train, y_test
@@ -225,8 +225,8 @@ def test_predict_multioutput(input_type, output_type):
     y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 
     if input_type == "cudf":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
-        y = cudf.DataFrame.from_gpu_matrix(rmm.to_device(y))
+        X = cudf.DataFrame(rmm.to_device(X))
+        y = cudf.DataFrame(rmm.to_device(y))
     elif input_type == "cupy":
         X = cp.asarray(X)
         y = cp.asarray(y)
@@ -254,8 +254,8 @@ def test_predict_proba_multioutput(input_type, output_type):
     y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 
     if input_type == "cudf":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
-        y = cudf.DataFrame.from_gpu_matrix(rmm.to_device(y))
+        X = cudf.DataFrame(rmm.to_device(X))
+        y = cudf.DataFrame(rmm.to_device(y))
     elif input_type == "cupy":
         X = cp.asarray(X)
         y = cp.asarray(y)
