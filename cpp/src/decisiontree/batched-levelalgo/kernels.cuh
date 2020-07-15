@@ -27,6 +27,107 @@ namespace ML {
 namespace DecisionTree {
 
 /**
+ * @brief Traits used to customize device-side methods for classification task
+ *
+ * @tparam _data  data type
+ * @tparam _label label type
+ * @tparam _idx   index type
+ * @tparam TPB    threads per block
+ */
+template <typename _data, typename _label, typename _idx, int TPB>
+struct ClsDeviceTraits {
+  typedef _data DataT;
+  typedef _label LabelT;
+  typedef _idx IdxT;
+
+ private:
+  struct Int2Max {
+    DI int2 operator()(const int2& a, const int2& b) {
+      int2 out;
+      if (a.y > b.y)
+        out = a;
+      else if (a.y == b.y && a.x < b.x)
+        out = a;
+      else
+        out = b;
+      return out;
+    }
+  };  // struct Int2Max
+
+ public:
+  /**
+   * @note to be called by only one block from all participating blocks
+   *       'smem' must be atleast of size `sizeof(int) * input.nclasses`
+   */
+  static DI void computePrediction(
+    IdxT range_start, IdxT range_len, const Input<DataT, LabelT, IdxT>& input,
+    volatile Node<DataT, LabelT, IdxT>* nodes, IdxT* n_leaves, void* smem) {
+    typedef cub::BlockReduce<int2, TPB> BlockReduceT;
+    __shared__ typename BlockReduceT::TempStorage temp;
+    auto* shist = reinterpret_cast<int*>(smem);
+    auto tid = threadIdx.x;
+    for (int i = tid; i < input.nclasses; i += blockDim.x) shist[i] = 0;
+    __syncthreads();
+    auto len = range_start + range_len;
+    for (auto i = range_start + tid; i < len; i += blockDim.x) {
+      auto label = input.labels[input.rowids[i]];
+      atomicAdd(shist + label, 1);
+    }
+    __syncthreads();
+    auto op = Int2Max();
+    int2 v = {-1, -1};
+    for (int i = tid; i < input.nclasses; i += blockDim.x) {
+      int2 tmp = {i, shist[i]};
+      v = op(v, tmp);
+    }
+    v = BlockReduceT(temp).Reduce(v, op);
+    __syncthreads();
+    if (tid == 0) {
+      nodes[0].makeLeaf(n_leaves, LabelT(v.x));
+    }
+  }
+};  // struct ClsDeviceTraits
+
+/**
+ * @brief Traits used to customize device-side methods for regression task
+ *
+ * @tparam _data  data type
+ * @tparam _label label type
+ * @tparam _idx   index type
+ * @tparam TPB    threads per block
+ */
+template <typename _data, typename _label, typename _idx, int TPB>
+struct RegDeviceTraits {
+  typedef _data DataT;
+  typedef _label LabelT;
+  typedef _idx IdxT;
+
+  /**
+   * @note to be called by only one block from all participating blocks
+   *       'smem' is not used, but kept for the sake of interface parity with
+   *       the corresponding method for classification
+   */
+  static DI void computePrediction(
+    IdxT range_start, IdxT range_len, const Input<DataT, LabelT, IdxT>& input,
+    volatile Node<DataT, LabelT, IdxT>* nodes, IdxT* n_leaves, void* smem) {
+    typedef cub::BlockReduce<LabelT, TPB> BlockReduceT;
+    __shared__ typename BlockReduceT::TempStorage temp;
+    LabelT sum = LabelT(0.0);
+    auto tid = threadIdx.x;
+    auto len = range_start + range_len;
+    for (auto i = range_start + tid; i < len; i += blockDim.x) {
+      auto label = input.labels[input.rowids[i]];
+      sum += label;
+    }
+    sum = BlockReduceT(temp).Sum(sum);
+    __syncthreads();
+    if (tid == 0) {
+      nodes[0].makeLeaf(n_leaves, sum / range_len);
+    }
+  }
+};  // struct RegDeviceTraits
+
+/**
  * @brief Decide whether the current node is to be declared as a leaf entirely
  *        based on the input hyper-params set by the user
  *
@@ -47,87 +148,6 @@ DI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_rows_per_node,
   if (nSamples < min_rows_per_node) return true;
   if (*n_leaves >= max_leaves) return true;
   return false;
-}
-
-namespace internal {
-struct Int2Max {
-  DI int2 operator()(const int2& a, const int2& b) {
-    int2 out;
-    if (a.y > b.y)
-      out = a;
-    else if (a.y == b.y && a.x < b.x)
-      out = a;
-    else
-      out = b;
-    return out;
-  }
-};
-};  // namespace internal
-
-/**
- * @brief Compute the prediction value for the current leaf node for the case of
- *        classification
- *
- * @note to be called by only one block from all participating blocks
- *       'smem' must be atleast of size `sizeof(int) * input.nclasses`
- */
-template <typename DataT, typename LabelT, typename IdxT, int TPB>
-DI void computePredClassification(IdxT range_start, IdxT range_len,
-                                  const Input<DataT, LabelT, IdxT>& input,
-                                  volatile Node<DataT, LabelT, IdxT>* nodes,
-                                  IdxT* n_leaves, void* smem) {
-  typedef cub::BlockReduce<int2, TPB> BlockReduceT;
-  __shared__ typename BlockReduceT::TempStorage temp;
-  auto* shist = reinterpret_cast<int*>(smem);
-  auto tid = threadIdx.x;
-  for (int i = tid; i < input.nclasses; i += blockDim.x) shist[i] = 0;
-  __syncthreads();
-  auto len = range_start + range_len;
-  for (auto i = range_start + tid; i < len; i += blockDim.x) {
-    auto label = input.labels[input.rowids[i]];
-    atomicAdd(shist + label, 1);
-  }
-  __syncthreads();
-  auto op = internal::Int2Max();
-  int2 v = {-1, -1};
-  for (int i = tid; i < input.nclasses; i += blockDim.x) {
-    int2 tmp = {i, shist[i]};
-    v = op(v, tmp);
-  }
-  v = BlockReduceT(temp).Reduce(v, op);
-  __syncthreads();
-  if (tid == 0) {
-    nodes[0].makeLeaf(n_leaves, LabelT(v.x));
-  }
-}
-
-/**
- * @brief Compute the prediction value for the current leaf node for the case of
- *        regression
- *
- * @note to be called by only one block from all participating blocks
- *       'smem' is not used, but kept for the sake of interface parity with the
- *       corresponding method for classification
- */
-template <typename DataT, typename LabelT, typename IdxT, int TPB>
-DI void computePredRegression(IdxT range_start, IdxT range_len,
-                              const Input<DataT, LabelT, IdxT>& input,
-                              volatile Node<DataT, LabelT, IdxT>* nodes,
-                              IdxT* n_leaves, void* smem) {
-  typedef cub::BlockReduce<LabelT, TPB> BlockReduceT;
-  __shared__ typename BlockReduceT::TempStorage temp;
-  LabelT sum = LabelT(0.0);
-  auto tid = threadIdx.x;
-  auto len = range_start + range_len;
-  for (auto i = range_start + tid; i < len; i += blockDim.x) {
-    auto label = input.labels[input.rowids[i]];
-    sum += label;
-  }
-  sum = BlockReduceT(temp).Sum(sum);
-  __syncthreads();
-  if (tid == 0) {
-    nodes[0].makeLeaf(n_leaves, sum / range_len);
-  }
 }
 
 /**
@@ -196,8 +216,9 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
   }
 }
 
-template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__global__ void nodeSplitClassificationKernel(
+template <typename DataT, typename LabelT, typename IdxT, typename DevTraits,
+          int TPB>
+__global__ void nodeSplitKernel(
   IdxT max_depth, IdxT min_rows_per_node, IdxT max_leaves,
   DataT min_impurity_decrease, Input<DataT, LabelT, IdxT> input,
   volatile Node<DataT, LabelT, IdxT>* curr_nodes,
@@ -211,37 +232,13 @@ __global__ void nodeSplitClassificationKernel(
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
     node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
   if (isLeaf || splits[nid].best_metric_val < min_impurity_decrease) {
-    computePredClassification<DataT, LabelT, IdxT, TPB>(
+    DevTraits::computePrediction(
       range_start, range_len, input, node, n_leaves, smem);
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(input, splits, curr_nodes,
                                              next_nodes, n_nodes, n_depth,
                                              total_nodes, (char*)smem);
-}
-
-template <typename DataT, typename IdxT, int TPB>
-__global__ void nodeSplitRegressionKernel(
-  IdxT max_depth, IdxT min_rows_per_node, IdxT max_leaves,
-  DataT min_impurity_decrease, Input<DataT, DataT, IdxT> input,
-  volatile Node<DataT, DataT, IdxT>* curr_nodes,
-  volatile Node<DataT, DataT, IdxT>* next_nodes, IdxT* n_nodes,
-  const Split<DataT, IdxT>* splits, IdxT* n_leaves, IdxT total_nodes,
-  IdxT* n_depth) {
-  extern __shared__ char smem[];
-  IdxT nid = blockIdx.x;
-  volatile auto* node = curr_nodes + nid;
-  auto range_start = node->start, range_len = node->end;
-  auto isLeaf = leafBasedOnParams<DataT, IdxT>(
-    node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
-  if (isLeaf || splits[nid].best_metric_val < min_impurity_decrease) {
-    computePredRegression<DataT, DataT, IdxT, TPB>(range_start, range_len,
-                                                   input, node, n_leaves, smem);
-    return;
-  }
-  partitionSamples<DataT, DataT, IdxT, TPB>(input, splits, curr_nodes,
-                                            next_nodes, n_nodes, n_depth,
-                                            total_nodes, (char*)smem);
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>

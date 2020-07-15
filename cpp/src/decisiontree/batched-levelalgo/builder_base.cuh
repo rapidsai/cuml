@@ -353,6 +353,8 @@ struct ClsTraits {
   /** threads per block for the nodeSplitKernel */
   static constexpr int TPB_SPLIT = 512;
 
+  typedef ClsDeviceTraits<DataT, LabelT, IdxT, TPB_SPLIT> DevTraits;
+
   /**
    * @brief Compute best split for the currently given set of columns
    *
@@ -392,7 +394,7 @@ struct ClsTraits {
                         IdxT batchSize, cudaStream_t s) {
     auto smemSize =
       std::max(2 * sizeof(IdxT) * TPB_SPLIT, sizeof(int) * b.input.nclasses);
-    nodeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_SPLIT>
+    nodeSplitKernel<DataT, LabelT, IdxT, DevTraits, TPB_SPLIT>
       <<<batchSize, TPB_SPLIT, smemSize, s>>>(
         b.params.max_depth, b.params.min_rows_per_node, b.params.max_leaves,
         b.params.min_impurity_decrease, b.input, b.curr_nodes, b.next_nodes,
@@ -421,6 +423,8 @@ struct RegTraits {
   static constexpr int TPB_DEFAULT = 256;
   /** threads per block for the nodeSplitKernel */
   static constexpr int TPB_SPLIT = 512;
+
+  typedef RegDeviceTraits<DataT, LabelT, IdxT, TPB_SPLIT> DevTraits;
 
   /**
    * @brief Compute best split for the currently given set of columns
@@ -467,7 +471,7 @@ struct RegTraits {
   static void nodeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT batchSize,
                         cudaStream_t s) {
     auto smemSize = 2 * sizeof(IdxT) * TPB_SPLIT;
-    nodeSplitRegressionKernel<DataT, IdxT, TPB_SPLIT>
+    nodeSplitKernel<DataT, LabelT, IdxT, DevTraits, TPB_SPLIT>
       <<<batchSize, TPB_SPLIT, smemSize, s>>>(
         b.params.max_depth, b.params.min_rows_per_node, b.params.max_leaves,
         b.params.min_impurity_decrease, b.input, b.curr_nodes, b.next_nodes,
