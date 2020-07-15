@@ -292,7 +292,7 @@ class NearestNeighbors(Base):
 
         return m, expanded
 
-    def kneighbors(self, X=None, n_neighbors=None, return_distance=True, 
+    def kneighbors(self, X=None, n_neighbors=None, return_distance=True,
                    convert_dtype=True, return_cupy=False):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
@@ -314,7 +314,7 @@ class NearestNeighbors(Base):
         convert_dtype : bool, optional (default = True)
             When set to True, the kneighbors method will automatically
             convert the inputs to np.float32.
-        
+
         return_cupy : bool, optional (default = False)
             When set to True, returns the outputs as cupy.ndarrays. This
             prevents double conversion when using 'kneighbors_graph'.
@@ -334,9 +334,9 @@ class NearestNeighbors(Base):
         use_training_data = False
         if X is None:
             use_training_data = True
-            X = self.X_m 
+            X = self.X_m
             n_neighbors += 1
-            
+
         out_type = 'cupy' if return_cupy else self._get_output_type(X)
 
         if (n_neighbors is None and self.n_neighbors is None) \
@@ -406,18 +406,18 @@ class NearestNeighbors(Base):
         I_output = I_ndarr.to_output(out_type)
         if return_distance:
             D_output = D_ndarr.to_output(out_type)
-        
-        # drop first column if using training data as X, always cupy.ndarray type
+
+        # drop first column if using training data as X, always cupy.ndarray
         # this will need to be moved to the C++ layer (cuml issue #2562)
         if use_training_data:
-            return (D_output[:,1:], I_output[:,1:]) \
-                if return_distance else I_output[:,1:]
+            return (D_output[:, 1:], I_output[:, 1:]) \
+                if return_distance else I_output[:, 1:]
 
         return (D_output, I_output) if return_distance else I_output
 
     def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):
         """
-        Find the k nearest neighbors of column vectors in X and return as 
+        Find the k nearest neighbors of column vectors in X and return as
         a sparse matrix in CSR format.
 
         Parameters
@@ -439,43 +439,45 @@ class NearestNeighbors(Base):
         Returns
         -------
         A: sparse graph in CSR format, shape = (n_samples, n_samples_fit)
-            n_samples_fit is the number of samples in the fitted data where 
+            n_samples_fit is the number of samples in the fitted data where
             A[i, j] is assigned the weight of the edge that connects i to k.
             Values will be ones/zeros or Euclidean distance based on mode.
 
         """
         if not self.X_m:
-            raise ValueError('This NearestNeighbors instance has not been fitted '
-                             'yet, call "fit" before using this estimator')
+            raise ValueError('This NearestNeighbors instance has not been '
+                             'fitted yet, call "fit" before using this '
+                             'estimator')
 
         if n_neighbors is None:
-            n_neighbors = self.n_neighbors 
+            n_neighbors = self.n_neighbors
 
         if mode == 'connectivity':
-            indices = self.kneighbors(X, n_neighbors, return_distance=False, 
+            indices = self.kneighbors(X, n_neighbors, return_distance=False,
                                       return_cupy=True)
             n_samples = indices.shape[0]
             distances = cp.ones(n_samples * n_neighbors)
 
         elif mode == 'distance':
-            distances, indices = self.kneighbors(X, n_neighbors, return_cupy=True)
+            distances, indices = self.kneighbors(X, n_neighbors,
+                                                 return_cupy=True)
             distances = cp.ravel(distances)
 
         else:
             raise ValueError('Unsupported mode, must be one of "connectivity" '
                              'or "distance" but got "%s" instead' % mode)
-             
+
         n_samples = indices.shape[0]
         n_samples_fit = self.X_m.shape[0]
         n_nonzero = n_samples * n_neighbors
         rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
-        return cp.sparse.csr_matrix((distances, cp.ravel(indices), rowptr), 
+        return cp.sparse.csr_matrix((distances, cp.ravel(indices), rowptr),
                                     shape=(n_samples, n_samples_fit))
 
 
-def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False, 
-                    handle=None, algorithm="brute", metric="minkowski", p=2, 
-                    include_self=False, metric_params=None):
+def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
+                     handle=None, algorithm="brute", metric="minkowski", p=2,
+                     include_self=False, metric_params=None):
     """
     Computes the (weighted) graph of k-Neighbors for points in X.
 
@@ -523,18 +525,17 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     Returns
     -------
     A: sparse graph in CSR format, shape = (n_samples, n_samples_fit)
-        n_samples_fit is the number of samples in the fitted data where 
+        n_samples_fit is the number of samples in the fitted data where
         A[i, j] is assigned the weight of the edge that connects i to k.
         Values will be ones/zeros or Euclidean distance based on mode.
 
-    """    
+    """
     if not isinstance(X, NearestNeighbors):
-        X = NearestNeighbors(n_neighbors=n_neighbors, verbose=verbose, handle=handle, 
-                            algorithm=algorithm, metric=metric, p=p, 
-                            metric_params=metric_params).fit(X)
+        X = NearestNeighbors(n_neighbors, verbose, handle, algorithm, metric,
+                             p, metric_params=metric_params).fit(X)
     else:
-        raise TypeError('Incorrect type, use kneighbors_graph as method of %s' % X)
-    
+        raise TypeError('Use kneighbors_graph as method of %s' % X)
+
     if include_self == 'auto':
         include_self = mode == 'connectivity'
 
