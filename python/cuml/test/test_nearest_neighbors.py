@@ -262,17 +262,17 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
                          stress_param(1000)])
 @pytest.mark.parametrize('n_feats', [unit_param(5), quality_param(30),
                          stress_param(100)])
-@pytest.mark.parametrize("p", [2, 5])      
+@pytest.mark.parametrize("p", [2, 5])
 @pytest.mark.parametrize('k', [unit_param(3), quality_param(10),
                          stress_param(30)])
 @pytest.mark.parametrize("metric", valid_metrics())
 @pytest.mark.parametrize("mode", ['connectivity', 'distance'])
 @pytest.mark.parametrize("as_instance", [True, False])
-def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode, 
+def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
                    as_instance):
     X, _ = make_blobs(n_samples=nrows,
                       n_features=n_feats, random_state=0)
-    
+
     if as_instance:
         CSR_sk = sklearn.neighbors.kneighbors_graph(X, k, mode, metric=metric,
                                                     p=p, include_self='auto')
@@ -285,7 +285,7 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
         X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
 
     if as_instance:
-        CSR_cu = cuml.neighbors.kneighbors_graph(X, k, mode, metric=metric, 
+        CSR_cu = cuml.neighbors.kneighbors_graph(X, k, mode, metric=metric,
                                                  p=p, include_self='auto')
     else:
         knn_cu = cuKNN(metric=metric, p=p)
@@ -294,4 +294,3 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
 
     assert cp.sparse.isspmatrix_csr(CSR_cu)
     assert np.array_equal(CSR_sk.toarray().shape, CSR_cu.toarray().shape)
-    
