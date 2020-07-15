@@ -87,7 +87,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   const int FOUR_N = 4 * n;
   const float theta_squared = theta * theta;
   const int NNODES = nnodes;
-  bool h_chk_nan;
+  bool h_chk_finite;
 
   // Actual mallocs
   device_buffer<int> startl(d_alloc, stream, nnodes + 1);
@@ -263,12 +263,12 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     END_TIMER(IntegrationKernel_time);
 
-    h_chk_nan = thrust::transform_reduce(
+    h_chk_finite = thrust::transform_reduce(
       thrust::cuda::par.on(stream), YY.data(), YY.data() + (nnodes + 1) * 2,
-      NaNTestKernel(), 0, thrust::plus<bool>());
-    if (h_chk_nan) {
-      CUML_LOG_DEBUG(
-        "NaN result detected during Barnes Hut iteration: %d, returning last "
+      FiniteTestUnary(), 0, thrust::plus<bool>());
+    if (h_chk_finite) {
+      CUML_LOG_WARN(
+        "Non-finite result detected during Barnes Hut iteration: %d, returning last "
         "known good positions.",
         iter);
       MLCommon::copy(YY.data(), YY_prev.data(), (nnodes + 1) * 2, stream);

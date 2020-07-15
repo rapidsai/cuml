@@ -40,12 +40,14 @@
 namespace ML {
 namespace TSNE {
 
+
 /**
  * Unary op intended to be used as a Thrust transform, check if array elements are NaNs.
  */
-struct NaNTestKernel {
-  __host__ __device__ bool operator()(const float a) const { return isnan(a); }
+struct FiniteTestUnary {
+  __host__ __device__ bool operator()(const float x) const { return !isfinite(x); }
 };
+
 
 /**
  * Intializes the states of objects. This speeds the overall kernel up.
