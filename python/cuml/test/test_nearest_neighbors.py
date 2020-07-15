@@ -120,7 +120,7 @@ def test_knn(input_type, nrows, n_feats, k, metric):
     p = 5  # Testing 5-norm of the minkowski metric only
     knn_sk = skKNN(metric=metric, p=p)  # Testing
     knn_sk.fit(X)
-    D_sk, I_sk = knn_sk.kneighbors(X=None, n_neighbors=k)
+    D_sk, I_sk = knn_sk.kneighbors(X, k)
 
     X_orig = X
 
@@ -129,7 +129,7 @@ def test_knn(input_type, nrows, n_feats, k, metric):
 
     knn_cu = cuKNN(metric=metric, p=p)
     knn_cu.fit(X)
-    D_cuml, I_cuml = knn_cu.kneighbors(X=None, n_neighbors=k)
+    D_cuml, I_cuml = knn_cu.kneighbors(X, k)
 
     if input_type == "dataframe":
         assert isinstance(D_cuml, cudf.DataFrame)
