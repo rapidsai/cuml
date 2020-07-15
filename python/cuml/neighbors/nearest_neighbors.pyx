@@ -330,12 +330,14 @@ class NearestNeighbors(Base):
         """
 
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
-        X = self.X_m if X is None else X
 
-        if not return_cupy:
-            out_type = self._get_output_type(X)
-        else:
-            out_type = 'cupy'
+        use_training_data = False
+        if X is None:
+            use_training_data = True
+            X = self.X_m 
+            n_neighbors += 1
+            
+        out_type = 'cupy' if return_cupy else self._get_output_type(X)
 
         if (n_neighbors is None and self.n_neighbors is None) \
                 or n_neighbors <= 0:
@@ -401,8 +403,16 @@ class NearestNeighbors(Base):
 
         self.handle.sync()
 
-        return (D_ndarr.to_output(out_type), I_ndarr.to_output(out_type)) \
-            if return_distance else I_ndarr.to_output(out_type)
+        I_output = I_ndarr.to_output(out_type)
+        if return_distance:
+            D_output = D_ndarr.to_output(out_type)
+        
+        # drop first column if using training data as X, always cupy.ndarray type
+        if use_training_data:
+            return (D_output[:,1:], I_output[:,1:]) \
+                if return_distance else I_output[:,1:]
+
+        return (D_output, I_output) if return_distance else I_output
 
     def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):
         """
