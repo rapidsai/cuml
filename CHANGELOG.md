@@ -12,6 +12,7 @@
 - PR #2392: PCA can accept sparse inputs, and sparse prim for computing covariance
 - PR #2465: Support pandas 1.0+
 - PR #2520: TfidfVectorizer estimator
+- PR #2461: Add KNN Sparse Output Functionality
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
