@@ -267,4 +267,3 @@ class NearestNeighbors(BaseEstimator):
                                                  self.datatype))
 
         return ret
-        
