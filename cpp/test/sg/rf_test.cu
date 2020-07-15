@@ -104,7 +104,8 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     inference_data_h = {30.0, 10.0, 1.0, 20.0, 2.0, 10.0, 0.0, 40.0};
     inference_data_h.resize(inference_data_len);
     allocate(inference_data_d, inference_data_len);
-    updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
+    updateDevice(inference_data_d, inference_data_h.data(), inference_data_len,
+                 stream);
 
     predict(handle, forest, inference_data_d, params.n_inference_rows,
             params.n_cols, predicted_labels);
@@ -202,7 +203,8 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     inference_data_h = {0.0, 10.0, 0.0, 20.0, 0.0, 30.0, 0.0, 40.0};
     inference_data_h.resize(inference_data_len);
     allocate(inference_data_d, inference_data_len);
-    updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
+    updateDevice(inference_data_d, inference_data_h.data(), inference_data_len,
+                 stream);
 
     predict(handle, forest, inference_data_d, params.n_inference_rows,
             params.n_cols, predicted_labels);
@@ -268,7 +270,9 @@ const std::vector<RfInputs<float>> inputsf2_clf = {
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 0.0, 2, CRITERION::ENTROPY}};
+   2, 0.0, 2, CRITERION::ENTROPY},
+  {50, 10, 10, 0.8f, 0.8f, 10, 8, -1, true, true, 3,
+   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2, CRITERION::ENTROPY}};
 
 const std::vector<RfInputs<double>> inputsd2_clf = {  // Same as inputsf2_clf
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
@@ -290,7 +294,9 @@ const std::vector<RfInputs<double>> inputsd2_clf = {  // Same as inputsf2_clf
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 0.0, 2, CRITERION::ENTROPY}};
+   2, 0.0, 2, CRITERION::ENTROPY},
+  {50, 10, 10, 0.8f, 0.8f, 10, 8, -1, true, true, 3,
+   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2, CRITERION::ENTROPY}};
 
 typedef RfClassifierTest<float> RfClassifierTestF;
 TEST_P(RfClassifierTestF, Fit) {
