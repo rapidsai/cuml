@@ -22,19 +22,23 @@
 namespace ML {
 
 raftHandle_impl::raftHandle_impl(int n_streams)
-  : _hostAllocator(std::make_shared<defaultHostAllocator>()), _communicator() {
+  : _hostAllocator(std::make_shared<defaultHostAllocator>()) {
   _raftHandle = new raft::handle_t(n_streams);
 
   _deviceAllocator =
     std::make_shared<rmmAllocatorAdapter>(_raftHandle->get_device_allocator());
+  
+  _communicator = std::make_shared<MLCommon::cumlCommunicator>(_raftHandle->get_comms());
 }
 
 raftHandle_impl::raftHandle_impl(raft::handle_t* raftHandle)
-  : _hostAllocator(std::make_shared<defaultHostAllocator>()), _communicator() {
+  : _hostAllocator(std::make_shared<defaultHostAllocator>()) {
     _raftHandle = raftHandle;
 
   _deviceAllocator =
     std::make_shared<rmmAllocatorAdapter>(_raftHandle->get_device_allocator());
+  
+  _communicator = std::make_shared<MLCommon::cumlCommunicator>(_raftHandle->get_comms());
 }
 
 raftHandle_impl::~raftHandle_impl() { delete _raftHandle; }

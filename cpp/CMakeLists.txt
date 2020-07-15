@@ -344,7 +344,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/common/cumlHandle.cpp
     src/common/cumlHandle_impl.cpp
     src/common/cuml_api.cpp
-    src/common/cuML_comms_impl.cpp
     src/common/logger.cpp
     src/common/nvtx.cu
     src/common/raftHandle_impl.cpp
