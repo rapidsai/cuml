@@ -22,6 +22,7 @@
 - PR #2308: Using fixture for Dask client to eliminate possiblity of not closing
 - PR #2345: make C++ logger level definition to be the same as python layer
 - PR #2329: Add short commit hash to conda package name
+- PR #2362: Implement binary/multi-classification log loss with cupy
 - PR #2363: Update threshold and make other changes for stress tests
 - PR #2371: Updating MBSGD tests to use larger batches
 - PR #2380: Pinning libcumlprims version to ease future updates
@@ -40,6 +41,7 @@
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
 - PR #2473: Add metrics.roc_auc_score to API docs. Additional readability and minor docs bug fixes
 - PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
+- PR #2480: Moving MNMG glm and solvers to cuml
 - PR #2490: Moving MNMG KMeans to cuml
 - PR #2483: Moving MNMG KNN to cuml
 - PR #2492: Adding additional assertions to mnmg nearest neighbors pytests
@@ -48,6 +50,7 @@
 - PR #2237: Refactor RF cython code
 - PR #2513: Fixing LGTM Analysis Issues
 - PR #2099: Raise an error when float64 data is used with dask RF
+- PR #2499: Provide access to `cuml.DBSCAN` core samples
 - PR #2526: Removing PCA TSQR as a solver due to scalability issues
 - PR #2536 Update conda upload versions for new supported CUDA/Python
 - PR #2538: Remove Protobuf dependency
@@ -75,9 +78,12 @@
 - PR #2497: Changes to accomodate cuDF unsigned categorical changes
 - PR #2209: Fix FIL benchmark for gpuarray-c input
 - PR #2507: Import `treelite.sklearn`
+- PR #2532: Updating doxygen in new MG headers
 - PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
 - PR #2515: Increase tolerance for LogisticRegression test
 - PR #2545: Fix documentation of n_iter_without_progress in tSNE Python bindings
+- PR #2544: Fix Barnes-Hut tSNE not using specified post_learning_rate
+- PR #2558: Disabled a long-running FIL test
 - PR #2540: Update default value for n_epochs in UMAP to match documentation & sklearn API
 - PR #2535: Fix issue with incorrect docker image being used in local build script
 - PR #2542: Fix small memory leak in TSNE

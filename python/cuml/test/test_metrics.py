@@ -33,6 +33,7 @@ from numpy.testing import assert_almost_equal
 
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score as sk_acc_score
+from sklearn.metrics import log_loss as sklearn_log_loss
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
 from sklearn.metrics.cluster import completeness_score as sk_completeness_score
@@ -52,6 +53,7 @@ from sklearn.metrics.regression import mean_squared_log_error as sklearn_msle
 from cuml.common import has_scipy
 
 from cuml.metrics import roc_auc_score
+from cuml.metrics import log_loss
 from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
 
 
@@ -643,3 +645,47 @@ def test_roc_auc_score_at_limits():
 
     with pytest.raises(ValueError, match=err_msg):
         roc_auc_score(y_true, y_pred)
+
+
+def test_log_loss():
+    y_true = np.array([0, 0, 1, 1])
+    y_pred = np.array([0.1, 0.4, 0.35, 0.8])
+    assert_almost_equal(log_loss(y_true, y_pred),
+                        sklearn_log_loss(y_true, y_pred))
+
+    y_true = np.array([0, 0, 1, 1, 0])
+    y_pred = np.array([0.8, 0.4, 0.4, 0.8, 0.8])
+    assert_almost_equal(log_loss(y_true, y_pred),
+                        sklearn_log_loss(y_true, y_pred))
+
+
+@pytest.mark.parametrize('n_samples', [500, 500000])
+@pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
+def test_log_loss_random(n_samples, dtype):
+
+    y_true, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 10, n_samples).astype(dtype))
+
+    y_pred, _, _, _ = generate_random_labels(
+        lambda rng: rng.rand(n_samples, 10))
+
+    assert_almost_equal(log_loss(y_true, y_pred),
+                        sklearn_log_loss(y_true, y_pred))
+
+
+def test_log_loss_at_limits():
+    y_true = np.array([0., 1., 2.], dtype=np.float)
+    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+
+    err_msg = ("The shape of y_pred doesn't "
+               "match the number of classes")
+
+    with pytest.raises(ValueError, match=err_msg):
+        log_loss(y_true, y_pred)
+
+    y_true = np.array([0., 0.5, 1.0], dtype=np.float)
+    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+
+    err_msg = ("'y_true' can only have integer values")
+    with pytest.raises(ValueError, match=err_msg):
+        log_loss(y_true, y_pred)
