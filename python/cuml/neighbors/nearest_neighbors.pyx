@@ -408,6 +408,7 @@ class NearestNeighbors(Base):
             D_output = D_ndarr.to_output(out_type)
         
         # drop first column if using training data as X, always cupy.ndarray type
+        # this will need to be moved to the C++ layer (cuml issue #2562)
         if use_training_data:
             return (D_output[:,1:], I_output[:,1:]) \
                 if return_distance else I_output[:,1:]
@@ -428,7 +429,7 @@ class NearestNeighbors(Base):
 
         n_neighbors : Integer
             Number of neighbors to search. If not provided, the n_neighbors
-            from the model instance is used (default=10)
+            from the model instance is used
 
         mode : string (default='connectivity')
             Values in connectivity matrix: 'connectivity' returns the
@@ -487,7 +488,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
 
     n_neighbors : Integer
         Number of neighbors to search. If not provided, the n_neighbors
-        from the model instance is used (default=10)
+        from the model instance is used (default=5)
 
     mode : string (default='connectivity')
         Values in connectivity matrix: 'connectivity' returns the
