@@ -14,12 +14,13 @@
 # limitations under the License.
 #
 
+import sys
+
 import pytest
 
 import cupy as cp
 import numpy as np
 import cudf
-import pickle
 
 from copy import deepcopy
 from numba import cuda
@@ -27,6 +28,15 @@ from cudf.core.buffer import Buffer
 from cuml.common.array import CumlArray
 from cuml.common.memory_utils import _get_size_from_shape
 from rmm import DeviceBuffer
+
+if sys.version_info < (3, 8):
+    try:
+        import pickle5 as pickle
+    except ImportError:
+        import pickle
+else:
+    import pickle
+
 
 test_input_types = [
     'numpy', 'numba', 'cupy', 'series', None
@@ -385,14 +395,29 @@ def test_serialize(input_type):
 
 
 @pytest.mark.parametrize('input_type', test_input_types)
-def test_pickle(input_type):
+@pytest.mark.parametrize('protocol', [4, 5])
+def test_pickle(input_type, protocol):
+    if protocol > pickle.HIGHEST_PROTOCOL:
+        pytest.skip(
+            f"Trying to test with pickle protocol {protocol},"
+            f" but highest supported protocol is {pickle.HIGHEST_PROTOCOL}."
+        )
     if input_type == 'series':
         inp = create_input(input_type, np.float32, (10, 1), 'C')
     else:
         inp = create_input(input_type, np.float32, (10, 5), 'F')
     ary = CumlArray(data=inp)
-    a = pickle.dumps(ary)
-    b = pickle.loads(a)
+    dumps_kwargs = {"protocol": protocol}
+    loads_kwargs = {}
+    f = []
+    len_f = 0
+    if protocol >= 5:
+        dumps_kwargs["buffer_callback"] = f.append
+        loads_kwargs["buffers"] = f
+        len_f = 1
+    a = pickle.dumps(ary, **dumps_kwargs)
+    b = pickle.loads(a, **loads_kwargs)
+    assert len(f) == len_f
     if input_type == 'numpy':
         assert np.all(inp == b.to_output('numpy'))
     elif input_type == 'series':

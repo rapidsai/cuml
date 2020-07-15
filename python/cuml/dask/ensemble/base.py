@@ -15,6 +15,7 @@
 
 import dask
 import math
+import numpy as np
 
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
@@ -40,7 +41,7 @@ class BaseRandomForestModel(object):
 
         self.client = get_client(client)
         self.workers = self.client.scheduler_info()['workers'].keys()
-        self.local_model = None
+        self._set_internal_model(None)
 
         self.n_estimators_per_worker = \
             self._estimators_per_worker(n_estimators)
@@ -85,6 +86,20 @@ class BaseRandomForestModel(object):
     def _fit(self, model, dataset, convert_dtype):
         data = DistributedDataHandler.create(dataset, client=self.client)
         self.datatype = data.datatype
+        if self.datatype == 'cudf':
+            has_float64 = (dataset[0].dtypes.any() == np.float64)
+        else:
+            has_float64 = (dataset[0].dtype == np.float64)
+        if has_float64:
+            raise TypeError("To use Dask RF data should have dtype float32.")
+
+        labels = self.client.persist(dataset[1])
+        if self.datatype == 'cudf':
+            self.num_classes = len(labels.unique())
+        else:
+            self.num_classes = \
+                len(dask.array.unique(labels).compute())
+        labels = self.client.persist(dataset[1])
         futures = list()
         for idx, (worker, worker_data) in \
                 enumerate(data.worker_to_parts.items()):
@@ -114,7 +129,6 @@ class BaseRandomForestModel(object):
                 (self.rfs[w]))
         mod_bytes = self.client.compute(model_serialized_futures, sync=True)
         last_worker = w
-        all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
         all_tl_mod_handles = [
                 model._tl_handle_from_bytes(indiv_worker_model_bytes)
@@ -124,12 +138,15 @@ class BaseRandomForestModel(object):
         model._concatenate_treelite_handle(all_tl_mod_handles)
         for tl_handle in all_tl_mod_handles:
             TreeliteModel.free_treelite_model(tl_handle)
-
         return model
 
     def _predict_using_fil(self, X, delayed, **kwargs):
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
         return self._predict(X, delayed=delayed, **kwargs)
 
     def _get_params(self, deep):

@@ -94,7 +94,8 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
     X, y = make_blobs(n_samples=int(nrows),
                       n_features=ncols,
-                      centers=nclusters)
+                      centers=nclusters,
+                      random_state=0)
     X = X.astype(np.float32)
 
     X_cudf = _prep_training_data(client, X, n_parts, reverse_worker_order)
@@ -130,7 +131,7 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
     perc_diff = n_diff / (nrows * n_neighbors)
 
-    assert perc_diff <= 1e-3
+    assert perc_diff <= 3e-3
 
     assert array_equal(y_hat, skl_y_hat)
 
@@ -152,7 +153,8 @@ def test_batch_size(nrows, ncols, n_parts,
 
     X, y = make_blobs(n_samples=int(nrows),
                       n_features=ncols,
-                      centers=n_clusters)
+                      centers=n_clusters,
+                      random_state=0)
 
     X = X.astype(np.float32)
 
