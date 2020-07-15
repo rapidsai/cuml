@@ -29,10 +29,10 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.common.base import Base, RegressorMixin
 from cuml.metrics import r2_score
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 from libcpp cimport bool
 from cuml.svm.svm_base import SVMBase
 
@@ -98,9 +98,99 @@ cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM":
                              svmModel[math_t] &model) except+
 
 
-class SVR(SVMBase):
+class SVR(SVMBase, RegressorMixin):
     """
     SVR (Epsilon Support Vector Regression)
+
+    Construct an SVC classifier for training and predictions.
+
+    Examples
+    ---------
+    .. code-block:: python
+
+            import numpy as np
+            from cuml.svm import SVR
+            X = np.array([[1], [2], [3], [4], [5]], dtype=np.float32)
+            y = np.array([1.1, 4, 5, 3.9, 1.], dtype = np.float32)
+            reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
+            reg.fit(X, y)
+            print("Predicted values:", reg.predict(X))
+
+    Output:
+
+    .. code-block:: none
+
+            Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
+
+    Parameters
+    ----------
+    handle : cuml.Handle
+        If it is None, a new one is created for this class
+    C : float (default = 1.0)
+        Penalty parameter C
+    kernel : string (default='rbf')
+        Specifies the kernel function. Possible options: 'linear', 'poly',
+        'rbf', 'sigmoid'. Currently precomputed kernels are not supported.
+    degree : int (default=3)
+        Degree of polynomial kernel function.
+    gamma : float or string (default = 'scale')
+        Coefficient for rbf, poly, and sigmoid kernels. You can specify the
+        numeric value, or use one of the following options:
+        - 'auto': gamma will be set to 1 / n_features
+        - 'scale': gamma will be se to 1 / (n_features * X.var())
+    coef0 : float (default = 0.0)
+        Independent term in kernel function, only signifficant for poly and
+        sigmoid
+    tol : float (default = 1e-3)
+        Tolerance for stopping criterion.
+    epsilon: float (default = 0.1)
+        epsilon parameter of the epsiron-SVR model. There is no penalty
+        associated to points that are predicted within the epsilon-tube
+        around the target values.
+    cache_size : float (default = 200 MiB)
+        Size of the kernel cache during training in MiB. The default is a
+        conservative value, increase it to improve the training time, at
+        the cost of higher memory footprint. After training the kernel
+        cache is deallocated.
+        During prediction, we also need a temporary space to store kernel
+        matrix elements (this can be signifficant if n_support is large).
+        The cache_size variable sets an upper limit to the prediction
+        buffer as well.
+    max_iter : int (default = 100*n_samples)
+        Limit the number of outer iterations in the solver
+    nochange_steps : int (default = 1000)
+        We monitor how much our stopping criteria changes during outer
+        iterations. If it does not change (changes less then 1e-3*tol)
+        for nochange_steps consecutive steps, then we stop training.
+    verbose : int or boolean (default = False)
+        verbosity level
+
+    Attributes
+    ----------
+    n_support_ : int
+        The total number of support vectors. Note: this will change in the
+        future to represent number support vectors for each class (like
+        in Sklearn, see Issue #956)
+    support_ : int, shape = [n_support]
+        Device array of suppurt vector indices
+    support_vectors_ : float, shape [n_support, n_cols]
+        Device array of support vectors
+    dual_coef_ : float, shape = [1, n_support]
+        Device array of coefficients for support vectors
+    intercept_ : int
+        The constant in the decision function
+    fit_status_ : int
+        0 if SVM is correctly fitted
+    coef_ : float, shape [1, n_cols]
+        Only available for linear kernels. It is the normal of the
+        hyperplane.
+        coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
+
+
+    Notes
+    -----
+    For additional docs, see `Scikit-learn's SVR
+    <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVR.html>`_.
 
     The solver uses the SMO method to fit the regressor. We use the Optimized
     Hierarchical Decomposition [1] variant of the SMO algorithm, similar to [2]
@@ -119,82 +209,12 @@ class SVR(SVMBase):
                  gamma='scale', coef0=0.0, tol=1e-3, epsilon=0.1,
                  cache_size=200.0, max_iter=-1, nochange_steps=1000,
                  verbose=False):
-        """
-        Construct an SVC classifier for training and predictions.
-
-        Parameters
-        ----------
-        handle : cuml.Handle
-            If it is None, a new one is created for this class
-        C : float (default = 1.0)
-            Penalty parameter C
-        kernel : string (default='rbf')
-            Specifies the kernel function. Possible options: 'linear', 'poly',
-            'rbf', 'sigmoid'. Currently precomputed kernels are not supported.
-        degree : int (default=3)
-            Degree of polynomial kernel function.
-        gamma : float or string (default = 'scale')
-            Coefficient for rbf, poly, and sigmoid kernels. You can specify the
-            numeric value, or use one of the following options:
-            - 'auto': gamma will be set to 1 / n_features
-            - 'scale': gamma will be se to 1 / (n_features * X.var())
-        coef0 : float (default = 0.0)
-            Independent term in kernel function, only signifficant for poly and
-            sigmoid
-        tol : float (default = 1e-3)
-            Tolerance for stopping criterion.
-        epsilon: float (default = 0.1)
-            epsilon parameter of the epsiron-SVR model. There is no penalty
-            associated to points that are predicted within the epsilon-tube
-            around the target values.
-        cache_size : float (default = 200 MiB)
-            Size of the kernel cache during training in MiB. The default is a
-            conservative value, increase it to improve the training time, at
-            the cost of higher memory footprint. After training the kernel
-            cache is deallocated.
-            During prediction, we also need a temporary space to store kernel
-            matrix elements (this can be signifficant if n_support is large).
-            The cache_size variable sets an upper limit to the prediction
-            buffer as well.
-        max_iter : int (default = 100*n_samples)
-            Limit the number of outer iterations in the solver
-        nochange_steps : int (default = 1000)
-            We monitor how much our stopping criteria changes during outer
-            iterations. If it does not change (changes less then 1e-3*tol)
-            for nochange_steps consecutive steps, then we stop training.
-        verbose : bool (default = False)
-            verbose mode
-
-        Attributes
-        ----------
-        n_support_ : int
-            The total number of support vectors. Note: this will change in the
-            future to represent number support vectors for each class (like
-            in Sklearn, see Issue #956)
-        support_ : int, shape = [n_support]
-            Device array of suppurt vector indices
-        support_vectors_ : float, shape [n_support, n_cols]
-            Device array of support vectors
-        dual_coef_ : float, shape = [1, n_support]
-            Device array of coefficients for support vectors
-        intercept_ : int
-            The constant in the decision function
-        fit_status_ : int
-            0 if SVM is correctly fitted
-        coef_ : float, shape [1, n_cols]
-            Only available for linear kernels. It is the normal of the
-            hyperplane.
-            coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
-
-        For additional docs, see `scikitlearn's SVR
-        <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVR.html>`_.
-        """
         super(SVR, self).__init__(handle, C, kernel, degree, gamma, coef0, tol,
                                   cache_size, max_iter, nochange_steps,
                                   verbose, epsilon)
         self.svmType = EPSILON_SVR
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
@@ -210,8 +230,12 @@ class SVR(SVMBase):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will, when necessary, convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
         """
-
+        self._set_n_features_in(X)
         self._set_output_type(X)
         cdef uintptr_t X_ptr, y_ptr
 
@@ -219,7 +243,12 @@ class SVR(SVMBase):
             input_to_cuml_array(X, order='F')
         X_ptr = X_m.ptr
 
-        y_m, _, _, _ = input_to_cuml_array(y, convert_to_dtype=self.dtype)
+        y_m, _, _, _ = \
+            input_to_cuml_array(y, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_rows=self.n_rows, check_cols=1)
+
         y_ptr = y_m.ptr
 
         self._dealloc()  # delete any previously fitted model
@@ -273,27 +302,3 @@ class SVR(SVMBase):
         """
 
         return super(SVR, self).predict(X, False)
-
-    def score(self, X, y):
-        """
-        Return R^2 score of the prediction.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of target values.
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        score: float R^2 score
-        """
-
-        y_hat = self.predict(X)
-        return r2_score(y, y_hat)

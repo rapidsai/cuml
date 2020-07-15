@@ -14,13 +14,12 @@
 #
 
 from cuml.dask.common import parts_to_ranks
-from cuml.dask.common import raise_exception_from_futures
+from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common import raise_mg_import_exception
 from cuml.dask.common.base import BaseEstimator
 
 from cuml.dask.common.comms import worker_state, CommsContext
-from dask.distributed import wait
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common.input_utils import DistributedDataHandler
 
@@ -41,10 +40,8 @@ class NearestNeighbors(BaseEstimator):
     """
     Multi-node Multi-GPU NearestNeighbors Model.
     """
-    def __init__(self, client=None, streams_per_handle=0, verbose=False,
-                 **kwargs):
+    def __init__(self, client=None, streams_per_handle=0, **kwargs):
         super(NearestNeighbors, self).__init__(client=client,
-                                               verbose=verbose,
                                                **kwargs)
 
         self.streams_per_handle = streams_per_handle
@@ -65,6 +62,13 @@ class NearestNeighbors(BaseEstimator):
                                                        client=self.client)
         self.datatype = self.X_handler.datatype
         self.n_cols = X.shape[1]
+
+        # Brute force nearest neighbors does not set an internal model so
+        # calls to get_combined_model() will just return None.
+        # Approximate methods that build specialized indices, such as the
+        # FAISS product quantized methods, will be combined into an internal
+        # model.
+
         return self
 
     @staticmethod
@@ -90,16 +94,14 @@ class NearestNeighbors(BaseEstimator):
         )
 
     @staticmethod
-    def _build_comms(index_handler, query_handler, streams_per_handle,
-                     verbose):
+    def _build_comms(index_handler, query_handler, streams_per_handle):
         # Communicator clique needs to include the union of workers hosting
         # query and index partitions
         workers = set(index_handler.workers)
         workers.update(query_handler.workers)
 
         comms = CommsContext(comms_p2p=True,
-                             streams_per_handle=streams_per_handle,
-                             verbose=verbose)
+                             streams_per_handle=streams_per_handle)
         comms.init(workers=workers)
         return comms
 
@@ -171,7 +173,6 @@ class NearestNeighbors(BaseEstimator):
         """
         Invoke kneighbors on Dask workers to perform distributed query
         """
-
         key = uuid1()
         nn_fit = dict([(worker_info[worker]["rank"], self.client.submit(
                         NearestNeighbors._func_kneighbors,
@@ -191,8 +192,7 @@ class NearestNeighbors(BaseEstimator):
                         workers=[worker]))
                        for idx, worker in enumerate(comms.worker_addresses)])
 
-        wait(list(nn_fit.values()))
-        raise_exception_from_futures(list(nn_fit.values()))
+        wait_and_raise_from_futures(list(nn_fit.values()))
 
         """
         Gather resulting partitions and return dask_cudfs
@@ -244,8 +244,7 @@ class NearestNeighbors(BaseEstimator):
         Create communicator clique
         """
         comms = NearestNeighbors._build_comms(self.X_handler, query_handler,
-                                              self.streams_per_handle,
-                                              self.verbose)
+                                              self.streams_per_handle)
 
         """
         Initialize models on workers

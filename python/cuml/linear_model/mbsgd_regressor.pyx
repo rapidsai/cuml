@@ -18,11 +18,11 @@
 # distutils: language = c++
 # cython: embedsignature = True
 # cython: language_level = 3
-from cuml.common.base import Base
+from cuml.common.base import Base, RegressorMixin
 from cuml.solvers import SGD
 
 
-class MBSGDRegressor(Base):
+class MBSGDRegressor(Base, RegressorMixin):
     """
     Linear regression model fitted by minimizing a
     regularized empirical loss with mini-batch SGD.
@@ -114,8 +114,8 @@ class MBSGDRegressor(Base):
 
     Notes
     ------
-    For additional docs, see `scikitlearn's OLS
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDRegressor.html>
+    For additional docs, see `scikitlearn's SGDRegressor
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDRegressor.html>`_.
     """
 
     def __init__(self, loss='squared_loss', penalty='l2', alpha=0.0001,
@@ -123,7 +123,8 @@ class MBSGDRegressor(Base):
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
                  verbose=False, output_type=None):
-        super(MBSGDRegressor, self).__init__(handle=handle, verbose=verbose,
+        super(MBSGDRegressor, self).__init__(handle=handle,
+                                             verbose=verbose,
                                              output_type=output_type)
         if loss in ['squared_loss']:
             self.loss = loss
@@ -145,7 +146,7 @@ class MBSGDRegressor(Base):
         self.n_iter_no_change = n_iter_no_change
         self.cu_mbsgd_classifier = SGD(**self.get_params())
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
@@ -161,12 +162,12 @@ class MBSGDRegressor(Base):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the fit method will, when necessary, convert
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
-
+        self._set_n_features_in(X)
         self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
         self.coef_ = self.cu_mbsgd_classifier.coef_
         self.intercept_ = self.cu_mbsgd_classifier.intercept_

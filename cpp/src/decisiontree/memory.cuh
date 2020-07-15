@@ -18,8 +18,8 @@
 #include <cuml/tree/algo_helper.h>
 #include <thrust/extrema.h>
 #include <algorithm>
+#include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
-#include "cub/cub.cuh"
 #include "memory.h"
 
 template <class T, class L>

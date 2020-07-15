@@ -42,6 +42,8 @@ def extract_param_overrides(params_to_sweep):
     for p in params_to_sweep:
         key, val_string = p.split("=")
         vals = json.loads(val_string)
+        if not isinstance(vals, list):
+            vals = [vals]  # Handle single-element sweep cleanly
         single_param_lists.append([(key, val) for val in vals])
 
     # Create dicts with the cartesian product of all arg-based lists
@@ -64,9 +66,10 @@ if __name__ == '__main__':
           # Simple logistic regression
           python run_benchmarks.py --dataset classification LogisticRegression
 
-          # Compare impact of RF parameters and data sets
+          # Compare impact of RF parameters and data sets for multiclass
           python run_benchmarks.py --dataset classification  \
                 --max-rows 100000 --min-rows 10000 \
+                --dataset-param-sweep n_classes=[2,8] \
                 --cuml-param-sweep n_bins=[4,16] n_estimators=[10,100] \
                 --csv results.csv \
                 RandomForestClassifier
@@ -147,6 +150,20 @@ if __name__ == '__main__':
                 key=val_list, where val_list may be a comma-separated list''',
     )
     parser.add_argument(
+        '--cpu-param-sweep',
+        nargs='*',
+        type=str,
+        help='''Parameter values to vary for CPU only, in the form:
+                key=val_list, where val_list may be a comma-separated list''',
+    )
+    parser.add_argument(
+        '--dataset-param-sweep',
+        nargs='*',
+        type=str,
+        help='''Parameter values to vary for dataset generator, in the form
+                key=val_list, where val_list may be a comma-separated list'''
+    )
+    parser.add_argument(
         '--default-size',
         action='store_true',
         help='Only run datasets at default size',
@@ -212,6 +229,9 @@ if __name__ == '__main__':
 
     param_override_list = extract_param_overrides(args.param_sweep)
     cuml_param_override_list = extract_param_overrides(args.cuml_param_sweep)
+    cpu_param_override_list = extract_param_overrides(args.cpu_param_sweep)
+    dataset_param_override_list = extract_param_overrides(
+        args.dataset_param_sweep)
 
     if args.algorithms:
         algos_to_run = []
@@ -233,6 +253,8 @@ if __name__ == '__main__':
         test_fraction=args.test_split,
         param_override_list=param_override_list,
         cuml_param_override_list=cuml_param_override_list,
+        cpu_param_override_list=cpu_param_override_list,
+        dataset_param_override_list=dataset_param_override_list,
         run_cpu=(not args.skip_cpu),
         raise_on_error=args.raise_on_error,
         n_reps=args.n_reps

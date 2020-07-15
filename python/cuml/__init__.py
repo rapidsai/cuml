@@ -21,7 +21,8 @@ import cuml.common.cuda as cuda
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.kmeans import KMeans
 
-from cuml.datasets.blobs import blobs as make_blobs
+from cuml.datasets.arima import make_arima
+from cuml.datasets.blobs import make_blobs
 from cuml.datasets.regression import make_regression
 from cuml.datasets.classification import make_classification
 
@@ -66,15 +67,22 @@ from cuml.svm import SVC
 from cuml.svm import SVR
 
 from cuml.tsa import stationarity
+from cuml.tsa.arima import ARIMA
+from cuml.tsa.auto_arima import AutoARIMA
 from cuml.tsa.holtwinters import ExponentialSmoothing
 
-from cuml.utils.pointer_utils import device_of_gpu_matrix
+from cuml.common.pointer_utils import device_of_gpu_matrix
+
+# RAFT
+
+from cuml.raft import raft_include_test
+
 
 # Output type configuration
 
 global_output_type = 'input'
 
-from cuml.utils.memory_utils import set_global_output_type, using_output_type
+from cuml.common.memory_utils import set_global_output_type, using_output_type
 
 
 # Version configuration

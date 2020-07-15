@@ -26,10 +26,9 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.comms import CommsContext
 from cuml.dask.common.comms import worker_state
 
-from cuml.dask.common.utils import raise_exception_from_futures
+from cuml.dask.common.utils import wait_and_raise_from_futures
 
-from dask.distributed import wait
-from cuml.utils.memory_utils import with_cupy_rmm
+from cuml.common.memory_utils import with_cupy_rmm
 
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -56,8 +55,8 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         The more iterations of EM, the more accurate, but slower.
     tol : float (default = 1e-4)
         Stopping criterion when centroid means do not change much.
-    verbose : boolean (default = 0)
-        If True, prints diagnositc information.
+    verbose : int or boolean (default = False)
+        Logging level for printing diagnostic information
     random_state : int (default = 1)
         If you want results to be the same when you restart Python,
         select a state.
@@ -127,7 +126,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
 
-        comms = CommsContext(comms_p2p=False, verbose=self.verbose)
+        comms = CommsContext(comms_p2p=False)
         comms.init(workers=data.workers)
 
         kmeans_fit = [self.client.submit(KMeans._func_fit,
@@ -139,13 +138,11 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
                                          pure=False)
                       for idx, wf in enumerate(data.worker_to_parts.items())]
 
-        wait(kmeans_fit)
-        raise_exception_from_futures(kmeans_fit)
+        wait_and_raise_from_futures(kmeans_fit)
 
         comms.destroy()
 
-        self.local_model = kmeans_fit[0].result()
-        self.cluster_centers_ = self.local_model.cluster_centers_
+        self._set_internal_model(kmeans_fit[0])
 
         return self
 

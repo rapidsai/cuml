@@ -17,9 +17,8 @@
 import cupy as cp
 import math
 
-from cuml.utils import rmm_cupy_ary
-
-from cuml.utils import cuda_kernel_factory
+from cuml.common.memory_utils import rmm_cupy_ary
+from cuml.common.kernel_utils import cuda_kernel_factory
 
 
 map_kernel_str = r'''
@@ -160,7 +159,6 @@ def make_monotonic(labels, classes=None, copy=False):
 
 
 def check_labels(labels, classes):
-
     """
     Validates that a set of labels is drawn from the unique
     set of given classes.
@@ -201,7 +199,6 @@ def check_labels(labels, classes):
 
 
 def invert_labels(labels, classes, copy=False):
-
     """
     Takes a set of labels that have been mapped to be drawn
     from a monotonically increasing set and inverts them to

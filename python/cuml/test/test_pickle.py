@@ -95,7 +95,6 @@ all_models.update({
 def pickle_save_load(tmpdir, func_create_model, func_assert):
     model, X_test = func_create_model()
     pickle_file = tmpdir.join('cu_model.pickle')
-
     try:
         with open(pickle_file, 'wb') as pf:
             pickle.dump(model, pf)
@@ -131,7 +130,7 @@ def make_dataset(datatype, nrows, ncols, n_info):
     return X_train, y_train, X_test
 
 
-@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('key', rf_models.keys())
 @pytest.mark.parametrize('nrows', [unit_param(500)])
 @pytest.mark.parametrize('ncols', [unit_param(16)])
@@ -141,6 +140,9 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info,
                               n_classes, key):
 
     result = {}
+    if datatype == np.float64:
+        pytest.xfail("Pickling is not supported for dataset with"
+                     " dtype float64")
 
     def create_mod():
         if key == 'RandomForestRegressor':
@@ -156,8 +158,14 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info,
                                                                    n_classes)
 
         model = rf_models[key]()
+
         model.fit(X_train, y_train)
-        result["rf_res"] = model.predict(X_test)
+        if datatype == np.float32:
+            predict_model = "GPU"
+        else:
+            predict_model = "CPU"
+        result["rf_res"] = model.predict(X_test,
+                                         predict_model=predict_model)
         return model, X_test
 
     def assert_model(pickled_model, X_test):
@@ -488,14 +496,16 @@ def test_tsne_pickle(tmpdir):
         # Transform data
         result["fit_model"] = pickled_model.fit(X)
         result["data"] = X
-        result["trust"] = trustworthiness(X, pickled_model.Y, 10)
+        result["trust"] = trustworthiness(
+            X, pickled_model._embedding_.to_output('numpy'), 10)
 
     def create_mod_2():
         model = result["fit_model"]
         return model, result["data"]
 
     def assert_second_model(pickled_model, X):
-        trust_after = trustworthiness(X, pickled_model.Y.to_pandas(), 10)
+        trust_after = trustworthiness(
+            X, pickled_model._embedding_.to_output('numpy'), 10)
         assert result["trust"] == trust_after
 
     pickle_save_load(tmpdir, create_mod, assert_model)
@@ -595,5 +605,32 @@ def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
         state = pickled_model.__dict__
 
         assert state["_fit_status_"] == 0
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('key', ['RandomForestClassifier'])
+@pytest.mark.parametrize('nrows', [unit_param(100)])
+@pytest.mark.parametrize('ncols', [unit_param(20)])
+@pytest.mark.parametrize('n_info', [unit_param(10)])
+def test_small_rf(tmpdir, key, datatype, nrows, ncols, n_info):
+
+    result = {}
+
+    def create_mod():
+        X_train, y_train, X_test = make_classification_dataset(datatype,
+                                                               nrows,
+                                                               ncols,
+                                                               n_info,
+                                                               n_classes=2)
+        model = rf_models[key](n_estimators=1, max_depth=1,
+                               max_features=1.0, seed=10)
+        model.fit(X_train, y_train)
+        result['rf_res'] = model.predict(X_test)
+        return model, X_test
+
+    def assert_model(pickled_model, X_test):
+        assert array_equal(result['rf_res'], pickled_model.predict(X_test))
 
     pickle_save_load(tmpdir, create_mod, assert_model)

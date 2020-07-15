@@ -18,24 +18,19 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import ctypes
 import cudf
 import cupy as cp
 import numpy as np
-import warnings
-
-import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.base import Base
+from cuml.common.base import Base, CumlArray
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros, with_cupy_rmm
-from cuml.utils.import_utils import has_cupy
+from cuml.common import input_to_cuml_array
+from cuml.common import with_cupy_rmm
 from cuml.metrics import accuracy_score
+
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -215,8 +210,8 @@ class QN(Base):
     lbfgs_memory: int (default = 5)
         Rank of the lbfgs inverse-Hessian approximation. Method will use
         O(lbfgs_memory * D) memory.
-    verbose: int (optional, default 0)
-        Controls verbosity level of logging.
+    verbose : int or boolean (default = False)
+        Controls verbose level of logging.
 
     Attributes
     -----------
@@ -240,8 +235,8 @@ class QN(Base):
 
     def __init__(self, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
-                 linesearch_max_iter=50, lbfgs_memory=5, verbose=0,
-                 handle=None):
+                 linesearch_max_iter=50, lbfgs_memory=5,
+                 verbose=False, handle=None):
 
         super(QN, self).__init__(handle=handle, verbose=verbose)
 
@@ -289,17 +284,19 @@ class QN(Base):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
+        self._set_output_type(X)
 
-        cdef uintptr_t X_ptr, y_ptr
-        X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='F',
-                               check_dtype=[np.float32, np.float64])
+        X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
+            X, order='F', check_dtype=[np.float32, np.float64]
+        )
+        cdef uintptr_t X_ptr = X_m.ptr
 
-        y_m, y_ptr, lab_rows, _, _ = \
-            input_to_dev_array(y, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_rows=n_rows, check_cols=1)
+        y_m, lab_rows, _, _ = input_to_cuml_array(
+            y, check_dtype=self.dtype,
+            convert_to_dtype=(self.dtype if convert_dtype else None),
+            check_rows=n_rows, check_cols=1
+        )
+        cdef uintptr_t y_ptr = y_m.ptr
 
         self._num_classes = len(cp.unique(y_m))
 
@@ -322,8 +319,8 @@ class QN(Base):
         else:
             coef_size = (self.n_cols, self._num_classes_dim)
 
-        self.coef_ = rmm.to_device(np.ones(coef_size, dtype=self.dtype))
-        cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
+        self.coef_ = CumlArray.ones(coef_size, dtype=self.dtype, order='C')
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float objective32
         cdef double objective64
@@ -401,24 +398,24 @@ class QN(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
         ----------
         y: array-like (device)
             Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
+        X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
+            X, check_dtype=self.dtype,
+            convert_to_dtype=(self.dtype if convert_dtype else None),
+            check_cols=self.n_cols
+        )
+        cdef uintptr_t X_ptr = X_m.ptr
 
-        cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, self.dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+        scores = CumlArray.zeros(shape=(self._num_classes_dim, n_rows),
+                                 dtype=self.dtype, order='F')
 
-        scores = rmm.to_device(zeros((self._num_classes_dim, n_rows),
-                                     dtype=self.dtype, order='F'))
-
-        cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
-        cdef uintptr_t scores_ptr = get_dev_array_ptr(scores)
+        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t scores_ptr = scores.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -467,23 +464,25 @@ class QN(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
         ----------
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
+        out_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype()
 
-        cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, self.dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+        X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
+            X, check_dtype=self.dtype,
+            convert_to_dtype=(self.dtype if convert_dtype else None),
+            check_cols=self.n_cols
+        )
+        cdef uintptr_t X_ptr = X_m.ptr
 
-        preds = rmm.to_device(zeros(n_rows, dtype=self.dtype))
-
-        cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
-        cdef uintptr_t pred_ptr = get_dev_array_ptr(preds)
+        preds = CumlArray.zeros(shape=n_rows, dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t pred_ptr = preds.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -515,7 +514,7 @@ class QN(Base):
 
         del X_m
 
-        return cudf.Series(preds)
+        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
     def score(self, X, y):
         return accuracy_score(y, self.predict(X))
@@ -525,33 +524,10 @@ class QN(Base):
             if self.fit_intercept:
                 return self.coef_[-1]
             else:
-                return rmm.to_device(zeros(1))
+                return CumlArray.zeros(shape=1)
         else:
             raise AttributeError(attr)
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        # Remove the unpicklable handle.
-        if 'handle' in state:
-            del state['handle']
-        if 'coef_' in state:
-            if state['coef_'] is not None:
-                state['coef_'] = cudf.Series(state['coef_'].ravel())
-        return state
-
-    def __setstate__(self, state):
-        super(QN, self).__init__(handle=None, verbose=state['verbose'])
-
-        if 'coef_' in state and state['coef_'] is not None:
-            if 'fit_intercept' in state and state['fit_intercept']:
-                coef_size = (state['n_cols'] + 1, state['_num_classes'])
-            else:
-                coef_size = (state['n_cols'], state['_num_classes'])
-            state['coef_'] = state['coef_'].to_gpu_array().reshape(coef_size)
-
-        self.__dict__.update(state)
-
     def get_param_names(self):
         return ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
-                'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory',
-                'verbose']
+                'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory']

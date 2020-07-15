@@ -252,3 +252,18 @@ def generate_random_labels(random_generation_lambda, seed=1234, as_cupy=False):
         return cp.array(a), cp.array(b), a, b
     else:
         return cuda.to_device(a), cuda.to_device(b), a, b
+
+
+def score_labeling_with_handle(func, ground_truth, predictions, use_handle,
+                               dtype=np.int32):
+    """Test helper to standardize inputs between sklearn and our prims metrics.
+
+    Using this function we can pass python lists as input of a test just like
+    with sklearn as well as an option to use handle with our metrics.
+    """
+    a = cp.array(ground_truth, dtype=dtype)
+    b = cp.array(predictions, dtype=dtype)
+
+    handle, stream = get_handle(use_handle)
+
+    return func(a, b, handle=handle)

@@ -37,7 +37,7 @@ from cupy.sparse import csr_matrix as cp_csr_matrix,\
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_cuml_array, zeros, with_cupy_rmm, has_scipy
 from cuml.common.array import CumlArray
 
@@ -241,7 +241,7 @@ class UMAP(Base):
 
                     def on_train_end(self, embeddings):
                         print(embeddings.copy_to_host())
-    verbose: bool (optional, default False)
+    verbose : int or boolean (default = False)
         Controls verbosity of logging.
 
     Notes
@@ -276,7 +276,7 @@ class UMAP(Base):
     def __init__(self,
                  n_neighbors=15,
                  n_components=2,
-                 n_epochs=0,
+                 n_epochs=None,
                  learning_rate=1.0,
                  min_dist=0.1,
                  spread=1.0,
@@ -306,8 +306,7 @@ class UMAP(Base):
 
         self.n_neighbors = n_neighbors
         self.n_components = n_components
-        self.n_epochs = n_epochs
-        self.verbose = verbose
+        self.n_epochs = n_epochs if n_epochs else 0
 
         if init == "spectral" or init == "random":
             self.init = init
@@ -373,7 +372,7 @@ class UMAP(Base):
         umap_params.repulsion_strength = <float> cls.repulsion_strength
         umap_params.negative_sample_rate = <int> cls.negative_sample_rate
         umap_params.transform_queue_size = <int> cls.transform_queue_size
-        umap_params.verbosity = <int> cls.verbosity
+        umap_params.verbosity = <int> cls.verbose
         umap_params.a = <float> cls.a
         umap_params.b = <float> cls.b
         if cls.init == "spectral":
@@ -431,7 +430,7 @@ class UMAP(Base):
         if has_scipy():
             from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
         else:
-            from cuml.utils.import_utils import DummyClass
+            from cuml.common.import_utils import DummyClass
             csr_matrix = DummyClass
             coo_matrix = DummyClass
             csc_matrix = DummyClass
@@ -511,6 +510,8 @@ class UMAP(Base):
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
         """
+        self._set_n_features_in(X)
+
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 

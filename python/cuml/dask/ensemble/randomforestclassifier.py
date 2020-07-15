@@ -14,25 +14,20 @@
 # limitations under the License.
 #
 
-import cudf
+import numpy as np
 
-from cuml.dask.common import raise_exception_from_futures, workers_to_parts
+from cuml.dask.common.base import BaseEstimator
 from cuml.ensemble import RandomForestClassifier as cuRFC
-from dask.distributed import default_client, wait
-from cuml.dask.common.part_utils import _extract_partitions
-
-
+from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.base import DelayedPredictionMixin, \
     DelayedPredictionProbaMixin
-from cuml.dask.common.input_utils import DistributedDataHandler
-
-import math
-import random
-from uuid import uuid1
+from cuml.dask.ensemble.base import \
+    BaseRandomForestModel
+from dask.distributed import default_client
 
 
-class RandomForestClassifier(DelayedPredictionMixin,
-                             DelayedPredictionProbaMixin):
+class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
+                             DelayedPredictionProbaMixin, BaseEstimator):
 
     """
     Experimental API implementing a multi-GPU Random Forest classifier
@@ -43,8 +38,10 @@ class RandomForestClassifier(DelayedPredictionMixin,
     Currently, this API makes the following assumptions:
     * The set of Dask workers used between instantiation, fit,
     and predict are all consistent
-    * Training data comes in the form of cuDF dataframes,
+    * Training data comes in the form of cuDF dataframes or Dask Arrays
     distributed so that each worker has at least one partition.
+    * The print_summary and print_detailed functions print the
+    information of the forest on the worker.
 
     Future versions of the API will support more flexible data
     distribution and additional input types.
@@ -109,6 +106,9 @@ class RandomForestClassifier(DelayedPredictionMixin,
     workers : optional, list of strings
         Dask addresses of workers to use for computation.
         If None, all available Dask workers will be used.
+    seed : int (default = None)
+        Base seed for the random number generator. Unseeded by default. Does
+        not currently fully guarantee the exact same results.
 
     Examples
     ---------
@@ -118,235 +118,57 @@ class RandomForestClassifier(DelayedPredictionMixin,
 
     def __init__(
         self,
-        n_estimators=10,
-        max_depth=-1,
-        max_features="auto",
-        n_bins=8,
-        split_algo=1,
-        split_criterion=0,
-        min_rows_per_node=2,
-        bootstrap=True,
-        bootstrap_features=False,
-        type_model="classifier",
-        verbose=False,
-        rows_sample=1.0,
-        max_leaves=-1,
-        n_streams=4,
-        quantile_per_tree=False,
-        dtype=None,
-        criterion=None,
-        min_samples_leaf=None,
-        min_weight_fraction_leaf=None,
-        max_leaf_nodes=None,
-        min_impurity_decrease=None,
-        min_impurity_split=None,
-        oob_score=None,
-        n_jobs=None,
-        random_state=None,
-        warm_start=None,
-        class_weight=None,
         workers=None,
-        client=None
+        client=None,
+        verbose=False,
+        n_estimators=10,
+        seed=None,
+        **kwargs
     ):
 
-        unsupported_sklearn_params = {
-            "criterion": criterion,
-            "min_samples_leaf": min_samples_leaf,
-            "min_weight_fraction_leaf": min_weight_fraction_leaf,
-            "max_leaf_nodes": max_leaf_nodes,
-            "min_impurity_decrease": min_impurity_decrease,
-            "min_impurity_split": min_impurity_split,
-            "oob_score": oob_score,
-            "n_jobs": n_jobs,
-            "random_state": random_state,
-            "warm_start": warm_start,
-            "class_weight": class_weight,
-        }
+        super(RandomForestClassifier, self).__init__(client=client,
+                                                     verbose=verbose,
+                                                     **kwargs)
 
-        for key, vals in unsupported_sklearn_params.items():
-            if vals is not None:
-                raise TypeError(
-                    "The Scikit-learn variable",
-                    key,
-                    " is not supported in cuML,"
-                    " please read the cuML documentation for"
-                    " more information",
-                )
-
-        self.n_estimators = n_estimators
-        self.n_estimators_per_worker = list()
-        self.num_classes = 2
-
-        self.client = default_client() if client is None else client
-        if workers is None:
-            workers = self.client.has_what().keys()  # Default to all workers
-        self.workers = workers
-
-        n_workers = len(workers)
-        if n_estimators < n_workers:
-            raise ValueError(
-                "n_estimators cannot be lower than number of dask workers."
-            )
-
-        n_est_per_worker = math.floor(n_estimators / n_workers)
-
-        for i in range(n_workers):
-            self.n_estimators_per_worker.append(n_est_per_worker)
-
-        remaining_est = n_estimators - (n_est_per_worker * n_workers)
-
-        for i in range(remaining_est):
-            self.n_estimators_per_worker[i] = (
-                self.n_estimators_per_worker[i] + 1
-            )
-
-        seeds = list()
-        seeds.append(0)
-        for i in range(1, len(self.n_estimators_per_worker)):
-            sd = self.n_estimators_per_worker[i-1] + seeds[i-1]
-            seeds.append(sd)
-
-        key = str(uuid1())
-        self.rfs = {
-            worker: self.client.submit(
-                RandomForestClassifier._func_build_rf,
-                self.n_estimators_per_worker[n],
-                max_depth,
-                n_streams,
-                max_features,
-                n_bins,
-                split_algo,
-                split_criterion,
-                min_rows_per_node,
-                bootstrap,
-                bootstrap_features,
-                type_model,
-                verbose,
-                rows_sample,
-                max_leaves,
-                quantile_per_tree,
-                seeds[n],
-                dtype,
-                key="%s-%s" % (key, n),
-                workers=[worker],
-            )
-            for n, worker in enumerate(workers)
-        }
-
-        rfs_wait = list()
-        for r in self.rfs.values():
-            rfs_wait.append(r)
-
-        wait(rfs_wait)
-        raise_exception_from_futures(rfs_wait)
+        self._create_model(
+            model_func=RandomForestClassifier._construct_rf,
+            client=client,
+            workers=workers,
+            n_estimators=n_estimators,
+            base_seed=seed,
+            **kwargs)
 
     @staticmethod
-    def _func_build_rf(
+    def _construct_rf(
         n_estimators,
-        max_depth,
-        n_streams,
-        max_features,
-        n_bins,
-        split_algo,
-        split_criterion,
-        min_rows_per_node,
-        bootstrap,
-        bootstrap_features,
-        type_model,
-        verbose,
-        rows_sample,
-        max_leaves,
-        quantile_per_tree,
         seed,
-        dtype,
+        **kwargs
     ):
         return cuRFC(
             n_estimators=n_estimators,
-            max_depth=max_depth,
-            handle=None,
-            max_features=max_features,
-            n_bins=n_bins,
-            split_algo=split_algo,
-            split_criterion=split_criterion,
-            min_rows_per_node=min_rows_per_node,
-            bootstrap=bootstrap,
-            bootstrap_features=bootstrap_features,
-            type_model=type_model,
-            verbose=verbose,
-            rows_sample=rows_sample,
-            max_leaves=max_leaves,
-            n_streams=n_streams,
-            quantile_per_tree=quantile_per_tree,
-            seed=seed
+            seed=seed,
+            **kwargs
         )
 
     @staticmethod
-    def _fit(model, X_df_list, y_df_list,
-             convert_dtype, r):
-        if len(X_df_list) != len(y_df_list):
-            raise ValueError("X (%d) and y (%d) partition list sizes unequal" %
-                             len(X_df_list), len(y_df_list))
-        if len(X_df_list) == 1:
-            X_df = X_df_list[0]
-            y_df = y_df_list[0]
-        else:
-            X_df = cudf.concat(X_df_list)
-            y_df = cudf.concat(y_df_list)
-        return model.fit(X_df, y_df, convert_dtype)
-
-    @staticmethod
-    def _predict_cpu(model, X, convert_dtype, r):
+    def _predict_model_on_cpu(model, X, convert_dtype):
         return model._predict_get_all(X, convert_dtype)
-
-    @staticmethod
-    def _print_summary(model):
-        model.print_summary()
 
     def print_summary(self):
         """
-        Print the summary of the forest used to train and test the model.
+        Print the summary of the forest used to train the model
+        on each worker. This information is displayed on the
+        individual workers and not the client.
         """
-        futures = list()
-        workers = self.workers
+        return self._print_summary()
 
-        for n, w in enumerate(workers):
-            futures.append(
-                self.client.submit(
-                    RandomForestClassifier._print_summary,
-                    self.rfs[w],
-                    workers=[w],
-                )
-            )
-
-        wait(futures)
-        raise_exception_from_futures(futures)
-        return self
-
-    def _concat_treelite_models(self):
+    def print_detailed(self):
         """
-        Convert the cuML Random Forest model present in different workers to
-        the treelite format and then concatenate the different treelite models
-        to create a single model. The concatenated model is then converted to
-        bytes format.
-
+        Print detailed information of the forest used to train
+        the model on each worker. This information is displayed on the
+        workers and not the client.
         """
-
-        mod_bytes = []
-        for w in self.workers:
-            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
-
-        last_worker = w
-
-        all_tl_mod_handles = []
-        model = self.rfs[last_worker].result()
-        for n in range(len(self.workers)):
-            all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
-
-        concat_model_handle = model._concatenate_treelite_handle(
-            treelite_handle=all_tl_mod_handles)
-        model._concatenate_model_bytes(concat_model_handle)
-
-        self.local_model = model
+        return self._print_detailed()
 
     def fit(self, X, y, convert_dtype=False):
         """
@@ -378,56 +200,22 @@ class RandomForestClassifier(DelayedPredictionMixin,
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Features of training examples.
-        y : dask_cudf.Dataframe
-            Dense  matrix (floats or doubles) of shape (n_samples, 1)
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+            Distributed dense matrix (floats or doubles) of shape
+            (n_samples, n_features).
+        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
             Labels of training examples.
             **y must be partitioned the same way as X**
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
-
+            y to be of dtype int32. This will increase memory used for
+            the method.
         """
-
-        c = default_client()
-
         self.num_classes = len(y.unique())
-        X_futures = workers_to_parts(c.sync(_extract_partitions, X))
-        y_futures = workers_to_parts(c.sync(_extract_partitions, y))
-
-        X_partition_workers = [w for w, xc in X_futures.items()]
-        y_partition_workers = [w for w, xc in y_futures.items()]
-
-        if set(X_partition_workers) != set(self.workers) or \
-           set(y_partition_workers) != set(self.workers):
-            raise ValueError("""
-              X is not partitioned on the same workers expected by RF\n
-              X workers: %s\n
-              y workers: %s\n
-              RF workers: %s
-            """ % (str(X_partition_workers),
-                   str(y_partition_workers),
-                   str(self.workers)))
-
-        futures = list()
-        for w, xc in X_futures.items():
-            futures.append(
-                c.submit(
-                    RandomForestClassifier._fit,
-                    self.rfs[w],
-                    xc,
-                    y_futures[w],
-                    convert_dtype,
-                    random.random(),
-                    workers=[w],
-                )
-            )
-
-        wait(futures)
-        raise_exception_from_futures(futures)
+        self._set_internal_model(None)
+        self._fit(model=self.rfs,
+                  dataset=(X, y),
+                  convert_dtype=convert_dtype)
         return self
 
     def predict(self, X, output_class=True, algo='auto', threshold=0.5,
@@ -435,6 +223,28 @@ class RandomForestClassifier(DelayedPredictionMixin,
                 fil_sparse_format='auto', delayed=True):
         """
         Predicts the labels for X.
+
+        GPU-based prediction in a multi-node, multi-GPU context works
+        by sending the sub-forest from each worker to the client,
+        concatenating these into one forest with the full
+        `n_estimators` set of trees, and sending this combined forest to
+        the workers, which will each infer on their local set of data.
+        Within the worker, this uses the cuML Forest Inference Library
+        (cuml.fil) for high-throughput prediction.
+
+        This allows inference to scale to large datasets, but the forest
+        transmission incurs overheads for very large trees. For inference
+        on small datasets, this overhead may dominate prediction time.
+
+        The 'CPU' fallback method works with sub-forests in-place,
+        broadcasting the datasets to all workers and combining predictions
+        via a voting method at the end. This method is slower
+        on a per-row basis but may be faster for problems with many trees
+        and few rows.
+
+        In the 0.15 cuML release, inference will be updated with much
+        faster tree transfer. Preliminary builds with this updated approach
+        will be available from rapids.ai
 
         Parameters
         ----------
@@ -488,45 +298,36 @@ class RandomForestClassifier(DelayedPredictionMixin,
         Returns
         ----------
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
-        """
 
-        if self.num_classes > 2 or predict_model == "CPU":
-            preds = self._predict_using_cpu(X,
-                                            convert_dtype=convert_dtype)
+        """
+        if predict_model == "CPU" or self.num_classes > 2:
+            preds = self.predict_model_on_cpu(X,
+                                              convert_dtype=convert_dtype)
 
         else:
             preds = \
                 self._predict_using_fil(X, output_class=output_class,
                                         algo=algo,
                                         threshold=threshold,
-                                        num_classes=self.num_classes,
                                         convert_dtype=convert_dtype,
-                                        predict_model="GPU",
                                         fil_sparse_format=fil_sparse_format,
                                         delayed=delayed)
 
         return preds
 
-    def _predict_using_fil(self, X, output_class=True, algo='auto',
-                           threshold=0.5, num_classes=2,
-                           convert_dtype=False, predict_model="GPU",
-                           delayed=True, fil_sparse_format='auto'):
+    def predict_using_fil(self, X, delayed, **kwargs):
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
 
-        self._concat_treelite_models()
-        data = DistributedDataHandler.create(X, client=self.client)
-        self.datatype = data.datatype
-
-        kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
-                  "predict_model": predict_model, "threshold": threshold,
-                  "num_classes": num_classes, "algo": algo,
-                  "fil_sparse_format": fil_sparse_format}
-        return self._predict(X, delayed, **kwargs)
+        return self._predict_using_fil(X=X,
+                                       delayed=delayed,
+                                       **kwargs)
 
     """
     TODO : Update function names used for CPU predict.
         Cuml issue #1854 has been created to track this.
     """
-    def _predict_using_cpu(self, X, convert_dtype=True):
+    def predict_model_on_cpu(self, X, convert_dtype=True):
         """
         Predicts the labels for X.
 
@@ -551,24 +352,16 @@ class RandomForestClassifier(DelayedPredictionMixin,
         for n, w in enumerate(workers):
             futures.append(
                 c.submit(
-                    RandomForestClassifier._predict_cpu,
+                    RandomForestClassifier._predict_model_on_cpu,
                     self.rfs[w],
                     X_Scattered,
                     convert_dtype,
-                    random.random(),
                     workers=[w],
                 )
             )
 
-        wait(futures)
-        raise_exception_from_futures(futures)
-
-        indexes = list()
-        rslts = list()
-        for d in range(len(futures)):
-            rslts.append(futures[d].result())
-            indexes.append(0)
-
+        rslts = self.client.gather(futures, errors="raise")
+        indexes = np.zeros(len(futures), dtype=np.int32)
         pred = list()
 
         for i in range(len(X)):
@@ -594,12 +387,12 @@ class RandomForestClassifier(DelayedPredictionMixin,
             pred.append(max_class)
         return pred
 
-    def predict_proba(self, X, output_class=True, algo='auto',
-                      threshold=0.5, num_classes=2,
-                      convert_dtype=False,
-                      delayed=True, fil_sparse_format='auto'):
+    def predict_proba(self, X,
+                      delayed=True, **kwargs):
         """
         Predicts the probability of each class for X.
+
+        See documentation of `predict' for notes on performance.
 
         Parameters
         ----------
@@ -653,14 +446,10 @@ class RandomForestClassifier(DelayedPredictionMixin,
         y : NumPy
            Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
         """
-        self._concat_treelite_models()
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
-
-        kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
-                  "threshold": threshold,
-                  "num_classes": num_classes, "algo": algo,
-                  "fil_sparse_format": fil_sparse_format}
         return self._predict_proba(X, delayed, **kwargs)
 
     def get_params(self, deep=True):
@@ -672,11 +461,7 @@ class RandomForestClassifier(DelayedPredictionMixin,
         -----------
         deep : boolean (default = True)
         """
-        params = dict()
-        for key in RandomForestClassifier.variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
+        return self._get_params(deep)
 
     def set_params(self, **params):
         """
@@ -686,14 +471,6 @@ class RandomForestClassifier(DelayedPredictionMixin,
 
         Parameters
         -----------
-        params : dict of new params
+        params : dict of new params.
         """
-        if not params:
-            return self
-        for key, value in params.items():
-            if key not in RandomForestClassifier.variables:
-                raise ValueError("Invalid parameter for estimator")
-            else:
-                setattr(self, key, value)
-
-        return self
+        return self._set_params(**params)

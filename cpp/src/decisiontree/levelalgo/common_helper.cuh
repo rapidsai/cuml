@@ -13,14 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
 #include <common/cudart_utils.h>
 #include <cuml/tree/flatnode.h>
 #include <cuml/common/logger.hpp>
+#include <random/rng.cuh>
+#include <stats/minmax.cuh>
 #include "common_kernel.cuh"
-#include "random/rng.h"
-#include "stats/minmax.h"
 
 namespace ML {
 namespace DecisionTree {

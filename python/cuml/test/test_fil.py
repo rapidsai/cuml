@@ -20,7 +20,8 @@ import os
 from cuml import ForestInference
 from cuml.test.utils import array_equal, unit_param, \
     quality_param, stress_param
-from cuml.utils.import_utils import has_treelite, has_xgboost, has_lightgbm
+from cuml.common.import_utils import has_xgboost
+from cuml.common.import_utils import has_lightgbm
 
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import GradientBoostingClassifier, \
@@ -31,23 +32,24 @@ from sklearn.model_selection import train_test_split
 if has_xgboost():
     import xgboost as xgb
 
-    def simulate_data(m, n, k=2, random_state=None, classification=True,
-                      bias=0.0):
-        if classification:
-            features, labels = make_classification(n_samples=m,
-                                                   n_features=n,
-                                                   n_informative=int(n/5),
-                                                   n_classes=k,
-                                                   random_state=random_state)
-        else:
-            features, labels = make_regression(n_samples=m,
+
+def simulate_data(m, n, k=2, random_state=None, classification=True,
+                  bias=0.0):
+    if classification:
+        features, labels = make_classification(n_samples=m,
                                                n_features=n,
                                                n_informative=int(n/5),
-                                               n_targets=1,
-                                               bias=bias,
+                                               n_classes=k,
                                                random_state=random_state)
-        return np.c_[features].astype(np.float32), \
-            np.c_[labels].astype(np.float32).flatten()
+    else:
+        features, labels = make_regression(n_samples=m,
+                                           n_features=n,
+                                           n_informative=int(n/5),
+                                           n_targets=1,
+                                           bias=bias,
+                                           random_state=random_state)
+    return np.c_[features].astype(np.float32), \
+        np.c_[labels].astype(np.float32).flatten()
 
 
 def _build_and_save_xgboost(model_path,
@@ -73,7 +75,6 @@ def _build_and_save_xgboost(model_path,
 
     params['max_depth'] = 25
     params.update(xgboost_params)
-
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
     return bst
@@ -120,9 +121,8 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
 
     xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
-
     fm = ForestInference.load(model_path,
-                              algo='BATCH_TREE_REORG',
+                              algo='auto',
                               output_class=True,
                               threshold=0.50)
     fil_preds = np.asarray(fm.predict(X_validation))
@@ -176,7 +176,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 
     xgb_mse = mean_squared_error(y_validation, xgb_preds)
     fm = ForestInference.load(model_path,
-                              algo='BATCH_TREE_REORG',
+                              algo='auto',
                               output_class=False)
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
@@ -190,15 +190,13 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 @pytest.mark.parametrize('n_columns', [20])
 @pytest.mark.parametrize('n_estimators', [1, 10])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
-@pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
+@pytest.mark.parametrize('storage_type', [False, True])
 @pytest.mark.parametrize('model_class',
                          [GradientBoostingClassifier, RandomForestClassifier])
-@pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                 storage_type, model_class):
-
     # skip depth 20 for dense tests
-    if max_depth == 20 and storage_type == 'DENSE':
+    if max_depth == 20 and not storage_type:
         return
 
     # settings
@@ -235,7 +233,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 
     skl_acc = accuracy_score(y_validation, skl_preds > 0.5)
 
-    algo = 'NAIVE' if storage_type == 'SPARSE' else 'BATCH_TREE_REORG'
+    algo = 'NAIVE' if storage_type else 'BATCH_TREE_REORG'
 
     fm = ForestInference.load_from_sklearn(skl_model,
                                            algo=algo,
@@ -259,15 +257,14 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 @pytest.mark.parametrize('n_columns', [20])
 @pytest.mark.parametrize('n_estimators', [1, 10])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
-@pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
+@pytest.mark.parametrize('storage_type', [False, True])
 @pytest.mark.parametrize('model_class',
                          [GradientBoostingRegressor, RandomForestRegressor])
-@pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
 def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
                             storage_type, model_class):
 
     # skip depth 20 for dense tests
-    if max_depth == 20 and storage_type == 'DENSE':
+    if max_depth == 20 and not storage_type:
         return
 
     # settings
@@ -301,7 +298,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
 
     skl_mse = mean_squared_error(y_validation, skl_preds)
 
-    algo = 'NAIVE' if storage_type == 'SPARSE' else 'BATCH_TREE_REORG'
+    algo = 'NAIVE' if storage_type else 'BATCH_TREE_REORG'
 
     fm = ForestInference.load_from_sklearn(skl_model,
                                            algo=algo,
@@ -353,8 +350,7 @@ def test_output_algos(algo, small_classifier_and_preds):
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize('storage_type',
-                         ['AUTO', 'DENSE', 'SPARSE', 'auto', 'dense',
-                          'sparse'])
+                         [False, True, 'auto'])
 def test_output_storage_type(storage_type, small_classifier_and_preds):
     model_path, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
