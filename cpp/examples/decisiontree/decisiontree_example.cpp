@@ -158,7 +158,6 @@ void setDeviceAllocator(std::shared_ptr<ML::cumlHandle>& h) {
 }
 
 int main(int argc, char* argv[]) {
-  int devId = get_argval<int>(argv, argv + argc, "-dev_id", 0);
   auto dataset = get_argval<std::string>(argv, argv + argc, "-dataset", "");
   auto regression = get_arg(argv, argv + argc, "-regression");
   int nRows, nCols;
