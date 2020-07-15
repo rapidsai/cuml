@@ -122,7 +122,7 @@ class DtClassifierTest : public DtBaseTest<T, int> {
     auto inparams = this->inparams;
     MLCommon::Random::make_blobs<T>(tmp, this->labels, inparams.M, inparams.N,
                                     inparams.nclasses, allocator, this->stream,
-                                    nullptr, nullptr, T(1.0), false, T(10.0),
+                                    true, nullptr, nullptr, T(1.0), false, T(10.0),
                                     T(-10.0), inparams.seed);
   }
 };  // class DtClassifierTest
