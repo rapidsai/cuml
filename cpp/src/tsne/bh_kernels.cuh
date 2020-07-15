@@ -42,7 +42,7 @@ namespace TSNE {
 
 
 /**
- * Unary op intended to be used as a Thrust transform, check if array elements are NaNs.
+ * Unary op intended to be used as a Thrust transform, check if array elements non-finite.
  */
 struct FiniteTestUnary {
   __host__ __device__ bool operator()(const float x) const { return !isfinite(x); }
