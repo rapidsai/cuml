@@ -1,6 +1,7 @@
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
+- PR #2554: Hashing Vectorizer and general vectorizer improvements
 - PR #2240: Making Dask models pickleable
 - PR #2267: CountVectorizer estimator
 - PR #2261: Exposing new FAISS metrics through Python API
