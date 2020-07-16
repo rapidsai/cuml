@@ -25,7 +25,7 @@ import warnings
 from libc.stdint cimport uintptr_t
 
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
 import cuml.common.handle
 cimport cuml.common.cuda
 

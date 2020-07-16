@@ -22,9 +22,8 @@
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.common.array import CumlArray
-from cuml.utils import input_to_cuml_array
-
-from cuml.metrics import r2_score
+from cuml.common import input_to_cuml_array
+from cuml.common.base import RegressorMixin
 
 import numpy as np
 
@@ -51,6 +50,7 @@ import rmm
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
+
 cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
     cdef cppclass deviceAllocator:
         pass
@@ -74,7 +74,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     ) except +
 
 
-class KNeighborsRegressor(NearestNeighbors):
+class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
     """
 
     K-Nearest Neighbors Regressor is an instance-based learning technique,
@@ -88,8 +88,8 @@ class KNeighborsRegressor(NearestNeighbors):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbose : boolean (default=False)
-        Whether to print verbose logs
+    verbose : int or boolean (default = False)
+        Logging level
     handle : cumlHandle
         The cumlHandle resources to use
     algorithm : string (default='brute')
@@ -239,25 +239,6 @@ class KNeighborsRegressor(NearestNeighbors):
 
         return results.to_output(out_type)
 
-    def score(self, X, y, convert_dtype=True):
-        """
-        Fit a GPU index for k-nearest neighbors regression model.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
-        """
-        y_hat = self.predict(X, convert_dtype=convert_dtype)
-        return r2_score(y, y_hat, convert_dtype=convert_dtype)
+    def get_param_names(self):
+        return super(KNeighborsRegressor, self).get_param_names() \
+            + ["weights"]

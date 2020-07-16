@@ -20,8 +20,7 @@
 # cython: language_level = 3
 
 from cuml.solvers import CD
-from cuml.metrics.base import RegressorMixin
-from cuml.common.base import Base
+from cuml.common.base import Base, RegressorMixin
 
 
 class Lasso(Base, RegressorMixin):
@@ -86,8 +85,8 @@ class Lasso(Base, RegressorMixin):
 
     Parameters
     -----------
-    alpha : float or double
-        Constant that multiplies the L1 term. Defaults to 1.0.
+    alpha : float (default = 1.0)
+        Constant that multiplies the L1 term.
         alpha = 0 is equivalent to an ordinary least square, solved by the
         LinearRegression class.
         For numerical reasons, using alpha = 0 with the Lasso class is not
@@ -102,11 +101,11 @@ class Lasso(Base, RegressorMixin):
         If False, no scaling will be done.
     max_iter : int
         The maximum number of iterations
-    tol : float, optional
+    tol : float (default = 1e-3)
         The tolerance for the optimization: if the updates are smaller than
         tol, the optimization code checks the dual gap for optimality and
         continues until it is smaller than tol.
-    selection : 'cyclic', 'random' (default = 'cyclic')
+    selection : {'cyclic', 'random'} (default='cyclic')
         If set to ‘random’, a random coefficient is updated every iteration
         rather than looping over features sequentially by default.
         This (setting to ‘random’) often leads to significantly faster
@@ -121,31 +120,19 @@ class Lasso(Base, RegressorMixin):
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
 
+    Notes
+    -----
     For additional docs, see `scikitlearn's Lasso
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
 
     def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
-                 max_iter=1000, tol=1e-3, selection='cyclic', handle=None):
-
-        """
-        Initializes the lasso regression class.
-
-        Parameters
-        ----------
-        alpha : float or double.
-        fit_intercept: boolean.
-        normalize: boolean.
-        max_iter: int
-        tol: float or double.
-        selection : str, ‘cyclic’, or 'random'
-
-        For additional docs, see `scikitlearn's Lasso
-        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
-        """
+                 max_iter=1000, tol=1e-3, selection='cyclic', handle=None,
+                 output_type=None):
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(Lasso, self).__init__(handle=handle, verbose=0)
+        super(Lasso, self).__init__(handle=handle, verbose=False,
+                                    output_type=output_type)
 
         self._check_alpha(alpha)
         self.alpha = alpha
@@ -178,7 +165,7 @@ class Lasso(Base, RegressorMixin):
             msg = "alpha value has to be positive"
             raise ValueError(msg.format(alpha))
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
@@ -194,12 +181,12 @@ class Lasso(Base, RegressorMixin):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the transform method will, when necessary,
             convert y to be the same data type as X if they differ. This
             will increase memory used for the method.
-
         """
+        self._set_n_features_in(X)
 
         self.culasso.fit(X, y, convert_dtype=convert_dtype)
 

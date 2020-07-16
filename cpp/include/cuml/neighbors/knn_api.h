@@ -39,11 +39,19 @@ extern "C" {
  * @param k the number of nearest neighbors to return
  * @param rowMajorIndex is the index array in row major layout?
  * @param rowMajorQuery is the query array in row major layout?
+ * @param metric_type the type of distance metric to use. This corresponds
+ * 					  to the value in the ML::MetricType enum. Default is
+ * 					  Euclidean (L2).
+ * @param metric_arg the value of `p` for Minkowski (l-p) distances. This
+ * 					 is ignored if the metric_type is not Minkowski.
+ * @param expanded should lp-based distances be returned in their expanded
+ * 					 form (e.g., without raising to the 1/p power).
  */
 cumlError_t knn_search(const cumlHandle_t handle, float **input, int *size,
                        int n_params, int D, const float *search_items, int n,
                        int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
-                       bool rowMajorQuery);
+                       bool rowMajorQuery, int metric_type = 0,
+                       float metric_arg = 2.0f, bool expanded = 0);
 
 #ifdef __cplusplus
 }

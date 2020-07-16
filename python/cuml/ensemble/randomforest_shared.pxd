@@ -33,7 +33,7 @@ from cuml.common.handle import Handle
 from cuml import ForestInference
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 cimport cuml.common.handle
 cimport cuml.common.cuda
@@ -41,8 +41,6 @@ cimport cuml.common.cuda
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     ctypedef void* ModelBuilderHandle
-    cdef int TreeliteExportProtobufModel(const char* filename,
-                                         ModelHandle model)
     cdef const char* TreeliteGetLastError()
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
@@ -99,11 +97,9 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef void build_treelite_forest[T, L](ModelHandle*,
                                           RandomForestMetaData[T, L]*,
                                           int,
-                                          int,
-                                          vector[unsigned char] &) except +
+                                          int) except +
 
-    cdef vector[unsigned char] save_model_protobuf(ModelHandle) except +
-
+    cdef void delete_rf_metadata[T, L](RandomForestMetaData[T, L]*) except +
     cdef void print_rf_summary[T, L](RandomForestMetaData[T, L]*) except +
     cdef void print_rf_detailed[T, L](RandomForestMetaData[T, L]*) except +
 

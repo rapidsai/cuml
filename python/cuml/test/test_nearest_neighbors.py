@@ -28,7 +28,9 @@ import cudf
 import pandas as pd
 import numpy as np
 
-from cuml.utils import has_scipy
+import sklearn
+import cuml
+from cuml.common import has_scipy
 
 
 def predict(neigh_ind, _y, n_neighbors):
@@ -38,6 +40,12 @@ def predict(neigh_ind, _y, n_neighbors):
 
     ypred, count = stats.mode(_y[neigh_ind], axis=1)
     return ypred.ravel(), count.ravel() * 1.0 / n_neighbors
+
+
+def valid_metrics():
+    cuml_metrics = cuml.neighbors.VALID_METRICS["brute"]
+    sklearn_metrics = sklearn.neighbors.VALID_METRICS["brute"]
+    return [value for value in cuml_metrics if value in sklearn_metrics]
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
@@ -102,18 +110,23 @@ def test_return_dists():
                          stress_param(1000)])
 @pytest.mark.parametrize('k', [unit_param(3), quality_param(30),
                          stress_param(50)])
-def test_cuml_against_sklearn(input_type, nrows, n_feats, k):
+@pytest.mark.parametrize("metric", valid_metrics())
+def test_cuml_against_sklearn(input_type, nrows, n_feats, k, metric):
     X, _ = make_blobs(n_samples=nrows,
                       n_features=n_feats, random_state=0)
 
-    knn_sk = skKNN(metric="euclidean")
+    p = 5  # Testing 5-norm of the minkowski metric only
+
+    knn_sk = skKNN(metric=metric, p=p)  # Testing
     knn_sk.fit(X)
     D_sk, I_sk = knn_sk.kneighbors(X, k)
+
+    X_orig = X
 
     if input_type == "dataframe":
         X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
 
-    knn_cu = cuKNN()
+    knn_cu = cuKNN(metric=metric, p=p)
     knn_cu.fit(X)
     D_cuml, I_cuml = knn_cu.kneighbors(X, k)
 
@@ -128,7 +141,13 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k):
         D_cuml_arr = D_cuml
         I_cuml_arr = I_cuml
 
-    assert array_equal(D_cuml_arr, D_sk, 1e-2, with_sign=True)
+    # Assert the cuml model was properly reverted
+    np.testing.assert_allclose(knn_cu.X_m.to_output("numpy"), X_orig,
+                               atol=1e-5, rtol=1e-4)
+
+    # Allow a max relative diff of 10% and absolute diff of 1%
+    np.testing.assert_allclose(D_cuml_arr, D_sk, atol=1e-2,
+                               rtol=1e-1)
     assert I_cuml_arr.all() == I_sk.all()
 
 

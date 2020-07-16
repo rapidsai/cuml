@@ -16,11 +16,11 @@
 
 from distutils.sysconfig import get_python_lib
 from pathlib import Path
+from pprint import pprint
 from setuptools import find_packages
 from setuptools import setup
 from setuptools.extension import Extension
 from setuputils import clean_folder
-from setuputils import clone_repo_if_needed
 from setuputils import get_environment_option
 from setuputils import get_cli_option
 from setuputils import use_raft_package
@@ -63,7 +63,11 @@ single_gpu_build = get_cli_option('--singlegpu')
 # - Dependencies include and lib folder setup --------------------------------
 
 if not cuda_home:
-    cuda_home = str(Path(shutil.which('nvcc')).parent.parent)
+    nvcc_path = shutil.which('nvcc')
+    if (not nvcc_path):
+        raise FileNotFoundError("nvcc not found.")
+
+    cuda_home = str(Path(nvcc_path).parent.parent)
     print("-- Using nvcc to detect CUDA, found at " + str(cuda_home))
 cuda_include_dir = os.path.join(cuda_home, "include")
 cuda_lib_dir = os.path.join(cuda_home, "lib64")
@@ -108,14 +112,7 @@ if clean_artifacts:
 
 # Use RAFT repository in cuml.raft
 
-use_raft_package(raft_path, libcuml_path)
-
-# Use treelite from the libcuml build folder, otherwise clone it
-# Needed until there is a treelite distribution
-
-treelite_path, _ = clone_repo_if_needed('treelite', libcuml_path)
-treelite_path = os.path.join(treelite_path, "include")
-
+raft_include_dir = use_raft_package(raft_path, libcuml_path)
 
 ##############################################################################
 # - Cython extensions build and parameters -----------------------------------
@@ -129,7 +126,7 @@ libs = ['cuda',
 include_dirs = ['../cpp/src',
                 '../cpp/include',
                 '../cpp/src_prims',
-                treelite_path,
+                raft_include_dir,
                 '../cpp/comms/std/src',
                 '../cpp/comms/std/include',
                 cuda_include_dir,
@@ -148,10 +145,14 @@ if "--multigpu" in sys.argv:
 
 if "--singlegpu" in sys.argv:
     cython_exc_list = glob.glob('cuml/*/*_mg.pyx')
+    cython_exc_list = cython_exc_list + glob.glob('cuml/*/*_mg.pxd')
     cython_exc_list.append('cuml/nccl/nccl.pyx')
+    cython_exc_list.append('cuml/dask/common/comms_utils.pyx')
+
+    print('--singlegpu: excluding the following Cython components:')
+    pprint(cython_exc_list)
 
     python_exc_list = ["*.dask", "*.dask.*"]
-
 else:
     libs.append('cumlprims')
     libs.append('cumlcomms')

@@ -25,7 +25,7 @@ from sklearn.random_projection import johnson_lindenstrauss_min_dim \
                             as sklearn_johnson_lindenstrauss_min_dim
 from sklearn.datasets.samples_generator import make_blobs
 
-from cuml.utils import has_scipy
+from cuml.common import has_scipy
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])

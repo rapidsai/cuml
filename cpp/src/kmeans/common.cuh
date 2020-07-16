@@ -15,20 +15,18 @@
  */
 #pragma once
 
-#include <distance/distance.h>
-#include <distance/fused_l2_nn.h>
-#include <linalg/binary_op.h>
-#include <linalg/matrix_vector_op.h>
-#include <linalg/mean_squared_error.h>
-#include <linalg/reduce.h>
-#include <linalg/reduce_cols_by_key.h>
-#include <linalg/reduce_rows_by_key.h>
-#include <matrix/gather.h>
-#include <random/permute.h>
-#include <random/rng.h>
+#include <distance/distance.cuh>
+#include <distance/fused_l2_nn.cuh>
+#include <linalg/binary_op.cuh>
+#include <linalg/matrix_vector_op.cuh>
+#include <linalg/mean_squared_error.cuh>
+#include <linalg/reduce.cuh>
+#include <linalg/reduce_cols_by_key.cuh>
+#include <linalg/reduce_rows_by_key.cuh>
+#include <matrix/gather.cuh>
+#include <random/permute.cuh>
+#include <random/rng.cuh>
 #include <random>
-
-#include <ml_cuda_utils.h>
 
 #include <thrust/equal.h>
 #include <thrust/execution_policy.h>
@@ -37,6 +35,8 @@
 #include <thrust/scan.h>
 #include <numeric>
 
+#include <ml_cuda_utils.h>
+
 #include <common/allocatorAdapter.hpp>
 #include <common/cumlHandle.hpp>
 #include <common/cuml_comms_int.hpp>
@@ -44,8 +44,9 @@
 #include <common/host_buffer.hpp>
 #include <common/tensor.hpp>
 
-#include <cuml/cluster/kmeans.hpp>
 #include <cuml/common/logger.hpp>
+
+#include <cuml/cluster/kmeans_mg.hpp>
 
 #include <fstream>
 
