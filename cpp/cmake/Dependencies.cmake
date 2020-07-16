@@ -46,7 +46,6 @@ else(DEFINED ENV{RAFT_PATH})
     INSTALL_COMMAND   "")
 
   # Redefining RAFT_DIR so it coincides with the one inferred by env variable.
-  #set(RAFT_DIR ${RAFT_DIR}/src/raft/ CACHE STRING "Path to RAFT repo")
   set(RAFT_DIR ${RAFT_DIR}/src/raft/)
 endif(DEFINED ENV{RAFT_PATH})
 
