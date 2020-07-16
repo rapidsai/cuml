@@ -174,15 +174,11 @@ def _build_treelite_classifier(m, data, args, tmpdir):
 
 def _treelite_fil_accuracy_score(y_true, y_pred):
     """Function to get correct accuracy for FIL (returns class index)"""
-    y_pred_binary = input_utils.convert_dtype(y_pred > 0.5, np.int32)
-    if isinstance(y_true, np.ndarray):
-        return cuml.metrics.accuracy_score(y_true, y_pred_binary)
-    elif cuda.devicearray.is_cuda_ndarray(y_true):
-        y_true_np = y_true.copy_to_host()
-        return cuml.metrics.accuracy_score(y_true_np, y_pred_binary)
-    elif isinstance(y_true, cudf.Series):
-        return cuml.metrics.accuracy_score(y_true, y_pred_binary)
-    elif isinstance(y_true, pd.Series):
-        return cuml.metrics.accuracy_score(y_true, y_pred_binary)
-    else:
-        raise TypeError("Received unsupported input type")
+    # convert the input if necessary
+    y_pred1 = (y_pred.copy_to_host() if
+               cuda.devicearray.is_cuda_ndarray(y_pred) else y_pred)
+    y_true1 = (y_true.copy_to_host() if
+               cuda.devicearray.is_cuda_ndarray(y_true) else y_true)
+
+    y_pred_binary = input_utils.convert_dtype(y_pred1 > 0.5, np.int32)
+    return cuml.metrics.accuracy_score(y_true1, y_pred_binary)

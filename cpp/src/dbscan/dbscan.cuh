@@ -94,8 +94,8 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
 template <typename T, typename Index_ = int>
 void dbscanFitImpl(const ML::handle_impl &handle, T *input, Index_ n_rows,
                    Index_ n_cols, T eps, Index_ min_pts, Index_ *labels,
-                   size_t max_mbytes_per_batch, cudaStream_t stream,
-                   int verbosity) {
+                   Index_ *core_sample_indices, size_t max_mbytes_per_batch,
+                   cudaStream_t stream, int verbosity) {
   ML::PUSH_RANGE("ML::Dbscan::Fit");
   ML::Logger::get().setLevel(verbosity);
   int algoVd = 1;
@@ -113,14 +113,15 @@ void dbscanFitImpl(const ML::handle_impl &handle, T *input, Index_ n_rows,
                    (double)estimated_memory * 1e-6 / n_batches);
   }
 
-  size_t workspaceSize =
-    Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts, labels, algoVd,
-                algoAdj, algoCcl, NULL, n_batches, stream);
+  size_t workspaceSize = Dbscan::run(
+    handle, input, n_rows, n_cols, eps, min_pts, labels, core_sample_indices,
+    algoVd, algoAdj, algoCcl, NULL, n_batches, stream);
 
   MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream,
                                           workspaceSize);
-  Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts, labels, algoVd,
-              algoAdj, algoCcl, workspace.data(), n_batches, stream);
+  Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts, labels,
+              core_sample_indices, algoVd, algoAdj, algoCcl, workspace.data(),
+              n_batches, stream);
   ML::POP_RANGE();
 }
 

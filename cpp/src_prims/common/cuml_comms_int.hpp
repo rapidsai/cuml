@@ -58,21 +58,21 @@ class cumlCommunicator {
   datatype_t getDataType() const;
 
   cumlCommunicator() = delete;
-  cumlCommunicator(const raft::comms::comms_t& raftComms) {
-     _raftComms = &raftComms; 
+  cumlCommunicator(const raft::comms::comms_t& raftComms) : _raftComms(raftComms) {
+   //   _raftComms = &raftComms; 
   }
 
   /**
      * Returns the size of the group associated with the underlying communicator.
      */
   int getSize() const {
-     return _raftComms->get_size();
+     return _raftComms.get_size();
   }
   /**
      * Determines the rank of the calling process in the underlying communicator.
      */
   int getRank() const {
-     return _raftComms->get_rank();
+     return _raftComms.get_rank();
   }
 
   /**
@@ -95,7 +95,7 @@ class cumlCommunicator {
      * Synchronization of all ranks for the underlying communicator.
      */
   void barrier() const {
-     _raftComms->barrier();
+     _raftComms.barrier();
   }
 
   /**
@@ -113,7 +113,7 @@ class cumlCommunicator {
    * @return            resulting status of the synchronization.
    */
   status_t syncStream(cudaStream_t stream) const {
-     return (status_t) _raftComms->sync_stream(stream);
+     return (status_t) _raftComms.sync_stream(stream);
   }
 
   /**
@@ -150,7 +150,7 @@ class cumlCommunicator {
      */
   template <typename T>
   void isend(const T* buf, int n, int dest, int tag, request_t* request) const {
-     _raftComms->isend(buf, n, dest, tag, request);
+     _raftComms.isend(buf, n, dest, tag, request);
    //  isend(static_cast<const void*>(buf), n * sizeof(T), dest, tag, request);
   }
 
@@ -165,7 +165,7 @@ class cumlCommunicator {
      */
   template <typename T>
   void irecv(T* buf, int n, int source, int tag, request_t* request) const {
-     _raftComms->irecv(buf, n, source, tag, request);
+     _raftComms.irecv(buf, n, source, tag, request);
    //  irecv(static_cast<void*>(buf), n * sizeof(T), source, tag, request);
   }
 
@@ -176,7 +176,7 @@ class cumlCommunicator {
      * @param[in]   array_of_requests   array of request handles
      */
   void waitall(int count, request_t array_of_requests[]) const {
-     _raftComms->waitall(count, array_of_requests);
+     _raftComms.waitall(count, array_of_requests);
   }
 
   /**
@@ -201,7 +201,7 @@ class cumlCommunicator {
   template <typename T>
   void allreduce(const T* sendbuff, T* recvbuff, int count, op_t op,
                  cudaStream_t stream) const {
-   _raftComms->allreduce(sendbuff, recvbuff, count, (raft::comms::op_t) op, stream);
+   _raftComms.allreduce(sendbuff, recvbuff, count, (raft::comms::op_t) op, stream);
    //  allreduce(sendbuff, recvbuff, count, getDataType<T>(), op, stream);
   }
 
@@ -224,7 +224,7 @@ class cumlCommunicator {
      */
   template <typename T>
   void bcast(T* buff, int count, int root, cudaStream_t stream) const {
-     _raftComms->bcast(buff, count, root, stream);
+     _raftComms.bcast(buff, count, root, stream);
    //  bcast(buff, count, getDataType<T>(), root, stream);
   }
 
@@ -252,7 +252,7 @@ class cumlCommunicator {
   template <typename T>
   void reduce(const T* sendbuff, T* recvbuff, int count, op_t op, int root,
               cudaStream_t stream) const {
-   _raftComms->reduce(sendbuff, recvbuff, count, (raft::comms::op_t) op, root, stream);
+   _raftComms.reduce(sendbuff, recvbuff, count, (raft::comms::op_t) op, root, stream);
    //  reduce(sendbuff, recvbuff, count, getDataType<T>(), op, root, stream);
   }
 
@@ -281,7 +281,7 @@ class cumlCommunicator {
   template <typename T>
   void allgather(const T* sendbuff, T* recvbuff, int sendcount,
                  cudaStream_t stream) const {
-   _raftComms->allgather(sendbuff, recvbuff, sendcount, stream);
+   _raftComms.allgather(sendbuff, recvbuff, sendcount, stream);
    //  allgather(sendbuff, recvbuff, sendcount, getDataType<T>(), stream);
   }
 
@@ -316,7 +316,7 @@ class cumlCommunicator {
   template <typename T>
   void allgatherv(const T* sendbuf, T* recvbuf, const int recvcounts[],
                   const int displs[], cudaStream_t stream) const {
-   _raftComms->allgatherv(sendbuf, recvbuf, (size_t *) recvcounts, displs, stream);
+   _raftComms.allgatherv(sendbuf, recvbuf, (size_t *) recvcounts, displs, stream);
    //  allgatherv(sendbuf, recvbuf, recvcounts, displs, getDataType<T>(), stream);
   }
 
@@ -345,12 +345,12 @@ class cumlCommunicator {
   template <typename T>
   void reducescatter(const T* sendbuff, T* recvbuff, int recvcount,
                      op_t op, cudaStream_t stream) const {
-      _raftComms->reducescatter(sendbuff, recvbuff, recvcount, (raft::comms::op_t) op, stream);
+      _raftComms.reducescatter(sendbuff, recvbuff, recvcount, (raft::comms::op_t) op, stream);
    //  reducescatter(sendbuff, recvbuff, recvcount, getDataType<T>(), op, stream);
   }
 
  private:
-  const raft::comms::comms_t* _raftComms;
+  const raft::comms::comms_t& _raftComms;
 };
 
 }  // end namespace MLCommon
