@@ -39,6 +39,10 @@ int qn_fit(const cumlHandle_impl &handle, LossFunction &loss, T *Xptr, T *yptr,
   opt_param.max_linesearch = linesearch_max_iter;
   SimpleVec<T> w(w0, loss.n_param);
 
+  // Scale the regularization strenght with the number of samples.
+  l1 /= N;
+  l2 /= N;
+
   if (l2 == 0) {
     GLMWithData<T, LossFunction> lossWith(&loss, Xptr, yptr, zptr, N, ordX);
 

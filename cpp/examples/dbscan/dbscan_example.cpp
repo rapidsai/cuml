@@ -28,7 +28,6 @@
 #endif  //HAVE_CUB
 
 #ifdef HAVE_RMM
-#include <rmm/rmm.h>
 #include <cuml/common/rmmAllocatorAdapter.hpp>
 #endif  //HAVE_RMM
 
@@ -225,7 +224,7 @@ int main(int argc, char* argv[]) {
             << "max_bytes_per_batch - " << max_bytes_per_batch << std::endl;
 
   ML::dbscanFit(cumlHandle, d_inputData, nRows, nCols, eps, minPts, d_labels,
-                max_bytes_per_batch, false);
+                nullptr, max_bytes_per_batch, false);
   CUDA_RT_CALL(cudaMemcpyAsync(h_labels.data(), d_labels, nRows * sizeof(int),
                                cudaMemcpyDeviceToHost, stream));
   CUDA_RT_CALL(cudaStreamSynchronize(stream));

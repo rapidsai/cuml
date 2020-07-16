@@ -114,7 +114,7 @@ template <int TPB_X, typename T>
 void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
                      int tail_n, const int *head, const int *tail, int nnz,
                      T *epochs_per_sample, int n_vertices, float gamma,
-                     UMAPParams *params, int n_epochs, bool multicore_implem,
+                     UMAPParams *params, int n_epochs,
                      std::shared_ptr<deviceAllocator> d_alloc,
                      cudaStream_t stream) {
   // Are we doing a fit or a transform?
@@ -140,24 +140,15 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   dim3 blk(TPB_X, 1, 1);
   uint64_t seed = params->random_state;
 
-  int requiredSize = TPB_X * params->n_components;
-  if (multicore_implem) {
-    requiredSize *= sizeof(T);
-  } else {
-    requiredSize *= sizeof(double);
-  }
-
-  // checks if enough shared memory is available
-  bool use_shared_mem = requiredSize < MLCommon::getSharedMemPerBlock();
   MLCommon::FastIntDiv tail_n_fast(tail_n);
 
-  if (multicore_implem) {
+  if (params->multicore_implem) {
     for (int n = 0; n < n_epochs; n++) {
       call_optimize_batch_kernel<T, TPB_X>(
         head_embedding, head_n, tail_embedding, tail_n_fast, head, tail, nnz,
         epochs_per_sample, n_vertices, epoch_of_next_negative_sample.data(),
         epoch_of_next_sample.data(), alpha, n, gamma, seed, nullptr, move_other,
-        use_shared_mem, params, n, grid, blk, requiredSize, stream);
+        params, n, grid, blk, stream);
       CUDA_CHECK(cudaGetLastError());
       optimization_iteration_finalization(params, head_embedding, alpha, n,
                                           n_epochs, seed);
@@ -181,8 +172,8 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
           head_embedding, head_n, tail_embedding, tail_n_fast, head, tail,
           offset + curBatchSize, epochs_per_sample, n_vertices,
           epoch_of_next_negative_sample.data(), epoch_of_next_sample.data(),
-          alpha, n, gamma, seed, embedding_updates, move_other, use_shared_mem,
-          params, n, grid, blk, requiredSize, stream, offset);
+          alpha, n, gamma, seed, embedding_updates, move_other, params, n, grid,
+          blk, stream, offset);
         CUDA_CHECK(cudaGetLastError());
 
         toDo -= curBatchSize;
@@ -258,7 +249,7 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
   optimize_layout<TPB_X, T>(embedding, m, embedding, m, out.rows(), out.cols(),
                             out.nnz, epochs_per_sample.data(), m,
                             params->repulsion_strength, params, n_epochs,
-                            params->multicore_implem, d_alloc, stream);
+                            d_alloc, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
