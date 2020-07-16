@@ -925,9 +925,11 @@ std::vector<FilTestParams> import_auto_inputs = {
   {20000, 50, 0.05, 10, 50, 0.05, fil::output_t::AVG, 0, 0,
    fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT,
    fil::leaf_value_t::INT_CLASS_LABEL, 3},
+#if 0  
   {20000, 50, 0.05, 19, 50, 0.05, fil::output_t::AVG, 0, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT,
    fil::leaf_value_t::INT_CLASS_LABEL, 6},
+#endif
 };
 
 TEST_P(TreeliteAutoFilTest, Import) { compare(); }
