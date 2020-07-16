@@ -300,7 +300,6 @@ def test_svm_gamma(params):
                       centers=centers)
     X = X.astype(np.float32)
     if x_arraytype == 'dataframe':
-        X_df = cudf.DataFrame(X)
         y = cudf.Series(y)
     elif x_arraytype == 'numba':
         X = cuda.to_device(X)
