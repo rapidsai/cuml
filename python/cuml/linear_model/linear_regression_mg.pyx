@@ -77,6 +77,7 @@ class LinearRegressionMG(MGFitMixin, LinearRegression):
         cdef double double_intercept
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
+        print("Before C++ fit")
         if self.dtype == np.float32:
 
             fit(handle_[0],

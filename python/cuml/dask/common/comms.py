@@ -15,12 +15,14 @@
 
 from cuml.raft.dask.common.comms import Comms
 from cuml.raft.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import local_handle
 from cuml.raft.dask.common.comms_utils import *
 from cuml.common.handle import Handle
 
 class CommsContext(Comms):
     def __init__(self, comms_p2p=False, client=None, verbose=False,
                  streams_per_handle=0):
+        print("In comms init")
         super().__init__(comms_p2p=comms_p2p, client=client,
                          verbose=verbose,
                          streams_per_handle=streams_per_handle)
@@ -29,8 +31,10 @@ class CommsContext(Comms):
         super().init(workers=workers)
         self.client.run(_wrap_cuml_handle,
                         self.sessionId,
+                        workers=self.worker_addresses,
                         wait=True)
 
 async def _wrap_cuml_handle(sessionId):
-    session_state = worker_state(sessionId)
-    session_state["handle"] = Handle(session_state["handle"])
+    handle = local_handle(sessionId)
+    if handle:
+        worker_state(sessionId)["handle"] = Handle(handle)

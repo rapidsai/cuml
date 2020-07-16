@@ -88,6 +88,7 @@ class MGFitMixin(object):
         cdef uintptr_t X_arg = opg.build_data_t(X_arys)
         cdef uintptr_t y_arg = opg.build_data_t(y_arys)
 
+        print("Before fit")
         # call inheriting class _fit that does all cython pointers and calls
         self._fit(X=X_arg,
                   y=y_arg,

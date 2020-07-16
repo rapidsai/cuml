@@ -14,4 +14,6 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <raft/comms/helper.hpp>

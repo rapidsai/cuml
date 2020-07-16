@@ -76,9 +76,11 @@ cdef class Handle:
         cdef cumlHandle* h_ = <cumlHandle*>self.h
     
     def __cinit__(self, raftHandle_t):
-        cdef size_t raftHandle_ptr = <size_t> raftHandle_t.h
+        cdef size_t raftHandle_ptr = <size_t> raftHandle_t.getHandle()
         cdef handle_t* raftHandle = <handle_t*> raftHandle_ptr
+        print("about to wrap")
         self.h = <size_t>(new cumlHandle(raftHandle))
+        print("wrapping done")
 
     def __dealloc__(self):
         h_ = <cumlHandle*>self.h
