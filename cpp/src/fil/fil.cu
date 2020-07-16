@@ -664,6 +664,42 @@ void tl2fil_dense(std::vector<dense_node_t>* pnodes, forest_params_t* params,
   }
 }
 
+template <typename fil_node_t>
+struct tl2fil_sparse_check_t {
+  static void check(const tl::Model& model) {
+    ASSERT(false, "internal error: "
+           "only a specialization of this tempalte should be used");
+  }
+};
+
+template <>
+struct tl2fil_sparse_check_t<sparse_node16_t> {
+  // no extra check for 16-byte sparse nodes
+  static void check(const tl::Model& model) {}
+};
+
+template <>
+struct tl2fil_sparse_check_t<sparse_node8_t> {
+  static const int MAX_FEATURES = 1 << sparse_node8::FID_NUM_BITS;
+  static const int MAX_TREE_NODES = (1 << sparse_node8::LEFT_NUM_BITS) - 1;
+  static void check(const tl::Model& model) {
+    // check the number of features
+    int num_features = model.num_feature;
+    ASSERT(num_features <= MAX_FEATURES, "model has %d features, "
+           "but only %d supported for 8-byte sparse nodes", num_features,
+           MAX_FEATURES);
+
+    // check the number of tree nodes
+    const std::vector<tl::Tree>& trees = model.trees;
+    for (int i = 0; i < trees.size(); ++i) {
+      int num_nodes = trees[i].num_nodes;
+      ASSERT(num_nodes <= MAX_TREE_NODES, "tree %d has %d nodes, "
+             "but only %d supported for 8-byte sparse nodes", i, num_nodes,
+             MAX_TREE_NODES);
+    }
+  }
+};
+
 // uses treelite model with additional tl_params to initialize FIL params,
 // trees (stored in *ptrees) and sparse nodes (stored in *pnodes)
 template <typename fil_node_t>
@@ -671,6 +707,7 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
                    forest_params_t* params, const tl::Model& model,
                    const treelite_params_t* tl_params) {
   tl2fil_common(params, model, tl_params);
+  tl2fil_sparse_check_t<fil_node_t>::check(model);
 
   // convert the nodes
   for (int i = 0; i < model.trees.size(); ++i) {
