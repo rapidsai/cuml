@@ -27,13 +27,8 @@ from cuml.common.type_utils import CUPY_SPARSE_DTYPES
 from cudf.utils.dtypes import min_signed_type
 
 
-def _get_non_alphanumeric_characters(docs):
-    characters = docs.str.character_tokenize().unique()
-    non_alpha = characters.str.extract(r'([^\w])', expand=False).dropna()
-    return non_alpha.tolist() + ['\n']
-
-
-def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" "):
+def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" ",
+                keep_underscore_char=True):
     """Chain together an optional series of text preprocessing steps to
     apply to a document.
     Parameters
@@ -44,6 +39,8 @@ def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" "):
         Whether to use str.lower to lowercase all of the text
     remove_non_alphanumeric: bool
         Whether or not to remove non-alphanumeric characters.
+    keep_underscore_char: bool
+        Whether or not to keep the underscore character
     Returns
     -------
     doc: cudf.Series[str]
@@ -52,11 +49,16 @@ def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" "):
     if lower:
         doc = doc.str.lower()
     if remove_non_alphanumeric:
-        # TODO: Use PR https://github.com/rapidsai/cudf/pull/5666
-        non_alpha = _get_non_alphanumeric_characters(doc)
-        delimiter_code = ord(delimiter)
-        translation_table = {ord(char): delimiter_code for char in non_alpha}
-        doc = doc.str.translate(translation_table)
+        if keep_underscore_char:
+            # why: sklearn by default keeps `_` char along with  alphanumerics
+            # currently we dont have a easy way of removing all chars but x in cudf.Series[str]
+            # below works around it
+            temp_string = 'cumlCh'
+            doc = doc.str.replace('_', temp_string, regex=False)
+            doc = doc.str.filter_alphanum(' ', keep=True)
+            doc = doc.str.replace(temp_string, '_', regex=False)
+        else:
+            doc = doc.str.filter_alphanum(' ', keep=True)      
     return doc
 
 
@@ -117,7 +119,9 @@ class _VectorizerMixin:
         meaning we need to first tokenize and pad each token with a delimiter.
         """
         if self.analyzer == 'char_wb' and ngram_size != 1:
+            token_count = str_series.str.token_count(self.delimiter)
             tokens = str_series.str.tokenize(self.delimiter)
+            del str_series
 
             padding = Series(self.delimiter).repeat(len(tokens))
             tokens = padding.str.cat(tokens.str.cat(padding))
@@ -125,21 +129,23 @@ class _VectorizerMixin:
 
             ngram_sr = tokens.str.character_ngrams(n=ngram_size)
 
-            token_count = str_series.str.token_count(self.delimiter)
             doc_id_df = cudf.DataFrame({
                 'doc_id': doc_id_sr.repeat(token_count).reset_index(drop=True),
                 # formula to count ngrams given number of letters per token:
                 'ngram_count': tokens.str.len() - (ngram_size - 1)
             })
+            del tokens
             ngram_count = doc_id_df.groupby('doc_id').sum()['ngram_count']
             return ngram_sr, ngram_count, token_count
 
         if ngram_size == 1:
             token_count = str_series.str.len()
             ngram_sr = str_series.str.character_tokenize()
+            del str_series
         elif self.analyzer == 'char':
             token_count = str_series.str.len()
             ngram_sr = str_series.str.character_ngrams(n=ngram_size)
+            del str_series
 
         ngram_count = token_count - (ngram_size - 1)
 
@@ -193,7 +199,7 @@ class _VectorizerMixin:
             self.get_ngrams(docs, n, doc_id)
             for n in range(min_n, max_n + 1)
         ]
-
+        del docs
         tokenized_df = cudf.concat(tokenized_df_ls)
         tokenized_df = tokenized_df.reset_index(drop=True)
 
