@@ -131,10 +131,12 @@ struct alignas(16) sparse_node16 : base_node, sparse_node16_extra_data {
 
 /** sparse_node8 is a single 8-byte node in a sparse forest */
 struct alignas(8) sparse_node8 : base_node {
-  static const int FID_MASK = (1 << 14) - 1;
-  static const int LEFT_OFFSET = 14;
-  static const int LEFT_MASK = ((1 << 16) - 1) << LEFT_OFFSET;
-  static const int DEF_LEFT_OFFSET = 30;
+  static const int FID_NUM_BITS = 14;
+  static const int FID_MASK = (1 << FID_NUM_BITS) - 1;
+  static const int LEFT_OFFSET = FID_NUM_BITS;
+  static const int LEFT_NUM_BITS = 16;
+  static const int LEFT_MASK = ((1 << LEFT_NUM_BITS) - 1) << LEFT_OFFSET;
+  static const int DEF_LEFT_OFFSET = LEFT_OFFSET + LEFT_NUM_BITS;
   static const int DEF_LEFT_MASK = 1 << DEF_LEFT_OFFSET;
   static const int IS_LEAF_OFFSET = 31;
   static const int IS_LEAF_MASK = 1 << IS_LEAF_OFFSET;
