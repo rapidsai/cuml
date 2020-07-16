@@ -300,8 +300,6 @@ def test_svm_gamma(params):
                       centers=centers)
     X = X.astype(np.float32)
     if x_arraytype == 'dataframe':
-        X_df = cudf.DataFrame()
-        X = X_df.from_gpu_matrix(cuda.to_device(X))
         y = cudf.Series(y)
     elif x_arraytype == 'numba':
         X = cuda.to_device(X)
@@ -311,7 +309,10 @@ def test_svm_gamma(params):
     cuSVC = cu_svm.SVC(**params)
     cuSVC.fit(X, y)
     y_pred = cuSVC.predict(X)
-    n_correct = np.sum(y == y_pred)
+    if x_arraytype == 'dataframe':
+        n_correct = np.sum(y.to_array() == y_pred)
+    else:
+        n_correct = np.sum(y == y_pred)
     accuracy = n_correct * 100 / n_rows
     assert accuracy > 70
 

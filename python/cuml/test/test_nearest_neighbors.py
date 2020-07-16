@@ -16,8 +16,6 @@
 
 import pytest
 
-import rmm
-
 from cuml.test.utils import array_equal, unit_param, quality_param, \
     stress_param
 from cuml.neighbors import NearestNeighbors as cuKNN
@@ -65,7 +63,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
     X = X.astype(np.float32)
 
     if datatype == "dataframe":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
+        X = cudf.DataFrame(X)
 
     knn_cu = cuKNN()
     knn_cu.fit(X)
@@ -124,7 +122,7 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k, metric):
     X_orig = X
 
     if input_type == "dataframe":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
+        X = cudf.DataFrame(X)
 
     knn_cu = cuKNN(metric=metric, p=p)
     knn_cu.fit(X)
