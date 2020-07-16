@@ -16,8 +16,6 @@
 
 import pytest
 
-import rmm
-
 from cuml.test.utils import array_equal, unit_param, quality_param, \
     stress_param
 from cuml.neighbors import NearestNeighbors as cuKNN
