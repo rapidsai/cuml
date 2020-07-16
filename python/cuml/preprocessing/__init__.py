@@ -19,7 +19,8 @@ from cuml.preprocessing.label import LabelBinarizer, label_binarize
 from cuml.preprocessing.encoders import OneHotEncoder
 
 
-from cuml._thirdparty.sklearn.preprocessing import scale, minmax_scale, normalize
-from cuml._thirdparty.sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler
-from cuml._thirdparty.sklearn.preprocessing import SimpleImputer
-from cuml._thirdparty.sklearn.preprocessing import PolynomialFeatures
+from cuml._thirdparty.sklearn.preprocessing import StandardScaler, \
+    MinMaxScaler, MaxAbsScaler, Normalizer, Binarizer, PolynomialFeatures, \
+    SimpleImputer
+from cuml._thirdparty.sklearn.preprocessing import scale, minmax_scale, \
+    normalize, add_dummy_feature, binarize

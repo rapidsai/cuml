@@ -7,22 +7,20 @@ from scipy import sparse as cpu_sp
 from cupy import sparse as gpu_sp
 import cupy as np
 import numpy as cpu_np
-from .validation import _deprecate_positional_args
 
 from ...thirdparty_adapters.sparsefuncs_fast import (
     csr_mean_variance_axis0 as _csr_mean_var_axis0,
-    csc_mean_variance_axis0 as _csc_mean_var_axis0,
-    incr_mean_variance_axis0 as _incr_mean_var_axis0)
+    csc_mean_variance_axis0 as _csc_mean_var_axis0)
 
 
 def iscsr(X):
     return isinstance(X, cpu_sp.csr_matrix) \
-    or isinstance(X, gpu_sp.csr_matrix)
+        or isinstance(X, gpu_sp.csr_matrix)
 
 
 def iscsc(X):
     return isinstance(X, cpu_sp.csc_matrix) \
-    or isinstance(X, gpu_sp.csc_matrix)
+        or isinstance(X, gpu_sp.csc_matrix)
 
 
 def issparse(X):
@@ -112,70 +110,6 @@ def mean_variance_axis(X, axis):
             return _csc_mean_var_axis0(X)
         else:
             return _csr_mean_var_axis0(X.T)
-    else:
-        _raise_typeerror(X)
-
-
-@_deprecate_positional_args
-def incr_mean_variance_axis(X, *, axis, last_mean, last_var, last_n):
-    """Compute incremental mean and variance along an axix on a CSR or
-    CSC matrix.
-
-    last_mean, last_var are the statistics computed at the last step by this
-    function. Both must be initialized to 0-arrays of the proper size, i.e.
-    the number of features in X. last_n is the number of samples encountered
-    until now.
-
-    Parameters
-    ----------
-    X : CSR or CSC sparse matrix, shape (n_samples, n_features)
-        Input data.
-
-    axis : int (either 0 or 1)
-        Axis along which the axis should be computed.
-
-    last_mean : float array with shape (n_features,)
-        Array of feature-wise means to update with the new data X.
-
-    last_var : float array with shape (n_features,)
-        Array of feature-wise var to update with the new data X.
-
-    last_n : int with shape (n_features,)
-        Number of samples seen so far, excluded X.
-
-    Returns
-    -------
-
-    means : float array with shape (n_features,)
-        Updated feature-wise means.
-
-    variances : float array with shape (n_features,)
-        Updated feature-wise variances.
-
-    n : int with shape (n_features,)
-        Updated number of seen samples.
-
-    Notes
-    -----
-    NaNs are ignored in the algorithm.
-
-    """
-    _raise_error_wrong_axis(axis)
-
-    if iscsr(X):
-        if axis == 0:
-            return _incr_mean_var_axis0(X, last_mean=last_mean,
-                                        last_var=last_var, last_n=last_n)
-        else:
-            return _incr_mean_var_axis0(X.T, last_mean=last_mean,
-                                        last_var=last_var, last_n=last_n)
-    elif iscsc(X):
-        if axis == 0:
-            return _incr_mean_var_axis0(X, last_mean=last_mean,
-                                        last_var=last_var, last_n=last_n)
-        else:
-            return _incr_mean_var_axis0(X.T, last_mean=last_mean,
-                                        last_var=last_var, last_n=last_n)
     else:
         _raise_typeerror(X)
 
@@ -433,8 +367,8 @@ def _sparse_min_or_max(X, axis, min_or_max):
 
 
 def _sparse_min_max(X, axis):
-        return (_sparse_min_or_max(X, axis, 'min'),
-                _sparse_min_or_max(X, axis, 'max'))
+    return (_sparse_min_or_max(X, axis, 'min'),
+            _sparse_min_or_max(X, axis, 'max'))
 
 
 def _sparse_nan_min_max(X, axis):
@@ -521,7 +455,7 @@ def count_nonzero(X, axis=None, sample_weight=None):
         else:
             weights = np.repeat(sample_weight, np.diff(X.indptr))
             return np.bincount(X.indices, minlength=X.shape[1],
-                            weights=weights)
+                               weights=weights)
     else:
         raise ValueError('Unsupported axis: {0}'.format(axis))
 

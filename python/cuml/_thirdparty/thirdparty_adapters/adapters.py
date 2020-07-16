@@ -18,8 +18,7 @@ import cupy as cp
 from cuml.common import input_to_cuml_array
 from cupy.sparse import csr_matrix as gpu_csr_matrix
 from cupy.sparse import csc_matrix as gpu_csc_matrix
-from scipy.sparse import csr_matrix as cpu_csr_matrix
-from scipy.sparse import csc_matrix as cpu_csc_matrix
+from cupy.sparse import csc_matrix as gpu_coo_matrix
 from scipy import sparse as cpu_sparse
 from cupy import sparse as gpu_sparse
 
@@ -53,12 +52,10 @@ def check_sparse(array, accept_sparse):
         if accept_sparse is True:
             return
 
-        if isinstance(array, (cpu_csr_matrix, gpu_csr_matrix)):
-            sptype = 'csr'
-        elif isinstance(array, (cpu_csc_matrix, gpu_csc_matrix)):
-            sptype = 'csc'
+        if hasattr(array, 'format'):
+            sptype = array.format
         else:
-            sptype = 'other'
+            sptype = 'not sparse'
 
         if isinstance(accept_sparse, (tuple, list)):
             if sptype not in accept_sparse:
@@ -101,31 +98,26 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
 
     check_sparse(array, accept_sparse)
 
-    if cpu_sparse.issparse(array):
-        if isinstance(array, cpu_csr_matrix):
-            array = gpu_csr_matrix(array)
+    is_sparse = hasattr(array, 'format')
+
+    if is_sparse:
+        if array.format == 'csr':
+            new_array = gpu_csr_matrix(array, copy=copy)
+        elif array.format == 'csc':
+            new_array = gpu_csc_matrix(array, copy=copy)
+        elif array.format == 'coo':
+            new_array = gpu_coo_matrix(array, copy=copy)
         else:
-            array = gpu_csc_matrix(array)
-        check_finite(array.data, force_all_finite)
-        return array
-
-    if gpu_sparse.issparse(array):
-        if isinstance(array, gpu_csr_matrix):
-            array = gpu_csr_matrix(array, copy=True)
-        else:
-            array = gpu_csc_matrix(array, copy=True)
-        check_finite(array.data, force_all_finite)
-        return array
-
-    X, n_rows, n_cols, dtype = input_to_cuml_array(array,
-                                                   deepcopy=copy,
-                                                   check_dtype=dtype)
-
-    X = X.to_output('cupy')
-
-    check_finite(X, force_all_finite)
-
-    return X
+            raise ValueError('Sparse matrix format not supported')
+        check_finite(new_array.data, force_all_finite)
+        return new_array
+    else:
+        X, n_rows, n_cols, dtype = input_to_cuml_array(array,
+                                                       deepcopy=copy,
+                                                       check_dtype=dtype)
+        X = X.to_output('cupy')
+        check_finite(X, force_all_finite)
+        return X
 
 
 _input_type_to_str = {
@@ -158,15 +150,20 @@ def get_input_type(input):
 
 
 def to_output_type(array, output_type, order='F'):
-    print('output_type', output_type)
     if output_type == 'numpy_csr':
         return cpu_sparse.csr_matrix(array.get())
     if output_type == 'numpy_csc':
         return cpu_sparse.csc_matrix(array.get())
     if output_type == 'cupy_csr':
-        return array
+        if array.format == 'csc':
+            return array.tocsr()
+        else:
+            return array
     if output_type == 'cupy_csc':
-        return array
+        if array.format == 'csr':
+            return array.tocsc()
+        else:
+            return array
 
     if cpu_sparse.issparse(array):
         if output_type == 'numpy':

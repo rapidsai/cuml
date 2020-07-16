@@ -22,69 +22,40 @@ from math import ceil
 
 def csr_mean_variance_axis0(X):
     X = X.tocsc()
-    return csc_mean_variance_axis0(X)
+    means, variances, _ = _csc_mean_variance_axis0(X)
+    return means, variances
 
 
 def csc_mean_variance_axis0(X):
-    n_features = X.shape[1]
+    means, variances, _ = _csc_mean_variance_axis0(X)
+    return means, variances
 
-    means = cp.zeros(n_features)
-    variances = cp.zeros(n_features)
-    counts_nan = cp.zeros(n_features)
+
+def _csc_mean_variance_axis0(X):
+    n_samples, n_features = X.shape
+
+    means = cp.empty(n_features)
+    variances = cp.empty(n_features)
+    counts_nan = cp.empty(n_features)
 
     start = X.indptr[0]
     for i, end in enumerate(X.indptr[1:]):
         col = X.data[start:end]
-        means[i] = col.mean()
-        variances[i] = col.var()
-        counts_nan[i] = X.nnz - cp.count_nonzero(cp.isnan(col))
+
+        _count_zeros = n_samples - col.size
+        _count_nans = (col != col).sum()
+
+        _mean = cp.nansum(col) / (n_samples - _count_nans)
+        _variance = cp.nansum((col - _mean) ** 2)
+        _variance += _count_zeros * (_mean ** 2)
+        _variance /= (n_samples - _count_nans)
+
+        means[i] = _mean
+        variances[i] = _variance
+        counts_nan[i] = _count_nans
+
         start = end
     return means, variances, counts_nan
-
-
-def incr_mean_variance_axis0(X, last_mean, last_var, last_n):
-    if isinstance(X, cp.sparse.csr_matrix):
-        new_mean, new_var, counts_nan = csr_mean_variance_axis0(X)
-    elif isinstance(X, cp.sparse.csc_matrix):
-        new_mean, new_var, counts_nan = csc_mean_variance_axis0(X)
-
-    new_n = cp.diff(X.indptr) - counts_nan
-
-    n_features = X.shape[1]
-
-    # First pass
-    is_first_pass = True
-    for i in range(n_features):
-        if last_n[i] > 0:
-            is_first_pass = False
-            break
-    if is_first_pass:
-        return new_mean, new_var, new_n
-
-    # Next passes
-    for i in range(n_features):
-        if new_n[i] > 0:
-            updated_n[i] = last_n[i] + new_n[i]
-            last_over_new_n[i] = dtype(last_n[i]) / dtype(new_n[i])
-            # Unnormalized stats
-            last_mean[i] *= last_n[i]
-            last_var[i] *= last_n[i]
-            new_mean[i] *= new_n[i]
-            new_var[i] *= new_n[i]
-            # Update stats
-            updated_var[i] = (
-                last_var[i] + new_var[i] +
-                last_over_new_n[i] / updated_n[i] *
-                (last_mean[i] / last_over_new_n[i] - new_mean[i])**2
-            )
-            updated_mean[i] = (last_mean[i] + new_mean[i]) / updated_n[i]
-            updated_var[i] /= updated_n[i]
-        else:
-            updated_var[i] = last_var[i]
-            updated_mean[i] = last_mean[i]
-            updated_n[i] = last_n[i]
-
-    return updated_mean, updated_var, updated_n
 
 
 def inplace_csr_row_normalize_l1(X):
@@ -139,41 +110,51 @@ def _deg3_column(d, i, j, k, interaction_only):
 
 @cuda.jit
 def perform_expansion(indptr, indices, data, expanded_data,
-                      expanded_indices, expanded_indptr,
-                      nnz_cumsum, d, interaction_only, degree):
+                      expanded_indices, d, interaction_only,
+                      degree, expanded_indptr):
     row_i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
     inrow_idx = cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
 
     if row_i >= indptr.shape[0]-1:
         return
 
-    if inrow_idx == 0:
-        expanded_indptr[row_i+1] = nnz_cumsum[row_i]
+    expanded_index = expanded_indptr[row_i] + inrow_idx
+    if expanded_index >= expanded_indptr[row_i+1]:
+        return
 
     row_starts = indptr[row_i]
     row_ends = indptr[row_i + 1]
 
-    expanded_index = row_starts + inrow_idx
+    i_ptr = row_starts
+    j_ptr = -1
+    k_ptr = inrow_idx
 
-    if expanded_index > row_ends:
-        return
-
-    i_ptr = row_starts + interaction_only
-    j_ptr = inrow_idx
-    for i in range(i_ptr, row_ends):
-        if degree == 2:
-            diff = row_ends - i
-        else:
-            diff = 0
+    if degree == 2:
+        j_ptr = inrow_idx
+        for i in range(row_starts, row_ends):
+            diff = row_ends - i - interaction_only
+            if j_ptr >= diff:
+                j_ptr -= diff
+            else:
+                i_ptr = i
+                break
+        j_ptr += i_ptr + interaction_only
+    else:
+        # degree == 3
+        diff = 0
+        for i in range(row_starts, row_ends):
             for j in range(i + interaction_only, row_ends):
-                diff += row_ends - j
-        if j_ptr >= diff:
-            j_ptr -= diff
-            i_ptr += 1
-        else:
-            break
+                diff = row_ends - j - interaction_only
+                if k_ptr >= diff:
+                    k_ptr -= diff
+                else:
+                    j_ptr = j
+                    i_ptr = i
+                    break
+            if j_ptr != -1:
+                break
 
-    j_ptr += row_starts
+        k_ptr += j_ptr + interaction_only
 
     i = indices[i_ptr]
     j = indices[j_ptr]
@@ -184,13 +165,11 @@ def perform_expansion(indptr, indices, data, expanded_data,
         expanded_data[expanded_index] = data[i_ptr] * data[j_ptr]
     else:
         # degree == 3
-        for k_ptr in range(j_ptr + interaction_only,
-                           row_ends):
-            k = indices[k_ptr]
-            col = _deg3_column(d, i, j, k, interaction_only)
-            expanded_indices[expanded_index] = col
-            expanded_data[expanded_index] = data[i_ptr] * data[j_ptr] \
-                * data[k_ptr]
+        k = indices[k_ptr]
+        col = _deg3_column(d, i, j, k, interaction_only)
+        expanded_indices[expanded_index] = col
+        expanded_data[expanded_index] = data[i_ptr] * data[j_ptr] \
+            * data[k_ptr]
 
 
 def csr_polynomial_expansion(X, interaction_only, degree):
@@ -221,10 +200,11 @@ def csr_polynomial_expansion(X, interaction_only, degree):
 
     num_rows = X.indptr.shape[0] - 1
 
-    expanded_data = cp.zeros(shape=total_nnz, dtype=X.data.dtype)
-    expanded_indices = cp.zeros(shape=total_nnz, dtype=X.indices.dtype)
-    expanded_indptr = cp.zeros(shape=num_rows + 1, dtype=X.indptr.dtype)
+    expanded_data = cp.empty(shape=total_nnz, dtype=X.data.dtype)
+    expanded_indices = cp.empty(shape=total_nnz, dtype=X.indices.dtype)
+    expanded_indptr = cp.empty(shape=num_rows + 1, dtype=X.indptr.dtype)
     expanded_indptr[0] = X.indptr[0]
+    expanded_indptr[1:] = nnz_cumsum
 
     tpb = (8, 8)
     bpg_x = ceil(X.indptr.shape[0] / tpb[0])
@@ -232,8 +212,8 @@ def csr_polynomial_expansion(X, interaction_only, degree):
     bpg = (bpg_x, bpg_y)
     perform_expansion[bpg, tpb](X.indptr, X.indices, X.data,
                                 expanded_data, expanded_indices,
-                                expanded_indptr, nnz_cumsum,
-                                d, interaction_only, degree)
+                                d, interaction_only, degree,
+                                expanded_indptr)
 
     return cp.sparse.csr_matrix((expanded_data, expanded_indices,
                                  expanded_indptr),

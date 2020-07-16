@@ -27,7 +27,8 @@ from ..utils.validation import (check_is_fitted, check_random_state,
                                 FLOAT_DTYPES, _deprecate_positional_args)
 
 from ..utils.sparsefuncs import (inplace_column_scale,
-                                 min_max_axis)
+                                 min_max_axis,
+                                 mean_variance_axis)
 
 from ...thirdparty_adapters.sparsefuncs_fast import \
     (inplace_csr_row_normalize_l1, inplace_csr_row_normalize_l2,
@@ -137,11 +138,10 @@ def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True):
 
     """  # noqa
     output_type = get_input_type(X)
-    X = check_array(X, accept_sparse='csc', copy=copy, ensure_2d=False,
-                    estimator='the scale function', dtype=FLOAT_DTYPES,
-                    force_all_finite='allow-nan')
+    X = check_array(X, accept_sparse=['csr', 'csc'], copy=copy,
+                    ensure_2d=False, estimator='the scale function',
+                    dtype=FLOAT_DTYPES, force_all_finite='allow-nan')
 
-    """
     if sparse.issparse(X):
         if with_mean:
             raise ValueError(
@@ -154,8 +154,7 @@ def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True):
             _, var = mean_variance_axis(X, axis=0)
             var = _handle_zeros_in_scale(var, copy=False)
             inplace_column_scale(X, 1 / np.sqrt(var))
-    """
-    if not sparse.issparse(X):
+    else:
         X = np.asarray(X)
         if with_mean:
             mean_ = np.nanmean(X, axis)
@@ -718,18 +717,22 @@ class StandardScaler(TransformerMixin, BaseEstimator):
             self.n_samples_seen_ = np.repeat(
                 self.n_samples_seen_, X.shape[1]).astype(np.int64, copy=False)
 
-        """
         if sparse.issparse(X):
             if self.with_mean:
                 raise ValueError(
                     "Cannot center sparse matrices: pass `with_mean=False` "
                     "instead. See docstring for motivation and alternatives.")
 
-            sparse_constructor = (sparse.csr_matrix
-                                  if X.format == 'csr' else sparse.csc_matrix)
-            counts_nan = sparse_constructor(
-                        (np.isnan(X.data), X.indices, X.indptr),
-                        shape=X.shape).sum(axis=0).A.ravel()
+            if X.format == 'csr':
+                X = X.tocsc()
+
+            counts_nan = np.empty(X.shape[1])
+            _isnan = np.isnan(X.data)
+
+            start = X.indptr[0]
+            for i, end in enumerate(X.indptr[1:]):
+                counts_nan[i] = _isnan[start:end].sum()
+                start = end
 
             if not hasattr(self, 'n_samples_seen_'):
                 self.n_samples_seen_ = (
@@ -739,6 +742,9 @@ class StandardScaler(TransformerMixin, BaseEstimator):
                 # First pass
                 if not hasattr(self, 'scale_'):
                     self.mean_, self.var_ = mean_variance_axis(X, axis=0)
+
+                # TODO
+                """
                 # Next passes
                 else:
                     self.mean_, self.var_, self.n_samples_seen_ = \
@@ -746,13 +752,13 @@ class StandardScaler(TransformerMixin, BaseEstimator):
                                                 last_mean=self.mean_,
                                                 last_var=self.var_,
                                                 last_n=self.n_samples_seen_)
+                """
             else:
                 self.mean_ = None
                 self.var_ = None
                 if hasattr(self, 'scale_'):
                     self.n_samples_seen_ += X.shape[0] - counts_nan
-        """
-        if not sparse.issparse(X):
+        else:
             if not hasattr(self, 'n_samples_seen_'):
                 self.n_samples_seen_ = np.zeros(X.shape[1], dtype=np.int64)
 
@@ -804,11 +810,10 @@ class StandardScaler(TransformerMixin, BaseEstimator):
 
         output_type = get_input_type(X)
         X = self._validate_data(X, reset=False,
-                                accept_sparse='csr', copy=copy,
+                                accept_sparse=['csr', 'csc'], copy=copy,
                                 estimator=self, dtype=FLOAT_DTYPES,
                                 force_all_finite='allow-nan')
 
-        """
         if sparse.issparse(X):
             if self.with_mean:
                 raise ValueError(
@@ -816,8 +821,7 @@ class StandardScaler(TransformerMixin, BaseEstimator):
                     "instead. See docstring for motivation and alternatives.")
             if self.scale_ is not None:
                 inplace_column_scale(X, 1 / self.scale_)
-        """
-        if not sparse.issparse(X):
+        else:
             if self.with_mean:
                 X -= self.mean_
             if self.with_std:
@@ -846,11 +850,10 @@ class StandardScaler(TransformerMixin, BaseEstimator):
         copy = copy if copy is not None else self.copy
 
         output_type = get_input_type(X)
-        X = check_array(X, accept_sparse='csr', copy=copy,
+        X = check_array(X, accept_sparse=['csr', 'csc'], copy=copy,
                         estimator=self, dtype=FLOAT_DTYPES,
                         force_all_finite='allow-nan')
 
-        """
         if sparse.issparse(X):
             if self.with_mean:
                 raise ValueError(
@@ -863,8 +866,7 @@ class StandardScaler(TransformerMixin, BaseEstimator):
                 X = X.copy()
             if self.scale_ is not None:
                 inplace_column_scale(X, self.scale_)
-        """
-        if not sparse.issparse(X):
+        else:
             X = np.asarray(X)
             if copy:
                 X = X.copy()
@@ -1883,9 +1885,11 @@ class Normalizer(TransformerMixin, BaseEstimator):
         copy : bool, optional (default: None)
             Copy the input X or not.
         """
+        output_type = get_input_type(X)
         copy = copy if copy is not None else self.copy
         X = check_array(X, accept_sparse='csr')
-        return normalize(X, norm=self.norm, axis=1, copy=copy)
+        X = normalize(X, norm=self.norm, axis=1, copy=copy)
+        return to_output_type(X, output_type)
 
     def _more_tags(self):
         return {'stateless': True}
@@ -1918,6 +1922,7 @@ def binarize(X, *, threshold=0.0, copy=True):
     Binarizer: Performs binarization using the ``Transformer`` API
         (e.g. as part of a preprocessing :class:`sklearn.pipeline.Pipeline`).
     """
+    output_type = get_input_type(X)
     X = check_array(X, accept_sparse=['csr', 'csc'], copy=copy)
     if sparse.issparse(X):
         if threshold < 0:
@@ -1933,7 +1938,7 @@ def binarize(X, *, threshold=0.0, copy=True):
         not_cond = np.logical_not(cond)
         X[cond] = 1
         X[not_cond] = 0
-    return X
+    return to_output_type(X, output_type)
 
 
 class Binarizer(TransformerMixin, BaseEstimator):
@@ -2005,7 +2010,7 @@ class Binarizer(TransformerMixin, BaseEstimator):
         ----------
         X : array-like
         """
-        self._validate_data(X, accept_sparse='csr')
+        self._validate_data(X, accept_sparse=['csr', 'csc'])
         return self
 
     def transform(self, X, copy=None):
@@ -2158,6 +2163,7 @@ def add_dummy_feature(X, value=1.0):
     array([[1., 0., 1.],
            [1., 1., 0.]])
     """
+    output_type = get_input_type(X)
     X = check_array(X, accept_sparse=['csc', 'csr', 'coo'], dtype=FLOAT_DTYPES)
     n_samples, n_features = X.shape
     shape = (n_samples, n_features + 1)
@@ -2171,7 +2177,8 @@ def add_dummy_feature(X, value=1.0):
             row = np.concatenate((np.arange(n_samples), X.row))
             # Prepend the dummy feature n_samples times.
             data = np.concatenate((np.full(n_samples, value), X.data))
-            return sparse.coo_matrix((data, (row, col)), shape)
+            X = sparse.coo_matrix((data, (row, col)), shape)
+            return to_output_type(X, output_type)
         elif sparse.isspmatrix_csc(X):
             # Shift index pointers since we need to add n_samples elements.
             indptr = X.indptr + n_samples
@@ -2181,12 +2188,15 @@ def add_dummy_feature(X, value=1.0):
             indices = np.concatenate((np.arange(n_samples), X.indices))
             # Prepend the dummy feature n_samples times.
             data = np.concatenate((np.full(n_samples, value), X.data))
-            return sparse.csc_matrix((data, indices, indptr), shape)
+            X = sparse.csc_matrix((data, indices, indptr), shape)
+            return to_output_type(X, output_type)
         else:
             klass = X.__class__
-            return klass(add_dummy_feature(X.tocoo(), value))
+            X = klass(add_dummy_feature(X.tocoo(), value))
+            return to_output_type(X, output_type)
     else:
-        return np.hstack((np.full((n_samples, 1), value), X))
+        X = np.hstack((np.full((n_samples, 1), value), X))
+        return to_output_type(X, output_type)
 
 
 class QuantileTransformer(TransformerMixin, BaseEstimator):

@@ -16,300 +16,277 @@
 import pytest
 
 from cuml.preprocessing import StandardScaler, MinMaxScaler, \
-                    MaxAbsScaler, scale, minmax_scale, normalize
-from cuml.preprocessing import SimpleImputer
-from cuml.preprocessing import PolynomialFeatures
+                               MaxAbsScaler, Normalizer, \
+                               Binarizer, PolynomialFeatures, SimpleImputer
+from cuml.preprocessing import scale, minmax_scale, normalize, \
+                               add_dummy_feature, binarize
+from sklearn.preprocessing import StandardScaler as skStandardScaler, \
+                                  MinMaxScaler as skMinMaxScaler, \
+                                  MaxAbsScaler as skMaxAbsScaler, \
+                                  Normalizer as skNormalizer, \
+                                  Binarizer as skBinarizer, \
+                                  PolynomialFeatures as skPolynomialFeatures
+from sklearn.preprocessing import scale as sk_scale, \
+                                  minmax_scale as sk_minmax_scale, \
+                                  normalize as sk_normalize, \
+                                  add_dummy_feature as sk_add_dummy_feature, \
+                                  binarize as sk_binarize
+from sklearn.impute import SimpleImputer as skSimpleImputer
 
-from cuml._thirdparty.thirdparty_adapters import to_output_type
-from .test_preproc_utils import small_clf_dataset  # noqa: F401
-from .test_preproc_utils import small_sparse_dataset  # noqa: F401
-from .test_preproc_utils import small_int_dataset  # noqa: F401
+from .test_preproc_utils import clf_dataset, int_dataset, \
+                                sparse_clf_dataset, \
+                                sparse_int_dataset  # noqa: F401
+from .test_preproc_utils import assert_allclose
 
 import numpy as np
-from scipy import sparse as cpu_sp
-from cupy import sparse as gpu_sp
-from numpy.testing import assert_allclose
-
-import operator as op
-from functools import reduce
 
 
-def test_minmax_scaler(small_clf_dataset):  # noqa: F811
-    X_np, X = small_clf_dataset
+def test_minmax_scaler(clf_dataset):  # noqa: F811
+    X_np, X = clf_dataset
 
     scaler = MinMaxScaler(copy=True)
     t_X = scaler.fit_transform(X)
-    assert type(t_X) == type(X)
-
-    data_min = np.nanmin(X_np, axis=0)
-    data_range = np.nanmax(X_np, axis=0) - data_min
-    data_range[data_range == 0.0] = 1.0
-    scale = 1.0 / data_range
-    mini = 0.0 - data_min * scale
-    t_X_np = X_np * scale + mini
-
     r_X = scaler.inverse_transform(t_X)
+    assert type(t_X) == type(X)
     assert type(r_X) == type(t_X)
 
-    t_X = to_output_type(t_X, 'numpy')
-    assert_allclose(t_X, t_X_np, rtol=0.0001, atol=0.0001)
+    scaler = skMinMaxScaler(copy=True)
+    sk_t_X = scaler.fit_transform(X_np)
+    sk_r_X = scaler.inverse_transform(sk_t_X)
 
-    r_X = to_output_type(r_X, 'numpy')
-    assert_allclose(r_X, X_np, rtol=0.0001, atol=0.0001)
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
+    assert_allclose(r_X, sk_r_X, rtol=0.0001, atol=0.0001)
 
 
-def test_minmax_scale(small_clf_dataset):  # noqa: F811
-    X_np, X = small_clf_dataset
+def test_minmax_scale(clf_dataset):  # noqa: F811
+    X_np, X = clf_dataset
 
     t_X = minmax_scale(X)
     assert type(t_X) == type(X)
 
-    data_min = np.nanmin(X_np, axis=0)
-    data_range = np.nanmax(X_np, axis=0) - data_min
-    data_range[data_range == 0.0] = 1.0
-    scale = 1.0 / data_range
-    mini = 0.0 - data_min * scale
-    t_X_np = X_np * scale + mini
+    sk_t_X = sk_minmax_scale(X_np)
 
-    t_X = to_output_type(t_X, 'numpy')
-    assert_allclose(t_X, t_X_np, rtol=0.0001, atol=0.0001)
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
 
 
 @pytest.mark.parametrize("with_mean", [True, False])
 @pytest.mark.parametrize("with_std", [True, False])
-def test_standard_scaler(small_clf_dataset, with_mean, with_std):  # noqa: F811
-    X_np, X = small_clf_dataset
+def test_standard_scaler(clf_dataset, with_mean, with_std):  # noqa: F811
+    X_np, X = clf_dataset
 
     scaler = StandardScaler(copy=True, with_mean=with_mean, with_std=with_std)
     t_X = scaler.fit_transform(X)
-    assert type(t_X) == type(X)
-
-    t_X_np = np.array(X_np, copy=True)
-    if with_mean:
-        t_X_np -= t_X_np.mean(axis=0)
-    if with_std:
-        t_X_np /= t_X_np.std(axis=0)
-
     r_X = scaler.inverse_transform(t_X)
+    assert type(t_X) == type(X)
     assert type(r_X) == type(t_X)
 
-    t_X = to_output_type(t_X, 'numpy')
-    assert_allclose(t_X, t_X_np, rtol=0.0001, atol=0.0001)
+    scaler = skStandardScaler(copy=True, with_mean=with_mean,
+                              with_std=with_std)
+    sk_t_X = scaler.fit_transform(X_np)
+    sk_r_X = scaler.inverse_transform(sk_t_X)
 
-    r_X = to_output_type(r_X, 'numpy')
-    assert_allclose(r_X, X_np, rtol=0.0001, atol=0.0001)
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
+    assert_allclose(r_X, sk_r_X, rtol=0.0001, atol=0.0001)
+
+
+@pytest.mark.parametrize("with_std", [True, False])
+def test_standard_scaler_sparse(sparse_clf_dataset, with_std):  # noqa: F811
+    X_np, X = sparse_clf_dataset
+
+    scaler = StandardScaler(copy=True, with_mean=False, with_std=with_std)
+    t_X = scaler.fit_transform(X)
+    r_X = scaler.inverse_transform(t_X)
+    assert type(t_X) == type(X)
+    assert type(r_X) == type(t_X)
+
+    scaler = skStandardScaler(copy=True, with_mean=False, with_std=with_std)
+    sk_t_X = scaler.fit_transform(X_np)
+    sk_r_X = scaler.inverse_transform(sk_t_X)
+
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
+    assert_allclose(r_X, sk_r_X, rtol=0.0001, atol=0.0001)
 
 
 @pytest.mark.parametrize("with_mean", [True, False])
 @pytest.mark.parametrize("with_std", [True, False])
-def test_scale(small_clf_dataset, with_mean, with_std):  # noqa: F811
-    X_np, X = small_clf_dataset
+def test_scale(clf_dataset, with_mean, with_std):  # noqa: F811
+    X_np, X = clf_dataset
 
     t_X = scale(X, copy=True, with_mean=with_mean, with_std=with_std)
     assert type(t_X) == type(X)
 
-    t_X_np = np.array(X_np, copy=True)
-    if with_mean:
-        t_X_np -= t_X_np.mean(axis=0)
-    if with_std:
-        t_X_np /= t_X_np.std(axis=0)
+    sk_t_X = sk_scale(X_np, copy=True, with_mean=with_mean, with_std=with_std)
 
-    t_X = to_output_type(t_X, 'numpy')
-    assert_allclose(t_X, t_X_np, rtol=0.0001, atol=0.0001)
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
 
 
-def test_maxabs_scaler(small_clf_dataset):  # noqa: F811
-    X_np, X = small_clf_dataset
+@pytest.mark.parametrize("with_std", [True, False])
+def test_scale_sparse(sparse_clf_dataset, with_std):  # noqa: F811
+    X_np, X = sparse_clf_dataset
+
+    t_X = scale(X, copy=True, with_mean=False, with_std=with_std)
+    assert type(t_X) == type(X)
+
+    sk_t_X = sk_scale(X_np, copy=True, with_mean=False, with_std=with_std)
+
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
+
+
+def test_maxabs_scaler(clf_dataset):  # noqa: F811
+    X_np, X = clf_dataset
 
     scaler = MaxAbsScaler(copy=True)
     t_X = scaler.fit_transform(X)
-    assert type(t_X) == type(X)
-
-    max_abs = np.nanmax(np.abs(X_np), axis=0)
-    max_abs[max_abs == 0.0] = 1.0
-    t_X_np = X_np / max_abs
-
     r_X = scaler.inverse_transform(t_X)
+    assert type(t_X) == type(X)
     assert type(r_X) == type(t_X)
 
-    t_X = to_output_type(t_X, 'numpy')
-    assert_allclose(t_X, t_X_np, rtol=0.0001, atol=0.0001)
+    scaler = skMaxAbsScaler(copy=True)
+    sk_t_X = scaler.fit_transform(X_np)
+    sk_r_X = scaler.inverse_transform(sk_t_X)
 
-    r_X = to_output_type(r_X, 'numpy')
-    assert_allclose(r_X, X_np, rtol=0.0001, atol=0.0001)
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
+    assert_allclose(r_X, sk_r_X, rtol=0.0001, atol=0.0001)
 
 
-def test_sparse_maxabs_scaler(small_sparse_dataset):  # noqa: F811
-    X_np, X = small_sparse_dataset
+def test_maxabs_scaler_sparse(sparse_clf_dataset):  # noqa: F811
+    X_np, X = sparse_clf_dataset
 
     scaler = MaxAbsScaler(copy=True)
     t_X = scaler.fit_transform(X)
-    assert type(t_X) == type(X)
-
-    max_abs = np.nanmax(np.abs(X_np), axis=0)
-    max_abs[max_abs == 0.0] = 1.0
-    t_X_np = X_np / max_abs
-
     r_X = scaler.inverse_transform(t_X)
+    assert type(t_X) == type(X)
     assert type(r_X) == type(t_X)
 
-    t_X = to_output_type(t_X, 'numpy')
-    assert_allclose(t_X, t_X_np, rtol=0.0001, atol=0.0001)
+    scaler = skMaxAbsScaler(copy=True)
+    sk_t_X = scaler.fit_transform(X_np)
+    sk_r_X = scaler.inverse_transform(sk_t_X)
 
-    r_X = to_output_type(r_X, 'numpy')
-    assert_allclose(r_X, X_np, rtol=0.0001, atol=0.0001)
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
+    assert_allclose(r_X, sk_r_X, rtol=0.0001, atol=0.0001)
+
+
+@pytest.mark.parametrize("norm", ['l1', 'l2', 'max'])
+def test_normalizer(clf_dataset, norm):  # noqa: F811
+    X_np, X = clf_dataset
+
+    normalizer = Normalizer(norm=norm, copy=True)
+    t_X = normalizer.fit_transform(X)
+    assert type(t_X) == type(X)
+
+    normalizer = skNormalizer(norm=norm, copy=True)
+    sk_t_X = normalizer.fit_transform(X_np)
+
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
+
+
+@pytest.mark.parametrize("norm", ['l1', 'l2', 'max'])
+def test_normalizer_sparse(sparse_clf_dataset, norm):  # noqa: F811
+    X_np, X = sparse_clf_dataset
+
+    if X.format == 'csc':
+        pytest.skip("Skipping CSC matrices")
+
+    normalizer = Normalizer(norm=norm, copy=True)
+    t_X = normalizer.fit_transform(X)
+    assert type(t_X) == type(X)
+
+    normalizer = skNormalizer(norm=norm, copy=True)
+    sk_t_X = normalizer.fit_transform(X_np)
+
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
 
 
 @pytest.mark.parametrize("norm", ['l1', 'l2', 'max'])
 @pytest.mark.parametrize("return_norm", [True, False])
-def test_normalize(small_clf_dataset, norm, return_norm):  # noqa: F811
-    X_np, X = small_clf_dataset
-
-    if norm == 'l1':
-        norms = np.abs(X_np).sum(axis=0)
-    elif norm == 'l2':
-        norms = np.linalg.norm(X_np, ord=2, axis=0)
-    elif norm == 'max':
-        norms = np.max(abs(X_np), axis=0)
-
-    t_X_np = np.array(X_np, copy=True)
-    t_X_np /= norms
+def test_normalize(clf_dataset, norm, return_norm):  # noqa: F811
+    X_np, X = clf_dataset
 
     if return_norm:
         t_X, t_norms = normalize(X, axis=0, norm=norm, return_norm=return_norm)
-        t_norms = to_output_type(t_norms, 'numpy')
-        assert_allclose(t_norms, norms, rtol=0.0001, atol=0.0001)
+        sk_t_X, sk_t_norms = sk_normalize(X_np, axis=0, norm=norm,
+                                          return_norm=return_norm)
+        assert_allclose(t_norms, sk_t_norms, rtol=0.0001, atol=0.0001)
     else:
         t_X = normalize(X, axis=0, norm=norm, return_norm=return_norm)
-    assert type(t_X) == type(X)
+        sk_t_X = normalize(X_np, axis=0, norm=norm, return_norm=return_norm)
 
-    t_X = to_output_type(t_X, 'numpy')
-    assert_allclose(t_X, t_X_np, rtol=0.0001, atol=0.0001)
+    assert type(t_X) == type(X)
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
 
 
 @pytest.mark.parametrize("norm", ['l1', 'l2', 'max'])
-def test_sparse_normalize(small_sparse_dataset, norm):  # noqa: F811
-    X_np, X = small_sparse_dataset
+def test_normalize_sparse(sparse_clf_dataset, norm):  # noqa: F811
+    X_np, X = sparse_clf_dataset
 
-    def iscsc(X):
-        return isinstance(X, cpu_sp.csc_matrix) or\
-               isinstance(X, gpu_sp.csc_matrix)
-
-    if iscsc(X):
-        axis = 0
-    else:
-        axis = 1
-
-    if norm == 'l1':
-        norms = np.abs(X_np).sum(axis=axis)
-    elif norm == 'l2':
-        norms = np.linalg.norm(X_np, ord=2, axis=axis)
-    elif norm == 'max':
-        norms = np.max(abs(X_np), axis=axis)
-
-    t_X_np = np.array(X_np, copy=True)
-
-    if iscsc(X):
-        t_X_np /= norms
-    else:
-        t_X_np = t_X_np.T
-        t_X_np /= norms
-        t_X_np = t_X_np.T
+    axis = 0 if X.format == 'csc' else 1
 
     t_X = normalize(X, axis=axis, norm=norm)
     assert type(t_X) == type(X)
 
-    t_X = to_output_type(t_X, 'numpy')
-    assert_allclose(t_X, t_X_np, rtol=0.0001, atol=0.0001)
+    sk_t_X = sk_normalize(X_np, axis=axis, norm=norm)
+
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
 
 
 @pytest.mark.parametrize("strategy", ["mean", "most_frequent", "constant"])
-def test_imputer(small_int_dataset, strategy):  # noqa: F811
-    X_np, X = small_int_dataset
+@pytest.mark.parametrize("missing_values", [0., 1.])
+def test_imputer(int_dataset, strategy, missing_values):  # noqa: F811
+    X_np, X = int_dataset
     fill_value = np.random.randint(10, size=1)[0]
 
-    imputer = SimpleImputer(copy=True, strategy=strategy,
-                            fill_value=fill_value)
+    imputer = SimpleImputer(copy=True, missing_values=missing_values,
+                            strategy=strategy, fill_value=fill_value)
     t_X = imputer.fit_transform(X)
     assert type(t_X) == type(X)
 
-    t_X_np = np.array(X_np, copy=True)
-    n_features = t_X_np.shape[1]
+    imputer = skSimpleImputer(copy=True, missing_values=missing_values,
+                              strategy=strategy, fill_value=fill_value)
+    sk_t_X = imputer.fit_transform(X_np)
 
-    if strategy == "mean":
-        mean = np.nanmean(t_X_np, axis=0)
-        for i in range(n_features):
-            mask = np.where(np.isnan(t_X_np[:, i]))
-            t_X_np[mask, i] = mean[i]
-    elif strategy == "most_frequent":
-        for i in range(n_features):
-            values, counts = np.unique(t_X_np[:, i], return_counts=True)
-            max_idx = np.argmax(counts)
-            most_frequent = values[max_idx]
-
-            mask = np.where(np.isnan(t_X_np[:, i]))
-            t_X_np[mask, i] = most_frequent
-    elif strategy == "constant":
-        t_X_np[np.where(np.isnan(t_X_np))] = fill_value
-
-    assert not np.isnan(t_X_np).any()
-
-    t_X = to_output_type(t_X, 'numpy')
-    assert_allclose(t_X, t_X_np, rtol=0.0001, atol=0.0001)
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
 
 
 @pytest.mark.parametrize("strategy", ["mean", "most_frequent", "constant"])
-def test_sparse_imputer(small_sparse_dataset, strategy):  # noqa: F811
-    X_np, X = small_sparse_dataset
-    if isinstance(X, (cpu_sp.csr_matrix, gpu_sp.csr_matrix)):
-        pytest.skip("unsupported sparse matrix")
+@pytest.mark.parametrize("missing_values", [np.nan, 1.])
+def test_imputer_sparse(sparse_int_dataset, strategy,  # noqa: F811
+                        missing_values):
+    X_np, X = sparse_int_dataset
+
+    if X.format == 'csr':
+        pytest.skip("Skipping CSR matrices")
+
+    X_sp = X_np.tocsc()
+
+    if np.isnan(missing_values):
+        # Adding nan when missing value is nan
+        random_loc = np.random.choice(X.nnz,
+                                      int(X.nnz * 0.1),
+                                      replace=False)
+        X_sp.data[random_loc] = np.nan
+        X = X.copy()
+        X.data[random_loc] = np.nan
 
     fill_value = np.random.randint(10, size=1)[0]
 
-    imputer = SimpleImputer(copy=True, strategy=strategy,
-                            fill_value=fill_value)
+    imputer = SimpleImputer(copy=True, missing_values=missing_values,
+                            strategy=strategy, fill_value=fill_value)
     t_X = imputer.fit_transform(X)
     assert type(t_X) == type(X)
 
-    t_X_np = np.array(X_np, copy=True)
-    n_features = t_X_np.shape[1]
-
-    if strategy == "mean":
-        mean = np.nanmean(t_X_np, axis=0)
-        for i in range(n_features):
-            mask = np.where(np.isnan(t_X_np[:, i]))
-            t_X_np[mask, i] = mean[i]
-    elif strategy == "most_frequent":
-        for i in range(n_features):
-            values, counts = np.unique(t_X_np[:, i], return_counts=True)
-            max_idx = np.argmax(counts)
-            most_frequent = values[max_idx]
-
-            mask = np.where(np.isnan(t_X_np[:, i]))
-            t_X_np[mask, i] = most_frequent
-    elif strategy == "constant":
-        t_X_np[np.where(np.isnan(t_X_np))] = fill_value
-
-    assert not np.isnan(t_X_np).any()
-
-    t_X = to_output_type(t_X, 'numpy')
-    assert_allclose(t_X, t_X_np, rtol=0.0001, atol=0.0001)
-
-
-def ncr(n, r):
-    r = min(r, n-r)
-    numer = reduce(op.mul, range(n, n-r, -1), 1)
-    denom = reduce(op.mul, range(1, r+1), 1)
-    return numer // denom
+    imputer = skSimpleImputer(copy=True, missing_values=missing_values,
+                              strategy=strategy, fill_value=fill_value)
+    sk_t_X = imputer.fit_transform(X_sp)
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
 
 
 @pytest.mark.parametrize("degree", [2, 3])
 @pytest.mark.parametrize("interaction_only", [True, False])
 @pytest.mark.parametrize("include_bias", [True, False])
 @pytest.mark.parametrize("order", ['C', 'F'])
-def test_poly_features(small_clf_dataset, degree,  # noqa: F811
+def test_poly_features(clf_dataset, degree,  # noqa: F811
                        interaction_only, include_bias, order):
-    X_np, X = small_clf_dataset
+    X_np, X = clf_dataset
 
     polyfeatures = PolynomialFeatures(degree=degree, order=order,
                                       interaction_only=interaction_only,
@@ -323,43 +300,104 @@ def test_poly_features(small_clf_dataset, degree,  # noqa: F811
         elif order == 'F':
             assert t_X.flags['F_CONTIGUOUS']
 
-    t_X = to_output_type(t_X, 'numpy')
+    polyfeatures = skPolynomialFeatures(degree=degree, order=order,
+                                        interaction_only=interaction_only,
+                                        include_bias=include_bias)
+    sk_t_X = polyfeatures.fit_transform(X_np)
 
-    n_features = X_np.shape[1]
-
-    start = 0 if include_bias else 1
-    n_combinations = sum(ncr(n_features, i) for i in range(start, degree+1))
-
-    n_outputs = t_X.shape[1]
-    if interaction_only:
-        assert n_outputs == n_combinations
-    else:
-        assert n_outputs > n_combinations
+    assert_allclose(t_X, sk_t_X, rtol=0.1, atol=0.1)
 
 
 @pytest.mark.parametrize("degree", [2, 3])
 @pytest.mark.parametrize("interaction_only", [True, False])
 @pytest.mark.parametrize("include_bias", [True, False])
-@pytest.mark.parametrize("order", ['C', 'F'])
-def test_sparse_poly_features(small_sparse_dataset, degree,  # noqa: F811
-                              interaction_only, include_bias, order):
-    X_np, X = small_sparse_dataset
+def test_poly_features_sparse(sparse_clf_dataset, degree,  # noqa: F811
+                              interaction_only, include_bias):
+    X_np, X = sparse_clf_dataset
 
-    polyfeatures = PolynomialFeatures(degree=degree, order=order,
+    polyfeatures = PolynomialFeatures(degree=degree,
                                       interaction_only=interaction_only,
                                       include_bias=include_bias)
     t_X = polyfeatures.fit_transform(X)
     assert type(t_X) == type(X)
 
-    t_X = to_output_type(t_X, 'numpy')
+    polyfeatures = skPolynomialFeatures(degree=degree,
+                                        interaction_only=interaction_only,
+                                        include_bias=include_bias)
+    sk_t_X = polyfeatures.fit_transform(X_np)
 
-    n_features = X_np.shape[1]
+    assert_allclose(t_X, sk_t_X, rtol=0.1, atol=0.1)
 
-    start = 0 if include_bias else 1
-    n_combinations = sum(ncr(n_features, i) for i in range(start, degree+1))
 
-    n_outputs = t_X.shape[1]
-    if interaction_only:
-        assert n_outputs == n_combinations
-    else:
-        assert n_outputs > n_combinations
+@pytest.mark.parametrize("value", [1.0, 42])
+def test_add_dummy_feature(clf_dataset, value):  # noqa: F811
+    X_np, X = clf_dataset
+
+    t_X = add_dummy_feature(X, value=value)
+    assert type(t_X) == type(X)
+
+    sk_t_X = sk_add_dummy_feature(X_np, value=value)
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
+
+
+@pytest.mark.parametrize("value", [1.0, 42])
+def test_add_dummy_feature_sparse(sparse_clf_dataset, value):  # noqa: F811
+    X_np, X = sparse_clf_dataset
+
+    t_X = add_dummy_feature(X, value=value)
+    assert type(t_X) == type(X)
+
+    sk_t_X = sk_add_dummy_feature(X_np, value=value)
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
+
+
+@pytest.mark.parametrize("threshold", [0., 1.])
+def test_binarize(clf_dataset, threshold):  # noqa: F811
+    X_np, X = clf_dataset
+
+    t_X = binarize(X, threshold=threshold, copy=True)
+    assert type(t_X) == type(X)
+
+    sk_t_X = sk_binarize(X_np, threshold=threshold, copy=True)
+
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
+
+
+@pytest.mark.parametrize("threshold", [0., 1.])
+def test_binarize_sparse(sparse_clf_dataset, threshold):  # noqa: F811
+    X_np, X = sparse_clf_dataset
+
+    t_X = binarize(X, threshold=threshold, copy=True)
+    assert type(t_X) == type(X)
+
+    sk_t_X = sk_binarize(X_np, threshold=threshold, copy=True)
+
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
+
+
+@pytest.mark.parametrize("threshold", [0., 1.])
+def test_binarizer(clf_dataset, threshold):  # noqa: F811
+    X_np, X = clf_dataset
+
+    binarizer = Binarizer(threshold=threshold, copy=True)
+    t_X = binarizer.fit_transform(X)
+    assert type(t_X) == type(X)
+
+    binarizer = skBinarizer(threshold=threshold, copy=True)
+    sk_t_X = binarizer.fit_transform(X_np)
+
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
+
+
+@pytest.mark.parametrize("threshold", [0., 1.])
+def test_binarizer_sparse(sparse_clf_dataset, threshold):  # noqa: F811
+    X_np, X = sparse_clf_dataset
+
+    binarizer = Binarizer(threshold=threshold, copy=True)
+    t_X = binarizer.fit_transform(X)
+    assert type(t_X) == type(X)
+
+    binarizer = skBinarizer(threshold=threshold, copy=True)
+    sk_t_X = binarizer.fit_transform(X_np)
+
+    assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)

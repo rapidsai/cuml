@@ -322,8 +322,14 @@ class SimpleImputer(_BaseImputer):
                 elif strategy == "most_frequent":
                     values, counts = np.unique(column,
                                                return_counts=True)
-                    max_idx = np.argmax(counts)
-                    statistics[i] = values[max_idx]
+                    count_max = counts.max()
+                    if count_max > n_zeros:
+                        value = values[counts == count_max].min()
+                    elif n_zeros > count_max:
+                        value = 0
+                    else:
+                        value = min(0, values[counts == count_max].min())
+                    statistics[i] = value
         return statistics
 
     def _dense_fit(self, X, strategy, missing_values, fill_value):
@@ -351,8 +357,12 @@ class SimpleImputer(_BaseImputer):
                 feature_mask_idxs = np.where(~mask[:, i])[0]
                 values, counts = np.unique(X[feature_mask_idxs, i],
                                            return_counts=True)
-                max_idx = np.argmax(counts)
-                most_frequent[i] = values[max_idx]
+                count_max = counts.max()
+                if count_max > 0:
+                    value = values[counts == count_max].min()
+                else:
+                    value = np.nan
+                most_frequent[i] = value
             return np.array(most_frequent)
 
         # Constant
