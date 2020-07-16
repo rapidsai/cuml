@@ -88,6 +88,7 @@
 - PR #2542: Fix small memory leak in TSNE
 - PR #2552: Fixed the length argument of updateDevice calls in RF test
 - PR #2563: Update scipy call for arima gradient test
+- PR #2569: Fix for cuDF update
 
 # cuML 0.14.0 (03 Jun 2020)
 
