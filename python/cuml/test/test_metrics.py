@@ -99,7 +99,7 @@ def test_sklearn_search():
     assert getattr(cu_clf, 'score', False)
     sk_cu_grid = GridSearchCV(cu_clf, params, cv=5, iid=False)
 
-    gdf_data = cudf.DataFrame(cuda.to_device(X_train))
+    gdf_data = cudf.DataFrame(X_train)
     gdf_train = cudf.DataFrame(dict(train=y_train))
 
     sk_cu_grid.fit(gdf_data, gdf_train.train)

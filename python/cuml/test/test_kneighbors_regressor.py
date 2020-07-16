@@ -96,8 +96,8 @@ def test_score(nrows, ncols, n_neighbors, n_clusters, datatype):
     y = y.astype(np.float32)
 
     if datatype == "dataframe":
-        X = cudf.DataFrame(rmm.to_device(X))
-        y = cudf.DataFrame(rmm.to_device(y.reshape(nrows, 1)))
+        X = cudf.DataFrame(X)
+        y = cudf.DataFrame(y.reshape(nrows, 1))
 
     knn_cu = cuKNN(n_neighbors=n_neighbors)
     knn_cu.fit(X, y)
@@ -113,8 +113,8 @@ def test_predict_multioutput(input_type, output_type):
     y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 
     if input_type == "cudf":
-        X = cudf.DataFrame(rmm.to_device(X))
-        y = cudf.DataFrame(rmm.to_device(y))
+        X = cudf.DataFrame(X)
+        y = cudf.DataFrame(y)
     elif input_type == "cupy":
         X = cp.asarray(X)
         y = cp.asarray(y)
