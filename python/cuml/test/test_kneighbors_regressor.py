@@ -17,7 +17,6 @@
 import pytest
 
 import cudf
-import rmm
 
 from cuml.neighbors import KNeighborsRegressor as cuKNN
 

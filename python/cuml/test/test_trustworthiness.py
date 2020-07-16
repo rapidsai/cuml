@@ -20,7 +20,6 @@ from sklearn.datasets import make_blobs
 from umap import UMAP
 
 import cudf
-import numba.cuda
 import numpy as np
 
 

@@ -16,9 +16,6 @@
 
 import pytest
 
-import rmm
-
-
 import cudf
 
 from cuml.neighbors import KNeighborsClassifier as cuKNN
