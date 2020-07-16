@@ -18,7 +18,7 @@
 #include <common/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include "bh_kernels.cuh"
-#include "utils.h"
+#include "utils.cuh"
 
 namespace ML {
 namespace TSNE {
@@ -169,6 +169,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
       // Divide perplexities
       const float div = 1.0f / early_exaggeration;
       MLCommon::LinAlg::scalarMultiply(VAL, VAL, div, NNZ, stream);
+      learning_rate = post_learning_rate;
     }
 
     START_TIMER;
