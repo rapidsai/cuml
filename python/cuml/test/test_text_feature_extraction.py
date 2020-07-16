@@ -361,7 +361,8 @@ def test_tfidf_vectorizer(norm, use_idf, smooth_idf, sublinear_tf):
 # ----------------------------------------------------------------
 def assert_almost_equal_hash_matrices(mat_1, mat_2, ignore_sign=True):
     """
-    Currently if all the sorted values in the row is equal we assume equality 
+    Currently if all the sorted values in the row is equal we
+    assume equality
     TODO: Find better way to test ig hash matrices are equal
     """
     assert mat_1.shape == mat_2.shape
@@ -397,7 +398,8 @@ def test_hashingvectorizer():
 def test_vectorizer_empty_token_case():
     """
     We ignore empty tokens right now but sklearn treats them as a character
-    we might want to look into this more but this should not be a concern for most piplines
+    we might want to look into this more but
+    this should not be a concern for most piplines
     """
     corpus = [
         "a b ",
@@ -405,13 +407,15 @@ def test_vectorizer_empty_token_case():
 
     # we have extra null token here
     # we slightly diverge from sklearn here as not treating it as a token
-    res = CountVectorizer(preprocessor=lambda s: s).fit_transform(Series(corpus))
+    res = CountVectorizer(preprocessor=lambda s: s).\
+        fit_transform(Series(corpus))
     ref = SkCountVect(
         preprocessor=lambda s: s, tokenizer=lambda s: s.split(" ")
     ).fit_transform(corpus)
     cp.testing.assert_array_equal(res.todense(), ref.toarray())
 
-    res = HashingVectorizer(preprocessor=lambda s: s).fit_transform(Series(corpus))
+    res = HashingVectorizer(preprocessor=lambda s: s).\
+        fit_transform(Series(corpus))
     ref = SkHashVect(
         preprocessor=lambda s: s, tokenizer=lambda s: s.split(" ")
     ).fit_transform(corpus)
@@ -440,7 +444,8 @@ def test_hashingvectorizer_stop_word():
 def test_hashingvectorizer_n_features():
     n_features = 10
     res = (
-        HashingVectorizer(n_features=n_features).fit_transform(DOCS_GPU).todense().get()
+        HashingVectorizer(n_features=n_features)
+        .fit_transform(DOCS_GPU).todense().get()
     )
     ref = SkHashVect(n_features=n_features).fit_transform(DOCS).toarray()
     assert res.shape == ref.shape
