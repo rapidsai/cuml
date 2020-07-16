@@ -266,7 +266,7 @@ def train_test_split(
     if y is not None and y_numba:
         y_train = cuda.as_cuda_array(y_train)
         y_test = cuda.as_cuda_array(y_test)
-    
+
     if y is not None:
         return X_train, X_test, y_train, y_test
     else:
