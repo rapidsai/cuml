@@ -26,7 +26,10 @@ from pandas.util.testing import assert_frame_equal
 
 
 def from_df_to_array(df):
-    return list(zip(*[df[feature] for feature in df.columns]))
+    if isinstance(df, pd.DataFrame):
+        return list(zip(*[df[feature] for feature in df.columns]))
+    else:
+        return list(zip(*[df[feature].values_host for feature in df.columns]))
 
 
 def _from_df_to_cupy(df):
