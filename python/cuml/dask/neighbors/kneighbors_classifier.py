@@ -82,7 +82,11 @@ class KNeighborsClassifier(NearestNeighbors):
             n_targets = y.shape[1]
             for i in range(n_targets):
                 uniq_labels.append(y.iloc[:, i].unique())
-        self.uniq_labels = np.array(da.compute(uniq_labels)[0])
+
+        uniq_labels = da.compute(uniq_labels)[0]
+        if not isinstance(uniq_labels[0], np.ndarray):  # for cuDF Series
+            uniq_labels = list(map(lambda x: x.values_host, uniq_labels))
+        self.uniq_labels = np.array(uniq_labels)
         self.n_unique = list(map(lambda x: len(x), self.uniq_labels))
 
         return self
