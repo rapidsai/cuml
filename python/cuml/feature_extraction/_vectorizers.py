@@ -51,14 +51,15 @@ def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" ",
     if remove_non_alphanumeric:
         if keep_underscore_char:
             # why: sklearn by default keeps `_` char along with  alphanumerics
-            # currently we dont have a easy way of removing all chars but x in cudf.Series[str]
-            # below works around it
-            temp_string = 'cumlCh'
+            # currently we dont have a easy way of removing
+            # all chars but `_`
+            # in cudf.Series[str] below works around it
+            temp_string = 'cumlSt'
             doc = doc.str.replace('_', temp_string, regex=False)
             doc = doc.str.filter_alphanum(' ', keep=True)
             doc = doc.str.replace(temp_string, '_', regex=False)
         else:
-            doc = doc.str.filter_alphanum(' ', keep=True)      
+            doc = doc.str.filter_alphanum(' ', keep=True)
     return doc
 
 
@@ -93,7 +94,6 @@ class _VectorizerMixin:
                                  remove_non_alphanumeric=remove_non_alpha,
                                  delimiter=self.delimiter)
         return lambda doc: self._remove_stop_words(preprocess(doc))
-
 
     def _get_stop_words(self):
         """Build or fetch the effective stop words list.
@@ -257,7 +257,8 @@ class _VectorizerMixin:
         indptr = cp.pad(indptr, (1, 0), "constant")
 
         return cp.sparse.csr_matrix(
-            arg1=(data, indices, indptr), dtype=self.dtype, shape=(n_doc, n_features)
+            arg1=(data, indices, indptr), dtype=self.dtype,
+            shape=(n_doc, n_features)
         )
 
     def _validate_params(self):
@@ -275,7 +276,8 @@ class _VectorizerMixin:
         if hasattr(self, "n_features"):
             if not isinstance(self.n_features, numbers.Integral):
                 raise TypeError(
-                    f"n_features must be integral, got {self.n_features} ({type(self.n_features)})."
+                    f"n_features must be integral, got {self.n_features}\
+                    ({type(self.n_features)})."
                 )
 
     def _warn_for_unused_params(self):
@@ -322,6 +324,7 @@ def _term_frequency(X):
         .sum()
     )
     return term_freq["count"].values
+
 
 class CountVectorizer(_VectorizerMixin):
     """Convert a collection of text documents to a matrix of token counts
@@ -575,7 +578,7 @@ class CountVectorizer(_VectorizerMixin):
         empty_doc_ids = self._compute_empty_doc_ids(count_df, n_doc)
 
         X = self._create_csr_matrix_from_count_df(count_df, empty_doc_ids,
-                                                  n_doc,len(self.vocabulary_))
+                                                  n_doc, len(self.vocabulary_))
         if self.binary:
             X.data.fill(1)
         return X
@@ -652,7 +655,8 @@ class HashingVectorizer(_VectorizerMixin):
     token string name to feature integer index mapping.
     This strategy has several advantages:
     - it is very low memory scalable to large datasets as there is no need to
-      store a vocabulary dictionary in memory which even more important as GPU's are often memory constrained
+      store a vocabulary dictionary in memory which is even more important
+      as GPU's that are often memory constrained
     - it is fast to pickle and un-pickle as it holds no state besides the
       constructor parameters
     - it can be used in a streaming (partial fit) or parallel pipeline as there
