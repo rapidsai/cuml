@@ -125,6 +125,10 @@ class NearestNeighbors(Base):
         Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
         by using the expanded form and not computing the n-th roots.
     metric_params : dict, optional (default = None) This is currently ignored.
+    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+        Variable to control output type of the results and attributes.
+        If None, it'll inherit the output type set at the module level,
+        cuml.output_type. If set, it will override the global option.
 
     Examples
     ---------
@@ -293,7 +297,7 @@ class NearestNeighbors(Base):
         return m, expanded
 
     def kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                   convert_dtype=True, return_cupy=False):
+                   convert_dtype=True, output_type=None):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -315,17 +319,18 @@ class NearestNeighbors(Base):
             When set to True, the kneighbors method will automatically
             convert the inputs to np.float32.
 
-        return_cupy : bool, optional (default = False)
-            When set to True, returns the outputs as cupy.ndarrays. This
-            prevents double conversion when using 'kneighbors_graph'.
+        output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+            Variable to control output type of the results and attributes.
+            If None, it'll inherit the output type set at the module level,
+            cuml.output_type. If set, it will override the global option.
 
         Returns
         -------
-        distances: cuDF DataFrame or numpy ndarray
+        distances: cuDF DataFrame, pandas DataFrame, numpy or cupy ndarray
             The distances of the k-nearest neighbors for each column vector
             in X
 
-        indices: cuDF DataFrame or numpy ndarray
+        indices: cuDF DataFrame, pandas DataFrame, numpy or cupy ndarray
             The indices of the k-nearest neighbors for each column vector in X
         """
 
@@ -442,7 +447,7 @@ class NearestNeighbors(Base):
 
         Returns
         -------
-        A: sparse graph in CSR format, shape = (n_samples, n_samples_fit)
+        A: sparse graph CSR format (device), shape = (n_samples, n_samples_fit)
             n_samples_fit is the number of samples in the fitted data where
             A[i, j] is assigned the weight of the edge that connects i to k.
             Values will either be ones/zeros or the selected distance metric.
@@ -481,7 +486,7 @@ class NearestNeighbors(Base):
 
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
                      handle=None, algorithm="brute", metric="minkowski", p=2,
-                     include_self=False, metric_params=None):
+                     include_self=False, metric_params=None, output_type=None):
     """
     Computes the (weighted) graph of k-Neighbors for points in X.
 
@@ -526,9 +531,14 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
 
     metric_params : dict, optional (default = None) This is currently ignored.
 
+    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+        Variable to control output type of the results and attributes.
+        If None, it'll inherit the output type set at the module level,
+        cuml.output_type. If set, it will override the global option.
+
     Returns
     -------
-    A: sparse graph in CSR format, shape = (n_samples, n_samples_fit)
+    A: sparse graph CSR format (device), shape = (n_samples, n_samples_fit)
         n_samples_fit is the number of samples in the fitted data where
         A[i, j] is assigned the weight of the edge that connects i to k.
         Values will either be ones/zeros or the selected distance metric.
@@ -536,7 +546,8 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     """
     if not isinstance(X, NearestNeighbors):
         X = NearestNeighbors(n_neighbors, verbose, handle, algorithm, metric,
-                             p, metric_params=metric_params).fit(X)
+                             p, metric_params=metric_params, 
+                             output_type=output_type).fit(X)
     else:
         raise TypeError('Use kneighbors_graph as method of %s' % X)
 
