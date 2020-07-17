@@ -448,6 +448,7 @@ class NearestNeighbors(Base):
         Returns
         -------
         A: sparse graph CSR format (device), shape = (n_samples, n_samples_fit)
+            Cupy's sparse CSR matrix with each row being a cupy.ndarray
             n_samples_fit is the number of samples in the fitted data where
             A[i, j] is assigned the weight of the edge that connects i to k.
             Values will either be ones/zeros or the selected distance metric.
@@ -539,6 +540,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     Returns
     -------
     A: sparse graph CSR format (device), shape = (n_samples, n_samples_fit)
+        Cupy's sparse CSR matrix with each row being a cupy.ndarray
         n_samples_fit is the number of samples in the fitted data where
         A[i, j] is assigned the weight of the edge that connects i to k.
         Values will either be ones/zeros or the selected distance metric.
