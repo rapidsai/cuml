@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import warnings
-
 from cudf import Series
 from cuml.common.exceptions import NotFittedError
 from cuml.feature_extraction._stop_words import ENGLISH_STOP_WORDS
@@ -25,12 +23,15 @@ import numbers
 import cudf
 from cuml.common.type_utils import CUPY_SPARSE_DTYPES
 from cudf.utils.dtypes import min_signed_type
+import cuml.common.logger as logger
 
 
 def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" ",
                 keep_underscore_char=True):
-    """Chain together an optional series of text preprocessing steps to
+    """
+    Chain together an optional series of text preprocessing steps to
     apply to a document.
+
     Parameters
     ----------
     doc: cudf.Series[str]
@@ -41,6 +42,7 @@ def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" ",
         Whether or not to remove non-alphanumeric characters.
     keep_underscore_char: bool
         Whether or not to keep the underscore character
+
     Returns
     -------
     doc: cudf.Series[str]
@@ -64,10 +66,14 @@ def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" ",
 
 
 class _VectorizerMixin:
-    """Provides common code for text vectorizers (tokenization logic)."""
+    """
+    Provides common code for text vectorizers (tokenization logic).
+    """
 
     def _remove_stop_words(self, doc):
-        """Remove stop words only if needed."""
+        """
+        Remove stop words only if needed.
+        """
         if self.analyzer == 'word' and self.stop_words is not None:
             stop_words = Series(self._get_stop_words())
             doc = doc.str.replace_tokens(stop_words,
@@ -76,7 +82,8 @@ class _VectorizerMixin:
         return doc
 
     def build_preprocessor(self):
-        """Return a function to preprocess the text before tokenization.
+        """
+        Return a function to preprocess the text before tokenization.
 
         If analyzer == 'word' and stop_words is not None, stop words are
         removed from the input documents after preprocessing.
@@ -96,7 +103,9 @@ class _VectorizerMixin:
         return lambda doc: self._remove_stop_words(preprocess(doc))
 
     def _get_stop_words(self):
-        """Build or fetch the effective stop words list.
+        """
+        Build or fetch the effective stop words list.
+
         Returns
         -------
         stop_words: list or None
@@ -154,6 +163,7 @@ class _VectorizerMixin:
     def get_ngrams(self, str_series, ngram_size, doc_id_sr):
         """
         This returns the ngrams for the string series
+
         Parameters
         ----------
         str_series : (cudf.Series)
@@ -186,8 +196,8 @@ class _VectorizerMixin:
         return tokenized_df
 
     def _create_tokenized_df(self, docs):
-        """Creates a tokenized DataFrame from a string Series.
-
+        """
+        Creates a tokenized DataFrame from a string Series.
         Each row describes the token string and the corresponding document id.
         """
         min_n, max_n = self.ngram_range
@@ -206,7 +216,8 @@ class _VectorizerMixin:
         return tokenized_df
 
     def _insert_zeros(self, ary, zero_indices):
-        """Create a new array of len(ary + zero_indices) where zero_indices
+        """
+        Create a new array of len(ary + zero_indices) where zero_indices
         indicates indexes of 0s in the new array. Ary is used to fill the rest.
 
         Example:
@@ -248,7 +259,7 @@ class _VectorizerMixin:
         ----------
             count_df = cudf.DataFrame({'count':..., 'doc_id':.., 'token':.. })
                        sorted by doc_id and token
-            empty_doc_ids = cupy array containing doc_ids with no arrays
+            empty_doc_ids = cupy array containing doc_ids with no tokens
             n_doc: Total number of documents
             n_features: Number of features
         """
@@ -272,7 +283,9 @@ class _VectorizerMixin:
         )
 
     def _validate_params(self):
-        """Check validity of ngram_range parameter"""
+        """
+        Check validity of ngram_range parameter
+        """
         min_n, max_m = self.ngram_range
         msg = ""
         if min_n < 1:
@@ -292,7 +305,7 @@ class _VectorizerMixin:
 
     def _warn_for_unused_params(self):
         if self.analyzer != "word" and self.stop_words is not None:
-            warnings.warn(
+            logger.warn(
                 "The parameter 'stop_words' will not be used"
                 " since 'analyzer' != 'word'"
             )
@@ -317,7 +330,9 @@ class _VectorizerMixin:
 
 
 def _document_frequency(X):
-    """Count the number of non-zero values for each feature in X."""
+    """
+    Count the number of non-zero values for each feature in X.
+    """
     doc_freq = (
         X[["token", "doc_id"]]
         .groupby(["token"])
@@ -327,7 +342,9 @@ def _document_frequency(X):
 
 
 def _term_frequency(X):
-    """Count the number of occurrences of each term in X."""
+    """
+    Count the number of occurrences of each term in X.
+    """
     term_freq = (
         X[["token", "count"]]
         .groupby(["token"])
@@ -337,7 +354,8 @@ def _term_frequency(X):
 
 
 class CountVectorizer(_VectorizerMixin):
-    """Convert a collection of text documents to a matrix of token counts
+    """
+    Convert a collection of text documents to a matrix of token counts
 
     If you do not provide an a-priori dictionary then the number of features
     will be equal to the vocabulary size found by analyzing the data.
@@ -447,7 +465,9 @@ class CountVectorizer(_VectorizerMixin):
         self._check_sklearn_params(analyzer, sklearn_params)
 
     def _count_vocab(self, tokenized_df):
-        """Count occurrences of tokens in each document."""
+        """
+        Count occurrences of tokens in each document.
+        """
         # Transform string tokens into token indexes from 0 to len(vocab)
         # The indexes are based on lexicographical ordering.
         tokenized_df['token'] = tokenized_df['token'].astype('category')
@@ -467,8 +487,10 @@ class CountVectorizer(_VectorizerMixin):
         return count_df
 
     def _filter_and_renumber(self, df, keep_values, column):
-        """Filter dataframe to keep only values from column matching
-        keep_values."""
+        """
+        Filter dataframe to keep only values from column matching
+        keep_values.
+        """
         df[column] = (
             df[column].astype('category')
             .cat.set_categories(keep_values)
@@ -478,7 +500,8 @@ class CountVectorizer(_VectorizerMixin):
         return df
 
     def _limit_features(self, count_df, vocab, high, low, limit):
-        """Remove too rare or too common features.
+        """
+        Remove too rare or too common features.
 
         Prune features that are non zero in more samples than high or less
         documents than low, modifying the vocabulary, and restricting it to
@@ -524,7 +547,8 @@ class CountVectorizer(_VectorizerMixin):
         return preprocess(raw_documents)
 
     def fit(self, raw_documents):
-        """Build a vocabulary of all tokens in the raw documents.
+        """
+        Build a vocabulary of all tokens in the raw documents.
 
        Parameters
        ----------
@@ -539,7 +563,8 @@ class CountVectorizer(_VectorizerMixin):
         return self
 
     def fit_transform(self, raw_documents):
-        """Build the vocabulary and return document-term matrix.
+        """
+        Build the vocabulary and return document-term matrix.
 
         Equivalent to .fit(X).transform(X) but preprocess X only once.
 
@@ -594,7 +619,8 @@ class CountVectorizer(_VectorizerMixin):
         return X
 
     def transform(self, raw_documents):
-        """Transform documents to document-term matrix.
+        """
+        Transform documents to document-term matrix.
 
         Extract token counts out of raw text documents using the vocabulary
         fitted with fit or the one provided to the constructor.
@@ -628,7 +654,8 @@ class CountVectorizer(_VectorizerMixin):
         return X
 
     def inverse_transform(self, X):
-        """Return terms per document with nonzero entries in X.
+        """
+        Return terms per document with nonzero entries in X.
 
         Parameters
         ----------
@@ -644,7 +671,8 @@ class CountVectorizer(_VectorizerMixin):
         return [vocab[X[i, :].indices] for i in range(X.shape[0])]
 
     def get_feature_names(self):
-        """Array mapping from feature integer indices to feature name.
+        """
+        Array mapping from feature integer indices to feature name.
         Returns
         -------
         feature_names : Series
@@ -654,7 +682,8 @@ class CountVectorizer(_VectorizerMixin):
 
 
 class HashingVectorizer(_VectorizerMixin):
-    """Convert a collection of text documents to a matrix of token occurrences
+    """
+    Convert a collection of text documents to a matrix of token occurrences
 
     It turns a collection of text documents into a cupy.sparse matrix holding
     token occurrence counts (or binary occurrence information), possibly
@@ -663,7 +692,9 @@ class HashingVectorizer(_VectorizerMixin):
 
     This text vectorizer implementation uses the hashing trick to find the
     token string name to feature integer index mapping.
+
     This strategy has several advantages:
+
     - it is very low memory scalable to large datasets as there is no need to
       store a vocabulary dictionary in memory which is even more important
       as GPU's that are often memory constrained
@@ -671,8 +702,10 @@ class HashingVectorizer(_VectorizerMixin):
       constructor parameters
     - it can be used in a streaming (partial fit) or parallel pipeline as there
       is no state computed during fit.
+
     There are also a couple of cons (vs using a CountVectorizer with an
     in-memory vocabulary):
+
     - there is no way to compute the inverse transform (from feature indices to
       string feature names) which can be a problem when trying to introspect
       which features are most important to a model.
@@ -680,7 +713,9 @@ class HashingVectorizer(_VectorizerMixin):
       feature index. However in practice this is rarely an issue if n_features
       is large enough (e.g. 2 ** 18 for text classification problems).
     - no IDF weighting as this would render the transformer stateful.
+
     The hash function employed is the signed 32-bit version of Murmurhash3.
+
     Parameters
     ----------
     lowercase : bool, default=True
@@ -728,17 +763,26 @@ class HashingVectorizer(_VectorizerMixin):
 
     Examples
     --------
-    >>> from cuml.feature_extraction.text import HashingVectorizer
-    >>> corpus = [
-    ...     'This is the first document.',
-    ...     'This document is the second document.',
-    ...     'And this is the third one.',
-    ...     'Is this the first document?',
-    ... ]
-    >>> vectorizer = HashingVectorizer(n_features=2**4)
-    >>> X = vectorizer.fit_transform(corpus)
-    >>> print(X.shape)
-    (4, 16)
+
+    .. code-block:: python
+
+        from cuml.feature_extraction.text import HashingVectorizer
+        corpus = [
+            'This is the first document.',
+            'This document is the second document.',
+            'And this is the third one.',
+            'Is this the first document?',
+        ]
+        vectorizer = HashingVectorizer(n_features=2**4)
+        X = vectorizer.fit_transform(corpus)
+        print(X.shape)
+
+    Output:
+
+    .. code-block:: python
+
+        (4, 16)
+
     See Also
     --------
     CountVectorizer, TfidfVectorizer
@@ -795,9 +839,10 @@ class HashingVectorizer(_VectorizerMixin):
 
     def partial_fit(self, X, y=None):
         """
-        Does nothing: this transformer is stateless.
+        Does nothing: This transformer is stateless
         This method is just there to mark the fact that this transformer
         can work in a streaming setup.
+
         Parameters
         ----------
         X : cudf.Series(A Series of string documents).
@@ -805,7 +850,10 @@ class HashingVectorizer(_VectorizerMixin):
         return self
 
     def fit(self, X, y=None):
-        """Does nothing: this transformer is stateless.
+        """
+        This method only checks the input type and the model parameter.
+        It does not do anything meaningful as this transformer is stateless
+
         Parameters
         ----------
         X : cudf.Series(A Series of string documents)
@@ -824,7 +872,9 @@ class HashingVectorizer(_VectorizerMixin):
         return preprocess(raw_documents)
 
     def _count_hash(self, tokenized_df):
-        """Count occurrences of tokens in each document."""
+        """
+        Count occurrences of tokens in each document.
+        """
         # Transform string tokens into token indexes from 0 to n_features
         tokenized_df["token"] = tokenized_df["token"].hash_values()
         if self.alternate_sign:
@@ -845,7 +895,9 @@ class HashingVectorizer(_VectorizerMixin):
         return count_df
 
     def fit_transform(self, X, y=None):
-        """Transform a sequence of documents to a document-term matrix.
+        """
+        Transform a sequence of documents to a document-term matrix.
+
         Parameters
         ----------
         X : iterable over raw text documents, length = n_samples
@@ -855,6 +907,7 @@ class HashingVectorizer(_VectorizerMixin):
         y : any
             Ignored. This parameter exists only for compatibility with
             sklearn.pipeline.Pipeline.
+
         Returns
         -------
         X : sparse matrix of shape (n_samples, n_features)
@@ -863,7 +916,8 @@ class HashingVectorizer(_VectorizerMixin):
         return self.fit(X, y).transform(X)
 
     def transform(self, raw_documents):
-        """Transform documents to document-term matrix.
+        """
+        Transform documents to document-term matrix.
 
         Extract token counts out of raw text documents using the vocabulary
         fitted with fit or the one provided to the constructor.
