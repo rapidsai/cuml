@@ -331,9 +331,8 @@ class NearestNeighbors(Base):
 
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
 
-        use_training_data = False
+        use_training_data = X is None
         if X is None:
-            use_training_data = True
             X = self.X_m
             n_neighbors += 1
 
@@ -410,8 +409,13 @@ class NearestNeighbors(Base):
         # drop first column if using training data as X, always cupy.ndarray
         # this will need to be moved to the C++ layer (cuml issue #2562)
         if use_training_data:
-            return (D_output[:, 1:], I_output[:, 1:]) \
-                if return_distance else I_output[:, 1:]
+            if out_type == 'cupy' or out_type == 'numpy' or out_type == 'numba':
+                return (D_output[:, 1:], I_output[:, 1:]) \
+                    if return_distance else I_output[:, 1:]
+            else:
+                I_output.drop(I_output.columns[0], axis=1)
+                if return_distance:
+                    D_output.drop(D_output.columns[0], axis=1)
 
         return (D_output, I_output) if return_distance else I_output
 
@@ -441,7 +445,7 @@ class NearestNeighbors(Base):
         A: sparse graph in CSR format, shape = (n_samples, n_samples_fit)
             n_samples_fit is the number of samples in the fitted data where
             A[i, j] is assigned the weight of the edge that connects i to k.
-            Values will be ones/zeros or Euclidean distance based on mode.
+            Values will either be ones/zeros or the selected distance metric.
 
         """
         if not self.X_m:
@@ -456,7 +460,7 @@ class NearestNeighbors(Base):
             indices = self.kneighbors(X, n_neighbors, return_distance=False,
                                       return_cupy=True)
             n_samples = indices.shape[0]
-            distances = cp.ones(n_samples * n_neighbors)
+            distances = cp.ones(n_samples * n_neighbors, dtype=np.float32)
 
         elif mode == 'distance':
             distances, indices = self.kneighbors(X, n_neighbors,
@@ -527,7 +531,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     A: sparse graph in CSR format, shape = (n_samples, n_samples_fit)
         n_samples_fit is the number of samples in the fitted data where
         A[i, j] is assigned the weight of the edge that connects i to k.
-        Values will be ones/zeros or Euclidean distance based on mode.
+        Values will either be ones/zeros or the selected distance metric.
 
     """
     if not isinstance(X, NearestNeighbors):
