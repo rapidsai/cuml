@@ -11,6 +11,7 @@
 - PR #2394: Adding cosine & correlation distance for KNN
 - PR #2392: PCA can accept sparse inputs, and sparse prim for computing covariance
 - PR #2465: Support pandas 1.0+
+- PR #2500: Replace UMAP functionality dependency on nvgraph with RAFT Spectral Clustering
 - PR #2520: TfidfVectorizer estimator
 
 ## Improvements
@@ -55,6 +56,7 @@
 - PR #2536 Update conda upload versions for new supported CUDA/Python
 - PR #2538: Remove Protobuf dependency
 - PR #2553: Test pickle protocol 5 support
+- PR #2566: Remove deprecated cuDF from_gpu_matrix calls
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -81,11 +83,15 @@
 - PR #2532: Updating doxygen in new MG headers
 - PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
 - PR #2515: Increase tolerance for LogisticRegression test
+- PR #2544: Fix Barnes-Hut tSNE not using specified post_learning_rate
 - PR #2558: Disabled a long-running FIL test
 - PR #2540: Update default value for n_epochs in UMAP to match documentation & sklearn API
 - PR #2535: Fix issue with incorrect docker image being used in local build script
 - PR #2542: Fix small memory leak in TSNE
 - PR #2552: Fixed the length argument of updateDevice calls in RF test
+- PR #2563: Update scipy call for arima gradient test
+- PR #2569: Fix for cuDF update
+- PR #2508: Use keyword parameters in sklearn.datasets.make_* functions
 
 # cuML 0.14.0 (03 Jun 2020)
 
