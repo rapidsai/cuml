@@ -8,7 +8,7 @@ from cupy import sparse as gpu_sp
 import cupy as np
 import numpy as cpu_np
 
-from ...thirdparty_adapters.sparsefuncs_fast import (
+from ....thirdparty_adapters.sparsefuncs_fast import (
     csr_mean_variance_axis0 as _csr_mean_var_axis0,
     csc_mean_variance_axis0 as _csc_mean_var_axis0)
 

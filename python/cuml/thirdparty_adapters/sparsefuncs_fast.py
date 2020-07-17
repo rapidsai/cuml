@@ -62,8 +62,7 @@ def inplace_csr_row_normalize_l1(X):
     start = X.indptr[0]
     for end in X.indptr[1:]:
         col = X.data[start:end]
-        col = abs(col)
-        sum_ = col.sum()
+        sum_ = cp.abs(col).sum()
         X.data[start:end] /= sum_
         start = end
 
@@ -72,8 +71,7 @@ def inplace_csr_row_normalize_l2(X):
     start = X.indptr[0]
     for end in X.indptr[1:]:
         col = X.data[start:end]
-        col = cp.square(col)
-        sum_ = col.sum()
+        sum_ = cp.square(col).sum()
         X.data[start:end] /= cp.sqrt(sum_)
         start = end
 

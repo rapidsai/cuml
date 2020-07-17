@@ -13,7 +13,7 @@ import inspect
 import re
 
 from ..utils.validation import check_X_y
-from ...thirdparty_adapters import check_array
+from ....thirdparty_adapters import check_array
 
 
 __version__ = '0.23.1'

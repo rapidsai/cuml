@@ -9,7 +9,7 @@ import cupy as np
 import numpy as cpu_np
 from cupy import sparse
 
-from ...thirdparty_adapters import get_input_type, to_output_type
+from ....thirdparty_adapters import get_input_type, to_output_type
 from ._skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES

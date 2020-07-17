@@ -33,12 +33,19 @@ from sklearn.preprocessing import scale as sk_scale, \
                                   binarize as sk_binarize
 from sklearn.impute import SimpleImputer as skSimpleImputer
 
+from ..thirdparty_adapters.sparsefuncs_fast import csr_mean_variance_axis0, \
+                                                csc_mean_variance_axis0, \
+                                                _csc_mean_variance_axis0, \
+                                                inplace_csr_row_normalize_l1, \
+                                                inplace_csr_row_normalize_l2
+
 from .test_preproc_utils import clf_dataset, int_dataset, \
                                 sparse_clf_dataset, \
                                 sparse_int_dataset  # noqa: F401
 from .test_preproc_utils import assert_allclose
 
 import numpy as np
+import cupy as cp
 
 
 def test_minmax_scaler(clf_dataset):  # noqa: F811
@@ -197,19 +204,21 @@ def test_normalizer_sparse(sparse_clf_dataset, norm):  # noqa: F811
     assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
 
 
+@pytest.mark.parametrize("axis", [0, 1])
 @pytest.mark.parametrize("norm", ['l1', 'l2', 'max'])
 @pytest.mark.parametrize("return_norm", [True, False])
-def test_normalize(clf_dataset, norm, return_norm):  # noqa: F811
+def test_normalize(clf_dataset, axis, norm, return_norm):  # noqa: F811
     X_np, X = clf_dataset
 
     if return_norm:
-        t_X, t_norms = normalize(X, axis=0, norm=norm, return_norm=return_norm)
-        sk_t_X, sk_t_norms = sk_normalize(X_np, axis=0, norm=norm,
+        t_X, t_norms = normalize(X, axis=axis, norm=norm,
+                                 return_norm=return_norm)
+        sk_t_X, sk_t_norms = sk_normalize(X_np, axis=axis, norm=norm,
                                           return_norm=return_norm)
         assert_allclose(t_norms, sk_t_norms, rtol=0.0001, atol=0.0001)
     else:
-        t_X = normalize(X, axis=0, norm=norm, return_norm=return_norm)
-        sk_t_X = normalize(X_np, axis=0, norm=norm, return_norm=return_norm)
+        t_X = normalize(X, axis=axis, norm=norm, return_norm=return_norm)
+        sk_t_X = normalize(X_np, axis=axis, norm=norm, return_norm=return_norm)
 
     assert type(t_X) == type(X)
     assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
@@ -401,3 +410,96 @@ def test_binarizer_sparse(sparse_clf_dataset, threshold):  # noqa: F811
     sk_t_X = binarizer.fit_transform(X_np)
 
     assert_allclose(t_X, sk_t_X, rtol=0.0001, atol=0.0001)
+
+
+def test_csr_mean_variance_axis0(sparse_clf_dataset):  # noqa: F811
+    X_np, X = sparse_clf_dataset
+
+    if not cp.sparse.issparse(X):
+        pytest.skip("Skipping non-CuPy or non-sparse arrays")
+
+    if X.format != 'csr':
+        X = X.tocsr()
+
+    means, variances = csr_mean_variance_axis0(X)
+
+    X_np = X_np.toarray()
+    ref_means = np.nanmean(X_np, axis=0)
+    ref_variances = np.nanvar(X_np, axis=0)
+
+    assert_allclose(means, ref_means, rtol=0.0001, atol=0.0001)
+    assert_allclose(variances, ref_variances, rtol=0.0001, atol=0.0001)
+
+
+def test_csc_mean_variance_axis0(sparse_clf_dataset):  # noqa: F811
+    X_np, X = sparse_clf_dataset
+
+    if not cp.sparse.issparse(X):
+        pytest.skip("Skipping non-CuPy or non-sparse arrays")
+
+    if X.format != 'csc':
+        X = X.tocsc()
+
+    means, variances = csc_mean_variance_axis0(X)
+
+    X_np = X_np.toarray()
+    ref_means = np.nanmean(X_np, axis=0)
+    ref_variances = np.nanvar(X_np, axis=0)
+
+    assert_allclose(means, ref_means, rtol=0.0001, atol=0.0001)
+    assert_allclose(variances, ref_variances, rtol=0.0001, atol=0.0001)
+
+
+def test__csc_mean_variance_axis0(sparse_clf_dataset):  # noqa: F811
+    X_np, X = sparse_clf_dataset
+
+    if not cp.sparse.issparse(X):
+        pytest.skip("Skipping non-CuPy or non-sparse arrays")
+
+    if X.format != 'csc':
+        X = X.tocsc()
+
+    means, variances, counts_nan = _csc_mean_variance_axis0(X)
+
+    X_np = X_np.toarray()
+    ref_means = np.nanmean(X_np, axis=0)
+    ref_variances = np.nanvar(X_np, axis=0)
+    ref_counts_nan = np.isnan(X_np).sum(axis=0)
+
+    assert_allclose(means, ref_means, rtol=0.0001, atol=0.0001)
+    assert_allclose(variances, ref_variances, rtol=0.0001, atol=0.0001)
+    assert_allclose(counts_nan, ref_counts_nan, rtol=0.0001, atol=0.0001)
+
+
+def test_inplace_csr_row_normalize_l1(sparse_clf_dataset):  # noqa: F811
+    X_np, X = sparse_clf_dataset
+
+    if not cp.sparse.issparse(X):
+        pytest.skip("Skipping non-CuPy or non-sparse arrays")
+
+    if X.format != 'csr':
+        X = X.tocsr()
+
+    inplace_csr_row_normalize_l1(X)
+
+    X_np = X_np.toarray()
+    X_np = sk_normalize(X_np, norm='l1', axis=1)
+
+    assert_allclose(X, X_np, rtol=0.0001, atol=0.0001)
+
+
+def test_inplace_csr_row_normalize_l2(sparse_clf_dataset):  # noqa: F811
+    X_np, X = sparse_clf_dataset
+
+    if not cp.sparse.issparse(X):
+        pytest.skip("Skipping non-CuPy or non-sparse arrays")
+
+    if X.format != 'csr':
+        X = X.tocsr()
+
+    inplace_csr_row_normalize_l2(X)
+
+    X_np = X_np.toarray()
+    X_np = sk_normalize(X_np, norm='l2', axis=1)
+
+    assert_allclose(X, X_np, rtol=0.0001, atol=0.0001)

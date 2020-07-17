@@ -24,7 +24,7 @@ from ..exceptions import NonBLASDotWarning, PositiveSpectrumWarning
 from ..exceptions import NotFittedError
 from ..exceptions import DataConversionWarning
 
-from ...thirdparty_adapters import check_array
+from ....thirdparty_adapters import check_array
 
 FLOAT_DTYPES = (np.float64, np.float32, np.float16)
 

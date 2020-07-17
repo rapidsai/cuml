@@ -20,7 +20,7 @@ from scipy import optimize
 from scipy.special import boxcox
 
 from ._skl_dependencies import BaseEstimator, TransformerMixin
-from ...thirdparty_adapters import check_array, get_input_type, to_output_type
+from ....thirdparty_adapters import check_array, get_input_type, to_output_type
 from ..utils.extmath import row_norms
 from ..utils.extmath import _incremental_mean_and_var
 from ..utils.validation import (check_is_fitted, check_random_state,
@@ -30,7 +30,7 @@ from ..utils.sparsefuncs import (inplace_column_scale,
                                  min_max_axis,
                                  mean_variance_axis)
 
-from ...thirdparty_adapters.sparsefuncs_fast import \
+from ....thirdparty_adapters.sparsefuncs_fast import \
     (inplace_csr_row_normalize_l1, inplace_csr_row_normalize_l2,
      csr_polynomial_expansion)
 
