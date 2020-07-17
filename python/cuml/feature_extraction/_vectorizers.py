@@ -856,7 +856,8 @@ class HashingVectorizer(_VectorizerMixin):
 
         Parameters
         ----------
-        X : cudf.Series(A Series of string documents)
+        X : cudf.Series
+             A Series of string documents
         """
         if not (
             isinstance(X, cudf.Series)
