@@ -23,6 +23,8 @@
 #include "coo.cuh"
 #include "cusparse_wrappers.h"
 
+#include <raft/spectral/partition.hpp>
+
 namespace MLCommon {
 namespace Spectral {
 
@@ -147,53 +149,68 @@ void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
                    int nnz, int n, int n_components, T *out,
                    std::shared_ptr<deviceAllocator> d_alloc,
                    cudaStream_t stream) {
-  nvgraphHandle_t grapHandle;
-  cudaDataType_t edge_dimT = CUDA_R_32F;
-  NVGRAPH_CHECK(nvgraphCreate(&grapHandle));
-
   device_buffer<int> src_offsets(d_alloc, stream, n + 1);
   device_buffer<int> dst_cols(d_alloc, stream, nnz);
   device_buffer<T> dst_vals(d_alloc, stream, nnz);
   coo2csr(handle, rows, cols, vals, nnz, n, src_offsets.data(), dst_cols.data(),
           dst_vals.data(), d_alloc, stream);
 
-  nvgraphCSRTopology32I_st CSR_input;
-  CSR_input.destination_indices = dst_cols.data();
-  CSR_input.nedges = nnz;
-  CSR_input.nvertices = n;
-  CSR_input.source_offsets = src_offsets.data();
-
-  int weight_index = 0;
-
   device_buffer<T> eigVals(d_alloc, stream, n_components + 1);
   device_buffer<T> eigVecs(d_alloc, stream, n * (n_components + 1));
   device_buffer<int> labels(d_alloc, stream, n);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
+  //raft spectral clustering:
+  //
+  using index_type = int;
+  using value_type = T;
 
-  // Spectral clustering parameters
-  struct SpectralClusteringParameter clustering_params;
-  clustering_params.n_clusters = n_components + 1;
-  clustering_params.n_eig_vects = n_components + 1;
-  clustering_params.algorithm = NVGRAPH_BALANCED_CUT_LANCZOS;
-  clustering_params.evs_tolerance = 0.01f;
-  clustering_params.evs_max_iter = 0;
-  clustering_params.kmean_tolerance = 0.0f;
-  clustering_params.kmean_max_iter = 1;
+  raft::handle_t r_handle;
+  r_handle.set_stream(stream);
 
-  nvgraphGraphDescr_t graph;
-  NVGRAPH_CHECK(nvgraphCreateGraphDescr(grapHandle, &graph));
-  NVGRAPH_CHECK(nvgraphSetGraphStructure(grapHandle, graph, (void *)&CSR_input,
-                                         NVGRAPH_CSR_32));
-  NVGRAPH_CHECK(nvgraphAllocateEdgeData(grapHandle, graph, 1, &edge_dimT));
-  NVGRAPH_CHECK(nvgraphSetEdgeData(grapHandle, graph, (void *)vals, 0));
+  //TODO: r_handle to be passed as argument;
+  //this will be fixed in a separate refactoring PR;
 
-  NVGRAPH_CHECK(nvgraphSpectralClustering(grapHandle, graph, weight_index,
-                                          &clustering_params, labels.data(),
-                                          eigVals.data(), eigVecs.data()));
+  index_type *ro = src_offsets.data();
+  index_type *ci = dst_cols.data();
+  value_type *vs = dst_vals.data();
 
-  NVGRAPH_CHECK(nvgraphDestroyGraphDescr(grapHandle, graph));
-  NVGRAPH_CHECK(nvgraphDestroy(grapHandle));
+  raft::matrix::sparse_matrix_t<index_type, value_type> const r_csr_m{
+    r_handle, ro, ci, vs, n, nnz};
+
+  index_type neigvs = n_components + 1;
+  index_type maxiter = 4000;  //default reset value (when set to 0);
+  value_type tol = 0.01;
+  index_type restart_iter = 15 + neigvs;  //what cugraph is using
+  auto t_exe_p = thrust::cuda::par.on(stream);
+  using thrust_exe_policy_t = decltype(t_exe_p);
+
+  raft::eigen_solver_config_t<index_type, value_type> cfg{neigvs, maxiter,
+                                                          restart_iter, tol};
+
+  raft::lanczos_solver_t<index_type, value_type> eig_solver{cfg};
+
+  //cluster computation here is irrelevant,
+  //hence define a no-op such solver to
+  //feed partition():
+  //
+  struct no_op_cluster_solver_t {
+    using index_type_t = index_type;
+    using size_type_t = index_type;
+    using value_type_t = value_type;
+
+    std::pair<value_type_t, index_type_t> solve(
+      handle_t const &handle, thrust_exe_policy_t t_exe_policy,
+      size_type_t n_obs_vecs, size_type_t dim,
+      value_type_t const *__restrict__ obs,
+      index_type_t *__restrict__ codes) const {
+      return std::make_pair<value_type_t, index_type_t>(0, 0);
+    }
+  };
+
+  raft::spectral::partition(r_handle, t_exe_p, r_csr_m, eig_solver,
+                            no_op_cluster_solver_t{}, labels.data(),
+                            eigVals.data(), eigVecs.data());
 
   MLCommon::copy<T>(out, eigVecs.data() + n, n * n_components, stream);
 
