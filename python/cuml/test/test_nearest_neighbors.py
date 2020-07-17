@@ -293,4 +293,7 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
         CSR_cu = knn_cu.kneighbors_graph(X, k, mode)
 
     assert cp.sparse.isspmatrix_csr(CSR_cu)
+    assert np.array_equal(CSR_sk.data.shape, CSR_cu.data.shape)
+    assert np.array_equal(CSR_sk.indices.shape, CSR_cu.indices.shape)
+    assert np.array_equal(CSR_sk.indptr.shape, CSR_cu.indptr.shape)
     assert np.array_equal(CSR_sk.toarray().shape, CSR_cu.toarray().shape)
