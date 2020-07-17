@@ -601,13 +601,12 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
       "please use pred_transform == 'max_index' ('sigmoid' is still supported,"
       " with 'max_index' implied)");
     if ((std::string(param.pred_transform) == "max_index") &&
-          !(tl_params->output_class && tl_params->threshold == 0.5)){
-      std::cout << " why is this FUCKING THING RUNNING " << std::flush << std::endl;
+        !(tl_params->output_class && tl_params->threshold == 0.5)) {
       ASSERT(false,
-           "pred_transform == 'max_index' needs output_class && "
-           "threshold == 0.5 to be faithfully executed. Otherwise, please "
-           "use 'identity'");
-    // 'max_index' will be equivalent to setting 'output_class' and threshold == 0.5
+             "pred_transform == 'max_index' needs output_class && "
+             "threshold == 0.5 to be faithfully executed. Otherwise, please "
+             "use 'identity'");
+      // 'max_index' will be equivalent to setting 'output_class' and threshold == 0.5
     }
   } else {
     params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
