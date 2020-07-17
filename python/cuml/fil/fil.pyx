@@ -331,7 +331,7 @@ cdef class ForestInference_impl():
                       <ModelHandle> model_ptr,
                       &treelite_params)
         TreeliteQueryNumOutputGroups(<ModelHandle> model_ptr,
-                                     &(self.num_output_groups))
+                                     & self.num_output_groups)
         return self
 
     def load_from_treelite_model(self,
@@ -341,7 +341,7 @@ cdef class ForestInference_impl():
                                  float threshold,
                                  str storage_type):
         TreeliteQueryNumOutputGroups(<ModelHandle> model.handle,
-                                     &(self.num_output_groups))
+                                     & self.num_output_groups)
         return self.load_from_treelite_model_handle(<uintptr_t>model.handle,
                                                     output_class, algo,
                                                     threshold, storage_type)
