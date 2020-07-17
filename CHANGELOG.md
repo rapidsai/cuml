@@ -91,6 +91,7 @@
 - PR #2552: Fixed the length argument of updateDevice calls in RF test
 - PR #2563: Update scipy call for arima gradient test
 - PR #2569: Fix for cuDF update
+- PR #2508: Use keyword parameters in sklearn.datasets.make_* functions
 
 # cuML 0.14.0 (03 Jun 2020)
 
