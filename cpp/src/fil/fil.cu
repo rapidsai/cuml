@@ -596,27 +596,22 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     params->num_classes = leaf_vec_size;
     params->leaf_payload_type = leaf_value_t::INT_CLASS_LABEL;
     ASSERT(
-      std::string(param.pred_transform) != "identity_multiclass",
+      param.pred_transform != "identity_multiclass",
       "multiclass predict() only supported by choosing most likely label,\n"
       "please use pred_transform == 'max_index' ('sigmoid' is still supported,"
       " with 'max_index' implied)");
-    if (std::string(param.pred_transform) == "max_index" &&
-        !(tl_params->output_class && tl_params->threshold == 0.5)) {
+    if ((std::string(param.pred_transform) == "max_index") &&
+          !(tl_params->output_class && tl_params->threshold == 0.5)){
+      std::cout << " why is this FUCKING THING RUNNING " << std::flush << std::endl;
       ASSERT(false,
-             "pred_transform == 'max_index' needs output_class && "
-             "threshold == 0.5 to be faithfully executed. Otherwise, please "
-             "use 'identity'");
-      // 'max_index' will be equivalent to setting 'output_class' and threshold == 0.5
+           "pred_transform == 'max_index' needs output_class && "
+           "threshold == 0.5 to be faithfully executed. Otherwise, please "
+           "use 'identity'");
+    // 'max_index' will be equivalent to setting 'output_class' and threshold == 0.5
     }
   } else {
     params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
     params->num_classes = 0;  // ignored
-    if (std::string(param.pred_transform) == "sigmoid") {
-      params->output = output_t(params->output | output_t::SIGMOID);
-    } else if (std::string(param.pred_transform) != "identity") {
-      ASSERT(false, "%s: unsupported treelite prediction transform",
-             param.pred_transform);
-    }
   }
 
   params->num_cols = model.num_feature;
@@ -630,6 +625,13 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   // "random forest" in treelite means tree output averaging
   if (model.random_forest_flag) {
     params->output = output_t(params->output | output_t::AVG);
+  }
+  if (std::string(param.pred_transform) == "sigmoid") {
+    params->output = output_t(params->output | output_t::SIGMOID);
+  } else if (std::string(param.pred_transform) != "identity" && 
+             params->num_classes == 2) {
+    ASSERT(false, "%s: unsupported treelite prediction transform",
+           param.pred_transform);
   }
   params->num_trees = model.trees.size();
 }
