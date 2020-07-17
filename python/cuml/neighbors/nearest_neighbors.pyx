@@ -293,7 +293,7 @@ class NearestNeighbors(Base):
         return m, expanded
 
     def kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                   convert_dtype=True):
+                   convert_dtype=True, return_cupy=False):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -314,6 +314,10 @@ class NearestNeighbors(Base):
         convert_dtype : bool, optional (default = True)
             When set to True, the kneighbors method will automatically
             convert the inputs to np.float32.
+
+        return_cupy : bool, optional (default = False)
+            When set to True, returns the outputs as cupy.ndarrays. This
+            prevents double conversion when using 'kneighbors_graph'.
 
         Returns
         -------
@@ -439,7 +443,7 @@ class NearestNeighbors(Base):
         Returns
         -------
         A: sparse graph CSR format (device), shape = (n_samples, n_samples_fit)
-            Cupy's sparse CSR matrix with each row being a cupy.ndarray
+            A cupy sparse CSR matrix with each row being a cupy.ndarray
             n_samples_fit is the number of samples in the fitted data where
             A[i, j] is assigned the weight of the edge that connects i to k.
             Values will either be ones/zeros or the selected distance metric.
@@ -526,7 +530,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     Returns
     -------
     A: sparse graph CSR format (device), shape = (n_samples, n_samples_fit)
-        Cupy's sparse CSR matrix with each row being a cupy.ndarray
+        A cupy's sparse CSR matrix with each row being a cupy.ndarray
         n_samples_fit is the number of samples in the fitted data where
         A[i, j] is assigned the weight of the edge that connects i to k.
         Values will either be ones/zeros or the selected distance metric.
