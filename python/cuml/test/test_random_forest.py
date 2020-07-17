@@ -17,7 +17,6 @@ import cudf
 import numpy as np
 import pytest
 import random
-import rmm
 
 from numba import cuda
 
@@ -388,9 +387,9 @@ def rf_classification(datatype, array_type, max_features, rows_sample,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16)
     if array_type == 'dataframe':
-        X_train_df = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_train))
+        X_train_df = cudf.DataFrame(X_train)
         y_train_df = cudf.Series(y_train)
-        X_test_df = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_test))
+        X_test_df = cudf.DataFrame(X_test)
         cuml_model.fit(X_train_df, y_train_df)
         cu_proba_gpu = np.array(cuml_model.predict_proba(X_test_df)
                                 .as_gpu_matrix())

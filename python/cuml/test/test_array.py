@@ -279,10 +279,9 @@ def test_output(output_type, dtype, out_dtype, order, shape):
             assert np.all(comp.to_array())
 
         elif output_type == 'dataframe':
-            mat = cuda.to_device(inp)
-            if len(mat.shape) == 1:
-                mat = mat.reshape(mat.shape[0], 1)
-            comp = cudf.DataFrame.from_gpu_matrix(mat)
+            if len(inp.shape) == 1:
+                inp = inp.reshape(inp.shape[0], 1)
+            comp = cudf.DataFrame(inp)
             comp = comp == res
             assert np.all(comp.as_gpu_matrix().copy_to_host())
 
