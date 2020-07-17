@@ -628,10 +628,6 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   }
   if (std::string(param.pred_transform) == "sigmoid") {
     params->output = output_t(params->output | output_t::SIGMOID);
-  } else if (std::string(param.pred_transform) != "identity" && 
-             params->num_classes == 2) {
-    ASSERT(false, "%s: unsupported treelite prediction transform",
-           param.pred_transform);
   }
   params->num_trees = model.trees.size();
 }
