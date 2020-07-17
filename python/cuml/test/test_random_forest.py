@@ -135,7 +135,7 @@ def special_reg(request):
                                random_state=123)
     return X, y
 
-"""
+
 @pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
@@ -356,7 +356,7 @@ def test_rf_regression_float64(large_reg, datatype):
     with pytest.raises(TypeError):
         fil_preds = cuml_model.predict(X_test, predict_model="GPU",
                                        convert_dtype=False)
-"""
+
 
 def check_predict_proba(test_proba, baseline_proba, y_test, rel_err):
     y_proba = np.zeros(np.shape(baseline_proba))
