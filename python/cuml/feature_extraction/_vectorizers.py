@@ -241,7 +241,17 @@ class _VectorizerMixin:
     def _create_csr_matrix_from_count_df(
         self, count_df, empty_doc_ids, n_doc, n_features
     ):
-        """Create a sparse matrix from the count of tokens by document"""
+        """
+        Create a sparse matrix from the count of tokens by document
+
+        Parameters
+        ----------
+            count_df = cudf.DataFrame({'count':..., 'doc_id':.., 'token':.. })
+                       sorted by doc_id and token
+            empty_doc_ids = cupy array containing doc_ids with no arrays
+            n_doc: Total number of documents
+            n_features: Number of features
+        """
         data = count_df["count"].values
         indices = count_df["token"].values
 
@@ -820,15 +830,18 @@ class HashingVectorizer(_VectorizerMixin):
         if self.alternate_sign:
             # below logic is equivalent to: value *= ((h >= 0) * 2) - 1
             tokenized_df["value"] = ((tokenized_df["token"] >= 0) * 2) - 1
+            tokenized_df["token"] = tokenized_df["token"].abs() %\
+                self.n_features
             count_ser = tokenized_df.groupby(["doc_id", "token"]).value.sum()
             count_ser.name = "count"
         else:
+            tokenized_df["token"] = tokenized_df["token"].abs() %\
+                self.n_features
             count_ser = tokenized_df.groupby(["doc_id", "token"]).size()
             count_ser.name = "count"
 
         count_df = count_ser.reset_index(drop=False)
         del count_ser, tokenized_df
-        count_df["token"] = count_df["token"].abs() % self.n_features
         return count_df
 
     def fit_transform(self, X, y=None):
@@ -876,6 +889,7 @@ class HashingVectorizer(_VectorizerMixin):
         X = self._create_csr_matrix_from_count_df(
             count_df, empty_doc_ids, n_doc, self.n_features
         )
+
         if self.binary:
             X.data.fill(1)
         if self.norm:
