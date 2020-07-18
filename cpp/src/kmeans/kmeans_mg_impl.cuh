@@ -609,7 +609,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
          "oversampling factor must be > 0 (requested %d)",
          (int)params.oversampling_factor);
 
-  ASSERT(memory_type(X) == cudaMemoryTypeDevice,
+  ASSERT(is_device_or_managed_type(X),
          "input data must be device accessible");
 
   Tensor<DataT, 2, IndexT> data((DataT *)X, {n_local_samples, n_features});
