@@ -16,8 +16,6 @@
 
 import pytest
 
-import rmm
-
 from cuml.test.utils import array_equal, unit_param, quality_param, \
     stress_param
 from cuml.neighbors import NearestNeighbors as cuKNN
@@ -25,6 +23,7 @@ from cuml.neighbors import NearestNeighbors as cuKNN
 from sklearn.neighbors import NearestNeighbors as skKNN
 from sklearn.datasets.samples_generator import make_blobs
 
+import rmm
 import cupy as cp
 import cudf
 import pandas as pd
