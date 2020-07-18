@@ -124,7 +124,7 @@ def test_knn(input_type, nrows, n_feats, k, metric):
     X_orig = X
 
     if input_type == "dataframe":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
+        X = cudf.DataFrame(X)
 
     knn_cu = cuKNN(metric=metric, p=p)
     knn_cu.fit(X)
@@ -171,7 +171,7 @@ def test_knn_x_none(input_type, nrows, n_feats, k, metric):
     X_orig = X
 
     if input_type == "dataframe":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
+        X = cudf.DataFrame(X)
 
     knn_cu = cuKNN(metric=metric, p=p)
     knn_cu.fit(X)
@@ -197,7 +197,7 @@ def test_knn_return_cupy(input_type):
                       n_features=n_feats, random_state=0)
 
     if input_type == "dataframe":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
+        X = cudf.DataFrame(X)
 
     knn_cu = cuKNN()
     knn_cu.fit(X)
