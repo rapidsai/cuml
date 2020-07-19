@@ -256,7 +256,6 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
         knn_cu.fit(X, convert_dtype=False)
 
 
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(10), quality_param(100),
                          stress_param(1000)])
 @pytest.mark.parametrize('n_feats', [unit_param(5), quality_param(30),
@@ -266,33 +265,44 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
                          stress_param(30)])
 @pytest.mark.parametrize("metric", valid_metrics())
 @pytest.mark.parametrize("mode", ['connectivity', 'distance'])
+@pytest.mark.parametrize("output_type", ['cudf', 'pandas', 'cupy', 'numpy'])
 @pytest.mark.parametrize("as_instance", [True, False])
-def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
-                   as_instance):
+def test_knn_graph(nrows, n_feats, p, k, metric, mode,
+                   output_type, as_instance):
     X, _ = make_blobs(n_samples=nrows,
                       n_features=n_feats, random_state=0)
 
     if as_instance:
-        CSR_sk = sklearn.neighbors.kneighbors_graph(X, k, mode, metric=metric,
+        sparse_sk = sklearn.neighbors.kneighbors_graph(X, k, mode, metric=metric,
                                                     p=p, include_self='auto')
     else:
         knn_sk = skKNN(metric=metric, p=p)
         knn_sk.fit(X)
-        CSR_sk = knn_sk.kneighbors_graph(X, k, mode)
-
-    if input_type == "dataframe":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
+        sparse_sk = knn_sk.kneighbors_graph(X, k, mode)
 
     if as_instance:
-        CSR_cu = cuml.neighbors.kneighbors_graph(X, k, mode, metric=metric,
-                                                 p=p, include_self='auto')
+        sparse_cu = cuml.neighbors.kneighbors_graph(X, k, mode, metric=metric,
+                                                 p=p, include_self='auto',
+                                                 output_type=output_type)
     else:
-        knn_cu = cuKNN(metric=metric, p=p)
+        knn_cu = cuKNN(metric=metric, p=p, output_type=output_type)
         knn_cu.fit(X)
-        CSR_cu = knn_cu.kneighbors_graph(X, k, mode)
+        sparse_cu = knn_cu.kneighbors_graph(X, k, mode)
 
-    assert cp.sparse.isspmatrix_csr(CSR_cu)
-    assert np.array_equal(CSR_sk.data.shape, CSR_cu.data.shape)
-    assert np.array_equal(CSR_sk.indices.shape, CSR_cu.indices.shape)
-    assert np.array_equal(CSR_sk.indptr.shape, CSR_cu.indptr.shape)
-    assert np.array_equal(CSR_sk.toarray().shape, CSR_cu.toarray().shape)
+    # if output_type is 'cudf':
+
+    # if output_type is 'pandas':
+
+    if output_type is 'cupy':
+        assert cp.sparse.isspmatrix_csr(sparse_cu)
+        assert np.array_equal(sparse_sk.data.shape, sparse_cu.data.shape)
+        assert np.array_equal(sparse_sk.indices.shape, sparse_cu.indices.shape)
+        assert np.array_equal(sparse_sk.indptr.shape, sparse_cu.indptr.shape)
+        assert np.array_equal(sparse_sk.toarray().shape, sparse_cu.toarray().shape)
+
+    if output_type is 'numpy':
+        assert np.sparse.isspmatrix_csr(sparse_cu)
+        assert np.array_equal(sparse_sk.data.shape, sparse_cu.data.shape)
+        assert np.array_equal(sparse_sk.indices.shape, sparse_cu.indices.shape)
+        assert np.array_equal(sparse_sk.indptr.shape, sparse_cu.indptr.shape)
+        assert np.array_equal(sparse_sk.toarray().shape, sparse_cu.toarray().shape)

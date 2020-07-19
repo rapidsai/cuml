@@ -315,10 +315,6 @@ class NearestNeighbors(Base):
             When set to True, the kneighbors method will automatically
             convert the inputs to np.float32.
 
-        return_cupy : bool, optional (default = False)
-            When set to True, returns the outputs as cupy.ndarrays. This
-            prevents double conversion when using 'kneighbors_graph'.
-
         Returns
         -------
         distances: cuDF DataFrame, pandas DataFrame, numpy or cupy ndarray
@@ -328,6 +324,11 @@ class NearestNeighbors(Base):
         indices: cuDF DataFrame, pandas DataFrame, numpy or cupy ndarray
             The indices of the k-nearest neighbors for each column vector in X
         """
+
+        return self._kneighbors(X, n_neighbors, return_distance, convert_dtype)
+
+    def _kneighbors(self, X=None, n_neighbors=None, return_distance=True,
+                   convert_dtype=True, _output_cumlarray=False):
 
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
 
@@ -442,11 +443,15 @@ class NearestNeighbors(Base):
 
         Returns
         -------
-        A: sparse graph CSR format (device), shape = (n_samples, n_samples_fit)
-            A cupy sparse CSR matrix with each row being a cupy.ndarray
+        A : sparse graph, shape = (n_samples, n_samples_fit)
             n_samples_fit is the number of samples in the fitted data where
-            A[i, j] is assigned the weight of the edge that connects i to k.
+            A[i, j] is assigned the weight of the edge that connects i to j.
             Values will either be ones/zeros or the selected distance metric.
+            Return types are as follows:
+            cuDF DataFrame - sparse graph in 3 column COO format (device)
+            Pandas DataFrame -  sparse graph in 3 column COO format (host)
+            CuPy - cupy's sparse graph in CSR format (device)
+            Numpy - numpy's sparse graph in CSR format (host)
 
         """
         if not self.X_m:
@@ -458,13 +463,13 @@ class NearestNeighbors(Base):
             n_neighbors = self.n_neighbors
 
         if mode == 'connectivity':
-            indices = self.kneighbors(X, n_neighbors, return_distance=False,
+            indices = self._kneighbors(X, n_neighbors, return_distance=False,
                                       return_cupy=True)
             n_samples = indices.shape[0]
             distances = cp.ones(n_samples * n_neighbors, dtype=np.float32)
 
         elif mode == 'distance':
-            distances, indices = self.kneighbors(X, n_neighbors,
+            distances, indices = self._kneighbors(X, n_neighbors,
                                                  return_cupy=True)
             distances = cp.ravel(distances)
 
@@ -473,11 +478,36 @@ class NearestNeighbors(Base):
                              'or "distance" but got "%s" instead' % mode)
 
         n_samples = indices.shape[0]
-        n_samples_fit = self.X_m.shape[0]
-        n_nonzero = n_samples * n_neighbors
-        rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
-        return cp.sparse.csr_matrix((distances, cp.ravel(indices), rowptr),
-                                    shape=(n_samples, n_samples_fit))
+
+        if self.output_type is 'cudf' or self.output_type is 'pandas':
+            samples_aranged = cp.arange(n_samples)
+            row = cp.repeat(samples_aranged, n_neighbors)
+
+            row_series = cudf.Series(row)
+            column_series = cudf.Series(cp.ravel(indices))
+            value_series = cudf.Series(distances)
+
+            sparse_coo = cudf.DataFrame({
+                                         'Row': row_series,
+                                         'Column': column_series,
+                                         'Value': value_series})
+            if self.output_type is 'cudf':
+                return sparse_coo
+            else:
+                sparse_coo.to_pandas()
+
+        else:
+            n_samples_fit = self.X_m.shape[0]
+            n_nonzero = n_samples * n_neighbors
+            rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
+
+            sparse_csr = cp.sparse.csr_matrix((distances, cp.ravel(indices), rowptr),
+                                        shape=(n_samples, n_samples_fit))
+
+            if self.output_type is 'cupy':
+                return sparse_csr
+            else:
+                return sparse_csr.get()
 
 
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
@@ -527,20 +557,28 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
 
     metric_params : dict, optional (default = None) This is currently ignored.
 
+    output_type : {'input', 'cudf', 'pandas', 'cupy', 'numpy'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
+
     Returns
     -------
-    A: sparse graph CSR format (device), shape = (n_samples, n_samples_fit)
-        A cupy's sparse CSR matrix with each row being a cupy.ndarray
+    A : sparse graph, shape = (n_samples, n_samples_fit)
         n_samples_fit is the number of samples in the fitted data where
-        A[i, j] is assigned the weight of the edge that connects i to k.
+        A[i, j] is assigned the weight of the edge that connects i to j.
         Values will either be ones/zeros or the selected distance metric.
+        Return types are as follows:
+        cuDF DataFrame - sparse graph in 3 column COO format (device)
+        Pandas DataFrame -  sparse graph in 3 column COO format (host)
+        CuPy - cupy's sparse graph in CSR format (device)
+        Numpy - numpy's sparse graph in CSR format (host)
 
     """
-    if not isinstance(X, NearestNeighbors):
-        X = NearestNeighbors(n_neighbors, verbose, handle, algorithm, metric,
-                             p, metric_params=metric_params).fit(X)
-    else:
-        raise TypeError('Use kneighbors_graph as method of %s' % X)
+    X = NearestNeighbors(n_neighbors, verbose, handle, algorithm, metric, p,
+                         metric_params=metric_params, 
+                         output_type=output_type).fit(X)
 
     if include_self == 'auto':
         include_self = mode == 'connectivity'
