@@ -28,6 +28,7 @@ import cupy as cp
 import cudf
 import pandas as pd
 import numpy as np
+from scipy.sparse import isspmatrix_csr
 
 import sklearn
 import cuml
@@ -265,7 +266,7 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
                          stress_param(30)])
 @pytest.mark.parametrize("metric", valid_metrics())
 @pytest.mark.parametrize("mode", ['connectivity', 'distance'])
-@pytest.mark.parametrize("output_type", ['cudf', 'pandas', 'cupy', 'numpy'])
+@pytest.mark.parametrize("output_type", ['cudf', 'cupy', 'numpy'])
 @pytest.mark.parametrize("as_instance", [True, False])
 def test_knn_graph(nrows, n_feats, p, k, metric, mode,
                    output_type, as_instance):
@@ -289,20 +290,24 @@ def test_knn_graph(nrows, n_feats, p, k, metric, mode,
         knn_cu.fit(X)
         sparse_cu = knn_cu.kneighbors_graph(X, k, mode)
 
-    # if output_type is 'cudf':
+    if output_type is 'cudf': # or if pandas
+        sparse_sk = sparse_sk.to_coo()
+        assert np.array_equal(sparse_sk.data.shape, 
+                              sparse_cu['Values'].to_gpu_array().shape)
+        assert np.array_equal(sparse_sk.row.shape, 
+                              sparse_cu['Rows'].to_gpu_array().shape)
+        assert np.array_equal(sparse_sk.col.shape, 
+                              sparse_cu['Columns'].to_gpu_array().shape)
 
-    # if output_type is 'pandas':
-
-    if output_type is 'cupy':
-        assert cp.sparse.isspmatrix_csr(sparse_cu)
+    if output_type is 'cupy' or output_type is 'numpy':
+        
         assert np.array_equal(sparse_sk.data.shape, sparse_cu.data.shape)
         assert np.array_equal(sparse_sk.indices.shape, sparse_cu.indices.shape)
         assert np.array_equal(sparse_sk.indptr.shape, sparse_cu.indptr.shape)
         assert np.array_equal(sparse_sk.toarray().shape, sparse_cu.toarray().shape)
 
-    if output_type is 'numpy':
-        assert np.sparse.isspmatrix_csr(sparse_cu)
-        assert np.array_equal(sparse_sk.data.shape, sparse_cu.data.shape)
-        assert np.array_equal(sparse_sk.indices.shape, sparse_cu.indices.shape)
-        assert np.array_equal(sparse_sk.indptr.shape, sparse_cu.indptr.shape)
-        assert np.array_equal(sparse_sk.toarray().shape, sparse_cu.toarray().shape)
+        if output_type is 'cupy':
+            assert cp.sparse.isspmatrix_csr(sparse_cu)
+        else:
+            assert isspmatrix_csr(sparse_cu)
+        
