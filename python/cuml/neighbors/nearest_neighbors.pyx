@@ -38,9 +38,6 @@ from cuml.common.handle cimport cumlHandle
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
-import rmm
-from libc.stdlib cimport malloc, free
-
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
@@ -328,7 +325,7 @@ class NearestNeighbors(Base):
         return self._kneighbors(X, n_neighbors, return_distance, convert_dtype)
 
     def _kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                   convert_dtype=True, _output_cumlarray=False):
+                   convert_dtype=True, return_cupy=False):
 
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
 
@@ -512,7 +509,7 @@ class NearestNeighbors(Base):
 
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
                      handle=None, algorithm="brute", metric="minkowski", p=2,
-                     include_self=False, metric_params=None):
+                     include_self=False, metric_params=None, output_type=None):
     """
     Computes the (weighted) graph of k-Neighbors for points in X.
 
