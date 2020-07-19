@@ -448,7 +448,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         """
         if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())
-
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
         return self._predict_proba(X, delayed, **kwargs)
