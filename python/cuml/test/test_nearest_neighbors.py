@@ -67,7 +67,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
     X = X.astype(np.float32)
 
     if datatype == "dataframe":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
+        X = cudf.DataFrame(X)
 
     knn_cu = cuKNN()
     knn_cu.fit(X)
