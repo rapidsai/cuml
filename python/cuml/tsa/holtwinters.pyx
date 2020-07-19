@@ -419,7 +419,7 @@ class ExponentialSmoothing(Base):
                     return cudf.Series(
                         self.forecasted_points.ravel(order='F')[:h])
                 else:
-                    return cudf.DataFrame.from_gpu_matrix(
+                    return cudf.DataFrame(
                         self.forecasted_points[:, :h].T)
             else:
                 if index < 0 or index >= self.ts_num:
@@ -483,7 +483,7 @@ class ExponentialSmoothing(Base):
                 if self.ts_num == 1:
                     return cudf.Series(self.level.ravel(order='F'))
                 else:
-                    return cudf.DataFrame.from_gpu_matrix(self.level.T)
+                    return cudf.DataFrame(self.level.T)
             else:
                 if index < 0 or index >= self.ts_num:
                     raise IndexError("Index input: " + str(index) + " outside "
@@ -514,7 +514,7 @@ class ExponentialSmoothing(Base):
                 if self.ts_num == 1:
                     return cudf.Series(self.trend.ravel(order='F'))
                 else:
-                    return cudf.DataFrame.from_gpu_matrix(self.trend.T)
+                    return cudf.DataFrame(self.trend.T)
             else:
                 if index < 0 or index >= self.ts_num:
                     raise IndexError("Index input: " + str(index) + " outside "
@@ -545,7 +545,7 @@ class ExponentialSmoothing(Base):
                 if self.ts_num == 1:
                     return cudf.Series(self.season.ravel(order='F'))
                 else:
-                    return cudf.DataFrame.from_gpu_matrix(self.season.T)
+                    return cudf.DataFrame(self.season.T)
             else:
                 if index < 0 or index >= self.ts_num:
                     raise IndexError("Index input: " + str(index) + " outside "

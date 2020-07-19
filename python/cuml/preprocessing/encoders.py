@@ -178,7 +178,7 @@ class OneHotEncoder(Base):
             self._set_input_type('array')
             if is_categories:
                 X = X.transpose()
-            return DataFrame.from_gpu_matrix(X)
+            return DataFrame(X)
         else:
             self._set_input_type('df')
             return X

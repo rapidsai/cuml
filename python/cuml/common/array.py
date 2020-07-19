@@ -244,7 +244,7 @@ class CumlArray(Buffer):
                 mat = cp.asarray(self, dtype=output_dtype)
                 if len(mat.shape) == 1:
                     mat = mat.reshape(mat.shape[0], 1)
-                return DataFrame.from_gpu_matrix(mat)
+                return DataFrame(mat)
             else:
                 raise ValueError('cuDF unsupported Array dtype')
 
