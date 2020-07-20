@@ -911,7 +911,7 @@ class HashingVectorizer(_VectorizerMixin):
 
         Returns
         -------
-        X : sparse matrix of shape (n_samples, n_features)
+        X : sparse CuPy CSR matrix of shape (n_samples, n_features)
             Document-term matrix.
         """
         return self.fit(X, y).transform(X)
