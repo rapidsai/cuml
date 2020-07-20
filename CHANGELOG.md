@@ -1,6 +1,7 @@
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
+- PR #2554: Hashing Vectorizer and general vectorizer improvements
 - PR #2240: Making Dask models pickleable
 - PR #2267: CountVectorizer estimator
 - PR #2261: Exposing new FAISS metrics through Python API
@@ -11,6 +12,7 @@
 - PR #2394: Adding cosine & correlation distance for KNN
 - PR #2392: PCA can accept sparse inputs, and sparse prim for computing covariance
 - PR #2465: Support pandas 1.0+
+- PR #2500: Replace UMAP functionality dependency on nvgraph with RAFT Spectral Clustering
 - PR #2520: TfidfVectorizer estimator
 
 ## Improvements
@@ -91,6 +93,7 @@
 - PR #2552: Fixed the length argument of updateDevice calls in RF test
 - PR #2563: Update scipy call for arima gradient test
 - PR #2569: Fix for cuDF update
+- PR #2508: Use keyword parameters in sklearn.datasets.make_* functions
 
 # cuML 0.14.0 (03 Jun 2020)
 
