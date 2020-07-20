@@ -573,7 +573,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
 
     metric_params : dict, optional (default = None) This is currently ignored.
 
-    output_type : {'input', 'cudf', 'pandas', 'cupy', 'numpy'}, optional
+    output_type : {'input', 'cupy', 'numpy'}, optional (default=None)
         Variable to control output type of the results and attributes of
         the estimators. If None, it'll inherit the output type set at the
         module level, cuml.output_type. If set, the estimator will override
