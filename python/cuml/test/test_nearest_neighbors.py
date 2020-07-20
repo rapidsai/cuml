@@ -203,7 +203,7 @@ def test_knn_return_cumlarray(input_type):
 
     knn_cu = cuKNN()
     knn_cu.fit(X)
-    indices, distances = knn_cu.kneighbors(X, k, _output_cumlarray=True)
+    indices, distances = knn_cu._kneighbors(X, k, _output_cumlarray=True)
 
     assert isinstance(indices, CumlArray)
     assert isinstance(distances, CumlArray)
