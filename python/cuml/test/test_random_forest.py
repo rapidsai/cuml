@@ -396,15 +396,13 @@ def rf_classification(datatype, array_type, max_features, rows_sample,
         cu_preds_cpu = cuml_model.predict(X_test_df,
                                           predict_model="CPU").to_array()
         cu_preds_gpu = cuml_model.predict(X_test_df, output_class=True,
-                                          threshold=0.5,
                                           predict_model="GPU").to_array()
     else:
         cuml_model.fit(X_train, y_train)
         cu_proba_gpu = cuml_model.predict_proba(X_test)
         cu_preds_cpu = cuml_model.predict(X_test, predict_model="CPU")
         cu_preds_gpu = cuml_model.predict(X_test, predict_model="GPU",
-                                          output_class=True,
-                                          threshold=0.5)
+                                          output_class=True)
 
     cu_acc_cpu = accuracy_score(y_test, cu_preds_cpu)
     cu_acc_gpu = accuracy_score(y_test, cu_preds_gpu)
