@@ -275,7 +275,7 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
                       n_features=n_feats, random_state=0)
 
     if as_instance:
-        sparse_sk = sklearn.neighbors.kneighbors_graph(X, k, mode, 
+        sparse_sk = sklearn.neighbors.kneighbors_graph(X, k, mode,
                                                        metric=metric, p=p,
                                                        include_self='auto')
     else:
