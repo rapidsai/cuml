@@ -15,6 +15,7 @@
  */
 
 #include "cumlHandle.hpp"
+#include "cumlHandle_impl.hpp"
 #include <common/cudart_utils.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/cusolver_wrappers.h>
@@ -30,6 +31,9 @@ int cumlHandle::getDefaultNumInternalStreams() {
 
 cumlHandle::cumlHandle(int n_streams) : _impl(new cumlHandle_impl(n_streams)) {}
 cumlHandle::cumlHandle() : _impl(new cumlHandle_impl()) {}
+cumlHandle_impl(raft::handle_t* raftHandle) {
+  _impl = std::unique_ptr<cumlHandle_impl>(raftHandle);
+}
 cumlHandle::~cumlHandle() {}
 
 void cumlHandle::setStream(cudaStream_t stream) { _impl->setStream(stream); }
@@ -69,48 +73,6 @@ cumlHandle_impl& cumlHandle::getImpl() { return *_impl.get(); }
 
 using MLCommon::defaultDeviceAllocator;
 using MLCommon::defaultHostAllocator;
-
-cumlHandle_impl::cumlHandle_impl(int n_streams)
-  : _cublas_handle(),
-    _cusolverDn_handle(),
-    _cusolverSp_handle(),
-    _cusparse_handle(),
-    _userStream(nullptr),
-    _event(),
-    _deviceAllocator(std::make_shared<defaultDeviceAllocator>()),
-    _hostAllocator(std::make_shared<defaultHostAllocator>()),
-    _communicator(),
-    _streams(),
-    _prop(),
-    _dev_id([]() -> int {
-      int cur_dev = -1;
-      CUDA_CHECK(cudaGetDevice(&cur_dev));
-      return cur_dev;
-    }()),
-    _num_streams(n_streams),
-    _cublasInitialized(false),
-    _cusolverDnInitialized(false),
-    _cusolverSpInitialized(false),
-    _cusparseInitialized(false),
-    _devicePropInitialized(false) {
-  createResources();
-}
-
-cumlHandle_impl::~cumlHandle_impl() { destroyResources(); }
-
-int cumlHandle_impl::getDevice() const { return _dev_id; }
-
-void cumlHandle_impl::setStream(cudaStream_t stream) { _userStream = stream; }
-
-cudaStream_t cumlHandle_impl::getStream() const { return _userStream; }
-
-const cudaDeviceProp& cumlHandle_impl::getDeviceProperties() const {
-  if (!_devicePropInitialized) {
-    CUDA_CHECK(cudaGetDeviceProperties(&_prop, _dev_id));
-    _devicePropInitialized = true;
-  }
-  return _prop;
-}
 
 void cumlHandle_impl::setDeviceAllocator(
   std::shared_ptr<deviceAllocator> allocator) {

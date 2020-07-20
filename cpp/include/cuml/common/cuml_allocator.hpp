@@ -18,6 +18,7 @@
 
 #include <cuda_runtime.h>
 #include <cuml/common/utils.hpp>
+#include <raft/mr/host/allocator.hpp>
 
 namespace MLCommon {
 
@@ -162,5 +163,20 @@ class defaultHostAllocator : public hostAllocator {
 
   virtual ~defaultHostAllocator() {}
 };
+
+class raftHostAllocatorAdapter : public hostAllocator, raft::mr::host::default_allocator {
+  public:
+    raftHostAllocatorAdapter() {}
+
+    virtual void* allocate(std::size_t n, cudaStream_t stream) {
+      return raft::mr::host::default_allocator::allocate(n, stream);
+    }
+
+    virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) {
+      raft::mr::host::default_allocator::deallocate(p, n, stream);
+    }
+
+    virtual ~raftHostAllocatorAdapter() {}
+}
 
 };  // end namespace MLCommon
