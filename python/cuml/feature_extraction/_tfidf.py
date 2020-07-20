@@ -17,8 +17,7 @@ from sklearn.utils.validation import FLOAT_DTYPES
 from sklearn.exceptions import NotFittedError
 import cupy as cp
 from cuml.common import with_cupy_rmm
-from cuml.common.sparsefuncs import csr_row_normalize_l1
-from cuml.common.sparsefuncs import csr_row_normalize_l2
+from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
 
 
 def _sparse_document_frequency(X):
