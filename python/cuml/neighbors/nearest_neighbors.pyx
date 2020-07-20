@@ -471,7 +471,7 @@ class NearestNeighbors(Base):
         mode : string (default='connectivity')
             Values in connectivity matrix: 'connectivity' returns the
             connectivity matrix with ones and zeros, 'distance' returns the
-            edges as the Euclidean distance between points
+            edges as the distances between points with the requested metric.
 
         Returns
         -------
@@ -526,7 +526,7 @@ class NearestNeighbors(Base):
 
 
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
-                     handle=None, algorithm="brute", metric="minkowski", p=2,
+                     handle=None, algorithm="brute", metric="euclidean", p=2,
                      include_self=False, metric_params=None, output_type=None):
     """
     Computes the (weighted) graph of k-Neighbors for points in X.
@@ -545,7 +545,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     mode : string (default='connectivity')
         Values in connectivity matrix: 'connectivity' returns the
         connectivity matrix with ones and zeros, 'distance' returns the
-        edges as the Euclidean distance between points
+        edges as the distances between points with the requested metric.
 
     verbose : int or boolean (default = False)
         Logging level
@@ -556,7 +556,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.
 
-    metric : string (default='minkowski').
+    metric : string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
         'minkowski', 'chebyshev', 'jensenshannon', 'cosine', 'correlation']
