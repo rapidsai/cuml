@@ -15,8 +15,9 @@
 from cudf import Series
 from cuml.common.exceptions import NotFittedError
 from cuml.feature_extraction._stop_words import ENGLISH_STOP_WORDS
-from cuml.common.sparsefuncs import csr_row_normalize_l1
-from cuml.common.sparsefuncs import csr_row_normalize_l2
+from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
+from cuml.common.sparsefuncs import create_csr_matrix_from_count_df
+
 from functools import partial
 import cupy as cp
 import numbers
@@ -215,25 +216,6 @@ class _VectorizerMixin:
 
         return tokenized_df
 
-    def _insert_zeros(self, ary, zero_indices):
-        """
-        Create a new array of len(ary + zero_indices) where zero_indices
-        indicates indexes of 0s in the new array. Ary is used to fill the rest.
-
-        Example:
-            _insert_zeros([1, 2, 3], [1, 3]) => [1, 0, 2, 0, 3]
-        """
-        if len(zero_indices) == 0:
-            return ary.values
-
-        new_ary = cp.zeros((len(ary) + len(zero_indices)), dtype=cp.int32)
-
-        # getting mask of non-zeros
-        data_mask = ~cp.in1d(cp.arange(0, len(new_ary)), zero_indices)
-
-        new_ary[data_mask] = ary
-        return new_ary
-
     def _compute_empty_doc_ids(self, count_df, n_doc):
         """
         Compute empty docs ids using the remaining docs, given the total number
@@ -248,39 +230,6 @@ class _VectorizerMixin:
         empty_docs = doc_ids - doc_ids.iloc[remaining_docs]
         empty_ids = empty_docs[empty_docs['all_ids'].isnull()].index.values
         return empty_ids
-
-    def _create_csr_matrix_from_count_df(
-        self, count_df, empty_doc_ids, n_doc, n_features
-    ):
-        """
-        Create a sparse matrix from the count of tokens by document
-
-        Parameters
-        ----------
-            count_df = cudf.DataFrame({'count':..., 'doc_id':.., 'token':.. })
-                       sorted by doc_id and token
-            empty_doc_ids = cupy array containing doc_ids with no tokens
-            n_doc: Total number of documents
-            n_features: Number of features
-        """
-        data = count_df["count"].values
-        indices = count_df["token"].values
-
-        doc_token_counts = count_df["doc_id"].value_counts().reset_index()
-        del count_df
-        doc_token_counts = doc_token_counts.rename(
-            {"doc_id": "token_counts", "index": "doc_id"}, axis=1
-        ).sort_values(by="doc_id")
-        token_counts = self._insert_zeros(
-            doc_token_counts["token_counts"], empty_doc_ids
-        )
-        indptr = token_counts.cumsum()
-        indptr = cp.pad(indptr, (1, 0), "constant")
-
-        return cp.sparse.csr_matrix(
-            arg1=(data, indices, indptr), dtype=self.dtype,
-            shape=(n_doc, n_features)
-        )
 
     def _validate_params(self):
         """
@@ -612,8 +561,9 @@ class CountVectorizer(_VectorizerMixin):
 
         empty_doc_ids = self._compute_empty_doc_ids(count_df, n_doc)
 
-        X = self._create_csr_matrix_from_count_df(count_df, empty_doc_ids,
-                                                  n_doc, len(self.vocabulary_))
+        X = create_csr_matrix_from_count_df(count_df, empty_doc_ids,
+                                            n_doc, len(self.vocabulary_),
+                                            dtype=self.dtype)
         if self.binary:
             X.data.fill(1)
         return X
@@ -646,8 +596,9 @@ class CountVectorizer(_VectorizerMixin):
         tokenized_df = self._create_tokenized_df(docs)
         count_df = self._count_vocab(tokenized_df)
         empty_doc_ids = self._compute_empty_doc_ids(count_df, n_doc)
-        X = self._create_csr_matrix_from_count_df(
-            count_df, empty_doc_ids, n_doc, len(self.vocabulary_)
+        X = create_csr_matrix_from_count_df(
+            count_df, empty_doc_ids, n_doc, len(self.vocabulary_),
+            dtype=self.dtype
         )
         if self.binary:
             X.data.fill(1)
@@ -940,8 +891,9 @@ class HashingVectorizer(_VectorizerMixin):
         count_df = self._count_hash(tokenized_df)
         del tokenized_df
         empty_doc_ids = self._compute_empty_doc_ids(count_df, n_doc)
-        X = self._create_csr_matrix_from_count_df(
-            count_df, empty_doc_ids, n_doc, self.n_features
+        X = create_csr_matrix_from_count_df(
+            count_df, empty_doc_ids, n_doc, self.n_features,
+            dtype=self.dtype
         )
 
         if self.binary:
