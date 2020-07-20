@@ -290,7 +290,7 @@ class NearestNeighbors(Base):
         return m, expanded
 
     def kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                   convert_dtype=True, return_cupy=False):
+                   convert_dtype=True):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -325,8 +325,41 @@ class NearestNeighbors(Base):
         return self._kneighbors(X, n_neighbors, return_distance, convert_dtype)
 
     def _kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                   convert_dtype=True, return_cupy=False):
+                   convert_dtype=True, _output_cumlarray=False):
+        """
+        Query the GPU index for the k nearest neighbors of column vectors in X.
 
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        n_neighbors : Integer
+            Number of neighbors to search. If not provided, the n_neighbors
+            from the model instance is used (default=10)
+
+        return_distance: Boolean
+            If False, distances will not be returned
+
+        convert_dtype : bool, optional (default = True)
+            When set to True, the kneighbors method will automatically
+            convert the inputs to np.float32.
+        
+        _output_cumlarray : bool, optional (default = False)
+            When set to True, the class self.output_type is overwritten
+            and this method returns the output as a cumlarray
+
+        Returns
+        -------
+        distances: cuDF DataFrame, pandas DataFrame, numpy or cupy ndarray
+            The distances of the k-nearest neighbors for each column vector
+            in X
+
+        indices: cuDF DataFrame, pandas DataFrame, numpy or cupy ndarray
+            The indices of the k-nearest neighbors for each column vector in X
+        """
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
 
         use_training_data = X is None
@@ -334,7 +367,8 @@ class NearestNeighbors(Base):
             X = self.X_m
             n_neighbors += 1
 
-        out_type = 'cupy' if return_cupy else self._get_output_type(X)
+        out_type = 'cumlarray' if _output_cumlarray \
+            else self._get_output_type(X)
 
         if (n_neighbors is None and self.n_neighbors is None) \
                 or n_neighbors <= 0:
@@ -399,23 +433,25 @@ class NearestNeighbors(Base):
         )
 
         self.handle.sync()
-
-        I_output = I_ndarr.to_output(out_type)
-        if return_distance:
-            D_output = D_ndarr.to_output(out_type)
+        
+        if not _output_cumlarray:
+            I_ndarr = I_ndarr.to_output(out_type)
+            if return_distance:
+                D_ndarr = D_ndarr.to_output(out_type)
 
         # drop first column if using training data as X
         # this will need to be moved to the C++ layer (cuml issue #2562)
         if use_training_data:
-            if out_type == 'cupy' or out_type == 'numpy' or out_type == 'numba':
-                return (D_output[:, 1:], I_output[:, 1:]) \
-                    if return_distance else I_output[:, 1:]
+            if out_type == 'cupy' or out_type == 'numpy' \
+                or out_type == 'numba' or out_type == 'cumlarray':
+                return (D_ndarr[:, 1:], I_ndarr[:, 1:]) \
+                    if return_distance else I_ndarr[:, 1:]
             else:
-                I_output.drop(I_output.columns[0], axis=1)
+                I_ndarr.drop(I_ndarr.columns[0], axis=1)
                 if return_distance:
-                    D_output.drop(D_output.columns[0], axis=1)
+                    D_ndarr.drop(D_ndarr.columns[0], axis=1)
 
-        return (D_output, I_output) if return_distance else I_output
+        return (D_ndarr, I_ndarr) if return_distance else I_ndarr
 
     def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):
         """
@@ -440,15 +476,12 @@ class NearestNeighbors(Base):
 
         Returns
         -------
-        A : sparse graph, shape = (n_samples, n_samples_fit)
+        A : sparse graph in CSR format, shape = (n_samples, n_samples_fit)
             n_samples_fit is the number of samples in the fitted data where
             A[i, j] is assigned the weight of the edge that connects i to j.
             Values will either be ones/zeros or the selected distance metric.
-            Return types are as follows:
-            cuDF DataFrame - sparse graph in 3 column COO format (device)
-            Pandas DataFrame -  sparse graph in 3 column COO format (host)
-            CuPy - cupy's sparse graph in CSR format (device)
-            Numpy - numpy's sparse graph in CSR format (host)
+            Return types are either cupy's CSR sparse graph (device) or 
+            numpy's CSR sparse graph (host)
 
         """
         if not self.X_m:
@@ -460,51 +493,35 @@ class NearestNeighbors(Base):
             n_neighbors = self.n_neighbors
 
         if mode == 'connectivity':
-            indices = self._kneighbors(X, n_neighbors, return_distance=False,
-                                      return_cupy=True)
-            n_samples = indices.shape[0]
+            ind_cumlarray = self._kneighbors(X, n_neighbors, return_distance=False,
+                                      _output_cumlarray=True)
+            
+            n_samples = ind_cumlarray.shape[0]
             distances = cp.ones(n_samples * n_neighbors, dtype=np.float32)
 
         elif mode == 'distance':
-            distances, indices = self._kneighbors(X, n_neighbors,
-                                                 return_cupy=True)
+            dist_cumlarray, ind_cumlarray = self._kneighbors(X, n_neighbors,
+                                                 _output_cumlarray=True)
+            distances = dist_cumlarray.to_output('cupy')
             distances = cp.ravel(distances)
 
         else:
             raise ValueError('Unsupported mode, must be one of "connectivity" '
                              'or "distance" but got "%s" instead' % mode)
 
+        indices = ind_cumlarray.to_output('cupy')
         n_samples = indices.shape[0]
+        n_samples_fit = self.X_m.shape[0]
+        n_nonzero = n_samples * n_neighbors
+        rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
 
-        if self.output_type is 'cudf' or self.output_type is 'pandas':
-            samples_aranged = cp.arange(n_samples)
-            row = cp.repeat(samples_aranged, n_neighbors)
+        sparse_csr = cp.sparse.csr_matrix((distances, cp.ravel(indices), rowptr),
+                                    shape=(n_samples, n_samples_fit))
 
-            row_series = cudf.Series(row)
-            column_series = cudf.Series(cp.ravel(indices))
-            value_series = cudf.Series(distances)
-
-            sparse_coo = cudf.DataFrame({
-                                         'Row': row_series,
-                                         'Column': column_series,
-                                         'Value': value_series})
-            if self.output_type is 'cudf':
-                return sparse_coo
-            else:
-                sparse_coo.to_pandas()
-
+        if self._get_output_type(X) is 'numpy':
+            return sparse_csr.get()
         else:
-            n_samples_fit = self.X_m.shape[0]
-            n_nonzero = n_samples * n_neighbors
-            rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
-
-            sparse_csr = cp.sparse.csr_matrix((distances, cp.ravel(indices), rowptr),
-                                        shape=(n_samples, n_samples_fit))
-
-            if self.output_type is 'cupy':
-                return sparse_csr
-            else:
-                return sparse_csr.get()
+            return sparse_csr
 
 
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
@@ -562,15 +579,12 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
 
     Returns
     -------
-    A : sparse graph, shape = (n_samples, n_samples_fit)
+    A : sparse graph in CSR format, shape = (n_samples, n_samples_fit)
         n_samples_fit is the number of samples in the fitted data where
         A[i, j] is assigned the weight of the edge that connects i to j.
         Values will either be ones/zeros or the selected distance metric.
-        Return types are as follows:
-        cuDF DataFrame - sparse graph in 3 column COO format (device)
-        Pandas DataFrame -  sparse graph in 3 column COO format (host)
-        CuPy - cupy's sparse graph in CSR format (device)
-        Numpy - numpy's sparse graph in CSR format (host)
+        Return types are either cupy's CSR sparse graph (device) or 
+        numpy's CSR sparse graph (host)
 
     """
     X = NearestNeighbors(n_neighbors, verbose, handle, algorithm, metric, p,
