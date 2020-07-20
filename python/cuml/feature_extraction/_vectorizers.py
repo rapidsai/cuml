@@ -930,7 +930,7 @@ class HashingVectorizer(_VectorizerMixin):
 
         Returns
         -------
-        X : cupy csr array of shape (n_samples, n_features)
+        X : sparse CuPy CSR matrix of shape (n_samples, n_features)
             Document-term matrix.
         """
         docs = self._preprocess(raw_documents)
