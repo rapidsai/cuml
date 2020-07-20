@@ -807,7 +807,8 @@ class HashingVectorizer(_VectorizerMixin):
 
         Parameters
         ----------
-        X : cudf.Series(A Series of string documents)
+        X : cudf.Series
+             A Series of string documents
         """
         if not (
             isinstance(X, cudf.Series)
@@ -861,7 +862,7 @@ class HashingVectorizer(_VectorizerMixin):
 
         Returns
         -------
-        X : sparse matrix of shape (n_samples, n_features)
+        X : sparse CuPy CSR matrix of shape (n_samples, n_features)
             Document-term matrix.
         """
         return self.fit(X, y).transform(X)
@@ -880,7 +881,7 @@ class HashingVectorizer(_VectorizerMixin):
 
         Returns
         -------
-        X : cupy csr array of shape (n_samples, n_features)
+        X : sparse CuPy CSR matrix of shape (n_samples, n_features)
             Document-term matrix.
         """
         docs = self._preprocess(raw_documents)
