@@ -25,6 +25,9 @@
 
 namespace ML {
 
+using MLCommon::deviceAllocator;
+using MLCommon::hostAllocator;
+
 int cumlHandle::getDefaultNumInternalStreams() {
   return _default_num_internal_streams;
 }
@@ -70,134 +73,6 @@ int cumlHandle::getNumInternalStreams() {
 const cumlHandle_impl& cumlHandle::getImpl() const { return *_impl.get(); }
 
 cumlHandle_impl& cumlHandle::getImpl() { return *_impl.get(); }
-
-using MLCommon::defaultDeviceAllocator;
-using MLCommon::defaultHostAllocator;
-
-void cumlHandle_impl::setDeviceAllocator(
-  std::shared_ptr<deviceAllocator> allocator) {
-  _deviceAllocator = allocator;
-}
-
-std::shared_ptr<deviceAllocator> cumlHandle_impl::getDeviceAllocator() const {
-  return _deviceAllocator;
-}
-
-void cumlHandle_impl::setHostAllocator(
-  std::shared_ptr<hostAllocator> allocator) {
-  _hostAllocator = allocator;
-}
-
-std::shared_ptr<hostAllocator> cumlHandle_impl::getHostAllocator() const {
-  return _hostAllocator;
-}
-
-cublasHandle_t cumlHandle_impl::getCublasHandle() const {
-  if (!_cublasInitialized) {
-    CUBLAS_CHECK(cublasCreate(&_cublas_handle));
-    _cublasInitialized = true;
-  }
-  return _cublas_handle;
-}
-
-cusolverDnHandle_t cumlHandle_impl::getcusolverDnHandle() const {
-  if (!_cusolverDnInitialized) {
-    CUSOLVER_CHECK(cusolverDnCreate(&_cusolverDn_handle));
-    _cusolverDnInitialized = true;
-  }
-  return _cusolverDn_handle;
-}
-
-cusolverSpHandle_t cumlHandle_impl::getcusolverSpHandle() const {
-  if (!_cusolverSpInitialized) {
-    CUSOLVER_CHECK(cusolverSpCreate(&_cusolverSp_handle));
-    _cusolverSpInitialized = true;
-  }
-  return _cusolverSp_handle;
-}
-
-cusparseHandle_t cumlHandle_impl::getcusparseHandle() const {
-  if (!_cusparseInitialized) {
-    CUSPARSE_CHECK(cusparseCreate(&_cusparse_handle));
-    _cusparseInitialized = true;
-  }
-  return _cusparse_handle;
-}
-
-cudaStream_t cumlHandle_impl::getInternalStream(int sid) const {
-  return _streams[sid];
-}
-
-int cumlHandle_impl::getNumInternalStreams() const { return _num_streams; }
-
-std::vector<cudaStream_t> cumlHandle_impl::getInternalStreams() const {
-  std::vector<cudaStream_t> int_streams_vec(_num_streams);
-  for (auto s : _streams) {
-    int_streams_vec.push_back(s);
-  }
-  return int_streams_vec;
-}
-
-void cumlHandle_impl::waitOnUserStream() const {
-  CUDA_CHECK(cudaEventRecord(_event, _userStream));
-  for (auto s : _streams) {
-    CUDA_CHECK(cudaStreamWaitEvent(s, _event, 0));
-  }
-}
-
-void cumlHandle_impl::waitOnInternalStreams() const {
-  for (auto s : _streams) {
-    CUDA_CHECK(cudaEventRecord(_event, s));
-    CUDA_CHECK(cudaStreamWaitEvent(_userStream, _event, 0));
-  }
-}
-
-void cumlHandle_impl::setCommunicator(
-  std::shared_ptr<MLCommon::cumlCommunicator> communicator) {
-  _communicator = communicator;
-}
-
-const MLCommon::cumlCommunicator& cumlHandle_impl::getCommunicator() const {
-  ASSERT(nullptr != _communicator.get(),
-         "ERROR: Communicator was not initialized\n");
-  return *_communicator;
-}
-
-bool cumlHandle_impl::commsInitialized() const {
-  return (nullptr != _communicator.get());
-}
-
-void cumlHandle_impl::createResources() {
-  cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
-  _streams.push_back(stream);
-  for (int i = 1; i < _num_streams; ++i) {
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
-    _streams.push_back(stream);
-  }
-  CUDA_CHECK(cudaEventCreateWithFlags(&_event, cudaEventDisableTiming));
-}
-
-void cumlHandle_impl::destroyResources() {
-  if (_cusparseInitialized) {
-    CUSPARSE_CHECK_NO_THROW(cusparseDestroy(_cusparse_handle));
-  }
-  if (_cusolverDnInitialized) {
-    CUSOLVER_CHECK_NO_THROW(cusolverDnDestroy(_cusolverDn_handle));
-  }
-  if (_cusolverSpInitialized) {
-    CUSOLVER_CHECK_NO_THROW(cusolverSpDestroy(_cusolverSp_handle));
-  }
-  if (_cublasInitialized) {
-    CUBLAS_CHECK_NO_THROW(cublasDestroy(_cublas_handle));
-  }
-  while (!_streams.empty()) {
-    CUDA_CHECK_NO_THROW(cudaStreamDestroy(_streams.back()));
-    _streams.pop_back();
-  }
-  CUDA_CHECK_NO_THROW(cudaEventDestroy(_event));
-}
 
 HandleMap handleMap;
 

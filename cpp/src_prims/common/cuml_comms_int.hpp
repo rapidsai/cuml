@@ -20,9 +20,10 @@
 
 #include <cuda_runtime.h>
 
+#include <raft/comms/comms.hpp>
+
 namespace MLCommon {
 
-class cumlCommunicator_iface;
 
 /**
  * Communicator class intended to be used by cuML and ml-prims.
@@ -37,7 +38,7 @@ class cumlCommunicator_iface;
  * The methods exposed by cumlCommunicator are thin wrappers around NCCL and
  * a comms stack with MPI semantics.
  */
-class cumlCommunicator {
+class cumlCommunicator : public raft::comms::comms_t {
  public:
   typedef unsigned int request_t;
   enum datatype_t { CHAR, UINT8, INT, UINT, INT64, UINT64, FLOAT, DOUBLE };
@@ -55,7 +56,9 @@ class cumlCommunicator {
   };  // A failure occured in sync, queued operations aborted
 
   template <typename T>
-  datatype_t getDataType() const;
+  datatype_t getDataType() const {
+     return static_cast<datatype_t>(raft::comms::get_type<T>());
+  }
 
   cumlCommunicator() = delete;
   cumlCommunicator(std::unique_ptr<cumlCommunicator_iface> impl);
@@ -63,11 +66,15 @@ class cumlCommunicator {
   /**
      * Returns the size of the group associated with the underlying communicator.
      */
-  int getSize() const;
+  int getSize() const {
+     return raft::comms::comms_t::get_size();
+  }
   /**
      * Determines the rank of the calling process in the underlying communicator.
      */
-  int getRank() const;
+  int getRank() const {
+     return raft::comms::comms_t::get_rank();
+  }
 
   /**
      * Creates new communicators based on colors and keys following the sematics of MPI_Comm_split.
@@ -79,12 +86,18 @@ class cumlCommunicator {
      * @param[in]   key     Control of rank assignment
      * @return              new communicator instance containing only the ranks with the same color
      */
-  cumlCommunicator commSplit(int color, int key) const;
+  cumlCommunicator commSplit(int color, int key) const {
+      ASSERT(false,
+      "ERROR: commSplit called but not yet supported in this comms "
+      "implementation.");
+  }
 
   /**
      * Synchronization of all ranks for the underlying communicator.
      */
-  void barrier() const;
+  void barrier() const {
+     raft::comms::comms_t::barrier();
+  }
 
   /**
    * Synchronization of all ranks for the current stream. This allows different cumlCommunicator
@@ -100,30 +113,9 @@ class cumlCommunicator {
    * @param[in] stream  the stream to synchronize
    * @return            resulting status of the synchronization.
    */
-  status_t syncStream(cudaStream_t stream) const;
-
-  /**
-     * Starts a nonblocking send following the semantics of MPI_Isend
-     *
-     * @param[in]   buf     address of send buffer (can be a CPU or GPU pointer)
-     * @param[in]   size    size of the message to send in bytes
-     * @param[in]   dest    rank of destination
-     * @param[in]   tag     message tag
-     * @param[out]  request communication request (handle)
-     */
-  void isend(const void* buf, int size, int dest, int tag,
-             request_t* request) const;
-  /**
-     * Starts a nonblocking receive following the semantics of MPI_Irecv
-     *
-     * @param[in]   buf     address of receive buffer (can be a CPU or GPU pointer)
-     * @param[in]   size    size of the message to receive in bytes
-     * @param[in]   source  rank of source
-     * @param[in]   tag     message tag
-     * @param[out]  request communication request (handle)
-     */
-  void irecv(void* buf, int size, int source, int tag,
-             request_t* request) const;
+  status_t syncStream(cudaStream_t stream) const {
+     return static_cast<status_t>(raft::comms::comms_t::sync_stream(stream));
+  }
 
   /**
      * Convience wrapper around isend deducing message size from sizeof(T).
@@ -136,7 +128,7 @@ class cumlCommunicator {
      */
   template <typename T>
   void isend(const T* buf, int n, int dest, int tag, request_t* request) const {
-    isend(static_cast<const void*>(buf), n * sizeof(T), dest, tag, request);
+    raft::comms::comms_t::isend(buf, n, dest, tag, request);
   }
 
   /**
@@ -150,7 +142,7 @@ class cumlCommunicator {
      */
   template <typename T>
   void irecv(T* buf, int n, int source, int tag, request_t* request) const {
-    irecv(static_cast<void*>(buf), n * sizeof(T), source, tag, request);
+    raft::comms::comms_t::irecv(buf, n, source, tag, request);
   }
 
   /**
@@ -159,23 +151,9 @@ class cumlCommunicator {
      * @param[in]   count               number of requests
      * @param[in]   array_of_requests   array of request handles
      */
-  void waitall(int count, request_t array_of_requests[]) const;
-
-  /**
-     * Reduce data arrays of length count in sendbuff using op operation and leaves identical copies of the 
-     * result on each recvbuff.
-     *
-     * Follows the semantics of ncclAllReduce. In-place operation will happen if sendbuff == recvbuff .
-     *
-     * @param[in]   sendbuff    address of GPU accessible send buffer
-     * @param[in]   recvbuff    address of GPU accessible receive buffer (might alias with sendbuff)
-     * @param[in]   count       number of elements in sendbuff and recvbuff
-     * @param[in]   datatype    data type of sendbuff and recvbuff
-     * @param[in]   op          reduction operation to perform.
-     * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
-     */
-  void allreduce(const void* sendbuff, void* recvbuff, int count,
-                 datatype_t datatype, op_t op, cudaStream_t stream) const;
+  void waitall(int count, request_t array_of_requests[]) const {
+     raft::comms::comms_t::waitall(count, array_of_requests);
+  }
 
   /**
      * Convience wrapper around allreduce deducing datatype_t from T.
@@ -183,48 +161,16 @@ class cumlCommunicator {
   template <typename T>
   void allreduce(const T* sendbuff, T* recvbuff, int count, op_t op,
                  cudaStream_t stream) const {
-    allreduce(sendbuff, recvbuff, count, getDataType<T>(), op, stream);
+    raft::comms::comms_t::allreduce(sendbuff, recvbuff, count, static_cast<raft::comms::op_t>(op), stream);
   }
-
-  /**
-     * Copies count elements from buff on the root rank to all ranks buff.
-     *
-     * Follows the semantics of ncclBcast.
-     *
-     * @param[in]   buff        address of GPU accessible buffer
-     * @param[in]   count       number of elements in buff
-     * @param[in]   datatype    data type of buff
-     * @param[in]   root        rank of broadcast root
-     * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
-     */
-  void bcast(void* buff, int count, datatype_t datatype, int root,
-             cudaStream_t stream) const;
 
   /**
      * Convience wrapper around bcast deducing datatype_t from T.
      */
   template <typename T>
   void bcast(T* buff, int count, int root, cudaStream_t stream) const {
-    bcast(buff, count, getDataType<T>(), root, stream);
+    raft::comms::comms_t::bcast(buff, count, root, stream);
   }
-
-  /**
-     * Reduce data arrays of length count in sendbuff into recvbuff on the root rank using the op operation.
-     * recvbuff is only used on rank root and ignored for other ranks. 
-     *
-     * Follows the semantics of ncclReduce. In-place operation will happen if sendbuff == recvbuff .
-     *
-     * @param[in]   sendbuff    address of GPU accessible send buffer
-     * @param[in]   recvbuff    address of GPU accessible receive buffer (might alias with sendbuff)
-     * @param[in]   count       number of elements in sendbuff and recvbuff
-     * @param[in]   datatype    data type of sendbuff and recvbuff
-     * @param[in]   op          reduction operation to perform.
-     * @param[in]   root        rank of broadcast root
-     * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
-     */
-  void reduce(const void* sendbuff, void* recvbuff, int count,
-              datatype_t datatype, op_t op, int root,
-              cudaStream_t stream) const;
 
   /**
      * Convience wrapper around reduce deducing datatype_t from T.
@@ -232,27 +178,8 @@ class cumlCommunicator {
   template <typename T>
   void reduce(const T* sendbuff, T* recvbuff, int count, op_t op, int root,
               cudaStream_t stream) const {
-    reduce(sendbuff, recvbuff, count, getDataType<T>(), op, root, stream);
+    raft::comms::comms_t::reduce(sendbuff, recvbuff, count, static_cast<raft::comms::op_t>(op), root, stream);
   }
-
-  /**
-     * Gather sendcount values from all GPUs into recvbuff, receiving data from rank i at offset i*sendcount.
-     *
-     * Note : This assumes the receive count is equal to nranks*sendcount, which means that recvbuff should
-     * have a size of at least nranks*sendcount elements.
-     *
-     * In-place operation will happen if sendbuff == recvbuff + rank * sendcount.
-     *
-     * Follows the semantics of ncclAllGather.
-     *
-     * @param[in]   sendbuff    address of GPU accessible send buffer
-     * @param[in]   recvbuff    address of GPU accessible receive buffer (might alias with sendbuff)
-     * @param[in]   sendcount   number of elements in sendbuff and recvbuff
-     * @param[in]   datatype    data type of sendbuff and recvbuff
-     * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
-     */
-  void allgather(const void* sendbuff, void* recvbuff, int sendcount,
-                 datatype_t datatype, cudaStream_t stream) const;
 
   /**
      * Convience wrapper around allgather deducing datatype_t from T.
@@ -260,73 +187,27 @@ class cumlCommunicator {
   template <typename T>
   void allgather(const T* sendbuff, T* recvbuff, int sendcount,
                  cudaStream_t stream) const {
-    allgather(sendbuff, recvbuff, sendcount, getDataType<T>(), stream);
+    raft::comms::comms_t::allgather(sendbuff, recvbuff, sendcount, stream);
   }
-
-  /**
-     * Gathers data from all processes and delivers it to all. Each process may contribute a
-     * different amount of data.
-     *
-     * Semantics are equivalent to:
-     *
-     *    for (int root = 0; root < getSize(); ++root) {
-     *        ncclBroadcast(sendbuf,
-     *                      static_cast<char*>(recvbuf)+displs[root]*sizeof(datatype), recvcounts[root],
-     *                      datatype, root, nccl_comm, stream);
-     *    }
-     *
-     * @param[in]   sendbuf     address of GPU accessible send buffer
-     * @param[in]   recvbuf     address of GPU accessible receive buffer (might alias with sendbuff)
-     * @param[in]   recvcounts  array (of length group size) containing the number of elements that are
-     *                          received from each process.
-     * @param[in]   displs      array (of length group size). Entry i specifies the displacement
-     *                          (relative to recvbuf) at which to place the incoming data from process i.
-     * @param[in]   datatype    data type of sendbuff and recvbuff
-     * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
-     */
-  void allgatherv(const void* sendbuf, void* recvbuf, const int recvcounts[],
-                  const int displs[], datatype_t datatype,
-                  cudaStream_t stream) const;
 
   /**
      * Convience wrapper around allgatherv deducing datatype_t from T.
      */
   template <typename T>
-  void allgatherv(const void* sendbuf, void* recvbuf, const int recvcounts[],
+  void allgatherv(const T* sendbuf, T* recvbuf, const int recvcounts[],
                   const int displs[], cudaStream_t stream) const {
-    allgatherv(sendbuf, recvbuf, recvcounts, displs, getDataType<T>(), stream);
+    raft::comms::comms_t::allgatherv(sendbuf, static_cast<size_t*>(recvbuf), recvcounts, displs, stream);
   }
-
-  /**
-     * Reduce data in sendbuff from all GPUs using the op operation and leave the reduced result scattered
-     * over the devices so that the recvbuff on rank i will contain the i-th block of the result.
-     *
-     * Note: This assumes the send count is equal to nranks*recvcount, which means that sendbuff should have
-     * a size of at least nranks*recvcount elements.
-     *
-     * Follows the semantics of ncclReduceScatter. 
-     *
-     * @param[in]   sendbuff    address of GPU accessible send buffer
-     * @param[in]   recvbuff    address of GPU accessible receive buffer
-     * @param[in]   recvcount   number of elements to receive to recvbuff
-     * @param[in]   datatype    data type of sendbuff and recvbuff
-     * @param[in]   op          reduction operation to perform.
-     * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
-     */
-  void reducescatter(const void* sendbuff, void* recvbuff, int recvcount,
-                     datatype_t datatype, op_t op, cudaStream_t stream) const;
 
   /**
      * Convience wrapper around reducescatter deducing datatype_t from T.
      */
   template <typename T>
-  void reducescatter(const void* sendbuff, void* recvbuff, int recvcount,
-                     datatype_t datatype, op_t op, cudaStream_t stream) const {
-    reducescatter(sendbuff, recvbuff, recvcount, getDataType<T>(), op, stream);
+  void reducescatter(const T* sendbuff, T* recvbuff, int recvcount,
+                     op_t op, cudaStream_t stream) const {
+    raft::comms::comms_t::reducescatter(sendbuff, recvbuff, recvcount, static_cast<raft::comms::op_t>(op), stream);
   }
 
- private:
-  std::unique_ptr<cumlCommunicator_iface> _impl;
 };
 
 }  // end namespace MLCommon
