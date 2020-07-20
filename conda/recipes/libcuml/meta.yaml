@@ -34,7 +34,7 @@ requirements:
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ minor_version }}
-    - libcumlprims=0.15.0a200622
+    - libcumlprims=0.15.0a200720
     - lapack
     - treelite=0.92
   run:
