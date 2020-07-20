@@ -367,9 +367,6 @@ class NearestNeighbors(Base):
             X = self.X_m
             n_neighbors += 1
 
-        out_type = 'cumlarray' if _output_cumlarray \
-            else self._get_output_type(X)
-
         if (n_neighbors is None and self.n_neighbors is None) \
                 or n_neighbors <= 0:
             raise ValueError("k or n_neighbors must be a positive integers")
@@ -433,25 +430,27 @@ class NearestNeighbors(Base):
         )
 
         self.handle.sync()
-        
-        if not _output_cumlarray:
-            I_ndarr = I_ndarr.to_output(out_type)
-            if return_distance:
-                D_ndarr = D_ndarr.to_output(out_type)
+
+        if _output_cumlarray:
+            return (D_ndarr, I_ndarr) if return_distance else I_ndarr
+
+        out_type = self._get_output_type(X)
+        I_output = I_ndarr.to_output(out_type)
+        if return_distance:
+            D_output = D_ndarr.to_output(out_type)
 
         # drop first column if using training data as X
         # this will need to be moved to the C++ layer (cuml issue #2562)
         if use_training_data:
-            if out_type == 'cupy' or out_type == 'numpy' \
-                or out_type == 'numba' or out_type == 'cumlarray':
-                return (D_ndarr[:, 1:], I_ndarr[:, 1:]) \
-                    if return_distance else I_ndarr[:, 1:]
+            if out_type in {'cupy', 'numpy', 'numba'}:
+                return (D_output[:, 1:], I_output[:, 1:]) \
+                    if return_distance else I_output[:, 1:]
             else:
-                I_ndarr.drop(I_ndarr.columns[0], axis=1)
+                I_output.drop(I_output.columns[0], axis=1)
                 if return_distance:
-                    D_ndarr.drop(D_ndarr.columns[0], axis=1)
+                    D_output.drop(D_output.columns[0], axis=1)
 
-        return (D_ndarr, I_ndarr) if return_distance else I_ndarr
+        return (D_output, I_output) if return_distance else I_output
 
     def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):
         """
@@ -495,21 +494,23 @@ class NearestNeighbors(Base):
         if mode == 'connectivity':
             ind_cumlarray = self._kneighbors(X, n_neighbors, return_distance=False,
                                       _output_cumlarray=True)
-            
+
             n_samples = ind_cumlarray.shape[0]
             distances = cp.ones(n_samples * n_neighbors, dtype=np.float32)
 
         elif mode == 'distance':
             dist_cumlarray, ind_cumlarray = self._kneighbors(X, n_neighbors,
                                                  _output_cumlarray=True)
-            distances = dist_cumlarray.to_output('cupy')
+            distances = dist_cumlarray.to_output('cupy')[:, 1:] if X is None \
+                else dist_cumlarray.to_output('cupy')
             distances = cp.ravel(distances)
 
         else:
             raise ValueError('Unsupported mode, must be one of "connectivity" '
                              'or "distance" but got "%s" instead' % mode)
 
-        indices = ind_cumlarray.to_output('cupy')
+        indices = ind_cumlarray.to_output('cupy')[:, 1:] if X is None \
+            else ind_cumlarray.to_output('cupy')
         n_samples = indices.shape[0]
         n_samples_fit = self.X_m.shape[0]
         n_nonzero = n_samples * n_neighbors
