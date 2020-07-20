@@ -282,8 +282,8 @@ def test_logistic_regression_unscaled(dtype, penalty):
     culog = cuLog(**params)
     culog.fit(X_train, y_train)
 
-    score_test = 0.95
-    score_train = 0.95
+    score_test = 0.94
+    score_train = 0.94
 
     assert culog.score(X_train, y_train) >= score_train
     assert culog.score(X_test, y_test) >= score_test
