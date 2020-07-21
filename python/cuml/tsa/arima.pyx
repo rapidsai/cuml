@@ -153,6 +153,15 @@ class ARIMA(Base):
         The seasonal ARIMA order (P, D, Q, s) of the model
     fit_intercept : bool or int
         Whether to include a constant trend mu in the model (default: True)
+    simple_differencing: bool or int
+        If True, the data is differenced before being passed to the Kalman
+        filter. If False, differencing is part of the state-space model.
+        In some cases this setting can be ignored: computing forecasts with
+        confidence intervals will force it to False ; fitting with the CSS
+        method will force it to True.
+        Note that forecasts are always for the original series, whereas
+        statsmodels computes forecasts for the differenced series when
+        simple_differencing is True.
     handle : cuml.Handle
         If it is None, a new one is created just for this instance
     verbose : int or boolean (default = False)
@@ -209,6 +218,7 @@ class ARIMA(Base):
                  seasonal_order: Tuple[int, int, int, int]
                  = (0, 0, 0, 0),
                  fit_intercept=True,
+                 simple_differencing=True,
                  handle=None,
                  verbose=False,
                  output_type=None):
@@ -260,8 +270,7 @@ class ARIMA(Base):
             raise ValueError("ERROR: Number of observations too small for the"
                              " given order")
 
-        # TODO: this is temporary!
-        self.simple_differencing = False
+        self.simple_differencing = simple_differencing
 
         # Compute the differenced series
         # TODO: only with simple_differencing!
@@ -410,7 +419,6 @@ class ARIMA(Base):
                 array, _, _, _, _ = input_to_host_array(params[param_name])
                 setattr(self, param_name, array)
 
-    # TODO: unit test of prediction intervals!
     @nvtx_range_wrap
     def predict(self, start=0, end=None, level=None):
         """Compute in-sample and/or out-of-sample prediction for each series
