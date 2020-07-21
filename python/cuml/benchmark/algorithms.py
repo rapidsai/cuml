@@ -396,7 +396,7 @@ def all_algorithms():
                 fil_algo="AUTO",
                 output_class=False,
                 threshold=0.5,
-                storage_type="AUTO",
+                storage_type="auto",
             ),
             name="FIL",
             accepts_labels=False,

@@ -30,21 +30,24 @@ namespace KNN {
 namespace opg {
 
 /**
- * Performs a multi-node multi-GPU brute force nearest neighbors.
- * @param handle the cumlHandle to use for managing resources
- * @param out_I vector of output index partitions. size should match the
+ * @brief Performs a multi-node multi-GPU brute force nearest neighbors.
+ * @param handle: the cumlHandle to use for managing resources
+ * @param[out] out_I: vector of output index partitions. size should match the
  *        number of local input partitions.
- * @param out_D vector of output distance partitions. size should match
+ * @param[out] out_D: vector of output distance partitions. size should match
  *        the number of local input partitions.
- * @param idx_data vector of local indices to query
- * @param idx_desc describes how the index partitions are distributed
+ * @param[in] idx_data: vector of local indices to query
+ * @param[in] idx_desc: describes how the index partitions are distributed
  *        across the ranks.
- * @param query_data vector of local query partitions
- * @param query_desc describes how the query partitions are distributed
+ * @param[in] query_data: vector of local query partitions
+ * @param[in] query_desc: describes how the query partitions are distributed
  *        across the cluster.
- * @param k the numeber of neighbors to query
- * @param batch_size the max number of rows to broadcast at a time
- * @param verbose print extra logging info
+ * @param[in] rowMajorIndex: are index vectors in row-major format?
+ * @param[in] rowMajorQuery: are query vector in row-major format?
+ * @param[in] k: the numeber of neighbors to query
+ * @param[in] batch_size: the max number of rows to broadcast at a time
+ * @param[in] verbose: print extra logging info
+ *
  */
 void brute_force_knn(ML::cumlHandle &handle,
                      std::vector<Matrix::Data<int64_t> *> &out_I,
