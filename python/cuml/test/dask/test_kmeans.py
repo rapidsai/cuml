@@ -159,7 +159,7 @@ def test_transform(nrows, ncols, nclusters, n_parts, input_type, client):
                                        stress_param(50)])
 @pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
                                      stress_param(50)])
-@pytest.mark.parametrize("score_eps", [unit_param(0.06), stress_param(35.0)])
+@pytest.mark.parametrize("score_eps", [unit_param(0.071), stress_param(35.0)])
 @pytest.mark.parametrize("input_type", ["dataframe", "array"])
 def test_score(nrows, ncols, nclusters, n_parts,
                input_type, score_eps, client):
@@ -216,3 +216,8 @@ def test_score(nrows, ncols, nclusters, n_parts,
     assert actual_score + score_eps \
         >= (-1 * expected_score) \
         >= actual_score - score_eps
+
+    with open("kmeans_results.txt", 'a') as f:
+        f.write(str((actual_score + score_eps) - (-1 * expected_score)))
+        f.write(str((-1 * expected_score) - (actual_score - score_eps)))
+        f.write("\n")
