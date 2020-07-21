@@ -381,7 +381,8 @@ class PredictDenseFilTest : public BaseFilTest {
   }
 };
 
-class PredictSparseFilTest : public BaseFilTest {
+template <typename fil_node_t>
+class BasePredictSparseFilTest : public BaseFilTest {
  protected:
   void dense2sparse_node(const fil::dense_node_t* dense_root, int i_dense,
                          int i_sparse_root, int i_sparse) {
@@ -400,8 +401,8 @@ class PredictSparseFilTest : public BaseFilTest {
     // inner sparse node
     // reserve space for children
     int left_index = sparse_nodes.size();
-    sparse_nodes.push_back(fil::sparse_node16_t());
-    sparse_nodes.push_back(fil::sparse_node16_t());
+    sparse_nodes.push_back(fil_node_t());
+    sparse_nodes.push_back(fil_node_t());
     node_init(&sparse_nodes[i_sparse], output, threshold, feature,
               def_left, is_leaf, left_index - i_sparse_root);
     dense2sparse_node(dense_root, 2 * i_dense + 1, i_sparse_root, left_index);
@@ -411,7 +412,7 @@ class PredictSparseFilTest : public BaseFilTest {
 
   void dense2sparse_tree(const fil::dense_node_t* dense_root) {
     int i_sparse_root = sparse_nodes.size();
-    sparse_nodes.push_back(fil::sparse_node16_t());
+    sparse_nodes.push_back(fil_node_t());
     dense2sparse_node(dense_root, 0, i_sparse_root, i_sparse_root);
     trees.push_back(i_sparse_root);
   }
@@ -422,6 +423,9 @@ class PredictSparseFilTest : public BaseFilTest {
     }
   }
 
+  virtual void init_sparse(fil::forest_t* pforest,
+                           const fil::forest_params_t* fil_params) = 0;
+  
   void init_forest(fil::forest_t* pforest) override {
     // init FIL model
     fil::forest_params_t fil_params;
@@ -435,11 +439,24 @@ class PredictSparseFilTest : public BaseFilTest {
     fil_params.num_classes = ps.num_classes;
     dense2sparse();
     fil_params.num_nodes = sparse_nodes.size();
-    fil::init_sparse16(handle, pforest, trees.data(), sparse_nodes.data(),
-                       &fil_params);
+    init_sparse(pforest, &fil_params);
   }
-  std::vector<fil::sparse_node16_t> sparse_nodes;
+  std::vector<fil_node_t> sparse_nodes;
   std::vector<int> trees;
+};
+
+class PredictSparse16FilTest : public BasePredictSparseFilTest<fil::sparse_node16_t> {
+  void init_sparse(fil::forest_t* pforest, const fil::forest_params_t* fil_params) {
+    fil::init_sparse16(handle, pforest, trees.data(), sparse_nodes.data(),
+                       fil_params);
+  }
+};
+
+class PredictSparse8FilTest : public BasePredictSparseFilTest<fil::sparse_node8_t> {
+  void init_sparse(fil::forest_t* pforest, const fil::forest_params_t* fil_params) {
+    fil::init_sparse8(handle, pforest, trees.data(), sparse_nodes.data(),
+                      fil_params);
+  }
 };
 
 class TreeliteFilTest : public BaseFilTest {
@@ -711,10 +728,16 @@ std::vector<FilTestParams> predict_sparse_inputs = {
    42, 2e-3f, tl::Operator(0), fil::leaf_value_t::INT_CLASS_LABEL, 3},
 };
 
-TEST_P(PredictSparseFilTest, Predict) { compare(); }
+TEST_P(PredictSparse16FilTest, Predict) { compare(); }
 
-INSTANTIATE_TEST_CASE_P(FilTests, PredictSparseFilTest,
+INSTANTIATE_TEST_CASE_P(FilTests, PredictSparse16FilTest,
                         testing::ValuesIn(predict_sparse_inputs));
+
+TEST_P(PredictSparse8FilTest, Predict) { compare(); }
+
+INSTANTIATE_TEST_CASE_P(FilTests, PredictSparse8FilTest,
+                        testing::ValuesIn(predict_sparse_inputs));
+
 
 // rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,
 // global_bias, algo, seed, tolerance, branch comparison operator, FIL implementation, number of classes
