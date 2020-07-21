@@ -118,8 +118,7 @@ struct sparse_node16_t : dense_node_t, sparse_node16_extra_data {
 /** sparse_node8_t is a node of reduced size (8 bytes) in a sparsely-stored forest */
 struct sparse_node8_t : dense_node_t {
   sparse_node8_t() = default;
-  sparse_node8_t(dense_node_t dn)
-    : dense_node_t(dn) {}
+  sparse_node8_t(dense_node_t dn) : dense_node_t(dn) {}
 };
 
 /** leaf_value_t describes what the leaves in a FIL forest store (predict) */

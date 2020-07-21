@@ -42,8 +42,8 @@ void node_init(dense_node_t* n, val_t output, float thresh, int fid,
   *n = dense_node(output, thresh, fid, def_left, is_leaf);
 }
 
-void node_decode(const dense_node_t* n, val_t* output, float* thresh,
-                 int* fid, bool* def_left, bool* is_leaf) {
+void node_decode(const dense_node_t* n, val_t* output, float* thresh, int* fid,
+                 bool* def_left, bool* is_leaf) {
   dense_node dn(*n);
   *output = dn.output<val_t>();
   *thresh = dn.thresh();
@@ -52,9 +52,9 @@ void node_decode(const dense_node_t* n, val_t* output, float* thresh,
   *is_leaf = dn.is_leaf();
 }
 
-inline void node_init_inline(sparse_node16_t* node, val_t output,
-                             float thresh, int fid, bool def_left,
-                             bool is_leaf, int left_index) {
+inline void node_init_inline(sparse_node16_t* node, val_t output, float thresh,
+                             int fid, bool def_left, bool is_leaf,
+                             int left_index) {
   sparse_node16 n(output, thresh, fid, def_left, is_leaf, left_index);
   *node = sparse_node16_t(n, n);
 }
@@ -302,12 +302,12 @@ struct dense_forest : forest {
 template <typename node_t>
 struct external_node {};
 
-template<>
+template <>
 struct external_node<sparse_node16> {
   typedef sparse_node16_t t;
 };
 
-template<>
+template <>
 struct external_node<sparse_node8> {
   typedef sparse_node8_t t;
 };
@@ -667,7 +667,8 @@ void tl2fil_dense(std::vector<dense_node_t>* pnodes, forest_params_t* params,
 template <typename fil_node_t>
 struct tl2fil_sparse_check_t {
   static void check(const tl::Model& model) {
-    ASSERT(false, "internal error: "
+    ASSERT(false,
+           "internal error: "
            "only a specialization of this tempalte should be used");
   }
 };
@@ -685,17 +686,19 @@ struct tl2fil_sparse_check_t<sparse_node8_t> {
   static void check(const tl::Model& model) {
     // check the number of features
     int num_features = model.num_feature;
-    ASSERT(num_features <= MAX_FEATURES, "model has %d features, "
-           "but only %d supported for 8-byte sparse nodes", num_features,
-           MAX_FEATURES);
+    ASSERT(num_features <= MAX_FEATURES,
+           "model has %d features, "
+           "but only %d supported for 8-byte sparse nodes",
+           num_features, MAX_FEATURES);
 
     // check the number of tree nodes
     const std::vector<tl::Tree>& trees = model.trees;
     for (int i = 0; i < trees.size(); ++i) {
       int num_nodes = trees[i].num_nodes;
-      ASSERT(num_nodes <= MAX_TREE_NODES, "tree %d has %d nodes, "
-             "but only %d supported for 8-byte sparse nodes", i, num_nodes,
-             MAX_TREE_NODES);
+      ASSERT(num_nodes <= MAX_TREE_NODES,
+             "tree %d has %d nodes, "
+             "but only %d supported for 8-byte sparse nodes",
+             i, num_nodes, MAX_TREE_NODES);
     }
   }
 };
