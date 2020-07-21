@@ -222,8 +222,7 @@ cdef class ForestInference_impl():
                            'False': storage_type_t.DENSE,
                            'true': storage_type_t.SPARSE,
                            'True': storage_type_t.SPARSE,
-                           'sparse8': storage_type_t.SPARSE8,
-        }
+                           'sparse8': storage_type_t.SPARSE8}
         if storage_type_str not in storage_type_dict.keys():
             raise ValueError(
                 "The value entered for storage_type is not "
