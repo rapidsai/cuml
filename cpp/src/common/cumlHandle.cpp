@@ -15,13 +15,13 @@
  */
 
 #include "cumlHandle.hpp"
-#include "cumlHandle_impl.hpp"
 #include <common/cudart_utils.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/cusolver_wrappers.h>
 #include <sparse/cusparse_wrappers.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
+#include "cumlHandle_impl.hpp"
 
 namespace ML {
 
@@ -35,7 +35,8 @@ int cumlHandle::getDefaultNumInternalStreams() {
 cumlHandle::cumlHandle(int n_streams) : _impl(new cumlHandle_impl(n_streams)) {}
 cumlHandle::cumlHandle() : _impl(new cumlHandle_impl()) {}
 cumlHandle::cumlHandle(raft::handle_t* raftHandle) {
-  _impl = std::unique_ptr<cumlHandle_impl>(dynamic_cast<cumlHandle_impl*>(raftHandle));
+  _impl = std::unique_ptr<cumlHandle_impl>(
+    dynamic_cast<cumlHandle_impl*>(raftHandle));
 }
 cumlHandle::~cumlHandle() {}
 
@@ -156,6 +157,6 @@ streamSyncer::streamSyncer(const cumlHandle_impl& handle) : _handle(handle) {
 }
 streamSyncer::~streamSyncer() { _handle.waitOnInternalStreams(); }
 
-}
+}  // namespace detail
 
 }  // end namespace ML

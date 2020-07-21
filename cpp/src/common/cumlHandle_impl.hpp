@@ -41,8 +41,8 @@ using MLCommon::raftHostAllocatorAdapter;
 class cumlHandle_impl : raft::handle_t {
  public:
   cumlHandle_impl(int n_streams = cumlHandle::getDefaultNumInternalStreams())
-    : raft::handle_t(n_streams) { }
-  ~cumlHandle_impl() { }
+    : raft::handle_t(n_streams) {}
+  ~cumlHandle_impl() {}
 
   int getDevice() const { return raft::handle_t::get_device(); }
 
@@ -55,24 +55,28 @@ class cumlHandle_impl : raft::handle_t {
   }
 
   void setDeviceAllocator(std::shared_ptr<deviceAllocator> allocator) {
-    raft::handle_t::set_device_allocator(allocator->getRaftDeviceAllocator());
+    raft::handle_t::set_device_allocator(
+      std::dynamic_pointer_cast<raftDeviceAllocatorAdapter>(allocator)
+        ->getRaftDeviceAllocator());
   }
 
   std::shared_ptr<deviceAllocator> getDeviceAllocator() const {
-    if(!_deviceAllocatorInitialized) {
-      _deviceAllocator = std::make_shared<raftDeviceAllocatorAdapter>(raft::handle_t::get_device_allocator());
+    if (!_deviceAllocatorInitialized) {
       _deviceAllocatorInitialized = true;
     }
     return _deviceAllocator;
   }
 
   void setHostAllocator(std::shared_ptr<hostAllocator> allocator) {
-    raft::handle_t::set_device_allocator(allocator->getRaftHostAllocator());
+    raft::handle_t::set_host_allocator(
+      std::dynamic_pointer_cast<raftHostAllocatorAdapter>(allocator)
+        ->getRaftHostAllocator());
   }
 
   std::shared_ptr<hostAllocator> getHostAllocator() const {
-    if(!_hostAllocatorInitialized) {
-      _hostAllocator = std::make_shared<raftHostAllocatorAdapter>(raft::handle_t::get_host_allocator());
+    if (!_hostAllocatorInitialized) {
+      _hostAllocator = std::make_shared<raftHostAllocatorAdapter>(
+        raft::handle_t::get_host_allocator());
       _hostAllocatorInitialized = true;
     }
     return _hostAllocator;
@@ -106,33 +110,29 @@ class cumlHandle_impl : raft::handle_t {
     return raft::handle_t::get_internal_streams();
   }
 
-  void waitOnUserStream() const {
-    raft::handle_t::wait_on_user_stream();
-  }
+  void waitOnUserStream() const { raft::handle_t::wait_on_user_stream(); }
   void waitOnInternalStreams() const {
     raft::handle_t::wait_on_internal_streams();
   }
 
   void setCommunicator(
     std::shared_ptr<MLCommon::cumlCommunicator> communicator) {
-      raft::handle_t::set_comms(communicator);
+    raft::handle_t::set_comms(communicator);
   }
 
   const MLCommon::cumlCommunicator& getCommunicator() const {
-    return dynamic_cast<const MLCommon::cumlCommunicator&>(raft::handle_t::get_comms());
+    return dynamic_cast<const MLCommon::cumlCommunicator&>(
+      raft::handle_t::get_comms());
   }
 
-  bool commsInitialized() const {
-    return raft::handle_t::comms_initialized();
-  }
+  bool commsInitialized() const { return raft::handle_t::comms_initialized(); }
 
-  private:
-    bool _hostAllocatorInitialized = false;
-    bool _deviceAllocatorInitialized = false;
+ private:
+  mutable bool _hostAllocatorInitialized = false;
+  mutable bool _deviceAllocatorInitialized = false;
 
-    std::shared_ptr<deviceAllocator> _deviceAllocator;
-    std::shared_ptr<hostAllocator> _hostAllocator
-
+  mutable std::shared_ptr<deviceAllocator> _deviceAllocator;
+  mutable std::shared_ptr<hostAllocator> _hostAllocator;
 };
 
-}
+}  // namespace ML

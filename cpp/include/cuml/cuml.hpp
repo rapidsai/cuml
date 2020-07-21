@@ -22,7 +22,7 @@
 #include <vector>
 
 namespace raft {
-   class handle_t;
+class handle_t;
 }
 
 namespace ML {

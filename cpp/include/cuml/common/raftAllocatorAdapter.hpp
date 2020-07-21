@@ -24,18 +24,19 @@ namespace ML {
 
 class raftDeviceAllocatorAdapter : public ML::deviceAllocator {
  public:
-
-  raftDeviceAllocatorAdapter(std::shared_ptr<raft::mr::device::allocator> raftAllocator) : _raftAllocator(raftAllocator) {}
+  raftDeviceAllocatorAdapter(
+    std::shared_ptr<raft::mr::device::allocator> raftAllocator)
+    : _raftAllocator(raftAllocator) {}
   raftDeviceAllocatorAdapter() {
     _raftAllocator = std::make_unique<raft::mr::device::default_allocator>();
   }
 
   virtual void* allocate(std::size_t n, cudaStream_t stream) {
-    return _raftAllocator::allocate(n, stream);
+    return _raftAllocator->allocate(n, stream);
   }
 
   virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) {
-    _raftAllocator::deallocate(p, n, stream);
+    _raftAllocator->deallocate(p, n, stream);
   }
 
   std::shared_ptr<raft::mr::device::allocator> getRaftDeviceAllocator() {
@@ -44,8 +45,8 @@ class raftDeviceAllocatorAdapter : public ML::deviceAllocator {
 
   virtual ~raftDeviceAllocatorAdapter() {}
 
-  private:
-    std::shared_ptr<raft::mr::device::allocator> _raftAllocator;
+ private:
+  std::shared_ptr<raft::mr::device::allocator> _raftAllocator;
 };
 
 }  // end namespace ML
