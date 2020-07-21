@@ -19,7 +19,7 @@
 FindUCX
 --------
 
-Find UCX libraries (libucp, libucm, libuct, libucs) for the UCX Point-to-Point Protocol Library. 
+Find UCX libraries (libucp, libucm, libuct, libucs) for the UCX Point-to-Point Protocol Library.
 Hints to find UCX can be provided by setting UCX_INSTALL_DIR and UCX_INCLUDE_DIR.
 
 Imported targets

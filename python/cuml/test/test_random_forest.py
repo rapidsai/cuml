@@ -17,7 +17,6 @@ import cudf
 import numpy as np
 import pytest
 import random
-import rmm
 
 from numba import cuda
 
@@ -366,9 +365,9 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
     # random forest classification model
     cuml_model = curfc()
     if type == 'dataframe':
-        X_train_df = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_train))
+        X_train_df = cudf.DataFrame(X_train)
         y_train_df = cudf.Series(y_train)
-        X_test_df = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_test))
+        X_test_df = cudf.DataFrame(X_test)
         cuml_model.fit(X_train_df, y_train_df)
         cu_preds = cuml_model.predict(X_test_df,
                                       predict_model="CPU").to_array()
@@ -522,6 +521,7 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
             assert fil_r2 >= (sk_r2 - 0.07)
 
 
+@pytest.mark.xfail(reason='Need rapidsai/rmm#415 to detect memleak robustly')
 @pytest.mark.memleak
 @pytest.mark.parametrize('fil_sparse_format', [True, False, 'auto'])
 @pytest.mark.parametrize('n_iter', [unit_param(5), quality_param(30),

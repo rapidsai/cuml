@@ -102,9 +102,9 @@ class PCA(BaseDecomposition,
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
-    svd_solver : 'full'
-        Only Full algorithm is supported since it's significantly faster on GPU
-        then the other solvers including randomized SVD.
+    svd_solver : 'full', 'jacobi', or 'tsqr'
+        'full': run exact full SVD and select the components by postprocessing
+        'jacobi': iteratively compute SVD of the covariance matrix
     verbose : int or boolean (default = False)
         Logging level
     whiten : boolean (default = False)
@@ -159,7 +159,6 @@ class PCA(BaseDecomposition,
                                   client=client,
                                   verbose=verbose,
                                   **kwargs)
-        self.noise_variance_ = None
 
     def fit(self, X):
         """
@@ -171,7 +170,6 @@ class PCA(BaseDecomposition,
         """
 
         self._fit(X)
-        self.noise_variance_ = self.local_model.noise_variance_
         return self
 
     def fit_transform(self, X):
