@@ -274,11 +274,16 @@ class Base:
             else:
                 return self.__dict__[real_name]
         else:
-            if real_name in self.__dict__['_solve'].__dict__.keys():
-                if isinstance(self.__dict__['_solve'].__dict__[real_name], CumlArray):
-                    return self.__dict__['_solve'].__dict__[real_name].to_output(self.output_type)
+            if "_solve" in self.__dict__.keys():
+                solve_dict = self.__dict__['_solve'].__dict__
+                if attr in solve_dict.keys():
+                    if isinstance(solve_dict[attr], CumlArray):
+                        return solve_dict[attr].to_output(self.output_type)
+                    else:
+                        return solve_dict[attr]
                 else:
-                    return self.__dict__['_solve'].__dict__[real_name]
+                    return self.__dict__['_solve'].__getattr__(attr)
+                    
             else:
                 raise AttributeError
 

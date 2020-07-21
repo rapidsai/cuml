@@ -461,7 +461,8 @@ class LogisticRegression(Base, ClassifierMixin):
             "max_iter",
             "linesearch_max_iter",
             "l1_ratio",
-            "solver"
+            "solver",
+            "solve"
         ]
 
     def __getstate__(self):
@@ -476,17 +477,17 @@ class LogisticRegression(Base, ClassifierMixin):
         super(LogisticRegression, self).__init__(handle=None,
                                                  verbose=state["verbose"])
 
-        if "qn" in state:
-            qn = state["qn"]
-            if qn.coef_ is not None:
-                if qn.fit_intercept:
-                    state["coef_"] = qn.coef_[0:-1]
-                    state["intercept_"] = qn.coef_[-1]
+        if "_solve" in state:
+            _solve = state["_solve"]
+            if _solve.coef_ is not None:
+                if _solve.fit_intercept:
+                    state["coef_"] = _solve.coef_[0:-1]
+                    state["intercept_"] = _solve.coef_[-1]
                 else:
-                    state["coef_"] = qn.coef_
-                    n_classes = qn.coef_.shape[1]
+                    state["coef_"] = _solve.coef_
+                    n_classes = _solve.coef_.shape[1]
                     state["intercept_"] = CumlArray.zeros(
-                        n_classes, dtype=qn.coef_.dtype
+                        n_classes, dtype=_solve.coef_.dtype
                     )
 
         self.__dict__.update(state)
