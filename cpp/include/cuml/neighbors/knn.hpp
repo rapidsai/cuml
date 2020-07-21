@@ -94,7 +94,7 @@ void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
  * @param out output array on device (size n_samples)
  * @param knn_indices array on device of knn indices (size n_samples * k)
  * @param y array of labels on device (size n_samples)
- * @param n_index_rows number of vertices in index (eg. size of each y array)
+ * @param n_query_rows number of vertices in query (eg. size of each y array)
  * @param n_samples number of samples in knn_indices and out
  * @param k number of nearest neighbors in knn_indices
  */
