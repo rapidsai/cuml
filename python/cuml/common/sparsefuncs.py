@@ -99,6 +99,17 @@ def csr_row_normalize_l2(X, inplace=True):
     return X
 
 
+@with_cupy_rmm
+def csr_diag_mul(X, y, inplace=True):
+    """Multiply a sparse X matrix with diagonal matrix y"""
+    if not inplace:
+        X = X.copy()
+    # grab underlying dense ar from y
+    y = y.data[0]
+    X.data *= y[X.indices]
+    return X
+
+
 def create_csr_matrix_from_count_df(count_df, empty_doc_ids, n_doc, n_features,
                                     dtype=cp.float32):
     """

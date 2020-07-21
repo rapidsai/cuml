@@ -59,6 +59,7 @@
 - PR #2538: Remove Protobuf dependency
 - PR #2553: Test pickle protocol 5 support
 - PR #2566: Remove deprecated cuDF from_gpu_matrix calls
+- PR #2575: Speed up TfidfTransformer
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
