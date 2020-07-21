@@ -14,6 +14,7 @@
 - PR #2465: Support pandas 1.0+
 - PR #2500: Replace UMAP functionality dependency on nvgraph with RAFT Spectral Clustering
 - PR #2520: TfidfVectorizer estimator
+- PR #2461: Add KNN Sparse Output Functionality
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
