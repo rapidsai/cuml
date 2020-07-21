@@ -73,6 +73,23 @@ def _map_l2_norm_kernel(dtype):
     return cuda_kernel_factory(map_kernel_str, dtype, "map_l2_norm_kernel")
 
 
+def _map_mul_sparse_array(dtype):
+    """Creates cupy RawKernel for multiplying sparse array with a dense ar """
+
+    map_kernel_str = r'''
+    ({0} *data, {1} *indices, {2} *indptr, {3} *dense_ar, int data_size) {
+
+      int tid = blockDim.x * blockIdx.x + threadIdx.x;
+
+      if(tid >= data_size) return;
+
+      int index = indices[tid];
+      data[tid] =  data[tid] * dense_ar[index];
+    }
+    '''
+    return cuda_kernel_factory(map_kernel_str, dtype, "_map_mul_sparse_array")
+
+
 @with_cupy_rmm
 def csr_row_normalize_l1(X, inplace=True):
     """Row normalize for csr matrix using the l1 norm"""
@@ -95,6 +112,20 @@ def csr_row_normalize_l2(X, inplace=True):
     kernel = _map_l2_norm_kernel((X.dtype, X.indices.dtype, X.indptr.dtype))
     kernel((math.ceil(X.shape[0] / 32),), (32,),
            (X.data, X.indices, X.indptr, X.shape[0]))
+
+    return X
+
+
+@with_cupy_rmm
+def csr_diag_mul(X, y, inplace=True):
+    """Multiply a sparse X matrix with diagonal matrix y"""
+    if not inplace:
+        X = X.copy()
+    y = y.data
+    kernel = _map_mul_sparse_array((X.dtype, X.indices.dtype,
+                                   X.indptr.dtype, y.dtype))
+    kernel((math.ceil(X.indices.shape[0] / 32),), (32,),
+           (X.data, X.indices, X.indptr, y, X.indices.shape[0]))
 
     return X
 
