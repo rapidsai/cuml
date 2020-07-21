@@ -94,6 +94,7 @@
 - PR #2563: Update scipy call for arima gradient test
 - PR #2569: Fix for cuDF update
 - PR #2508: Use keyword parameters in sklearn.datasets.make_* functions
+- PR #2573: Considering managed memory as device type on checking for KMeans 
 
 # cuML 0.14.0 (03 Jun 2020)
 
