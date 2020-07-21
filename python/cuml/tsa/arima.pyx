@@ -668,11 +668,11 @@ class ARIMA(Base):
              * `0<n<100` for output every `n` steps
              * `n>100` for more detailed output
         h : float
-            Finite-differencing step size. The gradient is computed
-            using second-order differencing:
-                    f(x+h) - f(x - h)
-                g = ----------------- + O(h^2)
-                          2 * h
+            Finite-differencing step size. The gradient is computed using
+            forward finite differencing:
+                    f(x+h) - f(x)
+                g = ------------- + O(h)
+                          h
         maxiter : int
             Maximum number of iterations of L-BFGS-B
         method : str

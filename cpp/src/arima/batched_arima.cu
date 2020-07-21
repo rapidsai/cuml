@@ -395,11 +395,15 @@ void batched_loglike_grad(cumlHandle& handle, const double* d_y, int batch_size,
   MLCommon::copy(d_x_pert, d_x, N * batch_size, stream);
 
   // Create buffers for the log-likelihood and residuals
-  MLCommon::device_buffer<double> ll_pos(allocator, stream, batch_size);
-  MLCommon::device_buffer<double> ll_neg(allocator, stream, batch_size);
+  MLCommon::device_buffer<double> ll_base(allocator, stream, batch_size);
+  MLCommon::device_buffer<double> ll_pert(allocator, stream, batch_size);
   MLCommon::device_buffer<double> res(allocator, stream, n_obs_kf * batch_size);
-  double* d_ll_pos = ll_pos.data();
-  double* d_ll_neg = ll_neg.data();
+  double* d_ll_base = ll_base.data();
+  double* d_ll_pert = ll_pert.data();
+
+  // Evaluate the log-likelihood with the given parameter vector
+  batched_loglike(handle, d_y, batch_size, n_obs, order, d_x, d_ll_base,
+                  res.data(), trans, false, method, pre_diff, truncate);
 
   for (int i = 0; i < N; i++) {
     // Add the perturbation to the i-th parameter
@@ -409,24 +413,14 @@ void batched_loglike_grad(cumlHandle& handle, const double* d_y, int batch_size,
                      });
 
     // Evaluate the log-likelihood with the positive perturbation
-    batched_loglike(handle, d_y, batch_size, n_obs, order, d_x_pert, d_ll_pos,
+    batched_loglike(handle, d_y, batch_size, n_obs, order, d_x_pert, d_ll_pert,
                     res.data(), trans, false, method, pre_diff, truncate);
 
-    // Subtract the perturbation to the i-th parameter
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int bid) {
-                       d_x_pert[N * bid + i] = d_x[N * bid + i] - h;
-                     });
-
-    // Evaluate the log-likelihood with the negative perturbation
-    batched_loglike(handle, d_y, batch_size, n_obs, order, d_x_pert, d_ll_neg,
-                    res.data(), trans, false, method, pre_diff, truncate);
-
-    // First derivative with a second-order accuracy
+    // First derivative with a first-order accuracy
     thrust::for_each(thrust::cuda::par.on(stream), counting,
                      counting + batch_size, [=] __device__(int bid) {
                        d_grad[N * bid + i] =
-                         (d_ll_pos[bid] - d_ll_neg[bid]) / (2.0 * h);
+                         (d_ll_pert[bid] - d_ll_base[bid]) / h;
                      });
 
     // Reset the i-th parameter
