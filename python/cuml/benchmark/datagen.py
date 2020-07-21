@@ -56,8 +56,7 @@ def _gen_data_regression(n_samples, n_features, random_state=42):
     if n_features == 0:
         n_features = 100
     X_arr, y_arr = sklearn.datasets.make_regression(
-        n_samples, n_features, random_state=random_state
-    )
+        n_samples=n_samples, n_features=n_features, random_state=random_state)
     return (
         pd.DataFrame(X_arr.astype(np.float32)),
         pd.Series(y_arr.astype(np.float32)),
@@ -71,8 +70,8 @@ def _gen_data_blobs(n_samples, n_features, random_state=42, centers=None):
     if n_features == 0:
         n_samples = 100
     X_arr, y_arr = sklearn.datasets.make_blobs(
-        n_samples, n_features, centers=centers, random_state=random_state
-    )
+        n_samples=n_samples, n_features=n_features, centers=centers,
+        random_state=random_state)
     return (
         pd.DataFrame(X_arr.astype(np.float32)),
         pd.Series(y_arr.astype(np.float32)),
@@ -97,8 +96,8 @@ def _gen_data_classification(
         n_samples = 100
 
     X_arr, y_arr = sklearn.datasets.make_classification(
-        n_samples, n_features, n_classes, random_state=random_state
-    )
+        n_samples=n_samples, n_features=n_features, n_classes=n_classes,
+        random_state=random_state)
 
     return (
         pd.DataFrame(X_arr.astype(np.float32)),

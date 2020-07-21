@@ -47,12 +47,10 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
-      "nvstrings=${MINOR_VERSION}" \
       "libcumlprims=${MINOR_VERSION}" \
       "lapack" \
       "cmake==3.14.3" \
       "umap-learn" \
-      "protobuf>=3.4.1,<4.0.0" \
       "nccl>=2.5" \
       "dask>=2.12.0" \
       "distributed>=2.12.0" \
@@ -60,7 +58,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
       "statsmodels" \
-      "xgboost====1.0.2dev.rapidsai0.13" \
+      "xgboost==1.1.0dev.rapidsai0.15" \
       "lightgbm"
 
 logger "Check versions..."

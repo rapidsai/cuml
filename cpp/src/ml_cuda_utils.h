@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <common/cudart_utils.h>
 #include <cuda_runtime.h>
 
-#pragma once
-
 namespace ML {
 
-int get_device(const void *ptr) {
+inline int get_device(const void *ptr) {
   cudaPointerAttributes att;
   cudaPointerGetAttributes(&att, ptr);
   return att.device;
 }
 
-cudaMemoryType memory_type(const void *p) {
+inline cudaMemoryType memory_type(const void *p) {
   cudaPointerAttributes att;
   cudaError_t err = cudaPointerGetAttributes(&att, p);
   ASSERT(err == cudaSuccess || err == cudaErrorInvalidValue, "%s",
