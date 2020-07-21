@@ -226,7 +226,7 @@ class LogisticRegression(Base, ClassifierMixin):
 
         loss = "sigmoid"
 
-        self.qn = QN(
+        self._solve = QN(
             loss=loss,
             fit_intercept=self.fit_intercept,
             l1_strength=l1_strength,
@@ -267,7 +267,7 @@ class LogisticRegression(Base, ClassifierMixin):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
-        self.qn._set_target_dtype(y)
+        self._solve._set_target_dtype(y)
         self._set_output_type(X)
         self._set_n_features_in(X)
 
@@ -287,12 +287,12 @@ class LogisticRegression(Base, ClassifierMixin):
         if logger.should_log_for(logger.level_debug):
             logger.debug(self.verb_prefix + "Setting loss to " + str(loss))
 
-        self.qn.loss = loss
+        self._solve.loss = loss
 
         if logger.should_log_for(logger.level_debug):
             logger.debug(self.verb_prefix + "Calling QN fit " + str(loss))
 
-        self.qn.fit(X, y_m, convert_dtype=convert_dtype)
+        self._solve.fit(X, y_m, convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
         if logger.should_log_for(logger.level_debug):
@@ -301,10 +301,10 @@ class LogisticRegression(Base, ClassifierMixin):
             )
 
         if self.fit_intercept:
-            self.coef_ = self.qn.coef_[0:-1]
-            self.intercept_ = self.qn.coef_[-1]
+            self.coef_ = self._solve.coef_[0:-1]
+            self.intercept_ = self._solve.coef_[-1]
         else:
-            self.coef_ = self.qn.coef_
+            self.coef_ = self._solve.coef_
 
         if logger.should_log_for(logger.level_trace):
             logger.trace(self.verb_prefix + "Coefficients: " +
@@ -339,7 +339,7 @@ class LogisticRegression(Base, ClassifierMixin):
         y: array-like (device)
            Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
-        return self.qn._decision_function(X, convert_dtype=convert_dtype)
+        return self._solve._decision_function(X, convert_dtype=convert_dtype)
 
     def predict(self, X, convert_dtype=False):
         """
@@ -362,7 +362,7 @@ class LogisticRegression(Base, ClassifierMixin):
         y : (same as the input datatype)
             Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
-        return self.qn.predict(X, convert_dtype=convert_dtype)
+        return self._solve.predict(X, convert_dtype=convert_dtype)
 
     @with_cupy_rmm
     def predict_proba(self, X, convert_dtype=False):
@@ -427,9 +427,9 @@ class LogisticRegression(Base, ClassifierMixin):
         # qn solver due to https://github.com/rapidsai/cuml/issues/2404
         X_m, _, _, self.dtype = input_to_cuml_array(
             X,
-            check_dtype=self.qn.dtype,
-            convert_to_dtype=(self.qn.dtype if convert_dtype else None),
-            check_cols=self.qn.n_cols,
+            check_dtype=self._solve.dtype,
+            convert_to_dtype=(self._solve.dtype if convert_dtype else None),
+            check_cols=self._solve.n_cols,
         )
 
         scores = cp.asarray(
@@ -461,7 +461,7 @@ class LogisticRegression(Base, ClassifierMixin):
             "max_iter",
             "linesearch_max_iter",
             "l1_ratio",
-            "solver",
+            "solver"
         ]
 
     def __getstate__(self):
