@@ -96,6 +96,7 @@
 - PR #2569: Fix for cuDF update
 - PR #2508: Use keyword parameters in sklearn.datasets.make_* functions
 - PR #2574: Fixing include path in `tsvd_mg.pyx`
+- PR #2578: Adjust cuml.dask kmeans score test margin to avoid failures
 
 # cuML 0.14.0 (03 Jun 2020)
 
