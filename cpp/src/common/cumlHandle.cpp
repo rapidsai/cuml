@@ -34,8 +34,8 @@ int cumlHandle::getDefaultNumInternalStreams() {
 
 cumlHandle::cumlHandle(int n_streams) : _impl(new cumlHandle_impl(n_streams)) {}
 cumlHandle::cumlHandle() : _impl(new cumlHandle_impl()) {}
-cumlHandle_impl(raft::handle_t* raftHandle) {
-  _impl = std::unique_ptr<cumlHandle_impl>(raftHandle);
+cumlHandle::cumlHandle(raft::handle_t* raftHandle) {
+  _impl = std::unique_ptr<cumlHandle_impl>(dynamic_cast<cumlHandle_impl*>(raftHandle));
 }
 cumlHandle::~cumlHandle() {}
 
@@ -147,6 +147,15 @@ cumlError_t HandleMap::removeAndDestroyHandle(cumlHandle_t handle) {
     status = CUML_ERROR_UNKNOWN;
   }
   return status;
+}
+
+namespace detail {
+
+streamSyncer::streamSyncer(const cumlHandle_impl& handle) : _handle(handle) {
+  _handle.waitOnUserStream();
+}
+streamSyncer::~streamSyncer() { _handle.waitOnInternalStreams(); }
+
 }
 
 }  // end namespace ML

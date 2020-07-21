@@ -33,6 +33,7 @@ namespace ML {
 
 using MLCommon::deviceAllocator;
 using MLCommon::hostAllocator;
+using MLCommon::raftHostAllocatorAdapter;
 
 /**
  * @todo: Add doxygen documentation
@@ -43,30 +44,38 @@ class cumlHandle_impl : raft::handle_t {
     : raft::handle_t(n_streams) { }
   ~cumlHandle_impl() { }
 
-  int cumlHandle_impl::getDevice() const { return raft::handle_t::get_device(); }
+  int getDevice() const { return raft::handle_t::get_device(); }
 
-  void cumlHandle_impl::setStream(cudaStream_t stream) { raft::handle_t::set_stream(stream); }
+  void setStream(cudaStream_t stream) { raft::handle_t::set_stream(stream); }
 
-  cudaStream_t cumlHandle_impl::getStream() const { return raft::handle_t::get_stream(stream); }
+  cudaStream_t getStream() const { return raft::handle_t::get_stream(); }
 
-  const cudaDeviceProp& cumlHandle_impl::getDeviceProperties() const {
+  const cudaDeviceProp& getDeviceProperties() const {
     return raft::handle_t::get_device_properties();
   }
 
   void setDeviceAllocator(std::shared_ptr<deviceAllocator> allocator) {
-    raft::handle_t::set_device_allocator(allocator);
+    raft::handle_t::set_device_allocator(allocator->getRaftDeviceAllocator());
   }
 
   std::shared_ptr<deviceAllocator> getDeviceAllocator() const {
-    return dynamic_pointer_cast<raftAllocatorAdapter>(raft::handle_t::get_device_allocator());
+    if(!_deviceAllocatorInitialized) {
+      _deviceAllocator = std::make_shared<raftDeviceAllocatorAdapter>(raft::handle_t::get_device_allocator());
+      _deviceAllocatorInitialized = true;
+    }
+    return _deviceAllocator;
   }
 
   void setHostAllocator(std::shared_ptr<hostAllocator> allocator) {
-    raft::handle_t::set_host_allocator(allocator);
+    raft::handle_t::set_device_allocator(allocator->getRaftHostAllocator());
   }
 
   std::shared_ptr<hostAllocator> getHostAllocator() const {
-    return dynamic_pointer_cast<raftHostAllocatorAdapter>(raft::handle_t::get_host_allocator());
+    if(!_hostAllocatorInitialized) {
+      _hostAllocator = std::make_shared<raftHostAllocatorAdapter>(raft::handle_t::get_host_allocator());
+      _hostAllocatorInitialized = true;
+    }
+    return _hostAllocator;
   }
 
   cublasHandle_t getCublasHandle() const {
@@ -110,16 +119,19 @@ class cumlHandle_impl : raft::handle_t {
   }
 
   const MLCommon::cumlCommunicator& getCommunicator() const {
-    return dynamic_cast<const cumlCommunicator&>(raft::handle_t::get_comms());
+    return dynamic_cast<const MLCommon::cumlCommunicator&>(raft::handle_t::get_comms());
   }
 
   bool commsInitialized() const {
     return raft::handle_t::comms_initialized();
   }
 
-  const cudaDeviceProp& getDeviceProperties() const {
-    return raft::handle_t::get_device_properties();
-  }
+  private:
+    bool _hostAllocatorInitialized = false;
+    bool _deviceAllocatorInitialized = false;
+
+    std::shared_ptr<deviceAllocator> _deviceAllocator;
+    std::shared_ptr<hostAllocator> _hostAllocator
 
 };
 

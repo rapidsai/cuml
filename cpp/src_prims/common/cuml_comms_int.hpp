@@ -61,7 +61,7 @@ class cumlCommunicator : public raft::comms::comms_t {
   }
 
   cumlCommunicator() = delete;
-  cumlCommunicator(std::unique_ptr<cumlCommunicator_iface> impl);
+//   cumlCommunicator(std::unique_ptr<cumlCommunicator_iface> impl);
 
   /**
      * Returns the size of the group associated with the underlying communicator.

@@ -164,19 +164,29 @@ class defaultHostAllocator : public hostAllocator {
   virtual ~defaultHostAllocator() {}
 };
 
-class raftHostAllocatorAdapter : public hostAllocator, raft::mr::host::default_allocator {
+class raftHostAllocatorAdapter : public hostAllocator {
   public:
-    raftHostAllocatorAdapter() {}
+    raftHostAllocatorAdapter(std::shared_ptr<raft::mr::host::allocator> raftAllocator) : _raftAllocator(raftAllocator) {}
+    raftHostAllocatorAdapter() {
+    _raftAllocator = std::make_unique<raft::mr::host::default_allocator>();
+    }
 
     virtual void* allocate(std::size_t n, cudaStream_t stream) {
-      return raft::mr::host::default_allocator::allocate(n, stream);
+      return _raftAllocator::allocate(n, stream);
     }
 
     virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) {
-      raft::mr::host::default_allocator::deallocate(p, n, stream);
+      _raftAllocator::deallocate(p, n, stream);
+    }
+
+    std::shared_ptr<raft::mr::host::allocator> getRaftHostAllocator() {
+      return _raftAllocator;
     }
 
     virtual ~raftHostAllocatorAdapter() {}
-}
+
+  private:
+    std::shared_ptr<raft::mr::host::allocator> _raftAllocator;
+};
 
 };  // end namespace MLCommon

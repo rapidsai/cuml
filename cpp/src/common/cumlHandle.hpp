@@ -74,6 +74,8 @@ class HandleMap {
 /// Static handle map instance (see cumlHandle.cpp)
 extern HandleMap handleMap;
 
+class cumlHandle_impl;
+
 namespace detail {
 
 /**
@@ -81,10 +83,8 @@ namespace detail {
  */
 class streamSyncer {
  public:
-  streamSyncer(const cumlHandle_impl& handle) : _handle(handle) {
-    _handle.waitOnUserStream();
-  }
-  ~streamSyncer() { _handle.waitOnInternalStreams(); }
+  streamSyncer(const cumlHandle_impl& handle);
+  ~streamSyncer();
 
   streamSyncer(const streamSyncer& other) = delete;
   streamSyncer& operator=(const streamSyncer& other) = delete;
