@@ -119,12 +119,12 @@ def train_test_split(
     #
     if y is not None:
         if not hasattr(X, "__cuda_array_interface__") and not \
-                isinstance(X, cudf.DataFrame) and isinstance(y, cudf.Series):
+                isinstance(X, cudf.DataFrame):
             raise TypeError("X needs to be either a cuDF DataFrame, Series or \
                             a cuda_array_interface compliant array.")
 
         if not hasattr(y, "__cuda_array_interface__") and not \
-                isinstance(y, cudf.DataFrame) and isinstance(y, cudf.Series):
+                isinstance(y, cudf.DataFrame):
             raise TypeError("y needs to be either a cuDF DataFrame, Series or \
                             a cuda_array_interface compliant array.")
 
@@ -137,7 +137,7 @@ def train_test_split(
         if not hasattr(X, "__cuda_array_interface__") and not \
                 isinstance(X, cudf.DataFrame):
             raise TypeError("X needs to be either a cuDF DataFrame, Series or \
-                            a cuda_array_interface compliant array.")
+                            a cuda_array_interface compliant object.")
 
     if isinstance(train_size, float):
         if not 0 <= train_size <= 1:
