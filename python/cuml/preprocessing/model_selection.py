@@ -168,8 +168,7 @@ def train_test_split(
             )
 
     x_numba = cuda.devicearray.is_cuda_ndarray(X)
-    if y is not None:
-        y_numba = cuda.devicearray.is_cuda_ndarray(y)
+    y_numba = cuda.devicearray.is_cuda_ndarray(y)
 
     if seed is not None:
         if random_state is None:
@@ -263,7 +262,7 @@ def train_test_split(
         X_train = cuda.as_cuda_array(X_train)
         X_test = cuda.as_cuda_array(X_test)
 
-    if y is not None and y_numba:
+    if y_numba:
         y_train = cuda.as_cuda_array(y_train)
         y_test = cuda.as_cuda_array(y_test)
 
