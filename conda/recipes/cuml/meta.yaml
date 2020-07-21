@@ -39,7 +39,7 @@ requirements:
     - cudf {{ minor_version }}
     - dask-cudf {{ minor_version }}
     - libcuml={{ version }}
-    - libcumlprims=0.15.0a200622
+    - libcumlprims=0.15.0a200720
     - treelite=0.92
     - cupy>=7,<8.0.0a0
     - nccl>=2.5
