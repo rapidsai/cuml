@@ -49,7 +49,8 @@ def test_split_dataframe(train_size):
     y_reconstructed = y_train.append(y_test).sort_values()
 
     assert all(X_reconstructed.reset_index(drop=True) == X)
-    assert all(y_reconstructed.reset_index(drop=True).values_host == y.values_host)
+    out = y_reconstructed.reset_index(drop=True).values_host == y.values_host
+    assert all(out)
 
 
 def test_split_column():
