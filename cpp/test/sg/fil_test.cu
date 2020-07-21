@@ -571,10 +571,17 @@ class TreeliteDenseFilTest : public TreeliteFilTest {
   }
 };
 
-class TreeliteSparseFilTest : public TreeliteFilTest {
+class TreeliteSparse16FilTest : public TreeliteFilTest {
  protected:
   void init_forest(fil::forest_t* pforest) override {
     init_forest_impl(pforest, fil::storage_type_t::SPARSE);
+  }
+};
+
+class TreeliteSparse8FilTest : public TreeliteFilTest {
+ protected:
+  void init_forest(fil::forest_t* pforest) override {
+    init_forest_impl(pforest, fil::storage_type_t::SPARSE8);
   }
 };
 
@@ -923,9 +930,14 @@ std::vector<FilTestParams> import_sparse_inputs = {
    42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::INT_CLASS_LABEL, 3},
 };
 
-TEST_P(TreeliteSparseFilTest, Import) { compare(); }
+TEST_P(TreeliteSparse16FilTest, Import) { compare(); }
 
-INSTANTIATE_TEST_CASE_P(FilTests, TreeliteSparseFilTest,
+INSTANTIATE_TEST_CASE_P(FilTests, TreeliteSparse16FilTest,
+                        testing::ValuesIn(import_sparse_inputs));
+
+TEST_P(TreeliteSparse8FilTest, Import) { compare(); }
+
+INSTANTIATE_TEST_CASE_P(FilTests, TreeliteSparse8FilTest,
                         testing::ValuesIn(import_sparse_inputs));
 
 // rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,
