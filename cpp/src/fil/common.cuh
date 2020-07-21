@@ -119,15 +119,14 @@ struct dense_storage {
 struct alignas(16) sparse_node16 : base_node, sparse_node16_extra_data {
   sparse_node16(sparse_node16_t node)
     : base_node(node), sparse_node16_extra_data(node) {}
-  sparse_node16(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
-              int left_index)
+  sparse_node16(val_t output, float thresh, int fid, bool def_left,
+                bool is_leaf, int left_index)
     : base_node(output, thresh, fid, def_left, is_leaf),
       sparse_node16_extra_data({.left_idx = left_index, .dummy = 0}) {}
   __host__ __device__ int left_index() const { return left_idx; }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_idx; }
 };
-
 
 /** sparse_node8 is a single 8-byte node in a sparse forest */
 struct alignas(8) sparse_node8 : base_node {
@@ -148,14 +147,14 @@ struct alignas(8) sparse_node8 : base_node {
   }
   sparse_node8(sparse_node8_t node) : base_node(node) {}
   sparse_node8(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
-              int left_index) {
+               int left_index) {
     if (is_leaf)
       val = output;
     else
       val.f = thresh;
     bits = fid | left_index << LEFT_OFFSET |
-      (def_left ? 1 : 0) << DEF_LEFT_OFFSET |
-      (is_leaf ? 1 : 0) << IS_LEAF_OFFSET;
+           (def_left ? 1 : 0) << DEF_LEFT_OFFSET |
+           (is_leaf ? 1 : 0) << IS_LEAF_OFFSET;
   }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_index(); }
