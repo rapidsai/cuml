@@ -507,8 +507,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
          "oversampling factor must be >= 0 (requested %f)",
          km_params.oversampling_factor);
 
-  ASSERT(is_device_or_managed_type(X),
-         "input data must be device accessible");
+  ASSERT(is_device_or_managed_type(X), "input data must be device accessible");
 
   Tensor<DataT, 2, IndexT> data((DataT *)X, {n_samples, n_features});
 
