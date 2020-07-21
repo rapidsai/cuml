@@ -311,6 +311,7 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUTLASS_DIR}/src/cutlass
   ${SPDLOG_DIR}/src/spdlog/include
   ${RAFT_DIR}/cpp/include)
+
 if(NOT CUB_IS_PART_OF_CTK)
   list(APPEND CUML_INCLUDE_DIRECTORIES ${CUB_DIR}/src/cub)
 endif(NOT CUB_IS_PART_OF_CTK)
@@ -334,9 +335,7 @@ if(ENABLE_CUMLPRIMS_MG)
 
   list(APPEND CUML_PRIVATE_LINK_LIBRARIES
        CUMLPRIMS_MG::CUMLPRIMS_MG)
-
 endif(ENABLE_CUMLPRIMS_MG)
->>>>>>> 8c602c05f6e0da5733efcae673f3e44fb79ab3fd
 
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
