@@ -15,12 +15,12 @@
 
 import pytest
 
-from cuml.common import input_to_cuml_array
-from sklearn.datasets import make_classification
-from cuml.thirdparty_adapters import to_output_type
+from cuml.datasets import make_classification
+from .thirdparty_adapters import to_output_type
 from numpy.testing import assert_allclose as np_assert_allclose
 
 import numpy as np
+import cupy as cp
 from cupy.sparse import csr_matrix as gpu_csr_matrix
 from cupy.sparse import csc_matrix as gpu_csc_matrix
 from scipy.sparse import csr_matrix as cpu_csr_matrix
@@ -32,78 +32,73 @@ def create_rand_clf():
                                  n_features=20,
                                  n_clusters_per_class=1,
                                  n_informative=12,
-                                 n_classes=5)
-    clf = np.asfortranarray(clf)
+                                 n_classes=5,
+                                 order='F')
     return clf
 
 
 def create_rand_integers():
-    randint = np.random.randint(30, size=(500, 20)).astype(np.float64)
-    randint = np.asfortranarray(randint)
+    randint = cp.random.randint(30, size=(500, 20)).astype(cp.float64)
+    randint = cp.asfortranarray(randint)
     return randint
 
 
-def sparsify(dataset):
-    random_loc = np.random.choice(dataset.size,
+def convert(dataset, conversion_format):
+    converted_dataset = to_output_type(dataset, conversion_format)
+    dataset = cp.asnumpy(dataset)
+    return dataset, converted_dataset
+
+
+def sparsify_and_convert(dataset, conversion_format):
+    random_loc = cp.random.choice(dataset.size,
                                   int(dataset.size * 0.3),
                                   replace=False)
     dataset.ravel()[random_loc] = 0
-    return cpu_csr_matrix(dataset)
+
+    if conversion_format == "scipy-csr":
+        dataset = cp.asnumpy(dataset)
+        converted_dataset = cpu_csr_matrix(dataset)
+    elif conversion_format == "scipy-csc":
+        dataset = cp.asnumpy(dataset)
+        converted_dataset = cpu_csc_matrix(dataset)
+    elif conversion_format == "cupy-csr":
+        converted_dataset = gpu_csr_matrix(dataset)
+        dataset = cp.asnumpy(dataset)
+    elif conversion_format == "cupy-csc":
+        converted_dataset = gpu_csc_matrix(dataset)
+        dataset = cp.asnumpy(dataset)
+    return cpu_csr_matrix(dataset), converted_dataset
 
 
 @pytest.fixture(scope="session",
                 params=["numpy", "dataframe", "cupy", "cudf", "numba"])
 def clf_dataset(request):
     clf = create_rand_clf()
-    cuml_array = input_to_cuml_array(clf)[0]
-    converted_clf = cuml_array.to_output(request.param)
-    return clf, converted_clf
+    return convert(clf, request.param)
 
 
 @pytest.fixture(scope="session",
                 params=["numpy", "dataframe", "cupy", "cudf", "numba"])
 def int_dataset(request):
     randint = create_rand_integers()
-    cuml_array = input_to_cuml_array(randint)[0]
-    converted_randint = cuml_array.to_output(request.param)
-    return randint, converted_randint
+    return convert(randint, request.param)
 
 
 @pytest.fixture(scope="session",
-                params=["numpy-csr", "numpy-csc", "cupy-csr", "cupy-csc"])
+                params=["scipy-csr", "scipy-csc", "cupy-csr", "cupy-csc"])
 def sparse_clf_dataset(request):
     clf = create_rand_clf()
-    clf = sparsify(clf)
-
-    if request.param == "numpy-csr":
-        converted_clf = cpu_csr_matrix(clf)
-    elif request.param == "numpy-csc":
-        converted_clf = cpu_csc_matrix(clf)
-    elif request.param == "cupy-csr":
-        converted_clf = gpu_csr_matrix(clf)
-    elif request.param == "cupy-csc":
-        converted_clf = gpu_csc_matrix(clf)
-    return clf, converted_clf
+    return sparsify_and_convert(clf, request.param)
 
 
 @pytest.fixture(scope="session",
-                params=["numpy-csr", "numpy-csc", "cupy-csr", "cupy-csc"])
+                params=["scipy-csr", "scipy-csc", "cupy-csr", "cupy-csc"])
 def sparse_int_dataset(request):
-    clf = create_rand_integers()
-    clf = sparsify(clf)
-
-    if request.param == "numpy-csr":
-        converted_clf = cpu_csr_matrix(clf)
-    elif request.param == "numpy-csc":
-        converted_clf = cpu_csc_matrix(clf)
-    elif request.param == "cupy-csr":
-        converted_clf = gpu_csr_matrix(clf)
-    elif request.param == "cupy-csc":
-        converted_clf = gpu_csc_matrix(clf)
-    return clf, converted_clf
+    randint = create_rand_integers()
+    return sparsify_and_convert(randint, request.param)
 
 
-def assert_allclose(actual, desired, rtol=1e-07, atol=0):
+def assert_allclose(actual, desired, rtol=1e-05, atol=1e-05):
     if not isinstance(actual, np.ndarray):
         actual = to_output_type(actual, 'numpy')
     if not isinstance(desired, np.ndarray):

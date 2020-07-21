@@ -40,7 +40,7 @@ numeric_types = [
 ]
 
 
-def check_sparse(array, accept_sparse, accept_large_sparse):
+def check_sparse(array, accept_sparse=False, accept_large_sparse=True):
     """Checks that the sparse array is valid
     Parameters
     ----------
@@ -61,58 +61,65 @@ def check_sparse(array, accept_sparse, accept_large_sparse):
     if accept_sparse is True:
         return
 
-    def sparse_error():
-        err_msg = "This algorithm does not support the sparse " + \
-                  "input in the current configuration."
-        raise ValueError(err_msg)
+    err_msg = "This algorithm does not support the sparse " + \
+              "input in the current configuration."
 
-    is_sparse = hasattr(array, 'format')
+    is_sparse = cpu_sparse.issparse(array) or gpu_sparse.issparse(array)
     if is_sparse:
         if accept_sparse is False:
-            sparse_error()
+            raise ValueError(err_msg)
 
         if not accept_large_sparse:
             if array.indices.dtype != cp.int32 or \
                array.indptr.dtype != cp.int32:
-                sparse_error()
+                raise ValueError(err_msg)
 
         if isinstance(accept_sparse, (tuple, list)):
             if array.format not in accept_sparse:
-                sparse_error()
+                raise ValueError(err_msg)
         elif array.format != accept_sparse:
-            sparse_error()
+            raise ValueError(err_msg)
 
 
-def check_dtype(array, dtypes):
+def check_dtype(array, dtypes='numeric'):
     """Checks that the input dtype is part of acceptable dtypes
     Parameters
     ----------
     array : object
         Input object to check / convert.
     dtype : string, type, list of types or None (default="numeric")
-        Data type of result.
+        Data type of result. If None, the dtype of the input is preserved.
+        If "numeric", dtype is preserved unless array.dtype is object.
+        If dtype is a list of types, conversion on the first type is only
+        performed if the dtype of the input is not in the list.
     Returns
     -------
-    Updated list of acceptable dtypes or raise error
+    dtype or raise error
     """
     if dtypes is None:
-        return dtypes
+        return array.dtype
 
-    # fp16 is not supported, so remove from the list of dtypes if present
+    if dtypes == 'numeric':
+        dtypes = numeric_types
+
     if isinstance(dtypes, (list, tuple)):
+        # fp16 is not supported, so remove from the list of dtypes if present
         dtypes = [d for d in dtypes if d != np.float16]
+
+        if not isinstance(array, cuDataFrame):
+            if array.dtype not in dtypes:
+                raise ValueError("Wrong dtype : {}".format(array.dtype))
+        elif any([dt not in dtypes for dt in array.dtypes.tolist()]):
+            raise ValueError("Wrong dtype : {}".format(array.dtype))
+        return array.dtype
     elif dtypes == np.float16:
         raise NotImplementedError("Float16 not supported by cuML")
-
-    if not isinstance(array, cuDataFrame):
-        if array.dtype not in dtypes:
-            raise ValueError("Wrong dtype")
-    elif any([dt not in dtypes for dt in array.dtypes.tolist()]):
-        raise ValueError("Wrong dtype")
-    return dtypes
+    else:
+        # Single dtype to convert to
+        return dtypes
 
 
-def check_finite(array, force_all_finite):
+def check_finite(array, force_all_finite=True):
     """Checks that the input is finite if necessary
     Parameters
     ----------
@@ -128,7 +135,7 @@ def check_finite(array, force_all_finite):
            ``force_all_finite`` accepts the string ``'allow-nan'``.
     Returns
     -------
-    Updated list of acceptable dtypes or raise error
+    None or raise error
     """
     if force_all_finite is True:
         if not cp.all(cp.isfinite(array)):
@@ -139,7 +146,7 @@ def check_finite(array, force_all_finite):
 
 
 def check_array(array, accept_sparse=False, accept_large_sparse=True,
-                dtype=numeric_types, order=None, copy=False,
+                dtype='numeric', order=None, copy=False,
                 force_all_finite=True, ensure_2d=True, allow_nd=False,
                 ensure_min_samples=1, ensure_min_features=1,
                 warn_on_dtype=None, estimator=None):
@@ -230,7 +237,7 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
         if array.shape[0] < ensure_min_samples:
             raise ValueError("Not enough samples")
 
-    is_sparse = hasattr(array, 'format')
+    is_sparse = cpu_sparse.issparse(array) or gpu_sparse.issparse(array)
     if is_sparse:
         check_sparse(array, accept_sparse, accept_large_sparse)
         if array.format == 'csr':
@@ -247,7 +254,7 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
         X, n_rows, n_cols, dtype = input_to_cuml_array(array,
                                                        order=order,
                                                        deepcopy=copy,
-                                                       check_dtype=dtype)
+                                                       dtype=dtype)
         X = X.to_output('cupy')
         check_finite(X, force_all_finite)
         return X
@@ -271,9 +278,9 @@ def get_input_type(input):
     elif numbaArray.is_cuda_ndarray(input):
         return 'numba'
     elif isinstance(input, cpu_sparse.csr_matrix):
-        return 'numpy_csr'
+        return 'scipy_csr'
     elif isinstance(input, cpu_sparse.csc_matrix):
-        return 'numpy_csc'
+        return 'scipy_csc'
     elif isinstance(input, gpu_sparse.csr_matrix):
         return 'cupy_csr'
     elif isinstance(input, gpu_sparse.csc_matrix):
@@ -283,9 +290,9 @@ def get_input_type(input):
 
 
 def to_output_type(array, output_type, order='F'):
-    if output_type == 'numpy_csr':
+    if output_type == 'scipy_csr':
         return cpu_sparse.csr_matrix(array.get())
-    if output_type == 'numpy_csc':
+    if output_type == 'scipy_csc':
         return cpu_sparse.csc_matrix(array.get())
     if output_type == 'cupy_csr':
         if array.format == 'csc':
