@@ -119,7 +119,7 @@ def check_probabilities(l_probas, d_probas):
 @pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
 @pytest.mark.parametrize("n_neighbors", [1, 3, 6])
 @pytest.mark.parametrize("n_parts", [None, 2, 3, 5])
-@pytest.mark.parametrize("batch_size", [128, 512, 1024])
+@pytest.mark.parametrize("batch_size", [256, 512, 1024])
 def test_predict(dataset, datatype, n_neighbors, n_parts, batch_size, client):
     X_train, X_test, y_train, y_test = dataset
 
