@@ -41,7 +41,6 @@ from cuml.tsa.stationarity import kpss_test
 
 # TODO:
 # - Box-Cox transformations? (parameter lambda)
-# - integrate cuML logging system
 # - Would a "one-fits-all" method be useful?
 
 

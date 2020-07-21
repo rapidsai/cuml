@@ -86,7 +86,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   std::vector<double> loglike = std::vector<double>(batch_size);
   /// TODO: use device loglike to avoid useless copy ; part of #2233
   batched_loglike(handle, d_y_kf, batch_size, n_obs_kf, order_after_prep,
-                  params, loglike.data(), d_vs, false, true, MLE, pre_diff, 0,
+                  params, loglike.data(), d_vs, false, true, MLE, diff, 0,
                   num_steps, d_y_fc, level, d_lower, d_upper);
 
   auto counting = thrust::make_counting_iterator(0);
