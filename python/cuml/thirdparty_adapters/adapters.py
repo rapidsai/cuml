@@ -97,7 +97,10 @@ def check_dtype(array, dtypes='numeric'):
     dtype or raise error
     """
     if dtypes is None:
-        return array.dtype
+        if not isinstance(array, cuDataFrame):
+            return array.dtype
+        else:
+            return array.dtypes.tolist()[0]
 
     if dtypes == 'numeric':
         dtypes = numeric_types
@@ -110,8 +113,11 @@ def check_dtype(array, dtypes='numeric'):
             if array.dtype not in dtypes:
                 raise ValueError("Wrong dtype : {}".format(array.dtype))
         elif any([dt not in dtypes for dt in array.dtypes.tolist()]):
-            raise ValueError("Wrong dtype : {}".format(array.dtype))
-        return array.dtype
+            raise ValueError("Wrong dtype : {}".format(array.dtypes.tolist()))
+        if not isinstance(array, cuDataFrame):
+            return array.dtype
+        else:
+            return array.dtypes.tolist()[0]
     elif dtypes == np.float16:
         raise NotImplementedError("Float16 not supported by cuML")
     else:
@@ -253,9 +259,8 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
     else:
         X, n_rows, n_cols, dtype = input_to_cuml_array(array,
                                                        order=order,
-                                                       deepcopy=copy,
-                                                       dtype=dtype)
-        X = X.to_output('cupy')
+                                                       deepcopy=copy)
+        X = X.to_output('cupy').astype(dtype)
         check_finite(X, force_all_finite)
         return X
 

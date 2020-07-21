@@ -204,7 +204,7 @@ def csr_polynomial_expansion(X, interaction_only, degree):
     expanded_indptr[0] = X.indptr[0]
     expanded_indptr[1:] = nnz_cumsum
 
-    tpb = (64, 64)
+    tpb = (32, 32)
     bpg_x = ceil(X.indptr.shape[0] / tpb[0])
     bpg_y = ceil(total_nnz_max / tpb[1])
     bpg = (bpg_x, bpg_y)
