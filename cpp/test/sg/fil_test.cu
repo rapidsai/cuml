@@ -99,7 +99,8 @@ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
 class BaseFilTest : public testing::TestWithParam<FilTestParams> {
  protected:
-  void SetUp() override {
+
+  void setup_helper() {
     // setup
     ps = testing::TestWithParam<FilTestParams>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -110,6 +111,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     predict_on_cpu();
     predict_on_gpu();
   }
+  
+  void SetUp() override { setup_helper(); }
 
   void TearDown() override {
     CUDA_CHECK(cudaFree(preds_d));
@@ -592,6 +595,17 @@ class TreeliteAutoFilTest : public TreeliteFilTest {
   }
 };
 
+// test for failures; currently only supported for sparse8 nodes
+class TreeliteThrowSparse8FilTest : public TreeliteSparse8FilTest {
+ protected:
+  // model import happens in check(), so this function is empty
+  void SetUp() override {}
+
+  void check() {
+    ASSERT_THROW(setup_helper(), MLCommon::Exception);
+  }
+};
+
 // rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,
 // global_bias, algo, seed, tolerance, branch comparison operator, FIL implementation, number of classes
 std::vector<FilTestParams> predict_dense_inputs = {
@@ -969,5 +983,24 @@ TEST_P(TreeliteAutoFilTest, Import) { compare(); }
 
 INSTANTIATE_TEST_CASE_P(FilTests, TreeliteAutoFilTest,
                         testing::ValuesIn(import_auto_inputs));
+
+
+// rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,
+// global_bias, algo, seed, tolerance, branch comparison operator,
+// FIL implementation, number of classes
+// adjust test parameters if the sparse8 format changes
+std::vector<FilTestParams> import_throw_sparse8_inputs = {
+  // to many features
+  {100, 20000, 0.05, 10, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
+   42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::FLOAT_SCALAR, 0},
+  // too many tree nodes
+  {20000, 50, 0.05, 16, 5, 0, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE, 42,
+   2e-3f, tl::Operator::kLT, fil::leaf_value_t::FLOAT_SCALAR, 0},
+};
+
+TEST_P(TreeliteThrowSparse8FilTest, Import) { check(); }
+
+INSTANTIATE_TEST_CASE_P(FilTests, TreeliteThrowSparse8FilTest,
+                        testing::ValuesIn(import_throw_sparse8_inputs));
 
 }  // namespace ML
