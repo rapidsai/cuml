@@ -35,7 +35,6 @@ GPU arrays directly instead.
 """
 
 import cudf
-import cupy as cp
 import gzip
 import functools
 import numpy as np
