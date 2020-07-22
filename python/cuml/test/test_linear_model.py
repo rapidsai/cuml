@@ -401,11 +401,12 @@ def test_logistic_regression_input_type_consistency(constructor, dtype):
     assert isinstance(clf.predict_proba(X), original_type)
     assert isinstance(clf.predict(X), original_type)
 
+
 def test_logistic_regression_attributes():
     X = cudf.DataFrame([[5, 10], [3, 1], [7, 8]]).astype("float32")
     y = cudf.DataFrame([0, 1, 1]).astype("float32")
     clf = cuLog().fit(X, y, convert_dtype=True)
-    
+
     assert hasattr(clf, "dtype")
     assert hasattr(clf, "n_cols")
     assert hasattr(clf, "C")
