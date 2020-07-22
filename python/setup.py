@@ -127,8 +127,6 @@ include_dirs = ['../cpp/src',
                 '../cpp/include',
                 '../cpp/src_prims',
                 raft_include_dir,
-                '../cpp/comms/std/src',
-                '../cpp/comms/std/include',
                 cuda_include_dir,
                 numpy.get_include(),
                 os.path.dirname(sysconfig.get_path("include"))]
@@ -146,8 +144,8 @@ if "--multigpu" in sys.argv:
 if "--singlegpu" in sys.argv:
     cython_exc_list = glob.glob('cuml/*/*_mg.pyx')
     cython_exc_list = cython_exc_list + glob.glob('cuml/*/*_mg.pxd')
-    cython_exc_list.append('cuml/nccl/nccl.pyx')
-    cython_exc_list.append('cuml/dask/common/comms_utils.pyx')
+    cython_exc_list.append('cuml/raft/dask/common/nccl.pyx')
+    cython_exc_list.append('cuml/raft/dask/common/comms_utils.pyx')
 
     print('--singlegpu: excluding the following Cython components:')
     pprint(cython_exc_list)
@@ -155,7 +153,6 @@ if "--singlegpu" in sys.argv:
     python_exc_list = ["*.dask", "*.dask.*"]
 else:
     libs.append('cumlprims')
-    libs.append('cumlcomms')
     libs.append('nccl')
 
     sys_include = os.path.dirname(sysconfig.get_path("include"))

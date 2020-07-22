@@ -25,15 +25,6 @@ from libcpp.memory cimport shared_ptr
 from cuml.common.cuda cimport _Stream, _Error, cudaStreamSynchronize
 
 
-cdef extern from "cuml/common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
-    cdef cppclass rmmAllocatorAdapter(deviceAllocator):
-        pass
-
-cdef extern from "cuml/common/rmmPoolAllocatorAdapter.hpp" namespace "ML" \
-        nogil:
-    cdef cppclass rmmPoolAllocatorAdapter(rmmAllocatorAdapter):
-        pass
-
 cdef class Handle:
     """
     Handle is a lightweight python wrapper around the corresponding C++ class
@@ -68,23 +59,25 @@ cdef class Handle:
     # possible
     cdef int n_streams
 
-    def __cinit__(self, n_streams=0):
+    def init_with_raft_handle(self, raftHandle):
+        cdef size_t raftHandle_h = <size_t> raftHandle.getHandle()
+        cdef handle_t* raftHandle_ptr = <handle_t*> raftHandle_h
+        self.h = <size_t>(new cumlHandle(raftHandle_ptr))
+
+    def init_with_n_streams(self, n_streams):
+        self.h = <size_t>(new cumlHandle(<int>n_streams))
+
+    def __cinit__(self, n_streams=0, raftHandle=None):
         self.n_streams = n_streams
-        self.h = <size_t>(new cumlHandle(n_streams))
-        cdef shared_ptr[deviceAllocator] rmmAlloc = (
-            shared_ptr[deviceAllocator](new rmmAllocatorAdapter()))
-        cdef cumlHandle* h_ = <cumlHandle*>self.h
-        h_.setDeviceAllocator(rmmAlloc)
+
+        if raftHandle:
+            self.init_with_raft_handle(raftHandle)
+        else:
+            self.init_with_n_streams(n_streams)
 
     def __dealloc__(self):
         h_ = <cumlHandle*>self.h
         del h_
-
-    def enable_rmm_pool(self):
-        cdef shared_ptr[deviceAllocator] rmmPoolAlloc = (
-            shared_ptr[deviceAllocator](new rmmPoolAllocatorAdapter()))
-        cdef cumlHandle* h_ = <cumlHandle*>self.h
-        h_.setDeviceAllocator(rmmPoolAlloc)
 
     def setStream(self, stream):
         cdef size_t s = <size_t>stream.getStream()

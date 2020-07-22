@@ -34,16 +34,12 @@
 
 #include <common/cuml_comms_int.hpp>
 
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/common/raftAllocatorAdapter.hpp>
-
 #include <raft/handle.hpp>
 
 namespace ML {
 
 using MLCommon::deviceAllocator;
 using MLCommon::hostAllocator;
-using MLCommon::raftHostAllocatorAdapter;
 
 /**
  * @todo: Add doxygen documentation
@@ -82,11 +78,9 @@ class cumlHandle_impl : raft::handle_t {
   const cudaDeviceProp& getDeviceProperties() const;
 
  private:
-  mutable bool _hostAllocatorInitialized = false;
-  mutable bool _deviceAllocatorInitialized = false;
 
-  mutable std::shared_ptr<deviceAllocator> _deviceAllocator;
-  mutable std::shared_ptr<hostAllocator> _hostAllocator;
+  std::shared_ptr<deviceAllocator> _deviceAllocator;
+  std::shared_ptr<hostAllocator> _hostAllocator;
 };
 
 /**

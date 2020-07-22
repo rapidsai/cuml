@@ -100,7 +100,13 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc,
               std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
               bool fit_intercept, bool normalize, int algo, bool verbose) {
+  std::cout << "I AM HERE" << std::endl; 
+  std::cout << handle.getImpl().getDevice() << std::endl;
+  std::cout << "got impl" << std::endl;
+  // std::cout << handle.getImpl().commsInitialized() << std::endl;
+  // auto& tmp_comms = handle.getImpl().getCommunicator();
   int rank = handle.getImpl().getCommunicator().getRank();
+  std::cout << rank << std::endl;
 
   // TODO: These streams should come from cumlHandle
 

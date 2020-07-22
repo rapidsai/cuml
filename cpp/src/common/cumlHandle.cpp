@@ -22,6 +22,8 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
 
+#include <cuml/common/raftAllocatorAdapter.hpp>
+
 namespace ML {
 
 using MLCommon::deviceAllocator;
@@ -36,6 +38,7 @@ cumlHandle::cumlHandle() : _impl(new cumlHandle_impl()) {}
 cumlHandle::cumlHandle(raft::handle_t* raftHandle) {
   _impl = std::unique_ptr<cumlHandle_impl>(
     dynamic_cast<cumlHandle_impl*>(raftHandle));
+    std::cout << "cumlHandle with raft handle initialized" << std::endl;
 }
 cumlHandle::~cumlHandle() {}
 
@@ -75,93 +78,89 @@ const cumlHandle_impl& cumlHandle::getImpl() const { return *_impl.get(); }
 cumlHandle_impl& cumlHandle::getImpl() { return *_impl.get(); }
 
 cumlHandle_impl::cumlHandle_impl(int n_streams)
-    : raft::handle_t(n_streams) {}
-  cumlHandle_impl::~cumlHandle_impl() {}
+    : raft::handle_t(n_streams),
+      _hostAllocator(std::make_shared<defaultHostAllocator>()) {
+        _deviceAllocator = std::make_shared<raftDeviceAllocatorAdapter>(raft::handle_t::get_device_allocator());
+}
+cumlHandle_impl::~cumlHandle_impl() {}
 
-  int cumlHandle_impl::getDevice() const { return raft::handle_t::get_device(); }
+int cumlHandle_impl::getDevice() const { return raft::handle_t::get_device(); }
 
-  void cumlHandle_impl::setStream(cudaStream_t stream) { raft::handle_t::set_stream(stream); }
+void cumlHandle_impl::setStream(cudaStream_t stream) { raft::handle_t::set_stream(stream); }
 
-  cudaStream_t cumlHandle_impl::getStream() const { return raft::handle_t::get_stream(); }
+cudaStream_t cumlHandle_impl::getStream() const { return raft::handle_t::get_stream(); }
 
-  const cudaDeviceProp& cumlHandle_impl::getDeviceProperties() const {
-    return raft::handle_t::get_device_properties();
-  }
+const cudaDeviceProp& cumlHandle_impl::getDeviceProperties() const {
+  return raft::handle_t::get_device_properties();
+}
 
-  void cumlHandle_impl::setDeviceAllocator(std::shared_ptr<deviceAllocator> allocator) {
-    _deviceAllocator = allocator;
-    // raft::handle_t::set_device_allocator(
-    //   std::dynamic_pointer_cast<raftDeviceAllocatorAdapter>(allocator)
-    //     ->getRaftDeviceAllocator());
-  }
+void cumlHandle_impl::setDeviceAllocator(std::shared_ptr<deviceAllocator> allocator) {
+  _deviceAllocator = allocator;
+  // raft::handle_t::set_device_allocator(
+  //   std::dynamic_pointer_cast<raftDeviceAllocatorAdapter>(allocator)
+  //     ->getRaftDeviceAllocator());
+}
 
-  std::shared_ptr<deviceAllocator> cumlHandle_impl::getDeviceAllocator() const {
-    // if (!_deviceAllocatorInitialized) {
-    //   _deviceAllocatorInitialized = true;
-    // }
-    return _deviceAllocator;
-  }
+std::shared_ptr<deviceAllocator> cumlHandle_impl::getDeviceAllocator() const {
+  return _deviceAllocator;
+}
 
-  void cumlHandle_impl::setHostAllocator(std::shared_ptr<hostAllocator> allocator) {
-    _hostAllocator = allocator;
-    // raft::handle_t::set_host_allocator(
-    //   std::dynamic_pointer_cast<raftHostAllocatorAdapter>(allocator)
-    //     ->getRaftHostAllocator());
-  }
+void cumlHandle_impl::setHostAllocator(std::shared_ptr<hostAllocator> allocator) {
+  _hostAllocator = allocator;
+  // raft::handle_t::set_host_allocator(
+  //   std::dynamic_pointer_cast<raftHostAllocatorAdapter>(allocator)
+  //     ->getRaftHostAllocator());
+}
 
-  std::shared_ptr<hostAllocator> cumlHandle_impl::getHostAllocator() const {
-    // if (!_hostAllocatorInitialized) {
-    //   _hostAllocator = std::make_shared<raftHostAllocatorAdapter>(
-    //     raft::handle_t::get_host_allocator());
-    //   _hostAllocatorInitialized = true;
-    // }
-    return _hostAllocator;
-  }
+std::shared_ptr<hostAllocator> cumlHandle_impl::getHostAllocator() const {
+  return _hostAllocator;
+}
 
-  cublasHandle_t cumlHandle_impl::getCublasHandle() const {
-    return raft::handle_t::get_cublas_handle();
-  }
+cublasHandle_t cumlHandle_impl::getCublasHandle() const {
+  return raft::handle_t::get_cublas_handle();
+}
 
-  cusolverDnHandle_t cumlHandle_impl::getcusolverDnHandle() const {
-    return raft::handle_t::get_cusolver_dn_handle();
-  }
+cusolverDnHandle_t cumlHandle_impl::getcusolverDnHandle() const {
+  return raft::handle_t::get_cusolver_dn_handle();
+}
 
-  cusolverSpHandle_t cumlHandle_impl::getcusolverSpHandle() const {
-    return raft::handle_t::get_cusolver_sp_handle();
-  }
+cusolverSpHandle_t cumlHandle_impl::getcusolverSpHandle() const {
+  return raft::handle_t::get_cusolver_sp_handle();
+}
 
-  cusparseHandle_t cumlHandle_impl::getcusparseHandle() const {
-    return raft::handle_t::get_cusparse_handle();
-  }
+cusparseHandle_t cumlHandle_impl::getcusparseHandle() const {
+  return raft::handle_t::get_cusparse_handle();
+}
 
-  cudaStream_t cumlHandle_impl::getInternalStream(int sid) const {
-    return raft::handle_t::get_internal_stream(sid);
-  }
+cudaStream_t cumlHandle_impl::getInternalStream(int sid) const {
+  return raft::handle_t::get_internal_stream(sid);
+}
 
-  int cumlHandle_impl::getNumInternalStreams() const {
-    return raft::handle_t::get_num_internal_streams();
-  }
+int cumlHandle_impl::getNumInternalStreams() const {
+  return raft::handle_t::get_num_internal_streams();
+}
 
-  std::vector<cudaStream_t> cumlHandle_impl::getInternalStreams() const {
-    return raft::handle_t::get_internal_streams();
-  }
+std::vector<cudaStream_t> cumlHandle_impl::getInternalStreams() const {
+  return raft::handle_t::get_internal_streams();
+}
 
-  void cumlHandle_impl::waitOnUserStream() const { raft::handle_t::wait_on_user_stream(); }
-  void cumlHandle_impl::waitOnInternalStreams() const {
-    raft::handle_t::wait_on_internal_streams();
-  }
+void cumlHandle_impl::waitOnUserStream() const { raft::handle_t::wait_on_user_stream(); }
+void cumlHandle_impl::waitOnInternalStreams() const {
+  raft::handle_t::wait_on_internal_streams();
+}
 
-  void cumlHandle_impl::setCommunicator(
-    std::shared_ptr<MLCommon::cumlCommunicator> communicator) {
-    raft::handle_t::set_comms(communicator);
-  }
+void cumlHandle_impl::setCommunicator(
+  std::shared_ptr<MLCommon::cumlCommunicator> communicator) {
+  raft::handle_t::set_comms(communicator);
+}
 
-  const MLCommon::cumlCommunicator& cumlHandle_impl::getCommunicator() const {
-    return dynamic_cast<const MLCommon::cumlCommunicator&>(
-      raft::handle_t::get_comms());
-  }
+const MLCommon::cumlCommunicator& cumlHandle_impl::getCommunicator() const {
+  std::cout << "IN GET COMMUNICATOR" << std::endl;
+  return dynamic_cast<const MLCommon::cumlCommunicator&>(
+    raft::handle_t::get_comms());
+}
 
-  bool cumlHandle_impl::commsInitialized() const { return raft::handle_t::comms_initialized(); }
+bool cumlHandle_impl::commsInitialized() const { return raft::handle_t::comms_initialized(); }
 
 HandleMap handleMap;
 
