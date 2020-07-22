@@ -151,7 +151,6 @@ void batched_loglike_grad(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  end         Index to end the prediction (excluded)
  * @param[in]  order       ARIMA hyper-parameters
  * @param[in]  params      ARIMA parameters (device)
- * @param[out] d_vs        Residual output (device)
  * @param[out] d_y_p       Prediction output (device)
  * @param[in]  pre_diff    Whether to use pre-differencing
  * @param[in]  level       Confidence level for prediction intervals. 0 to
@@ -161,7 +160,7 @@ void batched_loglike_grad(cumlHandle& handle, const double* d_y, int batch_size,
  */
 void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
              int start, int end, const ARIMAOrder& order,
-             const ARIMAParams<double>& params, double* d_vs, double* d_y_p,
+             const ARIMAParams<double>& params, double* d_y_p,
              bool pre_diff = true, double level = 0, double* d_lower = nullptr,
              double* d_upper = nullptr);
 

@@ -49,8 +49,8 @@ void batched_diff(cumlHandle& handle, double* d_y_diff, const double* d_y,
 
 void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
              int start, int end, const ARIMAOrder& order,
-             const ARIMAParams<double>& params, double* d_vs, double* d_y_p,
-             bool pre_diff, double level, double* d_lower, double* d_upper) {
+             const ARIMAParams<double>& params, double* d_y_p, bool pre_diff,
+             double level, double* d_lower, double* d_upper) {
   ML::PUSH_RANGE(__func__);
   auto allocator = handle.getDeviceAllocator();
   const auto stream = handle.getStream();
@@ -75,6 +75,11 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
     n_obs_kf = n_obs;
     d_y_kf = d_y;
   }
+
+  // Create temporary array for the residuals
+  MLCommon::device_buffer<double> v_buffer(allocator, stream,
+                                           n_obs_kf * batch_size);
+  double* d_vs = v_buffer.data();
 
   // Create temporary array for the forecasts
   int num_steps = std::max(end - n_obs, 0);
