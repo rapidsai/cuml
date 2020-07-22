@@ -443,18 +443,19 @@ def _input_target_to_dtype(target):
         dtype = None
     return dtype
 
+
 def _determine_stateless_output_type(output_type, input_obj):
     """
     This function determines the output type using the same steps that are
     performed in `cuml.common.base.Base`. This can be used to mimic the
     functionality in `Base` for stateless functions or objects that do not
-    derive from `Base`. 
+    derive from `Base`.
     """
 
     # Default to the global type if not specified, otherwise, check the
     # output_type string
     temp_output = cuml.global_output_type if output_type is None \
-            else _check_output_type_str(output_type)
+        else _check_output_type_str(output_type)
 
     # If we are using 'input', determine the the type from the input object
     if temp_output == 'input':
