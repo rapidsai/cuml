@@ -120,3 +120,11 @@ def test_mbsgd_regressor_default(make_dataset):
                      convert_dtype=datatype)
 
     assert cu_r2 > 0.9
+
+def test_mbsgd_regressor_attributes(make_dataset):
+    nrows, datatype, X_train, X_test, y_train, y_test = make_dataset
+    clf = cumlMBSGRegressor()
+    clf.fit(X_train, y_train)
+    print (clf.get_params())
+    assert hasattr(clf, "dtype")
+    assert hasattr(clf, "solver_model")

@@ -121,3 +121,11 @@ def test_mbsgd_classifier_default(make_dataset):
     cu_acc = accuracy_score(cp.asnumpy(cu_pred), cp.asnumpy(y_test))
 
     assert cu_acc >= 0.69
+
+def test_mbsgd_classifier_attributes(make_dataset):
+    nrows, X_train, X_test, y_train, y_test = make_dataset
+    clf = cumlMBSGClassifier()
+    clf.fit(X_train, y_train)
+    print (clf.get_params())
+    assert hasattr(clf, "dtype")
+    assert hasattr(clf, "solver_model")
