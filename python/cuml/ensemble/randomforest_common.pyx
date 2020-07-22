@@ -241,10 +241,10 @@ class BaseRandomForestModel(Base):
             if y_dtype != np.int32:
                 raise TypeError("The labels `y` need to be of dtype"
                                 " `int32`")
-            unique_labels = rmm_cupy_ary(cp.unique, y_m)
+            self.classes_ = rmm_cupy_ary(cp.unique, y_m)
             self.num_classes = len(unique_labels)
             for i in range(self.num_classes):
-                if i not in unique_labels:
+                if i not in self.classes_:
                     raise ValueError("The labels need "
                                      "to be consecutive values from "
                                      "0 to the number of unique label values")
