@@ -95,7 +95,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
     }
   }
 
-  comm.bcast(ri_h, input_desc.N, MLCommon::cumlCommunicator::INT, 0,
+  comm.bcast(ri_h, input_desc.N, 0,
              streams[0]);
   comm.syncStream(streams[0]);
 
@@ -145,7 +145,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
         }
       }
 
-      comm.bcast(ri_h, input_desc.N, MLCommon::cumlCommunicator::INT, 0,
+      comm.bcast(ri_h, input_desc.N, 0,
                  streams[0]);
       comm.syncStream(streams[0]);
     }
