@@ -18,30 +18,32 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
-VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help "
+VALIDTARGETS="clean libcuml cpp-mgtests libcuml-c libcuml-samples cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
+VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --no-tests --nvtx --show_depr_warn -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
- where <target> is:
-   clean            - remove all existing build artifacts and configuration (start over)
-   libcuml          - build the cuml C++ code only. Also builds the C-wrapper library
-                      around the C++ code.
-   cuml             - build the cuml Python package
-   cpp-mgtests   - Build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
-   prims            - build the ML prims tests
-   bench            - build the cuml C++ benchmark
-   prims-bench      - build the ml-prims C++ benchmark
-   cppdocs          - build the C++ API doxygen documentation
-   pydocs           - build the general and Python API documentation
- and <flag> is:
-   -v               - verbose build mode
-   -g               - build for debug
-   -n               - no install step
-   --allgpuarch     - build for all supported GPU architectures
+ where <target> is one of:
+   clean            - Remove all existing build artifacts and configuration (start over)
+   libcuml          - Build the libcuml++ shared library
+   cpp-mgtests      - Build libcuml++ mnmg tests. Builds MPI communicator, adding MPI as dependency.
+   libcuml-c        - Build libcuml shared library. Contains the libcuml++ wrapper C API
+   libcuml-samples  - Build libcuml++ C++ API usage examples
+   cuml             - Build the cuml Python package
+   prims            - Build the ML prims tests
+   bench            - Build the cuml C++ benchmark
+   prims-bench      - Build the ml-prims C++ benchmark
+   cppdocs         - Build the C++ API doxygen documentation
+   pydocs          - Build the general and Python API documentation
+ and <flag> is one of:
+   -v               - Verbose build mode
+   -g               - Build for debug
+   -n               - No install step
+   --allgpuarch     - Build for all supported GPU architectures
    --singlegpu      - Build libcuml and cuml without multigpu components
+   --no-tests        - Disable building C++ tests for the libcuml++ target
    --nvtx           - Enable nvtx for profiling support
-   --show_depr_warn - show cmake deprecation warnings
-   -h               - print this text
+   --show_depr_warn - Show cmake deprecation warnings
+   -h               - Print this text
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 "
@@ -60,8 +62,16 @@ SINGLEGPU_PYTHON_FLAG=""
 NVTX=OFF
 CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
-BUILD_CUML_STD_COMMS=ON
-BUILD_CPP_MG_TESTS=OFF
+
+# C++/CMake build targets options
+BUILD_CUML_C_LIBRARY=OFF
+BUILD_CUML_TESTS=ON
+BUILD_CUML_MG_TESTS=OFF
+BUILD_PRIMS_TESTS=OFF
+BUILD_CUML_EXAMPLES=OFF
+BUILD_CUML_BENCH=OFF
+BUILD_CUML_PRIMS_BENCH=OFF
+
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -115,9 +125,7 @@ fi
 if hasArg --singlegpu; then
     SINGLEGPU_PYTHON_FLAG="--singlegpu"
     SINGLEGPU_CPP_FLAG=ON
-fi
-if hasArg cpp-mgtests; then
-    BUILD_CPP_MG_TESTS=ON
+    BUILD_CUML_MG_TESTS=OFF
 fi
 if hasArg --nvtx; then
     NVTX=ON
@@ -128,6 +136,31 @@ fi
 if hasArg clean; then
     CLEAN=1
 fi
+if completeBuild || hasArg libcuml || hasArg cpp-mgtests || hasArg libcuml-c || hasArg libcuml-samples; then
+   BUILD_CUML_CPP_LIBRARY=ON
+   if hasArg --notests; then
+      BUILD_CUML_TESTS=OFF
+  fi
+fi
+if completeBuild || hasArg libcuml-c; then
+    BUILD_CUML_C_LIBRARY=ON
+fi
+if completeBuild || hasArg prims; then
+    BUILD_PRIMS_TESTS=ON
+fi
+if completeBuild || hasArg libcuml-examples; then
+    BUILD_CUML_EXAMPLES=ON
+fi
+if hasArg cpp-mgtests; then
+    BUILD_CPP_MG_TESTS=ON
+fi
+if completeBuild || hasArg bench; then
+    BUILD_CUML_BENCH=ON
+fi
+if completeBuild || hasArg prims-bench; then
+    BUILD_CUML_PRIMS_BENCH=ON
+fi
+
 
 # If clean given, run it prior to any other steps
 if (( ${CLEAN} == 1 )); then
@@ -166,7 +199,13 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so.0 \
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-          -DBUILD_CUML_C_LIBRARY=ON \
+          -DBUILD_CUML_CPP_LIBRARY=${BUILD_CUML_CPP_LIBRARY} \
+          -DBUILD_CUML_C_LIBRARY=${BUILD_CUML_C_LIBRARY} \
+          -DBUILD_CUML_TESTS=${BUILD_CUML_TESTS} \
+          -DBUILD_PRIMS_TESTS=${BUILD_PRIMS_TESTS} \
+          -DBUILD_CUML_EXAMPLES=${BUILD_CUML_EXAMPLES} \
+          -DBUILD_CUML_BENCH=${BUILD_CUML_BENCH} \
+          -DBUILD_CUML_PRIMS_BENCH=${BUILD_CUML_PRIMS_BENCH} \
           -DSINGLEGPU=${SINGLEGPU_CPP_FLAG} \
           -DWITH_UCX=ON \
           -DBUILD_CUML_MPI_COMMS=${BUILD_CPP_MG_TESTS} \
@@ -183,7 +222,10 @@ fi
 
 MAKE_TARGETS=
 if hasArg libcuml; then
-    MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml ml"
+    MAKE_TARGETS="${MAKE_TARGETS} cub cutlass faiss raft spdlog cuml++ ${INSTALL_TARGET}"
+    if ! hasArg --no-tests; then
+        MAKE_TARGETS="${MAKE_TARGETS} ml"
+    fi
 fi
 if hasArg cpp-mgtests; then
     MAKE_TARGETS="${MAKE_TARGETS} ml_mg"
@@ -203,7 +245,11 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp
     # If there are no targets specified when calling build.sh, it will
     # just call `make -j`. This avoids a lot of extra printing
     cd ${LIBCUML_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
+    # make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
+    for TARGET in ${MAKE_TARGETS}
+    do
+      make -j${PARALLEL_LEVEL} ${TARGET} VERBOSE=${VERBOSE}
+    done
 fi
 
 if hasArg cppdocs; then
