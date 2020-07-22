@@ -226,7 +226,7 @@ class LogisticRegression(Base, ClassifierMixin):
 
         loss = "sigmoid"
 
-        self._solve = QN(
+        self.solver_model = QN(
             loss=loss,
             fit_intercept=self.fit_intercept,
             l1_strength=l1_strength,
@@ -267,7 +267,7 @@ class LogisticRegression(Base, ClassifierMixin):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
-        self._solve._set_target_dtype(y)
+        self.solver_model._set_target_dtype(y)
         self._set_output_type(X)
         self._set_n_features_in(X)
 
@@ -287,12 +287,12 @@ class LogisticRegression(Base, ClassifierMixin):
         if logger.should_log_for(logger.level_debug):
             logger.debug(self.verb_prefix + "Setting loss to " + str(loss))
 
-        self._solve.loss = loss
+        self.solver_model.loss = loss
 
         if logger.should_log_for(logger.level_debug):
             logger.debug(self.verb_prefix + "Calling QN fit " + str(loss))
 
-        self._solve.fit(X, y_m, convert_dtype=convert_dtype)
+        self.solver_model.fit(X, y_m, convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
         if logger.should_log_for(logger.level_debug):
@@ -301,10 +301,10 @@ class LogisticRegression(Base, ClassifierMixin):
             )
 
         if self.fit_intercept:
-            self.coef_ = self._solve.coef_[0:-1]
-            self.intercept_ = self._solve.coef_[-1]
+            self.coef_ = self.solver_model.coef_[0:-1]
+            self.intercept_ = self.solver_model.coef_[-1]
         else:
-            self.coef_ = self._solve.coef_
+            self.coef_ = self.solver_model.coef_
 
         if logger.should_log_for(logger.level_trace):
             logger.trace(self.verb_prefix + "Coefficients: " +
@@ -339,7 +339,7 @@ class LogisticRegression(Base, ClassifierMixin):
         y: array-like (device)
            Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
-        return self._solve._decision_function(X, convert_dtype=convert_dtype)
+        return self.solver_model._decision_function(X, convert_dtype=convert_dtype)
 
     def predict(self, X, convert_dtype=False):
         """
@@ -362,7 +362,7 @@ class LogisticRegression(Base, ClassifierMixin):
         y : (same as the input datatype)
             Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
-        return self._solve.predict(X, convert_dtype=convert_dtype)
+        return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
     @with_cupy_rmm
     def predict_proba(self, X, convert_dtype=False):
@@ -427,9 +427,9 @@ class LogisticRegression(Base, ClassifierMixin):
         # qn solver due to https://github.com/rapidsai/cuml/issues/2404
         X_m, _, _, self.dtype = input_to_cuml_array(
             X,
-            check_dtype=self._solve.dtype,
-            convert_to_dtype=(self._solve.dtype if convert_dtype else None),
-            check_cols=self._solve.n_cols,
+            check_dtype=self.solver_model.dtype,
+            convert_to_dtype=(self.solver_model.dtype if convert_dtype else None),
+            check_cols=self.solver_model.n_cols,
         )
 
         scores = cp.asarray(
@@ -477,17 +477,17 @@ class LogisticRegression(Base, ClassifierMixin):
         super(LogisticRegression, self).__init__(handle=None,
                                                  verbose=state["verbose"])
 
-        if "_solve" in state:
-            _solve = state["_solve"]
-            if _solve.coef_ is not None:
-                if _solve.fit_intercept:
-                    state["coef_"] = _solve.coef_[0:-1]
-                    state["intercept_"] = _solve.coef_[-1]
+        if "solver_model" in state:
+            solver_model = state["solver_model"]
+            if solver_model.coef_ is not None:
+                if solver_model.fit_intercept:
+                    state["coef_"] = solver_model.coef_[0:-1]
+                    state["intercept_"] = solver_model.coef_[-1]
                 else:
-                    state["coef_"] = _solve.coef_
-                    n_classes = _solve.coef_.shape[1]
+                    state["coef_"] = solver_model.coef_
+                    n_classes = solver_model.coef_.shape[1]
                     state["intercept_"] = CumlArray.zeros(
-                        n_classes, dtype=_solve.coef_.dtype
+                        n_classes, dtype=solver_model.coef_.dtype
                     )
 
         self.__dict__.update(state)
