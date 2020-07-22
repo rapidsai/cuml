@@ -14,6 +14,7 @@
 - PR #2465: Support pandas 1.0+
 - PR #2500: Replace UMAP functionality dependency on nvgraph with RAFT Spectral Clustering
 - PR #2520: TfidfVectorizer estimator
+- PR #2461: Add KNN Sparse Output Functionality
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
@@ -57,7 +58,11 @@
 - PR #2536 Update conda upload versions for new supported CUDA/Python
 - PR #2538: Remove Protobuf dependency
 - PR #2553: Test pickle protocol 5 support
+- PR #2570: Accepting single df or array input in train_test_split
 - PR #2566: Remove deprecated cuDF from_gpu_matrix calls
+- PR #2577: Fully removing NVGraph dependency for CUDA 11 compatibility
+- PR #2575: Speed up TfidfTransformer
+- PR #2548: Fix limitation on number of rows usable with tSNE and refactor memory allocation
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -84,6 +89,7 @@
 - PR #2532: Updating doxygen in new MG headers
 - PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
 - PR #2515: Increase tolerance for LogisticRegression test
+- PR #2543: Improve numerical stability of QN solver
 - PR #2544: Fix Barnes-Hut tSNE not using specified post_learning_rate
 - PR #2558: Disabled a long-running FIL test
 - PR #2540: Update default value for n_epochs in UMAP to match documentation & sklearn API
@@ -94,6 +100,8 @@
 - PR #2569: Fix for cuDF update
 - PR #2508: Use keyword parameters in sklearn.datasets.make_* functions
 - PR #2587: Attributes for estimators relying on solvers
+- PR #2573: Considering managed memory as device type on checking for KMeans 
+- PR #2574: Fixing include path in `tsvd_mg.pyx`
 
 # cuML 0.14.0 (03 Jun 2020)
 
