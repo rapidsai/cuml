@@ -19,6 +19,8 @@
 Find@PKG_NAME@
 --------
 
+File generated from the template Findpkg.cmake.in.
+
 Find @PKG_NAME@
 
 Imported targets
@@ -47,7 +49,7 @@ This module will set the following variables in your project:
 
 find_path(@PKG_NAME@_LOCATION @PKG_HEADER_NAME@
           HINTS ${@PKG_NAME@_INSTALL_DIR}
-          PATH_SUFFIXES include)
+          PATH_SUFFIXES include include/@PKG_LOCATION@)
 
 list(APPEND @PKG_NAME@_NAMES @PKG_LIBRARY_NAME@ lib@PKG_LIBRARY_NAME@)
 set(_@PKG_NAME@_VERSION_SUFFIXES @PKG_VERSION@)
