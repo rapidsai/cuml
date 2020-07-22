@@ -210,10 +210,7 @@ class MultinomialNB(Base):
             self._class_prior_ = None
 
         self.fit_called_ = False
-
-        self._classes_ = None
         self._n_classes_ = 0
-
         self._n_features_ = None
 
         # Needed until Base no longer assumed cumlHandle
@@ -273,7 +270,7 @@ class MultinomialNB(Base):
             else:
                 self.classes_ = CumlArray(data=label_classes)
 
-            self._n_classes_ = self._classes_.shape[0]
+            self._n_classes_ = self.classes_.shape[0]
             self._n_features_ = X.shape[1]
             self._init_counters(self._n_classes_, self._n_features_,
                                 X.dtype)
