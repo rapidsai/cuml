@@ -2,6 +2,7 @@ import pytest
 import cuml
 from cuml.test.utils import ClassEnumerator
 import numpy as np
+import cupy as cp
 
 from sklearn.datasets import make_classification
 
@@ -72,3 +73,11 @@ def test_fit_function(dataset, model_name):
                 assert model.fit(X) is model
             else:
                 assert model.fit(X, y) is model
+
+        # test classifiers correctly set self.classes_ during fit
+        if hasattr(model, "_estimator_type"):
+            if model._estimator_type == "classifier":
+                cp.testing.assert_array_almost_equal(
+                    model.classes_,
+                    cp.unique(y)
+                )
