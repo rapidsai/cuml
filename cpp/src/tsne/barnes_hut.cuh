@@ -72,6 +72,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Allocate more space
   //---------------------------------------------------
+<<<<<<< HEAD
   //int *errl = (int *)d_alloc->allocate(sizeof(int), stream);
   device_buffer<unsigned> limiter(d_alloc, stream, 1);
   device_buffer<int> maxdepthd(d_alloc, stream, 1);
@@ -81,6 +82,18 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   TSNE::InitializationKernel<<<1, 1, 0, stream>>>(
     /*errl,*/ limiter.data(), maxdepthd.data(), radiusd.data());
 
+=======
+  // MLCommon::device_buffer<unsigned> errl(d_alloc, stream, 1);
+  MLCommon::device_buffer<unsigned> limiter(d_alloc, stream, 1);
+  MLCommon::device_buffer<int> maxdepthd(d_alloc, stream, 1);
+  MLCommon::device_buffer<int> bottomd(d_alloc, stream, 1);
+  MLCommon::device_buffer<float> radiusd(d_alloc, stream, 1);
+
+  TSNE::InitializationKernel<<<1, 1, 0, stream>>>(/*errl.data(),*/
+                                                  limiter.data(),
+                                                  maxdepthd.data(),
+                                                  radiusd.data());
+>>>>>>> 3aacbc93e6367b1cac99e66d7604020985f1ff52
   CUDA_CHECK(cudaPeekAtLastError());
 
   const int FOUR_NNODES = 4 * nnodes;
@@ -89,15 +102,24 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   const int NNODES = nnodes;
   bool h_chk_finite;
 
+<<<<<<< HEAD
   // Actual mallocs
   device_buffer<int> startl(d_alloc, stream, nnodes + 1);
   device_buffer<int> childl(d_alloc, stream, (nnodes + 1) * 4);
   device_buffer<float> massl(d_alloc, stream, nnodes + 1);
+=======
+  // Actual allocations
+  MLCommon::device_buffer<int> startl(d_alloc, stream, nnodes + 1);
+  MLCommon::device_buffer<int> childl(d_alloc, stream, (nnodes + 1) * 4);
+  MLCommon::device_buffer<float> massl(d_alloc, stream, nnodes + 1);
+
+>>>>>>> 3aacbc93e6367b1cac99e66d7604020985f1ff52
   thrust::device_ptr<float> begin_massl =
     thrust::device_pointer_cast(massl.data());
   thrust::fill(thrust::cuda::par.on(stream), begin_massl,
                begin_massl + (nnodes + 1), 1.0f);
 
+<<<<<<< HEAD
   device_buffer<float> maxxl(d_alloc, stream, blocks * FACTOR1);
   device_buffer<float> maxyl(d_alloc, stream, blocks * FACTOR1);
   device_buffer<float> minxl(d_alloc, stream, blocks * FACTOR1);
@@ -121,11 +143,38 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Apply
   device_buffer<float> gains_bh(d_alloc, stream, n * 2);
+=======
+  MLCommon::device_buffer<float> maxxl(d_alloc, stream, blocks * FACTOR1);
+  MLCommon::device_buffer<float> maxyl(d_alloc, stream, blocks * FACTOR1);
+  MLCommon::device_buffer<float> minxl(d_alloc, stream, blocks * FACTOR1);
+  MLCommon::device_buffer<float> minyl(d_alloc, stream, blocks * FACTOR1);
+
+  // SummarizationKernel
+  MLCommon::device_buffer<int> countl(d_alloc, stream, nnodes + 1);
+
+  // SortKernel
+  MLCommon::device_buffer<int> sortl(d_alloc, stream, nnodes + 1);
+
+  // RepulsionKernel
+  MLCommon::device_buffer<float> rep_forces(d_alloc, stream, (nnodes + 1) * 2);
+  MLCommon::device_buffer<float> attr_forces(
+    d_alloc, stream, n * 2);  // n*2 double for reduction sum
+
+  MLCommon::device_buffer<float> norm_add1(d_alloc, stream, n);
+  MLCommon::device_buffer<float> norm(d_alloc, stream, n);
+  MLCommon::device_buffer<float> Z_norm(d_alloc, stream, 1);
+
+  MLCommon::device_buffer<float> radiusd_squared(d_alloc, stream, 1);
+
+  // Apply
+  MLCommon::device_buffer<float> gains_bh(d_alloc, stream, n * 2);
+>>>>>>> 3aacbc93e6367b1cac99e66d7604020985f1ff52
   thrust::device_ptr<float> begin_gains_bh =
     thrust::device_pointer_cast(gains_bh.data());
   thrust::fill(thrust::cuda::par.on(stream), begin_gains_bh,
                begin_gains_bh + (n * 2), 1.0f);
 
+<<<<<<< HEAD
   device_buffer<float> old_forces(d_alloc, stream, n * 2);
   CUDA_CHECK(
     cudaMemsetAsync(old_forces.data(), 0, sizeof(float) * n * 2, stream));
@@ -137,6 +186,16 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   ASSERT(
     YY.data() != NULL && YY_prev.data() != NULL && rep_forces.data() != NULL,
     "[ERROR] Possibly no more memory");
+=======
+  MLCommon::device_buffer<float> old_forces(d_alloc, stream, n * 2);
+  CUDA_CHECK(
+    cudaMemsetAsync(old_forces.data(), 0, sizeof(float) * n * 2, stream));
+
+  MLCommon::device_buffer<float> YY(d_alloc, stream, (nnodes + 1) * 2);
+  // TODO bug #2549: this should be conditional on bool initialize_embeddings.
+  random_vector(YY.data(), -0.0001f, 0.0001f, (nnodes + 1) * 2, stream,
+                random_state);
+>>>>>>> 3aacbc93e6367b1cac99e66d7604020985f1ff52
 
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
@@ -157,12 +216,21 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   float learning_rate = pre_learning_rate;
 
   for (int iter = 0; iter < max_iter; iter++) {
+<<<<<<< HEAD
     CUDA_CHECK(cudaMemsetAsync(rep_forces.data(), 0,
                                sizeof(float) * (nnodes + 1) * 2, stream));
     CUDA_CHECK(
       cudaMemsetAsync(attr_forces.data(), 0, sizeof(float) * n * 2, stream));
 
     MLCommon::copy(YY_prev.data(), YY.data(), (nnodes + 1) * 2, stream);
+=======
+    CUDA_CHECK(cudaMemsetAsync(static_cast<void *>(rep_forces.data()), 0,
+                               rep_forces.size() * sizeof(*rep_forces.data()),
+                               stream));
+    CUDA_CHECK(cudaMemsetAsync(static_cast<void *>(attr_forces.data()), 0,
+                               attr_forces.size() * sizeof(*attr_forces.data()),
+                               stream));
+>>>>>>> 3aacbc93e6367b1cac99e66d7604020985f1ff52
     TSNE::Reset_Normalization<<<1, 1, 0, stream>>>(
       Z_norm.data(), radiusd_squared.data(), bottomd.data(), NNODES,
       radiusd.data());
@@ -173,6 +241,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
       // Divide perplexities
       const float div = 1.0f / early_exaggeration;
       MLCommon::LinAlg::scalarMultiply(VAL, VAL, div, NNZ, stream);
+      learning_rate = post_learning_rate;
     }
 
     START_TIMER;
@@ -193,8 +262,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     START_TIMER;
     TSNE::TreeBuildingKernel<<<blocks * FACTOR2, THREADS2, 0, stream>>>(
-      /*errl,*/ childl.data(), YY.data(), YY.data() + nnodes + 1, NNODES, n,
-      maxdepthd.data(), bottomd.data(), radiusd.data());
+      /*errl.data(),*/ childl.data(), YY.data(), YY.data() + nnodes + 1, NNODES,
+      n, maxdepthd.data(), bottomd.data(), radiusd.data());
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(TreeBuildingKernel_time);
@@ -224,7 +293,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     START_TIMER;
     TSNE::RepulsionKernel<<<blocks * FACTOR5, THREADS5, 0, stream>>>(
-      /*errl,*/ theta, epssq, sortl.data(), childl.data(), massl.data(),
+      /*errl.data(),*/ theta, epssq, sortl.data(), childl.data(), massl.data(),
       YY.data(), YY.data() + nnodes + 1, rep_forces.data(),
       rep_forces.data() + nnodes + 1, Z_norm.data(), theta_squared, NNODES,
       FOUR_NNODES, n, radiusd_squared.data(), maxdepthd.data());
