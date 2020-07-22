@@ -62,6 +62,7 @@
 - PR #2566: Remove deprecated cuDF from_gpu_matrix calls
 - PR #2577: Fully removing NVGraph dependency for CUDA 11 compatibility
 - PR #2575: Speed up TfidfTransformer
+- PR #2591: Generate benchmark datsets using `cuml.datasets`
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
