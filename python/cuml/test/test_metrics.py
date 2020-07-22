@@ -905,6 +905,7 @@ def test_pairwise_distances_exceptions():
     with pytest.raises(ValueError):
         pairwise_distances(X, Y, metric="euclidean")
 
+
 @pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
 @pytest.mark.parametrize("output_type", ["input", "cudf", "numpy", "cupy"])
 @pytest.mark.parametrize("use_global", [True, False])
@@ -940,4 +941,3 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
             assert isinstance(S, np.ndarray)
         elif output_type == "cupy":
             assert isinstance(S, cp.core.core.ndarray)
-        
