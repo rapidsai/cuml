@@ -41,4 +41,10 @@ inline cudaMemoryType memory_type(const void *p) {
   return att.type;
 }
 
+inline bool is_device_or_managed_type(const void *p) {
+  cudaMemoryType p_memory_type = memory_type(p);
+  return p_memory_type == cudaMemoryTypeDevice ||
+         p_memory_type == cudaMemoryTypeManaged;
+}
+
 }  // namespace ML

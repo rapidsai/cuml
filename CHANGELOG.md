@@ -58,7 +58,10 @@
 - PR #2536 Update conda upload versions for new supported CUDA/Python
 - PR #2538: Remove Protobuf dependency
 - PR #2553: Test pickle protocol 5 support
+- PR #2570: Accepting single df or array input in train_test_split
 - PR #2566: Remove deprecated cuDF from_gpu_matrix calls
+- PR #2577: Fully removing NVGraph dependency for CUDA 11 compatibility
+- PR #2575: Speed up TfidfTransformer
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -94,6 +97,8 @@
 - PR #2563: Update scipy call for arima gradient test
 - PR #2569: Fix for cuDF update
 - PR #2508: Use keyword parameters in sklearn.datasets.make_* functions
+- PR #2573: Considering managed memory as device type on checking for KMeans 
+- PR #2574: Fixing include path in `tsvd_mg.pyx`
 
 # cuML 0.14.0 (03 Jun 2020)
 
