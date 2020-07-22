@@ -62,15 +62,8 @@ class KNNTest : public ::testing::Test {
     h_res_I.resize(n * n);
     updateDevice<long>(d_ref_I, h_res_I.data(), n * n, 0);
 
-    float **ptrs = new float *[1];
-    int *sizes = new int[1];
-    ptrs[0] = d_train_inputs;
-    sizes[0] = n;
-
-    std::vector<float *> input_vec(1);
-    std::vector<int> sizes_vec(1);
-    input_vec.push_back(ptrs[0]);
-    sizes_vec.push_back(sizes[0]);
+    std::vector<float *> input_vec = {d_train_inputs};
+    std::vector<int> sizes_vec = {n};
 
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
