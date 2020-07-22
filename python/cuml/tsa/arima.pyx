@@ -69,8 +69,8 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
     void cpp_predict "predict" (
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
         int start, int end, const ARIMAOrder& order,
-        const ARIMAParams[double]& params, double* d_vs_ptr, double* d_y_p,
-        bool pre_diff, double level, double* d_lower, double* d_upper)
+        const ARIMAParams[double]& params, double* d_y_p, bool pre_diff,
+        double level, double* d_lower, double* d_upper)
 
     void information_criterion(
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
@@ -514,19 +514,12 @@ class ARIMA(Base):
 
         predict_size = end - start
 
-        # allocate residual (vs), prediction (y_p) and intervals device memory
-        # and get pointers
-        cdef uintptr_t d_vs_ptr
+        # allocate predictions and intervals device memory
         cdef uintptr_t d_y_p_ptr
         cdef uintptr_t d_lower_ptr
         cdef uintptr_t d_upper_ptr
-        # TODO: don't create residuals here + use the right size
-        # (can be n_obs - d - s*D)
-        d_vs = cumlArray.empty((self.n_obs, self.batch_size),
-                               dtype=np.float64, order="F")
         d_y_p = cumlArray.empty((predict_size, self.batch_size),
                                 dtype=np.float64, order="F")
-        d_vs_ptr = d_vs.ptr
         d_y_p_ptr = d_y_p.ptr
         if level is not None:
             d_lower = cumlArray.empty((predict_size, self.batch_size),
@@ -540,7 +533,7 @@ class ARIMA(Base):
 
         cpp_predict(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
                     <int> self.n_obs, <int> start, <int> end, order,
-                    cpp_params, <double*>d_vs_ptr, <double*>d_y_p_ptr,
+                    cpp_params, <double*>d_y_p_ptr,
                     <bool> self.simple_differencing,
                     <double> (0 if level is None else level),
                     <double*> d_lower_ptr, <double*> d_upper_ptr)
