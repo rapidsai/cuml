@@ -242,7 +242,7 @@ class BaseRandomForestModel(Base):
                 raise TypeError("The labels `y` need to be of dtype"
                                 " `int32`")
             self.classes_ = rmm_cupy_ary(cp.unique, y_m)
-            self.num_classes = len(unique_labels)
+            self.num_classes = len(self.classes_)
             for i in range(self.num_classes):
                 if i not in self.classes_:
                     raise ValueError("The labels need "
