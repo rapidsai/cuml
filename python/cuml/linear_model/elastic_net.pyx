@@ -173,7 +173,7 @@ class ElasticNet(Base, RegressorMixin):
         self.normalize = normalize
         self.max_iter = max_iter
         self.tol = tol
-        self.cuElasticNet = None
+        self.solver_model = None
         if selection in ['cyclic', 'random']:
             self.selection = selection
         else:
@@ -186,7 +186,7 @@ class ElasticNet(Base, RegressorMixin):
         if self.selection == 'random':
             shuffle = True
 
-        self.cuElasticNet = CD(fit_intercept=self.fit_intercept,
+        self.solver_model = CD(fit_intercept=self.fit_intercept,
                                normalize=self.normalize, alpha=self.alpha,
                                l1_ratio=self.l1_ratio, shuffle=shuffle,
                                max_iter=self.max_iter, handle=self.handle)
@@ -224,10 +224,10 @@ class ElasticNet(Base, RegressorMixin):
         """
         self._set_n_features_in(X)
 
-        self.cuElasticNet.fit(X, y, convert_dtype=convert_dtype)
+        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
 
-        self.coef_ = self.cuElasticNet.coef_
-        self.intercept_ = self.cuElasticNet.intercept_
+        self.coef_ = self.solver_model.coef_
+        self.intercept_ = self.solver_model.intercept_
 
         return self
 
@@ -254,7 +254,7 @@ class ElasticNet(Base, RegressorMixin):
 
         """
 
-        return self.cuElasticNet.predict(X)
+        return self.solver_model.predict(X)
 
     def get_params(self, deep=True):
         """
