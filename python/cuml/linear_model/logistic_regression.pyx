@@ -339,7 +339,10 @@ class LogisticRegression(Base, ClassifierMixin):
         y: array-like (device)
            Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
-        return self.solver_model._decision_function(X, convert_dtype=convert_dtype)
+        return self.solver_model._decision_function(
+            X,
+            convert_dtype=convert_dtype
+        )
 
     def predict(self, X, convert_dtype=False):
         """
@@ -428,7 +431,9 @@ class LogisticRegression(Base, ClassifierMixin):
         X_m, _, _, self.dtype = input_to_cuml_array(
             X,
             check_dtype=self.solver_model.dtype,
-            convert_to_dtype=(self.solver_model.dtype if convert_dtype else None),
+            convert_to_dtype=(
+                self.solver_model.dtype if convert_dtype else None
+            ),
             check_cols=self.solver_model.n_cols,
         )
 
