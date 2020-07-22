@@ -141,6 +141,7 @@ ExternalProject_Add(faiss
 ExternalProject_Get_Property(faiss install_dir)
 
 add_library(faisslib STATIC IMPORTED)
+add_dependencies(faisslib faiss)
 
 set_property(TARGET faisslib PROPERTY
   IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
@@ -205,18 +206,3 @@ add_library(benchmarklib STATIC IMPORTED)
 add_dependencies(benchmarklib benchmark)
 set_property(TARGET benchmarklib PROPERTY
   IMPORTED_LOCATION ${GBENCH_DIR}/lib/libbenchmark.a)
-
-# dependencies will be added in sequence, so if a new project `project_b` is added
-# after `project_a`, please add the dependency add_dependencies(project_b project_a)
-# This allows the cloning to happen sequentially, enhancing the printing at
-# compile time, helping significantly to troubleshoot build issues.
-
-# TODO: Change to using build.sh and make targets instead of this
-
-add_dependencies(cub raft)
-add_dependencies(cutlass cub)
-add_dependencies(spdlog cutlass)
-add_dependencies(googletest spdlog)
-add_dependencies(benchmark googletest)
-add_dependencies(faiss benchmark)
-add_dependencies(faisslib faiss)

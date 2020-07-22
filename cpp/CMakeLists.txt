@@ -52,7 +52,7 @@ option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
 
 option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
 
-option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
+option(BUILD_PRIMS_TESTS "Build ml-prims tests" ON)
 
 option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 
@@ -377,7 +377,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       PRIVATE
         src/glm/ols_mg.cu
         src/glm/preprocess_mg.cu
-        src/glm/ridge_mg.cu     
+        src/glm/ridge_mg.cu
         src/kmeans/kmeans_mg.cu
         src/knn/knn_mg.cu
         src/pca/pca_mg.cu
@@ -386,6 +386,12 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/tsvd/tsvd_mg.cu
     )
   endif(NOT SINGLEGPU)
+
+  add_dependencies(${CUML_CPP_TARGET} cub)
+  add_dependencies(${CUML_CPP_TARGET} cutlass)
+  add_dependencies(${CUML_CPP_TARGET} faiss)
+  add_dependencies(${CUML_CPP_TARGET} raft)
+  add_dependencies(${CUML_CPP_TARGET} spdlog)
 
   if(OPENMP_FOUND)
     set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} ${OpenMP_CXX_LIB_NAMES} Threads::Threads)
