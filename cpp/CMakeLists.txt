@@ -183,6 +183,8 @@ endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
+add_subdirectory(${CMAKE_MODULE_PATH}/templates)
+
 ##############################################################################
 # - External Dependencies-----------------------------------------------------
 
@@ -377,7 +379,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       PRIVATE
         src/glm/ols_mg.cu
         src/glm/preprocess_mg.cu
-        src/glm/ridge_mg.cu     
+        src/glm/ridge_mg.cu
         src/kmeans/kmeans_mg.cu
         src/knn/knn_mg.cu
         src/pca/pca_mg.cu
