@@ -57,7 +57,7 @@ def _gen_data_regression(n_samples, n_features, random_state=42):
         n_features = 100
     X_arr, y_arr = cuml.datasets.make_regression(
         n_samples=n_samples, n_features=n_features, random_state=random_state)
-    return cudf.DataFrame.from_gpu_matrix(X_arr), cudf.Series(y_arr)
+    return cudf.DataFrame(X_arr), cudf.Series(y_arr)
 
 
 def _gen_data_blobs(n_samples, n_features, random_state=42, centers=None):
