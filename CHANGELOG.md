@@ -60,6 +60,7 @@
 - PR #2553: Test pickle protocol 5 support
 - PR #2570: Accepting single df or array input in train_test_split
 - PR #2566: Remove deprecated cuDF from_gpu_matrix calls
+- PR #2577: Fully removing NVGraph dependency for CUDA 11 compatibility
 - PR #2575: Speed up TfidfTransformer
 
 ## Bug Fixes
