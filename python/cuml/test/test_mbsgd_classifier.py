@@ -122,6 +122,7 @@ def test_mbsgd_classifier_default(make_dataset):
 
     assert cu_acc >= 0.69
 
+
 def test_mbsgd_classifier_attributes(make_dataset):
     nrows, X_train, X_test, y_train, y_test = make_dataset
     clf = cumlMBSGClassifier()

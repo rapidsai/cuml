@@ -121,6 +121,7 @@ def test_mbsgd_regressor_default(make_dataset):
 
     assert cu_r2 > 0.9
 
+
 def test_mbsgd_regressor_attributes(make_dataset):
     nrows, datatype, X_train, X_test, y_train, y_test = make_dataset
     clf = cumlMBSGRegressor()
