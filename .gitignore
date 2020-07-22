@@ -29,6 +29,9 @@ log
 dask-worker-space/
 tmp/
 
+# Files generated from CMake Templates
+cpp/cmake/Find*.cmake
+
 ## eclipse
 .project
 .cproject
