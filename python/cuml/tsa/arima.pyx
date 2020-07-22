@@ -59,12 +59,12 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
         cumlHandle& handle, const double* y, int batch_size, int nobs,
         const ARIMAOrder& order, const double* params, double* loglike,
         double* d_vs, bool trans, bool host_loglike, LoglikeMethod method,
-        bool pre_diff, int truncate)
+        int truncate)
 
     void batched_loglike_grad(
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
         const ARIMAOrder& order, const double* d_x, double* d_grad, double h,
-        bool trans, LoglikeMethod method, bool pre_diff, int truncate)
+        bool trans, LoglikeMethod method, int truncate)
 
     void cpp_predict "predict" (
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
@@ -75,7 +75,7 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
     void information_criterion(
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
         const ARIMAOrder& order, const ARIMAParams[double]& params,
-        double* ic, int ic_type, bool pre_diff)
+        double* ic, int ic_type)
 
     void estimate_x0(
         cumlHandle& handle, ARIMAParams[double]& params, const double* d_y,
@@ -245,9 +245,6 @@ class ARIMA(Base):
         if P + D + Q > 0 and s < 2:
             raise ValueError("ERROR: Invalid period for seasonal ARIMA: {}"
                              .format(s))
-        if P + D + Q == 0 and s > 0:
-            raise ValueError("ERROR: Period specified for non-seasonal ARIMA:"
-                             " {}".format(s))
         if d + D > 2:
             raise ValueError("ERROR: Invalid order. Required: d+D <= 2")
         if s != 0 and (p >= s or q >= s):
@@ -273,7 +270,6 @@ class ARIMA(Base):
         self.simple_differencing = simple_differencing
 
         # Compute the differenced series
-        # TODO: only with simple_differencing!
         self._d_y_diff = cumlArray.empty(
             (self.n_obs - d - s * D, self.batch_size), self.dtype)
         cdef uintptr_t d_y_ptr = self._d_y.ptr
@@ -306,7 +302,8 @@ class ARIMA(Base):
         """
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef ARIMAOrder order = self.order
+        cdef ARIMAOrder order_kf = \
+            self.order_diff if self.simple_differencing else self.order
 
         # Convert host parameters to device parameters
         cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
@@ -315,19 +312,19 @@ class ARIMA(Base):
         cdef uintptr_t d_sar_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sigma2_ptr = <uintptr_t> NULL
-        if order.k:
+        if order_kf.k:
             d_mu, *_ = input_to_cuml_array(self.mu, check_dtype=np.float64)
             d_mu_ptr = d_mu.ptr
-        if order.p:
+        if order_kf.p:
             d_ar, *_ = input_to_cuml_array(self.ar, check_dtype=np.float64)
             d_ar_ptr = d_ar.ptr
-        if order.q:
+        if order_kf.q:
             d_ma, *_ = input_to_cuml_array(self.ma, check_dtype=np.float64)
             d_ma_ptr = d_ma.ptr
-        if order.P:
+        if order_kf.P:
             d_sar, *_ = input_to_cuml_array(self.sar, check_dtype=np.float64)
             d_sar_ptr = d_sar.ptr
-        if order.Q:
+        if order_kf.Q:
             d_sma, *_ = input_to_cuml_array(self.sma, check_dtype=np.float64)
             d_sma_ptr = d_sma.ptr
         d_sigma2, *_ = input_to_cuml_array(self.sigma2, check_dtype=np.float64)
@@ -343,20 +340,23 @@ class ARIMA(Base):
 
         ic = cumlArray.empty(self.batch_size, self.dtype)
         cdef uintptr_t d_ic_ptr = ic.ptr
-        cdef uintptr_t d_y_ptr = self._d_y.ptr
+        cdef uintptr_t d_y_kf_ptr = \
+            self._d_y_diff.ptr if self.simple_differencing else self._d_y.ptr
+
+        n_obs_kf = (self.n_obs_diff if self.simple_differencing
+                    else self.n_obs)
 
         ic_name_to_number = {"aic": 0, "aicc": 1, "bic": 2}
         cdef int ic_type_id
         try:
             ic_type_id = ic_name_to_number[ic_type.lower()]
         except KeyError as e:
-            raise NotImplementedError("IC type '{}' unknown". format(ic_type))
+            raise NotImplementedError("IC type '{}' unknown".format(ic_type))
 
-        information_criterion(handle_[0], <double*> d_y_ptr,
-                              <int> self.batch_size, <int> self.n_obs,
-                              <ARIMAOrder> order, cpp_params,
-                              <double*> d_ic_ptr, <int> ic_type_id,
-                              <bool> self.simple_differencing)
+        information_criterion(handle_[0], <double*> d_y_kf_ptr,
+                              <int> self.batch_size, <int> n_obs_kf,
+                              order_kf, cpp_params, <double*> d_ic_ptr,
+                              <int> ic_type_id)
 
         return ic.to_output(self.output_type)
 
@@ -515,9 +515,9 @@ class ARIMA(Base):
         predict_size = end - start
 
         # allocate predictions and intervals device memory
-        cdef uintptr_t d_y_p_ptr
-        cdef uintptr_t d_lower_ptr
-        cdef uintptr_t d_upper_ptr
+        cdef uintptr_t d_y_p_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_lower_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_upper_ptr = <uintptr_t> NULL
         d_y_p = cumlArray.empty((predict_size, self.batch_size),
                                 dtype=np.float64, order="F")
         d_y_p_ptr = d_y_p.ptr
@@ -763,40 +763,30 @@ class ARIMA(Base):
         cdef vector[double] vec_loglike
         vec_loglike.resize(self.batch_size)
 
-        cdef ARIMAOrder order = self.order
-        cdef ARIMAOrder order_diff = self.order_diff
+        cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
+        diff = ll_method != MLE or self.simple_differencing
+
+        cdef ARIMAOrder order_kf = self.order_diff if diff else self.order
 
         d_x_array, *_ = \
             input_to_cuml_array(x, check_dtype=np.float64, order='C')
         cdef uintptr_t d_x_ptr = d_x_array.ptr
 
-        cdef uintptr_t d_y_ptr = self._d_y.ptr
-        cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
+        cdef uintptr_t d_y_kf_ptr = \
+            self._d_y_diff.ptr if diff else self._d_y.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
-        diff = ll_method != MLE or self.simple_differencing
         n_obs_kf = (self.n_obs_diff if diff else self.n_obs)
         d_vs = cumlArray.empty((n_obs_kf, self.batch_size), dtype=np.float64,
                                order="F")
         cdef uintptr_t d_vs_ptr = d_vs.ptr
 
-        # TODO: combine in single call
-        if diff:
-            batched_loglike(handle_[0], <double*> d_y_diff_ptr,
-                            <int> self.batch_size, <int> n_obs_kf,
-                            order_diff, <double*> d_x_ptr,
-                            <double*> vec_loglike.data(), <double*> d_vs_ptr,
-                            <bool> trans, <bool> True, ll_method, <bool> diff,
-                            <int> truncate)
-        else:
-            batched_loglike(handle_[0], <double*> d_y_ptr,
-                            <int> self.batch_size, <int> n_obs_kf,
-                            order, <double*> d_x_ptr,
-                            <double*> vec_loglike.data(), <double*> d_vs_ptr,
-                            <bool> trans, <bool> True, ll_method, <bool> diff,
-                            <int> truncate)
+        batched_loglike(handle_[0], <double*> d_y_kf_ptr,
+                        <int> self.batch_size, <int> n_obs_kf, order_kf,
+                        <double*> d_x_ptr, <double*> vec_loglike.data(),
+                        <double*> d_vs_ptr, <bool> trans, <bool> True,
+                        ll_method, <int> truncate)
 
         return np.array(vec_loglike, dtype=np.float64)
 
@@ -831,37 +821,29 @@ class ARIMA(Base):
         N = self.complexity
         assert len(x) == N * self.batch_size
 
+        cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
+        diff = ll_method != MLE or self.simple_differencing
+
         grad = cumlArray.empty(N * self.batch_size, np.float64)
         cdef uintptr_t d_grad = <uintptr_t> grad.ptr
 
-        cdef ARIMAOrder order = self.order
-        cdef ARIMAOrder order_diff = self.order_diff
+        cdef ARIMAOrder order_kf = self.order_diff if diff else self.order
 
         d_x_array, *_ = \
             input_to_cuml_array(x, check_dtype=np.float64, order='C')
         cdef uintptr_t d_x_ptr = d_x_array.ptr
 
-        cdef uintptr_t d_y_ptr = self._d_y.ptr
-        cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
+        cdef uintptr_t d_y_kf_ptr = \
+            self._d_y_diff.ptr if diff else self._d_y.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
-        diff = ll_method != MLE or self.simple_differencing
-
-        # TODO: combine in single call
-        if diff:
-            batched_loglike_grad(handle_[0], <double*> d_y_diff_ptr,
-                                <int> self.batch_size, <int> self.n_obs_diff,
-                                order_diff, <double*> d_x_ptr, <double*> d_grad,
-                                <double> h, <bool> trans, ll_method, <bool> diff,
-                                <int> truncate)
-        else:
-            batched_loglike_grad(handle_[0], <double*> d_y_ptr,
-                                <int> self.batch_size, <int> self.n_obs,
-                                order, <double*> d_x_ptr, <double*> d_grad,
-                                <double> h, <bool> trans, ll_method, <bool> diff,
-                                <int> truncate)
+        batched_loglike_grad(handle_[0], <double*> d_y_kf_ptr,
+                             <int> self.batch_size,
+                             <int> (self.n_obs_diff if diff else self.n_obs),
+                             order_kf, <double*> d_x_ptr, <double*> d_grad,
+                             <double> h, <bool> trans, ll_method,
+                             <int> truncate)
 
         return grad.to_output("numpy")
 
