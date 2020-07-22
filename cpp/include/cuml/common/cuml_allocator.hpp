@@ -170,7 +170,7 @@ class raftHostAllocatorAdapter : public hostAllocator {
     std::shared_ptr<raft::mr::host::allocator> raftAllocator)
     : _raftAllocator(raftAllocator) {}
   raftHostAllocatorAdapter() {
-    _raftAllocator = std::make_unique<raft::mr::host::default_allocator>();
+    _raftAllocator = std::make_shared<raft::mr::host::default_allocator>();
   }
 
   virtual void* allocate(std::size_t n, cudaStream_t stream) {

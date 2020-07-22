@@ -28,7 +28,7 @@ class raftDeviceAllocatorAdapter : public ML::deviceAllocator {
     std::shared_ptr<raft::mr::device::allocator> raftAllocator)
     : _raftAllocator(raftAllocator) {}
   raftDeviceAllocatorAdapter() {
-    _raftAllocator = std::make_unique<raft::mr::device::default_allocator>();
+    _raftAllocator = std::make_shared<raft::mr::device::default_allocator>();
   }
 
   virtual void* allocate(std::size_t n, cudaStream_t stream) {
