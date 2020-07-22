@@ -44,9 +44,9 @@ class TargetEncoder:
         test = DataFrame({'category': ['a', 'c', 'b', 'a']})
 
         # There is only one correct way to do this
-        le = TargetEncoder()
-        train_encoded = le.fit_transform(train.category, train.label)
-        test_encoded = le.transform(test.category)
+        encoder = TargetEncoder()
+        train_encoded = encoder.fit_transform(train.category, train.label)
+        test_encoded = encoder.transform(test.category)
         print(train_encoded)
         print(test_encoded)
 
