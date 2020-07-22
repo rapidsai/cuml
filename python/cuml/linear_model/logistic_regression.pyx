@@ -467,7 +467,6 @@ class LogisticRegression(Base, ClassifierMixin):
             "linesearch_max_iter",
             "l1_ratio",
             "solver",
-            "solve"
         ]
 
     def __getstate__(self):
