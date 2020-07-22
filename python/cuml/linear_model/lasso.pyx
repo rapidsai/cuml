@@ -142,7 +142,7 @@ class Lasso(Base, RegressorMixin):
         self.normalize = normalize
         self.max_iter = max_iter
         self.tol = tol
-        self.culasso = None
+        self.solver_model = None
         if selection in ['cyclic', 'random']:
             self.selection = selection
         else:
@@ -155,7 +155,7 @@ class Lasso(Base, RegressorMixin):
         if self.selection == 'random':
             shuffle = True
 
-        self.culasso = CD(fit_intercept=self.fit_intercept,
+        self.solver_model = CD(fit_intercept=self.fit_intercept,
                           normalize=self.normalize, alpha=self.alpha,
                           l1_ratio=1.0, shuffle=shuffle,
                           max_iter=self.max_iter, handle=self.handle)
@@ -188,10 +188,10 @@ class Lasso(Base, RegressorMixin):
         """
         self._set_n_features_in(X)
 
-        self.culasso.fit(X, y, convert_dtype=convert_dtype)
+        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
 
-        self.coef_ = self.culasso.coef_
-        self.intercept_ = self.culasso.intercept_
+        self.coef_ = self.solver_model.coef_
+        self.intercept_ = self.solver_model.intercept_
 
         return self
 
@@ -213,7 +213,7 @@ class Lasso(Base, RegressorMixin):
 
         """
 
-        return self.culasso.predict(X, convert_dtype=convert_dtype)
+        return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
     def get_params(self, deep=True):
         """

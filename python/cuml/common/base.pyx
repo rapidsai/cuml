@@ -283,7 +283,6 @@ class Base:
                         return solve_dict[attr]
                 else:
                     return self.__dict__['solver_model'].__getattr__(attr)
-                    
             else:
                 raise AttributeError
 
