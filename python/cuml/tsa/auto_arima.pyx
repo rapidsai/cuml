@@ -132,6 +132,10 @@ class AutoARIMA(Base):
         Numba device ndarray, cuda array interface compliant array like CuPy.
     handle : cuml.Handle
         If it is None, a new one is created just for this instance
+    simple_differencing: bool or int
+        If True, the data is differenced before being passed to the Kalman
+        filter. If False, differencing is part of the state-space model.
+        See additional notes in the ARIMA docs
     verbose : int
         Logging level. It must be one of `cuml.common.logger.level_*`
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
@@ -153,6 +157,7 @@ class AutoARIMA(Base):
     def __init__(self,
                  endog,
                  handle=None,
+                 simple_differencing=True,
                  verbose=logger.level_info,
                  output_type=None):
         # Initialize base class
@@ -162,6 +167,8 @@ class AutoARIMA(Base):
         # Get device array. Float64 only for now.
         self._d_y, self.n_obs, self.batch_size, self.dtype \
             = input_to_cuml_array(endog, check_dtype=np.float64)
+
+        self.simple_differencing = simple_differencing
 
     def search(self,
                s=None,
@@ -336,7 +343,8 @@ class AutoARIMA(Base):
                     continue
                 s_ = s if (P_ + D_ + Q_) else 0
                 model = ARIMA(data_temp.to_output("cupy"), (p_, d_, q_),
-                              (P_, D_, Q_, s_), k_, self.handle,
+                              (P_, D_, Q_, s_), k_, handle=self.handle,
+                              simple_differencing=self.simple_differencing,
                               output_type="cupy")
                 logger.debug("Fitting {} ({})".format(model, method))
                 model.fit(h=h, maxiter=maxiter, method=method,
@@ -357,12 +365,11 @@ class AutoARIMA(Base):
                 if sub_batches[i] is None:
                     continue
                 p_, q_, P_, Q_, s_, k_ = all_orders[i]
-                self.models.append(ARIMA(sub_batches[i].to_output("cupy"),
-                                         order=(p_, d_, q_),
-                                         seasonal_order=(P_, D_, Q_, s_),
-                                         fit_intercept=k_,
-                                         handle=self.handle,
-                                         output_type="cupy"))
+                self.models.append(
+                    ARIMA(sub_batches[i].to_output("cupy"), order=(p_, d_, q_),
+                          seasonal_order=(P_, D_, Q_, s_), fit_intercept=k_,
+                          handle=self.handle, output_type="cupy",
+                          simple_differencing=self.simple_differencing))
                 id_tracker.append(sub_id[i])
 
             del all_ic, all_orders, ic_matrix, sub_batches, sub_id
@@ -399,8 +406,7 @@ class AutoARIMA(Base):
             logger.debug("Fitting {} ({})".format(model, method))
             model.fit(h=h, maxiter=maxiter, method=method, truncate=truncate)
 
-    # TODO: prediction intervals
-    def predict(self, start=0, end=None):
+    def predict(self, start=0, end=None, level=None):
         """Compute in-sample and/or out-of-sample prediction for each series
 
         Parameters:
@@ -409,37 +415,73 @@ class AutoARIMA(Base):
             Index where to start the predictions (0 <= start <= num_samples)
         end:
             Index where to end the predictions, excluded (end > start)
+        level: float or None
+            Confidence level for prediction intervals, or None to return only
+            the point forecasts. 0 < level < 1
 
         Returns:
         --------
         y_p : array-like (device)
             Predictions. Shape = (end - start, batch_size)
+        lower: array-like (device) (optional)
+            Lower limit of the prediction interval if level != None
+            Shape = (end - start, batch_size)
+        upper: array-like (device) (optional)
+            Upper limit of the prediction interval if level != None
+            Shape = (end - start, batch_size)
         """
         # Compute predictions for each model
-        predictions = []
+        pred_list = []
+        lower_list = []
+        upper_list = []
         for model in self.models:
-            pred, *_ = input_to_cuml_array(model.predict(start, end))
-            predictions.append(pred)
+            if level is None:
+                pred, *_ = input_to_cuml_array(model.predict(start, end))
+                pred_list.append(pred)
+            else:
+                pred, low, upp = model.predict(start, end, level=level)
+                pred_list.append(input_to_cuml_array(pred)[0])
+                lower_list.append(input_to_cuml_array(low)[0])
+                upper_list.append(input_to_cuml_array(upp)[0])
 
         # Put all the predictions together
-        return _merge_series(predictions, self.id_to_model, self.id_to_pos,
-                             self.batch_size).to_output(self.output_type)
+        y_p = _merge_series(pred_list, self.id_to_model, self.id_to_pos,
+                            self.batch_size).to_output(self.output_type)
+        if level is not None:
+            lower = _merge_series(lower_list, self.id_to_model, self.id_to_pos,
+                                  self.batch_size).to_output(self.output_type)
+            upper = _merge_series(upper_list, self.id_to_model, self.id_to_pos,
+                                  self.batch_size).to_output(self.output_type)
+        
+        # Return the results
+        if level is None:
+            return y_p
+        else:
+            return y_p, lower, upper
 
-    # TODO: prediction intervals
-    def forecast(self, nsteps):
+    def forecast(self, nsteps: int, level=None):
         """Forecast `nsteps` into the future.
 
         Parameters:
         ----------
         nsteps : int
             The number of steps to forecast beyond end of the given series
+        level: float or None
+            Confidence level for prediction intervals, or None to return only
+            the point forecasts. 0 < level < 1
 
         Returns:
         --------
         y_fc : array-like
                Forecasts. Shape = (nsteps, batch_size)
+        lower: array-like (device) (optional)
+            Lower limit of the prediction interval if level != None
+            Shape = (end - start, batch_size)
+        upper: array-like (device) (optional)
+            Upper limit of the prediction interval if level != None
+            Shape = (end - start, batch_size)
         """
-        return self.predict(self.n_obs, self.n_obs + nsteps)
+        return self.predict(self.n_obs, self.n_obs + nsteps, level)
 
     def summary(self):
         """Display a quick summary of the models selected by `search`
