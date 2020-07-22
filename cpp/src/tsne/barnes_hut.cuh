@@ -169,6 +169,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
       // Divide perplexities
       const float div = 1.0f / early_exaggeration;
       MLCommon::LinAlg::scalarMultiply(VAL, VAL, div, NNZ, stream);
+      learning_rate = post_learning_rate;
     }
 
     START_TIMER;
