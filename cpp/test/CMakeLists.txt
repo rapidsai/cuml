@@ -29,7 +29,6 @@ set(CUML_TEST_LINK_LIBRARIES
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
-  ${CUDA_nvgraph_LIBRARY}
   gtestlib
   gtest_mainlib
   )
@@ -40,49 +39,40 @@ set(PRIMS_TEST_LINK_LIBRARIES
   ${CUDA_curand_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY}
-  ${CUDA_nvgraph_LIBRARY})
+  ${CUDA_cusparse_LIBRARY})
 
 ##############################################################################
 # - build ml_test executable -------------------------------------------------
 
 if(BUILD_CUML_TESTS)
-    # (please keep the filenames in alphabetical order)
-    set(CUML_CPP_TEST_SRCS
-      sg/cd_test.cu
-      sg/dbscan_test.cu
-      sg/fil_test.cu
-      sg/handle_test.cu
-      sg/holtwinters_test.cu
-      sg/kmeans_test.cu
-      sg/knn_test.cu
-      sg/logger.cpp
-      sg/ols.cu
-      sg/pca_test.cu
-      sg/quasi_newton.cu
-      sg/rf_accuracy_test.cu
-      sg/rf_test.cu
-      sg/rf_treelite_test.cu
-      sg/ridge.cu
-      sg/rproj_test.cu
-      sg/sgd.cu
-      sg/svc_test.cu
-      sg/trustworthiness_test.cu
-      sg/tsne_test.cu
-      sg/tsvd_test.cu)
+  # (please keep the filenames in alphabetical order)
+  add_executable(ml
+    sg/cd_test.cu
+    sg/dbscan_test.cu
+    sg/fil_test.cu
+    sg/handle_test.cu
+    sg/holtwinters_test.cu
+    sg/kmeans_test.cu
+    sg/knn_test.cu
+    sg/logger.cpp
+    sg/ols.cu
+    sg/pca_test.cu
+    sg/quasi_newton.cu
+    sg/rf_accuracy_test.cu
+    sg/rf_test.cu
+    sg/rf_treelite_test.cu
+    sg/ridge.cu
+    sg/rproj_test.cu
+    sg/sgd.cu
+    sg/svc_test.cu
+    sg/trustworthiness_test.cu
+    sg/tsne_test.cu
+    sg/tsvd_test.cu
+    sg/umap_parametrizable_test.cu)
 
-    if(NVGRAPH_AVAILABLE)
-      list(APPEND CUML_CPP_TEST_SRCS
-        sg/spectral_test.cu
-        sg/umap_parametrizable_test.cu
-        sg/umap_test.cu)
-    endif()
+  target_include_directories(ml PRIVATE ${CUML_TEST_INCLUDE_DIRS})
 
-    add_executable(ml ${CUML_CPP_TEST_SRCS})
-
-    target_include_directories(ml PRIVATE ${CUML_TEST_INCLUDE_DIRS})
-
-    target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES})
+  target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES})
 endif(BUILD_CUML_TESTS)
 
 ##############################################################################
