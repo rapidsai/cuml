@@ -81,7 +81,14 @@ Feature and Label Encoding (Dask-based Multi-GPU)
 
 Feature Extraction (Single-GPU)
 -------------------------------
- .. autoclass:: cuml.feature_extraction.text.CountVectorizer
+
+  .. autoclass:: cuml.feature_extraction.text.CountVectorizer
+    :members:
+
+  .. autoclass:: cuml.feature_extraction.text.HashingVectorizer
+    :members:
+
+  .. autoclass:: cuml.feature_extraction.text.TfidfVectorizer
     :members:
 
 Dataset Generation (Single-GPU)

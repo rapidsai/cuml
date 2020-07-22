@@ -39,14 +39,14 @@ else(DEFINED ENV{RAFT_PATH})
 
   ExternalProject_Add(raft
     GIT_REPOSITORY    https://github.com/rapidsai/raft.git
-    GIT_TAG           b58f97f2b5382a633e43daec31b26adf52e19a3b
+    GIT_TAG           6391b63cd32f04ac4912edecf62ff2865c529cd9
     PREFIX            ${RAFT_DIR}
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
     INSTALL_COMMAND   "")
 
   # Redefining RAFT_DIR so it coincides with the one inferred by env variable.
-  set(RAFT_DIR ${RAFT_DIR}/src/raft/ CACHE STRING "Path to RAFT repo")
+  set(RAFT_DIR ${RAFT_DIR}/src/raft/)
 endif(DEFINED ENV{RAFT_PATH})
 
 
