@@ -156,9 +156,9 @@ class Lasso(Base, RegressorMixin):
             shuffle = True
 
         self.solver_model = CD(fit_intercept=self.fit_intercept,
-                          normalize=self.normalize, alpha=self.alpha,
-                          l1_ratio=1.0, shuffle=shuffle,
-                          max_iter=self.max_iter, handle=self.handle)
+                               normalize=self.normalize, alpha=self.alpha,
+                               l1_ratio=1.0, shuffle=shuffle,
+                               max_iter=self.max_iter, handle=self.handle)
 
     def _check_alpha(self, alpha):
         if alpha <= 0.0:
