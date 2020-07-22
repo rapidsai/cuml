@@ -20,6 +20,7 @@ import cuml
 import cupy as cp
 import numpy as np
 import pytest
+import cudf
 
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.metrics.cluster import adjusted_rand_score as cu_ars
@@ -798,7 +799,8 @@ def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
 
 @pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS)
 def test_pairwise_distances_one_dimension_order(metric: str):
-    # Test the pairwise_distance helper function.
+    # Test the pairwise_distance helper function for 1 dimensional cases which
+    # can break down when using a size of 1 for either dimension
     rng = np.random.RandomState(2)
 
     Xc = rng.random_sample((1, 4))
@@ -902,3 +904,40 @@ def test_pairwise_distances_exceptions():
 
     with pytest.raises(ValueError):
         pairwise_distances(X, Y, metric="euclidean")
+
+@pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
+@pytest.mark.parametrize("output_type", ["input", "cudf", "numpy", "cupy"])
+@pytest.mark.parametrize("use_global", [True, False])
+def test_pairwise_distances_output_types(input_type, output_type, use_global):
+    # Test larger sizes to sklearn
+    rng = np.random.RandomState(5)
+
+    X = rng.random_sample((100, 100))
+    Y = rng.random_sample((100, 100))
+
+    if input_type == "cudf":
+        X = cudf.DataFrame(X)
+        Y = cudf.DataFrame(Y)
+    elif input_type == "cupy":
+        X = cp.asarray(X)
+        Y = cp.asarray(Y)
+
+    # Set to None if we are using the global object
+    output_type_param = None if use_global else output_type
+
+    # Use the global manager object. Should do nothing unless use_global is set
+    with cuml.using_output_type(output_type):
+
+        # Compare to sklearn, fp64
+        S = pairwise_distances(X, Y, metric="euclidean",
+                               output_type=output_type_param)
+
+        if output_type == "input":
+            assert isinstance(S, type(X))
+        elif output_type == "cudf":
+            assert isinstance(S, cudf.DataFrame)
+        elif output_type == "numpy":
+            assert isinstance(S, np.ndarray)
+        elif output_type == "cupy":
+            assert isinstance(S, cp.core.core.ndarray)
+        

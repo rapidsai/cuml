@@ -25,7 +25,7 @@ from cuml.common.handle cimport cumlHandle
 import cuml.common.handle
 import cupy as cp
 import numpy as np
-from cuml.common.base import _input_to_type
+from cuml.common.base import _determine_stateless_output_type
 from cuml.common import (get_cudf_column_ptr, get_dev_array_ptr,
                          input_to_cuml_array, CumlArray, logger, with_cupy_rmm)
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
@@ -105,7 +105,7 @@ def _determine_metric(metric_str):
 
 @with_cupy_rmm
 def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
-                       convert_dtype=True, **kwds):
+                       convert_dtype=True, output_type=None, **kwds):
     """
     Compute the distance matrix from a vector array `X` and optional `Y`.
 
@@ -144,6 +144,12 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         When set to True, the method will, when necessary, convert
         Y to be the same data type as X if they differ. This
         will increase memory used for the method.
+    
+    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+        Variable to control output type of the results of the function. If
+        None, it'll inherit the output type set at the module level,
+        `cuml.output_type`. If set, the function will temporarily override
+        the global option.
 
     Returns
     -------
@@ -155,11 +161,11 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
     Examples
     ---------
-        >>> import numpy as np
+        >>> import cupy as cp
         >>> from cuml.metrics import pairwise_distances
         >>>
-        >>> X = np.array([[2.0, 3.0], [3.0, 5.0], [5.0, 8.0]])
-        >>> Y = np.array([[1.0, 0.0], [2.0, 1.0]])
+        >>> X = cp.array([[2.0, 3.0], [3.0, 5.0], [5.0, 8.0]])
+        >>> Y = cp.array([[1.0, 0.0], [2.0, 1.0]])
         >>>
         >>> # Euclidean Pairwise Distance, Single Input:
         >>> pairwise_distances(X, metric='euclidean')
@@ -184,7 +190,7 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
 
     # Determine the input type to convert to when returning
-    output_type = _input_to_type(X)
+    output_type = _determine_stateless_output_type(output_type, X)
 
     # Get the input arrays, preserve order and type where possible
     X_m, n_samples_x, n_features_x, dtype_x = \
