@@ -527,7 +527,10 @@ class SVMBase(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         out_type = self._get_output_type(X)
-        out_dtype = self._get_target_dtype()
+        if predict_class:
+            out_dtype = self._get_target_dtype()
+        else:
+            out_dtype = self.dtype
 
         if self._model is None:
             raise RuntimeError("Call fit before prediction")
