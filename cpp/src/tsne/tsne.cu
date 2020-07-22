@@ -16,6 +16,7 @@
 
 #include <common/cudart_utils.h>
 #include <cuml/manifold/tsne.h>
+#include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include "distances.cuh"
 #include "exact_kernels.cuh"
@@ -71,12 +72,10 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   //---------------------------------------------------
   // Get distances
   CUML_LOG_DEBUG("Getting distances.");
-  float *distances =
-    (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
-  long *indices =
-    (long *)d_alloc->allocate(sizeof(long) * n * n_neighbors, stream);
-  TSNE::get_distances(X, n, p, indices, distances, n_neighbors, d_alloc,
-                      stream);
+  MLCommon::device_buffer<float> distances(d_alloc, stream, n * n_neighbors);
+  MLCommon::device_buffer<long> indices(d_alloc, stream, n * n_neighbors);
+  TSNE::get_distances(X, n, p, indices.data(), distances.data(), n_neighbors,
+                      d_alloc, stream);
   //---------------------------------------------------
   END_TIMER(DistancesTime);
 
@@ -84,7 +83,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   //---------------------------------------------------
   // Normalize distances
   CUML_LOG_DEBUG("Now normalizing distances so exp(D) doesn't explode.");
-  TSNE::normalize_distances(n, distances, n_neighbors, stream);
+  TSNE::normalize_distances(n, distances.data(), n_neighbors, stream);
   //---------------------------------------------------
   END_TIMER(NormalizeTime);
 
@@ -92,12 +91,11 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   //---------------------------------------------------
   // Optimal perplexity
   CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
-  float *P =
-    (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
-  const float P_sum =
-    TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
-                            perplexity_tol, n, n_neighbors, handle);
-  d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
+  MLCommon::device_buffer<float> P(d_alloc, stream, n * n_neighbors);
+  const float P_sum = TSNE::perplexity_search(
+    distances.data(), P.data(), perplexity, perplexity_max_iter, perplexity_tol,
+    n, n_neighbors, handle);
+  distances.release(stream);
   CUML_LOG_DEBUG("Perplexity sum = %f", P_sum);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
@@ -106,8 +104,10 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   //---------------------------------------------------
   // Convert data to COO layout
   MLCommon::Sparse::COO<float> COO_Matrix(d_alloc, stream);
-  TSNE::symmetrize_perplexity(P, indices, n, n_neighbors, P_sum,
+  TSNE::symmetrize_perplexity(P.data(), indices.data(), n, n_neighbors, P_sum,
                               early_exaggeration, &COO_Matrix, stream, handle);
+  P.release(stream);
+  indices.release(stream);
   const int NNZ = COO_Matrix.nnz;
   float *VAL = COO_Matrix.vals();
   const int *COL = COO_Matrix.cols();
