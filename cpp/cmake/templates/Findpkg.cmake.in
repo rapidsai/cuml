@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+# Based on FindPNG.cmake from cmake 3.14.3
+
 #[=======================================================================[.rst:
 Find@PKG_NAME@
 --------
@@ -43,15 +45,16 @@ This module will set the following variables in your project:
 
 #]=======================================================================]
 
-find_path(@PKG_NAME@_LOCATION @HEADER_NAME@
+find_path(@PKG_NAME@_LOCATION @PKG_HEADER_NAME@
           HINTS ${@PKG_NAME@_INSTALL_DIR}
           PATH_SUFFIXES include)
 
-list(APPEND @PKG_NAME@_NAMES @LIBRARY_NAME@ lib@LIBRARY_NAME@)
-set(_@PKG_NAME@_VERSION_SUFFIXES 0)
+list(APPEND @PKG_NAME@_NAMES @PKG_LIBRARY_NAME@ lib@PKG_LIBRARY_NAME@)
+set(_@PKG_NAME@_VERSION_SUFFIXES @PKG_VERSION@)
 
 foreach(v IN LISTS _@PKG_NAME@_VERSION_SUFFIXES)
-  list(APPEND @PKG_NAME@_NAMES @LIBRARY_NAME@${v} lib@LIBRARY_NAME@${v})
+  list(APPEND @PKG_NAME@_NAMES @PKG_LIBRARY_NAME@${v} lib@PKG_LIBRARY_NAME@${v})
+  list(APPEND @PKG_NAME@_NAMES @PKG_LIBRARY_NAME@.${v} lib@PKG_LIBRARY_NAME@.${v})
 endforeach()
 unset(_@PKG_NAME@_VERSION_SUFFIXES)
 
