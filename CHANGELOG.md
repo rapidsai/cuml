@@ -63,6 +63,7 @@
 - PR #2577: Fully removing NVGraph dependency for CUDA 11 compatibility
 - PR #2575: Speed up TfidfTransformer
 - PR #2584: Removing dependency on sklearn's NotFittedError
+- PR #2548: Fix limitation on number of rows usable with tSNE and refactor memory allocation
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -89,6 +90,7 @@
 - PR #2532: Updating doxygen in new MG headers
 - PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
 - PR #2515: Increase tolerance for LogisticRegression test
+- PR #2543: Improve numerical stability of QN solver
 - PR #2544: Fix Barnes-Hut tSNE not using specified post_learning_rate
 - PR #2558: Disabled a long-running FIL test
 - PR #2540: Update default value for n_epochs in UMAP to match documentation & sklearn API
