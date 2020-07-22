@@ -163,22 +163,22 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     ---------
         >>> import cupy as cp
         >>> from cuml.metrics import pairwise_distances
-        >>>
+        >>> 
         >>> X = cp.array([[2.0, 3.0], [3.0, 5.0], [5.0, 8.0]])
         >>> Y = cp.array([[1.0, 0.0], [2.0, 1.0]])
-        >>>
+        >>> 
         >>> # Euclidean Pairwise Distance, Single Input:
         >>> pairwise_distances(X, metric='euclidean')
         array([[0.        , 2.23606798, 5.83095189],
             [2.23606798, 0.        , 3.60555128],
             [5.83095189, 3.60555128, 0.        ]])
-        >>>
+        >>> 
         >>> # Cosine Pairwise Distance, Multi-Input:
         >>> pairwise_distances(X, Y, metric='cosine')
         array([[0.4452998 , 0.13175686],
             [0.48550424, 0.15633851],
             [0.47000106, 0.14671817]])
-        >>>
+        >>> 
         >>> # Manhattan Pairwise Distance, Multi-Input:
         >>> pairwise_distances(X, Y, metric='manhattan')
         array([[ 4.,  2.],
