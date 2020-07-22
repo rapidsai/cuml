@@ -13,11 +13,30 @@
 # limitations under the License.
 #=============================================================================
 
+# File to generate Find*.cmake modules to find packages.
+# This file uses Findpkd.cmake.in to generate modules so that we can use
+# find(package) in the main CMake for any package we want.
+#
+# Usage: The template takes the following variables:
+#       PKG_NAME:
+#           Name of the package to find in find(PKG_NAME)
+#       PKG_HEADER_NAME:
+#           Name of header file to use to find include dirs path of the package.
+#       PKG_LIBRARY_NAME:
+#           Name of library to find to find include lib path of the package
+#       PKG_LOCATION:
+#           (Optional) Name of additional folder to look for headers/lib files.
+#           Useful if one wants to reduce size of #include commands
+#       PKG_VERSION:
+#           (Optional) Version of the package. Useful to find libraries that append
+#           version number to their filename (for example libopenblas.so.0)
+
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
 set(PKG_NAME cumlprims_mg)
-set(PKG_HEADER_NAME cumlprims/cumlprims.hpp)
+set(PKG_HEADER_NAME cumlprims.hpp)
 set(PKG_LIBRARY_NAME cumlprims)
+set(PKG_LOCATION cumlprims)
 set(PKG_VERSION 0)
 
 configure_file(Findpkg.cmake.in
@@ -36,7 +55,7 @@ configure_file(Findpkg.cmake.in
 
 
 set(PKG_NAME RMM)
-set(PKG_HEADER_NAME device_buffer.hpp)
+set(PKG_HEADER_NAME rmm/device_buffer.hpp)
 set(PKG_LIBRARY_NAME rmm)
 set(PKG_VERSION 0)
 

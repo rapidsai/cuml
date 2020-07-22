@@ -303,6 +303,7 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUB_DIR}/src/cub
   ${SPDLOG_DIR}/src/spdlog/include
   ${RAFT_DIR}/cpp/include
+  ${RMM_INCLUDE_DIRS}
   )
 
 set(CUML_PUBLIC_LINK_LIBRARIES
@@ -318,14 +319,15 @@ set(CUML_PRIVATE_LINK_LIBRARIES
   faisslib
   treelite::treelite
   treelite::treelite_runtime
+  RMM::RMM
   )
 
 if(ENABLE_CUMLPRIMS_MG)
   list(APPEND CUML_INCLUDE_DIRECTORIES
-       ${CUMLPRIMS_MG_INCLUDE_DIRS})
+       ${cumlprims_mg_INCLUDE_DIRS})
 
   list(APPEND CUML_PRIVATE_LINK_LIBRARIES
-       CUMLPRIMS_MG::CUMLPRIMS_MG)
+       cumlprims_mg::cumlprims_mg)
 
 endif(ENABLE_CUMLPRIMS_MG)
 
