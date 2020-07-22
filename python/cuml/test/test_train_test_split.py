@@ -48,8 +48,7 @@ def test_split_dataframe(train_size):
     )
     y_reconstructed = y_train.append(y_test).sort_values()
 
-    input = X_reconstructed.reset_index(drop=True) == X
-    assert all(input)
+    assert all(X_reconstructed.reset_index(drop=True) == X)
     out = y_reconstructed.reset_index(drop=True).values_host == y.values_host
     assert all(out)
 
@@ -81,9 +80,10 @@ def test_split_column():
     )
     y_reconstructed = y_train.append(y_test).sort_values()
 
-    assert all(data == X_reconstructed.assign(
-               y=y_reconstructed).reset_index(drop=True)
-               )
+    assert all(
+        data == X_reconstructed.assign(
+            y=y_reconstructed).reset_index(drop=True)
+    )
 
 
 def test_split_size_mismatch():
@@ -207,3 +207,60 @@ def test_default_values():
 
     assert X_test.shape[0] == X.shape[0] * 0.25
     assert y_test.shape[0] == y.shape[0] * 0.25
+
+
+@pytest.mark.parametrize('test_size', [0.2, 0.4, None])
+@pytest.mark.parametrize('train_size', [0.6, 0.8, None])
+@pytest.mark.parametrize('shuffle', [True, False])
+def test_split_df_single_argument(test_size, train_size, shuffle):
+    X = cudf.DataFrame({'x': range(50)})
+    X_train, X_test = train_test_split(X,
+                                       train_size=train_size,
+                                       test_size=test_size,
+                                       shuffle=shuffle,
+                                       random_state=0)
+    if train_size is not None:
+        assert X_train.shape[0] == (int)(X.shape[0] * train_size)
+
+    if test_size is not None:
+        assert X_test.shape[0] == (int)(X.shape[0] * test_size)
+
+
+@pytest.mark.parametrize('type', test_array_input_types)
+@pytest.mark.parametrize('test_size', [0.2, 0.4, None])
+@pytest.mark.parametrize('train_size', [0.6, 0.8, None])
+@pytest.mark.parametrize('shuffle', [True, False])
+def test_split_array_single_argument(type, test_size, train_size, shuffle):
+    X = np.zeros((100, 10)) + np.arange(100).reshape(100, 1)
+    if type == 'cupy':
+        X = cp.asarray(X)
+
+    if type == 'numba':
+        X = cuda.to_device(X)
+    X_train, X_test = train_test_split(X,
+                                       train_size=train_size,
+                                       test_size=test_size,
+                                       shuffle=shuffle,
+                                       random_state=0)
+
+    if type == 'cupy':
+        assert isinstance(X_train, cp.ndarray)
+        assert isinstance(X_test, cp.ndarray)
+
+    if type in ['numba', 'rmm']:
+        assert cuda.devicearray.is_cuda_ndarray(X_train)
+        assert cuda.devicearray.is_cuda_ndarray(X_test)
+
+    if train_size is not None:
+        assert X_train.shape[0] == (int)(X.shape[0] * train_size)
+
+    if test_size is not None:
+        assert X_test.shape[0] == (int)(X.shape[0] * test_size)
+
+    if shuffle is None:
+        assert X_train == X[0:train_size]
+        assert X_test == X[-1 * test_size:]
+
+        X_rec = cp.sort(cp.concatenate(X_train, X_test))
+
+        assert X_rec == X
