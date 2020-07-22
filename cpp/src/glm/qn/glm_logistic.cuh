@@ -45,8 +45,8 @@ struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
   inline __device__ T dlz(const T y, const T z) const {
     // To avoid fp overflow with exp(z) when abs(z) is large
     T ez = MLCommon::myExp(z < 0 ? z : -z);
-    T sigmoid = z < 0 ? ez / (T(1.0) + ez) : T(1.0) / (T(1.0) + ez);
-    return sigmoid - y;
+    T numerator = z < 0 ? ez : T(1.0);
+    return numerator / (T(1.0) + ez) - y;
   }
 };
 };  // namespace GLM
