@@ -127,6 +127,5 @@ def test_mbsgd_classifier_attributes(make_dataset):
     nrows, X_train, X_test, y_train, y_test = make_dataset
     clf = cumlMBSGClassifier()
     clf.fit(X_train, y_train)
-    print (clf.get_params())
     assert hasattr(clf, "dtype")
     assert hasattr(clf, "solver_model")
