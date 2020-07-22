@@ -55,7 +55,6 @@ void batched_diff(cumlHandle& handle, double* d_y_diff, const double* d_y,
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
  * @param[in]  method       Whether to use sum-of-squares or Kalman filter
- * @param[in]  pre_diff     Whether to use pre-differencing
  * @param[in]  truncate     For CSS, start the sum-of-squares after a given
  *                          number of observations
  * @param[in]  fc_steps     Number of steps to forecast
@@ -69,9 +68,9 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int n_obs, const ARIMAOrder& order, const double* d_params,
                      double* loglike, double* d_vs, bool trans = true,
                      bool host_loglike = true, LoglikeMethod method = MLE,
-                     bool pre_diff = true, int truncate = 0, int fc_steps = 0,
-                     double* d_fc = nullptr, double level = 0,
-                     double* d_lower = nullptr, double* d_upper = nullptr);
+                     int truncate = 0, int fc_steps = 0, double* d_fc = nullptr,
+                     double level = 0, double* d_lower = nullptr,
+                     double* d_upper = nullptr);
 
 /**
  * Compute the loglikelihood of the given parameter on the given time series
@@ -94,7 +93,6 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
  * @param[in]  method       Whether to use sum-of-squares or Kalman filter
- * @param[in]  pre_diff     Whether to use pre-differencing
  * @param[in]  truncate     For CSS, start the sum-of-squares after a given
  *                          number of observations
  * @param[in]  fc_steps     Number of steps to forecast
@@ -108,10 +106,9 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int n_obs, const ARIMAOrder& order,
                      const ARIMAParams<double>& params, double* loglike,
                      double* d_vs, bool trans = true, bool host_loglike = true,
-                     LoglikeMethod method = MLE, bool pre_diff = true,
-                     int truncate = 0, int fc_steps = 0, double* d_fc = nullptr,
-                     double level = 0, double* d_lower = nullptr,
-                     double* d_upper = nullptr);
+                     LoglikeMethod method = MLE, int truncate = 0,
+                     int fc_steps = 0, double* d_fc = nullptr, double level = 0,
+                     double* d_lower = nullptr, double* d_upper = nullptr);
 
 /**
  * Compute the gradient of the log-likelihood
@@ -127,15 +124,13 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  h            Finite-differencing step size
  * @param[in]  trans        Run `jones_transform` on params
  * @param[in]  method       Whether to use sum-of-squares or Kalman filter
- * @param[in]  pre_diff     Whether to use pre-differencing
  * @param[in]  truncate     For CSS, start the sum-of-squares after a given
  *                          number of observations
  */
 void batched_loglike_grad(cumlHandle& handle, const double* d_y, int batch_size,
                           int n_obs, const ARIMAOrder& order, const double* d_x,
                           double* d_grad, double h, bool trans = true,
-                          LoglikeMethod method = MLE, bool pre_diff = true,
-                          int truncate = 0);
+                          LoglikeMethod method = MLE, int truncate = 0);
 
 /**
  * Batched in-sample and out-of-sample prediction of a time-series given all
@@ -179,12 +174,11 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
  *                         Shape: (batch_size) (device)
  * @param[in]  ic_type     Type of information criterion wanted.
  *                         0: AIC, 1: AICc, 2: BIC
- * @param[in]  pre_diff    Whether to use pre-differencing
  */
 void information_criterion(cumlHandle& handle, const double* d_y,
                            int batch_size, int n_obs, const ARIMAOrder& order,
                            const ARIMAParams<double>& params, double* ic,
-                           int ic_type, bool pre_diff = true);
+                           int ic_type);
 
 /**
  * Provide initial estimates to ARIMA parameters mu, AR, and MA

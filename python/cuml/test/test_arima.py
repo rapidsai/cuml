@@ -365,7 +365,8 @@ def test_intervals(key, data, dtype, num_steps, level):
 
 @pytest.mark.parametrize('key, data', test_data)
 @pytest.mark.parametrize('dtype', [np.float64])
-def test_loglikelihood(key, data, dtype):
+@pytest.mark.parametrize('simple_differencing', [True, False])
+def test_loglikelihood(key, data, dtype, simple_differencing):
     """Test loglikelihood against statsmodels (with the same values for the
     model parameters)
     """
@@ -378,7 +379,8 @@ def test_loglikelihood(key, data, dtype):
 
     # Create cuML model
     cuml_model = arima.ARIMA(
-        y_cudf, order, seasonal_order, fit_intercept=intercept)
+        y_cudf, order, seasonal_order, fit_intercept=intercept,
+        simple_differencing=simple_differencing)
 
     # Feed the parameters to the cuML model
     _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
