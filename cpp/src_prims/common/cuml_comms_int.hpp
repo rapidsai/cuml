@@ -192,8 +192,8 @@ class cumlCommunicator : public raft::comms::comms_t {
   template <typename T>
   void allgatherv(const T* sendbuf, T* recvbuf, const int recvcounts[],
                   const int displs[], cudaStream_t stream) const {
-    raft::comms::comms_t::allgatherv(sendbuf, static_cast<size_t*>(recvbuf),
-                                     recvcounts, displs, stream);
+    raft::comms::comms_t::allgatherv(sendbuf, recvbuf,
+                                     reinterpret_cast<const size_t*>(recvcounts), displs, stream);
   }
 
   /**

@@ -287,6 +287,23 @@ set(CMAKE_CUDA_FLAGS
 
 include(cmake/Dependencies.cmake)
 
+###################################################################################################
+# - RMM -------------------------------------------------------------------------------------------
+
+find_path(RMM_INCLUDE "rmm"
+          HINTS "$ENV{RMM_ROOT}/include")
+
+find_library(RMM_LIBRARY "rmm"
+             HINTS "$ENV{RMM_ROOT}/lib" "$ENV{RMM_ROOT}/build")
+
+message(STATUS "RMM: RMM_LIBRARY set to ${RMM_LIBRARY}")
+message(STATUS "RMM: RMM_INCLUDE set to ${RMM_INCLUDE}")
+
+add_library(rmm SHARED IMPORTED ${RMM_LIBRARY})
+if(RMM_INCLUDE AND RMM_LIBRARY)
+    set_target_properties(rmm PROPERTIES IMPORTED_LOCATION ${RMM_LIBRARY})
+endif(RMM_INCLUDE AND RMM_LIBRARY)
+
 ##############################################################################
 # - include paths ------------------------------------------------------------
 
@@ -301,6 +318,7 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUB_DIR}/src/cub
   ${SPDLOG_DIR}/src/spdlog/include
   ${RAFT_DIR}/cpp/include
+  "${RMM_INCLUDE}"
   )
 
 set(CUML_PUBLIC_LINK_LIBRARIES
@@ -310,6 +328,7 @@ set(CUML_PUBLIC_LINK_LIBRARIES
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
   ${CUDA_nvgraph_LIBRARY}
+  rmm
   )
 
 set(CUML_PRIVATE_LINK_LIBRARIES

@@ -89,30 +89,32 @@ cumlHandle_impl::cumlHandle_impl(int n_streams)
   }
 
   void cumlHandle_impl::setDeviceAllocator(std::shared_ptr<deviceAllocator> allocator) {
-    raft::handle_t::set_device_allocator(
-      std::dynamic_pointer_cast<raftDeviceAllocatorAdapter>(allocator)
-        ->getRaftDeviceAllocator());
+    _deviceAllocator = allocator;
+    // raft::handle_t::set_device_allocator(
+    //   std::dynamic_pointer_cast<raftDeviceAllocatorAdapter>(allocator)
+    //     ->getRaftDeviceAllocator());
   }
 
   std::shared_ptr<deviceAllocator> cumlHandle_impl::getDeviceAllocator() const {
-    if (!_deviceAllocatorInitialized) {
-      _deviceAllocatorInitialized = true;
-    }
+    // if (!_deviceAllocatorInitialized) {
+    //   _deviceAllocatorInitialized = true;
+    // }
     return _deviceAllocator;
   }
 
   void cumlHandle_impl::setHostAllocator(std::shared_ptr<hostAllocator> allocator) {
-    raft::handle_t::set_host_allocator(
-      std::dynamic_pointer_cast<raftHostAllocatorAdapter>(allocator)
-        ->getRaftHostAllocator());
+    _hostAllocator = allocator;
+    // raft::handle_t::set_host_allocator(
+    //   std::dynamic_pointer_cast<raftHostAllocatorAdapter>(allocator)
+    //     ->getRaftHostAllocator());
   }
 
   std::shared_ptr<hostAllocator> cumlHandle_impl::getHostAllocator() const {
-    if (!_hostAllocatorInitialized) {
-      _hostAllocator = std::make_shared<raftHostAllocatorAdapter>(
-        raft::handle_t::get_host_allocator());
-      _hostAllocatorInitialized = true;
-    }
+    // if (!_hostAllocatorInitialized) {
+    //   _hostAllocator = std::make_shared<raftHostAllocatorAdapter>(
+    //     raft::handle_t::get_host_allocator());
+    //   _hostAllocatorInitialized = true;
+    // }
     return _hostAllocator;
   }
 
