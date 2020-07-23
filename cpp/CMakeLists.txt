@@ -181,16 +181,10 @@ else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
-set(Protobuf_USE_STATIC_LIBS ON)
-find_package(Protobuf REQUIRED)
-
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 ##############################################################################
 # - External Dependencies-----------------------------------------------------
-
-set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
-  "Path to nvGraph lib")
 
 set(CUML_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
   "Path to cuml include directories")
@@ -312,11 +306,9 @@ set(CUML_PUBLIC_LINK_LIBRARIES
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
-  ${CUDA_nvgraph_LIBRARY}
   )
 
 set(CUML_PRIVATE_LINK_LIBRARIES
-  ${Protobuf_LIBRARIES}
   faisslib
   treelite::treelite
   treelite::treelite_runtime
@@ -379,9 +371,14 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(NOT SINGLEGPU)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
+        src/glm/ols_mg.cu
+        src/glm/preprocess_mg.cu
+        src/glm/ridge_mg.cu     
+        src/kmeans/kmeans_mg.cu
         src/knn/knn_mg.cu
         src/pca/pca_mg.cu
         src/pca/sign_flip_mg.cu
+        src/solver/cd_mg.cu
         src/tsvd/tsvd_mg.cu
     )
   endif(NOT SINGLEGPU)

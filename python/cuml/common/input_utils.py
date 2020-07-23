@@ -452,8 +452,6 @@ def _typecast_will_lose_information(X, target_dtype):
     else:
         raise TypeError("Received unsupported input type: %s" % type(X))
 
-    return False
-
 
 def order_to_str(order):
     if order == 'F':

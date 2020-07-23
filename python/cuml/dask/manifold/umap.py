@@ -91,7 +91,8 @@ class UMAP(BaseEstimator,
     """
     def __init__(self, model, client=None, **kwargs):
         super(UMAP, self).__init__(client, **kwargs)
-        self.local_model = model
+
+        self._set_internal_model(model)
 
     def transform(self, X, convert_dtype=True):
         """
