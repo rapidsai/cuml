@@ -527,6 +527,10 @@ class SVMBase(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         out_type = self._get_output_type(X)
+        if predict_class:
+            out_dtype = self._get_target_dtype()
+        else:
+            out_dtype = self.dtype
 
         if self._model is None:
             raise RuntimeError("Call fit before prediction")
@@ -558,11 +562,11 @@ class SVMBase(Base):
 
         del(X_m)
 
-        return preds.to_output(out_type)
+        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
     def get_param_names(self):
         return ["C", "kernel", "degree", "gamma", "coef0", "cache_size",
-                "max_iter", "tol"]
+                "max_iter", "nochange_steps", "tol"]
 
     def __getstate__(self):
         state = self.__dict__.copy()

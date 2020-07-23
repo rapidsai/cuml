@@ -146,12 +146,9 @@ def _build_cpu_skl_classifier(m, data, args, tmpdir):
 
 def _build_treelite_classifier(m, data, args, tmpdir):
     """Setup function for treelite classification benchmarking"""
-    from cuml.common.import_utils import has_treelite, has_xgboost
-    if has_treelite():
-        import treelite
-        import treelite.runtime
-    else:
-        raise ImportError("No treelite package found")
+    from cuml.common.import_utils import has_xgboost
+    import treelite
+    import treelite_runtime
     if has_xgboost():
         import xgboost as xgb
     else:
@@ -168,23 +165,20 @@ def _build_treelite_classifier(m, data, args, tmpdir):
     bst.load_model(model_path)
     tl_model = treelite.Model.from_xgboost(bst)
     tl_model.export_lib(
-        toolchain="gcc", libpath=model_path+"treelite.so",
+        toolchain="gcc", libpath=os.path.join(tmpdir, 'treelite.so'),
         params={'parallel_comp': 40}, verbose=False
     )
-    return treelite.runtime.Predictor(model_path+"treelite.so", verbose=False)
+    return treelite_runtime.Predictor(os.path.join(tmpdir, 'treelite.so'),
+                                      verbose=False)
 
 
 def _treelite_fil_accuracy_score(y_true, y_pred):
     """Function to get correct accuracy for FIL (returns class index)"""
-    y_pred_binary = input_utils.convert_dtype(y_pred > 0.5, np.int32)
-    if isinstance(y_true, np.ndarray):
-        return cuml.metrics.accuracy_score(y_true, y_pred_binary)
-    elif cuda.devicearray.is_cuda_ndarray(y_true):
-        y_true_np = y_true.copy_to_host()
-        return cuml.metrics.accuracy_score(y_true_np, y_pred_binary)
-    elif isinstance(y_true, cudf.Series):
-        return cuml.metrics.accuracy_score(y_true, y_pred_binary)
-    elif isinstance(y_true, pd.Series):
-        return cuml.metrics.accuracy_score(y_true, y_pred_binary)
-    else:
-        raise TypeError("Received unsupported input type")
+    # convert the input if necessary
+    y_pred1 = (y_pred.copy_to_host() if
+               cuda.devicearray.is_cuda_ndarray(y_pred) else y_pred)
+    y_true1 = (y_true.copy_to_host() if
+               cuda.devicearray.is_cuda_ndarray(y_true) else y_true)
+
+    y_pred_binary = input_utils.convert_dtype(y_pred1 > 0.5, np.int32)
+    return cuml.metrics.accuracy_score(y_true1, y_pred_binary)
