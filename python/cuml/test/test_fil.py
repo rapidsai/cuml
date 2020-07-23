@@ -190,14 +190,13 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 @pytest.mark.parametrize('n_columns', [20])
 @pytest.mark.parametrize('n_estimators', [1, 10])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
-@pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
+@pytest.mark.parametrize('storage_type', [False, True])
 @pytest.mark.parametrize('model_class',
                          [GradientBoostingClassifier, RandomForestClassifier])
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                 storage_type, model_class):
-
     # skip depth 20 for dense tests
-    if max_depth == 20 and storage_type == 'DENSE':
+    if max_depth == 20 and not storage_type:
         return
 
     # settings
@@ -234,7 +233,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 
     skl_acc = accuracy_score(y_validation, skl_preds > 0.5)
 
-    algo = 'NAIVE' if storage_type == 'SPARSE' else 'BATCH_TREE_REORG'
+    algo = 'NAIVE' if storage_type else 'BATCH_TREE_REORG'
 
     fm = ForestInference.load_from_sklearn(skl_model,
                                            algo=algo,
@@ -258,14 +257,14 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 @pytest.mark.parametrize('n_columns', [20])
 @pytest.mark.parametrize('n_estimators', [1, 10])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
-@pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
+@pytest.mark.parametrize('storage_type', [False, True])
 @pytest.mark.parametrize('model_class',
                          [GradientBoostingRegressor, RandomForestRegressor])
 def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
                             storage_type, model_class):
 
     # skip depth 20 for dense tests
-    if max_depth == 20 and storage_type == 'DENSE':
+    if max_depth == 20 and not storage_type:
         return
 
     # settings
@@ -299,7 +298,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
 
     skl_mse = mean_squared_error(y_validation, skl_preds)
 
-    algo = 'NAIVE' if storage_type == 'SPARSE' else 'BATCH_TREE_REORG'
+    algo = 'NAIVE' if storage_type else 'BATCH_TREE_REORG'
 
     fm = ForestInference.load_from_sklearn(skl_model,
                                            algo=algo,
@@ -351,8 +350,7 @@ def test_output_algos(algo, small_classifier_and_preds):
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize('storage_type',
-                         ['AUTO', 'DENSE', 'SPARSE', 'auto', 'dense',
-                          'sparse'])
+                         [False, True, 'auto'])
 def test_output_storage_type(storage_type, small_classifier_and_preds):
     model_path, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
