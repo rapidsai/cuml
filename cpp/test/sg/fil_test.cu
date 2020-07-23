@@ -377,6 +377,7 @@ class PredictDenseFilTest : public BaseFilTest {
     fil_ps.global_bias = ps.global_bias;
     fil_ps.leaf_payload_type = ps.leaf_payload_type;
     fil_ps.num_classes = ps.num_classes;
+
     fil::init_dense(handle, pforest, nodes.data(), &fil_ps);
   }
 };
@@ -433,6 +434,7 @@ class PredictSparseFilTest : public BaseFilTest {
     fil_params.global_bias = ps.global_bias;
     fil_params.leaf_payload_type = ps.leaf_payload_type;
     fil_params.num_classes = ps.num_classes;
+
     dense2sparse();
     fil_params.num_nodes = sparse_nodes.size();
     fil::init_sparse(handle, pforest, trees.data(), sparse_nodes.data(),
@@ -512,8 +514,11 @@ class TreeliteFilTest : public BaseFilTest {
     // prediction transform
     if ((ps.output & fil::output_t::SIGMOID) != 0) {
       model_builder->SetModelParam("pred_transform", "sigmoid");
-    } else if (ps.leaf_payload_type == fil::leaf_value_t::INT_CLASS_LABEL) {
+    } else if (ps.leaf_payload_type == fil::leaf_value_t::INT_CLASS_LABEL
+               && ps.num_classes >= 2) {
       model_builder->SetModelParam("pred_transform", "max_index");
+      ps.threshold = 0.5;
+      ps.output = fil::output_t::CLASS;
     }
 
     // global bias
