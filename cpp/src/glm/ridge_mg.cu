@@ -19,6 +19,7 @@
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/linear_model/ridge_mg.hpp>
 #include <linalg/add.cuh>
 #include <linalg/gemm.cuh>
@@ -26,7 +27,6 @@
 #include <matrix/matrix.cuh>
 #include <opg/linalg/mv_aTb.hpp>
 #include <opg/linalg/svd.hpp>
-#include <opg/preprocess.hpp>
 #include <opg/stats/mean.hpp>
 
 using namespace MLCommon;

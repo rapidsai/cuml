@@ -29,7 +29,6 @@ set(CUML_TEST_LINK_LIBRARIES
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
-  ${CUDA_nvgraph_LIBRARY}
   gtestlib
   gtest_mainlib
   )
@@ -40,8 +39,7 @@ set(PRIMS_TEST_LINK_LIBRARIES
   ${CUDA_curand_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY}
-  ${CUDA_nvgraph_LIBRARY})
+  ${CUDA_cusparse_LIBRARY})
 
 ##############################################################################
 # - build ml_test executable -------------------------------------------------
@@ -66,7 +64,6 @@ if(BUILD_CUML_TESTS)
     sg/ridge.cu
     sg/rproj_test.cu
     sg/sgd.cu
-    sg/spectral_test.cu
     sg/svc_test.cu
     sg/trustworthiness_test.cu
     sg/tsne_test.cu

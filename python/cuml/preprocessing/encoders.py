@@ -14,7 +14,7 @@
 #
 import numpy as np
 import cupy as cp
-from sklearn.exceptions import NotFittedError
+from cuml.common.exceptions import NotFittedError
 
 from cuml import Base
 from cuml.preprocessing import LabelEncoder
