@@ -164,6 +164,32 @@ endif(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
+# Create FindPackage.cmake files to use find(package) functionality for
+# dependencies
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/cmake/templates)
+
+GENERATE_FIND_MODULE(NAME cumlprims_mg
+                     HEADER_NAME cumlprims.hpp
+                     LIBRARY_NAME cumlprims
+                     LOCATION cumlprims)
+
+GENERATE_FIND_MODULE(NAME NCCL
+                     HEADER_NAME nccl.h
+                     LIBRARY_NAME nccl)
+
+GENERATE_FIND_MODULE(NAME RMM
+                     HEADER_NAME rmm/device_buffer.hpp
+                     LIBRARY_NAME rmm)
+
+GENERATE_FIND_MODULE(NAME UCX
+                     HEADER_NAME ucp/api/ucp.h
+                     LIBRARY_NAME ucp)
+
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
+
+# append additional directories to CMAKE_MODULE_PATH if we need other modules here
+
 # todo: change for FindCUDAToolkit when CMake 3.17 is the minimum required
 # https://github.com/rapidsai/cuml/issues/2194
 find_package(CUDA 10.0 REQUIRED)
@@ -181,9 +207,6 @@ else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-
-add_subdirectory(${CMAKE_MODULE_PATH}/templates)
 
 ##############################################################################
 # - External Dependencies-----------------------------------------------------
