@@ -65,6 +65,7 @@ def slice_data(X, y, train_size, test_size, x_numba, y_numba):
     else:
         return X_train, X_test
 
+
 def stratify_split(X, y, n_train, n_test, x_numba, y_numba):
     """
     Function to perform a stratified split based on y.
@@ -80,17 +81,17 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba):
     if n_train < n_classes:
         raise ValueError('The train_size = %d should be greater or '
                              'equal to the number of classes = %d' %
-                             (train_size, n_classes))
+                             (n_train, n_classes))
     if n_test < n_classes:
         raise ValueError('The test_size = %d should be greater or '
                              'equal to the number of classes = %d' %
-                             (test_size, n_classes))
+                             (n_test, n_classes))
     class_indices = cp.split(cp.argsort(y_indices),
                             cp.cumsum(class_counts)[:-1].item())
 
     X_train = None
     n_per_class = int(n_train / n_classes)
-    
+
     for i in range(n_classes):
         class_idxs = class_indices[i]
         if hasattr(X, "__cuda_array_interface__") or \
@@ -100,12 +101,12 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba):
         else:
             X_i = X.iloc[class_idxs]
             y_i = y.iloc[class_idxs]
-        
+
         train_size = n_per_class 
         test_size = len(class_idxs) - train_size
-        
+
         X_train_i, X_test_i, y_train_i, y_test_i = slice_data(X_i, y_i, train_size, test_size, x_numba, y_numba)
-        
+
         if X_train is None:
             X_train = X_train_i.copy()
             y_train = y_train_i.copy()
@@ -113,7 +114,7 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba):
             y_test = y_test_i.copy()
         else:
             if hasattr(X, "__cuda_array_interface__") or \
-                isinstance(X, cp.sparse.csr_matrix):
+            isinstance(X, cp.sparse.csr_matrix):
                 X_train = cp.concatenate([X_train, X_train_i], axis=0)
                 X_test = cp.concatenate([X_test, X_test_i], axis=0)
                 y_train = cp.concatenate([y_train, y_train_i], axis=0)
@@ -335,7 +336,7 @@ def train_test_split(
             y = cp.asarray(y)[idxs]
 
         if stratify is not None:
-            split_return = stratify_split(X, y, train_size, test_size, x_numba, y_numba)            
+            split_return = stratify_split(X, y, train_size, test_size, x_numba, y_numba)
             return split_return
     split_return = slice_data(X, y, train_size, test_size, x_numba, y_numba)
     return split_return
