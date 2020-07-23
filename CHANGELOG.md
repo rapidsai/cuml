@@ -94,6 +94,7 @@
 - PR #2532: Updating doxygen in new MG headers
 - PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
 - PR #2515: Increase tolerance for LogisticRegression test
+- PR #2545: Fix documentation of n_iter_without_progress in tSNE Python bindings
 - PR #2543: Improve numerical stability of QN solver
 - PR #2544: Fix Barnes-Hut tSNE not using specified post_learning_rate
 - PR #2558: Disabled a long-running FIL test
