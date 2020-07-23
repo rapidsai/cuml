@@ -41,15 +41,9 @@ void get_distances(const float *X, const int n, const int p, long *indices,
                    cudaStream_t stream) {
   // TODO: for TSNE transform first fit some points then transform with 1/(1+d^2)
   // #861
-  float **knn_input = new float *[1];
-  int *sizes = new int[1];
-  knn_input[0] = (float *)X;
-  sizes[0] = n;
 
-  std::vector<float *> input_vec(1);
-  std::vector<int> sizes_vec(1);
-  input_vec.push_back(knn_input[0]);
-  sizes_vec.push_back(sizes[0]);
+  std::vector<float *> input_vec = {const_cast<float *>(X)};
+  std::vector<int> sizes_vec = {n};
 
   /**
  * std::vector<float *> &input, std::vector<int> &sizes,
@@ -62,7 +56,6 @@ void get_distances(const float *X, const int n, const int p, long *indices,
   MLCommon::Selection::brute_force_knn(input_vec, sizes_vec, p,
                                        const_cast<float *>(X), n, indices,
                                        distances, n_neighbors, d_alloc, stream);
-  delete knn_input, sizes;
 }
 
 /**
@@ -111,10 +104,6 @@ void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
   // Symmetrize to form P + P.T
   MLCommon::Sparse::from_knn_symmetrize_matrix(
     indices, P, n, k, COO_Matrix, stream, handle.getDeviceAllocator());
-
-  handle.getDeviceAllocator()->deallocate(P, sizeof(float) * n * k, stream);
-  handle.getDeviceAllocator()->deallocate(indices, sizeof(long) * n * k,
-                                          stream);
 }
 
 }  // namespace TSNE
