@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 from sklearn.utils.validation import FLOAT_DTYPES
-from sklearn.exceptions import NotFittedError
+from cuml.common.exceptions import NotFittedError
 import cupy as cp
 from cuml.common import with_cupy_rmm
 from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
