@@ -55,7 +55,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   auto allocator = handle.getDeviceAllocator();
   const auto stream = handle.getStream();
 
-  bool diff = order.need_prep() && pre_diff && level == 0;
+  bool diff = order.need_diff() && pre_diff && level == 0;
 
   // Prepare data
   int n_obs_kf;
@@ -63,7 +63,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   MLCommon::device_buffer<double> diff_buffer(allocator, stream);
   ARIMAOrder order_after_prep = order;
   if (diff) {
-    n_obs_kf = n_obs - order.lost_in_diff();
+    n_obs_kf = n_obs - order.n_diff();
     diff_buffer.resize(n_obs_kf * batch_size, stream);
     MLCommon::TimeSeries::prepare_data(diff_buffer.data(), d_y, batch_size,
                                        n_obs, order.d, order.D, order.s,
@@ -420,7 +420,7 @@ void information_criterion(cumlHandle& handle, const double* d_y,
   /* Compute information criterion from log-likelihood and base term */
   MLCommon::Metrics::Batched::information_criterion(
     d_ic, d_ic, static_cast<MLCommon::Metrics::IC_Type>(ic_type),
-    order.complexity(), batch_size, n_obs - order.lost_in_diff(), stream);
+    order.complexity(), batch_size, n_obs - order.n_diff(), stream);
 
   ML::POP_RANGE();
 }
