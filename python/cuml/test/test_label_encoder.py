@@ -17,7 +17,7 @@ import cudf
 import numpy as np
 
 import pytest
-from sklearn.exceptions import NotFittedError
+from cuml.common.exceptions import NotFittedError
 
 
 def _df_to_similarity_mat(df):
