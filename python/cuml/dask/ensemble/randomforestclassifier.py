@@ -424,10 +424,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
-        num_classes : int (default = 'auto')
-            deprecated
-            number of different classes present in the dataset
-            must match the number of classes the model was trained on
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
