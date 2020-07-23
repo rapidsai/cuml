@@ -507,8 +507,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
          "oversampling factor must be >= 0 (requested %f)",
          km_params.oversampling_factor);
 
-  ASSERT(memory_type(X) == cudaMemoryTypeDevice,
-         "input data must be device accessible");
+  ASSERT(is_device_or_managed_type(X), "input data must be device accessible");
 
   Tensor<DataT, 2, IndexT> data((DataT *)X, {n_samples, n_features});
 
@@ -624,10 +623,10 @@ void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
   ASSERT(n_clusters > 0 && cptr != nullptr, "no clusters exist");
 
-  ASSERT(memory_type(Xptr) == cudaMemoryTypeDevice,
+  ASSERT(is_device_or_managed_type(Xptr),
          "input data must be device accessible");
 
-  ASSERT(memory_type(cptr) == cudaMemoryTypeDevice,
+  ASSERT(is_device_or_managed_type(cptr),
          "centroid data must be device accessible");
 
   MLCommon::Distance::DistanceType metric =
@@ -737,13 +736,13 @@ void transform(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
   ASSERT(n_clusters > 0 && cptr != nullptr, "no clusters exist");
 
-  ASSERT(memory_type(Xptr) == cudaMemoryTypeDevice,
+  ASSERT(is_device_or_managed_type(Xptr),
          "input data must be device accessible");
 
-  ASSERT(memory_type(cptr) == cudaMemoryTypeDevice,
+  ASSERT(is_device_or_managed_type(cptr),
          "centroid data must be device accessible");
 
-  ASSERT(memory_type(X_new) == cudaMemoryTypeDevice,
+  ASSERT(is_device_or_managed_type(X_new),
          "output data storage must be device accessible");
 
   Tensor<DataT, 2, IndexT> dataset((DataT *)Xptr, {n_samples, n_features});
