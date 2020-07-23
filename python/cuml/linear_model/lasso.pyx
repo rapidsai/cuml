@@ -136,8 +136,6 @@ class Lasso(Base, RegressorMixin):
 
         self._check_alpha(alpha)
         self.alpha = alpha
-        self.coef_ = None
-        self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
         self.max_iter = max_iter
@@ -189,9 +187,6 @@ class Lasso(Base, RegressorMixin):
         self._set_n_features_in(X)
 
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
-
-        self.coef_ = self.solver_model.coef_
-        self.intercept_ = self.solver_model.intercept_
 
         return self
 
