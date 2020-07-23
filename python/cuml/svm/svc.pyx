@@ -255,8 +255,6 @@ class SVC(SVMBase, ClassifierMixin):
                                                   else None),
                                 check_rows=self.n_rows, check_cols=1)
 
-        self.classes_ = cp.unique(y_m)
-
         cdef uintptr_t y_ptr = y_m.ptr
         self._dealloc()  # delete any previously fitted model
         self._coef_ = None
