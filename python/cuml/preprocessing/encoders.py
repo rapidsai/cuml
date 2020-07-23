@@ -14,7 +14,7 @@
 #
 import numpy as np
 import cupy as cp
-from sklearn.exceptions import NotFittedError
+from cuml.common.exceptions import NotFittedError
 
 from cuml import Base
 from cuml.preprocessing import LabelEncoder
@@ -178,7 +178,7 @@ class OneHotEncoder(Base):
             self._set_input_type('array')
             if is_categories:
                 X = X.transpose()
-            return DataFrame.from_gpu_matrix(X)
+            return DataFrame(X)
         else:
             self._set_input_type('df')
             return X
