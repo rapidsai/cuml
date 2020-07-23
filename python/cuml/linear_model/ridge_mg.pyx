@@ -40,7 +40,7 @@ from cuml.decomposition.utils cimport *
 from cuml.linear_model import Ridge
 from cuml.linear_model.base_mg import MGFitMixin
 
-cdef extern from "cumlprims/opg/ridge.hpp" namespace "ML::Ridge::opg":
+cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg":
 
     cdef void fit(cumlHandle& handle,
                   vector[floatData_t *] input_data,
