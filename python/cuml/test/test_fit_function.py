@@ -32,7 +32,12 @@ models = models_config.get_models()
 
 @pytest.mark.parametrize("model_name", list(models.keys()))
 def test_fit_function(dataset, model_name):
-    if model_name in ["SparseRandomProjection", "TSNE", "TruncatedSVD", "AutoARIMA"]:
+    if model_name in [
+        "SparseRandomProjection",
+        "TSNE",
+        "TruncatedSVD",
+        "AutoARIMA"
+    ]:
         pytest.xfail("These models are not tested yet")
 
     n_pos_args_constr = func_positional_arg(models[model_name].__init__)
@@ -78,4 +83,6 @@ def test_fit_function(dataset, model_name):
         # test classifiers correctly set self.classes_ during fit
         if hasattr(model, "_estimator_type"):
             if model._estimator_type == "classifier":
-                cp.testing.assert_array_almost_equal(model.classes_, cp.unique(y))
+                cp.testing.assert_array_almost_equal(
+                    model.classes_, cp.unique(y)
+                )
