@@ -51,6 +51,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         const int n,
         const int p,
         const int dim,
+        # int64_t * knn_indices,
+        # float * knn_dists,
         int n_neighbors,
         const float theta,
         const float epssq,
