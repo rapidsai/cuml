@@ -12,6 +12,7 @@
 - PR #2394: Adding cosine & correlation distance for KNN
 - PR #2392: PCA can accept sparse inputs, and sparse prim for computing covariance
 - PR #2465: Support pandas 1.0+
+- PR #2519: Precision recall curve using cupy
 - PR #2500: Replace UMAP functionality dependency on nvgraph with RAFT Spectral Clustering
 - PR #2520: TfidfVectorizer estimator
 - PR #2461: Add KNN Sparse Output Functionality
@@ -62,7 +63,11 @@
 - PR #2566: Remove deprecated cuDF from_gpu_matrix calls
 - PR #2577: Fully removing NVGraph dependency for CUDA 11 compatibility
 - PR #2575: Speed up TfidfTransformer
+- PR #2584: Removing dependency on sklearn's NotFittedError
+- PR #2591: Generate benchmark datsets using `cuml.datasets`
 - PR #2548: Fix limitation on number of rows usable with tSNE and refactor memory allocation
+- PR #2589: including cuda-11 build fixes into raft
+- PR #2487: Set classes_ attribute during classifier fit
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -100,6 +105,7 @@
 - PR #2569: Fix for cuDF update
 - PR #2508: Use keyword parameters in sklearn.datasets.make_* functions
 - PR #2587: Attributes for estimators relying on solvers
+- PR #2586: Fix SVC decision function data type
 - PR #2573: Considering managed memory as device type on checking for KMeans 
 - PR #2574: Fixing include path in `tsvd_mg.pyx`
 
