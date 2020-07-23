@@ -17,62 +17,35 @@
 # This file uses Findpkd.cmake.in to generate modules so that we can use
 # find(package) in the main CMake for any package we want.
 #
-# Usage: The template takes the following variables:
-#       PKG_NAME:
-#           Name of the package to find in find(PKG_NAME)
-#       PKG_HEADER_NAME:
+# To use, include in CMakeLists.txt this folder, and then use the function
+# GENERATE_FIND_MODULE, which takes the following parameters:
+#       NAME:
+#           Name of the package to find in find(NAME)
+#       HEADER_NAME:
 #           Name of header file to use to find include dirs path of the package.
-#       PKG_LIBRARY_NAME:
-#           Name of library to find to find include lib path of the package
-#       PKG_LOCATION:
+#       LIBRARY_NAME:
+#           (Optional) Name of library to find to find include lib path of the package.
+#           Assumed to be lib${NAME} if left empty.
+#       LOCATION:
 #           (Optional) Name of additional folder to look for headers/lib files.
 #           Useful if one wants to reduce size of #include commands
-#       PKG_VERSION:
+#       VERSION:
 #           (Optional) Version of the package. Useful to find libraries that append
 #           version number to their filename (for example libopenblas.so.0)
 
-cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
-set(PKG_NAME cumlprims_mg)
-set(PKG_HEADER_NAME cumlprims.hpp)
-set(PKG_LIBRARY_NAME cumlprims)
-set(PKG_LOCATION cumlprims)
-set(PKG_VERSION 0)
+function(GENERATE_FIND_MODULE)
+    set(oneValueArgs NAME LOCATION VERSION)
+    set(multiValueArgs HEADER_NAME LIBRARY_NAME)
+    cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
+                          "${multiValueArgs}" ${ARGN} )
 
-configure_file(Findpkg.cmake.in
-               ${CMAKE_MODULE_PATH}/Find${PKG_NAME}.cmake
+    if(NOT DEFINED PKG_LIBRARY_NAME)
+        set(PKG_LIBRARY_NAME ${PKG_NAME})
+    endif(NOT DEFINED PKG_LIBRARY_NAME)
+
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/templates/Findpkg.cmake.in
+               ${CMAKE_CURRENT_BINARY_DIR}/cmake/Find${PKG_NAME}.cmake
                @ONLY)
-
-
-set(PKG_NAME NCCL)
-set(PKG_HEADER_NAME nccl.h)
-set(PKG_LIBRARY_NAME nccl)
-set(PKG_VERSION 2)
-
-configure_file(Findpkg.cmake.in
-               ${CMAKE_MODULE_PATH}/Find${PKG_NAME}.cmake
-               @ONLY)
-
-
-set(PKG_NAME RMM)
-set(PKG_HEADER_NAME rmm/device_buffer.hpp)
-set(PKG_LIBRARY_NAME rmm)
-set(PKG_VERSION 0)
-
-configure_file(Findpkg.cmake.in
-               ${CMAKE_MODULE_PATH}/Find${PKG_NAME}.cmake
-               @ONLY)
-
-
-set(PKG_NAME UCX)
-set(PKG_HEADER_NAME ucp/api/ucp.h)
-set(PKG_LIBRARY_NAME ucp)
-set(PKG_VERSION 0)
-
-configure_file(Findpkg.cmake.in
-               ${CMAKE_MODULE_PATH}/Find${PKG_NAME}.cmake
-               @ONLY)
-
-
-
+endfunction()
 

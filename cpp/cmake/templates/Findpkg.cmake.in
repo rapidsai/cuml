@@ -19,7 +19,7 @@
 Find@PKG_NAME@
 --------
 
-File generated from the template Findpkg.cmake.in.
+Template to generate FindPKG_NAME.cmake CMake modules
 
 Find @PKG_NAME@
 
