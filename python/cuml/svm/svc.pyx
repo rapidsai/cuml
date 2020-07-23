@@ -184,6 +184,8 @@ class SVC(SVMBase, ClassifierMixin):
         Only available for linear kernels. It is the normal of the
         hyperplane.
         coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
+    classes_: shape (n_classes_,)
+        Array of class labels.
 
     For additional docs, see `scikitlearn's SVC
     <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
@@ -212,6 +214,10 @@ class SVC(SVMBase, ClassifierMixin):
                                   cache_size, max_iter, nochange_steps,
                                   verbose)
         self.svmType = C_SVC
+
+    @property
+    def classes_(self):
+        return self.unique_labels
 
     @with_cupy_rmm
     def fit(self, X, y, convert_dtype=True):
