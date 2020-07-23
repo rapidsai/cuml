@@ -20,7 +20,6 @@
 
 import ctypes
 import cudf
-import cupy as cp
 import numpy as np
 
 from numba import cuda
