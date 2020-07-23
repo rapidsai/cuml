@@ -62,6 +62,7 @@
 - PR #2566: Remove deprecated cuDF from_gpu_matrix calls
 - PR #2577: Fully removing NVGraph dependency for CUDA 11 compatibility
 - PR #2575: Speed up TfidfTransformer
+- PR #2591: Generate benchmark datsets using `cuml.datasets`
 - PR #2548: Fix limitation on number of rows usable with tSNE and refactor memory allocation
 - PR #2589: including cuda-11 build fixes into raft
 
