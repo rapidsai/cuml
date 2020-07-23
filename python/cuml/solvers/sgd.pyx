@@ -327,7 +327,7 @@ class SGD(Base):
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
                                 check_rows=n_rows, check_cols=1)
-        
+
         _estimator_type = getattr(self, '_estimator_type', None)
         if _estimator_type == "classifier":
             self.classes_ = cp.unique(y_m)
