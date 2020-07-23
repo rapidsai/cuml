@@ -24,31 +24,6 @@ from numba import cuda
 from typing import Union
 
 
-def get_train_test_sizes(X, train_size, test_size):
-    """
-        Determine the size of the train and test size
-        based on shape of X
-    """
-    # Determining sizes of splits
-    if isinstance(train_size, float):
-        train_size = int(X.shape[0] * train_size)
-
-    if test_size is None:
-        if train_size is None:
-            train_size = int(X.shape[0] * 0.75)
-
-        test_size = X.shape[0] - train_size
-
-    if isinstance(test_size, float):
-        test_size = int(X.shape[0] * test_size)
-        if train_size is None:
-            train_size = X.shape[0] - test_size
-
-    elif isinstance(test_size, int):
-        if train_size is None:
-            train_size = X.shape[0] - test_size
-    return train_size, test_size
-
 def slice_data(X, y, train_size, test_size, x_numba, y_numba):
     if hasattr(X, "__cuda_array_interface__"):
         x_order = _strides_to_order(X.__cuda_array_interface__['strides'],
@@ -90,7 +65,7 @@ def slice_data(X, y, train_size, test_size, x_numba, y_numba):
     else:
         return X_train, X_test
 
-def stratify_split(X, y, train_size, test_size, x_numba, y_numba):
+def stratify_split(X, y, n_train, n_test, x_numba, y_numba):
     """
     Function to perform a stratified split based on y.
     Identifies number of classes and samples per class, splices data within
@@ -99,7 +74,6 @@ def stratify_split(X, y, train_size, test_size, x_numba, y_numba):
     Input:
     X, y: shuffled input data and labels
     """
-    n_train, n_test = get_train_test_sizes(X, train_size, test_size)
     classes, y_indices = cp.unique(y, return_inverse=True)
     n_classes = classes.shape[0]
     class_counts = cp.bincount(y_indices)
@@ -309,6 +283,25 @@ def train_test_split(
                           set, using 'random_state' since 'seed' is \
                           deprecated. ")
 
+    # Determining sizes of splits
+    if isinstance(train_size, float):
+        train_size = int(X.shape[0] * train_size)
+
+    if test_size is None:
+        if train_size is None:
+            train_size = int(X.shape[0] * 0.75)
+
+        test_size = X.shape[0] - train_size
+
+    if isinstance(test_size, float):
+        test_size = int(X.shape[0] * test_size)
+        if train_size is None:
+            train_size = X.shape[0] - test_size
+
+    elif isinstance(test_size, int):
+        if train_size is None:
+            train_size = X.shape[0] - test_size
+
     if shuffle:
         # Shuffle the data
         if random_state is None or isinstance(random_state, int):
@@ -344,8 +337,5 @@ def train_test_split(
         if stratify is not None:
             split_return = stratify_split(X, y, train_size, test_size, x_numba, y_numba)            
             return split_return
-
-    train_size, test_size = get_train_test_sizes(X, train_size, test_size)
-
     split_return = slice_data(X, y, train_size, test_size, x_numba, y_numba)
     return split_return
