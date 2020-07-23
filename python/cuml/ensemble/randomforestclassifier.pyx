@@ -684,7 +684,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         """
         Predicts class probabilites for X. This function uses the GPU
         implementation of predict. Therefore, data with 'dtype = np.float32'
-        should be used while using this function.
+        should be used with this function.
 
         Parameters
         ----------
