@@ -28,7 +28,8 @@
 namespace ML {
 
 void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
-              const int p, const int dim, int n_neighbors, const float theta,
+              const int p, const int dim, int64_t * knn_indices,
+              float * knn_dists, int n_neighbors, const float theta,
               const float epssq, float perplexity,
               const int perplexity_max_iter, const float perplexity_tol,
               const float early_exaggeration, const int exaggeration_iter,
