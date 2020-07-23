@@ -71,18 +71,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   CUML_LOG_DEBUG("N_nodes = %d blocks = %d", nnodes, blocks);
 
   // Allocate more space
-  //---------------------------------------------------
-<<<<<<< HEAD
-  //int *errl = (int *)d_alloc->allocate(sizeof(int), stream);
-  device_buffer<unsigned> limiter(d_alloc, stream, 1);
-  device_buffer<int> maxdepthd(d_alloc, stream, 1);
-  device_buffer<int> bottomd(d_alloc, stream, 1);
-  device_buffer<float> radiusd(d_alloc, stream, 1);
-
-  TSNE::InitializationKernel<<<1, 1, 0, stream>>>(
-    /*errl,*/ limiter.data(), maxdepthd.data(), radiusd.data());
-
-=======
   // MLCommon::device_buffer<unsigned> errl(d_alloc, stream, 1);
   MLCommon::device_buffer<unsigned> limiter(d_alloc, stream, 1);
   MLCommon::device_buffer<int> maxdepthd(d_alloc, stream, 1);
@@ -93,57 +81,23 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                                                   limiter.data(),
                                                   maxdepthd.data(),
                                                   radiusd.data());
->>>>>>> 3aacbc93e6367b1cac99e66d7604020985f1ff52
   CUDA_CHECK(cudaPeekAtLastError());
 
   const int FOUR_NNODES = 4 * nnodes;
   const int FOUR_N = 4 * n;
   const float theta_squared = theta * theta;
   const int NNODES = nnodes;
-  bool h_chk_finite;
 
-<<<<<<< HEAD
-  // Actual mallocs
-  device_buffer<int> startl(d_alloc, stream, nnodes + 1);
-  device_buffer<int> childl(d_alloc, stream, (nnodes + 1) * 4);
-  device_buffer<float> massl(d_alloc, stream, nnodes + 1);
-=======
   // Actual allocations
   MLCommon::device_buffer<int> startl(d_alloc, stream, nnodes + 1);
   MLCommon::device_buffer<int> childl(d_alloc, stream, (nnodes + 1) * 4);
   MLCommon::device_buffer<float> massl(d_alloc, stream, nnodes + 1);
 
->>>>>>> 3aacbc93e6367b1cac99e66d7604020985f1ff52
   thrust::device_ptr<float> begin_massl =
     thrust::device_pointer_cast(massl.data());
   thrust::fill(thrust::cuda::par.on(stream), begin_massl,
                begin_massl + (nnodes + 1), 1.0f);
 
-<<<<<<< HEAD
-  device_buffer<float> maxxl(d_alloc, stream, blocks * FACTOR1);
-  device_buffer<float> maxyl(d_alloc, stream, blocks * FACTOR1);
-  device_buffer<float> minxl(d_alloc, stream, blocks * FACTOR1);
-  device_buffer<float> minyl(d_alloc, stream, blocks * FACTOR1);
-
-  // SummarizationKernel
-  device_buffer<int> countl(d_alloc, stream, nnodes + 1);
-
-  // SortKernel
-  device_buffer<int> sortl(d_alloc, stream, nnodes + 1);
-
-  // RepulsionKernel
-  device_buffer<float> rep_forces(d_alloc, stream, (nnodes + 1) * 2);
-  device_buffer<float> attr_forces(d_alloc, stream, n * 2);
-
-  device_buffer<float> norm_add1(d_alloc, stream, n);
-  device_buffer<float> norm(d_alloc, stream, n);
-  device_buffer<float> Z_norm(d_alloc, stream, 1);
-
-  device_buffer<float> radiusd_squared(d_alloc, stream, 1);
-
-  // Apply
-  device_buffer<float> gains_bh(d_alloc, stream, n * 2);
-=======
   MLCommon::device_buffer<float> maxxl(d_alloc, stream, blocks * FACTOR1);
   MLCommon::device_buffer<float> maxyl(d_alloc, stream, blocks * FACTOR1);
   MLCommon::device_buffer<float> minxl(d_alloc, stream, blocks * FACTOR1);
@@ -168,25 +122,12 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Apply
   MLCommon::device_buffer<float> gains_bh(d_alloc, stream, n * 2);
->>>>>>> 3aacbc93e6367b1cac99e66d7604020985f1ff52
+
   thrust::device_ptr<float> begin_gains_bh =
     thrust::device_pointer_cast(gains_bh.data());
   thrust::fill(thrust::cuda::par.on(stream), begin_gains_bh,
                begin_gains_bh + (n * 2), 1.0f);
 
-<<<<<<< HEAD
-  device_buffer<float> old_forces(d_alloc, stream, n * 2);
-  CUDA_CHECK(
-    cudaMemsetAsync(old_forces.data(), 0, sizeof(float) * n * 2, stream));
-
-  device_buffer<float> YY(d_alloc, stream, (nnodes + 1) * 2);
-  device_buffer<float> YY_prev(d_alloc, stream, (nnodes + 1) * 2);
-  random_vector(YY.data(), -0.0001f, 0.0001f, (nnodes + 1) * 2, stream,
-                random_state);
-  ASSERT(
-    YY.data() != NULL && YY_prev.data() != NULL && rep_forces.data() != NULL,
-    "[ERROR] Possibly no more memory");
-=======
   MLCommon::device_buffer<float> old_forces(d_alloc, stream, n * 2);
   CUDA_CHECK(
     cudaMemsetAsync(old_forces.data(), 0, sizeof(float) * n * 2, stream));
@@ -195,7 +136,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   // TODO bug #2549: this should be conditional on bool initialize_embeddings.
   random_vector(YY.data(), -0.0001f, 0.0001f, (nnodes + 1) * 2, stream,
                 random_state);
->>>>>>> 3aacbc93e6367b1cac99e66d7604020985f1ff52
 
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
@@ -216,21 +156,13 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   float learning_rate = pre_learning_rate;
 
   for (int iter = 0; iter < max_iter; iter++) {
-<<<<<<< HEAD
-    CUDA_CHECK(cudaMemsetAsync(rep_forces.data(), 0,
-                               sizeof(float) * (nnodes + 1) * 2, stream));
-    CUDA_CHECK(
-      cudaMemsetAsync(attr_forces.data(), 0, sizeof(float) * n * 2, stream));
-
-    MLCommon::copy(YY_prev.data(), YY.data(), (nnodes + 1) * 2, stream);
-=======
     CUDA_CHECK(cudaMemsetAsync(static_cast<void *>(rep_forces.data()), 0,
                                rep_forces.size() * sizeof(*rep_forces.data()),
                                stream));
     CUDA_CHECK(cudaMemsetAsync(static_cast<void *>(attr_forces.data()), 0,
                                attr_forces.size() * sizeof(*attr_forces.data()),
                                stream));
->>>>>>> 3aacbc93e6367b1cac99e66d7604020985f1ff52
+
     TSNE::Reset_Normalization<<<1, 1, 0, stream>>>(
       Z_norm.data(), radiusd_squared.data(), bottomd.data(), NNODES,
       radiusd.data());
@@ -331,18 +263,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(IntegrationKernel_time);
-
-    h_chk_finite = thrust::transform_reduce(
-      thrust::cuda::par.on(stream), YY.data(), YY.data() + (nnodes + 1) * 2,
-      FiniteTestUnary(), 0, thrust::plus<bool>());
-    if (h_chk_finite) {
-      CUML_LOG_WARN(
-        "Non-finite result detected during Barnes Hut iteration: %d, returning last "
-        "known good positions.",
-        iter);
-      MLCommon::copy(YY.data(), YY_prev.data(), (nnodes + 1) * 2, stream);
-      break;
-    }
   }
   PRINT_TIMES;
 

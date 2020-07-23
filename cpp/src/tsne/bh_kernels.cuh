@@ -42,14 +42,6 @@ namespace TSNE {
 
 
 /**
- * Unary op intended to be used as a Thrust transform, check if array elements non-finite.
- */
-struct FiniteTestUnary {
-  __host__ __device__ bool operator()(const float x) const { return !isfinite(x); }
-};
-
-
-/**
  * Intializes the states of objects. This speeds the overall kernel up.
  */
 __global__ void InitializationKernel(/*int *restrict errd, */
@@ -670,12 +662,19 @@ __global__ void attractive_kernel_bh(
   if (index >= NNZ) return;
   const int i = ROW[index];
   const int j = COL[index];
+  float PQ;
 
   // TODO: Calculate Kullback-Leibler divergence
   // TODO: Convert attractive forces to CSR format
-  const float PQ = __fdividef(
-    VAL[index],
-    norm_add1[i] + norm[j] - 2.0f * (Y1[i] * Y1[j] + Y2[i] * Y2[j]));  // P*Q
+  // Try single precision compute first
+  float denominator = __fmaf_rn(-2.0f, (Y1[i] * Y1[j]), norm_add1[i]) + __fmaf_rn(-2.0f, (Y2[i] * Y2[j]), norm[j]);
+
+  if (denominator == 0) {
+    /* repeat with double precision */
+    double dbl_denominator = __fma_rn(-2.0f, Y1[i] * Y1[j], norm_add1[i]) + __fma_rn(-2.0f, Y2[i] * Y2[j], norm[j]);
+    denominator = (dbl_denominator != 0) ? static_cast<float>(dbl_denominator) : FLT_EPSILON;
+  }
+  PQ = __fdividef(VAL[index], denominator);
 
   // Apply forces
   atomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));
