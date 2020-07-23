@@ -514,8 +514,8 @@ class TreeliteFilTest : public BaseFilTest {
     // prediction transform
     if ((ps.output & fil::output_t::SIGMOID) != 0) {
       model_builder->SetModelParam("pred_transform", "sigmoid");
-    } else if (ps.leaf_payload_type == fil::leaf_value_t::INT_CLASS_LABEL
-               && ps.num_classes >= 2) {
+    } else if (ps.leaf_payload_type == fil::leaf_value_t::INT_CLASS_LABEL &&
+               ps.num_classes >= 2) {
       model_builder->SetModelParam("pred_transform", "max_index");
       ps.threshold = 0.5;
       ps.output = fil::output_t::CLASS;
