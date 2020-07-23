@@ -67,6 +67,7 @@
 - PR #2591: Generate benchmark datsets using `cuml.datasets`
 - PR #2548: Fix limitation on number of rows usable with tSNE and refactor memory allocation
 - PR #2589: including cuda-11 build fixes into raft
+- PR #2487: Set classes_ attribute during classifier fit
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
