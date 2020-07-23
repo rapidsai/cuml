@@ -471,27 +471,9 @@ class LogisticRegression(Base, ClassifierMixin):
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        if "coef_" in state:
-            del state["coef_"]
-        if "intercept_" in state:
-            del state["intercept_"]
         return state
 
     def __setstate__(self, state):
         super(LogisticRegression, self).__init__(handle=None,
                                                  verbose=state["verbose"])
-
-        if "solver_model" in state:
-            solver_model = state["solver_model"]
-            if solver_model.coef_ is not None:
-                if solver_model.fit_intercept:
-                    state["coef_"] = solver_model.coef_[0:-1]
-                    state["intercept_"] = solver_model.coef_[-1]
-                else:
-                    state["coef_"] = solver_model.coef_
-                    n_classes = solver_model.coef_.shape[1]
-                    state["intercept_"] = CumlArray.zeros(
-                        n_classes, dtype=solver_model.coef_.dtype
-                    )
-
         self.__dict__.update(state)

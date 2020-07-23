@@ -274,6 +274,8 @@ class Base:
             else:
                 return self.__dict__[real_name]
         else:
+            if attr == "solver_model":
+                return self.__dict__['solver_model']
             if "solver_model" in self.__dict__.keys():
                 solve_dict = self.__dict__['solver_model'].__dict__
                 if attr in solve_dict.keys():
