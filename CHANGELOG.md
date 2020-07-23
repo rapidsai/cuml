@@ -62,6 +62,9 @@
 - PR #2566: Remove deprecated cuDF from_gpu_matrix calls
 - PR #2577: Fully removing NVGraph dependency for CUDA 11 compatibility
 - PR #2575: Speed up TfidfTransformer
+- PR #2591: Generate benchmark datsets using `cuml.datasets`
+- PR #2548: Fix limitation on number of rows usable with tSNE and refactor memory allocation
+- PR #2589: including cuda-11 build fixes into raft
 - PR #2487: Set classes_ attribute during classifier fit
 
 ## Bug Fixes
@@ -89,6 +92,7 @@
 - PR #2532: Updating doxygen in new MG headers
 - PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
 - PR #2515: Increase tolerance for LogisticRegression test
+- PR #2543: Improve numerical stability of QN solver
 - PR #2544: Fix Barnes-Hut tSNE not using specified post_learning_rate
 - PR #2558: Disabled a long-running FIL test
 - PR #2540: Update default value for n_epochs in UMAP to match documentation & sklearn API
@@ -98,6 +102,7 @@
 - PR #2563: Update scipy call for arima gradient test
 - PR #2569: Fix for cuDF update
 - PR #2508: Use keyword parameters in sklearn.datasets.make_* functions
+- PR #2586: Fix SVC decision function data type
 - PR #2573: Considering managed memory as device type on checking for KMeans 
 - PR #2574: Fixing include path in `tsvd_mg.pyx`
 
