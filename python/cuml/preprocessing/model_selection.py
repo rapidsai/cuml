@@ -24,7 +24,11 @@ from numba import cuda
 from typing import Union
 
 
-def get_train_test_sizes(X, y, train_size, test_size):
+def get_train_test_sizes(X, train_size, test_size):
+    """
+        Determine the size of the train and test size
+        based on shape of X
+    """
     # Determining sizes of splits
     if isinstance(train_size, float):
         train_size = int(X.shape[0] * train_size)
@@ -86,9 +90,16 @@ def slice_data(X, y, train_size, test_size, x_numba, y_numba):
     else:
         return X_train, X_test
 
-def stratify_split(X, y, train_size, test_size, random_state, x_numba, y_numba):
-
-    n_train, n_test = get_train_test_sizes(X, y, train_size, test_size)
+def stratify_split(X, y, train_size, test_size, x_numba, y_numba):
+    """
+    Function to perform a stratified split based on y.
+    Identifies number of classes and samples per class, splices data within
+    each class.
+    
+    Input:
+    X, y: shuffled input data and labels
+    """
+    n_train, n_test = get_train_test_sizes(X, train_size, test_size)
     classes, y_indices = cp.unique(y, return_inverse=True)
     n_classes = classes.shape[0]
     class_counts = cp.bincount(y_indices)
@@ -100,8 +111,8 @@ def stratify_split(X, y, train_size, test_size, random_state, x_numba, y_numba):
         raise ValueError('The test_size = %d should be greater or '
                              'equal to the number of classes = %d' %
                              (test_size, n_classes))
-    class_indices = cp.array_split(cp.argsort(y_indices),
-                            n_classes)
+    class_indices = cp.split(cp.argsort(y_indices),
+                            cp.cumsum(class_counts)[:-1].item())
 
     X_train = None
     n_per_class = int(n_train / n_classes)
@@ -138,8 +149,9 @@ def stratify_split(X, y, train_size, test_size, random_state, x_numba, y_numba):
                 X_test = X_test.append(X_test_i)
                 y_train = y_train.append(y_train_i)
                 y_test = y_test.append(y_test_i)
-    return X_train, X_test, y_train, y_test 
-    
+    return X_train, X_test, y_train, y_test
+
+
 def train_test_split(
     X,
     y=None,
@@ -327,16 +339,13 @@ def train_test_split(
             y = y.iloc[idxs]
 
         elif hasattr(y, "__cuda_array_interface__"):
-            y = cp.asarray(y)[idxs]            
-        
+            y = cp.asarray(y)[idxs]
+
         if stratify is not None:
-            
-            split_return = stratify_split(X, y, train_size, test_size, random_state, x_numba, y_numba)
-            
+            split_return = stratify_split(X, y, train_size, test_size, x_numba, y_numba)            
             return split_return
-        
-    train_size, test_size = get_train_test_sizes(X, y, train_size, test_size)
+
+    train_size, test_size = get_train_test_sizes(X, train_size, test_size)
 
     split_return = slice_data(X, y, train_size, test_size, x_numba, y_numba)
-
     return split_return
