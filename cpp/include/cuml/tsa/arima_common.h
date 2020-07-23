@@ -39,18 +39,13 @@ struct ARIMAOrder {
   int s;  // Seasonal period
   int k;  // Fit intercept?
 
-  /// TODO: re-rename (r and rd?)
-  inline int r_diff() const { return std::max(p + s * P, q + s * Q + 1); }
-  inline int r() const {
-    return d + s * D + std::max(p + s * P, q + s * Q + 1);
-  }
-  inline int complexity() const { return p + P + q + Q + k + 1; }
-  /// TODO: rename to state_diff
-  inline int lost_in_diff() const { return d + s * D; }
+  inline int n_diff() const { return d + s * D; }
   inline int n_phi() const { return p + s * P; }
   inline int n_theta() const { return q + s * Q; }
-
-  inline bool need_prep() const { return static_cast<bool>(d + D); }
+  inline int r() const { return std::max(n_phi(), n_theta() + 1); }
+  inline int rd() const { return n_diff() + r(); }
+  inline int complexity() const { return p + P + q + Q + k + 1; }
+  inline bool need_diff() const { return static_cast<bool>(d + D); }
 };
 
 /**
