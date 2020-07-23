@@ -40,7 +40,7 @@ import os
 import warnings
 
 import pandas as pd
-from scipy.optimize.optimize import _approx_fprime_helper
+from scipy.optimize.optimize import approx_fprime
 import statsmodels.api as sm
 
 import cudf
@@ -430,7 +430,7 @@ def test_gradient(key, data, dtype):
             return model_i._loglike(x)
 
         scipy_grad[N * i: N * (i + 1)] = \
-            _approx_fprime_helper(x[N * i: N * (i + 1)], f, h)
+            approx_fprime(x[N * i: N * (i + 1)], f, h)
 
     # Compare
     np.testing.assert_allclose(batched_grad, scipy_grad, rtol=0.001, atol=0.01)

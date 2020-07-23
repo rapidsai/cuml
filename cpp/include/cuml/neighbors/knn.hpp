@@ -30,7 +30,10 @@ enum MetricType {
 
   METRIC_Canberra = 20,
   METRIC_BrayCurtis,
-  METRIC_JensenShannon
+  METRIC_JensenShannon,
+
+  METRIC_Cosine = 100,
+  METRIC_Correlation
 };
 
 /**
@@ -49,6 +52,12 @@ enum MetricType {
    * @param k the number of nearest neighbors to return
    * @param rowMajorIndex are the index arrays in row-major order?
    * @param rowMajorQuery are the query arrays in row-major order?
+   * @param metric distance metric to use. Euclidean (L2) is used by
+   * 			   default
+ * @param metric_arg the value of `p` for Minkowski (l-p) distances. This
+ * 					 is ignored if the metric_type is not Minkowski.
+ * @param expanded should lp-based distances be returned in their expanded
+ * 					 form (e.g., without raising to the 1/p power).
    */
 void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
@@ -67,12 +76,12 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
  * @param out output array on device (size n_samples * size of y vector)
  * @param knn_indices index array on device resulting from knn query (size n_samples * k)
  * @param y vector of label arrays on device vector size is number of (size n_samples)
- * @param n_labels number of vertices in index (eg. size of each y array)
+ * @param n_index_rows number of vertices in index (eg. size of each y array)
  * @param n_samples number of samples in knn_indices
  * @param k number of nearest neighbors in knn_indices
  */
 void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
-                  std::vector<int *> &y, size_t n_labels, size_t n_samples,
+                  std::vector<int *> &y, size_t n_index_rows, size_t n_samples,
                   int k);
 
 /**
@@ -85,12 +94,12 @@ void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
  * @param out output array on device (size n_samples)
  * @param knn_indices array on device of knn indices (size n_samples * k)
  * @param y array of labels on device (size n_samples)
- * @param n_labels number of vertices in index (eg. size of each y array)
+ * @param n_query_rows number of vertices in index (eg. size of each y array)
  * @param n_samples number of samples in knn_indices and out
  * @param k number of nearest neighbors in knn_indices
  */
 void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
-                 std::vector<float *> &y, size_t n_labels, size_t n_samples,
+                 std::vector<float *> &y, size_t n_query_rows, size_t n_samples,
                  int k);
 
 /**
@@ -103,11 +112,11 @@ void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
  * Each array should have size(n_samples, n_classes)
  * @param knn_indices array on device of knn indices (size n_samples * k)
  * @param y array of labels on device (size n_samples)
- * @param n_labels number of labels
+ * @param n_index_rows number of labels
  * @param n_samples number of samples in knn_indices and out
  * @param k number of nearest neighbors in knn_indices
  */
 void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
                      int64_t *knn_indices, std::vector<int *> &y,
-                     size_t n_labels, size_t n_samples, int k);
+                     size_t n_index_rows, size_t n_samples, int k);
 };  // namespace ML

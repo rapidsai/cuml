@@ -36,29 +36,11 @@ from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
 
 from cuml.cluster import KMeans
+from cuml.cluster.kmeans_utils cimport *
 
 
-cdef extern from "cumlprims/opg/kmeans.hpp" namespace \
-        "ML::kmeans::KMeansParams" nogil:
-    enum InitMethod:
-        KMeansPlusPlus, Random, Array
-
-cdef extern from "cumlprims/opg/kmeans.hpp" namespace \
-        "ML::kmeans" nogil:
-    cdef struct KMeansParams:
-        int n_clusters,
-        InitMethod init
-        int max_iter,
-        double tol,
-        int verbosity,
-        int seed,
-        int metric,
-        double oversampling_factor,
-        int batch_samples,
-        int batch_centroids,
-        bool inertia_check
-
-cdef extern from "cumlprims/opg/kmeans.hpp" namespace "ML::kmeans::opg" nogil:
+cdef extern from "cuml/cluster/kmeans_mg.hpp" \
+        namespace "ML::kmeans::opg" nogil:
 
     cdef void fit(cumlHandle& handle,
                   KMeansParams& params,
@@ -105,6 +87,7 @@ class KMeansMG(KMeans):
             ndarray, cuda array interface compliant array like CuPy
 
         """
+        self._set_n_features_in(X)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, order='C')

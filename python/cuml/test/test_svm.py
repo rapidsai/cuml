@@ -24,8 +24,7 @@ from cuml.test.utils import unit_param, quality_param, stress_param
 from sklearn import svm
 from sklearn.datasets import load_iris, make_blobs
 from sklearn.datasets import make_regression, make_friedman1
-from sklearn.datasets.samples_generator import make_classification, \
-    make_gaussian_quantiles
+from sklearn.datasets import make_classification, make_gaussian_quantiles
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -254,6 +253,30 @@ def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
                 coef_tol=1e-5, report_summary=True)
 
 
+def test_svm_skl_cmp_decision_function(n_rows=4000, n_cols=20):
+    params = {'kernel': 'rbf', 'C': 5, 'gamma': 0.005}
+
+    X_train, X_test, y_train, y_test = make_dataset('classification1', n_rows,
+                                                    n_cols)
+    y_train = y_train.astype(np.int32)
+    y_test = y_test.astype(np.int32)
+
+    cuSVC = cu_svm.SVC(**params)
+    cuSVC.fit(X_train, y_train)
+
+    pred = cuSVC.predict(X_test)
+    assert pred.dtype == y_train.dtype
+
+    df1 = cuSVC.decision_function(X_test)
+    assert df1.dtype == X_train.dtype
+
+    sklSVC = svm.SVC(**params)
+    sklSVC.fit(X_train, y_train)
+    df2 = sklSVC.decision_function(X_test)
+
+    assert mean_squared_error(df1, df2) < 1e-5
+
+
 @pytest.mark.parametrize('params', [
     {'kernel': 'linear', 'C': 1},
     {'kernel': 'rbf', 'C': 1, 'gamma': 1},
@@ -300,8 +323,6 @@ def test_svm_gamma(params):
                       centers=centers)
     X = X.astype(np.float32)
     if x_arraytype == 'dataframe':
-        X_df = cudf.DataFrame()
-        X = X_df.from_gpu_matrix(cuda.to_device(X))
         y = cudf.Series(y)
     elif x_arraytype == 'numba':
         X = cuda.to_device(X)
@@ -311,7 +332,10 @@ def test_svm_gamma(params):
     cuSVC = cu_svm.SVC(**params)
     cuSVC.fit(X, y)
     y_pred = cuSVC.predict(X)
-    n_correct = np.sum(y == y_pred)
+    if x_arraytype == 'dataframe':
+        n_correct = np.sum(y.to_array() == y_pred)
+    else:
+        n_correct = np.sum(y == y_pred)
     accuracy = n_correct * 100 / n_rows
     assert accuracy > 70
 
@@ -352,6 +376,7 @@ def get_memsize(svc):
     return ms
 
 
+@pytest.mark.xfail(reason='Need rapidsai/rmm#415 to detect memleak robustly')
 @pytest.mark.memleak
 @pytest.mark.parametrize('params', [
     {'kernel': 'rbf', 'C': 1, 'gamma': 1}
@@ -405,6 +430,7 @@ def test_svm_memleak(params, n_rows, n_iter, n_cols,
     assert delta_mem == 0
 
 
+@pytest.mark.xfail(reason='Need rapidsai/rmm#415 to detect memleak robustly')
 @pytest.mark.memleak
 @pytest.mark.parametrize('params', [
     {'kernel': 'poly', 'degree': 30, 'C': 1, 'gamma': 1}
