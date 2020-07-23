@@ -15,6 +15,7 @@
 - PR #2500: Replace UMAP functionality dependency on nvgraph with RAFT Spectral Clustering
 - PR #2520: TfidfVectorizer estimator
 - PR #2461: Add KNN Sparse Output Functionality
+- PR #2594: Confidence intervals for ARIMA forecasts
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
