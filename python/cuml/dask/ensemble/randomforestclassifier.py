@@ -208,12 +208,11 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             **y must be partitioned the same way as X**
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
-
+            y to be of dtype int32. This will increase memory used for
+            the method.
         """
         self.num_classes = len(y.unique())
-        self.local_model = None
+        self._set_internal_model(None)
         self._fit(model=self.rfs,
                   dataset=(X, y),
                   convert_dtype=convert_dtype)
@@ -301,30 +300,29 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
 
         """
-        if self.num_classes > 2 or predict_model == "CPU":
+        if predict_model == "CPU" or self.num_classes > 2:
             preds = self.predict_model_on_cpu(X,
                                               convert_dtype=convert_dtype)
 
         else:
             preds = \
-                self.predict_using_fil(X, output_class=output_class,
-                                       algo=algo,
-                                       threshold=threshold,
-                                       num_classes=self.num_classes,
-                                       convert_dtype=convert_dtype,
-                                       predict_model="GPU",
-                                       fil_sparse_format=fil_sparse_format,
-                                       delayed=delayed)
+                self._predict_using_fil(X, output_class=output_class,
+                                        algo=algo,
+                                        threshold=threshold,
+                                        convert_dtype=convert_dtype,
+                                        fil_sparse_format=fil_sparse_format,
+                                        delayed=delayed)
 
         return preds
 
     def predict_using_fil(self, X, delayed, **kwargs):
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
 
         return self._predict_using_fil(X=X,
                                        delayed=delayed,
                                        **kwargs)
+
     """
     TODO : Update function names used for CPU predict.
         Cuml issue #1854 has been created to track this.
@@ -448,9 +446,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         y : NumPy
            Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
         """
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
-
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
         return self._predict_proba(X, delayed, **kwargs)

@@ -17,7 +17,7 @@
 #pragma once
 
 #include <Python.h>
-#include "internals/internals.h"
+#include <internals/internals.h>
 
 #include <iostream>
 
