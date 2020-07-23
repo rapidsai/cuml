@@ -373,7 +373,7 @@ cdef class ForestInference_impl():
                       <ModelHandle> model_ptr,
                       &treelite_params)
         TreeliteQueryNumOutputGroups(<ModelHandle> model_ptr,
-                                     &(self.num_output_groups))
+                                     &self.num_output_groups)
         return self
 
     def __dealloc__(self):
