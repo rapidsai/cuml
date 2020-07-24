@@ -37,6 +37,51 @@ def _check_inputs_dtype(X, missing_values):
                          .format(X.dtype, type(missing_values)))
 
 
+def _get_elem_at_rank(rank, data, n_negative, n_zeros):
+    """Find the value in data augmented with n_zeros for the given rank"""
+    if rank < n_negative:
+        return data[rank]
+    if rank - n_negative < n_zeros:
+        return 0
+    return data[rank - n_zeros]
+
+
+def _get_median(data, n_zeros):
+    """Compute the median of data with n_zeros additional zeros.
+    This function is used to support sparse matrices; it modifies data in-place
+    """
+    n_elems = len(data) + n_zeros
+    if not n_elems:
+        return np.nan
+    n_negative = (data < 0).sum()
+    middle, is_odd = divmod(n_elems, 2)
+    data = np.sort(data)
+    if is_odd:
+        return _get_elem_at_rank(middle, data,
+                                 n_negative, n_zeros)
+    elm1 = _get_elem_at_rank(middle - 1, data,
+                             n_negative, n_zeros)
+    elm2 = _get_elem_at_rank(middle, data,
+                             n_negative, n_zeros)
+    return (elm1 + elm2) / 2.
+
+
+def _most_frequent(array, extra_value, n_repeat):
+    """Compute the most frequent value in a 1d array extended with
+       [extra_value] * n_repeat, where extra_value is assumed to be not part
+       of the array."""
+    values, counts = np.unique(array,
+                               return_counts=True)
+    most_frequent_count = counts.max()
+    if most_frequent_count > n_repeat:
+        value = values[counts == most_frequent_count].min()
+    elif n_repeat > most_frequent_count:
+        value = extra_value
+    else:
+        value = min(extra_value, values[counts == most_frequent_count].min())
+    return value
+
+
 class _BaseImputer(TransformerMixin, BaseEstimator):
     """Base class for all imputers.
 
@@ -92,12 +137,6 @@ class _BaseImputer(TransformerMixin, BaseEstimator):
 
 class SimpleImputer(_BaseImputer):
     """Imputation transformer for completing missing values.
-
-    Read more in the :ref:`User Guide <impute>`.
-
-    .. versionadded:: 0.20
-       `SimpleImputer` replaces the previous `sklearn.preprocessing.Imputer`
-       estimator which is now removed.
 
     Parameters
     ----------
@@ -156,10 +195,6 @@ class SimpleImputer(_BaseImputer):
         During :meth:`transform`, features corresponding to `np.nan`
         statistics will be discarded.
 
-    indicator_ : :class:`sklearn.impute.MissingIndicator`
-        Indicator used to add binary indicators for missing values.
-        ``None`` if add_indicator is False.
-
     See also
     --------
     IterativeImputer : Multivariate imputation of missing values.
@@ -167,7 +202,7 @@ class SimpleImputer(_BaseImputer):
     Examples
     --------
     >>> import numpy as np
-    >>> from sklearn.impute import SimpleImputer
+    >>> from cuml.impute import SimpleImputer
     >>> imp_mean = SimpleImputer(missing_values=np.nan, strategy='mean')
     >>> imp_mean.fit([[7, 2, 3], [4, np.nan, 6], [10, 5, 9]])
     SimpleImputer()
@@ -317,19 +352,13 @@ class SimpleImputer(_BaseImputer):
                     statistics[i] = np.nan if s == 0 else column.sum() / s
 
                 elif strategy == "median":
-                    raise NotImplementedError
+                    statistics[i] = _get_median(column,
+                                                n_zeros)
 
                 elif strategy == "most_frequent":
-                    values, counts = np.unique(column,
-                                               return_counts=True)
-                    count_max = counts.max()
-                    if count_max > n_zeros:
-                        value = values[counts == count_max].min()
-                    elif n_zeros > count_max:
-                        value = 0
-                    else:
-                        value = min(0, values[counts == count_max].min())
-                    statistics[i] = value
+                    statistics[i] = _most_frequent(column,
+                                                   0,
+                                                   n_zeros)
         return statistics
 
     def _dense_fit(self, X, strategy, missing_values, fill_value):
@@ -338,16 +367,31 @@ class SimpleImputer(_BaseImputer):
 
         # Mean
         if strategy == "mean":
-            n_features = X.shape[1]
-            means = cpu_np.empty(n_features, dtype=X.dtype)
-            for i in range(n_features):
-                feature_mask_idxs = np.where(~mask[:, i])[0]
-                means[i] = np.nanmean(X[feature_mask_idxs, i])
-            return np.array(means)
+            count_missing_values = mask.sum(axis=0)
+            n_elems = X.shape[0] - count_missing_values
+            mean = np.nansum(X, axis=0)
+            mean -= (count_missing_values * missing_values)
+            mean /= n_elems
+            return mean
 
         # Median
         elif strategy == "median":
-            raise NotImplementedError
+            count_missing_values = mask.sum(axis=0)
+            n_elems = X.shape[0] - count_missing_values
+            middle, is_odd = np.divmod(n_elems, 2)
+            is_odd = is_odd.astype(np.bool)
+            middle += count_missing_values
+            X_sorted = X.copy()
+            X_sorted[mask] = np.nan
+            X_sorted = np.sort(X, axis=0)
+            median = np.empty(X.shape[1], dtype=X.dtype)
+            wis_odd = np.argwhere(is_odd).squeeze()
+            wnot_odd = np.argwhere(~is_odd).squeeze()
+            median[wis_odd] = X_sorted[middle[wis_odd], wis_odd]
+            elm1 = X_sorted[middle[wnot_odd]-1, wnot_odd]
+            elm2 = X_sorted[middle[wnot_odd], wnot_odd]
+            median[wnot_odd] = (elm1 + elm2) / 2.
+            return median
 
         # Most frequent
         elif strategy == "most_frequent":

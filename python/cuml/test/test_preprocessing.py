@@ -21,23 +21,27 @@ from cuml.preprocessing import StandardScaler as cuStandardScaler, \
                                   Normalizer as cuNormalizer, \
                                   Binarizer as cuBinarizer, \
                                   PolynomialFeatures as cuPolynomialFeatures, \
-                                  SimpleImputer as cuSimpleImputer
+                                  SimpleImputer as cuSimpleImputer, \
+                                  RobustScaler as cuRobustScaler
 from cuml.preprocessing import scale as cu_scale, \
                                   minmax_scale as cu_minmax_scale, \
                                   normalize as cu_normalize, \
                                   add_dummy_feature as cu_add_dummy_feature, \
-                                  binarize as cu_binarize
+                                  binarize as cu_binarize, \
+                                  robust_scale as cu_robust_scale
 from sklearn.preprocessing import StandardScaler as skStandardScaler, \
                                   MinMaxScaler as skMinMaxScaler, \
                                   MaxAbsScaler as skMaxAbsScaler, \
                                   Normalizer as skNormalizer, \
                                   Binarizer as skBinarizer, \
-                                  PolynomialFeatures as skPolynomialFeatures
+                                  PolynomialFeatures as skPolynomialFeatures, \
+                                  RobustScaler as skRobustScaler
 from sklearn.preprocessing import scale as sk_scale, \
                                   minmax_scale as sk_minmax_scale, \
                                   normalize as sk_normalize, \
                                   add_dummy_feature as sk_add_dummy_feature, \
-                                  binarize as sk_binarize
+                                  binarize as sk_binarize, \
+                                  robust_scale as sk_robust_scale
 from sklearn.impute import SimpleImputer as skSimpleImputer
 
 from ..thirdparty_adapters.sparsefuncs_fast import csr_mean_variance_axis0, \
@@ -247,7 +251,8 @@ def test_normalize_sparse(sparse_clf_dataset, norm):  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@pytest.mark.parametrize("strategy", ["mean", "most_frequent", "constant"])
+@pytest.mark.parametrize("strategy", ["mean", "median", "most_frequent",
+                                      "constant"])
 @pytest.mark.parametrize("missing_values", [0., 1.])
 def test_imputer(int_dataset, strategy, missing_values):  # noqa: F811
     X_np, X = int_dataset
@@ -265,7 +270,8 @@ def test_imputer(int_dataset, strategy, missing_values):  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@pytest.mark.parametrize("strategy", ["mean", "most_frequent", "constant"])
+@pytest.mark.parametrize("strategy", ["mean", "median", "most_frequent",
+                         "constant"])
 @pytest.mark.parametrize("missing_values", [np.nan, 1.])
 def test_imputer_sparse(sparse_int_dataset, strategy,  # noqa: F811
                         missing_values):
@@ -417,6 +423,114 @@ def test_binarizer_sparse(sparse_clf_dataset, threshold):  # noqa: F811
 
     binarizer = skBinarizer(threshold=threshold, copy=True)
     sk_t_X = binarizer.fit_transform(X_np)
+
+    assert_allclose(t_X, sk_t_X)
+
+
+@pytest.mark.parametrize("with_centering", [True, False])
+@pytest.mark.parametrize("with_scaling", [True, False])
+@pytest.mark.parametrize("quantile_range", [(25., 75.), (10., 90.)])
+def test_robust_scaler(clf_dataset, with_centering,  # noqa: F811
+                       with_scaling, quantile_range):
+    X_np, X = clf_dataset
+
+    scaler = cuRobustScaler(with_centering=with_centering,
+                            with_scaling=with_scaling,
+                            quantile_range=quantile_range,
+                            copy=True)
+    t_X = scaler.fit_transform(X)
+    r_X = scaler.inverse_transform(t_X)
+    assert type(t_X) == type(X)
+    assert type(r_X) == type(t_X)
+
+    scaler = skRobustScaler(with_centering=with_centering,
+                            with_scaling=with_scaling,
+                            quantile_range=quantile_range,
+                            copy=True)
+    sk_t_X = scaler.fit_transform(X_np)
+    sk_r_X = scaler.inverse_transform(sk_t_X)
+
+    assert_allclose(t_X, sk_t_X)
+    assert_allclose(r_X, sk_r_X)
+
+
+@pytest.mark.parametrize("with_scaling", [True, False])
+@pytest.mark.parametrize("quantile_range", [(25., 75.), (10., 90.)])
+def test_robust_scaler_sparse(sparse_clf_dataset,  # noqa: F811
+                              with_scaling, quantile_range):
+    X_np, X = sparse_clf_dataset
+
+    if X.format != 'csc':
+        X = X.tocsc()
+
+    scaler = cuRobustScaler(with_centering=False,
+                            with_scaling=with_scaling,
+                            quantile_range=quantile_range,
+                            copy=True)
+    t_X = scaler.fit_transform(X)
+    r_X = scaler.inverse_transform(t_X)
+    assert type(t_X) == type(X)
+    assert type(r_X) == type(t_X)
+
+    scaler = skRobustScaler(with_centering=False,
+                            with_scaling=with_scaling,
+                            quantile_range=quantile_range,
+                            copy=True)
+    sk_t_X = scaler.fit_transform(X_np)
+    sk_r_X = scaler.inverse_transform(sk_t_X)
+
+    assert_allclose(t_X, sk_t_X)
+    assert_allclose(r_X, sk_r_X)
+
+
+@pytest.mark.parametrize("axis", [0, 1])
+@pytest.mark.parametrize("with_centering", [True, False])
+@pytest.mark.parametrize("with_scaling", [True, False])
+@pytest.mark.parametrize("quantile_range", [(25., 75.), (10., 90.)])
+def test_robust_scale(clf_dataset, with_centering,  # noqa: F811
+                      axis, with_scaling, quantile_range):
+    X_np, X = clf_dataset
+
+    t_X = cu_robust_scale(X, axis=axis,
+                          with_centering=with_centering,
+                          with_scaling=with_scaling,
+                          quantile_range=quantile_range,
+                          copy=True)
+    assert type(t_X) == type(X)
+
+    sk_t_X = sk_robust_scale(X_np, axis=axis,
+                             with_centering=with_centering,
+                             with_scaling=with_scaling,
+                             quantile_range=quantile_range,
+                             copy=True)
+
+    assert_allclose(t_X, sk_t_X)
+
+
+@pytest.mark.parametrize("axis", [0, 1])
+@pytest.mark.parametrize("with_scaling", [True, False])
+@pytest.mark.parametrize("quantile_range", [(25., 75.), (10., 90.)])
+def test_robust_scale_sparse(sparse_clf_dataset,  # noqa: F811
+                             axis, with_scaling, quantile_range):
+    X_np, X = sparse_clf_dataset
+
+    if X.format != 'csc' and axis == 0:
+        X = X.tocsc()
+    elif X.format != 'csr' and axis == 1:
+        X = X.tocsr()
+
+    t_X = cu_robust_scale(X, axis=axis,
+                          with_centering=False,
+                          with_scaling=with_scaling,
+                          quantile_range=quantile_range,
+                          copy=True)
+    assert type(t_X) == type(X)
+
+    sk_t_X = sk_robust_scale(X_np, axis=axis,
+                             with_centering=False,
+                             with_scaling=with_scaling,
+                             quantile_range=quantile_range,
+                             copy=True)
 
     assert_allclose(t_X, sk_t_X)
 
