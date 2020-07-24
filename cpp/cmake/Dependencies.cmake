@@ -62,8 +62,6 @@ if(NOT DISABLE_CUMLPRIMS_MG)
     if(NOT CUMLPRIMS_MG_PATH)
       find_package(cumlprims_mg
                    REQUIRED)
-      message(STATUS "cumlprims_mg_INCLUDE_DIRS ${cumlprims_mg_INCLUDE_DIRS}")
-
 
     else()
       message("-- Manually setting CUMLPRIMS_MG_PATH to ${CUMLPRIMS_MG_PATH}")
