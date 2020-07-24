@@ -172,6 +172,7 @@ class MBSGDClassifier(Base, ClassifierMixin):
             will increase memory used for the method.
         """
         self._set_n_features_in(X)
+        self.solver_model._estimator_type = self._estimator_type
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 
