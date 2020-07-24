@@ -161,26 +161,198 @@ inline cusparseStatus_t cusparsegemmi(
 }
 /** @} */
 
+#if __CUDACC_VER_MAJOR__ > 10
+/**
+ * @defgroup cusparse Create CSR operations
+ * @{
+ */
+template <typename IndexT, typename ValueT>
+cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
+                                   int64_t rows, int64_t cols, int64_t nnz,
+                                   IndexT* csrRowOffsets, IndexT* csrColInd,
+                                   ValueT* csrValues);
+template <>
+inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
+                                          int64_t rows, int64_t cols,
+                                          int64_t nnz, int32_t* csrRowOffsets,
+                                          int32_t* csrColInd,
+                                          float* csrValues) {
+  return cusparseCreateCsr(spMatDescr, rows, cols, nnz, csrRowOffsets,
+                           csrColInd, csrValues, CUSPARSE_INDEX_32I,
+                           CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
+                           CUDA_R_32F);
+}
+template <>
+inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
+                                          int64_t rows, int64_t cols,
+                                          int64_t nnz, int32_t* csrRowOffsets,
+                                          int32_t* csrColInd,
+                                          double* csrValues) {
+  return cusparseCreateCsr(spMatDescr, rows, cols, nnz, csrRowOffsets,
+                           csrColInd, csrValues, CUSPARSE_INDEX_32I,
+                           CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
+                           CUDA_R_64F);
+}
+template <>
+inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
+                                          int64_t rows, int64_t cols,
+                                          int64_t nnz, int64_t* csrRowOffsets,
+                                          int64_t* csrColInd,
+                                          float* csrValues) {
+  return cusparseCreateCsr(spMatDescr, rows, cols, nnz, csrRowOffsets,
+                           csrColInd, csrValues, CUSPARSE_INDEX_64I,
+                           CUSPARSE_INDEX_64I, CUSPARSE_INDEX_BASE_ZERO,
+                           CUDA_R_32F);
+}
+template <>
+inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
+                                          int64_t rows, int64_t cols,
+                                          int64_t nnz, int64_t* csrRowOffsets,
+                                          int64_t* csrColInd,
+                                          double* csrValues) {
+  return cusparseCreateCsr(spMatDescr, rows, cols, nnz, csrRowOffsets,
+                           csrColInd, csrValues, CUSPARSE_INDEX_64I,
+                           CUSPARSE_INDEX_64I, CUSPARSE_INDEX_BASE_ZERO,
+                           CUDA_R_64F);
+}
+/** @} */
+
+
 /**
  * @defgroup SpGEMM cusparse sparse gemm operations
  * @{
  */
-template<typename, I, typename T>
-size_t cusparseSpGEMM_workerEstimation(cusparseHandle_t handle, bool transA, bool transB, const T* alpha,
-		const I *indptrA, const I *indicesA, const T *dataA, T *beta, const I *ndptrB, const I *indicesB, const T *dataB,
-		const I *indptrC, const I *indicesC, const T *dataC, size_t* workspace_size1, void* workspace1);
+template<typename T>
+inline cusparseStatus_t cusparsespgemm_workestimation(cusparseHandle_t      handle,
+                              cusparseOperation_t   opA,
+                              cusparseOperation_t   opB,
+                              const T*           alpha,
+                              cusparseSpMatDescr_t  matA,
+                              cusparseSpMatDescr_t  matB,
+                              const T*           beta,
+                              cusparseSpMatDescr_t  matC,
+                              cudaDataType          computeType,
+                              cusparseSpGEMMAlg_t   alg,
+                              cusparseSpGEMMDescr_t spgemmDescr,
+                              size_t*               bufferSize1,
+                              void*                 externalBuffer1);
 
-template<typename, I, typename T>
-size_t cusparseSpGEMM_compute(cusparseHandle_t handle, bool transA, bool transB, const T* alpha,
-		const I *indptrA, const I *indicesA, const T *dataA, T *beta, const I *ndptrB, const I *indicesB, const T *dataB,
-		const I *indptrC, const I *indicesC, const T *dataC, void* workspace1, size_t *workspace_size2, void* workspace2);
+template<>
+inline cusparseStatus_t cusparsespgemm_workestimation(cusparseHandle_t      handle,
+                              cusparseOperation_t   opA,
+                              cusparseOperation_t   opB,
+                              const float*           alpha,
+                              cusparseSpMatDescr_t  matA,
+                              cusparseSpMatDescr_t  matB,
+                              const float*           beta,
+                              cusparseSpMatDescr_t  matC,
+                              cudaDataType          computeType,
+                              cusparseSpGEMMAlg_t   alg,
+                              cusparseSpGEMMDescr_t spgemmDescr,
+                              size_t*               bufferSize1,
+                              void*                 externalBuffer1) {
+	return cusparseSpGEMM_workEstimation(handle,
+            opA, opB, alpha, matA, matB, beta,
+            matC, computeType, alg, spgemmDescr,
+            bufferSize1, externalBuffer1);
+}
 
-template<typename, I, typename T>
-size_t cusparseSpGEMM_copy(cusparseHandle_t handle, bool transA, bool transB, const T* alpha,
-		const I *indptrA, const I *indicesA, const T *dataA, T *beta, const I *ndptrB, const I *indicesB, const T *dataB,
-		const I *indptrC, const I *indicesC, const T *dataC, void* workspace2);
+template<typename T>
+inline cusparseStatus_t
+cusparsespgemm_compute(cusparseHandle_t      handle,
+                       cusparseOperation_t   opA,
+                       cusparseOperation_t   opB,
+                       const T*           alpha,
+                       cusparseSpMatDescr_t  matA,
+                       cusparseSpMatDescr_t  matB,
+                       const T*           beta,
+                       cusparseSpMatDescr_t  matC,
+                       cudaDataType          computeType,
+                       cusparseSpGEMMAlg_t   alg,
+                       cusparseSpGEMMDescr_t spgemmDescr,
+                       void*                 externalBuffer1,
+                       size_t*               bufferSize2,
+                       void*                 externalBuffer2);
+
+template<>
+inline cusparseStatus_t
+cusparsespgemm_compute(cusparseHandle_t      handle,
+                       cusparseOperation_t   opA,
+                       cusparseOperation_t   opB,
+                       const float*           alpha,
+                       cusparseSpMatDescr_t  matA,
+                       cusparseSpMatDescr_t  matB,
+                       const float*           beta,
+                       cusparseSpMatDescr_t  matC,
+                       cudaDataType          computeType,
+                       cusparseSpGEMMAlg_t   alg,
+                       cusparseSpGEMMDescr_t spgemmDescr,
+                       void*                 externalBuffer1,
+                       size_t*               bufferSize2,
+                       void*                 externalBuffer2) {
+
+	return cusparseSpGEMM_compute(handle,
+            opA, opB, alpha, matA, matB, beta,
+            matC, computeType, alg, spgemmDescr,
+            externalBuffer1, bufferSize2, externalBuffer2);
+}
+
+template<typename T>
+inline cusparseStatus_t
+cusparsespgemm_copy(cusparseHandle_t      handle,
+                    cusparseOperation_t   opA,
+                    cusparseOperation_t   opB,
+                    const T*           alpha,
+                    cusparseSpMatDescr_t  matA,
+                    cusparseSpMatDescr_t  matB,
+                    const T*           beta,
+                    cusparseSpMatDescr_t  matC,
+                    cudaDataType          computeType,
+                    cusparseSpGEMMAlg_t   alg,
+                    cusparseSpGEMMDescr_t spgemmDescr,
+                    void*                 externalBuffer2);
+
+template<>
+inline cusparseStatus_t
+cusparsespgemm_copy(cusparseHandle_t      handle,
+                    cusparseOperation_t   opA,
+                    cusparseOperation_t   opB,
+                    const float*           alpha,
+                    cusparseSpMatDescr_t  matA,
+                    cusparseSpMatDescr_t  matB,
+                    const float*           beta,
+                    cusparseSpMatDescr_t  matC,
+                    cudaDataType          computeType,
+                    cusparseSpGEMMAlg_t   alg,
+                    cusparseSpGEMMDescr_t spgemmDescr,
+                    void*                 externalBuffer2) {
+	cusparsespgemm_copy(handle,
+			opA, opB, alpha, matA, matB, beta, matC,
+	        computeType, alg, spgemmDescr, externalBuffer2);
+}
 
 /** @} */
+
+/**
+ * @defgroup setpointermode cusparse set pointer mode method
+ * @{
+ */
+// no T dependency...
+// template <typename T>
+// cusparseStatus_t cusparsesetpointermode(  // NOLINT
+//                                         cusparseHandle_t handle,
+//                                         cusparsePointerMode_t mode,
+//                                         cudaStream_t stream);
+
+// template<>
+inline cusparseStatus_t cusparsesetpointermode(cusparseHandle_t handle,
+                                               cusparsePointerMode_t mode,
+                                               cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseSetPointerMode(handle, mode);
+}
+/** @} */
+
 
 };  // namespace Sparse
 };  // namespace MLCommon
