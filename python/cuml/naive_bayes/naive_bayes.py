@@ -22,6 +22,7 @@ import warnings
 
 from cuml.common import with_cupy_rmm
 from cuml.common import CumlArray
+from cuml.common.array import auto_cupy_cumlarray
 from cuml.common.base import Base
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.kernel_utils import cuda_kernel_factory
@@ -338,6 +339,7 @@ class MultinomialNB(Base):
 
     @cp.prof.TimeRangeDecorator(message="predict()", color_id=1)
     @with_cupy_rmm
+    @auto_cupy_cumlarray(convert_output=True)
     def predict(self, X):
         """
         Perform classification on an array of test vectors X.
@@ -353,7 +355,7 @@ class MultinomialNB(Base):
         C : cupy.ndarray of shape (n_samples)
 
         """
-        out_type = self._get_output_type(X)
+        # out_type = self._get_output_type(X)
 
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
@@ -376,7 +378,7 @@ class MultinomialNB(Base):
         indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
         y_hat = invert_labels(indices, classes=self.classes_)
-        return CumlArray(data=y_hat).to_output(out_type)
+        return y_hat
 
     @with_cupy_rmm
     def predict_log_proba(self, X):

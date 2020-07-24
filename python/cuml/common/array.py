@@ -23,6 +23,7 @@ from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.memory_utils import _get_size_from_shape
 from cuml.common.memory_utils import _order_to_strides
 from cuml.common.memory_utils import _strides_to_order
+from inspect import getmembers
 from numba import cuda
 
 
@@ -347,6 +348,27 @@ class CumlArray(Buffer):
             Whether to create a F-major or C-major array.
         """
         return CumlArray.full(value=1, shape=shape, dtype=dtype, order=order)
+
+
+def auto_cupy_cumlarray(convert_output=False, for_output=0):
+    """
+    Decorator to automatically convert attributes and return values
+    from CuPy objects to CumlArray
+    """
+    def deco(func):
+        def wrapped_func(self, *args, **kwargs):
+
+            res = func(self, *args, **kwargs)
+            cps = getmembers(self, lambda a: isinstance(a, cp.ndarray))
+            for element in cps:
+                setattr(self, element[0], CumlArray(element[1]))
+
+            if convert_output:
+                res = CumlArray(res).to_output(
+                    self._get_output_type(args[for_output]))
+            return res
+        return wrapped_func
+    return deco
 
 
 def _check_low_level_type(data):
