@@ -22,7 +22,7 @@ from cuml.test import test_arima
 from cuml.tsa.arima import ARIMA
 from cuml.test.utils import array_equal, unit_param, stress_param, \
     ClassEnumerator, get_classes_from_package
-from cuml.test.test_svm import compare_svm
+from cuml.test.test_svm import compare_svm, compare_probabilistic_svm
 from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification, make_regression
 from sklearn.manifold.t_sne import trustworthiness
@@ -511,13 +511,16 @@ def test_tsne_pickle(tmpdir):
     pickle_save_load(tmpdir, create_mod, assert_model)
     pickle_save_load(tmpdir, create_mod_2, assert_second_model)
 
-
+# Probabilistic SVM is tested separately because it is a meta estimator that
+# owns a set of base SV classifiers.
+@pytest.mark.parametrize('params', [{'probability': True},
+                                    {'probability': False}])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-def test_svc_pickle(tmpdir, datatype):
+def test_svc_pickle(tmpdir, datatype, params):
     result = {}
 
     def create_mod():
-        model = cuml.svm.SVC()
+        model = cuml.svm.SVC(**params)
         iris = load_iris()
         iris_selection = np.random.RandomState(42).choice(
             [True, False], 150, replace=True, p=[0.75, 0.25])
@@ -529,8 +532,14 @@ def test_svc_pickle(tmpdir, datatype):
         return model, data
 
     def assert_model(pickled_model, data):
-        compare_svm(result["model"], pickled_model, data[0], data[1], cmp_sv=0,
-                    dcoef_tol=0)
+        if result["model"].probability:
+            print("Comparing probabilistic svc")
+            compare_probabilistic_svm(result["model"], pickled_model, data[0],
+                                      data[1], 0, 0)
+        else:
+            print("comparing base svc")
+            compare_svm(result["model"], pickled_model, data[0], data[1],
+                        cmp_sv=0, dcoef_tol=0)
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -586,14 +595,16 @@ def test_svr_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize('nrows', [unit_param(500)])
 @pytest.mark.parametrize('ncols', [unit_param(16)])
 @pytest.mark.parametrize('n_info', [unit_param(7)])
-def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
+@pytest.mark.parametrize('params', [{'probability': True},
+                                    {'probability': False}])
+def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info, params):
     def create_mod():
         X_train, y_train, X_test = make_classification_dataset(datatype,
                                                                nrows,
                                                                ncols,
                                                                n_info,
                                                                n_classes=2)
-        model = cuml.svm.SVC()
+        model = cuml.svm.SVC(**params)
         return model, [X_train, y_train, X_test]
 
     def assert_model(pickled_model, X):
