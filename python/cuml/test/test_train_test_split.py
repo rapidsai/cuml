@@ -31,17 +31,20 @@ test_seeds = [
 
 
 @pytest.mark.parametrize("train_size", [0.2, 0.6, 0.8])
-def test_split_dataframe(train_size):
+@pytest.mark.parametrize("shuffle", [True, False])
+def test_split_dataframe(train_size, shuffle):
     X = cudf.DataFrame({"x": range(100)})
     y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=train_size
+        X, y, train_size=train_size, shuffle=shuffle
     )
     assert len(X_train) == len(y_train) == pytest.approx(train_size * len(X))
     assert (
         len(X_test) == len(y_test) == pytest.approx((1 - train_size) * len(X))
     )
+    assert (all(X_train.index == y_train.index))
+    assert (all(X_test.index == y_test.index))
 
     X_reconstructed = cudf.concat([X_train, X_test]).sort_values(
         by=["x"]
