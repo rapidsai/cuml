@@ -15,6 +15,7 @@
 - PR #2519: Precision recall curve using cupy
 - PR #2500: Replace UMAP functionality dependency on nvgraph with RAFT Spectral Clustering
 - PR #2520: TfidfVectorizer estimator
+- PR #2211: MNMG KNN Classifier & Regressor
 - PR #2461: Add KNN Sparse Output Functionality
 
 ## Improvements
