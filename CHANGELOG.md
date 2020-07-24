@@ -70,6 +70,7 @@
 - PR #2548: Fix limitation on number of rows usable with tSNE and refactor memory allocation
 - PR #2589: including cuda-11 build fixes into raft
 - PR #2487: Set classes_ attribute during classifier fit
+- PR #2605: Reduce memory usage in tSNE
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
