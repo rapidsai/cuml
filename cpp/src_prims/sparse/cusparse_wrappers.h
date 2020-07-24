@@ -161,5 +161,26 @@ inline cusparseStatus_t cusparsegemmi(
 }
 /** @} */
 
+/**
+ * @defgroup SpGEMM cusparse sparse gemm operations
+ * @{
+ */
+template<typename, I, typename T>
+size_t cusparseSpGEMM_workerEstimation(cusparseHandle_t handle, bool transA, bool transB, const T* alpha,
+		const I *indptrA, const I *indicesA, const T *dataA, T *beta, const I *ndptrB, const I *indicesB, const T *dataB,
+		const I *indptrC, const I *indicesC, const T *dataC, size_t* workspace_size1, void* workspace1);
+
+template<typename, I, typename T>
+size_t cusparseSpGEMM_compute(cusparseHandle_t handle, bool transA, bool transB, const T* alpha,
+		const I *indptrA, const I *indicesA, const T *dataA, T *beta, const I *ndptrB, const I *indicesB, const T *dataB,
+		const I *indptrC, const I *indicesC, const T *dataC, void* workspace1, size_t *workspace_size2, void* workspace2);
+
+template<typename, I, typename T>
+size_t cusparseSpGEMM_copy(cusparseHandle_t handle, bool transA, bool transB, const T* alpha,
+		const I *indptrA, const I *indicesA, const T *dataA, T *beta, const I *ndptrB, const I *indicesB, const T *dataB,
+		const I *indptrC, const I *indicesC, const T *dataC, void* workspace2);
+
+/** @} */
+
 };  // namespace Sparse
 };  // namespace MLCommon

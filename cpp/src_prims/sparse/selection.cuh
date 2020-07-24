@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include "selection/columnWiseSort.cuh"
+#include <selection/columnWiseSort.cuh>
+#include <selection/knn.cuh>
 
 #include "cusparse_wrappers.h"
 #include <common/device_buffer.hpp>
@@ -51,6 +52,8 @@ void brute_force_knn(value_idx idxIndptr, value_idx idxIndices, value_t idxData,
 
 			// cusparseSpGEMM_workEstimation
 			// cusparseSpGEMM_compute
+			// cusparseSpGEMM_compute
+			// cusparseSpGEMM_copy
 			// cusparseScsr2dense
 
 			// sortColumnsPerRow
