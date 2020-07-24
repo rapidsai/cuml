@@ -526,7 +526,10 @@ class QN(Base):
             else:
                 return CumlArray.zeros(shape=1)
         elif attr == "coef_":
-            return self.coef_[0:-1]
+            if self.fit_intercept:
+                return self.coef_[0:-1]
+            else:
+                return self.coef_
         else:
             raise AttributeError(attr)
 
