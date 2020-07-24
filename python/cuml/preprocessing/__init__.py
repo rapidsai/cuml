@@ -21,6 +21,6 @@ from cuml.preprocessing.encoders import OneHotEncoder
 
 from cuml._thirdparty.sklearn.preprocessing import StandardScaler, \
     MinMaxScaler, MaxAbsScaler, Normalizer, Binarizer, PolynomialFeatures, \
-    SimpleImputer
+    SimpleImputer, RobustScaler
 from cuml._thirdparty.sklearn.preprocessing import scale, minmax_scale, \
-    normalize, add_dummy_feature, binarize
+    normalize, add_dummy_feature, binarize, robust_scale
