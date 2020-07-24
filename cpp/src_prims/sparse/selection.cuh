@@ -62,11 +62,19 @@ void csr_row_slice_populate(value_idx start_offset, value_idx stop_offset,
    * @param expanded_form whether or not lp variants should be reduced w/ lp-root
    */
 template <typename value_idx = int, typename value_t>
-void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices, const value_t *idxData,
-		value_idx idxNNZ, value_idx n_idx_rows,
-					 const value_idx *queryIndptr, const value_idx *queryIndices, const value_t *queryData,
-					 value_idx queryNNZ, value_idx n_query_rows,
-					 value_idx *output_indices, value_t *output_dists, int k,
+void brute_force_knn(const value_idx *idxIndptr,
+					 const value_idx *idxIndices,
+					 const value_t *idxData,
+					 value_idx idxNNZ,
+					 value_idx n_idx_rows, value_idx n_idx_cols,
+					 const value_idx *queryIndptr,
+					 const value_idx *queryIndices,
+					 const value_t *queryData,
+					 value_idx queryNNZ,
+					 value_idx n_query_rows, value_idx n_query_cols,
+					 value_idx *output_indices,
+					 value_t *output_dists,
+					 int k,
 					 int batch_size = 2<<20, // approx 1M
 					 cusparseHandle_t cusparseHandle,
                      std::shared_ptr<deviceAllocator> allocator,
@@ -77,17 +85,25 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices, co
 
 	int n_batches = ceilDiv(n_idx_rows/batch_size);
 
+	value_t alpha = 1.0, beta = 0.0;
+
 	for(int i = 0; i < n_batches_idx; i++) {
+
+		// @TODO: This batching logic can likely be refactored into helper functions or
+		// some sort of class that can manage the state internally.
 
 		/**
 		 * Compute index batch info
 		 */
+
 		value_idx idx_batch_start = i * batch_size;
 		value_idx idx_batch_stop = idx_batch_start + batch_size;
 		value_idx n_idx_batch_rows = idx_batch_stop - idx_batch_start;
 
 		if(idx_batch_stop >= n_idx_rows)
 			idx_batch_stop = n_idx_rows-1;
+
+		// TODO: When batching is not necessary, just use the input directly instead of copying.
 
 		/**
 		 * Slice CSR to rows in batch
@@ -107,12 +123,63 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices, co
 		csr_row_slice_populate(idx_start_offset, idx_stop_offset,
 				idxIndptr, idxData, idx_batch_indices.data(), idx_batch_data.data(), stream);
 
+		/**
+		 * Create cusparse descriptors
+		 */
+		cusparseSpMatDescr_t matA;
+		CUSPARSE_CHECK(cusparsecreatecsr(&matA, n_idx_rows, n_idx_cols, idxNNZ, idxIndptr, idxIndices, idxData));
+
+
 		for(int j = 0; j < n_batches_query; j++) {
 
-			// Perform row-slice of query
+			/**
+			 * Compute query batch info
+			 */
+			value_idx query_batch_start = i * batch_size;
+			value_idx query_batch_stop = query_batch_start + batch_size;
+			value_idx n_query_batch_rows = query_batch_stop - query_batch_start;
+
+			if(query_batch_stop >= n_query_rows)
+				query_batch_stop = n_query_rows-1;
+
+			/**
+			 * Slice CSR to rows in batch
+			 */
+			device_buffer<value_idx> query_batch_indptr(allocator, stream, n_query_batch_rows);
+
+			value_idx query_start_offset, query_stop_offset;
+
+			csr_row_slice_indptr(query_batch_start, query_batch_stop, queryIndptr, query_batch_indptr.data(),
+					&query_start_offset, &query_stop_offset, stream);
+
+			value_idx n_query_batch_elms = query_stop_offset - query_start_offset;
+
+			device_buffer<value_idx> query_batch_indices(allocator, stream, n_query_batch_elms);
+			device_buffer<value_idx> query_batch_data(allocator, stream, n_query_batch_elms);
+
+			csr_row_slice_populate(query_start_offset, query_stop_offset,
+					queryIndptr, queryData, query_batch_indices.data(), query_batch_data.data(), stream);
+
+			/**
+			 * Create cusparse descriptors
+			 */
+			cusparseSpMatDescr_t matB;
+			CUSPARSE_CHECK(cusparsecreatecsr(&matB, n_query_rows, n_query_cols, queryNNZ,
+					queryIndptr, queryIndices, queryData));
+
 
 			// cusparseSpGEMM_workEstimation
+
+			cusparseSpGEMMDescr_t spgemmDesc;
+			CUSPARSE_CHECK(cusparseSpGemm_createDescr(&spgemmDesc));
+
+			cusparsespgemm_workestimation(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+					CUSPARSE_OPERATION_TRANSPOSE, &alpha, matA, matB, &beta, matC,
+					CUSPARSE_SPGEMM_DEFAULT, &workspace_size1, NULL);
+
 			// cusparseSpGEMM_compute
+
+
 			// cusparseSpGEMM_compute
 			// cusparseSpGEMM_copy
 			// cusparseScsr2dense

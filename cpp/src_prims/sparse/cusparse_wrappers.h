@@ -231,7 +231,6 @@ inline cusparseStatus_t cusparsespgemm_workestimation(cusparseHandle_t      hand
                               cusparseSpMatDescr_t  matB,
                               const T*           beta,
                               cusparseSpMatDescr_t  matC,
-                              cudaDataType          computeType,
                               cusparseSpGEMMAlg_t   alg,
                               cusparseSpGEMMDescr_t spgemmDescr,
                               size_t*               bufferSize1,
@@ -246,16 +245,36 @@ inline cusparseStatus_t cusparsespgemm_workestimation(cusparseHandle_t      hand
                               cusparseSpMatDescr_t  matB,
                               const float*           beta,
                               cusparseSpMatDescr_t  matC,
-                              cudaDataType          computeType,
                               cusparseSpGEMMAlg_t   alg,
                               cusparseSpGEMMDescr_t spgemmDescr,
                               size_t*               bufferSize1,
                               void*                 externalBuffer1) {
 	return cusparseSpGEMM_workEstimation(handle,
             opA, opB, alpha, matA, matB, beta,
-            matC, computeType, alg, spgemmDescr,
+            matC, CUDA_R_32F, alg, spgemmDescr,
             bufferSize1, externalBuffer1);
 }
+
+
+template<>
+inline cusparseStatus_t cusparsespgemm_workestimation(cusparseHandle_t      handle,
+                              cusparseOperation_t   opA,
+                              cusparseOperation_t   opB,
+                              const double*           alpha,
+                              cusparseSpMatDescr_t  matA,
+                              cusparseSpMatDescr_t  matB,
+                              const double*           beta,
+                              cusparseSpMatDescr_t  matC,
+                              cusparseSpGEMMAlg_t   alg,
+                              cusparseSpGEMMDescr_t spgemmDescr,
+                              size_t*               bufferSize1,
+                              void*                 externalBuffer1) {
+	return cusparseSpGEMM_workEstimation(handle,
+            opA, opB, alpha, matA, matB, beta,
+            matC, CUDA_R_64F, alg, spgemmDescr,
+            bufferSize1, externalBuffer1);
+}
+
 
 template<typename T>
 inline cusparseStatus_t
@@ -267,7 +286,6 @@ cusparsespgemm_compute(cusparseHandle_t      handle,
                        cusparseSpMatDescr_t  matB,
                        const T*           beta,
                        cusparseSpMatDescr_t  matC,
-                       cudaDataType          computeType,
                        cusparseSpGEMMAlg_t   alg,
                        cusparseSpGEMMDescr_t spgemmDescr,
                        void*                 externalBuffer1,
@@ -284,7 +302,6 @@ cusparsespgemm_compute(cusparseHandle_t      handle,
                        cusparseSpMatDescr_t  matB,
                        const float*           beta,
                        cusparseSpMatDescr_t  matC,
-                       cudaDataType          computeType,
                        cusparseSpGEMMAlg_t   alg,
                        cusparseSpGEMMDescr_t spgemmDescr,
                        void*                 externalBuffer1,
@@ -293,7 +310,30 @@ cusparsespgemm_compute(cusparseHandle_t      handle,
 
 	return cusparseSpGEMM_compute(handle,
             opA, opB, alpha, matA, matB, beta,
-            matC, computeType, alg, spgemmDescr,
+            matC, CUDA_R_32F, alg, spgemmDescr,
+            externalBuffer1, bufferSize2, externalBuffer2);
+}
+
+
+template<>
+inline cusparseStatus_t
+cusparsespgemm_compute(cusparseHandle_t      handle,
+                       cusparseOperation_t   opA,
+                       cusparseOperation_t   opB,
+                       const double*           alpha,
+                       cusparseSpMatDescr_t  matA,
+                       cusparseSpMatDescr_t  matB,
+                       const double*           beta,
+                       cusparseSpMatDescr_t  matC,
+                       cusparseSpGEMMAlg_t   alg,
+                       cusparseSpGEMMDescr_t spgemmDescr,
+                       void*                 externalBuffer1,
+                       size_t*               bufferSize2,
+                       void*                 externalBuffer2) {
+
+	return cusparseSpGEMM_compute(handle,
+            opA, opB, alpha, matA, matB, beta,
+            matC, CUDA_R_64F, alg, spgemmDescr,
             externalBuffer1, bufferSize2, externalBuffer2);
 }
 
@@ -307,7 +347,6 @@ cusparsespgemm_copy(cusparseHandle_t      handle,
                     cusparseSpMatDescr_t  matB,
                     const T*           beta,
                     cusparseSpMatDescr_t  matC,
-                    cudaDataType          computeType,
                     cusparseSpGEMMAlg_t   alg,
                     cusparseSpGEMMDescr_t spgemmDescr,
                     void*                 externalBuffer2);
@@ -322,13 +361,31 @@ cusparsespgemm_copy(cusparseHandle_t      handle,
                     cusparseSpMatDescr_t  matB,
                     const float*           beta,
                     cusparseSpMatDescr_t  matC,
-                    cudaDataType          computeType,
                     cusparseSpGEMMAlg_t   alg,
                     cusparseSpGEMMDescr_t spgemmDescr,
                     void*                 externalBuffer2) {
 	cusparsespgemm_copy(handle,
 			opA, opB, alpha, matA, matB, beta, matC,
-	        computeType, alg, spgemmDescr, externalBuffer2);
+			CUDA_R_32F, alg, spgemmDescr, externalBuffer2);
+}
+
+
+template<>
+inline cusparseStatus_t
+cusparsespgemm_copy(cusparseHandle_t      handle,
+                    cusparseOperation_t   opA,
+                    cusparseOperation_t   opB,
+                    const double*           alpha,
+                    cusparseSpMatDescr_t  matA,
+                    cusparseSpMatDescr_t  matB,
+                    const double*           beta,
+                    cusparseSpMatDescr_t  matC,
+                    cusparseSpGEMMAlg_t   alg,
+                    cusparseSpGEMMDescr_t spgemmDescr,
+                    void*                 externalBuffer2) {
+	cusparsespgemm_copy(handle,
+			opA, opB, alpha, matA, matB, beta, matC,
+			CUDA_R_64F, alg, spgemmDescr, externalBuffer2);
 }
 
 /** @} */
