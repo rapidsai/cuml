@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "selection/columnWiseSort.cuh"
+
 #include "cusparse_wrappers.h"
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
@@ -25,24 +27,8 @@ namespace Selection {
 
 /**
    * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
-   * @param input vector of device device memory array pointers to search
-   * @param sizes vector of memory sizes for each device array pointer in input
-   * @param D number of cols in input and search_items
-   * @param search_items set of vectors to query for neighbors
-   * @param n        number of items in search_items
-   * @param res_I    pointer to device memory for returning k nearest indices
-   * @param res_D    pointer to device memory for returning k nearest distances
-   * @param k        number of neighbors to query
    * @param allocator the device memory allocator to use for temporary scratch memory
    * @param userStream the main cuda stream to use
-   * @param internalStreams optional when n_params > 0, the index partitions can be
-   *        queried in parallel using these streams. Note that n_int_streams also
-   *        has to be > 0 for these to be used and their cardinality does not need
-   *        to correspond to n_parts.
-   * @param n_int_streams size of internalStreams. When this is <= 0, only the
-   *        user stream will be used.
-   * @param rowMajorIndex are the index arrays in row-major layout?
-   * @param rowMajorQuery are the query array in row-major layout?
    * @param translations translation ids for indices when index rows represent
    *        non-contiguous partitions
    * @param metric corresponds to the FAISS::metricType enum (default is euclidean)
@@ -53,14 +39,27 @@ template <typename value_idx = int, typename value_t>
 void brute_force_knn(value_idx idxIndptr, value_idx idxIndices, value_t idxData, value_idx idxNNZ,
 					 value_idx queryIndptr, value_idx queryIndices, value_t queryData, value_idx queryNNZ,
 					 value_idx output_indices, value_t output_dists, int k,
+					 int batch_size,
                      std::shared_ptr<deviceAllocator> allocator,
                      cudaStream_t userStream,
-                     cudaStream_t *internalStreams = nullptr,
-                     int n_int_streams = 0,
                      std::vector<int64_t> *translations = nullptr,
                      ML::MetricType metric = ML::MetricType::METRIC_L2,
                      float metricArg = 0, bool expanded_form = false) {
+	for(int i = 0; i < batch_size; i++) {
 
+		for(int j = 0; j < batch_size; j++) {
+
+			// cusparseSpGEMM_workEstimation
+			// cusparseSpGEMM_compute
+			// cusparseScsr2dense
+
+			// sortColumnsPerRow
+
+			// knn_merge_parts
+		}
+
+		// Copy final merged batch to output array
+	}
 }
 }
 } // END namespace MLCommon
