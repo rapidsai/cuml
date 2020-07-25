@@ -31,6 +31,7 @@ def test_targetencoder_fit_transform():
     train_encoded = encoder.transform(train.category)
     assert array_equal(train_encoded, answer)
 
+
 def test_targetencoder_transform():
     train = cudf.DataFrame({'category': ['a', 'b', 'b', 'a'],
                             'label': [1, 0, 1, 1]})
