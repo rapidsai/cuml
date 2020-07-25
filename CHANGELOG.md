@@ -10,6 +10,7 @@
 
 ## Bug Fixes
 - PR #2983: Fix seeding of KISS99 RNG
+- PR #3011: Fix unused initialize_embeddings parameter in Barnes-Hut t-SNE
 
 # cuML 0.16.0 (Date TBD)
 
