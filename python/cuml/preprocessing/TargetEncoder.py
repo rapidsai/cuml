@@ -16,6 +16,7 @@
 
 import cudf as gd
 import cupy as cp
+from cuml.common.exceptions import NotFittedError
 
 
 class TargetEncoder:
@@ -68,8 +69,29 @@ class TargetEncoder:
         self.out_col = '__TARGET_ENCODE__'
         self.fold_col = '__FOLD__'
         self.id_col = '__INDEX__'
+        self.train = None
+
+    def fit(self, x, y):
+        res, train = self._fit_transform(x, y)
+        self.train_encode = res
+        self.train = train
+        self._fitted = True
+        return self
 
     def fit_transform(self, x, y):
+        self.fit(x, y)
+        return self.train_encode
+
+    def transform(self, x):
+        self._check_is_fitted()
+        test = self._to_frame(x)
+        if self._is_train_df(test):
+            return self.train_encode
+        x_cols = [i for i in test.columns.tolist() if i != self.id_col]
+        test = test.merge(self.agg_all, on=x_cols, how='left')
+        return self._get_return_value(test)
+
+    def _fit_transform(self, x, y):
         cp.random.seed(self.seed)
         train = self._to_frame(x)
         x_cols = [i for i in train.columns.tolist() if i != self.id_col]
@@ -144,20 +166,30 @@ class TargetEncoder:
         cols = [self.fold_col]+x_cols
         train = train.merge(agg_each_fold, on=cols, how='left')
         del agg_each_fold
-        return self._get_return_value(train)
+        return self._get_return_value(train), train
 
-    def transform(self, x):
-        test = self._to_frame(x)
-        x_cols = [i for i in test.columns.tolist() if i != self.id_col]
-        test = test.merge(self.agg_all, on=x_cols, how='left')
-        return self._get_return_value(test)
+    def _check_is_fitted(self):
+        if not self._fitted or self.train is None:
+            msg = ("This LabelEncoder instance is not fitted yet. Call 'fit' "
+                   "with appropriate arguments before using this estimator.")
+            raise NotFittedError(msg)
+
+    def _is_train_df(self, df):
+        if len(df) != len(self.train):
+            return False
+        for col in df.columns:
+            if col not in self.train.columns:
+                raise ValueError(f"Input column {col} "
+                                 "is not in train data.")
+            if not (df[col] == self.train[col]).all():
+                return False
+        return True
 
     def _get_return_value(self, df):
         df[self.out_col] = df[self.out_col].nans_to_nulls()
         df[self.out_col] = df[self.out_col].fillna(self.mean)
         df = df.sort_values(self.id_col)
         res = df[self.out_col].values.copy()
-        del df
         return res
 
     def _to_frame(self, x):

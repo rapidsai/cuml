@@ -26,6 +26,10 @@ def test_targetencoder_fit_transform():
     answer = np.array([1., 1., 0., 1.])
     assert array_equal(train_encoded, answer)
 
+    encoder = TargetEncoder()
+    encoder.fit(train.category, train.label)
+    train_encoded = encoder.transform(train.category)
+    assert array_equal(train_encoded, answer)
 
 def test_targetencoder_transform():
     train = cudf.DataFrame({'category': ['a', 'b', 'b', 'a'],
@@ -35,4 +39,9 @@ def test_targetencoder_transform():
     encoder.fit_transform(train.category, train.label)
     test_encoded = encoder.transform(test.category)
     answer = np.array([0.75, 0.5, 1., 0.75])
+    assert array_equal(test_encoded, answer)
+
+    encoder = TargetEncoder()
+    encoder.fit(train.category, train.label)
+    test_encoded = encoder.transform(test.category)
     assert array_equal(test_encoded, answer)
