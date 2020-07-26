@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 from sklearn.utils.validation import FLOAT_DTYPES
-from sklearn.exceptions import NotFittedError
+from cuml.common.exceptions import NotFittedError
 import cupy as cp
 from cuml.common import with_cupy_rmm
-from cuml.common.sparsefuncs import csr_row_normalize_l1
-from cuml.common.sparsefuncs import csr_row_normalize_l2
+from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
+from cuml.common.sparsefuncs import csr_diag_mul
 
 
 def _sparse_document_frequency(X):
@@ -166,7 +166,8 @@ class TfidfTransformer:
                 raise ValueError("Input has n_features=%d while the model"
                                  " has been trained with n_features=%d" % (
                                      n_features, expected_n_features))
-            X *= self._idf_diag
+
+            csr_diag_mul(X, self._idf_diag, inplace=True)
 
         if self.norm:
             if self.norm == 'l1':

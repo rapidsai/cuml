@@ -44,7 +44,7 @@ class OneHotEncoderMG(OneHotEncoder):
             if is_categories:
                 X = X.transpose()
             if isinstance(X, cp.ndarray):
-                return DataFrame.from_gpu_matrix(X)
+                return DataFrame(X)
             else:
                 return to_dask_cudf(X, client=self.client)
         else:

@@ -60,7 +60,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int* out,
         int64_t *knn_indices,
         vector[int*] &y,
-        size_t n_labels,
+        size_t n_index_rows,
         size_t n_samples,
         int k
     ) except +
@@ -70,7 +70,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         vector[float*] &out,
         int64_t *knn_indices,
         vector[int*] &y,
-        size_t n_labels,
+        size_t n_index_rows,
         size_t n_samples,
         int k
     ) except +
@@ -145,6 +145,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
             raise ValueError("Only uniform weighting strategy is "
                              "supported currently.")
 
+    @with_cupy_rmm
     def fit(self, X, y, convert_dtype=True):
         """
         Fit a GPU index for k-nearest neighbors classifier model.
@@ -173,6 +174,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                                 convert_to_dtype=(np.int32
                                                   if convert_dtype
                                                   else None))
+        self.classes_ = cp.unique(self.y)
         return self
 
     def predict(self, X, convert_dtype=True):
