@@ -81,8 +81,8 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
  * @param k number of nearest neighbors in knn_indices
  */
 void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
-                  std::vector<int *> &y, size_t n_index_rows, size_t n_query_rows,
-                  int k);
+                  std::vector<int *> &y, size_t n_index_rows,
+                  size_t n_query_rows, int k);
 
 /**
  * @brief Flat C++ API function to perform a knn regression using
@@ -99,8 +99,8 @@ void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
  * @param k number of nearest neighbors in knn_indices
  */
 void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
-                 std::vector<float *> &y, size_t n_index_rows, size_t n_query_rows,
-                 int k);
+                 std::vector<float *> &y, size_t n_index_rows,
+                 size_t n_query_rows, int k);
 
 /**
  * @brief Flat C++ API function to compute knn class probabilities
