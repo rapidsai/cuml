@@ -473,9 +473,9 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
     MLCommon::LinAlg::unaryOp<int>(
       y_normalized.data(), y_normalized.data(), n_index_rows,
       [] __device__(int input) { return input - 1; }, stream);
-    class_probs_kernel<float, precomp_lbls><<<grid, blk, 0, stream>>>(
-      out[i], knn_indices, y_normalized.data(), n_unique_labels, n_query_rows,
-      k);
+    class_probs_kernel<float, precomp_lbls>
+      <<<grid, blk, 0, stream>>>(out[i], knn_indices, y_normalized.data(),
+                                 n_unique_labels, n_query_rows, k);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 }
@@ -535,8 +535,9 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
    * Note: Since class_probs will use the same round robin strategy for distributing
    * work to the streams, we don't need to explicitly synchronize the streams here.
    */
-  class_probs<32, precomp_lbls>(probs, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels,
-              n_unique, allocator, user_stream, int_streams, n_int_streams);
+  class_probs<32, precomp_lbls>(
+    probs, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique,
+    allocator, user_stream, int_streams, n_int_streams);
 
   dim3 grid(MLCommon::ceildiv(n_query_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
@@ -595,9 +596,9 @@ void knn_regress(ValType *out, const int64_t *knn_indices,
     cudaStream_t stream =
       select_stream(user_stream, int_streams, n_int_streams, i);
 
-    regress_avg_kernel<ValType, precomp_lbls><<<ceildiv(n_query_rows, (size_t)TPB_X), TPB_X, 0,
-                         stream>>>(out, knn_indices, y[i], n_query_rows, k,
-                                   y.size(), i);
+    regress_avg_kernel<ValType, precomp_lbls>
+      <<<ceildiv(n_query_rows, (size_t)TPB_X), TPB_X, 0, stream>>>(
+        out, knn_indices, y[i], n_query_rows, k, y.size(), i);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaPeekAtLastError());
