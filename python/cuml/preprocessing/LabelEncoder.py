@@ -18,7 +18,7 @@ import cudf
 import cupy as cp
 
 from cuml.common.memory_utils import with_cupy_rmm
-from sklearn.exceptions import NotFittedError
+from cuml.common.exceptions import NotFittedError
 
 
 class LabelEncoder(object):
@@ -227,7 +227,7 @@ class LabelEncoder(object):
         ord_label = y.unique()
         category_num = len(self.classes_)
         if self.handle_unknown == 'error':
-            for ordi in ord_label:
+            for ordi in ord_label.values_host:
                 if ordi < 0 or ordi >= category_num:
                     raise ValueError(
                         'y contains previously unseen label {}'.format(ordi))

@@ -44,6 +44,17 @@
 namespace MLCommon {
 namespace Selection {
 
+template <bool precomp_lbls, typename T>
+inline __device__ T get_lbls(const T *labels, const int64_t *knn_indices,
+                             int64_t idx) {
+  if (precomp_lbls) {
+    return labels[idx];
+  } else {
+    int64_t neighbor_idx = knn_indices[idx];
+    return labels[neighbor_idx];
+  }
+}
+
 template <int warp_q, int thread_q, int tpb>
 __global__ void knn_merge_parts_kernel(float *inK, int64_t *inV, float *outK,
                                        int64_t *outV, size_t n_samples,
@@ -342,7 +353,7 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   if (translations == nullptr) delete id_ranges;
 };
 
-template <typename OutType = float>
+template <typename OutType = float, bool precomp_lbls = false>
 __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
                                    const int *labels, int n_uniq_labels,
                                    size_t n_samples, int n_neighbors) {
@@ -354,8 +365,7 @@ __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
   if (row >= n_samples) return;
 
   for (int j = 0; j < n_neighbors; j++) {
-    int64_t neighbor_idx = knn_indices[i + j];
-    int out_label = labels[neighbor_idx];
+    int out_label = get_lbls<precomp_lbls>(labels, knn_indices, i + j);
     int out_idx = row * n_uniq_labels + out_label;
     out[out_idx] += n_neigh_inv;
   }
@@ -389,7 +399,7 @@ __global__ void class_vote_kernel(OutType *out, const float *class_proba,
   out[row * n_outputs + output_offset] = label_cache[cur_label];
 }
 
-template <typename LabelType>
+template <typename LabelType, bool precomp_lbls = false>
 __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
                                    const LabelType *labels, size_t n_samples,
                                    int n_neighbors, int n_outputs,
@@ -402,8 +412,7 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
   // should work for moderately small number of classes
   LabelType pred = 0;
   for (int j = 0; j < n_neighbors; j++) {
-    int64_t neighbor_idx = knn_indices[i + j];
-    pred += labels[neighbor_idx];
+    pred += get_lbls<precomp_lbls>(labels, knn_indices, i + j);
   }
 
   out[row * n_outputs + output_offset] = pred / (LabelType)n_neighbors;
@@ -416,6 +425,9 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  *
  * @param out vector of output class probabilities of the same size as y.
  *            each element should be of size size (n_samples * n_classes[i])
+ * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Classifier. In this case,
+ * the knn_indices array is not used as the y arrays already store the labels for each row.
+ * This makes it possible to compute the reduction step without holding all the data on a single machine.
  * @param knn_indices the index array resulting from a knn search
  * @param y vector of label arrays. for multulabel classification,
  *          each output in the vector is a different array of labels
@@ -431,12 +443,12 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  * @param n_int_streams number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
  */
-template <int TPB_X = 32>
+template <int TPB_X = 32, bool precomp_lbls = false>
 void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
                  std::vector<int *> &y, size_t n_index_rows,
                  size_t n_query_rows, int k, std::vector<int *> &uniq_labels,
                  std::vector<int> &n_unique,
-                 std::shared_ptr<deviceAllocator> allocator,
+                 const std::shared_ptr<deviceAllocator> allocator,
                  cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
                  int n_int_streams = 0) {
   for (int i = 0; i < y.size(); i++) {
@@ -461,7 +473,7 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
     MLCommon::LinAlg::unaryOp<int>(
       y_normalized.data(), y_normalized.data(), n_index_rows,
       [] __device__(int input) { return input - 1; }, stream);
-    class_probs_kernel<<<grid, blk, 0, stream>>>(
+    class_probs_kernel<float, precomp_lbls><<<grid, blk, 0, stream>>>(
       out[i], knn_indices, y_normalized.data(), n_unique_labels, n_query_rows,
       k);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -474,6 +486,9 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  * array of unique monotonically increasing labels will be used.
  *
  * @tparam TPB_X the number of threads per block to use
+ * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Classifier. In this case,
+ * the knn_indices array is not used as the y arrays already store the labels for each row.
+ * This makes it possible to compute the reduction step without holding all the data on a single machine.
  * @param out output array of size (n_samples * y.size())
  * @param knn_indices index array from knn search
  * @param y vector of label arrays. for multilabel classification, each
@@ -490,11 +505,11 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  * @param n_int_streams number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
  */
-template <int TPB_X = 32>
+template <int TPB_X = 32, bool precomp_lbls = false>
 void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
                   size_t n_index_rows, size_t n_query_rows, int k,
                   std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
-                  std::shared_ptr<deviceAllocator> &allocator,
+                  const std::shared_ptr<deviceAllocator> &allocator,
                   cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
                   int n_int_streams = 0) {
   std::vector<float *> probs;
@@ -520,7 +535,7 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
    * Note: Since class_probs will use the same round robin strategy for distributing
    * work to the streams, we don't need to explicitly synchronize the streams here.
    */
-  class_probs(probs, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels,
+  class_probs<32, precomp_lbls>(probs, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels,
               n_unique, allocator, user_stream, int_streams, n_int_streams);
 
   dim3 grid(MLCommon::ceildiv(n_query_rows, (size_t)TPB_X), 1, 1);
@@ -551,6 +566,9 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
  * nearest neighbors.
  * @tparam ValType data type of the labels
  * @tparam TPB_X the number of threads per block to use
+ * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Regressor. In this case,
+ * the knn_indices array is not used as the y arrays already store the output for each row.
+ * This makes it possible to compute the reduction step without holding all the data on a single machine.
  * @param out output array of size (n_samples * y.size())
  * @param knn_indices index array from knn search
  * @param y vector of label arrays. for multilabel classification, each
@@ -565,7 +583,7 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
  *        the user_stream is used.
  */
 
-template <typename ValType, int TPB_X = 32>
+template <typename ValType, int TPB_X = 32, bool precomp_lbls = false>
 void knn_regress(ValType *out, const int64_t *knn_indices,
                  const std::vector<ValType *> &y, size_t n_index_rows,
                  size_t n_query_rows, int k, cudaStream_t user_stream,
@@ -577,7 +595,7 @@ void knn_regress(ValType *out, const int64_t *knn_indices,
     cudaStream_t stream =
       select_stream(user_stream, int_streams, n_int_streams, i);
 
-    regress_avg_kernel<<<ceildiv(n_query_rows, (size_t)TPB_X), TPB_X, 0,
+    regress_avg_kernel<ValType, precomp_lbls><<<ceildiv(n_query_rows, (size_t)TPB_X), TPB_X, 0,
                          stream>>>(out, knn_indices, y[i], n_query_rows, k,
                                    y.size(), i);
 

@@ -164,6 +164,32 @@ endif(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
+# Create FindPackage.cmake files to use find(package) functionality for
+# dependencies
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/cmake/templates)
+
+GENERATE_FIND_MODULE(NAME cumlprims_mg
+                     HEADER_NAME cumlprims.hpp
+                     LIBRARY_NAME cumlprims
+                     LOCATION cumlprims)
+
+GENERATE_FIND_MODULE(NAME NCCL
+                     HEADER_NAME nccl.h
+                     LIBRARY_NAME nccl)
+
+GENERATE_FIND_MODULE(NAME RMM
+                     HEADER_NAME rmm/device_buffer.hpp
+                     LIBRARY_NAME rmm)
+
+GENERATE_FIND_MODULE(NAME UCX
+                     HEADER_NAME ucp/api/ucp.h
+                     LIBRARY_NAME ucp)
+
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
+
+# append additional directories to CMAKE_MODULE_PATH if we need other modules here
+
 # todo: change for FindCUDAToolkit when CMake 3.17 is the minimum required
 # https://github.com/rapidsai/cuml/issues/2194
 find_package(CUDA 10.0 REQUIRED)
@@ -181,16 +207,9 @@ else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
-set(Protobuf_USE_STATIC_LIBS ON)
-find_package(Protobuf REQUIRED)
-
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 ##############################################################################
 # - External Dependencies-----------------------------------------------------
-
-set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
-  "Path to nvGraph lib")
 
 set(CUML_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
   "Path to cuml include directories")
@@ -304,6 +323,7 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUB_DIR}/src/cub
   ${SPDLOG_DIR}/src/spdlog/include
   ${RAFT_DIR}/cpp/include
+  ${RMM_INCLUDE_DIRS}
   )
 
 set(CUML_PUBLIC_LINK_LIBRARIES
@@ -312,22 +332,21 @@ set(CUML_PUBLIC_LINK_LIBRARIES
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
-  ${CUDA_nvgraph_LIBRARY}
   )
 
 set(CUML_PRIVATE_LINK_LIBRARIES
-  ${Protobuf_LIBRARIES}
   faisslib
   treelite::treelite
   treelite::treelite_runtime
+  RMM::RMM
   )
 
 if(ENABLE_CUMLPRIMS_MG)
   list(APPEND CUML_INCLUDE_DIRECTORIES
-       ${CUMLPRIMS_MG_INCLUDE_DIRS})
+       ${cumlprims_mg_INCLUDE_DIRS})
 
   list(APPEND CUML_PRIVATE_LINK_LIBRARIES
-       CUMLPRIMS_MG::CUMLPRIMS_MG)
+       cumlprims_mg::cumlprims_mg)
 
 endif(ENABLE_CUMLPRIMS_MG)
 
@@ -379,10 +398,17 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(NOT SINGLEGPU)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
+        src/glm/ols_mg.cu
+        src/glm/preprocess_mg.cu
+        src/glm/ridge_mg.cu
         src/kmeans/kmeans_mg.cu
         src/knn/knn_mg.cu
+        src/knn/knn_opg_common.cu
+        src/knn/knn_classify_mg.cu
+        src/knn/knn_regress_mg.cu
         src/pca/pca_mg.cu
         src/pca/sign_flip_mg.cu
+        src/solver/cd_mg.cu
         src/tsvd/tsvd_mg.cu
     )
   endif(NOT SINGLEGPU)

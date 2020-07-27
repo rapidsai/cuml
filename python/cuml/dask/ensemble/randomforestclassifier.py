@@ -211,8 +211,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-
-        self.local_model = None
+        self.num_classes = len(y.unique())
+        self._set_internal_model(None)
         self._fit(model=self.rfs,
                   dataset=(X, y),
                   convert_dtype=convert_dtype)
@@ -314,6 +314,14 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                                         delayed=delayed)
 
         return preds
+
+    def predict_using_fil(self, X, delayed, **kwargs):
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
+
+        return self._predict_using_fil(X=X,
+                                       delayed=delayed,
+                                       **kwargs)
 
     """
     TODO : Update function names used for CPU predict.
@@ -438,9 +446,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         y : NumPy
            Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
         """
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
-
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
         return self._predict_proba(X, delayed, **kwargs)

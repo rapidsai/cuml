@@ -14,8 +14,9 @@
 #
 import numpy as np
 import cupy as cp
-from sklearn.exceptions import NotFittedError
+from cuml.common.exceptions import NotFittedError
 
+from cuml import Base
 from cuml.preprocessing import LabelEncoder
 from cudf import DataFrame, Series
 from cudf.core import GenericIndex
@@ -24,7 +25,7 @@ from cuml.common import with_cupy_rmm
 import warnings
 
 
-class OneHotEncoder:
+class OneHotEncoder(Base):
     """
     Encode categorical features as a one-hot numeric array.
     The input to this estimator should be a cuDF.DataFrame or a cupy.ndarray,
@@ -177,7 +178,7 @@ class OneHotEncoder:
             self._set_input_type('array')
             if is_categories:
                 X = X.transpose()
-            return DataFrame.from_gpu_matrix(X)
+            return DataFrame(X)
         else:
             self._set_input_type('df')
             return X

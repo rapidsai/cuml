@@ -41,7 +41,7 @@ class BaseRandomForestModel(object):
 
         self.client = get_client(client)
         self.workers = self.client.scheduler_info()['workers'].keys()
-        self.local_model = None
+        self._set_internal_model(None)
 
         self.n_estimators_per_worker = \
             self._estimators_per_worker(n_estimators)
@@ -129,7 +129,6 @@ class BaseRandomForestModel(object):
                 (self.rfs[w]))
         mod_bytes = self.client.compute(model_serialized_futures, sync=True)
         last_worker = w
-        all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
         all_tl_mod_handles = [
                 model._tl_handle_from_bytes(indiv_worker_model_bytes)
@@ -139,14 +138,15 @@ class BaseRandomForestModel(object):
         model._concatenate_treelite_handle(all_tl_mod_handles)
         for tl_handle in all_tl_mod_handles:
             TreeliteModel.free_treelite_model(tl_handle)
-
         return model
 
     def _predict_using_fil(self, X, delayed, **kwargs):
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
         return self._predict(X, delayed=delayed, **kwargs)
 
     def _get_params(self, deep):
