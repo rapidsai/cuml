@@ -50,7 +50,14 @@ void csr_row_slice_populate(value_idx start_offset, value_idx stop_offset,
 }
 
 template<typename T>
-__global__ void select_pair(const T dists)
+__global__ void select_pair(T *out, const T *in, size_t n_rows, int k, size_t lda, bool max = false) {
+
+	int i = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+
+
+
+}
 
 /**
    * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
@@ -98,7 +105,6 @@ void brute_force_knn(const value_idx *idxIndptr,
 		/**
 		 * Compute index batch info
 		 */
-
 		value_idx idx_batch_start = i * batch_size;
 		value_idx idx_batch_stop = idx_batch_start + batch_size;
 		value_idx n_idx_batch_rows = idx_batch_stop - idx_batch_start;
