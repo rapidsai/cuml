@@ -111,6 +111,7 @@
 - PR #2586: Fix SVC decision function data type
 - PR #2573: Considering managed memory as device type on checking for KMeans
 - PR #2574: Fixing include path in `tsvd_mg.pyx`
+- PR #2610: Remove cuDF tolist call
 
 # cuML 0.14.0 (03 Jun 2020)
 
