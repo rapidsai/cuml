@@ -68,9 +68,11 @@ NGRAM_IDS = [f'ngram_range={str(r)}' for r in NGRAM_RANGES]
 
 @pytest.mark.parametrize('ngram_range', NGRAM_RANGES, ids=NGRAM_IDS)
 def test_word_analyzer(ngram_range):
-    vec = CountVectorizer(ngram_range=ngram_range).fit(DOCS_GPU)
+    v = CountVectorizer(ngram_range=ngram_range).fit(DOCS_GPU)
     ref = SkCountVect(ngram_range=ngram_range).fit(DOCS)
-    assert ref.get_feature_names() == vec.get_feature_names().to_arrow().to_pylist()
+    assert (
+        ref.get_feature_names() == v.get_feature_names().to_arrow().to_pylist()
+    )
 
 
 def test_countvectorizer_custom_vocabulary():
@@ -99,10 +101,10 @@ def test_countvectorizer_stop_words_ngrams():
     stop_words_doc = Series(["and me too andy andy too"])
     expected_vocabulary = ["andy andy"]
 
-    vec = CountVectorizer(ngram_range=(2, 2), stop_words='english')
-    vec.fit(stop_words_doc)
+    v = CountVectorizer(ngram_range=(2, 2), stop_words='english')
+    v.fit(stop_words_doc)
 
-    assert expected_vocabulary == vec.get_feature_names().to_arrow().to_pylist()
+    assert expected_vocabulary == v.get_feature_names().to_arrow().to_pylist()
 
 
 def test_countvectorizer_max_features():
@@ -113,7 +115,8 @@ def test_countvectorizer_max_features():
     # test bounded number of extracted features
     vec = CountVectorizer(max_df=0.6, max_features=4)
     vec.fit(DOCS_GPU)
-    assert set(vec.get_feature_names().to_arrow().to_pylist()) == expected_vocabulary
+    assert set(vec.get_feature_names().to_arrow().to_pylist()
+               ) == expected_vocabulary
     assert set(vec.stop_words_.to_arrow().to_pylist()) == expected_stop_words
 
 
@@ -138,7 +141,8 @@ def test_countvectorizer_max_features_counts():
     assert 7 == counts_None.max()
 
     # The most common feature should be the same
-    def as_index(x): return x.astype(cp.int32).item()
+    def as_index(x):
+        return x.astype(cp.int32).item()
     assert "the" == features_1[as_index(cp.argmax(counts_1))]
     assert "the" == features_3[as_index(cp.argmax(counts_3))]
     assert "the" == features_None[as_index(cp.argmax(counts_None))]
@@ -184,7 +188,8 @@ def test_vectorizer_min_df():
 
     vect.min_df = 0.8  # 0.8 * 3 documents -> min_doc_count == 2.4
     vect.fit(test_data)
-    assert 'c' not in vect.vocabulary_.to_arrow().to_pylist()  # {bcdet} ignored
+    # {bcdet} ignored
+    assert 'c' not in vect.vocabulary_.to_arrow().to_pylist()
     assert len(vect.vocabulary_.to_arrow().to_pylist()) == 1    # {a} remains
     assert 'c' in vect.stop_words_.to_arrow().to_pylist()
     assert len(vect.stop_words_) == 5
@@ -237,7 +242,8 @@ def test_space_ngrams(ngram_range):
     data_gpu = Series(data)
     vec = CountVectorizer(ngram_range=ngram_range).fit(data_gpu)
     ref = SkCountVect(ngram_range=ngram_range).fit(data)
-    assert ref.get_feature_names() == vec.get_feature_names().to_arrow().to_pylist()
+    assert (ref.get_feature_names()
+            ) == vec.get_feature_names().to_arrow().to_pylist()
 
 
 def test_empty_doc_after_limit_features():
@@ -291,7 +297,8 @@ def test_character_ngrams(analyzer, ngram_range):
 
     ref = SkCountVect(analyzer=analyzer, ngram_range=ngram_range).fit(data)
 
-    assert ref.get_feature_names() == res.get_feature_names().to_arrow().to_pylist()
+    assert (ref.get_feature_names()
+            ) == res.get_feature_names().to_arrow().to_pylist()
 
 
 @pytest.mark.parametrize('query', [Series(['science aa', '', 'a aa aaa']),
