@@ -16,6 +16,7 @@
 #pragma once
 
 #include <common/cudart_utils.h>
+#include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include "exact_kernels.cuh"
 #include "utils.cuh"
@@ -64,21 +65,22 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
   // Allocate space
   //---------------------------------------------------
   CUML_LOG_DEBUG("Now allocating memory for TSNE.");
-  float *norm = (float *)d_alloc->allocate(sizeof(float) * n, stream);
-  float *Z_sum = (float *)d_alloc->allocate(sizeof(float) * 2 * n, stream);
-  float *means = (float *)d_alloc->allocate(sizeof(float) * dim, stream);
+  MLCommon::device_buffer<float> norm(d_alloc, stream, n);
+  MLCommon::device_buffer<float> Z_sum(d_alloc, stream, 2 * n);
+  MLCommon::device_buffer<float> means(d_alloc, stream, dim);
 
-  float *attract = (float *)d_alloc->allocate(sizeof(float) * n * dim, stream);
-  float *repel = (float *)d_alloc->allocate(sizeof(float) * n * dim, stream);
+  MLCommon::device_buffer<float> attract(d_alloc, stream, n * dim);
+  MLCommon::device_buffer<float> repel(d_alloc, stream, n * dim);
 
-  float *velocity = (float *)d_alloc->allocate(sizeof(float) * n * dim, stream);
-  CUDA_CHECK(cudaMemsetAsync(velocity, 0, sizeof(float) * n * dim, stream));
+  MLCommon::device_buffer<float> velocity(d_alloc, stream, n * dim);
+  CUDA_CHECK(cudaMemsetAsync(
+    velocity.data(), 0, velocity.size() * sizeof(*velocity.data()), stream));
 
-  float *gains = (float *)d_alloc->allocate(sizeof(float) * n * dim, stream);
-  thrust::device_ptr<float> begin = thrust::device_pointer_cast(gains);
+  MLCommon::device_buffer<float> gains(d_alloc, stream, n * dim);
+  thrust::device_ptr<float> begin = thrust::device_pointer_cast(gains.data());
   thrust::fill(thrust::cuda::par.on(stream), begin, begin + n * dim, 1.0f);
 
-  float *gradient = (float *)d_alloc->allocate(sizeof(float) * n * dim, stream);
+  MLCommon::device_buffer<float> gradient(d_alloc, stream, n * dim);
   //---------------------------------------------------
 
   // Calculate degrees of freedom
@@ -105,20 +107,22 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
     }
 
     // Get row norm of Y
-    MLCommon::LinAlg::rowNorm(norm, Y, dim, n, MLCommon::LinAlg::L2Norm, false,
-                              stream);
+    MLCommon::LinAlg::rowNorm(norm.data(), Y, dim, n, MLCommon::LinAlg::L2Norm,
+                              false, stream);
 
     // Compute attractive forces
-    TSNE::attractive_forces(VAL, COL, ROW, Y, norm, attract, NNZ, n, dim,
-                            df_power, recp_df, stream);
+    TSNE::attractive_forces(VAL, COL, ROW, Y, norm.data(), attract.data(), NNZ,
+                            n, dim, df_power, recp_df, stream);
     // Compute repulsive forces
-    const float Z = TSNE::repulsive_forces(Y, repel, norm, Z_sum, n, dim,
-                                           df_power, recp_df, stream);
+    const float Z =
+      TSNE::repulsive_forces(Y, repel.data(), norm.data(), Z_sum.data(), n, dim,
+                             df_power, recp_df, stream);
 
     // Apply / integrate forces
     const float gradient_norm = TSNE::apply_forces(
-      Y, velocity, attract, repel, means, gains, Z, learning_rate, C, momentum,
-      dim, n, min_gain, gradient, check_convergence, stream);
+      Y, velocity.data(), attract.data(), repel.data(), means.data(),
+      gains.data(), Z, learning_rate, C, momentum, dim, n, min_gain,
+      gradient.data(), check_convergence, stream);
 
     if (check_convergence) {
       CUML_LOG_DEBUG("Z at iter = %d = %f and gradient norm = %f", iter, Z,
@@ -134,17 +138,6 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
       CUML_LOG_DEBUG("Z at iter = %d = %f", iter, Z);
     }
   }
-
-  d_alloc->deallocate(norm, sizeof(float) * n, stream);
-  d_alloc->deallocate(Z_sum, sizeof(float) * 2 * n, stream);
-  d_alloc->deallocate(means, sizeof(float) * dim, stream);
-
-  d_alloc->deallocate(attract, sizeof(float) * n * dim, stream);
-  d_alloc->deallocate(repel, sizeof(float) * n * dim, stream);
-
-  d_alloc->deallocate(velocity, sizeof(float) * n * dim, stream);
-  d_alloc->deallocate(gains, sizeof(float) * n * dim, stream);
-  d_alloc->deallocate(gradient, sizeof(float) * n * dim, stream);
 }
 
 }  // namespace TSNE
