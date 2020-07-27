@@ -30,6 +30,7 @@ from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.common.exceptions import NotFittedError
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
 from libcpp cimport bool
@@ -283,6 +284,12 @@ class SVMBase(Base):
         return np.dot(self._dual_coef_.to_output('numpy'),
                       self._support_vectors_.to_output('numpy'))
 
+    def _check_is_fitted(self, attr):
+        if not hasattr(self, attr) or (getattr(self, attr) is None):
+            msg = ("This classifier instance is not fitted yet. Call 'fit' "
+                   "with appropriate arguments before using this estimater.")
+            raise NotFittedError(msg)
+
     @property
     def coef_(self):
         if self._c_kernel != LINEAR:
@@ -532,8 +539,7 @@ class SVMBase(Base):
         else:
             out_dtype = self.dtype
 
-        if self._model is None:
-            raise RuntimeError("Call fit before prediction")
+        self._check_is_fitted('_model')
 
         X_m, n_rows, n_cols, pred_dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype)
