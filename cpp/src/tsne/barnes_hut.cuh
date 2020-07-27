@@ -56,7 +56,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const int max_iter = 1000, const float min_grad_norm = 1e-7,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
                 const long long random_state = -1) {
-  using MLCommon::device_buffer;
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
@@ -267,10 +266,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   PRINT_TIMES;
 
   MLCommon::copy(Y, YY.data(), n, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
-
   MLCommon::copy(Y + n, YY.data() + nnodes + 1, n, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 }  // namespace TSNE
