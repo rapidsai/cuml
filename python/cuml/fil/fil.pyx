@@ -312,10 +312,6 @@ cdef class ForestInference_impl():
         cdef treelite_params_t treelite_params
 
         self.output_class = output_class
-        if not self.output_class:
-            warnings.warn("While using a Classification model `output_class` "
-                          "must be set to True")
-
         treelite_params.output_class = self.output_class
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
@@ -356,10 +352,6 @@ cdef class ForestInference_impl():
         cdef treelite_params_t treelite_params
 
         self.output_class = output_class
-        if not self.output_class:
-            warnings.warn("While using a Classification model `output_class` "
-                          "must be set to True")
-
         treelite_params.output_class = self.output_class
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
