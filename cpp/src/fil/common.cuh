@@ -115,7 +115,7 @@ struct dense_storage {
   int node_pitch_ = 0;
 };
 
-/** sparse_node16 is a single node in a sparse forest */
+/** sparse_node16 is a 16-byte node in a sparse forest */
 struct alignas(16) sparse_node16 : base_node, sparse_node16_extra_data {
   sparse_node16(sparse_node16_t node)
     : base_node(node), sparse_node16_extra_data(node) {}
@@ -128,7 +128,7 @@ struct alignas(16) sparse_node16 : base_node, sparse_node16_extra_data {
   __host__ __device__ int left(int curr) const { return left_idx; }
 };
 
-/** sparse_node8 is a single 8-byte node in a sparse forest */
+/** sparse_node8 is a node of reduced size (8 bytes) in a sparse forest */
 struct alignas(8) sparse_node8 : base_node {
   static const int FID_NUM_BITS = 14;
   static const int FID_MASK = (1 << FID_NUM_BITS) - 1;

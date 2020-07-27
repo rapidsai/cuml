@@ -425,9 +425,6 @@ class BasePredictSparseFilTest : public BaseFilTest {
     }
   }
 
-  virtual void init_sparse(fil::forest_t* pforest,
-                           const fil::forest_params_t* fil_params) = 0;
-
   void init_forest(fil::forest_t* pforest) override {
     // init FIL model
     fil::forest_params_t fil_params;
@@ -441,29 +438,15 @@ class BasePredictSparseFilTest : public BaseFilTest {
     fil_params.num_classes = ps.num_classes;
     dense2sparse();
     fil_params.num_nodes = sparse_nodes.size();
-    init_sparse(pforest, &fil_params);
+    fil::init_sparse(handle, pforest, trees.data(), sparse_nodes.data(),
+                     &fil_params);
   }
   std::vector<fil_node_t> sparse_nodes;
   std::vector<int> trees;
 };
 
-class PredictSparse16FilTest
-  : public BasePredictSparseFilTest<fil::sparse_node16_t> {
-  void init_sparse(fil::forest_t* pforest,
-                   const fil::forest_params_t* fil_params) {
-    fil::init_sparse16(handle, pforest, trees.data(), sparse_nodes.data(),
-                       fil_params);
-  }
-};
-
-class PredictSparse8FilTest
-  : public BasePredictSparseFilTest<fil::sparse_node8_t> {
-  void init_sparse(fil::forest_t* pforest,
-                   const fil::forest_params_t* fil_params) {
-    fil::init_sparse8(handle, pforest, trees.data(), sparse_nodes.data(),
-                      fil_params);
-  }
-};
+typedef BasePredictSparseFilTest<fil::sparse_node16_t> PredictSparse16FilTest;
+typedef BasePredictSparseFilTest<fil::sparse_node8_t> PredictSparse8FilTest;
 
 class TreeliteFilTest : public BaseFilTest {
  protected:
