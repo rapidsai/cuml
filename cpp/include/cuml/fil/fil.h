@@ -108,14 +108,15 @@ struct sparse_node16_extra_data {
   int dummy;  // make alignment explicit and reserve for future use
 };
 
-/** sparse_node16_t is a node in a sparsely-stored forest */
+/** sparse_node16_t is a 16-byte node in a sparsely-stored forest */
 struct sparse_node16_t : dense_node_t, sparse_node16_extra_data {
   sparse_node16_t() = default;
   sparse_node16_t(dense_node_t dn, sparse_node16_extra_data ed)
     : dense_node_t(dn), sparse_node16_extra_data(ed) {}
 };
 
-/** sparse_node8_t is a node of reduced size (8 bytes) in a sparsely-stored forest */
+/** sparse_node8_t is a node of reduced size (8 bytes)
+    in a sparsely-stored forest */
 struct sparse_node8_t : dense_node_t {
   sparse_node8_t() = default;
   sparse_node8_t(dense_node_t dn) : dense_node_t(dn) {}
@@ -217,18 +218,18 @@ struct treelite_params_t {
 void init_dense(const cumlHandle& h, forest_t* pf, const dense_node_t* nodes,
                 const forest_params_t* params);
 
-/** init_sparse16 uses params, trees and nodes to initialize the sparse forest
- *  stored in pf
+/** init_sparse uses params, trees and nodes to initialize the sparse forest
+ *  with 16-byte nodes stored in pf
  *  @param h cuML handle used by this function
  *  @param pf pointer to where to store the newly created forest
  *  @param trees indices of tree roots in the nodes arrray, of length params->ntrees
  *  @param nodes nodes for the forest, of length params->num_nodes
  *  @param params pointer to parameters used to initialize the forest
  */
-void init_sparse16(const cumlHandle& h, forest_t* pf, const int* trees,
-                   const sparse_node16_t* nodes, const forest_params_t* params);
+void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
+                 const sparse_node16_t* nodes, const forest_params_t* params);
 
-/** init_sparse8 uses params, trees and nodes to initialize the sparse forest
+/** init_sparse uses params, trees and nodes to initialize the sparse forest
  *  with 8-byte nodes stored in pf
  *  @param h cuML handle used by this function
  *  @param pf pointer to where to store the newly created forest
@@ -236,8 +237,8 @@ void init_sparse16(const cumlHandle& h, forest_t* pf, const int* trees,
  *  @param nodes nodes for the forest, of length params->num_nodes
  *  @param params pointer to parameters used to initialize the forest
  */
-void init_sparse8(const cumlHandle& h, forest_t* pf, const int* trees,
-                  const sparse_node8_t* nodes, const forest_params_t* params);
+void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
+                 const sparse_node8_t* nodes, const forest_params_t* params);
 
 /** from_treelite uses a treelite model to initialize the forest
  * @param handle cuML handle used by this function
