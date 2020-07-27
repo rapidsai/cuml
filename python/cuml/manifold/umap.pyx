@@ -276,7 +276,7 @@ class UMAP(Base):
     def __init__(self,
                  n_neighbors=15,
                  n_components=2,
-                 n_epochs=0,
+                 n_epochs=None,
                  learning_rate=1.0,
                  min_dist=0.1,
                  spread=1.0,
@@ -306,7 +306,7 @@ class UMAP(Base):
 
         self.n_neighbors = n_neighbors
         self.n_components = n_components
-        self.n_epochs = n_epochs
+        self.n_epochs = n_epochs if n_epochs else 0
 
         if init == "spectral" or init == "random":
             self.init = init
