@@ -62,6 +62,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   // Get device properites
   //---------------------------------------------------
   const int blocks = MLCommon::getMultiProcessorCount();
+  int h_flag;
 
   int nnodes = n * 2;
   if (nnodes < 1024 * blocks) nnodes = 1024 * blocks;
@@ -75,11 +76,13 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   MLCommon::device_buffer<int> maxdepthd(d_alloc, stream, 1);
   MLCommon::device_buffer<int> bottomd(d_alloc, stream, 1);
   MLCommon::device_buffer<float> radiusd(d_alloc, stream, 1);
+  MLCommon::device_buffer<int> flag_unstable_computation(d_alloc, stream, 1);
 
   TSNE::InitializationKernel<<<1, 1, 0, stream>>>(/*errl.data(),*/
                                                   limiter.data(),
                                                   maxdepthd.data(),
-                                                  radiusd.data());
+                                                  radiusd.data(),
+                                                  flag_unstable_computation.data());
   CUDA_CHECK(cudaPeekAtLastError());
 
   const int FOUR_NNODES = 4 * nnodes;
@@ -248,9 +251,16 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     TSNE::
       attractive_kernel_bh<<<MLCommon::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
         VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, norm.data(),
-        norm_add1.data(), attr_forces.data(), attr_forces.data() + n, NNZ);
+        norm_add1.data(), attr_forces.data(), attr_forces.data() + n, NNZ, flag_unstable_computation.data());
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
+
+    MLCommon::copy(&h_flag, flag_unstable_computation.data(), 1, stream);
+    if (h_flag) {
+      CUML_LOG_ERROR("Detected zero divisor in attractive force kernel, returning early."
+                    " Results may not be accurate.");
+      break;
+    }
 
     START_TIMER;
     TSNE::IntegrationKernel<<<blocks * FACTOR6, THREADS6, 0, stream>>>(
