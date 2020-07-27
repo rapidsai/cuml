@@ -18,7 +18,7 @@ import cudf
 import cupy as cp
 
 from cuml.common.memory_utils import with_cupy_rmm
-from sklearn.exceptions import NotFittedError
+from cuml.common.exceptions import NotFittedError
 
 
 class LabelEncoder(object):
