@@ -49,7 +49,8 @@ void csr_row_slice_populate(value_idx start_offset, value_idx stop_offset,
 	copy(data_out, data+start_offset, data+stop_offset, stream);
 }
 
-
+template<typename T>
+__global__ void select_pair(const T dists)
 
 /**
    * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
@@ -134,8 +135,6 @@ void brute_force_knn(const value_idx *idxIndptr,
 	    device_buffer<value_t> batch_indices(allocator, stream, n);
 	    device_buffer<value_t> batch_dists(allocator, stream, C_num_rows1*C_num_cols1);
 
-
-
 		for(int j = 0; j < n_batches_query; j++) {
 
 			/**
@@ -183,22 +182,22 @@ void brute_force_knn(const value_idx *idxIndptr,
 					CUSPARSE_SPGEMM_DEFAULT, &workspace_size1, NULL));
 
 			// cusparseSpGEMM_compute
-			// TODO: Create device buffer for initial workspace
+			device_buffer<char> workspace1(allocator, stream, workspace_size1);
 
 		    // ask bufferSize2 bytes for external memory
 		    CUSPARSE_CHECK(cusparsespgemm_compute(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
 		    		CUSPARSE_OPERATION_TRANSPOSE, &alpha, matA, matB, &beta, matC,
-		    		CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &bufferSize2, NULL));
+		    		CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &workspace_size2, NULL));
 
-
-		    // TODO: Create device buffer secondary workspace
+			device_buffer<char> workspace2(allocator, stream, workspace_size2);
 
 			// cusparseSpGEMM_compute
 		    // compute the intermediate product of A * B
 		    CUSPARSE_CHECK(cusparsespgemm_compute(handle, opA, opB,
 		                           &alpha, matA, matB, &beta, matC,
-		                           computeType, CUSPARSE_SPGEMM_DEFAULT,
-		                           spgemmDesc, &bufferSize2, dBuffer2));
+		                           CUSPARSE_SPGEMM_DEFAULT,
+		                           spgemmDesc, &workspace_size2, workspace2));
+
 		    // get matrix C non-zero entries C_num_nnz1
 		    int64_t C_num_rows1, C_num_cols1, C_num_nnz1;
 		    CUSPARSE_CHECK(cusparseSpMatGetSize(matC, &C_num_rows1, &C_num_cols1, &C_num_nnz1));
@@ -210,7 +209,7 @@ void brute_force_knn(const value_idx *idxIndptr,
 		    // copy the final products to the matrix C
 		    CUSPARSE_CHECK(cusparsespgemm_copy(handle, opA, opB,
 		                        &alpha, matA, matB, &beta, matC,
-		                        computeType, CUSPARSE_SPGEMM_DEFAULT, spgemmDesc));
+		                        CUSPARSE_SPGEMM_DEFAULT, spgemmDesc));
 
 		    device_buffer<value_t> C_dense(allocator, stream, C_num_rows1*C_num_cols1);
 
@@ -219,7 +218,6 @@ void brute_force_knn(const value_idx *idxIndptr,
 		    		dC_csrOffsets, dC_columns, dC_values, C_dense.data(), C_num_cols_1));
 
 			// sortColumnsPerRow
-
 		    size_t sortCols_workspacesize;
 		    sortColumnsPerRow(C_dense.data(), batch_dists.data(), C_num_rows1,
 		                      C_num_cols1, true, nullptr, &sortCols_workspacesize, stream,
@@ -232,6 +230,8 @@ void brute_force_knn(const value_idx *idxIndptr,
 		                      batch_indices.data());
 
 		    // kernel to select first (min) or last (max) k cols and copy into batched merge buffer
+
+
 
 
 			// knn_merge_parts
