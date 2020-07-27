@@ -46,11 +46,13 @@ namespace TSNE {
 __global__ void InitializationKernel(/*int *restrict errd, */
                                      unsigned *restrict limiter,
                                      int *restrict maxdepthd,
-                                     float *restrict radiusd) {
+                                     float *restrict radiusd,
+                                     int *restrict flag_unstable_computation) {
   // errd[0] = 0;
   maxdepthd[0] = 1;
   limiter[0] = 0;
   radiusd[0] = 0.0f;
+  flag_unstable_computation[0] = 0;
 }
 
 /**
@@ -656,7 +658,8 @@ __global__ void attractive_kernel_bh(
   const float *restrict VAL, const int *restrict COL, const int *restrict ROW,
   const float *restrict Y1, const float *restrict Y2,
   const float *restrict norm, const float *restrict norm_add1,
-  float *restrict attract1, float *restrict attract2, const int NNZ) {
+  float *restrict attract1, float *restrict attract2, const int NNZ,
+  int *restrict flag_unstable_computation) {
   const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
   const int i = ROW[index];
@@ -673,11 +676,12 @@ __global__ void attractive_kernel_bh(
     double dbl_denominator = __fma_rn(-2.0f, _Y1, norm_add1[i]) + __fma_rn(-2.0f, _Y2, norm[j]);
 
     if (__builtin_expect(dbl_denominator == 0, false)) {
-      printf("Detected zero in denominator with __fma_rn(-2.0f, %lf, %lf) + __fma_rn(-2.0f, %lf, %lf)\n",
-          _Y1, norm_add1[i], _Y2, norm[j]);
+      //printf("Detected zero in attractive force kernel denominator with __fma_rn(-2.0f, %lf, %lf) + "
+      //       "__fma_rn(-2.0f, %lf, %lf)\nClamping denominator to 1.0: tSNE results may not be accurate.",
+      //    _Y1, norm_add1[i], _Y2, norm[j]);
 
       dbl_denominator = 1.0f;
-      printf("dbl_denominator: %lf\n", dbl_denominator);
+      flag_unstable_computation[0] = 1;
     }
 
     denominator = dbl_denominator;
