@@ -60,7 +60,8 @@ if(NOT DISABLE_CUMLPRIMS_MG)
     endif(DEFINED ENV{CUMLPRIMS_MG_PATH})
 
     if(NOT CUMLPRIMS_MG_PATH)
-      find_package(cumlprims_mg REQUIRED)
+      find_package(cumlprims_mg
+                   REQUIRED)
 
     else()
       message("-- Manually setting CUMLPRIMS_MG_PATH to ${CUMLPRIMS_MG_PATH}")
@@ -74,6 +75,17 @@ if(NOT DISABLE_CUMLPRIMS_MG)
     endif(NOT CUMLPRIMS_MG_PATH)
 
 endif(NOT DISABLE_CUMLPRIMS_MG)
+
+
+##############################################################################
+# - RMM ----------------------------------------------------------------------
+
+# find package module uses RMM_INSTALL_DIR for Hints, checking RMM_ROOT env variable
+# to match other RAPIDS repos.
+set(RMM_INSTALL_DIR ENV{RMM_ROOT})
+
+find_package(RMM
+             REQUIRED)
 
 
 ##############################################################################
