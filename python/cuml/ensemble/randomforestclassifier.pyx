@@ -1,3 +1,4 @@
+
 #
 # Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
@@ -19,36 +20,34 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import cudf
-import cupy as cp
-import math
 import numpy as np
 import rmm
 import warnings
+
+import cuml.common.logger as logger
+
+from cuml import ForestInference
+from cuml.common.array import CumlArray
+from cuml.common.base import ClassifierMixin
+from cuml.common.handle import Handle
+from cuml.common import input_to_cuml_array, rmm_cupy_ary
+
+from cuml.ensemble.randomforest_common import BaseRandomForestModel
+from cuml.ensemble.randomforest_common import _obtain_fil_model
+from cuml.ensemble.randomforest_shared cimport *
+
+from cuml.fil.fil import TreeliteModel
+
+from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cython.operator cimport dereference as deref
-
-from cuml import ForestInference
-from cuml.common.array import CumlArray
-from cuml.common.base import Base, ClassifierMixin
-from cuml.common.handle import Handle
-from cuml.common.handle cimport cumlHandle
-from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
-    _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
-from cuml.ensemble.randomforest_shared cimport *
-from cuml.ensemble.randomforest_shared import treelite_serialize, \
-    treelite_deserialize
-from cuml.fil.fil import TreeliteModel
-from cuml.common import input_to_cuml_array, rmm_cupy_ary
-from cuml.common import get_cudf_column_ptr, zeros
-
 from numba import cuda
 
+from cuml.common.handle cimport cumlHandle
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
@@ -57,7 +56,7 @@ cimport cython
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
-    cdef void fit(cumlHandle & handle,
+    cdef void fit(cumlHandle& handle,
                   RandomForestMetaData[float, int]*,
                   float*,
                   int,
@@ -67,7 +66,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   RF_params,
                   int) except +
 
-    cdef void fit(cumlHandle & handle,
+    cdef void fit(cumlHandle& handle,
                   RandomForestMetaData[double, int]*,
                   double*,
                   int,
@@ -124,7 +123,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                           bool) except +
 
 
-class RandomForestClassifier(Base, ClassifierMixin):
+class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     """
     Implements a Random Forest classifier model which fits multiple decision
     tree classifiers in an ensemble.
@@ -224,88 +223,14 @@ class RandomForestClassifier(Base, ClassifierMixin):
         Seed for the random number generator. Unseeded by default.
     """
 
-    variables = ['n_estimators', 'max_depth', 'handle',
-                 'max_features', 'n_bins',
-                 'split_algo', 'split_criterion', 'min_rows_per_node',
-                 'min_impurity_decrease',
-                 'bootstrap', 'bootstrap_features',
-                 'rows_sample',
-                 'max_leaves', 'quantile_per_tree']
+    def __init__(self, split_criterion=0,
+                 **kwargs):
 
-    def __init__(self, n_estimators=100, max_depth=16, handle=None,
-                 max_features='auto', n_bins=8, n_streams=8,
-                 split_algo=1, split_criterion=0, min_rows_per_node=2,
-                 bootstrap=True, bootstrap_features=False,
-                 type_model="classifier", verbose=False,
-                 rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
-                 output_type=None, criterion=None, dtype=None,
-                 min_samples_leaf=None, min_weight_fraction_leaf=None,
-                 max_leaf_nodes=None, min_impurity_decrease=0.0,
-                 min_impurity_split=None, oob_score=None, n_jobs=None,
-                 random_state=None, warm_start=None, class_weight=None,
-                 seed=None):
-        sklearn_params = {"criterion": criterion,
-                          "min_samples_leaf": min_samples_leaf,
-                          "min_weight_fraction_leaf": min_weight_fraction_leaf,
-                          "max_leaf_nodes": max_leaf_nodes,
-                          "min_impurity_split": min_impurity_split,
-                          "oob_score": oob_score, "n_jobs": n_jobs,
-                          "random_state": random_state,
-                          "warm_start": warm_start,
-                          "class_weight": class_weight}
-
-        for key, vals in sklearn_params.items():
-            if vals is not None:
-                raise TypeError("The Scikit-learn variable", key,
-                                " is not supported in cuML,"
-                                " please read the cuML documentation for"
-                                " more information")
-
-        if max_depth < 0:
-            raise ValueError("Must specify max_depth >0")
-
-        if handle is None:
-            handle = Handle(n_streams)
-
-        super(RandomForestClassifier, self).__init__(handle=handle,
-                                                     verbose=verbose,
-                                                     output_type=output_type)
-        self.split_algo = split_algo
-        criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
-                          '3': MAE, '4': CRITERION_END}
-        if str(split_criterion) not in criterion_dict.keys():
-            warnings.warn("The split criterion chosen was not present"
-                          " in the list of options accepted by the model"
-                          " and so the CRITERION_END option has been chosen.")
-            self.split_criterion = CRITERION_END
-        else:
-            self.split_criterion = criterion_dict[str(split_criterion)]
-
-        self.min_rows_per_node = min_rows_per_node
-        self.min_impurity_decrease = min_impurity_decrease
-        self.bootstrap_features = bootstrap_features
-        self.rows_sample = rows_sample
-        self.max_leaves = max_leaves
-        self.n_estimators = n_estimators
-        self.max_depth = max_depth
-        self.max_features = max_features
-        self.bootstrap = bootstrap
-        self.treelite_handle = None
-        self.n_bins = n_bins
-        self.quantile_per_tree = quantile_per_tree
-        self.n_cols = None
-        self.dtype = None
-        self.n_streams = handle.getNumInternalStreams()
-        self.seed = seed
+        self.RF_type = CLASSIFICATION
         self.num_classes = 2
-        if ((seed is not None) and (n_streams != 1)):
-            warnings.warn("For reproducible results, n_streams==1 is "
-                          "recommended. If n_streams is > 1, results may vary "
-                          "due to stream/thread timing differences, even when "
-                          "random_seed is set")
-        self.rf_forest = 0
-        self.rf_forest64 = 0
-        self.treelite_serialized_model = None
+        super(RandomForestClassifier, self).__init__(
+            split_criterion=split_criterion,
+            **kwargs)
 
     """
     TODO:
@@ -335,17 +260,19 @@ class RandomForestClassifier(Base, ClassifierMixin):
                     <RandomForestMetaData[double, int]*>params_t64
                 state["rf_params64"] = rf_forest64.rf_params
 
-        state['n_cols'] = self.n_cols
+        state["n_cols"] = self.n_cols
         state["verbose"] = self.verbose
         state["treelite_serialized_model"] = self.treelite_serialized_model
         state["treelite_handle"] = None
-        state['handle'] = self.handle
-
+        state["split_criterion"] = self.split_criterion
+        state["handle"] = self.handle
         return state
 
     def __setstate__(self, state):
         super(RandomForestClassifier, self).__init__(
-            handle=state['handle'], verbose=state['verbose'])
+            split_criterion=state["split_criterion"],
+            handle=state["handle"],
+            verbose=state["verbose"])
         cdef  RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \
@@ -385,77 +312,6 @@ class RandomForestClassifier(Base, ClassifierMixin):
         self.treelite_serialized_model = None
         self.n_cols = None
 
-    def _get_max_feat_val(self):
-        if type(self.max_features) == int:
-            return self.max_features/self.n_cols
-        elif type(self.max_features) == float:
-            return self.max_features
-        elif self.max_features == 'sqrt' or self.max_features == 'auto':
-            return 1/np.sqrt(self.n_cols)
-        elif self.max_features == 'log2':
-            return math.log2(self.n_cols)/self.n_cols
-        else:
-            raise ValueError("Wrong value passed in for max_features"
-                             " please read the documentation")
-
-    def _obtain_treelite_handle(self):
-        """Returns a handle to a treelite-formatted version of the model.
-        This will create a new treelite model if necessary, or return
-        a cached version when available. The handle is cached in the
-        instanced and freed at instance deletion. Caller should not
-        delete the returned model."""
-        if self.treelite_handle is not None:
-            return self.treelite_handle  # Cached version
-        cdef ModelHandle tl_handle = NULL
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
-
-        assert self.treelite_serialized_model or self.rf_forest, \
-            "Attempting to create treelite from un-fit forest."
-
-        if self.num_classes > 2:
-            raise NotImplementedError("Pickling for multi-class "
-                                      "classification models is currently not "
-                                      "implemented. Please check cuml issue "
-                                      "#1679 for more information.")
-        if self.treelite_serialized_model:  # bytes -> Treelite
-            tl_handle = <ModelHandle><uintptr_t>treelite_deserialize(
-                self.treelite_serialized_model)
-        else:                 # RF -> Treelite
-            task_category = CLASSIFICATION_MODEL
-            build_treelite_forest(
-                &tl_handle,
-                rf_forest,
-                <int> self.n_cols,
-                <int> task_category)
-        self.treelite_handle = <uintptr_t>tl_handle
-        return self.treelite_handle
-
-    def _get_serialized_model(self):
-        """
-        Returns the self.treelite_serialized_model.
-        Cuml RF model gets converted to treelite protobuf bytes by:
-            1. converting the cuml RF model to a treelite model. The treelite
-            models handle (pointer) is returned
-            2. The treelite model handle is converted to bytes.
-        The treelite model bytes are stored in
-        `self.treelite_serialized_model`. If the model bytes are present, we
-        can skip _obtain_treelite_handle().
-        """
-        if self.dtype == np.float64:
-            raise TypeError("Pickling is not supported for models trained"
-                            " using dataset of dtype float64.")
-        if self.treelite_serialized_model:
-            return self.treelite_serialized_model
-        elif self.treelite_handle:
-            fit_mod_ptr = self.treelite_handle
-        else:
-            fit_mod_ptr = self._obtain_treelite_handle()
-        cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
-
-        self.treelite_serialized_model = treelite_serialize(model_ptr)
-        return self.treelite_serialized_model
-
     def convert_to_treelite_model(self):
         """
         Converts the cuML RF model to a Treelite model
@@ -464,8 +320,8 @@ class RandomForestClassifier(Base, ClassifierMixin):
         ----------
         tl_to_fil_model : Treelite version of this model
         """
-        handle = self._obtain_treelite_handle()
-        return _obtain_treelite_model(handle)
+        treelite_handle = self._obtain_treelite_handle()
+        return TreeliteModel.from_treelite_model_handle(treelite_handle)
 
     def convert_to_fil_model(self, output_class=True,
                              threshold=0.5, algo='auto',
@@ -525,36 +381,6 @@ class RandomForestClassifier(Base, ClassifierMixin):
     TODO : Move functions duplicated in the RF classifier and regressor
            to a shared file. Cuml issue #1854 has been created to track this.
     """
-    def _tl_handle_from_bytes(self, treelite_serialized_model):
-        if not treelite_serialized_model:
-            raise ValueError(
-                '_tl_handle_from_bytes() requires non-empty serialized model')
-        return treelite_deserialize(treelite_serialized_model)
-
-    def _concatenate_treelite_handle(self, treelite_handle):
-        cdef ModelHandle concat_model_handle = NULL
-        cdef vector[ModelHandle] *model_handles \
-            = new vector[ModelHandle]()
-        cdef uintptr_t mod_ptr
-        for i in treelite_handle:
-            mod_ptr = <uintptr_t>i
-            model_handles.push_back((
-                <ModelHandle> mod_ptr))
-
-        self._reset_forest_data()
-        concat_model_handle = concatenate_trees(deref(model_handles))
-        cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
-        self.treelite_handle = concat_model_ptr
-        self.treelite_serialized_model = treelite_serialize(concat_model_ptr)
-
-        # Fix up some instance variables that should match the new TL model
-        tl_model = TreeliteModel.from_treelite_model_handle(
-            self.treelite_handle,
-            take_handle_ownership=False)
-        self.n_cols = tl_model.num_features
-        self.n_estimators = tl_model.num_trees
-
-        return self
 
     def fit(self, X, y, convert_dtype=True):
         """
@@ -576,53 +402,17 @@ class RandomForestClassifier(Base, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        self._set_output_type(X)
         self._set_target_dtype(y)
-        self._set_n_features_in(X)
 
-        # Reset the old tree data for new fit call
-        self._reset_forest_data()
-
+        X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
+                                                                convert_dtype)
         cdef uintptr_t X_ptr, y_ptr
 
-        X_m, n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(
-                X, check_dtype=[np.float32, np.float64],
-                order='F')
-
-        if self.n_bins > n_rows:
-            raise ValueError("The number of bins,`n_bins` can not be greater"
-                             " than the number of samples used for training.")
         X_ptr = X_m.ptr
-
-        y_m, _, _, y_dtype = \
-            input_to_cuml_array(y, check_dtype=np.int32,
-                                convert_to_dtype=(np.int32 if convert_dtype
-                                                  else None),
-                                check_rows=n_rows, check_cols=1)
         y_ptr = y_m.ptr
-        if y_dtype != np.int32:
-            raise TypeError("The labels `y` need to be of dtype `np.int32`")
-
-        if self.dtype == np.float64:
-            warnings.warn("To use pickling or GPU-based prediction first\
-                          train the RF model using np.float32 data.")
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><uintptr_t>self.handle.getHandle()
-
-        unique_labels = rmm_cupy_ary(cp.unique, y_m)
-        num_unique_labels = len(unique_labels)
-
-        for i in range(num_unique_labels):
-            if i not in unique_labels:
-                raise ValueError("The labels need "
-                                 "to be consecutive values from "
-                                 "0 to the number of unique label values")
-
-        max_feature_val = self._get_max_feat_val()
-        if type(self.min_rows_per_node) == float:
-            self.min_rows_per_node = math.ceil(self.min_rows_per_node*n_rows)
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
@@ -656,10 +446,10 @@ class RandomForestClassifier(Base, ClassifierMixin):
             fit(handle_[0],
                 rf_forest,
                 <float*> X_ptr,
-                <int> n_rows,
+                <int> self.n_rows,
                 <int> self.n_cols,
                 <int*> y_ptr,
-                <int> num_unique_labels,
+                <int> self.num_classes,
                 rf_params,
                 <int> self.verbose)
 
@@ -668,10 +458,10 @@ class RandomForestClassifier(Base, ClassifierMixin):
             fit(handle_[0],
                 rf_forest64,
                 <double*> X_ptr,
-                <int> n_rows,
+                <int> self.n_rows,
                 <int> self.n_cols,
                 <int*> y_ptr,
-                <int> num_unique_labels,
+                <int> self.num_classes,
                 rf_params64,
                 <int> self.verbose)
 
@@ -682,51 +472,9 @@ class RandomForestClassifier(Base, ClassifierMixin):
         # make sure that the `fit` is complete before the following delete
         # call happens
         self.handle.sync()
-        del(X_m)
-        del(y_m)
-        self.num_classes = num_unique_labels
+        del X_m
+        del y_m
         return self
-
-    def _predict_model_on_gpu(self, X, output_class,
-                              threshold, algo,
-                              num_classes, convert_dtype,
-                              fil_sparse_format, predict_proba):
-        out_type = self._get_output_type(X)
-        out_dtype = self._get_target_dtype()
-
-        _, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='F',
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-
-        if dtype == np.float64:
-            raise TypeError("GPU based predict only accepts np.float32 data. \
-                            Please set convert_dtype=True to convert the test \
-                            data to the same dtype as the data used to train, \
-                            ie. np.float32. If you would like to use test \
-                            data of dtype=np.float64 please set \
-                            predict_model='CPU' to use the CPU implementation \
-                            of predict.")
-
-        treelite_handle = self._obtain_treelite_handle()
-
-        storage_type = \
-            _check_fil_parameter_validity(depth=self.max_depth,
-                                          fil_sparse_format=fil_sparse_format,
-                                          algo=algo)
-        fil_model = ForestInference()
-        tl_to_fil_model = \
-            fil_model.load_using_treelite_handle(treelite_handle,
-                                                 output_class=output_class,
-                                                 threshold=threshold,
-                                                 algo=algo,
-                                                 storage_type=storage_type)
-
-        preds = tl_to_fil_model.predict(X, output_type=out_type,
-                                        output_dtype=out_dtype,
-                                        predict_proba=predict_proba)
-        return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):
         out_type = self._get_output_type(X)
@@ -779,8 +527,8 @@ class RandomForestClassifier(Base, ClassifierMixin):
 
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
-                algo='auto',
-                num_classes=2, convert_dtype=True,
+                algo='auto', num_classes=None,
+                convert_dtype=True,
                 fil_sparse_format='auto'):
         """
         Predicts the labels for X.
@@ -817,9 +565,9 @@ class RandomForestClassifier(Base, ClassifierMixin):
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
-        num_classes : int (default = 2)
+        num_classes : int (default = None)
             number of different classes present in the dataset. This variable
-            will be deprecated in 0.16
+            will be depricated in 0.16
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -839,7 +587,12 @@ class RandomForestClassifier(Base, ClassifierMixin):
         y : (same as the input datatype)
             Dense vector (ints, floats, or doubles) of shape (n_samples, 1)
         """
-        if predict_model == "CPU" or self.num_classes > 2:
+        if (num_classes and self.num_classes != num_classes):
+            raise ValueError("The number of classes in the test dataset"
+                             " should be equal to the number of classes"
+                             " present in the training dataset.")
+
+        elif predict_model == "CPU" or self.num_classes > 2:
             if self.num_classes > 2 and predict_model == "GPU":
                 warnings.warn("Switching over to use the CPU predict since "
                               "the GPU predict currently cannot perform "
@@ -857,10 +610,9 @@ class RandomForestClassifier(Base, ClassifierMixin):
 
         else:
             preds = \
-                self._predict_model_on_gpu(X, output_class=output_class,
+                self._predict_model_on_gpu(X=X, output_class=output_class,
                                            threshold=threshold,
                                            algo=algo,
-                                           num_classes=num_classes,
                                            convert_dtype=convert_dtype,
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
@@ -929,8 +681,9 @@ class RandomForestClassifier(Base, ClassifierMixin):
 
     def predict_proba(self, X, output_class=True,
                       threshold=0.5, algo='auto',
-                      num_classes=2, convert_dtype=True,
-                      fil_sparse_format='auto'):
+                      convert_dtype=True,
+                      fil_sparse_format='auto',
+                      num_classes=None):
         """
         Predicts class probabilites for X. This function uses the GPU
         implementation of predict. Therefore, data with 'dtype = np.float32'
@@ -966,9 +719,9 @@ class RandomForestClassifier(Base, ClassifierMixin):
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
-        num_classes : int (default = 2)
+        num_classes : int (default = None)
             number of different classes present in the dataset. This variable
-            will be deprecated in 0.16
+            will be depricated in 0.16
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -1003,11 +756,15 @@ class RandomForestClassifier(Base, ClassifierMixin):
                                       "classification models is currently not "
                                       "implemented. Please check cuml issue "
                                       "#1679 for more information.")
+
+        elif (num_classes and self.num_classes != num_classes):
+            raise ValueError("The number of classes in the test dataset"
+                             " should be equal to the number of classes"
+                             " present in the training dataset.")
         preds_proba = \
             self._predict_model_on_gpu(X, output_class=output_class,
                                        threshold=threshold,
                                        algo=algo,
-                                       num_classes=num_classes,
                                        convert_dtype=convert_dtype,
                                        fil_sparse_format=fil_sparse_format,
                                        predict_proba=True)
@@ -1015,7 +772,7 @@ class RandomForestClassifier(Base, ClassifierMixin):
         return preds_proba
 
     def score(self, X, y, threshold=0.5,
-              algo='auto', num_classes=2, predict_model="GPU",
+              algo='auto', num_classes=None, predict_model="GPU",
               convert_dtype=True, fil_sparse_format='auto'):
         """
         Calculates the accuracy metric score of the model for X.
@@ -1043,9 +800,9 @@ class RandomForestClassifier(Base, ClassifierMixin):
             threshold is used to for classification
             This is optional and required only while performing the
             predict operation on the GPU.
-        num_classes : integer
+        num_classes : int (default = None)
             number of different classes present in the dataset. This variable
-            will be deprecated in 0.16
+            will be depricated in 0.16
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
         predict_model : String (default = 'GPU')
@@ -1081,9 +838,9 @@ class RandomForestClassifier(Base, ClassifierMixin):
         y_ptr = y_m.ptr
         preds = self.predict(X, output_class=True,
                              threshold=threshold, algo=algo,
-                             num_classes=num_classes,
                              convert_dtype=convert_dtype,
                              predict_model=predict_model,
+                             num_classes=num_classes,
                              fil_sparse_format=fil_sparse_format)
 
         cdef uintptr_t preds_ptr
@@ -1128,39 +885,22 @@ class RandomForestClassifier(Base, ClassifierMixin):
         """
         Returns the value of all parameters
         required to configure this estimator as a dictionary.
-
         Parameters
         -----------
         deep : boolean (default = True)
         """
-        params = dict()
-        for key in RandomForestClassifier.variables:
-            if key in ['handle']:
-                continue
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
+        return self._get_params(deep=deep)
 
     def set_params(self, **params):
         """
         Sets the value of parameters required to
         configure this estimator, it functions similar to
         the sklearn set_params.
-
         Parameters
         -----------
         params : dict of new params
         """
-        self.treelite_serialized_model = None
-
-        if not params:
-            return self
-        for key, value in params.items():
-            if key not in RandomForestClassifier.variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-        return self
+        return self._set_params(**params)
 
     def print_summary(self):
         """

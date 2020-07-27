@@ -20,7 +20,6 @@
 
 import ctypes
 import cudf
-import cupy
 import numpy as np
 
 from numba import cuda
@@ -31,7 +30,7 @@ from libc.stdint cimport uintptr_t
 from cuml.common.array import CumlArray
 from cuml.common.base import Base, ClassifierMixin
 from cuml.common.handle cimport cumlHandle
-from cuml.common import input_to_cuml_array
+from cuml.common import input_to_cuml_array, with_cupy_rmm
 from libcpp cimport bool
 from cuml.svm.svm_base import SVMBase
 
@@ -184,6 +183,8 @@ class SVC(SVMBase, ClassifierMixin):
         Only available for linear kernels. It is the normal of the
         hyperplane.
         coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
+    classes_: shape (n_classes_,)
+        Array of class labels.
 
     For additional docs, see `scikitlearn's SVC
     <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
@@ -213,6 +214,11 @@ class SVC(SVMBase, ClassifierMixin):
                                   verbose)
         self.svmType = C_SVC
 
+    @property
+    def classes_(self):
+        return self.unique_labels
+
+    @with_cupy_rmm
     def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.

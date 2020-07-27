@@ -18,6 +18,7 @@ import cupy as cp
 from cuml.prims.label import make_monotonic, check_labels, \
     invert_labels
 
+from cuml import Base
 from cuml.common import rmm_cupy_ary
 from cuml.common import has_scipy
 
@@ -67,7 +68,7 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
         return arr
 
 
-class LabelBinarizer(object):
+class LabelBinarizer(Base):
 
     """
     A multi-class dummy encoder for labels.
