@@ -511,6 +511,7 @@ def test_tsne_pickle(tmpdir):
     pickle_save_load(tmpdir, create_mod, assert_model)
     pickle_save_load(tmpdir, create_mod_2, assert_second_model)
 
+
 # Probabilistic SVM is tested separately because it is a meta estimator that
 # owns a set of base SV classifiers.
 @pytest.mark.parametrize('params', [{'probability': True},
