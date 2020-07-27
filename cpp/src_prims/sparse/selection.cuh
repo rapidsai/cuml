@@ -87,6 +87,8 @@ void brute_force_knn(const value_idx *idxIndptr,
 
 	value_t alpha = 1.0, beta = 0.0;
 
+	// TODO: Should first batch over query, then over index
+
 	for(int i = 0; i < n_batches_idx; i++) {
 
 		// @TODO: This batching logic can likely be refactored into helper functions or
@@ -129,6 +131,10 @@ void brute_force_knn(const value_idx *idxIndptr,
 		cusparseSpMatDescr_t matA;
 		CUSPARSE_CHECK(cusparsecreatecsr(&matA, n_idx_rows, n_idx_cols, idxNNZ, idxIndptr, idxIndices, idxData));
 
+	    device_buffer<value_t> batch_indices(allocator, stream, n);
+	    device_buffer<value_t> batch_dists(allocator, stream, C_num_rows1*C_num_cols1);
+
+
 
 		for(int j = 0; j < n_batches_query; j++) {
 
@@ -167,26 +173,70 @@ void brute_force_knn(const value_idx *idxIndptr,
 			CUSPARSE_CHECK(cusparsecreatecsr(&matB, n_query_rows, n_query_cols, queryNNZ,
 					queryIndptr, queryIndices, queryData));
 
-
 			// cusparseSpGEMM_workEstimation
 
 			cusparseSpGEMMDescr_t spgemmDesc;
 			CUSPARSE_CHECK(cusparseSpGemm_createDescr(&spgemmDesc));
 
-			cusparsespgemm_workestimation(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+			CUSPARSE_CHECK(cusparsespgemm_workestimation(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
 					CUSPARSE_OPERATION_TRANSPOSE, &alpha, matA, matB, &beta, matC,
-					CUSPARSE_SPGEMM_DEFAULT, &workspace_size1, NULL);
+					CUSPARSE_SPGEMM_DEFAULT, &workspace_size1, NULL));
 
 			// cusparseSpGEMM_compute
+			// TODO: Create device buffer for initial workspace
 
+		    // ask bufferSize2 bytes for external memory
+		    CUSPARSE_CHECK(cusparsespgemm_compute(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+		    		CUSPARSE_OPERATION_TRANSPOSE, &alpha, matA, matB, &beta, matC,
+		    		CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &bufferSize2, NULL));
+
+
+		    // TODO: Create device buffer secondary workspace
 
 			// cusparseSpGEMM_compute
-			// cusparseSpGEMM_copy
+		    // compute the intermediate product of A * B
+		    CUSPARSE_CHECK(cusparsespgemm_compute(handle, opA, opB,
+		                           &alpha, matA, matB, &beta, matC,
+		                           computeType, CUSPARSE_SPGEMM_DEFAULT,
+		                           spgemmDesc, &bufferSize2, dBuffer2));
+		    // get matrix C non-zero entries C_num_nnz1
+		    int64_t C_num_rows1, C_num_cols1, C_num_nnz1;
+		    CUSPARSE_CHECK(cusparseSpMatGetSize(matC, &C_num_rows1, &C_num_cols1, &C_num_nnz1));
+		    // allocate matrix C
+
+		    // update matC with the new pointers
+		    CUSPARSE_CHECK(cusparseCsrSetPointers(matC, dC_csrOffsets, dC_columns, dC_values));
+
+		    // copy the final products to the matrix C
+		    CUSPARSE_CHECK(cusparsespgemm_copy(handle, opA, opB,
+		                        &alpha, matA, matB, &beta, matC,
+		                        computeType, CUSPARSE_SPGEMM_DEFAULT, spgemmDesc));
+
+		    device_buffer<value_t> C_dense(allocator, stream, C_num_rows1*C_num_cols1);
+
 			// cusparseScsr2dense
+		    CUSPARSE_CHECK(cusparsecsr2dense(handle, C_num_rows_1, C_num_cols_1, matC,
+		    		dC_csrOffsets, dC_columns, dC_values, C_dense.data(), C_num_cols_1));
 
 			// sortColumnsPerRow
 
+		    size_t sortCols_workspacesize;
+		    sortColumnsPerRow(C_dense.data(), batch_dists.data(), C_num_rows1,
+		                      C_num_cols1, true, nullptr, &sortCols_workspacesize, stream,
+		                      batch_indices.data());
+
+		    device_buffer<char> sortCols_workspace(allocator, stream, sortCols_workspacesize);
+
+		    sortColumnsPerRow(C_dense.data(), batch_dists.data(), C_num_rows1,
+		                      C_num_cols1, true, sortCols_workspace, &sortCols_workspacesize, stream,
+		                      batch_indices.data());
+
+		    // kernel to select first (min) or last (max) k cols and copy into batched merge buffer
+
+
 			// knn_merge_parts
+		    // Merge parts only executed for batch > 1
+		    // even numbers take bottom, odd numbers take top, merging until end of loop, where output matrix is populated.
 		}
 
 		// Copy final merged batch to output array

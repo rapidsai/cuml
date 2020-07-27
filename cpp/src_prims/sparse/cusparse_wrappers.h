@@ -364,7 +364,7 @@ cusparsespgemm_copy(cusparseHandle_t      handle,
                     cusparseSpGEMMAlg_t   alg,
                     cusparseSpGEMMDescr_t spgemmDescr,
                     void*                 externalBuffer2) {
-	cusparsespgemm_copy(handle,
+	return cusparsespgemm_copy(handle,
 			opA, opB, alpha, matA, matB, beta, matC,
 			CUDA_R_32F, alg, spgemmDescr, externalBuffer2);
 }
@@ -383,10 +383,57 @@ cusparsespgemm_copy(cusparseHandle_t      handle,
                     cusparseSpGEMMAlg_t   alg,
                     cusparseSpGEMMDescr_t spgemmDescr,
                     void*                 externalBuffer2) {
-	cusparsespgemm_copy(handle,
+	return cusparsespgemm_copy(handle,
 			opA, opB, alpha, matA, matB, beta, matC,
 			CUDA_R_64F, alg, spgemmDescr, externalBuffer2);
 }
+
+
+template<typename T>
+inline cusparseStatus_t
+cusparsecsr2dense(cusparseHandle_t         handle,
+                   int                      m,
+                   int                      n,
+                   const cusparseMatDescr_t descrA,
+                   const T*             csrValA,
+                   const int*               csrRowPtrA,
+                   const int*               csrColIndA,
+                   float*                   A,
+                   int                      lda);
+
+template<>
+inline cusparseStatus_t
+cusparsecsr2dense(cusparseHandle_t         handle,
+                   int                      m,
+                   int                      n,
+                   const cusparseMatDescr_t descrA,
+                   const float*             csrValA,
+                   const int*               csrRowPtrA,
+                   const int*               csrColIndA,
+                   float*                   A,
+                   int                      lda) {
+	return cusparseScsr2dense(handle, m, n, descrA,
+	                   csrValA, csrRowPtrA, csrColIndA, A, lda);
+}
+
+
+template<>
+inline cusparseStatus_t
+cusparsecsr2dense(cusparseHandle_t         handle,
+                   int                      m,
+                   int                      n,
+                   const cusparseMatDescr_t descrA,
+                   const double*             csrValA,
+                   const int*               csrRowPtrA,
+                   const int*               csrColIndA,
+                   float*                   A,
+                   int                      lda) {
+	return cusparseDcsr2dense(handle, m, n, descrA,
+	                   csrValA, csrRowPtrA, csrColIndA, A, lda);
+}
+
+
+
 
 /** @} */
 
