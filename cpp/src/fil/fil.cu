@@ -595,18 +595,13 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
            "treelite model inconsistent");
     params->num_classes = leaf_vec_size;
     params->leaf_payload_type = leaf_value_t::INT_CLASS_LABEL;
-    ASSERT(
-      param.pred_transform != "identity_multiclass",
-      "multiclass predict() only supported by choosing most likely label,\n"
-      "please use pred_transform == 'max_index' ('sigmoid' is still supported,"
-      " with 'max_index' implied)");
-    if ((std::string(param.pred_transform) == "max_index") &&
-        !(tl_params->output_class && tl_params->threshold == 0.5)) {
-      ASSERT(false,
-             "pred_transform == 'max_index' needs output_class && "
-             "threshold == 0.5 to be faithfully executed. Otherwise, please "
-             "use 'identity'");
-      // 'max_index' will be equivalent to setting 'output_class' and threshold == 0.5
+
+    if (((std::string(param.pred_transform) == "max_index") ||
+         (std::string(param.pred_transform) == "identity_multiclass")) &&
+        !(tl_params->output_class)) {
+      ASSERT(
+        false,
+        "output_class needs to be true for multi-class classification models");
     }
   } else {
     params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
