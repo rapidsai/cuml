@@ -739,8 +739,7 @@ void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
 }
 
 void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
-                 const sparse_node16_t* nodes,
-                 const forest_params_t* params) {
+                 const sparse_node16_t* nodes, const forest_params_t* params) {
   init_sparse<sparse_node16>(h, pf, trees, nodes, params);
 }
 
