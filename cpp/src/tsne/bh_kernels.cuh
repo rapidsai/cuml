@@ -35,7 +35,6 @@
 
 #include <common/cudart_utils.h>
 #include <float.h>
-#include <math.h>
 
 namespace ML {
 namespace TSNE {
@@ -662,19 +661,28 @@ __global__ void attractive_kernel_bh(
   if (index >= NNZ) return;
   const int i = ROW[index];
   const int j = COL[index];
-  float PQ;
 
   // TODO: Calculate Kullback-Leibler divergence
   // TODO: Convert attractive forces to CSR format
   // Try single precision compute first
   float denominator = __fmaf_rn(-2.0f, (Y1[i] * Y1[j]), norm_add1[i]) + __fmaf_rn(-2.0f, (Y2[i] * Y2[j]), norm[j]);
 
-  if (denominator == 0) {
-    /* repeat with double precision */
-    double dbl_denominator = __fma_rn(-2.0f, Y1[i] * Y1[j], norm_add1[i]) + __fma_rn(-2.0f, Y2[i] * Y2[j], norm[j]);
-    denominator = (dbl_denominator != 0) ? static_cast<float>(dbl_denominator) : FLT_EPSILON;
+  if (__builtin_expect(denominator == 0, false)) {
+    double _Y1 = static_cast<double>(Y1[i] * Y1[j]);
+    double _Y2 = static_cast<double>(Y2[i] * Y2[j]);
+    double dbl_denominator = __fma_rn(-2.0f, _Y1, norm_add1[i]) + __fma_rn(-2.0f, _Y2, norm[j]);
+
+    if (__builtin_expect(dbl_denominator == 0, false)) {
+      printf("Detected zero in denominator with __fma_rn(-2.0f, %lf, %lf) + __fma_rn(-2.0f, %lf, %lf)\n",
+          _Y1, norm_add1[i], _Y2, norm[j]);
+
+      dbl_denominator = 1.0f;
+      printf("dbl_denominator: %lf\n", dbl_denominator);
+    }
+
+    denominator = dbl_denominator;
   }
-  PQ = __fdividef(VAL[index], denominator);
+  const float PQ = __fdividef(VAL[index], denominator);
 
   // Apply forces
   atomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));
