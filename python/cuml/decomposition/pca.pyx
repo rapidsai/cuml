@@ -666,7 +666,6 @@ class PCA(Base):
                 input_to_cuml_array(X_transformed, order='K')
             return X_transformed.to_output(out_type)
 
-
     @with_cupy_rmm
     def transform(self, X, convert_dtype=False):
         """
