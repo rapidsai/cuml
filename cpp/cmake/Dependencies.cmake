@@ -157,9 +157,10 @@ if(BUILD_FAISS)
 	
 	set_property(TARGET FAISS::FAISS PROPERTY
 	  IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
+	set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src/")
 else() 
-set(FAISS_INSTALL_DIR ENV{FAISS_ROOT})
-find_package(FAISS REQUIRED)
+	set(FAISS_INSTALL_DIR ENV{FAISS_ROOT})
+	find_package(FAISS REQUIRED)
 endif(BUILD_FAISS)
 ##############################################################################
 # - treelite build -----------------------------------------------------------
