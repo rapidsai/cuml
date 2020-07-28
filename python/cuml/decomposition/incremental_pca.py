@@ -136,9 +136,11 @@ class IncrementalPCA(PCA):
         Section 5.4.4, pp. 252-253.
         """
 
-        super(IncrementalPCA, self).__init__(handle=handle, n_components=n_components,
-                                  whiten=whiten, copy=copy, verbose=verbose,
-                                  output_type=output_type)
+        super(IncrementalPCA, self).__init__(handle=handle,
+                                             n_components=n_components,
+                                             whiten=whiten, copy=copy,
+                                             verbose=verbose,
+                                             output_type=output_type)
         self.batch_size = batch_size
         self._param_names = ["n_components", "whiten", "copy", "batch_size"]
 
@@ -184,6 +186,7 @@ class IncrementalPCA(PCA):
 
         for batch in _gen_batches(n_samples, self.batch_size_,
                                   min_batch_size=self.n_components or 0):
+
             X_batch = X[batch]
             if cp.sparse.issparse(X_batch):
                 X_batch = X_batch.toarray()
@@ -266,10 +269,10 @@ class IncrementalPCA(PCA):
         # Whitening
         if self.n_samples_seen_ == 0:
             # If it is the first step, simply whiten X
-            X -= col_mean
+            X = X - col_mean
         else:
             col_batch_mean = cp.mean(X, axis=0)
-            X -= col_batch_mean
+            X = X - col_batch_mean
             # Build matrix of combined previous basis and new data
             mean_correction = \
                 cp.sqrt((self.n_samples_seen_ * n_samples) /
