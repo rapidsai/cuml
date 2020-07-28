@@ -24,8 +24,7 @@ from cuml.test.utils import unit_param, quality_param, stress_param
 from sklearn import svm
 from sklearn.datasets import load_iris, make_blobs
 from sklearn.datasets import make_regression, make_friedman1
-from sklearn.datasets.samples_generator import make_classification, \
-    make_gaussian_quantiles
+from sklearn.datasets import make_classification, make_gaussian_quantiles
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -252,6 +251,30 @@ def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
 
     compare_svm(cuSVC, sklSVC, X_test, y_test, n_sv_tol=max(2, 0.02*n_rows),
                 coef_tol=1e-5, report_summary=True)
+
+
+def test_svm_skl_cmp_decision_function(n_rows=4000, n_cols=20):
+    params = {'kernel': 'rbf', 'C': 5, 'gamma': 0.005}
+
+    X_train, X_test, y_train, y_test = make_dataset('classification1', n_rows,
+                                                    n_cols)
+    y_train = y_train.astype(np.int32)
+    y_test = y_test.astype(np.int32)
+
+    cuSVC = cu_svm.SVC(**params)
+    cuSVC.fit(X_train, y_train)
+
+    pred = cuSVC.predict(X_test)
+    assert pred.dtype == y_train.dtype
+
+    df1 = cuSVC.decision_function(X_test)
+    assert df1.dtype == X_train.dtype
+
+    sklSVC = svm.SVC(**params)
+    sklSVC.fit(X_train, y_train)
+    df2 = sklSVC.decision_function(X_test)
+
+    assert mean_squared_error(df1, df2) < 1e-5
 
 
 @pytest.mark.parametrize('params', [
