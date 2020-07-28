@@ -66,7 +66,7 @@ def slice_data(X, y, train_size, test_size, x_numba, y_numba):
         return X_train, X_test
 
 
-def stratify_split(X, y, n_train, n_test, x_numba, y_numba):
+def stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
     """
     Function to perform a stratified split based on y.
     Identifies number of classes and samples per class, splices data within
@@ -95,10 +95,15 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba):
                              n_classes)
 
     X_train = None
-    n_per_class = int(n_train / n_classes)
+
+    # Break ties - derived from https://github.com/scikit-learn/scikit-learn/blob/fd237278e895b42abe8d8d09105cbb82dc2cbba7/sklearn/utils/__init__.py#L1036
+    n_i = _approximate_mode(class_counts, n_train, random_state)
+    class_counts_remaining = class_counts - n_i
+    t_i = _approximate_mode(class_counts_remaining, n_test, random_state)
 
     for i in range(n_classes):
         class_idxs = class_indices[i]
+        
         cp.random.shuffle(class_idxs)
         if hasattr(X, "__cuda_array_interface__") or \
            isinstance(X, cp.sparse.csr_matrix):
@@ -108,12 +113,10 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba):
             X_i = X.iloc[class_idxs]
             y_i = y.iloc[class_idxs]
 
-        train_size = n_per_class
-        test_size = len(class_idxs) - train_size
 
         X_train_i, X_test_i, y_train_i, y_test_i = slice_data(X_i, y_i,
-                                                              train_size,
-                                                              test_size,
+                                                              n_i[i],
+                                                              t_i[i],
                                                               x_numba,
                                                               y_numba)
 
@@ -136,6 +139,36 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba):
                 y_test = y_test.append(y_test_i)
     return X_train, X_test, y_train, y_test
 
+def _approximate_mode(class_counts, n_draws, rng):
+
+    if rng == None:
+        rng = cp.random.RandomState(42)
+    # this computes a bad approximation to the mode of the
+    # multivariate hypergeometric given by class_counts and n_draws
+    continuous = n_draws * class_counts / class_counts.sum()
+    # floored means we don't overshoot n_samples, but probably undershoot
+    floored = cp.floor(continuous)
+    # we add samples according to how much "left over" probability
+    # they had, until we arrive at n_samples
+    need_to_add = int(n_draws - floored.sum())
+    if need_to_add > 0:
+        remainder = continuous - floored
+        values = cp.sort(cp.unique(remainder))[::-1]
+        # add according to remainder, but break ties
+        # randomly to avoid biases
+        for value in values:
+            inds, = cp.where(remainder == value)
+            # if we need_to_add less than what's in inds
+            # we draw randomly from them.
+            # if we need to add more, we add them all and
+            # go to the next value
+            add_now = min(len(inds), need_to_add)
+            inds = rng.choice(inds, size=add_now, replace=False)
+            floored[inds] += 1
+            need_to_add -= add_now
+            if need_to_add == 0:
+                break
+    return floored.astype(np.int)
 
 def train_test_split(
     X,
@@ -347,7 +380,7 @@ def train_test_split(
 
         if stratify is not None:
             split_return = stratify_split(X, y, train_size, test_size,
-                                          x_numba, y_numba)
+                                          x_numba, y_numba, random_state)
             return split_return
     split_return = slice_data(X, y, train_size, test_size, x_numba, y_numba)
     return split_return
