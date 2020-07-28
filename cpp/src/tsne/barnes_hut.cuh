@@ -116,7 +116,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   MLCommon::device_buffer<float> attr_forces(
     d_alloc, stream, n * 2);  // n*2 double for reduction sum
 
-  MLCommon::device_buffer<float> norm_add1(d_alloc, stream, n);
   MLCommon::device_buffer<float> norm(d_alloc, stream, n);
   MLCommon::device_buffer<float> Z_norm(d_alloc, stream, 1);
 
@@ -243,7 +242,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     START_TIMER;
     TSNE::get_norm<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
-      YY.data(), YY.data() + nnodes + 1, norm.data(), norm_add1.data(), n);
+      YY.data(), YY.data() + nnodes + 1, norm.data(), n);
     CUDA_CHECK(cudaPeekAtLastError());
 
     // TODO: Calculate Kullback-Leibler divergence
@@ -251,7 +250,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     TSNE::
       attractive_kernel_bh<<<MLCommon::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
         VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, norm.data(),
-        norm_add1.data(), attr_forces.data(), attr_forces.data() + n, NNZ, flag_unstable_computation.data());
+        attr_forces.data(), attr_forces.data() + n, NNZ, flag_unstable_computation.data());
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
 
