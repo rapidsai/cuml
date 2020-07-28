@@ -132,8 +132,10 @@ def test_convert_matrix_order_cuml_array(dtype, input_type, from_order,
                                                 order=to_order)
 
     if to_order == 'K':
-        if input_type in ['cudf', 'pandas']:
+        if input_type in ['cudf']:
             assert conv_data.order == 'F'
+        elif input_type in ['pandas']:
+            assert conv_data.order == 'C'
         else:
             assert conv_data.order == from_order
     else:
