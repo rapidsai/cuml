@@ -672,7 +672,7 @@ __global__ void attractive_kernel_bh(
     double _Y1 = static_cast<double>(Y1[i] * Y1[j]);
     double _Y2 = static_cast<double>(Y2[i] * Y2[j]);
     double dbl_denominator =
-      __fma_rn(-2.0f, _Y1, norm_add1[i]) + __fma_rn(-2.0f, _Y2, norm[j]);
+      __fma_rn(-2.0f, _Y1, norm[i] + 1.0f) + __fma_rn(-2.0f, _Y2, norm[j]);
 
     if (__builtin_expect(dbl_denominator == 0, false)) {
       //printf("Detected zero in attractive force kernel denominator with __fma_rn(-2.0f, %lf, %lf) + "
