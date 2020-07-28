@@ -654,7 +654,6 @@ class PCA(Base):
 
         X = X - self._mean_
         X_transformed = X.dot(self._components_.T)
-        X = X + self._mean_
 
         if self.whiten:
             self._components_ *= self._singular_values_

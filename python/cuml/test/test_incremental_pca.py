@@ -28,24 +28,21 @@ from cuml.test.utils import quality_param
 from cuml.test.utils import stress_param
 
 @pytest.mark.parametrize('nrows', [500, 5000])
-@pytest.mark.parametrize('ncols', [10, 25])
-@pytest.mark.parametrize('n_components', [5, 8])
+@pytest.mark.parametrize('ncols', [15, 25])
+@pytest.mark.parametrize('n_components', [10, 12])
 @pytest.mark.parametrize('sparse_input', [True, False])
 def test_inverse_transform(nrows, ncols, n_components, sparse_input):
 
     if sparse_input:
         X = cp.sparse.random(nrows, ncols, density=0.07,
-                             random_state=0).tocsr()
+                             random_state=10).tocsr()
     else:
-        X, _ = make_blobs(n_samples=nrows, n_features=ncols, random_state=0)
+        X, _ = make_blobs(n_samples=nrows, n_features=ncols, random_state=10)
 
     cu_ipca = cuIPCA(n_components=n_components)
     cu_ipca.fit(X)
-    cu_inv = cu_ipca.inverse_transform(cu_ipca.transform(X))
-
-    if not sparse_input:
-        print(X)
-        print(cu_inv)
+    cu_t = cu_ipca.transform(X)
+    cu_inv = cu_ipca.inverse_transform(cu_t)
 
     sk_ipca = skIPCA(n_components=n_components)
     if sparse_input:
@@ -53,7 +50,8 @@ def test_inverse_transform(nrows, ncols, n_components, sparse_input):
     else:
         X = cp.asnumpy(X)
     sk_ipca.fit(X)
-    sk_inv = sk_ipca.inverse_transform(sk_ipca.transform(X))
+    sk_t = sk_ipca.transform(X)
+    sk_inv = sk_ipca.inverse_transform(sk_t)
 
     assert array_equal(cu_inv, sk_inv,
                        5e-5, with_sign=True)
