@@ -19,6 +19,7 @@ import pytest
 import cudf
 import cupy as cp
 import numpy as np
+from pandas import DataFrame as pdDF
 
 from cuml.common import input_to_cuml_array, CumlArray
 from cuml.common import input_to_dev_array
@@ -332,8 +333,7 @@ def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
         result = cudf.DataFrame(rand_mat)
 
     if type == 'pandas':
-        result = cudf.DataFrame(rand_mat)
-        result = result.to_pandas()
+        result = pdDF(cp.asnumpy(rand_mat))
 
     if type == 'cuml':
         result = CumlArray(data=rand_mat,
