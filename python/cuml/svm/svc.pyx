@@ -29,10 +29,13 @@ from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base, ClassifierMixin
+from cuml.common.logger import warn
 from cuml.common.handle cimport cumlHandle
-from cuml.common import input_to_cuml_array, with_cupy_rmm
+from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
+from cuml.common.memory_utils import using_output_type
 from libcpp cimport bool
 from cuml.svm.svm_base import SVMBase
+from sklearn.calibration import CalibratedClassifierCV
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
@@ -92,6 +95,24 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
     cdef void svmFreeBuffers[math_t](const cumlHandle &handle,
                                      svmModel[math_t] &m) except +
+
+
+def _to_output(X, out_type):
+    """ Convert array X to out_type.
+
+    X can be host (numpy) array.
+
+    Arguments:
+    X: cuDF.DataFrame, cuDF.Series, numba array, NumPy array or any
+    cuda_array_interface compliant array like CuPy or pytorch.
+
+    out_type: string (as defined by the  CumlArray's to_output method).
+    """
+    if out_type == 'numpy' and isinstance(X, np.ndarray):
+        return X
+    else:
+        X, _, _, _ = input_to_cuml_array(X)
+        return X.to_output(output_type=out_type)
 
 
 class SVC(SVMBase, ClassifierMixin):
@@ -160,6 +181,12 @@ class SVC(SVMBase, ClassifierMixin):
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
+    probability: bool (default = False)
+        Enable or disable probability estimates.
+    random_state: int (default = None)
+        Seed for random number generator (used only when probability = True).
+        Currently this argument is not used and a waring will be printed if the
+        user provides it.
     verbose : int or boolean (default = False)
         verbosity level
 
@@ -207,16 +234,23 @@ class SVC(SVMBase, ClassifierMixin):
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=200.0,
-                 max_iter=-1, nochange_steps=1000,
-                 verbose=False):
+                 max_iter=-1, nochange_steps=1000, verbose=False,
+                 output_type=None, probability=False, random_state=None):
         super(SVC, self).__init__(handle, C, kernel, degree, gamma, coef0, tol,
                                   cache_size, max_iter, nochange_steps,
-                                  verbose)
+                                  verbose, output_type=output_type)
+        self.probability = probability
+        self.random_state = random_state
+        if probability and random_state is not None:
+            warn("Random state is currently ignored by probabilistic SVC")
         self.svmType = C_SVC
 
     @property
     def classes_(self):
-        return self.unique_labels
+        if self.probability:
+            return self.prob_svc.classes_
+        else:
+            return self.unique_labels
 
     @with_cupy_rmm
     def fit(self, X, y, convert_dtype=True):
@@ -231,7 +265,7 @@ class SVC(SVMBase, ClassifierMixin):
             ndarray, cuda array interface compliant array like CuPy
 
         y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
+            Dense vector (any numeric type) of shape (n_samples, 1).
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
@@ -243,6 +277,20 @@ class SVC(SVMBase, ClassifierMixin):
         self._set_n_features_in(X)
         self._set_output_type(X)
         self._set_target_dtype(y)
+
+        if self.probability:
+            params = self.get_params()
+            params["probability"] = False
+            # Currently CalibratedClassifierCV expects data on the host, see
+            # https://github.com/rapidsai/cuml/issues/2608
+            X, _, _, _, _ = input_to_host_array(X)
+            y, _, _, _, _ = input_to_host_array(y)
+            with using_output_type('numpy'):
+                self.prob_svc = CalibratedClassifierCV(SVC(**params), cv=5,
+                                                       method='sigmoid')
+                self.prob_svc.fit(X, y)
+                self._fit_status_ = 0
+            return self
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, order='F')
@@ -306,7 +354,73 @@ class SVC(SVMBase, ClassifierMixin):
             Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
 
-        return super(SVC, self).predict(X, True)
+        if self.probability:
+            self._check_is_fitted('prob_svc')
+            out_type = self._get_output_type(X)
+            X, _, _, _, _ = input_to_host_array(X)
+            preds = self.prob_svc.predict(X)
+            # prob_svc has numpy output type, change it if it is necessary:
+            return _to_output(preds, out_type)
+        else:
+            return super(SVC, self).predict(X, True)
+
+    def predict_proba(self, X, log=False):
+        """
+        Predicts the class probabilities for X.
+
+        The model has to be trained with probability=True to use this method.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of input features.
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        log: boolean (default = False)
+             Whether to return log probabilities.
+
+        Returns
+        -------
+        P : array-like (device or host) shape = (n_samples, n_classes)
+            Dense matrix of classs probabilities for each sample.
+
+        """
+
+        if self.probability:
+            self._check_is_fitted('prob_svc')
+            out_type = self._get_output_type(X)
+            X, _, _, _, _ = input_to_host_array(X)
+            preds = self.prob_svc.predict_proba(X)
+            if (log):
+                preds = np.log(preds)
+            # prob_svc has numpy output type, change it if it is necessary:
+            return _to_output(preds, out_type)
+        else:
+            raise AttributeError("This classifier is not fitted to predict "
+                                 "probabilities. Fit a new classifier with"
+                                 "probability=True to enable predict_proba.")
+
+    def predict_log_proba(self, X):
+        """
+        Predicts the log probabilities for X (returns log(predict_proba(x)).
+
+        The model has to be trained with probability=True to use this method.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of input features.
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy.
+
+        Returns
+        -------
+        P : array-like (device or host) shape = (n_samples, n_classes)
+            Dense matrix of log probabilities for each sample.
+
+        """
+        return self.predict_proba(X, log=True)
 
     def decision_function(self, X):
         """
@@ -324,5 +438,25 @@ class SVC(SVMBase, ClassifierMixin):
         y : cuDF Series
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
+        if self.probability:
+            self._check_is_fitted('prob_svc')
+            out_type = self._get_output_type(X)
+            # Probabilistic SVC is an ensemble of simple SVC classifiers
+            # fitted to different subset of the training data. As such, it
+            # does not have a single decision function. (During prediction
+            # we use the calibrated probabilities to determine the class
+            # label.) Here we average the decision function value. This can
+            # be useful for visualization, but predictions should be made
+            # using the probabilities.
+            df = np.zeros((X.shape[0],))
+            with using_output_type('numpy'):
+                for clf in self.prob_svc.calibrated_classifiers_:
+                    df = df + clf.base_estimator.decision_function(X)
+            df = df / len(self.prob_svc.calibrated_classifiers_)
+            return _to_output(df, out_type)
+        else:
+            return super(SVC, self).predict(X, False)
 
-        return super(SVC, self).predict(X, False)
+    def get_param_names(self):
+        return super(SVC, self).get_param_names() + \
+            ["probability", "random_state"]
