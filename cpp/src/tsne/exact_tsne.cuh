@@ -48,6 +48,7 @@ namespace TSNE {
  */
 void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const cumlHandle &handle, float *Y, const int n, const int dim,
+                int64_t * knn_indices, float * knn_dists,
                 const float early_exaggeration = 12.0f,
                 const int exaggeration_iter = 250, const float min_gain = 0.01f,
                 const float pre_learning_rate = 200.0f,
