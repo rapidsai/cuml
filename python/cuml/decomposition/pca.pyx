@@ -528,7 +528,7 @@ class PCA(Base):
         if out_type == 'cupy':
             return X_inv
         else:
-            X_inv, _, _, _ = input_to_cuml_array(X_inv)
+            X_inv, _, _, _ = input_to_cuml_array(X_inv, order='K')
             return X_inv.to_output(out_type)
 
     @with_cupy_rmm
@@ -654,6 +654,7 @@ class PCA(Base):
 
         X = X - self._mean_
         X_transformed = X.dot(self._components_.T)
+        X = X + self._mean_
 
         if self.whiten:
             self._components_ *= self._singular_values_
@@ -662,7 +663,8 @@ class PCA(Base):
         if self._get_output_type(X) == 'cupy':
             return X_transformed
         else:
-            X_transformed, _, _, _ = input_to_cuml_array(X_transformed)
+            X_transformed, _, _, _ = \
+                input_to_cuml_array(X_transformed, order='K')
             return X_transformed.to_output(out_type)
 
 

@@ -166,14 +166,16 @@ class IncrementalPCA(PCA):
         self.var_ = .0
         
         if scipy.sparse.issparse(X):
-            X = sparse_scipy_to_cp(X)
+            X = sparse_scipy_to_cp(X).tocsr()
         elif cp.sparse.issparse(X):
-            pass
+            X = X.tocsr()
         else:
             X, n_samples, n_features, self.dtype = \
                 input_to_cuml_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64])
             X = X.to_output(output_type='cupy')
+        
+        n_samples, n_features = X.shape
         
         if self.batch_size is None:
             self.batch_size_ = 5 * n_features
@@ -272,8 +274,8 @@ class IncrementalPCA(PCA):
             mean_correction = \
                 cp.sqrt((self.n_samples_seen_ * n_samples) /
                         n_total_samples) * (self._mean_ - col_batch_mean)
-            X = cp.vstack((self.singular_values_.reshape((-1, 1)) *
-                           self.components_, X, mean_correction))
+            X = cp.vstack((self._singular_values_.reshape((-1, 1)) *
+                           self._components_, X, mean_correction))
 
         U, S, V = cp.linalg.svd(X, full_matrices=False)
         U, V = _svd_flip(U, V, u_based_decision=False)
@@ -321,16 +323,19 @@ class IncrementalPCA(PCA):
             out_type = self._get_output_type(X)
 
             if scipy.sparse.issparse(X):
-                X = sparse_scipy_to_cp(X)
+                X = sparse_scipy_to_cp(X).tocsr()
+            elif cp.sparse.issparse(X):
+                X = X.tocsr()
 
             n_samples = X.shape[0]
             output = []
             for batch in _gen_batches(n_samples, self.batch_size_,
                                     min_batch_size=self.n_components or 0):
                 output.append(super().transform(X[batch]))
-            output = cp.vstack(output)
+            output, _, _, _ = \
+                input_to_cuml_array(cp.vstack(output), order='K')
 
-            return output.to_output(out_type=out_type)
+            return output.to_output(out_type)
         else:
             return super().transform(X)
 
