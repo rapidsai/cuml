@@ -255,10 +255,7 @@ __global__ __launch_bounds__(
 
             const int cell = atomicSub(bottomd, 1) - 1;
             if (cell == N) {
-              // atomicExch(errd, 1);
               atomicExch(bottomd, NNODES);
-              //printf("Cell Allocation Overflow, depth=%d, r=%f, rbound=%f, N=%d, NNODES=%d, bottomd=%d\n",
-              //    depth, r, radius, N, NNODES, prev_bottom);
             } else if (cell < N) {
               depth--;
               continue;
@@ -669,16 +666,12 @@ __global__ void attractive_kernel_bh(
                       __fmaf_rn(-2.0f, (Y2[i] * Y2[j]), norm[j]);
 
   if (__builtin_expect(denominator == 0, false)) {
-    double _Y1 = static_cast<double>(Y1[i] * Y1[j]);
-    double _Y2 = static_cast<double>(Y2[i] * Y2[j]);
+    double _Y1 = static_cast<double>(Y1[i]) * static_cast<double>(Y1[j]);
+    double _Y2 = static_cast<double>(Y2[i]) * static_cast<double>(Y2[j]);
     double dbl_denominator =
       __fma_rn(-2.0f, _Y1, norm[i] + 1.0f) + __fma_rn(-2.0f, _Y2, norm[j]);
 
     if (__builtin_expect(dbl_denominator == 0, false)) {
-      //printf("Detected zero in attractive force kernel denominator with __fma_rn(-2.0f, %lf, %lf) + "
-      //       "__fma_rn(-2.0f, %lf, %lf)\nClamping denominator to 1.0: tSNE results may not be accurate.",
-      //    _Y1, norm_add1[i], _Y2, norm[j]);
-
       dbl_denominator = 1.0f;
       flag_unstable_computation[0] = 1;
     }
