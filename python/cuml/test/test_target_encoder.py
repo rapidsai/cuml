@@ -29,10 +29,15 @@ def test_targetencoder_fit_transform():
     encoder = TargetEncoder()
     encoder.fit(train.category, train.label)
     train_encoded = encoder.transform(train.category)
+
     assert array_equal(train_encoded, answer)
 
 
 def test_targetencoder_transform():
+    """
+    Note that there are newly-encountered values in test,
+    namely, 'c' and 'd'.
+    """
     train = cudf.DataFrame({'category': ['a', 'b', 'b', 'a'],
                             'label': [1, 0, 1, 1]})
     test = cudf.DataFrame({'category': ['c', 'b', 'a', 'd']})
@@ -45,4 +50,21 @@ def test_targetencoder_transform():
     encoder = TargetEncoder()
     encoder.fit(train.category, train.label)
     test_encoded = encoder.transform(test.category)
+    assert array_equal(test_encoded, answer)
+
+
+def test_one_category():
+    train = cudf.DataFrame({'category': ['a', 'a', 'a', 'a'],
+                            'label': [3, 0, 0, 3]})
+    test = cudf.DataFrame({'category': ['c', 'b', 'a', 'd']})
+
+    encoder = TargetEncoder()
+    train_encoded = encoder.fit_transform(train.category, train.label)
+    answer = np.array([1., 2., 2., 1.])
+    assert array_equal(train_encoded, answer)
+
+    test_encoded = encoder.transform(test.category)
+    answer = np.array([1.5, 1.5, 1.5, 1.5])
+    assert array_equal(test_encoded, answer)
+
     assert array_equal(test_encoded, answer)
