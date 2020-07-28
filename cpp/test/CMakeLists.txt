@@ -116,6 +116,13 @@ endif(BUILD_CUML_MG_TESTS)
 ##############################################################################
 # - build prims_test executable ----------------------------------------------
 
+if(BUILD_FAISS)
+	list(APPEND PRIMS_TEST_LINK_LIBRARIES ${FAISS_LIBRARY})
+else()
+	list(APPEND PRIMS_TEST_LINK_LIBRARIES faisslib)
+endif(BUILD_FAISS)
+
+
 if(BUILD_PRIMS_TESTS)
   # (please keep the filenames in alphabetical order)
   add_executable(prims
@@ -227,6 +234,7 @@ if(BUILD_PRIMS_TESTS)
   target_link_libraries(prims
     gtestlib
     gtest_mainlib
-	FAISS::FAISS
     ${PRIMS_TEST_LINK_LIBRARIES})
+    
+    
 endif(BUILD_PRIMS_TESTS)
