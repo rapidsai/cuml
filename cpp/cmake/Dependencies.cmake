@@ -39,14 +39,14 @@ else(DEFINED ENV{RAFT_PATH})
 
   ExternalProject_Add(raft
     GIT_REPOSITORY    https://github.com/rapidsai/raft.git
-    GIT_TAG           b58f97f2b5382a633e43daec31b26adf52e19a3b
+    GIT_TAG           b6ef2a825bfcd47aa46d634a46049da791b43fa0
     PREFIX            ${RAFT_DIR}
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
     INSTALL_COMMAND   "")
 
   # Redefining RAFT_DIR so it coincides with the one inferred by env variable.
-  set(RAFT_DIR ${RAFT_DIR}/src/raft/ CACHE STRING "Path to RAFT repo")
+  set(RAFT_DIR ${RAFT_DIR}/src/raft/)
 endif(DEFINED ENV{RAFT_PATH})
 
 
@@ -60,7 +60,8 @@ if(NOT DISABLE_CUMLPRIMS_MG)
     endif(DEFINED ENV{CUMLPRIMS_MG_PATH})
 
     if(NOT CUMLPRIMS_MG_PATH)
-      find_package(cumlprims_mg REQUIRED)
+      find_package(cumlprims_mg
+                   REQUIRED)
 
     else()
       message("-- Manually setting CUMLPRIMS_MG_PATH to ${CUMLPRIMS_MG_PATH}")
@@ -74,6 +75,17 @@ if(NOT DISABLE_CUMLPRIMS_MG)
     endif(NOT CUMLPRIMS_MG_PATH)
 
 endif(NOT DISABLE_CUMLPRIMS_MG)
+
+
+##############################################################################
+# - RMM ----------------------------------------------------------------------
+
+# find package module uses RMM_INSTALL_DIR for Hints, checking RMM_ROOT env variable
+# to match other RAPIDS repos.
+set(RMM_INSTALL_DIR ENV{RMM_ROOT})
+
+find_package(RMM
+             REQUIRED)
 
 
 ##############################################################################

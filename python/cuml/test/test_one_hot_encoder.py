@@ -26,14 +26,20 @@ from pandas.util.testing import assert_frame_equal
 
 
 def from_df_to_array(df):
-    return list(zip(*[df[feature] for feature in df.columns]))
+    if isinstance(df, pd.DataFrame):
+        return list(zip(*[df[feature] for feature in df.columns]))
+    else:
+        return list(zip(*[df[feature].values_host for feature in df.columns]))
 
 
 def _from_df_to_cupy(df):
     """Transform char columns to integer columns, and then create an array"""
     for col in df.columns:
         if not np.issubdtype(df[col].dtype, np.number):
-            df[col] = [ord(c) for c in df[col]]
+            if isinstance(df, pd.DataFrame):
+                df[col] = [ord(c) for c in df[col]]
+            else:
+                df[col] = [ord(c) for c in df[col].values_host]
     return cp.array(from_df_to_array(df))
 
 

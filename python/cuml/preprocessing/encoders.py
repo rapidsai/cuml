@@ -14,8 +14,9 @@
 #
 import numpy as np
 import cupy as cp
-from sklearn.exceptions import NotFittedError
+from cuml.common.exceptions import NotFittedError
 
+from cuml import Base
 from cuml.preprocessing import LabelEncoder
 from cudf import DataFrame, Series
 from cudf.core import GenericIndex
@@ -24,7 +25,7 @@ from cuml.common import with_cupy_rmm
 import warnings
 
 
-class OneHotEncoder:
+class OneHotEncoder(Base):
     """
     Encode categorical features as a one-hot numeric array.
     The input to this estimator should be a cuDF.DataFrame or a cupy.ndarray,
@@ -177,7 +178,7 @@ class OneHotEncoder:
             self._set_input_type('array')
             if is_categories:
                 X = X.transpose()
-            return DataFrame.from_gpu_matrix(X)
+            return DataFrame(X)
         else:
             self._set_input_type('df')
             return X
@@ -283,15 +284,14 @@ class OneHotEncoder:
         for feature in X.columns:
             encoder = self._encoders[feature]
             col_idx = encoder.transform(X[feature])
-            col_idx = cp.asarray(col_idx.to_gpu_array(fillna="pandas"))
-            idx_to_keep = col_idx > -1
+            idx_to_keep = cp.asarray(col_idx.notnull().to_gpu_array())
+            col_idx = cp.asarray(col_idx.dropna().to_gpu_array())
 
             # increase indices to take previous features into account
             col_idx += j
 
             # Filter out rows with null values
             row_idx = cp.arange(len(X))[idx_to_keep]
-            col_idx = col_idx[idx_to_keep]
 
             if self.drop_idx_ is not None:
                 drop_idx = self.drop_idx_[feature] + j

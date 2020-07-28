@@ -34,11 +34,11 @@ Current cmake offers the following configuration options:
 | --- | --- | --- | --- |
 | BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
 | BUILD_CUML_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_test`.  |
-| BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. Requires MPI installed and turning BUILD_CUML_MPI_COMMS to ON. |
+| BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. Requires MPI to be installed. When enabled, BUILD_CUML_MPI_COMMS will be automatically set to ON. |
 | BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
 | BUILD_CUML_STD_COMMS | [ON, OFF] | ON | Enable/disable building cuML NCCL+UCX communicator for running multi-node multi-GPU algorithms. Note that UCX support can also be enabled/disabled (see below). The standard communicator and MPI communicator are not mutually exclusive and can both be installed at the same time. |
 | WITH_UCX | [ON, OFF] | OFF | Enable/disable UCX support in the standard cuML communicator. Algorithms requiring point-to-point messaging will not work when this is disabled. This flag is ignored if BUILD_CUML_STD_COMMS is set to OFF. |
-| BUILD_CUML_MPI_COMMS | [ON, OFF] | OFF | Enable/disable building cuML MPI+NCCL communicator for running multi-node multi-GPU C++ tests. MPI communicator and STD communicator are not mutually exclusive and can both be installed at the same time. If OFF, it overrides BUILD_CUML_MG_TESTS to be OFF as well. |
+| BUILD_CUML_MPI_COMMS | [ON, OFF] | OFF | Enable/disable building cuML MPI+NCCL communicator for running multi-node multi-GPU C++ tests. MPI communicator and STD communicator may both be installed at the same time. If OFF, it overrides BUILD_CUML_MG_TESTS to be OFF as well. |
 | SINGLEGPU | [ON, OFF] | OFF | Disable all mnmg components. Disables building of all multi-GPU algorithms and all comms library components. Removes libcumlprims, UCX-py and NCCL dependencies. Overrides values of  BUILD_CUML_MG_TESTS, BUILD_CUML_STD_COMMS, WITH_UCX and BUILD_CUML_MPI_COMMS. |
 | BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
 | BUILD_CUML_BENCH | [ON, OFF] | ON | Enable/disable building oc cuML C++ benchark.  |

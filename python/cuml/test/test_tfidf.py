@@ -16,7 +16,7 @@
 import pytest
 import numpy as np
 import cupy as cp
-from cuml.feature_extraction.tfidf import TfidfTransformer
+from cuml.feature_extraction.text import TfidfTransformer
 from sklearn.feature_extraction.text import TfidfTransformer as SkTfidfTransfo
 
 

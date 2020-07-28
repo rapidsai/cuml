@@ -47,7 +47,7 @@ option(BUILD_CUML_CPP_LIBRARY "Build libcuml++ shared library" ON)
 
 option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
 
-option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" ON)
+option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
 
 option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
 
@@ -153,13 +153,39 @@ if(SINGLEGPU)
   set(WITH_UCX OFF)
 endif(SINGLEGPU)
 
-if(NOT BUILD_CUML_MPI_COMMS AND NOT SINGLEGPU)
-  message(STATUS "Detected BUILD_CUML_MPI_COMMS set to OFF. Disabling BUILD_CUML_MG_TESTS")
-  set(BUILD_CUML_MG_TESTS OFF)
-endif(NOT BUILD_CUML_MPI_COMMS AND NOT SINGLEGPU)
+if(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
+  message(STATUS "Detected BUILD_CUML_MG_TESTS set to ON. Enabling BUILD_CUML_MPI_COMMS")
+  set(BUILD_CUML_MPI_COMMS ON)
+endif(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
+
+# Create FindPackage.cmake files to use find(package) functionality for
+# dependencies
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/cmake/templates)
+
+GENERATE_FIND_MODULE(NAME cumlprims_mg
+                     HEADER_NAME cumlprims.hpp
+                     LIBRARY_NAME cumlprims
+                     LOCATION cumlprims)
+
+GENERATE_FIND_MODULE(NAME NCCL
+                     HEADER_NAME nccl.h
+                     LIBRARY_NAME nccl)
+
+GENERATE_FIND_MODULE(NAME RMM
+                     HEADER_NAME rmm/device_buffer.hpp
+                     LIBRARY_NAME rmm)
+
+GENERATE_FIND_MODULE(NAME UCX
+                     HEADER_NAME ucp/api/ucp.h
+                     LIBRARY_NAME ucp)
+
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
+
+# append additional directories to CMAKE_MODULE_PATH if we need other modules here
 
 # todo: change for FindCUDAToolkit when CMake 3.17 is the minimum required
 # https://github.com/rapidsai/cuml/issues/2194
@@ -178,16 +204,9 @@ else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
-set(Protobuf_USE_STATIC_LIBS ON)
-find_package(Protobuf REQUIRED)
-
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 ##############################################################################
 # - External Dependencies-----------------------------------------------------
-
-set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
-  "Path to nvGraph lib")
 
 set(CUML_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
   "Path to cuml include directories")
@@ -290,7 +309,6 @@ include(cmake/Dependencies.cmake)
 
 set(CUML_INCLUDE_DIRECTORIES
   ${CUML_INCLUDE_DIR}
-  ${CUMLPRIMS_MG_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/src_prims
   ${CMAKE_CURRENT_SOURCE_DIR}/test/prims
@@ -299,17 +317,33 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUB_DIR}/src/cub
   ${SPDLOG_DIR}/src/spdlog/include
   ${FAISS_FAISS_INCLUDE_DIR}
-  ${RAFT_DIR}/cpp/include)
-  
+  ${RAFT_DIR}/cpp/include
+  ${RMM_INCLUDE_DIRS}
+  )
 
-set(CUML_LINK_LIBRARIES
+set(CUML_PUBLIC_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
   ${CUDA_curand_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
-  ${CUDA_nvgraph_LIBRARY}
-  ${CUMLPRIMS_MG_LIBRARIES})
+  )
+
+set(CUML_PRIVATE_LINK_LIBRARIES
+  FAISS::FAISS
+  treelite::treelite
+  treelite::treelite_runtime
+  RMM::RMM
+  )
+
+if(ENABLE_CUMLPRIMS_MG)
+  list(APPEND CUML_INCLUDE_DIRECTORIES
+       ${cumlprims_mg_INCLUDE_DIRS})
+
+  list(APPEND CUML_PRIVATE_LINK_LIBRARIES
+       cumlprims_mg::cumlprims_mg)
+
+endif(ENABLE_CUMLPRIMS_MG)
 
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
@@ -356,18 +390,30 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # mnmg components
 
-  # if(NOT SINGLEGPU)
-  #   target_sources(${CUML_CPP_TARGET}
-  #     PRIVATE src/kmeans/kmeans_mg.cu
-  #   )
-  # endif(NOT SINGLEGPU)
+  if(NOT SINGLEGPU)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/glm/ols_mg.cu
+        src/glm/preprocess_mg.cu
+        src/glm/ridge_mg.cu
+        src/kmeans/kmeans_mg.cu
+        src/knn/knn_mg.cu
+        src/knn/knn_opg_common.cu
+        src/knn/knn_classify_mg.cu
+        src/knn/knn_regress_mg.cu
+        src/pca/pca_mg.cu
+        src/pca/sign_flip_mg.cu
+        src/solver/cd_mg.cu
+        src/tsvd/tsvd_mg.cu
+    )
+  endif(NOT SINGLEGPU)
 
   if(OPENMP_FOUND)
-    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} ${OpenMP_CXX_LIB_NAMES} Threads::Threads)
+    set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} ${OpenMP_CXX_LIB_NAMES} Threads::Threads)
   endif(OPENMP_FOUND)
 
   if(NVTX)
-    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} nvToolsExt)
+    set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} nvToolsExt)
     link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
   endif(NVTX)
 
@@ -376,12 +422,10 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
-      FAISS::FAISS
-      ${CUML_LINK_LIBRARIES}
+      ${CUML_PUBLIC_LINK_LIBRARIES}
     PRIVATE
-      ${Protobuf_LIBRARIES}
-      treelite::treelite
-      treelite::treelite_runtime)
+      ${CUML_PRIVATE_LINK_LIBRARIES}
+  )
   # If we export the libdmlc symbols, they can lead to weird crashes with other
   # libraries that use libdmlc. This just hides the symbols internally.
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
