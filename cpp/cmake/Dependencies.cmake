@@ -129,7 +129,7 @@ ExternalProject_Add(spdlog
 ##############################################################################
 # - faiss --------------------------------------------------------------------
 
-if(BUILD_FAISS)
+if(BUILD_STATIC_FAISS)
 	set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
 	  "Path to FAISS source directory")
 	ExternalProject_Add(faiss
@@ -161,7 +161,7 @@ if(BUILD_FAISS)
 else() 
 	set(FAISS_INSTALL_DIR ENV{FAISS_ROOT})
 	find_package(FAISS REQUIRED)
-endif(BUILD_FAISS)
+endif(BUILD_STATIC_FAISS)
 ##############################################################################
 # - treelite build -----------------------------------------------------------
 
