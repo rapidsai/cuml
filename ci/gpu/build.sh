@@ -87,6 +87,9 @@ logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
+logger "Building doxygen C++ docs"
+$WORKSPACE/build.sh cppdocs -v
+
 logger "Build libcuml, cuml, prims and bench targets..."
 $WORKSPACE/build.sh clean libcuml cuml prims bench -v
 
