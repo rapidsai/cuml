@@ -16,3 +16,4 @@
 
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD
+from cuml.decomposition.incremental_pca import IncrementalPCA

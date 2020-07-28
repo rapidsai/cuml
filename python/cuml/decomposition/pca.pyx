@@ -505,7 +505,7 @@ class PCA(Base):
 
     @with_cupy_rmm
     def _sparse_inverse_transform(self, X, return_sparse=False,
-                                  sparse_tol=1e-10):
+                                  sparse_tol=1e-10, out_type=None):
 
         if self.whiten:
             self._components_ *= (1 / cp.sqrt(self.n_rows - 1))
@@ -525,11 +525,13 @@ class PCA(Base):
 
             return X_inv
 
-        if self._get_output_type(X) == 'cupy':
+        if out_type == 'cupy':
             return X_inv
-        elif self._get_output_type(X) == 'numpy':
-            return X_inv.get()
+        else:
+            X_inv, _, _, _ = input_to_cuml_array(X_inv)
+            return X_inv.to_output(out_type)
 
+    @with_cupy_rmm
     def inverse_transform(self, X, convert_dtype=False,
                           return_sparse=False, sparse_tol=1e-10):
         """
@@ -573,21 +575,28 @@ class PCA(Base):
 
         """
 
+        out_type = self._get_output_type(X)
+
         if cp.sparse.issparse(X):
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
-                                                  sparse_tol=sparse_tol)
+                                                  sparse_tol=sparse_tol,
+                                                  out_type=out_type)
         elif scipy.sparse.issparse(X):
             X = sparse_scipy_to_cp(X)
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
-                                                  sparse_tol=sparse_tol)
+                                                  sparse_tol=sparse_tol,
+                                                  out_type=out_type)
         elif self._sparse_model:
+            X, _, _, _ = \
+                input_to_cuml_array(X, order='K',
+                                    check_dtype=[cp.float32, cp.float64])
+            X = X.to_output(output_type='cupy')
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
-                                                  sparse_tol=sparse_tol)
-
-        out_type = self._get_output_type(X)
+                                                  sparse_tol=sparse_tol,
+                                                  out_type=out_type)
 
         X_m, n_rows, _, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -637,7 +646,7 @@ class PCA(Base):
         return input_data.to_output(out_type)
 
     @with_cupy_rmm
-    def _sparse_transform(self, X):
+    def _sparse_transform(self, X, out_type=None):
 
         if self.whiten:
             self._components_ *= cp.sqrt(self.n_rows - 1)
@@ -645,7 +654,6 @@ class PCA(Base):
 
         X = X - self._mean_
         X_transformed = X.dot(self._components_.T)
-        X = X + self._mean_
 
         if self.whiten:
             self._components_ *= self._singular_values_
@@ -653,9 +661,12 @@ class PCA(Base):
 
         if self._get_output_type(X) == 'cupy':
             return X_transformed
-        elif self._get_output_type(X) == 'numpy':
-            return X_transformed.get()
+        else:
+            X_transformed, _, _, _ = input_to_cuml_array(X_transformed)
+            return X_transformed.to_output(out_type)
 
+
+    @with_cupy_rmm
     def transform(self, X, convert_dtype=False):
         """
         Apply dimensionality reduction to X.
@@ -686,15 +697,19 @@ class PCA(Base):
 
         """
 
+        out_type = self._get_output_type(X)
+
         if cp.sparse.issparse(X):
-            return self._sparse_transform(X)
+            return self._sparse_transform(X, out_type=out_type)
         elif scipy.sparse.issparse(X):
             X = sparse_scipy_to_cp(X)
-            return self._sparse_transform(X)
+            return self._sparse_transform(X, out_type=out_type)
         elif self._sparse_model:
-            return self._sparse_transform(X)
-
-        out_type = self._get_output_type(X)
+            X, _, _, _ = \
+                input_to_cuml_array(X, order='K',
+                                    check_dtype=[cp.float32, cp.float64])
+            X = X.to_output(output_type='cupy')
+            return self._sparse_transform(X, out_type=out_type)
 
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
