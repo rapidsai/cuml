@@ -288,7 +288,7 @@ class SVMBase(Base):
     def _check_is_fitted(self, attr):
         if not hasattr(self, attr) or (getattr(self, attr) is None):
             msg = ("This classifier instance is not fitted yet. Call 'fit' "
-                   "with appropriate arguments before using this estimater.")
+                   "with appropriate arguments before using this estimator.")
             raise NotFittedError(msg)
 
     @property
