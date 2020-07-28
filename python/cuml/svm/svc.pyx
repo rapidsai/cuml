@@ -281,6 +281,8 @@ class SVC(SVMBase, ClassifierMixin):
         if self.probability:
             params = self.get_params()
             params["probability"] = False
+            # Currently CalibratedClassifierCV expects data on the host, see
+            # https://github.com/rapidsai/cuml/issues/2608
             X, _, _, _, _ = input_to_host_array(X)
             y, _, _, _, _ = input_to_host_array(y)
             with using_output_type('numpy'):
