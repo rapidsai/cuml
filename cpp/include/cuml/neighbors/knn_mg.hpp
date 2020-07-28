@@ -81,6 +81,8 @@ void brute_force_knn(ML::cumlHandle &handle,
  *          to the i'th output. size should match the number of local input partitions.
  * @param uniq_labels vector of the sorted unique labels for each array in y
  * @param n_unique vector of sizes for each array in uniq_labels
+ * @param rowMajorIndex boolean indicating whether the index is row major. 
+ * @param rowMajorQuery boolean indicating whether the query is row major. 
  * @param probas_only return probas instead of performing complete knn_classify
  * @param k the number of neighbors to query
  * @param batch_size the max number of rows to broadcast at a time
@@ -118,6 +120,8 @@ void knn_classify(ML::cumlHandle &handle, std::vector<Matrix::Data<int> *> *out,
  * @param y vector of vector of output arrays. for multi-output regression, each
  *          element in the vector is a different "output" array corresponding
  *          to the i'th output. size should match the number of local input partitions.
+ * @param rowMajorIndex boolean indicating whether the index is row major.
+ * @param rowMajorQuery boolean indicating whether the query is row major. 
  * @param k the number of neighbors to query
  * @param n_outputs number of outputs
  * @param batch_size the max number of rows to broadcast at a time
