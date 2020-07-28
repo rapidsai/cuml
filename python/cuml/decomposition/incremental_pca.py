@@ -15,7 +15,6 @@
 #
 
 import cupy as cp
-import cupyx
 import scipy
 import numbers
 import numpy as np
@@ -26,115 +25,114 @@ from cuml.common import input_to_cuml_array
 
 from cuml.decomposition import PCA
 
-class IncrementalPCA(PCA):
-    def __init__(self, handle=None, n_components=None, *, whiten=False,
-                 copy=True, batch_size=None, verbose=None, 
-                 output_type=None):
-        """
-        Incremental principal components analysis (IPCA).
-        Linear dimensionality reduction using Singular Value Decomposition of
-        the data, keeping only the most significant singular vectors to
-        project the data to a lower dimensional space. The input data is centered
-        but not scaled for each feature before applying the SVD.
-        Depending on the size of the input data, this algorithm can be much more
-        memory efficient than a PCA, and allows sparse input.
-        This algorithm has constant memory complexity, on the order
-        of ``batch_size * n_features``, enabling use of np.memmap files without
-        loading the entire file into memory. For sparse matrices, the input
-        is converted to dense in batches (in order to be able to subtract the
-        mean) which avoids storing the entire dense matrix at any one time.
-        The computational overhead of each SVD is
-        ``O(batch_size * n_features ** 2)``, but only 2 * batch_size samples
-        remain in memory at a time. There will be ``n_samples / batch_size`` SVD
-        computations to get the principal components, versus 1 large SVD of
-        complexity ``O(n_samples * n_features ** 2)`` for PCA.
 
-        Parameters
-        ----------
-        handle : cuml.Handle
-            If it is None, a new one is created just for this class
-        n_components : int or None, (default=None)
-            Number of components to keep. If ``n_components `` is ``None``,
-            then ``n_components`` is set to ``min(n_samples, n_features)``.
-        whiten : bool, optional
-            When True (False by default) the ``components_`` vectors are divided
-            by ``n_samples`` times ``components_`` to ensure uncorrelated outputs
-            with unit component-wise variances.
-            Whitening will remove some information from the transformed signal
-            (the relative variance scales of the components) but can sometimes
-            improve the predictive accuracy of the downstream estimators by
-            making data respect some hard-wired assumptions.
-        copy : bool, (default=True)
-            If False, X will be overwritten. ``copy=False`` can be used to
-            save memory but is unsafe for general use.
-        batch_size : int or None, (default=None)
-            The number of samples to use for each batch. Only used when calling
-            ``fit``. If ``batch_size`` is ``None``, then ``batch_size``
-            is inferred from the data and set to ``5 * n_features``, to provide a
-            balance between approximation accuracy and memory consumption.
-        verbose : int or boolean (default = False)
-            Logging level
-        Attributes
-        ----------
-        components_ : array, shape (n_components, n_features)
-            Components with maximum variance.
-        explained_variance_ : array, shape (n_components,)
-            Variance explained by each of the selected components.
-        explained_variance_ratio_ : array, shape (n_components,)
-            Percentage of variance explained by each of the selected components.
-            If all components are stored, the sum of explained variances is equal
-            to 1.0.
-        singular_values_ : array, shape (n_components,)
-            The singular values corresponding to each of the selected components.
-            The singular values are equal to the 2-norms of the ``n_components``
-            variables in the lower-dimensional space.
-        mean_ : array, shape (n_features,)
-            Per-feature empirical mean, aggregate over calls to ``partial_fit``.
-        var_ : array, shape (n_features,)
-            Per-feature empirical variance, aggregate over calls to
-            ``partial_fit``.
-        noise_variance_ : float
-            The estimated noise covariance following the Probabilistic PCA model
-            from Tipping and Bishop 1999. See "Pattern Recognition and
-            Machine Learning" by C. Bishop, 12.2.1 p. 574 or
-            http://www.miketipping.com/papers/met-mppca.pdf.
-        n_components_ : int
-            The estimated number of components. Relevant when
-            ``n_components=None``.
-        n_samples_seen_ : int
-            The number of samples processed by the estimator. Will be reset on
-            new calls to fit, but increments across ``partial_fit`` calls.
-        batch_size_ : int
-            Inferred batch size from ``batch_size``.
-        Notes
-        -----
-        Implements the incremental PCA model from:
-        *D. Ross, J. Lim, R. Lin, M. Yang, Incremental Learning for Robust Visual
-        Tracking, International Journal of Computer Vision, Volume 77, Issue 1-3,
-        pp. 125-141, May 2008.*
-        See https://www.cs.toronto.edu/~dross/ivt/RossLimLinYang_ijcv.pdf
-        This model is an extension of the Sequential Karhunen-Loeve Transform from:
-        *A. Levy and M. Lindenbaum, Sequential Karhunen-Loeve Basis Extraction and
-        its Application to Images, IEEE Transactions on Image Processing, Volume 9,
-        Number 8, pp. 1371-1374, August 2000.*
-        See https://www.cs.technion.ac.il/~mic/doc/skl-ip.pdf
-        We have specifically abstained from an optimization used by authors of both
-        papers, a QR decomposition used in specific situations to reduce the
-        algorithmic complexity of the SVD. The source for this technique is
-        *Matrix Computations, Third Edition, G. Holub and C. Van Loan, Chapter 5,
-        section 5.4.4, pp 252-253.*. This technique has been omitted because it is
-        advantageous only when decomposing a matrix with ``n_samples`` (rows)
-        >= 5/3 * ``n_features`` (columns), and hurts the readability of the
-        implemented algorithm. This would be a good opportunity for future
-        optimization, if it is deemed necessary.
-        References
-        ----------
-        D. Ross, J. Lim, R. Lin, M. Yang. Incremental Learning for Robust Visual
-        Tracking, International Journal of Computer Vision, Volume 77,
-        Issue 1-3, pp. 125-141, May 2008.
-        G. Golub and C. Van Loan. Matrix Computations, Third Edition, Chapter 5,
-        Section 5.4.4, pp. 252-253.
-        """
+class IncrementalPCA(PCA):
+    """
+    Incremental principal components analysis (IPCA).
+    Linear dimensionality reduction using Singular Value Decomposition of
+    the data, keeping only the most significant singular vectors to
+    project the data to a lower dimensional space. The input data is
+    centered but not scaled for each feature before applying the SVD.
+    Depending on the size of the input data, this algorithm can be much
+    more memory efficient than a PCA, and allows sparse input.
+    This algorithm has constant memory complexity, on the order of
+    ``batch_size * n_features``, enabling use of np.memmap files without
+    loading the entire file into memory. For sparse matrices, the input
+    is converted to dense in batches (in order to be able to subtract the
+    mean) which avoids storing the entire dense matrix at any one time.
+    The computational overhead of each SVD is
+    ``O(batch_size * n_features ** 2)``, but only 2 * batch_size samples
+    remain in memory at a time. There will be ``n_samples / batch_size``
+    SVD computations to get the principal components, versus 1 large SVD
+    of complexity ``O(n_samples * n_features ** 2)`` for PCA.
+
+    Parameters
+    ----------
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class
+    n_components : int or None, (default=None)
+        Number of components to keep. If ``n_components `` is ``None``,
+        then ``n_components`` is set to ``min(n_samples, n_features)``.
+    whiten : bool, optional
+        If True, de-correlates the components. This is done by dividing them by
+        the corresponding singular values then multiplying by sqrt(n_samples).
+        Whitening allows each component to have unit variance and removes
+        multi-collinearity. It might be beneficial for downstream
+        tasks like LinearRegression where correlated features cause problems.
+    copy : bool, (default=True)
+        If False, X will be overwritten. ``copy=False`` can be used to
+        save memory but is unsafe for general use.
+    batch_size : int or None, (default=None)
+        The number of samples to use for each batch. Only used when calling
+        ``fit``. If ``batch_size`` is ``None``, then ``batch_size``
+        is inferred from the data and set to ``5 * n_features``, to provide a
+        balance between approximation accuracy and memory consumption.
+    verbose : int or boolean (default = False)
+        Logging level
+    Attributes
+    ----------
+    components_ : array, shape (n_components, n_features)
+        Components with maximum variance.
+    explained_variance_ : array, shape (n_components,)
+        Variance explained by each of the selected components.
+    explained_variance_ratio_ : array, shape (n_components,)
+        Percentage of variance explained by each of the selected components.
+        If all components are stored, the sum of explained variances is equal
+        to 1.0.
+    singular_values_ : array, shape (n_components,)
+        The singular values corresponding to each of the selected components.
+        The singular values are equal to the 2-norms of the ``n_components``
+        variables in the lower-dimensional space.
+    mean_ : array, shape (n_features,)
+        Per-feature empirical mean, aggregate over calls to ``partial_fit``.
+    var_ : array, shape (n_features,)
+        Per-feature empirical variance, aggregate over calls to
+        ``partial_fit``.
+    noise_variance_ : float
+        The estimated noise covariance following the Probabilistic PCA model
+        from Tipping and Bishop 1999. See "Pattern Recognition and
+        Machine Learning" by C. Bishop, 12.2.1 p. 574 or
+        http://www.miketipping.com/papers/met-mppca.pdf.
+    n_components_ : int
+        The estimated number of components. Relevant when
+        ``n_components=None``.
+    n_samples_seen_ : int
+        The number of samples processed by the estimator. Will be reset on
+        new calls to fit, but increments across ``partial_fit`` calls.
+    batch_size_ : int
+        Inferred batch size from ``batch_size``.
+    Notes
+    -----
+    Implements the incremental PCA model from:
+    *D. Ross, J. Lim, R. Lin, M. Yang, Incremental Learning for Robust Visual
+    Tracking, International Journal of Computer Vision, Volume 77, Issue 1-3,
+    pp. 125-141, May 2008.*
+    See https://www.cs.toronto.edu/~dross/ivt/RossLimLinYang_ijcv.pdf
+    This model is an extension of the Sequential Karhunen-Loeve Transform from:
+    *A. Levy and M. Lindenbaum, Sequential Karhunen-Loeve Basis Extraction and
+    its Application to Images, IEEE Transactions on Image Processing, Volume 9,
+    Number 8, pp. 1371-1374, August 2000.*
+    See https://www.cs.technion.ac.il/~mic/doc/skl-ip.pdf
+    We have specifically abstained from an optimization used by authors of both
+    papers, a QR decomposition used in specific situations to reduce the
+    algorithmic complexity of the SVD. The source for this technique is
+    *Matrix Computations, Third Edition, G. Holub and C. Van Loan, Chapter 5,
+    section 5.4.4, pp 252-253.*. This technique has been omitted because it is
+    advantageous only when decomposing a matrix with ``n_samples`` (rows)
+    >= 5/3 * ``n_features`` (columns), and hurts the readability of the
+    implemented algorithm. This would be a good opportunity for future
+    optimization, if it is deemed necessary.
+    References
+    ----------
+    D. Ross, J. Lim, R. Lin, M. Yang. Incremental Learning for Robust Visual
+    Tracking, International Journal of Computer Vision, Volume 77,
+    Issue 1-3, pp. 125-141, May 2008.
+    G. Golub and C. Van Loan. Matrix Computations, Third Edition, Chapter 5,
+    Section 5.4.4, pp. 252-253.
+    """
+    def __init__(self, handle=None, n_components=None, *, whiten=False,
+                 copy=True, batch_size=None, verbose=None,
+                 output_type=None):
 
         super(IncrementalPCA, self).__init__(handle=handle,
                                              n_components=n_components,
@@ -166,7 +164,7 @@ class IncrementalPCA(PCA):
         self.n_samples_seen_ = 0
         self._mean_ = .0
         self.var_ = .0
-        
+
         if scipy.sparse.issparse(X):
             X = sparse_scipy_to_cp(X).tocsr()
         elif cp.sparse.issparse(X):
@@ -176,9 +174,9 @@ class IncrementalPCA(PCA):
                 input_to_cuml_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64])
             X = X.to_output(output_type='cupy')
-        
+
         n_samples, n_features = X.shape
-        
+
         if self.batch_size is None:
             self.batch_size_ = 5 * n_features
         else:
@@ -217,7 +215,7 @@ class IncrementalPCA(PCA):
                     "IncrementalPCA.partial_fit does not support "
                     "sparse input. Either convert data to dense "
                     "or use IncrementalPCA.fit to do so in batches.")
-            
+
             self._set_output_type(X)
 
             X, n_samples, n_features, self.dtype = \
@@ -247,7 +245,7 @@ class IncrementalPCA(PCA):
             self.n_components_ = self.n_components
 
         if (self._components_ is not None) and (self._components_.shape[0] !=
-                                               self.n_components_):
+                                                self.n_components_):
             raise ValueError("Number of input features has changed from %i "
                              "to %i between calls to partial_fit! Try "
                              "setting n_components to a fixed value." %
@@ -263,7 +261,8 @@ class IncrementalPCA(PCA):
         col_mean, col_var, n_total_samples = \
             _incremental_mean_and_var(
                 X, last_mean=self._mean_, last_variance=self.var_,
-                last_sample_count=cp.asarray(np.repeat(self.n_samples_seen_, X.shape[1])))
+                last_sample_count=cp.asarray(np.repeat(self.n_samples_seen_,
+                                                       X.shape[1])))
         n_total_samples = n_total_samples[0]
 
         # Whitening
@@ -299,7 +298,7 @@ class IncrementalPCA(PCA):
         else:
             self._noise_variance_ = 0.
         return self
-    
+
     @with_cupy_rmm
     def transform(self, X, convert_dtype=False):
         """Apply dimensionality reduction to X.
@@ -311,7 +310,7 @@ class IncrementalPCA(PCA):
         X : array-like or sparse matrix, shape (n_samples, n_features)
             New data, where n_samples is the number of samples
             and n_features is the number of features.
-        
+
         convert_dtype : bool, optional (default = False)
             When set to True, the transform method will automatically
             convert the input to the data type which was used to train the
@@ -333,7 +332,7 @@ class IncrementalPCA(PCA):
             n_samples = X.shape[0]
             output = []
             for batch in _gen_batches(n_samples, self.batch_size_,
-                                    min_batch_size=self.n_components or 0):
+                                      min_batch_size=self.n_components or 0):
                 output.append(super().transform(X[batch]))
             output, _, _, _ = \
                 input_to_cuml_array(cp.vstack(output), order='K')
@@ -378,6 +377,7 @@ def _gen_batches(n, batch_size, min_batch_size=0):
         start = end
     if start < n:
         yield slice(start, n)
+
 
 def _safe_accumulator_op(op, x, *args, **kwargs):
     """

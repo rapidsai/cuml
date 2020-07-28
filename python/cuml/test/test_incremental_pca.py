@@ -23,9 +23,7 @@ from cuml.datasets import make_blobs
 from cuml.decomposition import IncrementalPCA as cuIPCA
 
 from cuml.test.utils import array_equal
-from cuml.test.utils import unit_param
-from cuml.test.utils import quality_param
-from cuml.test.utils import stress_param
+
 
 @pytest.mark.parametrize('nrows', [500, 5000])
 @pytest.mark.parametrize('ncols', [15, 25])
