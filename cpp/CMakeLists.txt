@@ -64,7 +64,7 @@ option(BUILD_CUML_STD_COMMS "Build the standard NCCL+UCX Communicator" ON)
 
 option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
 
-option(BUILD_FAISS "Build the FAISS library for nearest neighbors search on GPU" OFF)
+option(BUILD_STATIC_FAISS "Build the FAISS library for nearest neighbors search on GPU" OFF)
 
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
@@ -188,11 +188,11 @@ GENERATE_FIND_MODULE(NAME UCX
                      HEADER_NAME ucp/api/ucp.h
                      LIBRARY_NAME ucp)
 
-if(NOT BUILD_FAISS)
+if(NOT BUILD_STATIC_FAISS)
 	GENERATE_FIND_MODULE(NAME FAISS
 	                     HEADER_NAME faiss/IndexFlat.h
 	                     LIBRARY_NAME faiss)
-endif(NOT BUILD_FAISS)
+endif(NOT BUILD_STATIC_FAISS)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
 
