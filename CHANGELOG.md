@@ -17,6 +17,7 @@
 - PR #2520: TfidfVectorizer estimator
 - PR #2211: MNMG KNN Classifier & Regressor
 - PR #2461: Add KNN Sparse Output Functionality
+- PR #2615: Incremental PCA
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
