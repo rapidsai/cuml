@@ -75,6 +75,11 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba):
     Input:
     X, y: shuffled input data and labels
     """
+    if isinstance(X, cudf.DataFrame):
+        X = cp.fromDlpack(X.to_dlpack())
+    if isinstance(y, cudf.Series):
+        y = cp.fromDlpack(y.to_dlpack())
+
     classes, y_indices = cp.unique(y, return_inverse=True)
     n_classes = classes.shape[0]
     class_counts = cp.bincount(y_indices)
@@ -87,13 +92,14 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba):
                          'equal to the number of classes = %d' %
                          (n_test, n_classes))
     class_indices = cp.split(cp.argsort(y_indices),
-                             cp.cumsum(class_counts)[:-1].item())
+                             n_classes)
 
     X_train = None
     n_per_class = int(n_train / n_classes)
 
     for i in range(n_classes):
         class_idxs = class_indices[i]
+        cp.random.shuffle(class_idxs)
         if hasattr(X, "__cuda_array_interface__") or \
            isinstance(X, cp.sparse.csr_matrix):
             X_i = X[class_idxs]
