@@ -43,8 +43,8 @@ def test_split_dataframe(train_size, shuffle):
     assert (
         len(X_test) == len(y_test) == pytest.approx((1 - train_size) * len(X))
     )
-    assert (all(X_train.index == y_train.index))
-    assert (all(X_test.index == y_test.index))
+    assert (all(X_train.index.to_pandas() == y_train.index.to_pandas()))
+    assert (all(X_test.index.to_pandas() == y_test.index.to_pandas()))
 
     X_reconstructed = cudf.concat([X_train, X_test]).sort_values(
         by=["x"]
