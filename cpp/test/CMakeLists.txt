@@ -116,11 +116,6 @@ endif(BUILD_CUML_MG_TESTS)
 ##############################################################################
 # - build prims_test executable ----------------------------------------------
 
-if(BUILD_FAISS)
-	list(APPEND PRIMS_TEST_LINK_LIBRARIES ${FAISS_LIBRARY})
-else()
-	list(APPEND PRIMS_TEST_LINK_LIBRARIES faisslib)
-endif(BUILD_FAISS)
 
 
 if(BUILD_PRIMS_TESTS)
@@ -232,6 +227,7 @@ if(BUILD_PRIMS_TESTS)
   add_dependencies(prims cutlass)
 
   target_link_libraries(prims
+  	FAISS::FAISS
     gtestlib
     gtest_mainlib
     ${PRIMS_TEST_LINK_LIBRARIES})
