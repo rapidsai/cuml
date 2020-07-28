@@ -665,7 +665,7 @@ __global__ void attractive_kernel_bh(
   // TODO: Calculate Kullback-Leibler divergence
   // TODO: Convert attractive forces to CSR format
   // Try single precision compute first
-  float denominator = __fmaf_rn(-2.0f, (Y1[i] * Y1[j]), norm_add1[i]) +
+  float denominator = __fmaf_rn(-2.0f, (Y1[i] * Y1[j]), norm[i] + 1.0f) +
                       __fmaf_rn(-2.0f, (Y2[i] * Y2[j]), norm[j]);
 
   if (__builtin_expect(denominator == 0, false)) {
