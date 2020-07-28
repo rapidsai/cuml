@@ -82,7 +82,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                                                   limiter.data(),
                                                   maxdepthd.data(),
                                                   radiusd.data(),
-                                                  flag_unstable_computation.data());
+                                                  flag_unstable_computation
+                                                    .data());
   CUDA_CHECK(cudaPeekAtLastError());
 
   const int FOUR_NNODES = 4 * nnodes;
@@ -250,14 +251,16 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     TSNE::
       attractive_kernel_bh<<<MLCommon::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
         VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, norm.data(),
-        attr_forces.data(), attr_forces.data() + n, NNZ, flag_unstable_computation.data());
+        attr_forces.data(), attr_forces.data() + n, NNZ,
+        flag_unstable_computation.data());
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
 
     MLCommon::copy(&h_flag, flag_unstable_computation.data(), 1, stream);
     if (h_flag) {
-      CUML_LOG_ERROR("Detected zero divisor in attractive force kernel, returning early."
-                    " Results may not be accurate.");
+      CUML_LOG_ERROR(
+        "Detected zero divisor in attractive force kernel, returning early."
+        " Results may not be accurate.");
       break;
     }
 

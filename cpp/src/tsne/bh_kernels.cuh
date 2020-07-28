@@ -39,7 +39,6 @@
 namespace ML {
 namespace TSNE {
 
-
 /**
  * Intializes the states of objects. This speeds the overall kernel up.
  */
@@ -666,12 +665,14 @@ __global__ void attractive_kernel_bh(
   // TODO: Calculate Kullback-Leibler divergence
   // TODO: Convert attractive forces to CSR format
   // Try single precision compute first
-  float denominator = __fmaf_rn(-2.0f, (Y1[i] * Y1[j]), norm_add1[i]) + __fmaf_rn(-2.0f, (Y2[i] * Y2[j]), norm[j]);
+  float denominator = __fmaf_rn(-2.0f, (Y1[i] * Y1[j]), norm_add1[i]) +
+                      __fmaf_rn(-2.0f, (Y2[i] * Y2[j]), norm[j]);
 
   if (__builtin_expect(denominator == 0, false)) {
     double _Y1 = static_cast<double>(Y1[i] * Y1[j]);
     double _Y2 = static_cast<double>(Y2[i] * Y2[j]);
-    double dbl_denominator = __fma_rn(-2.0f, _Y1, norm_add1[i]) + __fma_rn(-2.0f, _Y2, norm[j]);
+    double dbl_denominator =
+      __fma_rn(-2.0f, _Y1, norm_add1[i]) + __fma_rn(-2.0f, _Y2, norm[j]);
 
     if (__builtin_expect(dbl_denominator == 0, false)) {
       //printf("Detected zero in attractive force kernel denominator with __fma_rn(-2.0f, %lf, %lf) + "
