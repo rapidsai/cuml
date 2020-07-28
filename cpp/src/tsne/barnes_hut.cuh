@@ -259,8 +259,10 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     MLCommon::copy(&h_flag, flag_unstable_computation.data(), 1, stream);
     if (h_flag) {
       CUML_LOG_ERROR(
-        "Detected zero divisor in attractive force kernel, returning early."
-        " Results may not be accurate.");
+        "Detected zero divisor in attractive force kernel after '%d' iterations;"
+        " returning early. Your final results may not be accurate. In some cases"
+        " this error can be resolved by increasing perplexity, and n_neighbors;"
+        " if the problem persists, please use 'method=exact'.", iter);
       break;
     }
 
@@ -277,6 +279,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   }
   PRINT_TIMES;
 
+  // Copy final YY into true output Y
   MLCommon::copy(Y, YY.data(), n, stream);
   MLCommon::copy(Y + n, YY.data() + nnodes + 1, n, stream);
 }
