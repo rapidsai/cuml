@@ -188,15 +188,11 @@ GENERATE_FIND_MODULE(NAME UCX
                      HEADER_NAME ucp/api/ucp.h
                      LIBRARY_NAME ucp)
 
-if(BUILD_FAISS)
-	message("BUILDING FAISS")
-	set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src/")
-else()
-	message("Looking for FAISS lib")
+if(NOT BUILD_FAISS)
 	GENERATE_FIND_MODULE(NAME FAISS
 	                     HEADER_NAME faiss/IndexFlat.h
 	                     LIBRARY_NAME faiss)
-endif(BUILD_FAISS)
+endif(NOT BUILD_FAISS)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
 
@@ -295,16 +291,12 @@ message("-- Building for GPU_ARCHS = ${GPU_ARCHS}")
 
 foreach(arch ${GPU_ARCHS})
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
-  if(BUILD_FAISS)
-  	  set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${arch},code=sm_${arch}")
-  endif(BUILD_FAISS)
+  set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${arch},code=sm_${arch}")
 endforeach()
 
 list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
-if(BUILD_FAISS)
-	set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
-endif(BUILD_FAISS)
+set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
 
 if(CMAKE_COMPILER_IS_GNUCXX)
   if(NOT CMAKE_CXX11_ABI)
@@ -349,10 +341,6 @@ set(CUML_PUBLIC_LINK_LIBRARIES
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
   )
-
-if(BUILD_FAISS)
-	 set(FAISS_LIBRARIES faisslib)
-endif(BUILD_FAISS)
 
 
 set(CUML_PRIVATE_LINK_LIBRARIES
