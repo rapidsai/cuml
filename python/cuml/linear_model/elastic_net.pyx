@@ -21,7 +21,8 @@
 
 from cuml.solvers import CD
 from cuml.common.base import Base, RegressorMixin
-
+from cuml.common.array import CumlArrayDescriptor
+from cuml.common.memory_utils import with_cupy_rmm
 
 class ElasticNet(Base, RegressorMixin):
 
@@ -137,6 +138,8 @@ class ElasticNet(Base, RegressorMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
 
+    coef_ = CumlArrayDescriptor()
+
     def __init__(self, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3, selection='cyclic',
                  handle=None, output_type=None):
@@ -201,6 +204,7 @@ class ElasticNet(Base, RegressorMixin):
             msg = "l1_ratio value has to be between 0.0 and 1.0"
             raise ValueError(msg.format(l1_ratio))
 
+    @with_cupy_rmm
     def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
@@ -223,6 +227,7 @@ class ElasticNet(Base, RegressorMixin):
             will increase memory used for the method.
         """
         self._set_n_features_in(X)
+        self._set_output_type(X)
 
         self.cuElasticNet.fit(X, y, convert_dtype=convert_dtype)
 
@@ -231,6 +236,7 @@ class ElasticNet(Base, RegressorMixin):
 
         return self
 
+    @with_cupy_rmm
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.

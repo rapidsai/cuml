@@ -20,6 +20,8 @@
 # cython: language_level = 3
 
 from cuml.solvers import CD
+from cuml.common.array import CumlArrayDescriptor
+from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.base import Base, RegressorMixin
 
 
@@ -126,6 +128,8 @@ class Lasso(Base, RegressorMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
 
+    coef_ = CumlArrayDescriptor()
+
     def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
                  max_iter=1000, tol=1e-3, selection='cyclic', handle=None,
                  output_type=None):
@@ -165,6 +169,7 @@ class Lasso(Base, RegressorMixin):
             msg = "alpha value has to be positive"
             raise ValueError(msg.format(alpha))
 
+    @with_cupy_rmm
     def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
@@ -187,10 +192,11 @@ class Lasso(Base, RegressorMixin):
             will increase memory used for the method.
         """
         self._set_n_features_in(X)
+        self._set_output_type(X)
 
         self.culasso.fit(X, y, convert_dtype=convert_dtype)
 
-        self.coef_ = self.culasso.coef_
+        self.coef_ = self.culasso._coef_
         self.intercept_ = self.culasso.intercept_
 
         return self

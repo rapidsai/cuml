@@ -28,7 +28,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.array import CumlArray
+from cuml.common.array import CumlArray, CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.common import get_cudf_column_ptr
@@ -36,6 +36,7 @@ from cuml.common import get_dev_array_ptr
 from cuml.common import input_to_dev_array
 from cuml.common import zeros
 from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.memory_utils import with_cupy_rmm
 
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
@@ -174,6 +175,8 @@ class CD(Base):
 
     """
 
+    coef_ = CumlArrayDescriptor()
+
     def __init__(self, loss='squared_loss', alpha=0.0001, l1_ratio=0.15,
                  fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3,
                  shuffle=True, handle=None, output_type=None):
@@ -194,7 +197,7 @@ class CD(Base):
         self.tol = tol
         self.shuffle = shuffle
         self.intercept_value = 0.0
-        self._coef_ = None   # accessed via estimator.coef_
+        self.coef_ = None   # accessed via estimator.coef_
         self.intercept_ = None
 
     def _check_alpha(self, alpha):
@@ -208,6 +211,7 @@ class CD(Base):
             'squared_loss': 0,
         }[loss]
 
+    @with_cupy_rmm
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
@@ -246,8 +250,8 @@ class CD(Base):
 
         self.n_alpha = 1
 
-        self._coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        self.coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float c_intercept1
         cdef double c_intercept2
@@ -294,6 +298,7 @@ class CD(Base):
 
         return self
 
+    @with_cupy_rmm
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
@@ -324,7 +329,7 @@ class CD(Base):
                                 check_cols=self.n_cols)
 
         cdef uintptr_t X_ptr = X_m.ptr
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr = preds.ptr

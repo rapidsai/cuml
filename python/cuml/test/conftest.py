@@ -73,18 +73,32 @@ def fail_on_bad_cuml_array_name(monkeypatch):
 
     from cuml.common import CumlArray
     from cuml.common.base import Base
+    from cuml.common.array import CumlArrayDescriptor
+    from cuml.common.input_utils import get_supported_input_type
 
     def patched__setattr__(self, name, value):
 
-        if isinstance(value, CumlArray):
-            assert name.startswith("_"), "Invalid CumlArray Use! Attribute: \
-                '{}' In: {}".format(name, self.__repr__())
+        supported_type = get_supported_input_type(value)
+
+        curr_allocator = cp.cuda.get_allocator()
+
+        if (supported_type == CumlArray):
+            if (name in type(self).__dict__ and type(type(self).__dict__[name]) == CumlArrayDescriptor):
+                # This situation is OK if we are using a descriptor
+                pass
+            else:
+                assert name.startswith("_"), "Invalid CumlArray Use! Attribute: \
+                    '{}' In: {}".format(name, self.__repr__())
+        elif (supported_type is not None):
+            # Additional checks for settings specific types on an object
+            assert not name.endswith("_") and not name.startswith("_"), "Attribute: '{}' In: {}".format(name, self.__repr__())
+            # print("Setting non-CumlArray type. Class: {}, Attr: {}, Value Type: {}".format(self.__class__.__name__, name, str(supported_type)))
 
         return super(Base, self).__setattr__(name, value)
 
     """Monkeypatch CumlArray.__setattr__ to assert array attributes have a
        leading underscore. i.e. `self._my_variable_ = CumlArray.ones(10)`."""
-    monkeypatch.setattr(Base, "__setattr__",  patched__setattr__)
+    monkeypatch.setattr(Base, "__setattr__", patched__setattr__)
 
 
 @pytest.fixture(scope="module")

@@ -359,3 +359,37 @@ def _check_low_level_type(data):
         return True
     else:
         return False
+
+
+class CumlArrayDescriptor():
+    '''Descriptor for a meter.'''
+    def __set_name__(self, owner, name):
+        self.name = name
+        self.internal_name = '_' + self.name
+
+    # def __init__(self, value=None):
+    #     self.value = float(value)
+
+    def __get__(self, instance, owner):
+
+        if (instance is None):
+            return None
+
+        internal_val = instance.__dict__.setdefault(self.internal_name, None)
+
+        # if (internal_val is None):
+        #     raise AttributeError()
+
+        if (isinstance(internal_val, CumlArray)):
+
+            # If we are within a cython call (which should be decorated), dont bother converting
+            if (cp.cuda.get_allocator().__module__ == "rmm.rmm"):
+                return internal_val
+
+            return internal_val.to_output(instance.output_type)
+
+        return internal_val
+
+    def __set__(self, instance, value):
+        instance.__dict__[self.internal_name] = value
+

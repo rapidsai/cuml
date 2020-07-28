@@ -55,6 +55,36 @@ def get_cudf_column_ptr(col):
     return col.__cuda_array_interface__['data'][0]
 
 
+def get_supported_input_type(X):
+    if (isinstance(X, cudf.Series)):
+        if X.null_count != 0:
+            return None
+        else:
+            return cudf.Series
+
+    # converting pandas to numpy before sending it to CumlArray
+    if isinstance(X, pd.DataFrame):
+        return pd.DataFrame
+
+    if isinstance(X, pd.Series):
+        return pd.Series
+
+    if isinstance(X, cudf.DataFrame):
+        return cudf.DataFrame
+
+    if isinstance(X, CumlArray):
+        return CumlArray
+
+    if hasattr(X, "__cuda_array_interface__"):
+        return cp.ndarray
+
+    if hasattr(X, "__array_interface__"):
+        return np.ndarray
+
+    # Return None if this type isnt supported
+    return None
+
+
 @with_cupy_rmm
 def input_to_cuml_array(X, order='F', deepcopy=False,
                         check_dtype=False, convert_to_dtype=False,
