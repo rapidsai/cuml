@@ -64,7 +64,7 @@ option(BUILD_CUML_STD_COMMS "Build the standard NCCL+UCX Communicator" ON)
 
 option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
 
-option(BUILD_FAISS "Build the FAISS library for nearest neighbors search on GPU" ON)
+option(BUILD_FAISS "Build the FAISS library for nearest neighbors search on GPU" OFF)
 
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
@@ -350,17 +350,18 @@ set(CUML_PUBLIC_LINK_LIBRARIES
   ${CUDA_cusparse_LIBRARY}
   )
 
+if(BUILD_FAISS)
+	 set(FAISS_LIBRARIES faisslib)
+endif(BUILD_FAISS)
+
+
 set(CUML_PRIVATE_LINK_LIBRARIES
+  FAISS::FAISS
   treelite::treelite
   treelite::treelite_runtime
   RMM::RMM
   )
   
-if(BUILD_FAISS)
-	list(APPEND CUML_PRIVATE_LINK_LIBRARIES faisslib)
-else()
-	list(APPEND CUML_PRIVATE_LINK_LIBRARIES ${FAISS_LIBRARIES})
-endif(BUILD_FAISS)
 
 if(ENABLE_CUMLPRIMS_MG)
   list(APPEND CUML_INCLUDE_DIRECTORIES

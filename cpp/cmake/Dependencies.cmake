@@ -153,10 +153,13 @@ if(BUILD_FAISS)
 	
 	ExternalProject_Get_Property(faiss install_dir)
 	
-	add_library(faisslib STATIC IMPORTED)
+	add_library(FAISS::FAISS STATIC IMPORTED)
 	
-	set_property(TARGET faisslib PROPERTY
+	set_property(TARGET FAISS::FAISS PROPERTY
 	  IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
+else() 
+set(FAISS_INSTALL_DIR ENV{FAISS_ROOT})
+find_package(FAISS REQUIRED)
 endif(BUILD_FAISS)
 ##############################################################################
 # - treelite build -----------------------------------------------------------
@@ -231,7 +234,6 @@ add_dependencies(cutlass cub)
 add_dependencies(spdlog cutlass)
 add_dependencies(googletest spdlog)
 add_dependencies(benchmark googletest)
-if(BUILD_FAISS)
-	add_dependencies(faiss benchmark)
-	add_dependencies(faisslib faiss)
-endif(BUILD_FAISS)
+add_dependencies(FAISS::FAISS benchmark)
+add_dependencies(FAISS::FAISS faiss)
+
