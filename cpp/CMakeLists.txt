@@ -41,6 +41,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
+set(BLAS_LIBRARIES "" CACHE STRING
+    "Location of BLAS library for FAISS build.")
+
 option(BUILD_CUML_C_LIBRARY "Build libcuml shared library. Contains the cuML C API" ON)
 
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml++ shared library" ON)
@@ -60,6 +63,8 @@ option(BUILD_CUML_PRIMS_BENCH "Build ml-prims C++ benchmark tests" ON)
 option(BUILD_CUML_STD_COMMS "Build the standard NCCL+UCX Communicator" ON)
 
 option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
+
+option(BUILD_FAISS "Build the FAISS library for nearest neighbors search on GPU" ON)
 
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
@@ -183,6 +188,16 @@ GENERATE_FIND_MODULE(NAME UCX
                      HEADER_NAME ucp/api/ucp.h
                      LIBRARY_NAME ucp)
 
+if(BUILD_FAISS)
+	message("BUILDING FAISS")
+	set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src/")
+else()
+	message("Looking for FAISS lib")
+	GENERATE_FIND_MODULE(NAME FAISS
+	                     HEADER_NAME faiss/IndexFlat.h
+	                     LIBRARY_NAME faiss)
+endif(BUILD_FAISS)
+
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
 
 # append additional directories to CMAKE_MODULE_PATH if we need other modules here
@@ -280,10 +295,16 @@ message("-- Building for GPU_ARCHS = ${GPU_ARCHS}")
 
 foreach(arch ${GPU_ARCHS})
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
+  if(BUILD_FAISS)
+  	  set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${arch},code=sm_${arch}")
+  endif(BUILD_FAISS)
 endforeach()
 
 list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
+if(BUILD_FAISS)
+	set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
+endif(BUILD_FAISS)
 
 if(CMAKE_COMPILER_IS_GNUCXX)
   if(NOT CMAKE_CXX11_ABI)
@@ -316,7 +337,7 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
   ${SPDLOG_DIR}/src/spdlog/include
-  ${FAISS_FAISS_INCLUDE_DIR}
+  ${FAISS_INCLUDE_DIRS}
   ${RAFT_DIR}/cpp/include
   ${RMM_INCLUDE_DIRS}
   )
@@ -330,11 +351,16 @@ set(CUML_PUBLIC_LINK_LIBRARIES
   )
 
 set(CUML_PRIVATE_LINK_LIBRARIES
-  FAISS::FAISS
   treelite::treelite
   treelite::treelite_runtime
   RMM::RMM
   )
+  
+if(BUILD_FAISS)
+	list(APPEND CUML_PRIVATE_LINK_LIBRARIES faisslib)
+else()
+	list(APPEND CUML_PRIVATE_LINK_LIBRARIES ${FAISS_LIBRARIES})
+endif(BUILD_FAISS)
 
 if(ENABLE_CUMLPRIMS_MG)
   list(APPEND CUML_INCLUDE_DIRECTORIES

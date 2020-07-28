@@ -129,7 +129,7 @@ ExternalProject_Add(spdlog
 ##############################################################################
 # - faiss --------------------------------------------------------------------
 
-if(BUILD_CUML_C_LIBRARY)
+if(BUILD_FAISS)
 	set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
 	  "Path to FAISS source directory")
 	ExternalProject_Add(faiss
@@ -157,8 +157,7 @@ if(BUILD_CUML_C_LIBRARY)
 	
 	set_property(TARGET faisslib PROPERTY
 	  IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
-find_package(FAISS REQUIRED)
-
+endif(BUILD_FAISS)
 ##############################################################################
 # - treelite build -----------------------------------------------------------
 
@@ -232,4 +231,7 @@ add_dependencies(cutlass cub)
 add_dependencies(spdlog cutlass)
 add_dependencies(googletest spdlog)
 add_dependencies(benchmark googletest)
-add_dependencies(FAISS::FAISS benchmark)
+if(BUILD_FAISS)
+	add_dependencies(faiss benchmark)
+	add_dependencies(faisslib faiss)
+endif(BUILD_FAISS)
