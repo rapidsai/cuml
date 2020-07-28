@@ -21,6 +21,7 @@
 import ctypes
 import cudf
 import numpy as np
+import cupy as cp
 
 from numba import cuda
 
@@ -31,7 +32,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common import CumlArray
 from cuml.common.handle cimport cumlHandle
-from cuml.common import input_to_cuml_array
+from cuml.common import input_to_cuml_array, with_cupy_rmm
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
@@ -293,6 +294,7 @@ class SGD(Base):
             'elasticnet': 3
         }[penalty]
 
+    @with_cupy_rmm
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
@@ -314,6 +316,8 @@ class SGD(Base):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
+        self._set_output_type(X)
+        self._set_target_dtype(y)
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -323,6 +327,10 @@ class SGD(Base):
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
                                 check_rows=n_rows, check_cols=1)
+
+        _estimator_type = getattr(self, '_estimator_type', None)
+        if _estimator_type == "classifier":
+            self.classes_ = cp.unique(y_m)
 
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t y_ptr = y_m.ptr
@@ -412,6 +420,7 @@ class SGD(Base):
         y: Type specified in `output_type`
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
+        output_type = self._get_output_type(X)
 
         X_m, n_rows, n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -450,8 +459,6 @@ class SGD(Base):
 
         del(X_m)
 
-        output_type = self._get_output_type(X)
-
         return preds.to_output(output_type)
 
     def predictClass(self, X, convert_dtype=False):
@@ -475,6 +482,8 @@ class SGD(Base):
         y : Type specified in `output_type`
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
+        output_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype()
 
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -511,6 +520,4 @@ class SGD(Base):
 
         del(X_m)
 
-        output_type = self._get_output_type(X)
-
-        return preds.to_output(output_type)
+        return preds.to_output(output_type=output_type, output_dtype=out_dtype)

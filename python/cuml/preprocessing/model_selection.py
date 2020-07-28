@@ -26,7 +26,7 @@ from typing import Union
 
 def train_test_split(
     X,
-    y,
+    y=None,
     test_size: Union[float, int] = None,
     train_size: Union[float, int] = None,
     shuffle: bool = True,
@@ -117,21 +117,27 @@ def train_test_split(
     # todo: this check will be replaced with upcoming improvements
     # to input_utils
     #
-    if not hasattr(X, "__cuda_array_interface__") and not \
-            isinstance(X, cudf.DataFrame) and isinstance(y, cudf.Series):
-        raise TypeError("X needs to be either a cuDF DataFrame, Series or \
-                        a cuda_array_interface compliant array.")
+    if y is not None:
+        if not hasattr(X, "__cuda_array_interface__") and not \
+                isinstance(X, cudf.DataFrame):
+            raise TypeError("X needs to be either a cuDF DataFrame, Series or \
+                            a cuda_array_interface compliant array.")
 
-    if not hasattr(y, "__cuda_array_interface__") and not \
-            isinstance(y, cudf.DataFrame) and isinstance(y, cudf.Series):
-        raise TypeError("y needs to be either a cuDF DataFrame, Series or \
-                        a cuda_array_interface compliant array.")
+        if not hasattr(y, "__cuda_array_interface__") and not \
+                isinstance(y, cudf.DataFrame):
+            raise TypeError("y needs to be either a cuDF DataFrame, Series or \
+                            a cuda_array_interface compliant array.")
 
-    if X.shape[0] != y.shape[0]:
-        raise ValueError(
-            "X and y must have the same first dimension"
-            "(found {} and {})".format(X.shape[0], y.shape[0])
-        )
+        if X.shape[0] != y.shape[0]:
+            raise ValueError(
+                "X and y must have the same first dimension"
+                "(found {} and {})".format(X.shape[0], y.shape[0])
+            )
+    else:
+        if not hasattr(X, "__cuda_array_interface__") and not \
+                isinstance(X, cudf.DataFrame):
+            raise TypeError("X needs to be either a cuDF DataFrame, Series or \
+                            a cuda_array_interface compliant object.")
 
     if isinstance(train_size, float):
         if not 0 <= train_size <= 1:
@@ -235,18 +241,22 @@ def train_test_split(
     if hasattr(X, "__cuda_array_interface__") or \
             isinstance(X, cp.sparse.csr_matrix):
         X_train = cp.array(X[0:train_size], order=x_order)
-        y_train = cp.array(y[0:train_size], order=y_order)
+        if y is not None:
+            y_train = cp.array(y[0:train_size], order=y_order)
     elif isinstance(X, cudf.DataFrame):
         X_train = X.iloc[0:train_size]
-        y_train = y.iloc[0:train_size]
+        if y is not None:
+            y_train = y.iloc[0:train_size]
 
     if hasattr(X, "__cuda_array_interface__") or \
             isinstance(X, cp.sparse.csr_matrix):
         X_test = cp.array(X[-1 * test_size:], order=x_order)
-        y_test = cp.array(y[-1 * test_size:], order=y_order)
+        if y is not None:
+            y_test = cp.array(y[-1 * test_size:], order=y_order)
     elif isinstance(X, cudf.DataFrame):
         X_test = X.iloc[-1 * test_size:]
-        y_test = y.iloc[-1 * test_size:]
+        if y is not None:
+            y_test = y.iloc[-1 * test_size:]
 
     if x_numba:
         X_train = cuda.as_cuda_array(X_train)
@@ -256,4 +266,7 @@ def train_test_split(
         y_train = cuda.as_cuda_array(y_train)
         y_test = cuda.as_cuda_array(y_test)
 
-    return X_train, X_test, y_train, y_test
+    if y is not None:
+        return X_train, X_test, y_train, y_test
+    else:
+        return X_train, X_test

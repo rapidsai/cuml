@@ -36,7 +36,7 @@ from cuml.decomposition.utils cimport *
 from cuml.linear_model.base_mg import MGFitMixin
 from cuml.solvers import CD
 
-cdef extern from "cumlprims/opg/cd.hpp" namespace "ML::CD::opg":
+cdef extern from "cuml/solvers/cd_mg.hpp" namespace "ML::CD::opg":
 
     cdef void fit(cumlHandle& handle,
                   vector[floatData_t *] input_data,
