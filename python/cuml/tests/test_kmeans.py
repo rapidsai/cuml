@@ -362,3 +362,10 @@ def test_fit_transform_weighted_kmeans(nrows, ncols, nclusters,
 
     assert abs(cu_score - sk_score) <= cluster_std * 1.5
     assert sk_transf.shape == cuml_transf.shape
+=======
+
+    expected_score *= -1
+
+    cp.testing.assert_allclose(
+        actual_score, expected_score, atol=0.1, rtol=1e-5)
+>>>>>>> Updating single gpu test to be a little more robust:python/cuml/test/test_kmeans.py
