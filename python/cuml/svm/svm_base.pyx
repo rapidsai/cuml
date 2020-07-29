@@ -84,7 +84,8 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                              int n_rows, int n_cols, math_t *labels,
                              const svmParameter &param,
                              KernelParams &kernel_params,
-                             svmModel[math_t] &model) except+
+                             svmModel[math_t] &model,
+                             const math_t *sample_weight) except+
 
     cdef void svcPredict[math_t](
         const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
