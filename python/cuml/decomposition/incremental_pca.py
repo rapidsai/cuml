@@ -17,7 +17,6 @@
 import cupy as cp
 import scipy
 import numbers
-import numpy as np
 
 from cuml.common import with_cupy_rmm
 from cuml.common.input_utils import sparse_scipy_to_cp
@@ -263,7 +262,7 @@ class IncrementalPCA(PCA):
             _incremental_mean_and_var(
                 X, last_mean=self._mean_, last_variance=self.var_,
                 last_sample_count=cp.repeat(cp.asarray([self.n_samples_seen_]),
-                                                       X.shape[1]))
+                                            X.shape[1]))
         n_total_samples = n_total_samples[0]
 
         # Whitening
