@@ -590,8 +590,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
 
   // assuming either all leaves use the .leaf_vector() or all leaves use .leaf_value()
   size_t leaf_vec_size = tl_leaf_vector_size(model);
-  /** Fil currently supports only `identity_multiclass` and `max_index`
-      values for pred_transform in multi class classification models */
+  std::string pred_transform(param.pred_transform);
   if (leaf_vec_size > 0) {
     ASSERT(leaf_vec_size == model.num_output_group,
            "treelite model inconsistent");
@@ -601,15 +600,14 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     ASSERT(tl_params->output_class,
            "output_class==true is required for multi-class models");
 
-    std::string pred_transform(param.pred_transform);
     ASSERT(pred_transform == "max_index" || pred_transform == "identity_multiclass", 
            "only max_index and identity_multiclass values of pred_transform "
            "are supported for multi-class models");
 
   } else {
-    /** Fil currently supports only `identity` and `sigmoid`
-        values for pred_transform in binary classification and regression
-        models */
+    ASSERT(pred_transform == "sigmoid" || pred_transform == "identity", 
+           "only sigmoid and identity values of pred_transform "
+           "are supported for binary classification and regression models");
     params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
     params->num_classes = 0;  // ignored
   }
