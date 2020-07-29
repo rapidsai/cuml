@@ -357,7 +357,7 @@ def test_svc_weights(class_weight, sample_weight):
     if class_weight is not None or sample_weight is not None:
         # Standalone test: check if smaller blob is correctly classified in the
         # presence of class weights
-        X_1 = X[y==1, :]
+        X_1 = X[y == 1, :]
         y_1 = np.ones(X_1.shape[0])
         cu_score = cuSVC.score(X_1, y_1)
         assert cu_score > 0.9
