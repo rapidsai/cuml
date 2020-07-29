@@ -192,40 +192,39 @@ class TargetEncoder:
 
         cols = [self.fold_col]+x_cols
 
-        agg_each_fold = train.groupby(cols).agg({self.y_col:
-                                                 ['count',
-                                                  'sum']}).reset_index()
-        agg_each_fold.columns = cols + ['count_y', 'sum_y']
+        agg_y_count = train.groupby(cols, as_index=False)\
+            .agg({self.y_col: 'count'})
+       
+        agg_y_sum = train.groupby(cols, as_index=False)\
+             .agg({self.y_col: 'sum'})
 
-        agg_all = agg_each_fold.groupby(x_cols).agg({'count_y': 'sum',
-                                                     'sum_y': 'sum'})\
-                                               .reset_index()
-        cols = x_cols
-        agg_all.columns = cols + ['count_y_all', 'sum_y_all']
+        agg_all_y_count = agg_y_count.groupby(x_cols, as_index=False)\
+            .agg({self.y_col: 'sum'})
 
-        agg_each_fold = agg_each_fold.merge(agg_all, on=x_cols, how='left')
-        agg_each_fold['count_y_all'] = agg_each_fold['count_y_all'] - \
-            agg_each_fold['count_y']
-        agg_each_fold['sum_y_all'] = agg_each_fold['sum_y_all'] - \
-            agg_each_fold['sum_y']
-        agg_each_fold[self.out_col] = (agg_each_fold['sum_y_all'] +
+        agg_all_y_sum = agg_y_sum.groupby(x_cols, as_index=False)\
+            .agg({self.y_col: 'sum'})  
+
+        agg_y_count = agg_y_count.merge(agg_all_y_count, on=x_cols, how='left')
+        agg_y_sum = agg_y_sum.merge(agg_all_y_sum, on=x_cols, how='left')
+        agg_y_count[f'{self.y_col}_x'] = agg_y_count[f'{self.y_col}_y'] -\
+            agg_y_count[f'{self.y_col}_x']
+        agg_y_sum[f'{self.y_col}_x'] = agg_y_sum[f'{self.y_col}_y'] -\
+            agg_y_sum[f'{self.y_col}_x']
+ 
+        agg_y_sum[self.out_col] = (agg_y_sum[f'{self.y_col}_x'] +
                                        self.smooth*self.mean) / \
-                                      (agg_each_fold['count_y_all'] +
+                                      (agg_y_count[f'{self.y_col}_x'] +
                                        self.smooth)
-        agg_each_fold = agg_each_fold.drop(['count_y_all',
-                                            'count_y',
-                                            'sum_y_all',
-                                            'sum_y'], axis=1)
 
-        agg_all[self.out_col] = (agg_all['sum_y_all'] + self.smooth *
-                                 self.mean) / \
-            (agg_all['count_y_all'] + self.smooth)
-        agg_all = agg_all.drop(['count_y_all', 'sum_y_all'], axis=1)
-        self.agg_all = agg_all
+        agg_all_y_sum[self.out_col] = (agg_all_y_sum[self.y_col] +
+                                       self.smooth*self.mean) / \
+                                      (agg_all_y_count[self.y_col] +
+                                       self.smooth) 
+        self.agg_all = agg_all_y_sum
 
         cols = [self.fold_col]+x_cols
-        train = train.merge(agg_each_fold, on=cols, how='left')
-        del agg_each_fold
+        train = train.merge(agg_y_sum, on=cols, how='left')
+        del agg_y_sum
         return self._get_return_value(train), train
 
     def _check_is_fitted(self):
@@ -236,7 +235,7 @@ class TargetEncoder:
 
     def _is_train_df(self, df):
         """
-        Return True if the dataframe `df` is the training dataframe, which 
+        Return True if the dataframe `df` is the training dataframe, which
         is used in `fit_transform`
         """
         if len(df) != len(self.train):
