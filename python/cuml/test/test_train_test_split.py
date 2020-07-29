@@ -266,12 +266,13 @@ def test_split_array_single_argument(type, test_size, train_size, shuffle):
 
         assert X_rec == X
 
+        
 @pytest.mark.parametrize('type', test_array_input_types)
 @pytest.mark.parametrize('test_size', [0.2, 0.4, None])
 @pytest.mark.parametrize('train_size', [0.6, 0.8, None])
 def test_stratified_split(type, test_size, train_size):
     X, y = make_classification()
-    
+
     if type == 'cupy':
         X = cp.asarray(X)
         y = cp.asarray(y)
@@ -279,7 +280,7 @@ def test_stratified_split(type, test_size, train_size):
     if type == 'numba':
         X = cuda.to_device(X)
         y = cuda.to_device(y)
-        
+
     def counts(y):
         _ , y_indices = cp.unique(y, return_inverse=True)
         class_counts = cp.bincount(y_indices)
@@ -288,13 +289,12 @@ def test_stratified_split(type, test_size, train_size):
         for count in (class_counts):
             percent_counts.append(cp.around(float(count)/total.item(), decimals=2).item())
         return percent_counts
-    
+
     X_train, X_test, y_train, y_test = train_test_split(X, y, 
                                                         train_size=train_size,
                                                         test_size=test_size,
                                                         stratify=True)
-    
+
     original_counts = counts(y)
     split_counts = counts(y_train)
     np.isclose(original_counts, split_counts, equal_nan=False)
-#     cp.testing.assert_array_almost_equal_nulp(original_counts, split_counts, nulp=0)
