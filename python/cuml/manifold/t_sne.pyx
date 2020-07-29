@@ -102,8 +102,8 @@ class TSNE(Base):
     n_iter : int (default 1000)
         The more epochs, the more stable/accurate the final embedding.
     n_iter_without_progress : int (default 300)
-        When the KL Divergence becomes too small after some iterations,
-        terminate TSNE early.
+        Currently unused. When the KL Divergence becomes too small after some
+        iterations, terminate TSNE early.
     min_grad_norm : float (default 1e-07)
         The minimum gradient norm for when TSNE will terminate early.
     metric : str 'euclidean' only (default 'euclidean')
