@@ -62,6 +62,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   // Get device properites
   //---------------------------------------------------
   const int blocks = MLCommon::getMultiProcessorCount();
+  int h_flag;
 
   int nnodes = n * 2;
   if (nnodes < 1024 * blocks) nnodes = 1024 * blocks;
@@ -70,17 +71,19 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   CUML_LOG_DEBUG("N_nodes = %d blocks = %d", nnodes, blocks);
 
   // Allocate more space
-  //---------------------------------------------------
   // MLCommon::device_buffer<unsigned> errl(d_alloc, stream, 1);
   MLCommon::device_buffer<unsigned> limiter(d_alloc, stream, 1);
   MLCommon::device_buffer<int> maxdepthd(d_alloc, stream, 1);
   MLCommon::device_buffer<int> bottomd(d_alloc, stream, 1);
   MLCommon::device_buffer<float> radiusd(d_alloc, stream, 1);
+  MLCommon::device_buffer<int> flag_unstable_computation(d_alloc, stream, 1);
 
   TSNE::InitializationKernel<<<1, 1, 0, stream>>>(/*errl.data(),*/
                                                   limiter.data(),
                                                   maxdepthd.data(),
-                                                  radiusd.data());
+                                                  radiusd.data(),
+                                                  flag_unstable_computation
+                                                    .data());
   CUDA_CHECK(cudaPeekAtLastError());
 
   const int FOUR_NNODES = 4 * nnodes;
@@ -114,7 +117,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   MLCommon::device_buffer<float> attr_forces(
     d_alloc, stream, n * 2);  // n*2 double for reduction sum
 
-  MLCommon::device_buffer<float> norm_add1(d_alloc, stream, n);
   MLCommon::device_buffer<float> norm(d_alloc, stream, n);
   MLCommon::device_buffer<float> Z_norm(d_alloc, stream, 1);
 
@@ -122,6 +124,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Apply
   MLCommon::device_buffer<float> gains_bh(d_alloc, stream, n * 2);
+
   thrust::device_ptr<float> begin_gains_bh =
     thrust::device_pointer_cast(gains_bh.data());
   thrust::fill(thrust::cuda::par.on(stream), begin_gains_bh,
@@ -147,7 +150,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   cudaFuncSetCacheConfig(TSNE::RepulsionKernel, cudaFuncCachePreferL1);
   cudaFuncSetCacheConfig(TSNE::attractive_kernel_bh, cudaFuncCachePreferL1);
   cudaFuncSetCacheConfig(TSNE::IntegrationKernel, cudaFuncCachePreferL1);
-
   // Do gradient updates
   //---------------------------------------------------
   CUML_LOG_DEBUG("Start gradient updates!");
@@ -162,6 +164,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     CUDA_CHECK(cudaMemsetAsync(static_cast<void *>(attr_forces.data()), 0,
                                attr_forces.size() * sizeof(*attr_forces.data()),
                                stream));
+
     TSNE::Reset_Normalization<<<1, 1, 0, stream>>>(
       Z_norm.data(), radiusd_squared.data(), bottomd.data(), NNODES,
       radiusd.data());
@@ -240,7 +243,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     START_TIMER;
     TSNE::get_norm<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
-      YY.data(), YY.data() + nnodes + 1, norm.data(), norm_add1.data(), n);
+      YY.data(), YY.data() + nnodes + 1, norm.data(), n);
     CUDA_CHECK(cudaPeekAtLastError());
 
     // TODO: Calculate Kullback-Leibler divergence
@@ -248,9 +251,23 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     TSNE::
       attractive_kernel_bh<<<MLCommon::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
         VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, norm.data(),
-        norm_add1.data(), attr_forces.data(), attr_forces.data() + n, NNZ);
+        attr_forces.data(), attr_forces.data() + n, NNZ,
+        flag_unstable_computation.data());
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
+
+    MLCommon::copy(&h_flag, flag_unstable_computation.data(), 1, stream);
+    if (h_flag) {
+      CUML_LOG_ERROR(
+        "Detected zero divisor in attractive force kernel after '%d' "
+        "iterations;"
+        " returning early. Your final results may not be accurate. In some "
+        "cases"
+        " this error can be resolved by increasing perplexity, and n_neighbors;"
+        " if the problem persists, please use 'method=exact'.",
+        iter);
+      break;
+    }
 
     START_TIMER;
     TSNE::IntegrationKernel<<<blocks * FACTOR6, THREADS6, 0, stream>>>(
