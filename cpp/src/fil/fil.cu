@@ -600,12 +600,13 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     ASSERT(tl_params->output_class,
            "output_class==true is required for multi-class models");
 
-    ASSERT(pred_transform == "max_index" || pred_transform == "identity_multiclass", 
-           "only max_index and identity_multiclass values of pred_transform "
-           "are supported for multi-class models");
+    ASSERT(
+      pred_transform == "max_index" || pred_transform == "identity_multiclass",
+      "only max_index and identity_multiclass values of pred_transform "
+      "are supported for multi-class models");
 
   } else {
-    ASSERT(pred_transform == "sigmoid" || pred_transform == "identity", 
+    ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
            "only sigmoid and identity values of pred_transform "
            "are supported for binary classification and regression models");
     params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
