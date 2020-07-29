@@ -46,6 +46,7 @@
 - PR #2892 Update ci/local/README.md
 - PR #2910: Adding Support for CuPy 8.x
 - PR #2914: Add tests for XGBoost multi-class models in FIL
+- PR #2622: Simplify tSNE perplexity search
 
 ## Bug Fixes
 - PR #2882: Allow import on machines without GPUs
