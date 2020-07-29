@@ -21,49 +21,7 @@ import warnings
 from cuml.common.memory_utils import _strides_to_order
 from cuml.common.memory_utils import rmm_cupy_ary
 from numba import cuda
-from typing import Union
-
-
-def slice_data(X, y, train_size, test_size, x_numba, y_numba):
-    if hasattr(X, "__cuda_array_interface__"):
-        x_order = _strides_to_order(X.__cuda_array_interface__['strides'],
-                                    cp.dtype(X.dtype))
-
-    if hasattr(y, "__cuda_array_interface__"):
-        y_order = _strides_to_order(y.__cuda_array_interface__['strides'],
-                                    cp.dtype(y.dtype))
-
-    if hasattr(X, "__cuda_array_interface__") or \
-            isinstance(X, cp.sparse.csr_matrix):
-        X_train = cp.array(X[0:train_size], order=x_order)
-        if y is not None:
-            y_train = cp.array(y[0:train_size], order=y_order)
-    elif isinstance(X, cudf.DataFrame):
-        X_train = X.iloc[0:train_size]
-        if y is not None:
-            y_train = y.iloc[0:train_size]
-
-    if hasattr(X, "__cuda_array_interface__") or \
-            isinstance(X, cp.sparse.csr_matrix):
-        X_test = cp.array(X[-1 * test_size:], order=x_order)
-        if y is not None:
-            y_test = cp.array(y[-1 * test_size:], order=y_order)
-    elif isinstance(X, cudf.DataFrame):
-        X_test = X.iloc[-1 * test_size:]
-        if y is not None:
-            y_test = y.iloc[-1 * test_size:]
-    if x_numba:
-        X_train = cuda.as_cuda_array(X_train)
-        X_test = cuda.as_cuda_array(X_test)
-
-    if y_numba:
-        y_train = cuda.as_cuda_array(y_train)
-        y_test = cuda.as_cuda_array(y_test)
-
-    if y is not None:
-        return X_train, X_test, y_train, y_test
-    else:
-        return X_train, X_test
+from typing import Union    
 
 
 def stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
@@ -79,6 +37,10 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
         X = cp.fromDlpack(X.to_dlpack())
     if isinstance(y, cudf.Series):
         y = cp.fromDlpack(y.to_dlpack())
+    if isinstance(X, cuda.cudadrv.devicearray.DeviceNDArray):
+        X = cp.asarray(X)
+    if isinstance(y, cuda.cudadrv.devicearray.DeviceNDArray):
+        y = cp.asarray(y)
 
     classes, y_indices = cp.unique(y, return_inverse=True)
     n_classes = classes.shape[0]
@@ -95,35 +57,31 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
                              n_classes)
 
     X_train = None
-
     # Break ties
     n_i = _approximate_mode(class_counts, n_train, random_state)
     class_counts_remaining = class_counts - n_i
     t_i = _approximate_mode(class_counts_remaining, n_test, random_state)
 
+    if random_state is None :
+        rng = np.random.mtrand._rand
+    elif isinstance(random_state, cp.random.RandomState):
+        rng = random_state
+    else:
+        rng = cp.random.RandomState(random_state)
+
     for i in range(n_classes):
-        class_idxs = class_indices[i]
-
-        cp.random.shuffle(class_idxs)
-        if hasattr(X, "__cuda_array_interface__") or \
-           isinstance(X, cp.sparse.csr_matrix):
-            X_i = X[class_idxs]
-            y_i = y[class_idxs]
-        else:
-            X_i = X.iloc[class_idxs]
-            y_i = y.iloc[class_idxs]
-
-        X_train_i, X_test_i, y_train_i, y_test_i = slice_data(X_i, y_i,
-                                                              n_i[i],
-                                                              t_i[i],
-                                                              x_numba,
-                                                              y_numba)
+        permutation = rng.permutation(class_counts[i].item())
+        perm_indices_class_i = class_indices[i].take(permutation)
+        X_train_i = X[perm_indices_class_i[:n_i[i]]]
+        X_test_i = X[perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]]]
+        y_train_i = y[perm_indices_class_i[:n_i[i]]]
+        y_test_i = y[perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]]]
 
         if X_train is None:
-            X_train = X_train_i.copy()
-            y_train = y_train_i.copy()
-            X_test = X_test_i.copy()
-            y_test = y_test_i.copy()
+            X_train = X_train_i
+            y_train = y_train_i
+            X_test = X_test_i
+            y_test = y_test_i
         else:
             if hasattr(X, "__cuda_array_interface__") or \
                isinstance(X, cp.sparse.csr_matrix):
@@ -141,8 +99,6 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
 
 def _approximate_mode(class_counts, n_draws, rng):
 
-    if rng is None:
-        rng = cp.random.RandomState(42)
     # this computes a bad approximation to the mode of the
     # multivariate hypergeometric given by class_counts and n_draws
     continuous = n_draws * class_counts / class_counts.sum()
@@ -168,7 +124,7 @@ def _approximate_mode(class_counts, n_draws, rng):
             need_to_add -= add_now
             if need_to_add == 0:
                 break
-    return floored.astype(np.int)
+    return floored.astype(cp.int)
 
 
 def train_test_split(
@@ -366,7 +322,7 @@ def train_test_split(
         random_state.shuffle(idxs)
 
         if isinstance(X, cudf.DataFrame) or isinstance(X, cudf.Series):
-            X = X.iloc[idxs]
+            X = X.iloc[idxs].reset_index(drop=True)
 
         elif hasattr(X, "__cuda_array_interface__"):
             # numba (and therefore rmm device_array) does not support
@@ -383,5 +339,42 @@ def train_test_split(
             split_return = stratify_split(X, y, train_size, test_size,
                                           x_numba, y_numba, random_state)
             return split_return
-    split_return = slice_data(X, y, train_size, test_size, x_numba, y_numba)
-    return split_return
+    if hasattr(X, "__cuda_array_interface__"):
+        x_order = _strides_to_order(X.__cuda_array_interface__['strides'],
+                                    cp.dtype(X.dtype))
+
+    if hasattr(y, "__cuda_array_interface__"):
+        y_order = _strides_to_order(y.__cuda_array_interface__['strides'],
+                                    cp.dtype(y.dtype))
+
+    if hasattr(X, "__cuda_array_interface__") or \
+            isinstance(X, cp.sparse.csr_matrix):
+        X_train = cp.array(X[0:train_size], order=x_order)
+        if y is not None:
+            y_train = cp.array(y[0:train_size], order=y_order)
+    elif isinstance(X, cudf.DataFrame):
+        X_train = X.iloc[0:train_size]
+        if y is not None:
+            y_train = y.iloc[0:train_size]
+
+    if hasattr(X, "__cuda_array_interface__") or \
+            isinstance(X, cp.sparse.csr_matrix):
+        X_test = cp.array(X[-1 * test_size:], order=x_order)
+        if y is not None:
+            y_test = cp.array(y[-1 * test_size:], order=y_order)
+    elif isinstance(X, cudf.DataFrame):
+        X_test = X.iloc[-1 * test_size:]
+        if y is not None:
+            y_test = y.iloc[-1 * test_size:]
+    if x_numba:
+        X_train = cuda.as_cuda_array(X_train)
+        X_test = cuda.as_cuda_array(X_test)
+
+    if y_numba:
+        y_train = cuda.as_cuda_array(y_train)
+        y_test = cuda.as_cuda_array(y_test)
+
+    if y is not None:
+        return X_train, X_test, y_train, y_test
+    else:
+        return X_train, X_test
