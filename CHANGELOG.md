@@ -116,6 +116,7 @@
 - PR #2593: Fix inconsistency in train_test_split
 - PR #2609: Fix small doxygen issues
 - PR #2610: Remove cuDF tolist call
+- PR #2616: Small test code fix for pandas dtype tests
 
 # cuML 0.14.0 (03 Jun 2020)
 
