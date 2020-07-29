@@ -96,14 +96,14 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
 
     X_train = None
 
-    # Break ties - derived from https://github.com/scikit-learn/scikit-learn/blob/fd237278e895b42abe8d8d09105cbb82dc2cbba7/sklearn/utils/__init__.py#L1036
+    # Break ties
     n_i = _approximate_mode(class_counts, n_train, random_state)
     class_counts_remaining = class_counts - n_i
     t_i = _approximate_mode(class_counts_remaining, n_test, random_state)
 
     for i in range(n_classes):
         class_idxs = class_indices[i]
-        
+
         cp.random.shuffle(class_idxs)
         if hasattr(X, "__cuda_array_interface__") or \
            isinstance(X, cp.sparse.csr_matrix):
@@ -112,7 +112,6 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
         else:
             X_i = X.iloc[class_idxs]
             y_i = y.iloc[class_idxs]
-
 
         X_train_i, X_test_i, y_train_i, y_test_i = slice_data(X_i, y_i,
                                                               n_i[i],
@@ -139,9 +138,10 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
                 y_test = y_test.append(y_test_i)
     return X_train, X_test, y_train, y_test
 
+
 def _approximate_mode(class_counts, n_draws, rng):
 
-    if rng == None:
+    if rng is None:
         rng = cp.random.RandomState(42)
     # this computes a bad approximation to the mode of the
     # multivariate hypergeometric given by class_counts and n_draws
@@ -169,6 +169,7 @@ def _approximate_mode(class_counts, n_draws, rng):
             if need_to_add == 0:
                 break
     return floored.astype(np.int)
+
 
 def train_test_split(
     X,
