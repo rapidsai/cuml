@@ -52,7 +52,8 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "ucx-py=${MINOR_VERSION}" \
       "xgboost==1.1.0dev.rapidsai0.15" \
       "rapids-build-env=$MINOR_VERSION.*" \
-      "rapids-notebook-env=$MINOR_VERSION.*"
+      "rapids-notebook-env=$MINOR_VERSION.*" \
+      "rapids-doc-env=$MINOR_VERSION.*"
 
 # https://docs.rapids.ai/maintainers/depmgmt/
 # conda remove -f rapids-build-env rapids-notebook-env
@@ -86,6 +87,9 @@ logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+
+logger "Building doxygen C++ docs"
+$WORKSPACE/build.sh cppdocs -v
 
 logger "Build libcuml, cuml, prims and bench targets..."
 $WORKSPACE/build.sh clean libcuml cuml prims bench -v
