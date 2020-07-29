@@ -366,7 +366,7 @@ def train_test_split(
         random_state.shuffle(idxs)
 
         if isinstance(X, cudf.DataFrame) or isinstance(X, cudf.Series):
-            X = X.iloc[idxs].reset_index(drop=True)
+            X = X.iloc[idxs]
 
         elif hasattr(X, "__cuda_array_interface__"):
             # numba (and therefore rmm device_array) does not support
