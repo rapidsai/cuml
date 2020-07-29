@@ -15,7 +15,9 @@
 #
 
 import cudf
+import pandas
 import cupy as cp
+import numpy as np
 from cuml.common.exceptions import NotFittedError
 
 
@@ -46,6 +48,8 @@ class TargetEncoder:
         'random': random split.
         'continuous': consecutive samples are grouped into one folds.
         'interleaved': samples are assign to each fold in a round robin way.
+    output_type: {'cupy', 'numpy', 'auto'}, default = 'auto'
+        The data type of output. If 'auto', it matches input data.
 
     References
     ----------
@@ -78,10 +82,29 @@ class TargetEncoder:
 
     """
     def __init__(self, n_folds=4, smooth=0, seed=42,
-                 split_method='interleaved'):
+                 split_method='interleaved', output_type='auto'):
         if smooth < 0 or smooth > 1:
             raise ValueError(
                         'smooth {} is not in range [0,1]'.format(smooth))
+        if n_folds < 0 or not isinstance(n_folds, int):
+            raise ValueError(
+                        'n_folds {} is not a postive integer'.format(n_folds))
+        if output_type not in {'cupy', 'numpy', 'auto'}:
+            msg = ("output_type should be either 'cupy'"
+                   " or 'numpy' or 'auto', "
+                   "got {0}.".format(output_type))
+            raise ValueError(msg)
+
+        if not isinstance(seed, int):
+            raise ValueError(
+                        'seed {} is not an integer'.format(seed))
+
+        if split_method not in {'random', 'continuous', 'interleaved'}:
+            msg = ("split_method should be either 'random'"
+                   " or 'continuous' or 'interleaved', "
+                   "got {0}.".format(self.split))
+            raise ValueError(msg)
+
         self.n_folds = n_folds
         self.seed = seed
         self.smooth = smooth
@@ -92,6 +115,7 @@ class TargetEncoder:
         self.fold_col = '__FOLD__'
         self.id_col = '__INDEX__'
         self.train = None
+        self.output_type = output_type
 
     def fit(self, x, y):
         """
@@ -151,9 +175,13 @@ class TargetEncoder:
             return self.train_encode
         x_cols = [i for i in test.columns.tolist() if i != self.id_col]
         test = test.merge(self.encode_all, on=x_cols, how='left')
-        return self._get_return_value(test)
+        return self._impute_and_sort(test)
 
     def _fit_transform(self, x, y):
+        """
+        Core function of target encoding
+        """
+        self.output_type = self._get_output_type(x)
         cp.random.seed(self.seed)
         train = self._to_cudf_frame(x)
         x_cols = [i for i in train.columns.tolist() if i != self.id_col]
@@ -164,13 +192,13 @@ class TargetEncoder:
 
         self.mean = train[self.y_col].mean()
 
-        y_count_each_fold, y_count_all = self._compute_each_fold(train,
-                                                                 x_cols,
-                                                                 op='count')
+        y_count_each_fold, y_count_all = self._groupby_agg(train,
+                                                           x_cols,
+                                                           op='count')
 
-        y_sum_each_fold, y_sum_all = self._compute_each_fold(train,
-                                                             x_cols,
-                                                             op='sum')
+        y_sum_each_fold, y_sum_all = self._groupby_agg(train,
+                                                       x_cols,
+                                                       op='sum')
         """
         Note:
             encode_each_fold is used to encode train data.
@@ -189,12 +217,15 @@ class TargetEncoder:
 
         train = train.merge(encode_each_fold, on=cols, how='left')
         del encode_each_fold
-        return self._get_return_value(train), train
+        return self._impute_and_sort(train), train
 
     def _make_y_column(self, y):
-        if isinstance(y, cudf.Series):
+        """
+        Create a target column given y
+        """
+        if isinstance(y, cudf.Series) or isinstance(y, pandas.Series):
             return y.values
-        elif isinstance(y, cp.ndarray):
+        elif isinstance(y, cp.ndarray) or isinstance(y, np.ndarray):
             if len(y.shape) == 1:
                 return y
             elif y.shape[1] == 1:
@@ -204,15 +235,20 @@ class TargetEncoder:
                                  "is not a 1-D array.")
         else:
             raise TypeError(
-                "Input of type {type(y)} is not cudf.Series, "
+                f"Input of type {type(y)} is not cudf.Series, "
+                "or pandas.Series"
+                "or numpy.ndarray"
                 "or cupy.ndarray")
 
     def _make_fold_column(self, len_train):
+        """
+        Create a fold id column for each split_method
+        """
         if self.split == 'random':
             return cp.random.randint(0, self.n_folds, len_train)
         elif self.split == 'continuous':
-            return (cp.arange(len_train) / \
-                (len(train)/self.n_folds)) % self.n_folds
+            return (cp.arange(len_train) /
+                    (len_train/self.n_folds)) % self.n_folds
         elif self.split == 'interleaved':
             return cp.arange(len_train) % self.n_folds
         else:
@@ -222,6 +258,9 @@ class TargetEncoder:
             raise ValueError(msg)
 
     def _compute_output(self, df_sum, df_count, cols, y_col):
+        """
+        Compute the output encoding based on aggregated sum and count
+        """
         df_sum = df_sum.merge(df_count, on=cols, how='left')
         smooth = self.smooth * len(df_sum)
         df_sum[self.out_col] = (df_sum[f'{y_col}_x'] +
@@ -230,7 +269,11 @@ class TargetEncoder:
                                 smooth)
         return df_sum
 
-    def _compute_each_fold(self, train, x_cols, op):
+    def _groupby_agg(self, train, x_cols, op):
+        """
+        Compute aggregated value of each fold and overall dataframe
+        grouped by `x_cols` and agg by `op`
+        """
         cols = [self.fold_col]+x_cols
         df_each_fold = train.groupby(cols, as_index=False)\
             .agg({self.y_col: op})
@@ -264,22 +307,27 @@ class TargetEncoder:
                 return False
         return True
 
-    def _get_return_value(self, df):
+    def _impute_and_sort(self, df):
         """
-        Return the result encoding in the same row order as input
+        Impute and sort the result encoding in the same row order as input
         """
         df[self.out_col] = df[self.out_col].nans_to_nulls()
         df[self.out_col] = df[self.out_col].fillna(self.mean)
         df = df.sort_values(self.id_col)
         res = df[self.out_col].values.copy()
+        if self.output_type == 'numpy':
+            return cp.asnumpy(res)
         return res
 
     def _to_cudf_frame(self, x):
+        """
+        Convert input data to cudf dataframe
+        """
         if isinstance(x, cudf.DataFrame):
             df = x.copy()
         elif isinstance(x, cudf.Series):
             df = x.to_frame().copy()
-        elif isinstance(x, cp.ndarray):
+        elif isinstance(x, cp.ndarray) or isinstance(x, np.ndarray):
             df = cudf.DataFrame()
             if len(x.shape) == 1:
                 df[self.x_col] = x
@@ -287,9 +335,26 @@ class TargetEncoder:
                 df = cudf.DataFrame(x,
                                     columns=[f'{self.x_col}_{i}'
                                              for i in range(x.shape[1])])
+        elif isinstance(x, pandas.DataFrame):
+            df = cudf.from_pandas(x)
+        elif isinstance(x, pandas.Series):
+            df = cudf.from_pandas(x.to_frame())
         else:
             raise TypeError(
-                f"Input of type {x.shape} is not cudf.Series, cudf.DataFrame "
-                "or cupy.ndarray")
+                f"Input of type {type(x)} is not cudf.Series, cudf.DataFrame "
+                "or pandas.Series or pandas.DataFrame"
+                "or cupy.ndarray or numpy.ndarray")
         df[self.id_col] = cp.arange(len(x))
         return df
+
+    def _get_output_type(self, x):
+        """
+        Infer output type if 'auto'
+        """
+        if self.output_type != 'auto':
+            return self.output_type
+        if isinstance(x, np.ndarray) \
+            or isinstance(x, pandas.DataFrame) \
+                or isinstance(x, pandas.Series):
+            return 'numpy'
+        return 'cupy'
