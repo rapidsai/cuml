@@ -48,7 +48,7 @@ template <typename math_t>
 void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
             math_t *y, const svmParameter &param,
             MLCommon::Matrix::KernelParams &kernel_params,
-            svmModel<math_t> &model);
+            svmModel<math_t> &model, const math_t *sample_weight = nullptr);
 
 // For prediction we use svcPredict
 

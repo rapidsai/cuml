@@ -600,3 +600,20 @@ def test_svr_skl_cmp(params, dataset, n_rows, n_cols):
     sklSVR.fit(X_train, y_train)
 
     compare_svr(cuSVR, sklSVR, X_test, y_test)
+
+
+def test_svr_skl_cmp_weighted():
+    """ Compare to Sklearn SVR, use sample weights"""
+    X, y = make_regression(
+        n_samples=100, n_features=5, n_informative=2, n_targets=1,
+        random_state=137, noise=10)
+    sample_weights = 10*np.sin(np.linspace(0, 2*np.pi, len(y))) + 10.1
+
+    params = {'kernel': 'linear', 'C': 10, 'gamma': 1}
+    cuSVR = cu_svm.SVR(**params)
+    cuSVR.fit(X, y, sample_weights)
+
+    sklSVR = svm.SVR(**params)
+    sklSVR.fit(X, y, sample_weights)
+
+    compare_svr(cuSVR, sklSVR, X, y)
