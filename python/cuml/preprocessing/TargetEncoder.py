@@ -35,8 +35,9 @@ class TargetEncoder:
         Default number of folds for fitting training data. To prevent
         label leakage in `fit`, we split data into `n_folds` and
         encode one fold using the target variables of the remaining folds.
-    smooth : int (default=0)
-        Number of samples to smooth the encoding
+    smooth : float (default=0)
+        0 <= smooth <= 1
+        Percentage of samples to smooth the encoding
     seed : int (default=42)
         Random seed
     split_method : {'random', 'continuous', 'interleaved'},
@@ -78,6 +79,9 @@ class TargetEncoder:
     """
     def __init__(self, n_folds=4, smooth=0, seed=42,
                  split_method='interleaved'):
+        if smooth < 0 or smooth > 1:
+            raise ValueError(
+                        'smooth {} is not in range [0,1]'.format(smooth))
         self.n_folds = n_folds
         self.seed = seed
         self.smooth = smooth
@@ -146,21 +150,55 @@ class TargetEncoder:
         if self._is_train_df(test):
             return self.train_encode
         x_cols = [i for i in test.columns.tolist() if i != self.id_col]
-        test = test.merge(self.agg_all, on=x_cols, how='left')
+        test = test.merge(self.encode_all, on=x_cols, how='left')
         return self._get_return_value(test)
 
     def _fit_transform(self, x, y):
         cp.random.seed(self.seed)
         train = self._to_cudf_frame(x)
         x_cols = [i for i in train.columns.tolist() if i != self.id_col]
+        train[self.y_col] = self._make_y_column(y)
 
+        self.n_folds = min(self.n_folds, len(train))
+        train[self.fold_col] = self._make_fold_column(len(train))
+
+        self.mean = train[self.y_col].mean()
+
+        y_count_each_fold, y_count_all = self._compute_each_fold(train,
+                                                                 x_cols,
+                                                                 op='count')
+
+        y_sum_each_fold, y_sum_all = self._compute_each_fold(train,
+                                                             x_cols,
+                                                             op='sum')
+        """
+        Note:
+            encode_each_fold is used to encode train data.
+            encode_all is used to encode test data.
+        """
+        cols = [self.fold_col]+x_cols
+        encode_each_fold = self._compute_output(y_sum_each_fold,
+                                                y_count_each_fold,
+                                                cols,
+                                                f'{self.y_col}_x')
+        encode_all = self._compute_output(y_sum_all,
+                                          y_count_all,
+                                          x_cols,
+                                          self.y_col)
+        self.encode_all = encode_all
+
+        train = train.merge(encode_each_fold, on=cols, how='left')
+        del encode_each_fold
+        return self._get_return_value(train), train
+
+    def _make_y_column(self, y):
         if isinstance(y, cudf.Series):
-            train[self.y_col] = y.values
+            return y.values
         elif isinstance(y, cp.ndarray):
             if len(y.shape) == 1:
-                train[self.y_col] = y
+                return y
             elif y.shape[1] == 1:
-                train[self.y_col] = y[:, 0]
+                return y[:, 0]
             else:
                 raise ValueError(f"Input of shape {y.shape} "
                                  "is not a 1-D array.")
@@ -169,63 +207,40 @@ class TargetEncoder:
                 "Input of type {type(y)} is not cudf.Series, "
                 "or cupy.ndarray")
 
-        self.n_folds = min(self.n_folds, len(train))
-
+    def _make_fold_column(self, len_train):
         if self.split == 'random':
-            train[self.fold_col] = cp.random.randint(0,
-                                                     self.n_folds, len(train))
+            return cp.random.randint(0, self.n_folds, len_train)
         elif self.split == 'continuous':
-            train[self.fold_col] = cp.arange(len(train)) / \
-                (len(train)/self.n_folds)
-            train[self.fold_col] = train[self.fold_col] % self.n_folds
+            return (cp.arange(len_train) / \
+                (len(train)/self.n_folds)) % self.n_folds
         elif self.split == 'interleaved':
-            train[self.fold_col] = cp.arange(len(train))
-            train[self.fold_col] = train[self.fold_col] % self.n_folds
+            return cp.arange(len_train) % self.n_folds
         else:
             msg = ("split should be either 'random'"
                    " or 'continuous' or 'interleaved', "
                    "got {0}.".format(self.split))
             raise ValueError(msg)
 
-        train[self.fold_col] = train[self.fold_col].astype('int32')
-        self.mean = train[self.y_col].mean()
+    def _compute_output(self, df_sum, df_count, cols, y_col):
+        df_sum = df_sum.merge(df_count, on=cols, how='left')
+        smooth = self.smooth * len(df_sum)
+        df_sum[self.out_col] = (df_sum[f'{y_col}_x'] +
+                                smooth*self.mean) / \
+                               (df_sum[f'{y_col}_y'] +
+                                smooth)
+        return df_sum
 
+    def _compute_each_fold(self, train, x_cols, op):
         cols = [self.fold_col]+x_cols
-
-        agg_y_count = train.groupby(cols, as_index=False)\
-            .agg({self.y_col: 'count'})
-       
-        agg_y_sum = train.groupby(cols, as_index=False)\
-             .agg({self.y_col: 'sum'})
-
-        agg_all_y_count = agg_y_count.groupby(x_cols, as_index=False)\
+        df_each_fold = train.groupby(cols, as_index=False)\
+            .agg({self.y_col: op})
+        df_all = df_each_fold.groupby(x_cols, as_index=False)\
             .agg({self.y_col: 'sum'})
 
-        agg_all_y_sum = agg_y_sum.groupby(x_cols, as_index=False)\
-            .agg({self.y_col: 'sum'})  
-
-        agg_y_count = agg_y_count.merge(agg_all_y_count, on=x_cols, how='left')
-        agg_y_sum = agg_y_sum.merge(agg_all_y_sum, on=x_cols, how='left')
-        agg_y_count[f'{self.y_col}_x'] = agg_y_count[f'{self.y_col}_y'] -\
-            agg_y_count[f'{self.y_col}_x']
-        agg_y_sum[f'{self.y_col}_x'] = agg_y_sum[f'{self.y_col}_y'] -\
-            agg_y_sum[f'{self.y_col}_x']
- 
-        agg_y_sum[self.out_col] = (agg_y_sum[f'{self.y_col}_x'] +
-                                       self.smooth*self.mean) / \
-                                      (agg_y_count[f'{self.y_col}_x'] +
-                                       self.smooth)
-
-        agg_all_y_sum[self.out_col] = (agg_all_y_sum[self.y_col] +
-                                       self.smooth*self.mean) / \
-                                      (agg_all_y_count[self.y_col] +
-                                       self.smooth) 
-        self.agg_all = agg_all_y_sum
-
-        cols = [self.fold_col]+x_cols
-        train = train.merge(agg_y_sum, on=cols, how='left')
-        del agg_y_sum
-        return self._get_return_value(train), train
+        df_each_fold = df_each_fold.merge(df_all, on=x_cols, how='left')
+        df_each_fold[f'{self.y_col}_x'] = df_each_fold[f'{self.y_col}_y'] -\
+            df_each_fold[f'{self.y_col}_x']
+        return df_each_fold, df_all
 
     def _check_is_fitted(self):
         if not self._fitted or self.train is None:
@@ -240,6 +255,7 @@ class TargetEncoder:
         """
         if len(df) != len(self.train):
             return False
+        self.train = self.train.sort_values(self.id_col).reset_index(drop=True)
         for col in df.columns:
             if col not in self.train.columns:
                 raise ValueError(f"Input column {col} "
