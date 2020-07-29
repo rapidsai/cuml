@@ -293,6 +293,7 @@
 - PR #2295: Fix convert_to_dtype copy even with same dtype
 - PR #2305: Fixed race condition in DBScan
 - PR #2354: Fix broken links in README
+- PR #2619: Explicitly skip raft test folder for pytest 6.0.0
 
 # cuML 0.13.0 (31 Mar 2020)
 
