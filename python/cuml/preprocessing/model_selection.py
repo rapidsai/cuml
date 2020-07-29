@@ -21,7 +21,7 @@ import warnings
 from cuml.common.memory_utils import _strides_to_order
 from cuml.common.memory_utils import rmm_cupy_ary
 from numba import cuda
-from typing import Union    
+from typing import Union
 
 
 def stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
@@ -62,7 +62,7 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
     class_counts_remaining = class_counts - n_i
     t_i = _approximate_mode(class_counts_remaining, n_test, random_state)
 
-    if random_state is None :
+    if random_state is None:
         rng = np.random.mtrand._rand
     elif isinstance(random_state, cp.random.RandomState):
         rng = random_state
