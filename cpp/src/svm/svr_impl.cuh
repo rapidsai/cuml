@@ -46,7 +46,7 @@ template <typename math_t>
 void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
             math_t *y, const svmParameter &param,
             MLCommon::Matrix::KernelParams &kernel_params,
-            svmModel<math_t> &model) {
+            svmModel<math_t> &model, const math_t *sample_weight) {
   ASSERT(n_cols > 0,
          "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0,
@@ -58,7 +58,6 @@ void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
   const cumlHandle_impl &handle_impl = handle.getImpl();
 
   cudaStream_t stream = handle_impl.getStream();
-  math_t *sample_weight = nullptr;
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel =
     MLCommon::Matrix::KernelFactory<math_t>::create(
       kernel_params, handle_impl.getCublasHandle());

@@ -1148,6 +1148,7 @@ struct SvrInput {
   int n_cols;
   std::vector<math_t> x;
   std::vector<math_t> y;
+  std::vector<math_t> sample_weighs;
 };
 
 template <typename math_t>
@@ -1311,7 +1312,24 @@ class SvrTest : public ::testing::Test {
                           {1.1},
                           {1.0, 2.0, 3.0, 5.0, 6.0, 7.0},
                           {0, 1, 2, 4, 5, 6},
-                          {0.7, 1.8, 2.9, 4, 5.1, 6.2, 7.3}}}};
+                          {0.7, 1.8, 2.9, 4, 5.1, 6.2, 7.3}}},
+      // Almost same as above, but with sample weights
+      {SvrInput<math_t>{
+         svmParameter{1, 0, 100, 10, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
+         KernelParams{LINEAR, 3, 1, 0},
+         7,                       // n_rows
+         1,                       // n_cols
+         {1, 2, 3, 4, 5, 6, 7},   // x
+         {0, 2, 3, 0, 4, 8, 12},  // y
+         {1, 1, 1, 10, 2, 10, 1}  // sample weights
+       },
+       smoOutput2<math_t>{6,
+                          {},
+                          -15.5,
+                          {3.9},
+                          {1.0, 2.0, 3.0, 4.0, 6.0, 7.0},
+                          {0, 1, 2, 3, 5, 6},
+                          {}}}};
     for (auto d : data) {
       auto p = d.first;
       auto exp = d.second;
@@ -1320,15 +1338,24 @@ class SvrTest : public ::testing::Test {
       updateDevice(x_dev.data(), p.x.data(), p.n_rows * p.n_cols, stream);
       device_buffer<math_t> y_dev(allocator, stream, p.n_rows);
       updateDevice(y_dev.data(), p.y.data(), p.n_rows, stream);
-
+      MLCommon::device_buffer<math_t> sample_weights_dev(allocator, stream);
+      math_t *sample_weights = nullptr;
+      if (!p.sample_weighs.empty()) {
+        sample_weights_dev.resize(p.n_rows, stream);
+        sample_weights = sample_weights_dev.data();
+        updateDevice(sample_weights_dev.data(), p.sample_weighs.data(),
+                     p.n_rows, stream);
+      }
       svrFit(handle, x_dev.data(), p.n_rows, p.n_cols, y_dev.data(), p.param,
-             p.kernel, model);
+             p.kernel, model, sample_weights);
       checkResults(model, toSmoOutput(exp), stream);
       device_buffer<math_t> preds(allocator, stream, p.n_rows);
       svcPredict(handle, x_dev.data(), p.n_rows, p.n_cols, p.kernel, model,
                  preds.data(), (math_t)200.0, false);
-      EXPECT_TRUE(devArrMatchHost(exp.decision_function.data(), preds.data(),
-                                  p.n_rows, CompareApprox<math_t>(1.0e-5)));
+      if (!exp.decision_function.empty()) {
+        EXPECT_TRUE(devArrMatchHost(exp.decision_function.data(), preds.data(),
+                                    p.n_rows, CompareApprox<math_t>(1.0e-5)));
+      }
     }
   }
 
@@ -1356,7 +1383,7 @@ class SvrTest : public ::testing::Test {
                       -0.1, -2.1, -3.1, -4.1, -5.1, -6.1, -8.1};
   math_t alpha_host[14] = {0.2, 0.3, 0,   0, 1,   0.1, 0,
                            0.1, 0,   0.4, 0, 0.1, 1,   0};
-};
+};  // namespace SVM
 
 typedef ::testing::Types<float> OnlyFp32;
 TYPED_TEST_CASE(SvrTest, FloatTypes);
@@ -1365,5 +1392,5 @@ TYPED_TEST(SvrTest, Init) { this->TestSvrInit(); }
 TYPED_TEST(SvrTest, WorkingSet) { this->TestSvrWorkingSet(); }
 TYPED_TEST(SvrTest, Results) { this->TestSvrResults(); }
 TYPED_TEST(SvrTest, FitPredict) { this->TestSvrFitPredict(); }
-};  // end namespace SVM
+};  // namespace SVM
 };  // namespace ML
