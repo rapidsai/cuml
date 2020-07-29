@@ -74,7 +74,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   // Get distances
   CUML_LOG_DEBUG("Getting distances.");
   MLCommon::device_buffer<float> distances(d_alloc, stream, n * n_neighbors);
-  MLCommon::device_buffer<long> indices(d_alloc, stream, n * n_neighbors);
+  MLCommon::device_buffer<int64_t> indices(d_alloc, stream, n * n_neighbors);
   TSNE::get_distances(X, n, p, indices.data(), distances.data(), n_neighbors,
                       d_alloc, stream);
   //---------------------------------------------------
