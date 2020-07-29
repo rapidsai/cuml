@@ -451,68 +451,6 @@ class SVMBase(Base):
             else:
                 self._unique_labels = None
 
-    def fit(self, X, y):
-        """
-        Fit the model with X and y.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        """
-
-        self._set_output_type(X)
-
-        X_m, self.n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X, order='F')
-
-        cdef uintptr_t X_ptr = X_m.ptr
-
-        y_m, _, _, _ = input_to_cuml_array(y, convert_to_dtype=self.dtype)
-
-        cdef uintptr_t y_ptr = y_m.ptr
-
-        self._dealloc()  # delete any previously fitted model
-        self._coef_ = None
-
-        cdef KernelParams _kernel_params = self._get_kernel_params(X_m)
-        cdef svmParameter param = self._get_svm_params()
-        cdef svmModel[float] *model_f
-        cdef svmModel[double] *model_d
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-        if self.dtype == np.float32:
-            model_f = new svmModel[float]()
-            svcFit(handle_[0], <float*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <float*>y_ptr, param, _kernel_params,
-                   model_f[0])
-            self._model = <uintptr_t>model_f
-        elif self.dtype == np.float64:
-            model_d = new svmModel[double]()
-            svcFit(handle_[0], <double*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <double*>y_ptr, param, _kernel_params,
-                   model_d[0])
-            self._model = <uintptr_t>model_d
-        else:
-            raise TypeError('Input data type should be float32 or float64')
-
-        self._unpack_model()
-        self._fit_status_ = 0
-        self.handle.sync()
-
-        del X_m
-        del y_m
-
-        return self
-
     def predict(self, X, predict_class):
         """
         Predicts the y for X, where y is either the decision function value
