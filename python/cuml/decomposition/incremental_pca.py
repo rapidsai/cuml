@@ -26,6 +26,7 @@ from cuml.common import input_to_cuml_array
 from cuml.decomposition import PCA
 
 
+# Based on sklearn.decomposition.IncrementalPCA from scikit-learn 0.23.1
 class IncrementalPCA(PCA):
     """
     Incremental principal components analysis (IPCA).
@@ -261,8 +262,8 @@ class IncrementalPCA(PCA):
         col_mean, col_var, n_total_samples = \
             _incremental_mean_and_var(
                 X, last_mean=self._mean_, last_variance=self.var_,
-                last_sample_count=cp.asarray(np.repeat(self.n_samples_seen_,
-                                                       X.shape[1])))
+                last_sample_count=cp.repeat(cp.asarray([self.n_samples_seen_]),
+                                                       X.shape[1]))
         n_total_samples = n_total_samples[0]
 
         # Whitening
@@ -457,6 +458,9 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
             _safe_accumulator_op(cp.nanvar, X, axis=0) * new_sample_count)
         last_unnormalized_variance = last_variance * last_sample_count
 
+        # NOTE: The scikit-learn implementation has a np.errstate check
+        # here for ignoring invalid divides. This is not implemented in
+        # cupy as of 7.6.0
         last_over_new_count = last_sample_count / new_sample_count
         updated_unnormalized_variance = (
             last_unnormalized_variance + new_unnormalized_variance +
