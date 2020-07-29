@@ -35,7 +35,6 @@
 
 #include <common/cudart_utils.h>
 #include <float.h>
-#include <math.h>
 
 namespace ML {
 namespace TSNE {
@@ -46,11 +45,13 @@ namespace TSNE {
 __global__ void InitializationKernel(/*int *restrict errd, */
                                      unsigned *restrict limiter,
                                      int *restrict maxdepthd,
-                                     float *restrict radiusd) {
+                                     float *restrict radiusd,
+                                     int *restrict flag_unstable_computation) {
   // errd[0] = 0;
   maxdepthd[0] = 1;
   limiter[0] = 0;
   radiusd[0] = 0.0f;
+  flag_unstable_computation[0] = 0;
 }
 
 /**
@@ -171,7 +172,8 @@ __global__ __launch_bounds__(1024, 1) void ClearKernel1(int *restrict childd,
 }
 
 /**
- * Build the actual KD Tree.
+ * Build the actual QuadTree.
+ * See: https://iss.oden.utexas.edu/Publications/Papers/burtscher11.pdf
  */
 __global__ __launch_bounds__(
   THREADS2, FACTOR2) void TreeBuildingKernel(/* int *restrict errd, */
@@ -194,6 +196,7 @@ __global__ __launch_bounds__(
 
   int localmaxdepth = 1;
   int skip = 1;
+
   const int inc = blockDim.x * gridDim.x;
   int i = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -206,6 +209,11 @@ __global__ __launch_bounds__(
       depth = 1;
       r = radius * 0.5f;
 
+      /* Select child node 'j'
+                    rootx < px  rootx > px
+       * rooty < py   1 -> 3    0 -> 2
+       * rooty > py   1 -> 1    0 -> 0
+       */
       x = rootx + ((rootx < (px = posxd[i])) ? (j = 1, r) : (j = 0, -r));
 
       y = rooty + ((rooty < (py = posyd[i])) ? (j |= 2, r) : (-r));
@@ -217,17 +225,20 @@ __global__ __launch_bounds__(
       depth++;
       r *= 0.5f;
 
-      // determine which child to follow
       x += ((x < px) ? (j = 1, r) : (j = 0, -r));
 
       y += ((y < py) ? (j |= 2, r) : (-r));
     }
 
+    // (ch)ild will be '-1' (nullptr), '-2' (locked), or an Integer corresponding to a body offset
+    // in the lower [0, N) blocks of childd
     if (ch != -2) {
-      // skip if child pointer is locked and try again later
+      // skip if child pointer was locked when we examined it, and try again later.
       locked = n * 4 + j;
+      // store the locked position in case we need to patch in a cell later.
 
       if (ch == -1) {
+        // Child is a nullptr ('-1'), so we write our body index to the leaf, and move on to the next body.
         if (atomicCAS(&childd[locked], -1, i) == -1) {
           if (depth > localmaxdepth) localmaxdepth = depth;
 
@@ -235,23 +246,26 @@ __global__ __launch_bounds__(
           skip = 1;
         }
       } else {
+        // Child node isn't empty, so we store the current value of the child, lock the leaf, and patch in a new cell
         if (ch == atomicCAS(&childd[locked], ch, -2)) {
-          // try to lock
           patch = -1;
 
           while (ch >= 0) {
             depth++;
 
             const int cell = atomicSub(bottomd, 1) - 1;
-            if (cell <= N) {
-              // atomicExch(errd, 1);
+            if (cell == N) {
               atomicExch(bottomd, NNODES);
+            } else if (cell < N) {
+              depth--;
+              continue;
             }
 
             if (patch != -1) childd[n * 4 + j] = cell;
 
             if (cell > patch) patch = cell;
 
+            // Insert migrated child node
             j = (x < posxd[ch]) ? 1 : 0;
             if (y < posyd[ch]) j |= 2;
 
@@ -264,7 +278,9 @@ __global__ __launch_bounds__(
             y += ((y < py) ? (j |= 2, r) : (-r));
 
             ch = childd[n * 4 + j];
-            if (r <= 1e-10) break;
+            if (r <= 1e-10) {
+              break;
+            }
           }
 
           childd[n * 4 + j] = i;
@@ -276,6 +292,7 @@ __global__ __launch_bounds__(
         }
       }
     }
+
     __threadfence();
 
     if (skip == 2) childd[locked] = patch;
@@ -635,7 +652,8 @@ __global__ void attractive_kernel_bh(
   const float *restrict VAL, const int *restrict COL, const int *restrict ROW,
   const float *restrict Y1, const float *restrict Y2,
   const float *restrict norm, float *restrict attract1,
-  float *restrict attract2, const int NNZ) {
+  float *restrict attract2, const int NNZ,
+  int *restrict flag_unstable_computation) {
   const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
   const int i = ROW[index];
@@ -643,9 +661,24 @@ __global__ void attractive_kernel_bh(
 
   // TODO: Calculate Kullback-Leibler divergence
   // TODO: Convert attractive forces to CSR format
-  const float PQ = __fdividef(
-    VAL[index],
-    norm[i] + 1.0f + norm[j] - 2.0f * (Y1[i] * Y1[j] + Y2[i] * Y2[j]));  // P*Q
+  // Try single precision compute first
+  float denominator = __fmaf_rn(-2.0f, (Y1[i] * Y1[j]), norm[i] + 1.0f) +
+                      __fmaf_rn(-2.0f, (Y2[i] * Y2[j]), norm[j]);
+
+  if (__builtin_expect(denominator == 0, false)) {
+    double _Y1 = static_cast<double>(Y1[i]) * static_cast<double>(Y1[j]);
+    double _Y2 = static_cast<double>(Y2[i]) * static_cast<double>(Y2[j]);
+    double dbl_denominator =
+      __fma_rn(-2.0f, _Y1, norm[i] + 1.0f) + __fma_rn(-2.0f, _Y2, norm[j]);
+
+    if (__builtin_expect(dbl_denominator == 0, false)) {
+      dbl_denominator = 1.0f;
+      flag_unstable_computation[0] = 1;
+    }
+
+    denominator = dbl_denominator;
+  }
+  const float PQ = __fdividef(VAL[index], denominator);
 
   // Apply forces
   atomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));

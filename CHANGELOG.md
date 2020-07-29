@@ -107,6 +107,7 @@
 - PR #2535: Fix issue with incorrect docker image being used in local build script
 - PR #2542: Fix small memory leak in TSNE
 - PR #2552: Fixed the length argument of updateDevice calls in RF test
+- PR #2565: Fix cell allocation code to avoid loops in quad-tree. Prevent NaNs causing infinite descent
 - PR #2563: Update scipy call for arima gradient test
 - PR #2569: Fix for cuDF update
 - PR #2508: Use keyword parameters in sklearn.datasets.make_* functions
@@ -116,6 +117,7 @@
 - PR #2593: Fix inconsistency in train_test_split
 - PR #2609: Fix small doxygen issues
 - PR #2610: Remove cuDF tolist call
+- PR #2616: Small test code fix for pandas dtype tests
 
 # cuML 0.14.0 (03 Jun 2020)
 
