@@ -58,15 +58,15 @@ void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
   const cumlHandle_impl &handle_impl = handle.getImpl();
 
   cudaStream_t stream = handle_impl.getStream();
-
+  math_t *sample_weight = nullptr;
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel =
     MLCommon::Matrix::KernelFactory<math_t>::create(
       kernel_params, handle_impl.getCublasHandle());
 
   SmoSolver<math_t> smo(handle_impl, param, kernel);
-  smo.Solve(X, n_rows, n_cols, y, &(model.dual_coefs), &(model.n_support),
-            &(model.x_support), &(model.support_idx), &(model.b),
-            param.max_iter);
+  smo.Solve(X, n_rows, n_cols, y, sample_weight, &(model.dual_coefs),
+            &(model.n_support), &(model.x_support), &(model.support_idx),
+            &(model.b), param.max_iter);
   model.n_cols = n_cols;
   delete kernel;
 }

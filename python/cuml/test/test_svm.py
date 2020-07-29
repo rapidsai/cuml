@@ -336,6 +336,37 @@ def test_svm_skl_cmp_predict_proba(n_rows=10000, n_cols=20):
     compare_probabilistic_svm(cuSVC, sklSVC, X_test, y_test, 1e-3, 1e-2)
 
 
+@pytest.mark.parametrize('class_weight', [None, {1: 10}, 'balanced'])
+@pytest.mark.parametrize('sample_weight', [None, True])
+def test_svc_weights(class_weight, sample_weight):
+    # We are using the following example as a test case
+    # https://scikit-learn.org/stable/auto_examples/svm/plot_separating_hyperplane_unbalanced.html
+    X, y = make_blobs(n_samples=[1000, 100],
+                      centers=[[0.0, 0.0], [2.0, 2.0]],
+                      cluster_std=[1.5, 0.5],
+                      random_state=137, shuffle=False)
+    if sample_weight:
+        # Put large weight on class 1
+        sample_weight = y * 9 + 1
+
+    params = {'kernel': 'linear', 'C': 1, 'gamma': 'scale'}
+    params['class_weight'] = class_weight
+    cuSVC = cu_svm.SVC(**params)
+    cuSVC.fit(X, y, sample_weight)
+
+    if class_weight is not None or sample_weight is not None:
+        # Standalone test: check if smaller blob is correctly classified in the
+        # presence of class weights
+        X_1 = X[y==1, :]
+        y_1 = np.ones(X_1.shape[0])
+        cu_score = cuSVC.score(X_1, y_1)
+        assert cu_score > 0.9
+
+    sklSVC = svm.SVC(**params)
+    sklSVC.fit(X, y, sample_weight)
+    compare_svm(cuSVC, sklSVC, X, y, coef_tol=1e-5, report_summary=True)
+
+
 @pytest.mark.parametrize('params', [
     pytest.param({'kernel': 'poly', 'degree': 40, 'C': 1, 'gamma': 'auto'},
                  marks=pytest.mark.xfail(reason="fp overflow in kernel "
