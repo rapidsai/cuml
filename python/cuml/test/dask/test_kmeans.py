@@ -73,8 +73,8 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
 
     if input_type == "dataframe":
         assert cumlLabels.npartitions == parts_len
-        cumlPred = cp.array(cumlLabels.compute().to_pandas().values)
-        labels = cp.squeeze(y_train.compute().to_pandas().values)
+        cumlPred = cumlLabels.compute().values
+        labels = y_train.compute().values
     elif input_type == "array":
         assert len(cumlLabels.chunks[0]) == parts_len
         cumlPred = cp.array(cumlLabels.compute())
@@ -118,7 +118,7 @@ def test_transform(nrows, ncols, nclusters, n_parts, input_type, client):
     if input_type == "dataframe":
         X_train = to_dask_cudf(X)
         y_train = to_dask_cudf(y)
-        labels = cp.squeeze(y_train.compute().to_pandas().values)
+        labels = y_train.compute().values
     elif input_type == "array":
         X_train, y_train = X, y
         labels = cp.squeeze(y_train.compute())

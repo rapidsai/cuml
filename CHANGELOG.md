@@ -17,6 +17,7 @@
 - PR #2520: TfidfVectorizer estimator
 - PR #2211: MNMG KNN Classifier & Regressor
 - PR #2461: Add KNN Sparse Output Functionality
+- PR #2607: Add support for probability estimates in SVC
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
@@ -105,14 +106,17 @@
 - PR #2535: Fix issue with incorrect docker image being used in local build script
 - PR #2542: Fix small memory leak in TSNE
 - PR #2552: Fixed the length argument of updateDevice calls in RF test
+- PR #2565: Fix cell allocation code to avoid loops in quad-tree. Prevent NaNs causing infinite descent
 - PR #2563: Update scipy call for arima gradient test
 - PR #2569: Fix for cuDF update
 - PR #2508: Use keyword parameters in sklearn.datasets.make_* functions
 - PR #2586: Fix SVC decision function data type
 - PR #2573: Considering managed memory as device type on checking for KMeans
 - PR #2574: Fixing include path in `tsvd_mg.pyx`
+- PR #2593: Fix inconsistency in train_test_split
 - PR #2609: Fix small doxygen issues
 - PR #2610: Remove cuDF tolist call
+- PR #2616: Small test code fix for pandas dtype tests
 
 # cuML 0.14.0 (03 Jun 2020)
 
