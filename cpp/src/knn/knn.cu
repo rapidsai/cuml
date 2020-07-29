@@ -50,8 +50,8 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
 }
 
 void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
-                  std::vector<int *> &y, size_t n_query_rows, size_t n_samples,
-                  int k) {
+                  std::vector<int *> &y, size_t n_index_rows,
+                  size_t n_query_rows, int k) {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
@@ -59,25 +59,25 @@ void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
   std::vector<int> n_unique(y.size());
 
   for (int i = 0; i < y.size(); i++) {
-    MLCommon::Label::getUniqueLabels(y[i], n_samples, &(uniq_labels[i]),
+    MLCommon::Label::getUniqueLabels(y[i], n_query_rows, &(uniq_labels[i]),
                                      &(n_unique[i]), stream, d_alloc);
   }
 
-  MLCommon::Selection::knn_classify(out, knn_indices, y, n_query_rows,
-                                    n_samples, k, uniq_labels, n_unique,
+  MLCommon::Selection::knn_classify(out, knn_indices, y, n_index_rows,
+                                    n_query_rows, k, uniq_labels, n_unique,
                                     d_alloc, stream);
 }
 
 void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
-                 std::vector<float *> &y, size_t n_query_rows, size_t n_samples,
-                 int k) {
-  MLCommon::Selection::knn_regress(out, knn_indices, y, n_query_rows, n_samples,
-                                   k, handle.getStream());
+                 std::vector<float *> &y, size_t n_index_rows,
+                 size_t n_query_rows, int k) {
+  MLCommon::Selection::knn_regress(out, knn_indices, y, n_index_rows,
+                                   n_query_rows, k, handle.getStream());
 }
 
 void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
                      int64_t *knn_indices, std::vector<int *> &y,
-                     size_t n_index_rows, size_t n_samples, int k) {
+                     size_t n_index_rows, size_t n_query_rows, int k) {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
@@ -85,12 +85,13 @@ void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
   std::vector<int> n_unique(y.size());
 
   for (int i = 0; i < y.size(); i++) {
-    MLCommon::Label::getUniqueLabels(y[i], n_samples, &(uniq_labels[i]),
+    MLCommon::Label::getUniqueLabels(y[i], n_query_rows, &(uniq_labels[i]),
                                      &(n_unique[i]), stream, d_alloc);
   }
 
-  MLCommon::Selection::class_probs(out, knn_indices, y, n_index_rows, n_samples,
-                                   k, uniq_labels, n_unique, d_alloc, stream);
+  MLCommon::Selection::class_probs(out, knn_indices, y, n_index_rows,
+                                   n_query_rows, k, uniq_labels, n_unique,
+                                   d_alloc, stream);
 }
 
 /**
@@ -98,18 +99,18 @@ void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
  * a series of input arrays and combine the results into a single
  * output array for indexes and distances.
  *
- * @param handle the cuml handle to use
- * @param input an array of pointers to the input arrays
- * @param sizes an array of sizes of input arrays
- * @param n_params array size of input and sizes
- * @param D the dimensionality of the arrays
- * @param search_items array of items to search of dimensionality D
- * @param n number of rows in search_items
- * @param res_I the resulting index array of size n * k
- * @param res_D the resulting distance array of size n * k
- * @param k the number of nearest neighbors to return
- * @param rowMajorIndex is the index array in row major layout?
- * @param rowMajorQuery is the query array in row major layout?
+ * @param[in] handle the cuml handle to use
+ * @param[in] input an array of pointers to the input arrays
+ * @param[in] sizes an array of sizes of input arrays
+ * @param[in] n_params array size of input and sizes
+ * @param[in] D the dimensionality of the arrays
+ * @param[in] search_items array of items to search of dimensionality D
+ * @param[in] n number of rows in search_items
+ * @param[out] res_I the resulting index array of size n * k
+ * @param[out] res_D the resulting distance array of size n * k
+ * @param[in] k the number of nearest neighbors to return
+ * @param[in] rowMajorIndex is the index array in row major layout?
+ * @param[in] rowMajorQuery is the query array in row major layout?
  */
 extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
                                   int *sizes, int n_params, int D,
