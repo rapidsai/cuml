@@ -56,6 +56,7 @@
 - PR #2237: Refactor RF cython code
 - PR #2513: Fixing LGTM Analysis Issues
 - PR #2099: Raise an error when float64 data is used with dask RF
+- PR #2522: Renaming a few arguments in KNeighbors* to be more readable
 - PR #2499: Provide access to `cuml.DBSCAN` core samples
 - PR #2526: Removing PCA TSQR as a solver due to scalability issues
 - PR #2536: Update conda upload versions for new supported CUDA/Python
@@ -95,6 +96,8 @@
 - PR #2497: Changes to accomodate cuDF unsigned categorical changes
 - PR #2209: Fix FIL benchmark for gpuarray-c input
 - PR #2507: Import `treelite.sklearn`
+- PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
+- PR #2515: Increase tolerance for LogisticRegression test
 - PR #2532: Updating doxygen in new MG headers
 - PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
 - PR #2515: Increase tolerance for LogisticRegression test
