@@ -47,6 +47,9 @@ from libc.stdlib cimport calloc, malloc, free
 from numba import cuda
 import rmm
 
+from cuml.metrics import r2_score
+
+
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
@@ -238,6 +241,38 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
         self.handle.sync()
 
         return results.to_output(out_type)
+
+    def score(X, y, sample_weight=None, convert_dtype=True):
+        """
+        Return the coefficient of determination R^2 of the prediction.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        y : array-like (device or host) shape = (n_samples, n_outputs)
+            Dense matrix (floats or doubles) of shape (n_samples, n_outputs).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will automatically
+            convert the inputs to np.float32.
+
+        sample_weight: Ignored.
+
+        Returns
+        -------
+
+        score : float
+            R^2 of self.predict(X) wrt. y.
+        """
+
+        y_hat = self.predict(X, convert_dtype)
+        return r2_score(y, y_hat)
 
     def get_param_names(self):
         return super(KNeighborsRegressor, self).get_param_names() \
