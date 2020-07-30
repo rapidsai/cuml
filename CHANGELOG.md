@@ -17,6 +17,7 @@
 - PR #2520: TfidfVectorizer estimator
 - PR #2211: MNMG KNN Classifier & Regressor
 - PR #2461: Add KNN Sparse Output Functionality
+- PR #2607: Add support for probability estimates in SVC
 - PR #2322: Sparse FIL forests with 8-byte nodes
 
 ## Improvements
@@ -56,6 +57,7 @@
 - PR #2237: Refactor RF cython code
 - PR #2513: Fixing LGTM Analysis Issues
 - PR #2099: Raise an error when float64 data is used with dask RF
+- PR #2522: Renaming a few arguments in KNeighbors* to be more readable
 - PR #2499: Provide access to `cuml.DBSCAN` core samples
 - PR #2526: Removing PCA TSQR as a solver due to scalability issues
 - PR #2536: Update conda upload versions for new supported CUDA/Python
@@ -72,6 +74,7 @@
 - PR #2589: including cuda-11 build fixes into raft
 - PR #2487: Set classes_ attribute during classifier fit
 - PR #2605: Reduce memory usage in tSNE
+- PR #2611: Adding building doxygen docs to gpu ci
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -95,6 +98,8 @@
 - PR #2497: Changes to accomodate cuDF unsigned categorical changes
 - PR #2209: Fix FIL benchmark for gpuarray-c input
 - PR #2507: Import `treelite.sklearn`
+- PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
+- PR #2515: Increase tolerance for LogisticRegression test
 - PR #2532: Updating doxygen in new MG headers
 - PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
 - PR #2515: Increase tolerance for LogisticRegression test
@@ -106,12 +111,18 @@
 - PR #2535: Fix issue with incorrect docker image being used in local build script
 - PR #2542: Fix small memory leak in TSNE
 - PR #2552: Fixed the length argument of updateDevice calls in RF test
+- PR #2565: Fix cell allocation code to avoid loops in quad-tree. Prevent NaNs causing infinite descent
 - PR #2563: Update scipy call for arima gradient test
 - PR #2569: Fix for cuDF update
 - PR #2508: Use keyword parameters in sklearn.datasets.make_* functions
 - PR #2586: Fix SVC decision function data type
 - PR #2573: Considering managed memory as device type on checking for KMeans
 - PR #2574: Fixing include path in `tsvd_mg.pyx`
+- PR #2593: Fix inconsistency in train_test_split
+- PR #2609: Fix small doxygen issues
+- PR #2610: Remove cuDF tolist call
+- PR #2613: Removing thresholds from kmeans score tests (SG+MG)
+- PR #2616: Small test code fix for pandas dtype tests
 
 # cuML 0.14.0 (03 Jun 2020)
 
@@ -284,6 +295,7 @@
 - PR #2295: Fix convert_to_dtype copy even with same dtype
 - PR #2305: Fixed race condition in DBScan
 - PR #2354: Fix broken links in README
+- PR #2619: Explicitly skip raft test folder for pytest 6.0.0
 
 # cuML 0.13.0 (31 Mar 2020)
 

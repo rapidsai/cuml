@@ -23,9 +23,9 @@ where:
 ```
 
 Example Usage:
-`bash build.sh -r ~/rapids/cuml -i gpuci/rapidsai-base:cuda10.1-ubuntu16.04-gcc5-py3.6`
+`bash build.sh -r ~/rapids/cuml -i gpuci/rapidsai:0.15-cuda10.2-devel-ubuntu16.04-py3.7`
 
-For a full list of available gpuCI docker images, visit our [DockerHub](https://hub.docker.com/r/gpuci/rapidsai-base/tags) page.
+For a full list of available gpuCI docker images, visit our [DockerHub](https://hub.docker.com/r/gpuci/rapidsai/tags) page.
 
 Style Check:
 ```bash
