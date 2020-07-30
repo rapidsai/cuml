@@ -967,7 +967,7 @@ def test_pairwise_distances_exceptions():
 
 
 @pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
-@pytest.mark.parametrize("output_type", ["input", "cudf", "numpy", "cupy"])
+@pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
 @pytest.mark.parametrize("use_global", [True, False])
 def test_pairwise_distances_output_types(input_type, output_type, use_global):
     # Test larger sizes to sklearn
