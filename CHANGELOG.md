@@ -47,6 +47,7 @@
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
 - PR #2473: Add metrics.roc_auc_score to API docs. Additional readability and minor docs bug fixes
 - PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
+- PR #2489: Removing explicit FAISS build and adding dependency on libfaiss conda package
 - PR #2480: Moving MNMG glm and solvers to cuml
 - PR #2490: Moving MNMG KMeans to cuml
 - PR #2483: Moving MNMG KNN to cuml
