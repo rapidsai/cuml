@@ -224,6 +224,7 @@ if completeBuild || hasArg cuml || hasArg pydocs; then
 
     if hasArg pydocs; then
         cd ${REPODIR}/docs
+        make clean
         make html
     fi
 fi
