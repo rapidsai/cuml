@@ -19,7 +19,7 @@ import scipy
 import numbers
 
 from cuml.common import with_cupy_rmm
-from cuml.common.input_utils import sparse_scipy_to_cp
+# from cuml.common.input_utils import sparse_scipy_to_cp
 from cuml.common import input_to_cuml_array
 
 from cuml.decomposition import PCA
@@ -165,10 +165,8 @@ class IncrementalPCA(PCA):
         self._mean_ = .0
         self.var_ = .0
 
-        if scipy.sparse.issparse(X):
-            X = sparse_scipy_to_cp(X).tocsr()
-        elif cp.sparse.issparse(X):
-            X = X.tocsr()
+        if scipy.sparse.issparse(X) or cp.sparse.issparse(X):
+            X = _validate_sparse_input(X)
         else:
             X, n_samples, n_features, self.dtype = \
                 input_to_cuml_array(X, order='K',
@@ -184,7 +182,6 @@ class IncrementalPCA(PCA):
 
         for batch in _gen_batches(n_samples, self.batch_size_,
                                   min_batch_size=self.n_components or 0):
-
             X_batch = X[batch]
             if cp.sparse.issparse(X_batch):
                 X_batch = X_batch.toarray()
@@ -324,10 +321,7 @@ class IncrementalPCA(PCA):
         if scipy.sparse.issparse(X) or cp.sparse.issparse(X):
             out_type = self._get_output_type(X)
 
-            if scipy.sparse.issparse(X):
-                X = sparse_scipy_to_cp(X).tocsr()
-            elif cp.sparse.issparse(X):
-                X = X.tocsr()
+            X = _validate_sparse_input(X)
 
             n_samples = X.shape[0]
             output = []
@@ -345,8 +339,44 @@ class IncrementalPCA(PCA):
         return self._param_names
 
 
+def _validate_sparse_input(X):
+    """
+    Validate the format and dtype of sparse inputs.
+    This function throws an error for any cupy.sparse object that is not
+    of type cupy.sparse.csr_matrix or cupy.sparse.csc_matrix.
+    It also validates the dtype of the input to be 'float32' or 'float64'
+
+    Parameters
+    ----------
+    X : scipy.sparse or cupy.sparse object
+        A sparse input
+    Returns
+    -------
+    X : The input converted to a cupy.sparse.csr_matrix object
+    """
+
+    acceptable_dtypes = ('float32', 'float64')
+    acceptable_cupy_sparse_formats = \
+        (cp.sparse.csr_matrix, cp.sparse.coo_matrix)
+
+    if X.dtype not in acceptable_dtypes:
+        raise TypeError("Expected input to be of type float32 or float64."
+                        " Received %s" % X.dtype)
+    if scipy.sparse.issparse(X):
+        return cp.sparse.csr_matrix(X)
+    elif cp.sparse.issparse(X):
+        if not isinstance(X, acceptable_cupy_sparse_formats):
+            raise TypeError("Expected input to be of type"
+                            " cupy.sparse.csr_matrix or"
+                            " cupy.sparse.csc_matrix. Received %s"
+                            % type(X))
+        else:
+            return X
+
+
 def _gen_batches(n, batch_size, min_batch_size=0):
-    """Generator to create slices containing batch_size elements, from 0 to n.
+    """
+    Generator to create slices containing batch_size elements, from 0 to n.
     The last slice may contain less than batch_size elements, when batch_size
     does not divide n.
 
@@ -401,7 +431,7 @@ def _safe_accumulator_op(op, x, *args, **kwargs):
     """
 
     if cp.issubdtype(x.dtype, cp.floating) and x.dtype.itemsize < 8:
-        result = op(x, *args, **kwargs, dtype=cp.float64)
+        result = op(x, *args, **kwargs, dtype=cp.float64).astype(cp.float32)
     else:
         result = op(x, *args, **kwargs)
     return result
