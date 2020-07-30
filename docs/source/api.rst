@@ -398,6 +398,12 @@ Linear Models
 .. autoclass:: cuml.dask.linear_model.ElasticNet
     :members:
 
+Naive Bayes
+-----------
+
+.. autoclass:: cuml.dask.naive_bayes.MultinomialNB
+    :members:
+
 Solvers
 -------
 
