@@ -357,7 +357,10 @@ class PCA(Base):
         self.n_cols = X.shape[1]
         self.dtype = X.dtype
 
-        covariance, self._mean_, _ = cov(X, X, return_mean=True)
+        covariance, mean, _ = cov(X, X, return_mean=True)
+
+        # Store internally as CumlArray
+        self._mean_ = CumlArray(mean)
 
         self._explained_variance_, self._components_ = \
             cp.linalg.eigh(covariance, UPLO='U')

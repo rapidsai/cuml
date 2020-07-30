@@ -243,14 +243,18 @@ def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
         return
     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
 
-    cuSVC = cu_svm.SVC(**params)
-    cuSVC.fit(X_train, y_train)
+    # Default to numpy for testing
+    with cuml.using_output_type("numpy"):
 
-    sklSVC = svm.SVC(**params)
-    sklSVC.fit(X_train, y_train)
+        cuSVC = cu_svm.SVC(**params)
+        cuSVC.fit(X_train, y_train)
 
-    compare_svm(cuSVC, sklSVC, X_test, y_test, n_sv_tol=max(2, 0.02*n_rows),
-                coef_tol=1e-5, report_summary=True)
+        sklSVC = svm.SVC(**params)
+        sklSVC.fit(X_train, y_train)
+
+        compare_svm(cuSVC, sklSVC, X_test, y_test,
+                    n_sv_tol=max(2, 0.02*n_rows), coef_tol=1e-5,
+                    report_summary=True)
 
 
 def test_svm_skl_cmp_decision_function(n_rows=4000, n_cols=20):

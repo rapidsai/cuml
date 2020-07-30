@@ -241,13 +241,16 @@ class BaseRandomForestModel(Base):
             if y_dtype != np.int32:
                 raise TypeError("The labels `y` need to be of dtype"
                                 " `int32`")
-            self.classes_ = rmm_cupy_ary(cp.unique, y_m)
-            self.num_classes = len(self.classes_)
+            temp_classes = rmm_cupy_ary(cp.unique, y_m)
+            self.num_classes = len(temp_classes)
             for i in range(self.num_classes):
-                if i not in self.classes_:
+                if i not in temp_classes:
                     raise ValueError("The labels need "
                                      "to be consecutive values from "
                                      "0 to the number of unique label values")
+
+            # Save internally as CumlArray
+            self._classes_ = CumlArray(temp_classes)
         else:
             y_m, _, _, y_dtype = \
                 input_to_cuml_array(

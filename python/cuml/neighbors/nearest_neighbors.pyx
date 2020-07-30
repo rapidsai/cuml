@@ -364,7 +364,7 @@ class NearestNeighbors(Base):
 
         use_training_data = X is None
         if X is None:
-            X = self.X_m
+            X = self._X_m
             n_neighbors += 1
 
         if (n_neighbors is None and self.n_neighbors is None) \
@@ -483,7 +483,7 @@ class NearestNeighbors(Base):
             numpy's CSR sparse graph (host)
 
         """
-        if not self.X_m:
+        if not self._X_m:
             raise ValueError('This NearestNeighbors instance has not been '
                              'fitted yet, call "fit" before using this '
                              'estimator')
@@ -512,7 +512,7 @@ class NearestNeighbors(Base):
         indices = ind_mlarr.to_output('cupy')[:, 1:] if X is None \
             else ind_mlarr.to_output('cupy')
         n_samples = indices.shape[0]
-        n_samples_fit = self.X_m.shape[0]
+        n_samples_fit = self._X_m.shape[0]
         n_nonzero = n_samples * n_neighbors
         rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
 

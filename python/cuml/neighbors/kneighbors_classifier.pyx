@@ -139,6 +139,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         super(KNeighborsClassifier, self).__init__(**kwargs)
 
         self._y = None
+        self._classes_ = None
         self.weights = weights
 
         if weights != "uniform":
@@ -174,7 +175,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                                 convert_to_dtype=(np.int32
                                                   if convert_dtype
                                                   else None))
-        self.classes_ = cp.unique(self.y)
+        self._classes_ = CumlArray(cp.unique(self._y))
         return self
 
     def predict(self, X, convert_dtype=True):
