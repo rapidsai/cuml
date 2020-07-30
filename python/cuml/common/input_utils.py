@@ -333,6 +333,17 @@ def input_to_host_array(X, order='F', deepcopy=False,
         array. It is a reference to the input X if it was a NumPy host array
     """
 
+    if isinstance(X, np.ndarray):
+        if len(X.shape) > 1:
+            n_cols = X.shape[1]
+        else:
+            n_cols = 1
+        return inp_array(array=X,
+                         pointer=X.__array_interface__['data'][0],
+                         n_rows=X.shape[0],
+                         n_cols=n_cols,
+                         dtype=X.dtype)
+
     ary_tuple = input_to_cuml_array(X,
                                     order=order,
                                     deepcopy=deepcopy,

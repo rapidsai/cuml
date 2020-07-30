@@ -30,6 +30,7 @@ from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.common.exceptions import NotFittedError
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
 from libcpp cimport bool
@@ -116,7 +117,7 @@ class SVMBase(Base):
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
-                 epsilon=0.1):
+                 epsilon=0.1, output_type=None):
         """
         Construct an SVC classifier for training and predictions.
 
@@ -183,7 +184,8 @@ class SVMBase(Base):
         For additional docs, see `scikitlearn's SVC
         <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
         """
-        super(SVMBase, self).__init__(handle=handle, verbose=verbose)
+        super(SVMBase, self).__init__(handle=handle, verbose=verbose,
+                                      output_type=output_type)
         # Input parameters for training
         self.tol = tol
         self.C = C
@@ -282,6 +284,12 @@ class SVMBase(Base):
     def _calc_coef(self):
         return cupy.dot(cupy.asarray(self._dual_coef_),
                         cupy.asarray(self._support_vectors_))
+
+    def _check_is_fitted(self, attr):
+        if not hasattr(self, attr) or (getattr(self, attr) is None):
+            msg = ("This classifier instance is not fitted yet. Call 'fit' "
+                   "with appropriate arguments before using this estimator.")
+            raise NotFittedError(msg)
 
     @property
     def coef_(self):
@@ -533,8 +541,7 @@ class SVMBase(Base):
         else:
             out_dtype = self.dtype
 
-        if self._model is None:
-            raise RuntimeError("Call fit before prediction")
+        self._check_is_fitted('_model')
 
         X_m, n_rows, n_cols, pred_dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype)
