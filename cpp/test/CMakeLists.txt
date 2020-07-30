@@ -22,6 +22,7 @@ set(CUML_TEST_INCLUDE_DIRS
 
 set(CUML_TEST_LINK_LIBRARIES
   ${CUML_CPP_TARGET}
+  FAISS::FAISS
   treelite::treelite
   treelite::treelite_runtime
   ${CUDA_cublas_LIBRARY}
@@ -100,11 +101,11 @@ if(BUILD_CUML_MG_TESTS)
 
     target_include_directories(ml_mg PUBLIC ${CUML_TEST_INCLUDE_DIRS})
 
-    set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} ${MPI_CXX_LIBRARIES})
-
-    set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} cumlcommsmpi)
-
-    set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} cumlprims)
+    set(CUML_TEST_LINK_LIBRARIES 
+    	${CUML_TEST_LINK_LIBRARIES} 
+    	${MPI_CXX_LIBRARIES}
+    	cumlcommsmpi
+    	cumlprims)
 
     target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
 
