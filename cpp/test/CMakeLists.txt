@@ -40,7 +40,10 @@ set(PRIMS_TEST_LINK_LIBRARIES
   ${CUDA_curand_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY})
+  ${CUDA_cusparse_LIBRARY}
+  gtestlib
+  gtest_mainlib
+  )
 
 ##############################################################################
 # - build ml_test executable -------------------------------------------------
@@ -101,8 +104,8 @@ if(BUILD_CUML_MG_TESTS)
 
     target_include_directories(ml_mg PUBLIC ${CUML_TEST_INCLUDE_DIRS})
 
-    set(CUML_TEST_LINK_LIBRARIES 
-    	${CUML_TEST_LINK_LIBRARIES} 
+    set(CUML_TEST_LINK_LIBRARIES
+    	${CUML_TEST_LINK_LIBRARIES}
     	${MPI_CXX_LIBRARIES}
     	cumlcommsmpi
     	cumlprims)
@@ -232,6 +235,6 @@ if(BUILD_PRIMS_TESTS)
     gtestlib
     gtest_mainlib
     ${PRIMS_TEST_LINK_LIBRARIES})
-    
-    
+
+
 endif(BUILD_PRIMS_TESTS)
