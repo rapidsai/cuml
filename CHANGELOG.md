@@ -122,6 +122,7 @@
 - PR #2610: Remove cuDF tolist call
 - PR #2613: Removing thresholds from kmeans score tests (SG+MG)
 - PR #2616: Small test code fix for pandas dtype tests
+- PR #2625: Update Estimator notebook to resolve errors
 
 # cuML 0.14.0 (03 Jun 2020)
 
