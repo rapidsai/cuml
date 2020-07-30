@@ -24,22 +24,27 @@ from numba import cuda
 from typing import Union
 
 
-def stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
+def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
     """
     Function to perform a stratified split based on y.
     Identifies number of classes and samples per class, splices data within
     each class.
+    Based on scikit-learn stratified split implementation
 
     Input:
     X, y: shuffled input data and labels
     """
+    x_cudf = False
+    y_cudf = False
     if isinstance(X, cudf.DataFrame):
-        X = cp.fromDlpack(X.to_dlpack())
-    if isinstance(y, cudf.Series):
-        y = cp.fromDlpack(y.to_dlpack())
-    if isinstance(X, cuda.cudadrv.devicearray.DeviceNDArray):
+        x_cudf = True
+        X = X.values
+    elif hasattr(X, "__cuda_array_interface__"):
         X = cp.asarray(X)
-    if isinstance(y, cuda.cudadrv.devicearray.DeviceNDArray):
+    if isinstance(y, cudf.Series):
+        y_cudf = True
+        y = y.values
+    elif hasattr(X, "__cuda_array_interface__"):
         y = cp.asarray(y)
 
     classes, y_indices = cp.unique(y, return_inverse=True)
@@ -63,7 +68,7 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
     t_i = _approximate_mode(class_counts_remaining, n_test, random_state)
 
     if random_state is None:
-        rng = np.random.mtrand._rand
+        rng = cp.random.mtrand._rand
     elif isinstance(random_state, cp.random.RandomState):
         rng = random_state
     else:
@@ -83,22 +88,34 @@ def stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
             X_test = X_test_i
             y_test = y_test_i
         else:
-            if hasattr(X, "__cuda_array_interface__") or \
-               isinstance(X, cp.sparse.csr_matrix):
-                X_train = cp.concatenate([X_train, X_train_i], axis=0)
-                X_test = cp.concatenate([X_test, X_test_i], axis=0)
-                y_train = cp.concatenate([y_train, y_train_i], axis=0)
-                y_test = cp.concatenate([y_test, y_test_i], axis=0)
-            else:
-                X_train = X_train.append(X_train_i)
-                X_test = X_test.append(X_test_i)
-                y_train = y_train.append(y_train_i)
-                y_test = y_test.append(y_test_i)
+            X_train = cp.concatenate([X_train, X_train_i], axis=0)
+            X_test = cp.concatenate([X_test, X_test_i], axis=0)
+            y_train = cp.concatenate([y_train, y_train_i], axis=0)
+            y_test = cp.concatenate([y_test, y_test_i], axis=0)
+
+
+    if x_numba:
+        X_train = cuda.as_cuda_array(X_train)
+        X_test = cuda.as_cuda_array(X_test)
+    elif x_cudf:
+        X_train = cudf.DataFrame(X_train)
+        X_test = cudf.DataFrame(X_test)
+
+    if y_numba:
+        y_train = cuda.as_cuda_array(y_train)
+        y_test = cuda.as_cuda_array(y_test)
+    elif y_cudf:
+        y_train = cudf.DataFrame(y_train)
+        y_test = cudf.DataFrame(y_test)
+
     return X_train, X_test, y_train, y_test
 
 
 def _approximate_mode(class_counts, n_draws, rng):
-
+    """
+    Based on scikit-learn approximate_mode method.
+    https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/utils/__init__.py#L984
+    """
     # this computes a bad approximation to the mode of the
     # multivariate hypergeometric given by class_counts and n_draws
     continuous = n_draws * class_counts / class_counts.sum()
@@ -336,9 +353,11 @@ def train_test_split(
             y = cp.asarray(y)[idxs]
 
         if stratify is not None:
-            split_return = stratify_split(X, y, train_size, test_size,
+            split_return = _stratify_split(X, y, train_size, test_size,
                                           x_numba, y_numba, random_state)
             return split_return
+
+    # If not stratified, perform train_test_split splicing
     if hasattr(X, "__cuda_array_interface__"):
         x_order = _strides_to_order(X.__cuda_array_interface__['strides'],
                                     cp.dtype(X.dtype))
