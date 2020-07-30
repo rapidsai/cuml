@@ -25,7 +25,7 @@ from sklearn import svm
 from sklearn.datasets import load_iris, make_blobs
 from sklearn.datasets import make_regression, make_friedman1
 from sklearn.datasets import make_classification, make_gaussian_quantiles
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, brier_score_loss
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
@@ -257,8 +257,10 @@ def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
                     report_summary=True)
 
 
-def test_svm_skl_cmp_decision_function(n_rows=4000, n_cols=20):
-    params = {'kernel': 'rbf', 'C': 5, 'gamma': 0.005}
+@pytest.mark.parametrize('params', [
+    {'kernel': 'rbf', 'C': 5, 'gamma': 0.005, "probability": False},
+    {'kernel': 'rbf', 'C': 5, 'gamma': 0.005, "probability": True}])
+def test_svm_skl_cmp_decision_function(params, n_rows=4000, n_cols=20):
 
     X_train, X_test, y_train, y_test = make_dataset('classification1', n_rows,
                                                     n_cols)
@@ -278,7 +280,11 @@ def test_svm_skl_cmp_decision_function(n_rows=4000, n_cols=20):
     sklSVC.fit(X_train, y_train)
     df2 = sklSVC.decision_function(X_test)
 
-    assert mean_squared_error(df1, df2) < 1e-5
+    if params["probability"]:
+        tol = 2e-2  # See comments in SVC decision_function method
+    else:
+        tol = 1e-5
+    assert mean_squared_error(df1, df2) < tol
 
 
 @pytest.mark.parametrize('params', [
@@ -302,6 +308,36 @@ def test_svm_predict(params, n_pred):
     n_correct = np.sum(y_test == y_pred)
     accuracy = n_correct * 100 / n_pred
     assert accuracy > 99
+
+
+def compare_probabilistic_svm(svc1, svc2, X_test, y_test, tol=1e-3,
+                              brier_tol=1e-3):
+    """ Compare the probability output from two support vector classifiers.
+    """
+    prob1 = svc1.predict_proba(X_test)
+    brier1 = brier_score_loss(y_test, prob1[:, 1])
+
+    prob2 = svc2.predict_proba(X_test)
+    brier2 = brier_score_loss(y_test, prob2[:, 1])
+
+    assert mean_squared_error(prob1, prob2) <= tol
+    # Brier score - smaller is better
+    assert brier1 - brier2 <= brier_tol
+
+
+def test_svm_skl_cmp_predict_proba(n_rows=10000, n_cols=20):
+    params = {'kernel': 'rbf', 'C': 1, 'tol': 1e-3, 'gamma': 'scale',
+              'probability': True}
+    X, y = make_classification(n_samples=n_rows, n_features=n_cols,
+                               n_informative=2, n_redundant=10,
+                               random_state=137)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.8,
+                                                        random_state=42)
+    cuSVC = cu_svm.SVC(**params)
+    cuSVC.fit(X_train, y_train)
+    sklSVC = svm.SVC(**params)
+    sklSVC.fit(X_train, y_train)
+    compare_probabilistic_svm(cuSVC, sklSVC, X_test, y_test, 1e-3, 1e-2)
 
 
 @pytest.mark.parametrize('params', [
