@@ -25,8 +25,6 @@ def pytest_runtest_makereport(item: Item, call):
     outcome = yield
     report = outcome.get_result()
 
-    # report = TestReport.from_item_and_call(item, call)
-
     if (report.failed):
 
         found_assert = False
@@ -38,15 +36,6 @@ def pytest_runtest_makereport(item: Item, call):
 
             for entry in reversed(report.longrepr.reprtraceback.reprentries):
 
-                # if (os.path.splitext(entry.reprfileloc.path)[1] == ".pyx"):
-
-                #     true_path = "{}:{}".format(entry.reprfileloc.path,
-                #                                entry.reprfileloc.lineno)
-
-                #     bad_cuml_array_loc.add((true_path,
-                #                             entry.reprfileloc.message))
-
-                #     break
                 if (not found_assert and entry.reprfileloc.message.startswith(
                         "AssertionError")):
                     found_assert = True
