@@ -28,42 +28,73 @@ def pytest_runtest_makereport(item: Item, call):
     # report = TestReport.from_item_and_call(item, call)
 
     if (report.failed):
+
+        found_assert = False
+
         # Ensure these attributes exist. They can be missing if something else
         # failed outside of the test
-        if (hasattr(report.longrepr, "reprtraceback") and
-                hasattr(report.longrepr.reprtraceback, "reprentries")):
+        if (hasattr(report.longrepr, "reprtraceback")
+                and hasattr(report.longrepr.reprtraceback, "reprentries")):
 
             for entry in reversed(report.longrepr.reprtraceback.reprentries):
 
-                if (os.path.splitext(entry.reprfileloc.path)[1] == ".pyx"):
+                # if (os.path.splitext(entry.reprfileloc.path)[1] == ".pyx"):
 
+                #     true_path = "{}:{}".format(entry.reprfileloc.path,
+                #                                entry.reprfileloc.lineno)
+
+                #     bad_cuml_array_loc.add((true_path,
+                #                             entry.reprfileloc.message))
+
+                #     break
+                if (not found_assert and entry.reprfileloc.message.startswith(
+                        "AssertionError")):
+                    found_assert = True
+                elif (found_assert):
                     true_path = "{}:{}".format(entry.reprfileloc.path,
                                                entry.reprfileloc.lineno)
 
-                    bad_cuml_array_loc.add((true_path,
-                                            entry.reprfileloc.message))
+                    bad_cuml_array_loc.add(
+                        (true_path, entry.reprfileloc.message))
 
                     break
 
 
 # Closing hook to display the file/line numbers at the end of the test
 def pytest_unconfigure(config):
+    def split_exists(filename: str) -> bool:
+        strip_colon = filename[:filename.rfind(":")]
+        return os.path.exists(strip_colon)
 
     if (len(bad_cuml_array_loc) > 0):
 
-        print("Bad uses of CumlArray on Base:")
+        print("Incorrect CumlArray uses in class derived from \
+            cuml.common.base.Base:")
 
         prefix = ""
 
         # Depending on where pytest was launched from, it may need to append
         # "python"
-        if (not os.path.basename(os.path.abspath(os.curdir))
-                .endswith("python")):
+        if (not os.path.basename(os.path.abspath(
+                os.curdir)).endswith("python")):
             prefix = "python"
 
         for location, message in bad_cuml_array_loc:
-            print("{} {}".format(os.path.abspath(
-                os.path.join(prefix, location)), message))
+
+            combined_path = os.path.abspath(location)
+
+            # Try appending prefix if that file doesnt exist
+            if (not split_exists(combined_path)):
+                combined_path = os.path.abspath(os.path.join(prefix, location))
+
+                # If that still doesnt exist, just use the original
+                if (not split_exists(combined_path)):
+                    combined_path = location
+
+            print("{} {}".format(combined_path, message))
+
+        print("See https://github.com/rapidsai/cuml/issues/2456#issuecomment-666106406 \
+            for more information on naming conventions")
 
 
 # This fixture will monkeypatch cuml.common.base.Base to check for incorrect
@@ -73,24 +104,38 @@ def fail_on_bad_cuml_array_name(monkeypatch):
 
     from cuml.common import CumlArray
     from cuml.common.base import Base
+    from cuml.common.input_utils import get_supported_input_type
 
     def patched__setattr__(self, name, value):
 
-        if isinstance(value, CumlArray):
-            assert name.startswith("_"), "Invalid CumlArray Use! Attribute: \
-                '{}' In: {}".format(name, self.__repr__())
+        supported_type = get_supported_input_type(value)
+
+        if (supported_type == CumlArray):
+            assert name.startswith("_"), "Invalid CumlArray Use! CumlArray \
+                attributes need a leading underscore. Attribute: '{}' In: {}" \
+                    .format(name, self.__repr__())
+        elif (supported_type is not None):
+            # Is this an estimated property? If so, should always be CumlArray
+            assert not name.endswith("_"), "Invalid Estimated Array-Like \
+                Attribute! Estimated attributes should always be CumlArray. \
+                Attribute: '{}' In: {}".format(name, self.__repr__())
+            assert not name.startswith("_"), "Invalid Public Array-Like \
+                Attribute! Public array-like attributes should always be \
+                CumlArray. Attribute: '{}' In: {}".format(
+                name, self.__repr__())
 
         return super(Base, self).__setattr__(name, value)
 
-    """Monkeypatch CumlArray.__setattr__ to assert array attributes have a
-       leading underscore. i.e. `self._my_variable_ = CumlArray.ones(10)`."""
-    monkeypatch.setattr(Base, "__setattr__",  patched__setattr__)
+    # Monkeypatch CumlArray.__setattr__ to assert array attributes have a
+    #   leading underscore. i.e. `self._my_variable_ = CumlArray.ones(10)`.
+    monkeypatch.setattr(Base, "__setattr__", patched__setattr__)
 
 
 @pytest.fixture(scope="module")
 def nlp_20news():
     twenty_train = fetch_20newsgroups(subset='train',
-                                      shuffle=True, random_state=42)
+                                      shuffle=True,
+                                      random_state=42)
 
     count_vect = CountVectorizer()
     X = count_vect.fit_transform(twenty_train.data)
@@ -100,14 +145,20 @@ def nlp_20news():
 
 
 def pytest_addoption(parser):
-    parser.addoption("--run_stress", action="store_true",
-                     default=False, help="run stress tests")
+    parser.addoption("--run_stress",
+                     action="store_true",
+                     default=False,
+                     help="run stress tests")
 
-    parser.addoption("--run_quality", action="store_true",
-                     default=False, help="run quality tests")
+    parser.addoption("--run_quality",
+                     action="store_true",
+                     default=False,
+                     help="run quality tests")
 
-    parser.addoption("--run_unit", action="store_true",
-                     default=False, help="run unit tests")
+    parser.addoption("--run_unit",
+                     action="store_true",
+                     default=False,
+                     help="run unit tests")
 
 
 def pytest_collection_modifyitems(config, items):

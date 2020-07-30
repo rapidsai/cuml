@@ -330,7 +330,7 @@ class SGD(Base):
 
         _estimator_type = getattr(self, '_estimator_type', None)
         if _estimator_type == "classifier":
-            self.classes_ = cp.unique(y_m)
+            self._classes_ = CumlArray(cp.unique(y_m))
 
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t y_ptr = y_m.ptr
