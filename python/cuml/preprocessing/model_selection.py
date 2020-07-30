@@ -93,7 +93,6 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
             y_train = cp.concatenate([y_train, y_train_i], axis=0)
             y_test = cp.concatenate([y_test, y_test_i], axis=0)
 
-
     if x_numba:
         X_train = cuda.as_cuda_array(X_train)
         X_test = cuda.as_cuda_array(X_test)
@@ -178,6 +177,9 @@ def train_test_split(
     seed: random_state : int, CuPy RandomState or NumPy RandomState optional
         Deprecated in favor of `random_state`.
         If shuffle is true, seeds the generator. Unseeded by default
+    stratify: bool, optional
+        Whether to stratify the input data based on class labels.
+        None by default
 
     Examples
     --------
@@ -354,7 +356,7 @@ def train_test_split(
 
         if stratify is not None:
             split_return = _stratify_split(X, y, train_size, test_size,
-                                          x_numba, y_numba, random_state)
+                                           x_numba, y_numba, random_state)
             return split_return
 
     # If not stratified, perform train_test_split splicing
