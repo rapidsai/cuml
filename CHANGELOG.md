@@ -74,6 +74,7 @@
 - PR #2487: Set classes_ attribute during classifier fit
 - PR #2605: Reduce memory usage in tSNE
 - PR #2611: Adding building doxygen docs to gpu ci
+- PR #2623: Fixing kmeans score() API. Adding score() to kneighbors estimators
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
