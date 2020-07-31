@@ -146,6 +146,7 @@
 - PR #2256: Add a `make_arima` generator
 - PR #2245: ElasticNet, Lasso and Coordinate Descent MNMG
 - PR #2242: Pandas input support with output as NumPy arrays by default
+- PR #2551: Add cuML RF multiclass prediction using FIL from python
 - PR #1728: Added notebook testing to gpuCI gpu build
 
 ## Improvements
