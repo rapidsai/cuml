@@ -188,6 +188,14 @@ GENERATE_FIND_MODULE(NAME UCX
                      HEADER_NAME ucp/api/ucp.h
                      LIBRARY_NAME ucp)
 
+GENERATE_FIND_MODULE(NAME GTEST
+                     HEADER_NAME gtest/gtest.h
+                     LIBRARY_NAME gtest)
+
+GENERATE_FIND_MODULE(NAME GTESTMAIN
+                     HEADER_NAME gtest/gtest.h
+                     LIBRARY_NAME gtest_main)
+
 if(NOT BUILD_STATIC_FAISS)
 	GENERATE_FIND_MODULE(NAME FAISS
 	                     HEADER_NAME faiss/IndexFlat.h
