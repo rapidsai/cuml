@@ -162,12 +162,17 @@ else()
 	set(FAISS_INSTALL_DIR ENV{FAISS_ROOT})
 	find_package(FAISS REQUIRED)
 endif(BUILD_STATIC_FAISS)
+
 ##############################################################################
 # - treelite build -----------------------------------------------------------
 
 find_package(Treelite 0.92 REQUIRED)
 
+##############################################################################
+# - googletest build -----------------------------------------------------------
 
+set(GTEST_INSTALL_DIR ENV{GTEST_ROOT})
+set(GTESTMAIN_INSTALL_DIR ENV{GTEST_ROOT})
 find_package(GTEST REQUIRED)
 find_package(GTESTMAIN REQUIRED)
 
