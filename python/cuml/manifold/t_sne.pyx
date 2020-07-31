@@ -339,6 +339,12 @@ class TSNE(Base):
                           "# of datapoints = {}.".format(self.perplexity, n))
             self.perplexity = n
 
+        if knn_graph is not None:
+            knn_indices_raw, knn_dists_raw = self._extract_knn_graph(knn_graph, convert_dtype)
+
+        cdef uintptr_t knn_indices_raw = knn_indices_raw or 0
+        cdef uintptr_t knn_dists_raw = knn_dists_raw or 0
+
         # Prepare output embeddings
         Y = CumlArray.zeros(
             (n, self.n_components),
