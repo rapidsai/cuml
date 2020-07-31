@@ -167,36 +167,9 @@ endif(BUILD_STATIC_FAISS)
 
 find_package(Treelite 0.92 REQUIRED)
 
-##############################################################################
-# - googletest ---------------------------------------------------------------
 
-set(GTEST_DIR ${CMAKE_CURRENT_BINARY_DIR}/googletest CACHE STRING
-  "Path to googletest repo")
-set(GTEST_BINARY_DIR ${PROJECT_BINARY_DIR}/googletest)
-set(GTEST_INSTALL_DIR ${GTEST_BINARY_DIR}/install)
-set(GTEST_LIB ${GTEST_INSTALL_DIR}/lib/libgtest_main.a)
-include(ExternalProject)
-ExternalProject_Add(googletest
-  GIT_REPOSITORY    https://github.com/google/googletest.git
-  GIT_TAG           6ce9b98f541b8bcd84c5c5b3483f29a933c4aefb
-  PREFIX            ${GTEST_DIR}
-  CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-                    -DBUILD_SHARED_LIBS=OFF
-                    -DCMAKE_INSTALL_LIBDIR=lib
-  BUILD_BYPRODUCTS  ${GTEST_DIR}/lib/libgtest.a
-                    ${GTEST_DIR}/lib/libgtest_main.a
-  UPDATE_COMMAND    "")
-
-add_library(gtestlib STATIC IMPORTED)
-add_library(gtest_mainlib STATIC IMPORTED)
-
-set_property(TARGET gtestlib PROPERTY
-  IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest.a)
-set_property(TARGET gtest_mainlib PROPERTY
-  IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest_main.a)
-
-add_dependencies(gtestlib googletest)
-add_dependencies(gtest_mainlib googletest)
+find_package(GTEST REQUIRED)
+find_package(GTESTMAIN REQUIRED)
 
 ##############################################################################
 # - googlebench ---------------------------------------------------------------
@@ -233,8 +206,8 @@ set_property(TARGET benchmarklib PROPERTY
 add_dependencies(cub raft)
 add_dependencies(cutlass cub)
 add_dependencies(spdlog cutlass)
-add_dependencies(googletest spdlog)
-add_dependencies(benchmark googletest)
+add_dependencies(GTEST::GTEST spdlog)
+add_dependencies(benchmark GTEST::GTEST)
 add_dependencies(FAISS::FAISS benchmark)
 add_dependencies(FAISS::FAISS faiss)
 
