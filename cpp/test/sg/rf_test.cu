@@ -247,7 +247,7 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
 //-------------------------------------------------------------------------------------------------------------------------------------
 
 const std::vector<RfInputs<float>> inputsf2_clf = {
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2,
    CRITERION::GINI},  // single tree forest, bootstrap false, depth 8, 4 bins
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::GINI},  // single tree forest, bootstrap false, depth of 8, 4 bins

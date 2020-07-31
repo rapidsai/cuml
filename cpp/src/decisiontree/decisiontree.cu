@@ -50,8 +50,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
                      bool cfg_quantile_per_tree, bool cfg_shuffle_features,
                      int cfg_max_batch_size, int cfg_n_blks_for_cols,
-                     int cfg_n_blks_for_rows, int cfg_batched_depth,
-                     bool cfg_use_batched_level_algo) {
+                     int cfg_n_blks_for_rows, int cfg_batched_depth) {
   params.max_depth = cfg_max_depth;
   params.max_leaves = cfg_max_leaves;
   params.max_features = cfg_max_features;
@@ -67,7 +66,6 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
   params.n_blks_for_cols = cfg_n_blks_for_cols;
   params.n_blks_for_rows = cfg_n_blks_for_rows;
   params.batched_depth = cfg_batched_depth;
-  params.use_batched_level_algo = cfg_use_batched_level_algo;
 }
 
 void validity_check(const DecisionTreeParams params) {
@@ -103,8 +101,6 @@ void print(const DecisionTreeParams params) {
   CUML_LOG_DEBUG("n_blks_for_cols: %d", params.n_blks_for_cols);
   CUML_LOG_DEBUG("n_blks_for_rows: %d", params.n_blks_for_rows);
   CUML_LOG_DEBUG("batched_depth: %d", params.batched_depth);
-  CUML_LOG_DEBUG("use_batched_level_algo: %s",
-                 params.use_batched_level_algo ? "True" : "False");
 }
 
 template <class T, class L>

@@ -240,7 +240,9 @@ void DecisionTreeBase<T, L>::plant(
 
   total_temp_mem = tempmem->totalmem;
   MLCommon::TimerCPU timer;
-  if (tree_params.use_batched_level_algo == true) {
+  if (tree_params.max_features == 1.0 &&
+      tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
+    CUML_LOG_WARN("Using the batched level algo");
     T *quantiles = tempmem->d_quantile->data();
     int *colids = (int *)tempmem->device_allocator->allocate(
       sizeof(int) * ncols, tempmem->stream);
