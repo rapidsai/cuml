@@ -22,6 +22,7 @@ import sklearn.ensemble
 import sklearn.random_projection
 import sklearn.naive_bayes
 from sklearn import metrics
+from sklearn.impute import SimpleImputer
 import cuml.metrics
 import cuml.decomposition
 import cuml.naive_bayes
@@ -438,6 +439,62 @@ def all_algorithms():
             name="UMAP-Supervised",
             accepts_labels=True,
             accuracy_function=cuml.metrics.trustworthiness,
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.StandardScaler,
+            cuml.preprocessing.StandardScaler,
+            shared_args=dict(),
+            name="StandardScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.MinMaxScaler,
+            cuml.preprocessing.MinMaxScaler,
+            shared_args=dict(),
+            name="MinMaxScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.MaxAbsScaler,
+            cuml.preprocessing.MaxAbsScaler,
+            shared_args=dict(),
+            name="MaxAbsScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.Normalizer,
+            cuml.preprocessing.Normalizer,
+            shared_args=dict(),
+            name="Normalizer",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            SimpleImputer,
+            cuml.preprocessing.SimpleImputer,
+            shared_args=dict(),
+            name="SimpleImputer",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.RobustScaler,
+            cuml.preprocessing.RobustScaler,
+            shared_args=dict(),
+            name="RobustScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.PolynomialFeatures,
+            cuml.preprocessing.PolynomialFeatures,
+            shared_args=dict(),
+            name="PolynomialFeatures",
+            accepts_labels=False,
+            bench_func=fit_transform
         )
     ]
 

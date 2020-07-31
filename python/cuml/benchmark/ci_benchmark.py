@@ -116,6 +116,20 @@ def make_bench_configs(long_config):
          expand_params("n_components", [2, 25]),),
         ("GaussianRandomProjection", "blobs", large_rows, [32, 256],
          expand_params("n_components", [2, 25]),),
+        ("StandardScaler", "classification",
+         [1000000], [256, 1024], [{'copy': False}]),
+        ("MinMaxScaler", "classification",
+         [1000000], [256, 1024], [{'copy': False}]),
+        ("MaxAbsScaler", "classification",
+         [1000000], [256, 1024], [{'copy': False}]),
+        ("Normalizer", "classification",
+         [1000000], [256, 1024], [{'copy': False}]),
+        ("PolynomialFeatures", "classification",
+         [1000000], [256, 1024], [{}]),
+        ("RobustScaler", "classification",
+         [1000000], [256, 1024], [{'copy': False}]),
+        ("SimpleImputer", "classification",
+         [1000000], default_dims, [{'copy': False}])
     ]
 
     for algo_name, dataset_name, rows, dims, params in algo_defs:
@@ -188,17 +202,25 @@ if __name__ == '__main__':
     parser.add_argument('--n_reps', type=int, default=3)
 
     args = parser.parse_args()
-    invalidAlgoNames = (set(args.algo) - allAlgoNames)
+
+    algos = set(args.algo)
+    if 'preprocessing' in algos:
+        algos = algos.union(set(['StandardScaler', 'MinMaxScaler',
+                                 'MaxAbsScaler', 'Normalizer',
+                                 'PolynomialFeatures', 'SimpleImputer',
+                                 'RobustScaler']))
+        algos.remove('preprocessing')
+    invalidAlgoNames = (algos - allAlgoNames)
     if invalidAlgoNames:
         raise ValueError("Invalid algo name(s): %s" % invalidAlgoNames)
 
     bench_to_run = bench_config[args.benchmark]
 
-    default_args = dict(run_cpu=False, n_reps=args.n_reps)
+    default_args = dict(run_cpu=True, n_reps=args.n_reps)
     all_results = []
     for cfg_in in bench_to_run:
-        if (args.algo is None) or ("ALL" in args.algo) or \
-           (cfg_in["algo_name"] in args.algo):
+        if (algos is None) or ("ALL" in algos) or \
+           (cfg_in["algo_name"] in algos):
             # Pass an actual algo object instead of an algo_name string
             cfg = cfg_in.copy()
             algo = algorithms.algorithm_by_name(cfg_in["algo_name"])

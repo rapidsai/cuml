@@ -120,6 +120,7 @@ raft_include_dir = use_raft_package(raft_path, libcuml_path)
 # cumlcomms and nccl are still needed for multigpu algos not based
 # on libcumlprims
 libs = ['cuda',
+        'cudart',
         'cuml++',
         'rmm']
 
