@@ -319,37 +319,6 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         return final_classes[0] \
             if len(final_classes) == 1 else tuple(final_classes)
 
-    def score(X, y, sample_weight=None, convert_dtype=True):
-        """
-        Return the mean accuracy on the given test data and labels
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, n_outputs)
-            Dense matrix (floats or doubles) of shape (n_samples, n_outputs).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
-
-        sample_weight: Ignored.
-
-        Returns
-        -------
-
-        score : float
-            Mean accuracy of self.predict(X) wrt. y.
-        """
-        y_hat = self.predict(X, y, convert_dtype=convert_dtype)
-        return accuracy_score(y, y_hat, convert_dtype=convert_dtype)
-
     def get_param_names(self):
         return super(KNeighborsClassifier, self).get_param_names()\
             + ["weights"]
