@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+
+#pragma once
+
 #include <matrix/reverse.cuh>
 #include <matrix/matrix.cuh>
 
@@ -31,6 +34,8 @@
 #include <common/device_buffer.hpp>
 #include <common/cudart_utils.h>
 #include <cuda_utils.cuh>
+
+#include <cusparse_v2.h>
 
 namespace MLCommon {
 namespace Sparse {
@@ -74,28 +79,28 @@ __global__ void select_k_kernel(K *inK,
 					    bool select_min,
 					    int k,
 					    int64_t translation = 0) {
-  constexpr int kNumWarps = ThreadsPerBlock / kWarpSize;
+  constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
-  __shared__ K smemK[kNumWarps * NumWarpQ];
-  __shared__ IndexType smemV[kNumWarps * NumWarpQ];
+  __shared__ K smemK[kNumWarps * warp_q];
+  __shared__ IndexType smemV[kNumWarps * warp_q];
 
-  BlockSelect<K, IndexType, select_min, Comparator<K>, warp_q, thread_q, tpb>
+  faiss::gpu::BlockSelect<K, IndexType, false, faiss::gpu::Comparator<K>, warp_q, thread_q, tpb>
     heap(initK, initV, smemK, smemV, k);
 
   // Grid is exactly sized to rows available
   int row = blockIdx.x;
 
   int i = threadIdx.x;
-  K* inKStart = inK[row][i];
-  IndexType* inVStart = inV[row][i];
+  K* inKStart = inK + (row * k  + i);
+  IndexType* inVStart = inV + (row * k  + i);
 
   // Whole warps must participate in the selection
-  int limit = utils::roundDown(n_cols, kWarpSize);
+  int limit = faiss::gpu::utils::roundDown(n_cols, faiss::gpu::kWarpSize);
 
-  for (; i < limit; i += ThreadsPerBlock) {
+  for (; i < limit; i += tpb) {
     heap.add(*inKStart, (*inVStart) + translation);
-    inKStart += ThreadsPerBlock;
-    inVStart += ThreadsPerBlock;
+    inKStart += tpb;
+    inVStart += tpb;
   }
 
   // Handle last remainder fraction of a warp of elements
@@ -105,19 +110,19 @@ __global__ void select_k_kernel(K *inK,
 
   heap.reduce();
 
-  for (int i = threadIdx.x; i < k; i += ThreadsPerBlock) {
-    outK[row][i] = smemK[i];
-    outV[row][i] = smemV[i];
+  for (int i = threadIdx.x; i < k; i += tpb) {
+    outK[row * k  + i] = smemK[i];
+    outV[row * k  + i] = smemV[i];
   }
 }
 
 template <int warp_q, int thread_q>
-inline void select_k_impl(K *inK,
-    					  IndexType *inV,
+inline void select_k_impl(float *inK,
+    					  int64_t *inV,
 						  size_t n_rows,
 						  size_t n_cols,
-						  K *outK,
-						  IndexType *outV,
+						  float *outK,
+						  int64_t *outV,
 						  bool select_min,
 						  int k,
 						  cudaStream_t stream,
@@ -132,7 +137,7 @@ inline void select_k_impl(K *inK,
   auto vInit = -1;
   select_k_kernel<float, int64_t, warp_q, thread_q, n_threads>
     <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV,
-                                 kInit, vInit, k);
+                                 kInit, vInit, k, translation);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -151,22 +156,22 @@ inline void select_k_impl(K *inK,
  * @param translations mapping of index offsets for each partition
  */
 inline void select_k(float *inK, int64_t *inV, size_t n_rows, size_t n_cols,
-							float *outK, int64_t *outV, int k,
+							float *outK, int64_t *outV, bool select_min, int k,
                             cudaStream_t stream, int64_t translation = 0) {
   if (k == 1)
-	  select_k_impl<1, 1>(inK, inV,  n_rows, n_cols, outK, outV, k, stream);
+	  select_k_impl<1, 1>(inK, inV,  n_rows, n_cols, outK, outV, select_min, k, stream, translation);
   else if (k <= 32)
-	  select_k_impl<32, 2>(inK, inV, n_rows, n_cols, outK, outV, k, stream);
+	  select_k_impl<32, 2>(inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, translation);
   else if (k <= 64)
-	  select_k_impl<64, 3>(inK, inV, n_rows, n_cols, outK, outV, k, stream);
+	  select_k_impl<64, 3>(inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, translation);
   else if (k <= 128)
-	  select_k_impl<128, 3>(inK, inV, n_rows, n_cols, outK, outV, k, stream);
+	  select_k_impl<128, 3>(inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, translation);
   else if (k <= 256)
-	  select_k_impl<256, 4>(inK, inV, n_rows, n_cols, outK, outV, k, stream);
+	  select_k_impl<256, 4>(inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, translation);
   else if (k <= 512)
-	  select_k_impl<512, 8>(inK, inV, n_rows, n_cols, outK, outV, k, stream);
+	  select_k_impl<512, 8>(inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, translation);
   else if (k <= 1024)
-	  select_k_impl<1024, 8>(inK, inV, n_rows, n_cols, outK, outV, k, stream);
+	  select_k_impl<1024, 8>(inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, translation);
 }
 
 
@@ -181,29 +186,28 @@ inline void select_k(float *inK, int64_t *inV, size_t n_rows, size_t n_cols,
    * @param metricArg metric argument to use. Corresponds to the p arg for lp norm
    * @param expanded_form whether or not lp variants should be reduced w/ lp-root
    */
-template <typename value_idx = int, typename value_t, int TPB_X=32>
+template <typename value_idx = int64_t, typename value_t = float, int TPB_X=32>
 void brute_force_knn(const value_idx *idxIndptr,
 					 const value_idx *idxIndices,
 					 const value_t *idxData,
-					 value_idx idxNNZ,
-					 value_idx n_idx_rows, value_idx n_idx_cols,
+					 size_t idxNNZ,
+					 size_t n_idx_rows, size_t n_idx_cols,
 					 const value_idx *queryIndptr,
 					 const value_idx *queryIndices,
 					 const value_t *queryData,
-					 value_idx queryNNZ,
-					 value_idx n_query_rows, value_idx n_query_cols,
+					 size_t queryNNZ,
+					 size_t n_query_rows, size_t n_query_cols,
 					 value_idx *output_indices,
 					 value_t *output_dists,
 					 int k,
-					 int batch_size = 2<<20, // approx 1M
 					 cusparseHandle_t cusparseHandle,
                      std::shared_ptr<deviceAllocator> allocator,
                      cudaStream_t stream,
-                     std::vector<int64_t> *translations = nullptr,
+					 size_t batch_size = 2<<20, // approx 1M
                      ML::MetricType metric = ML::MetricType::METRIC_L2,
                      float metricArg = 0, bool expanded_form = false) {
 
-	int n_batches = ceilDiv(n_idx_rows/batch_size);
+	int n_batches_query = ceildiv(n_query_rows, batch_size);
 	bool ascending = true;
 	if(metric == ML::MetricType::METRIC_INNER_PRODUCT)
 		ascending = false;
@@ -254,11 +258,13 @@ void brute_force_knn(const value_idx *idxIndptr,
 		// A 3-partition temporary merge space to scale the batching. 2 parts for subsequent
 		// batches and 1 space for the results of the merge, which get copied back to the
 		//
-		device_buffer<int64_t> merge_buffer_indices(allocator, stream, k * n_query_rows * 3);
-		device_buffer<T> merge_buffer_dists(allocator, stream, k * n_query_rows * 3);
+		device_buffer<value_idx> merge_buffer_indices(allocator, stream, k * n_query_rows * 3);
+		device_buffer<value_t> merge_buffer_dists(allocator, stream, k * n_query_rows * 3);
 
-	    T *dists_merge_buffer_ptr;
-	    int64_t *indices_merge_buffer_ptr;
+	    value_t *dists_merge_buffer_ptr;
+	    value_idx *indices_merge_buffer_ptr;
+
+		int n_batches_idx = ceildiv(n_idx_rows, batch_size);
 
 		for(int j = 0; j < n_batches_idx; j++) {
 
@@ -398,5 +404,6 @@ void brute_force_knn(const value_idx *idxIndptr,
 		copyAsync(output_dists, dists_merge_buffer_ptr, query_batch_start * k);
 	}
 }
-}
-} // END namespace MLCommon
+}; // END namespace Selection
+}; // END namespace Sparse
+}; // END namespace MLCommon

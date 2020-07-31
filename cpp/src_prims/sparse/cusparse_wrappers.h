@@ -457,6 +457,8 @@ inline cusparseStatus_t cusparsesetpointermode(cusparseHandle_t handle,
 }
 /** @} */
 
+#endif
+
 
 };  // namespace Sparse
 };  // namespace MLCommon

@@ -336,7 +336,7 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows,
         OutType *rowOut = reinterpret_cast<OutType *>(
           (size_t)out + (i * sizeof(OutType) * (size_t)n_columns));
 
-        if(asending) {
+        if(ascending) {
             CUDA_CHECK(cub::DeviceRadixSort::SortPairs(workspacePtr, workspaceSize,
                                                        rowIn, sortedKeys, dValuesIn,
                                                        rowOut, n_columns));

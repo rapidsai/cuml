@@ -387,6 +387,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/holtwinters/holtwinters.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
+    src/knn/knn_sparse.cu
     src/metrics/metrics.cu
     src/metrics/trustworthiness.cu
     src/pca/pca.cu
