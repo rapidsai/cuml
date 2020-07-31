@@ -178,7 +178,7 @@ def train_test_split(
     random_state: Union[int, cp.random.RandomState,
                         np.random.RandomState] = None,
     seed: Union[int, cp.random.RandomState, np.random.RandomState] = None,
-    stratify = None
+    stratify=None
 ):
     """
     Partitions device data into four collated objects, mimicking
