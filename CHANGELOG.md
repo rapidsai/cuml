@@ -1,6 +1,7 @@
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
+- PR #2554: Hashing Vectorizer and general vectorizer improvements
 - PR #2240: Making Dask models pickleable
 - PR #2267: CountVectorizer estimator
 - PR #2261: Exposing new FAISS metrics through Python API
@@ -11,8 +12,13 @@
 - PR #2394: Adding cosine & correlation distance for KNN
 - PR #2392: PCA can accept sparse inputs, and sparse prim for computing covariance
 - PR #2465: Support pandas 1.0+
+- PR #2519: Precision recall curve using cupy
+- PR #2500: Replace UMAP functionality dependency on nvgraph with RAFT Spectral Clustering
 - PR #2520: TfidfVectorizer estimator
 - PR #2493: Update RF code to return some forest features for each split and total numb of nodes.
+- PR #2211: MNMG KNN Classifier & Regressor
+- PR #2461: Add KNN Sparse Output Functionality
+- PR #2607: Add support for probability estimates in SVC
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
@@ -42,6 +48,8 @@
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
 - PR #2473: Add metrics.roc_auc_score to API docs. Additional readability and minor docs bug fixes
 - PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
+- PR #2489: Removing explicit FAISS build and adding dependency on libfaiss conda package
+- PR #2480: Moving MNMG glm and solvers to cuml
 - PR #2490: Moving MNMG KMeans to cuml
 - PR #2483: Moving MNMG KNN to cuml
 - PR #2492: Adding additional assertions to mnmg nearest neighbors pytests
@@ -50,11 +58,24 @@
 - PR #2237: Refactor RF cython code
 - PR #2513: Fixing LGTM Analysis Issues
 - PR #2099: Raise an error when float64 data is used with dask RF
+- PR #2522: Renaming a few arguments in KNeighbors* to be more readable
 - PR #2499: Provide access to `cuml.DBSCAN` core samples
 - PR #2526: Removing PCA TSQR as a solver due to scalability issues
-- PR #2536 Update conda upload versions for new supported CUDA/Python
+- PR #2536: Update conda upload versions for new supported CUDA/Python
 - PR #2538: Remove Protobuf dependency
 - PR #2553: Test pickle protocol 5 support
+- PR #2570: Accepting single df or array input in train_test_split
+- PR #2566: Remove deprecated cuDF from_gpu_matrix calls
+- PR #2583: findpackage.cmake.in template for cmake dependencies
+- PR #2577: Fully removing NVGraph dependency for CUDA 11 compatibility
+- PR #2575: Speed up TfidfTransformer
+- PR #2584: Removing dependency on sklearn's NotFittedError
+- PR #2591: Generate benchmark datsets using `cuml.datasets`
+- PR #2548: Fix limitation on number of rows usable with tSNE and refactor memory allocation
+- PR #2589: including cuda-11 build fixes into raft
+- PR #2487: Set classes_ attribute during classifier fit
+- PR #2605: Reduce memory usage in tSNE
+- PR #2611: Adding building doxygen docs to gpu ci
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -80,10 +101,30 @@
 - PR #2507: Import `treelite.sklearn`
 - PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
 - PR #2515: Increase tolerance for LogisticRegression test
+- PR #2532: Updating doxygen in new MG headers
+- PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
+- PR #2515: Increase tolerance for LogisticRegression test
+- PR #2545: Fix documentation of n_iter_without_progress in tSNE Python bindings
+- PR #2543: Improve numerical stability of QN solver
+- PR #2544: Fix Barnes-Hut tSNE not using specified post_learning_rate
+- PR #2558: Disabled a long-running FIL test
 - PR #2540: Update default value for n_epochs in UMAP to match documentation & sklearn API
 - PR #2535: Fix issue with incorrect docker image being used in local build script
 - PR #2542: Fix small memory leak in TSNE
 - PR #2552: Fixed the length argument of updateDevice calls in RF test
+- PR #2565: Fix cell allocation code to avoid loops in quad-tree. Prevent NaNs causing infinite descent
+- PR #2563: Update scipy call for arima gradient test
+- PR #2569: Fix for cuDF update
+- PR #2508: Use keyword parameters in sklearn.datasets.make_* functions
+- PR #2586: Fix SVC decision function data type
+- PR #2573: Considering managed memory as device type on checking for KMeans
+- PR #2574: Fixing include path in `tsvd_mg.pyx`
+- PR #2593: Fix inconsistency in train_test_split
+- PR #2609: Fix small doxygen issues
+- PR #2610: Remove cuDF tolist call
+- PR #2613: Removing thresholds from kmeans score tests (SG+MG)
+- PR #2616: Small test code fix for pandas dtype tests
+- PR #2625: Update Estimator notebook to resolve errors
 
 # cuML 0.14.0 (03 Jun 2020)
 
@@ -256,6 +297,7 @@
 - PR #2295: Fix convert_to_dtype copy even with same dtype
 - PR #2305: Fixed race condition in DBScan
 - PR #2354: Fix broken links in README
+- PR #2619: Explicitly skip raft test folder for pytest 6.0.0
 
 # cuML 0.13.0 (31 Mar 2020)
 

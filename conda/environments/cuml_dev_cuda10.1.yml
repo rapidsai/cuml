@@ -26,7 +26,7 @@ dependencies:
 - dask-ml
 - ucx-py=0.15*
 - nccl>=2.5
-- libcumlprims=0.15.0a200622
+- libcumlprims=0.15.0a200720
 - statsmodels
 - treelite=0.92
 - doxygen
@@ -35,6 +35,8 @@ dependencies:
 - numpydoc
 - nbsphinx
 - recommonmark
+- faiss-proc=*=cuda
+- libfaiss
 - ipython
 - pip
 - pip:
