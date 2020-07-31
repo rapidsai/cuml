@@ -35,6 +35,8 @@ dependencies:
 - numpydoc
 - nbsphinx
 - recommonmark
+- faiss-proc=*=cuda
+- libfaiss
 - ipython
 - pip
 - pip:
