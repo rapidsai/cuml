@@ -19,15 +19,15 @@ import scipy
 import numbers
 
 from cuml.common import with_cupy_rmm
-# from cuml.common.input_utils import sparse_scipy_to_cp
 from cuml.common import input_to_cuml_array
 
 from cuml.decomposition import PCA
 
 
-# Based on sklearn.decomposition.IncrementalPCA from scikit-learn 0.23.1
 class IncrementalPCA(PCA):
     """
+    Based on sklearn.decomposition.IncrementalPCA from scikit-learn 0.23.1
+
     Incremental principal components analysis (IPCA).
     Linear dimensionality reduction using Singular Value Decomposition of
     the data, keeping only the most significant singular vectors to
@@ -45,6 +45,49 @@ class IncrementalPCA(PCA):
     remain in memory at a time. There will be ``n_samples / batch_size``
     SVD computations to get the principal components, versus 1 large SVD
     of complexity ``O(n_samples * n_features ** 2)`` for PCA.
+
+
+    Examples
+    ---------
+
+    .. code-block:: python
+        from cuml.decomposition import IncrementalPCA
+        import cupy as cp
+
+        X = cp.sparse.random(1000, 5, format='csr', density=0.07)
+        ipca = IncrementalPCA(n_components=2, batch_size=200)
+        ipca.fit(X)
+
+        ipca.fit(X)
+
+        print("Components: ", ipca.components_)
+
+        print("Singular Values: ", ipca.singular_values_)
+
+        print("Explained Variance: ", ipca.explained_variance_)
+        
+        print("Explained Variance Ratio: ",
+            ipca.explained_variance_ratio_)
+        
+        print("Mean: ", ipca.mean_)
+        
+        print("Noise Variance: ", ipca.noise_variance_)
+    
+    Output:
+
+    .. code-block:: python
+        Components: [[ 0.40465797  0.70924681 -0.46980153 -0.32028596 -0.09962083]
+        [ 0.3072285  -0.31337166 -0.21010504 -0.25727659  0.83490926]]
+        
+        Singular Values: [4.67710479 4.0249979 ]
+
+        Explained Variance: [0.02189721 0.01621682]
+
+        Explained Variance Ratio: [0.2084041  0.15434174]
+
+        Mean: [0.03341744 0.03796517 0.03316038 0.03825872 0.0253353 ]
+
+        Noise Variance: 0.0049539530909571425
 
     Parameters
     ----------
@@ -140,7 +183,7 @@ class IncrementalPCA(PCA):
                                              verbose=verbose,
                                              output_type=output_type)
         self.batch_size = batch_size
-        self._param_names = ["n_components", "whiten", "copy", "batch_size"]
+        self._param_names = ["n_components", "whiten", "batch_size"]
 
     @with_cupy_rmm
     def fit(self, X, y=None):
@@ -171,6 +214,12 @@ class IncrementalPCA(PCA):
             X, n_samples, n_features, self.dtype = \
                 input_to_cuml_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64])
+            
+            # NOTE: While we cast the input to a cupy array here, we still
+            # respect the `output_type` parameter in the constructor. This
+            # is done by PCA, which IncrementalPCA inherits from. PCA's
+            # transform and inverse transform convert the output to the
+            # required type.
             X = X.to_output(output_type='cupy')
 
         n_samples, n_features = X.shape
@@ -356,8 +405,11 @@ def _validate_sparse_input(X):
     """
 
     acceptable_dtypes = ('float32', 'float64')
+
+    # NOTE: We can include cupyx.scipy.sparse.csc.csc_matrix
+    # once it supports indexing in cupy 8.0.0b5
     acceptable_cupy_sparse_formats = \
-        (cp.sparse.csr_matrix, cp.sparse.coo_matrix)
+        (cp.sparse.csr_matrix)
 
     if X.dtype not in acceptable_dtypes:
         raise TypeError("Expected input to be of type float32 or float64."
@@ -430,10 +482,10 @@ def _safe_accumulator_op(op, x, *args, **kwargs):
     result : The output of the accumulator function passed to this function
     """
 
-    if cp.issubdtype(x.dtype, cp.floating) and x.dtype.itemsize < 8:
-        result = op(x, *args, **kwargs, dtype=cp.float64).astype(cp.float32)
-    else:
-        result = op(x, *args, **kwargs)
+    # if cp.issubdtype(x.dtype, cp.floating) and x.dtype.itemsize < 8:
+    #     result = op(x, *args, **kwargs, dtype=cp.float64).astype(cp.float32)
+    # else:
+    result = op(x, *args, **kwargs)
     return result
 
 
