@@ -60,25 +60,26 @@ class IncrementalPCA(PCA):
 
         ipca.fit(X)
 
-        print("Components: ", ipca.components_)
+        print("Components: \n", ipca.components_)
 
         print("Singular Values: ", ipca.singular_values_)
 
         print("Explained Variance: ", ipca.explained_variance_)
-        
+
         print("Explained Variance Ratio: ",
             ipca.explained_variance_ratio_)
-        
+
         print("Mean: ", ipca.mean_)
-        
+
         print("Noise Variance: ", ipca.noise_variance_)
-    
+
     Output:
 
     .. code-block:: python
-        Components: [[ 0.40465797  0.70924681 -0.46980153 -0.32028596 -0.09962083]
+        Components:
+        [[ 0.40465797  0.70924681 -0.46980153 -0.32028596 -0.09962083]
         [ 0.3072285  -0.31337166 -0.21010504 -0.25727659  0.83490926]]
-        
+
         Singular Values: [4.67710479 4.0249979 ]
 
         Explained Variance: [0.02189721 0.01621682]
@@ -183,7 +184,7 @@ class IncrementalPCA(PCA):
                                              verbose=verbose,
                                              output_type=output_type)
         self.batch_size = batch_size
-        self._param_names = ["n_components", "whiten", "batch_size"]
+        self._hyperparams = ["n_components", "whiten"]
 
     @with_cupy_rmm
     def fit(self, X, y=None):
@@ -214,7 +215,7 @@ class IncrementalPCA(PCA):
             X, n_samples, n_features, self.dtype = \
                 input_to_cuml_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64])
-            
+
             # NOTE: While we cast the input to a cupy array here, we still
             # respect the `output_type` parameter in the constructor. This
             # is done by PCA, which IncrementalPCA inherits from. PCA's
@@ -385,7 +386,7 @@ class IncrementalPCA(PCA):
             return super().transform(X)
 
     def get_param_names(self):
-        return self._param_names
+        return self._hyperparams
 
 
 def _validate_sparse_input(X):
@@ -482,10 +483,10 @@ def _safe_accumulator_op(op, x, *args, **kwargs):
     result : The output of the accumulator function passed to this function
     """
 
-    # if cp.issubdtype(x.dtype, cp.floating) and x.dtype.itemsize < 8:
-    #     result = op(x, *args, **kwargs, dtype=cp.float64).astype(cp.float32)
-    # else:
-    result = op(x, *args, **kwargs)
+    if cp.issubdtype(x.dtype, cp.floating) and x.dtype.itemsize < 8:
+        result = op(x, *args, **kwargs, dtype=cp.float64).astype(cp.float32)
+    else:
+        result = op(x, *args, **kwargs)
     return result
 
 
