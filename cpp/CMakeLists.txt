@@ -66,6 +66,9 @@ option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)"
 
 option(BUILD_STATIC_FAISS "Build the FAISS library for nearest neighbors search on GPU" OFF)
 
+option(BUILD_GTEST "Build the GTEST library for running libcuml++ and prims test executables" OFF)
+
+
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
@@ -188,13 +191,15 @@ GENERATE_FIND_MODULE(NAME UCX
                      HEADER_NAME ucp/api/ucp.h
                      LIBRARY_NAME ucp)
 
-GENERATE_FIND_MODULE(NAME GTEST
-                     HEADER_NAME gtest/gtest.h
-                     LIBRARY_NAME gtest)
-
-GENERATE_FIND_MODULE(NAME GTESTMAIN
-                     HEADER_NAME gtest/gtest.h
-                     LIBRARY_NAME gtest_main)
+if(NOT BUILD_GTEST)
+	GENERATE_FIND_MODULE(NAME GTEST
+	                     HEADER_NAME gtest/gtest.h
+	                     LIBRARY_NAME gtest)
+	
+	GENERATE_FIND_MODULE(NAME GTESTMAIN
+	                     HEADER_NAME gtest/gtest.h
+	                     LIBRARY_NAME gtest_main)
+endif(NOT BUILD_GTEST)
 
 if(NOT BUILD_STATIC_FAISS)
 	GENERATE_FIND_MODULE(NAME FAISS
