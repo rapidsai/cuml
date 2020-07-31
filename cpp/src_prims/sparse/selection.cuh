@@ -53,18 +53,116 @@ void csr_row_slice_populate(value_idx start_offset, value_idx stop_offset,
 	copy(data_out, data+start_offset, data+stop_offset, stream);
 }
 
-template<typename T>
-__global__ void select_k(T *out, const T *in, size_t n_rows, size_t n_cols, int k) {
+template <typename K,
+          typename IndexType,
+          int warp_q,
+          int thread_q,
+          int tpb>
+__global__ void select_k_kernel(K *inK,
+                        IndexType *inV,
+                        size_t n_rows,
+                        size_t n_cols,
+ 					    K *outK,
+					    IndexType *outV,
+					    K initK,
+					    IndexType initV,
+					    bool select_min,
+					    int k) {
+  constexpr int kNumWarps = ThreadsPerBlock / kWarpSize;
 
-	int i = (blockIdx.x * blockDim.x) + threadIdx.x;
+  __shared__ K smemK[kNumWarps * NumWarpQ];
+  __shared__ IndexType smemV[kNumWarps * NumWarpQ];
 
-	if(i < k * n_rows) {
-		size_t row = i / k;
-		size_t col = i % k;
+  BlockSelect<K, IndexType, select_min, Comparator<K>, warp_q, thread_q, tpb>
+    heap(initK, initV, smemK, smemV, k);
 
-		out[row * k + col]  = in[row * n_cols + col];
-	}
+  // Grid is exactly sized to rows available
+  int row = blockIdx.x;
+
+  int i = threadIdx.x;
+  K* inKStart = inK[row][i];
+  IndexType* inVStart = inV[row][i];
+
+  // Whole warps must participate in the selection
+  int limit = utils::roundDown(n_cols, kWarpSize);
+
+  for (; i < limit; i += ThreadsPerBlock) {
+    heap.add(*inKStart, *inVStart);
+    inKStart += ThreadsPerBlock;
+    inVStart += ThreadsPerBlock;
+  }
+
+  // Handle last remainder fraction of a warp of elements
+  if (i < n_cols) {
+    heap.addThreadQ(*inKStart, *inVStart);
+  }
+
+  heap.reduce();
+
+  for (int i = threadIdx.x; i < k; i += ThreadsPerBlock) {
+    outK[row][i] = smemK[i];
+    outV[row][i] = smemV[i];
+  }
 }
+
+template <int warp_q, int thread_q>
+inline void select_k_impl(K *inK,
+    					  IndexType *inV,
+						  size_t n_rows,
+						  size_t n_cols,
+						  K *outK,
+						  IndexType *outV,
+						  bool select_min,
+						  int k,
+						  cudaStream_t stream) {
+
+  auto grid = dim3(n_rows);
+
+  constexpr int n_threads = (warp_q <= 1024) ? 128 : 64;
+  auto block = dim3(n_threads);
+
+  auto kInit = select_min ? faiss::gpu::Limits<float>::getMin() : faiss::gpu::Limits<float>::getMax();
+  auto vInit = -1;
+  select_k_kernel<warp_q, thread_q, n_threads>
+    <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV,
+                                 kInit, vInit, k);
+  CUDA_CHECK(cudaPeekAtLastError());
+}
+
+/**
+ * @brief Merge knn distances and index matrix, which have been partitioned
+ * by row, into a single matrix with only the k-nearest neighbors.
+ *
+ * @param inK partitioned knn distance matrix
+ * @param inV partitioned knn index matrix
+ * @param outK merged knn distance matrix
+ * @param outV merged knn index matrix
+ * @param n_samples number of samples per partition
+ * @param n_parts number of partitions
+ * @param k number of neighbors per partition (also number of merged neighbors)
+ * @param stream CUDA stream to use
+ * @param translations mapping of index offsets for each partition
+ */
+inline void select_k(float *inK, int64_t *inV, size_t n_rows, size_t n_cols,
+							float *outK, int64_t *outV, int k,
+                            cudaStream_t stream) {
+  if (k == 1)
+	  select_k_impl<1, 1>(inK, inV,  n_rows, n_cols, outK, outV, k, stream);
+  else if (k <= 32)
+	  select_k_impl<32, 2>(inK, inV, n_rows, n_cols, outK, outV, k, stream);
+  else if (k <= 64)
+	  select_k_impl<64, 3>(inK, inV, n_rows, n_cols, outK, outV, k, stream);
+  else if (k <= 128)
+	  select_k_impl<128, 3>(inK, inV, n_rows, n_cols, outK, outV, k, stream);
+  else if (k <= 256)
+	  select_k_impl<256, 4>(inK, inV, n_rows, n_cols, outK, outV, k, stream);
+  else if (k <= 512)
+	  select_k_impl<512, 8>(inK, inV, n_rows, n_cols, outK, outV, k, stream);
+  else if (k <= 1024)
+	  select_k_impl<1024, 8>(inK, inV, n_rows, n_cols, outK, outV, k, stream);
+}
+
+
 
 /**
    * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
@@ -240,35 +338,22 @@ void brute_force_knn(const value_idx *idxIndptr,
 		    CUSPARSE_CHECK(cusparsecsr2dense(handle, C_num_rows_1, C_num_cols_1, matC,
 		    		dC_csrOffsets, dC_columns, dC_values, C_dense.data(), C_num_cols_1));
 
-		    device_buffer<value_t> batch_indices(allocator, stream, C_num_rows1*C_num_cols1);
+		    device_buffer<value_idx> batch_indices(allocator, stream, C_num_rows1*C_num_cols1);
 		    device_buffer<value_t> batch_dists(allocator, stream, C_num_rows1*C_num_cols1);
 
-			// sortColumnsPerRow
-		    size_t sortCols_workspacesize;
-		    Selection::sortColumnsPerRow(C_dense.data(), batch_dists.data(), C_num_rows1,
-		                      C_num_cols1, true, nullptr, &sortCols_workspacesize, stream,
-		                      batch_indices.data(), ascending);
-
-		    device_buffer<char> sortCols_workspace(allocator, stream, sortCols_workspacesize);
-
-		    Selection::sortColumnsPerRow(C_dense.data(), batch_dists.data(), C_num_rows1,
-		                      C_num_cols1, true, sortCols_workspace, &sortCols_workspacesize, stream,
-		                      batch_indices.data(), ascending);
-
-		    // kernel to slice first (min) k cols and copy into batched merge buffer
-
+		    // even numbers take bottom, odd numbers take top, merging until end of loop, where output matrix is populated.
 		    size_t merge_buffer_offset = j % 2 == 0 ? 0 : n_query_rows * k;
 		    T *dists_merge_buffer_ptr = merge_buffer_dists.data()+merge_buffer_offset;
 		    int64_t *indices_merge_buffer_ptr = merge_buffer_indices.data()+merge_buffer_offset;
 
-		    select_k<<<ceilDiv(k*C_num_rows1, TPB_X), TPB_X, 0, stream>>>(
-		    		dists_merge_buffer_ptr, batch_dists.data(), C_num_rows1, C_num_cols1, k);
-		    select_k<<<ceilDiv(k*C_num_rows1, TPB_X), TPB_X, 0, stream>>>(
-		    		indices_merge_buffer_ptr, batch_indices.data(), C_num_rows1, C_num_cols1, k);
+		    // kernel to slice first (min) k cols and copy into batched merge buffer
+		    select_k(batch_dists.data(), batch_indices.data(), C_num_rows1, C_num_cols1,
+		    							dists_merge_buffer_ptr, indices_merge_buffer_ptr, k,
+		                                stream);
 
-			// knn_merge_parts
-		    // Merge parts only executed for batch > 1
-		    // even numbers take bottom, odd numbers take top, merging until end of loop, where output matrix is populated.
+		    device_buffer<value_idx> batch_indices(allocator, stream, C_num_rows1*C_num_cols1);
+		    device_buffer<value_t> batch_dists(allocator, stream, C_num_rows1*C_num_cols1);
+
 		    Selection::knn_merge_parts(dists_merge_buffer_ptr, indices_merge_buffer_ptr, float *outK,
 		                                int64_t *outV, size_t n_samples, int n_parts, int k,
 		                                cudaStream_t stream, int64_t *translations)

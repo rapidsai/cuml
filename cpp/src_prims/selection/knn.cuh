@@ -29,6 +29,8 @@
 #include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
+#include <faiss/gpu/utils/Tensor.cuh>
+#include <faiss/gpu/>
 
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
