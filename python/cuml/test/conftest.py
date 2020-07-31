@@ -57,8 +57,8 @@ def pytest_unconfigure(config):
 
     if (len(bad_cuml_array_loc) > 0):
 
-        print("Incorrect CumlArray uses in class derived from \
-            cuml.common.base.Base:")
+        print("Incorrect CumlArray uses in class derived from "
+              "cuml.common.base.Base:")
 
         prefix = ""
 
@@ -82,8 +82,8 @@ def pytest_unconfigure(config):
 
             print("{} {}".format(combined_path, message))
 
-        print("See https://github.com/rapidsai/cuml/issues/2456#issuecomment-666106406 \
-            for more information on naming conventions")
+        print("See https://github.com/rapidsai/cuml/issues/2456#issuecomment-666106406" # noqa
+              " for more information on naming conventions")
 
 
 # This fixture will monkeypatch cuml.common.base.Base to check for incorrect
@@ -103,6 +103,9 @@ def fail_on_bad_cuml_array_name(monkeypatch):
             assert name.startswith("_"), "Invalid CumlArray Use! CumlArray \
                 attributes need a leading underscore. Attribute: '{}' In: {}" \
                     .format(name, self.__repr__())
+        elif (supported_type == cp.ndarray and cp.sparse.issparse(value)):
+            # Leave sparse matrices alone for now.
+            pass
         elif (supported_type is not None):
             # Is this an estimated property? If so, should always be CumlArray
             assert not name.endswith("_"), "Invalid Estimated Array-Like \
@@ -115,8 +118,8 @@ def fail_on_bad_cuml_array_name(monkeypatch):
 
         return super(Base, self).__setattr__(name, value)
 
-    # Monkeypatch CumlArray.__setattr__ to assert array attributes have a
-    #   leading underscore. i.e. `self._my_variable_ = CumlArray.ones(10)`.
+    # Monkeypatch CumlArray.__setattr__ to test for incorrect uses of
+    # array-like objects
     monkeypatch.setattr(Base, "__setattr__", patched__setattr__)
 
 
