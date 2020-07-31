@@ -26,13 +26,21 @@ from typing import Union
 
 def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
     """
-    Function to perform a stratified split based on y.
-    Identifies number of classes and samples per class, splices data within
-    each class.
-    Based on scikit-learn stratified split implementation
+    Function to perform a stratified split based on y lables.
+    Based on scikit-learn stratified split implementation.
 
-    Input:
-    X, y: shuffled input data and labels
+    Parameters
+    ----------
+    X, y: Shuffled input data and labels
+    n_train: Number of samples in train set
+    n_test: number of samples in test set
+    x_numba: Determines whether the data should be converted to numba
+    y_numba: Determines whether the labales should be converted to numba
+
+    Returns
+    -------
+    X_train, X_test: Data X divided into train and test sets
+    y_train, y_test: Labels divided into train and test sets
     """
     x_cudf = False
     y_cudf = False
@@ -112,8 +120,26 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
 
 def _approximate_mode(class_counts, n_draws, rng):
     """
-    Based on scikit-learn approximate_mode method.
+    CuPy implementataiton based on scikit-learn approximate_mode method.
     https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/utils/__init__.py#L984
+
+    It is the mostly likely outcome of drawing n_draws many
+    samples from the population given by class_counts.
+
+    Parameters
+    ----------
+    class_counts : ndarray of int
+        Population per class.
+    n_draws : int
+        Number of draws (samples to draw) from the overall population.
+    rng : random state
+        Used to break ties.
+
+    Returns
+    -------
+    sampled_classes : cupy array of int
+        Number of samples drawn from each class.
+        np.sum(sampled_classes) == n_draws
     """
     # this computes a bad approximation to the mode of the
     # multivariate hypergeometric given by class_counts and n_draws
@@ -152,7 +178,7 @@ def train_test_split(
     random_state: Union[int, cp.random.RandomState,
                         np.random.RandomState] = None,
     seed: Union[int, cp.random.RandomState, np.random.RandomState] = None,
-    stratify=None
+    stratify = None
 ):
     """
     Partitions device data into four collated objects, mimicking
