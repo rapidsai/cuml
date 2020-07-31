@@ -29,11 +29,18 @@ from cuml.test.utils import array_equal
 @pytest.mark.parametrize('ncols', [15, 25])
 @pytest.mark.parametrize('n_components', [10, 12])
 @pytest.mark.parametrize('sparse_input', [True, False])
-def test_inverse_transform(nrows, ncols, n_components, sparse_input):
+@pytest.mark.parametrize('density', [0.07, 0.4])
+@pytest.mark.parametrize('sparse_format', ['csr', 'csc'])
+def test_inverse_transform(nrows, ncols, n_components, sparse_input, density,
+                           sparse_format):
+
+    if sparse_format == 'csc':
+        pytest.skip("cupyx.scipy.sparse.csc.csc_matrix does not support"
+                    " indexing as of cupy 7.6.0")
 
     if sparse_input:
-        X = cp.sparse.random(nrows, ncols, density=0.07,
-                             random_state=10).tocsr()
+        X = cp.sparse.random(nrows, ncols, density=density,
+                             random_state=10, format=sparse_format)
     else:
         X, _ = make_blobs(n_samples=nrows, n_features=ncols, random_state=10)
 
