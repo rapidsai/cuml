@@ -19,7 +19,7 @@ ARGS=$*
 REPODIR=$(cd $(dirname $0); pwd)
 
 VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
-VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help "
+VALIDFLAGS="-v -g -n --allgpuarch --buildfaiss --singlegpu --nvtx --show_depr_warn -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
@@ -27,7 +27,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    libcuml          - build the cuml C++ code only. Also builds the C-wrapper library
                       around the C++ code.
    cuml             - build the cuml Python package
-   cpp-mgtests   - Build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
+   cpp-mgtests      - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
    prims            - build the ML prims tests
    bench            - build the cuml C++ benchmark
    prims-bench      - build the ml-prims C++ benchmark
@@ -38,6 +38,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -g               - build for debug
    -n               - no install step
    --allgpuarch     - build for all supported GPU architectures
+   --buildfaiss     - build faiss statically into libcuml
    --singlegpu      - Build libcuml and cuml without multigpu components
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
@@ -62,6 +63,7 @@ CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
 BUILD_CUML_STD_COMMS=ON
 BUILD_CPP_MG_TESTS=OFF
+BUILD_STATIC_FAISS=OFF
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -119,6 +121,9 @@ fi
 if hasArg cpp-mgtests; then
     BUILD_CPP_MG_TESTS=ON
 fi
+if hasArg --buildfaiss; then
+    BUILD_STATIC_FAISS=ON
+fi
 if hasArg --nvtx; then
     NVTX=ON
 fi
@@ -171,6 +176,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DWITH_UCX=ON \
           -DBUILD_CUML_MPI_COMMS=${BUILD_CPP_MG_TESTS} \
           -DBUILD_CUML_MG_TESTS=${BUILD_CPP_MG_TESTS} \
+          -DBUILD_STATIC_FAISS=${BUILD_STATIC_FAISS} \
           -DNVTX=${NVTX} \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
           -DNCCL_PATH=${INSTALL_PREFIX} \
