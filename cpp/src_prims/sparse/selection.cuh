@@ -17,15 +17,20 @@
 #include <matrix/reverse.cuh>
 #include <matrix/matrix.cuh>
 
-#include <selection/columnWiseSort.cuh>
 #include <selection/knn.cuh>
+
+#include <faiss/gpu/GpuDistance.h>
+#include <faiss/gpu/GpuIndexFlat.h>
+#include <faiss/gpu/GpuResources.h>
+#include <faiss/gpu/StandardGpuResources.h>
+#include <faiss/utils/Heap.h>
+#include <faiss/gpu/utils/Limits.cuh>
+#include <faiss/gpu/utils/Select.cuh>
 
 #include "cusparse_wrappers.h"
 #include <common/device_buffer.hpp>
-#include <common/cudart_tools.h>
+#include <common/cudart_utils.h>
 #include <cuda_utils.cuh>
-
-
 
 namespace MLCommon {
 namespace Sparse {
@@ -41,7 +46,7 @@ void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
 	updateHost(stop_offset, indptr+stop_row+1, 1, stream);
 	CUDA_CHECK(cudaStreamSynchronize(stream));
 
-	copy(indptr_out, indptr+start_row, indptr+stop_row+1, stream);
+	copyAsync(indptr_out, indptr+start_row, indptr+stop_row+1, stream);
 }
 
 template<typename value_idx, typename value_t>
@@ -67,7 +72,8 @@ __global__ void select_k_kernel(K *inK,
 					    K initK,
 					    IndexType initV,
 					    bool select_min,
-					    int k) {
+					    int k,
+					    int64_t translation = 0) {
   constexpr int kNumWarps = ThreadsPerBlock / kWarpSize;
 
   __shared__ K smemK[kNumWarps * NumWarpQ];
@@ -87,14 +93,14 @@ __global__ void select_k_kernel(K *inK,
   int limit = utils::roundDown(n_cols, kWarpSize);
 
   for (; i < limit; i += ThreadsPerBlock) {
-    heap.add(*inKStart, *inVStart);
+    heap.add(*inKStart, (*inVStart) + translation);
     inKStart += ThreadsPerBlock;
     inVStart += ThreadsPerBlock;
   }
 
   // Handle last remainder fraction of a warp of elements
   if (i < n_cols) {
-    heap.addThreadQ(*inKStart, *inVStart);
+    heap.addThreadQ(*inKStart, (*inVStart) + translation);
   }
 
   heap.reduce();
@@ -114,7 +120,8 @@ inline void select_k_impl(K *inK,
 						  IndexType *outV,
 						  bool select_min,
 						  int k,
-						  cudaStream_t stream) {
+						  cudaStream_t stream,
+						  int64_t translation = 0) {
 
   auto grid = dim3(n_rows);
 
@@ -123,7 +130,7 @@ inline void select_k_impl(K *inK,
 
   auto kInit = select_min ? faiss::gpu::Limits<float>::getMin() : faiss::gpu::Limits<float>::getMax();
   auto vInit = -1;
-  select_k_kernel<warp_q, thread_q, n_threads>
+  select_k_kernel<float, int64_t, warp_q, thread_q, n_threads>
     <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV,
                                  kInit, vInit, k);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -145,7 +152,7 @@ inline void select_k_impl(K *inK,
  */
 inline void select_k(float *inK, int64_t *inV, size_t n_rows, size_t n_cols,
 							float *outK, int64_t *outV, int k,
-                            cudaStream_t stream) {
+                            cudaStream_t stream, int64_t translation = 0) {
   if (k == 1)
 	  select_k_impl<1, 1>(inK, inV,  n_rows, n_cols, outK, outV, k, stream);
   else if (k <= 32)
@@ -203,8 +210,6 @@ void brute_force_knn(const value_idx *idxIndptr,
 
 	value_t alpha = 1.0, beta = 0.0;
 
-	// TODO: Should first batch over query, then over index
-
 	for(int i = 0; i < n_batches_query; i++) {
 
 		// @TODO: This batching logic can likely be refactored into helper functions or
@@ -246,15 +251,21 @@ void brute_force_knn(const value_idx *idxIndptr,
 		cusparseSpMatDescr_t matA;
 		CUSPARSE_CHECK(cusparsecreatecsr(&matA, n_query_rows, n_query_cols, queryNNZ, queryIndptr, queryIndices, queryData));
 
-		device_buffer<int64_t> merge_buffer_indices(allocator, stream, k * n_query_rows * 2);
-		device_buffer<T> merge_buffer_dists(allocator, stream, k * n_query_rows * 2);
+		// A 3-partition temporary merge space to scale the batching. 2 parts for subsequent
+		// batches and 1 space for the results of the merge, which get copied back to the
+		//
+		device_buffer<int64_t> merge_buffer_indices(allocator, stream, k * n_query_rows * 3);
+		device_buffer<T> merge_buffer_dists(allocator, stream, k * n_query_rows * 3);
+
+	    T *dists_merge_buffer_ptr;
+	    int64_t *indices_merge_buffer_ptr;
 
 		for(int j = 0; j < n_batches_idx; j++) {
 
 			/**
 			 * Compute query batch info
 			 */
-			value_idx idx_batch_start = i * batch_size;
+			value_idx idx_batch_start = j * batch_size;
 			value_idx idx_batch_stop = idx_batch_start + batch_size;
 			value_idx n_idx_batch_rows = idx_batch_stop - idx_batch_start;
 
@@ -341,26 +352,50 @@ void brute_force_knn(const value_idx *idxIndptr,
 		    device_buffer<value_idx> batch_indices(allocator, stream, C_num_rows1*C_num_cols1);
 		    device_buffer<value_t> batch_dists(allocator, stream, C_num_rows1*C_num_cols1);
 
-		    // even numbers take bottom, odd numbers take top, merging until end of loop, where output matrix is populated.
+		    // even numbers take bottom, odd numbers take top, merging until end of loop,
+		    // where output matrix is populated.
 		    size_t merge_buffer_offset = j % 2 == 0 ? 0 : n_query_rows * k;
-		    T *dists_merge_buffer_ptr = merge_buffer_dists.data()+merge_buffer_offset;
-		    int64_t *indices_merge_buffer_ptr = merge_buffer_indices.data()+merge_buffer_offset;
+		    T dists_merge_buffer_ptr = merge_buffer_dists.data()+merge_buffer_offset;
+		    int64_t indices_merge_buffer_ptr = merge_buffer_indices.data()+merge_buffer_offset;
+
+		    size_t merge_buffer_tmp_out = n_query_rows * k * 2;
+		    T *dists_merge_buffer_tmp_ptr = merge_buffer_dists.data() + merge_buffer_tmp_out;
+		    int64_t *indices_merge_buffer_tmp_ptr = merge_buffer_indices.data() + merge_buffer_tmp_out;
+
+		    // build translation buffer to shift resulting indices by the batch
+
+		    std::vector<int64_t> id_ranges(2);
+		    id_ranges[0] = idx_batch_start > batch_size ? idx_batch_start - batch_size : 0;
+		    id_ranges[1] = idx_batch_start;
 
 		    // kernel to slice first (min) k cols and copy into batched merge buffer
-		    select_k(batch_dists.data(), batch_indices.data(), C_num_rows1, C_num_cols1,
-		    							dists_merge_buffer_ptr, indices_merge_buffer_ptr, k,
-		                                stream);
+		    select_k(batch_dists.data(),
+		    		batch_indices.data(),
+		    		C_num_rows1, C_num_cols1,
+		    		dists_merge_buffer_ptr,
+		    		indices_merge_buffer_ptr,
+		    		ascending,
+		    		k,
+		            stream,
+		            /*translation for current batch*/
+		            id_ranges[1]);
 
 		    device_buffer<value_idx> batch_indices(allocator, stream, C_num_rows1*C_num_cols1);
 		    device_buffer<value_t> batch_dists(allocator, stream, C_num_rows1*C_num_cols1);
 
-		    Selection::knn_merge_parts(dists_merge_buffer_ptr, indices_merge_buffer_ptr, float *outK,
-		                                int64_t *outV, size_t n_samples, int n_parts, int k,
-		                                cudaStream_t stream, int64_t *translations)
+		    // combine merge buffers only if there's more than 1 partition to combine
+		    Selection::knn_merge_parts(dists_merge_buffer_ptr, indices_merge_buffer_ptr, dists_merge_buffer_tmp_ptr,
+		                                indices_merge_buffer_tmp_ptr, C_num_rows1, 2, k,
+		                                stream, id_ranges.data());
 
+		    // copy merged output back into merge buffer partition for next iteration
+		    copyAsync(indices_merge_buffer_ptr, indices_merge_buffer_tmp_ptr, C_num_rows1, k);
+		    copyAsync(dists_merge_buffer_ptr, dists_merge_buffer_tmp_ptr, C_num_rows1, k);
 		}
 
 		// Copy final merged batch to output array
+		copyAsync(output_indices, indices_merge_buffer_ptr, query_batch_start * k);
+		copyAsync(output_dists, dists_merge_buffer_ptr, query_batch_start * k);
 	}
 }
 }
