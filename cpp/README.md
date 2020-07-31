@@ -33,6 +33,7 @@ Current cmake offers the following configuration options:
 | Flag | Possible Values | Default Value | Behavior |
 | --- | --- | --- | --- |
 | BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
+| BUILD_GTEST | [ON, OFF]  | ON  |  Enable/disable building Googletest for test executables. The library search path will be used to find an existing version. |
 | BUILD_CUML_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_test`.  |
 | BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. Requires MPI to be installed. When enabled, BUILD_CUML_MPI_COMMS will be automatically set to ON. |
 | BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |

@@ -15,6 +15,8 @@ dependencies:
 - rmm=0.15*
 - cython>=0.29,<0.30
 - pytest>=4.6
+- gtest=1.10.0
+- gmock=1.10.0
 - pytest-timeout
 - scikit-learn>=0.21
 - umap-learn>=0.3.9
@@ -36,6 +38,7 @@ dependencies:
 - nbsphinx
 - recommonmark
 - faiss-proc=*=cuda
+- rapids-build-env=0.15*
 - libfaiss
 - ipython
 - pip
