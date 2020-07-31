@@ -32,8 +32,6 @@ import cudf
 
 from cython.operator cimport dereference as deref
 
-from cuml.metrics import accuracy_score
-
 from cuml.common.handle cimport cumlHandle
 from libcpp.vector cimport vector
 
