@@ -140,6 +140,9 @@ Metrics
 
   .. automethod:: cuml.metrics.roc_auc_score
 
+  .. automodule:: cuml.metrics.pairwise_distances
+    :members:
+
 Benchmarking
 -------------
 
