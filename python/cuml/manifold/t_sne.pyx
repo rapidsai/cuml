@@ -312,6 +312,24 @@ class TSNE(Base):
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
+        knn_graph : sparse array-like (device or host)
+            shape=(n_samples, n_samples)
+            A sparse array containing the k-nearest neighbors of X,
+            where the columns are the nearest neighbor indices
+            for each row and the values are their distances.
+            It's important that `k>=n_neighbors`,
+            so that UMAP can model the neighbors from this graph,
+            instead of building its own internally.
+            Users using the knn_graph parameter provide UMAP
+            with their own run of the KNN algorithm. This allows the user
+            to pick a custom distance function (sometimes useful
+            on certain datasets) whereas UMAP uses euclidean by default.
+            The custom distance function should match the metric used
+            to train UMAP embeedings. Storing and reusing a knn_graph
+            will also provide a speedup to the UMAP algorithm
+            when performing a grid search.
+            Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
+            CSR/COO preferred other formats will go through conversion to CSR
         """
         self._set_n_features_in(X)
         cdef int n, p
@@ -429,13 +447,31 @@ class TSNE(Base):
         convert_dtype : bool, optional (default = True)
             When set to True, the fit_transform method will automatically
             convert the inputs to np.float32.
+        knn_graph : sparse array-like (device or host)
+            shape=(n_samples, n_samples)
+            A sparse array containing the k-nearest neighbors of X,
+            where the columns are the nearest neighbor indices
+            for each row and the values are their distances.
+            It's important that `k>=n_neighbors`,
+            so that UMAP can model the neighbors from this graph,
+            instead of building its own internally.
+            Users using the knn_graph parameter provide UMAP
+            with their own run of the KNN algorithm. This allows the user
+            to pick a custom distance function (sometimes useful
+            on certain datasets) whereas UMAP uses euclidean by default.
+            The custom distance function should match the metric used
+            to train UMAP embeedings. Storing and reusing a knn_graph
+            will also provide a speedup to the UMAP algorithm
+            when performing a grid search.
+            Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
+            CSR/COO preferred other formats will go through conversion to CSR
 
         Returns
         --------
         X_new : array, shape (n_samples, n_components)
                 Embedding of the training data in low-dimensional space.
         """
-        self.fit(X, convert_dtype=convert_dtype)
+        self.fit(X, convert_dtype, knn_graph)
         out_type = self._get_output_type(X)
 
         data = self._embedding_.to_output(out_type)
