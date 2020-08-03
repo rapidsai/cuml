@@ -67,7 +67,7 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
                          'equal to the number of classes = %d' %
                          (n_test, n_classes))
     class_indices = cp.array_split(cp.argsort(y_indices),
-                             n_classes)
+                                   n_classes)
 
     X_train = None
     # Break ties
