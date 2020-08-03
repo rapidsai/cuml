@@ -151,9 +151,9 @@ class ARIMA(Base):
         The ARIMA order (p, d, q) of the model
     seasonal_order: Tuple[int, int, int, int]
         The seasonal ARIMA order (P, D, Q, s) of the model
-    fit_intercept : bool or int
-        Whether to include a constant trend mu in the model (default: True)
-    simple_differencing: bool or int
+    fit_intercept : bool or int (default = True)
+        Whether to include a constant trend mu in the model
+    simple_differencing: bool or int (default = True)
         If True, the data is differenced before being passed to the Kalman
         filter. If False, differencing is part of the state-space model.
         In some cases this setting can be ignored: computing forecasts with
@@ -425,11 +425,12 @@ class ARIMA(Base):
 
         Parameters:
         -----------
-        start: int
+        start: int (default = 0)
             Index where to start the predictions (0 <= start <= num_samples)
-        end: int
-            Index where to end the predictions, excluded (end > start)
-        level: float or None
+        end: int (default = None)
+            Index where to end the predictions, excluded (end > start), or
+            None to predict until the last observation
+        level: float or None (default = None)
             Confidence level for prediction intervals, or None to return only
             the point forecasts. 0 < level < 1
 
@@ -553,7 +554,7 @@ class ARIMA(Base):
         ----------
         nsteps : int
             The number of steps to forecast beyond end of the given series
-        level: float or None
+        level: float or None (default = None)
             Confidence level for prediction intervals, or None to return only
             the point forecasts. 0 < level < 1
 
