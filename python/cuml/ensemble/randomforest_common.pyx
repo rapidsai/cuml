@@ -195,12 +195,6 @@ class BaseRandomForestModel(Base):
 
         else:
             if self.RF_type == CLASSIFICATION:
-                if self.num_classes > 2:
-                    raise NotImplementedError(
-                        "Pickling for multi-class classification models"
-                        " is currently not implemented. Please check"
-                        " cuml GitHub issue #1679 for more information.")
-
                 build_treelite_forest(
                     &tl_handle,
                     <RandomForestMetaData[float, int]*>

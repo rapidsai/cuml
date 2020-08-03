@@ -14,6 +14,7 @@
 - PR #2465: Support pandas 1.0+
 - PR #2519: Precision recall curve using cupy
 - PR #2500: Replace UMAP functionality dependency on nvgraph with RAFT Spectral Clustering
+- PR #2502: cuML Implementation of `sklearn.metrics.pairwise_distances`
 - PR #2520: TfidfVectorizer estimator
 - PR #2211: MNMG KNN Classifier & Regressor
 - PR #2461: Add KNN Sparse Output Functionality
@@ -75,6 +76,7 @@
 - PR #2487: Set classes_ attribute during classifier fit
 - PR #2605: Reduce memory usage in tSNE
 - PR #2611: Adding building doxygen docs to gpu ci
+- PR #2629: Add naive_bayes api docs
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -146,6 +148,7 @@
 - PR #2256: Add a `make_arima` generator
 - PR #2245: ElasticNet, Lasso and Coordinate Descent MNMG
 - PR #2242: Pandas input support with output as NumPy arrays by default
+- PR #2551: Add cuML RF multiclass prediction using FIL from python
 - PR #1728: Added notebook testing to gpuCI gpu build
 
 ## Improvements
