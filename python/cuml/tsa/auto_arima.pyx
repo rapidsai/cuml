@@ -132,7 +132,7 @@ class AutoARIMA(Base):
         Numba device ndarray, cuda array interface compliant array like CuPy.
     handle : cuml.Handle
         If it is None, a new one is created just for this instance
-    simple_differencing: bool or int
+    simple_differencing: bool or int (default = True)
         If True, the data is differenced before being passed to the Kalman
         filter. If False, differencing is part of the state-space model.
         See additional notes in the ARIMA docs
@@ -415,7 +415,7 @@ class AutoARIMA(Base):
             Index where to start the predictions (0 <= start <= num_samples)
         end:
             Index where to end the predictions, excluded (end > start)
-        level: float or None
+        level: float or None (default = None)
             Confidence level for prediction intervals, or None to return only
             the point forecasts. 0 < level < 1
 
@@ -466,7 +466,7 @@ class AutoARIMA(Base):
         ----------
         nsteps : int
             The number of steps to forecast beyond end of the given series
-        level: float or None
+        level: float or None (default = None)
             Confidence level for prediction intervals, or None to return only
             the point forecasts. 0 < level < 1
 
