@@ -743,8 +743,7 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   // x* = alpha_0[d+s*D:]
   MLCommon::LinAlg::Batched::Matrix<double> alpha(
     rd, 1, batch_size, handle.getImpl().getCublasHandle(),
-    handle.getDeviceAllocator(), stream, true);
-  /// TODO: remove memset and set to 0 only the elements that need to
+    handle.getDeviceAllocator(), stream, false);
   if (intercept) {
     // Compute I-T*
     MLCommon::LinAlg::Batched::Matrix<double> ImT(
@@ -784,10 +783,17 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                        const double* b_ImT_inv = d_ImT_inv + r * r * bid;
                        double* b_alpha = d_alpha + rd * bid;
                        double mu = d_mu[bid];
+                       for (int i = 0; i < n_diff; i++) {
+                         b_alpha[i] = 0;
+                       }
                        for (int i = 0; i < r; i++) {
                          b_alpha[i + n_diff] = b_ImT_inv[i] * mu;
                        }
                      });
+  } else {
+    // Memset alpha to 0
+    CUDA_CHECK(cudaMemsetAsync(alpha.raw_data(), 0,
+                               sizeof(double) * rd * batch_size, stream));
   }
 
   MLCommon::device_buffer<double> sumLogF_buffer(allocator, stream, batch_size);
