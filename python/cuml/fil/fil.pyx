@@ -55,6 +55,8 @@ cdef extern from "treelite/c_api.h":
     cdef int TreeliteFreeModel(ModelHandle handle) except +
     cdef int TreeliteQueryNumTree(ModelHandle handle, size_t* out) except +
     cdef int TreeliteQueryNumFeature(ModelHandle handle, size_t* out) except +
+    cdef int TreeliteQueryNumOutputGroups(ModelHandle handle,
+                                          size_t* out) except +
     cdef int TreeliteLoadLightGBMModel(const char* filename,
                                        ModelHandle* out) except +
     cdef int TreeliteLoadProtobufModel(const char* filename,
@@ -195,6 +197,8 @@ cdef class ForestInference_impl():
 
     cpdef object handle
     cdef forest_t forest_data
+    cdef size_t num_output_groups
+    cdef bool output_class
 
     def __cinit__(self,
                   handle=None):
@@ -216,15 +220,16 @@ cdef class ForestInference_impl():
         return algo_dict[algo_str]
 
     def get_storage_type(self, storage_type_str):
-        storage_type_dict={'AUTO': storage_type_t.AUTO,
-                           'auto': storage_type_t.AUTO,
-                           'DENSE': storage_type_t.DENSE,
-                           'dense': storage_type_t.DENSE,
-                           'SPARSE': storage_type_t.SPARSE,
-                           'sparse': storage_type_t.SPARSE}
+        storage_type_dict={'auto': storage_type_t.AUTO,
+                           'False': storage_type_t.DENSE,
+                           'True': storage_type_t.SPARSE}
+
         if storage_type_str not in storage_type_dict.keys():
-            raise ValueError(' Wrong sparsity selected please refer'
-                             ' to the documentation')
+            raise ValueError(
+                "The value entered for storage_type is not "
+                "supported. Please refer to the documentation at"
+                "(https://docs.rapids.ai/api/cuml/nightly/api.html#"
+                "forest-inferencing) to see the accepted values.")
         return storage_type_dict[storage_type_str]
 
     def predict(self, X, output_type='numpy',
@@ -249,6 +254,12 @@ cdef class ForestInference_impl():
         ----------
         Predicted results of type as defined by the output_type variable
         """
+        if (not self.output_class) and predict_proba:
+            raise NotImplementedError("Predict_proba function is not available"
+                                      " for Regression models. If you are "
+                                      " using a Classification model, please "
+                                      " set `output_class=True` while creating"
+                                      " the FIL model.")
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
@@ -262,7 +273,10 @@ cdef class ForestInference_impl():
         if preds is None:
             shape = (n_rows, )
             if predict_proba:
-                shape += (2,)
+                if self.num_output_groups <= 2:
+                    shape += (2,)
+                else:
+                    shape += (self.num_output_groups,)
             preds = CumlArray.empty(shape=shape, dtype=np.float32, order='C')
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
@@ -296,7 +310,9 @@ cdef class ForestInference_impl():
                                         float threshold,
                                         str storage_type):
         cdef treelite_params_t treelite_params
-        treelite_params.output_class = output_class
+
+        self.output_class = output_class
+        treelite_params.output_class = self.output_class
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
         treelite_params.storage_type = self.get_storage_type(storage_type)
@@ -310,6 +326,8 @@ cdef class ForestInference_impl():
                       &self.forest_data,
                       <ModelHandle> model_ptr,
                       &treelite_params)
+        TreeliteQueryNumOutputGroups(<ModelHandle> model_ptr,
+                                     & self.num_output_groups)
         return self
 
     def load_from_treelite_model(self,
@@ -318,6 +336,8 @@ cdef class ForestInference_impl():
                                  str algo,
                                  float threshold,
                                  str storage_type):
+        TreeliteQueryNumOutputGroups(<ModelHandle> model.handle,
+                                     & self.num_output_groups)
         return self.load_from_treelite_model_handle(<uintptr_t>model.handle,
                                                     output_class, algo,
                                                     threshold, storage_type)
@@ -331,11 +351,11 @@ cdef class ForestInference_impl():
 
         cdef treelite_params_t treelite_params
 
-        treelite_params.output_class = output_class
+        self.output_class = output_class
+        treelite_params.output_class = self.output_class
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
         treelite_params.storage_type = self.get_storage_type(storage_type)
-
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>model_handle
@@ -344,6 +364,8 @@ cdef class ForestInference_impl():
                       &self.forest_data,
                       <ModelHandle> model_ptr,
                       &treelite_params)
+        TreeliteQueryNumOutputGroups(<ModelHandle> model_ptr,
+                                     &self.num_output_groups)
         return self
 
     def __dealloc__(self):
@@ -489,8 +511,8 @@ class ForestInference(Base):
            loaded from a saved model using the treelite API
            https://treelite.readthedocs.io/en/latest/treelite-api.html
         output_class: boolean (default=False)
-           If True, return a 1 or 0 depending on whether the raw prediction
-           exceeds the threshold. If False, just return the raw prediction.
+           For a Classification model output_class must be True.
+           For a Regression model output_class must be False.
         algo : string (default='auto')
             name of the algo from (from algo_t enum)
              'AUTO' or 'auto' - choose the algorithm automatically;
@@ -505,13 +527,13 @@ class ForestInference(Base):
         threshold : float (default=0.5)
             Threshold is used to for classification. It is applied
             only if output_class == True, else it is ignored.
-        storage_type : string (default='auto')
+        storage_type : string or boolean (default='auto')
             In-memory storage format to be used for the FIL model.
-             'AUTO' or 'auto' - choose the storage type automatically
-                                (currently DENSE is always used)
-             'DENSE' or 'dense' - create a dense forest
-             'SPARSE' or 'sparse' - create a sparse forest;
-                                    requires algo='NAIVE' or algo='AUTO'
+             'auto' - choose the storage type automatically
+                      (currently DENSE is always used)
+             False - create a dense forest
+             True - create a sparse forest;
+                      requires algo='NAIVE' or algo='AUTO'
 
         Returns
         ----------
@@ -522,12 +544,12 @@ class ForestInference(Base):
         if isinstance(model, TreeliteModel):
             # TreeliteModel defined in this file
             return self._impl.load_from_treelite_model(
-                model, output_class, algo, threshold, storage_type)
+                model, output_class, algo, threshold, str(storage_type))
         else:
             # assume it is treelite.Model
             return self._impl.load_from_treelite_model_handle(
                 model.handle.value, output_class, algo, threshold,
-                storage_type)
+                str(storage_type))
 
     @staticmethod
     def load_from_sklearn(skl_model,
@@ -544,8 +566,8 @@ class ForestInference(Base):
         ----------
         skl_model : The scikit-learn model from which to build the FIL version.
         output_class: boolean (default=False)
-           If True, return a 1 or 0 depending on whether the raw prediction
-           exceeds the threshold. If False, just return the raw prediction.
+           For a Classification model output_class must be True.
+           For a Regression model output_class must be False.
         algo : string (default='auto')
             name of the algo from (from algo_t enum)
              'AUTO' or 'auto' - choose the algorithm automatically;
@@ -560,13 +582,13 @@ class ForestInference(Base):
         threshold : float (default=0.5)
             Threshold is used to for classification. It is applied
             only if output_class == True, else it is ignored.
-        storage_type : string (default='auto')
+        storage_type : string or boolean (default='auto')
             In-memory storage format to be used for the FIL model.
-             'AUTO' or 'auto' - choose the storage type automatically
-                                (currently DENSE is always used)
-             'DENSE' or 'dense' - create a dense forest
-             'SPARSE' or 'sparse' - create a sparse forest;
-                                    requires algo='NAIVE' or algo='AUTO'.
+             'auto' - choose the storage type automatically
+                      (currently DENSE is always used)
+             False - create a dense forest
+             True - create a sparse forest;
+                      requires algo='NAIVE' or algo='AUTO'
 
         Returns
         ----------
@@ -579,7 +601,7 @@ class ForestInference(Base):
         tl_model = tl_skl.import_model(skl_model)
         cuml_fm.load_from_treelite_model(
             tl_model, algo=algo, output_class=output_class,
-            storage_type=storage_type, threshold=threshold)
+            storage_type=str(storage_type), threshold=threshold)
         return cuml_fm
 
     @staticmethod
@@ -600,9 +622,9 @@ class ForestInference(Base):
            Path to saved model file in a treelite-compatible format
            (See https://treelite.readthedocs.io/en/latest/treelite-api.html
             for more information)
-        output_class : bool (default=False)
-           If True, return a 1 or 0 depending on whether the raw prediction
-           exceeds the threshold. If False, just return the raw prediction.
+        output_class: boolean (default=False)
+           For a Classification model output_class must be True.
+           For a Regression model output_class must be False.
         threshold : float (default=0.5)
            Cutoff value above which a prediction is set to 1.0
            Only used if the model is classification and output_class is True
@@ -627,7 +649,7 @@ class ForestInference(Base):
         cuml_fm.load_from_treelite_model(tl_model,
                                          algo=algo,
                                          output_class=output_class,
-                                         storage_type=storage_type,
+                                         storage_type=str(storage_type),
                                          threshold=threshold)
         return cuml_fm
 
@@ -646,9 +668,9 @@ class ForestInference(Base):
         model_handle : Modelhandle to the treelite forest model
             (See https://treelite.readthedocs.io/en/latest/treelite-api.html
             for more information)
-        output_class : bool (default=False)
-           If True, return a 1 or 0 depending on whether the raw prediction
-           exceeds the threshold. If False, just return the raw prediction.
+        output_class: boolean (default=False)
+           For a Classification model output_class must be True.
+           For a Regression model output_class must be False.
         threshold : float (default=0.5)
            Cutoff value above which a prediction is set to 1.0
            Only used if the model is classification and output_class is True
@@ -668,4 +690,4 @@ class ForestInference(Base):
         return self._impl.load_using_treelite_handle(model_handle,
                                                      output_class,
                                                      algo, threshold,
-                                                     storage_type)
+                                                     str(storage_type))

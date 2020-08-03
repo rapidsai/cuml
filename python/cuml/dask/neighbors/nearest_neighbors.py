@@ -228,7 +228,7 @@ class NearestNeighbors(BaseEstimator):
         Returns
         -------
         ret : tuple (dask_cudf.DataFrame, dask_cudf.DataFrame)
-            First dask-cuDF DataFrame contains distances, second conains the
+            First dask-cuDF DataFrame contains distances, second contains the
             indices.
         """
         n_neighbors = self.get_neighbors(n_neighbors)
