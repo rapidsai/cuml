@@ -19,6 +19,7 @@
 - PR #2211: MNMG KNN Classifier & Regressor
 - PR #2461: Add KNN Sparse Output Functionality
 - PR #2607: Add support for probability estimates in SVC
+- PR #2638: Improve cython build with custom `build_ext`
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
