@@ -349,7 +349,7 @@ set(CUML_PRIVATE_LINK_LIBRARIES
   treelite::treelite_runtime
   RMM::RMM
   )
-  
+
 
 if(ENABLE_CUMLPRIMS_MG)
   list(APPEND CUML_INCLUDE_DIRECTORIES
@@ -446,7 +446,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
   # same as above, but for protobuf library
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
-  
+
 endif(BUILD_CUML_CPP_LIBRARY)
 
 ##############################################################################
