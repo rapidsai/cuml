@@ -175,10 +175,6 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info,
         pickled_model.score(X_test, np.zeros(X_test.shape[0]),
                             predict_model="GPU")
 
-    if (n_classes > 2 and key != 'RandomForestRegressor'):
-        with pytest.raises(NotImplementedError):
-            pickle_save_load(tmpdir, create_mod, assert_model)
-    else:
         pickle_save_load(tmpdir, create_mod, assert_model)
 
 

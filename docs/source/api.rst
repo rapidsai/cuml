@@ -140,6 +140,9 @@ Metrics
 
   .. automethod:: cuml.metrics.roc_auc_score
 
+  .. automodule:: cuml.metrics.pairwise_distances
+    :members:
+
 Benchmarking
 -------------
 
@@ -396,6 +399,12 @@ Linear Models
     :members:
 
 .. autoclass:: cuml.dask.linear_model.ElasticNet
+    :members:
+
+Naive Bayes
+-----------
+
+.. autoclass:: cuml.dask.naive_bayes.MultinomialNB
     :members:
 
 Solvers
