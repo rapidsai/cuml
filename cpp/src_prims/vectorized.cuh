@@ -26,6 +26,8 @@ struct IOType {};
 
 template <>
 struct IOType<bool, 1> {
+  static_assert(sizeof(bool) == sizeof(int8_t),
+                "IOType bool size assumption failed");
   typedef int8_t Type;
 };
 template <>
