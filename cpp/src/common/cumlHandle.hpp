@@ -26,7 +26,7 @@
 #include <cusolverSp.h>
 #include <cusparse.h>
 
-#include <common/cuml_comms_int.hpp>
+#include <raft/comms/comms.hpp>
 
 #include <cuml/cuml_api.h>
 #include <cuml/cuml.hpp>
@@ -67,8 +67,8 @@ class cumlHandle_impl {
   void waitOnInternalStreams() const;
 
   void setCommunicator(
-    std::shared_ptr<MLCommon::cumlCommunicator> communicator);
-  const MLCommon::cumlCommunicator& getCommunicator() const;
+    std::shared_ptr<raft::comms::comms_t> communicator);
+  const raft::comms::comms_t& getCommunicator() const;
   bool commsInitialized() const;
 
   const cudaDeviceProp& getDeviceProperties() const;
