@@ -191,11 +191,11 @@ void cumlHandle_impl::waitOnInternalStreams() const {
 }
 
 void cumlHandle_impl::setCommunicator(
-  std::shared_ptr<MLCommon::cumlCommunicator> communicator) {
+  std::shared_ptr<raft::comms::comms_t> communicator) {
   _communicator = communicator;
 }
 
-const MLCommon::cumlCommunicator& cumlHandle_impl::getCommunicator() const {
+const raft::comms::comms_t& cumlHandle_impl::getCommunicator() const {
   ASSERT(nullptr != _communicator.get(),
          "ERROR: Communicator was not initialized\n");
   return *_communicator;
