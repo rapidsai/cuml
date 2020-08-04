@@ -586,20 +586,35 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   // fill in forest-dependent params
   params->depth = max_depth(model);  // also checks for cycles
 
+  const tl::ModelParam& param = model.param;
+
   // assuming either all leaves use the .leaf_vector() or all leaves use .leaf_value()
   size_t leaf_vec_size = tl_leaf_vector_size(model);
+  std::string pred_transform(param.pred_transform);
   if (leaf_vec_size > 0) {
     ASSERT(leaf_vec_size == model.num_output_group,
            "treelite model inconsistent");
     params->num_classes = leaf_vec_size;
     params->leaf_payload_type = leaf_value_t::INT_CLASS_LABEL;
+
+    ASSERT(tl_params->output_class,
+           "output_class==true is required for multi-class models");
+
+    ASSERT(
+      pred_transform == "max_index" || pred_transform == "identity_multiclass",
+      "only max_index and identity_multiclass values of pred_transform "
+      "are supported for multi-class models");
+
   } else {
+    ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
+           "only sigmoid and identity values of pred_transform "
+           "are supported for binary classification and regression models");
     params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
     params->num_classes = 0;  // ignored
   }
 
   params->num_cols = model.num_feature;
-  const tl::ModelParam& param = model.param;
+
   ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
   params->global_bias = param.global_bias;
   params->output = output_t::RAW;
@@ -612,9 +627,6 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   }
   if (std::string(param.pred_transform) == "sigmoid") {
     params->output = output_t(params->output | output_t::SIGMOID);
-  } else if (std::string(param.pred_transform) != "identity") {
-    ASSERT(false, "%s: unsupported treelite prediction transform",
-           param.pred_transform);
   }
   params->num_trees = model.trees.size();
 }

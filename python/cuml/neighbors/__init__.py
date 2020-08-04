@@ -21,9 +21,6 @@ from cuml.neighbors.nearest_neighbors import kneighbors_graph
 from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
 from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
 
-if has_dask():
-    from cuml.neighbors.kneighbors_mg import KNeighborsMG
-
 VALID_METRICS = {"brute": set([
         "l2", "euclidean",
         "l1", "cityblock", "manhattan", "taxicab",
