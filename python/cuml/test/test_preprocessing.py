@@ -15,7 +15,7 @@
 
 import pytest
 
-from ..preprocessing import StandardScaler as cuStandardScaler, \
+from ..experimental.preprocessing import StandardScaler as cuStandardScaler, \
                             MinMaxScaler as cuMinMaxScaler, \
                             MaxAbsScaler as cuMaxAbsScaler, \
                             Normalizer as cuNormalizer, \
@@ -24,7 +24,7 @@ from ..preprocessing import StandardScaler as cuStandardScaler, \
                             SimpleImputer as cuSimpleImputer, \
                             RobustScaler as cuRobustScaler, \
                             KBinsDiscretizer as cuKBinsDiscretizer
-from ..preprocessing import scale as cu_scale, \
+from ..experimental.preprocessing import scale as cu_scale, \
                             minmax_scale as cu_minmax_scale, \
                             normalize as cu_normalize, \
                             add_dummy_feature as cu_add_dummy_feature, \
@@ -562,7 +562,7 @@ def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
     sk_r_X = transformer.inverse_transform(sk_t_X)
 
     if strategy == 'kmeans':
-        assert_allclose(t_X, sk_t_X, ratio_tol=0.09)
+        assert_allclose(t_X, sk_t_X, ratio_tol=0.1)
     else:
         assert_allclose(t_X, sk_t_X)
         assert_allclose(r_X, sk_r_X)
