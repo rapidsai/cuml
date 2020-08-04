@@ -37,11 +37,6 @@ _parameters_docstrings = {
         CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas \
         DataFrame/Series.',
 
-    'out_dtype':
-    'out_dtype: dtype (default = {}) \n \
-        Determines the precision of the output labels array.\n \
-        Valid values are {}.',
-
     'convert_dtype_fit':
     'convert_dtype : bool, optional (default = {})\n \
         When set to True, the train method will, when necessary, convert \
@@ -54,10 +49,18 @@ _parameters_docstrings = {
         the input to the data type which was used to train the model. This \
         will increase memory used for the method.',
 
+    'sample_weight':
+    'sample_weight : array-like (device or host) shape = (n_samples,), default={} \n\
+                The weights for each observation in X. If None, all observations  \
+                are assigned equal weight. \
+                Acceptable dense formats: CUDA array interface compliant objects like \
+                CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas \
+                DataFrame/Series.',  # noqa
+
     'return_sparse':
     'return_sparse : bool, optional (default = {}) \n \
             Ignored when the model is not fit on a sparse matrix \
-            If True, the method will convert the inverse transform to a \
+            If True, the method will convert the result to a \
             cupy.sparse.csr_matrix object. \n \
             NOTE: Currently, there is a loss of information when converting \
             to csr matrix (cusolver bug). Default will be switched to True \
@@ -108,14 +111,14 @@ _return_values_possible_values = ['name',
                                   'description']
 
 _simple_params = ['return_sparse',
-                  'sparse_tol']
-
+                  'sparse_tol',
+                  'sample_weight']
 
 def generate_docstring(X='dense',
                        X_shape='(n_samples, n_features)',
                        y='dense',
                        y_shape='(n_samples, 1)',
-                       convert_dtype=None,
+                       skip_parameters_heading=False,
                        parameters=False,
                        return_values=False):
     def deco(func):
@@ -126,40 +129,42 @@ def generate_docstring(X='dense',
         docstring_wrapper.__doc__ = str(func.__doc__)
 
         params = signature(func).parameters
+        print(params)
 
-        if('X' in params or 'y' in params or parameters):
+        if(('X' in params or 'y' in params or parameters)
+            and not skip_parameters_heading):
             docstring_wrapper.__doc__ += \
                 '\nParameters \n ---------- \n'
 
-        if('X' in params):
-            docstring_wrapper.__doc__ += \
-                _parameters_docstrings[X].format('X', X_shape)
-            docstring_wrapper.__doc__ += '\n\n'
-
-        if('y' in params):
-            docstring_wrapper.__doc__ += \
-                _parameters_docstrings[y].format('y', y_shape)
-            docstring_wrapper.__doc__ += '\n\n'
-
-        if('convert_dtype' in params):
-            if func.__name__ == 'fit':
-                k = 'convert_dtype_fit'
-            else:
-                k = 'convert_dtype_other'
-
-            docstring_wrapper.__doc__ += \
-                _parameters_docstrings[k].format(
-                    params['convert_dtype'].default, func.__name__
-                )
-            docstring_wrapper.__doc__ += '\n\n'
-
-        for par in _simple_params:
-            if(par in params):
+        for par, value in params.items():
+            if par == 'self':
+                pass
+            elif par == 'X':
                 docstring_wrapper.__doc__ += \
-                    _parameters_docstrings[par].format(
-                        params[par].default
+                    _parameters_docstrings[X].format('X', X_shape)
+
+            elif par == 'y':
+                docstring_wrapper.__doc__ += \
+                    _parameters_docstrings[y].format('y', y_shape)
+
+            elif par == 'convert_dtype':
+                if func.__name__ == 'fit':
+                    k = 'convert_dtype_fit'
+                else:
+                    k = 'convert_dtype_other'
+
+                docstring_wrapper.__doc__ += \
+                    _parameters_docstrings[k].format(
+                        params['convert_dtype'].default, func.__name__
                     )
-                docstring_wrapper.__doc__ += '\n\n'
+
+            else:
+                if par in _simple_params:
+                    docstring_wrapper.__doc__ += \
+                        _parameters_docstrings[par].format(
+                            params[par].default
+                        )
+            docstring_wrapper.__doc__ += '\n\n'
 
         if(return_values):
             docstring_wrapper.__doc__ += \
