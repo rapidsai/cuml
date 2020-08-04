@@ -84,5 +84,5 @@ def test_fit_function(dataset, model_name):
         if hasattr(model, "_estimator_type"):
             if model._estimator_type == "classifier":
                 cp.testing.assert_array_almost_equal(
-                    model.classes_, cp.unique(y)
+                    model.classes_, np.unique(y)
                 )
