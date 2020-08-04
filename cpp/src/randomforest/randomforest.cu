@@ -288,26 +288,32 @@ template <class T, class L>
 std::vector<std::vector<double>> obtain_forest_info(
   const RandomForestMetaData<T, L>* forest, int param_requested) {
   std::vector<std::vector<double>> forest_info;
+
+  if (!forest || !forest->trees) {
+    CUML_LOG_INFO("Empty forest");
+    return forest_info;
+  }
+
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     DecisionTree::TreeMetaDataNode<T, L>* tree_info = &forest->trees[i];
+
     forest_info.push_back(std::vector<double>());
-    int j = 0;
-    while (j < tree_info->sparsetree.size()) {
-      if (tree_info->sparsetree[j].colid != -1) {
+    for (auto& node : tree_info->sparsetree) {
+      if (node.colid != -1) {
         if (param_requested == 0) {
           // collect the threshold values used to split the nodes
-          forest_info[i].push_back(tree_info->sparsetree[j].quesval);
+          forest_info[i].push_back(node.quesval);
         } else if (param_requested == 1) {
           // collect the best metric value for each node
-          forest_info[i].push_back(tree_info->sparsetree[j].best_metric_val);
+          forest_info[i].push_back(node.best_metric_val);
         } else {
           // collect the ids of columns used at each node
-          forest_info[i].push_back(tree_info->sparsetree[j].colid);
+          forest_info[i].push_back(static_cast<double>(node.colid));
         }
       }
-      j++;
     }
   }
+
   return forest_info;
 }
 

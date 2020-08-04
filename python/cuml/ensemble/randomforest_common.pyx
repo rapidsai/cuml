@@ -18,6 +18,7 @@ import ctypes
 import cupy as cp
 import math
 import warnings
+from collections import namedtuple
 
 import numpy as np
 from cuml import ForestInference
@@ -346,6 +347,29 @@ class BaseRandomForestModel(Base):
             else:
                 setattr(self, key, value)
         return self
+
+    forest_info_nt = namedtuple("ForestInfo", ['threshold',
+                                               'feature_id',
+                                               'best_metric'])
+
+    def _get_forest_info_(self):
+        """
+        Returns a named tuple containing the thresholds, feature ids, and best
+        metrics used for each node in this random forest.
+        These are each represented as a 2 dimensional numpy array of shape:
+        (num_trees, num_splits).
+        """
+        # TODO: how do users understand parent/child relationships in the trees?
+        thresholds = np.array(self._forest_node_summary("threshold"))
+        columns = np.array(self._forest_node_summary("column_id"),
+                           dtype=np.int32)
+        metrics = np.array(self._forest_node_summary("best_metric"))
+
+        return BaseRandomForestModel.forest_info_nt(thresholds, columns, metrics)
+
+
+    forest_info_ = property(_get_forest_info_)
+
 
 
 def _check_fil_parameter_validity(depth, algo, fil_sparse_format):

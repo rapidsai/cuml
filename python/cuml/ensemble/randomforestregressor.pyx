@@ -298,7 +298,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         self.treelite_serialized_model = None
         self.n_cols = None
 
-    def n_nodes_(self):
+    # Manually wrap this as the property n_nodes_ due to cython limitations
+    def _get_n_nodes_(self):
         """
         Calculates the number of nodes in the trained RF model
 
@@ -318,7 +319,9 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
         return num_nodes
 
-    def forest_info_(self, forest_param="threshold"):
+    n_nodes_ = property(_get_n_nodes_)
+
+    def _forest_node_summary(self, forest_param="threshold"):
         """
         Returns the requested forest parameter values as a 2d vector. The
         2 dimensions of the vector represent (num_trees, num_splits).
