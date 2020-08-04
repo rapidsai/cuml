@@ -62,7 +62,7 @@ rf_module = ClassEnumerator(module=cuml.ensemble)
 rf_models = rf_module.get_models()
 
 k_neighbors_config = ClassEnumerator(module=cuml.neighbors, exclude_classes=[
-    cuml.neighbors.NearestNeighbors, cuml.neighbors.KNeighborsMG])
+    cuml.neighbors.NearestNeighbors])
 k_neighbors_models = k_neighbors_config.get_models()
 
 unfit_pickle_xfail = ['ARIMA', 'KalmanFilter', 'ForestInference']
