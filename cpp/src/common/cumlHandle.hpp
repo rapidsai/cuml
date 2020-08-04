@@ -82,7 +82,7 @@ class cumlHandle_impl {
   cudaEvent_t _event;
   std::shared_ptr<deviceAllocator> _deviceAllocator;
   std::shared_ptr<hostAllocator> _hostAllocator;
-  std::shared_ptr<MLCommon::cumlCommunicator> _communicator;
+  std::shared_ptr<raft::comms::comms_t> _communicator;
   std::vector<cudaStream_t> _streams;
   mutable cudaDeviceProp _prop;
   const int _dev_id;
