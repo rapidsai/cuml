@@ -111,9 +111,9 @@ def check_dtype(array, dtypes='numeric'):
 
         if not isinstance(array, cuDataFrame):
             if array.dtype not in dtypes:
-                raise ValueError("Wrong dtype : {}".format(array.dtype))
+                return dtypes[0]
         elif any([dt not in dtypes for dt in array.dtypes.tolist()]):
-            raise ValueError("Wrong dtype : {}".format(array.dtypes.tolist()))
+            return dtypes[0]
         if not isinstance(array, cuDataFrame):
             return array.dtype
         else:
@@ -219,7 +219,7 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
     if dtype == 'numeric':
         dtype = numeric_types
 
-    dtype = check_dtype(array, dtype)
+    correct_dtype = check_dtype(array, dtype)
 
     if copy and not order and hasattr(array, 'flags'):
         if array.flags['F_CONTIGUOUS']:
@@ -260,7 +260,9 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
         X, n_rows, n_cols, dtype = input_to_cuml_array(array,
                                                        order=order,
                                                        deepcopy=copy)
-        X = X.to_output('cupy').astype(dtype)
+        X = X.to_output('cupy')
+        if correct_dtype != dtype:
+            X = X.astype(correct_dtype)
         check_finite(X, force_all_finite)
         return X
 
@@ -286,10 +288,14 @@ def get_input_type(input):
         return 'scipy_csr'
     elif isinstance(input, cpu_sparse.csc_matrix):
         return 'scipy_csc'
+    elif isinstance(input, cpu_sparse.coo_matrix):
+        return 'scipy_coo'
     elif isinstance(input, gpu_sparse.csr_matrix):
         return 'cupy_csr'
     elif isinstance(input, gpu_sparse.csc_matrix):
         return 'cupy_csc'
+    elif isinstance(input, gpu_sparse.coo_matrix):
+        return 'cupy_coo'
     else:
         return 'cupy'
 
@@ -299,14 +305,21 @@ def to_output_type(array, output_type, order='F'):
         return cpu_sparse.csr_matrix(array.get())
     if output_type == 'scipy_csc':
         return cpu_sparse.csc_matrix(array.get())
+    if output_type == 'scipy_coo':
+        return cpu_sparse.coo_matrix(array.get())
     if output_type == 'cupy_csr':
-        if array.format == 'csc':
+        if array.format in ['csc', 'coo']:
             return array.tocsr()
         else:
             return array
     if output_type == 'cupy_csc':
-        if array.format == 'csr':
+        if array.format in ['csr', 'coo']:
             return array.tocsc()
+        else:
+            return array
+    if output_type == 'cupy_coo':
+        if array.format in ['csr', 'csc']:
+            return array.tocoo()
         else:
             return array
 
@@ -315,11 +328,15 @@ def to_output_type(array, output_type, order='F'):
             return array.todense()
         elif output_type == 'cupy':
             return cp.array(array.todense())
+        else:
+            array = array.todense()
     elif gpu_sparse.issparse(array):
         if output_type == 'numpy':
             return cp.asnumpy(array.todense())
         elif output_type == 'cupy':
             return array.todense()
+        else:
+            array = array.todense()
 
     cuml_array = input_to_cuml_array(array, order=order)[0]
     return cuml_array.to_output(output_type)

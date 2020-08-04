@@ -26,6 +26,7 @@ from ._data import PowerTransformer
 from ._data import PolynomialFeatures
 
 from ._imputation import SimpleImputer
+from ._discretization import KBinsDiscretizer
 
 __all__ = [
     'Binarizer',

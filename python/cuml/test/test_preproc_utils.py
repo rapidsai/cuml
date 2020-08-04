@@ -15,7 +15,7 @@
 
 import pytest
 
-from cuml.datasets import make_classification
+from cuml.datasets import make_classification, make_blobs
 from ..thirdparty_adapters import to_output_type
 from numpy.testing import assert_allclose as np_assert_allclose
 
@@ -35,6 +35,14 @@ def create_rand_clf():
                                  n_classes=5,
                                  order='F')
     return clf
+
+
+def create_rand_blobs():
+    blobs, _ = make_blobs(n_samples=500,
+                          n_features=20,
+                          centers=20,
+                          order='F')
+    return blobs
 
 
 def create_rand_integers():
@@ -79,6 +87,13 @@ def clf_dataset(request):
 
 @pytest.fixture(scope="session",
                 params=["numpy", "dataframe", "cupy", "cudf", "numba"])
+def blobs_dataset(request):
+    blobs = create_rand_blobs()
+    return convert(blobs, request.param)
+
+
+@pytest.fixture(scope="session",
+                params=["numpy", "dataframe", "cupy", "cudf", "numba"])
 def int_dataset(request):
     randint = create_rand_integers()
     return convert(randint, request.param)
@@ -93,14 +108,27 @@ def sparse_clf_dataset(request):
 
 @pytest.fixture(scope="session",
                 params=["scipy-csr", "scipy-csc", "cupy-csr", "cupy-csc"])
+def sparse_blobs_dataset(request):
+    blobs = create_rand_blobs()
+    return sparsify_and_convert(blobs, request.param)
+
+
+@pytest.fixture(scope="session",
+                params=["scipy-csr", "scipy-csc", "cupy-csr", "cupy-csc"])
 def sparse_int_dataset(request):
     randint = create_rand_integers()
     return sparsify_and_convert(randint, request.param)
 
 
-def assert_allclose(actual, desired, rtol=1e-05, atol=1e-05):
+def assert_allclose(actual, desired, rtol=1e-05, atol=1e-05,
+                    ratio_tol=None):
     if not isinstance(actual, np.ndarray):
         actual = to_output_type(actual, 'numpy')
     if not isinstance(desired, np.ndarray):
         desired = to_output_type(desired, 'numpy')
-    return np_assert_allclose(actual, desired, rtol=rtol, atol=atol)
+    if ratio_tol:
+        assert actual.shape == desired.shape
+        diff_ratio = (actual != desired).sum() / actual.size
+        assert diff_ratio <= ratio_tol
+    else:
+        return np_assert_allclose(actual, desired, rtol=rtol, atol=atol)

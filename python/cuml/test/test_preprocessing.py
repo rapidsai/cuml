@@ -15,20 +15,21 @@
 
 import pytest
 
-from cuml.preprocessing import StandardScaler as cuStandardScaler, \
-                                  MinMaxScaler as cuMinMaxScaler, \
-                                  MaxAbsScaler as cuMaxAbsScaler, \
-                                  Normalizer as cuNormalizer, \
-                                  Binarizer as cuBinarizer, \
-                                  PolynomialFeatures as cuPolynomialFeatures, \
-                                  SimpleImputer as cuSimpleImputer, \
-                                  RobustScaler as cuRobustScaler
-from cuml.preprocessing import scale as cu_scale, \
-                                  minmax_scale as cu_minmax_scale, \
-                                  normalize as cu_normalize, \
-                                  add_dummy_feature as cu_add_dummy_feature, \
-                                  binarize as cu_binarize, \
-                                  robust_scale as cu_robust_scale
+from ..preprocessing import StandardScaler as cuStandardScaler, \
+                            MinMaxScaler as cuMinMaxScaler, \
+                            MaxAbsScaler as cuMaxAbsScaler, \
+                            Normalizer as cuNormalizer, \
+                            Binarizer as cuBinarizer, \
+                            PolynomialFeatures as cuPolynomialFeatures, \
+                            SimpleImputer as cuSimpleImputer, \
+                            RobustScaler as cuRobustScaler, \
+                            KBinsDiscretizer as cuKBinsDiscretizer
+from ..preprocessing import scale as cu_scale, \
+                            minmax_scale as cu_minmax_scale, \
+                            normalize as cu_normalize, \
+                            add_dummy_feature as cu_add_dummy_feature, \
+                            binarize as cu_binarize, \
+                            robust_scale as cu_robust_scale
 from sklearn.preprocessing import StandardScaler as skStandardScaler, \
                                   MinMaxScaler as skMinMaxScaler, \
                                   MaxAbsScaler as skMaxAbsScaler, \
@@ -43,6 +44,7 @@ from sklearn.preprocessing import scale as sk_scale, \
                                   binarize as sk_binarize, \
                                   robust_scale as sk_robust_scale
 from sklearn.impute import SimpleImputer as skSimpleImputer
+from sklearn.preprocessing import KBinsDiscretizer as skKBinsDiscretizer
 
 from ..thirdparty_adapters.sparsefuncs_fast import csr_mean_variance_axis0, \
                                                 csc_mean_variance_axis0, \
@@ -50,8 +52,9 @@ from ..thirdparty_adapters.sparsefuncs_fast import csr_mean_variance_axis0, \
                                                 inplace_csr_row_normalize_l1, \
                                                 inplace_csr_row_normalize_l2
 
-from .test_preproc_utils import clf_dataset, int_dataset, \
+from .test_preproc_utils import clf_dataset, int_dataset, blobs_dataset, \
                                 sparse_clf_dataset, \
+                                sparse_blobs_dataset, \
                                 sparse_int_dataset  # noqa: F401
 from .test_preproc_utils import assert_allclose
 
@@ -533,6 +536,36 @@ def test_robust_scale_sparse(sparse_clf_dataset,  # noqa: F811
                              copy=True)
 
     assert_allclose(t_X, sk_t_X)
+
+
+@pytest.mark.parametrize("n_bins", [5, 20])
+@pytest.mark.parametrize("encode", ['ordinal', 'onehot-dense', 'onehot'])
+@pytest.mark.parametrize("strategy", ['uniform', 'quantile', 'kmeans'])
+def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
+                          encode, strategy):
+    X_np, X = blobs_dataset
+
+    transformer = cuKBinsDiscretizer(n_bins=n_bins,
+                                     encode=encode,
+                                     strategy=strategy)
+    t_X = transformer.fit_transform(X)
+    r_X = transformer.inverse_transform(t_X)
+
+    if encode != 'onehot':
+        assert type(t_X) == type(X)
+        assert type(r_X) == type(t_X)
+
+    transformer = skKBinsDiscretizer(n_bins=n_bins,
+                                     encode=encode,
+                                     strategy=strategy)
+    sk_t_X = transformer.fit_transform(X_np)
+    sk_r_X = transformer.inverse_transform(sk_t_X)
+
+    if strategy == 'kmeans':
+        assert_allclose(t_X, sk_t_X, ratio_tol=0.09)
+    else:
+        assert_allclose(t_X, sk_t_X)
+        assert_allclose(r_X, sk_r_X)
 
 
 def test_csr_mean_variance_axis0(sparse_clf_dataset):  # noqa: F811
