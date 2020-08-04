@@ -69,6 +69,12 @@ def _build_and_save_xgboost(model_path,
     if classification:
         params['eval_metric'] = 'error'
         params['objective'] = 'binary:logistic'
+        # cannot use this interface as it's not supported by treelite
+        # will cause "softmax" as the output transform
+        #params['objective'] = 'multi:softprob'
+        # output transform == 'max_index'
+        params['objective'] = 'multi:softmax'
+        params['num_class'] = 3
     else:
         params['eval_metric'] = 'error'
         params['objective'] = 'reg:squarederror'
@@ -97,7 +103,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     classification = True  # change this to false to use regression
     n_rows = n_rows  # we'll use 1 millions rows
     n_columns = n_columns
-    n_categories = 2
+    n_categories = 3
     random_state = np.random.RandomState(43210)
 
     X, y = simulate_data(n_rows, n_columns, n_categories,
@@ -393,16 +399,19 @@ def test_output_args(small_classifier_and_preds):
 
     assert array_equal(fil_preds, xgb_preds, 1e-3)
 
-
+@pytest.mark.parametrize('num_classes', [2, 5])
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
-def test_lightgbm(tmp_path):
+def test_lightgbm(num_classes, tmp_path):
     import lightgbm as lgb
     X, y = simulate_data(500, 10,
                          random_state=43210,
                          classification=True)
     train_data = lgb.Dataset(X, label=y)
-    param = {'objective': 'binary',
-             'metric': 'binary_logloss'}
+
+    if num_classes == 2:
+      param = {'objective': 'binary', 'metric': 'binary_logloss', 'num_classes': 1}
+    else:
+      param = {'objective': 'multiclass', 'metric': 'multi_logloss', 'num_classes': num_classes}
     num_round = 5
     bst = lgb.train(param, train_data, num_round)
     gbm_preds = bst.predict(X)
@@ -419,8 +428,7 @@ def test_lightgbm(tmp_path):
 
     assert array_equal(np.round(gbm_preds), fil_preds)
 
-    lcls = lgb.LGBMClassifier().set_params(objective='binary',
-                                           metric='binary_logloss')
+    lcls = lgb.LGBMClassifier().set_params(**param)
     lcls.fit(X, y)
     gbm_proba = lcls.predict_proba(X)
 
