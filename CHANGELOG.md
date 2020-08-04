@@ -120,6 +120,7 @@
 - PR #2586: Fix SVC decision function data type
 - PR #2573: Considering managed memory as device type on checking for KMeans
 - PR #2574: Fixing include path in `tsvd_mg.pyx`
+- PR #2506: Fix usage of CumlArray attributes on `cuml.common.base.Base`
 - PR #2593: Fix inconsistency in train_test_split
 - PR #2609: Fix small doxygen issues
 - PR #2610: Remove cuDF tolist call

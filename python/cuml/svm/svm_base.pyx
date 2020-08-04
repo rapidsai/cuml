@@ -274,7 +274,7 @@ class SVMBase(Base):
             if self.gamma == 'auto':
                 return 1 / self.n_cols
             elif self.gamma == 'scale':
-                x_var = cupy.asarray(X).var()
+                x_var = cupy.asarray(X).var().item()
                 return 1 / (self.n_cols * x_var)
             else:
                 raise ValueError("Not implemented gamma option: " + self.gamma)
@@ -282,8 +282,8 @@ class SVMBase(Base):
             return self.gamma
 
     def _calc_coef(self):
-        return np.dot(self._dual_coef_.to_output('numpy'),
-                      self._support_vectors_.to_output('numpy'))
+        return cupy.dot(cupy.asarray(self._dual_coef_),
+                        cupy.asarray(self._support_vectors_))
 
     def _check_is_fitted(self, attr):
         if not hasattr(self, attr) or (getattr(self, attr) is None):
@@ -298,8 +298,9 @@ class SVMBase(Base):
         if self._model is None:
             raise RuntimeError("Call fit before prediction")
         if self._coef_ is None:
-            self._coef_ = self._calc_coef()
-        return self._coef_
+            self._coef_ = CumlArray(self._calc_coef())
+        # Call the base class to perform the to_output conversion
+        return super().__getattr__("coef_")
 
     def _get_kernel_params(self, X=None):
         """ Wrap the kernel parameters in a KernelParams obtect """
