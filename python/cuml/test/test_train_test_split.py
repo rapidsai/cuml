@@ -313,3 +313,33 @@ def test_stratified_split(type, test_size, train_size):
     if type in ['numba']:
         assert cuda.devicearray.is_cuda_ndarray(X_train)
         assert cuda.devicearray.is_cuda_ndarray(X_test)
+
+
+@pytest.mark.parametrize('seed_type', test_seeds)
+def test_stratified_random_seed(seed_type):
+    for i in range(10):
+        seed_n = np.random.randint(0, int(1e9))
+        if seed_type == 'int':
+            seed = seed_n
+        if seed_type == 'cupy':
+            seed = cp.random.RandomState(seed=seed_n)
+        if seed_type == 'numpy':
+            seed = np.random.RandomState(seed=seed_n)
+        X = cudf.DataFrame({"x": range(100)})
+        y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        random_state=seed,
+                                                        stratify=True)
+
+    if seed_type == 'cupy':
+        seed = cp.random.RandomState(seed=seed_n)
+    if seed_type == 'numpy':
+        seed = np.random.RandomState(seed=seed_n)
+
+    X_train2, X_test2, y_train2, y_test2 = \
+        train_test_split(X, y, random_state=seed, stratify=True)
+
+    assert X_train.equals(X_train2)
+    assert X_test.equals(X_test2)
+    assert y_train.equals(y_train2)
+    assert y_test.equals(y_test2)
