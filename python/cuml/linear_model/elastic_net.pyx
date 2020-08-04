@@ -167,6 +167,8 @@ class ElasticNet(Base, RegressorMixin):
 
         self.alpha = alpha
         self.l1_ratio = l1_ratio
+        self._coef_ = None
+        self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
         self.max_iter = max_iter
@@ -221,6 +223,7 @@ class ElasticNet(Base, RegressorMixin):
             will increase memory used for the method.
         """
         self._set_n_features_in(X)
+        self._set_output_type(X)
 
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
 

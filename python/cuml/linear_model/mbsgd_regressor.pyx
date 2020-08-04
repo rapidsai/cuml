@@ -169,7 +169,6 @@ class MBSGDRegressor(Base, RegressorMixin):
         """
         self._set_n_features_in(X)
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
-
         return self
 
     def predict(self, X, convert_dtype=False):
