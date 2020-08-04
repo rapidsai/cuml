@@ -52,8 +52,17 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
     if isinstance(y, cudf.Series):
         y_cudf = True
         y = y.values
-    elif hasattr(X, "__cuda_array_interface__"):
+    elif hasattr(y, "__cuda_array_interface__"):
         y = cp.asarray(y)
+    elif isinstance(y, cudf.DataFrame):
+        y_cudf = True
+        # ensuring it has just one column
+        if y.shape[1] == 1:
+            y = y.values
+        else:
+            raise ValueError('Expected one label, but found y '
+                             'with shape = %d' %(y.shape))
+            
 
     classes, y_indices = cp.unique(y, return_inverse=True)
     n_classes = classes.shape[0]
