@@ -50,6 +50,18 @@ class FIL : public RegressionFixture<float> {
       rfParams(p.rf) {}
 
  protected:
+  void import_from_treelite() {
+      ML::fil::treelite_params_t tl_params = {
+        //.algo = ML::fil::algo_t::BATCH_TREE_REORG,
+        .algo = ML::fil::algo_t::ALGO_AUTO,
+        .output_class = true,                      // cuML RF forest
+        .threshold = 1.f / this->params.nclasses,  //Fixture::DatasetParams
+        //.storage_type = ML::fil::storage_type_t::AUTO};
+        .storage_type = ML::fil::storage_type_t::SPARSE};
+        //.storage_type = ML::fil::storage_type_t::DENSE};
+      ML::fil::from_treelite(*this->handle, &forest, model, &tl_params);
+  }
+
   void runBenchmark(::benchmark::State& state) override {
     if (!this->params.rowMajor) {
       state.SkipWithError("FIL only supports row-major inputs");
@@ -58,12 +70,7 @@ class FIL : public RegressionFixture<float> {
       // Dataset<D, L> allocates y assuming one output value per input row
       state.SkipWithError("currently only supports scalar prediction");
     }
-    if (!fit_model) {
-      this->loopOnState(state, [this]() {
-        ML::fil::predict(*this->handle, this->forest, this->data.y,
-                         this->data.X, this->params.nrows, this->predict_proba);
-      });
-    } else {
+    if (fit_model) {
       // create model
       ML::RandomForestRegressorF rf_model;
       auto* mPtr = &rf_model;
@@ -73,31 +80,19 @@ class FIL : public RegressionFixture<float> {
       CUDA_CHECK(cudaStreamSynchronize(this->stream));
 
       // export RF to treelite
-
-      ML::fil::treelite_params_t tl_params = {
-        .algo = ML::fil::algo_t::ALGO_AUTO,
-        .output_class = true,                      // cuML RF forest
-        .threshold = 1.f / this->params.nclasses,  //Fixture::DatasetParams
-        .storage_type = ML::fil::storage_type_t::AUTO};
-      ML::fil::from_treelite(*this->handle, &forest, model, &tl_params);
-
-      // only time prediction
-      this->loopOnState(state, [this]() {
-        ML::fil::predict(*this->handle, this->forest, this->data.y,
-                         this->data.X, this->params.nrows, this->predict_proba);
-      });
+      import_from_treelite(); // TODO: add model param and supply rf_model somehow
     }
+    // only time prediction
+    this->loopOnState(state, [this]() {
+      ML::fil::predict(*this->handle, this->forest, this->data.y,
+                       this->data.X, this->params.nrows, this->predict_proba);
+    });
   }
 
   void allocateBuffers(const ::benchmark::State& state) override {
     Base::allocateBuffers(state);
     if (!fit_model) {
-      ML::fil::treelite_params_t tl_params = {
-        .algo = ML::fil::algo_t::ALGO_AUTO,
-        .output_class = true,                      // cuML RF forest
-        .threshold = 1.f / this->params.nclasses,  //Fixture::DatasetParams
-        .storage_type = ML::fil::storage_type_t::AUTO};
-      ML::fil::from_treelite(*this->handle, &forest, model, &tl_params);
+      import_from_treelite();
     }
   }
 
@@ -161,15 +156,16 @@ std::vector<Params> getInputs() {
   p.rf.n_streams = 8;
   p.rf.tree_params.max_features = 1.f;
   p.rf.tree_params.max_depth = 8;
-  std::vector<FilBenchParams> rowcols = {
-    {10123ul, ncols, 2ul, false}, {10123ul, ncols, 2ul, true},
+  std::vector<FilBenchParams> var_params = {
+    {10000ul, ncols, 2ul, false}, 
+    //{10123ul, ncols, 2ul, true}, // does not work right now
     //{1184000, ncols, 2, false},  // Mimicking Bosch dataset
   };
-  for (auto& rc : rowcols) {
-    p.data.nrows = rc.nrows;
-    p.data.ncols = rc.ncols;
-    p.data.nclasses = rc.nclasses;
-    p.predict_proba = rc.predict_proba;
+  for (auto& i : var_params) {
+    p.data.nrows = i.nrows;
+    p.data.ncols = i.ncols;
+    p.data.nclasses = i.nclasses;
+    p.predict_proba = i.predict_proba;
     out.push_back(p);
   }
   return out;
