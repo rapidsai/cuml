@@ -9,7 +9,12 @@ import sys
 # Otherwise, setuptools.command.build_ext ends up inheriting from
 # Cython.Distutils.old_build_ext which we do not want
 import setuptools
-from Cython.Distutils.build_ext import new_build_ext as _build_ext
+
+try:
+    from Cython.Distutils.build_ext import new_build_ext as _build_ext
+except ImportError:
+    from setuptools.command.build_ext import build_ext as _build_ext
+
 import setuptools.command.build_ext
 
 
