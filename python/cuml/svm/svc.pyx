@@ -299,7 +299,7 @@ class SVC(SVMBase, ClassifierMixin):
         else:
             keys = self.class_weight.keys()
             keys_series = cudf.Series(keys)
-            encoded_keys = le.transform(cudf.Series(keys))
+            encoded_keys = le.transform(cudf.Series(keys)).values_host
             class_weight = {enc_key: self.class_weight[key]
                             for enc_key, key in zip(encoded_keys, keys)}
 
