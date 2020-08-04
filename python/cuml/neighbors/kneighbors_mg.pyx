@@ -34,7 +34,7 @@ from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
-from cuml.neighbors import NearestNeighbors
+from cuml.neighbors.nearest_neighbors_mg import NearestNeighbors
 from cudf.core import DataFrame as cudfDataFrame
 
 
