@@ -285,7 +285,8 @@ class OneHotEncoder(Base):
             encoder = self._encoders[feature]
             col_idx = encoder.transform(X[feature])
             idx_to_keep = cp.asarray(col_idx.notnull().to_gpu_array())
-            col_idx = cp.asarray(col_idx.dropna().to_gpu_array())
+            col_idx = cp.asarray(col_idx.dropna().to_gpu_array(),
+                                 dtype=cp.int32)
 
             # increase indices to take previous features into account
             col_idx += j
