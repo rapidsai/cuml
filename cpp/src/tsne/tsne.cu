@@ -28,8 +28,8 @@
 namespace ML {
 
 void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
-              const int p, const int dim, int64_t * knn_indices,
-              float * knn_dists, int n_neighbors, const float theta,
+              const int p, int64_t * knn_indices, float * knn_dists,
+              const int dim, int n_neighbors, const float theta,
               const float epssq, float perplexity,
               const int perplexity_max_iter, const float perplexity_tol,
               const float early_exaggeration, const int exaggeration_iter,
@@ -73,12 +73,20 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   //---------------------------------------------------
   // Get distances
   CUML_LOG_DEBUG("Getting distances.");
-  if (knn_indices == NULL or knn_dists == NULL) {
-    MLCommon::device_buffer<float> distances(d_alloc, stream, n * n_neighbors);
-    MLCommon::device_buffer<int64_t> indices(d_alloc, stream, n * n_neighbors);
+  MLCommon::device_buffer<int64_t> *knn_indices_b = nullptr;
+  MLCommon::device_buffer<T> *knn_dists_b = nullptr;
+  if (!knn_indices || !knn_dists) {
+    ASSERT(!knn_indices && !knn_dists,
+           "Either both or none of the KNN parameters should be provided");
+    knn_indices_b =
+      new MLCommon::device_buffer<int64_t>(d_alloc, stream, n * n_neighbors);
+    knn_dists_b = 
+      new MLCommon::device_buffer<T>(d_alloc, stream, n * n_neighbors);
+    knn_indices = knn_indices_b->data();
+    knn_dists = knn_dists_b->data();
   }
-  TSNE::get_distances(X, n, p, indices.data(), distances.data(), n_neighbors,
-                      d_alloc, stream);
+  TSNE::get_distances(X, n, p, knn_indices, knn_dists, n_neighbors,
+  d_alloc, stream);
   //---------------------------------------------------
   END_TIMER(DistancesTime);
 
@@ -86,7 +94,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   //---------------------------------------------------
   // Normalize distances
   CUML_LOG_DEBUG("Now normalizing distances so exp(D) doesn't explode.");
-  TSNE::normalize_distances(n, distances.data(), n_neighbors, stream);
+  TSNE::normalize_distances(n, knn_dists, n_neighbors, stream);
   //---------------------------------------------------
   END_TIMER(NormalizeTime);
 
@@ -96,7 +104,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
   MLCommon::device_buffer<float> P(d_alloc, stream, n * n_neighbors);
   const float P_sum = TSNE::perplexity_search(
-    distances.data(), P.data(), perplexity, perplexity_max_iter, perplexity_tol,
+    knn_dists, P.data(), perplexity, perplexity_max_iter, perplexity_tol,
     n, n_neighbors, handle);
   distances.release(stream);
   CUML_LOG_DEBUG("Perplexity sum = %f", P_sum);

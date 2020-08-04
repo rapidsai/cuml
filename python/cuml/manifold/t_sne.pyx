@@ -50,9 +50,9 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         float *Y,
         const int n,
         const int p,
-        const int dim,
         int64_t * knn_indices,
         float * knn_dists,
+        const int dim,
         int n_neighbors,
         const float theta,
         const float epssq,
@@ -300,6 +300,56 @@ class TSNE(Base):
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
 
+    @with_cupy_rmm
+    def _extract_knn_graph(self, knn_graph, convert_dtype=True):
+        if has_scipy():
+            from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
+        else:
+            from cuml.common.import_utils import DummyClass
+            csr_matrix = DummyClass
+            coo_matrix = DummyClass
+            csc_matrix = DummyClass
+
+        if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
+            knn_graph = cupy.sparse.csr_matrix(knn_graph)
+            n_samples = knn_graph.shape[0]
+            reordering = knn_graph.data.reshape((n_samples, -1))
+            reordering = reordering.argsort()
+            n_neighbors = reordering.shape[1]
+            reordering += (cupy.arange(n_samples) * n_neighbors)[:, np.newaxis]
+            reordering = reordering.flatten()
+            knn_graph.indices = knn_graph.indices[reordering]
+            knn_graph.data = knn_graph.data[reordering]
+
+        knn_indices = None
+        if isinstance(knn_graph, (csr_matrix, cp_csr_matrix)):
+            knn_indices = knn_graph.indices
+        elif isinstance(knn_graph, (coo_matrix, cp_coo_matrix)):
+            knn_indices = knn_graph.col
+
+        knn_indices_ptr, knn_dists_ptr = None, None
+        if knn_indices is not None:
+            knn_dists = knn_graph.data
+            knn_indices_m, _, _, _ = \
+                input_to_cuml_array(knn_indices, order='C',
+                                    deepcopy=True,
+                                    check_dtype=np.int64,
+                                    convert_to_dtype=(np.int64
+                                                      if convert_dtype
+                                                      else None))
+
+            knn_dists_m, _, _, _ = \
+                input_to_cuml_array(knn_dists, order='C',
+                                    deepcopy=True,
+                                    check_dtype=np.float32,
+                                    convert_to_dtype=(np.float32
+                                                      if convert_dtype
+                                                      else None))
+
+            return (knn_indices_m, knn_indices_m.ptr),\
+                   (knn_dists_m, knn_dists_m.ptr)
+        return (None, None), (None, None)
+
     def fit(self, X, convert_dtype=True, knn_graph=None):
         """Fit X into an embedded space.
 
@@ -403,9 +453,9 @@ class TSNE(Base):
                  <float*> embed_ptr,
                  <int> n,
                  <int> p,
-                 <int> self.n_components,
                  <int64_t*> knn_indices_raw,
                  <float*> knn_dists_raw,
+                 <int> self.n_components,
                  <int> self.n_neighbors,
                  <float> self.angle,
                  <float> self.epssq,

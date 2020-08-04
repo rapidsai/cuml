@@ -30,9 +30,9 @@ namespace ML {
  * @param[out] Y                   The final embedding.
  * @param[in]  n                   Number of rows in data X.
  * @param[in]  p                   Number of columns in data X.
- * @param[in]  dim                 Number of output dimensions for embeddings Y.
  * @param[in]  knn_indices         Array containing nearest neighors indices.
  * @param[in]  knn_dists           Array containing nearest neighors distances.
+ * @param[in]  dim                 Number of output dimensions for embeddings Y.
  * @param[in]  n_neighbors         Number of nearest neighbors used.
  * @param[in]  theta               Float between 0 and 1. Tradeoff for speed (0)
  *                                 vs accuracy (1) for Barnes Hut only.
@@ -74,8 +74,8 @@ namespace ML {
  * its Applications to Modern Data (https://arxiv.org/abs/1807.11824).
  */
 void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
-              const int p, const int dim = 2, int64_t * knn_indices,
-              float * knn_dists, int n_neighbors = 1023,
+              const int p, int64_t *knn_indices, float *knn_dists, 
+              const int dim = 2, int n_neighbors = 1023,
               const float theta = 0.5f, const float epssq = 0.0025,
               float perplexity = 50.0f, const int perplexity_max_iter = 100,
               const float perplexity_tol = 1e-5,
