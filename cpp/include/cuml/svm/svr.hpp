@@ -43,6 +43,7 @@ namespace SVM {
  * @param [in] param parameters for training
  * @param [in] kernel_params parameters for the kernel function
  * @param [out] model parameters of the trained model
+ * @param [in] sample_weight optional sample weights, size [n_rows]
  */
 template <typename math_t>
 void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
