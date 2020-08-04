@@ -274,7 +274,8 @@ def test_split_array_single_argument(type, test_size, train_size, shuffle):
 @pytest.mark.parametrize('test_size', [0.2, 0.4, None])
 @pytest.mark.parametrize('train_size', [0.6, 0.8, None])
 def test_stratified_split(type, test_size, train_size):
-    X, y = make_classification()
+    # For more tolerance and reliable estimates
+    X, y = make_classification(n_samples=10000)
 
     if type == 'cupy':
         X = cp.asarray(X)
@@ -301,7 +302,8 @@ def test_stratified_split(type, test_size, train_size):
 
     original_counts = counts(y)
     split_counts = counts(y_train)
-    np.isclose(original_counts, split_counts, equal_nan=False)
+    assert cp.isclose(original_counts, split_counts, equal_nan=False, rtol=0.1).all()
+    cp.testing.assert_array_almost_equal(original_counts, split_counts, decimal=2)
     if type == 'cupy':
         assert isinstance(X_train, cp.ndarray)
         assert isinstance(X_test, cp.ndarray)
