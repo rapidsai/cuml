@@ -78,20 +78,18 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
                                    n_classes)
 
     X_train = None
+
+    # random_state won't be None or int, that's handled earlier
+    if isinstance(random_state, np.random.RandomState):
+        random_state = cp.random.RandomState(seed=random_state.get_state()[1])
+
     # Break ties
     n_i = _approximate_mode(class_counts, n_train, random_state)
     class_counts_remaining = class_counts - n_i
     t_i = _approximate_mode(class_counts_remaining, n_test, random_state)
 
-    if random_state is None:
-        rng = cp.random.mtrand._rand
-    elif isinstance(random_state, cp.random.RandomState):
-        rng = random_state
-    else:
-        rng = cp.random.RandomState(random_state)
-
     for i in range(n_classes):
-        permutation = rng.permutation(class_counts[i].item())
+        permutation = random_state.permutation(class_counts[i].item())
         perm_indices_class_i = class_indices[i].take(permutation)
         X_train_i = X[perm_indices_class_i[:n_i[i]]]
         X_test_i = X[perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]]]
