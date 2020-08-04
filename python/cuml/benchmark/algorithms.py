@@ -495,6 +495,62 @@ def all_algorithms():
             name="PolynomialFeatures",
             accepts_labels=False,
             bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.StandardScaler,
+            cuml.preprocessing.StandardScaler,
+            shared_args=dict(),
+            name="SparseCSRStandardScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.MinMaxScaler,
+            cuml.preprocessing.MinMaxScaler,
+            shared_args=dict(),
+            name="SparseCSRMinMaxScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.MaxAbsScaler,
+            cuml.preprocessing.MaxAbsScaler,
+            shared_args=dict(),
+            name="SparseCSRMaxAbsScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.Normalizer,
+            cuml.preprocessing.Normalizer,
+            shared_args=dict(),
+            name="SparseCSRNormalizer",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.RobustScaler,
+            cuml.preprocessing.RobustScaler,
+            shared_args=dict(),
+            name="SparseCSCRobustScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            SimpleImputer,
+            cuml.preprocessing.SimpleImputer,
+            shared_args=dict(),
+            name="SparseCSCSimpleImputer",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.PolynomialFeatures,
+            cuml.preprocessing.PolynomialFeatures,
+            shared_args=dict(),
+            name="SparseCSRPolynomialFeatures",
+            accepts_labels=False,
+            bench_func=fit_transform
         )
     ]
 

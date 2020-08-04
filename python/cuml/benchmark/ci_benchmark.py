@@ -124,12 +124,26 @@ def make_bench_configs(long_config):
          [1000000], [256, 1024], [{'copy': False}]),
         ("Normalizer", "classification",
          [1000000], [256, 1024], [{'copy': False}]),
-        ("PolynomialFeatures", "classification",
-         [1000000], [256, 1024], [{}]),
         ("RobustScaler", "classification",
-         [1000000], [256, 1024], [{'copy': False}]),
+         [1000000], [128, 256], [{'copy': False}]),
         ("SimpleImputer", "classification",
-         [1000000], default_dims, [{'copy': False}])
+         [1000000], [256, 1024], [{'copy': False}]),
+        ("PolynomialFeatures", "classification",
+         [100000], [128, 256], [{}]),
+        ("SparseCSRStandardScaler", "classification",
+         [100000], [256], [{'copy': False, 'with_mean': False}]),
+        ("SparseCSRMinMaxScaler", "classification",
+         [100000], [256], [{'copy': False}]),
+        ("SparseCSRMaxAbsScaler", "classification",
+         [100000], [256], [{'copy': False}]),
+        ("SparseCSRNormalizer", "classification",
+         [100000], [256], [{'copy': False}]),
+        ("SparseCSCRobustScaler", "classification",
+         [100000], [256], [{'copy': False, 'with_centering': False}]),
+        ("SparseCSCSimpleImputer", "classification",
+         [100000], [256], [{'copy': False}]),
+        ("SparseCSRPolynomialFeatures", "classification",
+         [10000], [128], [{}]),
     ]
 
     for algo_name, dataset_name, rows, dims, params in algo_defs:
@@ -208,7 +222,12 @@ if __name__ == '__main__':
         algos = algos.union(set(['StandardScaler', 'MinMaxScaler',
                                  'MaxAbsScaler', 'Normalizer',
                                  'PolynomialFeatures', 'SimpleImputer',
-                                 'RobustScaler']))
+                                 'RobustScaler', 'SparseCSRStandardScaler',
+                                 'SparseCSRMaxAbsScaler',
+                                 'SparseCSRNormalizer',
+                                 'SparseCSRPolynomialFeatures',
+                                 'SparseCSCSimpleImputer',
+                                 'SparseCSCRobustScaler']))
         algos.remove('preprocessing')
     invalidAlgoNames = (algos - allAlgoNames)
     if invalidAlgoNames:
@@ -225,8 +244,17 @@ if __name__ == '__main__':
             cfg = cfg_in.copy()
             algo = algorithms.algorithm_by_name(cfg_in["algo_name"])
             cfg["algos"] = [algo]
+            alg_name = cfg["algo_name"]
+            if alg_name.startswith('Sparse'):
+                if alg_name.startswith('SparseCSR'):
+                    input_type = 'scipy-sparse-csr'
+                elif alg_name.startswith('SparseCSC'):
+                    input_type = 'scipy-sparse-csc'
+            else:
+                input_type = 'numpy'
             del cfg["algo_name"]
-            res = run_variations(**{**default_args, **cfg})
+            res = run_variations(**{**default_args, **cfg},
+                                 input_type=input_type)
             all_results.append(res)
 
     results_df = pd.concat(all_results)
