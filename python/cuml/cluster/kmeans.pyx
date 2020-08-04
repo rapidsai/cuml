@@ -31,6 +31,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
 from cuml.cluster.kmeans_utils cimport *
@@ -306,20 +307,10 @@ class KMeans(Base):
         params.n_init = <int>self.n_init
         self._params = params
 
+    @generate_docstring()
     def fit(self, X, sample_weight=None):
         """
         Compute k-means clustering with X.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        sample_weight : array-like (device or host) shape = (n_samples,), default=None # noqa
-            The weights for each observation in X. If None, all observations
-            are assigned equal weight.
 
         """
         self._set_n_features_in(X)
@@ -407,20 +398,13 @@ class KMeans(Base):
         del(sample_weight_m)
         return self
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Cluster indexes',
+                                       'shape': '(n_samples, 1)'})
     def fit_predict(self, X, sample_weight=None):
         """
         Compute cluster centers and predict cluster index for each sample.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        sample_weight : array-like (device or host) shape = (n_samples,), default=None # noqa
-            The weights for each observation in X. If None, all observations
-            are assigned equal weight.
 
         """
         return self.fit(X, sample_weight=sample_weight).labels_
@@ -522,43 +506,27 @@ class KMeans(Base):
         del(sample_weight_m)
         return self._labels_.to_output(out_type), inertia
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Cluster indexes',
+                                       'shape': '(n_samples, 1)'})
     def predict(self, X, convert_dtype=False, sample_weight=None):
         """
         Predict the closest cluster each sample in X belongs to.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        labels : array
-        Which cluster each datapoint belongs to.
         """
 
         labels, _ = self._predict_labels_inertia(X,
                                                  convert_dtype=convert_dtype)
         return labels
 
+    @generate_docstring(return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Transformed data',
+                                       'shape': '(n_samples, n_clusters)'})
     def transform(self, X, convert_dtype=False):
         """
         Transform X to a cluster-distance space.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the transform method will, when necessary,
-            convert the input to the data type which was used to train the
-            model. This will increase memory used for the method.
-
 
         """
 
@@ -615,40 +583,26 @@ class KMeans(Base):
         del(X_m)
         return preds.to_output(out_type)
 
+    @generate_docstring(return_values={'name': 'score',
+                                       'type': 'float',
+                                       'description': 'Opposite of the value \
+                                                        of X on the K-means \
+                                                        objective.'})
     def score(self, X):
         """
         Opposite of the value of X on the K-means objective.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        score: float
-                 Opposite of the value of X on the K-means objective.
         """
 
         return -1 * self._predict_labels_inertia(X)[1]
 
+    @generate_docstring(return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Transformed data',
+                                       'shape': '(n_samples, n_clusters)'})
     def fit_transform(self, X, convert_dtype=False):
         """
         Compute clustering and transform X to cluster-distance space.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the fit_transform method will automatically
-            convert the input to the data type which was used to train the
-            model. This will increase memory used for the method.
 
         """
         return self.fit(X).transform(X, convert_dtype=convert_dtype)
