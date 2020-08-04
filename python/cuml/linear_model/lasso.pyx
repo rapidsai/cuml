@@ -185,7 +185,7 @@ class Lasso(Base, RegressorMixin):
             will increase memory used for the method.
         """
         self._set_n_features_in(X)
-
+        self._set_output_type(X)
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
 
         return self
