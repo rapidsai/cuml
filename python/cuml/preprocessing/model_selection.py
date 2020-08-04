@@ -60,9 +60,8 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
         if y.shape[1] == 1:
             y = y.values
         else:
-            raise ValueError('Expected one label, but found y '
-                             'with shape = %d' %(y.shape))
-            
+            raise ValueError('Expected one label, but found y'
+                             'with shape = %d' % (y.shape))
 
     classes, y_indices = cp.unique(y, return_inverse=True)
     n_classes = classes.shape[0]

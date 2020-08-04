@@ -302,8 +302,10 @@ def test_stratified_split(type, test_size, train_size):
 
     original_counts = counts(y)
     split_counts = counts(y_train)
-    assert cp.isclose(original_counts, split_counts, equal_nan=False, rtol=0.1).all()
-    cp.testing.assert_array_almost_equal(original_counts, split_counts, decimal=2)
+    assert cp.isclose(original_counts, split_counts,
+                      equal_nan=False, rtol=0.1).all()
+    cp.testing.assert_array_almost_equal(original_counts,
+                                         split_counts, decimal=2)
     if type == 'cupy':
         assert isinstance(X_train, cp.ndarray)
         assert isinstance(X_test, cp.ndarray)
