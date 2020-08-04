@@ -301,10 +301,10 @@ class LogisticRegression(Base, ClassifierMixin):
             )
 
         if self.fit_intercept:
-            self._coef_ = self.solver_model.coef_[0:-1]
+            self._coef_ = self.solver_model._coef_[0:-1]
             self._intercept_ = self.solver_model._coef_[-1]
         else:
-            self._coef_ = self.solver_model.coef_
+            self._coef_ = self.solver_model._coef_
 
         if logger.should_log_for(logger.level_trace):
             logger.trace(self.verb_prefix + "Coefficients: " +
