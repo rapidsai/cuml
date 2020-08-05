@@ -273,6 +273,12 @@ void print_rf_summary(const RandomForestMetaData<T, L>* forest) {
 template <class T, class L>
 int calc_num_nodes(const RandomForestMetaData<T, L>* forest) {
   int num_nodes = 0;
+
+  if (!forest || !forest->trees) {
+    CUML_LOG_INFO("Empty forest");
+    return 0;
+  }
+
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     DecisionTree::TreeMetaDataNode<T, L>* tree_info = &forest->trees[i];
     num_nodes +=
