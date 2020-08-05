@@ -348,8 +348,8 @@ class UMAP(Base):
         self.optim_batch_size = <int> optim_batch_size
 
         self.callback = callback  # prevent callback destruction
-        self.X_m = None
-        self.embedding_ = None
+        self._X_m = None  # accessed via X_m
+        self._embedding_ = None  # accessed via embedding_
 
         self.validate_hyperparams()
 
@@ -520,7 +520,7 @@ class UMAP(Base):
             raise ValueError("Cannot provide a KNN graph when in \
             semi-supervised mode with categorical target_metric for now.")
 
-        self.X_m, self.n_rows, self.n_dims, dtype = \
+        self._X_m, self.n_rows, self.n_dims, dtype = \
             input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                 convert_to_dtype=(np.float32
                                                   if convert_dtype
@@ -540,18 +540,18 @@ class UMAP(Base):
 
         self.n_neighbors = min(self.n_rows, self.n_neighbors)
 
-        self.embedding_ = CumlArray.zeros((self.n_rows,
+        self._embedding_ = CumlArray.zeros((self.n_rows,
                                            self.n_components),
-                                          order="C", dtype=np.float32)
+                                           order="C", dtype=np.float32)
 
         if self.hash_input:
-            self.input_hash = joblib.hash(self.X_m.to_output('numpy'))
+            self.input_hash = joblib.hash(self._X_m.to_output('numpy'))
 
         cdef cumlHandle * handle_ = \
             <cumlHandle*> <size_t> self.handle.getHandle()
 
-        cdef uintptr_t x_raw = self.X_m.ptr
-        cdef uintptr_t embed_raw = self.embedding_.ptr
+        cdef uintptr_t x_raw = self._X_m.ptr
+        cdef uintptr_t embed_raw = self._embedding_.ptr
 
         cdef UMAPParams* umap_params = \
             <UMAPParams*> <size_t> UMAP._build_umap_params(self)
@@ -636,7 +636,7 @@ class UMAP(Base):
         self.fit(X, y, convert_dtype=convert_dtype,
                  knn_graph=knn_graph)
         out_type = self._get_output_type(X)
-        return self.embedding_.to_output(out_type)
+        return self._embedding_.to_output(out_type)
 
     @with_cupy_rmm
     def transform(self, X, convert_dtype=True,
@@ -704,7 +704,7 @@ class UMAP(Base):
 
         if self.hash_input and joblib.hash(X_m.to_output('numpy')) == \
                 self.input_hash:
-            ret = self.embedding_.to_output(out_type)
+            ret = self._embedding_.to_output(out_type)
             del X_m
             return ret
 
@@ -722,8 +722,8 @@ class UMAP(Base):
         cdef cumlHandle * handle_ = \
             <cumlHandle*> <size_t> self.handle.getHandle()
 
-        cdef uintptr_t orig_x_raw = self.X_m.ptr
-        cdef uintptr_t embed_ptr = self.embedding_.ptr
+        cdef uintptr_t orig_x_raw = self._X_m.ptr
+        cdef uintptr_t embed_ptr = self._embedding_.ptr
 
         cdef UMAPParams* umap_params = \
             <UMAPParams*> <size_t> UMAP._build_umap_params(self)

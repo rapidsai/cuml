@@ -53,7 +53,7 @@ endif(DEFINED ENV{RAFT_PATH})
 ##############################################################################
 # - cumlprims (binary dependency) --------------------------------------------
 
-if(NOT DISABLE_CUMLPRIMS_MG)
+if(ENABLE_CUMLPRIMS_MG)
 
     if(DEFINED ENV{CUMLPRIMS_MG_PATH})
       set(CUMLPRIMS_MG_PATH ENV{CUMLPRIMS_MG_PATH}})
@@ -74,7 +74,7 @@ if(NOT DISABLE_CUMLPRIMS_MG)
       endif(EXISTS "${CUMLPRIMS_MG_PATH}/lib/libcumlprims.so")
     endif(NOT CUMLPRIMS_MG_PATH)
 
-endif(NOT DISABLE_CUMLPRIMS_MG)
+endif(ENABLE_CUMLPRIMS_MG)
 
 
 ##############################################################################
@@ -150,15 +150,15 @@ if(BUILD_STATIC_FAISS)
 	  INSTALL_COMMAND   make -s install > /dev/null
 	  UPDATE_COMMAND    ""
 	  BUILD_IN_SOURCE   1)
-	
+
 	ExternalProject_Get_Property(faiss install_dir)
-	
+
 	add_library(FAISS::FAISS STATIC IMPORTED)
-	
+
 	set_property(TARGET FAISS::FAISS PROPERTY
 	  IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
 	set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src/")
-else() 
+else()
 	set(FAISS_INSTALL_DIR ENV{FAISS_ROOT})
 	find_package(FAISS REQUIRED)
 endif(BUILD_STATIC_FAISS)
