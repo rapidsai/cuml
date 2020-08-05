@@ -186,7 +186,8 @@ def get_submodule_dependency(repo,
         print("-- Third party repositories have not been found so they " +
               "will be cloned. To avoid this set the environment " +
               "variable CUML_BUILD_PATH, containing the absolute " +
-              "path to the build folder where libcuml++ was built.")
+              "path to the build folder where libcuml++ was built. " +
+              "cpp_build_path: {}".format(cpp_build_path))
 
         for repo in repos:
             clone_repo(repo, repo_info[repo][0], repo_info[repo][1])
