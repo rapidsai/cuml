@@ -137,7 +137,7 @@ class Lasso(Base, RegressorMixin):
 
         self._check_alpha(alpha)
         self.alpha = alpha
-        self.coef_ = None
+        self._coef_ = None
         self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
@@ -173,10 +173,11 @@ class Lasso(Base, RegressorMixin):
 
         """
         self._set_n_features_in(X)
+        self._set_output_type(X)
 
         self.culasso.fit(X, y, convert_dtype=convert_dtype)
 
-        self.coef_ = self.culasso.coef_
+        self._coef_ = self.culasso._coef_
         self.intercept_ = self.culasso.intercept_
 
         return self

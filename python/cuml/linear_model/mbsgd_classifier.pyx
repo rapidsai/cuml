@@ -158,11 +158,13 @@ class MBSGDClassifier(Base, ClassifierMixin):
 
         """
         self._set_n_features_in(X)
+        self._set_output_type(X)
+
         self.cu_mbsgd_classifier._estimator_type = self._estimator_type
 
         self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
-        self.coef_ = self.cu_mbsgd_classifier.coef_
-        self.classes_ = self.cu_mbsgd_classifier.classes_
+        self._coef_ = self.cu_mbsgd_classifier._coef_
+        self._classes_ = self.cu_mbsgd_classifier._classes_
         self.intercept_ = self.cu_mbsgd_classifier.intercept_
 
         return self

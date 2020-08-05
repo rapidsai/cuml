@@ -84,7 +84,8 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                              int n_rows, int n_cols, math_t *labels,
                              const svmParameter &param,
                              KernelParams &kernel_params,
-                             svmModel[math_t] &model) except+
+                             svmModel[math_t] &model,
+                             const math_t *sample_weight) except+
 
     cdef void svcPredict[math_t](
         const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
@@ -274,7 +275,7 @@ class SVMBase(Base):
             if self.gamma == 'auto':
                 return 1 / self.n_cols
             elif self.gamma == 'scale':
-                x_var = cupy.asarray(X).var()
+                x_var = cupy.asarray(X).var().item()
                 return 1 / (self.n_cols * x_var)
             else:
                 raise ValueError("Not implemented gamma option: " + self.gamma)
@@ -282,8 +283,8 @@ class SVMBase(Base):
             return self.gamma
 
     def _calc_coef(self):
-        return np.dot(self._dual_coef_.to_output('numpy'),
-                      self._support_vectors_.to_output('numpy'))
+        return cupy.dot(cupy.asarray(self._dual_coef_),
+                        cupy.asarray(self._support_vectors_))
 
     def _check_is_fitted(self, attr):
         if not hasattr(self, attr) or (getattr(self, attr) is None):
@@ -298,8 +299,9 @@ class SVMBase(Base):
         if self._model is None:
             raise RuntimeError("Call fit before prediction")
         if self._coef_ is None:
-            self._coef_ = self._calc_coef()
-        return self._coef_
+            self._coef_ = CumlArray(self._calc_coef())
+        # Call the base class to perform the to_output conversion
+        return super().__getattr__("coef_")
 
     def _get_kernel_params(self, X=None):
         """ Wrap the kernel parameters in a KernelParams obtect """
@@ -450,68 +452,6 @@ class SVMBase(Base):
                     order='F')
             else:
                 self._unique_labels = None
-
-    def fit(self, X, y):
-        """
-        Fit the model with X and y.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        """
-
-        self._set_output_type(X)
-
-        X_m, self.n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X, order='F')
-
-        cdef uintptr_t X_ptr = X_m.ptr
-
-        y_m, _, _, _ = input_to_cuml_array(y, convert_to_dtype=self.dtype)
-
-        cdef uintptr_t y_ptr = y_m.ptr
-
-        self._dealloc()  # delete any previously fitted model
-        self._coef_ = None
-
-        cdef KernelParams _kernel_params = self._get_kernel_params(X_m)
-        cdef svmParameter param = self._get_svm_params()
-        cdef svmModel[float] *model_f
-        cdef svmModel[double] *model_d
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-        if self.dtype == np.float32:
-            model_f = new svmModel[float]()
-            svcFit(handle_[0], <float*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <float*>y_ptr, param, _kernel_params,
-                   model_f[0])
-            self._model = <uintptr_t>model_f
-        elif self.dtype == np.float64:
-            model_d = new svmModel[double]()
-            svcFit(handle_[0], <double*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <double*>y_ptr, param, _kernel_params,
-                   model_d[0])
-            self._model = <uintptr_t>model_d
-        else:
-            raise TypeError('Input data type should be float32 or float64')
-
-        self._unpack_model()
-        self._fit_status_ = 0
-        self.handle.sync()
-
-        del X_m
-        del y_m
-
-        return self
 
     def predict(self, X, predict_class):
         """
