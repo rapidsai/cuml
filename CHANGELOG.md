@@ -19,6 +19,7 @@
 - PR #2211: MNMG KNN Classifier & Regressor
 - PR #2461: Add KNN Sparse Output Functionality
 - PR #2607: Add support for probability estimates in SVC
+- PR #2618: SVM class and sample weights
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
@@ -73,6 +74,7 @@
 - PR #2591: Generate benchmark datsets using `cuml.datasets`
 - PR #2548: Fix limitation on number of rows usable with tSNE and refactor memory allocation
 - PR #2589: including cuda-11 build fixes into raft
+- PR #2599: Add Stratified train_test_split 
 - PR #2487: Set classes_ attribute during classifier fit
 - PR #2605: Reduce memory usage in tSNE
 - PR #2611: Adding building doxygen docs to gpu ci
