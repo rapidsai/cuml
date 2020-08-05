@@ -68,6 +68,41 @@ cuda_include_dir = os.path.join(cuda_home, "include")
 cuda_lib_dir = os.path.join(cuda_home, "lib64")
 
 ##############################################################################
+# - Clean target -------------------------------------------------------------
+
+if clean_artifacts:
+    print("-- Cleaning all Python and Cython build artifacts...")
+
+    treelite_path = ""
+    libcuml_path = ""
+
+    try:
+        setup_file_path = str(Path(__file__).parent.absolute())
+        shutil.rmtree(setup_file_path + '/.pytest_cache', ignore_errors=True)
+        shutil.rmtree(setup_file_path + '/_external_repositories',
+                      ignore_errors=True)
+        shutil.rmtree(setup_file_path + '/cuml.egg-info', ignore_errors=True)
+        shutil.rmtree(setup_file_path + '/__pycache__', ignore_errors=True)
+
+        os.remove(setup_file_path + '/cuml/raft')
+
+        clean_folder(setup_file_path + '/cuml')
+        shutil.rmtree(setup_file_path + '/build')
+
+    except IOError:
+        pass
+
+    # need to terminate script so cythonizing doesn't get triggered after
+    # cleanup unintendedly
+    sys.argv.remove("clean")
+
+    if "--all" in sys.argv:
+        sys.argv.remove("--all")
+
+    if len(sys.argv) == 1:
+        sys.exit(0)
+
+##############################################################################
 # - Cloning RAFT and dependencies if needed ----------------------------------
 
 # Use RAFT repository in cuml.raft
@@ -84,41 +119,41 @@ if not libcuml_path:
     libcuml_path = '../cpp/build/'
 
 ##############################################################################
-# - Clean target -------------------------------------------------------------
-# This derives from distutils clean to so we can use the derived values of
-# 'build' and the base clean implementation
+# # - Clean target -------------------------------------------------------------
+# # This derives from distutils clean to so we can use the derived values of
+# # 'build' and the base clean implementation
 
 
-class cuml_clean(_clean):
-    def run(self):
+# class cuml_clean(_clean):
+#     def run(self):
 
-        global libcuml_path
+#         global libcuml_path
 
-        # Call the base first to get info from build
-        super().run()
+#         # Call the base first to get info from build
+#         super().run()
 
-        if (self.all):
-            # Reset libcuml_path
-            libcuml_path = ""
+#         if (self.all):
+#             # Reset libcuml_path
+#             libcuml_path = ""
 
-            try:
-                setup_file_path = str(Path(__file__).parent.absolute())
-                shutil.rmtree(os.path.join(setup_file_path, ".pytest_cache"),
-                              ignore_errors=True)
-                shutil.rmtree(os.path.join(setup_file_path,
-                                           '/_external_repositories'),
-                              ignore_errors=True)
-                shutil.rmtree(os.path.join(setup_file_path, '/cuml.egg-info'),
-                              ignore_errors=True)
-                shutil.rmtree(os.path.join(setup_file_path, '/__pycache__'),
-                              ignore_errors=True)
+#             try:
+#                 setup_file_path = str(Path(__file__).parent.absolute())
+#                 shutil.rmtree(os.path.join(setup_file_path, ".pytest_cache"),
+#                               ignore_errors=True)
+#                 shutil.rmtree(os.path.join(setup_file_path,
+#                                            '/_external_repositories'),
+#                               ignore_errors=True)
+#                 shutil.rmtree(os.path.join(setup_file_path, '/cuml.egg-info'),
+#                               ignore_errors=True)
+#                 shutil.rmtree(os.path.join(setup_file_path, '/__pycache__'),
+#                               ignore_errors=True)
 
-                os.remove(setup_file_path + '/cuml/raft')
+#                 os.remove(setup_file_path + '/cuml/raft')
 
-                clean_folder(setup_file_path + '/cuml')
+#                 clean_folder(setup_file_path + '/cuml')
 
-            except IOError:
-                pass
+#             except IOError:
+#                 pass
 
 
 ##############################################################################
@@ -238,7 +273,7 @@ class cuml_build_ext(cython_build_ext, object):
 # Specify the custom build class
 cmdclass = dict()
 cmdclass.update(versioneer.get_cmdclass())
-cmdclass["clean"] = cuml_clean
+# cmdclass["clean"] = cuml_clean
 cmdclass["build"] = cuml_build
 cmdclass["build_ext"] = cuml_build_ext
 
