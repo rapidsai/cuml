@@ -201,6 +201,12 @@ Mini Batch SGD Regressor
 .. autoclass:: cuml.MBSGDRegressor
     :members:
 
+Mutinomial Naive Bayes
+----------------------
+
+.. autoclass:: cuml.MultinomialNB
+    :members:
+
 Stochastic Gradient Descent
 ---------------------------
 

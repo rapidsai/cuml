@@ -33,6 +33,7 @@ from cuml.common.handle cimport cumlHandle
 import cuml.common.logger as logger
 
 from cuml.common.array import CumlArray
+from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
 import rmm
 
@@ -298,18 +299,11 @@ class TSNE(Base):
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
 
+    @generate_docstring(convert_dtype_cast='np.float32')
     def fit(self, X, convert_dtype=True):
-        """Fit X into an embedded space.
+        """
+        Fit X into an embedded space.
 
-        Parameters
-        -----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            X contains a sample per row.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
         """
         self._set_n_features_in(X)
         cdef int n, p
@@ -407,23 +401,18 @@ class TSNE(Base):
             del self._embedding_
             self._embedding_ = None
 
+    @generate_docstring(convert_dtype_cast='np.float32',
+                        return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Embedding of the \
+                                                       training data in \
+                                                       low-dimensional space.',
+                                       'shape': '(n_samples, n_components)'})
     def fit_transform(self, X, convert_dtype=True):
-        """Fit X into an embedded space and return that transformed output.
+        """
+        Fit X into an embedded space and return that transformed output.
 
-        Parameters
-        -----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            X contains a sample per row.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit_transform method will automatically
-            convert the inputs to np.float32.
 
-        Returns
-        --------
-        X_new : array, shape (n_samples, n_components)
-                Embedding of the training data in low-dimensional space.
         """
         self.fit(X, convert_dtype=convert_dtype)
         out_type = self._get_output_type(X)

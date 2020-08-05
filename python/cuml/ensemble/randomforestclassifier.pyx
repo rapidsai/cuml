@@ -377,11 +377,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
-    """
-    TODO : Move functions duplicated in the RF classifier and regressor
-           to a shared file. Cuml issue #1854 has been created to track this.
-    """
-
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data

@@ -49,6 +49,11 @@ _parameters_docstrings = {
         the input to the data type which was used to train the model. This \
         will increase memory used for the method.',
 
+    'convert_dtype_single':
+    'convert_dtype : bool, optional (default = {})\n \
+            When set to True, the method will automatically \
+            convert the inputs to {}.',
+
     'sample_weight':
     'sample_weight : array-like (device or host) shape = (n_samples,), default={} \n\
                 The weights for each observation in X. If None, all observations  \
@@ -91,13 +96,21 @@ _parameter_possible_values = ['name',
 _return_values_docstrings = {
     'dense':
     '{} : cuDF, CuPy or NumPy object depending on cuML\'s output type configuration, shape = {}\n \
-        {} \n For more information on how to configure cuML\'s output type, \
+        {} For more information on how to configure cuML\'s output type, \
         refer to: `Output Data Type Configuration`_.',  # noqa
 
     'dense_sparse':
     '{} : cuDF, CuPy or NumPy object depending on cuML\'s output type configuration, cupy.sparse for sparse output, shape = {}\n \
         {} \n For more information on how to configure cuML\'s dense output type, \
         refer to: `Output Data Type Configuration`_.',  # noqa
+
+    'dense_datatype':
+    'cuDF, CuPy or NumPy object depending on cuML\'s output type \
+    configuration, shape ={}',
+
+    'dense_sparse_datatype':
+    'cuDF, CuPy or NumPy object depending on cuML\'s output type \
+    configuration, shape ={}',
 
     'custom_type':
     '{} : {} \n \
@@ -114,10 +127,13 @@ _simple_params = ['return_sparse',
                   'sparse_tol',
                   'sample_weight']
 
+
 def generate_docstring(X='dense',
                        X_shape='(n_samples, n_features)',
                        y='dense',
                        y_shape='(n_samples, 1)',
+                       convert_dtype_cast=False,
+                       skip_parameters=[],
                        skip_parameters_heading=False,
                        parameters=False,
                        return_values=False):
@@ -131,32 +147,39 @@ def generate_docstring(X='dense',
         params = signature(func).parameters
         print(params)
 
-        if(('X' in params or 'y' in params or parameters)
-            and not skip_parameters_heading):
+        if(('X' in params or 'y' in params or parameters) and not
+                skip_parameters_heading):
             docstring_wrapper.__doc__ += \
                 '\nParameters \n ---------- \n'
 
         for par, value in params.items():
             if par == 'self':
                 pass
-            elif par == 'X':
+            elif par == 'X' and par not in skip_parameters:
                 docstring_wrapper.__doc__ += \
                     _parameters_docstrings[X].format('X', X_shape)
 
-            elif par == 'y':
+            elif par == 'y' and par not in skip_parameters:
                 docstring_wrapper.__doc__ += \
                     _parameters_docstrings[y].format('y', y_shape)
 
-            elif par == 'convert_dtype':
-                if func.__name__ == 'fit':
-                    k = 'convert_dtype_fit'
-                else:
-                    k = 'convert_dtype_other'
+            elif par == 'convert_dtype' and par not in skip_parameters:
+                if not convert_dtype_cast:
+                    if func.__name__ == 'fit':
+                        k = 'convert_dtype_fit'
+                    else:
+                        k = 'convert_dtype_other'
 
-                docstring_wrapper.__doc__ += \
-                    _parameters_docstrings[k].format(
-                        params['convert_dtype'].default, func.__name__
-                    )
+                    docstring_wrapper.__doc__ += \
+                        _parameters_docstrings[k].format(
+                            params['convert_dtype'].default, func.__name__
+                        )
+
+                else:
+                    docstring_wrapper.__doc__ += \
+                        _parameters_docstrings['convert_dtype_single'].format(
+                            params['convert_dtype'].default, convert_dtype_cast
+                        )
 
             else:
                 if par in _simple_params:
@@ -187,6 +210,34 @@ def generate_docstring(X='dense',
                         *res_values
                     )
                 docstring_wrapper.__doc__ += '\n\n'
+
+        return docstring_wrapper
+    return deco
+
+
+def insert_into_docstring(parameters=False,
+                          return_values=False):
+    def deco(func):
+        @wraps(func)
+        def docstring_wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+
+        to_add = []
+
+        if parameters:
+            for par in parameters:
+                to_add.append(
+                    _parameters_docstrings[par[0]][5:].format(par[1])
+                )
+
+        if return_values:
+            for ret in return_values:
+                to_add.append(
+                    _return_values_docstrings[ret[0] + '_datatype'].format(ret[1])
+                )
+            docstring_wrapper.__doc__ = str(func.__doc__).format(*to_add)
+
+        docstring_wrapper.__doc__ += '\n\n'
 
         return docstring_wrapper
     return deco
