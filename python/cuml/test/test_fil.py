@@ -29,6 +29,7 @@ from sklearn.ensemble import GradientBoostingClassifier, \
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
 
+
 if has_xgboost():
     import xgboost as xgb
 
@@ -132,9 +133,9 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     fil_proba = np.reshape(fil_proba, np.shape(xgb_proba))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
-    assert fil_acc == pytest.approx(xgb_acc, 0.01)
+    assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
     assert array_equal(fil_preds, xgb_preds_int)
-    assert array_equal(fil_proba, xgb_proba)
+    assert np.allclose(fil_proba, xgb_proba, 1e-3)
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
@@ -182,8 +183,8 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
-    assert fil_mse == pytest.approx(xgb_mse, 0.01)
-    assert array_equal(fil_preds, xgb_preds)
+    assert fil_mse == pytest.approx(xgb_mse, abs=0.01)
+    assert np.allclose(fil_preds, xgb_preds, 1e-3)
 
 
 @pytest.mark.parametrize('n_rows', [1000])
@@ -248,9 +249,9 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 
     fil_acc = accuracy_score(y_validation, fil_preds)
 
-    assert fil_acc == pytest.approx(skl_acc, 1e-5)
+    assert fil_acc == pytest.approx(skl_acc, abs=1e-5)
     assert array_equal(fil_preds, skl_preds_int)
-    assert array_equal(fil_proba, skl_proba)
+    assert np.allclose(fil_proba, skl_proba, 1e-3)
 
 
 @pytest.mark.parametrize('n_rows', [1000])
@@ -309,9 +310,8 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
 
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
-    # if fil is better than skl, no need to fail the test
-    assert fil_mse <= skl_mse * (1. + 1e-7) + 1e-4
-    assert array_equal(fil_preds, skl_preds)
+    assert fil_mse <= skl_mse * (1. + 1e-6) + 1e-4
+    assert np.allclose(fil_preds, skl_preds, 1.2e-3)
 
 
 @pytest.fixture(scope="session")
@@ -406,19 +406,18 @@ def test_lightgbm(tmp_path):
     num_round = 5
     bst = lgb.train(param, train_data, num_round)
     gbm_preds = bst.predict(X)
-
     model_path = str(os.path.join(tmp_path,
                                   'lgb.model'))
     bst.save_model(model_path)
     fm = ForestInference.load(model_path,
                               algo='TREE_REORG',
-                              output_class=False,
+                              output_class=True,
                               model_type="lightgbm")
 
     fil_preds = np.asarray(fm.predict(X))
     fil_preds = np.reshape(fil_preds, np.shape(gbm_preds))
 
-    assert np.allclose(gbm_preds, fil_preds, 1e-3)
+    assert array_equal(np.round(gbm_preds), fil_preds)
 
     lcls = lgb.LGBMClassifier().set_params(objective='binary',
                                            metric='binary_logloss')
@@ -428,7 +427,7 @@ def test_lightgbm(tmp_path):
     lcls.booster_.save_model(model_path)
     fm = ForestInference.load(model_path,
                               algo='TREE_REORG',
-                              output_class=False,
+                              output_class=True,
                               model_type="lightgbm")
 
     fil_proba = np.asarray(fm.predict_proba(X))

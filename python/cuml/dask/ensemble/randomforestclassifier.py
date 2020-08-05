@@ -303,7 +303,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         if predict_model == "CPU" or self.num_classes > 2:
             preds = self.predict_model_on_cpu(X,
                                               convert_dtype=convert_dtype)
-
         else:
             preds = \
                 self._predict_using_fil(X, output_class=output_class,
@@ -425,8 +424,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
-        num_classes : int (default = 2)
-            number of different classes present in the dataset
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This

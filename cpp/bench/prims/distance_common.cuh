@@ -26,7 +26,7 @@ struct Params {
   int m, n, k;
 };  // struct Params
 
-template <typename T, MLCommon::Distance::DistanceType DType>
+template <typename T, ML::Distance::DistanceType DType>
 struct Distance : public Fixture {
   Distance(const std::string& name, const Params& p)
     : Fixture(name,
