@@ -14,13 +14,50 @@
 # limitations under the License.
 #
 
+"""
+Decorators to generate common docstrings in the codebase.
+Dense datatypes are currently the default, if you're a developer that landed
+here, the docstrings apply to every parameter to which the decorators
+are applied. The docstrings are generated at import time.
+
+There are 2 decorators:
+- generate_docstring: Meant to be used by fit/predict/et.al methods that have
+    the typical signatures (i.e. fit(x,y) or predict(x)). It detects the
+    parameters and default values and generates the appropriate docstring,
+    with som configurable for shapes and formats.
+- insert_into_docstring: More flexible but less automatic method, meant to be
+    used by functions that use our common dense or sparse datatypes, but have
+    many more custom parameters that are particular to the class(es) as opposed
+    to being common in the codebase. Allows to keep our documentation up to
+    date and correct with minimal changes by keeping our common datatypes
+    concentrated here. NearestNeigbors is a good example of this use case.
+
+cuml.dask datatype version of the docstrings will come in a future update.
+
+"""
+
 from functools import wraps
 from inspect import signature
+
 
 _parameters_docstrings = {
     'dense':
     '{} : array-like (device or host) shape = {} \n \
         Dense matrix containing floats or doubles. \
+        Acceptable formats: CUDA array interface compliant objects like \
+        CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas \
+        DataFrame/Series.',
+
+    'dense_anydtype':
+    '{} : array-like (device or host) shape = {} \n \
+        Dense matrix of any dtype. \
+        Acceptable formats: CUDA array interface compliant objects like \
+        CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas \
+        DataFrame/Series.',
+
+    'dense_intdtype':
+    '{} : array-like (device or host) shape = {} \n \
+        Dense matrix of type np.int32. \
         Acceptable formats: CUDA array interface compliant objects like \
         CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas \
         DataFrame/Series.',
@@ -96,7 +133,7 @@ _parameter_possible_values = ['name',
 _return_values_docstrings = {
     'dense':
     '{} : cuDF, CuPy or NumPy object depending on cuML\'s output type configuration, shape = {}\n \
-        {} For more information on how to configure cuML\'s output type, \
+        {} \n For more information on how to configure cuML\'s output type, \
         refer to: `Output Data Type Configuration`_.',  # noqa
 
     'dense_sparse':
@@ -145,7 +182,6 @@ def generate_docstring(X='dense',
         docstring_wrapper.__doc__ = str(func.__doc__)
 
         params = signature(func).parameters
-        print(params)
 
         if(('X' in params or 'y' in params or parameters) and not
                 skip_parameters_heading):
@@ -233,8 +269,12 @@ def insert_into_docstring(parameters=False,
         if return_values:
             for ret in return_values:
                 to_add.append(
-                    _return_values_docstrings[ret[0] + '_datatype'].format(ret[1])
+                    _return_values_docstrings[ret[0] + '_datatype'].format(
+                        ret[1]
+                    )
                 )
+
+        if(len(to_add) > 0):
             docstring_wrapper.__doc__ = str(func.__doc__).format(*to_add)
 
         docstring_wrapper.__doc__ += '\n\n'
