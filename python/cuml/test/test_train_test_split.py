@@ -343,3 +343,10 @@ def test_stratified_random_seed(seed_type):
     assert X_test.equals(X_test2)
     assert y_train.equals(y_train2)
     assert y_test.equals(y_test2)
+
+    # Ensure that data is shuffled
+    assert not X_train.head().equals(X.head())
+    def monotonic_inc(x):
+        dx = cp.diff(x.values, axis=0)
+        return cp.all(dx == 1)
+    assert not monotonic_inc(X_train)
