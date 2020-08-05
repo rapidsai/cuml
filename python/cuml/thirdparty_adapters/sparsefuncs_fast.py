@@ -58,22 +58,82 @@ def _csc_mean_variance_axis0(X):
     return means, variances, counts_nan
 
 
+@cuda.jit
+def norm_step2_k(indptr, data, sum_acc):
+    row_i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
+    inrow_idx = cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
+
+    if row_i >= indptr.shape[0] - 1:
+        return
+
+    start = indptr[row_i]
+    end = indptr[row_i + 1]
+    if inrow_idx >= (end - start):
+        return
+
+    data[start + inrow_idx] /= sum_acc[row_i]
+
+
+@cuda.jit
+def l1_step1_k(indptr, data, sum_acc):
+    row_i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
+    inrow_idx = cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
+
+    if row_i >= indptr.shape[0] - 1:
+        return
+
+    start = indptr[row_i]
+    end = indptr[row_i + 1]
+    if inrow_idx >= (end - start):
+        return
+
+    val = abs(data[start + inrow_idx])
+    cuda.atomic.add(sum_acc, row_i, val)
+
+
 def inplace_csr_row_normalize_l1(X):
-    start = X.indptr[0]
-    for end in X.indptr[1:]:
-        col = X.data[start:end]
-        sum_ = cp.abs(col).sum()
-        X.data[start:end] /= sum_
-        start = end
+    n_rows = X.indptr.shape[0]
+    max_nnz = cp.diff(X.indptr).max()
+    tpb = (32, 32)
+    bpg_x = ceil(n_rows / tpb[0])
+    bpg_y = ceil(max_nnz / tpb[1])
+    bpg = (bpg_x, bpg_y)
+
+    sum_acc = cp.zeros(n_rows - 1, dtype=X.dtype)
+    l1_step1_k[bpg, tpb](X.indptr, X.data, sum_acc)
+    norm_step2_k[bpg, tpb](X.indptr, X.data, sum_acc)
+
+
+@cuda.jit
+def l2_step1_k(indptr, data, sum_acc):
+    row_i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
+    inrow_idx = cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
+
+    if row_i >= indptr.shape[0] - 1:
+        return
+
+    start = indptr[row_i]
+    end = indptr[row_i + 1]
+    if inrow_idx >= (end - start):
+        return
+
+    val = data[start + inrow_idx]
+    val *= val
+    cuda.atomic.add(sum_acc, row_i, val)
 
 
 def inplace_csr_row_normalize_l2(X):
-    start = X.indptr[0]
-    for end in X.indptr[1:]:
-        col = X.data[start:end]
-        sum_ = cp.square(col).sum()
-        X.data[start:end] /= cp.sqrt(sum_)
-        start = end
+    n_rows = X.indptr.shape[0]
+    max_nnz = cp.diff(X.indptr).max()
+    tpb = (32, 32)
+    bpg_x = ceil(n_rows / tpb[0])
+    bpg_y = ceil(max_nnz / tpb[1])
+    bpg = (bpg_x, bpg_y)
+
+    sum_acc = cp.zeros(n_rows - 1, dtype=X.dtype)
+    l2_step1_k[bpg, tpb](X.indptr, X.data, sum_acc)
+    sum_acc = cp.sqrt(sum_acc)
+    norm_step2_k[bpg, tpb](X.indptr, X.data, sum_acc)
 
 
 @cuda.jit(device=True, inline=True)
