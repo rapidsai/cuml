@@ -27,7 +27,7 @@ from setuptools import find_packages
 from setuptools import setup
 from setuptools.extension import Extension
 from distutils.sysconfig import get_python_lib
-from distutils.command.clean import clean as _clean
+# from distutils.command.clean import clean as _clean
 from distutils.command.build import build as _build
 
 import numpy
@@ -118,10 +118,10 @@ if "--multigpu" in sys.argv:
 if not libcuml_path:
     libcuml_path = '../cpp/build/'
 
-##############################################################################
-# # - Clean target -------------------------------------------------------------
-# # This derives from distutils clean to so we can use the derived values of
-# # 'build' and the base clean implementation
+#############################################################################
+# - Clean target -------------------------------------------------------------
+# This derives from distutils clean to so we can use the derived values of
+# 'build' and the base clean implementation
 
 
 # class cuml_clean(_clean):
@@ -143,7 +143,7 @@ if not libcuml_path:
 #                 shutil.rmtree(os.path.join(setup_file_path,
 #                                            '/_external_repositories'),
 #                               ignore_errors=True)
-#                 shutil.rmtree(os.path.join(setup_file_path, '/cuml.egg-info'),
+#                shutil.rmtree(os.path.join(setup_file_path, '/cuml.egg-info'),
 #                               ignore_errors=True)
 #                 shutil.rmtree(os.path.join(setup_file_path, '/__pycache__'),
 #                               ignore_errors=True)
