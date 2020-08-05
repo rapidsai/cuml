@@ -327,7 +327,7 @@ class DBSCAN(Base):
                                        'shape': '(n_samples, 1)'})
     def fit_predict(self, X, out_dtype="int32"):
         """
-        Performs clustering on input_gdf and returns cluster labels.
+        Performs clustering on X and returns cluster labels.
 
         Parameters
         ----------
