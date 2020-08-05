@@ -18,10 +18,15 @@
 #
 import os
 import sys
-from sphinxext.github_link import make_linkcode_resolve
 
-
+# If extensions (or modules to document with autodoc) are in another
+# directory, add these directories to sys.path here. If the directory
+# is relative to the documentation root, use os.path.abspath to make it
+# absolute, like shown here.
+sys.path.insert(0, os.path.abspath('sphinxext'))
 sys.path.insert(0, os.path.abspath('../../python'))
+
+from github_link import make_linkcode_resolve
 
 
 # -- General configuration ------------------------------------------------

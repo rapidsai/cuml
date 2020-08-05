@@ -1,17 +1,19 @@
 import sys
 
-if 'setuptools' in sys.modules:
-    try:
-        from Cython.Distutils.build_ext import new_build_ext as _build_ext
-    except ImportError:
-        from setuptools.command.build_ext import build_ext as _build_ext
-else:
-    from distutils.command.build_ext import build_ext as _build_ext
+# TODO: It should be possible to support Cython-less distribution following
+# this guide and removing the direct import of Cython:
+# https://cython.readthedocs.io/en/latest/src/userguide/source_files_and_compilation.html#distributing-cython-modules
 
+# Must import in this order:
+#   setuptools -> Cython.Distutils.build_ext -> setuptools.command.build_ext
+# Otherwise, setuptools.command.build_ext ends up inheriting from
+# Cython.Distutils.old_build_ext which we do not want
+import setuptools
+from Cython.Distutils.build_ext import new_build_ext as _build_ext
 import setuptools.command.build_ext
 
 
-class new_build_ext(_build_ext, object):
+class cython_build_ext(_build_ext, object):
     user_options = [
         ('language-level=', None,
          'Sets the python language syntax to use "2", "3", "3str".'),
@@ -26,19 +28,16 @@ class new_build_ext(_build_ext, object):
 
     def initialize_options(self):
 
-        print("cuml_build_ext::initialize_options")
-
         self.language_level = None
         self.binding = None
         self.profile = None
         self.embedsignature = None
         self.cython_exclude = None
-        super(new_build_ext, self).initialize_options()
+        super().initialize_options()
 
     def finalize_options(self):
 
-        print("cuml_build_ext::finalize_options")
-
+        # Ensure the base build class options get set so we can use parallel
         self.set_undefined_options(
             'build',
             ('build_lib', 'build_lib'),
@@ -50,6 +49,7 @@ class new_build_ext(_build_ext, object):
             ('plat_name', 'plat_name'),
         )
 
+        # If ext_modules is set, then build the cythonize argument list
         if self.distribution.ext_modules:
             if self.language_level is None:
                 self.language_level = str(sys.version_info[0])
@@ -83,11 +83,14 @@ class new_build_ext(_build_ext, object):
 
                 cythonize_kwargs.update({"exclude": self.cython_exclude})
 
+            # Handle nthreads separately to mimic what Cython does
             nthreads = getattr(self, 'parallel', None)  # -j option in Py3.5+
             nthreads = int(nthreads) if nthreads else None
 
+            # Delay import this to allow for Cython-less installs
             from Cython.Build.Dependencies import cythonize
 
+            # Finally, cythonize the arguments
             self.distribution.ext_modules = cythonize(
                 self.distribution.ext_modules,
                 nthreads=nthreads,
@@ -95,4 +98,5 @@ class new_build_ext(_build_ext, object):
                 compiler_directives=compiler_directives,
                 **cythonize_kwargs)
 
+        # Skip calling super() and jump straight to setuptools
         setuptools.command.build_ext.build_ext.finalize_options(self)
