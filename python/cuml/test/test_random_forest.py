@@ -859,3 +859,13 @@ def test_rf_nbins_small(small_clf):
     # random forest classification model
     cuml_model = curfc()
     cuml_model.fit(X_train[0:3, :], y_train[0:3])
+
+
+@pytest.mark.parametrize('n_estimators', [1, 10])
+def test_rf_n_nodes(small_clf, n_estimators):
+    X, y = small_clf
+    # Depth of 2 leads to 3 nodes
+    model = curfc(max_depth=2, n_estimators=n_estimators)
+    model.fit(X, y)
+
+    assert model.n_nodes_ == 3 * n_estimators

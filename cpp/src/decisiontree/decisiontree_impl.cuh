@@ -191,6 +191,21 @@ void DecisionTreeBase<T, L>::print(
   print_node<T, L>("", sparsetree, 0, false);
 }
 
+template <class T, class L>
+size_t count_subtree_nodes(const std::vector<SparseTreeNode<T, L>> &sparsetree,
+                           size_t start_index) {
+  const SparseTreeNode<T, L> &node = sparsetree[start_index];
+  size_t seen_at_end = 1;  // count self
+
+  if ((node.colid != -1)) {
+    // enter the next tree level - left and right branch
+    seen_at_end += count_subtree_nodes(sparsetree, node.left_child_id);
+    seen_at_end += count_subtree_nodes(sparsetree, node.left_child_id + 1);
+  }
+
+  return seen_at_end;
+}
+
 /**
  * @brief This function calls the relevant regression oir classification with input parameters.
  * @tparam T: datatype of input data (float ot double)
@@ -472,6 +487,23 @@ template void build_treelite_tree<double, double>(
   TreeBuilderHandle tree_builder,
   DecisionTree::TreeMetaDataNode<double, double> *tree_ptr,
   int num_output_group);
+
+template size_t count_subtree_nodes(
+  const std::vector<SparseTreeNode<double, double>> &sparsetree,
+  size_t start_index);
+
+template size_t count_subtree_nodes(
+  const std::vector<SparseTreeNode<double, int>> &sparsetree,
+  size_t start_index);
+
+template size_t count_subtree_nodes(
+  const std::vector<SparseTreeNode<float, float>> &sparsetree,
+  size_t start_index);
+
+template size_t count_subtree_nodes(
+  const std::vector<SparseTreeNode<float, int>> &sparsetree,
+  size_t start_index);
+
 }  //End namespace DecisionTree
 
 }  //End namespace ML

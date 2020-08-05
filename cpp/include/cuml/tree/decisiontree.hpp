@@ -138,6 +138,12 @@ void print_tree_summary(const TreeMetaDataNode<T, L> *tree);
 template <class T, class L>
 void print_tree(const TreeMetaDataNode<T, L> *tree);
 
+
+template <class T, class L>
+size_t count_subtree_nodes(const std::vector<SparseTreeNode<T, L>> &sparsetree,
+                           size_t start_index);
+
+
 // ----------------------------- Classification ----------------------------------- //
 
 typedef TreeMetaDataNode<float, int> TreeClassifierF;

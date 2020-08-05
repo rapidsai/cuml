@@ -274,12 +274,9 @@ template <class T, class L>
 int calc_num_nodes(const RandomForestMetaData<T, L>* forest) {
   int num_nodes = 0;
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
-    int j = 0;
     DecisionTree::TreeMetaDataNode<T, L>* tree_info = &forest->trees[i];
-    while (tree_info->sparsetree[j].left_child_id != -1) {
-      num_nodes++;
-      j++;
-    }
+    num_nodes +=
+      DecisionTree::count_subtree_nodes<T, L>(tree_info->sparsetree, 0);
   }
   return num_nodes;
 }
