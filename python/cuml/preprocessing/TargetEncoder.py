@@ -170,7 +170,7 @@ class TargetEncoder:
 
         """
         self._check_is_fitted()
-        test = self._to_cudf_frame(x)
+        test = self._data_with_strings_to_cudf_dataframe(x)
         if self._is_train_df(test):
             return self.train_encode
         x_cols = [i for i in test.columns.tolist() if i != self.id_col]
@@ -183,7 +183,7 @@ class TargetEncoder:
         """
         self.output_type = self._get_output_type(x)
         cp.random.seed(self.seed)
-        train = self._to_cudf_frame(x)
+        train = self._data_with_strings_to_cudf_dataframe(x)
         x_cols = [i for i in train.columns.tolist() if i != self.id_col]
         train[self.y_col] = self._make_y_column(y)
 
@@ -319,9 +319,14 @@ class TargetEncoder:
             return cp.asnumpy(res)
         return res
 
-    def _to_cudf_frame(self, x):
+    def _data_with_strings_to_cudf_dataframe(self, x):
         """
-        Convert input data to cudf dataframe
+        Convert input data with strings to cudf dataframe.
+        Supported data types are:
+            1D or 2D numpy/cupy arrays
+            pandas/cudf Series
+            pandas/cudf DataFrame
+        Input data could have one or more string columns.
         """
         if isinstance(x, cudf.DataFrame):
             df = x.copy()
