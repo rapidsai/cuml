@@ -137,6 +137,7 @@
 - PR #2616: Small test code fix for pandas dtype tests
 - PR #2625: Update Estimator notebook to resolve errors
 - PR #2634: singlegpu build option fixes
+- PR #2641: [Breaking] Make `max_depth` in RF compatible with scikit-learn
 - PR #2650: Make max_depth behave consistently for max_depth > 14
 - PR #2651: AutoARIMA Python bug fix
 - PR #2654: Fix for vectorizer concatenations
