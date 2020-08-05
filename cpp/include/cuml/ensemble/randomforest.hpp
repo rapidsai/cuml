@@ -28,6 +28,13 @@ enum RF_type {
   REGRESSION,
 };
 
+enum SPLIT_INFO {
+  THRESHOLD,
+  FEATURES,
+  BEST_METRIC,
+  SPLIT_INFO_END,
+};
+
 enum task_category { REGRESSION_MODEL = 1, CLASSIFICATION_MODEL = 2 };
 
 struct RF_metrics {
@@ -138,6 +145,19 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles);
 
 void compare_concat_forest_to_subforests(
   ModelHandle concat_tree_handle, std::vector<ModelHandle> treelite_handles);
+
+template <class T, class L>
+std::vector<std::vector<double>> obtain_forest_info(
+  const RandomForestMetaData<T, L>* forest, int param_requested);
+
+template <class T, class L>
+int calc_num_nodes(const RandomForestMetaData<T, L>* forest);
+
+template <class T, class L>
+void check_forest_info(const RandomForestMetaData<T, L>* forest,
+                       std::vector<std::vector<double>> forest_info,
+                       int param_requested);
+
 // ----------------------------- Classification ----------------------------------- //
 
 typedef RandomForestMetaData<float, int> RandomForestClassifierF;

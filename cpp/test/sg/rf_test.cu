@@ -98,7 +98,14 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
         labels_map.size(), rf_params);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    //print_rf_detailed(forest);
+
+    // obtain and check the split values stored in 2D vector
+    std::vector<std::vector<double>> forest_info;
+    // 0 = SPLIT_INFO::THRESHOLD, 1 = SPLIT_INFO::FEATURES, 2 = SPLIT_INFO::BEST_SPLIT
+    int split_info = rand() % 3;
+    forest_info = obtain_forest_info(forest, split_info);
+    check_forest_info(forest, forest_info, split_info);
+    forest_info.clear();
     // Inference data: same as train, but row major
     int inference_data_len = params.n_inference_rows * params.n_cols;
     inference_data_h = {30.0, 10.0, 1.0, 20.0, 2.0, 10.0, 0.0, 40.0};
@@ -198,6 +205,13 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
+    // obtain and check the split values stored in 2D vector
+    std::vector<std::vector<double>> forest_info;
+    // 0 = SPLIT_INFO::THRESHOLD, 1 = SPLIT_INFO::FEATURES, 2 = SPLIT_INFO::BEST_SPLIT
+    int split_info = rand() % 3;
+    forest_info = obtain_forest_info(forest, split_info);
+    check_forest_info(forest, forest_info, split_info);
+    forest_info.clear();
     // Inference data: same as train, but row major
     int inference_data_len = params.n_inference_rows * params.n_cols;
     inference_data_h = {0.0, 10.0, 0.0, 20.0, 0.0, 30.0, 0.0, 40.0};

@@ -16,6 +16,7 @@
 - PR #2500: Replace UMAP functionality dependency on nvgraph with RAFT Spectral Clustering
 - PR #2502: cuML Implementation of `sklearn.metrics.pairwise_distances`
 - PR #2520: TfidfVectorizer estimator
+- PR #2493: Update RF code to return some forest features for each split and total numb of nodes.
 - PR #2211: MNMG KNN Classifier & Regressor
 - PR #2461: Add KNN Sparse Output Functionality
 - PR #2607: Add support for probability estimates in SVC

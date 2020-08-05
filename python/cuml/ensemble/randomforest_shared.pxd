@@ -119,7 +119,11 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                     bool,
                                     int) except +
 
-    cdef vector[unsigned char] save_model(ModelHandle)
-
     cdef ModelHandle concatenate_trees(
         vector[ModelHandle] &treelite_handles) except +
+
+    cdef int calc_num_nodes[T, L](const RandomForestMetaData[T, L]*) except +
+
+    cdef vector[vector[double]] obtain_forest_info[T, L](
+        const RandomForestMetaData[T, L]*,
+        int) except +
