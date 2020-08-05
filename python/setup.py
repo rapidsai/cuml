@@ -27,7 +27,6 @@ from setuptools import find_packages
 from setuptools import setup
 from setuptools.extension import Extension
 from distutils.sysconfig import get_python_lib
-# from distutils.command.clean import clean as _clean
 from distutils.command.build import build as _build
 
 import numpy
@@ -44,8 +43,6 @@ install_requires = ['numba', 'cython']
 
 ##############################################################################
 # - Print of build options used by setup.py  --------------------------------
-
-global libcuml_path
 
 cuda_home = get_environment_option("CUDA_HOME")
 libcuml_path = get_environment_option('CUML_BUILD_PATH')
@@ -73,8 +70,9 @@ cuda_lib_dir = os.path.join(cuda_home, "lib64")
 if clean_artifacts:
     print("-- Cleaning all Python and Cython build artifacts...")
 
-    treelite_path = ""
-    libcuml_path = ""
+    # Reset these paths since they may be deleted below
+    treelite_path = False
+    libcuml_path = False
 
     try:
         setup_file_path = str(Path(__file__).parent.absolute())
@@ -118,47 +116,25 @@ if "--multigpu" in sys.argv:
 if not libcuml_path:
     libcuml_path = '../cpp/build/'
 
-#############################################################################
-# - Clean target -------------------------------------------------------------
-# This derives from distutils clean to so we can use the derived values of
-# 'build' and the base clean implementation
-
-
-# class cuml_clean(_clean):
-#     def run(self):
-
-#         global libcuml_path
-
-#         # Call the base first to get info from build
-#         super().run()
-
-#         if (self.all):
-#             # Reset libcuml_path
-#             libcuml_path = ""
-
-#             try:
-#                 setup_file_path = str(Path(__file__).parent.absolute())
-#                 shutil.rmtree(os.path.join(setup_file_path, ".pytest_cache"),
-#                               ignore_errors=True)
-#                 shutil.rmtree(os.path.join(setup_file_path,
-#                                            '/_external_repositories'),
-#                               ignore_errors=True)
-#                shutil.rmtree(os.path.join(setup_file_path, '/cuml.egg-info'),
-#                               ignore_errors=True)
-#                 shutil.rmtree(os.path.join(setup_file_path, '/__pycache__'),
-#                               ignore_errors=True)
-
-#                 os.remove(setup_file_path + '/cuml/raft')
-
-#                 clean_folder(setup_file_path + '/cuml')
-
-#             except IOError:
-#                 pass
-
-
 ##############################################################################
 # - Cython extensions build and parameters -----------------------------------
-# Derive from `cython_build_ext` to add --singlegpu customization
+#
+# We create custom build steps for both `build` and `build_ext` for several
+#   reasons:
+# 1) Custom `build_ext` is needed to set `cython_build_ext.cython_exclude` when
+#    `--singlegpu=True`
+# 2) Custom `build` is needed to exclude pacakges and directories when
+#    `--singlegpu=True`
+# 3) These cannot be combined because `build` is used by both `build_ext` and
+#    `install` commands and it would be difficult to set
+#    `cython_build_ext.cython_exclude` from `cuml_build` since the property
+#    exists on a different command.
+#
+# Using custom commands also allows combining commands at the command line. For
+# example, the following will all work as expected: `python setup.py clean
+# --all build --singlegpu build_ext --inplace` `python setup.py clean --all
+# build --singlegpu install --record=record.txt` `python setup.py build_ext
+# --debug --singlegpu`
 
 
 class cuml_build(_build):
@@ -177,16 +153,18 @@ class cuml_build(_build):
 
     def finalize_options(self):
 
-        global libcuml_path
-
         # cumlcomms and nccl are still needed for multigpu algos not based
         # on libcumlprims
         libs = ['cuda', 'cuml++', 'rmm']
 
         include_dirs = [
-            '../cpp/src', '../cpp/include', '../cpp/src_prims',
-            raft_include_dir, '../cpp/comms/std/src',
-            '../cpp/comms/std/include', cuda_include_dir,
+            '../cpp/src',
+            '../cpp/include',
+            '../cpp/src_prims',
+            raft_include_dir,
+            '../cpp/comms/std/src',
+            '../cpp/comms/std/include',
+            cuda_include_dir,
             numpy.get_include(),
             os.path.dirname(sysconfig.get_path("include"))
         ]
@@ -216,8 +194,7 @@ class cuml_build(_build):
                       include_dirs=include_dirs,
                       library_dirs=[get_python_lib(), libcuml_path],
                       runtime_library_dirs=[
-                          cuda_lib_dir,
-                          os.path.join(os.sys.prefix, "lib")
+                          cuda_lib_dir, os.path.join(os.sys.prefix, "lib")
                       ],
                       libraries=libs,
                       language='c++',
@@ -273,7 +250,6 @@ class cuml_build_ext(cython_build_ext, object):
 # Specify the custom build class
 cmdclass = dict()
 cmdclass.update(versioneer.get_cmdclass())
-# cmdclass["clean"] = cuml_clean
 cmdclass["build"] = cuml_build
 cmdclass["build_ext"] = cuml_build_ext
 
@@ -284,7 +260,8 @@ setup(name='cuml',
       description="cuML - RAPIDS ML Algorithms",
       version=versioneer.get_version(),
       classifiers=[
-          "Intended Audience :: Developers", "Programming Language :: Python",
+          "Intended Audience :: Developers",
+          "Programming Language :: Python",
           "Programming Language :: Python :: 3.6",
           "Programming Language :: Python :: 3.7"
       ],
