@@ -567,7 +567,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = None)
             number of different classes present in the dataset. This variable
-            will be depricated in 0.16
+            will be deprecated in 0.16. The number of classes passed
+            must match the number of classes the model was trained on
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -587,16 +588,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         y : (same as the input datatype)
             Dense vector (ints, floats, or doubles) of shape (n_samples, 1)
         """
-        if (num_classes and self.num_classes != num_classes):
-            raise ValueError("The number of classes in the test dataset"
-                             " should be equal to the number of classes"
-                             " present in the training dataset.")
-
-        elif predict_model == "CPU" or self.num_classes > 2:
-            if self.num_classes > 2 and predict_model == "GPU":
-                warnings.warn("Switching over to use the CPU predict since "
-                              "the GPU predict currently cannot perform "
-                              "multi-class classification.")
+        if num_classes:
+            warnings.warn("num_classes is deprecated and will be removed"
+                          " in an upcoming version")
+            if num_classes != self.num_classes:
+                raise NotImplementedError("limiting num_classes for predict"
+                                          " is not implemented")
+        if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X,
                                                convert_dtype=convert_dtype)
 
@@ -681,16 +679,12 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
     def predict_proba(self, X, output_class=True,
                       threshold=0.5, algo='auto',
-                      convert_dtype=True,
-                      fil_sparse_format='auto',
-                      num_classes=None):
+                      num_classes=None, convert_dtype=True,
+                      fil_sparse_format='auto'):
         """
         Predicts class probabilites for X. This function uses the GPU
         implementation of predict. Therefore, data with 'dtype = np.float32'
-        and 'num_classes = 2' should be used while using this function.
-        The option to use predict_proba for multi_class classification is not
-        currently implemented. Please check cuml issue #1679 for more
-        information.
+        should be used with this function.
 
         Parameters
         ----------
@@ -721,7 +715,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = None)
             number of different classes present in the dataset. This variable
-            will be depricated in 0.16
+            will be deprecated in 0.16. The number of classes passed
+            must match the number of classes the model was trained on
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -751,16 +746,15 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                             then please use the CPU based predict by \
                             setting predict_model = 'CPU'")
 
-        elif self.num_classes > 2:
-            raise NotImplementedError("Predict_proba for multi-class "
-                                      "classification models is currently not "
-                                      "implemented. Please check cuml issue "
-                                      "#1679 for more information.")
+        if num_classes:
+            warnings.warn("num_classes is deprecated and will be removed"
+                          " in an upcoming version")
+            if num_classes != self.num_classes:
+                raise NotImplementedError("The number of classes in the test "
+                                          "dataset should be equal to the "
+                                          "number of classes present in the "
+                                          "training dataset.")
 
-        elif (num_classes and self.num_classes != num_classes):
-            raise ValueError("The number of classes in the test dataset"
-                             " should be equal to the number of classes"
-                             " present in the training dataset.")
         preds_proba = \
             self._predict_model_on_gpu(X, output_class=output_class,
                                        threshold=threshold,
@@ -802,7 +796,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             predict operation on the GPU.
         num_classes : int (default = None)
             number of different classes present in the dataset. This variable
-            will be depricated in 0.16
+            will be deprecated in 0.16. The number of classes passed
+            must match the number of classes the model was trained on
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
         predict_model : String (default = 'GPU')
