@@ -74,18 +74,16 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   // Get distances
   CUML_LOG_DEBUG("Getting distances.");
   MLCommon::device_buffer<int64_t> *knn_indices_b = nullptr;
-  MLCommon::device_buffer<T> *knn_dists_b = nullptr;
+  MLCommon::device_buffer<float> *knn_dists_b = nullptr;
   if (!knn_indices || !knn_dists) {
     ASSERT(!knn_indices && !knn_dists,
            "Either both or none of the KNN parameters should be provided");
     knn_indices_b =
       new MLCommon::device_buffer<int64_t>(d_alloc, stream, n * n_neighbors);
     knn_dists_b = 
-      new MLCommon::device_buffer<T>(d_alloc, stream, n * n_neighbors);
+      new MLCommon::device_buffer<float>(d_alloc, stream, n * n_neighbors);
     knn_indices = knn_indices_b->data();
     knn_dists = knn_dists_b->data();
-    knn_indices_b.release(stream);
-    knn_dists_b.release(stream);
   }
   TSNE::get_distances(X, n, p, knn_indices, knn_dists, n_neighbors,
   d_alloc, stream);
@@ -116,7 +114,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   //---------------------------------------------------
   // Convert data to COO layout
   MLCommon::Sparse::COO<float> COO_Matrix(d_alloc, stream);
-  TSNE::symmetrize_perplexity(P.data(), indices.data(), n, n_neighbors, P_sum,
+  TSNE::symmetrize_perplexity(P.data(), knn_indices, n, n_neighbors, P_sum,
                               early_exaggeration, &COO_Matrix, stream, handle);
   P.release(stream);
   const int NNZ = COO_Matrix.nnz;
