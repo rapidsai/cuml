@@ -168,8 +168,10 @@ class MBSGDRegressor(Base, RegressorMixin):
             will increase memory used for the method.
         """
         self._set_n_features_in(X)
+        self._set_output_type(X)
+
         self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
-        self.coef_ = self.cu_mbsgd_classifier.coef_
+        self._coef_ = self.cu_mbsgd_classifier._coef_
         self.intercept_ = self.cu_mbsgd_classifier.intercept_
 
         return self
