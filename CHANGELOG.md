@@ -19,6 +19,7 @@
 - PR #2211: MNMG KNN Classifier & Regressor
 - PR #2461: Add KNN Sparse Output Functionality
 - PR #2607: Add support for probability estimates in SVC
+- PR #2618: SVM class and sample weights
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
@@ -120,12 +121,14 @@
 - PR #2586: Fix SVC decision function data type
 - PR #2573: Considering managed memory as device type on checking for KMeans
 - PR #2574: Fixing include path in `tsvd_mg.pyx`
+- PR #2506: Fix usage of CumlArray attributes on `cuml.common.base.Base`
 - PR #2593: Fix inconsistency in train_test_split
 - PR #2609: Fix small doxygen issues
 - PR #2610: Remove cuDF tolist call
 - PR #2613: Removing thresholds from kmeans score tests (SG+MG)
 - PR #2616: Small test code fix for pandas dtype tests
 - PR #2625: Update Estimator notebook to resolve errors
+- PR #2634: singlegpu build option fixes
 
 # cuML 0.14.0 (03 Jun 2020)
 

@@ -262,8 +262,8 @@ class LogisticRegression(Base, ClassifierMixin):
         # Not needed to check dtype since qn class checks it already
         y_m, _, _, _ = input_to_cuml_array(y)
 
-        self.classes_ = cp.unique(y_m)
-        self._num_classes = len(self.classes_)
+        self._classes_ = CumlArray(cp.unique(y_m))
+        self._num_classes = len(self._classes_)
 
         if self._num_classes > 2:
             loss = "softmax"
@@ -287,19 +287,19 @@ class LogisticRegression(Base, ClassifierMixin):
             )
 
         if self.fit_intercept:
-            self.coef_ = self.qn.coef_[0:-1]
-            self.intercept_ = self.qn.coef_[-1]
+            self._coef_ = self.qn._coef_[0:-1]
+            self._intercept_ = self.qn._coef_[-1]
         else:
-            self.coef_ = self.qn.coef_
+            self._coef_ = self.qn._coef_
 
         if logger.should_log_for(logger.level_trace):
             logger.trace(self.verb_prefix + "Coefficients: " +
-                         str(self.coef_.to_output("cupy")))
+                         str(self._coef_.to_output("cupy")))
             if self.fit_intercept:
                 logger.trace(
                     self.verb_prefix
                     + "Intercept: "
-                    + str(self.intercept_.to_output("cupy"))
+                    + str(self._intercept_.to_output("cupy"))
                 )
 
         return self
@@ -313,7 +313,8 @@ class LogisticRegression(Base, ClassifierMixin):
         Gives confidence score for X
 
         """
-        return self.qn._decision_function(X, convert_dtype=convert_dtype)
+        return self.qn._decision_function(X, convert_dtype=convert_dtype) \
+            .to_output(output_type=self._get_output_type(X))
 
     @generate_docstring(return_values={'name': 'preds',
                                        'type': 'dense',
