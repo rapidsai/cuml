@@ -81,7 +81,11 @@ enum storage_type_t {
   DENSE,
   /** import the forest as sparse (currently always with 16-byte nodes) */
   SPARSE,
-  /** import the forest as sparse with 8-byte nodes */
+  /** (experimental) import the forest as sparse with 8-byte nodes; can fail if
+      8-byte nodes are not enough to store the forest, e.g. there are too many
+      nodes in a tree or too many features; note that the number of bits used to
+      store the child or feature index can change in the future; this can affect
+      whether a particular forest can be imported as SPARSE8 */
   SPARSE8,
 };
 
