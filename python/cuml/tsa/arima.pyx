@@ -471,7 +471,7 @@ class ARIMA(Base):
         if level is not None:
             if level <= 0 or level >= 1:
                 raise ValueError("ERROR: Invalid confidence level: {}"
-                                .format(level))
+                                 .format(level))
             elif level > 0 and start < self.n_obs:
                 raise ValueError("ERROR: Prediction intervals can only be"
                                  " computed for out-of-sample predictions")

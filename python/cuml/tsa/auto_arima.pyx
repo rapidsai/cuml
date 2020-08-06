@@ -452,7 +452,7 @@ class AutoARIMA(Base):
                                   self.batch_size).to_output(self.output_type)
             upper = _merge_series(upper_list, self.id_to_model, self.id_to_pos,
                                   self.batch_size).to_output(self.output_type)
-        
+
         # Return the results
         if level is None:
             return y_p
