@@ -222,7 +222,9 @@ cdef class ForestInference_impl():
     def get_storage_type(self, storage_type_str):
         storage_type_dict={'auto': storage_type_t.AUTO,
                            'False': storage_type_t.DENSE,
-                           'True': storage_type_t.SPARSE}
+                           'dense': storage_type_t.DENSE,
+                           'True': storage_type_t.SPARSE,
+                           'sparse': storage_type_t.SPARSE}
 
         if storage_type_str not in storage_type_dict.keys():
             raise ValueError(
