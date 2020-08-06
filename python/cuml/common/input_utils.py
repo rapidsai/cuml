@@ -55,6 +55,59 @@ def get_cudf_column_ptr(col):
     return col.__cuda_array_interface__['data'][0]
 
 
+def get_supported_input_type(X):
+    """
+    Determines if the input object is a supported input array-like object or
+    not. If supported, the type is returned. Otherwise, `None` is returned.
+
+    Parameters
+    ----------
+    X : object
+        Input object to test
+
+    Notes
+    -----
+    To closely match the functionality of
+    :func:`~cuml.common.input_utils.input_to_cuml_array`, this method will
+    return ``cupy.ndarray`` for any object supporting
+    `__cuda_array_interface__` and ``numpy.ndarray`` for any object supporting
+    `__array_interface__`.
+
+    Returns
+    -------
+    array-like type or None
+        If the array-like object is supported, the type is returned.
+        Otherwise, `None` is returned.
+    """
+    if (isinstance(X, cudf.Series)):
+        if X.null_count != 0:
+            return None
+        else:
+            return cudf.Series
+
+    # converting pandas to numpy before sending it to CumlArray
+    if isinstance(X, pd.DataFrame):
+        return pd.DataFrame
+
+    if isinstance(X, pd.Series):
+        return pd.Series
+
+    if isinstance(X, cudf.DataFrame):
+        return cudf.DataFrame
+
+    if isinstance(X, CumlArray):
+        return CumlArray
+
+    if hasattr(X, "__cuda_array_interface__"):
+        return cp.ndarray
+
+    if hasattr(X, "__array_interface__"):
+        return np.ndarray
+
+    # Return None if this type isnt supported
+    return None
+
+
 @with_cupy_rmm
 def input_to_cuml_array(X, order='F', deepcopy=False,
                         check_dtype=False, convert_to_dtype=False,
@@ -287,6 +340,17 @@ def input_to_host_array(X, order='F', deepcopy=False,
     `inp_array` is a new device array if the input was not a NumPy device
         array. It is a reference to the input X if it was a NumPy host array
     """
+
+    if isinstance(X, np.ndarray):
+        if len(X.shape) > 1:
+            n_cols = X.shape[1]
+        else:
+            n_cols = 1
+        return inp_array(array=X,
+                         pointer=X.__array_interface__['data'][0],
+                         n_rows=X.shape[0],
+                         n_cols=n_cols,
+                         dtype=X.dtype)
 
     ary_tuple = input_to_cuml_array(X,
                                     order=order,

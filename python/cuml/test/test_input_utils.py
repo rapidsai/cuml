@@ -19,6 +19,7 @@ import pytest
 import cudf
 import cupy as cp
 import numpy as np
+from pandas import DataFrame as pdDF
 
 from cuml.common import input_to_cuml_array, CumlArray
 from cuml.common import input_to_dev_array
@@ -131,8 +132,10 @@ def test_convert_matrix_order_cuml_array(dtype, input_type, from_order,
                                                 order=to_order)
 
     if to_order == 'K':
-        if input_type in ['cudf', 'pandas']:
+        if input_type in ['cudf']:
             assert conv_data.order == 'F'
+        elif input_type in ['pandas']:
+            assert conv_data.order == 'C'
         else:
             assert conv_data.order == from_order
     else:
@@ -332,8 +335,7 @@ def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
         result = cudf.DataFrame(rand_mat)
 
     if type == 'pandas':
-        result = cudf.DataFrame(rand_mat)
-        result = result.to_pandas()
+        result = pdDF(cp.asnumpy(rand_mat))
 
     if type == 'cuml':
         result = CumlArray(data=rand_mat,

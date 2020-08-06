@@ -33,7 +33,7 @@ namespace Metrics {
         * @input tparam distance_type: Distance type to consider
         * @return Trustworthiness score
         */
-template <typename math_t, MLCommon::Distance::DistanceType distance_type>
+template <typename math_t, ML::Distance::DistanceType distance_type>
 double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
                              int n, int m, int d, int n_neighbors,
                              int batchSize) {
@@ -45,7 +45,7 @@ double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
 }
 
 template double
-trustworthiness_score<float, MLCommon::Distance::EucUnexpandedL2Sqrt>(
+trustworthiness_score<float, ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
   const cumlHandle& h, float* X, float* X_embedded, int n, int m, int d,
   int n_neighbors, int batchSize);
 
