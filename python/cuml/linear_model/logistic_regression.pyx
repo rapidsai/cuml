@@ -300,12 +300,6 @@ class LogisticRegression(Base, ClassifierMixin):
                 self.verb_prefix + "Setting coefficients " + str(loss)
             )
 
-        if self.fit_intercept:
-            self._coef_ = self.solver_model._coef_[0:-1]
-            self._intercept_ = self.solver_model._coef_[-1]
-        else:
-            self._coef_ = self.solver_model._coef_
-
         if logger.should_log_for(logger.level_trace):
             logger.trace(self.verb_prefix + "Coefficients: " +
                          str(self._coef_.to_output("cupy")))
