@@ -266,16 +266,16 @@ class MultinomialNB(Base):
             if _classes is not None:
                 _classes, *_ = input_to_cuml_array(_classes, order='K')
                 check_labels(Y, _classes.to_output('cupy'))
-                self.classes_ = _classes
+                self._classes_ = _classes
             else:
-                self.classes_ = CumlArray(data=label_classes)
+                self._classes_ = CumlArray(data=label_classes)
 
             self._n_classes_ = self.classes_.shape[0]
             self._n_features_ = X.shape[1]
             self._init_counters(self._n_classes_, self._n_features_,
                                 X.dtype)
         else:
-            check_labels(Y, self.classes_)
+            check_labels(Y, self._classes_)
 
         self._count(X, Y)
 
@@ -558,8 +558,8 @@ class MultinomialNB(Base):
         count_classes((math.ceil(n_rows / 32),), (32,),
                       (class_c, n_rows, Y))
 
-        self._feature_count_ += counts
-        self._class_count_ += class_c
+        self._feature_count_ = CumlArray(self._feature_count_ + counts)
+        self._class_count_ = CumlArray(self._class_count_ + class_c)
 
     def _update_class_log_prior(self, class_prior=None):
 
@@ -573,11 +573,12 @@ class MultinomialNB(Base):
 
         elif self.fit_prior:
             log_class_count = cp.log(self._class_count_)
-            self._class_log_prior_ = log_class_count - \
-                cp.log(self._class_count_.sum())
+            self._class_log_prior_ = \
+                CumlArray(log_class_count - cp.log(
+                    cp.asarray(self._class_count_).sum()))
         else:
-            self._class_log_prior_ = cp.full(self._n_classes_,
-                                             -1*math.log(self._n_classes_))
+            self._class_log_prior_ = CumlArray(cp.full(self._n_classes_,
+                                               -1*math.log(self._n_classes_)))
 
     def _update_feature_log_prob(self, alpha):
         """
@@ -589,10 +590,10 @@ class MultinomialNB(Base):
 
         alpha : float amount of smoothing to apply (0. means no smoothing)
         """
-        smoothed_fc = self._feature_count_ + alpha
+        smoothed_fc = cp.asarray(self._feature_count_) + alpha
         smoothed_cc = smoothed_fc.sum(axis=1).reshape(-1, 1)
-        self._feature_log_prob_ = (cp.log(smoothed_fc) -
-                                   cp.log(smoothed_cc.reshape(-1, 1)))
+        self._feature_log_prob_ = CumlArray(cp.log(smoothed_fc) -
+                                            cp.log(smoothed_cc.reshape(-1, 1)))
 
     def _joint_log_likelihood(self, X):
         """
@@ -604,6 +605,6 @@ class MultinomialNB(Base):
         X : array-like of size (n_samples, n_features)
         """
 
-        ret = X.dot(self._feature_log_prob_.T)
-        ret += self._class_log_prior_
+        ret = X.dot(cp.asarray(self._feature_log_prob_).T)
+        ret += cp.asarray(self._class_log_prior_)
         return ret
