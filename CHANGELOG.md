@@ -20,6 +20,7 @@
 - PR #2461: Add KNN Sparse Output Functionality
 - PR #2607: Add support for probability estimates in SVC
 - PR #2618: SVM class and sample weights
+- PR #2645: Preprocessing
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
