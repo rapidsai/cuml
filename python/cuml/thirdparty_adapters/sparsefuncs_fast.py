@@ -1,4 +1,4 @@
-
+#
 # Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,17 +21,44 @@ from math import ceil
 
 
 def csr_mean_variance_axis0(X):
+    """Compute mean and variance
+    Parameters
+    ----------
+    X : sparse CSR matrix
+        Input array
+    Returns
+    -------
+    mean and variance
+    """
     X = X.tocsc()
     means, variances, _ = _csc_mean_variance_axis0(X)
     return means, variances
 
 
 def csc_mean_variance_axis0(X):
+    """Compute mean and variance
+    Parameters
+    ----------
+    X : sparse CSC matrix
+        Input array
+    Returns
+    -------
+    mean and variance
+    """
     means, variances, _ = _csc_mean_variance_axis0(X)
     return means, variances
 
 
 def _csc_mean_variance_axis0(X):
+    """Compute mean, variance and nans count
+    Parameters
+    ----------
+    X : sparse CSC matrix
+        Input array
+    Returns
+    -------
+    mean, variance, nans count
+    """
     n_samples, n_features = X.shape
 
     means = cp.empty(n_features)
@@ -59,7 +86,9 @@ def _csc_mean_variance_axis0(X):
 
 
 @cuda.jit
-def norm_step2_k(indptr, data, sum_acc):
+def norm_step2_k(indptr, data, div_acc):
+    """Divide data to apply normalization
+    """
     row_i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
     inrow_idx = cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
 
@@ -71,11 +100,13 @@ def norm_step2_k(indptr, data, sum_acc):
     if inrow_idx >= (end - start):
         return
 
-    data[start + inrow_idx] /= sum_acc[row_i]
+    data[start + inrow_idx] /= div_acc[row_i]
 
 
 @cuda.jit
-def l1_step1_k(indptr, data, sum_acc):
+def l1_step1_k(indptr, data, div_acc):
+    """Compute divider for L1 normalization
+    """
     row_i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
     inrow_idx = cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
 
@@ -88,10 +119,19 @@ def l1_step1_k(indptr, data, sum_acc):
         return
 
     val = abs(data[start + inrow_idx])
-    cuda.atomic.add(sum_acc, row_i, val)
+    cuda.atomic.add(div_acc, row_i, val)
 
 
 def inplace_csr_row_normalize_l1(X):
+    """Normalize CSR matrix inplace with L1 norm
+    Parameters
+    ----------
+    X : sparse CSR matrix
+        Input array
+    Returns
+    -------
+    Normalized matrix
+    """
     n_rows = X.indptr.shape[0]
     max_nnz = cp.diff(X.indptr).max()
     tpb = (32, 32)
@@ -99,13 +139,15 @@ def inplace_csr_row_normalize_l1(X):
     bpg_y = ceil(max_nnz / tpb[1])
     bpg = (bpg_x, bpg_y)
 
-    sum_acc = cp.zeros(n_rows - 1, dtype=X.dtype)
-    l1_step1_k[bpg, tpb](X.indptr, X.data, sum_acc)
-    norm_step2_k[bpg, tpb](X.indptr, X.data, sum_acc)
+    div_acc = cp.zeros(n_rows - 1, dtype=X.dtype)
+    l1_step1_k[bpg, tpb](X.indptr, X.data, div_acc)
+    norm_step2_k[bpg, tpb](X.indptr, X.data, div_acc)
 
 
 @cuda.jit
-def l2_step1_k(indptr, data, sum_acc):
+def l2_step1_k(indptr, data, div_acc):
+    """Compute divider for L2 normalization
+    """
     row_i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
     inrow_idx = cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
 
@@ -119,10 +161,19 @@ def l2_step1_k(indptr, data, sum_acc):
 
     val = data[start + inrow_idx]
     val *= val
-    cuda.atomic.add(sum_acc, row_i, val)
+    cuda.atomic.add(div_acc, row_i, val)
 
 
 def inplace_csr_row_normalize_l2(X):
+    """Normalize CSR matrix inplace with L2 norm
+    Parameters
+    ----------
+    X : sparse CSR matrix
+        Input array
+    Returns
+    -------
+    Normalized matrix
+    """
     n_rows = X.indptr.shape[0]
     max_nnz = cp.diff(X.indptr).max()
     tpb = (32, 32)
@@ -130,10 +181,10 @@ def inplace_csr_row_normalize_l2(X):
     bpg_y = ceil(max_nnz / tpb[1])
     bpg = (bpg_x, bpg_y)
 
-    sum_acc = cp.zeros(n_rows - 1, dtype=X.dtype)
-    l2_step1_k[bpg, tpb](X.indptr, X.data, sum_acc)
-    sum_acc = cp.sqrt(sum_acc)
-    norm_step2_k[bpg, tpb](X.indptr, X.data, sum_acc)
+    div_acc = cp.zeros(n_rows - 1, dtype=X.dtype)
+    l2_step1_k[bpg, tpb](X.indptr, X.data, div_acc)
+    div_acc = cp.sqrt(div_acc)
+    norm_step2_k[bpg, tpb](X.indptr, X.data, div_acc)
 
 
 @cuda.jit(device=True, inline=True)
@@ -170,6 +221,8 @@ def _deg3_column(d, i, j, k, interaction_only):
 def perform_expansion(indptr, indices, data, expanded_data,
                       expanded_indices, d, interaction_only,
                       degree, expanded_indptr):
+    """Kernel applying polynomial expansion on CSR matrix
+    """
     row_i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
     inrow_idx = cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
 
@@ -231,6 +284,15 @@ def perform_expansion(indptr, indices, data, expanded_data,
 
 
 def csr_polynomial_expansion(X, interaction_only, degree):
+    """Apply polynomial expansion on CSR matrix
+    Parameters
+    ----------
+    X : sparse CSR matrix
+        Input array
+    Returns
+    -------
+    New expansed matrix
+    """
     assert degree in (2, 3)
 
     interaction_only = 1 if interaction_only else 0

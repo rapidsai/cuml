@@ -80,6 +80,40 @@ def report_asv(results_df, output_dir,
         db.addResult(b_info, result)
 
 
+preprocessing_algo_defs = [
+    ("StandardScaler", "classification",
+        [1000000], [256, 1024], [{'copy': False}]),
+    ("MinMaxScaler", "classification",
+        [1000000], [256, 1024], [{'copy': False}]),
+    ("MaxAbsScaler", "classification",
+        [1000000], [256, 1024], [{'copy': False}]),
+    ("Normalizer", "classification",
+        [1000000], [256, 1024], [{'copy': False}]),
+    ("RobustScaler", "classification",
+        [1000000], [128, 256], [{'copy': False}]),
+    ("SimpleImputer", "classification",
+        [1000000], [256, 1024], [{'copy': False}]),
+    ("PolynomialFeatures", "classification",
+        [100000], [128, 256], [{}]),
+    ("SparseCSRStandardScaler", "classification",
+        [100000], [256], [{'copy': False, 'with_mean': False}]),
+    ("SparseCSRMinMaxScaler", "classification",
+        [100000], [256], [{'copy': False}]),
+    ("SparseCSRMaxAbsScaler", "classification",
+        [100000], [256], [{'copy': False}]),
+    ("SparseCSRNormalizer", "classification",
+        [100000], [256], [{'copy': False}]),
+    ("SparseCSCRobustScaler", "classification",
+        [100000], [256], [{'copy': False, 'with_centering': False}]),
+    ("SparseCSCSimpleImputer", "classification",
+        [100000], [256], [{'copy': False}]),
+    ("SparseCSRPolynomialFeatures", "classification",
+        [10000], [128], [{}])
+]
+
+preprocessing_algo_names = set([a[0] for a in preprocessing_algo_defs])
+
+
 def make_bench_configs(long_config):
     """Defines the configurations we want to benchmark
     If `long_config` is True, this may take over an hour.
@@ -115,36 +149,10 @@ def make_bench_configs(long_config):
         ("tSVD", "blobs", large_rows, [32, 256],
          expand_params("n_components", [2, 25]),),
         ("GaussianRandomProjection", "blobs", large_rows, [32, 256],
-         expand_params("n_components", [2, 25]),),
-        ("StandardScaler", "classification",
-         [1000000], [256, 1024], [{'copy': False}]),
-        ("MinMaxScaler", "classification",
-         [1000000], [256, 1024], [{'copy': False}]),
-        ("MaxAbsScaler", "classification",
-         [1000000], [256, 1024], [{'copy': False}]),
-        ("Normalizer", "classification",
-         [1000000], [256, 1024], [{'copy': False}]),
-        ("RobustScaler", "classification",
-         [1000000], [128, 256], [{'copy': False}]),
-        ("SimpleImputer", "classification",
-         [1000000], [256, 1024], [{'copy': False}]),
-        ("PolynomialFeatures", "classification",
-         [100000], [128, 256], [{}]),
-        ("SparseCSRStandardScaler", "classification",
-         [100000], [256], [{'copy': False, 'with_mean': False}]),
-        ("SparseCSRMinMaxScaler", "classification",
-         [100000], [256], [{'copy': False}]),
-        ("SparseCSRMaxAbsScaler", "classification",
-         [100000], [256], [{'copy': False}]),
-        ("SparseCSRNormalizer", "classification",
-         [100000], [256], [{'copy': False}]),
-        ("SparseCSCRobustScaler", "classification",
-         [100000], [256], [{'copy': False, 'with_centering': False}]),
-        ("SparseCSCSimpleImputer", "classification",
-         [100000], [256], [{'copy': False}]),
-        ("SparseCSRPolynomialFeatures", "classification",
-         [10000], [128], [{}]),
+         expand_params("n_components", [2, 25]),)
     ]
+
+    algo_defs += preprocessing_algo_defs
 
     for algo_name, dataset_name, rows, dims, params in algo_defs:
         configs.append(
@@ -219,15 +227,7 @@ if __name__ == '__main__':
 
     algos = set(args.algo)
     if 'preprocessing' in algos:
-        algos = algos.union(set(['StandardScaler', 'MinMaxScaler',
-                                 'MaxAbsScaler', 'Normalizer',
-                                 'PolynomialFeatures', 'SimpleImputer',
-                                 'RobustScaler', 'SparseCSRStandardScaler',
-                                 'SparseCSRMaxAbsScaler',
-                                 'SparseCSRNormalizer',
-                                 'SparseCSRPolynomialFeatures',
-                                 'SparseCSCSimpleImputer',
-                                 'SparseCSCRobustScaler']))
+        algos = algos.union(preprocessing_algo_names)
         algos.remove('preprocessing')
     invalidAlgoNames = (algos - allAlgoNames)
     if invalidAlgoNames:

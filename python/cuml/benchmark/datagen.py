@@ -38,7 +38,6 @@ import cudf
 import gzip
 import functools
 import numpy as np
-import scipy
 import os
 import pandas as pd
 
@@ -48,6 +47,10 @@ import sklearn.model_selection
 from urllib.request import urlretrieve
 from cuml.common import input_utils
 from numba import cuda
+
+from cuml.utils import has_scipy
+if has_scipy():
+    import scipy
 
 
 def _gen_data_regression(n_samples, n_features, random_state=42):
@@ -234,6 +237,8 @@ def _sparsify_and_convert(data, input_type):
         return scipy.sparse.csr_matrix(data)
     elif input_type == 'csc':
         return scipy.sparse.csc_matrix(data)
+    else:
+        TypeError('Wrong sparse input type {}'.format(input_type))
 
 
 def _convert_to_scipy_sparse(data, input_type):

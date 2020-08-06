@@ -255,6 +255,8 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
         else:
             raise ValueError('Sparse matrix format not supported')
         check_finite(new_array.data, force_all_finite)
+        if correct_dtype != new_array.dtype:
+            new_array = new_array.astype(correct_dtype)
         return new_array
     else:
         X, n_rows, n_cols, dtype = input_to_cuml_array(array,
