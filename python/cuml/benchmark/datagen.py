@@ -48,9 +48,7 @@ from urllib.request import urlretrieve
 from cuml.common import input_utils
 from numba import cuda
 
-from cuml.utils import has_scipy
-if has_scipy():
-    import scipy
+from cuml.common.import_utils import has_scipy
 
 
 def _gen_data_regression(n_samples, n_features, random_state=42):
@@ -229,6 +227,9 @@ def _convert_to_gpuarray_c(data):
 
 
 def _sparsify_and_convert(data, input_type):
+    if not has_scipy():
+        raise RuntimeError("Scipy is required")
+    import scipy
     random_loc = np.random.choice(data.size,
                                   int(data.size * 0.3),
                                   replace=False)
