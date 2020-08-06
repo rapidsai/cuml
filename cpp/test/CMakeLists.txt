@@ -22,6 +22,7 @@ set(CUML_TEST_INCLUDE_DIRS
 
 set(CUML_TEST_LINK_LIBRARIES
   ${CUML_CPP_TARGET}
+  FAISS::FAISS
   treelite::treelite
   treelite::treelite_runtime
   ${CUDA_cublas_LIBRARY}
@@ -29,7 +30,6 @@ set(CUML_TEST_LINK_LIBRARIES
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
-  ${CUDA_nvgraph_LIBRARY}
   gtestlib
   gtest_mainlib
   )
@@ -40,8 +40,7 @@ set(PRIMS_TEST_LINK_LIBRARIES
   ${CUDA_curand_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY}
-  ${CUDA_nvgraph_LIBRARY})
+  ${CUDA_cusparse_LIBRARY})
 
 ##############################################################################
 # - build ml_test executable -------------------------------------------------
@@ -66,7 +65,6 @@ if(BUILD_CUML_TESTS)
     sg/ridge.cu
     sg/rproj_test.cu
     sg/sgd.cu
-    sg/spectral_test.cu
     sg/svc_test.cu
     sg/trustworthiness_test.cu
     sg/tsne_test.cu
@@ -88,6 +86,8 @@ if(BUILD_CUML_MG_TESTS)
     # (please keep the filenames in alphabetical order)
     add_executable(ml_mg
       mg/knn.cu
+      mg/knn_classify.cu
+      mg/knn_regress.cu
       mg/main.cu
       mg/pca.cu
       mg/test_ml_mg_utils.cu)
@@ -101,9 +101,11 @@ if(BUILD_CUML_MG_TESTS)
 
     target_include_directories(ml_mg PUBLIC ${CUML_TEST_INCLUDE_DIRS})
 
-    set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} ${MPI_CXX_LIBRARIES})
-
-    set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} cumlcommsmpi)
+    set(CUML_TEST_LINK_LIBRARIES 
+    	${CUML_TEST_LINK_LIBRARIES} 
+    	${MPI_CXX_LIBRARIES}
+    	cumlcommsmpi
+    	cumlprims)
 
     target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
 
@@ -114,6 +116,8 @@ endif(BUILD_CUML_MG_TESTS)
 
 ##############################################################################
 # - build prims_test executable ----------------------------------------------
+
+
 
 if(BUILD_PRIMS_TESTS)
   # (please keep the filenames in alphabetical order)
@@ -224,8 +228,10 @@ if(BUILD_PRIMS_TESTS)
   add_dependencies(prims cutlass)
 
   target_link_libraries(prims
+  	FAISS::FAISS
     gtestlib
     gtest_mainlib
-    ${PRIMS_TEST_LINK_LIBRARIES}
-    faisslib)
+    ${PRIMS_TEST_LINK_LIBRARIES})
+    
+    
 endif(BUILD_PRIMS_TESTS)
