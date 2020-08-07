@@ -231,8 +231,8 @@ class UMAP(Base):
         edges at once preventing inconsistencies. A lower batch size will yield
         more consistently repeatable embeddings at the cost of speed.
     callback: An instance of GraphBasedDimRedCallback class
-        Used to intercept the internal state of embeddings while they are being trained.
-        Example of callback usage:
+        Used to intercept the internal state of embeddings while they are being
+        trained. Example of callback usage:
 
         .. code-block:: python
 
@@ -268,8 +268,8 @@ class UMAP(Base):
     algorithm for large data sizes while cuml.umap always uses exact
     kNN.
 
-    **Known issue:** If a UMAP model has not yet been fit, it cannot be pickled.
-    However, after fitting, a UMAP mode.
+    **Known issue:** If a UMAP model has not yet been fit, it cannot be
+    pickled. However, after fitting, a UMAP mode.
 
     References
     ----------

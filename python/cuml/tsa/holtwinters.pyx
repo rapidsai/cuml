@@ -80,13 +80,13 @@ class ExponentialSmoothing(Base):
 
      * predict : no support for in-sample prediction.
         * https://github.com/rapidsai/cuml/issues/875
- 
+
      * hessian : no support for returning Hessian matrix.
         * https://github.com/rapidsai/cuml/issues/880
- 
+
      * information : no support for returning Fisher matrix.
         * https://github.com/rapidsai/cuml/issues/880
- 
+
      * loglike : no support for returning Log-likelihood.
         * https://github.com/rapidsai/cuml/issues/880
 
