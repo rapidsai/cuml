@@ -144,7 +144,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
          reduce memory consumption.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
             import numpy as np
@@ -332,6 +332,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         Parameters
         ----------
+
         output_class : boolean (default = True)
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -364,10 +365,12 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             or algo='auto'
 
         Returns
-        ----------
-        fil_model :
+        -------
+
+        fil_model
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
+
         """
         treelite_handle = self._obtain_treelite_handle()
         return _obtain_fil_model(treelite_handle=treelite_handle,

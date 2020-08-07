@@ -76,13 +76,13 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
         Keyword named arguments to pass to the CuPy function
 
 
-    Note: this function should be used if the result of cupy_fn creates
+    .. note:: this function should be used if the result of cupy_fn creates
     a new array. Functions to create a new CuPy array by reference to
     existing device array (through __cuda_array_interface__) can be used
     directly.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
