@@ -171,6 +171,7 @@ def test_maxabs_scaler(clf_dataset):  # noqa: F811
     assert_allclose(r_X, sk_r_X)
 
 
+@pytest.mark.skip(reason="requires CuPy update")
 def test_maxabs_scaler_sparse(sparse_clf_dataset):  # noqa: F811
     X_np, X = sparse_clf_dataset
 
@@ -203,6 +204,7 @@ def test_normalizer(clf_dataset, norm):  # noqa: F811
 
 
 @pytest.mark.parametrize("norm", ['l1', 'l2', 'max'])
+@pytest.mark.skip(reason="requires CuPy update")
 def test_normalizer_sparse(sparse_clf_dataset, norm):  # noqa: F811
     X_np, X = sparse_clf_dataset
 
@@ -241,6 +243,7 @@ def test_normalize(clf_dataset, axis, norm, return_norm):  # noqa: F811
 
 
 @pytest.mark.parametrize("norm", ['l1', 'l2', 'max'])
+@pytest.mark.skip(reason="requires CuPy update")
 def test_normalize_sparse(sparse_clf_dataset, norm):  # noqa: F811
     X_np, X = sparse_clf_dataset
 
@@ -257,6 +260,7 @@ def test_normalize_sparse(sparse_clf_dataset, norm):  # noqa: F811
 @pytest.mark.parametrize("strategy", ["mean", "median", "most_frequent",
                                       "constant"])
 @pytest.mark.parametrize("missing_values", [0., 1.])
+@pytest.mark.skip(reason="requires CuPy update")
 def test_imputer(int_dataset, strategy, missing_values):  # noqa: F811
     X_np, X = int_dataset
     fill_value = np.random.randint(10, size=1)[0]
@@ -338,6 +342,7 @@ def test_poly_features(clf_dataset, degree,  # noqa: F811
 @pytest.mark.parametrize("degree", [2, 3])
 @pytest.mark.parametrize("interaction_only", [True, False])
 @pytest.mark.parametrize("include_bias", [True, False])
+@pytest.mark.skip(reason="requires CuPy update")
 def test_poly_features_sparse(sparse_clf_dataset, degree,  # noqa: F811
                               interaction_only, include_bias):
     X_np, X = sparse_clf_dataset
@@ -541,6 +546,7 @@ def test_robust_scale_sparse(sparse_clf_dataset,  # noqa: F811
 @pytest.mark.parametrize("n_bins", [5, 20])
 @pytest.mark.parametrize("encode", ['ordinal', 'onehot-dense', 'onehot'])
 @pytest.mark.parametrize("strategy", ['uniform', 'quantile', 'kmeans'])
+@pytest.mark.skip(reason="requires CuPy update")
 def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
                           encode, strategy):
     X_np, X = blobs_dataset
