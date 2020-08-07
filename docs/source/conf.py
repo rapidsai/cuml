@@ -26,7 +26,7 @@ import sys
 sys.path.insert(0, os.path.abspath('sphinxext'))
 sys.path.insert(0, os.path.abspath('../../python'))
 
-from github_link import make_linkcode_resolve
+from github_link import make_linkcode_resolve # noqa
 
 
 # -- General configuration ------------------------------------------------

@@ -365,7 +365,7 @@ def test_gradient(key, data, dtype):
     """
     Test batched gradient implementation against scipy non-batched
     gradient.
-    
+
     .. note:: it doesn't test that the loglikelihood is correct!
     """
     order, seasonal_order, intercept = extract_order(key)
