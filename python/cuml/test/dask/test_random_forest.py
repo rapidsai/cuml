@@ -103,9 +103,7 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
         X_test_dask_array = from_array(X_test)
         cuml_preds_gpu = cuml_mod.predict(X_test_dask_array,
                                           predict_model="GPU").compute()
-
         acc_score_cpu = accuracy_score(cuml_preds_cpu, y_test)
-
         acc_score_gpu = accuracy_score(cuml_preds_gpu, y_test)
 
         assert array_equal(acc_score_cpu, acc_score_gpu, unit_tol=1e-2)
