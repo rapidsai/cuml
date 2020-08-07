@@ -132,6 +132,7 @@
 - PR #2616: Small test code fix for pandas dtype tests
 - PR #2625: Update Estimator notebook to resolve errors
 - PR #2634: singlegpu build option fixes
+- PR #2649: Cleanup sphinx doc warnings for 0.15
 
 # cuML 0.14.0 (03 Jun 2020)
 
