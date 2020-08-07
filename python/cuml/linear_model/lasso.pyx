@@ -37,7 +37,7 @@ class Lasso(Base, RegressorMixin):
     a linear model.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 

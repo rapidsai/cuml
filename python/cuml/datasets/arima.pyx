@@ -73,8 +73,8 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     r"""Generates a dataset of time series by simulating an ARIMA process
     of a given order.
 
-    Example
-    -------
+    Examples
+    --------
     .. code-block:: python
 
         from cuml.datasets import make_arima
@@ -102,7 +102,7 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     handle: cuml.Handle
         If it is None, a new one is created just for this function call
 
-    Returns:
+    Returns
     --------
     out: array-like, shape (n_obs, batch_size)
         Array of the requested type containing the generated dataset

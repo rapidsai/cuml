@@ -98,7 +98,7 @@ class Ridge(Base, RegressorMixin):
     Coordinate Descent and can be faster when data is large.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 

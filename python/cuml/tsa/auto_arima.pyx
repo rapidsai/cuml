@@ -112,8 +112,8 @@ class AutoARIMA(Base):
     It provides an abstraction around the underlying ARIMA models to predict
     and forecast as if using a single model.
 
-    Example
-    -------
+    Examples
+    --------
     .. code-block:: python
 
         from cuml.tsa.auto_arima import AutoARIMA
@@ -410,7 +410,7 @@ class AutoARIMA(Base):
         end:
             Index where to end the predictions, excluded (end > start)
 
-        Returns:
+        Returns
         --------
         y_p : array-like (device)
             Predictions. Shape = (end - start, batch_size)
@@ -433,7 +433,7 @@ class AutoARIMA(Base):
         nsteps : int
             The number of steps to forecast beyond end of the given series
 
-        Returns:
+        Returns
         --------
         y_fc : array-like
                Forecasts. Shape = (nsteps, batch_size)
@@ -467,8 +467,9 @@ def _parse_sequence(name, seq_in, min_accepted, max_accepted):
 
 def _divide_by_mask(original, mask, batch_id, handle=None):
     """Divide a given batch into two sub-batches according to a boolean mask
-    Note: in case the mask contains only False or only True, one sub-batch
-    will be the original batch (not a copy!) and the other None
+
+    .. note:: in case the mask contains only False or only True, one sub-batch
+        will be the original batch (not a copy!) and the other None
 
     Parameters:
     ----------
@@ -481,7 +482,7 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
     handle : cuml.Handle
         If it is None, a new one is created just for this call
 
-    Returns:
+    Returns
     --------
     out0 : cumlArray (float32 or float64)
         Sub-batch 0, or None if empty
@@ -600,7 +601,7 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
     handle : cuml.Handle
         If it is None, a new one is created just for this call
 
-    Returns:
+    Returns
     --------
     sub_batches : List[cumlArray] (float32 or float64)
         List of arrays containing each sub-batch, or None if empty
@@ -715,7 +716,7 @@ def _build_division_map(id_tracker, batch_size, handle=None):
     batch_size : int
         Size of the initial batch
 
-    Returns:
+    Returns
     --------
     id_to_model : cumlArray (int)
         Associates each batch member with a model
@@ -771,7 +772,7 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
     batch_size : int
         Size of the initial batch
 
-    Returns:
+    Returns
     --------
     data_out : cumlArray (float32 or float64)
         Merged batch

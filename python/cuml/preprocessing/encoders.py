@@ -37,8 +37,9 @@ class OneHotEncoder(Base):
     By default, the encoder derives the categories based on the unique values
     in each feature. Alternatively, you can also specify the `categories`
     manually.
-    Note: a one-hot encoding of y labels should use a LabelBinarizer
-    instead.
+    
+    .. note:: a one-hot encoding of y labels should use a LabelBinarizer
+        instead.
 
     Parameters
     ----------

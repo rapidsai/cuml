@@ -160,7 +160,7 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         array from `X` and the jth array from `Y`.
 
     Examples
-    ---------
+    --------
         >>> import cupy as cp
         >>> from cuml.metrics import pairwise_distances
         >>>

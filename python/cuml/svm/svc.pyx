@@ -130,7 +130,7 @@ class SVC(SVMBase, ClassifierMixin):
     - predict_proba is not yet supported
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
             import numpy as np
@@ -278,7 +278,7 @@ class SVC(SVMBase, ClassifierMixin):
         y_m: device array of floats or doubles, shape = (n_samples, 1)
             Array of target labels already copied to the device.
 
-        Returns:
+        Returns
         --------
         sample_weight: device array shape = (n_samples, 1) or None
         """
