@@ -137,7 +137,7 @@ class QN(Base):
     NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant).
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         import cudf

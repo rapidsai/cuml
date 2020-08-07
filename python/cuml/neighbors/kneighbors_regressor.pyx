@@ -101,7 +101,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
         supported.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
       from cuml.neighbors import KNeighborsRegressor

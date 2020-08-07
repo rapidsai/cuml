@@ -36,7 +36,7 @@ class ElasticNet(Base, RegressorMixin):
     descent to fit a linear model.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 

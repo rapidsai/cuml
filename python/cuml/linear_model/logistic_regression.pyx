@@ -59,7 +59,7 @@ class LogisticRegression(Base, ClassifierMixin):
     Note that, just like in Scikit-learn, the bias will not be regularized.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         import cudf

@@ -86,7 +86,7 @@ class LinearRegression(Base, RegressorMixin):
     stable, but Eig (default) is much faster.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 

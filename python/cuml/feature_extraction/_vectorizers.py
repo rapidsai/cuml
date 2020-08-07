@@ -373,7 +373,9 @@ class CountVectorizer(_VectorizerMixin):
           - occurred in too many documents (`max_df`)
           - occurred in too few documents (`min_df`)
           - were cut off by feature selection (`max_features`).
+
         This is only available if no vocabulary was given.
+
     """
 
     def __init__(self, input=None, encoding=None, decode_error=None,
@@ -456,7 +458,7 @@ class CountVectorizer(_VectorizerMixin):
         documents than low, modifying the vocabulary, and restricting it to
         at most the limit most frequent.
 
-        Sets self.vocabulary_ and self.stop_words_ with the new values.
+        Sets `self.vocabulary_` and `self.stop_words_` with the new values.
         """
         if high is None and low is None and limit is None:
             self.stop_words_ = None
@@ -499,15 +501,17 @@ class CountVectorizer(_VectorizerMixin):
         """
         Build a vocabulary of all tokens in the raw documents.
 
-       Parameters
-       ----------
-       raw_documents : cudf.Series
-           A Series of string documents
+        Parameters
+        ----------
 
-       Returns
-       -------
-       self
-       """
+        raw_documents : cudf.Series
+            A Series of string documents
+ 
+        Returns
+        -------
+        self
+
+        """
         self.fit_transform(raw_documents)
         return self
 
@@ -515,7 +519,7 @@ class CountVectorizer(_VectorizerMixin):
         """
         Build the vocabulary and return document-term matrix.
 
-        Equivalent to .fit(X).transform(X) but preprocess X only once.
+        Equivalent to ``self.fit(X).transform(X)`` but preprocess `X` only once.
 
         Parameters
         ----------
@@ -624,10 +628,13 @@ class CountVectorizer(_VectorizerMixin):
     def get_feature_names(self):
         """
         Array mapping from feature integer indices to feature name.
+
         Returns
         -------
+
         feature_names : Series
             A list of feature names.
+
         """
         return self.vocabulary_
 
@@ -646,24 +653,24 @@ class HashingVectorizer(_VectorizerMixin):
 
     This strategy has several advantages:
 
-    - it is very low memory scalable to large datasets as there is no need to
-      store a vocabulary dictionary in memory which is even more important
-      as GPU's that are often memory constrained
-    - it is fast to pickle and un-pickle as it holds no state besides the
-      constructor parameters
-    - it can be used in a streaming (partial fit) or parallel pipeline as there
-      is no state computed during fit.
+     - it is very low memory scalable to large datasets as there is no need to\
+       store a vocabulary dictionary in memory which is even more important \
+       as GPU's that are often memory constrained
+     - it is fast to pickle and un-pickle as it holds no state besides the \
+       constructor parameters
+     - it can be used in a streaming (partial fit) or parallel pipeline as there \
+       is no state computed during fit.
 
     There are also a couple of cons (vs using a CountVectorizer with an
     in-memory vocabulary):
 
-    - there is no way to compute the inverse transform (from feature indices to
-      string feature names) which can be a problem when trying to introspect
-      which features are most important to a model.
-    - there can be collisions: distinct tokens can be mapped to the same
-      feature index. However in practice this is rarely an issue if n_features
-      is large enough (e.g. 2 ** 18 for text classification problems).
-    - no IDF weighting as this would render the transformer stateful.
+     - there is no way to compute the inverse transform (from feature indices to \
+       string feature names) which can be a problem when trying to introspect \
+       which features are most important to a model.
+     - there can be collisions: distinct tokens can be mapped to the same \
+       feature index. However in practice this is rarely an issue if n_features \
+       is large enough (e.g. 2 ** 18 for text classification problems).
+     - no IDF weighting as this would render the transformer stateful.
 
     The hash function employed is the signed 32-bit version of Murmurhash3.
 
@@ -709,7 +716,7 @@ class HashingVectorizer(_VectorizerMixin):
     dtype : type, optional
         Type of the matrix returned by fit_transform() or transform().
     delimiter : str, whitespace by default
-        String used as a replacement for stop words if stop_words is not None.
+        String used as a replacement for stop words if `stop_words` is not None.
         Typically the delimiting character between words is a good choice.
 
     Examples

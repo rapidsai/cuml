@@ -31,7 +31,7 @@ class CumlArray(Buffer):
     """
     Array represents an abstracted array allocation. It can be instantiated by
     itself, creating an rmm.DeviceBuffer underneath, or can be instantiated by
-    __cuda_array_interface__ or __array_interface__ compliant arrays, in which
+    ``__cuda_array_interface__`` or ``__array_interface__`` compliant arrays, in which
     case it'll keep a reference to that data underneath. Also can be created
     from a pointer, specifying the characteristics of the array, in that case
     the owner of the data referred to by the pointer should be specified
@@ -40,7 +40,7 @@ class CumlArray(Buffer):
     Parameters
     ----------
 
-    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearray or
+    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearray or \
            memoryview
         An array-like object or integer representing a
         device or host pointer to pre-allocated memory.
@@ -71,7 +71,7 @@ class CumlArray(Buffer):
     strides : tuple of ints
         Strides of the data
     __cuda_array_interface__ : dictionary
-        __cuda_array_interface__ to interop with other libraries.
+        ``__cuda_array_interface__`` to interop with other libraries.
 
     Object Methods
     --------------
@@ -204,12 +204,12 @@ class CumlArray(Buffer):
         ----------
         output_type : string
             Format to convert the array to. Acceptable formats are:
-            'cupy' - to cupy array
-            'numpy' - to numpy (host) array
-            'numba' - to numba device array
-            'dataframe' - to cuDF DataFrame
-            'series' - to cuDF Series
-            'cudf' - to cuDF Series if array is single dimensional, to
+             - 'cupy' - to cupy array
+             - 'numpy' - to numpy (host) array
+             - 'numba' - to numba device array
+             - 'dataframe' - to cuDF DataFrame
+             - 'series' - to cuDF Series
+             - 'cudf' - to cuDF Series if array is single dimensional, to \
                 DataFrame otherwise
         output_dtype : string, optional
             Optionally cast the array to a specified dtype, creating
