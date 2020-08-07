@@ -463,6 +463,15 @@ class LogisticRegression(Base, ClassifierMixin):
             "solver",
         ]
 
+    def __getattr__(self, attr):
+        if attr == 'coef_':
+            if self.fit_intercept:
+                return self._coef_[0:-1]
+            else:
+                return self._coef_
+        else:
+            return super().__getattr__(attr)
+
     def __getstate__(self):
         state = self.__dict__.copy()
         return state
