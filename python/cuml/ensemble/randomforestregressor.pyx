@@ -110,11 +110,12 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     """
     Implements a Random Forest regressor model which fits multiple decision
     trees in an ensemble.
-    
-    .. note:: that the underlying algorithm for tree node splits differs from that
-        used in scikit-learn. By default, the cuML Random Forest uses a
+
+    .. note:: that the underlying algorithm for tree node splits differs from
+        that used in scikit-learn. By default, the cuML Random Forest uses a
         histogram-based algorithm to determine splits, rather than an exact
-        count. You can tune the size of the histograms with the n_bins parameter.
+        count. You can tune the size of the histograms with the n_bins
+        parameter.
 
     **Known Limitations**: This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
