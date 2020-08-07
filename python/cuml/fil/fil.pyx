@@ -256,7 +256,7 @@ cdef class ForestInference_impl():
         -------
 
         Predicted results of type as defined by the output_type variable
-        
+
         """
         if (not self.output_class) and predict_proba:
             raise NotImplementedError("Predict_proba function is not available"
@@ -522,24 +522,24 @@ class ForestInference(Base):
             For a Regression model output_class must be False.
         algo : string (default='auto')
             name of the algo from (from algo_t enum) :
-             - 'AUTO' or 'auto' - choose the algorithm automatically; \
-                currently 'BATCH_TREE_REORG' is used for dense storage, \
-                and 'NAIVE' for sparse storage
+             - 'AUTO' or 'auto' - choose the algorithm automatically;
+               currently 'BATCH_TREE_REORG' is used for dense storage,
+               and 'NAIVE' for sparse storage
              - 'NAIVE' or 'naive' - simple inference using shared memory
-             - 'TREE_REORG' or 'tree_reorg' - similar to naive but trees \
-                rearranged to be more coalescing-friendly
-             - 'BATCH_TREE_REORG' or 'batch_tree_reorg' - similar to TREE_REORG \
-                but predicting multiple rows per thread block
+             - 'TREE_REORG' or 'tree_reorg' - similar to naive but trees
+               rearranged to be more coalescing-friendly
+             - 'BATCH_TREE_REORG' or 'batch_tree_reorg' - similar to TREE_REORG
+               but predicting multiple rows per thread block
         threshold : float (default=0.5)
             Threshold is used to for classification. It is applied
             only if output_class == True, else it is ignored.
         storage_type : string or boolean (default='auto')
             In-memory storage format to be used for the FIL model:
-             - 'auto' - choose the storage type automatically \
-                (currently DENSE is always used)
+             - 'auto' - choose the storage type automatically
+               (currently DENSE is always used)
              - False - create a dense forest
-             - True - create a sparse forest; \
-                requires algo='NAIVE' or algo='AUTO'
+             - True - create a sparse forest;
+               requires algo='NAIVE' or algo='AUTO'
 
         Returns
         ----------
@@ -577,24 +577,24 @@ class ForestInference(Base):
             For a Regression model output_class must be False.
         algo : string (default='auto')
             name of the algo from (from algo_t enum):
-             - 'AUTO' or 'auto' - choose the algorithm automatically; \
-                currently 'BATCH_TREE_REORG' is used for dense storage, \
-                and 'NAIVE' for sparse storage
+             - 'AUTO' or 'auto' - choose the algorithm automatically;
+               currently 'BATCH_TREE_REORG' is used for dense storage,
+               and 'NAIVE' for sparse storage
              - 'NAIVE' or 'naive' - simple inference using shared memory
-             - 'TREE_REORG' or 'tree_reorg' - similar to naive but trees \
-                rearranged to be more coalescing-friendly
-             - 'BATCH_TREE_REORG' or 'batch_tree_reorg' - similar to TREE_REORG \
-                but predicting multiple rows per thread block
+             - 'TREE_REORG' or 'tree_reorg' - similar to naive but trees
+               rearranged to be more coalescing-friendly
+             - 'BATCH_TREE_REORG' or 'batch_tree_reorg' - similar to TREE_REORG
+               but predicting multiple rows per thread block
         threshold : float (default=0.5)
             Threshold is used to for classification. It is applied
             only if ``output_class == True``, else it is ignored.
         storage_type : string or boolean (default='auto')
             In-memory storage format to be used for the FIL model:
-             - 'auto' - choose the storage type automatically \
-                      (currently DENSE is always used)
+             - 'auto' - choose the storage type automatically
+               (currently DENSE is always used)
              - False - create a dense forest
-             - True - create a sparse forest; \
-                      requires algo='NAIVE' or algo='AUTO'
+             - True - create a sparse forest;
+               requires algo='NAIVE' or algo='AUTO'
 
         Returns
         ----------
