@@ -3,13 +3,14 @@ channels:
 - rapidsai
 - nvidia
 - rapidsai-nightly
+- numba
 - conda-forge
 dependencies:
 - cudatoolkit=10.0
 - clang=8.0.1
 - clang-tools=8.0.1
 - cmake=3.14.5
-- numba>=0.46
+- numba>=0.51
 - cupy>=7,<8.0.0a0
 - cudf=0.15*
 - rmm=0.15*
