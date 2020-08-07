@@ -59,6 +59,7 @@ def convert(dataset, conversion_format):
 
 def sparsify_and_convert(dataset, conversion_format, sparsify_ratio=0.3):
     """Randomly set values to 0 and produce a sparse array.
+
     Parameters
     ----------
     dataset : array
@@ -71,6 +72,7 @@ def sparsify_and_convert(dataset, conversion_format, sparsify_ratio=0.3):
         - cupy-csc: CuPy CSC sparse array
     sparsify_ratio: float [0-1]
         Ratio of zeros in the sparse array
+
     Returns
     -------
     SciPy CSR array and converted array

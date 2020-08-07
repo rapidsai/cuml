@@ -226,12 +226,13 @@ def _convert_to_gpuarray_c(data):
     return _convert_to_gpuarray(data, order='C')
 
 
-def _sparsify_and_convert(data, input_type):
+def _sparsify_and_convert(data, input_type, sparsity_ratio=0.3):
+    """Randomly set values to 0 and produce a sparse array."""
     if not has_scipy():
         raise RuntimeError("Scipy is required")
     import scipy
     random_loc = np.random.choice(data.size,
-                                  int(data.size * 0.3),
+                                  int(data.size * sparsity_ratio),
                                   replace=False)
     data.ravel()[random_loc] = 0
     if input_type == 'csr':
@@ -243,7 +244,9 @@ def _sparsify_and_convert(data, input_type):
 
 
 def _convert_to_scipy_sparse(data, input_type):
-    """Returns tuple data with all elements converted to scipy sparse"""
+    """Returns a tuple of arrays. Each of the arrays
+    have some of its values being set randomly to 0,
+    it is then converted to a scipy sparse array"""
     if data is None:
         return None
     elif isinstance(data, tuple):

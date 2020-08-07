@@ -42,6 +42,7 @@ numeric_types = [
 
 def check_sparse(array, accept_sparse=False, accept_large_sparse=True):
     """Checks that the sparse array is valid
+
     Parameters
     ----------
     accept_sparse : string, boolean or list/tuple of strings (default=False)
@@ -54,6 +55,7 @@ def check_sparse(array, accept_sparse=False, accept_large_sparse=True):
         If a CSR, CSC, COO or BSR sparse matrix is supplied and accepted by
         accept_sparse, accept_large_sparse=False will cause it to be accepted
         only if its indices are stored with a 32-bit dtype.
+
     Returns
     -------
     None or raise error
@@ -83,6 +85,7 @@ def check_sparse(array, accept_sparse=False, accept_large_sparse=True):
 
 def check_dtype(array, dtypes='numeric'):
     """Checks that the input dtype is part of acceptable dtypes
+
     Parameters
     ----------
     array : object
@@ -92,6 +95,7 @@ def check_dtype(array, dtypes='numeric'):
         If "numeric", dtype is preserved unless array.dtype is object.
         If dtype is a list of types, conversion on the first type is only
         performed if the dtype of the input is not in the list.
+
     Returns
     -------
     dtype or raise error
@@ -127,6 +131,7 @@ def check_dtype(array, dtypes='numeric'):
 
 def check_finite(array, force_all_finite=True):
     """Checks that the input is finite if necessary
+
     Parameters
     ----------
     array : object
@@ -139,6 +144,7 @@ def check_finite(array, force_all_finite=True):
         - 'allow-nan': accepts only np.nan and pd.NA values in array. Values
           cannot be infinite.
            ``force_all_finite`` accepts the string ``'allow-nan'``.
+
     Returns
     -------
     None or raise error
@@ -160,6 +166,7 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
     By default, the input is checked to be a non-empty 2D array containing
     only finite values. If the dtype of the array is object, attempt
     converting to float, raising on failure.
+
     Parameters
     ----------
     array : object
@@ -210,6 +217,7 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
         dimensions or is originally 1D and ``ensure_2d`` is True. Setting to 0
         disables this check.
     estimator : unused parameter
+
     Returns
     -------
     array_converted : object
