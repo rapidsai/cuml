@@ -279,7 +279,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
                     use_full_low_rank=True):
     """
     Generate a random regression problem.
-    
+
     The input set can either be well conditioned (by default) or have a low
     rank-fat tail singular profile.
 
@@ -362,7 +362,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
      3. When `shuffle = True` and `order = F`, there are memory spikes to \
         shuffle the `F` order arrays
 
-    .. note:: If out-of-memory errors are encountered in any of the above 
+    .. note:: If out-of-memory errors are encountered in any of the above
         configurations, try increasing the `n_parts` parameter.
     """
 

@@ -31,16 +31,16 @@ class CumlArray(Buffer):
     """
     Array represents an abstracted array allocation. It can be instantiated by
     itself, creating an rmm.DeviceBuffer underneath, or can be instantiated by
-    ``__cuda_array_interface__`` or ``__array_interface__`` compliant arrays, in which
-    case it'll keep a reference to that data underneath. Also can be created
-    from a pointer, specifying the characteristics of the array, in that case
-    the owner of the data referred to by the pointer should be specified
-    explicitly.
+    ``__cuda_array_interface__`` or ``__array_interface__`` compliant arrays,
+    in which case it'll keep a reference to that data underneath. Also can be
+    created from a pointer, specifying the characteristics of the array, in
+    that case the owner of the data referred to by the pointer should be
+    specified explicitly.
 
     Parameters
     ----------
 
-    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearray or \
+    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearray or\
            memoryview
         An array-like object or integer representing a
         device or host pointer to pre-allocated memory.

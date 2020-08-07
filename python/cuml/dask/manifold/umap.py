@@ -65,9 +65,10 @@ class UMAP(BaseEstimator,
 
     Notes
     -----
-    This module is heavily based on Leland McInnes' reference UMAP package [1]_.
+    This module is heavily based on Leland McInnes' reference UMAP package
+    [1]_.
     However, there are a number of differences and features that are
-    not yet implemented in `cuml.umap`:
+        not yet implemented in `cuml.umap`:
      * Using a non-Euclidean distance metric (support for a fixed set
        of non-Euclidean metrics is planned for an upcoming release).
      * Using a pre-computed pairwise distance matrix (under consideration
