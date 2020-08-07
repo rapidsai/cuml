@@ -19,7 +19,7 @@ from scipy import stats
 from scipy import optimize
 from scipy.special import boxcox
 
-from ._skl_dependencies import BaseEstimator, TransformerMixin
+from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ....thirdparty_adapters import check_array, get_input_type, to_output_type
 from ..utils.extmath import row_norms
 from ..utils.extmath import _incremental_mean_and_var

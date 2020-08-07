@@ -1,6 +1,6 @@
 import warnings
 
-from ._skl_dependencies import BaseEstimator, TransformerMixin
+from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import _allclose_dense_sparse
 from ..utils.validation import _deprecate_positional_args
 

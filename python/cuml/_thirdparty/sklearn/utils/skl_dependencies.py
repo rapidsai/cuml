@@ -1,7 +1,6 @@
 """
-Base classes for all estimators.
-
-Used for VotingClassifier
+This file gathers Scikit-Learn code that would otherwise
+require a version-dependent import from the sklearn library
 """
 
 # Author: Gael Varoquaux <gael.varoquaux@normalesup.org>
