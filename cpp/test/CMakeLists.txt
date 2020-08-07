@@ -60,6 +60,7 @@ if(BUILD_CUML_TESTS)
     sg/pca_test.cu
     sg/quasi_newton.cu
     sg/rf_accuracy_test.cu
+    sg/rf_depth_test.cu
     sg/rf_test.cu
     sg/rf_treelite_test.cu
     sg/ridge.cu
