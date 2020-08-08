@@ -188,29 +188,29 @@ inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
 
 /**
    * Search the kNN for the k-nearest neighbors of a set of query vectors
-   * @param input vector of device device memory array pointers to search
-   * @param sizes vector of memory sizes for each device array pointer in input
-   * @param D number of cols in input and search_items
-   * @param search_items set of vectors to query for neighbors
-   * @param n        number of items in search_items
-   * @param res_I    pointer to device memory for returning k nearest indices
-   * @param res_D    pointer to device memory for returning k nearest distances
-   * @param k        number of neighbors to query
-   * @param allocator the device memory allocator to use for temporary scratch memory
-   * @param userStream the main cuda stream to use
-   * @param internalStreams optional when n_params > 0, the index partitions can be
+   * @param[in] input vector of device device memory array pointers to search
+   * @param[in] sizes vector of memory sizes for each device array pointer in input
+   * @param[in] D number of cols in input and search_items
+   * @param[in] search_items set of vectors to query for neighbors
+   * @param[in] n        number of items in search_items
+   * @param[out] res_I    pointer to device memory for returning k nearest indices
+   * @param[out] res_D    pointer to device memory for returning k nearest distances
+   * @param[in] k        number of neighbors to query
+   * @param[in] allocator the device memory allocator to use for temporary scratch memory
+   * @param[in] userStream the main cuda stream to use
+   * @param[in] internalStreams optional when n_params > 0, the index partitions can be
    *        queried in parallel using these streams. Note that n_int_streams also
    *        has to be > 0 for these to be used and their cardinality does not need
    *        to correspond to n_parts.
-   * @param n_int_streams size of internalStreams. When this is <= 0, only the
+   * @param[in] n_int_streams size of internalStreams. When this is <= 0, only the
    *        user stream will be used.
-   * @param rowMajorIndex are the index arrays in row-major layout?
-   * @param rowMajorQuery are the query array in row-major layout?
-   * @param translations translation ids for indices when index rows represent
+   * @param[in] rowMajorIndex are the index arrays in row-major layout?
+   * @param[in] rowMajorQuery are the query array in row-major layout?
+   * @param[in] translations translation ids for indices when index rows represent
    *        non-contiguous partitions
-   * @param metric corresponds to the FAISS::metricType enum (default is euclidean)
-   * @param metricArg metric argument to use. Corresponds to the p arg for lp norm
-   * @param expanded_form whether or not lp variants should be reduced w/ lp-root
+   * @param[in] metric corresponds to the FAISS::metricType enum (default is euclidean)
+   * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
+   * @param[in] expanded_form whether or not lp variants should be reduced w/ lp-root
    */
 template <typename IntType = int>
 void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
@@ -422,25 +422,24 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  * A naive knn classifier to predict probabilities
  * @tparam TPB_X number of threads per block to use. each thread
  *               will process a single row of knn_indices
- *
- * @param out vector of output class probabilities of the same size as y.
- *            each element should be of size size (n_samples * n_classes[i])
  * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Classifier. In this case,
- * the knn_indices array is not used as the y arrays already store the labels for each row.
- * This makes it possible to compute the reduction step without holding all the data on a single machine.
- * @param knn_indices the index array resulting from a knn search
- * @param y vector of label arrays. for multulabel classification,
+ *         the knn_indices array is not used as the y arrays already store the labels for each row.
+ *         This makes it possible to compute the reduction step without holding all the data on a single machine.
+ * @param[out] out vector of output class probabilities of the same size as y.
+ *            each element should be of size size (n_samples * n_classes[i])
+ * @param[in] knn_indices the index array resulting from a knn search
+ * @param[in] y vector of label arrays. for multulabel classification,
  *          each output in the vector is a different array of labels
  *          corresponding to the i'th output.
- * @param n_query_rows number of rows in knn_indices
- * @param n_index_rows number of vertices in index (eg. size of each y array)
- * @param k number of neighbors in knn_indices
- * @param uniq_labels vector of the sorted unique labels for each array in y
- * @param n_unique vector of sizes for each array in uniq_labels
- * @param allocator device allocator to use for temporary workspace
- * @param user_stream main stream to use for queuing isolated CUDA events
- * @param int_streams internal streams to use for parallelizing independent CUDA events.
- * @param n_int_streams number of elements in int_streams array. If this is less than 1,
+ * @param[in] n_index_rows number of vertices in index (eg. size of each y array)
+ * @param[in] n_query_rows number of rows in knn_indices
+ * @param[in] k number of neighbors in knn_indices
+ * @param[in] uniq_labels vector of the sorted unique labels for each array in y
+ * @param[in] n_unique vector of sizes for each array in uniq_labels
+ * @param[in] allocator device allocator to use for temporary workspace
+ * @param[in] user_stream main stream to use for queuing isolated CUDA events
+ * @param[in] int_streams internal streams to use for parallelizing independent CUDA events.
+ * @param[in] n_int_streams number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
  */
 template <int TPB_X = 32, bool precomp_lbls = false>
@@ -489,20 +488,20 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Classifier. In this case,
  * the knn_indices array is not used as the y arrays already store the labels for each row.
  * This makes it possible to compute the reduction step without holding all the data on a single machine.
- * @param out output array of size (n_samples * y.size())
- * @param knn_indices index array from knn search
- * @param y vector of label arrays. for multilabel classification, each
+ * @param[out] out output array of size (n_samples * y.size())
+ * @param[in] knn_indices index array from knn search
+ * @param[in] y vector of label arrays. for multilabel classification, each
  *          element in the vector is a different "output" array of labels corresponding
  *          to the i'th output.
- * @param n_index_rows number of vertices in index (eg. size of each y array)
- * @param n_query_rows number of rows in knn_indices
- * @param k number of neighbors in knn_indices
- * @param uniq_labels vector of the sorted unique labels for each array in y
- * @param n_unique vector of sizes for each array in uniq_labels
- * @param allocator device allocator to use for temporary workspace
- * @param user_stream main stream to use for queuing isolated CUDA events
- * @param int_streams internal streams to use for parallelizing independent CUDA events.
- * @param n_int_streams number of elements in int_streams array. If this is less than 1,
+ * @param[in] n_index_rows number of vertices in index (eg. size of each y array)
+ * @param[in] n_query_rows number of rows in knn_indices
+ * @param[in] k number of neighbors in knn_indices
+ * @param[in] uniq_labels vector of the sorted unique labels for each array in y
+ * @param[in] n_unique vector of sizes for each array in uniq_labels
+ * @param[in] allocator device allocator to use for temporary workspace
+ * @param[in] user_stream main stream to use for queuing isolated CUDA events
+ * @param[in] int_streams internal streams to use for parallelizing independent CUDA events.
+ * @param[in] n_int_streams number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
  */
 template <int TPB_X = 32, bool precomp_lbls = false>
@@ -570,17 +569,17 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
  * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Regressor. In this case,
  * the knn_indices array is not used as the y arrays already store the output for each row.
  * This makes it possible to compute the reduction step without holding all the data on a single machine.
- * @param out output array of size (n_samples * y.size())
- * @param knn_indices index array from knn search
- * @param y vector of label arrays. for multilabel classification, each
+ * @param[out] out output array of size (n_samples * y.size())
+ * @param[in] knn_indices index array from knn search
+ * @param[in] y vector of label arrays. for multilabel classification, each
  *          element in the vector is a different "output" array of labels corresponding
  *          to the i'th output.
- * @param n_index_rows number of vertices in index (eg. size of each y array)
- * @param n_query_rows number of rows in knn_indices
- * @param k number of neighbors in knn_indices
- * @param user_stream main stream to use for queuing isolated CUDA events
- * @param int_streams internal streams to use for parallelizing independent CUDA events.
- * @param n_int_streams number of elements in int_streams array. If this is less than 1,
+ * @param[in] n_index_rows number of vertices in index (eg. size of each y array)
+ * @param[in] n_query_rows number of rows in knn_indices
+ * @param[in] k number of neighbors in knn_indices
+ * @param[in] user_stream main stream to use for queuing isolated CUDA events
+ * @param[in] int_streams internal streams to use for parallelizing independent CUDA events.
+ * @param[in] n_int_streams number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
  */
 
