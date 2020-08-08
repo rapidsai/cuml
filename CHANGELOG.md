@@ -1,3 +1,11 @@
+# cuML 0.16.0 (Date TBD)
+
+## New Features
+
+## Improvements
+
+## Bug Fixes
+
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
@@ -12,12 +20,16 @@
 - PR #2394: Adding cosine & correlation distance for KNN
 - PR #2392: PCA can accept sparse inputs, and sparse prim for computing covariance
 - PR #2465: Support pandas 1.0+
+- PR #2550: Single GPU Target Encoder
 - PR #2519: Precision recall curve using cupy
 - PR #2500: Replace UMAP functionality dependency on nvgraph with RAFT Spectral Clustering
+- PR #2502: cuML Implementation of `sklearn.metrics.pairwise_distances`
 - PR #2520: TfidfVectorizer estimator
 - PR #2211: MNMG KNN Classifier & Regressor
 - PR #2461: Add KNN Sparse Output Functionality
+- PR #2594: Confidence intervals for ARIMA forecasts
 - PR #2607: Add support for probability estimates in SVC
+- PR #2618: SVM class and sample weights
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
@@ -47,6 +59,7 @@
 - PR #2403: Support for input and output type consistency in logistic regression predict_proba
 - PR #2473: Add metrics.roc_auc_score to API docs. Additional readability and minor docs bug fixes
 - PR #2468: Add `_n_features_in_` attribute to all single GPU estimators that implement fit
+- PR #2489: Removing explicit FAISS build and adding dependency on libfaiss conda package
 - PR #2480: Moving MNMG glm and solvers to cuml
 - PR #2490: Moving MNMG KMeans to cuml
 - PR #2483: Moving MNMG KNN to cuml
@@ -71,9 +84,12 @@
 - PR #2591: Generate benchmark datsets using `cuml.datasets`
 - PR #2548: Fix limitation on number of rows usable with tSNE and refactor memory allocation
 - PR #2589: including cuda-11 build fixes into raft
+- PR #2599: Add Stratified train_test_split
 - PR #2487: Set classes_ attribute during classifier fit
 - PR #2605: Reduce memory usage in tSNE
 - PR #2611: Adding building doxygen docs to gpu ci
+- PR #2629: Add naive_bayes api docs
+- PR #2643: 'dense' and 'sparse' values of `storage_type` for FIL
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -117,11 +133,16 @@
 - PR #2586: Fix SVC decision function data type
 - PR #2573: Considering managed memory as device type on checking for KMeans
 - PR #2574: Fixing include path in `tsvd_mg.pyx`
+- PR #2506: Fix usage of CumlArray attributes on `cuml.common.base.Base`
 - PR #2593: Fix inconsistency in train_test_split
 - PR #2609: Fix small doxygen issues
 - PR #2610: Remove cuDF tolist call
 - PR #2613: Removing thresholds from kmeans score tests (SG+MG)
 - PR #2616: Small test code fix for pandas dtype tests
+- PR #2625: Update Estimator notebook to resolve errors
+- PR #2634: singlegpu build option fixes
+- PR #2651: AutoARIMA Python bug fix
+- PR #2654: Fix for vectorizer concatenations
 
 # cuML 0.14.0 (03 Jun 2020)
 
@@ -143,6 +164,7 @@
 - PR #2256: Add a `make_arima` generator
 - PR #2245: ElasticNet, Lasso and Coordinate Descent MNMG
 - PR #2242: Pandas input support with output as NumPy arrays by default
+- PR #2551: Add cuML RF multiclass prediction using FIL from python
 - PR #1728: Added notebook testing to gpuCI gpu build
 
 ## Improvements
