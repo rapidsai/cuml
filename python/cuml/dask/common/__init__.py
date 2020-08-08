@@ -14,12 +14,12 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.comms import CommsContext, worker_state, default_comms
+from cuml.dask.common.comms import CommsContext, worker_state
 
 from cuml.dask.common.comms_utils import inject_comms_on_handle, \
     perform_test_comms_allreduce, perform_test_comms_send_recv, \
     perform_test_comms_recv_any_rank, \
-    inject_comms_on_handle_coll_only, is_ucx_enabled
+    inject_comms_on_handle_coll_only
 
 from cuml.dask.common.dask_arr_utils import to_sparse_dask_array # NOQA
 

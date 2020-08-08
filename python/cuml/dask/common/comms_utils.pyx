@@ -32,11 +32,6 @@ cdef extern from "nccl.h":
     cdef struct ncclComm
     ctypedef ncclComm *ncclComm_t
 
-
-cdef extern from "common/cuML_comms_impl.cpp" namespace "MLCommon":
-    cdef cppclass cumlCommunicator
-
-
 cdef extern from "cuml/cuml.hpp" namespace "ML":
     cdef cppclass cumlHandle:
         cumlHandle() except +
@@ -54,19 +49,12 @@ cdef extern from "cuML_comms_py.hpp" namespace "ML":
                               int size,
                               int rank) except +
 
-    bool ucx_enabled()
-
-
 cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::Comms":
     bool test_collective_allreduce(const cumlHandle &h) except +
     bool test_pointToPoint_simple_send_recv(const cumlHandle &h,
                                             int numTrials) except +
     bool test_pointToPoint_recv_any_rank(const cumlHandle& h,
                                          int numTrials) except +
-
-
-def is_ucx_enabled():
-    return ucx_enabled()
 
 
 def perform_test_comms_allreduce(handle):

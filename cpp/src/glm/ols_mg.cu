@@ -100,7 +100,9 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc,
               std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
               bool fit_intercept, bool normalize, int algo, bool verbose) {
+  std::cout << "IN FIT";
   int rank = handle.getImpl().getCommunicator().get_rank();
+  std::cout << "SHOULD BE HERE";
 
   // TODO: These streams should come from cumlHandle
 
