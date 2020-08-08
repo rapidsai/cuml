@@ -15,7 +15,7 @@
  */
 
 #include <common/cumlHandle.hpp>
-#include <common/cuml_comms_int.hpp>
+#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -42,7 +42,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc, T *components,
               T *singular_vals, paramsTSVD prms, cudaStream_t *streams,
               int n_streams, bool verbose) {
-  const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
+  const auto &comm = handle.getImpl().getCommunicator();
   cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
   const std::shared_ptr<deviceAllocator> allocator =
     handle.getImpl().getDeviceAllocator();
@@ -87,7 +87,7 @@ template <typename T>
 void fit_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
               size_t n_parts, Matrix::Data<T> **input, T *components,
               T *singular_vals, paramsTSVD prms, bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.getImpl().getCommunicator().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
@@ -121,7 +121,7 @@ void transform_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input,
                     std::vector<Matrix::Data<T> *> &trans_input,
                     paramsTSVD prms, cudaStream_t *streams, int n_streams,
                     bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.getImpl().getCommunicator().get_rank();
 
   cublasHandle_t cublas_h = handle.getImpl().getCublasHandle();
   const std::shared_ptr<deviceAllocator> allocator =
@@ -162,7 +162,7 @@ void transform_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
                     size_t n_parts, Matrix::Data<T> **input, T *components,
                     Matrix::Data<T> **trans_input, paramsTSVD prms,
                     bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.getImpl().getCommunicator().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
@@ -237,7 +237,7 @@ void inverse_transform_impl(cumlHandle &handle,
                             Matrix::Data<T> **trans_input, T *components,
                             Matrix::Data<T> **input, paramsTSVD prms,
                             bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.getImpl().getCommunicator().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
@@ -288,7 +288,7 @@ void fit_transform_impl(cumlHandle &handle,
                         Matrix::PartDescriptor &trans_desc, T *components,
                         T *explained_var, T *explained_var_ratio,
                         T *singular_vals, paramsTSVD prms, bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.getImpl().getCommunicator().get_rank();
 
   // TODO: These streams should come from cumlHandle
   int n_streams = input_desc.blocksOwnedBy(rank).size();

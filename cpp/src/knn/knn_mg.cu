@@ -19,7 +19,7 @@
 
 #include <common/cumlHandle.hpp>
 
-#include <common/cuml_comms_int.hpp>
+#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 
@@ -33,7 +33,7 @@ namespace opg {
 
 void reduce(Matrix::Data<int64_t> *&out_I, Matrix::floatData_t *&out_D,
             device_buffer<int64_t> &res_I, device_buffer<float> &res_D,
-            Matrix::PartDescriptor &index_desc, const cumlCommunicator &comm,
+            Matrix::PartDescriptor &index_desc, const raft::comms::comms_t &comm,
             std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream,
             size_t cur_batch_size, int k, int local_parts_completed,
             int cur_batch, size_t total_n_processed, std::set<int> idxRanks) {
@@ -83,12 +83,12 @@ void perform_local_knn(int64_t *res_I, float *res_D,
 }
 
 void broadcast_query(float *query, size_t batch_input_elms, int part_rank,
-                     std::set<int> idxRanks, const cumlCommunicator &comm,
+                     std::set<int> idxRanks, const raft::comms::comms_t &comm,
                      cudaStream_t stream) {
-  int my_rank = comm.getRank();
+  int my_rank = comm.get_rank();
 
   int request_idx = 0;
-  std::vector<MLCommon::cumlCommunicator::request_t> requests;
+  std::vector<raft::comms::request_t> requests;
   if (part_rank == my_rank) {
     int idx_rank_size = idxRanks.size();
     if (idxRanks.find(my_rank) != idxRanks.end()) {
@@ -124,16 +124,16 @@ void broadcast_query(float *query, size_t batch_input_elms, int part_rank,
    * query batch to the root rank for the batch.
    */
 void exchange_results(device_buffer<int64_t> &res_I,
-                      device_buffer<float> &res_D, const cumlCommunicator &comm,
+                      device_buffer<float> &res_D, const raft::comms::comms_t &comm,
                       int part_rank, std::set<int> idxRanks,
                       cudaStream_t stream, size_t cur_batch_size, int k,
                       int local_parts_completed) {
-  int my_rank = comm.getRank();
+  int my_rank = comm.get_rank();
 
   size_t batch_elms = cur_batch_size * k;
 
   int request_idx = 0;
-  std::vector<MLCommon::cumlCommunicator::request_t> requests;
+  std::vector<raft::comms::request_t> requests;
   if (part_rank != my_rank) {
     requests.resize(2);
     comm.isend(res_I.data(), batch_elms, part_rank, 0,
@@ -203,17 +203,17 @@ void brute_force_knn(ML::cumlHandle &handle,
   }
 
   const ML::cumlHandle_impl &h = handle.getImpl();
-  const cumlCommunicator &comm = h.getCommunicator();
+  const auto &comm = h.getCommunicator();
   cudaStream_t stream = h.getStream();
 
   const std::shared_ptr<deviceAllocator> allocator = h.getDeviceAllocator();
 
-  int my_rank = comm.getRank();
+  int my_rank = comm.get_rank();
 
   std::set<int> idxRanks = idx_desc.uniqueRanks();
 
   std::vector<Matrix::RankSizePair *> local_idx_parts =
-    idx_desc.blocksOwnedBy(comm.getRank());
+    idx_desc.blocksOwnedBy(comm.get_rank());
 
   int local_parts_completed = 0;
 
@@ -245,7 +245,7 @@ void brute_force_knn(ML::cumlHandle &handle,
                   << std::endl;
       }
 
-      int my_rank = comm.getRank();
+      int my_rank = comm.get_rank();
       device_buffer<float> part_data(allocator, stream, 0);
 
       size_t batch_input_elms = cur_batch_size * query_desc.N;

@@ -15,7 +15,7 @@
  */
 
 #include <common/cumlHandle.hpp>
-#include <common/cuml_comms_int.hpp>
+#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -44,7 +44,7 @@ void ridgeSolve(const cumlHandle &handle, T *S, T *V,
                 bool verbose) {
   auto cublasH = handle.getImpl().getCublasHandle();
   auto cusolverH = handle.getImpl().getcusolverDnHandle();
-  const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
+  const auto &comm = handle.getImpl().getCommunicator();
   const std::shared_ptr<deviceAllocator> allocator =
     handle.getImpl().getDeviceAllocator();
 
@@ -86,14 +86,14 @@ void ridgeEig(cumlHandle &handle, const std::vector<Matrix::Data<T> *> &A,
               const std::vector<Matrix::Data<T> *> &b, const T *alpha,
               const int n_alpha, T *coef, cudaStream_t *streams, int n_streams,
               bool verbose) {
-  const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
+  const auto &comm = handle.getImpl().getCommunicator();
   const cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
   const cusolverDnHandle_t cusolver_handle =
     handle.getImpl().getcusolverDnHandle();
   const std::shared_ptr<deviceAllocator> allocator =
     handle.getImpl().getDeviceAllocator();
 
-  int rank = comm.getRank();
+  int rank = comm.get_rank();
 
   device_buffer<T> S(allocator, streams[0], ADesc.N);
   device_buffer<T> V(allocator, streams[0], ADesc.N * ADesc.N);
@@ -198,7 +198,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
               std::vector<Matrix::Data<T> *> &labels, T *alpha, int n_alpha,
               T *coef, T *intercept, bool fit_intercept, bool normalize,
               int algo, bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.getImpl().getCommunicator().get_rank();
 
   // TODO: These streams should come from cumlHandle
   // Tracking issue: https://github.com/rapidsai/cuml/issues/2470
@@ -249,7 +249,7 @@ void predict_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
                   size_t n_parts, Matrix::Data<T> **input, size_t n_rows,
                   size_t n_cols, T *coef, T intercept, Matrix::Data<T> **preds,
                   bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.getImpl().getCommunicator().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
