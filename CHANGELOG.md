@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #2637: Using RAFT comms in cuML
 
 ## Bug Fixes
 
