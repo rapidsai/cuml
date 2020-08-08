@@ -66,8 +66,7 @@ class cumlHandle_impl {
   void waitOnUserStream() const;
   void waitOnInternalStreams() const;
 
-  void setCommunicator(
-    std::shared_ptr<raft::comms::comms_t> communicator);
+  void setCommunicator(std::shared_ptr<raft::comms::comms_t> communicator);
   const raft::comms::comms_t& getCommunicator() const;
   bool commsInitialized() const;
 

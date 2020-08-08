@@ -16,7 +16,6 @@
 
 #include <linalg/transpose.h>
 #include <common/cumlHandle.hpp>
-#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -29,6 +28,7 @@
 #include <opg/stats/cov.hpp>
 #include <opg/stats/mean.hpp>
 #include <opg/stats/mean_center.hpp>
+#include <raft/comms/comms.hpp>
 #include <stats/mean_center.cuh>
 #include "pca.cuh"
 

@@ -15,7 +15,6 @@
  */
 
 #include <common/cumlHandle.hpp>
-#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -27,6 +26,7 @@
 #include <matrix/matrix.cuh>
 #include <opg/linalg/lstsq.hpp>
 #include <opg/stats/mean.hpp>
+#include <raft/comms/comms.hpp>
 
 using namespace MLCommon;
 

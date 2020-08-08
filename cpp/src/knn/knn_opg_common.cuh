@@ -54,9 +54,9 @@
 
 #include <common/cumlHandle.hpp>
 
-#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <raft/comms/comms.hpp>
 
 #include <set>
 
@@ -101,10 +101,11 @@ void broadcast_query(float *query, size_t batch_input_elms, int part_rank,
 
 template <typename T>
 void exchange_results(device_buffer<T> &res, device_buffer<int64_t> &res_I,
-                      device_buffer<float> &res_D, const raft::comms::comms_t &comm,
-                      int part_rank, std::set<int> idxRanks,
-                      cudaStream_t stream, size_t cur_batch_size, int k,
-                      int n_outputs, int local_parts_completed);
+                      device_buffer<float> &res_D,
+                      const raft::comms::comms_t &comm, int part_rank,
+                      std::set<int> idxRanks, cudaStream_t stream,
+                      size_t cur_batch_size, int k, int n_outputs,
+                      int local_parts_completed);
 
 void perform_local_knn(int64_t *res_I, float *res_D,
                        std::vector<Matrix::floatData_t *> &idx_data,

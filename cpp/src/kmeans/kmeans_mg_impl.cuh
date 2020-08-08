@@ -224,8 +224,7 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
 
   // <<< End of Step-2 >>>
 
-  ASSERT(comm.sync_stream(stream) ==
-           raft::comms::status_t::SUCCESS,
+  ASSERT(comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
          "An error occurred in the distributed operation. This can result from "
          "a failed rank");
 
@@ -253,8 +252,7 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     comm.allreduce(clusterCost.data(), clusterCost.data(), clusterCost.size(),
                    raft::comms::op_t::SUM, stream);
     MLCommon::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
-    ASSERT(comm.sync_stream(stream) ==
-             raft::comms::status_t::SUCCESS,
+    ASSERT(comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
            "An error occurred in the distributed operation. This can result "
            "from a failed rank");
 
@@ -279,8 +277,7 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     comm.allgather(&nPtsSampledByRank[my_rank], nPtsSampledByRank.data(), 1,
                    stream);
 
-    ASSERT(comm.sync_stream(stream) ==
-             raft::comms::status_t::SUCCESS,
+    ASSERT(comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
            "An error occurred in the distributed operation. This can result "
            "from a failed rank");
 
@@ -567,8 +564,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
       DataT curClusteringCost = 0;
       MLCommon::copy(&curClusteringCost, &clusterCostD->value, 1, stream);
 
-      ASSERT(comm.sync_stream(stream) ==
-               raft::comms::status_t::SUCCESS,
+      ASSERT(comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
              "An error occurred in the distributed operation. This can result "
              "from a failed rank");
       ASSERT(curClusteringCost != (DataT)0.0,
