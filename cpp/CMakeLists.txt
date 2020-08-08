@@ -171,27 +171,38 @@ endif(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/cmake/templates)
 
-GENERATE_FIND_MODULE(NAME cumlprims_mg
-                     HEADER_NAME cumlprims.hpp
-                     LIBRARY_NAME cumlprims
-                     LOCATION cumlprims)
+if(ENABLE_CUMLPRIMS_MG)
+  GENERATE_FIND_MODULE(
+    NAME         cumlprims_mg
+    HEADER_NAME  cumlprims.hpp
+    LIBRARY_NAME cumlprims
+    LOCATION     cumlprims)
+endif(ENABLE_CUMLPRIMS_MG)
 
-GENERATE_FIND_MODULE(NAME NCCL
-                     HEADER_NAME nccl.h
-                     LIBRARY_NAME nccl)
+if(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
+GENERATE_FIND_MODULE(
+  NAME         NCCL
+  HEADER_NAME  nccl.h
+  LIBRARY_NAME nccl)
+endif(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
 
-GENERATE_FIND_MODULE(NAME RMM
-                     HEADER_NAME rmm/device_buffer.hpp
-                     LIBRARY_NAME rmm)
+GENERATE_FIND_MODULE(
+  NAME         RMM
+  HEADER_NAME  rmm/device_buffer.hpp
+  LIBRARY_NAME rmm)
 
-GENERATE_FIND_MODULE(NAME UCX
-                     HEADER_NAME ucp/api/ucp.h
-                     LIBRARY_NAME ucp)
+if(BUILD_CUML_STD_COMMS)
+  GENERATE_FIND_MODULE(
+    NAME         UCX
+    HEADER_NAME  ucp/api/ucp.h
+    LIBRARY_NAME ucp)
+endif(BUILD_CUML_STD_COMMS)
 
 if(NOT BUILD_STATIC_FAISS)
-	GENERATE_FIND_MODULE(NAME FAISS
-	                     HEADER_NAME faiss/IndexFlat.h
-	                     LIBRARY_NAME faiss)
+  GENERATE_FIND_MODULE(
+    NAME         FAISS
+    HEADER_NAME  faiss/IndexFlat.h
+    LIBRARY_NAME faiss)
 endif(NOT BUILD_STATIC_FAISS)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
