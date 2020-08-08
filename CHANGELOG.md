@@ -133,7 +133,8 @@
 - PR #2616: Small test code fix for pandas dtype tests
 - PR #2625: Update Estimator notebook to resolve errors
 - PR #2634: singlegpu build option fixes
-- PR #2654: Fix for vecorizer concatenations
+- PR #2651: AutoARIMA Python bug fix
+- PR #2654: Fix for vectorizer concatenations
 
 # cuML 0.14.0 (03 Jun 2020)
 
