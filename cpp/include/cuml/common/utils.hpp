@@ -18,13 +18,13 @@
 
 #include <cuda_runtime.h>
 #include <execinfo.h>
+#include <raft/cudart_utils.h>
 #include <cstdio>
+#include <raft/error.hpp>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include "logger.hpp"
-#include <raft/cudart_utils.h>
-#include <raft/error.hpp>
 
 namespace MLCommon {
 /** base exception class for the cuML or ml-prims project */

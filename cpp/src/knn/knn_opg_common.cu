@@ -52,9 +52,9 @@
 
 #include <common/cumlHandle.hpp>
 
-#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <raft/comms/comms.hpp>
 
 #include <set>
 
@@ -322,10 +322,11 @@ void broadcast_query(float *query, size_t batch_input_elms, int part_rank,
    */
 template <typename T>
 void exchange_results(device_buffer<T> &res, device_buffer<int64_t> &res_I,
-                      device_buffer<float> &res_D, const raft::comms::comms_t &comm,
-                      int part_rank, std::set<int> idxRanks,
-                      cudaStream_t stream, size_t cur_batch_size, int k,
-                      int n_outputs, int local_parts_completed) {
+                      device_buffer<float> &res_D,
+                      const raft::comms::comms_t &comm, int part_rank,
+                      std::set<int> idxRanks, cudaStream_t stream,
+                      size_t cur_batch_size, int k, int n_outputs,
+                      int local_parts_completed) {
   int my_rank = comm.get_rank();
 
   size_t batch_elms = cur_batch_size * k;
@@ -630,13 +631,11 @@ template void reduce<float>(
   bool probas_only, std::vector<std::vector<float *>> *probas,
   std::vector<int *> *uniq_labels, std::vector<int> *n_unique);
 
-template void exchange_results<int>(device_buffer<int> &res,
-                                    device_buffer<int64_t> &res_I,
-                                    device_buffer<float> &res_D,
-                                    const raft::comms::comms_t &comm, int part_rank,
-                                    std::set<int> idxRanks, cudaStream_t stream,
-                                    size_t cur_batch_size, int k, int n_outputs,
-                                    int local_parts_completed);
+template void exchange_results<int>(
+  device_buffer<int> &res, device_buffer<int64_t> &res_I,
+  device_buffer<float> &res_D, const raft::comms::comms_t &comm, int part_rank,
+  std::set<int> idxRanks, cudaStream_t stream, size_t cur_batch_size, int k,
+  int n_outputs, int local_parts_completed);
 
 template void exchange_results<float>(
   device_buffer<float> &res, device_buffer<int64_t> &res_I,

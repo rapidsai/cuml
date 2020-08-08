@@ -15,7 +15,6 @@
  */
 
 #include <common/cumlHandle.hpp>
-#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -31,6 +30,7 @@
 #include <matrix/matrix.cuh>
 #include <opg/linalg/mv_aTb.hpp>
 #include <opg/linalg/norm.hpp>
+#include <raft/comms/comms.hpp>
 #include "shuffle.h"
 
 using namespace MLCommon;
@@ -95,8 +95,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
     }
   }
 
-  comm.bcast(ri_h, input_desc.N, 0,
-             streams[0]);
+  comm.bcast(ri_h, input_desc.N, 0, streams[0]);
   comm.sync_stream(streams[0]);
 
   T l2_alpha = (1 - l1_ratio) * alpha * input_desc.M;
@@ -145,8 +144,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
         }
       }
 
-      comm.bcast(ri_h, input_desc.N, 0,
-                 streams[0]);
+      comm.bcast(ri_h, input_desc.N, 0, streams[0]);
       comm.sync_stream(streams[0]);
     }
 

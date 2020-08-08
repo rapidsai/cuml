@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/comms/std_comms.hpp>
 #include <raft/comms/comms.hpp>
+#include <raft/comms/std_comms.hpp>
 
 #include <common/cumlHandle.hpp>
 

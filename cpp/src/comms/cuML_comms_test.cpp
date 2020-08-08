@@ -17,9 +17,9 @@
 #include "cuML_comms_test.hpp"
 
 #include <common/cumlHandle.hpp>
-#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <iostream>
+#include <raft/comms/comms.hpp>
 
 namespace ML {
 namespace Comms {
@@ -126,8 +126,7 @@ bool test_pointToPoint_recv_any_rank(const ML::cumlHandle& h, int numTrials) {
     //post receives
     for (int r = 0; r < communicator.get_size(); ++r) {
       if (r != rank) {
-        communicator.irecv(received_data.data() + request_idx, 1,
-                           -1, 0,
+        communicator.irecv(received_data.data() + request_idx, 1, -1, 0,
                            requests.data() + request_idx);
         ++request_idx;
       }

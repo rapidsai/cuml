@@ -39,10 +39,10 @@
 
 #include <common/allocatorAdapter.hpp>
 #include <common/cumlHandle.hpp>
-#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
 #include <common/tensor.hpp>
+#include <raft/comms/comms.hpp>
 
 #include <cuml/common/logger.hpp>
 
@@ -52,17 +52,17 @@
 
 namespace ML {
 
-#define LOG(handle, fmt, ...)                                            \
-  do {                                                                   \
-    bool isRoot = true;                                                  \
-    if (handle.commsInitialized()) {                                     \
+#define LOG(handle, fmt, ...)                      \
+  do {                                             \
+    bool isRoot = true;                            \
+    if (handle.commsInitialized()) {               \
       const auto &comm = handle.getCommunicator(); \
-      const int my_rank = comm.get_rank();                                \
-      isRoot = my_rank == 0;                                             \
-    }                                                                    \
-    if (isRoot) {                                                        \
-      CUML_LOG_DEBUG(fmt, ##__VA_ARGS__);                                \
-    }                                                                    \
+      const int my_rank = comm.get_rank();         \
+      isRoot = my_rank == 0;                       \
+    }                                              \
+    if (isRoot) {                                  \
+      CUML_LOG_DEBUG(fmt, ##__VA_ARGS__);          \
+    }                                              \
   } while (0)
 
 namespace kmeans {

@@ -19,9 +19,9 @@
 
 #include <common/cumlHandle.hpp>
 
-#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <raft/comms/comms.hpp>
 
 #include <set>
 
@@ -33,7 +33,8 @@ namespace opg {
 
 void reduce(Matrix::Data<int64_t> *&out_I, Matrix::floatData_t *&out_D,
             device_buffer<int64_t> &res_I, device_buffer<float> &res_D,
-            Matrix::PartDescriptor &index_desc, const raft::comms::comms_t &comm,
+            Matrix::PartDescriptor &index_desc,
+            const raft::comms::comms_t &comm,
             std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream,
             size_t cur_batch_size, int k, int local_parts_completed,
             int cur_batch, size_t total_n_processed, std::set<int> idxRanks) {
@@ -124,10 +125,10 @@ void broadcast_query(float *query, size_t batch_input_elms, int part_rank,
    * query batch to the root rank for the batch.
    */
 void exchange_results(device_buffer<int64_t> &res_I,
-                      device_buffer<float> &res_D, const raft::comms::comms_t &comm,
-                      int part_rank, std::set<int> idxRanks,
-                      cudaStream_t stream, size_t cur_batch_size, int k,
-                      int local_parts_completed) {
+                      device_buffer<float> &res_D,
+                      const raft::comms::comms_t &comm, int part_rank,
+                      std::set<int> idxRanks, cudaStream_t stream,
+                      size_t cur_batch_size, int k, int local_parts_completed) {
   int my_rank = comm.get_rank();
 
   size_t batch_elms = cur_batch_size * k;
