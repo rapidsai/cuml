@@ -15,13 +15,13 @@
 
 import time
 from collections import OrderedDict
+import warnings
 
 from dask.distributed import get_worker
 
 from .comms_utils import inject_comms_on_handle, \
     inject_comms_on_handle_coll_only
 from cuml.common.handle import Handle
-import cuml.common.logger as logger
 
 from cuml.raft.dask.common.comms import Comms
 from cuml.raft.dask.common.comms import get_ucx
@@ -142,11 +142,11 @@ class CommsContext(Comms):
 
     def __init__(self, comms_p2p=False, client=None, verbose=False,
                  streams_per_handle=0):
-        super(CommsContext, self).__init__(comms_p2p=comms_p2p,
-                                           client=client,
-                                           verbose=verbose,
-                                           streams_per_handle=streams_per_handle)
-        
+        super().__init__(comms_p2p=comms_p2p,
+                         client=client,
+                         verbose=verbose,
+                         streams_per_handle=streams_per_handle)
+
     def init(self, workers=None):
         """
         Initializes the underlying comms. NCCL is required but
