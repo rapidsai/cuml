@@ -149,6 +149,9 @@ if "--singlegpu" in sys.argv:
     cython_exc_list.append('cuml/nccl/nccl.pyx')
     cython_exc_list.append('cuml/dask/common/comms_utils.pyx')
 
+    cython_exc_list.append('cuml/raft/dask/common/nccl.pyx')
+    cython_exc_list.append('cuml/raft/dask/common/comms_utils.pyx')
+
     print('--singlegpu: excluding the following Cython components:')
     pprint(cython_exc_list)
 
