@@ -15,7 +15,7 @@
  */
 
 #include <common/cumlHandle.hpp>
-#include <common/cuml_comms_int.hpp>
+#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -42,7 +42,7 @@ void preProcessData_impl(cumlHandle &handle,
                          T *mu_labels, T *norm2_input, bool fit_intercept,
                          bool normalize, cudaStream_t *streams, int n_streams,
                          bool verbose) {
-  const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
+  const auto &comm = handle.getImpl().getCommunicator();
   cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
   cusolverDnHandle_t cusolver_handle = handle.getImpl().getcusolverDnHandle();
   const std::shared_ptr<deviceAllocator> allocator =
@@ -84,7 +84,7 @@ void postProcessData_impl(cumlHandle &handle,
                           T *intercept, T *mu_input, T *mu_labels,
                           T *norm2_input, bool fit_intercept, bool normalize,
                           cudaStream_t *streams, int n_streams, bool verbose) {
-  const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
+  const auto &comm = handle.getImpl().getCommunicator();
   cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
   cusolverDnHandle_t cusolver_handle = handle.getImpl().getcusolverDnHandle();
   const std::shared_ptr<deviceAllocator> allocator =

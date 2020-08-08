@@ -15,7 +15,7 @@
  */
 
 #include <common/cumlHandle.hpp>
-#include <common/cuml_comms_int.hpp>
+#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -40,7 +40,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
               std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
               bool fit_intercept, bool normalize, int algo,
               cudaStream_t *streams, int n_streams, bool verbose) {
-  const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
+  const auto &comm = handle.getImpl().getCommunicator();
   cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
   cusolverDnHandle_t cusolver_handle = handle.getImpl().getcusolverDnHandle();
   const std::shared_ptr<deviceAllocator> allocator =
@@ -100,7 +100,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc,
               std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
               bool fit_intercept, bool normalize, int algo, bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.getImpl().getCommunicator().get_rank();
 
   // TODO: These streams should come from cumlHandle
 
@@ -149,7 +149,7 @@ void predict_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
                   size_t n_parts, Matrix::Data<T> **input, size_t n_rows,
                   size_t n_cols, T *coef, T intercept, Matrix::Data<T> **preds,
                   bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.getImpl().getCommunicator().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);

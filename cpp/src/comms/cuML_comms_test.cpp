@@ -17,7 +17,7 @@
 #include "cuML_comms_test.hpp"
 
 #include <common/cumlHandle.hpp>
-#include <common/cuml_comms_int.hpp>
+#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <iostream>
 
@@ -27,7 +27,7 @@ namespace Comms {
 bool test_collective_allreduce(const ML::cumlHandle& h) {
   const cumlHandle_impl& handle = h.getImpl();
   ML::detail::streamSyncer _(handle);
-  const MLCommon::cumlCommunicator& communicator = handle.getCommunicator();
+  const auto& communicator = handle.getCommunicator();
 
   const int send = 1;
 
@@ -38,34 +38,34 @@ bool test_collective_allreduce(const ML::cumlHandle& h) {
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
   communicator.allreduce(temp_d.data(), temp_d.data(), 1,
-                         MLCommon::cumlCommunicator::SUM, stream);
+                         raft::comms::op_t::SUM, stream);
   int temp_h = 0;
   CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
 
-  std::cout << "Clique size: " << communicator.getSize() << std::endl;
+  std::cout << "Clique size: " << communicator.get_size() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
 
-  return temp_h == communicator.getSize();
+  return temp_h == communicator.get_size();
 }
 
 bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
                                         int numTrials) {
   const cumlHandle_impl& handle = h.getImpl();
-  const MLCommon::cumlCommunicator& communicator = handle.getCommunicator();
-  const int rank = communicator.getRank();
+  const auto& communicator = handle.getCommunicator();
+  const int rank = communicator.get_rank();
 
   bool ret = true;
   for (int i = 0; i < numTrials; i++) {
-    std::vector<int> received_data((communicator.getSize() - 1), -1);
+    std::vector<int> received_data((communicator.get_size() - 1), -1);
 
-    std::vector<MLCommon::cumlCommunicator::request_t> requests;
-    requests.resize(2 * (communicator.getSize() - 1));
+    std::vector<raft::comms::request_t> requests;
+    requests.resize(2 * (communicator.get_size() - 1));
     int request_idx = 0;
     //post receives
-    for (int r = 0; r < communicator.getSize(); ++r) {
+    for (int r = 0; r < communicator.get_size(); ++r) {
       if (r != rank) {
         communicator.irecv(received_data.data() + request_idx, 1, r, 0,
                            requests.data() + request_idx);
@@ -73,7 +73,7 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
       }
     }
 
-    for (int r = 0; r < communicator.getSize(); ++r) {
+    for (int r = 0; r < communicator.get_size(); ++r) {
       if (r != rank) {
         communicator.isend(&rank, 1, r, 0, requests.data() + request_idx);
         ++request_idx;
@@ -83,14 +83,14 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
     communicator.waitall(requests.size(), requests.data());
     communicator.barrier();
 
-    if (communicator.getRank() == 0) {
+    if (communicator.get_rank() == 0) {
       std::cout << "=========================" << std::endl;
       std::cout << "Trial " << i << std::endl;
     }
 
-    for (int printrank = 0; printrank < communicator.getSize(); ++printrank) {
-      if (communicator.getRank() == printrank) {
-        std::cout << "Rank " << communicator.getRank() << " received: [";
+    for (int printrank = 0; printrank < communicator.get_size(); ++printrank) {
+      if (communicator.get_rank() == printrank) {
+        std::cout << "Rank " << communicator.get_rank() << " received: [";
         for (int i = 0; i < received_data.size(); i++) {
           auto rec = received_data[i];
           std::cout << rec;
@@ -104,7 +104,7 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
       communicator.barrier();
     }
 
-    if (communicator.getRank() == 0)
+    if (communicator.get_rank() == 0)
       std::cout << "=========================" << std::endl;
   }
 
@@ -113,27 +113,27 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
 
 bool test_pointToPoint_recv_any_rank(const ML::cumlHandle& h, int numTrials) {
   const cumlHandle_impl& handle = h.getImpl();
-  const MLCommon::cumlCommunicator& communicator = handle.getCommunicator();
-  const int rank = communicator.getRank();
+  const auto& communicator = handle.getCommunicator();
+  const int rank = communicator.get_rank();
 
   bool ret = true;
   for (int i = 0; i < numTrials; i++) {
-    std::vector<int> received_data((communicator.getSize() - 1), -1);
+    std::vector<int> received_data((communicator.get_size() - 1), -1);
 
-    std::vector<MLCommon::cumlCommunicator::request_t> requests;
-    requests.resize(2 * (communicator.getSize() - 1));
+    std::vector<raft::comms::request_t> requests;
+    requests.resize(2 * (communicator.get_size() - 1));
     int request_idx = 0;
     //post receives
-    for (int r = 0; r < communicator.getSize(); ++r) {
+    for (int r = 0; r < communicator.get_size(); ++r) {
       if (r != rank) {
         communicator.irecv(received_data.data() + request_idx, 1,
-                           MLCommon::cumlCommunicator::CUML_ANY_SOURCE, 0,
+                           -1, 0,
                            requests.data() + request_idx);
         ++request_idx;
       }
     }
 
-    for (int r = 0; r < communicator.getSize(); ++r) {
+    for (int r = 0; r < communicator.get_size(); ++r) {
       if (r != rank) {
         communicator.isend(&rank, 1, r, 0, requests.data() + request_idx);
         ++request_idx;
@@ -144,14 +144,14 @@ bool test_pointToPoint_recv_any_rank(const ML::cumlHandle& h, int numTrials) {
     communicator.waitall(requests.size(), requests.data());
     communicator.barrier();
 
-    if (communicator.getRank() == 0) {
+    if (communicator.get_rank() == 0) {
       std::cout << "=========================" << std::endl;
       std::cout << "Trial " << i << std::endl;
     }
 
-    for (int printrank = 0; printrank < communicator.getSize(); ++printrank) {
-      if (communicator.getRank() == printrank) {
-        std::cout << "Rank " << communicator.getRank() << " received: [";
+    for (int printrank = 0; printrank < communicator.get_size(); ++printrank) {
+      if (communicator.get_rank() == printrank) {
+        std::cout << "Rank " << communicator.get_rank() << " received: [";
         for (int i = 0; i < received_data.size(); i++) {
           auto rec = received_data[i];
           std::cout << rec;
@@ -164,7 +164,7 @@ bool test_pointToPoint_recv_any_rank(const ML::cumlHandle& h, int numTrials) {
       communicator.barrier();
     }
 
-    if (communicator.getRank() == 0)
+    if (communicator.get_rank() == 0)
       std::cout << "=========================" << std::endl;
   }
 

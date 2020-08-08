@@ -18,7 +18,7 @@
 #include <thrust/execution_policy.h>
 #include <common/allocatorAdapter.hpp>
 #include <common/cumlHandle.hpp>
-#include <common/cuml_comms_int.hpp>
+#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -124,9 +124,9 @@ template <typename T>
 void sign_flip_imp(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input,
                    Matrix::PartDescriptor &input_desc, T *components,
                    int n_components, cudaStream_t *streams, int n_stream) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.getImpl().getCommunicator().get_rank();
 
-  const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
+  const auto &comm = handle.getImpl().getCommunicator();
   const std::shared_ptr<deviceAllocator> allocator =
     handle.getImpl().getDeviceAllocator();
 
@@ -134,7 +134,7 @@ void sign_flip_imp(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input,
     input_desc.blocksOwnedBy(rank);
   device_buffer<T> max_vals(
     allocator, streams[0],
-    std::max(size_t(comm.getSize()), local_blocks.size()) * n_components);
+    std::max(size_t(comm.get_size()), local_blocks.size()) * n_components);
 
   for (int i = 0; i < input.size(); i++) {
     T *mv_loc = max_vals.data() + (i * n_components);
@@ -150,9 +150,9 @@ void sign_flip_imp(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input,
                       max_vals.data(), allocator, streams[0], true);
 
   comm.allgather(max_vals.data(), max_vals.data(), n_components, streams[0]);
-  comm.syncStream(streams[0]);
+  comm.sync_stream(streams[0]);
 
-  findMaxAbsOfColumns(max_vals.data(), n_components, comm.getSize(),
+  findMaxAbsOfColumns(max_vals.data(), n_components, comm.get_size(),
                       max_vals.data(), allocator, streams[0], true);
 
   for (int i = 0; i < local_blocks.size(); i++) {

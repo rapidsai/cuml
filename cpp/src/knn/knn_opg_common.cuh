@@ -54,7 +54,7 @@
 
 #include <common/cumlHandle.hpp>
 
-#include <common/cuml_comms_int.hpp>
+#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 
@@ -96,12 +96,12 @@ void reduce(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
             std::vector<int> *n_unique = nullptr);
 
 void broadcast_query(float *query, size_t batch_input_elms, int part_rank,
-                     std::set<int> idxRanks, const cumlCommunicator &comm,
+                     std::set<int> idxRanks, const raft::comms::comms_t &comm,
                      cudaStream_t stream);
 
 template <typename T>
 void exchange_results(device_buffer<T> &res, device_buffer<int64_t> &res_I,
-                      device_buffer<float> &res_D, const cumlCommunicator &comm,
+                      device_buffer<float> &res_D, const raft::comms::comms_t &comm,
                       int part_rank, std::set<int> idxRanks,
                       cudaStream_t stream, size_t cur_batch_size, int k,
                       int n_outputs, int local_parts_completed);

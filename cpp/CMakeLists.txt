@@ -362,7 +362,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/arima/batched_arima.cu
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
-    src/common/cuML_comms_impl.cpp
     src/common/logger.cpp
     src/common/nvtx.cu
     src/comms/cuML_comms_test.cpp

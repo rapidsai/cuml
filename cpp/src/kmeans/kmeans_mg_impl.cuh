@@ -28,14 +28,14 @@ template <typename DataT, typename IndexT>
 void initRandom(const ML::cumlHandle_impl &handle, const KMeansParams &params,
                 Tensor<DataT, 2, IndexT> &X,
                 MLCommon::device_buffer<DataT> &centroidsRawData) {
-  const MLCommon::cumlCommunicator &comm = handle.getCommunicator();
+  const auto &comm = handle.getCommunicator();
   cudaStream_t stream = handle.getStream();
   auto n_local_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
 
-  const int my_rank = comm.getRank();
-  const int n_ranks = comm.getSize();
+  const int my_rank = comm.get_rank();
+  const int n_ranks = comm.get_size();
 
   // allocate centroids buffer
   centroidsRawData.resize(n_clusters * n_features, stream);
@@ -43,7 +43,7 @@ void initRandom(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     centroidsRawData.data(), {n_clusters, n_features}));
 
   std::vector<int> nCentroidsSampledByRank(n_ranks, 0);
-  std::vector<int> nCentroidsElementsToReceiveFromRank(n_ranks, 0);
+  std::vector<size_t> nCentroidsElementsToReceiveFromRank(n_ranks, 0);
 
   const int nranks_reqd = std::min(n_ranks, n_clusters);
   ASSERT(KMEANS_COMM_ROOT < nranks_reqd,
@@ -105,10 +105,10 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
                         const KMeansParams &params, Tensor<DataT, 2, IndexT> &X,
                         MLCommon::device_buffer<DataT> &centroidsRawData,
                         MLCommon::device_buffer<char> &workspace) {
-  const MLCommon::cumlCommunicator &comm = handle.getCommunicator();
+  const auto &comm = handle.getCommunicator();
   cudaStream_t stream = handle.getStream();
-  const int my_rank = comm.getRank();
-  const int n_rank = comm.getSize();
+  const int my_rank = comm.get_rank();
+  const int n_rank = comm.get_size();
 
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
@@ -217,15 +217,15 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
   // compute total cluster cost by accumulating the partial cost from all the
   // ranks
   comm.allreduce(clusterCost.data(), clusterCost.data(), clusterCost.size(),
-                 MLCommon::cumlCommunicator::SUM, stream);
+                 raft::comms::op_t::SUM, stream);
 
   DataT psi = 0;
   MLCommon::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
 
   // <<< End of Step-2 >>>
 
-  ASSERT(comm.syncStream(stream) ==
-           MLCommon::cumlCommunicator::status_t::commStatusSuccess,
+  ASSERT(comm.sync_stream(stream) ==
+           raft::comms::status_t::SUCCESS,
          "An error occurred in the distributed operation. This can result from "
          "a failed rank");
 
@@ -251,10 +251,10 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
       handle, minClusterDistance, workspace, clusterCost.data(),
       [] __device__(const DataT &a, const DataT &b) { return a + b; }, stream);
     comm.allreduce(clusterCost.data(), clusterCost.data(), clusterCost.size(),
-                   MLCommon::cumlCommunicator::SUM, stream);
+                   raft::comms::op_t::SUM, stream);
     MLCommon::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
-    ASSERT(comm.syncStream(stream) ==
-             MLCommon::cumlCommunicator::status_t::commStatusSuccess,
+    ASSERT(comm.sync_stream(stream) ==
+             raft::comms::status_t::SUCCESS,
            "An error occurred in the distributed operation. This can result "
            "from a failed rank");
 
@@ -279,8 +279,8 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     comm.allgather(&nPtsSampledByRank[my_rank], nPtsSampledByRank.data(), 1,
                    stream);
 
-    ASSERT(comm.syncStream(stream) ==
-             MLCommon::cumlCommunicator::status_t::commStatusSuccess,
+    ASSERT(comm.sync_stream(stream) ==
+             raft::comms::status_t::SUCCESS,
            "An error occurred in the distributed operation. This can result "
            "from a failed rank");
 
@@ -288,7 +288,7 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
                                      nPtsSampledByRank.end(), 0);
 
     // gather centroids from all ranks
-    std::vector<int> sizes(n_rank);
+    std::vector<size_t> sizes(n_rank);
     thrust::transform(thrust::host, nPtsSampledByRank.begin(),
                       nPtsSampledByRank.end(), sizes.begin(),
                       [&](int val) { return val * n_features; });
@@ -327,7 +327,7 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     comm.allreduce<DataT>(weight.data(),         // sendbuff
                           weight.data(),         // recvbuff
                           weight.numElements(),  // count
-                          MLCommon::cumlCommunicator::SUM, stream);
+                          raft::comms::op_t::SUM, stream);
 
     // <<< end of Step-7 >>>
 
@@ -382,7 +382,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
          Tensor<DataT, 2, IndexT> &X,
          MLCommon::device_buffer<DataT> &centroidsRawData, DataT &inertia,
          int &n_iter, MLCommon::device_buffer<char> &workspace) {
-  const MLCommon::cumlCommunicator &comm = handle.getCommunicator();
+  const auto &comm = handle.getCommunicator();
   cudaStream_t stream = handle.getStream();
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
@@ -465,13 +465,13 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     comm.allreduce<int>(sampleCountInCluster.data(),         // sendbuff
                         sampleCountInCluster.data(),         // recvbuff
                         sampleCountInCluster.numElements(),  // count
-                        MLCommon::cumlCommunicator::SUM, stream);
+                        raft::comms::op_t::SUM, stream);
 
     // reduces newCentroids from all ranks
     comm.allreduce<DataT>(newCentroids.data(),         // sendbuff
                           newCentroids.data(),         // recvbuff
                           newCentroids.numElements(),  // count
-                          MLCommon::cumlCommunicator::SUM, stream);
+                          raft::comms::op_t::SUM, stream);
 
     // Computes newCentroids[i] = newCentroids[i]/sampleCountInCluster[i] where
     //   newCentroids[n_samples x n_features] - 2D array, newCentroids[i] has
@@ -562,13 +562,13 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
       // Cluster cost phi_x(C) from all ranks
       comm.allreduce(&clusterCostD->value, &clusterCostD->value, 1,
-                     MLCommon::cumlCommunicator::SUM, stream);
+                     raft::comms::op_t::SUM, stream);
 
       DataT curClusteringCost = 0;
       MLCommon::copy(&curClusteringCost, &clusterCostD->value, 1, stream);
 
-      ASSERT(comm.syncStream(stream) ==
-               MLCommon::cumlCommunicator::status_t::commStatusSuccess,
+      ASSERT(comm.sync_stream(stream) ==
+               raft::comms::status_t::SUCCESS,
              "An error occurred in the distributed operation. This can result "
              "from a failed rank");
       ASSERT(curClusteringCost != (DataT)0.0,

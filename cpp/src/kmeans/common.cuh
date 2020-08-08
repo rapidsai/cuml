@@ -39,7 +39,7 @@
 
 #include <common/allocatorAdapter.hpp>
 #include <common/cumlHandle.hpp>
-#include <common/cuml_comms_int.hpp>
+#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
 #include <common/tensor.hpp>
@@ -56,8 +56,8 @@ namespace ML {
   do {                                                                   \
     bool isRoot = true;                                                  \
     if (handle.commsInitialized()) {                                     \
-      const MLCommon::cumlCommunicator &comm = handle.getCommunicator(); \
-      const int my_rank = comm.getRank();                                \
+      const auto &comm = handle.getCommunicator(); \
+      const int my_rank = comm.get_rank();                                \
       isRoot = my_rank == 0;                                             \
     }                                                                    \
     if (isRoot) {                                                        \

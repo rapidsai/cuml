@@ -16,7 +16,7 @@
 
 #include <linalg/transpose.h>
 #include <common/cumlHandle.hpp>
-#include <common/cuml_comms_int.hpp>
+#include <raft/comms/comms.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -44,7 +44,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
               T *explained_var, T *explained_var_ratio, T *singular_vals, T *mu,
               T *noise_vars, paramsPCAMG prms, cudaStream_t *streams,
               int n_streams, bool verbose) {
-  const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
+  const auto &comm = handle.getImpl().getCommunicator();
   cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
   const std::shared_ptr<deviceAllocator> allocator =
     handle.getImpl().getDeviceAllocator();
@@ -92,7 +92,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc, T *components,
               T *explained_var, T *explained_var_ratio, T *singular_vals, T *mu,
               T *noise_vars, paramsPCAMG prms, bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.getImpl().getCommunicator().get_rank();
 
   // TODO: These streams should come from cumlHandle
   // Reference issue https://github.com/rapidsai/cuml/issues/2470
@@ -114,7 +114,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
     const ML::cumlHandle_impl &h = handle.getImpl();
     cudaStream_t stream = h.getStream();
     const std::shared_ptr<deviceAllocator> allocator = h.getDeviceAllocator();
-    const cumlCommunicator &comm = h.getCommunicator();
+    const auto &comm = h.getCommunicator();
 
     // Center the data
     Matrix::Data<T> mu_data{mu, size_t(prms.n_cols)};
@@ -255,7 +255,7 @@ void transform_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
   // We want to update the API of this function, and other functions with
   // regards to https://github.com/rapidsai/cuml/issues/2471
 
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.getImpl().getCommunicator().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
@@ -351,7 +351,7 @@ void inverse_transform_impl(cumlHandle &handle,
                             Matrix::Data<T> **trans_input, T *components,
                             Matrix::Data<T> **input, T *singular_vals, T *mu,
                             paramsPCAMG prms, bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.getImpl().getCommunicator().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
@@ -403,7 +403,7 @@ void fit_transform_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
                         T *explained_var, T *explained_var_ratio,
                         T *singular_vals, T *mu, T *noise_vars,
                         paramsPCAMG prms, bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.getImpl().getCommunicator().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
