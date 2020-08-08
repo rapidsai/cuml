@@ -19,7 +19,7 @@ import random
 
 from dask.distributed import wait
 
-from cuml.dask.common.comms import CommsContext, worker_state, default_comms
+from cuml.dask.common.comms import CommsContext, worker_state
 from cuml.dask.common import perform_test_comms_send_recv
 from cuml.dask.common import perform_test_comms_allreduce
 from cuml.dask.common import perform_test_comms_recv_any_rank
@@ -54,34 +54,6 @@ def func_test_send_recv(sessionId, n_trials, r):
 def func_test_recv_any_rank(sessionId, n_trials, r):
     handle = worker_state(sessionId)["handle"]
     return perform_test_comms_recv_any_rank(handle, n_trials)
-
-
-@pytest.mark.skip(reason="default_comms() not yet being used")
-def test_default_comms_no_exist(client):
-
-    try:
-        cb = default_comms()
-        assert cb is not None
-
-        cb2 = default_comms()
-        assert cb.sessionId == cb2.sessionId
-
-    finally:
-        cb.destroy()
-
-
-@pytest.mark.skip(reason="default_comms() not yet being used")
-def test_default_comms(client):
-
-    try:
-        cb = CommsContext(comms_p2p=True, client=client)
-        cb.init()
-
-        comms = default_comms()
-        assert(cb.sessionId == comms.sessionId)
-
-    finally:
-        comms.destroy()
 
 
 @pytest.mark.nccl
