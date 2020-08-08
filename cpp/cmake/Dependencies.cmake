@@ -136,7 +136,7 @@ if(BUILD_STATIC_FAISS)
     "Path to FAISS source directory")
   ExternalProject_Add(faiss
     GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
-    GIT_TAG           v1.6.2
+    GIT_TAG           13a2d4ef8fcb4aa8b92718ef4b9cc211033e7318
     CONFIGURE_COMMAND LIBS=-pthread
                       CPPFLAGS=-w
                       LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
