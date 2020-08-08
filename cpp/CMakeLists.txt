@@ -64,6 +64,8 @@ option(BUILD_CUML_STD_COMMS "Build the standard NCCL+UCX Communicator" ON)
 
 option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
 
+option(BUILD_STATIC_FAISS "Build the FAISS library for nearest neighbors search on GPU" OFF)
+
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
@@ -185,6 +187,12 @@ GENERATE_FIND_MODULE(NAME RMM
 GENERATE_FIND_MODULE(NAME UCX
                      HEADER_NAME ucp/api/ucp.h
                      LIBRARY_NAME ucp)
+
+if(NOT BUILD_STATIC_FAISS)
+	GENERATE_FIND_MODULE(NAME FAISS
+	                     HEADER_NAME faiss/IndexFlat.h
+	                     LIBRARY_NAME faiss)
+endif(NOT BUILD_STATIC_FAISS)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
 
@@ -317,11 +325,11 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/src_prims
   ${CMAKE_CURRENT_SOURCE_DIR}/test/prims
-  ${FAISS_DIR}/src/
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
   ${SPDLOG_DIR}/src/spdlog/include
+  ${FAISS_INCLUDE_DIRS}
   ${RAFT_DIR}/cpp/include
   ${RMM_INCLUDE_DIRS}
   )
@@ -334,12 +342,14 @@ set(CUML_PUBLIC_LINK_LIBRARIES
   ${CUDA_cusparse_LIBRARY}
   )
 
+
 set(CUML_PRIVATE_LINK_LIBRARIES
-  faisslib
+  FAISS::FAISS
   treelite::treelite
   treelite::treelite_runtime
   RMM::RMM
   )
+
 
 if(ENABLE_CUMLPRIMS_MG)
   list(APPEND CUML_INCLUDE_DIRECTORIES

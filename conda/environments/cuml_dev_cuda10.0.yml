@@ -11,8 +11,8 @@ dependencies:
 - cmake=3.14.5
 - numba>=0.46
 - cupy>=7,<8.0.0a0
-- cudf=0.15*
-- rmm=0.15*
+- cudf=0.16*
+- rmm=0.16*
 - cython>=0.29,<0.30
 - pytest>=4.6
 - pytest-timeout
@@ -21,12 +21,12 @@ dependencies:
 - scikit-learn>=0.21
 - dask>=2.12.0
 - distributed>=2.12.0
-- dask-cuda=0.15*
-- dask-cudf=0.15*
+- dask-cuda=0.16*
+- dask-cudf=0.16*
 - dask-ml
-- ucx-py=0.15*
+- ucx-py=0.16*
 - nccl>=2.5
-- libcumlprims=0.15.0a200720
+- libcumlprims=0.16.0a200720
 - statsmodels
 - treelite=0.92
 - doxygen
@@ -35,6 +35,8 @@ dependencies:
 - numpydoc
 - nbsphinx
 - recommonmark
+- faiss-proc=*=cuda
+- libfaiss
 - ipython
 - pip
 - pip:

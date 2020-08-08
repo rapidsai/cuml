@@ -33,7 +33,7 @@ from cuml.common.base import Base, RegressorMixin
 from cuml.metrics import r2_score
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
-from libcpp cimport bool
+from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
@@ -79,7 +79,8 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                              int n_rows, int n_cols, math_t *labels,
                              const svmParameter &param,
                              KernelParams &kernel_params,
-                             svmModel[math_t] &model) except+
+                             svmModel[math_t] &model,
+                             const math_t *sample_weight) except+
 
     cdef void svcPredict[math_t](
         const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
@@ -95,7 +96,8 @@ cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM":
                              int n_rows, int n_cols, math_t *y,
                              const svmParameter &param,
                              KernelParams &kernel_params,
-                             svmModel[math_t] &model) except+
+                             svmModel[math_t] &model,
+                             const math_t *sample_weight) except+
 
 
 class SVR(SVMBase, RegressorMixin):
@@ -214,7 +216,7 @@ class SVR(SVMBase, RegressorMixin):
                                   verbose, epsilon)
         self.svmType = EPSILON_SVR
 
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, sample_weight=None, convert_dtype=True):
         """
         Fit the model with X and y.
 
@@ -243,13 +245,21 @@ class SVR(SVMBase, RegressorMixin):
             input_to_cuml_array(X, order='F')
         X_ptr = X_m.ptr
 
+        convert_to_dtype = self.dtype if convert_dtype else None
         y_m, _, _, _ = \
             input_to_cuml_array(y, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
+                                convert_to_dtype=convert_to_dtype,
                                 check_rows=self.n_rows, check_cols=1)
 
         y_ptr = y_m.ptr
+
+        cdef uintptr_t sample_weight_ptr = <uintptr_t> nullptr
+        if sample_weight is not None:
+            sample_weight_m, _, _, _ = \
+                input_to_cuml_array(sample_weight, check_dtype=self.dtype,
+                                    convert_to_dtype=convert_to_dtype,
+                                    check_rows=self.n_rows, check_cols=1)
+            sample_weight_ptr = sample_weight_m.ptr
 
         self._dealloc()  # delete any previously fitted model
         self._coef_ = None
@@ -264,13 +274,13 @@ class SVR(SVMBase, RegressorMixin):
             model_f = new svmModel[float]()
             svrFit(handle_[0], <float*>X_ptr, <int>self.n_rows,
                    <int>self.n_cols, <float*>y_ptr, param, _kernel_params,
-                   model_f[0])
+                   model_f[0], <float*>sample_weight_ptr)
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
             model_d = new svmModel[double]()
             svrFit(handle_[0], <double*>X_ptr, <int>self.n_rows,
                    <int>self.n_cols, <double*>y_ptr, param, _kernel_params,
-                   model_d[0])
+                   model_d[0], <double*>sample_weight_ptr)
             self._model = <uintptr_t>model_d
         else:
             raise TypeError('Input data type should be float32 or float64')
