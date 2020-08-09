@@ -44,11 +44,6 @@ struct RfInputs {
   CRITERION split_criterion;
 };
 
-//template <typename T>
-//::std::ostream& operator<<(::std::ostream& os, const RfInputs<T>& dims) {
-//  return os;
-//}
-
 template <typename T>
 class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
  protected:
@@ -119,13 +114,87 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
 
  protected:
   RfInputs<T> params;
-  T *data;
+  T* data;
   int* labels;
   std::vector<int> labels_h;
   std::map<int, int> labels_map;
     // unique map of labels to int vals starting from 0
 
   RandomForestMetaData<T, int>* forest;
+};
+
+template <typename T>
+class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
+ protected:
+  void basicTest() {
+    const int max_depth = ::testing::TestWithParam<int>::GetParam();
+    params = RfInputs<T>{5000, 10, 1, 1.0f, 1.0f, max_depth, -1, false,
+                         false, 8, SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2,
+                         CRITERION::MSE};
+
+    DecisionTree::DecisionTreeParams tree_params;
+    set_tree_params(tree_params, params.max_depth, params.max_leaves,
+                    params.max_features, params.n_bins, params.split_algo,
+                    params.min_rows_per_node, params.min_impurity_decrease,
+                    params.bootstrap_features, params.split_criterion, false);
+    RF_params rf_params;
+    set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
+                      params.rows_sample, -1, params.n_streams, tree_params);
+
+    int data_len = params.n_rows * params.n_cols;
+    allocate(data, data_len);
+    allocate(labels, params.n_rows);
+
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
+    // Populate data (assume Col major)
+    std::mt19937 gen(0);
+    std::vector<T> data_h(data_len);
+    std::normal_distribution<> d{0, 1};
+    for (int col = 0; col < params.n_cols; ++col) {
+      for (int row = 0; row < params.n_rows; ++row) {
+        data_h[row + col * params.n_rows] = d(gen);
+      }
+    }
+    updateDevice(data, data_h.data(), data_len, stream);
+
+    // Populate labels
+    labels_h.resize(params.n_rows);
+    for (int row = 0; row < params.n_rows; ++row) {
+      labels_h[row] = (data_h[row + 2 * params.n_rows]
+                         * data_h[row + 3 * params.n_rows]);
+    }
+    updateDevice(labels, labels_h.data(), params.n_rows, stream);
+
+    forest = new typename ML::RandomForestMetaData<T, T>;
+    null_trees_ptr(forest);
+
+    cumlHandle handle(rf_params.n_streams);
+    handle.setStream(stream);
+
+    fit(handle, forest, data, params.n_rows, params.n_cols, labels, rf_params);
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+  }
+
+  void SetUp() override { basicTest(); }
+
+  void TearDown() override {
+    labels_h.clear();
+
+    CUDA_CHECK(cudaFree(labels));
+    CUDA_CHECK(cudaFree(data));
+    delete forest;
+  }
+
+ protected:
+  RfInputs<T> params;
+  T* data;
+  T* labels;
+  std::vector<T> labels_h;
+
+  RandomForestMetaData<T, T>* forest;
 };
 
 template <typename L, typename T>
@@ -172,6 +241,28 @@ INSTANTIATE_TEST_CASE_P(RfClassifierDepthTests, RfClassifierDepthTestF,
                         ::testing::Range(1, 20));
 
 INSTANTIATE_TEST_CASE_P(RfClassifierDepthTests, RfClassifierDepthTestD,
+                        ::testing::Range(1, 20));
+
+typedef RfRegressorDepthTest<float> RfRegressorDepthTestF;
+TEST_P(RfRegressorDepthTestF, Fit) {
+  CUML_LOG_INFO("Param max_depth = %d", params.max_depth);
+  for (int i = 0; i < forest->rf_params.n_trees; i++) {
+    ASSERT_EQ(MaxDepthOfDecisionTree(&(forest->trees[i])), params.max_depth);
+  }
+}
+
+typedef RfRegressorDepthTest<double> RfRegressorDepthTestD;
+TEST_P(RfRegressorDepthTestD, Fit) {
+  CUML_LOG_INFO("Param max_depth = %d", params.max_depth);
+  for (int i = 0; i < forest->rf_params.n_trees; i++) {
+    ASSERT_EQ(MaxDepthOfDecisionTree(&(forest->trees[i])), params.max_depth);
+  }
+}
+
+INSTANTIATE_TEST_CASE_P(RfRegressorDepthTests, RfRegressorDepthTestF,
+                        ::testing::Range(1, 20));
+
+INSTANTIATE_TEST_CASE_P(RfRegressorDepthTests, RfRegressorDepthTestD,
                         ::testing::Range(1, 20));
 
 }  // end namespace ML
