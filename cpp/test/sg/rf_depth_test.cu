@@ -250,7 +250,9 @@ typedef RfClassifierDepthTest<float> RfClassifierDepthTestF;
 TEST_P(RfClassifierDepthTestF, Fit) {
   CUML_LOG_INFO("Param max_depth = %d", params.max_depth);
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
-    ASSERT_EQ(MaxDepthOfDecisionTree(&(forest->trees[i])), params.max_depth);
+    int actual_max_depth = MaxDepthOfDecisionTree(&(forest->trees[i]));
+    ASSERT_EQ(actual_max_depth, params.max_depth);
+    ASSERT_EQ(actual_max_depth, forest->trees[i].depth_counter);
   }
 }
 
@@ -258,7 +260,9 @@ typedef RfClassifierDepthTest<double> RfClassifierDepthTestD;
 TEST_P(RfClassifierDepthTestD, Fit) {
   CUML_LOG_INFO("Param max_depth = %d", params.max_depth);
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
-    ASSERT_EQ(MaxDepthOfDecisionTree(&(forest->trees[i])), params.max_depth);
+    int actual_max_depth = MaxDepthOfDecisionTree(&(forest->trees[i]));
+    ASSERT_EQ(actual_max_depth, params.max_depth);
+    ASSERT_EQ(actual_max_depth, forest->trees[i].depth_counter);
   }
 }
 
@@ -272,7 +276,9 @@ typedef RfRegressorDepthTest<float> RfRegressorDepthTestF;
 TEST_P(RfRegressorDepthTestF, Fit) {
   CUML_LOG_INFO("Param max_depth = %d", params.max_depth);
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
-    ASSERT_EQ(MaxDepthOfDecisionTree(&(forest->trees[i])), params.max_depth);
+    int actual_max_depth = MaxDepthOfDecisionTree(&(forest->trees[i]));
+    ASSERT_EQ(actual_max_depth, params.max_depth);
+    ASSERT_EQ(actual_max_depth, forest->trees[i].depth_counter);
   }
 }
 
@@ -280,7 +286,9 @@ typedef RfRegressorDepthTest<double> RfRegressorDepthTestD;
 TEST_P(RfRegressorDepthTestD, Fit) {
   CUML_LOG_INFO("Param max_depth = %d", params.max_depth);
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
-    ASSERT_EQ(MaxDepthOfDecisionTree(&(forest->trees[i])), params.max_depth);
+    int actual_max_depth = MaxDepthOfDecisionTree(&(forest->trees[i]));
+    ASSERT_EQ(actual_max_depth, params.max_depth);
+    ASSERT_EQ(actual_max_depth, forest->trees[i].depth_counter);
   }
 }
 
