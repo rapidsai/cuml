@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 #include <cuda_utils.cuh>
 #include <cuml/ensemble/randomforest.hpp>
-#include <random>
 #include <queue>
+#include <random>
 
 namespace ML {
 
@@ -49,8 +49,20 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
  protected:
   void basicTest() {
     const int max_depth = ::testing::TestWithParam<int>::GetParam();
-    params = RfInputs<T>{5000, 10, 1, 1.0f, 1.0f, max_depth, -1, false,
-                         false, 8, SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2,
+    params = RfInputs<T>{5000,
+                         10,
+                         1,
+                         1.0f,
+                         1.0f,
+                         max_depth,
+                         -1,
+                         false,
+                         false,
+                         8,
+                         SPLIT_ALGO::GLOBAL_QUANTILE,
+                         2,
+                         0.0,
+                         2,
                          CRITERION::ENTROPY};
 
     DecisionTree::DecisionTreeParams tree_params;
@@ -83,8 +95,9 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
     // Populate labels
     labels_h.resize(params.n_rows);
     for (int row = 0; row < params.n_rows; ++row) {
-      labels_h[row] = (data_h[row + 2 * params.n_rows]
-                         * data_h[row + 3 * params.n_rows] > 0.5);
+      labels_h[row] =
+        (data_h[row + 2 * params.n_rows] * data_h[row + 3 * params.n_rows] >
+         0.5);
     }
     preprocess_labels(params.n_rows, labels_h, labels_map);
     updateDevice(labels, labels_h.data(), params.n_rows, stream);
@@ -118,7 +131,7 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
   int* labels;
   std::vector<int> labels_h;
   std::map<int, int> labels_map;
-    // unique map of labels to int vals starting from 0
+  // unique map of labels to int vals starting from 0
 
   RandomForestMetaData<T, int>* forest;
 };
@@ -128,8 +141,20 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
  protected:
   void basicTest() {
     const int max_depth = ::testing::TestWithParam<int>::GetParam();
-    params = RfInputs<T>{5000, 10, 1, 1.0f, 1.0f, max_depth, -1, false,
-                         false, 8, SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2,
+    params = RfInputs<T>{5000,
+                         10,
+                         1,
+                         1.0f,
+                         1.0f,
+                         max_depth,
+                         -1,
+                         false,
+                         false,
+                         8,
+                         SPLIT_ALGO::GLOBAL_QUANTILE,
+                         2,
+                         0.0,
+                         2,
                          CRITERION::MSE};
 
     DecisionTree::DecisionTreeParams tree_params;
@@ -162,8 +187,8 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
     // Populate labels
     labels_h.resize(params.n_rows);
     for (int row = 0; row < params.n_rows; ++row) {
-      labels_h[row] = (data_h[row + 2 * params.n_rows]
-                         * data_h[row + 3 * params.n_rows]);
+      labels_h[row] =
+        (data_h[row + 2 * params.n_rows] * data_h[row + 3 * params.n_rows]);
     }
     updateDevice(labels, labels_h.data(), params.n_rows, stream);
 
@@ -203,8 +228,8 @@ int MaxDepthOfDecisionTree(const DecisionTree::TreeMetaDataNode<T, L>* tree) {
   std::queue<std::pair<int, int>> q;  // (node ID, depth)
   // Traverse the tree breadth-first
   int initial_depth = 1;
-    // Currently, cuML starts counting depth by 1.
-    // See https://github.com/rapidsai/cuml/issues/2518#issuecomment-660070910.
+  // Currently, cuML starts counting depth by 1.
+  // See https://github.com/rapidsai/cuml/issues/2518#issuecomment-660070910.
   q.emplace(0, initial_depth);
   int max_depth = initial_depth;
   while (!q.empty()) {
