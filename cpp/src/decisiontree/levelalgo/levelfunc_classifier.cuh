@@ -196,7 +196,7 @@ void grow_deep_tree_classification(
   convert_scatter_to_gather(flagsptr, sample_cnt, n_nodes, nrows, d_nodecount,
                             d_nodestart, d_samplelist, tempmem);
   for (int depth = tempmem->swap_depth;
-       (depth < tree_params.max_depth) && (n_nodes != 0); depth++) {
+       (depth < tree_params.max_depth - 1) && (n_nodes != 0); depth++) {
     depth_cnt = depth + 1;
     //Algorithm starts here
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
