@@ -312,7 +312,7 @@ class AutoARIMA(Base):
                         break
                 else:  # (when the for loop reaches its end naturally)
                     # The remaining series are assigned the max possible d
-                    data_dD[d_options[-1]] = (data_temp, id_temp)
+                    data_dD[(d_options[-1], D_)] = (data_temp, id_temp)
                 del data_temp, id_temp, mask, out0, index0, out1, index1
         del data_D
 

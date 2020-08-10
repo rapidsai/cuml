@@ -76,7 +76,7 @@
 - PR #2591: Generate benchmark datsets using `cuml.datasets`
 - PR #2548: Fix limitation on number of rows usable with tSNE and refactor memory allocation
 - PR #2589: including cuda-11 build fixes into raft
-- PR #2599: Add Stratified train_test_split 
+- PR #2599: Add Stratified train_test_split
 - PR #2487: Set classes_ attribute during classifier fit
 - PR #2605: Reduce memory usage in tSNE
 - PR #2611: Adding building doxygen docs to gpu ci
@@ -133,6 +133,8 @@
 - PR #2616: Small test code fix for pandas dtype tests
 - PR #2625: Update Estimator notebook to resolve errors
 - PR #2634: singlegpu build option fixes
+- PR #2651: AutoARIMA Python bug fix
+- PR #2654: Fix for vectorizer concatenations
 - PR #2655: Fix C++ RF predict function access of rows/samples array
 
 # cuML 0.14.0 (03 Jun 2020)
