@@ -26,6 +26,17 @@ class MBSGDClassifier(Base, ClassifierMixin):
     """
     Linear models (linear SVM, logistic regression, or linear regression)
     fitted by minimizing a regularized empirical loss with mini-batch SGD.
+    The MBSGD Classifier implementation is experimental and hence a difference
+    in the accuracy between scikit learn's SGD Classifier and cuML's MBSGD may
+    be seen. In order to improve the results obtained from cuML's MBSGD
+    Classifier:
+    * Reduce the batch size
+    * Increase the eta0
+    * Increase the number of iterations
+    Since cuML is analyzing the data in batches using a small eta0 might
+    not let the model learn as much as scikit learn does. Furthermore,
+    decreasing the batch size might seen an increase in the time required
+    to fit the model.
 
     Examples
     ---------
@@ -148,7 +159,7 @@ class MBSGDClassifier(Base, ClassifierMixin):
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
-        self.solver_model = SGD(**self.get_params())
+        self.cu_mbsgd_classifier = SGD(**self.get_params())
 
     def fit(self, X, y, convert_dtype=True):
         """
@@ -172,8 +183,15 @@ class MBSGDClassifier(Base, ClassifierMixin):
             will increase memory used for the method.
         """
         self._set_n_features_in(X)
-        self.solver_model._estimator_type = self._estimator_type
-        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
+        self._set_output_type(X)
+
+        self.cu_mbsgd_classifier._estimator_type = self._estimator_type
+
+        self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
+        self._coef_ = self.cu_mbsgd_classifier._coef_
+        self._classes_ = self.cu_mbsgd_classifier._classes_
+        self.intercept_ = self.cu_mbsgd_classifier.intercept_
+
         return self
 
     def predict(self, X, convert_dtype=False):
@@ -198,8 +216,8 @@ class MBSGDClassifier(Base, ClassifierMixin):
             Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
         preds = \
-            self.solver_model.predictClass(X,
-                                           convert_dtype=convert_dtype)
+            self.cu_mbsgd_classifier.predictClass(X,
+                                                  convert_dtype=convert_dtype)
 
         return preds
 

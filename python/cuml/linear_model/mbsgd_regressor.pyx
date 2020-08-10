@@ -26,6 +26,17 @@ class MBSGDRegressor(Base, RegressorMixin):
     """
     Linear regression model fitted by minimizing a
     regularized empirical loss with mini-batch SGD.
+    The MBSGD Regressor implementation is experimental and hence a difference
+    in the accuracy between scikit learn's SGD Regressor and cuML's MBSGD may
+    be seen. In order to improve the results obtained from cuML's MBSGD
+    Regressor:
+    * Reduce the batch size
+    * Increase the eta0
+    * Increase the number of iterations
+    Since cuML is analyzing the data in batches using a small eta0 might
+    not let the model learn as much as scikit learn does. Furthermore,
+    decreasing the batch size might seen an increase in the time required
+    to fit the model.
 
     Examples
     ---------
@@ -144,7 +155,7 @@ class MBSGDRegressor(Base, RegressorMixin):
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
-        self.solver_model = SGD(**self.get_params())
+        self.cu_mbsgd_classifier = SGD(**self.get_params())
 
     def fit(self, X, y, convert_dtype=True):
         """
@@ -168,7 +179,12 @@ class MBSGDRegressor(Base, RegressorMixin):
             will increase memory used for the method.
         """
         self._set_n_features_in(X)
-        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
+        self._set_output_type(X)
+
+        self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
+        self._coef_ = self.cu_mbsgd_classifier._coef_
+        self.intercept_ = self.cu_mbsgd_classifier.intercept_
+
         return self
 
     def predict(self, X, convert_dtype=False):
@@ -193,8 +209,8 @@ class MBSGDRegressor(Base, RegressorMixin):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        preds = self.solver_model.predict(X,
-                                          convert_dtype=convert_dtype)
+        preds = self.cu_mbsgd_classifier.predict(X,
+                                                 convert_dtype=convert_dtype)
         return preds
 
     def get_params(self, deep=True):
