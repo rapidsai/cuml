@@ -325,9 +325,9 @@ def test_logistic_regression_decision_function(
     culog.fit(X_train, y_train)
 
     sklog = skLog(fit_intercept=fit_intercept)
-    sklog.coef_ = culog.coef_.T
+    sklog.coef_ = culog.coef_.to_output('numpy').T
     if fit_intercept:
-        sklog.intercept_ = culog.intercept_
+        sklog.intercept_ = culog.intercept_.to_output('numpy')
     else:
         skLog.intercept_ = 0
     sklog.classes_ = np.arange(num_classes)
@@ -368,9 +368,9 @@ def test_logistic_regression_predict_proba(
         )
     else:
         sklog = skLog(fit_intercept=fit_intercept)
-    sklog.coef_ = culog.coef_.T
+    sklog.coef_ = culog.coef_.to_output('numpy').T
     if fit_intercept:
-        sklog.intercept_ = culog.intercept_
+        sklog.intercept_ = culog.intercept_.to_output('numpy')
     else:
         skLog.intercept_ = 0
     sklog.classes_ = np.arange(num_classes)

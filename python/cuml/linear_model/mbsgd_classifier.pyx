@@ -148,7 +148,7 @@ class MBSGDClassifier(Base, ClassifierMixin):
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
-        self.cu_mbsgd_classifier = SGD(**self.get_params())
+        self.solver_model = SGD(**self.get_params())
 
     def fit(self, X, y, convert_dtype=True):
         """
@@ -172,13 +172,8 @@ class MBSGDClassifier(Base, ClassifierMixin):
             will increase memory used for the method.
         """
         self._set_n_features_in(X)
-        self.cu_mbsgd_classifier._estimator_type = self._estimator_type
-
-        self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
-        self.coef_ = self.cu_mbsgd_classifier.coef_
-        self.classes_ = self.cu_mbsgd_classifier.classes_
-        self.intercept_ = self.cu_mbsgd_classifier.intercept_
-
+        self.solver_model._estimator_type = self._estimator_type
+        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 
     def predict(self, X, convert_dtype=False):
@@ -203,8 +198,8 @@ class MBSGDClassifier(Base, ClassifierMixin):
             Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
         preds = \
-            self.cu_mbsgd_classifier.predictClass(X,
-                                                  convert_dtype=convert_dtype)
+            self.solver_model.predictClass(X,
+                                           convert_dtype=convert_dtype)
 
         return preds
 

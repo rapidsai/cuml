@@ -56,6 +56,29 @@ def get_cudf_column_ptr(col):
 
 
 def get_supported_input_type(X):
+    """
+    Determines if the input object is a supported input array-like object or
+    not. If supported, the type is returned. Otherwise, `None` is returned.
+
+    Parameters
+    ----------
+    X : object
+        Input object to test
+
+    Notes
+    -----
+    To closely match the functionality of
+    :func:`~cuml.common.input_utils.input_to_cuml_array`, this method will
+    return ``cupy.ndarray`` for any object supporting
+    `__cuda_array_interface__` and ``numpy.ndarray`` for any object supporting
+    `__array_interface__`.
+
+    Returns
+    -------
+    array-like type or None
+        If the array-like object is supported, the type is returned.
+        Otherwise, `None` is returned.
+    """
     if (isinstance(X, cudf.Series)):
         if X.null_count != 0:
             return None
@@ -317,6 +340,17 @@ def input_to_host_array(X, order='F', deepcopy=False,
     `inp_array` is a new device array if the input was not a NumPy device
         array. It is a reference to the input X if it was a NumPy host array
     """
+
+    if isinstance(X, np.ndarray):
+        if len(X.shape) > 1:
+            n_cols = X.shape[1]
+        else:
+            n_cols = 1
+        return inp_array(array=X,
+                         pointer=X.__array_interface__['data'][0],
+                         n_rows=X.shape[0],
+                         n_cols=n_cols,
+                         dtype=X.dtype)
 
     ary_tuple = input_to_cuml_array(X,
                                     order=order,
