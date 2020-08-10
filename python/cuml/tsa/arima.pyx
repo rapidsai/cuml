@@ -193,10 +193,11 @@ class ARIMA(Base):
 
     Notes
     -----
-    *Performance:* Let ``r=max(p+s*P, q+s*Q+1)``. The device memory used for
-    most operations is ``O(batch_size*n_obs + batch_size*r^2)``. The execution
-    time is a linear function of `n_obs` and `batch_size` (if `batch_size` is
-    large), but grows very fast with `r`.
+    *Performance:* Let :math:`r=max(p+s*P, q+s*Q+1)`. The device memory used
+    for most operations is
+    :math:`O(\mathtt{batch\_size}*\mathtt{n\_obs} + \mathtt{batch\_size}*r^2)`.
+    The execution time is a linear function of `n_obs` and `batch_size`
+    (if `batch_size` is large), but grows very fast with `r`.
 
     The performance is optimized for very large batch sizes (e.g thousands of
     series).

@@ -103,7 +103,7 @@ tests_map = {
 
 
 class AutoARIMA(Base):
-    r"""Implements a batched auto-ARIMA model for in- and out-of-sample
+    """Implements a batched auto-ARIMA model for in- and out-of-sample
     times-series prediction.
 
     This interface offers a highly customizable search, with functionality

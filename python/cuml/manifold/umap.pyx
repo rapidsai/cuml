@@ -128,7 +128,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
 
 
 class UMAP(Base):
-    r"""
+    """
     Uniform Manifold Approximation and Projection
 
     Finds a low dimensional embedding of the data that approximates
