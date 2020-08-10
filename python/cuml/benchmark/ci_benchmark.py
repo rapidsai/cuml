@@ -94,21 +94,19 @@ preprocessing_algo_defs = [
     ("SimpleImputer", "classification",
         [1000000], [256, 1024], [{'copy': False}]),
     ("PolynomialFeatures", "classification",
-        [100000], [128, 256], [{}]),
+        [1000000], [128, 256], [{}]),
     ("SparseCSRStandardScaler", "classification",
-        [100000], [256], [{'copy': False, 'with_mean': False}]),
-    ("SparseCSRMinMaxScaler", "classification",
-        [100000], [256], [{'copy': False}]),
+        [1000000], [512], [{'copy': False, 'with_mean': False}]),
     ("SparseCSRMaxAbsScaler", "classification",
-        [100000], [256], [{'copy': False}]),
+        [300000], [512], [{'copy': False}]),
     ("SparseCSRNormalizer", "classification",
-        [100000], [256], [{'copy': False}]),
+        [1000000], [512], [{'copy': False}]),
     ("SparseCSCRobustScaler", "classification",
-        [100000], [256], [{'copy': False, 'with_centering': False}]),
+        [1000000], [512], [{'copy': False, 'with_centering': False}]),
     ("SparseCSCSimpleImputer", "classification",
-        [100000], [256], [{'copy': False}]),
+        [1000000], [512], [{'copy': False}]),
     ("SparseCSRPolynomialFeatures", "classification",
-        [10000], [128], [{}])
+        [30000], [128], [{}])
 ]
 
 preprocessing_algo_names = set([a[0] for a in preprocessing_algo_defs])

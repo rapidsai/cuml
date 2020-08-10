@@ -55,7 +55,6 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "rapids-notebook-env=$MINOR_VERSION.*" \
       "rapids-doc-env=$MINOR_VERSION.*"
 
-
 # https://docs.rapids.ai/maintainers/depmgmt/
 # conda remove -f rapids-build-env rapids-notebook-env
 # conda install "your-pkg=1.0.0"
