@@ -270,14 +270,15 @@ void DecisionTreeBase<T, L>::predict_all(const TreeMetaDataNode<T, L> *tree,
                                          const T *rows, const int n_rows,
                                          const int n_cols, L *preds) const {
   for (int row_id = 0; row_id < n_rows; row_id++) {
-    preds[row_id] = predict_one(&rows[row_id * n_cols], tree->sparsetree, 0);
+    preds[row_id] =
+      predict_one(rows, row_id, n_rows, n_cols, tree->sparsetree, 0);
   }
 }
 
 template <typename T, typename L>
 L DecisionTreeBase<T, L>::predict_one(
-  const T *row, const std::vector<SparseTreeNode<T, L>> sparsetree,
-  int idx) const {
+  const T *rows, const int row_id, const int n_rows, const int n_cols,
+  const std::vector<SparseTreeNode<T, L>> sparsetree, int idx) const {
   int colid = sparsetree[idx].colid;
   T quesval = sparsetree[idx].quesval;
   int leftchild = sparsetree[idx].left_child_id;
@@ -285,14 +286,14 @@ L DecisionTreeBase<T, L>::predict_one(
     CUML_LOG_DEBUG("Leaf node. Predicting %f",
                    (float)sparsetree[idx].prediction);
     return sparsetree[idx].prediction;
-  } else if (row[colid] <= quesval) {
+  } else if (rows[colid * n_rows + row_id] <= quesval) {
     CUML_LOG_DEBUG("Classifying Left @ node w/ column %d and value %f", colid,
                    (float)quesval);
-    return predict_one(row, sparsetree, leftchild);
+    return predict_one(rows, row_id, n_rows, n_cols, sparsetree, leftchild);
   } else {
     CUML_LOG_DEBUG("Classifying Right @ node w/ column %d and value %f", colid,
                    (float)quesval);
-    return predict_one(row, sparsetree, leftchild + 1);
+    return predict_one(rows, row_id, n_rows, n_cols, sparsetree, leftchild + 1);
   }
 }
 
