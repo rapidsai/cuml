@@ -678,7 +678,7 @@ class ARIMA(Base):
         h : float
             Finite-differencing step size. The gradient is computed using
             forward finite differencing:
-            :math:`g = \frac{f(x + \mathtt{h}) - f(x)}{\mathtt{h}} + O(\mathtt{h})`
+            :math:`g = \frac{f(x + \mathtt{h}) - f(x)}{\mathtt{h}} + O(\mathtt{h})` # noqa
 
         maxiter : int
             Maximum number of iterations of L-BFGS-B
