@@ -278,12 +278,14 @@ struct FusedL2NN : public BaseClass {
 #if (ENABLE_MEMCPY_ASYNC == 1)
   DI void ldgXY(IdxT kidx) {
     auto koffset = kidx + this->scolid;
-    auto offset = this->pageWr * P::SmemPage + this->srowid * P::SmemStride + this->scolid;
+    auto offset =
+      this->pageWr * P::SmemPage + this->srowid * P::SmemStride + this->scolid;
     auto* saddrx = this->sx + offset;
     for (int i = 0; i < P::LdgPerThX; ++i) {
       auto* sax = saddrx + i * P::LdgRowsX * P::SmemStride;
       auto* gax = this->x + i * P::LdgRowsX * this->k + koffset;
-      auto inside = koffset < this->k && (this->xrowid + i * P::LdgRowsX) < this->m;
+      auto inside =
+        koffset < this->k && (this->xrowid + i * P::LdgRowsX) < this->m;
       __pipeline_memcpy_async(sax, inside ? gax : nullptr, SizeAndAlign,
                               inside ? 0 : SizeAndAlign);
     }
@@ -291,18 +293,17 @@ struct FusedL2NN : public BaseClass {
     for (int i = 0; i < P::LdgPerThY; ++i) {
       auto* say = saddry + i * P::LdgRowsY * P::SmemStride;
       auto* gay = this->y + i * P::LdgRowsY * this->k + koffset;
-      auto inside = koffset < this->k && (this->yrowid + i * P::LdgRowsY) < this->n;
+      auto inside =
+        koffset < this->k && (this->yrowid + i * P::LdgRowsY) < this->n;
       __pipeline_memcpy_async(say, inside ? gay : nullptr, SizeAndAlign,
                               inside ? 0 : SizeAndAlign);
     }
     pipe.commit();
   }
 
-  DI void stsXY() {
-    pipe.wait_prior<0>();
-  }
+  DI void stsXY() { pipe.wait_prior<0>(); }
 #endif  // ENABLE_MEMCPY_ASYNC
-};  // struct FusedL2NN
+};      // struct FusedL2NN
 
 template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
           typename Policy, typename ReduceOpT>
