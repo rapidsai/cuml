@@ -41,7 +41,6 @@ class MBSGDClassifier(Base, ClassifierMixin):
     Examples
     ---------
     .. code-block:: python
-
         import numpy as np
         import cudf
         from cuml.linear_model import MBSGDClassifier as cumlMBSGDClassifier
@@ -64,39 +63,27 @@ class MBSGDClassifier(Base, ClassifierMixin):
         print(" cuML intercept : ", cu_mbsgd_classifier.intercept_)
         print(" cuML coef : ", cu_mbsgd_classifier.coef_)
         print("cuML predictions : ", cu_pred)
-
     Output:
-
     .. code-block:: python
-
         cuML intercept :  0.7150013446807861
         cuML coef :  0    0.27320495
                     1     0.1875956
                     dtype: float32
         cuML predictions :  [1. 1.]
-
-
     Parameters
     -----------
     loss : {'hinge', 'log', 'squared_loss'} (default = 'squared_loss')
        'hinge' uses linear SVM
-
        'log' uses logistic regression
-
        'squared_loss' uses linear regression
-
     penalty: {'none', 'l1', 'l2', 'elasticnet'} (default = 'none')
        'none' does not perform any regularization
-
        'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
        of coefficients
-
        'l2' performs L2 norm (Ridge) which minimizes the sum of the square of
        the coefficients
-
        'elasticnet' performs Elastic Net regularization which is a weighted
        average of L1 and L2 norms
-
     alpha: float (default = 0.0001)
         The constant value which decides the degree of regularization
     fit_intercept : boolean (default = True)
@@ -116,11 +103,8 @@ class MBSGDClassifier(Base, ClassifierMixin):
         The exponent used for calculating the invscaling learning rate
     learning_rate : {'optimal', 'constant', 'invscaling', 'adaptive'}
         (default = 'constant')
-
         `optimal` option will be supported in a future version
-
         `constant` keeps the learning rate constant
-
         `adaptive` changes the learning rate if the training loss or the
         validation accuracy does not improve for `n_iter_no_change` epochs.
         The old learning rate is generally divided by 5
@@ -131,7 +115,6 @@ class MBSGDClassifier(Base, ClassifierMixin):
         the estimators. If None, it'll inherit the output type set at the
         module level, cuml.output_type. If set, the estimator will override
         the global option for its behavior.
-
     Notes
     ------
     For additional docs, see `scikitlearn's SGDClassifier
@@ -159,72 +142,58 @@ class MBSGDClassifier(Base, ClassifierMixin):
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
-        self.cu_mbsgd_classifier = SGD(**self.get_params())
+        self.solver_model = SGD(**self.get_params())
 
     def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
-
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-
         y : array-like (device or host) shape = (n_samples, 1)
             Dense vector (floats or doubles) of shape (n_samples, 1).
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will, when necessary, convert
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
         self._set_n_features_in(X)
-        self._set_output_type(X)
-
-        self.cu_mbsgd_classifier._estimator_type = self._estimator_type
-
-        self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
-        self._coef_ = self.cu_mbsgd_classifier._coef_
-        self._classes_ = self.cu_mbsgd_classifier._classes_
-        self.intercept_ = self.cu_mbsgd_classifier.intercept_
-
+        self.solver_model._estimator_type = self._estimator_type
+        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
-
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-
         convert_dtype : bool, optional (default = False)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
-
         Returns
         ----------
         y : (same as the input datatype)
             Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
         preds = \
-            self.cu_mbsgd_classifier.predictClass(X,
-                                                  convert_dtype=convert_dtype)
+            self.solver_model.predictClass(X,
+                                           convert_dtype=convert_dtype)
 
         return preds
 
     def get_params(self, deep=True):
         """
         Scikit-learn style function that returns the estimator parameters.
-
         Parameters
         -----------
         deep : boolean (default = True)
@@ -242,7 +211,6 @@ class MBSGDClassifier(Base, ClassifierMixin):
     def set_params(self, **params):
         """
         Sklearn style set parameter state to dictionary of params.
-
         Parameters
         -----------
         params : dict of new params
