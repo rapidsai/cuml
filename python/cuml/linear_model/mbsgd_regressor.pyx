@@ -145,7 +145,7 @@ class MBSGDRegressor(Base, RegressorMixin):
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
-        self.cu_mbsgd_classifier = SGD(**self.get_params())
+        self.solver_model = SGD(**self.get_params())
 
     @generate_docstring()
     def fit(self, X, y, convert_dtype=True):
@@ -154,12 +154,7 @@ class MBSGDRegressor(Base, RegressorMixin):
 
         """
         self._set_n_features_in(X)
-        self._set_output_type(X)
-
-        self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
-        self._coef_ = self.cu_mbsgd_classifier._coef_
-        self.intercept_ = self.cu_mbsgd_classifier.intercept_
-
+        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 
     @generate_docstring(return_values={'name': 'preds',
@@ -172,8 +167,8 @@ class MBSGDRegressor(Base, RegressorMixin):
 
         """
 
-        preds = self.cu_mbsgd_classifier.predict(X,
-                                                 convert_dtype=convert_dtype)
+        preds = self.solver_model.predict(X,
+                                          convert_dtype=convert_dtype)
         return preds
 
     def get_params(self, deep=True):

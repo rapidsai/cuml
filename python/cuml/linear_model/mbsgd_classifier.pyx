@@ -149,7 +149,7 @@ class MBSGDClassifier(Base, ClassifierMixin):
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
-        self.cu_mbsgd_classifier = SGD(**self.get_params())
+        self.solver_model = SGD(**self.get_params())
 
     @generate_docstring()
     def fit(self, X, y, convert_dtype=True):
@@ -158,15 +158,8 @@ class MBSGDClassifier(Base, ClassifierMixin):
 
         """
         self._set_n_features_in(X)
-        self._set_output_type(X)
-
-        self.cu_mbsgd_classifier._estimator_type = self._estimator_type
-
-        self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
-        self._coef_ = self.cu_mbsgd_classifier._coef_
-        self._classes_ = self.cu_mbsgd_classifier._classes_
-        self.intercept_ = self.cu_mbsgd_classifier.intercept_
-
+        self.solver_model._estimator_type = self._estimator_type
+        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 
     @generate_docstring(return_values={'name': 'preds',
@@ -179,8 +172,8 @@ class MBSGDClassifier(Base, ClassifierMixin):
 
         """
         preds = \
-            self.cu_mbsgd_classifier.predictClass(X,
-                                                  convert_dtype=convert_dtype)
+            self.solver_model.predictClass(X,
+                                           convert_dtype=convert_dtype)
 
         return preds
 

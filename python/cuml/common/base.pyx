@@ -275,7 +275,12 @@ class Base:
             else:
                 return self.__dict__[real_name]
         else:
-            raise AttributeError
+            if attr == "solver_model":
+                return self.__dict__['solver_model']
+            if "solver_model" in self.__dict__.keys():
+                return getattr(self.solver_model, attr)
+            else:
+                raise AttributeError
 
     def _set_output_type(self, input):
         """

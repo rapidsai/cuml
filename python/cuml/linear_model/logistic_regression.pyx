@@ -227,7 +227,7 @@ class LogisticRegression(Base, ClassifierMixin):
 
         loss = "sigmoid"
 
-        self.qn = QN(
+        self.solver_model = QN(
             loss=loss,
             fit_intercept=self.fit_intercept,
             l1_strength=l1_strength,
@@ -253,7 +253,7 @@ class LogisticRegression(Base, ClassifierMixin):
         Fit the model with X and y.
 
         """
-        self.qn._set_target_dtype(y)
+        self.solver_model._set_target_dtype(y)
         self._set_output_type(X)
         self._set_n_features_in(X)
 
@@ -273,24 +273,18 @@ class LogisticRegression(Base, ClassifierMixin):
         if logger.should_log_for(logger.level_debug):
             logger.debug(self.verb_prefix + "Setting loss to " + str(loss))
 
-        self.qn.loss = loss
+        self.solver_model.loss = loss
 
         if logger.should_log_for(logger.level_debug):
             logger.debug(self.verb_prefix + "Calling QN fit " + str(loss))
 
-        self.qn.fit(X, y_m, convert_dtype=convert_dtype)
+        self.solver_model.fit(X, y_m, convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
         if logger.should_log_for(logger.level_debug):
             logger.debug(
                 self.verb_prefix + "Setting coefficients " + str(loss)
             )
-
-        if self.fit_intercept:
-            self._coef_ = self.qn._coef_[0:-1]
-            self._intercept_ = self.qn._coef_[-1]
-        else:
-            self._coef_ = self.qn._coef_
 
         if logger.should_log_for(logger.level_trace):
             logger.trace(self.verb_prefix + "Coefficients: " +
@@ -313,8 +307,10 @@ class LogisticRegression(Base, ClassifierMixin):
         Gives confidence score for X
 
         """
-        return self.qn._decision_function(X, convert_dtype=convert_dtype) \
-            .to_output(output_type=self._get_output_type(X))
+        return self.solver_model._decision_function(
+            X,
+            convert_dtype=convert_dtype
+        ).to_output(output_type=self._get_output_type(X))
 
     @generate_docstring(return_values={'name': 'preds',
                                        'type': 'dense',
@@ -325,7 +321,7 @@ class LogisticRegression(Base, ClassifierMixin):
         Predicts the y for X.
 
         """
-        return self.qn.predict(X, convert_dtype=convert_dtype)
+        return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
     @generate_docstring(return_values={'name': 'preds',
                                        'type': 'dense',
@@ -368,9 +364,11 @@ class LogisticRegression(Base, ClassifierMixin):
         # qn solver due to https://github.com/rapidsai/cuml/issues/2404
         X_m, _, _, self.dtype = input_to_cuml_array(
             X,
-            check_dtype=self.qn.dtype,
-            convert_to_dtype=(self.qn.dtype if convert_dtype else None),
-            check_cols=self.qn.n_cols,
+            check_dtype=self.solver_model.dtype,
+            convert_to_dtype=(
+                self.solver_model.dtype if convert_dtype else None
+            ),
+            check_cols=self.solver_model.n_cols,
         )
 
         scores = cp.asarray(
@@ -407,27 +405,9 @@ class LogisticRegression(Base, ClassifierMixin):
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        if "coef_" in state:
-            del state["coef_"]
-        if "intercept_" in state:
-            del state["intercept_"]
         return state
 
     def __setstate__(self, state):
         super(LogisticRegression, self).__init__(handle=None,
                                                  verbose=state["verbose"])
-
-        if "qn" in state:
-            qn = state["qn"]
-            if qn.coef_ is not None:
-                if qn.fit_intercept:
-                    state["coef_"] = qn.coef_[0:-1]
-                    state["intercept_"] = qn.coef_[-1]
-                else:
-                    state["coef_"] = qn.coef_
-                    n_classes = qn.coef_.shape[1]
-                    state["intercept_"] = CumlArray.zeros(
-                        n_classes, dtype=qn.coef_.dtype
-                    )
-
         self.__dict__.update(state)
