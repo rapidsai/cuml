@@ -19,7 +19,7 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 
 class UMAP(BaseEstimator,
            DelayedTransformMixin):
-    r"""
+    """
     Uniform Manifold Approximation and Projection
 
     Finds a low dimensional embedding of the data that approximates
@@ -98,7 +98,7 @@ class UMAP(BaseEstimator,
         self._set_internal_model(model)
 
     def transform(self, X, convert_dtype=True):
-        r"""
+        """
         Transform X into the existing embedded space and return that
         transformed output.
 
