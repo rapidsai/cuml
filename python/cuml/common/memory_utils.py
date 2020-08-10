@@ -241,30 +241,32 @@ def set_global_output_type(output_type):
     output_type : {'input', 'cudf', 'cupy', 'numpy'} (default = 'input')
         Desired output type of results and attributes of the estimators.
 
-        'input' will mean that the parameters and methods will mirror the
-        format of the data sent to the estimators/methods as much as
-        possible. Specifically:
+        * ``'input'`` will mean that the parameters and methods will mirror the
+          format of the data sent to the estimators/methods as much as
+          possible. Specifically:
 
-            Input type -> Output type
+          +---------------------------------------+--------------------------+
+          | Input type                            | Output type              |
+          +=======================================+==========================+
+          | cuDF DataFrame or Series              | cuDF DataFrame or Series |
+          +---------------------------------------+--------------------------+
+          | NumPy arrays                          | NumPy arrays             |
+          +---------------------------------------+--------------------------+
+          | Pandas DataFrame or Series            | NumPy arrays             |
+          +---------------------------------------+--------------------------+
+          | Numba device arrays                   | Numba device arrays      |
+          +---------------------------------------+--------------------------+
+          | CuPy arrays                           | CuPy arrays              |
+          +---------------------------------------+--------------------------+
+          | Other `__cuda_array_interface__` objs | CuPy arrays              |
+          +---------------------------------------+--------------------------+
 
-            cuDF DataFrame or Series -> cuDF DataFrame or Series
+        * ``'cudf'`` will return cuDF Series for single dimensional results and
+          DataFrames for the rest.
 
-            NumPy arrays -> NumPy arrays
+        * ``'cupy'`` will return CuPy arrays.
 
-            Pandas DataFrame or Series -> NumPy arrays
-
-            Numba device arrays -> Numba device arrays
-
-            CuPy arrays -> CuPy arrays
-
-            Other __cuda_array_interface__ objects -> CuPy arrays
-
-        'cudf' will return cuDF Series for single dimensional results and
-        DataFrames for the rest.
-
-        'cupy' will return CuPy arrays.
-
-        'numpy' will return NumPy arrays.
+        * ``'numpy'`` will return NumPy arrays.
 
     Examples
     --------
@@ -298,10 +300,11 @@ def set_global_output_type(output_type):
 
     Notes
     -----
-    'cupy' and 'numba' options (as well as 'input' when using Numba and CuPy
-    ndarrays for input) have the least overhead. cuDF add memory consumption
-    and processing time needed to build the Series and DataFrames. 'numpy' has
-    the biggest overhead due to the need to transfer data to CPU memory.
+    ``'cupy'`` and ``'numba'`` options (as well as ``'input'`` when using Numba
+    and CuPy ndarrays for input) have the least overhead. cuDF add memory
+    consumption and processing time needed to build the Series and DataFrames.
+    ``'numpy'`` has the biggest overhead due to the need to transfer data to
+    CPU memory.
 
     """
     if isinstance(output_type, str):
@@ -329,30 +332,32 @@ def using_output_type(output_type):
     output_type : {'input', 'cudf', 'cupy', 'numpy'} (default = 'input')
         Desired output type of results and attributes of the estimators.
 
-        'input' will mean that the parameters and methods will mirror the
-        format of the data sent to the estimators/methods as much as
-        possible. Specifically:
+        * ``'input'`` will mean that the parameters and methods will mirror the
+          format of the data sent to the estimators/methods as much as
+          possible. Specifically:
 
-            Input type -> Output type
+          +---------------------------------------+--------------------------+
+          | Input type                            | Output type              |
+          +=======================================+==========================+
+          | cuDF DataFrame or Series              | cuDF DataFrame or Series |
+          +---------------------------------------+--------------------------+
+          | NumPy arrays                          | NumPy arrays             |
+          +---------------------------------------+--------------------------+
+          | Pandas DataFrame or Series            | NumPy arrays             |
+          +---------------------------------------+--------------------------+
+          | Numba device arrays                   | Numba device arrays      |
+          +---------------------------------------+--------------------------+
+          | CuPy arrays                           | CuPy arrays              |
+          +---------------------------------------+--------------------------+
+          | Other `__cuda_array_interface__` objs | CuPy arrays              |
+          +---------------------------------------+--------------------------+
 
-            cuDF DataFrame or Series -> cuDF DataFrame or Series
+        * ``'cudf'`` will return cuDF Series for single dimensional results and
+          DataFrames for the rest.
 
-            NumPy arrays -> NumPy arrays
+        * ``'cupy'`` will return CuPy arrays.
 
-            Pandas DataFrame or Series -> NumPy arrays
-
-            Numba device arrays -> Numba device arrays
-
-            CuPy arrays -> CuPy arrays
-
-            Other __cuda_array_interface__ objects -> CuPy arrays
-
-        'cudf' will return cuDF Series for single dimensional results and
-        DataFrames for the rest.
-
-        'cupy' will return CuPy arrays.
-
-        'numpy' will return NumPy arrays.
+        * ``'numpy'`` will return NumPy arrays.
 
     Examples
     --------
@@ -369,7 +374,7 @@ def using_output_type(output_type):
             dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
             dbscan_float.fit(ary)
 
-            print("cuML output inside `with` context")
+            print("cuML output inside 'with' context")
             print(dbscan_float.labels_)
             print(type(dbscan_float.labels_))
 
@@ -385,13 +390,12 @@ def using_output_type(output_type):
 
     .. code-block::
 
-        cuML output inside `with` context
+        cuML output inside 'with' context
         0    0
         1    1
         2    2
         dtype: int32
         <class 'cudf.core.series.Series'>
-
 
         cuML default output
         [0 1 2]
