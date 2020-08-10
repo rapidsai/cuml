@@ -120,8 +120,9 @@ class SVR(SVMBase, RegressorMixin):
     gamma : float or string (default = 'scale')
         Coefficient for rbf, poly, and sigmoid kernels. You can specify the
         numeric value, or use one of the following options:
-         - 'auto': gamma will be set to ``1 / n_features``
-         - 'scale': gamma will be se to ``1 / (n_features * X.var())``
+
+        - 'auto': gamma will be set to ``1 / n_features``
+        - 'scale': gamma will be se to ``1 / (n_features * X.var())``
 
     coef0 : float (default = 0.0)
         Independent term in kernel function, only signifficant for poly and

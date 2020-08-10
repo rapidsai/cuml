@@ -393,9 +393,10 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     (with sparse enough matrices).
     If we note ``s = 1 / density`` the components of the random matrix are
     drawn from:
-     - ``-sqrt(s) / sqrt(n_components)`` - with probability ``1 / 2s``
-     - ``0`` - with probability ``1 - 1 / s``
-     - ``+sqrt(s) / sqrt(n_components)`` - with probability ``1 / 2s``
+
+    - ``-sqrt(s) / sqrt(n_components)`` - with probability ``1 / 2s``
+    - ``0`` - with probability ``1 - 1 / s``
+    - ``+sqrt(s) / sqrt(n_components)`` - with probability ``1 / 2s``
 
     Examples
     --------
@@ -468,8 +469,8 @@ class SparseRandomProjection(Base, BaseRandomProjection):
 
     Notes
     -----
-        Inspired by Scikit-learn's `implementation
-        <https://scikit-learn.org/stable/modules/random_projection.html>`_
+    Inspired by Scikit-learn's `implementation
+    <https://scikit-learn.org/stable/modules/random_projection.html>`_.
 
     """
 

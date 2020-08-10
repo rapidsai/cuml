@@ -63,7 +63,6 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
 
     Function to call CuPy functions with RMM memory management
 
-
     Parameters
     ----------
     cupy_fn : cupy function,

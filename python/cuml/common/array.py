@@ -73,22 +73,6 @@ class CumlArray(Buffer):
     __cuda_array_interface__ : dictionary
         ``__cuda_array_interface__`` to interop with other libraries.
 
-    Object Methods
-    --------------
-
-    to_output : Convert the array to the appropriate output format.
-
-    Class Methods
-    -------------
-
-    Array.empty : Create an empty array, allocating a DeviceBuffer.
-    Array.full : Create an Array with allocated DeviceBuffer initialized with
-        a particular value.
-    Array.ones : Create an Array with allocated DeviceBuffer initialized with
-        ones.
-    Array.zeros : Create an Array with allocated DeviceBuffer initialized with
-        zeros.
-
     Notes
     -----
 
@@ -204,16 +188,19 @@ class CumlArray(Buffer):
         ----------
         output_type : string
             Format to convert the array to. Acceptable formats are:
-             - 'cupy' - to cupy array
-             - 'numpy' - to numpy (host) array
-             - 'numba' - to numba device array
-             - 'dataframe' - to cuDF DataFrame
-             - 'series' - to cuDF Series
-             - 'cudf' - to cuDF Series if array is single dimensional, to \
-                DataFrame otherwise
+
+            - 'cupy' - to cupy array
+            - 'numpy' - to numpy (host) array
+            - 'numba' - to numba device array
+            - 'dataframe' - to cuDF DataFrame
+            - 'series' - to cuDF Series
+            - 'cudf' - to cuDF Series if array is single dimensional, to
+               DataFrame otherwise
+
         output_dtype : string, optional
             Optionally cast the array to a specified dtype, creating
             a copy if necessary.
+
         """
         if output_dtype is None:
             output_dtype = self.dtype

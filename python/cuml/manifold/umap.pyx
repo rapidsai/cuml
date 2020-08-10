@@ -128,7 +128,9 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
 
 
 class UMAP(Base):
-    r"""Uniform Manifold Approximation and Projection
+    r"""
+    Uniform Manifold Approximation and Projection
+
     Finds a low dimensional embedding of the data that approximates
     an underlying manifold.
 
@@ -154,8 +156,9 @@ class UMAP(Base):
         The initial learning rate for the embedding optimization.
     init: string (optional, default 'spectral')
         How to initialize the low dimensional embedding. Options are:
-         * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
-         * 'random': assign initial embedding positions at random.
+
+        * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
+        * 'random': assign initial embedding positions at random.
 
     min_dist: float (optional, default 0.1)
         The effective minimum distance between embedded points. Smaller values
@@ -191,7 +194,7 @@ class UMAP(Base):
         in greater repulsive force being applied, greater optimization
         cost, but slightly more accuracy.
     transform_queue_size: float (optional, default 4.0)
-        For transform operations (embedding new points using a trained model_
+        For transform operations (embedding new points using a trained model
         this will control how aggressively to search for nearest neighbors.
         Larger values will result in slower performance but more accurate
         nearest neighbor evaluation.
@@ -255,12 +258,13 @@ class UMAP(Base):
     -----
     This module is heavily based on Leland McInnes' reference UMAP package.
     However, there are a number of differences and features that are not yet
-    implemented in cuml.umap:
-     * Using a non-Euclidean distance metric (support for a fixed set
-       of non-Euclidean metrics is planned for an upcoming release).
-     * Using a pre-computed pairwise distance matrix (under consideration
-       for future releases)
-     * Manual initialization of initial embedding positions
+    implemented in `cuml.umap`:
+
+    * Using a non-Euclidean distance metric (support for a fixed set
+      of non-Euclidean metrics is planned for an upcoming release).
+    * Using a pre-computed pairwise distance matrix (under consideration
+      for future releases)
+    * Manual initialization of initial embedding positions
 
     In addition to these missing features, you should expect to see
     the final embeddings differing between cuml.umap and the reference
@@ -274,9 +278,8 @@ class UMAP(Base):
     References
     ----------
     .. [1] `Leland McInnes, John Healy, James Melville
-           UMAP: Uniform Manifold Approximation and Projection for Dimension
-           Reduction
-           <https://arxiv.org/abs/1802.03426>`_
+       UMAP: Uniform Manifold Approximation and Projection for Dimension
+       Reduction <https://arxiv.org/abs/1802.03426>`_
 
     """
 
