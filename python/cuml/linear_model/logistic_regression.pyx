@@ -144,7 +144,7 @@ class LogisticRegression(Base, ClassifierMixin):
         Note: this includes the intercept as the last column if fit_intercept
         is True
     intercept_: device array (n_classes, 1)
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
     ------

@@ -190,7 +190,7 @@ def train_test_split(X,
                      stratify=None):
     """
     Partitions device data into four collated objects, mimicking
-    Scikit-learn's `train_test_split`
+    Scikit-learn's `train_test_split`.
 
     Parameters
     ----------
@@ -259,7 +259,7 @@ def train_test_split(X,
 
     X_train, X_test, y_train, y_test : cudf.DataFrame or array-like objects
         Partitioned dataframes if X and y were cuDF objects. If `y` was
-        provided as a column name, the column was dropped from the `X`s
+        provided as a column name, the column was dropped from `X`.
         Partitioned numba device arrays if X and y were Numba device arrays.
         Partitioned CuPy arrays for any other input.
 

@@ -687,7 +687,7 @@ class HashingVectorizer(_VectorizerMixin):
     stop_words : string {'english'}, list, default=None
         If 'english', a built-in stop word list for English is used.
         There are several known issues with 'english' and you should
-        consider an alternative (see :ref:`stop_words`).
+        consider an alternative.
         If a list, that list is assumed to contain stop words, all of which
         will be removed from the resulting tokens.
         Only applies if ``analyzer == 'word'``.

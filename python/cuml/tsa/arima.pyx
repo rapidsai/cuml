@@ -191,12 +191,12 @@ class ARIMA(Base):
         After fitting, contains the number of iterations before convergence
         for each time series.
 
-    Performance
-    -----------
-    Let ``r=max(p+s*P, q+s*Q+1)``. The device memory used for most operations
-    is ``O(batch_size*n_obs + batch_size*r^2)``. The execution time is a linear
-    function of `n_obs` and `batch_size` (if `batch_size` is large), but grows
-    very fast with `r`.
+    Notes
+    -----
+    *Performance:* Let ``r=max(p+s*P, q+s*Q+1)``. The device memory used for
+    most operations is ``O(batch_size*n_obs + batch_size*r^2)``. The execution
+    time is a linear function of `n_obs` and `batch_size` (if `batch_size` is
+    large), but grows very fast with `r`.
 
     The performance is optimized for very large batch sizes (e.g thousands of
     series).
@@ -205,7 +205,7 @@ class ARIMA(Base):
     ----------
     This class is heavily influenced by the Python library `statsmodels`,
     particularly `statsmodels.tsa.statespace.sarimax.SARIMAX`.
-    See https://www.statsmodels.org/stable/statespace.html
+    See https://www.statsmodels.org/stable/statespace.html.
 
     Additionally the following book is a useful reference:
     "Time Series Analysis by State Space Methods",
@@ -656,7 +656,7 @@ class ARIMA(Base):
             maxiter: int = 1000,
             method="ml",
             truncate: int = 0):
-        """Fit the ARIMA model to each time series.
+        r"""Fit the ARIMA model to each time series.
 
         Parameters
         ----------
@@ -667,18 +667,19 @@ class ARIMA(Base):
             (n, batch_size) for any other type, where n is the corresponding
             number of parameters of this type.
             Pass None for automatic estimation (recommended)
+
         opt_disp : int
-            Fit diagnostic level (for L-BFGS solver) :
-             * `-1` for no output (default)
-             * `0<n<100` for output every `n` steps
-             * `n>100` for more detailed output
+            Fit diagnostic level (for L-BFGS solver):
+
+            * `-1` for no output (default)
+            * `0<n<100` for output every `n` steps
+            * `n>100` for more detailed output
+
         h : float
             Finite-differencing step size. The gradient is computed using
             forward finite differencing:
-            .. code-block:: none
-                    f(x+h) - f(x)
-                g = ------------- + O(h)
-                          h
+            :math:`g = \frac{f(x + \mathtt{h}) - f(x)}{\mathtt{h}} + O(\mathtt{h})`
+
         maxiter : int
             Maximum number of iterations of L-BFGS-B
         method : str
