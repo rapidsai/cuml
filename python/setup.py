@@ -35,16 +35,14 @@ import versioneer
 import warnings
 
 
-# if "--singlegpu" in sys.argv:
-from Cython.Build import cythonize
-from setuptools.command.build_ext import build_ext
-# else:
-#     try:
-#         from Cython.Distutils.build_ext import new_build_ext as build_ext
-#     except ImportError:
-#         from setuptools.command.build_ext import build_ext
-
-
+if "--singlegpu" in sys.argv:
+    from Cython.Build import cythonize
+    from setuptools.command.build_ext import build_ext
+else:
+    try:
+        from Cython.Distutils.build_ext import new_build_ext as build_ext
+    except ImportError:
+        from setuptools.command.build_ext import build_ext
 
 install_requires = [
     'numba',
@@ -170,9 +168,6 @@ cmdclass["build_ext"] = build_ext
 if not libcuml_path:
     libcuml_path = '../cpp/build/'
 
-# for now, do not build umap for cuda-11
-cython_exc_list.append('cuml/manifold/umap.pyx')
-
 extensions = [
     Extension("*",
               sources=["cuml/**/**/*.pyx"],
@@ -194,12 +189,12 @@ for e in extensions:
         profile=False, language_level=3, embedsignature=True
     )
 
-# if "--singlegpu" in sys.argv:
-print("Full cythonization in parallel is not supported for singlegpu " +
-      "target for now.")
-extensions = cythonize(extensions,
-                       exclude=cython_exc_list)
-# sys.argv.remove('--singlegpu')
+if "--singlegpu" in sys.argv:
+    print("Full cythonization in parallel is not supported for singlegpu " +
+          "target for now.")
+    extensions = cythonize(extensions,
+                           exclude=cython_exc_list)
+    sys.argv.remove('--singlegpu')
 
 ##############################################################################
 # - Python package generation ------------------------------------------------
