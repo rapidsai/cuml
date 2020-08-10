@@ -134,7 +134,9 @@ class _VectorizerMixin:
             del str_series
 
             padding = Series(self.delimiter).repeat(len(tokens))
-            tokens = padding.str.cat(tokens.str.cat(padding))
+            tokens = tokens.str.cat(padding)
+            padding = padding.reset_index(drop=True)
+            tokens = padding.str.cat(tokens)
             tokens = tokens.reset_index(drop=True)
 
             ngram_sr = tokens.str.character_ngrams(n=ngram_size)
