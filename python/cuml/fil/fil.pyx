@@ -36,7 +36,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.common import input_to_cuml_array
+from cuml.common import input_to_cuml_array, logger
 
 import treelite
 import treelite.sklearn as tl_skl
@@ -165,7 +165,8 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
     cdef enum storage_type_t:
         AUTO,
         DENSE,
-        SPARSE
+        SPARSE,
+        SPARSE8
 
     cdef struct forest:
         pass
@@ -224,7 +225,8 @@ cdef class ForestInference_impl():
                            'False': storage_type_t.DENSE,
                            'dense': storage_type_t.DENSE,
                            'True': storage_type_t.SPARSE,
-                           'sparse': storage_type_t.SPARSE}
+                           'sparse': storage_type_t.SPARSE,
+                           'sparse8': storage_type_t.SPARSE8}
 
         if storage_type_str not in storage_type_dict.keys():
             raise ValueError(
@@ -232,6 +234,8 @@ cdef class ForestInference_impl():
                 "supported. Please refer to the documentation at"
                 "(https://docs.rapids.ai/api/cuml/nightly/api.html#"
                 "forest-inferencing) to see the accepted values.")
+        if storage_type_str == 'sparse8':
+            logger.info('storage_type=="sparse8" is an experimental feature')
         return storage_type_dict[storage_type_str]
 
     def predict(self, X, output_type='numpy',
@@ -536,7 +540,11 @@ class ForestInference(Base):
              False - create a dense forest
              True - create a sparse forest;
                       requires algo='NAIVE' or algo='AUTO'
-
+             'sparse8' - (experimental) create a sparse forest
+                      with 8-byte nodes; requires algo='NAIVE' or algo='AUTO';
+                      can fail if 8-byte nodes are not enough
+                      to store the forest, e.g. if there are
+                      too many nodes in a tree or too many features
         Returns
         ----------
         fil_model :
