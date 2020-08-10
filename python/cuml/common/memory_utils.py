@@ -287,7 +287,7 @@ def set_global_output_type(output_type):
 
     Output:
 
-    .. code-block:: python
+    .. code-block::
 
         cuML output type
         0    0
@@ -383,7 +383,7 @@ def using_output_type(output_type):
 
     Output:
 
-    .. code-block:: python
+    .. code-block::
 
         cuML output inside `with` context
         0    0
