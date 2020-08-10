@@ -32,13 +32,11 @@ import cupy
 
 import numba.cuda as cuda
 
-from cupy.sparse import csr_matrix as cp_csr_matrix,\
-    coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
-
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_cuml_array, zeros, with_cupy_rmm, has_scipy
+from cuml.common import input_to_cuml_array, zeros, \
+    with_cupy_rmm, has_scipy
+from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.common.array import CumlArray
 
 import rmm
@@ -425,55 +423,6 @@ class UMAP(Base):
         params, covar = curve_fit(curve, xv, yv)
         return params[0], params[1]
 
-    @with_cupy_rmm
-    def _extract_knn_graph(self, knn_graph, convert_dtype=True):
-        if has_scipy():
-            from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
-        else:
-            from cuml.common.import_utils import DummyClass
-            csr_matrix = DummyClass
-            coo_matrix = DummyClass
-            csc_matrix = DummyClass
-
-        if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
-            knn_graph = cupy.sparse.csr_matrix(knn_graph)
-            n_samples = knn_graph.shape[0]
-            reordering = knn_graph.data.reshape((n_samples, -1))
-            reordering = reordering.argsort()
-            n_neighbors = reordering.shape[1]
-            reordering += (cupy.arange(n_samples) * n_neighbors)[:, np.newaxis]
-            reordering = reordering.flatten()
-            knn_graph.indices = knn_graph.indices[reordering]
-            knn_graph.data = knn_graph.data[reordering]
-
-        knn_indices = None
-        if isinstance(knn_graph, (csr_matrix, cp_csr_matrix)):
-            knn_indices = knn_graph.indices
-        elif isinstance(knn_graph, (coo_matrix, cp_coo_matrix)):
-            knn_indices = knn_graph.col
-
-        knn_indices_ptr, knn_dists_ptr = None, None
-        if knn_indices is not None:
-            knn_dists = knn_graph.data
-            knn_indices_m, _, _, _ = \
-                input_to_cuml_array(knn_indices, order='C',
-                                    deepcopy=True,
-                                    check_dtype=np.int64,
-                                    convert_to_dtype=(np.int64
-                                                      if convert_dtype
-                                                      else None))
-
-            knn_dists_m, _, _, _ = \
-                input_to_cuml_array(knn_dists, order='C',
-                                    deepcopy=True,
-                                    check_dtype=np.float32,
-                                    convert_to_dtype=(np.float32
-                                                      if convert_dtype
-                                                      else None))
-
-            return (knn_indices_m, knn_indices_m.ptr),\
-                   (knn_dists_m, knn_dists_m.ptr)
-        return (None, None), (None, None)
 
     @with_cupy_rmm
     def fit(self, X, y=None, convert_dtype=True,
@@ -533,7 +482,7 @@ class UMAP(Base):
         self._set_output_type(X)
 
         (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
-            self._extract_knn_graph(knn_graph, convert_dtype)
+            extract_knn_graph(knn_graph, convert_dtype)
 
         cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
         cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
@@ -714,7 +663,7 @@ class UMAP(Base):
         cdef uintptr_t xformed_ptr = embedding.ptr
 
         (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
-            self._extract_knn_graph(knn_graph, convert_dtype)
+            extract_knn_graph(knn_graph, convert_dtype)
 
         cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
         cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
