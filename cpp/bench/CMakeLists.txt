@@ -27,6 +27,8 @@ if(BUILD_CUML_BENCH)
     sg/kmeans.cu
     sg/main.cpp
     sg/rf_classifier.cu
+    # FIXME: RF Regressor is having an issue where the tests now seem to take
+    # forever to finish, as opposed to the classifier counterparts!
     # sg/rf_regressor.cu
     sg/svc.cu
     sg/svr.cu
