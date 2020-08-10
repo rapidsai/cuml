@@ -276,7 +276,6 @@ struct FusedL2NN : public BaseClass {
   }
 
 #if (ENABLE_MEMCPY_ASYNC == 1)
-  ///@todo: fix this to use memcpy_async
   DI void ldgXY(IdxT kidx) {
     auto koffset = kidx + this->scolid;
     auto offset = this->pageWr * P::SmemPage + this->srowid * P::SmemStride + this->scolid;
