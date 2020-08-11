@@ -134,7 +134,7 @@ def _shuffle(client, rs, X, y, chunksizes, n_features,
     return da.concatenate(X_dela, axis=0), da.concatenate(y_dela, axis=0)
 
 
-def _convert_to_order(client, X, chunksizes, output_order, n_features, dtype):
+def _convert_to_order(client, X, chunksizes, order, n_features, dtype):
     X_ddh = DistributedDataHandler.create(data=X, client=client)
     X_converted = [client.submit(cp.array, X_part, copy=False, order=order,
                                  workers=[w])
