@@ -137,7 +137,6 @@
 - PR #2634: singlegpu build option fixes
 - PR #2651: AutoARIMA Python bug fix
 - PR #2654: Fix for vectorizer concatenations
-- PR #2655: Fix C++ RF predict function access of rows/samples array
 
 # cuML 0.14.0 (03 Jun 2020)
 
