@@ -28,7 +28,7 @@ namespace Sparse {
     return #err;
 inline const char* cusparseErr2Str(cusparseStatus_t err) {
 #if defined(CUDART_VERSION) && CUDART_VERSION >= 10100
-  return cusparseGetErrorString(status);
+  return cusparseGetErrorString(err);
 #else   // CUDART_VERSION
   switch (err) {
     _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_SUCCESS);
