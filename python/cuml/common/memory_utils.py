@@ -57,6 +57,27 @@ def with_cupy_rmm(func):
 
     return cupy_rmm_wrapper
 
+def cuml_internal_func(func):
+
+    @wraps(func)
+    @with_cupy_rmm
+    def wrapped(*args, **kwargs):
+        with cupy_using_allocator(rmm.rmm_cupy_allocator):
+            with using_output_type("mirror"):
+                return func(*args, **kwargs)
+
+    return wrapped
+
+class BaseMetaClass(type):
+    def __new__(meta, classname, bases, classDict):
+        newClassDict = {}
+        for attributeName, attribute in classDict.items():
+            if callable(attribute) and not attributeName.startswith("_"):
+                # replace it with a wrapped version
+                attribute = cuml_internal_func(attribute)
+            newClassDict[attributeName] = attribute
+        return type.__new__(meta, classname, bases, newClassDict)
+
 
 def rmm_cupy_ary(cupy_fn, *args, **kwargs):
     """
@@ -401,7 +422,7 @@ def using_output_type(output_type):
     """
     if isinstance(output_type, str):
         output_type = output_type.lower()
-        if output_type in ['numpy', 'cupy', 'cudf', 'numba', 'input']:
+        if output_type in ['numpy', 'cupy', 'cudf', 'numba', 'input', "mirror"]:
             prev_output_type = cuml.global_output_type
             try:
                 cuml.global_output_type = output_type

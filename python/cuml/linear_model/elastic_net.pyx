@@ -21,7 +21,7 @@
 
 from cuml.solvers import CD
 from cuml.common.base import Base, RegressorMixin
-from cuml.common.array import CumlArrayDescriptor
+from cuml.common import CumlArrayDescriptor
 from cuml.common.memory_utils import with_cupy_rmm
 
 class ElasticNet(Base, RegressorMixin):
@@ -170,7 +170,6 @@ class ElasticNet(Base, RegressorMixin):
 
         self.alpha = alpha
         self.l1_ratio = l1_ratio
-        self._coef_ = None
         self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize

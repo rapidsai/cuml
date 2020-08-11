@@ -15,6 +15,7 @@
 #
 
 from cuml.common.array import CumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
 
 ## utils
 

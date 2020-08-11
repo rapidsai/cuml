@@ -28,7 +28,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.array import CumlArray, CumlArrayDescriptor
+from cuml.common import CumlArray, CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.common import get_cudf_column_ptr

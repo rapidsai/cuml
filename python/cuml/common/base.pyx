@@ -23,8 +23,11 @@ import cuml
 import cuml.common.cuda
 import cuml.common.handle
 import cuml.common.logger as logger
-from cuml.common import input_to_cuml_array
+from cuml.common.memory_utils import cuml_internal_func
+from cuml.common import input_to_cuml_array, using_output_type
 import inspect
+import rmm
+from functools import wraps
 
 from cudf.core import Series as cuSeries
 from cudf.core import DataFrame as cuDataFrame
@@ -36,7 +39,6 @@ from pandas import DataFrame as pdDataFrame
 from pandas import Series as pdSeries
 
 from numba import cuda
-
 
 class Base:
     """
