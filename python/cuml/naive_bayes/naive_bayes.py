@@ -210,10 +210,7 @@ class MultinomialNB(Base):
             self._class_prior_ = None
 
         self.fit_called_ = False
-
-        self._classes_ = None
         self._n_classes_ = 0
-
         self._n_features_ = None
 
         # Needed until Base no longer assumed cumlHandle
@@ -273,7 +270,7 @@ class MultinomialNB(Base):
             else:
                 self._classes_ = CumlArray(data=label_classes)
 
-            self._n_classes_ = self._classes_.shape[0]
+            self._n_classes_ = self.classes_.shape[0]
             self._n_features_ = X.shape[1]
             self._init_counters(self._n_classes_, self._n_features_,
                                 X.dtype)
@@ -376,9 +373,9 @@ class MultinomialNB(Base):
             X = input_to_cuml_array(X, order='K').array.to_output('cupy')
 
         jll = self._joint_log_likelihood(X)
-        indices = cp.argmax(jll, axis=1).astype(self._classes_.dtype)
+        indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
-        y_hat = invert_labels(indices, classes=self._classes_)
+        y_hat = invert_labels(indices, classes=self.classes_)
         return CumlArray(data=y_hat).to_output(out_type)
 
     @with_cupy_rmm
@@ -511,7 +508,7 @@ class MultinomialNB(Base):
         if X.ndim != 2:
             raise ValueError("Input samples should be a 2D array")
 
-        if Y.dtype != self._classes_.dtype:
+        if Y.dtype != self.classes_.dtype:
             warnings.warn("Y dtype does not match classes_ dtype. Y will be "
                           "converted, which will increase memory consumption")
 
@@ -523,7 +520,7 @@ class MultinomialNB(Base):
         n_rows = X.shape[0]
         n_cols = X.shape[1]
 
-        labels_dtype = self._classes_.dtype
+        labels_dtype = self.classes_.dtype
 
         if cp.sparse.isspmatrix(X):
             X = X.tocoo()
@@ -561,8 +558,8 @@ class MultinomialNB(Base):
         count_classes((math.ceil(n_rows / 32),), (32,),
                       (class_c, n_rows, Y))
 
-        self._feature_count_ += counts
-        self._class_count_ += class_c
+        self._feature_count_ = CumlArray(self._feature_count_ + counts)
+        self._class_count_ = CumlArray(self._class_count_ + class_c)
 
     def _update_class_log_prior(self, class_prior=None):
 
@@ -576,11 +573,12 @@ class MultinomialNB(Base):
 
         elif self.fit_prior:
             log_class_count = cp.log(self._class_count_)
-            self._class_log_prior_ = log_class_count - \
-                cp.log(self._class_count_.sum())
+            self._class_log_prior_ = \
+                CumlArray(log_class_count - cp.log(
+                    cp.asarray(self._class_count_).sum()))
         else:
-            self._class_log_prior_ = cp.full(self._n_classes_,
-                                             -1*math.log(self._n_classes_))
+            self._class_log_prior_ = CumlArray(cp.full(self._n_classes_,
+                                               -1*math.log(self._n_classes_)))
 
     def _update_feature_log_prob(self, alpha):
         """
@@ -592,10 +590,10 @@ class MultinomialNB(Base):
 
         alpha : float amount of smoothing to apply (0. means no smoothing)
         """
-        smoothed_fc = self._feature_count_ + alpha
+        smoothed_fc = cp.asarray(self._feature_count_) + alpha
         smoothed_cc = smoothed_fc.sum(axis=1).reshape(-1, 1)
-        self._feature_log_prob_ = (cp.log(smoothed_fc) -
-                                   cp.log(smoothed_cc.reshape(-1, 1)))
+        self._feature_log_prob_ = CumlArray(cp.log(smoothed_fc) -
+                                            cp.log(smoothed_cc.reshape(-1, 1)))
 
     def _joint_log_likelihood(self, X):
         """
@@ -607,6 +605,6 @@ class MultinomialNB(Base):
         X : array-like of size (n_samples, n_features)
         """
 
-        ret = X.dot(self._feature_log_prob_.T)
-        ret += self._class_log_prior_
+        ret = X.dot(cp.asarray(self._feature_log_prob_).T)
+        ret += cp.asarray(self._class_log_prior_)
         return ret

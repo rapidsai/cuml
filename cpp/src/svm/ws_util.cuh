@@ -39,9 +39,9 @@ __global__ void set_unavailable(bool *available, int n_rows, const int *idx,
  */
 template <typename math_t>
 __global__ void set_upper(bool *available, int n, const math_t *alpha,
-                          const math_t *y, math_t C) {
+                          const math_t *y, const math_t *C) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid < n) available[tid] = in_upper(alpha[tid], y[tid], C);
+  if (tid < n) available[tid] = in_upper(alpha[tid], y[tid], C[tid]);
 }
 
 /** Set availability to true for elements in the lower set, otherwise false.
@@ -53,9 +53,9 @@ __global__ void set_upper(bool *available, int n, const math_t *alpha,
  */
 template <typename math_t>
 __global__ void set_lower(bool *available, int n, const math_t *alpha,
-                          const math_t *y, math_t C) {
+                          const math_t *y, const math_t *C) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid < n) available[tid] = in_lower(alpha[tid], y[tid], C);
+  if (tid < n) available[tid] = in_lower(alpha[tid], y[tid], C[tid]);
 }
 /**
 * Get the priority of the elements that are selected by new_idx.

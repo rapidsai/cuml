@@ -144,7 +144,7 @@ class MBSGDRegressor(Base, RegressorMixin):
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
-        self.cu_mbsgd_classifier = SGD(**self.get_params())
+        self.solver_model = SGD(**self.get_params())
 
     def fit(self, X, y, convert_dtype=True):
         """
@@ -168,10 +168,7 @@ class MBSGDRegressor(Base, RegressorMixin):
             will increase memory used for the method.
         """
         self._set_n_features_in(X)
-        self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
-        self.coef_ = self.cu_mbsgd_classifier.coef_
-        self.intercept_ = self.cu_mbsgd_classifier.intercept_
-
+        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 
     def predict(self, X, convert_dtype=False):
@@ -196,8 +193,8 @@ class MBSGDRegressor(Base, RegressorMixin):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        preds = self.cu_mbsgd_classifier.predict(X,
-                                                 convert_dtype=convert_dtype)
+        preds = self.solver_model.predict(X,
+                                          convert_dtype=convert_dtype)
         return preds
 
     def get_params(self, deep=True):
