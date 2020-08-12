@@ -303,7 +303,7 @@ def generate_docstring(X='dense',
         # Add return section header if needed, no option to skip currently.
         if(return_values):
             docstring_wrapper.__doc__ += \
-                '\nReturns \n ---------- \n'
+                '\nReturns\n----------\n'
 
             # convenience call to allow users to pass a single return
             # value as a dictionary instead of a list of dictionaries
