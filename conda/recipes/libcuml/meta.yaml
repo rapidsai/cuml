@@ -34,13 +34,13 @@ requirements:
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ minor_version }}
-    - libcumlprims=0.15.0a200720
+    - libcumlprims=0.15.0a200812
     - lapack
     - treelite=0.92
     - faiss-proc=*=cuda
     - libfaiss
   run:
-    - libcumlprims=0.15.0a200720
+    - libcumlprims=0.15.0a200812
     - cudf {{ minor_version }}
     - nccl>=2.5
     - ucx-py {{ minor_version }}
