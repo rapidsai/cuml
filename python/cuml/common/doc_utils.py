@@ -174,6 +174,13 @@ def generate_docstring(X='dense',
     Unfortunately due to using cython, we cannot (cheaply) do detection of
     return values.
 
+    Currently auto detected variables include:
+    - X
+    - y
+    - convert_dtype
+    - sample_weights
+    - return_sparse
+    - sparse_tol
 
     Typical usage scenarios:
 
