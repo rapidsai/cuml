@@ -255,7 +255,7 @@ def generate_docstring(X='dense',
         if(('X' in params or 'y' in params or parameters) and not
                 skip_parameters_heading):
             docstring_wrapper.__doc__ += \
-                '\nParameters \n ---------- \n'
+                '\nParameters\n----------\n'
 
         # Process each parameter
         for par, value in params.items():
