@@ -368,7 +368,7 @@ class MultinomialNB(Base):
                                        'type': 'dense',
             'description': 'Returns the log-probability of the samples for each class in the \
             model. The columns correspond to the classes in sorted order, as \
-            they appear in the attribute classes_.',  # noqa
+            they appear in the attribute `classes_`.',  # noqa
                                        'shape': '(n_rows, 1)'})
     @with_cupy_rmm
     def predict_log_proba(self, X):
