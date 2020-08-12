@@ -804,7 +804,6 @@ def test_dump_json(estimator_type, max_depth, n_estimators):
         vote = np.bincount(vote)
         max_vote = np.max(vote)
         majority_vote = np.nonzero(np.equal(vote, max_vote))[0]
-        print(vote, max_vote, majority_vote)
         return majority_vote
 
     def predict_with_json_rf_regressor(rf, x):
