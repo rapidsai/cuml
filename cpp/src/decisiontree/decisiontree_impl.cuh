@@ -78,12 +78,16 @@ void print_node(const std::string &prefix,
 }
 
 template <typename T>
-std::string float_to_string(T x) {
-  static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
-                "T must be float or double");
+std::string to_string_high_precision(T x) {
+  static_assert(std::is_floating_point<T>::value || std::is_integral<T>::value,
+                "T must be float, double, or integer");
   std::ostringstream oss;
   oss.imbue(std::locale::classic());  // use C locale
-  oss << std::setprecision(std::numeric_limits<T>::max_digits10) << x;
+  if (std::is_floating_point<T>::value) {
+    oss << std::setprecision(std::numeric_limits<T>::max_digits10) << x;
+  } else {
+    oss << x;
+  }
   return oss.str();
 }
 
@@ -97,7 +101,7 @@ std::string dump_node_as_json(
   if ((node.colid != -1)) {
     oss << prefix << "{\"nodeid\": " << idx
         << ", \"split_feature\": " << node.colid
-        << ", \"split_threshold\": " << float_to_string(node.quesval)
+        << ", \"split_threshold\": " << to_string_high_precision(node.quesval)
         << ", \"yes\": " << node.left_child_id
         << ", \"no\": " << (node.left_child_id + 1) << ", \"children\": [\n";
     // enter the next tree level - left and right branch
@@ -108,7 +112,8 @@ std::string dump_node_as_json(
         << prefix << "]}";
   } else {
     oss << prefix << "{\"nodeid\": " << idx
-        << ", \"leaf_value\": " << node.prediction << "}";
+        << ", \"leaf_value\": " << to_string_high_precision(node.prediction)
+        << "}";
   }
   return oss.str();
 }
