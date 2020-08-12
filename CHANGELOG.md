@@ -23,6 +23,8 @@
 - PR #2607: Add support for probability estimates in SVC
 - PR #2618: SVM class and sample weights
 - PR #2635: Decorator to generate docstrings with autodetection of parameters
+- PR #2661: CUDA-11 support for single-gpu code
+- PR #2322: Sparse FIL forests with 8-byte nodes
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
@@ -135,9 +137,13 @@
 - PR #2616: Small test code fix for pandas dtype tests
 - PR #2625: Update Estimator notebook to resolve errors
 - PR #2634: singlegpu build option fixes
+- PR #2650: Make max_depth behave consistently for max_depth > 14
 - PR #2651: AutoARIMA Python bug fix
 - PR #2654: Fix for vectorizer concatenations
 - PR #2655: Fix C++ RF predict function access of rows/samples array
+- PR #2649: Cleanup sphinx doc warnings for 0.15
+- PR #2668: Order conversion improvements to account for cupy behavior changes
+- PR #2669: Revert PR 2655 Revert "Fixes C++ RF predict function"
 
 # cuML 0.14.0 (03 Jun 2020)
 

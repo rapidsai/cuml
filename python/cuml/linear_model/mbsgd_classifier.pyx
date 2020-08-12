@@ -29,7 +29,7 @@ class MBSGDClassifier(Base, ClassifierMixin):
     fitted by minimizing a regularized empirical loss with mini-batch SGD.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         import numpy as np

@@ -94,10 +94,11 @@ class TfidfVectorizer(CountVectorizer):
         Typically the delimiting character between words is a good choice.
     norm : {'l1', 'l2'}, default='l2'
         Each output row will have unit norm, either:
-        * 'l2': Sum of squares of vector elements is 1. The cosine
-        similarity between two vectors is their dot product when l2 norm has
-        been applied.
-        * 'l1': Sum of absolute values of vector elements is 1.
+         * 'l2': Sum of squares of vector elements is 1. The cosine similarity
+           between two vectors is their dot product when l2 norm has been
+           applied.
+         * 'l1': Sum of absolute values of vector elements is 1.
+
     use_idf : bool, default=True
         Enable inverse-document-frequency reweighting.
     smooth_idf : bool, default=True
@@ -119,6 +120,7 @@ class TfidfVectorizer(CountVectorizer):
           - occurred in too many documents (`max_df`)
           - occurred in too few documents (`min_df`)
           - were cut off by feature selection (`max_features`).
+
         This is only available if no vocabulary was given.
 
     Notes

@@ -125,13 +125,14 @@ class SVC(SVMBase, ClassifierMixin):
 
     Construct an SVC classifier for training and predictions.
 
-    Known limitations
-    -----------------
-    - Currently only binary classification is supported.
-    - predict_proba is not yet supported
+    .. note::
+        This implementation has the following known limitations:
+
+        - Currently only binary classification is supported.
+        - predict_proba is not yet supported
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
             import numpy as np
@@ -221,23 +222,25 @@ class SVC(SVMBase, ClassifierMixin):
     classes_: shape (n_classes_,)
         Array of class labels.
 
-    For additional docs, see `scikitlearn's SVC
-    <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
-
     Notes
     -----
     The solver uses the SMO method to fit the classifier. We use the Optimized
-    Hierarchical Decomposition [1] variant of the SMO algorithm, similar to [2]
+    Hierarchical Decomposition [1]_ variant of the SMO algorithm, similar to
+    [2]_.
+
+    For additional docs, see `scikitlearn's SVC
+    <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
 
     References
     ----------
-    [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical Decomposition
-    Algorithm for Support VectorMachine Training, IEEE Transactions on
-    Parallel and Distributed Systems, vol 28, no 12, 3330, (2017)
+    .. [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical
+       Decomposition Algorithm for Support VectorMachine Training, IEEE
+       Transactions on Parallel and Distributed Systems, vol 28, no 12, 3330,
+       (2017)
 
-    [2] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
-    of Machine Learning Research, 19, 1-5 (2018)
-    https://github.com/Xtra-Computing/thundersvm
+    .. [2] `Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs,
+       Journal of Machine Learning Research, 19, 1-5 (2018)
+       <https://github.com/Xtra-Computing/thundersvm>`_
 
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
@@ -279,7 +282,7 @@ class SVC(SVMBase, ClassifierMixin):
         y_m: device array of floats or doubles, shape = (n_samples, 1)
             Array of target labels already copied to the device.
 
-        Returns:
+        Returns
         --------
         sample_weight: device array shape = (n_samples, 1) or None
         """

@@ -112,43 +112,46 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     """
     Implements a Random Forest regressor model which fits multiple decision
     trees in an ensemble.
-    Note that the underlying algorithm for tree node splits differs from that
-    used in scikit-learn. By default, the cuML Random Forest uses a
-    histogram-based algorithm to determine splits, rather than an exact
-    count. You can tune the size of the histograms with the n_bins parameter.
+
+    .. note:: that the underlying algorithm for tree node splits differs from
+        that used in scikit-learn. By default, the cuML Random Forest uses a
+        histogram-based algorithm to determine splits, rather than an exact
+        count. You can tune the size of the histograms with the n_bins
+        parameter.
 
     **Known Limitations**: This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
-       * GPU-based inference is only supported if the model was trained
-         with 32-bit (float32) datatypes. CPU-based inference may be used
-         in this case as a slower fallback.
-       * Very deep / very wide models may exhaust available GPU memory.
-         Future versions of cuML will provide an alternative algorithm to
-         reduce memory consumption.
+     * GPU-based inference is only supported if the model was trained
+       with 32-bit (float32) datatypes. CPU-based inference may be used
+       in this case as a slower fallback.
+     * Very deep / very wide models may exhaust available GPU memory.
+       Future versions of cuML will provide an alternative algorithm to
+       reduce memory consumption.
 
     Examples
-    ---------
+    --------
+
     .. code-block:: python
 
-            import numpy as np
-            from cuml.test.utils import get_handle
-            from cuml.ensemble import RandomForestRegressor as curfc
-            from cuml.test.utils import get_handle
-            X = np.asarray([[0,10],[0,20],[0,30],[0,40]], dtype=np.float32)
-            y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
-            cuml_model = curfc(max_features=1.0, n_bins=8,
-                               split_algo=0, min_rows_per_node=2,
-                               n_estimators=40, accuracy_metric='mse')
-            cuml_model.fit(X,y)
-            cuml_score = cuml_model.score(X,y)
-            print("MSE score of cuml : ", cuml_score)
+        import numpy as np
+        from cuml.test.utils import get_handle
+        from cuml.ensemble import RandomForestRegressor as curfc
+        from cuml.test.utils import get_handle
+        X = np.asarray([[0,10],[0,20],[0,30],[0,40]], dtype=np.float32)
+        y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
+        cuml_model = curfc(max_features=1.0, n_bins=8,
+                            split_algo=0, min_rows_per_node=2,
+                            n_estimators=40, accuracy_metric='mse')
+        cuml_model.fit(X,y)
+        cuml_score = cuml_model.score(X,y)
+        print("MSE score of cuml : ", cuml_score)
 
     Output:
 
     .. code-block:: python
 
-            MSE score of cuml :  0.1123437201231765
+        MSE score of cuml :  0.1123437201231765
 
     Parameters
     -----------
@@ -167,7 +170,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         2 for MSE, or 3 for MAE
         0 and 1 not valid for regression
     bootstrap : boolean (default = True)
-       Control bootstrapping.
+        Control bootstrapping.
         If True, each tree in the forest is built
         on a bootstrapped sample with replacement.
         If False, sampling without replacement is done.
@@ -184,7 +187,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited,
         if -1.
-     max_features : int, float, or string (default = 'auto')
+    max_features : int, float, or string (default = 'auto')
         Ratio of number of features (columns) to consider
         per node split.
         If int then max_features/n_features.
@@ -317,6 +320,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         """
         Create a Forest Inference (FIL) model from the trained cuML
         Random Forest model.
+
         Parameters
         ----------
         output_class : boolean (default = False)
@@ -325,6 +329,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             If true, return a 1 or 0 depending on whether the raw
             prediction exceeds the threshold. If False, just return
             the raw prediction.
+
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -336,6 +341,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             `auto` - choose the algorithm automatically. Currently
             'batch_tree_reorg' is used for dense storage
             and 'naive' for sparse storage
+
         fil_sparse_format : boolean or string (default = 'auto')
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
@@ -345,11 +351,14 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             False - create a dense forest
             True - create a sparse forest, requires algo='naive'
             or algo='auto'
+
         Returns
-        ----------
-        fil_model :
+        -------
+
+        fil_model
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
+
         """
         treelite_handle = self._obtain_treelite_handle()
         return _obtain_fil_model(treelite_handle=treelite_handle,

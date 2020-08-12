@@ -130,7 +130,9 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
 
 
 class UMAP(Base):
-    """Uniform Manifold Approximation and Projection
+    """
+    Uniform Manifold Approximation and Projection
+
     Finds a low dimensional embedding of the data that approximates
     an underlying manifold.
 
@@ -156,8 +158,10 @@ class UMAP(Base):
         The initial learning rate for the embedding optimization.
     init: string (optional, default 'spectral')
         How to initialize the low dimensional embedding. Options are:
-            * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
-            * 'random': assign initial embedding positions at random.
+
+        * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
+        * 'random': assign initial embedding positions at random.
+
     min_dist: float (optional, default 0.1)
         The effective minimum distance between embedded points. Smaller values
         will result in a more clustered/clumped embedding where nearby points
@@ -192,7 +196,7 @@ class UMAP(Base):
         in greater repulsive force being applied, greater optimization
         cost, but slightly more accuracy.
     transform_queue_size: float (optional, default 4.0)
-        For transform operations (embedding new points using a trained model_
+        For transform operations (embedding new points using a trained model
         this will control how aggressively to search for nearest neighbors.
         Larger values will result in slower performance but more accurate
         nearest neighbor evaluation.
@@ -204,15 +208,16 @@ class UMAP(Base):
         More specific parameters controlling the embedding. If None these
         values are set automatically as determined by ``min_dist`` and
         ``spread``.
-    hash_input: UMAP can hash the training input so that exact embeddings
-                are returned when transform is called on the same data upon
-                which the model was trained. This enables consistent
-                behavior between calling model.fit_transform(X) and
-                calling model.fit(X).transform(X). Not that the CPU-based
-                UMAP reference implementation does this by default. This
-                feature is made optional in the GPU version due to the
-                significant overhead in copying memory to the host for
-                computing the hash. (default = False)
+    hash_input: bool, optional (default = False)
+        UMAP can hash the training input so that exact embeddings
+        are returned when transform is called on the same data upon
+        which the model was trained. This enables consistent
+        behavior between calling ``model.fit_transform(X)`` and
+        calling ``model.fit(X).transform(X)``. Not that the CPU-based
+        UMAP reference implementation does this by default. This
+        feature is made optional in the GPU version due to the
+        significant overhead in copying memory to the host for
+        computing the hash.
     random_state : int, RandomState instance or None, optional (default=None)
         random_state is the seed used by the random number generator during
         embedding initialization and during sampling used by the optimizer.
@@ -230,19 +235,24 @@ class UMAP(Base):
         The optimization step will be processed with at most optim_batch_size
         edges at once preventing inconsistencies. A lower batch size will yield
         more consistently repeatable embeddings at the cost of speed.
-    callback: An instance of GraphBasedDimRedCallback class to intercept
-              the internal state of embeddings while they are being trained.
-              Example of callback usage:
-                  from cuml.internals import GraphBasedDimRedCallback
-                  class CustomCallback(GraphBasedDimRedCallback):
-                    def on_preprocess_end(self, embeddings):
-                        print(embeddings.copy_to_host())
+    callback: An instance of GraphBasedDimRedCallback class
+        Used to intercept the internal state of embeddings while they are being
+        trained. Example of callback usage:
 
-                    def on_epoch_end(self, embeddings):
-                        print(embeddings.copy_to_host())
+        .. code-block:: python
 
-                    def on_train_end(self, embeddings):
-                        print(embeddings.copy_to_host())
+            from cuml.internals import GraphBasedDimRedCallback
+
+            class CustomCallback(GraphBasedDimRedCallback):
+                def on_preprocess_end(self, embeddings):
+                    print(embeddings.copy_to_host())
+
+                def on_epoch_end(self, embeddings):
+                    print(embeddings.copy_to_host())
+
+                def on_train_end(self, embeddings):
+                    print(embeddings.copy_to_host())
+
     verbose : int or boolean (default = False)
         Controls verbosity of logging.
 
@@ -250,12 +260,13 @@ class UMAP(Base):
     -----
     This module is heavily based on Leland McInnes' reference UMAP package.
     However, there are a number of differences and features that are not yet
-    implemented in cuml.umap:
-      * Using a non-Euclidean distance metric (support for a fixed set
-        of non-Euclidean metrics is planned for an upcoming release).
-      * Using a pre-computed pairwise distance matrix (under consideration
-        for future releases)
-      * Manual initialization of initial embedding positions
+    implemented in `cuml.umap`:
+
+    * Using a non-Euclidean distance metric (support for a fixed set
+      of non-Euclidean metrics is planned for an upcoming release).
+    * Using a pre-computed pairwise distance matrix (under consideration
+      for future releases)
+    * Manual initialization of initial embedding positions
 
     In addition to these missing features, you should expect to see
     the final embeddings differing between cuml.umap and the reference
@@ -263,15 +274,14 @@ class UMAP(Base):
     algorithm for large data sizes while cuml.umap always uses exact
     kNN.
 
-    Known issue: If a UMAP model has not yet been fit, it cannot be pickled.
-    However, after fitting, a UMAP mode.
+    **Known issue:** If a UMAP model has not yet been fit, it cannot be
+    pickled. However, after fitting, a UMAP mode.
 
     References
     ----------
-    * Leland McInnes, John Healy, James Melville
-      UMAP: Uniform Manifold Approximation and Projection for Dimension
-      Reduction
-      https://arxiv.org/abs/1802.03426
+    .. [1] `Leland McInnes, John Healy, James Melville
+       UMAP: Uniform Manifold Approximation and Projection for Dimension
+       Reduction <https://arxiv.org/abs/1802.03426>`_
 
     """
 
