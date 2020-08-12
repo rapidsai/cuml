@@ -39,6 +39,7 @@ from cython.operator cimport dereference as deref
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.base import _input_to_type
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
@@ -412,25 +413,10 @@ class PCA(Base):
 
         return self
 
+    @generate_docstring(X='dense_sparse')
     def fit(self, X, y=None):
         """
-        Fit the model with X.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-            sparse array-like (device) shape = (n_samples, n_features)
-            Acceptable formats: cupy.sparse
-
-        y : ignored
-
-        Returns
-        -------
-        cluster labels
+        Fit the model with X. y is currently ignored.
 
         """
         self._set_n_features_in(X)
@@ -500,23 +486,15 @@ class PCA(Base):
 
         return self
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'trans',
+                                       'type': 'dense_sparse',
+                                       'description': 'Transformed values',
+                                       'shape': '(n_samples, n_components)'})
     def fit_transform(self, X, y=None):
         """
         Fit the model with X and apply the dimensionality reduction on X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-          training data (floats or doubles), where n_samples is the number of
-          samples, and n_features is the number of features.
-          Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-          ndarray, cuda array interface compliant array like CuPy
-
-        y : ignored
-
-        Returns
-        -------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
         """
 
         return self.fit(X).transform(X)
@@ -556,46 +534,17 @@ class PCA(Base):
         elif self._get_output_type(X) == 'numpy':
             return X_inv.get()
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'X_inv',
+                                       'type': 'dense_sparse',
+                                       'description': 'Transformed values',
+                                       'shape': '(n_samples, n_features)'})
     def inverse_transform(self, X, convert_dtype=False,
                           return_sparse=False, sparse_tol=1e-10):
         """
         Transform data back to its original space.
 
         In other words, return an input X_original whose transform would be X.
-
-        Parameters
-        ----------
-        X : dense array-like (device or host) shape = (n_samples, n_features)
-            New data (floats or doubles), where n_samples is the number of
-            samples and n_components is the number of components.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-            sparse array-like (device) shape = (n_samples, n_features)
-            Acceptable formats: cupy.sparse
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the inverse_transform method will automatically
-            convert the input to the data type which was used to train the
-            model. This will increase memory used for the method.
-
-        return_sparse : bool, optional (default = False)
-            Ignored when the model is not fit on a sparse matrix
-            If True, the method will convert the inverse transform to a
-            cupy.sparse.csr_matrix object
-
-            NOTE: Currently, there is a loss of information when converting
-            to csr matrix (cusolver bug). Default can be switched to True
-            once this is solved
-
-        sparse_tol : float, optional (default = 1e-10)
-            Ignored when return_sparse=False
-            If True, values in the inverse transform below this parameter
-            are clipped to 0
-
-        Returns
-        -------
-        X_original : cuDF DataFrame, shape (n_samples, n_features)
 
         """
 
@@ -690,33 +639,17 @@ class PCA(Base):
         elif self._get_output_type(X) == 'numpy':
             return X_transformed.get()
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'trans',
+                                       'type': 'dense_sparse',
+                                       'description': 'Transformed values',
+                                       'shape': '(n_samples, n_components)'})
     def transform(self, X, convert_dtype=False):
         """
         Apply dimensionality reduction to X.
 
         X is projected on the first principal components previously extracted
         from a training set.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            New data (floats or doubles), where n_samples is the number of
-            samples and n_components is the number of components.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-            sparse array-like (device) shape = (n_samples, n_features)
-            Acceptable formats: cupy.sparse
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the transform method will automatically
-            convert the input to the data type which was used to train the
-            model. This will increase memory used for the method.
-
-
-        Returns
-        -------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
 
         """
 
