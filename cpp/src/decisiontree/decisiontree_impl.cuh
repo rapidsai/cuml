@@ -16,11 +16,11 @@
 
 #include <common/cudart_utils.h>
 #include <cuml/common/logger.hpp>
+#include <iomanip>
+#include <locale>
 #include <queue>
 #include <random>
 #include <type_traits>
-#include <iomanip>
-#include <locale>
 #include "decisiontree_impl.h"
 #include "levelalgo/levelfunc_classifier.cuh"
 #include "levelalgo/levelfunc_regressor.cuh"
@@ -79,8 +79,8 @@ void print_node(const std::string &prefix,
 
 template <typename T>
 std::string float_to_string(T x) {
-  static_assert(std::is_same<T, float>::value ||
-                std::is_same<T, double>::value, "T must be float or double");
+  static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
+                "T must be float or double");
   std::ostringstream oss;
   oss.imbue(std::locale::classic());  // use C locale
   oss << std::setprecision(std::numeric_limits<T>::max_digits10) << x;
@@ -89,9 +89,8 @@ std::string float_to_string(T x) {
 
 template <class T, class L>
 std::string dump_node_as_json(
-    const std::string &prefix,
-    const std::vector<SparseTreeNode<T, L>> &sparsetree,
-    int idx) {
+  const std::string &prefix,
+  const std::vector<SparseTreeNode<T, L>> &sparsetree, int idx) {
   const SparseTreeNode<T, L> &node = sparsetree[idx];
 
   std::ostringstream oss;
@@ -100,17 +99,16 @@ std::string dump_node_as_json(
         << ", \"split_feature\": " << node.colid
         << ", \"split_threshold\": " << float_to_string(node.quesval)
         << ", \"yes\": " << node.left_child_id
-        << ", \"no\": " << (node.left_child_id + 1)
-        << ", \"children\": [\n";
+        << ", \"no\": " << (node.left_child_id + 1) << ", \"children\": [\n";
     // enter the next tree level - left and right branch
     oss << dump_node_as_json(prefix + "  ", sparsetree, node.left_child_id)
         << ",\n"
         << dump_node_as_json(prefix + "  ", sparsetree, node.left_child_id + 1)
-        << "\n" << prefix << "]}";
+        << "\n"
+        << prefix << "]}";
   } else {
     oss << prefix << "{\"nodeid\": " << idx
-        << ", \"leaf_value\": " << node.prediction
-        << "}";
+        << ", \"leaf_value\": " << node.prediction << "}";
   }
   return oss.str();
 }

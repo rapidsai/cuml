@@ -194,14 +194,13 @@ template void print_tree<double, int>(const TreeClassifierD *tree);
 template void print_tree<float, float>(const TreeRegressorF *tree);
 template void print_tree<double, double>(const TreeRegressorD *tree);
 
-template std::string
-  dump_tree_as_json<float, int>(const TreeClassifierF *tree);
-template std::string
-  dump_tree_as_json<double, int>(const TreeClassifierD *tree);
-template std::string
-  dump_tree_as_json<float, float>(const TreeRegressorF *tree);
-template std::string
-  dump_tree_as_json<double, double>(const TreeRegressorD *tree);
+template std::string dump_tree_as_json<float, int>(const TreeClassifierF *tree);
+template std::string dump_tree_as_json<double, int>(
+  const TreeClassifierD *tree);
+template std::string dump_tree_as_json<float, float>(
+  const TreeRegressorF *tree);
+template std::string dump_tree_as_json<double, double>(
+  const TreeRegressorD *tree);
 
 }  // End namespace DecisionTree
 }  //End namespace ML

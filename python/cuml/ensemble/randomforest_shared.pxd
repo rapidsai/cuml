@@ -102,7 +102,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef void delete_rf_metadata[T, L](RandomForestMetaData[T, L]*) except +
 
-
     #
     # Text representation of random forest
     #
