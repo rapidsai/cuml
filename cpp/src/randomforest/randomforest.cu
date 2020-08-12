@@ -259,6 +259,23 @@ void _print_rf(const RandomForestMetaData<T, L>* forest, bool summary) {
   }
 }
 
+template <class T, class L>
+std::string _dump_rf_as_json(const RandomForestMetaData<T, L>* forest) {
+  if (!forest || !forest->trees) {
+    return "[]";
+  }
+  std::ostringstream oss;
+  oss << "[\n";
+  for (int i = 0; i < forest->rf_params.n_trees; i++) {
+    oss << DecisionTree::dump_tree_as_json<T, L>(&(forest->trees[i]));
+    if (i < forest->rf_params.n_trees - 1) {
+      oss << ",\n";
+    }
+  }
+  oss << "\n]";
+  return oss.str();
+}
+
 /**
  * @brief Print summary for all trees in the random forest.
  * @tparam T: data type for input data (float or double).
@@ -279,6 +296,11 @@ void print_rf_summary(const RandomForestMetaData<T, L>* forest) {
 template <class T, class L>
 void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
   _print_rf(forest, false);
+}
+
+template <class T, class L>
+std::string dump_rf_as_json(const RandomForestMetaData<T, L>* forest) {
+  return _dump_rf_as_json(forest);
 }
 
 template <class T, class L>
@@ -737,6 +759,15 @@ template void print_rf_detailed<double, int>(
 template void print_rf_detailed<float, float>(
   const RandomForestRegressorF* forest);
 template void print_rf_detailed<double, double>(
+  const RandomForestRegressorD* forest);
+
+template std::string dump_rf_as_json<float, int>(
+  const RandomForestClassifierF* forest);
+template std::string dump_rf_as_json<double, int>(
+  const RandomForestClassifierD* forest);
+template std::string dump_rf_as_json<float, float>(
+  const RandomForestRegressorF* forest);
+template std::string dump_rf_as_json<double, double>(
   const RandomForestRegressorD* forest);
 
 template void null_trees_ptr<float, int>(RandomForestClassifierF*& forest);
