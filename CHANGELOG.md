@@ -24,6 +24,7 @@
 - PR #2618: SVM class and sample weights
 - PR #2661: CUDA-11 support for single-gpu code
 - PR #2322: Sparse FIL forests with 8-byte nodes
+- PR #2675: Update conda recipes to support CUDA 11
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
