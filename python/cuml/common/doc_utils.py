@@ -127,12 +127,12 @@ _parameter_possible_values = ['name',
 _return_values_docstrings = {
     'dense':
     '{name} : cuDF, CuPy or NumPy object depending on cuML\'s output type configuration, shape = {shape}\n \
-        {description} \n For more information on how to configure cuML\'s output type, \
+        {description}\nFor more information on how to configure cuML\'s output type, \
         refer to: `Output Data Type Configuration`_.',  # noqa
 
     'dense_sparse':
     '{name} : cuDF, CuPy or NumPy object depending on cuML\'s output type configuration, cupy.sparse for sparse output, shape = {shape}\n \
-        {description} \n For more information on how to configure cuML\'s dense output type, \
+        {description}\nFor more information on how to configure cuML\'s dense output type, \
         refer to: `Output Data Type Configuration`_.',  # noqa
 
     'dense_datatype':
