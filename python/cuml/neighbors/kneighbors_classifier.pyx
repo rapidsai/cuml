@@ -100,7 +100,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         supported.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
       from cuml.neighbors import KNeighborsClassifier
@@ -122,7 +122,6 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
 
     Output:
-    -------
 
     .. code-block:: python
 

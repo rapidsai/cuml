@@ -38,7 +38,7 @@ class Lasso(Base, RegressorMixin):
     a linear model.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -119,7 +119,7 @@ class Lasso(Base, RegressorMixin):
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
     -----
