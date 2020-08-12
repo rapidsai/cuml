@@ -350,7 +350,7 @@ def test_output_algos(algo, small_classifier_and_preds):
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize('storage_type',
-                         [False, True, 'auto', 'dense', 'sparse', 'sparse8'])
+                         [False, True, 'auto'])
 def test_output_storage_type(storage_type, small_classifier_and_preds):
     model_path, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
@@ -394,15 +394,23 @@ def test_output_args(small_classifier_and_preds):
     assert array_equal(fil_preds, xgb_preds, 1e-3)
 
 
+@pytest.mark.parametrize('num_classes', [2, 5])
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
-def test_lightgbm(tmp_path):
+def test_lightgbm(num_classes, tmp_path):
     import lightgbm as lgb
     X, y = simulate_data(500, 10,
                          random_state=43210,
                          classification=True)
     train_data = lgb.Dataset(X, label=y)
-    param = {'objective': 'binary',
-             'metric': 'binary_logloss'}
+
+    if num_classes == 2:
+        param = {'objective': 'binary',
+                 'metric': 'binary_logloss',
+                 'num_classes': 1}
+    else:
+        param = {'objective': 'multiclass',
+                 'metric': 'multi_logloss',
+                 'num_classes': num_classes}
     num_round = 5
     bst = lgb.train(param, train_data, num_round)
     gbm_preds = bst.predict(X)
@@ -419,8 +427,7 @@ def test_lightgbm(tmp_path):
 
     assert array_equal(np.round(gbm_preds), fil_preds)
 
-    lcls = lgb.LGBMClassifier().set_params(objective='binary',
-                                           metric='binary_logloss')
+    lcls = lgb.LGBMClassifier().set_params(**param)
     lcls.fit(X, y)
     gbm_proba = lcls.predict_proba(X)
 
