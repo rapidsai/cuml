@@ -42,7 +42,7 @@ nvidia-smi
 
 # Set xgboost version based on CUDA_VERSION
 XGBOOST_VERSION=1.1.0dev.rapidsai0.15
-if [[ "$CUDA_VERSION" == "11.0" ]] ; then
+if [[ "$CUDA_REL" == "11.0" ]] ; then
   XGBOOST_VERSION=1.2.0dev.rapidsai0.15
 fi
 
