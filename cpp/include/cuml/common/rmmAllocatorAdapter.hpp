@@ -43,7 +43,7 @@ class rmmAllocatorAdapter : public ML::deviceAllocator {
    */
   virtual void* allocate(std::size_t n, cudaStream_t stream) {
     void* ptr = 0;
-    ptr = rmm::mr::get_per_device_resource()->allocate(n, stream);
+    ptr = rmm::mr::get_current_device_resource()->allocate(n, stream);
     return ptr;
   }
 
@@ -56,7 +56,7 @@ class rmmAllocatorAdapter : public ML::deviceAllocator {
    * @param[in] stream    the stream to use for the asynchronous free
    */
   virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) {
-    rmm::mr::get_per_device_resource()->deallocate(p, n, stream);
+    rmm::mr::get_current_device_resource()->deallocate(p, n, stream);
   }
 
   virtual ~rmmAllocatorAdapter() {}
