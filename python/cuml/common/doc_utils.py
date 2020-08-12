@@ -44,11 +44,11 @@ from inspect import signature
 
 _parameters_docstrings = {
     'dense':
-    '{name} : array-like (device or host) shape = {shape} \n \
-        Dense matrix containing floats or doubles. \
-        Acceptable formats: CUDA array interface compliant objects like \
-        CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas \
-        DataFrame/Series.',
+    '{name} : array-like (device or host) of shape {shape}\n' \
+    '    Dense matrix containing floats or doubles.\n' \
+    '    Acceptable formats: CUDA array interface compliant objects like\n' \
+    '    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n' \
+    '    DataFrame/Series.',
 
     'dense_anydtype':
     '{name} : array-like (device or host) shape = {shape} \n \
