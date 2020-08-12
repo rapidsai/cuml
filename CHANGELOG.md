@@ -1,6 +1,7 @@
 # cuML 0.16.0 (Date TBD)
 
 ## New Features
+- PR #2677: Ability to export RF trees as JSON
 
 ## Improvements
 
