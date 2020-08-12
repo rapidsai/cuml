@@ -28,7 +28,7 @@ class MBSGDRegressor(Base, RegressorMixin):
     regularized empirical loss with mini-batch SGD.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         import numpy as np
