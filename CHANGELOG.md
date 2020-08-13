@@ -85,6 +85,7 @@
 - PR #2611: Adding building doxygen docs to gpu ci
 - PR #2629: Add naive_bayes api docs
 - PR #2643: 'dense' and 'sparse' values of `storage_type` for FIL
+- PR #2687: Update xgboost version to 1.2.0dev.rapidsai0.15
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
