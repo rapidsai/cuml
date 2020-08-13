@@ -417,7 +417,7 @@ def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
 def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
     result = {}
     """
-    Note: This test digs down a bit far into the
+    .. note:: This test digs down a bit far into the
     internals of the implementation, but it's
     important that regressions do not occur
     from changes to the class.

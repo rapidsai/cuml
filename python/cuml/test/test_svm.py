@@ -461,9 +461,11 @@ def get_memsize(svc):
 def test_svm_memleak(params, n_rows, n_iter, n_cols,
                      use_handle, dataset='blobs'):
     """
-    Test whether there is any memory leak. Note: small n_rows, and n_cols
-    values will result in small model size, that will not be measured by
-    get_memory_info.
+    Test whether there is any memory leak.
+
+    .. note:: small `n_rows`, and `n_cols` values will result in small model
+        size, that will not be measured by get_memory_info.
+
     """
     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
     stream = cuml.cuda.Stream()
