@@ -98,6 +98,12 @@ class MBSGDClassifier(Base, ClassifierMixin):
 
     alpha: float (default = 0.0001)
         The constant value which decides the degree of regularization
+    l1_ratio: float (default=0.15)
+        The l1_ratio is used only when `penalty = elasticnet`. The value for
+        l1_ratio should be `0 <= l1_ratio <= 1`. When `l1_ratio = 0` then the
+        `penalty = 'l2'` and if `l1_ratio = 1` then `penalty = 'l1'`
+    batch_size: int (default = 32)
+        It sets the number of samples that will be included in each batch.
     fit_intercept : boolean (default = True)
        If True, the model tries to correct for the global mean of y.
        If False, the model expects that you have centered the data.
