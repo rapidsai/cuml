@@ -26,7 +26,7 @@ class MBSGDClassifier(Base, ClassifierMixin):
     """
     Linear models (linear SVM, logistic regression, or linear regression)
     fitted by minimizing a regularized empirical loss with mini-batch SGD.
-    The MBSGD Classifier implementation is experimental and and it uses a 
+    The MBSGD Classifier implementation is experimental and and it uses a
     different algorithm than sklearn's SGDClassifier. In order to improve
     the results obtained from cuML's MBSGDClassifier:
     * Reduce the batch size
