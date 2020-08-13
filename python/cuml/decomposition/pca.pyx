@@ -433,8 +433,7 @@ class PCA(Base):
         cluster labels
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(X, output_type=True, n_features=True)
 
         if cp.sparse.issparse(X):
             return self._sparse_fit(X)
