@@ -58,6 +58,7 @@ def _build_and_save_xgboost(model_path,
                             y_train,
                             classification=True,
                             num_rounds=5,
+                            num_classes=2,
                             xgboost_params={}):
     """Trains a small xgboost classifier and saves it to model_path"""
     dtrain = xgb.DMatrix(X_train, label=y_train)
@@ -66,17 +67,18 @@ def _build_and_save_xgboost(model_path,
     params = {'silent': 1}
 
     # learning task params
+    params['eval_metric'] = 'error'
     if classification:
-        params['eval_metric'] = 'error'
-        params['objective'] = 'binary:logistic'
-        # cannot use this interface as it's not supported by treelite
-        # will cause "softmax" as the output transform
-        #params['objective'] = 'multi:softprob'
-        # output transform == 'max_index'
-        params['objective'] = 'multi:softmax'
-        params['num_class'] = 3
+        params['num_class'] = num_classes
+        if num_classes == 2:
+            params['objective'] = 'binary:logistic'
+        else:
+            # cannot use this interface as it's not supported by treelite
+            # will cause "softmax" as the output transform
+            #params['objective'] = 'multi:softprob'
+            # output transform == 'max_index'
+            params['objective'] = 'multi:softmax'
     else:
-        params['eval_metric'] = 'error'
         params['objective'] = 'reg:squarederror'
         params['base_score'] = 0.0
 
@@ -97,16 +99,14 @@ def _build_and_save_xgboost(model_path,
                                         unit_param(5),
                                         quality_param(50),
                                         stress_param(90)])
+@pytest.mark.parametrize('num_classes', [2, 5])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
+def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path):
     # settings
     classification = True  # change this to false to use regression
-    n_rows = n_rows  # we'll use 1 millions rows
-    n_columns = n_columns
-    n_categories = 3
     random_state = np.random.RandomState(43210)
 
-    X, y = simulate_data(n_rows, n_columns, n_categories,
+    X, y = simulate_data(n_rows, n_columns, num_classes,
                          random_state=random_state,
                          classification=classification)
     # identify shape and indices
@@ -120,7 +120,8 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
 
     bst = _build_and_save_xgboost(model_path, X_train, y_train,
                                   num_rounds=num_rounds,
-                                  classification=classification)
+                                  classification=classification,
+                                  num_classes=num_classes)
 
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
     xgb_preds = bst.predict(dvalidation)
@@ -399,7 +400,8 @@ def test_output_args(small_classifier_and_preds):
 
     assert array_equal(fil_preds, xgb_preds, 1e-3)
 
-@pytest.mark.parametrize('num_classes', [2, 5])
+
+@pytest.mark.parametrize('num_classes', [2, 2]) # raise to 5 when supported
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
 def test_lightgbm(num_classes, tmp_path):
     import lightgbm as lgb
@@ -409,9 +411,13 @@ def test_lightgbm(num_classes, tmp_path):
     train_data = lgb.Dataset(X, label=y)
 
     if num_classes == 2:
-      param = {'objective': 'binary', 'metric': 'binary_logloss', 'num_classes': 1}
+        param = {'objective': 'binary',
+                 'metric': 'binary_logloss',
+                 'num_classes': 1}
     else:
-      param = {'objective': 'multiclass', 'metric': 'multi_logloss', 'num_classes': num_classes}
+        param = {'objective': 'multiclass',
+                 'metric': 'multi_logloss',
+                 'num_classes': num_classes}
     num_round = 5
     bst = lgb.train(param, train_data, num_round)
     gbm_preds = bst.predict(X)

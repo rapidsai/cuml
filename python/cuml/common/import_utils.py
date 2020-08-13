@@ -22,6 +22,7 @@ from distutils.version import LooseVersion
 
 def has_dask():
     try:
+        return False
         import dask   # NOQA
         import dask.distributed   # NOQA
         import dask.dataframe   # NOQA
