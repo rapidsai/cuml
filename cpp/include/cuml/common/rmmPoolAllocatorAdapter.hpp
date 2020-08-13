@@ -51,12 +51,12 @@ inline auto make_pool() {
 class rmmPoolAllocatorAdapter : public rmmAllocatorAdapter {
  public:
   rmmPoolAllocatorAdapter() : mr_(make_pool()) {
-    prev_mr_ = rmm::mr::set_default_resource(mr_.get());
+    prev_mr_ = rmm::mr::set_current_device_resource(mr_.get());
   }
 
   ~rmmPoolAllocatorAdapter() {
     // restore the previous memory resource when this object goes out-of-scope
-    rmm::mr::set_default_resource(prev_mr_);
+    rmm::mr::set_current_device_resource(prev_mr_);
   }
 
  private:
