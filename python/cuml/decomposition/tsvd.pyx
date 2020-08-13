@@ -329,8 +329,7 @@ class TruncatedSVD(Base):
         X_new : cuDF DataFrame, shape (n_samples, n_components)
             Reduced version of X as a dense cuDF DataFrame
         """
-        self._set_output_type(X)
-        self._set_n_features_in(X)
+        self._set_base_attributes(X, output_type=True, n_features=True)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
