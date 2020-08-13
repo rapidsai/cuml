@@ -1,9 +1,22 @@
-diff --git a/faiss/gpu/utils/DeviceDefs.cuh b/faiss/gpu/utils/DeviceDefs.cuh
-index 111eef3..32cc1cc 100644
+diff --git a/configure b/configure
+index ed40dae..f88ed0a 100755
+--- a/configure
++++ b/configure
+@@ -2970,7 +2970,7 @@ ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ex
+ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+
+-  ax_cxx_compile_alternatives="11 0x"    ax_cxx_compile_cxx11_required=true
++  ax_cxx_compile_alternatives="14 11 0x"    ax_cxx_compile_cxx11_required=true
+   ac_ext=cpp
+ ac_cpp='$CXXCPP $CPPFLAGS'
+ ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+diff --git a/gpu/utils/DeviceDefs.cuh b/gpu/utils/DeviceDefs.cuh
+index 4e859ec..a93d636 100644
 --- a/faiss/gpu/utils/DeviceDefs.cuh
 +++ b/faiss/gpu/utils/DeviceDefs.cuh
-@@ -18,7 +18,7 @@ namespace faiss { namespace gpu {
- #endif
+@@ -11,7 +11,7 @@
+ namespace faiss { namespace gpu {
 
  #ifdef __CUDA_ARCH__
 -#if __CUDA_ARCH__ <= 750
