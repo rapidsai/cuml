@@ -26,7 +26,7 @@ dependencies:
 - dask-ml
 - ucx-py=0.15*
 - nccl>=2.5
-- libcumlprims=0.15.0a200720
+- libcumlprims=0.15.0a200812
 - statsmodels
 - treelite=0.92
 - doxygen
