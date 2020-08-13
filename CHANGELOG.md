@@ -24,6 +24,7 @@
 - PR #2618: SVM class and sample weights
 - PR #2661: CUDA-11 support for single-gpu code
 - PR #2322: Sparse FIL forests with 8-byte nodes
+- PR #2675: Update conda recipes to support CUDA 11
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
@@ -140,6 +141,7 @@
 - PR #2651: AutoARIMA Python bug fix
 - PR #2654: Fix for vectorizer concatenations
 - PR #2655: Fix C++ RF predict function access of rows/samples array
+- PR #2649: Cleanup sphinx doc warnings for 0.15
 - PR #2668: Order conversion improvements to account for cupy behavior changes
 - PR #2669: Revert PR 2655 Revert "Fixes C++ RF predict function"
 

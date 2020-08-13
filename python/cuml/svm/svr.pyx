@@ -106,24 +106,6 @@ class SVR(SVMBase, RegressorMixin):
 
     Construct an SVC classifier for training and predictions.
 
-    Examples
-    ---------
-    .. code-block:: python
-
-            import numpy as np
-            from cuml.svm import SVR
-            X = np.array([[1], [2], [3], [4], [5]], dtype=np.float32)
-            y = np.array([1.1, 4, 5, 3.9, 1.], dtype = np.float32)
-            reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
-            reg.fit(X, y)
-            print("Predicted values:", reg.predict(X))
-
-    Output:
-
-    .. code-block:: none
-
-            Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
-
     Parameters
     ----------
     handle : cuml.Handle
@@ -138,8 +120,10 @@ class SVR(SVMBase, RegressorMixin):
     gamma : float or string (default = 'scale')
         Coefficient for rbf, poly, and sigmoid kernels. You can specify the
         numeric value, or use one of the following options:
-        - 'auto': gamma will be set to 1 / n_features
-        - 'scale': gamma will be se to 1 / (n_features * X.var())
+
+        - 'auto': gamma will be set to ``1 / n_features``
+        - 'scale': gamma will be se to ``1 / (n_features * X.var())``
+
     coef0 : float (default = 0.0)
         Independent term in kernel function, only signifficant for poly and
         sigmoid
@@ -186,25 +170,48 @@ class SVR(SVMBase, RegressorMixin):
     coef_ : float, shape [1, n_cols]
         Only available for linear kernels. It is the normal of the
         hyperplane.
-        coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
-
+        ``coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]``
 
     Notes
     -----
+
     For additional docs, see `Scikit-learn's SVR
     <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVR.html>`_.
 
     The solver uses the SMO method to fit the regressor. We use the Optimized
-    Hierarchical Decomposition [1] variant of the SMO algorithm, similar to [2]
+    Hierarchical Decomposition [1]_ variant of the SMO algorithm, similar to
+    [2]_
 
     References
     ----------
-    [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical Decomposition
-         Algorithm for Support VectorMachine Training, IEEE Transactions on
-         Parallel and Distributed Systems, vol 28, no 12, 3330, (2017)
-    [2] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
-    *      of Machine Learning Research, 19, 1-5 (2018)
-        https://github.com/Xtra-Computing/thundersvm
+
+    .. [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical
+           Decomposition Algorithm for Support VectorMachine Training, IEEE
+           Transactions on Parallel and Distributed Systems, vol 28, no 12,
+           3330, (2017)
+
+    .. [2] `Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs,
+           Journal of Machine Learning Research, 19, 1-5 (2018)
+           <https://github.com/Xtra-Computing/thundersvm>`_
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import numpy as np
+        from cuml.svm import SVR
+        X = np.array([[1], [2], [3], [4], [5]], dtype=np.float32)
+        y = np.array([1.1, 4, 5, 3.9, 1.], dtype = np.float32)
+        reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
+        reg.fit(X, y)
+        print("Predicted values:", reg.predict(X))
+
+    Output:
+
+    .. code-block:: python
+
+        Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
 
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
