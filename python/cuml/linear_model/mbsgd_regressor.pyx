@@ -26,10 +26,9 @@ class MBSGDRegressor(Base, RegressorMixin):
     """
     Linear regression model fitted by minimizing a
     regularized empirical loss with mini-batch SGD.
-    The MBSGD Regressor implementation is experimental and hence a difference
-    in the accuracy between scikit learn's SGD Regressor and cuML's MBSGD may
-    be seen. In order to improve the results obtained from cuML's MBSGD
-    Regressor:
+    The MBSGD Regressor implementation is experimental and and it uses a
+    different algorithm than sklearn's SGDClassifier. In order to improve
+    the results obtained from cuML's MBSGD Regressor:
     * Reduce the batch size
     * Increase the eta0
     * Increase the number of iterations
