@@ -99,7 +99,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         supported.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
       from cuml.neighbors import KNeighborsClassifier
@@ -121,7 +121,6 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
 
     Output:
-    -------
 
     .. code-block:: python
 
@@ -138,7 +137,8 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
     def __init__(self, weights="uniform", **kwargs):
         super(KNeighborsClassifier, self).__init__(**kwargs)
 
-        self.y = None
+        self._y = None
+        self._classes_ = None
         self.weights = weights
 
         if weights != "uniform":
@@ -169,12 +169,12 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         self._set_target_dtype(y)
 
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
-        self.y, _, _, _ = \
+        self._y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.int32,
                                 convert_to_dtype=(np.int32
                                                   if convert_dtype
                                                   else None))
-        self.classes_ = cp.unique(self.y)
+        self._classes_ = CumlArray(cp.unique(self._y))
         return self
 
     def predict(self, X, convert_dtype=True):
@@ -211,7 +211,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                                                   else None))
         cdef uintptr_t inds_ctype = inds.ptr
 
-        out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
+        out_cols = self._y.shape[1] if len(self._y.shape) == 2 else 1
 
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
 
@@ -223,7 +223,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         # classification
         cdef uintptr_t y_ptr
         for i in range(out_cols):
-            col = self.y[:, i] if out_cols > 1 else self.y
+            col = self._y[:, i] if out_cols > 1 else self._y
             y_ptr = col.ptr
             y_vec.push_back(<int*>y_ptr)
 
@@ -275,7 +275,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                                                   else None))
         cdef uintptr_t inds_ctype = inds.ptr
 
-        out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
+        out_cols = self._y.shape[1] if len(self._y.shape) == 2 else 1
 
         cdef vector[int*] *y_vec = new vector[int*]()
         cdef vector[float*] *out_vec = new vector[float*]()
@@ -284,7 +284,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         cdef uintptr_t classes_ptr
         cdef uintptr_t y_ptr
         for out_col in range(out_cols):
-            col = self.y[:, out_col] if out_cols > 1 else self.y
+            col = self._y[:, out_col] if out_cols > 1 else self._y
             classes = CumlArray.zeros((n_rows,
                                        len(cp.unique(cp.asarray(col)))),
                                       dtype=np.float32,

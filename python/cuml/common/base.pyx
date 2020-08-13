@@ -192,7 +192,7 @@ class Base:
         Pretty prints the arguments of a class using Scikit-learn standard :)
         """
         cdef list signature = inspect.getfullargspec(self.__init__).args
-        if signature[0] == 'self':
+        if len(signature) > 0 and signature[0] == 'self':
             del signature[0]
         cdef dict state = self.__dict__
         cdef str string = self.__class__.__name__ + '('
@@ -274,7 +274,12 @@ class Base:
             else:
                 return self.__dict__[real_name]
         else:
-            raise AttributeError
+            if attr == "solver_model":
+                return self.__dict__['solver_model']
+            if "solver_model" in self.__dict__.keys():
+                return getattr(self.solver_model, attr)
+            else:
+                raise AttributeError
 
     def _set_output_type(self, input):
         """

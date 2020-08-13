@@ -243,14 +243,18 @@ def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
         return
     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
 
-    cuSVC = cu_svm.SVC(**params)
-    cuSVC.fit(X_train, y_train)
+    # Default to numpy for testing
+    with cuml.using_output_type("numpy"):
 
-    sklSVC = svm.SVC(**params)
-    sklSVC.fit(X_train, y_train)
+        cuSVC = cu_svm.SVC(**params)
+        cuSVC.fit(X_train, y_train)
 
-    compare_svm(cuSVC, sklSVC, X_test, y_test, n_sv_tol=max(2, 0.02*n_rows),
-                coef_tol=1e-5, report_summary=True)
+        sklSVC = svm.SVC(**params)
+        sklSVC.fit(X_train, y_train)
+
+        compare_svm(cuSVC, sklSVC, X_test, y_test,
+                    n_sv_tol=max(2, 0.02*n_rows), coef_tol=1e-5,
+                    report_summary=True)
 
 
 @pytest.mark.parametrize('params', [
@@ -334,6 +338,37 @@ def test_svm_skl_cmp_predict_proba(n_rows=10000, n_cols=20):
     sklSVC = svm.SVC(**params)
     sklSVC.fit(X_train, y_train)
     compare_probabilistic_svm(cuSVC, sklSVC, X_test, y_test, 1e-3, 1e-2)
+
+
+@pytest.mark.parametrize('class_weight', [None, {1: 10}, 'balanced'])
+@pytest.mark.parametrize('sample_weight', [None, True])
+def test_svc_weights(class_weight, sample_weight):
+    # We are using the following example as a test case
+    # https://scikit-learn.org/stable/auto_examples/svm/plot_separating_hyperplane_unbalanced.html
+    X, y = make_blobs(n_samples=[1000, 100],
+                      centers=[[0.0, 0.0], [2.0, 2.0]],
+                      cluster_std=[1.5, 0.5],
+                      random_state=137, shuffle=False)
+    if sample_weight:
+        # Put large weight on class 1
+        sample_weight = y * 9 + 1
+
+    params = {'kernel': 'linear', 'C': 1, 'gamma': 'scale'}
+    params['class_weight'] = class_weight
+    cuSVC = cu_svm.SVC(**params)
+    cuSVC.fit(X, y, sample_weight)
+
+    if class_weight is not None or sample_weight is not None:
+        # Standalone test: check if smaller blob is correctly classified in the
+        # presence of class weights
+        X_1 = X[y == 1, :]
+        y_1 = np.ones(X_1.shape[0])
+        cu_score = cuSVC.score(X_1, y_1)
+        assert cu_score > 0.9
+
+    sklSVC = svm.SVC(**params)
+    sklSVC.fit(X, y, sample_weight)
+    compare_svm(cuSVC, sklSVC, X, y, coef_tol=1e-5, report_summary=True)
 
 
 @pytest.mark.parametrize('params', [
@@ -426,9 +461,11 @@ def get_memsize(svc):
 def test_svm_memleak(params, n_rows, n_iter, n_cols,
                      use_handle, dataset='blobs'):
     """
-    Test whether there is any memory leak. Note: small n_rows, and n_cols
-    values will result in small model size, that will not be measured by
-    get_memory_info.
+    Test whether there is any memory leak.
+
+    .. note:: small `n_rows`, and `n_cols` values will result in small model
+        size, that will not be measured by get_memory_info.
+
     """
     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
     stream = cuml.cuda.Stream()
@@ -569,3 +606,20 @@ def test_svr_skl_cmp(params, dataset, n_rows, n_cols):
     sklSVR.fit(X_train, y_train)
 
     compare_svr(cuSVR, sklSVR, X_test, y_test)
+
+
+def test_svr_skl_cmp_weighted():
+    """ Compare to Sklearn SVR, use sample weights"""
+    X, y = make_regression(
+        n_samples=100, n_features=5, n_informative=2, n_targets=1,
+        random_state=137, noise=10)
+    sample_weights = 10*np.sin(np.linspace(0, 2*np.pi, len(y))) + 10.1
+
+    params = {'kernel': 'linear', 'C': 10, 'gamma': 1}
+    cuSVR = cu_svm.SVR(**params)
+    cuSVR.fit(X, y, sample_weights)
+
+    sklSVR = svm.SVR(**params)
+    sklSVR.fit(X, y, sample_weights)
+
+    compare_svr(cuSVR, sklSVR, X, y)
