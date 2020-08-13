@@ -38,7 +38,7 @@ class MBSGDRegressor(Base, RegressorMixin):
     to fit the model.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         import numpy as np

@@ -38,7 +38,7 @@ class MBSGDClassifier(Base, ClassifierMixin):
     to fit the model.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         import numpy as np
