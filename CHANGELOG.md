@@ -93,6 +93,7 @@
 - PR #2611: Adding building doxygen docs to gpu ci
 - PR #2629: Add naive_bayes api docs
 - PR #2643: 'dense' and 'sparse' values of `storage_type` for FIL
+- PR #2686: Improve SVM tests
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -145,6 +146,7 @@
 - PR #2616: Small test code fix for pandas dtype tests
 - PR #2625: Update Estimator notebook to resolve errors
 - PR #2634: singlegpu build option fixes
+- PR #2641: [Breaking] Make `max_depth` in RF compatible with scikit-learn
 - PR #2650: Make max_depth behave consistently for max_depth > 14
 - PR #2651: AutoARIMA Python bug fix
 - PR #2654: Fix for vectorizer concatenations
