@@ -79,10 +79,6 @@ $CC --version
 $CXX --version
 conda list
 
-################################################################################
-# BUILD - Build libcuml, cuML, and prims from source
-################################################################################
-
 logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
@@ -91,61 +87,123 @@ export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 logger "Building doxygen C++ docs"
 $WORKSPACE/build.sh cppdocs -v
 
-logger "Build libcuml, cuml, prims and bench targets..."
-$WORKSPACE/build.sh clean libcuml cuml prims bench -v
+if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
+    ################################################################################
+    # BUILD - Build libcuml, cuML, and prims from source
+    ################################################################################
 
-logger "Resetting LD_LIBRARY_PATH..."
+    logger "Build libcuml, cuml, prims and bench targets..."
+    $WORKSPACE/build.sh clean libcuml cuml prims bench -v
 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
-export LD_LIBRARY_PATH_CACHED=""
+    logger "Resetting LD_LIBRARY_PATH..."
 
-cd $WORKSPACE
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
+    export LD_LIBRARY_PATH_CACHED=""
 
-################################################################################
-# TEST - Run GoogleTest and py.tests for libcuml and cuML
-################################################################################
+    cd $WORKSPACE
 
-if hasArg --skip-tests; then
-    logger "Skipping Tests..."
-    exit 0
-fi
+    ################################################################################
+    # TEST - Run GoogleTest and py.tests for libcuml and cuML
+    ################################################################################
 
-logger "Check GPU usage..."
-nvidia-smi
+    if hasArg --skip-tests; then
+        logger "Skipping Tests..."
+        exit 0
+    fi
 
-logger "GoogleTest for libcuml..."
-cd $WORKSPACE/cpp/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+    logger "Check GPU usage..."
+    nvidia-smi
 
-logger "Python pytest for cuml..."
-cd $WORKSPACE/python
-
-pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft
-
-timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
-
-
-################################################################################
-# TEST - Run notebook tests
-################################################################################
-
-${WORKSPACE}/ci/gpu/test-notebooks.sh 2>&1 | tee nbtest.log
-python ${WORKSPACE}/ci/utils/nbtestlog2junitxml.py nbtest.log
-
-################################################################################
-# TEST - Run GoogleTest for ml-prims
-################################################################################
-
-logger "Run ml-prims test..."
-cd $WORKSPACE/cpp/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
-
-################################################################################
-# TEST - Run GoogleTest for ml-prims, but with cuda-memcheck enabled
-################################################################################
-
-if [ "$BUILD_MODE" = "branch" ] && [ "$BUILD_TYPE" = "gpu" ]; then
-    logger "GoogleTest for ml-prims with cuda-memcheck enabled..."
+    logger "GoogleTest for libcuml..."
     cd $WORKSPACE/cpp/build
-    python ../scripts/cuda-memcheck.py -tool memcheck -exe ./test/prims
+    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+
+    
+    logger "Python pytest for cuml..."
+    cd $WORKSPACE/python
+
+    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft
+
+    timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
+
+
+    ################################################################################
+    # TEST - Run notebook tests
+    ################################################################################
+
+    ${WORKSPACE}/ci/gpu/test-notebooks.sh 2>&1 | tee nbtest.log
+    python ${WORKSPACE}/ci/utils/nbtestlog2junitxml.py nbtest.log
+
+    ################################################################################
+    # TEST - Run GoogleTest for ml-prims
+    ################################################################################
+
+    logger "Run ml-prims test..."
+    cd $WORKSPACE/cpp/build
+    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
+
+    ################################################################################
+    # TEST - Run GoogleTest for ml-prims, but with cuda-memcheck enabled
+    ################################################################################
+
+    if [ "$BUILD_MODE" = "branch" ] && [ "$BUILD_TYPE" = "gpu" ]; then
+        logger "GoogleTest for ml-prims with cuda-memcheck enabled..."
+        cd $WORKSPACE/cpp/build
+        python ../scripts/cuda-memcheck.py -tool memcheck -exe ./test/prims
+    fi
+else
+    #Project Flash
+    export LIBCUML_BUILD_DIR="$WORKSPACE/ci/artifacts/rmm/cpu/conda_work/cpp/build"
+    export LD_LIBRARY_PATH="$LIBCUML_BUILD_DIR:$LD_LIBRARY_PATH"
+    
+    if hasArg --skip-tests; then
+        logger "Skipping Tests..."
+        exit 0
+    fi
+
+    logger "Check GPU usage..."
+    nvidia-smi
+
+    logger "GoogleTest for libcuml..."
+    cd $LIBCUML_BUILD_DIR
+    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+
+    logger "Installing libcuml..."
+    conda install -c $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ libcuml
+        
+    logger "Building cuml"
+    "$WORKSPACE/build.sh" -v cuml
+
+    logger "Python pytest for cuml..."
+    cd $WORKSPACE/python
+
+    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft
+
+    timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
+
+    ################################################################################
+    # TEST - Run notebook tests
+    ################################################################################
+
+    ${WORKSPACE}/ci/gpu/test-notebooks.sh 2>&1 | tee nbtest.log
+    python ${WORKSPACE}/ci/utils/nbtestlog2junitxml.py nbtest.log
+
+    ################################################################################
+    # TEST - Run GoogleTest for ml-prims
+    ################################################################################
+
+    logger "Run ml-prims test..."
+    cd $LIBCUML_BUILD_DIR
+    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
+
+    ################################################################################
+    # TEST - Run GoogleTest for ml-prims, but with cuda-memcheck enabled
+    ################################################################################
+
+    if [ "$BUILD_MODE" = "branch" ] && [ "$BUILD_TYPE" = "gpu" ]; then
+        logger "GoogleTest for ml-prims with cuda-memcheck enabled..."
+        cd $WORKSPACE/ci/artifacts/cuml/cpu/conda_work/cpp/build
+        python ../scripts/cuda-memcheck.py -tool memcheck -exe ./test/prims
+    fi
+
 fi
