@@ -263,9 +263,7 @@ class Ridge(Base, RegressorMixin):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
-        self._set_output_type(X)
-        self._set_n_features_in(X)
-
+        self._set_base_attributes(X, output_type=True, n_features=True)
         cdef uintptr_t X_ptr, y_ptr
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])

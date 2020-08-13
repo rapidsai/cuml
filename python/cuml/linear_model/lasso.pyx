@@ -184,8 +184,7 @@ class Lasso(Base, RegressorMixin):
             convert y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(X, output_type=True, n_features=True)
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
 
         return self

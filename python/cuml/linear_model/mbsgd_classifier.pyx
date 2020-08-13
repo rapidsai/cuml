@@ -171,7 +171,7 @@ class MBSGDClassifier(Base, ClassifierMixin):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
-        self._set_n_features_in(X)
+        self._set_base_attributes(X, n_features=True)
         self.solver_model._estimator_type = self._estimator_type
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self

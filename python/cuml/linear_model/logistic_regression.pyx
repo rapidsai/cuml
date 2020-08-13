@@ -268,8 +268,7 @@ class LogisticRegression(Base, ClassifierMixin):
             will increase memory used for the method.
         """
         self.solver_model._set_target_dtype(y)
-        self._set_output_type(X)
-        self._set_n_features_in(X)
+        self._set_base_attributes(X, output_type=True, target_dtype=None, n_features=True)
 
         # Converting y to device array here to use `unique` function
         # since calling input_to_dev_array again in QN has no cost
