@@ -108,7 +108,7 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
     assert accuracy1 >= accuracy2 - accuracy_tol
 
     if b_tol is None:
-        b_tol = 30*svm1.tol
+        b_tol = 100*svm1.tol  # Using the deafult tol=1e-3 leads to b_tol=0.1
 
     if accuracy2 < 0.5:
         # Increase error margin for classifiers that are not accurate.
@@ -127,11 +127,9 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
         else:
             coef_tol *= 10
 
-    # Compare model parameter b (intercept). In practice sigmoid models can
-    # have larger differences in the model parameters (while still being within
-    # the accuracy tolerance). We increase b_tol for SVMs with sigmoid kernel.
-    if svm1.kernel == 'sigmoid':
-        b_tol = 0.1
+    # Compare model parameter b (intercept). In practice some models can have
+    # same differences in the model parameters while still being within
+    # the accuracy tolerance.
     if abs(svm2.intercept_) > 1e-6:
         assert abs((svm1.intercept_-svm2.intercept_)/svm2.intercept_) <= b_tol
     else:
