@@ -535,8 +535,7 @@ def test_svc_pickle(tmpdir, datatype, params):
                                       data[1], 0, 0)
         else:
             print("comparing base svc")
-            compare_svm(result["model"], pickled_model, data[0], data[1],
-                        cmp_sv=0, dcoef_tol=0)
+            compare_svm(result["model"], pickled_model, data[0], data[1])
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
