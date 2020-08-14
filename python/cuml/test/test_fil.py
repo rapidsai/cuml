@@ -58,19 +58,19 @@ def _build_and_save_xgboost(model_path,
                             y_train,
                             classification=True,
                             num_rounds=5,
-                            num_classes=2,
+                            num_classes=1,
                             xgboost_params={}):
     """Trains a small xgboost classifier and saves it to model_path"""
     dtrain = xgb.DMatrix(X_train, label=y_train)
 
     # instantiate params
-    params = {'silent': 1}
+    params = {} #'silent': 1}
 
     # learning task params
     params['eval_metric'] = 'error'
     if classification:
         params['num_class'] = num_classes
-        if num_classes == 2:
+        if num_classes == 1:
             params['objective'] = 'binary:logistic'
         else:
             # cannot use this interface as it's not supported by treelite
@@ -109,19 +109,25 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
     X, y = simulate_data(n_rows, n_columns, num_classes,
                          random_state=random_state,
                          classification=classification)
+    print(X.shape, 'y', y.shape)
     # identify shape and indices
     n_rows, n_columns = X.shape
     train_size = 0.80
 
     X_train, X_validation, y_train, y_validation = train_test_split(
         X, y, train_size=train_size, random_state=0)
+    [print(i.shape) for i in (X_train, X_validation, y_train, y_validation)]
 
     model_path = os.path.join(tmp_path, 'xgb_class.model')
 
+    if num_classes == 2:
+        xgb_num_classes = 1
+    else:
+        xgb_num_classes = num_classes
     bst = _build_and_save_xgboost(model_path, X_train, y_train,
                                   num_rounds=num_rounds,
                                   classification=classification,
-                                  num_classes=num_classes)
+                                  num_classes=xgb_num_classes)
 
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
     xgb_preds = bst.predict(dvalidation)

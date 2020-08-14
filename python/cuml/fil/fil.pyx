@@ -285,6 +285,7 @@ cdef class ForestInference_impl():
                     shape += (2,)
                 else:
                     shape += (self.num_output_groups,)
+            elif // check if cuml RF has num_output_groups
             preds = CumlArray.empty(shape=shape, dtype=np.float32, order='C')
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
@@ -349,7 +350,10 @@ cdef class ForestInference_impl():
         return self.load_from_treelite_model_handle(<uintptr_t>model.handle,
                                                     output_class, algo,
                                                     threshold, storage_type)
-
+    # TODO: factor common code (xcept forest_data == NULL and model_handle conversion
+    # into common func
+    # TODO: add logic to store vector of forests
+    # TODO: how to know if model is xgboost or cuml RF? (num_output_group-wise)?
     def load_using_treelite_handle(self,
                                    model_handle,
                                    bool output_class,
