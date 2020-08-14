@@ -59,7 +59,7 @@ void grow_deep_tree_regression(
     initial_metric_regression<T, AbsFunctor>(labels, sample_cnt, nrows, mean,
                                              count, initial_metric, tempmem);
   }
-  int reserve_depth = std::min(tempmem->swap_depth, tree_params.max_depth);
+  int reserve_depth = std::min(tempmem->swap_depth, tree_params.max_depth + 1);
   size_t total_nodes = pow(2, (reserve_depth + 1)) - 1;
 
   std::vector<T> sparse_meanstate;
@@ -115,10 +115,11 @@ void grow_deep_tree_regression(
   std::vector<unsigned int> feature_selector(h_colids, h_colids + Ncols);
   float* infogain = tempmem->h_outgain->data();
 
-  int scatter_algo_depth = std::min(tempmem->swap_depth, tree_params.max_depth);
+  int scatter_algo_depth =
+    std::min(tempmem->swap_depth, tree_params.max_depth + 1);
   for (int depth = 0; (depth < scatter_algo_depth) && (n_nodes_nextitr != 0);
        depth++) {
-    depth_cnt = depth + 1;
+    depth_cnt = depth;
     n_nodes = n_nodes_nextitr;
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
                             ncols_sampled, n_nodes, mtg, dist, feature_selector,
@@ -203,12 +204,12 @@ void grow_deep_tree_regression(
   sparsetree.resize(sparsetree.size() - lastsize);
   convert_scatter_to_gather(flagsptr, sample_cnt, n_nodes, nrows, d_nodecount,
                             d_nodestart, d_samplelist, tempmem);
-  if (tempmem->swap_depth == tree_params.max_depth - 1) {
+  if (tempmem->swap_depth == tree_params.max_depth) {
     ++depth_cnt;
   }
   for (int depth = tempmem->swap_depth;
-       (depth < tree_params.max_depth - 1) && (n_nodes != 0); depth++) {
-    depth_cnt = depth + 2;
+       (depth < tree_params.max_depth) && (n_nodes != 0); depth++) {
+    depth_cnt = depth + 1;
     //Algorithm starts here
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
                             ncols_sampled, lastsize, mtg, dist,
