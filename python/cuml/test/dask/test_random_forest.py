@@ -41,7 +41,6 @@ import pandas as pd
 from cuml.dask.ensemble import RandomForestClassifier as cuRFC_mg
 from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
 from cuml.dask.common import utils as dask_utils
-from cuml.test.utils import array_equal
 
 from dask.array import from_array
 from sklearn.datasets import make_regression, make_classification
@@ -91,7 +90,8 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
         cu_rf_params = {
             'n_estimators': 25,
             'max_depth': 16,
-            'n_bins': 16,
+            'n_bins': 256,
+            'seed': 10,
         }
 
         X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
@@ -99,14 +99,15 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
 
         cuml_mod = cuRFC_mg(**cu_rf_params)
         cuml_mod.fit(X_train_df, y_train_df)
-        cuml_preds_cpu = cuml_mod.predict(X_test, predict_model="CPU")
         X_test_dask_array = from_array(X_test)
         cuml_preds_gpu = cuml_mod.predict(X_test_dask_array,
                                           predict_model="GPU").compute()
-        acc_score_cpu = accuracy_score(cuml_preds_cpu, y_test)
         acc_score_gpu = accuracy_score(cuml_preds_gpu, y_test)
 
-        assert array_equal(acc_score_cpu, acc_score_gpu, unit_tol=1e-2)
+        # the sklearn model when ran with the same parameters gives an
+        # accuracy of 0.69. There is a difference of 0.04 (4%) between the two
+
+        assert acc_score_gpu >= 0.65
 
     finally:
         c.close()
