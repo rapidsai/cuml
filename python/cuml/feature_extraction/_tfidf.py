@@ -21,6 +21,8 @@ from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
 from cuml.common.sparsefuncs import csr_diag_mul
 from cuml import Base
 
+### Below should be term frequncy
+### Check what sklearn calls it
 def _sparse_document_frequency(X):
     """Count the number of non-zero values for each feature in sparse X."""
     if cp.sparse.isspmatrix_csr(X):
