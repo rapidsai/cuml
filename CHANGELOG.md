@@ -1,6 +1,7 @@
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
+- PR #2581: Added model persistence via joblib in each section of estimator_intro.ipynb
 - PR #2554: Hashing Vectorizer and general vectorizer improvements
 - PR #2240: Making Dask models pickleable
 - PR #2267: CountVectorizer estimator
@@ -149,6 +150,7 @@
 - PR #2668: Order conversion improvements to account for cupy behavior changes
 - PR #2669: Revert PR 2655 Revert "Fixes C++ RF predict function"
 - PR #2683: Fix incorrect "Bad CumlArray Use" error messages on test failures
+- PR #2695: Fix debug build issue due to incorrect host/device method setup
 
 # cuML 0.14.0 (03 Jun 2020)
 
