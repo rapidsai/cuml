@@ -25,6 +25,7 @@
 - PR #2661: CUDA-11 support for single-gpu code
 - PR #2322: Sparse FIL forests with 8-byte nodes
 - PR #2675: Update conda recipes to support CUDA 11
+- PR #2592: Add KNN parameter to t-SNE
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
