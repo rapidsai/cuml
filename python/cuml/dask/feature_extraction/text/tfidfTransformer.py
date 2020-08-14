@@ -125,7 +125,7 @@ class TfidfTransformer(BaseEstimator,DelayedTransformMixin):
         if modela.use_idf:
             for model in models[1:]:
                 modela.n_samples += model.n_samples
-                modela.n_features += model.n_features
+                modela.df += model.df
         return modela
 
     @staticmethod
