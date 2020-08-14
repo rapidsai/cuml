@@ -137,7 +137,7 @@ class QN(Base):
     NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant).
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         import cudf
@@ -219,7 +219,7 @@ class QN(Base):
         The estimated coefficients for the linear regression model.
         Note: shape is (n_classes, n_features + 1) if fit_intercept = True.
     intercept_ : array (n_classes, 1)
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
     ------
@@ -526,6 +526,11 @@ class QN(Base):
                 return self._coef_[-1]
             else:
                 return CumlArray.zeros(shape=1)
+        elif attr == 'coef_':
+            if self.fit_intercept:
+                return self._coef_[0:-1]
+            else:
+                return self._coef_
         else:
             return super().__getattr__(attr)
 

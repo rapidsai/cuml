@@ -27,6 +27,10 @@ def pytest_runtest_makereport(item: Item, call):
 
     if (report.failed):
 
+        # Save the abs path to this file. We will only mark bad CumlArray uses
+        # if the assertion failure comes from this file
+        conf_test_path = os.path.abspath(__file__)
+
         found_assert = False
 
         # Ensure these attributes exist. They can be missing if something else
@@ -36,8 +40,10 @@ def pytest_runtest_makereport(item: Item, call):
 
             for entry in reversed(report.longrepr.reprtraceback.reprentries):
 
-                if (not found_assert and entry.reprfileloc.message.startswith(
-                        "AssertionError")):
+                if (not found_assert and
+                        entry.reprfileloc.message.startswith("AssertionError")
+                        and os.path.abspath(
+                            entry.reprfileloc.path) == conf_test_path):
                     found_assert = True
                 elif (found_assert):
                     true_path = "{}:{}".format(entry.reprfileloc.path,
