@@ -115,7 +115,19 @@ class TSNETest : public ::testing::Test {
     free(embeddings_h);
   }
 
-  void SetUp() override { basicTest(); }
+  void fitWithKNNTest() {
+    cumlHandle handle;
+    
+    // Allocate memory
+    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
+    n * p);
+  
+  }
+
+  void SetUp() override { 
+    basicTest();
+    fitWithKNNTest();
+  }
 
   void TearDown() override {}
 
