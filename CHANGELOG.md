@@ -9,6 +9,7 @@
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
+- PR #2581: Added model persistence via joblib in each section of estimator_intro.ipynb
 - PR #2554: Hashing Vectorizer and general vectorizer improvements
 - PR #2240: Making Dask models pickleable
 - PR #2267: CountVectorizer estimator
