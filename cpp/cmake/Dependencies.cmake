@@ -136,7 +136,7 @@ if(BUILD_STATIC_FAISS)
     "Path to FAISS source directory")
   ExternalProject_Add(faiss
     GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
-    GIT_TAG           13a2d4ef8fcb4aa8b92718ef4b9cc211033e7318
+    GIT_TAG           a5b850dec6f1cd6c88ab467bfd5e87b0cac2e41d
     CONFIGURE_COMMAND LIBS=-pthread
                       CPPFLAGS=-w
                       LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
@@ -159,7 +159,10 @@ if(BUILD_STATIC_FAISS)
   add_library(FAISS::FAISS STATIC IMPORTED)
   set_property(TARGET FAISS::FAISS PROPERTY
     IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
-  set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src/faiss")
+  # to account for the FAISS file reorg that happened recently after the current
+  # pinned commit, just change the following line to
+  # set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src/faiss")
+  set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src")
 else()
   set(FAISS_INSTALL_DIR ENV{FAISS_ROOT})
   find_package(FAISS REQUIRED)
