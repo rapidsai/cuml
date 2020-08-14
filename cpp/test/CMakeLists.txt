@@ -22,6 +22,7 @@ set(CUML_TEST_INCLUDE_DIRS
 
 set(CUML_TEST_LINK_LIBRARIES
   ${CUML_CPP_TARGET}
+  FAISS::FAISS
   treelite::treelite
   treelite::treelite_runtime
   ${CUDA_cublas_LIBRARY}
@@ -59,6 +60,7 @@ if(BUILD_CUML_TESTS)
     sg/pca_test.cu
     sg/quasi_newton.cu
     sg/rf_accuracy_test.cu
+    sg/rf_depth_test.cu
     sg/rf_test.cu
     sg/rf_treelite_test.cu
     sg/ridge.cu
@@ -85,6 +87,8 @@ if(BUILD_CUML_MG_TESTS)
     # (please keep the filenames in alphabetical order)
     add_executable(ml_mg
       mg/knn.cu
+      mg/knn_classify.cu
+      mg/knn_regress.cu
       mg/main.cu
       mg/pca.cu
       mg/test_ml_mg_utils.cu)
@@ -98,9 +102,11 @@ if(BUILD_CUML_MG_TESTS)
 
     target_include_directories(ml_mg PUBLIC ${CUML_TEST_INCLUDE_DIRS})
 
-    set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} ${MPI_CXX_LIBRARIES})
-
-    set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} cumlcommsmpi)
+    set(CUML_TEST_LINK_LIBRARIES 
+    	${CUML_TEST_LINK_LIBRARIES} 
+    	${MPI_CXX_LIBRARIES}
+    	cumlcommsmpi
+    	cumlprims)
 
     target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
 
@@ -111,6 +117,8 @@ endif(BUILD_CUML_MG_TESTS)
 
 ##############################################################################
 # - build prims_test executable ----------------------------------------------
+
+
 
 if(BUILD_PRIMS_TESTS)
   # (please keep the filenames in alphabetical order)
@@ -213,16 +221,17 @@ if(BUILD_PRIMS_TESTS)
     prims/unary_op.cu
     prims/vMeasure.cu
     prims/weighted_mean.cu
-    ../src/common/logger.cpp  # because prims is header only!
-    )
+    ../src/common/logger.cpp)  # because prims is header only!
 
   target_include_directories(prims PRIVATE ${CUML_TEST_INCLUDE_DIRS})
 
   add_dependencies(prims cutlass)
 
   target_link_libraries(prims
+  	FAISS::FAISS
     gtestlib
     gtest_mainlib
-    ${PRIMS_TEST_LINK_LIBRARIES}
-    faisslib)
+    ${PRIMS_TEST_LINK_LIBRARIES})
+    
+    
 endif(BUILD_PRIMS_TESTS)

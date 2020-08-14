@@ -106,8 +106,8 @@ class TSNE(Base):
     n_iter : int (default 1000)
         The more epochs, the more stable/accurate the final embedding.
     n_iter_without_progress : int (default 300)
-        When the KL Divergence becomes too small after some iterations,
-        terminate TSNE early.
+        Currently unused. When the KL Divergence becomes too small after some
+        iterations, terminate TSNE early.
     min_grad_norm : float (default 1e-07)
         The minimum gradient norm for when TSNE will terminate early.
     metric : str 'euclidean' only (default 'euclidean')
@@ -154,38 +154,38 @@ class TSNE(Base):
 
     References
     -----------
-    *   van der Maaten, L.J.P.
-        t-Distributed Stochastic Neighbor Embedding
-        https://lvdmaaten.github.io/tsne/
+    .. [1] `van der Maaten, L.J.P.
+       t-Distributed Stochastic Neighbor Embedding
+       <https://lvdmaaten.github.io/tsne/>`_
 
-    *   van der Maaten, L.J.P.; Hinton, G.E.
-        Visualizing High-Dimensional Data
-        Using t-SNE. Journal of Machine Learning Research 9:2579-2605, 2008.
+    .. [2] van der Maaten, L.J.P.; Hinton, G.E.
+       Visualizing High-Dimensional Data
+       Using t-SNE. Journal of Machine Learning Research 9:2579-2605, 2008.
 
-    *   George C. Linderman, Manas Rachh, Jeremy G. Hoskins,
+    .. [3] George C. Linderman, Manas Rachh, Jeremy G. Hoskins,
         Stefan Steinerberger, Yuval Kluger Efficient Algorithms for
         t-distributed Stochastic Neighborhood Embedding
 
-    Tips
-    -----
-    Maaten and Linderman showcased how TSNE can be very sensitive to both the
-    starting conditions (ie random initialization), and how parallel versions
-    of TSNE can generate vastly different results. It has been suggested that
-    you run TSNE a few times to settle on the best configuration. Notice
-    specifying random_state and fixing it across runs can help, but TSNE does
-    not guarantee similar results each time.
+    .. tip::
+        Maaten and Linderman showcased how TSNE can be very sensitive to both
+        the starting conditions (ie random initialization), and how parallel
+        versions of TSNE can generate vastly different results. It has been
+        suggested that you run TSNE a few times to settle on the best
+        configuration. Notice specifying random_state and fixing it across runs
+        can help, but TSNE does not guarantee similar results each time.
 
-    As suggested, PCA (upcoming with change #1098) can also help to alleviate
-    this issue.
+        As suggested, PCA (upcoming with change #1098) can also help to
+        alleviate this issue.
 
-    Reference Implementation
-    -------------------------
-    The CUDA implementation is derived from the excellent CannyLabs open source
-    implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs
-    code is licensed according to the conditions in cuml/cpp/src/tsne/
-    cannylabs_tsne_license.txt. A full description of their approach is
-    available in their article t-SNE-CUDA: GPU-Accelerated t-SNE and its
-    Applications to Modern Data (https://arxiv.org/abs/1807.11824).
+    .. note::
+        The CUDA implementation is derived from the excellent CannyLabs open
+        source implementation here: https://github.com/CannyLab/tsne-cuda/. The
+        CannyLabs code is licensed according to the conditions in
+        cuml/cpp/src/tsne/ cannylabs_tsne_license.txt. A full description of
+        their approach is available in their article t-SNE-CUDA:
+        GPU-Accelerated t-SNE and its Applications to Modern Data
+        (https://arxiv.org/abs/1807.11824).
+
     """
     def __init__(self,
                  int n_components=2,

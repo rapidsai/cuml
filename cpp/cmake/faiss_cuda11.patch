@@ -1,0 +1,13 @@
+diff --git a/faiss/gpu/utils/DeviceDefs.cuh b/faiss/gpu/utils/DeviceDefs.cuh
+index 111eef3..32cc1cc 100644
+--- a/faiss/gpu/utils/DeviceDefs.cuh
++++ b/faiss/gpu/utils/DeviceDefs.cuh
+@@ -18,7 +18,7 @@ namespace faiss { namespace gpu {
+ #endif
+
+ #ifdef __CUDA_ARCH__
+-#if __CUDA_ARCH__ <= 750
++#if __CUDA_ARCH__ <= 800
+ constexpr int kWarpSize = 32;
+ #else
+ #error Unknown __CUDA_ARCH__; please define parameters for compute capability

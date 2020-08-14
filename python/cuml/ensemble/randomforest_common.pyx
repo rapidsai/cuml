@@ -31,7 +31,7 @@ from cython.operator cimport dereference as deref
 from cuml.ensemble.randomforest_shared import treelite_serialize, \
     treelite_deserialize
 from cuml.ensemble.randomforest_shared cimport *
-from cuml.common import input_to_cuml_array, rmm_cupy_ary
+from cuml.common import input_to_cuml_array, with_cupy_rmm
 
 
 class BaseRandomForestModel(Base):
@@ -195,12 +195,6 @@ class BaseRandomForestModel(Base):
 
         else:
             if self.RF_type == CLASSIFICATION:
-                if self.num_classes > 2:
-                    raise NotImplementedError(
-                        "Pickling for multi-class classification models"
-                        " is currently not implemented. Please check"
-                        " cuml GitHub issue #1679 for more information.")
-
                 build_treelite_forest(
                     &tl_handle,
                     <RandomForestMetaData[float, int]*>
@@ -218,6 +212,7 @@ class BaseRandomForestModel(Base):
         self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
 
+    @with_cupy_rmm
     def _dataset_setup_for_fit(self, X, y, convert_dtype):
         self._set_output_type(X)
         self._set_n_features_in(X)
@@ -241,13 +236,16 @@ class BaseRandomForestModel(Base):
             if y_dtype != np.int32:
                 raise TypeError("The labels `y` need to be of dtype"
                                 " `int32`")
-            unique_labels = rmm_cupy_ary(cp.unique, y_m)
-            self.num_classes = len(unique_labels)
+            temp_classes = cp.unique(y_m)
+            self.num_classes = len(temp_classes)
             for i in range(self.num_classes):
-                if i not in unique_labels:
+                if i not in temp_classes:
                     raise ValueError("The labels need "
                                      "to be consecutive values from "
                                      "0 to the number of unique label values")
+
+            # Save internally as CumlArray
+            self._classes_ = CumlArray(temp_classes)
         else:
             y_m, _, _, y_dtype = \
                 input_to_cuml_array(
