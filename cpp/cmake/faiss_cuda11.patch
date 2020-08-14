@@ -1,5 +1,5 @@
 diff --git a/configure b/configure
-index 73433f2..bb49062 100755
+index ed40dae..f88ed0a 100755
 --- a/configure
 +++ b/configure
 @@ -2970,7 +2970,7 @@ ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ex
@@ -11,12 +11,12 @@ index 73433f2..bb49062 100755
    ac_ext=cpp
  ac_cpp='$CXXCPP $CPPFLAGS'
  ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-diff --git a/faiss/gpu/utils/DeviceDefs.cuh b/faiss/gpu/utils/DeviceDefs.cuh
-index 111eef3..32cc1cc 100644
---- a/faiss/gpu/utils/DeviceDefs.cuh
-+++ b/faiss/gpu/utils/DeviceDefs.cuh
-@@ -11,7 +11,7 @@ namespace faiss { namespace gpu {
- #endif
+diff --git a/gpu/utils/DeviceDefs.cuh b/gpu/utils/DeviceDefs.cuh
+index 89d3dda..bc0f9b5 100644
+--- a/gpu/utils/DeviceDefs.cuh
++++ b/gpu/utils/DeviceDefs.cuh
+@@ -13,7 +13,7 @@
+ namespace faiss { namespace gpu {
 
  #ifdef __CUDA_ARCH__
 -#if __CUDA_ARCH__ <= 750
@@ -24,10 +24,10 @@ index 111eef3..32cc1cc 100644
  constexpr int kWarpSize = 32;
  #else
  #error Unknown __CUDA_ARCH__; please define parameters for compute capability
-diff --git a/faiss/gpu/utils/MatrixMult-inl.cuh b/faiss/gpu/utils/MatrixMult-inl.cuh
-index e7e0571..aae45c4 100644
---- a/faiss/gpu/utils/MatrixMult-inl.cuh
-+++ b/faiss/gpu/utils/MatrixMult-inl.cuh
+diff --git a/gpu/utils/MatrixMult-inl.cuh b/gpu/utils/MatrixMult-inl.cuh
+index ede225e..4f7eb44 100644
+--- a/gpu/utils/MatrixMult-inl.cuh
++++ b/gpu/utils/MatrixMult-inl.cuh
 @@ -51,6 +51,9 @@ rawGemm(cublasHandle_t handle,
    auto cBT = GetCudaType<BT>::Type;
 
