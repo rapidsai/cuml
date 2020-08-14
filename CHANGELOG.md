@@ -93,6 +93,7 @@
 - PR #2611: Adding building doxygen docs to gpu ci
 - PR #2629: Add naive_bayes api docs
 - PR #2643: 'dense' and 'sparse' values of `storage_type` for FIL
+- PR #2648: Replace CNMeM with `rmm::mr::pool_memory_resource`.
 - PR #2686: Improve SVM tests
 
 ## Bug Fixes
