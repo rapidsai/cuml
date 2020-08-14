@@ -636,6 +636,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
       "are supported for multi-class models");
 
   } else {
+    printf("pred_transform == %s\n", param.pred_transform);
     ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
            "only sigmoid and identity values of pred_transform "
            "are supported for binary classification and regression models");

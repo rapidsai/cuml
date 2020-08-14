@@ -398,7 +398,7 @@ def test_output_args(small_classifier_and_preds):
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
 def test_lightgbm(num_classes, tmp_path):
     import lightgbm as lgb
-    X, y = simulate_data(500, 10,
+    X, y = simulate_data(500, 50, num_classes,
                          random_state=43210,
                          classification=True)
     train_data = lgb.Dataset(X, label=y)
@@ -406,11 +406,11 @@ def test_lightgbm(num_classes, tmp_path):
     if num_classes == 2:
         param = {'objective': 'binary',
                  'metric': 'binary_logloss',
-                 'num_classes': 1}
+                 'num_class': 1}
     else:
-        param = {'objective': 'multiclass',
+        param = {'objective': 'ova', #'multiclass', would use softmax
                  'metric': 'multi_logloss',
-                 'num_classes': num_classes}
+                 'num_class': num_classes}
     num_round = 5
     bst = lgb.train(param, train_data, num_round)
     gbm_preds = bst.predict(X)
