@@ -66,8 +66,8 @@ def cuda_kernel_factory(nvrtc_kernel_str, dtypes, kernel_name=None):
     included in the kernel string. These will be added by this function and
     the function name will be made unique, based on the given dtypes.
 
-    Example
-    -------
+    Examples
+    --------
 
         The following kernel string with dtypes = [float, double, int]
 

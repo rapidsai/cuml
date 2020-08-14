@@ -59,7 +59,7 @@ Model Selection and Data Splitting
 Feature and Label Encoding (Single-GPU)
 ---------------------------------------
 
- .. autoclass:: cuml.preprocessing.LabelEncoder
+ .. autoclass:: cuml.preprocessing.LabelEncoder.LabelEncoder
     :members:
 
  .. autoclass:: cuml.preprocessing.LabelBinarizer
@@ -248,12 +248,14 @@ Nearest Neighbors Classification
 
 .. autoclass:: cuml.neighbors.KNeighborsClassifier
     :members:
+    :noindex:
 
 Nearest Neighbors Regression
 ----------------------------
 
 .. autoclass:: cuml.neighbors.KNeighborsRegressor
     :members:
+    :noindex:
 
 Clustering
 ==========
