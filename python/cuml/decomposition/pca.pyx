@@ -122,7 +122,7 @@ class PCA(Base):
     less accurate.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 

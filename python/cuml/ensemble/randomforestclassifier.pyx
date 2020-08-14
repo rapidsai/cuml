@@ -133,8 +133,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     histogram-based algorithms to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
 
-    **Known Limitations**: This is an early release of the cuML
-    Random Forest code. It contains a few known limitations:
+    .. note:: This is an early release of the cuML
+        Random Forest code. It contains a few known limitations:
 
        * GPU-based inference is only supported if the model was trained
          with 32-bit (float32) datatypes. CPU-based inference may be used
@@ -146,7 +146,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
          using deep trees or `max_features=1.0` provides better performance.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
             import numpy as np
@@ -223,6 +223,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         Only relevant for GLOBAL_QUANTILE split_algo.
     seed : int (default = None)
         Seed for the random number generator. Unseeded by default.
+
     """
 
     def __init__(self, split_criterion=0,
@@ -334,6 +335,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         Parameters
         ----------
+
         output_class : boolean (default = True)
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -366,10 +368,12 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             or algo='auto'
 
         Returns
-        ----------
-        fil_model :
+        -------
+
+        fil_model
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
+
         """
         treelite_handle = self._obtain_treelite_handle()
         return _obtain_fil_model(treelite_handle=treelite_handle,
