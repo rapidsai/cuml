@@ -149,6 +149,7 @@ if(BUILD_STATIC_FAISS)
     PREFIX            ${FAISS_DIR}
     BUILD_COMMAND     make -j${PARALLEL_LEVEL} VERBOSE=1
     BUILD_BYPRODUCTS  ${FAISS_DIR}/lib/libfaiss.a
+    BUILD_ALWAYS      1
     INSTALL_COMMAND   make -s install > /dev/null
     UPDATE_COMMAND    ""
     BUILD_IN_SOURCE   1
