@@ -25,6 +25,7 @@ dependencies:
 - dask-cudf=0.15*
 - dask-ml
 - ucx-py=0.15*
+- ucx-proc=*=gpu
 - nccl>=2.5
 - libcumlprims=0.15.0a200812
 - statsmodels
