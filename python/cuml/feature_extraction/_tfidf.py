@@ -19,7 +19,7 @@ import cupy as cp
 from cuml.common import with_cupy_rmm
 from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
 from cuml.common.sparsefuncs import csr_diag_mul
-
+from cuml import Base
 
 def _sparse_document_frequency(X):
     """Count the number of non-zero values for each feature in sparse X."""
@@ -28,8 +28,14 @@ def _sparse_document_frequency(X):
     else:
         return cp.diff(X.indptr)
 
+def _get_dtype(X):
+    """
+        Returns the valid dtype for tf-idf transoformer
+    """
+    dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float32
+    return dtype
 
-class TfidfTransformer:
+class TfidfTransformer(Base):
     """Transform a count matrix to a normalized tf or tf-idf representation
     Tf means term-frequency while tf-idf means term-frequency times inverse
     document-frequency. This is a common term weighting scheme in information
@@ -90,10 +96,59 @@ class TfidfTransformer:
 
     def __init__(self, *, norm='l2', use_idf=True, smooth_idf=True,
                  sublinear_tf=False):
+
+        super(TfidfTransformer, self).__init__(...)
         self.norm = norm
         self.use_idf = use_idf
         self.smooth_idf = smooth_idf
         self.sublinear_tf = sublinear_tf
+
+    @with_cupy_rmm
+    def _set_doc_stats(self, X):
+        """
+        We set the following document level statistics here:
+        n_samples
+        n_features
+        df(document frequency)
+        """
+        ### Should not have a cost if allready sparse
+        output_dtype = _get_dtype(X)
+        X = self._convert_to_csr(X,output_dtype)
+        n_samples, n_features = X.shape
+        df = _sparse_document_frequency(X)
+        df = df.astype(output_dtype, copy=False)
+        ### TODO Finding it difficult to
+        ### map below to cumlarray
+        ### removed trailing underscores for now
+        self.df = df
+        self.n_samples = n_samples
+        self.n_features = n_features
+        
+        return
+
+    @with_cupy_rmm
+    def _set_idf_diag(self):
+        """
+            Sets idf_diagonal sparse array
+        """
+        # perform idf smoothing if required
+        df = self.df + int(self.smooth_idf)
+        n_samples = self.n_samples + int(self.smooth_idf)
+
+        # log+1 instead of log makes sure terms with zero idf don't get
+        # suppressed entirely.
+        idf = cp.log(n_samples / df) + 1
+        self._idf_diag = cp.sparse.dia_matrix(
+            (idf, 0),
+            shape=(self.n_features, self.n_features),
+            dtype=df.dtype
+        )
+        ### Free up memory occupied by below
+        del self.df
+        # del self.n_samples
+        # del self.n_features
+
+
 
     @with_cupy_rmm
     def fit(self, X):
@@ -104,27 +159,13 @@ class TfidfTransformer:
         X : array-like of shape n_samples, n_features
             A matrix of term/token counts.
         """
-        dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float32
-        X = self._convert_to_csr(X, dtype)
+        output_dtype = _get_dtype(X)
+        X = self._convert_to_csr(X, output_dtype)
 
         if self.use_idf:
-            n_samples, n_features = X.shape
-            df = _sparse_document_frequency(X)
-            df = df.astype(dtype, copy=False)
-
-            # perform idf smoothing if required
-            df += int(self.smooth_idf)
-            n_samples += int(self.smooth_idf)
-
-            # log+1 instead of log makes sure terms with zero idf don't get
-            # suppressed entirely.
-            idf = cp.log(n_samples / df) + 1
-            self._idf_diag = cp.sparse.dia_matrix(
-                (idf, 0),
-                shape=(n_features, n_features),
-                dtype=dtype
-            )
-
+            self._set_doc_stats(X)
+            self._set_idf_diag()
+        
         return self
 
     @with_cupy_rmm
@@ -146,7 +187,7 @@ class TfidfTransformer:
         if copy:
             X = X.copy()
 
-        dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float32
+        dtype = _get_dtype(X)
 
         X = self._convert_to_csr(X, dtype)
         if X.dtype != dtype:
