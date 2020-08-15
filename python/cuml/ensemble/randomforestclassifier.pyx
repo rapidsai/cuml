@@ -133,18 +133,18 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     histogram-based algorithms to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
 
-    **Known Limitations**: This is an early release of the cuML
-    Random Forest code. It contains a few known limitations:
+    .. note:: This is an early release of the cuML
+        Random Forest code. It contains a few known limitations:
 
-       * GPU-based inference is only supported if the model was trained
-         with 32-bit (float32) datatypes. CPU-based inference may be used
-         in this case as a slower fallback.
-       * Very deep / very wide models may exhaust available GPU memory.
-         Future versions of cuML will provide an alternative algorithm to
-         reduce memory consumption.
+        * GPU-based inference is only supported if the model was trained
+          with 32-bit (float32) datatypes. CPU-based inference may be used
+          in this case as a slower fallback.
+        * Very deep / very wide models may exhaust available GPU memory.
+          Future versions of cuML will provide an alternative algorithm to
+          reduce memory consumption.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
             import numpy as np
@@ -221,6 +221,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         Only relevant for GLOBAL_QUANTILE split_algo.
     seed : int (default = None)
         Seed for the random number generator. Unseeded by default.
+
     """
 
     def __init__(self, split_criterion=0,
@@ -332,6 +333,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         Parameters
         ----------
+
         output_class : boolean (default = True)
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -364,10 +366,12 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             or algo='auto'
 
         Returns
-        ----------
-        fil_model :
+        -------
+
+        fil_model
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
+
         """
         treelite_handle = self._obtain_treelite_handle()
         return _obtain_fil_model(treelite_handle=treelite_handle,
@@ -567,7 +571,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = None)
             number of different classes present in the dataset. This variable
-            will be depricated in 0.16
+            will be deprecated in 0.16. The number of classes passed
+            must match the number of classes the model was trained on
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -587,16 +592,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         y : (same as the input datatype)
             Dense vector (ints, floats, or doubles) of shape (n_samples, 1)
         """
-        if (num_classes and self.num_classes != num_classes):
-            raise ValueError("The number of classes in the test dataset"
-                             " should be equal to the number of classes"
-                             " present in the training dataset.")
-
-        elif predict_model == "CPU" or self.num_classes > 2:
-            if self.num_classes > 2 and predict_model == "GPU":
-                warnings.warn("Switching over to use the CPU predict since "
-                              "the GPU predict currently cannot perform "
-                              "multi-class classification.")
+        if num_classes:
+            warnings.warn("num_classes is deprecated and will be removed"
+                          " in an upcoming version")
+            if num_classes != self.num_classes:
+                raise NotImplementedError("limiting num_classes for predict"
+                                          " is not implemented")
+        if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X,
                                                convert_dtype=convert_dtype)
 
@@ -681,16 +683,12 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
     def predict_proba(self, X, output_class=True,
                       threshold=0.5, algo='auto',
-                      convert_dtype=True,
-                      fil_sparse_format='auto',
-                      num_classes=None):
+                      num_classes=None, convert_dtype=True,
+                      fil_sparse_format='auto'):
         """
         Predicts class probabilites for X. This function uses the GPU
         implementation of predict. Therefore, data with 'dtype = np.float32'
-        and 'num_classes = 2' should be used while using this function.
-        The option to use predict_proba for multi_class classification is not
-        currently implemented. Please check cuml issue #1679 for more
-        information.
+        should be used with this function.
 
         Parameters
         ----------
@@ -721,7 +719,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = None)
             number of different classes present in the dataset. This variable
-            will be depricated in 0.16
+            will be deprecated in 0.16. The number of classes passed
+            must match the number of classes the model was trained on
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -751,16 +750,15 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                             then please use the CPU based predict by \
                             setting predict_model = 'CPU'")
 
-        elif self.num_classes > 2:
-            raise NotImplementedError("Predict_proba for multi-class "
-                                      "classification models is currently not "
-                                      "implemented. Please check cuml issue "
-                                      "#1679 for more information.")
+        if num_classes:
+            warnings.warn("num_classes is deprecated and will be removed"
+                          " in an upcoming version")
+            if num_classes != self.num_classes:
+                raise NotImplementedError("The number of classes in the test "
+                                          "dataset should be equal to the "
+                                          "number of classes present in the "
+                                          "training dataset.")
 
-        elif (num_classes and self.num_classes != num_classes):
-            raise ValueError("The number of classes in the test dataset"
-                             " should be equal to the number of classes"
-                             " present in the training dataset.")
         preds_proba = \
             self._predict_model_on_gpu(X, output_class=output_class,
                                        threshold=threshold,
@@ -802,7 +800,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             predict operation on the GPU.
         num_classes : int (default = None)
             number of different classes present in the dataset. This variable
-            will be depricated in 0.16
+            will be deprecated in 0.16. The number of classes passed
+            must match the number of classes the model was trained on
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
         predict_model : String (default = 'GPU')
