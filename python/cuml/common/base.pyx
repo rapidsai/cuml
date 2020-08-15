@@ -192,7 +192,7 @@ class Base:
         Pretty prints the arguments of a class using Scikit-learn standard :)
         """
         cdef list signature = inspect.getfullargspec(self.__init__).args
-        if signature[0] == 'self':
+        if len(signature) > 0 and signature[0] == 'self':
             del signature[0]
         cdef dict state = self.__dict__
         cdef str string = self.__class__.__name__ + '('
@@ -274,7 +274,12 @@ class Base:
             else:
                 return self.__dict__[real_name]
         else:
-            raise AttributeError
+            if attr == "solver_model":
+                return self.__dict__['solver_model']
+            if "solver_model" in self.__dict__.keys():
+                return getattr(self.solver_model, attr)
+            else:
+                raise AttributeError
 
     def _set_output_type(self, input):
         """
@@ -442,3 +447,23 @@ def _input_target_to_dtype(target):
     else:
         dtype = None
     return dtype
+
+
+def _determine_stateless_output_type(output_type, input_obj):
+    """
+    This function determines the output type using the same steps that are
+    performed in `cuml.common.base.Base`. This can be used to mimic the
+    functionality in `Base` for stateless functions or objects that do not
+    derive from `Base`.
+    """
+
+    # Default to the global type if not specified, otherwise, check the
+    # output_type string
+    temp_output = cuml.global_output_type if output_type is None \
+        else _check_output_type_str(output_type)
+
+    # If we are using 'input', determine the the type from the input object
+    if temp_output == 'input':
+        temp_output = _input_to_type(input_obj)
+
+    return temp_output

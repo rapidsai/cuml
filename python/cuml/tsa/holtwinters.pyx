@@ -72,68 +72,67 @@ class ExponentialSmoothing(Base):
     data with exponentially decreasing impact. This is done by analyzing
     three components of the data: level, trend, and seasonality.
 
-    Known Limitations
-    -----------------
-    This version of ExponentialSmoothing currently provides only a limited
-    number of features when compared to the
-    statsmodels.holtwinters.ExponentialSmoothing model. Noticeably, it lacks:
+    Notes
+    -----
+    *Known Limitations:* This version of ExponentialSmoothing currently
+    provides only a limited number of features when compared to the
+    `statsmodels.holtwinters.ExponentialSmoothing` model. Noticeably, it lacks:
 
-        * predict : no support for in-sample prediction.
-                       https://github.com/rapidsai/cuml/issues/875
+    * predict : no support for in-sample prediction.
+        * https://github.com/rapidsai/cuml/issues/875
 
-        * hessian : no support for returning Hessian matrix.
-                       https://github.com/rapidsai/cuml/issues/880
+    * hessian : no support for returning Hessian matrix.
+        * https://github.com/rapidsai/cuml/issues/880
 
-        * information : no support for returning Fisher matrix.
-                           https://github.com/rapidsai/cuml/issues/880
+    * information : no support for returning Fisher matrix.
+        * https://github.com/rapidsai/cuml/issues/880
 
-        * loglike : no support for returning Log-likelihood.
-                       https://github.com/rapidsai/cuml/issues/880
+    * loglike : no support for returning Log-likelihood.
+        * https://github.com/rapidsai/cuml/issues/880
 
     Additionally, be warned that there may exist floating point instability
     issues in this model. Small values in endog may lead to faulty results.
     See https://github.com/rapidsai/cuml/issues/888 for more information.
 
-    Known Differences
-    -----------------
-    This version of ExponentialSmoothing differs from statsmodels in some
-    other minor ways:
+    *Known Differences:* This version of ExponentialSmoothing differs from
+    statsmodels in some other minor ways:
 
     * Cannot pass trend component or damped trend component
     * this version can take additional parameters `eps`,
-                    `start_periods`, `ts_num`, and `handle`
+      `start_periods`, `ts_num`, and `handle`
     * Score returns SSE rather than gradient logL
-                 https://github.com/rapidsai/cuml/issues/876
+      https://github.com/rapidsai/cuml/issues/876
     * This version provides get_level(), get_trend(), get_season()
 
     Examples
     --------
-    .. code-block:: python
-
-            from cuml import ExponentialSmoothing
-            import cudf
-            import numpy as np
-            data = cudf.Series([1, 2, 3, 4, 5, 6,
-                               7, 8, 9, 10, 11, 12,
-                               2, 3, 4, 5, 6, 7,
-                               8, 9, 10, 11, 12, 13,
-                               3, 4, 5, 6, 7, 8, 9,
-                               10, 11, 12, 13, 14],
-                               dtype=np.float64)
-            cu_hw = ExponentialSmoothing(data, seasonal_periods=12)
-            cu_hw.fit()
-            cu_pred = cu_hw.forecast(4)
-            print('Forecasted points:', cu_pred)
-    Output
-
 
     .. code-block:: python
 
-            Forecasted points :
-            0    4.000143766093652
-            1    5.000000163513641
-            2    6.000000000174092
-            3    7.000000000000178
+        from cuml import ExponentialSmoothing
+        import cudf
+        import numpy as np
+        data = cudf.Series([1, 2, 3, 4, 5, 6,
+                            7, 8, 9, 10, 11, 12,
+                            2, 3, 4, 5, 6, 7,
+                            8, 9, 10, 11, 12, 13,
+                            3, 4, 5, 6, 7, 8, 9,
+                            10, 11, 12, 13, 14],
+                            dtype=np.float64)
+        cu_hw = ExponentialSmoothing(data, seasonal_periods=12)
+        cu_hw.fit()
+        cu_pred = cu_hw.forecast(4)
+        print('Forecasted points:', cu_pred)
+
+    Output:
+
+    .. code-block:: python
+
+        Forecasted points :
+        0    4.000143766093652
+        1    5.000000163513641
+        2    6.000000000174092
+        3    7.000000000000178
 
     Parameters
     ----------
@@ -144,7 +143,8 @@ class ExponentialSmoothing(Base):
         Note: cuDF.DataFrame types assumes data is in columns,
         while all other datatypes assume data is in rows.
         The endogenous dataset to be operated on.
-    seasonal : 'additive', 'add', 'multiplicative', 'mul' (default = 'additive')  # noqa
+    seasonal : 'additive', 'add', 'multiplicative', 'mul' \
+        (default = 'additive')
         Whether the seasonal trend should be calculated
         additively or multiplicatively.
     seasonal_periods : int (default=2)
@@ -435,8 +435,8 @@ class ExponentialSmoothing(Base):
         """
         Returns the score of the model.
 
-        **Note: Currently returns the SSE, rather than the gradient of the
-                LogLikelihood. https://github.com/rapidsai/cuml/issues/876
+        .. note:: Currently returns the SSE, rather than the gradient of the
+            LogLikelihood. https://github.com/rapidsai/cuml/issues/876
 
         Parameters
         ----------

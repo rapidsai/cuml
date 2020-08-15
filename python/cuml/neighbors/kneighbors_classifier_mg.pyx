@@ -34,7 +34,7 @@ from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
-from cuml.neighbors import KNeighborsMG
+from cuml.neighbors.kneighbors_mg import KNeighborsMG
 from cudf.core import DataFrame as cudfDataFrame
 
 cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
