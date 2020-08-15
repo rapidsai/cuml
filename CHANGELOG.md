@@ -1,6 +1,7 @@
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
+- PR #2581: Added model persistence via joblib in each section of estimator_intro.ipynb
 - PR #2554: Hashing Vectorizer and general vectorizer improvements
 - PR #2240: Making Dask models pickleable
 - PR #2267: CountVectorizer estimator
@@ -86,6 +87,7 @@
 - PR #2629: Add naive_bayes api docs
 - PR #2643: 'dense' and 'sparse' values of `storage_type` for FIL
 - PR #2687: Update xgboost version to 1.2.0dev.rapidsai0.15
+- PR #2684: CUDA 11 conda development environment yml and faiss patch
 - PR #2648: Replace CNMeM with `rmm::mr::pool_memory_resource`.
 - PR #2686: Improve SVM tests
 
@@ -149,6 +151,7 @@
 - PR #2668: Order conversion improvements to account for cupy behavior changes
 - PR #2669: Revert PR 2655 Revert "Fixes C++ RF predict function"
 - PR #2683: Fix incorrect "Bad CumlArray Use" error messages on test failures
+- PR #2695: Fix debug build issue due to incorrect host/device method setup
 
 # cuML 0.14.0 (03 Jun 2020)
 
