@@ -39,7 +39,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -n               - no install step
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into libcuml
-   --buildgtest     - build googltest library
+   --buildgtest     - build googletest library
    --singlegpu      - Build libcuml and cuml without multigpu components
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
