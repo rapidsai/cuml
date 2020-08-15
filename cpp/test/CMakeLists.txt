@@ -19,12 +19,11 @@ set(CUML_TEST_INCLUDE_DIRS
   ${GTEST_INCLUDE_DIRS}/include
   ${TREELITE_DIR}/runtime/native/include)
 
-
 set(CUML_TEST_LINK_LIBRARIES
   ${CUML_CPP_TARGET}
   FAISS::FAISS
-  GTEST::GTEST
-  GTESTMAIN::GTESTMAIN
+  GTest::GTest
+  GTest::Main
   treelite::treelite
   treelite::treelite_runtime
   ${CUDA_cublas_LIBRARY}
@@ -33,7 +32,6 @@ set(CUML_TEST_LINK_LIBRARIES
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
   )
-
 
 set(PRIMS_TEST_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
@@ -117,8 +115,6 @@ endif(BUILD_CUML_MG_TESTS)
 
 ##############################################################################
 # - build prims_test executable ----------------------------------------------
-
-
 
 if(BUILD_PRIMS_TESTS)
   # (please keep the filenames in alphabetical order)
@@ -228,10 +224,9 @@ if(BUILD_PRIMS_TESTS)
   add_dependencies(prims cutlass)
 
   target_link_libraries(prims
-  	GTEST::GTEST
-  	GTESTMAIN::GTESTMAIN
+  	GTest::GTest
+  	GTest::Main
   	FAISS::FAISS
     ${PRIMS_TEST_LINK_LIBRARIES})
-    
-    
+
 endif(BUILD_PRIMS_TESTS)
