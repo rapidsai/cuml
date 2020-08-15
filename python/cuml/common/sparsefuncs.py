@@ -150,7 +150,8 @@ def _insert_zeros(ary, zero_indices):
     Create a new array of len(ary + zero_indices) where zero_indices
     indicates indexes of 0s in the new array. Ary is used to fill the rest.
 
-    Example:
+    Examples
+    --------
         _insert_zeros([1, 2, 3], [1, 3]) => [1, 0, 2, 0, 3]
     """
     if len(zero_indices) == 0:
