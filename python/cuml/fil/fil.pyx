@@ -29,6 +29,10 @@ import pandas as pd
 
 import rmm
 
+from cpython cimport array
+import array
+from libcpp.list cimport list as cpplist
+
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
@@ -178,6 +182,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         bool output_class
         float threshold
         storage_type_t storage_type
+        int output_group_num
 
     cdef void free(cumlHandle& handle,
                    forest_t)
@@ -197,14 +202,14 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
 cdef class ForestInference_impl():
 
     cpdef object handle
-    cdef forest_t forest_data
+    cdef cpplist[forest_t] forest_data
     cdef size_t num_output_groups
     cdef bool output_class
 
     def __cinit__(self,
                   handle=None):
         self.handle = handle
-        self.forest_data = NULL
+        #self.forest_data = []
 
     def get_algo(self, algo_str):
         algo_dict={'AUTO': algo_t.ALGO_AUTO,
@@ -285,7 +290,10 @@ cdef class ForestInference_impl():
                     shape += (2,)
                 else:
                     shape += (self.num_output_groups,)
-            elif // check if cuml RF has num_output_groups
+            #elif // check if cuml RF has num_output_groups
+            elif self.num_output_groups > 2:
+                shape = (self.num_output_groups,) + shape
+                # xgboost-style inference will produce transposed output
             preds = CumlArray.empty(shape=shape, dtype=np.float32, order='C')
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
@@ -295,12 +303,13 @@ cdef class ForestInference_impl():
         cdef uintptr_t preds_ptr
         preds_ptr = preds.ptr
 
-        predict(handle_[0],
-                self.forest_data,
-                <float*> preds_ptr,
-                <float*> X_ptr,
-                <size_t> n_rows,
-                <bool> predict_proba)
+        for fd in self.forest_data:
+          predict(handle_[0],
+                  fd,
+                  <float*> preds_ptr,
+                  <float*> X_ptr,
+                  <size_t> n_rows,
+                  <bool> predict_proba)
         self.handle.sync()
 
         # special case due to predict and predict_proba
@@ -325,18 +334,26 @@ cdef class ForestInference_impl():
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
         treelite_params.storage_type = self.get_storage_type(storage_type)
-
-        self.forest_data = NULL
+        
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>model_handle
-
-        from_treelite(handle_[0],
-                      &self.forest_data,
-                      <ModelHandle> model_ptr,
-                      &treelite_params)
         TreeliteQueryNumOutputGroups(<ModelHandle> model_ptr,
                                      & self.num_output_groups)
+        
+        while self.forest_data.size():
+          free(handle_[0], self.forest_data.back())
+          self.forest_data.pop_back()
+        # TODO: add test for repeated load_from* to detect memory leaks
+        cdef forest_t fd
+        for g in range(self.num_output_groups):
+          treelite_params.output_group_num = g
+          fd = NULL
+          from_treelite(handle_[0],
+                        &fd,
+                        <ModelHandle> model_ptr,
+                        &treelite_params)
+          self.forest_data.push_back(fd)
         return self
 
     def load_from_treelite_model(self,
@@ -350,9 +367,6 @@ cdef class ForestInference_impl():
         return self.load_from_treelite_model_handle(<uintptr_t>model.handle,
                                                     output_class, algo,
                                                     threshold, storage_type)
-    # TODO: factor common code (xcept forest_data == NULL and model_handle conversion
-    # into common func
-    # TODO: add logic to store vector of forests
     # TODO: how to know if model is xgboost or cuml RF? (num_output_group-wise)?
     def load_using_treelite_handle(self,
                                    model_handle,
@@ -360,32 +374,16 @@ cdef class ForestInference_impl():
                                    str algo,
                                    float threshold,
                                    str storage_type):
-
-        cdef treelite_params_t treelite_params
-
-        self.output_class = output_class
-        treelite_params.output_class = self.output_class
-        treelite_params.threshold = threshold
-        treelite_params.algo = self.get_algo(algo)
-        treelite_params.storage_type = self.get_storage_type(storage_type)
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
-        cdef uintptr_t model_ptr = <uintptr_t>model_handle
-
-        from_treelite(handle_[0],
-                      &self.forest_data,
-                      <ModelHandle> model_ptr,
-                      &treelite_params)
-        TreeliteQueryNumOutputGroups(<ModelHandle> model_ptr,
-                                     &self.num_output_groups)
-        return self
+        return self.load_from_treelite_model_handle(<uintptr_t>model_handle,
+                                                    output_class, algo,
+                                                    threshold, storage_type)
 
     def __dealloc__(self):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
-        if self.forest_data !=NULL:
-            free(handle_[0],
-                 self.forest_data)
+        while self.forest_data.size():
+          free(handle_[0], self.forest_data.back())
+          self.forest_data.pop_back()
 
 
 class ForestInference(Base):
