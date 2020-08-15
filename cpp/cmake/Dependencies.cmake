@@ -189,24 +189,21 @@ if(BUILD_GTEST)
 	                    ${GTEST_DIR}/lib/libgtest_main.a
 	  UPDATE_COMMAND    "")
 	
-	add_library(GTEST::GTEST STATIC IMPORTED)
-	add_library(GTESTMAIN::GTESTMAIN STATIC IMPORTED)
+	add_library(GTest::GTest STATIC IMPORTED)
+	add_library(GTest::Main STATIC IMPORTED)
 	
-	set_property(TARGET GTEST::GTEST PROPERTY
+	set_property(TARGET GTest::GTest PROPERTY
 	  IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest.a)
-	set_property(TARGET GTESTMAIN::GTESTMAIN PROPERTY
+	set_property(TARGET GTest::Main PROPERTY
 	  IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest_main.a)
 	
 	set(GTEST_INCLUDE_DIRS "${GTEST_DIR}")
 	
-	add_dependencies(GTEST::GTEST googletest)
-	add_dependencies(GTESTMAIN::GTESTMAIN googletest)
+	add_dependencies(GTest:GTest googletest)
+	add_dependencies(GTest::Main googletest)
 	
 else()
-	set(GTEST_INSTALL_DIR ENV{GTEST_ROOT})
-	set(GTESTMAIN_INSTALL_DIR ENV{GTEST_ROOT})
-	find_package(GTEST REQUIRED)
-	find_package(GTESTMAIN REQUIRED)
+	find_package(GTest REQUIRED)
 endif(BUILD_GTEST)
 
 ##############################################################################
@@ -244,8 +241,8 @@ set_property(TARGET benchmarklib PROPERTY
 add_dependencies(cub raft)
 add_dependencies(cutlass cub)
 add_dependencies(spdlog cutlass)
-add_dependencies(GTEST::GTEST spdlog)
-add_dependencies(benchmark GTEST::GTEST)
+add_dependencies(GTest::GTest spdlog)
+add_dependencies(benchmark GTest::GTest)
 add_dependencies(FAISS::FAISS benchmark)
 add_dependencies(FAISS::FAISS faiss)
 
