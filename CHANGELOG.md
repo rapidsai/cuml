@@ -91,6 +91,7 @@
 - PR #2684: CUDA 11 conda development environment yml and faiss patch
 - PR #2648: Replace CNMeM with `rmm::mr::pool_memory_resource`.
 - PR #2686: Improve SVM tests
+- PR #2692: Changin LBFGS log level
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
