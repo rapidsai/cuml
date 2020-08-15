@@ -204,7 +204,7 @@ if(BUILD_GTEST)
 	
 	set(GTEST_INCLUDE_DIRS "${GTEST_DIR}")
 	
-	add_dependencies(GTest:GTest googletest)
+	add_dependencies(GTest::GTest googletest)
 	add_dependencies(GTest::Main googletest)
 	
 else()
