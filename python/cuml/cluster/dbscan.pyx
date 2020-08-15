@@ -93,7 +93,7 @@ class DBSCAN(Base):
     neighbours.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 

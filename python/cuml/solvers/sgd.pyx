@@ -127,7 +127,7 @@ class SGD(Base):
     ridge regression and SVM models.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -164,35 +164,35 @@ class SGD(Base):
     Parameters
     -----------
     loss : 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
-       'hinge' uses linear SVM
-       'log' uses logistic regression
-       'squared_loss' uses linear regression
+        'hinge' uses linear SVM
+        'log' uses logistic regression
+        'squared_loss' uses linear regression
     penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'none')
-       'none' does not perform any regularization
-       'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
-       of coefficients
-       'l2' performs L2 norm (Ridge) which minimizes the sum of the square of
-       the coefficients
-       'elasticnet' performs Elastic Net regularization which is a weighted
-       average of L1 and L2 norms
+        'none' does not perform any regularization
+        'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
+        of coefficients
+        'l2' performs L2 norm (Ridge) which minimizes the sum of the square of
+        the coefficients
+        'elasticnet' performs Elastic Net regularization which is a weighted
+        average of L1 and L2 norms
     alpha: float (default = 0.0001)
         The constant value which decides the degree of regularization
     fit_intercept : boolean (default = True)
-       If True, the model tries to correct for the global mean of y.
-       If False, the model expects that you have centered the data.
+        If True, the model tries to correct for the global mean of y.
+        If False, the model expects that you have centered the data.
     epochs : int (default = 1000)
         The number of times the model should iterate through the entire dataset
         during training (default = 1000)
     tol : float (default = 1e-3)
-       The training process will stop if current_loss > previous_loss - tol
+        The training process will stop if current_loss > previous_loss - tol
     shuffle : boolean (default = True)
-       True, shuffles the training data after each epoch
-       False, does not shuffle the training data after each epoch
+        True, shuffles the training data after each epoch
+        False, does not shuffle the training data after each epoch
     eta0 : float (default = 0.001)
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
-    learning_rate : 'optimal', 'constant', 'invscaling',
+    learning_rate : 'optimal', 'constant', 'invscaling', \
                     'adaptive' (default = 'constant')
         optimal option supported in the next version
         constant keeps the learning rate constant
@@ -270,7 +270,7 @@ class SGD(Base):
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
         self.intercept_value = 0.0
-        self.coef_ = None
+        self._coef_ = None  # accessed via coef_
         self.intercept_ = None
 
     def _check_alpha(self, alpha):
@@ -330,16 +330,16 @@ class SGD(Base):
 
         _estimator_type = getattr(self, '_estimator_type', None)
         if _estimator_type == "classifier":
-            self.classes_ = cp.unique(y_m)
+            self._classes_ = CumlArray(cp.unique(y_m))
 
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t y_ptr = y_m.ptr
 
         self.n_alpha = 1
 
-        self.coef_ = CumlArray.zeros(self.n_cols,
-                                     dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        self._coef_ = CumlArray.zeros(self.n_cols,
+                                      dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self._coef_.ptr
 
         cdef float c_intercept1
         cdef double c_intercept2
@@ -430,7 +430,7 @@ class SGD(Base):
 
         cdef uintptr_t X_ptr = X_m.ptr
 
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t coef_ptr = self._coef_.ptr
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
@@ -492,7 +492,7 @@ class SGD(Base):
                                 check_cols=self.n_cols)
 
         cdef uintptr_t X_ptr = X_m.ptr
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t coef_ptr = self._coef_.ptr
         preds = CumlArray.zeros(n_rows, dtype=dtype)
         cdef uintptr_t preds_ptr = preds.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
