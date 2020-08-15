@@ -37,7 +37,6 @@ dependencies:
 - nbsphinx
 - recommonmark
 - faiss-proc=*=cuda
-- rapids-build-env=0.15*
 - libfaiss
 - ipython
 - pip
