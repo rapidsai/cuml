@@ -279,7 +279,7 @@ class UMAP(Base):
        UMAP: Uniform Manifold Approximation and Projection for Dimension
        Reduction <https://arxiv.org/abs/1802.03426>`_
 
-    .. [2] `Corey Nolet, Victor Lafargue, Thejaswi Nanditale, Edward Raff,
+    .. [2] `Corey Nolet, Victor Lafargue, Edward Raff, Thejaswi Nanditale,
        Tim Oates, John Zedlewski, Joshua Patterson
        Bringing UMAP Closer to the Speed of Light with GPU Acceleration
        <https://arxiv.org/abs/2008.00325>`_
