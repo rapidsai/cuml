@@ -40,12 +40,6 @@ env
 logger "Check GPU usage..."
 nvidia-smi
 
-# Set xgboost version based on CUDA_VERSION
-XGBOOST_VERSION=1.1.0dev.rapidsai0.15
-if [[ "$CUDA_REL" == "11.0" ]] ; then
-  XGBOOST_VERSION=1.2.0dev.rapidsai0.15
-fi
-
 logger "Activate conda env..."
 source activate gdf
 conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
@@ -56,7 +50,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
-      "xgboost=${XGBOOST_VERSION}" \
+      "xgboost=1.2.0dev.rapidsai0.15" \
       "rapids-build-env=$MINOR_VERSION.*" \
       "rapids-notebook-env=$MINOR_VERSION.*" \
       "rapids-doc-env=$MINOR_VERSION.*"
