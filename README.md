@@ -43,8 +43,10 @@ dtype: int32
 cuML also features multi-GPU and multi-node-multi-GPU operation, using [Dask](https://www.dask.org), for a
 growing list of algorithms. The following Python snippet reads input from a CSV file and performs
 a NearestNeighbors query across a cluster of Dask workers, using multiple GPUs on a single node:
-```python
 
+
+Initialize a `LocalCUDACluster` configured with [UCX](https://github.com/rapidsai/ucx-py) for fast transport of CUDA arrays
+```python
 # Initialize UCX for high-speed transport of CUDA arrays
 from dask_cuda import initialize
 from dask_cuda import LocalCUDACluster
@@ -64,6 +66,10 @@ cluster = LocalCUDACluster(protocol="ucx",
                            enable_tcp_over_ucx=enable_tcp_over_ucx,
                            enable_nvlink=enable_nvlink,
                            enable_infiniband=enable_infiniband)
+```
+
+Load data and perform `k-Nearest Neighbors` search. `cuml.dask` estimators also support `Dask.Array` as input:
+```python
 
 from dask.distributed import Client
 client = Client(cluster)
@@ -105,9 +111,9 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node multi-GPU via Dask |
 | | Random Forest (RF) Regression | Experimental multi-node multi-GPU via Dask |
 | | Inference for decision tree-based models | Forest Inference Library (FIL) |
-|  | K-Nearest Neighbors (KNN) | Multi-node multi-GPU via Dask, uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
-|  | K-Nearest Neighbors (KNN) Classification | Multi-node multi-GPU via Dask, uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
-|  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask, uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+|  | K-Nearest Neighbors (KNN) | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+|  | K-Nearest Neighbors (KNN) Classification | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+|  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 |  | Support Vector Machine Classifier (SVC) | |
 |  | Epsilon-Support Vector Regression (SVR) | |
 | **Time Series** | Holt-Winters Exponential Smoothing | |
