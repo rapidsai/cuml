@@ -296,7 +296,7 @@ class IncrementalPCA(PCA):
                              "to %i between calls to partial_fit! Try "
                              "setting n_components to a fixed value." %
                              (self._components_.shape[0], self.n_components_))
-        
+
         if not self._cupy_attributes:
             self._cumlarray_to_cupy_attrs()
             self._cupy_attributes = True
@@ -402,7 +402,8 @@ class IncrementalPCA(PCA):
         self._noise_variance_ = CumlArray(self._noise_variance_)
         self._singular_values_ = CumlArray(self._singular_values_)
         self._explained_variance_ = CumlArray(self._explained_variance_.copy())
-        self._explained_variance_ratio_ = CumlArray(self._explained_variance_ratio_)
+        self._explained_variance_ratio_ = \
+            CumlArray(self._explained_variance_ratio_)
 
     def _cumlarray_to_cupy_attrs(self):
         self._components_ = self._components_.to_output("cupy")
@@ -412,7 +413,7 @@ class IncrementalPCA(PCA):
         self._explained_variance_ = self._explained_variance_.to_output("cupy")
         self._explained_variance_ratio_ = \
             self._explained_variance_ratio_.to_output("cupy")
-    
+
 
 def _validate_sparse_input(X):
     """
