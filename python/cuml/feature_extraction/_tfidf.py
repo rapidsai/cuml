@@ -154,8 +154,6 @@ class TfidfTransformer(Base):
         del self.n_samples
         del self.n_features
 
-
-
     @with_cupy_rmm
     def fit(self, X):
         """Learn the idf vector (global term weights).
@@ -170,7 +168,7 @@ class TfidfTransformer(Base):
         if self.use_idf:
             self._set_doc_stats(X)
             self._set_idf_diag()
-        
+
         return self
 
     @with_cupy_rmm
