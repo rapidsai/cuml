@@ -88,6 +88,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | **Clustering** |  Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | |
 |  | K-Means | Multi-node multi-GPU via Dask |
 | **Dimensionality Reduction** | Principal Components Analysis (PCA) | Multi-node multi-GPU via Dask|
+| | Incremental PCA | Experimental |
 | | Truncated Singular Value Decomposition (tSVD) | Multi-node multi-GPU via Dask |
 | | Uniform Manifold Approximation and Projection (UMAP) | Multi-node multi-GPU Inference via Dask |
 | | Random Projection | |
@@ -96,17 +97,18 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | | Linear Regression with Lasso or Ridge Regularization | Multi-node multi-GPU via Dask |
 | | ElasticNet Regression | |
 | | Logistic Regression | |
+| | Naive Bayes | Multi-node multi-GPU via Dask |
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
 | **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node multi-GPU via Dask |
 | | Random Forest (RF) Regression | Experimental multi-node multi-GPU via Dask |
 | | Inference for decision tree-based models | Forest Inference Library (FIL) |
-|  | K-Nearest Neighbors (KNN) | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 |  | K-Nearest Neighbors (KNN) Classification | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 |  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 |  | Support Vector Machine Classifier (SVC) | |
 |  | Epsilon-Support Vector Regression (SVR) | |
 | **Time Series** | Holt-Winters Exponential Smoothing | |
 |  | Auto-regressive Integrated Moving Average (ARIMA) | Supports seasonality (SARIMA) |
+| **Other** | K-Nearest Neighbors (KNN) Search | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 ---
 
 ## Installation
