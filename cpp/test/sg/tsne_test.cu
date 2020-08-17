@@ -130,13 +130,13 @@ class TSNETest : public ::testing::Test {
   
     MLCommon::device_buffer<int64_t> knn_indices(
       handle.getDeviceAllocator(), handle.getStream(),
-      n_samples * umap_params->n_components);
+      n_samples * 2);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     MLCommon::device_buffer<float> knn_dists(
       handle.getDeviceAllocator(), handle.getStream(),
-      n_samples * umap_params->n_components);
+      n_samples * 2);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
@@ -153,10 +153,10 @@ class TSNETest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test Barnes Hut
-    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, NULL, NULL, 2, 90, 0.5, 0.0025, 50, 100,
+    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(), knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100,
              1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1);
 
-        // Move embeddings to host.
+    // Move embeddings to host.
     // This can be used for printing if needed.
     float *embeddings_h = (float *)malloc(sizeof(float) * n * 2);
     assert(embeddings_h != NULL);
@@ -186,7 +186,7 @@ class TSNETest : public ::testing::Test {
         handle.getStream());
 
     // Test Exact TSNE
-    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, NULL, NULL, 2, 90, 0.5, 0.0025, 50, 100,
+    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(), knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100,
              1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1,
              CUML_LEVEL_INFO, false, false);
 
@@ -216,7 +216,6 @@ class TSNETest : public ::testing::Test {
 
     // Free space
     free(embeddings_h);
-
   }
 
   void SetUp() override { 
@@ -231,6 +230,8 @@ class TSNETest : public ::testing::Test {
   int p = 64;
   double score_bh;
   double score_exact;
+  double knn_score_bh;
+  double knn_score_exact;
 };
 
 typedef TSNETest TSNETestF;
@@ -238,4 +239,8 @@ TEST_F(TSNETestF, Result) {
   if (score_bh < 0.98) CUML_LOG_DEBUG("BH score = %f", score_bh);
   if (score_exact < 0.98) CUML_LOG_DEBUG("Exact score = %f", score_exact);
   ASSERT_TRUE(0.98 < score_bh && 0.98 < score_exact);
+
+  if (knn_score_bh < 0.98) CUML_LOG_DEBUG("BH score = %f", knn_score_bh);
+  if (knn_score_exact < 0.98) CUML_LOG_DEBUG("Exact score = %f", knn_score_exact);
+  ASSERT_TRUE(0.98 < knn_score_bh && 0.98 < knn_score_exact);
 }
