@@ -124,7 +124,7 @@ class NearestNeighbors(Base):
     metric_params : dict, optional (default = None) This is currently ignored.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
       import cudf

@@ -110,8 +110,7 @@ class DecisionTreeBase {
                L *predictions, int verbosity = -1) const;
   void predict_all(const TreeMetaDataNode<T, L> *tree, const T *rows,
                    const int n_rows, const int n_cols, L *preds) const;
-  L predict_one(const T *rows, const int row_id, const int n_rows,
-                const int n_cols,
+  L predict_one(const T *row,
                 const std::vector<SparseTreeNode<T, L>> sparsetree,
                 int idx) const;
 
