@@ -101,7 +101,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
         supported.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
       from cuml.neighbors import KNeighborsRegressor
@@ -146,7 +146,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
 
     def __init__(self, weights="uniform", **kwargs):
         super(KNeighborsRegressor, self).__init__(**kwargs)
-        self.y = None
+        self._y = None
         self.weights = weights
         if weights != "uniform":
             raise ValueError("Only uniform weighting strategy "
@@ -173,7 +173,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
             convert the inputs to np.float32.
         """
         super(KNeighborsRegressor, self).fit(X, convert_dtype=convert_dtype)
-        self.y, _, _, _ = \
+        self._y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.float32,
                                 convert_to_dtype=(np.float32
                                                   if convert_dtype
@@ -209,7 +209,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
                                                   else None))
         cdef uintptr_t inds_ctype = inds.ptr
 
-        res_cols = 1 if len(self.y.shape) == 1 else self.y.shape[1]
+        res_cols = 1 if len(self._y.shape) == 1 else self._y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
         results = CumlArray.zeros(res_shape, dtype=np.float32,
                                   order="C")
@@ -219,7 +219,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
         cdef vector[float*] *y_vec = new vector[float*]()
 
         for col_num in range(res_cols):
-            col = self.y if res_cols == 1 else self.y[:, col_num]
+            col = self._y if res_cols == 1 else self._y[:, col_num]
             y_ptr = col.ptr
             y_vec.push_back(<float*>y_ptr)
 

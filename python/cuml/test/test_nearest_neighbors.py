@@ -143,7 +143,7 @@ def test_knn(input_type, nrows, n_feats, k, metric):
         I_cuml_arr = I_cuml
 
     # Assert the cuml model was properly reverted
-    np.testing.assert_allclose(knn_cu.X_m.to_output("numpy"), X_orig,
+    np.testing.assert_allclose(knn_cu._X_m.to_output("numpy"), X_orig,
                                atol=1e-5, rtol=1e-4)
 
     # Allow a max relative diff of 10% and absolute diff of 1%
@@ -174,12 +174,12 @@ def test_knn_x_none(input_type, nrows, n_feats, k, metric):
     if input_type == "dataframe":
         X = cudf.DataFrame(X)
 
-    knn_cu = cuKNN(metric=metric, p=p)
+    knn_cu = cuKNN(metric=metric, p=p, output_type="numpy")
     knn_cu.fit(X)
     D_cuml, I_cuml = knn_cu.kneighbors(X=None, n_neighbors=k)
 
     # Assert the cuml model was properly reverted
-    cp.testing.assert_allclose(knn_cu.X_m.to_output("numpy"), X_orig,
+    cp.testing.assert_allclose(knn_cu.X_m, X_orig,
                                atol=1e-5, rtol=1e-4)
 
     # Allow a max relative diff of 10% and absolute diff of 1%
