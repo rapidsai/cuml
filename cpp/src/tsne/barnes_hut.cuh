@@ -41,7 +41,8 @@ namespace TSNE {
  * @param[in] pre_learning_rate: The learning rate during the exaggeration phase.
  * @param[in] post_learning_rate: The learning rate after the exaggeration phase.
  * @param[in] max_iter: The maximum number of iterations TSNE should run for.
- * @param[in] min_grad_norm: The smallest gradient norm TSNE should terminate on. TODO Unused.
+ * @param[in] min_grad_norm: The smallest gradient norm TSNE should terminate on. 
+              This argument is currently ignored.
  * @param[in] pre_momentum: The momentum used during the exaggeration phase.
  * @param[in] post_momentum: The momentum used after the exaggeration phase.
  * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
