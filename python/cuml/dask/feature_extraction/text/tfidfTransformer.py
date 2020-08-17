@@ -39,10 +39,10 @@ from cuml.common import rmm_cupy_ary
 from cuml.feature_extraction.text import TfidfTransformer as s_TfidfTransformer
 
 
-class TfidfTransformer(BaseEstimator,DelayedTransformMixin):
+class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
 
     """
-    Distributed TF-IDF  transofrmer
+    Distributed TF-IDF  transformer
 
     Examples
     --------
@@ -87,24 +87,23 @@ class TfidfTransformer(BaseEstimator,DelayedTransformMixin):
         array(0.93264981)
 
     """
+
     def __init__(self, client=None, verbose=False, **kwargs):
 
         """
-        Create new  distributed  TF-IDF  transofrmer instance
+        Create new  distributed  TF-IDF  transformer instance
 
         Parameters
         -----------
 
         client : dask.distributed.Client optional Dask client to use
         """
-        super(TfidfTransformer, self).__init__(client=client, verbose=verbose,
-                                            **kwargs)
+        super(TfidfTransformer, self).__init__(client=client, verbose=verbose, **kwargs)
 
         self.datatype = "cupy"
 
         # Make any potential model args available and catch any potential
         # ValueErrors before distributed training begins.
-        ## TODO:
         self._set_internal_model(s_TfidfTransformer(**kwargs))
 
     @staticmethod
@@ -114,10 +113,8 @@ class TfidfTransformer(BaseEstimator,DelayedTransformMixin):
         ### Below is only required if we have to set stats
         if model.use_idf:
             model._set_doc_stats(X)
-        
-    
-        return model
 
+        return model
 
     @staticmethod
     def _merge_stats_to_model(models):
@@ -154,25 +151,27 @@ class TfidfTransformer(BaseEstimator,DelayedTransformMixin):
             raise ValueError("Only dask.Array is supported for X")
 
         if len(X.chunks[1]) != 1:
-            raise ValueError("X must be chunked by row only. "
-                             "Multi-dimensional chunking is not supported")
+            raise ValueError(
+                "X must be chunked by row only. "
+                "Multi-dimensional chunking is not supported"
+            )
+
+        # We don't' do anything if we don't need idf
+        if not self.internal_model.use_idf:
+            return self
 
         futures = DistributedDataHandler.create(X, self.client)
 
+        models = [
+            self.client.submit(self._set_doc_stats, part, self.kwargs, pure=False)
+            for w, part in futures.gpu_futures
+        ]
 
-        models = [self.client.submit(self._set_doc_stats, part, self.kwargs,
-                                     pure=False)
-                  for w, part in futures.gpu_futures]
-
-        models = reduce(models,
-                        self._merge_stats_to_model,
-                        client=self.client)
+        models = reduce(models, self._merge_stats_to_model, client=self.client)
 
         wait_and_raise_from_futures([models])
 
-        models = self.client.submit(self._set_idf_diag,
-                                    models,
-                                    pure=False)
+        models = self.client.submit(self._set_idf_diag, models, pure=False)
 
         wait_and_raise_from_futures([models])
 
@@ -188,7 +187,7 @@ class TfidfTransformer(BaseEstimator,DelayedTransformMixin):
     def _get_size(arrs):
         return arrs.shape[0]
 
-    def fit_transform(self,X):
+    def fit_transform(self, X):
         return self.fit(X).transform(X)
 
     def transform(self, X):
@@ -211,4 +210,4 @@ class TfidfTransformer(BaseEstimator,DelayedTransformMixin):
         if not isinstance(X, dask.array.core.Array):
             raise ValueError("Only dask.Array is supported for X")
 
-        return self._transform(X, n_dims=2,delayed=True,output_collection_type='cupy')
+        return self._transform(X, n_dims=2, delayed=True, output_collection_type="cupy")
