@@ -14,6 +14,7 @@ dependencies:
 - cudf=0.15*
 - rmm=0.15*
 - cython>=0.29,<0.30
+- gtest=1.10.0
 - pytest>=4.6
 - pytest-timeout
 - scikit-learn>=0.21
