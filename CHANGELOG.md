@@ -85,6 +85,7 @@
 - PR #2605: Reduce memory usage in tSNE
 - PR #2611: Adding building doxygen docs to gpu ci
 - PR #2631: Enabling use of gtest conda package for build
+- PR #2623: Fixing kmeans score() API to be compatible with Scikit-learn
 - PR #2629: Add naive_bayes api docs
 - PR #2643: 'dense' and 'sparse' values of `storage_type` for FIL
 - PR #2666: Update MBSGD documentation to mention that the model is experimental
