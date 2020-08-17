@@ -5,6 +5,7 @@ import pytest
 from pytest import Item
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
+import numbers
 
 # Stores incorrect uses of CumlArray on cuml.common.base.Base to print at the
 # end
@@ -95,7 +96,10 @@ def pytest_unconfigure(config):
 # This fixture will monkeypatch cuml.common.base.Base to check for incorrect
 # uses of CumlArray.
 @pytest.fixture(autouse=True)
-def fail_on_bad_cuml_array_name(monkeypatch):
+def fail_on_bad_cuml_array_name(monkeypatch, request):
+
+    if 'no_bad_cuml_array_check' in request.keywords:
+        return
 
     from cuml.common import CumlArray
     from cuml.common.base import Base
@@ -113,14 +117,20 @@ def fail_on_bad_cuml_array_name(monkeypatch):
             # Leave sparse matrices alone for now.
             pass
         elif (supported_type is not None):
-            # Is this an estimated property? If so, should always be CumlArray
-            assert not name.endswith("_"), "Invalid Estimated Array-Like \
-                Attribute! Estimated attributes should always be CumlArray. \
-                Attribute: '{}' In: {}".format(name, self.__repr__())
-            assert not name.startswith("_"), "Invalid Public Array-Like \
-                Attribute! Public array-like attributes should always be \
-                CumlArray. Attribute: '{}' In: {}".format(
-                name, self.__repr__())
+            if not isinstance(value, numbers.Number):
+                # Is this an estimated property?
+                # If so, should always be CumlArray
+                assert not name.endswith("_"), "Invalid Estimated Array-Like \
+                    Attribute! Estimated attributes should always be \
+                    CumlArray. \
+                    Attribute: '{}' In: {}".format(name, self.__repr__())
+                assert not name.startswith("_"), "Invalid Public Array-Like \
+                    Attribute! Public array-like attributes should always be \
+                    CumlArray. Attribute: '{}' In: {}".format(
+                    name, self.__repr__())
+            else:
+                # Estimated properties can be numbers
+                pass
 
         return super(Base, self).__setattr__(name, value)
 
