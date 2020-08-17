@@ -48,24 +48,13 @@ a NearestNeighbors query across a cluster of Dask workers, using multiple GPUs o
 Initialize a `LocalCUDACluster` configured with [UCX](https://github.com/rapidsai/ucx-py) for fast transport of CUDA arrays
 ```python
 # Initialize UCX for high-speed transport of CUDA arrays
-from dask_cuda import initialize
 from dask_cuda import LocalCUDACluster
-
-enable_tcp_over_ucx = True
-enable_nvlink = False
-enable_infiniband = False
-
-initialize.initialize(create_cuda_context=True,
-                      enable_tcp_over_ucx=enable_tcp_over_ucx,
-                      enable_nvlink=enable_nvlink,
-                      enable_infiniband=enable_infiniband)
-
 
 # Create a Dask single-node CUDA cluster w/ one worker per device
 cluster = LocalCUDACluster(protocol="ucx",
-                           enable_tcp_over_ucx=enable_tcp_over_ucx,
-                           enable_nvlink=enable_nvlink,
-                           enable_infiniband=enable_infiniband)
+                           enable_tcp_over_ucx=True,
+                           enable_nvlink=True,
+                           enable_infiniband=False)
 ```
 
 Load data and perform `k-Nearest Neighbors` search. `cuml.dask` estimators also support `Dask.Array` as input:
