@@ -20,7 +20,7 @@ import cupy as cp
 from sklearn.decomposition import IncrementalPCA as skIPCA
 
 from cuml.datasets import make_blobs
-from cuml.decomposition import IncrementalPCA as cuIPCA
+from cuml.experimental.decomposition import IncrementalPCA as cuIPCA
 
 from cuml.test.utils import array_equal
 
