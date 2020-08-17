@@ -115,42 +115,77 @@ struct dense_storage {
   int node_pitch_ = 0;
 };
 
-/** sparse_node is a single node in a sparse forest */
-struct alignas(16) sparse_node : base_node, sparse_node_extra_data {
-  //__host__ __device__ sparse_node() : left_idx(0), base_node() {}
-  sparse_node(sparse_node_t node)
-    : base_node(node), sparse_node_extra_data(node) {}
-  sparse_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
-              int left_index)
+/** sparse_node16 is a 16-byte node in a sparse forest */
+struct alignas(16) sparse_node16 : base_node, sparse_node16_extra_data {
+  sparse_node16(sparse_node16_t node)
+    : base_node(node), sparse_node16_extra_data(node) {}
+  sparse_node16(val_t output, float thresh, int fid, bool def_left,
+                bool is_leaf, int left_index)
     : base_node(output, thresh, fid, def_left, is_leaf),
-      sparse_node_extra_data({.left_idx = left_index, .dummy = 0}) {}
+      sparse_node16_extra_data({.left_idx = left_index, .dummy = 0}) {}
   __host__ __device__ int left_index() const { return left_idx; }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_idx; }
 };
 
+/** sparse_node8 is a node of reduced size (8 bytes) in a sparse forest */
+struct alignas(8) sparse_node8 : base_node {
+  static const int FID_NUM_BITS = 14;
+  static const int FID_MASK = (1 << FID_NUM_BITS) - 1;
+  static const int LEFT_OFFSET = FID_NUM_BITS;
+  static const int LEFT_NUM_BITS = 16;
+  static const int LEFT_MASK = ((1 << LEFT_NUM_BITS) - 1) << LEFT_OFFSET;
+  static const int DEF_LEFT_OFFSET = LEFT_OFFSET + LEFT_NUM_BITS;
+  static const int DEF_LEFT_MASK = 1 << DEF_LEFT_OFFSET;
+  static const int IS_LEAF_OFFSET = 31;
+  static const int IS_LEAF_MASK = 1 << IS_LEAF_OFFSET;
+  __host__ __device__ int fid() const { return bits & FID_MASK; }
+  __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
+  __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
+  __host__ __device__ int left_index() const {
+    return (bits & LEFT_MASK) >> LEFT_OFFSET;
+  }
+  sparse_node8(sparse_node8_t node) : base_node(node) {}
+  sparse_node8(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
+               int left_index) {
+    if (is_leaf)
+      val = output;
+    else
+      val.f = thresh;
+    bits = fid | left_index << LEFT_OFFSET |
+           (def_left ? 1 : 0) << DEF_LEFT_OFFSET |
+           (is_leaf ? 1 : 0) << IS_LEAF_OFFSET;
+  }
+  /** index of the left child, where curr is the index of the current node */
+  __host__ __device__ int left(int curr) const { return left_index(); }
+};
+
 /** sparse_tree is a sparse tree */
+template <typename node_t>
 struct sparse_tree {
-  __host__ __device__ sparse_tree(sparse_node* nodes) : nodes_(nodes) {}
-  __host__ __device__ const sparse_node& operator[](int i) const {
+  __host__ __device__ sparse_tree(node_t* nodes) : nodes_(nodes) {}
+  __host__ __device__ const node_t& operator[](int i) const {
     return nodes_[i];
   }
-  sparse_node* nodes_ = nullptr;
+  node_t* nodes_ = nullptr;
 };
 
 /** sparse_storage stores the forest as a collection of sparse nodes */
+template <typename node_t>
 struct sparse_storage {
   int* trees_ = nullptr;
-  sparse_node* nodes_ = nullptr;
+  node_t* nodes_ = nullptr;
   int num_trees_ = 0;
-  __host__ __device__ sparse_storage(int* trees, sparse_node* nodes,
-                                     int num_trees)
+  __host__ __device__ sparse_storage(int* trees, node_t* nodes, int num_trees)
     : trees_(trees), nodes_(nodes), num_trees_(num_trees) {}
   __host__ __device__ int num_trees() const { return num_trees_; }
-  __host__ __device__ sparse_tree operator[](int i) const {
-    return sparse_tree(&nodes_[trees_[i]]);
+  __host__ __device__ sparse_tree<node_t> operator[](int i) const {
+    return sparse_tree<node_t>(&nodes_[trees_[i]]);
   }
 };
+
+typedef sparse_storage<sparse_node16> sparse_storage16;
+typedef sparse_storage<sparse_node8> sparse_storage8;
 
 // predict_params are parameters for prediction
 struct predict_params {

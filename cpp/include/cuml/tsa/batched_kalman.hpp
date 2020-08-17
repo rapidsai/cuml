@@ -38,12 +38,18 @@ namespace ML {
  *                           shape=(nobs-d-s*D, batch_size) (device)
  * @param[in]  fc_steps      Number of steps to forecast
  * @param[in]  d_fc          Array to store the forecast
+ * @param[in]  level         Confidence level for prediction intervals. 0 to
+ *                           skip the computation. Else 0 < level < 1
+ * @param[out] d_lower       Lower limit of the prediction interval
+ * @param[out] d_upper       Upper limit of the prediction interval
  */
 void batched_kalman_filter(cumlHandle& handle, const double* d_ys_b, int nobs,
                            const ARIMAParams<double>& params,
                            const ARIMAOrder& order, int batch_size,
                            double* d_loglike, double* d_vs, int fc_steps = 0,
-                           double* d_fc = nullptr);
+                           double* d_fc = nullptr, double level = 0,
+                           double* d_lower = nullptr,
+                           double* d_upper = nullptr);
 
 /**
  * Convenience function for batched "jones transform" used in ARIMA to ensure

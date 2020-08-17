@@ -261,9 +261,12 @@ def _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
                          intercept, dtype):
     """Utility function to transfer the parameters from a statsmodels'
     SARIMAXResults object to a cuML ARIMA object.
-    Note: be cautious with the intercept, it is not always equivalent
-    in statsmodels and cuML models (it depends on the order).
+
+    .. note:: be cautious with the intercept, it is not always equivalent
+        in statsmodels and cuML models (it depends on the order).
+
     """
+
     nb = cuml_model.batch_size
     N = cuml_model.complexity
     x = np.zeros(nb * N, dtype=np.float64)
@@ -274,7 +277,8 @@ def _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
     cuml_model.unpack(x)
 
 
-def _predict_common(key, data, dtype, start, end, num_steps=None):
+def _predict_common(key, data, dtype, start, end, num_steps=None, level=None,
+                    simple_differencing=True):
     """Utility function used by test_predict and test_forecast to avoid
     code duplication.
     """
@@ -287,49 +291,87 @@ def _predict_common(key, data, dtype, start, end, num_steps=None):
 
     # Create cuML model
     cuml_model = arima.ARIMA(y_cudf, order, seasonal_order,
-                             fit_intercept=intercept, output_type='numpy')
+                             fit_intercept=intercept, output_type='numpy',
+                             simple_differencing=simple_differencing)
 
     # Feed the parameters to the cuML model
     _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
                          intercept, dtype)
 
     # Predict or forecast
+    # Reference (statsmodels)
     ref_preds = np.zeros((end - start, data.batch_size))
     for i in range(data.batch_size):
         ref_preds[:, i] = ref_fits[i].get_prediction(
             start, end - 1).predicted_mean
+    if level is not None:
+        ref_lower = np.zeros((end - start, data.batch_size))
+        ref_upper = np.zeros((end - start, data.batch_size))
+        for i in range(data.batch_size):
+            temp_pred = ref_fits[i].get_forecast(num_steps)
+            ci = temp_pred.summary_frame(alpha=1-level)
+            ref_lower[:, i] = ci["mean_ci_lower"].to_numpy()
+            ref_upper[:, i] = ci["mean_ci_upper"].to_numpy()
+    # cuML
     if num_steps is None:
         cuml_pred = cuml_model.predict(start, end)
+    elif level is not None:
+        cuml_pred, cuml_lower, cuml_upper = \
+            cuml_model.forecast(num_steps, level)
     else:
         cuml_pred = cuml_model.forecast(num_steps)
 
     # Compare results
     np.testing.assert_allclose(cuml_pred, ref_preds, rtol=0.001, atol=0.01)
+    if level is not None:
+        np.testing.assert_allclose(
+            cuml_lower, ref_lower, rtol=0.005, atol=0.01)
+        np.testing.assert_allclose(
+            cuml_upper, ref_upper, rtol=0.005, atol=0.01)
 
 
 @pytest.mark.parametrize('key, data', test_data)
 @pytest.mark.parametrize('dtype', [np.float64])
-def test_predict(key, data, dtype):
+@pytest.mark.parametrize('simple_differencing', [True, False])
+def test_predict(key, data, dtype, simple_differencing):
     """Test in-sample prediction against statsmodels (with the same values
     for the model parameters)
     """
     n_obs = data.n_obs
-    _predict_common(key, data, dtype, n_obs // 2, n_obs)
+    _predict_common(key, data, dtype, n_obs // 2, n_obs,
+                    simple_differencing=simple_differencing)
 
 
 @pytest.mark.parametrize('key, data', test_data)
 @pytest.mark.parametrize('dtype', [np.float64])
-def test_forecast(key, data, dtype):
+@pytest.mark.parametrize('num_steps', [10])
+@pytest.mark.parametrize('simple_differencing', [True, False])
+def test_forecast(key, data, dtype, num_steps, simple_differencing):
     """Test out-of-sample forecasting against statsmodels (with the same
     values for the model parameters)
     """
     n_obs = data.n_obs
-    _predict_common(key, data, dtype, n_obs, n_obs + 10, 10)
+    _predict_common(key, data, dtype, n_obs, n_obs + num_steps, num_steps,
+                    simple_differencing=simple_differencing)
 
 
 @pytest.mark.parametrize('key, data', test_data)
 @pytest.mark.parametrize('dtype', [np.float64])
-def test_loglikelihood(key, data, dtype):
+@pytest.mark.parametrize('num_steps', [10])
+@pytest.mark.parametrize('level', [0.5, 0.95])
+def test_intervals(key, data, dtype, num_steps, level):
+    """Test forecast confidence intervals against statsmodels (with the same
+    values for the model parameters)
+    """
+    n_obs = data.n_obs
+    _predict_common(key, data, dtype, n_obs, n_obs + num_steps, num_steps,
+                    level)
+
+
+@pytest.mark.parametrize('key, data', test_data)
+@pytest.mark.parametrize('dtype', [np.float64])
+@pytest.mark.parametrize('simple_differencing', [True, False])
+def test_loglikelihood(key, data, dtype, simple_differencing):
     """Test loglikelihood against statsmodels (with the same values for the
     model parameters)
     """
@@ -342,7 +384,8 @@ def test_loglikelihood(key, data, dtype):
 
     # Create cuML model
     cuml_model = arima.ARIMA(
-        y_cudf, order, seasonal_order, fit_intercept=intercept)
+        y_cudf, order, seasonal_order, fit_intercept=intercept,
+        simple_differencing=simple_differencing)
 
     # Feed the parameters to the cuML model
     _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
@@ -359,8 +402,11 @@ def test_loglikelihood(key, data, dtype):
 @pytest.mark.parametrize('key, data', test_data)
 @pytest.mark.parametrize('dtype', [np.float64])
 def test_gradient(key, data, dtype):
-    """Test batched gradient implementation against scipy non-batched
-    gradient. Note: it doesn't test that the loglikelihood is correct!
+    """
+    Test batched gradient implementation against scipy non-batched
+    gradient.
+
+    .. note:: it doesn't test that the loglikelihood is correct!
     """
     order, seasonal_order, intercept = extract_order(key)
     p, _, q = order
@@ -368,7 +414,7 @@ def test_gradient(key, data, dtype):
     N = p + P + q + Q + intercept + 1
     h = 1e-8
 
-    y, y_cudf = get_dataset(data, dtype)
+    _, y_cudf = get_dataset(data, dtype)
 
     # Create cuML model
     cuml_model = arima.ARIMA(y_cudf, order, seasonal_order,
