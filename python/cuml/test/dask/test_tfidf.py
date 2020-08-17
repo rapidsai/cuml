@@ -22,7 +22,9 @@ import dask.array as da
 import dask
 
 from cuml.dask.feature_extraction.text import TfidfTransformer
-from sklearn.feature_extraction.text import TfidfTransformer as SkTfidfTransformer
+from sklearn.feature_extraction.text import (
+    TfidfTransformer as SkTfidfTransformer,
+)
 
 
 # Testing Util Functions
@@ -92,19 +94,29 @@ data = [
 @pytest.mark.parametrize("use_idf", [True, False])
 @pytest.mark.parametrize("smooth_idf", [True, False])
 @pytest.mark.parametrize("sublinear_tf", [True, False])
-def test_tfidf_transformer(data, norm, use_idf, smooth_idf, sublinear_tf, client):
+def test_tfidf_transformer(
+    data, norm, use_idf, smooth_idf, sublinear_tf, client
+):
     ### Testing across multiple-n_parts
     for n_parts in range(1, data.shape[0]):
         dask_sp_array = create_cp_sparse_dask_array(data, n_parts)
         tfidf = TfidfTransformer(
-            norm=norm, use_idf=use_idf, smooth_idf=smooth_idf, sublinear_tf=sublinear_tf
+            norm=norm,
+            use_idf=use_idf,
+            smooth_idf=smooth_idf,
+            sublinear_tf=sublinear_tf,
         )
         sk_tfidf = SkTfidfTransformer(
-            norm=norm, use_idf=use_idf, smooth_idf=smooth_idf, sublinear_tf=sublinear_tf
+            norm=norm,
+            use_idf=use_idf,
+            smooth_idf=smooth_idf,
+            sublinear_tf=sublinear_tf,
         )
 
         res = tfidf.fit_transform(dask_sp_array)
-        res = create_scipy_sparse_array_from_dask_cp_sparse_array(res).todense()
+        res = create_scipy_sparse_array_from_dask_cp_sparse_array(
+            res
+        ).todense()
         ref = sk_tfidf.fit_transform(data).todense()
 
         cp.testing.assert_array_almost_equal(res, ref)
