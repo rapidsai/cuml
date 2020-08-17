@@ -14,4 +14,4 @@
 # limitations under the License.
 #
 
-from cuml.dask.feature_extraction.text.tfidfTransformer import TfidfTransformer
+from cuml.dask.feature_extraction.text.tfidf_transformer import TfidfTransformer
