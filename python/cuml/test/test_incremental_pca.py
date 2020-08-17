@@ -70,15 +70,10 @@ def test_fit(nrows, ncols, n_components, sparse_input, density,
 @pytest.mark.parametrize('ncols', [15, 25])
 @pytest.mark.parametrize('n_components', [2, 12])
 @pytest.mark.parametrize('density', [0.07, 0.4])
-@pytest.mark.parametrize('sparse_format', ['csr', 'csc'])
 @pytest.mark.parametrize('batch_size_divider', [5, 10])
 @pytest.mark.no_bad_cuml_array_check
 def test_partial_fit(nrows, ncols, n_components, density,
-                     sparse_format, batch_size_divider):
-
-    if sparse_format == 'csc':
-        pytest.skip("cupyx.scipy.sparse.csc.csc_matrix does not support"
-                    " indexing as of cupy 7.6.0")
+                     batch_size_divider):
 
     X, _ = make_blobs(n_samples=nrows, n_features=ncols, random_state=10)
 
