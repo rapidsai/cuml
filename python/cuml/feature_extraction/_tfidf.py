@@ -21,8 +21,10 @@ from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
 from cuml.common.sparsefuncs import csr_diag_mul
 from cuml import Base
 
-### Below should be term frequncy
-### Check what sklearn calls it
+# Below should be term frequncy
+# Check what sklearn calls it
+
+
 def _sparse_document_frequency(X):
     """Count the number of non-zero values for each feature in sparse X."""
     if cp.sparse.isspmatrix_csr(X):
@@ -30,12 +32,14 @@ def _sparse_document_frequency(X):
     else:
         return cp.diff(X.indptr)
 
+
 def _get_dtype(X):
     """
         Returns the valid dtype for tf-idf transoformer
     """
     dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float32
     return dtype
+
 
 class TfidfTransformer(Base):
     """Transform a count matrix to a normalized tf or tf-idf representation
@@ -113,19 +117,19 @@ class TfidfTransformer(Base):
         n_features
         df(document frequency)
         """
-        ### Should not have a cost if allready sparse
+        # Should not have a cost if allready sparse
         output_dtype = _get_dtype(X)
-        X = self._convert_to_csr(X,output_dtype)
+        X = self._convert_to_csr(X, output_dtype)
         n_samples, n_features = X.shape
         df = _sparse_document_frequency(X)
         df = df.astype(output_dtype, copy=False)
-        ### TODO Finding it difficult to
-        ### map below to cumlarray
-        ### removed trailing underscores for now
+        # TODO Finding it difficult to
+        # map below to cumlarray
+        # removed trailing underscores for now
         self.df = df
         self.n_samples = n_samples
         self.n_features = n_features
-        
+
         return
 
     @with_cupy_rmm
@@ -145,10 +149,10 @@ class TfidfTransformer(Base):
             shape=(self.n_features, self.n_features),
             dtype=df.dtype
         )
-        ### Free up memory occupied by below
+        # Free up memory occupied by below
         del self.df
-        # del self.n_samples
-        # del self.n_features
+        del self.n_samples
+        del self.n_features
 
 
 
@@ -163,7 +167,6 @@ class TfidfTransformer(Base):
         """
         output_dtype = _get_dtype(X)
         X = self._convert_to_csr(X, output_dtype)
-
         if self.use_idf:
             self._set_doc_stats(X)
             self._set_idf_diag()
