@@ -136,6 +136,9 @@ class UMAP(Base):
 
     Adapted from https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
 
+    The UMAP algorithm is outlined in [1]. This implementation follows the
+    GPU-accelerated version as described in [2].
+
     Parameters
     ----------
     n_neighbors: float (optional, default 15)
@@ -260,8 +263,6 @@ class UMAP(Base):
     However, there are a number of differences and features that are not yet
     implemented in `cuml.umap`:
 
-    * Using a non-Euclidean distance metric (support for a fixed set
-      of non-Euclidean metrics is planned for an upcoming release).
     * Using a pre-computed pairwise distance matrix (under consideration
       for future releases)
     * Manual initialization of initial embedding positions
@@ -272,15 +273,16 @@ class UMAP(Base):
     algorithm for large data sizes while cuml.umap always uses exact
     kNN.
 
-    **Known issue:** If a UMAP model has not yet been fit, it cannot be
-    pickled. However, after fitting, a UMAP mode.
-
     References
     ----------
     .. [1] `Leland McInnes, John Healy, James Melville
        UMAP: Uniform Manifold Approximation and Projection for Dimension
        Reduction <https://arxiv.org/abs/1802.03426>`_
 
+    .. [2] `Corey Nolet, Victor Lafargue, Edward Raff, Thejaswi Nanditale,
+       Tim Oates, John Zedlewski, Joshua Patterson
+       Bringing UMAP Closer to the Speed of Light with GPU Acceleration
+       <https://arxiv.org/abs/2008.00325>`_
     """
 
     def __init__(self,
