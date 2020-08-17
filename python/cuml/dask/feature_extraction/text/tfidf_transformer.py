@@ -14,27 +14,16 @@
 # limitations under the License.
 #
 
-import cupy as cp
 import dask
 from toolz import first
-
 import dask.array
 
-import logging
-
-
 from cuml.common import with_cupy_rmm
-
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedTransformMixin
-
 from cuml.dask.common.utils import wait_and_raise_from_futures
-
 from cuml.dask.common.func import reduce
-from cuml.dask.common.func import tree_reduce
-
 from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.common import rmm_cupy_ary
 
 from cuml.feature_extraction.text import TfidfTransformer as s_TfidfTransformer
 
@@ -98,7 +87,9 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
 
         client : dask.distributed.Client optional Dask client to use
         """
-        super(TfidfTransformer, self).__init__(client=client, verbose=verbose, **kwargs)
+        super(TfidfTransformer, self).__init__(
+            client=client, verbose=verbose, **kwargs
+        )
 
         self.datatype = "cupy"
 
@@ -110,7 +101,7 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
     @with_cupy_rmm
     def _set_doc_stats(X, kwargs):
         model = s_TfidfTransformer(**kwargs)
-        ### Below is only required if we have to set stats
+        # Below is only required if we have to set stats
         if model.use_idf:
             model._set_doc_stats(X)
 
@@ -163,7 +154,9 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
         futures = DistributedDataHandler.create(X, self.client)
 
         models = [
-            self.client.submit(self._set_doc_stats, part, self.kwargs, pure=False)
+            self.client.submit(
+                self._set_doc_stats, part, self.kwargs, pure=False
+            )
             for w, part in futures.gpu_futures
         ]
 
@@ -210,4 +203,6 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
         if not isinstance(X, dask.array.core.Array):
             raise ValueError("Only dask.Array is supported for X")
 
-        return self._transform(X, n_dims=2, delayed=True, output_collection_type="cupy")
+        return self._transform(
+            X, n_dims=2, delayed=True, output_collection_type="cupy"
+        )

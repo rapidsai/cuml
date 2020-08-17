@@ -16,15 +16,13 @@
 import pytest
 import numpy as np
 import cupy as cp
-from cuml.dask.feature_extraction.text import TfidfTransformer
-from sklearn.feature_extraction.text import TfidfTransformer as SkTfidfTransfo
-
-import numpy as np
 from scipy.sparse import csr_matrix as scipy_csr_matrix
 from cupy.sparse import csr_matrix as cp_csr_matrix
 import dask.array as da
 import dask
-import cupy as cp
+
+from cuml.dask.feature_extraction.text import TfidfTransformer
+from sklearn.feature_extraction.text import TfidfTransformer as SkTfidfTransformer
 
 
 # Testing Util Functions
@@ -101,7 +99,7 @@ def test_tfidf_transformer(data, norm, use_idf, smooth_idf, sublinear_tf, client
         tfidf = TfidfTransformer(
             norm=norm, use_idf=use_idf, smooth_idf=smooth_idf, sublinear_tf=sublinear_tf
         )
-        sk_tfidf = SkTfidfTransfo(
+        sk_tfidf = SkTfidfTransformer(
             norm=norm, use_idf=use_idf, smooth_idf=smooth_idf, sublinear_tf=sublinear_tf
         )
 
