@@ -61,7 +61,7 @@ def create_cp_sparse_dask_array(np_ar, n_parts):
 def create_scipy_sparse_array_from_dask_cp_sparse_array(ar):
     """
         Creates a cpu sparse array from the given numpy array
-        Will not be needed probably once we have 
+        Will not be needed probably once we have
         https://github.com/cupy/cupy/issues/3178
     """
     meta = dask.array.from_array(scipy_csr_matrix(np.zeros(1, dtype=ar.dtype)))
@@ -97,7 +97,7 @@ data = [
 def test_tfidf_transformer(
     data, norm, use_idf, smooth_idf, sublinear_tf, client
 ):
-    ### Testing across multiple-n_parts
+    # Testing across multiple-n_parts
     for n_parts in range(1, data.shape[0]):
         dask_sp_array = create_cp_sparse_dask_array(data, n_parts)
         tfidf = TfidfTransformer(
