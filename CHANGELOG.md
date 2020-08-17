@@ -95,6 +95,7 @@
 - PR #2648: Replace CNMeM with `rmm::mr::pool_memory_resource`.
 - PR #2686: Improve SVM tests
 - PR #2692: Changin LBFGS log level
+- PR #2701: Updating README + Adding ref to UMAP paper
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
