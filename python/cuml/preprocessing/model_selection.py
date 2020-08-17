@@ -68,14 +68,13 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
     class_counts = cp.bincount(y_indices)
     if n_train < n_classes:
         raise ValueError('The train_size = %d should be greater or '
-                         'equal to the number of classes = %d' %
-                         (n_train, n_classes))
+                         'equal to the number of classes = %d' % (n_train,
+                                                                  n_classes))
     if n_test < n_classes:
         raise ValueError('The test_size = %d should be greater or '
-                         'equal to the number of classes = %d' %
-                         (n_test, n_classes))
-    class_indices = cp.array_split(cp.argsort(y_indices),
-                                   n_classes)
+                         'equal to the number of classes = %d' % (n_test,
+                                                                  n_classes))
+    class_indices = cp.array_split(cp.argsort(y_indices), n_classes)
 
     X_train = None
 
@@ -175,20 +174,23 @@ def _approximate_mode(class_counts, n_draws, rng):
     return floored.astype(cp.int)
 
 
-def train_test_split(
-    X,
-    y=None,
-    test_size: Union[float, int] = None,
-    train_size: Union[float, int] = None,
-    shuffle: bool = True,
-    random_state: Union[int, cp.random.RandomState,
-                        np.random.RandomState] = None,
-    seed: Union[int, cp.random.RandomState, np.random.RandomState] = None,
-    stratify=None
-):
+def train_test_split(X,
+                     y=None,
+                     test_size: Union[float,
+                                      int] = None,
+                     train_size: Union[float,
+                                       int] = None,
+                     shuffle: bool = True,
+                     random_state: Union[int,
+                                         cp.random.RandomState,
+                                         np.random.RandomState] = None,
+                     seed: Union[int,
+                                 cp.random.RandomState,
+                                 np.random.RandomState] = None,
+                     stratify=None):
     """
     Partitions device data into four collated objects, mimicking
-    Scikit-learn's `train_test_split`
+    Scikit-learn's `train_test_split`.
 
     Parameters
     ----------
@@ -215,6 +217,7 @@ def train_test_split(
 
     Examples
     --------
+
     .. code-block:: python
 
         import cudf
@@ -253,11 +256,13 @@ def train_test_split(
 
     Returns
     -------
+
     X_train, X_test, y_train, y_test : cudf.DataFrame or array-like objects
         Partitioned dataframes if X and y were cuDF objects. If `y` was
-        provided as a column name, the column was dropped from the `X`s
+        provided as a column name, the column was dropped from `X`.
         Partitioned numba device arrays if X and y were Numba device arrays.
         Partitioned CuPy arrays for any other input.
+
     """
     if isinstance(y, str):
         # Use the column with name `str` as y
@@ -284,10 +289,10 @@ def train_test_split(
                             a cuda_array_interface compliant array.")
 
         if X.shape[0] != y.shape[0]:
-            raise ValueError(
-                "X and y must have the same first dimension"
-                "(found {} and {})".format(X.shape[0], y.shape[0])
-            )
+            raise ValueError("X and y must have the same first dimension"
+                             "(found {} and {})".format(
+                                 X.shape[0],
+                                 y.shape[0]))
     else:
         if not hasattr(X, "__cuda_array_interface__") and not \
                 isinstance(X, cudf.DataFrame):
@@ -296,31 +301,25 @@ def train_test_split(
 
     if isinstance(train_size, float):
         if not 0 <= train_size <= 1:
-            raise ValueError(
-                "proportion train_size should be between"
-                "0 and 1 (found {})".format(train_size)
-            )
+            raise ValueError("proportion train_size should be between"
+                             "0 and 1 (found {})".format(train_size))
 
     if isinstance(train_size, int):
         if not 0 <= train_size <= X.shape[0]:
             raise ValueError(
                 "Number of instances train_size should be between 0 and the"
-                "first dimension of X (found {})".format(train_size)
-            )
+                "first dimension of X (found {})".format(train_size))
 
     if isinstance(test_size, float):
         if not 0 <= test_size <= 1:
-            raise ValueError(
-                "proportion test_size should be between"
-                "0 and 1 (found {})".format(train_size)
-            )
+            raise ValueError("proportion test_size should be between"
+                             "0 and 1 (found {})".format(train_size))
 
     if isinstance(test_size, int):
         if not 0 <= test_size <= X.shape[0]:
             raise ValueError(
                 "Number of instances test_size should be between 0 and the"
-                "first dimension of X (found {})".format(test_size)
-            )
+                "first dimension of X (found {})".format(test_size))
 
     x_numba = cuda.devicearray.is_cuda_ndarray(X)
     y_numba = cuda.devicearray.is_cuda_ndarray(y)
@@ -387,8 +386,13 @@ def train_test_split(
             y = cp.asarray(y)[idxs]
 
         if stratify is not None:
-            split_return = _stratify_split(X, y, train_size, test_size,
-                                           x_numba, y_numba, random_state)
+            split_return = _stratify_split(X,
+                                           y,
+                                           train_size,
+                                           test_size,
+                                           x_numba,
+                                           y_numba,
+                                           random_state)
             return split_return
 
     # If not stratified, perform train_test_split splicing

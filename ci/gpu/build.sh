@@ -46,11 +46,11 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
-      "libcumlprims=0.15.0a200720" \
+      "libcumlprims=0.15.0a200812" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
-      "xgboost==1.1.0dev.rapidsai0.15" \
+      "xgboost=1.2.0dev.rapidsai0.15" \
       "rapids-build-env=$MINOR_VERSION.*" \
       "rapids-notebook-env=$MINOR_VERSION.*" \
       "rapids-doc-env=$MINOR_VERSION.*"
