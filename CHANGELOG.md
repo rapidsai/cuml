@@ -159,6 +159,7 @@
 - PR #2669: Revert PR 2655 Revert "Fixes C++ RF predict function"
 - PR #2683: Fix incorrect "Bad CumlArray Use" error messages on test failures
 - PR #2695: Fix debug build issue due to incorrect host/device method setup
+- PR #2710: Fix SVC doc statement about predic_proba
 
 # cuML 0.14.0 (03 Jun 2020)
 
