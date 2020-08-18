@@ -61,7 +61,7 @@ def _build_and_save_xgboost(model_path,
                             num_classes=1,
                             xgboost_params={}):
     """Trains a small xgboost classifier and saves it to model_path"""
-    #dtrain = xgb.DMatrix(X_train, label=y_train)
+    dtrain = xgb.DMatrix(X_train, label=y_train)
 
     # instantiate params
     params = {} #'silent': 1}
@@ -69,6 +69,7 @@ def _build_and_save_xgboost(model_path,
     # learning task params
     params['eval_metric'] = 'error'
     if classification:
+        params['num_class'] = num_classes
         if num_classes == 1:
             params['objective'] = 'binary:logistic'
         else:
@@ -77,25 +78,27 @@ def _build_and_save_xgboost(model_path,
             #params['objective'] = 'multi:softprob'
             # output transform == 'max_index'
             params['objective'] = 'multi:softmax'
-        skl_class = xgb.XGBClassifier
+        #skl_class = xgb.XGBClassifier
     else:
         params['objective'] = 'reg:squarederror'
         params['base_score'] = 0.0
-        skl_class = xgb.XGBRegressor
+        #skl_class = xgb.XGBRegressor
 
     params['max_depth'] = 25
-    params['booster'] = 'gbtree'
+    #params['booster'] = 'gbtree'
     params.update(xgboost_params)
-    #bst = xgb.train(params, dtrain, num_rounds)
+    bst = xgb.train(params, dtrain, num_rounds)
 
-    skl_gbdt = skl_class(**params)
-    skl_gbdt.fit(X_train, y_train)
-    print(skl_gbdt.get_params())
-    print(skl_gbdt.get_xgb_params())
-    bst = skl_gbdt.get_booster()
-    print(bst.attributes())
+    #skl_gbdt = skl_class(**params)
+    #skl_gbdt.fit(X_train, y_train)
+    #print(skl_gbdt.get_params())
+    #print(skl_gbdt.get_xgb_params())
+    #bst = skl_gbdt.get_booster()
+    #print(bst.attributes())
+    bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
-    return skl_gbdt, bst
+    #return skl_gbdt, bst
+    return None, bst
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000),
@@ -138,17 +141,18 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
                                   classification=classification,
                                   num_classes=xgb_num_classes)
 
+    dvalidation = xgb.DMatrix(X_validation, label=y_validation)
+    xgb_preds = bst.predict(dvalidation)
+    xgb_preds_int = np.around(xgb_preds)
     if num_classes == 2:
-        dvalidation = xgb.DMatrix(X_validation, label=y_validation)
-        xgb_preds = bst.predict(dvalidation)
         xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
-        xgb_preds_int = np.around(xgb_preds)
-    else:
-        xgb_preds = skl_gbdt.predict(X_validation)
-        xgb_proba = skl_gbdt.predict_proba(X_validation)
+    #else:
+        #xgb_preds = skl_gbdt.predict(X_validation)
+        #xgb_proba = skl_gbdt.predict_proba(X_validation)
 
     print('xgb_preds.shape', xgb_preds.shape)
-    print('xgb_proba.shape', xgb_proba.shape)
+    if num_classes == 2:
+        print('xgb_proba.shape', xgb_proba.shape)
     
     xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
     fm = ForestInference.load(model_path,
@@ -159,12 +163,14 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
     fil_proba = np.asarray(fm.predict_proba(X_validation))
 
-    fil_proba = np.reshape(fil_proba, np.shape(xgb_proba))
+    if num_classes == 2:
+        fil_proba = np.reshape(fil_proba, np.shape(xgb_proba))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
     assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
     assert array_equal(fil_preds, xgb_preds_int)
-    assert np.allclose(fil_proba, xgb_proba, 1e-3)
+    if num_classes == 2:
+        assert np.allclose(fil_proba, xgb_proba, 1e-3)
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
