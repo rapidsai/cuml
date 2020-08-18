@@ -128,7 +128,6 @@ class SVC(SVMBase, ClassifierMixin):
         This implementation has the following known limitations:
 
         - Currently only binary classification is supported.
-        - predict_proba is not yet supported
 
     Examples
     --------
