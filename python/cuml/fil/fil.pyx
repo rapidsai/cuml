@@ -21,6 +21,8 @@
 
 import copy
 import cudf
+import cupy as cp
+# implementation cannot avoid cupy for xgboost multiclass
 import ctypes
 import math
 import numpy as np
@@ -40,7 +42,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.common import input_to_cuml_array, logger
+from cuml.common import input_to_cuml_array, logger, with_cupy_rmm
 
 import treelite
 import treelite.sklearn as tl_skl
@@ -243,6 +245,7 @@ cdef class ForestInference_impl():
             logger.info('storage_type=="sparse8" is an experimental feature')
         return storage_type_dict[storage_type_str]
 
+    @with_cupy_rmm
     def predict(self, X, output_type='numpy',
                 output_dtype=None, predict_proba=False, preds=None):
         """
@@ -283,18 +286,25 @@ cdef class ForestInference_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
+        print('self.num_output_groups = ', self.num_output_groups)
         if preds is None:
             shape = (n_rows, )
             if predict_proba:
                 if self.num_output_groups <= 2:
                     shape += (2,)
                 else:
-                    shape += (self.num_output_groups,)
-            #elif // check if cuml RF has num_output_groups
-            elif self.num_output_groups > 2:
+                    if self.forest_data.size() > 1:
+                        shape = (self.num_output_groups,) + shape
+                        # xgboost-style inference will produce transposed output
+                    else:
+                        shape += (self.num_output_groups,)
+                        # cuML RF-style inference
+            elif (self.forest_data.size() > 1) and (self.num_output_groups > 2):
                 shape = (self.num_output_groups,) + shape
-                # xgboost-style inference will produce transposed output
+                # xgboost-style inference will produce non-max-reduced output
+            print("fil.pyx:preds.shape ", shape)
             preds = CumlArray.empty(shape=shape, dtype=np.float32, order='C')
+            print("fil.pyx:preds 0x", hex(preds.ptr))
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
             raise ValueError("Invalid type for output preds,"
@@ -310,6 +320,22 @@ cdef class ForestInference_impl():
                   <float*> X_ptr,
                   <size_t> n_rows,
                   <bool> predict_proba)
+        if self.forest_data.size() > 1:
+            if predict_proba:
+                # xgboost-style inference will produce transposed output
+                print('======================      predict_proba   ===================')
+                print(preds.shape)
+                preds = cp.asarray(preds, order='C').T
+                print(preds.shape)
+            elif (self.num_output_groups > 2):
+                # xgboost-style inference will produce non-max-reduced output
+                print('-----------------------   NO   predict_proba   ===================')
+                print(preds.shape)
+                preds = cp.argmax(cp.asarray(preds, order='C'), axis=0)
+                print(preds.shape)
+            preds = CumlArray(preds)
+            print('++++++++++++++++++++++++     cumlArray(preds)       ++++++++++++++++++++')
+            print(preds.shape)
         self.handle.sync()
 
         # special case due to predict and predict_proba

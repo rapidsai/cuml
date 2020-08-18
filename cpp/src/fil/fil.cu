@@ -144,6 +144,7 @@ struct forest {
     leaf_payload_type_ = params->leaf_payload_type;
     num_classes_ = params->num_classes;
     output_group_num_ = params->output_group_num;
+    num_output_group_ = params->num_output_group;
     init_max_shm();
   }
 
@@ -162,8 +163,10 @@ struct forest {
     params.num_classes = num_classes_;
     params.leaf_payload_type = leaf_payload_type_;
 
+    dhprint(preds);
     // C layer will infer in a transposed fashion, to be un-transposed in cython
     preds += output_group_num_ * num_rows;
+    diprint(output_group_num_);
 
     /**
     The binary classification / regression (FLOAT_SCALAR) predict_proba() works as follows
@@ -222,6 +225,13 @@ struct forest {
         do_transform = false;
       }
     }
+    diprint(num_classes_);
+    diprint(num_output_group_);
+    diprint(params.num_outputs);
+    dhprint(ot);
+    dleafprint(leaf_payload_type_);
+    dbprint(complement_proba);
+    dbprint(do_transform);
 
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
@@ -230,6 +240,11 @@ struct forest {
     if (do_transform) {
       size_t num_values_to_transform =
         (size_t)num_rows * (size_t)params.num_outputs;
+
+      diprint(num_values_to_transform);
+      diprint(ceildiv(num_values_to_transform, (size_t)FIL_TPB));
+      diprint(FIL_TPB);
+      dhprint(preds);
       transform_k<<<ceildiv(num_values_to_transform, (size_t)FIL_TPB), FIL_TPB,
                     0, stream>>>(preds, num_values_to_transform, ot,
                                  num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
@@ -654,6 +669,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
       "are supported for multi-class models");
 
     params->num_trees = model.trees.size();
+    params->output_group_num = 0;
   } else {
     params->num_output_group = model.num_output_group;
     params->num_trees = model.trees.size() / model.num_output_group;
@@ -674,6 +690,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
       ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
              "only sigmoid and identity values of pred_transform "
              "are supported for binary classification and regression models");
+      params->output_group_num = 0;
     }
     params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
     params->num_classes = 0;  // ignored
@@ -805,6 +822,7 @@ void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
 
 void from_treelite(const cumlHandle& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {
+  diprint(tl_params->output_group_num);
   storage_type_t storage_type = tl_params->storage_type;
   // build dense trees by default
   const tl::Model& model_ref = *(tl::Model*)model;

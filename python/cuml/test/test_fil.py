@@ -61,7 +61,7 @@ def _build_and_save_xgboost(model_path,
                             num_classes=1,
                             xgboost_params={}):
     """Trains a small xgboost classifier and saves it to model_path"""
-    dtrain = xgb.DMatrix(X_train, label=y_train)
+    #dtrain = xgb.DMatrix(X_train, label=y_train)
 
     # instantiate params
     params = {} #'silent': 1}
@@ -69,7 +69,6 @@ def _build_and_save_xgboost(model_path,
     # learning task params
     params['eval_metric'] = 'error'
     if classification:
-        params['num_class'] = num_classes
         if num_classes == 1:
             params['objective'] = 'binary:logistic'
         else:
@@ -78,15 +77,25 @@ def _build_and_save_xgboost(model_path,
             #params['objective'] = 'multi:softprob'
             # output transform == 'max_index'
             params['objective'] = 'multi:softmax'
+        skl_class = xgb.XGBClassifier
     else:
         params['objective'] = 'reg:squarederror'
         params['base_score'] = 0.0
+        skl_class = xgb.XGBRegressor
 
     params['max_depth'] = 25
+    params['booster'] = 'gbtree'
     params.update(xgboost_params)
-    bst = xgb.train(params, dtrain, num_rounds)
+    #bst = xgb.train(params, dtrain, num_rounds)
+
+    skl_gbdt = skl_class(**params)
+    skl_gbdt.fit(X_train, y_train)
+    print(skl_gbdt.get_params())
+    print(skl_gbdt.get_xgb_params())
+    bst = skl_gbdt.get_booster()
+    print(bst.attributes())
     bst.save_model(model_path)
-    return bst
+    return skl_gbdt, bst
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000),
@@ -124,16 +133,23 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
         xgb_num_classes = 1
     else:
         xgb_num_classes = num_classes
-    bst = _build_and_save_xgboost(model_path, X_train, y_train,
+    skl_gbdt, bst = _build_and_save_xgboost(model_path, X_train, y_train,
                                   num_rounds=num_rounds,
                                   classification=classification,
                                   num_classes=xgb_num_classes)
 
-    dvalidation = xgb.DMatrix(X_validation, label=y_validation)
-    xgb_preds = bst.predict(dvalidation)
-    xgb_preds_int = np.around(xgb_preds)
-    xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
+    if num_classes == 2:
+        dvalidation = xgb.DMatrix(X_validation, label=y_validation)
+        xgb_preds = bst.predict(dvalidation)
+        xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
+        xgb_preds_int = np.around(xgb_preds)
+    else:
+        xgb_preds = skl_gbdt.predict(X_validation)
+        xgb_proba = skl_gbdt.predict_proba(X_validation)
 
+    print('xgb_preds.shape', xgb_preds.shape)
+    print('xgb_proba.shape', xgb_proba.shape)
+    
     xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
     fm = ForestInference.load(model_path,
                               algo='auto',
@@ -179,7 +195,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
         X, y, train_size=train_size, random_state=0)
 
     model_path = os.path.join(tmp_path, 'xgb_reg.model')
-    bst = _build_and_save_xgboost(model_path, X_train,
+    _, bst = _build_and_save_xgboost(model_path, X_train,
                                   y_train,
                                   classification=classification,
                                   num_rounds=num_rounds,
@@ -334,7 +350,7 @@ def small_classifier_and_preds(tmpdir_factory):
                          classification=True)
 
     model_path = str(tmpdir_factory.mktemp("models").join("small_class.model"))
-    bst = _build_and_save_xgboost(model_path, X, y)
+    _, bst = _build_and_save_xgboost(model_path, X, y)
     # just do within-sample since it's not an accuracy test
     dtrain = xgb.DMatrix(X, label=y)
     xgb_preds = bst.predict(dtrain)
