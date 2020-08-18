@@ -22,7 +22,6 @@ from cuml.common.sparsefuncs import csr_diag_mul
 from cuml import Base
 
 
-
 def _sparse_document_frequency(X):
     """Count the number of non-zero values for each feature in sparse X."""
     if cp.sparse.isspmatrix_csr(X):
