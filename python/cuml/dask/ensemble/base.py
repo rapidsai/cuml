@@ -42,6 +42,7 @@ class BaseRandomForestModel(object):
         self.client = get_client(client)
         self.workers = self.client.scheduler_info()['workers'].keys()
         self._set_internal_model(None)
+        self.active_workers = list()
 
         self.n_estimators_per_worker = \
             self._estimators_per_worker(n_estimators)
@@ -103,6 +104,7 @@ class BaseRandomForestModel(object):
         futures = list()
         for idx, (worker, worker_data) in \
                 enumerate(data.worker_to_parts.items()):
+            self.active_workers.append(worker)
             futures.append(
                 self.client.submit(
                     _func_fit,
@@ -123,7 +125,7 @@ class BaseRandomForestModel(object):
         bytes format.
         """
         model_serialized_futures = list()
-        for w in self.workers:
+        for w in self.active_workers:
             model_serialized_futures.append(
                 dask.delayed(_get_serialized_model)
                 (self.rfs[w]))
