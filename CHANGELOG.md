@@ -20,6 +20,7 @@
 - PR #2520: TfidfVectorizer estimator
 - PR #2211: MNMG KNN Classifier & Regressor
 - PR #2461: Add KNN Sparse Output Functionality
+- PR #2615: Incremental PCA
 - PR #2594: Confidence intervals for ARIMA forecasts
 - PR #2607: Add support for probability estimates in SVC
 - PR #2618: SVM class and sample weights
@@ -84,6 +85,7 @@
 - PR #2487: Set classes_ attribute during classifier fit
 - PR #2605: Reduce memory usage in tSNE
 - PR #2611: Adding building doxygen docs to gpu ci
+- PR #2631: Enabling use of gtest conda package for build
 - PR #2623: Fixing kmeans score() API to be compatible with Scikit-learn
 - PR #2629: Add naive_bayes api docs
 - PR #2643: 'dense' and 'sparse' values of `storage_type` for FIL
@@ -94,6 +96,7 @@
 - PR #2686: Improve SVM tests
 - PR #2692: Changin LBFGS log level
 - PR #2705: Add sum operator and base operator overloader functions to cumlarray
+- PR #2701: Updating README + Adding ref to UMAP paper
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
