@@ -14,6 +14,7 @@
 #
 import numpy as np
 import cupy as cp
+import cupyx
 from cuml.common.exceptions import NotFittedError
 
 from cuml import Base
@@ -311,7 +312,7 @@ class OneHotEncoder(Base):
         cols = cp.concatenate(cols)
         rows = cp.concatenate(rows)
         val = cp.ones(rows.shape[0], dtype=self.dtype)
-        ohe = cp.sparse.coo_matrix((val, (rows, cols)),
+        ohe = cupyx.scipy.sparse.coo_matrix((val, (rows, cols)),
                                    shape=(len(X), j),
                                    dtype=self.dtype)
 
@@ -341,10 +342,10 @@ class OneHotEncoder(Base):
             Inverse transformed array.
         """
         self._check_is_fitted()
-        if cp.sparse.issparse(X):
-            # cupy.sparse 7.x does not support argmax, when we upgrade cupy to
+        if cupyx.scipy.sparse.issparse(X):
+            # cupyx.scipy.sparse 7.x does not support argmax, when we upgrade cupy to
             # 8.x, we should add a condition in the
-            # if close: `and not cp.sparse.issparsecsc(X)`
+            # if close: `and not cupyx.scipy.sparse.issparsecsc(X)`
             # and change the following line by `X = X.tocsc()`
             X = X.toarray()
         result = DataFrame(columns=self._encoders.keys())

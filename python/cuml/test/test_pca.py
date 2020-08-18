@@ -15,6 +15,7 @@
 
 import numpy as np
 import cupy as cp
+import cupyx
 import pytest
 
 from cuml import PCA as cuPCA
@@ -189,7 +190,7 @@ def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse):
     if return_sparse:
         pytest.skip("Loss of information in converting to cupy sparse csr")
 
-    X = cp.sparse.random(nrows, ncols, density=0.07, dtype=cp.float32,
+    X = cupyx.scipy.sparse.random(nrows, ncols, density=0.07, dtype=cp.float32,
                          random_state=10)
 
     p_sparse = cuPCA(n_components=ncols, whiten=whiten)
@@ -201,7 +202,7 @@ def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse):
 
     if return_sparse:
 
-        assert isinstance(i_sparse, cp.sparse.csr_matrix)
+        assert isinstance(i_sparse, cupyx.scipy.sparse.csr_matrix)
 
         assert array_equal(i_sparse.todense(), X.todense(), 1e-1,
                            with_sign=True)

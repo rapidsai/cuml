@@ -20,6 +20,7 @@ from cuml.common.sparsefuncs import create_csr_matrix_from_count_df
 
 from functools import partial
 import cupy as cp
+import cupyx
 import numbers
 import cudf
 from cuml.common.type_utils import CUPY_SPARSE_DTYPES
@@ -646,7 +647,7 @@ class HashingVectorizer(_VectorizerMixin):
     """
     Convert a collection of text documents to a matrix of token occurrences
 
-    It turns a collection of text documents into a cupy.sparse matrix holding
+    It turns a collection of text documents into a cupyx.scipy.sparse matrix holding
     token occurrence counts (or binary occurrence information), possibly
     normalized as token frequencies if norm='l1' or projected on the euclidean
     unit sphere if norm='l2'.
