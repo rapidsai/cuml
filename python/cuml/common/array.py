@@ -175,6 +175,9 @@ class CumlArray(Buffer):
     def __add__(self, other):
         return self._operator_overload(other, operator.add)
 
+    def __sub__(self, other):
+        return self._operator_overload(other, operator.sub)
+
     @property
     def __cuda_array_interface__(self):
         output = {
