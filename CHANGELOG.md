@@ -146,6 +146,7 @@
 - PR #2610: Remove cuDF tolist call
 - PR #2613: Removing thresholds from kmeans score tests (SG+MG)
 - PR #2616: Small test code fix for pandas dtype tests
+- PR #2617: Fix floating point precision error in tSNE
 - PR #2625: Update Estimator notebook to resolve errors
 - PR #2634: singlegpu build option fixes
 - PR #2641: [Breaking] Make `max_depth` in RF compatible with scikit-learn
