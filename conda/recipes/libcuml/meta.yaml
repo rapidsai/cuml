@@ -38,6 +38,7 @@ requirements:
     - lapack
     - treelite=0.92
     - faiss-proc=*=cuda
+    - gtest=1.10.0
     - libfaiss
   run:
     - libcumlprims=0.15.0a200812
