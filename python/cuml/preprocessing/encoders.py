@@ -79,6 +79,13 @@ class OneHotEncoder(Base):
         transform, the resulting one-hot encoded columns for this feature
         will be all zeros. In the inverse transform, an unknown category
         will be denoted as None.
+    force_uint64_cols : bool, optional, default=False
+        Forces the internal categorical codes for each column to use the
+        ``uint64`` data type instead of the minimum type calculated from each
+        columns values. This is to prevent integer overflow errors that can
+        occur when the total number of categories is larger than a specific
+        columns category code dtype can handle. Comes at the expense of
+        additional memory usage.
 
     Attributes
     ----------
@@ -89,12 +96,14 @@ class OneHotEncoder(Base):
 
     """
     def __init__(self, categories='auto', drop=None, sparse=True,
-                 dtype=np.float, handle_unknown='error'):
+                 dtype=np.float, handle_unknown='error',
+                 force_uint64_cols=False):
         self.categories = categories
         self.sparse = sparse
         self.dtype = dtype
         self.handle_unknown = handle_unknown
         self.drop = drop
+        self.force_uint64_cols = force_uint64_cols
         self._fitted = False
         self.drop_idx_ = None
         self._features = None
@@ -281,44 +290,77 @@ class OneHotEncoder(Base):
         X = self._check_input(X)
 
         cols, rows = list(), list()
+        col_idx = None
         j = 0
-        for feature in X.columns:
-            encoder = self._encoders[feature]
-            col_idx = encoder.transform(X[feature])
-            idx_to_keep = cp.asarray(col_idx.notnull().to_gpu_array())
-            col_idx = cp.asarray(col_idx.dropna().to_gpu_array())
 
-            # increase indices to take previous features into account
-            col_idx += j
+        try:
+            for feature in X.columns:
+                encoder = self._encoders[feature]
+                col_idx = encoder.transform(X[feature])
+                idx_to_keep = cp.asarray(col_idx.notnull().to_gpu_array())
+                col_idx = cp.asarray(col_idx.dropna().to_gpu_array())
 
-            # Filter out rows with null values
-            row_idx = cp.arange(len(X))[idx_to_keep]
+                # Force uint64 dtype if specified
+                if (self.force_uint64_cols):
+                    col_idx = col_idx.astype(np.uint64)
+                else:
+                    # Simple test to auto upscale col_idx type as needed
+                    max_value = len(encoder.classes_) + j
 
-            if self.drop_idx_ is not None:
-                drop_idx = self.drop_idx_[feature] + j
-                mask = cp.ones(col_idx.shape, dtype=cp.bool)
-                mask[col_idx == drop_idx] = False
-                col_idx = col_idx[mask]
-                row_idx = row_idx[mask]
-                # account for dropped category in indices
-                col_idx[col_idx > drop_idx] -= 1
-                # account for dropped category in current cats number
-                j -= 1
-            j += len(encoder.classes_)
+                    # If we exceed the max value, upconvert
+                    if (max_value >= np.iinfo(col_idx.dtype).max):
+                        col_idx = col_idx.astype(np.min_scalar_type(max_value))
+
+                # increase indices to take previous features into account
+                col_idx += j
+
+                # Filter out rows with null values
+                row_idx = cp.arange(len(X))[idx_to_keep]
+
+                if self.drop_idx_ is not None:
+                    drop_idx = self.drop_idx_[feature] + j
+                    mask = cp.ones(col_idx.shape, dtype=cp.bool)
+                    mask[col_idx == drop_idx] = False
+                    col_idx = col_idx[mask]
+                    row_idx = row_idx[mask]
+                    # account for dropped category in indices
+                    col_idx[col_idx > drop_idx] -= 1
+                    # account for dropped category in current cats number
+                    j -= 1
+
+                j += len(encoder.classes_)
+                cols.append(col_idx)
+                rows.append(row_idx)
+
+            cols = cp.concatenate(cols)
+            rows = cp.concatenate(rows)
+            val = cp.ones(rows.shape[0], dtype=self.dtype)
+            ohe = cp.sparse.coo_matrix((val, (rows, cols)),
+                                       shape=(len(X), j),
+                                       dtype=self.dtype)
+
+            if not self.sparse:
+                ohe = ohe.toarray()
+
+            return ohe
+
+        except TypeError as e:
+            # Append to cols to include the column that threw the error
             cols.append(col_idx)
-            rows.append(row_idx)
 
-        cols = cp.concatenate(cols)
-        rows = cp.concatenate(rows)
-        val = cp.ones(rows.shape[0], dtype=self.dtype)
-        ohe = cp.sparse.coo_matrix((val, (rows, cols)),
-                                   shape=(len(X), j),
-                                   dtype=self.dtype)
+            # Build a string showing what the types are
+            input_types_str = ", ".join([str(x.dtype) for x in cols])
 
-        if not self.sparse:
-            ohe = ohe.toarray()
-
-        return ohe
+            raise TypeError(
+                "A TypeError occurred while calculating column "
+                "category indices, most likely due to integer overflow. This "
+                "can occur when columns have a large difference in the number "
+                "of categories, resulting in different category code dtypes "
+                "for different columns. Consider setting "
+                "`force_uint64_cols=True` to force all column category codes "
+                "to have the maximum range.\n"
+                "Calculated column code dtypes: {}.\n"
+                "Internal Error: {}".format(input_types_str, repr(e)))
 
     @with_cupy_rmm
     def inverse_transform(self, X):
