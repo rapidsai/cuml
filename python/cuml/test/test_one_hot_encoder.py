@@ -305,3 +305,35 @@ def test_onehot_categories_shape_mismatch(as_array):
 
     with pytest.raises(ValueError):
         OneHotEncoder(categories=categories, sparse=False).fit(X)
+
+
+@pytest.mark.xfail(strict=True, raises=TypeError)
+def test_onehot_category_overflow():
+    # See this for reasoning: https://github.com/rapidsai/cuml/issues/2690
+    example_df = DataFrame()
+    example_df["high_cardinality_column"] = cp.linspace(0, 255, 256)
+    example_df["low_cardinality_column"] = ["A"] * 200 + ["B"] * 56
+
+    encoder = OneHotEncoder(handle_unknown="ignore", sparse=False)
+    encoder.fit_transform(example_df)
+
+
+def test_onehot_category_force_uint64():
+    # See this for reasoning: https://github.com/rapidsai/cuml/issues/2690
+
+    # Doesnt fail (low before high)
+    example_df = DataFrame()
+    example_df["low_cardinality_column"] = ["A"] * 200 + ["B"] * 56
+    example_df["high_cardinality_column"] = cp.linspace(0, 255, 256)
+
+    encoder = OneHotEncoder(handle_unknown="ignore", sparse=False)
+    encoder.fit_transform(example_df)
+
+    # Should fail without force_uint64_cols
+    example_df = DataFrame()
+    example_df["high_cardinality_column"] = cp.linspace(0, 255, 256)
+    example_df["low_cardinality_column"] = ["A"] * 200 + ["B"] * 56
+
+    encoder = OneHotEncoder(handle_unknown="ignore", sparse=False,
+                            force_uint64_cols=True)
+    encoder.fit_transform(example_df)
