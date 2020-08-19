@@ -86,11 +86,6 @@ global_output_type = 'input'
 
 from cuml.common.memory_utils import set_global_output_type, using_output_type
 
-
-# docstring generation
-
-_generate_pydocstrings = False
-
 # Version configuration
 
 from ._version import get_versions
