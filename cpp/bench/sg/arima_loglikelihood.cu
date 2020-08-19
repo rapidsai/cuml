@@ -86,9 +86,7 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
     loglike = (DataT*)allocator->allocate(
       this->params.batch_size * sizeof(DataT), stream);
     residual = (DataT*)allocator->allocate(
-      this->params.batch_size * (this->params.n_obs - order.lost_in_diff()) *
-        sizeof(DataT),
-      stream);
+      this->params.batch_size * this->params.n_obs * sizeof(DataT), stream);
   }
 
   void deallocateBuffers(const ::benchmark::State& state) {
@@ -103,11 +101,9 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
       stream);
     allocator->deallocate(loglike, this->params.batch_size * sizeof(DataT),
                           stream);
-    allocator->deallocate(residual,
-                          this->params.batch_size *
-                            (this->params.n_obs - order.lost_in_diff()) *
-                            sizeof(DataT),
-                          stream);
+    allocator->deallocate(
+      residual, this->params.batch_size * this->params.n_obs * sizeof(DataT),
+      stream);
   }
 
  protected:

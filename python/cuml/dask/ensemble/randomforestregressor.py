@@ -30,12 +30,12 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     (possibly on different nodes).
 
     Currently, this API makes the following assumptions:
-    * The set of Dask workers used between instantiation, fit,
-    and predict are all consistent
-    * Training data comes in the form of cuDF dataframes or Dask Arrays
-    distributed so that each worker has at least one partition.
-    * The print_summary and print_detailed functions print the
-    information of the forest on the worker.
+     * The set of Dask workers used between instantiation, fit,
+       and predict are all consistent
+     * Training data comes in the form of cuDF dataframes or Dask Arrays
+       distributed so that each worker has at least one partition.
+     * The print_summary and print_detailed functions print the
+       information of the forest on the worker.
 
     Future versions of the API will support more flexible data
     distribution and additional input types. User-facing APIs are
@@ -174,7 +174,9 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         on each Dask worker being used by the forest (self.workers).
 
         When persisting data, you can use
-        cuml.dask.common.utils.persist_across_workers to simplify this::
+        `cuml.dask.common.utils.persist_across_workers` to simplify this:
+
+        .. code-block:: python
 
             X_dask_cudf = dask_cudf.from_cudf(X_cudf, npartitions=n_workers)
             y_dask_cudf = dask_cudf.from_cudf(y_cudf, npartitions=n_workers)
@@ -182,7 +184,10 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
                                                               [X_dask_cudf,
                                                                y_dask_cudf])
 
-        (this is equivalent to calling `persist` with the data and workers)::
+        This is equivalent to calling `persist` with the data and workers):
+
+        .. code-block:: python
+
             X_dask_cudf, y_dask_cudf = dask_client.persist([X_dask_cudf,
                                                             y_dask_cudf],
                                                            workers={
@@ -202,8 +207,9 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             When set to True, the fit method will, when necessary, convert
             y to be the same data type as X if they differ. This will increase
             memory used for the method.
+
         """
-        self.local_model = None
+        self.internal_model = None
         self._fit(model=self.rfs,
                   dataset=(X, y),
                   convert_dtype=convert_dtype)
@@ -274,8 +280,9 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             eagerly executed one.
 
         Returns
-        ----------
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        -------
+        y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
+
         """
         if predict_model == "CPU":
             preds = self.predict_model_on_cpu(X, convert_dtype=convert_dtype)
@@ -288,6 +295,13 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
                                         fil_sparse_format=fil_sparse_format,
                                         delayed=delayed)
         return preds
+
+    def predict_using_fil(self, X, delayed, **kwargs):
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
+        return self._predict_using_fil(X=X,
+                                       delayed=delayed,
+                                       **kwargs)
 
     """
     TODO : Update function names used for CPU predict.

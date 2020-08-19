@@ -59,7 +59,7 @@ Model Selection and Data Splitting
 Feature and Label Encoding (Single-GPU)
 ---------------------------------------
 
- .. autoclass:: cuml.preprocessing.LabelEncoder
+ .. autoclass:: cuml.preprocessing.LabelEncoder.LabelEncoder
     :members:
 
  .. autoclass:: cuml.preprocessing.LabelBinarizer
@@ -81,7 +81,14 @@ Feature and Label Encoding (Dask-based Multi-GPU)
 
 Feature Extraction (Single-GPU)
 -------------------------------
- .. autoclass:: cuml.feature_extraction.text.CountVectorizer
+
+  .. autoclass:: cuml.feature_extraction.text.CountVectorizer
+    :members:
+
+  .. autoclass:: cuml.feature_extraction.text.HashingVectorizer
+    :members:
+
+  .. autoclass:: cuml.feature_extraction.text.TfidfVectorizer
     :members:
 
 Dataset Generation (Single-GPU)
@@ -132,6 +139,9 @@ Metrics
     :members:
 
   .. automethod:: cuml.metrics.roc_auc_score
+
+  .. automodule:: cuml.metrics.pairwise_distances
+    :members:
 
 Benchmarking
 -------------
@@ -238,12 +248,14 @@ Nearest Neighbors Classification
 
 .. autoclass:: cuml.neighbors.KNeighborsClassifier
     :members:
+    :noindex:
 
 Nearest Neighbors Regression
 ----------------------------
 
 .. autoclass:: cuml.neighbors.KNeighborsRegressor
     :members:
+    :noindex:
 
 Clustering
 ==========
@@ -389,6 +401,12 @@ Linear Models
     :members:
 
 .. autoclass:: cuml.dask.linear_model.ElasticNet
+    :members:
+
+Naive Bayes
+-----------
+
+.. autoclass:: cuml.dask.naive_bayes.MultinomialNB
     :members:
 
 Solvers

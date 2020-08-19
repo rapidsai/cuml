@@ -25,6 +25,29 @@ template <typename math_, int VecLen>
 struct IOType {};
 
 template <>
+struct IOType<bool, 1> {
+  static_assert(sizeof(bool) == sizeof(int8_t),
+                "IOType bool size assumption failed");
+  typedef int8_t Type;
+};
+template <>
+struct IOType<bool, 2> {
+  typedef int16_t Type;
+};
+template <>
+struct IOType<bool, 4> {
+  typedef int32_t Type;
+};
+template <>
+struct IOType<bool, 8> {
+  typedef int2 Type;
+};
+template <>
+struct IOType<bool, 16> {
+  typedef int4 Type;
+};
+
+template <>
 struct IOType<int8_t, 1> {
   typedef int8_t Type;
 };

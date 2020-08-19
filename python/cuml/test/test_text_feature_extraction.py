@@ -14,9 +14,14 @@
 # limitations under the License.
 #
 from cuml.feature_extraction.text import CountVectorizer
+from cuml.feature_extraction.text import TfidfVectorizer
+from cuml.feature_extraction.text import HashingVectorizer
 import cupy as cp
 import pytest
 from sklearn.feature_extraction.text import CountVectorizer as SkCountVect
+from sklearn.feature_extraction.text import HashingVectorizer as SkHashVect
+
+from sklearn.feature_extraction.text import TfidfVectorizer as SkTfidfVect
 from cudf import Series
 from numpy.testing import assert_array_equal
 import numpy as np
@@ -63,9 +68,11 @@ NGRAM_IDS = [f'ngram_range={str(r)}' for r in NGRAM_RANGES]
 
 @pytest.mark.parametrize('ngram_range', NGRAM_RANGES, ids=NGRAM_IDS)
 def test_word_analyzer(ngram_range):
-    vec = CountVectorizer(ngram_range=ngram_range).fit(DOCS_GPU)
+    v = CountVectorizer(ngram_range=ngram_range).fit(DOCS_GPU)
     ref = SkCountVect(ngram_range=ngram_range).fit(DOCS)
-    assert ref.get_feature_names() == vec.get_feature_names().tolist()
+    assert (
+        ref.get_feature_names() == v.get_feature_names().to_arrow().to_pylist()
+    )
 
 
 def test_countvectorizer_custom_vocabulary():
@@ -94,10 +101,10 @@ def test_countvectorizer_stop_words_ngrams():
     stop_words_doc = Series(["and me too andy andy too"])
     expected_vocabulary = ["andy andy"]
 
-    vec = CountVectorizer(ngram_range=(2, 2), stop_words='english')
-    vec.fit(stop_words_doc)
+    v = CountVectorizer(ngram_range=(2, 2), stop_words='english')
+    v.fit(stop_words_doc)
 
-    assert expected_vocabulary == vec.get_feature_names().tolist()
+    assert expected_vocabulary == v.get_feature_names().to_arrow().to_pylist()
 
 
 def test_countvectorizer_max_features():
@@ -108,8 +115,9 @@ def test_countvectorizer_max_features():
     # test bounded number of extracted features
     vec = CountVectorizer(max_df=0.6, max_features=4)
     vec.fit(DOCS_GPU)
-    assert set(vec.get_feature_names().tolist()) == expected_vocabulary
-    assert set(vec.stop_words_.tolist()) == expected_stop_words
+    assert set(vec.get_feature_names().to_arrow().to_pylist()
+               ) == expected_vocabulary
+    assert set(vec.stop_words_.to_arrow().to_pylist()) == expected_stop_words
 
 
 def test_countvectorizer_max_features_counts():
@@ -133,7 +141,8 @@ def test_countvectorizer_max_features_counts():
     assert 7 == counts_None.max()
 
     # The most common feature should be the same
-    def as_index(x): return x.astype(cp.int32).item()
+    def as_index(x):
+        return x.astype(cp.int32).item()
     assert "the" == features_1[as_index(cp.argmax(counts_1))]
     assert "the" == features_3[as_index(cp.argmax(counts_3))]
     assert "the" == features_None[as_index(cp.argmax(counts_None))]
@@ -143,22 +152,22 @@ def test_countvectorizer_max_df():
     test_data = Series(['abc', 'dea', 'eat'])
     vect = CountVectorizer(analyzer='char', max_df=1.0)
     vect.fit(test_data)
-    assert 'a' in vect.vocabulary_.tolist()
-    assert len(vect.vocabulary_.tolist()) == 6
+    assert 'a' in vect.vocabulary_.to_arrow().to_pylist()
+    assert len(vect.vocabulary_.to_arrow().to_pylist()) == 6
     assert len(vect.stop_words_) == 0
 
     vect.max_df = 0.5  # 0.5 * 3 documents -> max_doc_count == 1.5
     vect.fit(test_data)
-    assert 'a' not in vect.vocabulary_.tolist()  # {ae} ignored
-    assert len(vect.vocabulary_.tolist()) == 4    # {bcdt} remain
-    assert 'a' in vect.stop_words_.tolist()
+    assert 'a' not in vect.vocabulary_.to_arrow().to_pylist()  # {ae} ignored
+    assert len(vect.vocabulary_.to_arrow().to_pylist()) == 4    # {bcdt} remain
+    assert 'a' in vect.stop_words_.to_arrow().to_pylist()
     assert len(vect.stop_words_) == 2
 
     vect.max_df = 1
     vect.fit(test_data)
-    assert 'a' not in vect.vocabulary_.tolist()  # {ae} ignored
-    assert len(vect.vocabulary_.tolist()) == 4    # {bcdt} remain
-    assert 'a' in vect.stop_words_.tolist()
+    assert 'a' not in vect.vocabulary_.to_arrow().to_pylist()  # {ae} ignored
+    assert len(vect.vocabulary_.to_arrow().to_pylist()) == 4    # {bcdt} remain
+    assert 'a' in vect.stop_words_.to_arrow().to_pylist()
     assert len(vect.stop_words_) == 2
 
 
@@ -166,22 +175,23 @@ def test_vectorizer_min_df():
     test_data = Series(['abc', 'dea', 'eat'])
     vect = CountVectorizer(analyzer='char', min_df=1)
     vect.fit(test_data)
-    assert 'a' in vect.vocabulary_.tolist()
-    assert len(vect.vocabulary_.tolist()) == 6
+    assert 'a' in vect.vocabulary_.to_arrow().to_pylist()
+    assert len(vect.vocabulary_.to_arrow().to_pylist()) == 6
     assert len(vect.stop_words_) == 0
 
     vect.min_df = 2
     vect.fit(test_data)
-    assert 'c' not in vect.vocabulary_.tolist()  # {bcdt} ignored
-    assert len(vect.vocabulary_.tolist()) == 2    # {ae} remain
-    assert 'c' in vect.stop_words_.tolist()
+    assert 'c' not in vect.vocabulary_.to_arrow().to_pylist()  # {bcdt} ignored
+    assert len(vect.vocabulary_.to_arrow().to_pylist()) == 2    # {ae} remain
+    assert 'c' in vect.stop_words_.to_arrow().to_pylist()
     assert len(vect.stop_words_) == 4
 
     vect.min_df = 0.8  # 0.8 * 3 documents -> min_doc_count == 2.4
     vect.fit(test_data)
-    assert 'c' not in vect.vocabulary_.tolist()  # {bcdet} ignored
-    assert len(vect.vocabulary_.tolist()) == 1    # {a} remains
-    assert 'c' in vect.stop_words_.tolist()
+    # {bcdet} ignored
+    assert 'c' not in vect.vocabulary_.to_arrow().to_pylist()
+    assert len(vect.vocabulary_.to_arrow().to_pylist()) == 1    # {a} remains
+    assert 'c' in vect.stop_words_.to_arrow().to_pylist()
     assert len(vect.stop_words_) == 5
 
 
@@ -191,7 +201,7 @@ def test_count_binary_occurrences():
     vect = CountVectorizer(analyzer='char', max_df=1.0)
     X = cp.asnumpy(vect.fit_transform(test_data).todense())
     assert_array_equal(['a', 'b', 'c', 'd', 'e'],
-                       vect.get_feature_names().tolist())
+                       vect.get_feature_names().to_arrow().to_pylist())
     assert_array_equal([[3, 1, 1, 0, 0],
                         [1, 2, 0, 1, 1]], X)
 
@@ -219,7 +229,7 @@ def test_vectorizer_inverse_transform():
     sk_inversed_data = sk_vectorizer.inverse_transform(sk_transformed_data)
 
     for doc, sk_doc in zip(inversed_data, sk_inversed_data):
-        doc = np.sort(doc.tolist())
+        doc = np.sort(doc.to_arrow().to_pylist())
         sk_doc = np.sort(sk_doc)
         if len(doc) + len(sk_doc) == 0:
             continue
@@ -232,7 +242,8 @@ def test_space_ngrams(ngram_range):
     data_gpu = Series(data)
     vec = CountVectorizer(ngram_range=ngram_range).fit(data_gpu)
     ref = SkCountVect(ngram_range=ngram_range).fit(data)
-    assert ref.get_feature_names() == vec.get_feature_names().tolist()
+    assert (ref.get_feature_names()
+            ) == vec.get_feature_names().to_arrow().to_pylist()
 
 
 def test_empty_doc_after_limit_features():
@@ -260,7 +271,7 @@ def test_non_ascii():
     res = cv.fit_transform(non_ascii_gpu)
     ref = SkCountVect().fit_transform(non_ascii)
 
-    assert 'αγγλικά' in set(cv.get_feature_names().tolist())
+    assert 'αγγλικά' in set(cv.get_feature_names().to_arrow().to_pylist())
     cp.testing.assert_array_equal(res.todense(), ref.toarray())
 
 
@@ -286,7 +297,8 @@ def test_character_ngrams(analyzer, ngram_range):
 
     ref = SkCountVect(analyzer=analyzer, ngram_range=ngram_range).fit(data)
 
-    assert ref.get_feature_names() == res.get_feature_names().tolist()
+    assert (ref.get_feature_names()
+            ) == res.get_feature_names().to_arrow().to_pylist()
 
 
 @pytest.mark.parametrize('query', [Series(['science aa', '', 'a aa aaa']),
@@ -304,3 +316,191 @@ def test_transform_unsigned_categories(query):
     res = vec.transform(query)
 
     assert res.shape[0] == len(query)
+
+
+# ----------------------------------------------------------------
+# TfidfVectorizer tests are already covered by CountVectorizer and
+# TfidfTransformer so we only do the bare minimum tests here
+# ----------------------------------------------------------------
+
+def test_tfidf_vectorizer_setters():
+    tv = TfidfVectorizer(norm='l2', use_idf=False, smooth_idf=False,
+                         sublinear_tf=False)
+    tv.norm = 'l1'
+    assert tv._tfidf.norm == 'l1'
+    tv.use_idf = True
+    assert tv._tfidf.use_idf
+    tv.smooth_idf = True
+    assert tv._tfidf.smooth_idf
+    tv.sublinear_tf = True
+    assert tv._tfidf.sublinear_tf
+
+
+def test_tfidf_vectorizer_idf_setter():
+    orig = TfidfVectorizer(use_idf=True)
+    orig.fit(DOCS_GPU)
+    copy = TfidfVectorizer(vocabulary=orig.vocabulary_, use_idf=True)
+    copy.idf_ = orig.idf_[0]
+    cp.testing.assert_array_almost_equal(copy.transform(DOCS_GPU).todense(),
+                                         orig.transform(DOCS_GPU).todense())
+
+
+@pytest.mark.parametrize('norm', ['l1', 'l2', None])
+@pytest.mark.parametrize('use_idf', [True, False])
+@pytest.mark.parametrize('smooth_idf', [True, False])
+@pytest.mark.parametrize('sublinear_tf', [True, False])
+def test_tfidf_vectorizer(norm, use_idf, smooth_idf, sublinear_tf):
+    tfidf_mat = TfidfVectorizer(
+        norm=norm, use_idf=use_idf,
+        smooth_idf=smooth_idf, sublinear_tf=sublinear_tf
+    ).fit_transform(DOCS_GPU)
+
+    ref = SkTfidfVect(
+        norm=norm, use_idf=use_idf,
+        smooth_idf=smooth_idf, sublinear_tf=sublinear_tf
+    ).fit_transform(DOCS)
+
+    cp.testing.assert_array_almost_equal(tfidf_mat.todense(), ref.toarray())
+
+
+# ----------------------------------------------------------------
+# HashingVectorizer tests
+# ----------------------------------------------------------------
+def assert_almost_equal_hash_matrices(mat_1, mat_2, ignore_sign=True):
+    """
+    Currently if all the sorted values in the row is equal we
+    assume equality
+    TODO: Find better way to test ig hash matrices are equal
+    """
+    assert mat_1.shape == mat_2.shape
+    for row_id in range(mat_1.shape[0]):
+        row_m1 = mat_1[row_id]
+        row_m2 = mat_2[row_id]
+        nz_row_m1 = np.sort(row_m1[row_m1 != 0])
+        nz_row_m2 = np.sort(row_m2[row_m2 != 0])
+        # print(nz_row_m1)
+        # print(nz_row_m2)
+        if ignore_sign:
+            nz_row_m1 = np.abs(nz_row_m1)
+            nz_row_m2 = np.abs(nz_row_m2)
+        nz_row_m1.sort()
+        nz_row_m2.sort()
+        np.testing.assert_almost_equal(nz_row_m1, nz_row_m2)
+
+
+def test_hashingvectorizer():
+    corpus = [
+        "This is the first document.",
+        "This document is the second document.",
+        "And this is the third one.",
+        "Is this the first document?",
+    ]
+
+    res = HashingVectorizer().fit_transform(Series(corpus))
+    ref = SkHashVect().fit_transform(corpus)
+    assert_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
+
+
+@pytest.mark.xfail
+def test_vectorizer_empty_token_case():
+    """
+    We ignore empty tokens right now but sklearn treats them as a character
+    we might want to look into this more but
+    this should not be a concern for most piplines
+    """
+    corpus = [
+        "a b ",
+    ]
+
+    # we have extra null token here
+    # we slightly diverge from sklearn here as not treating it as a token
+    res = CountVectorizer(preprocessor=lambda s: s).\
+        fit_transform(Series(corpus))
+    ref = SkCountVect(
+        preprocessor=lambda s: s, tokenizer=lambda s: s.split(" ")
+    ).fit_transform(corpus)
+    cp.testing.assert_array_equal(res.todense(), ref.toarray())
+
+    res = HashingVectorizer(preprocessor=lambda s: s).\
+        fit_transform(Series(corpus))
+    ref = SkHashVect(
+        preprocessor=lambda s: s, tokenizer=lambda s: s.split(" ")
+    ).fit_transform(corpus)
+    assert_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
+
+
+@pytest.mark.parametrize("lowercase", [False, True])
+def test_hashingvectorizer_lowercase(lowercase):
+    corpus = [
+        "This Is DoC",
+        "this DoC is the second DoC.",
+        "And this document is the third one.",
+        "and Is this the first document?",
+    ]
+    res = HashingVectorizer(lowercase=lowercase).fit_transform(Series(corpus))
+    ref = SkHashVect(lowercase=lowercase).fit_transform(corpus)
+    assert_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
+
+
+def test_hashingvectorizer_stop_word():
+    ref = SkHashVect(stop_words="english").fit_transform(DOCS)
+    res = HashingVectorizer(stop_words="english").fit_transform(DOCS_GPU)
+    assert_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
+
+
+def test_hashingvectorizer_n_features():
+    n_features = 10
+    res = (
+        HashingVectorizer(n_features=n_features)
+        .fit_transform(DOCS_GPU).todense().get()
+    )
+    ref = SkHashVect(n_features=n_features).fit_transform(DOCS).toarray()
+    assert res.shape == ref.shape
+
+
+@pytest.mark.parametrize("norm", ["l1", "l2", None, "max"])
+def test_hashingvectorizer_norm(norm):
+    if norm not in ["l1", "l2", None]:
+        with pytest.raises(ValueError):
+            res = HashingVectorizer(norm=norm).fit_transform(DOCS_GPU)
+    else:
+        res = HashingVectorizer(norm=norm).fit_transform(DOCS_GPU)
+        ref = SkHashVect(norm=norm).fit_transform(DOCS)
+        assert_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
+
+
+def test_hashingvectorizer_alternate_sign():
+    # if alternate_sign = True
+    # we should have some negative and positive values
+    res = HashingVectorizer(alternate_sign=True).fit_transform(DOCS_GPU)
+    res_f_array = res.todense().get().flatten()
+    assert np.sum(res_f_array > 0, axis=0) > 0
+    assert np.sum(res_f_array < 0, axis=0) > 0
+
+    # if alternate_sign = False
+    # we should have no negative values and some positive values
+    res = HashingVectorizer(alternate_sign=False).fit_transform(DOCS_GPU)
+    res_f_array = res.todense().get().flatten()
+    assert np.sum(res_f_array > 0, axis=0) > 0
+    assert np.sum(res_f_array < 0, axis=0) == 0
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64, cp.float64])
+def test_hashingvectorizer_dtype(dtype):
+    res = HashingVectorizer(dtype=dtype).fit_transform(DOCS_GPU)
+    assert res.dtype == dtype
+
+
+def test_hashingvectorizer_delimiter():
+    corpus = ["a0b0c", "a 0 b0e", "c0d0f"]
+    res = HashingVectorizer(
+        delimiter="0", norm=None, preprocessor=lambda s: s
+    ).fit_transform(Series(corpus))
+    # equivalent logic for sklearn
+    ref = SkHashVect(
+        tokenizer=lambda s: s.split("0"),
+        norm=None,
+        token_pattern=None,
+        preprocessor=lambda s: s,
+    ).fit_transform(corpus)
+    assert_almost_equal_hash_matrices(res.todense().get(), ref.toarray())

@@ -37,7 +37,7 @@ class PCA(BaseDecomposition,
     then selects the top K eigenvectors.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -92,8 +92,8 @@ class PCA(BaseDecomposition,
                     1  0.011454
                     2 -0.008182
 
-    Note: Everytime this code is run, the output will be different because
-          "make_blobs" function generates random matrices.
+    .. note:: Everytime this code is run, the output will be different because
+        "make_blobs" function generates random matrices.
 
     Parameters
     ----------
@@ -105,7 +105,6 @@ class PCA(BaseDecomposition,
     svd_solver : 'full', 'jacobi', or 'tsqr'
         'full': run exact full SVD and select the components by postprocessing
         'jacobi': iteratively compute SVD of the covariance matrix
-        'tsqr': compute qr decomposition of the data matrix
     verbose : int or boolean (default = False)
         Logging level
     whiten : boolean (default = False)
@@ -160,7 +159,6 @@ class PCA(BaseDecomposition,
                                   client=client,
                                   verbose=verbose,
                                   **kwargs)
-        self.noise_variance_ = None
 
     def fit(self, X):
         """
@@ -172,7 +170,6 @@ class PCA(BaseDecomposition,
         """
 
         self._fit(X)
-        self.noise_variance_ = self.local_model.noise_variance_
         return self
 
     def fit_transform(self, X):

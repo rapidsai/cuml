@@ -97,7 +97,6 @@ def set_level(level):
 
     .. code-block:: python
 
-
         # regular usage of setting a logging level for all subsequent logs
         # in this case, it will enable all logs upto and including `info()`
         logger.set_level(logger.level_info)
@@ -146,7 +145,6 @@ def set_pattern(pattern):
     --------
 
     .. code-block:: python
-
 
         # regular usage of setting a logging pattern for all subsequent logs
         logger.set_pattern("--> [%H-%M-%S] %v")
