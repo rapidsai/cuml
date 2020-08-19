@@ -307,6 +307,9 @@ class PCA(Base):
         # between cuml.array and cupy.ndarray
         self._sparse_model = None
 
+        self._hyperparams = ["copy", "iterated_power", "n_components", 
+                "svd_solver", "tol", "whiten"]
+
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
             'full': Solver.COV_EIG_DQ,
@@ -795,8 +798,7 @@ class PCA(Base):
         return t_input_data.to_output(out_type)
 
     def get_param_names(self):
-        return ["copy", "iterated_power", "n_components", "svd_solver", "tol",
-                "whiten"]
+        return self._hyperparams
 
     def __getstate__(self):
         state = self.__dict__.copy()

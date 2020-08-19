@@ -255,6 +255,9 @@ class TruncatedSVD(Base):
 
         self._singular_values_ = None
         # accessed via estimator.singular_values_
+        
+        self._hyperparams = ["algorithm", "n_components", "n_iter", "random_state", "tol"]
+
 
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
@@ -511,4 +514,4 @@ class TruncatedSVD(Base):
         return t_input_data.to_output(out_type)
 
     def get_param_names(self):
-        return ["algorithm", "n_components", "n_iter", "random_state", "tol"]
+        return self._hyperparams

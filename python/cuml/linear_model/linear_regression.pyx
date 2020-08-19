@@ -204,6 +204,7 @@ class LinearRegression(Base, RegressorMixin):
             raise TypeError(msg.format(algorithm))
 
         self.intercept_value = 0.0
+        self._hyperparams = ['algorithm', 'fit_intercept', 'normalize']
 
     def _get_algorithm_int(self, algorithm):
         return {
@@ -367,4 +368,4 @@ class LinearRegression(Base, RegressorMixin):
         return preds.to_output(out_type)
 
     def get_param_names(self):
-        return ['algorithm', 'fit_intercept', 'normalize']
+        return self._hyperparams

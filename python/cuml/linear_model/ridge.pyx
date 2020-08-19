@@ -229,6 +229,7 @@ class Ridge(Base, RegressorMixin):
             msg = "solver {!r} is not supported"
             raise TypeError(msg.format(solver))
         self.intercept_value = 0.0
+        self._hyperparams = ['solver', 'fit_intercept', 'normalize', 'alpha']
 
     def _check_alpha(self, alpha):
         if alpha <= 0.0:
@@ -407,4 +408,4 @@ class Ridge(Base, RegressorMixin):
         return preds.to_output(out_type)
 
     def get_param_names(self):
-        return ['solver', 'fit_intercept', 'normalize', 'alpha']
+        return self._hyperparams

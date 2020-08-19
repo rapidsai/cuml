@@ -157,6 +157,9 @@ class Lasso(Base, RegressorMixin):
                                normalize=self.normalize, alpha=self.alpha,
                                l1_ratio=1.0, shuffle=shuffle,
                                max_iter=self.max_iter, handle=self.handle)
+        
+        self._hyperparams = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
+                     'selection']
 
     def _check_alpha(self, alpha):
         if alpha <= 0.0:
@@ -187,7 +190,6 @@ class Lasso(Base, RegressorMixin):
         self._set_n_features_in(X)
         self._set_output_type(X)
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
-
         return self
 
     def predict(self, X, convert_dtype=False):
@@ -210,38 +212,9 @@ class Lasso(Base, RegressorMixin):
 
         return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
-    def get_params(self, deep=True):
-        """
-        Scikit-learn style function that returns the estimator parameters.
 
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-                     'selection']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
+    def get_param_names(self):
+        return self._hyperparams
 
-    def set_params(self, **params):
-        """
-        Sklearn style set parameter state to dictionary of params.
 
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-                     'selection']
-        for key, value in params.items():
-            if key not in variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
 
-        return self

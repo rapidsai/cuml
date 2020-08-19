@@ -42,6 +42,7 @@ class BaseRandomForestModel(Base):
                  'bootstrap', 'bootstrap_features',
                  'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
+    
     criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
                       '3': MAE, '4': CRITERION_END}
 
@@ -132,6 +133,7 @@ class BaseRandomForestModel(Base):
         self.model_pbuf_bytes = bytearray()
         self.treelite_handle = None
         self.treelite_serialized_model = None
+
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
@@ -330,6 +332,7 @@ class BaseRandomForestModel(Base):
                                         predict_proba=predict_proba)
         return preds
 
+        
     def _get_params(self, deep):
         params = dict()
         for key in BaseRandomForestModel.variables:
@@ -350,6 +353,7 @@ class BaseRandomForestModel(Base):
             else:
                 setattr(self, key, value)
         return self
+
 
 
 def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
