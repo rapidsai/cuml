@@ -27,6 +27,16 @@ class MBSGDRegressor(Base, RegressorMixin):
     """
     Linear regression model fitted by minimizing a
     regularized empirical loss with mini-batch SGD.
+    The MBSGD Regressor implementation is experimental and and it uses a
+    different algorithm than sklearn's SGDClassifier. In order to improve
+    the results obtained from cuML's MBSGD Regressor:
+    * Reduce the batch size
+    * Increase the eta0
+    * Increase the number of iterations
+    Since cuML is analyzing the data in batches using a small eta0 might
+    not let the model learn as much as scikit learn does. Furthermore,
+    decreasing the batch size might seen an increase in the time required
+    to fit the model.
 
     Examples
     --------
@@ -83,6 +93,12 @@ class MBSGDRegressor(Base, RegressorMixin):
     fit_intercept : boolean (default = True)
        If True, the model tries to correct for the global mean of y.
        If False, the model expects that you have centered the data.
+    l1_ratio: float (default=0.15)
+        The l1_ratio is used only when `penalty = elasticnet`. The value for
+        l1_ratio should be `0 <= l1_ratio <= 1`. When `l1_ratio = 0` then the
+        `penalty = 'l2'` and if `l1_ratio = 1` then `penalty = 'l1'`
+    batch_size: int (default = 32)
+        It sets the number of samples that will be included in each batch.
     epochs : int (default = 1000)
         The number of times the model should iterate through the entire dataset
         during training (default = 1000)

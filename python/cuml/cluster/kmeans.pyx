@@ -517,7 +517,8 @@ class KMeans(Base):
         """
 
         labels, _ = self._predict_labels_inertia(X,
-                                                 convert_dtype=convert_dtype)
+                                                 convert_dtype=convert_dtype,
+                                                 sample_weight=sample_weight)
         return labels
 
     @generate_docstring(return_values={'name': 'X_new',
@@ -588,13 +589,15 @@ class KMeans(Base):
                                        'description': 'Opposite of the value \
                                                         of X on the K-means \
                                                         objective.'})
-    def score(self, X):
+    def score(self, X, y=None, sample_weight=None, convert_dtype=True):
         """
         Opposite of the value of X on the K-means objective.
 
         """
 
-        return -1 * self._predict_labels_inertia(X)[1]
+        return -1 * self._predict_labels_inertia(
+            X, convert_dtype=convert_dtype,
+            sample_weight=sample_weight)[1]
 
     @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
