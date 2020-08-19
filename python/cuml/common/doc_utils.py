@@ -402,29 +402,30 @@ def insert_into_docstring(parameters=False,
     """
 
     def deco(func):
-        # List of parameters to use in `format` call of the docstring
-        to_add = []
+        if _generate_pydocstrings:
+            # List of parameters to use in `format` call of the docstring
+            to_add = []
 
-        # See if we need to add parameter data types
-        if parameters:
-            for par in parameters:
-                to_add.append(
-                    _parameters_docstrings[par[0]][9:].format(shape=par[1])
-                )
-
-        # See if we need to add return value data types
-        if return_values:
-            for ret in return_values:
-                to_add.append(
-                    _return_values_docstrings[ret[0] + '_datatype'].format(
-                        shape=ret[1]
+            # See if we need to add parameter data types
+            if parameters:
+                for par in parameters:
+                    to_add.append(
+                        _parameters_docstrings[par[0]][9:].format(shape=par[1])
                     )
-                )
 
-        if(len(to_add) > 0):
-            func.__doc__ = str(func.__doc__).format(*to_add)
+            # See if we need to add return value data types
+            if return_values:
+                for ret in return_values:
+                    to_add.append(
+                        _return_values_docstrings[ret[0] + '_datatype'].format(
+                            shape=ret[1]
+                        )
+                    )
 
-        func.__doc__ += '\n\n'
+            if(len(to_add) > 0):
+                func.__doc__ = str(func.__doc__).format(*to_add)
 
-        return func
+            func.__doc__ += '\n\n'
+
+            return func
     return deco
