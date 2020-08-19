@@ -25,6 +25,7 @@
 - PR #2607: Add support for probability estimates in SVC
 - PR #2618: SVM class and sample weights
 - PR #2635: Decorator to generate docstrings with autodetection of parameters
+- PR #2270: Multi class MNMG RF
 - PR #2661: CUDA-11 support for single-gpu code
 - PR #2322: Sparse FIL forests with 8-byte nodes
 - PR #2675: Update conda recipes to support CUDA 11
@@ -161,6 +162,7 @@
 - PR #2669: Revert PR 2655 Revert "Fixes C++ RF predict function"
 - PR #2683: Fix incorrect "Bad CumlArray Use" error messages on test failures
 - PR #2695: Fix debug build issue due to incorrect host/device method setup
+- PR #2709: Fixing OneHotEncoder Overflow Error
 - PR #2710: Fix SVC doc statement about predic_proba
 
 # cuML 0.14.0 (03 Jun 2020)
