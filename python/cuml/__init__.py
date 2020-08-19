@@ -50,6 +50,8 @@ from cuml.metrics.accuracy import accuracy_score
 from cuml.metrics.cluster.adjustedrandindex import adjusted_rand_score
 from cuml.metrics.regression import r2_score
 
+from cuml.naive_bayes.naive_bayes import MultinomialNB
+
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.preprocessing.LabelEncoder import LabelEncoder
@@ -83,7 +85,6 @@ from cuml.raft import raft_include_test
 global_output_type = 'input'
 
 from cuml.common.memory_utils import set_global_output_type, using_output_type
-
 
 # Version configuration
 
