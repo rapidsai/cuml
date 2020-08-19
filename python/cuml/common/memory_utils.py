@@ -142,6 +142,9 @@ def _order_to_strides(order, shape, dtype):
     if isinstance(shape, int):
         return (itemsize,)
 
+    elif len(shape) == 0:
+        return None
+
     elif len(shape) == 1:
         return (itemsize,)
 

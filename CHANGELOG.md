@@ -28,9 +28,11 @@
 - PR #2520: TfidfVectorizer estimator
 - PR #2211: MNMG KNN Classifier & Regressor
 - PR #2461: Add KNN Sparse Output Functionality
+- PR #2615: Incremental PCA
 - PR #2594: Confidence intervals for ARIMA forecasts
 - PR #2607: Add support for probability estimates in SVC
 - PR #2618: SVM class and sample weights
+- PR #2270: Multi class MNMG RF
 - PR #2661: CUDA-11 support for single-gpu code
 - PR #2322: Sparse FIL forests with 8-byte nodes
 - PR #2675: Update conda recipes to support CUDA 11
@@ -92,6 +94,8 @@
 - PR #2487: Set classes_ attribute during classifier fit
 - PR #2605: Reduce memory usage in tSNE
 - PR #2611: Adding building doxygen docs to gpu ci
+- PR #2631: Enabling use of gtest conda package for build
+- PR #2623: Fixing kmeans score() API to be compatible with Scikit-learn
 - PR #2629: Add naive_bayes api docs
 - PR #2643: 'dense' and 'sparse' values of `storage_type` for FIL
 - PR #2666: Update MBSGD documentation to mention that the model is experimental
@@ -100,6 +104,8 @@
 - PR #2648: Replace CNMeM with `rmm::mr::pool_memory_resource`.
 - PR #2686: Improve SVM tests
 - PR #2692: Changin LBFGS log level
+- PR #2705: Add sum operator and base operator overloader functions to cumlarray
+- PR #2701: Updating README + Adding ref to UMAP paper
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -150,6 +156,7 @@
 - PR #2610: Remove cuDF tolist call
 - PR #2613: Removing thresholds from kmeans score tests (SG+MG)
 - PR #2616: Small test code fix for pandas dtype tests
+- PR #2617: Fix floating point precision error in tSNE
 - PR #2625: Update Estimator notebook to resolve errors
 - PR #2634: singlegpu build option fixes
 - PR #2641: [Breaking] Make `max_depth` in RF compatible with scikit-learn
@@ -162,6 +169,8 @@
 - PR #2669: Revert PR 2655 Revert "Fixes C++ RF predict function"
 - PR #2683: Fix incorrect "Bad CumlArray Use" error messages on test failures
 - PR #2695: Fix debug build issue due to incorrect host/device method setup
+- PR #2709: Fixing OneHotEncoder Overflow Error
+- PR #2710: Fix SVC doc statement about predic_proba
 
 # cuML 0.14.0 (03 Jun 2020)
 
