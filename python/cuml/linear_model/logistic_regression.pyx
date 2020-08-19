@@ -338,7 +338,7 @@ class LogisticRegression(Base, ClassifierMixin):
             convert_dtype=convert_dtype
         ).to_output(output_type=self._get_output_type(X))
 
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the y for X.
 
