@@ -49,6 +49,7 @@ class BaseRandomForestModel(object):
         self._set_internal_model(None)
         self.active_workers = list()
         self.ignore_empty_partitions = ignore_empty_partitions
+        self.n_estimators = n_estimators
 
         self.n_estimators_per_worker = \
             self._estimators_per_worker(n_estimators)
@@ -122,14 +123,15 @@ class BaseRandomForestModel(object):
             )
         if len(self.workers) > len(self.active_workers):
             if self.ignore_empty_partitions:
-                curent_estimators = \
-                    self.n_estimators_per_worker * len(self.active_workers)
+                curent_estimators = self.n_estimators / \
+                                    len(self.workers) * \
+                                    len(self.active_workers)
                 warn_text = (
                     f"Data was not split among all workers "
                     f"using only {self.active_workers} workers to fit."
                     f"This will only train {curent_estimators}"
                     f" estimators instead of the requested "
-                    f"{self.n_estimators_per_worker * len(self.workers)}"
+                    f"{self.n_estimators}"
                 )
                 warnings.warn(warn_text)
             else:
