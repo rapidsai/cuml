@@ -20,6 +20,7 @@ from cuml import Base
 from cuml.preprocessing import LabelEncoder
 from cudf import DataFrame, Series
 from cudf.core import GenericIndex
+import cuml.common.logger as logger
 
 from cuml.common import with_cupy_rmm
 import warnings
@@ -79,13 +80,6 @@ class OneHotEncoder(Base):
         transform, the resulting one-hot encoded columns for this feature
         will be all zeros. In the inverse transform, an unknown category
         will be denoted as None.
-    force_uint64_cols : bool, optional, default=False
-        Forces the internal categorical codes for each column to use the
-        ``uint64`` data type instead of the minimum type calculated from each
-        columns values. This is to prevent integer overflow errors that can
-        occur when the total number of categories is larger than a specific
-        columns category code dtype can handle. Comes at the expense of
-        additional memory usage.
 
     Attributes
     ----------
@@ -96,14 +90,12 @@ class OneHotEncoder(Base):
 
     """
     def __init__(self, categories='auto', drop=None, sparse=True,
-                 dtype=np.float, handle_unknown='error',
-                 force_uint64_cols=False):
+                 dtype=np.float, handle_unknown='error'):
         self.categories = categories
         self.sparse = sparse
         self.dtype = dtype
         self.handle_unknown = handle_unknown
         self.drop = drop
-        self.force_uint64_cols = force_uint64_cols
         self._fitted = False
         self.drop_idx_ = None
         self._features = None
@@ -300,16 +292,18 @@ class OneHotEncoder(Base):
                 idx_to_keep = cp.asarray(col_idx.notnull().to_gpu_array())
                 col_idx = cp.asarray(col_idx.dropna().to_gpu_array())
 
-                # Force uint64 dtype if specified
-                if (self.force_uint64_cols):
-                    col_idx = col_idx.astype(np.uint64)
-                else:
-                    # Simple test to auto upscale col_idx type as needed
-                    max_value = len(encoder.classes_) + j
+                # Simple test to auto upscale col_idx type as needed
+                # First, determine the maximum value we will add assuming
+                # monotonically increasing up to len(encoder.classes_)
+                # Ensure we dont go negative by clamping to 0
+                max_value = int(max(len(encoder.classes_) - 1, 0) + j)
 
-                    # If we exceed the max value, upconvert
-                    if (max_value >= np.iinfo(col_idx.dtype).max):
-                        col_idx = col_idx.astype(np.min_scalar_type(max_value))
+                # If we exceed the max value, upconvert
+                if (max_value > np.iinfo(col_idx.dtype).max):
+                    col_idx = col_idx.astype(np.min_scalar_type(max_value))
+                    logger.debug("Upconverting column: '{}', to dtype: '{}', \
+                            to support up to {} classes".format(
+                        feature, np.min_scalar_type(max_value), max_value))
 
                 # increase indices to take previous features into account
                 col_idx += j
@@ -356,9 +350,7 @@ class OneHotEncoder(Base):
                 "category indices, most likely due to integer overflow. This "
                 "can occur when columns have a large difference in the number "
                 "of categories, resulting in different category code dtypes "
-                "for different columns. Consider setting "
-                "`force_uint64_cols=True` to force all column category codes "
-                "to have the maximum range.\n"
+                "for different columns."
                 "Calculated column code dtypes: {}.\n"
                 "Internal Error: {}".format(input_types_str, repr(e)))
 
