@@ -95,6 +95,7 @@
 - PR #2648: Replace CNMeM with `rmm::mr::pool_memory_resource`.
 - PR #2686: Improve SVM tests
 - PR #2692: Changin LBFGS log level
+- PR #2705: Add sum operator and base operator overloader functions to cumlarray
 - PR #2701: Updating README + Adding ref to UMAP paper
 
 ## Bug Fixes
@@ -160,6 +161,7 @@
 - PR #2683: Fix incorrect "Bad CumlArray Use" error messages on test failures
 - PR #2695: Fix debug build issue due to incorrect host/device method setup
 - PR #2709: Fixing OneHotEncoder Overflow Error
+- PR #2710: Fix SVC doc statement about predic_proba
 
 # cuML 0.14.0 (03 Jun 2020)
 
