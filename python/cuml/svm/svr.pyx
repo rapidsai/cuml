@@ -244,8 +244,7 @@ class SVR(SVMBase, RegressorMixin):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(X, output_type=True, y=None, n_features=None)
         cdef uintptr_t X_ptr, y_ptr
 
         X_m, self.n_rows, self.n_cols, self.dtype = \

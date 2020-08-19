@@ -232,7 +232,7 @@ class ARIMA(Base):
 
         # Initialize base class
         super().__init__(handle, verbose, output_type)
-        self._set_output_type(endog)
+        self._set_base_attributes(endog, output_type=True)
 
         # Set the ARIMA order
         cdef ARIMAOrder cpp_order

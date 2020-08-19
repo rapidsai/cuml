@@ -166,7 +166,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
         """
-        self._set_target_dtype(y)
+        self._set_base_attributes(X, output_type=True, y=y, n_features=None)
 
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self._y, _, _, _ = \

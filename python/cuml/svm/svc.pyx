@@ -128,7 +128,6 @@ class SVC(SVMBase, ClassifierMixin):
         This implementation has the following known limitations:
 
         - Currently only binary classification is supported.
-        - predict_proba is not yet supported
 
     Examples
     --------
@@ -205,7 +204,7 @@ class SVC(SVMBase, ClassifierMixin):
         future to represent number support vectors for each class (like
         in Sklearn, see https://github.com/rapidsai/cuml/issues/956 )
     support_ : int, shape = (n_support)
-        Device array of suppurt vector indices
+        Device array of support vector indices
     support_vectors_ : float, shape (n_support, n_cols)
         Device array of support vectors
     dual_coef_ : float, shape = (1, n_support)
@@ -341,9 +340,7 @@ class SVC(SVMBase, ClassifierMixin):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
-        self._set_target_dtype(y)
+        self._set_base_attributes(X, output_type=True, y=y, n_features=True)
 
         if self.probability:
             params = self.get_params()

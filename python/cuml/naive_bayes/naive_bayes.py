@@ -232,7 +232,8 @@ class MultinomialNB(Base):
         sample_weight : array-like of shape (n_samples)
             Weights applied to individial samples (1. for unweighted).
         """
-        self._set_n_features_in(X)
+        self._set_base_attributes(X, output_type=True, n_features=None)
+        
         return self.partial_fit(X, y, sample_weight)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)

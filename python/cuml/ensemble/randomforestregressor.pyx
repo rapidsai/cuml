@@ -390,6 +390,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             y to be the same data type as X if they differ. This will increase
             memory used for the method.
         """
+        self._set_base_attributes(X, output_type=True)
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
 

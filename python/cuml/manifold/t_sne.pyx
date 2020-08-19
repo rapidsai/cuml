@@ -311,7 +311,7 @@ class TSNE(Base):
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
         """
-        self._set_n_features_in(X)
+        self._set_base_attributes(X, output_type=True, n_features=True)
         cdef int n, p
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if handle_ == NULL:
