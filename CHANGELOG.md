@@ -95,6 +95,7 @@
 - PR #2648: Replace CNMeM with `rmm::mr::pool_memory_resource`.
 - PR #2686: Improve SVM tests
 - PR #2692: Changin LBFGS log level
+- PR #2705: Add sum operator and base operator overloader functions to cumlarray
 - PR #2701: Updating README + Adding ref to UMAP paper
 
 ## Bug Fixes
