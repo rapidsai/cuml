@@ -128,7 +128,6 @@ class SVC(SVMBase, ClassifierMixin):
         This implementation has the following known limitations:
 
         - Currently only binary classification is supported.
-        - predict_proba is not yet supported
 
     Examples
     --------
@@ -205,7 +204,7 @@ class SVC(SVMBase, ClassifierMixin):
         future to represent number support vectors for each class (like
         in Sklearn, see https://github.com/rapidsai/cuml/issues/956 )
     support_ : int, shape = (n_support)
-        Device array of suppurt vector indices
+        Device array of support vector indices
     support_vectors_ : float, shape (n_support, n_cols)
         Device array of support vectors
     dual_coef_ : float, shape = (1, n_support)
@@ -413,7 +412,7 @@ class SVC(SVMBase, ClassifierMixin):
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the class labels for X. The returned y values are the class
         labels associated to sign(decision_function(X)).
@@ -439,7 +438,7 @@ class SVC(SVMBase, ClassifierMixin):
             # prob_svc has numpy output type, change it if it is necessary:
             return _to_output(preds, out_type)
         else:
-            return super(SVC, self).predict(X, True)
+            return super(SVC, self).predict(X, True, convert_dtype)
 
     def predict_proba(self, X, log=False):
         """
