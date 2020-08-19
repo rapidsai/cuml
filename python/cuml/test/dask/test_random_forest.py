@@ -311,9 +311,9 @@ def test_single_input(client, model_type):
     X, y = _prep_training_data(client, X, y,
                                partitions_per_worker=2)
     if model_type == 'classification':
-        cu_rf_mg = cuRFC_mg(n_bins=1)
+        cu_rf_mg = cuRFC_mg(n_bins=1, ignore_empty_partitions=True)
     else:
-        cu_rf_mg = cuRFR_mg(n_bins=1)
+        cu_rf_mg = cuRFR_mg(n_bins=1, ignore_empty_partitions=True)
     cu_rf_mg.fit(X, y)
     cuml_mod_predict = cu_rf_mg.predict(X)
     cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict.compute()))
