@@ -152,70 +152,70 @@ class TSNETest : public ::testing::Test {
     
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    // Test Barnes Hut
-    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(), knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100,
-             1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1);
+    // // Test Barnes Hut
+    // TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(), knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100,
+    //          1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1);
 
-    // Move embeddings to host.
-    // This can be used for printing if needed.
-    float *embeddings_h = (float *)malloc(sizeof(float) * n * 2);
-    assert(embeddings_h != NULL);
+    // // Move embeddings to host.
+    // // This can be used for printing if needed.
+    // float *embeddings_h = (float *)malloc(sizeof(float) * n * 2);
+    // assert(embeddings_h != NULL);
 
-    MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
-                         handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    // MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
+    //                      handle.getStream());
+    // CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    // Transpose the data
-    int k = 0;
-    float C_contiguous_embedding[n * 2];
-    for (int i = 0; i < n; i++) {
-      for (int j = 0; j < 2; j++)
-        C_contiguous_embedding[k++] = embeddings_h[j * n + i];
-    }
+    // // Transpose the data
+    // int k = 0;
+    // float C_contiguous_embedding[n * 2];
+    // for (int i = 0; i < n; i++) {
+    //   for (int j = 0; j < 2; j++)
+    //     C_contiguous_embedding[k++] = embeddings_h[j * n + i];
+    // }
 
-    // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
-    MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2,
-                           handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    // // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
+    // MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2,
+    //                        handle.getStream());
+    // CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    // Test trustworthiness
-    score_bh =
-      trustworthiness_score<float,
-                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
-        X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
-        handle.getStream());
+    // // Test trustworthiness
+    // score_bh =
+    //   trustworthiness_score<float,
+    //                         ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+    //     X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
+    //     handle.getStream());
 
-    // Test Exact TSNE
-    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(), knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100,
-             1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1,
-             CUML_LEVEL_INFO, false, false);
+    // // Test Exact TSNE
+    // TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(), knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100,
+    //          1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1,
+    //          CUML_LEVEL_INFO, false, false);
 
-    MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
-                         handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    // MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
+    //                      handle.getStream());
+    // CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    // Move embeddings to host.
-    // This can be used for printing if needed.
-    k = 0;
-    for (int i = 0; i < n; i++) {
-      for (int j = 0; j < 2; j++)
-        C_contiguous_embedding[k++] = embeddings_h[j * n + i];
-    }
+    // // Move embeddings to host.
+    // // This can be used for printing if needed.
+    // k = 0;
+    // for (int i = 0; i < n; i++) {
+    //   for (int j = 0; j < 2; j++)
+    //     C_contiguous_embedding[k++] = embeddings_h[j * n + i];
+    // }
 
-    // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
-    MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2,
-                           handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    // // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
+    // MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2,
+    //                        handle.getStream());
+    // CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    // Test trustworthiness
-    score_exact =
-      trustworthiness_score<float,
-                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
-        X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
-        handle.getStream());
+    // // Test trustworthiness
+    // score_exact =
+    //   trustworthiness_score<float,
+    //                         ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+    //     X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
+    //     handle.getStream());
 
-    // Free space
-    free(embeddings_h);
+    // // Free space
+    // free(embeddings_h);
   }
 
   void SetUp() override { 
@@ -230,8 +230,8 @@ class TSNETest : public ::testing::Test {
   int p = 64;
   double score_bh;
   double score_exact;
-  double knn_score_bh;
-  double knn_score_exact;
+  // double knn_score_bh;
+  // double knn_score_exact;
 };
 
 typedef TSNETest TSNETestF;
@@ -240,7 +240,7 @@ TEST_F(TSNETestF, Result) {
   if (score_exact < 0.98) CUML_LOG_DEBUG("Exact score = %f", score_exact);
   ASSERT_TRUE(0.98 < score_bh && 0.98 < score_exact);
 
-  if (knn_score_bh < 0.98) CUML_LOG_DEBUG("BH score = %f", knn_score_bh);
-  if (knn_score_exact < 0.98) CUML_LOG_DEBUG("Exact score = %f", knn_score_exact);
-  ASSERT_TRUE(0.98 < knn_score_bh && 0.98 < knn_score_exact);
+  // if (knn_score_bh < 0.98) CUML_LOG_DEBUG("BH score = %f", knn_score_bh);
+  // if (knn_score_exact < 0.98) CUML_LOG_DEBUG("Exact score = %f", knn_score_exact);
+  // ASSERT_TRUE(0.98 < knn_score_bh && 0.98 < knn_score_exact);
 }
