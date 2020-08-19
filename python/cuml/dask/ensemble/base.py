@@ -38,12 +38,14 @@ class BaseRandomForestModel(object):
                       workers,
                       n_estimators,
                       base_seed,
+                      ignore_empty_partitions,
                       **kwargs):
 
         self.client = get_client(client)
         self.workers = self.client.scheduler_info()['workers'].keys()
         self._set_internal_model(None)
         self.active_workers = list()
+        self.ignore_empty_partitions = ignore_empty_partitions
 
         self.n_estimators_per_worker = \
             self._estimators_per_worker(n_estimators)
@@ -87,6 +89,7 @@ class BaseRandomForestModel(object):
 
     def _fit(self, model, dataset, convert_dtype):
         data = DistributedDataHandler.create(dataset, client=self.client)
+        self.active_workers = data.workers
         self.datatype = data.datatype
         if self.datatype == 'cudf':
             has_float64 = (dataset[0].dtypes.any() == np.float64)
@@ -105,7 +108,6 @@ class BaseRandomForestModel(object):
         futures = list()
         for idx, (worker, worker_data) in \
                 enumerate(data.worker_to_parts.items()):
-            self.active_workers.append(worker)
             futures.append(
                 self.client.submit(
                     _func_fit,
@@ -116,10 +118,16 @@ class BaseRandomForestModel(object):
                     pure=False)
             )
         if len(self.workers) > len(self.active_workers):
-            warn_text = "Data was not split among all workers"\
-                        " using only %d workers to fit" %\
-                        (len(self.active_workers))
-            warnings.warn(warn_text)
+            if self.ignore_empty_partitions:
+                warn_text = "Data was not split among all workers"\
+                            " using only %d workers to fit" %\
+                            (len(self.active_workers))
+                warnings.warn(warn_text)
+            else:
+                raise RuntimeError("Data was not split among all workers. "
+                                   "Re-run the code or "
+                                   "use ignore_empty_partitions=True"
+                                   " while creating model")
         wait_and_raise_from_futures(futures)
         return self
 
