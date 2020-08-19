@@ -38,23 +38,7 @@ cuml.dask datatype version of the docstrings will come in a future update.
 
 """
 
-import os
 from inspect import signature
-
-# if docs need to be autogeneretad in other environments, add checks here
-try:
-    from IPython import get_ipython
-    if get_ipython() is not None:
-        _in_ipython = True
-    else:
-        _in_ipython = False
-except ImportError:
-    _in_ipython = False
-
-if os.environ.get('BUILD_CUML_DOCSTRINGS') == 'True' or _in_ipython:
-    _generate_pydocstrings = True
-else:
-    _generate_pydocstrings = False
 
 
 _parameters_docstrings = {
@@ -256,90 +240,87 @@ def generate_docstring(X='dense',
     """
 
     def deco(func):
+        params = signature(func).parameters
 
-        if _generate_pydocstrings:
+        # Add parameter section header if needed, can be skipped
+        if(('X' in params or 'y' in params or parameters) and not
+                skip_parameters_heading):
 
-            params = signature(func).parameters
+            func.__doc__ += \
+                '\nParameters\n----------\n'
 
-            # Add parameter section header if needed, can be skipped
-            if(('X' in params or 'y' in params or parameters) and not
-                    skip_parameters_heading):
+        # Process each parameter
+        for par, value in params.items():
+            if par == 'self':
+                pass
 
+            # X and y are the most common
+            elif par in ['X', 'y'] and par not in skip_parameters:
                 func.__doc__ += \
-                    '\nParameters\n----------\n'
+                    _parameters_docstrings[X].format(name=par,
+                                                     shape=X_shape)
 
-            # Process each parameter
-            for par, value in params.items():
-                if par == 'self':
-                    pass
-
-                # X and y are the most common
-                elif par in ['X', 'y'] and par not in skip_parameters:
-                    func.__doc__ += \
-                        _parameters_docstrings[X].format(name=par,
-                                                         shape=X_shape)
-
-                # convert_dtype requires some magic to distinguish
-                # whether we use the fit version or the version
-                # for the other methods.
-                elif par == 'convert_dtype' and par not in skip_parameters:
-                    if not convert_dtype_cast:
-                        if func.__name__ == 'fit':
-                            k = 'convert_dtype_fit'
-                        else:
-                            k = 'convert_dtype_other'
-
-                        func.__doc__ += \
-                            _parameters_docstrings[k].format(
-                                default=params['convert_dtype'].default,
-                                func_name=func.__name__
-                            )
-
+            # convert_dtype requires some magic to distinguish
+            # whether we use the fit version or the version
+            # for the other methods.
+            elif par == 'convert_dtype' and par not in skip_parameters:
+                if not convert_dtype_cast:
+                    if func.__name__ == 'fit':
+                        k = 'convert_dtype_fit'
                     else:
-                        func.__doc__ += \
-                            _parameters_docstrings['\
-                                convert_dtype_single'].format(
-                                default=params['convert_dtype'].default,
-                                dtype=convert_dtype_cast
-                            )
+                        k = 'convert_dtype_other'
 
-                # All other parameters only take a default (for now).
-                else:
-                    if par in _simple_params:
-                        func.__doc__ += \
-                            _parameters_docstrings[par].format(
-                                default=params[par].default
-                            )
-                func.__doc__ += '\n\n'
-
-            # Add return section header if needed, no option to skip currently.
-            if(return_values):
-                func.__doc__ += \
-                    '\nReturns\n----------\n'
-
-                # convenience call to allow users to pass a single return
-                # value as a dictionary instead of a list of dictionaries
-                rets = [return_values] if not isinstance(return_values, list) \
-                    else return_values
-
-                # process each entry in the return_values
-                # auto naming of predicted variable names will be a
-                # future improvement
-                for ret in rets:
-                    if ret['type'] in _return_values_docstrings:
-                        key = ret['type']
-                        # non custom types don't take the type parameter
-                        del ret['type']
-                    else:
-                        key = 'custom_type'
-
-                    # ret is already a dictionary, we just use it for the named
-                    # parameters
                     func.__doc__ += \
-                        _return_values_docstrings[key].format(
-                            **ret
+                        _parameters_docstrings[k].format(
+                            default=params['convert_dtype'].default,
+                            func_name=func.__name__
                         )
-                    func.__doc__ += '\n\n'
+
+                else:
+                    func.__doc__ += \
+                        _parameters_docstrings['\
+                            convert_dtype_single'].format(
+                            default=params['convert_dtype'].default,
+                            dtype=convert_dtype_cast
+                        )
+
+            # All other parameters only take a default (for now).
+            else:
+                if par in _simple_params:
+                    func.__doc__ += \
+                        _parameters_docstrings[par].format(
+                            default=params[par].default
+                        )
+            func.__doc__ += '\n\n'
+
+        # Add return section header if needed, no option to skip currently.
+        if(return_values):
+            func.__doc__ += \
+                '\nReturns\n----------\n'
+
+            # convenience call to allow users to pass a single return
+            # value as a dictionary instead of a list of dictionaries
+            rets = [return_values] if not isinstance(return_values, list) \
+                else return_values
+
+            # process each entry in the return_values
+            # auto naming of predicted variable names will be a
+            # future improvement
+            for ret in rets:
+                if ret['type'] in _return_values_docstrings:
+                    key = ret['type']
+                    # non custom types don't take the type parameter
+                    del ret['type']
+                else:
+                    key = 'custom_type'
+
+                # ret is already a dictionary, we just use it for the named
+                # parameters
+                func.__doc__ += \
+                    _return_values_docstrings[key].format(
+                        **ret
+                    )
+                func.__doc__ += '\n\n'
 
         return func
     return deco
@@ -403,30 +384,29 @@ def insert_into_docstring(parameters=False,
     """
 
     def deco(func):
-        if _generate_pydocstrings:
-            # List of parameters to use in `format` call of the docstring
-            to_add = []
+        # List of parameters to use in `format` call of the docstring
+        to_add = []
 
-            # See if we need to add parameter data types
-            if parameters:
-                for par in parameters:
-                    to_add.append(
-                        _parameters_docstrings[par[0]][9:].format(shape=par[1])
+        # See if we need to add parameter data types
+        if parameters:
+            for par in parameters:
+                to_add.append(
+                    _parameters_docstrings[par[0]][9:].format(shape=par[1])
+                )
+
+        # See if we need to add return value data types
+        if return_values:
+            for ret in return_values:
+                to_add.append(
+                    _return_values_docstrings[ret[0] + '_datatype'].format(
+                        shape=ret[1]
                     )
+                )
 
-            # See if we need to add return value data types
-            if return_values:
-                for ret in return_values:
-                    to_add.append(
-                        _return_values_docstrings[ret[0] + '_datatype'].format(
-                            shape=ret[1]
-                        )
-                    )
+        if(len(to_add) > 0):
+            func.__doc__ = str(func.__doc__).format(*to_add)
 
-            if(len(to_add) > 0):
-                func.__doc__ = str(func.__doc__).format(*to_add)
+        func.__doc__ += '\n\n'
 
-            func.__doc__ += '\n\n'
-
-            return func
+        return func
     return deco
