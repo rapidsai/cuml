@@ -204,6 +204,8 @@ class DBSCAN(Base):
         if self.max_mbytes_per_batch is None:
             self.max_mbytes_per_batch = 0
 
+        self._hyperparams = ["eps", "min_samples"]
+
     def fit(self, X, out_dtype="int32"):
         """
         Perform DBSCAN clustering from features.
@@ -341,4 +343,4 @@ class DBSCAN(Base):
         return self.labels_
 
     def get_param_names(self):
-        return ["eps", "min_samples"]
+        return self._hyperparams

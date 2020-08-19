@@ -304,7 +304,13 @@ class KMeans(Base):
         params.batch_samples=<int>self.max_samples_per_batch
         params.oversampling_factor=<double>self.oversampling_factor
         params.n_init = <int>self.n_init
+        
+        
         self._params = params
+        # Hyperparams for get_params (common.Base)
+        self._hyperparams = ['n_init', 'oversampling_factor', 'max_samples_per_batch',
+                'init', 'max_iter', 'n_clusters', 'random_state', 'tol']
+
 
     def fit(self, X, sample_weight=None):
         """
@@ -666,6 +672,4 @@ class KMeans(Base):
         return self.fit(X).transform(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
-        return ['n_init', 'oversampling_factor', 'max_samples_per_batch',
-                'init', 'max_iter', 'n_clusters', 'random_state',
-                'tol']
+        return self._hyperparams
