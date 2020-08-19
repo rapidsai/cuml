@@ -316,8 +316,7 @@ class SGD(Base):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
-        self._set_output_type(X)
-        self._set_target_dtype(y)
+        self._set_base_attributes(X, output_type=True, y=y, n_features=None)
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])

@@ -322,8 +322,7 @@ class KMeans(Base):
             are assigned equal weight.
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(X, output_type=True, n_features=True)
 
         if self.init == 'preset':
             check_cols = self.n_cols
@@ -540,7 +539,8 @@ class KMeans(Base):
         """
 
         labels, _ = self._predict_labels_inertia(X,
-                                                 convert_dtype=convert_dtype)
+                                                 convert_dtype=convert_dtype,
+                                                 sample_weight=sample_weight)
         return labels
 
     def transform(self, X, convert_dtype=False):
@@ -558,8 +558,6 @@ class KMeans(Base):
             When set to True, the transform method will, when necessary,
             convert the input to the data type which was used to train the
             model. This will increase memory used for the method.
-
-
         """
 
         out_type = self._get_output_type(X)
@@ -615,16 +613,27 @@ class KMeans(Base):
         del(X_m)
         return preds.to_output(out_type)
 
-    def score(self, X):
+    def score(self, X, y=None, sample_weight=None, convert_dtype=True):
         """
         Opposite of the value of X on the K-means objective.
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X : array-like (device or host) shape (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+        y : Ignored
+            Not used, present here for API consistency by convention.
+        sample_weight : array-like (device or host) of shape (n_samples,),
+            default=None. Acceptable formats: cuDF DataFrame, NumPy ndarray,
+            Numba device ndarray, cuda array interface compliant array like
+            CuPy.
+        convert_dtype : bool, optional (default = False)
+            When set to True, the transform method will, when necessary,
+            convert the input to the data type which was used to train the
+            model. This will increase memory used for the method.
+
 
         Returns
         -------
@@ -632,7 +641,9 @@ class KMeans(Base):
                  Opposite of the value of X on the K-means objective.
         """
 
-        return -1 * self._predict_labels_inertia(X)[1]
+        return -1 * self._predict_labels_inertia(
+            X, convert_dtype=convert_dtype,
+            sample_weight=sample_weight)[1]
 
     def fit_transform(self, X, convert_dtype=False):
         """

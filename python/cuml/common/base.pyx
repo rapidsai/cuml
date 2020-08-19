@@ -287,7 +287,7 @@ class Base:
         X: input data
         output_type: Boolean; if we should set output type on X
         y: target column, passed if we should set target dtype
-        n_features: Can be Boolean or int can be passed. If an int is passed
+        n_features: Can be Boolean or int. If an int is passed
                     we set it to the number passed
         """
         if output_type:
