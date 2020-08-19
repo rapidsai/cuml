@@ -152,9 +152,9 @@ class TSNETest : public ::testing::Test {
     
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    // // Test Barnes Hut
-    // TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(), knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100,
-    //          1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1);
+    // Test Barnes Hut
+    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(), knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100,
+             1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1);
 
     // // Move embeddings to host.
     // // This can be used for printing if needed.

@@ -21,6 +21,7 @@
 #include "distances.cuh"
 #include "exact_kernels.cuh"
 #include "utils.cuh"
+#include <iostream>
 
 #include "barnes_hut.cuh"
 #include "exact_tsne.cuh"
@@ -123,7 +124,10 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   const int *ROW = COO_Matrix.rows();
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
-
+  // std::cout << NNZ << "\n";
+  std::cout << *VAL << "\n";
+  std::cout << *COL << "\n";
+  std::cout << *ROW << "\n";
   if (barnes_hut) {
     TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
                      early_exaggeration, exaggeration_iter, min_gain,
@@ -135,6 +139,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
                      post_learning_rate, max_iter, min_grad_norm, pre_momentum,
                      post_momentum, random_state, intialize_embeddings);
   }
+  std::cout << "PART 2!!!!!!!" << "\n";
 }
 
 }  // namespace ML
