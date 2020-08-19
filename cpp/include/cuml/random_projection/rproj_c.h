@@ -82,11 +82,11 @@ struct rand_mat {
 };
 
 template <typename math_t>
-void RPROJfit(const cumlHandle &handle, rand_mat<math_t> *random_matrix,
+void RPROJfit(const raft::handle_t &handle, rand_mat<math_t> *random_matrix,
               paramsRPROJ *params);
 
 template <typename math_t>
-void RPROJtransform(const cumlHandle &handle, math_t *input,
+void RPROJtransform(const raft::handle_t &handle, math_t *input,
                     rand_mat<math_t> *random_matrix, math_t *output,
                     paramsRPROJ *params);
 

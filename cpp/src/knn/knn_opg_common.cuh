@@ -69,7 +69,7 @@ namespace opg {
 namespace knn_common {
 
 template <typename T>
-void opg_knn(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
+void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
              std::vector<Matrix::Data<int64_t> *> *out_I,
              std::vector<Matrix::floatData_t *> *out_D,
              std::vector<Matrix::floatData_t *> &idx_data,
@@ -83,7 +83,7 @@ void opg_knn(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
              std::vector<int> *n_unique = nullptr, bool probas_only = false);
 
 template <typename T>
-void reduce(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
+void reduce(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
             std::vector<Matrix::Data<int64_t> *> *out_I,
             std::vector<Matrix::floatData_t *> *out_D, device_buffer<T> &res,
             device_buffer<int64_t> &res_I, device_buffer<float> &res_D,
@@ -120,7 +120,7 @@ void perform_local_knn(int64_t *res_I, float *res_D,
 template <typename T>
 void perform_local_operation(T *out, int64_t *knn_indices, T *labels,
                              size_t cur_batch_size, int k, int n_outputs,
-                             ML::cumlHandle &h, bool probas_only = false,
+                             raft::handle_t &h, bool probas_only = false,
                              std::vector<float *> *probas = nullptr,
                              std::vector<int *> *uniq_labels = nullptr,
                              std::vector<int> *n_unique = nullptr);

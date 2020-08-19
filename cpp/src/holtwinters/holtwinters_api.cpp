@@ -44,7 +44,7 @@ cumlError_t cumlHoltWintersSp_fit(cumlHandle_t handle, int n, int batch_size,
                                   float *trend_d, float *season_d,
                                   float *error_d) {
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
@@ -66,7 +66,7 @@ cumlError_t cumlHoltWintersDp_fit(cumlHandle_t handle, int n, int batch_size,
                                   double *trend_d, double *season_d,
                                   double *error_d) {
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
@@ -87,7 +87,7 @@ cumlError_t cumlHoltWintersSp_forecast(cumlHandle_t handle, int n,
                                        float *level_d, float *trend_d,
                                        float *season_d, float *forecast_d) {
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
@@ -108,7 +108,7 @@ cumlError_t cumlHoltWintersDp_forecast(cumlHandle_t handle, int n,
                                        double *level_d, double *trend_d,
                                        double *season_d, double *forecast_d) {
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {

@@ -51,13 +51,13 @@ template <typename T, typename IdxT>
 }
 
 template <typename T>
-void gen_blobs(cumlHandle &handle, T *out, int *l, int rows, int cols,
+void gen_blobs(raft::handle_t &handle, T *out, int *l, int rows, int cols,
                int centers, const T *centroids) {
   Datasets::make_blobs(handle, out, l, rows, cols, centers, true, centroids,
                        nullptr, 0.1f, true, -10.0f, 10.0f, 1234ULL);
 }
 
-void create_index_parts(cumlHandle &handle, float *query_data,
+void create_index_parts(raft::handle_t &handle, float *query_data,
                         int *query_labels, vector<float *> &part_inputs,
                         vector<int *> &part_labels, vector<int> &part_sizes,
                         const KNNInputs &params, const float *centers) {
@@ -165,9 +165,9 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
                     params.n_query_row, output_indices, output_dists,
                     params.n_neighbors, true, true);
 
-    device_buffer<float> index_labels_float(handle.getDeviceAllocator(), stream,
+    device_buffer<float> index_labels_float(handle.get_device_allocator(), stream,
                                             params.n_rows * params.n_parts);
-    device_buffer<float> query_labels_float(handle.getDeviceAllocator(), stream,
+    device_buffer<float> query_labels_float(handle.get_device_allocator(), stream,
                                             params.n_query_row);
     to_float<<<ceildiv((int)index_labels_float.size(), 32), 32, 0, stream>>>(
       index_labels_float.data(), index_labels, index_labels_float.size());
@@ -176,7 +176,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaPeekAtLastError());
 
-    device_buffer<float> actual_labels_float(handle.getDeviceAllocator(),
+    device_buffer<float> actual_labels_float(handle.get_device_allocator(),
                                              stream, params.n_query_row);
 
     vector<float *> full_labels(1);
@@ -222,7 +222,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   void create_data() {
     cudaStream_t stream = handle.getStream();
 
-    device_buffer<T> rand_centers(handle.getDeviceAllocator(), stream,
+    device_buffer<T> rand_centers(handle.get_device_allocator(), stream,
                                   params.n_centers * params.n_cols);
     Rng r(0, GeneratorType::GenPhilox);
     r.uniform(rand_centers.data(), params.n_centers * params.n_cols, -10.0f,
@@ -236,7 +236,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
               params.n_cols, params.n_centers, rand_centers.data());
   }
 
-  cumlHandle handle;
+  raft::handle_t handle;
 
   KNNInputs params;
 

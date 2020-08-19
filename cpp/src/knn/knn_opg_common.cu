@@ -162,7 +162,7 @@ void launch_local_operation<float>(
 template <typename T>
 void perform_local_operation(T *out, int64_t *knn_indices, T *labels,
                              size_t cur_batch_size, int k, int n_outputs,
-                             ML::cumlHandle &h, bool probas_only = false,
+                             raft::handle_t &h, bool probas_only = false,
                              std::vector<float *> *probas = nullptr,
                              std::vector<int *> *uniq_labels = nullptr,
                              std::vector<int> *n_unique = nullptr) {
@@ -175,12 +175,12 @@ void perform_local_operation(T *out, int64_t *knn_indices, T *labels,
   }
 
   cudaStream_t stream = h.getStream();
-  const std::shared_ptr<deviceAllocator> alloc = h.getDeviceAllocator();
+  const auto alloc = h.get_device_allocator();
 
-  int n_int_streams = h.getImpl().getNumInternalStreams();
+  int n_int_streams = handle.getNumInternalStreams();
   cudaStream_t int_streams[n_int_streams];
   for (int i = 0; i < n_int_streams; i++) {
-    int_streams[i] = h.getImpl().getInternalStream(i);
+    int_streams[i] = handle.getInternalStream(i);
   }
 
   launch_local_operation<T>(out, knn_indices, y, total_labels, cur_batch_size,
@@ -189,7 +189,7 @@ void perform_local_operation(T *out, int64_t *knn_indices, T *labels,
 }
 
 template <typename T>
-void reduce(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
+void reduce(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
             std::vector<Matrix::Data<int64_t> *> *out_I,
             std::vector<Matrix::floatData_t *> *out_D, device_buffer<T> &res,
             device_buffer<int64_t> &res_I, device_buffer<float> &res_D,
@@ -200,9 +200,9 @@ void reduce(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
             std::vector<std::vector<float *>> *probas = nullptr,
             std::vector<int *> *uniq_labels = nullptr,
             std::vector<int> *n_unique = nullptr) {
-  const ML::cumlHandle_impl &h = handle.getImpl();
+  const raft::handle_t &h = handle;
   cudaStream_t stream = h.getStream();
-  const std::shared_ptr<deviceAllocator> alloc = h.getDeviceAllocator();
+  const auto alloc = h.get_device_allocator();
 
   device_buffer<int64_t> trans(alloc, stream, idxRanks.size());
   CUDA_CHECK(cudaMemsetAsync(trans.data(), 0, idxRanks.size() * sizeof(int64_t),
@@ -395,7 +395,7 @@ void exchange_results(device_buffer<T> &res, device_buffer<int64_t> &res_I,
 }
 
 template <typename T>
-void opg_knn(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
+void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
              std::vector<Matrix::Data<int64_t> *> *out_I,
              std::vector<Matrix::floatData_t *> *out_D,
              std::vector<Matrix::floatData_t *> &idx_data,
@@ -415,11 +415,11 @@ void opg_knn(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
            "k must be <= the number of rows in the smallest index partition.");
   }
 
-  const ML::cumlHandle_impl &h = handle.getImpl();
+  const raft::handle_t &h = handle;
   const auto &comm = h.getCommunicator();
   cudaStream_t stream = h.getStream();
 
-  const std::shared_ptr<deviceAllocator> allocator = h.getDeviceAllocator();
+  const auto allocator = h.get_device_allocator();
 
   int my_rank = comm.get_rank();
 
@@ -521,15 +521,15 @@ void opg_knn(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
         // Offset nearest neighbor index matrix by partition indices
         std::vector<size_t> start_indices = idx_desc.startIndices(my_rank);
 
-        cudaStream_t int_streams[handle.getImpl().getNumInternalStreams()];
-        for (int i = 0; i < handle.getImpl().getNumInternalStreams(); i++) {
-          int_streams[i] = handle.getImpl().getInternalStream(i);
+        cudaStream_t int_streams[handle.getNumInternalStreams()];
+        for (int i = 0; i < handle.getNumInternalStreams(); i++) {
+          int_streams[i] = handle.getInternalStream(i);
         }
 
         perform_local_knn(res_I.data(), res_D.data(), idx_data, idx_desc,
                           local_idx_parts, start_indices, stream, int_streams,
                           handle.getNumInternalStreams(),
-                          handle.getDeviceAllocator(), cur_batch_size, k,
+                          handle.get_device_allocator(), cur_batch_size, k,
                           cur_query_ptr, rowMajorIndex, rowMajorQuery);
 
         // Synchronize before running labels copy
@@ -537,7 +537,7 @@ void opg_knn(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
 
         copy_outputs(res.data(), res_I.data(), y, (size_t)cur_batch_size,
                      (int)k, (int)n_outputs, (int)idx_desc.N, my_rank,
-                     idx_desc.partsToRanks, handle.getDeviceAllocator(),
+                     idx_desc.partsToRanks, handle.get_device_allocator(),
                      stream);
 
         // Synchronize before sending
@@ -579,7 +579,7 @@ void opg_knn(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
   }
 };
 
-template void opg_knn<int>(ML::cumlHandle &handle,
+template void opg_knn<int>(raft::handle_t &handle,
                            std::vector<Matrix::Data<int> *> *out,
                            std::vector<Matrix::Data<int64_t> *> *out_I,
                            std::vector<Matrix::floatData_t *> *out_D,
@@ -594,7 +594,7 @@ template void opg_knn<int>(ML::cumlHandle &handle,
                            std::vector<int *> *uniq_labels,
                            std::vector<int> *n_unique, bool probas_only);
 
-template void opg_knn<float>(ML::cumlHandle &handle,
+template void opg_knn<float>(raft::handle_t &handle,
                              std::vector<Matrix::Data<float> *> *out,
                              std::vector<Matrix::Data<int64_t> *> *out_I,
                              std::vector<Matrix::floatData_t *> *out_D,
@@ -610,7 +610,7 @@ template void opg_knn<float>(ML::cumlHandle &handle,
                              std::vector<int> *n_unique, bool probas_only);
 
 template void reduce<int>(
-  ML::cumlHandle &handle, std::vector<Matrix::Data<int> *> *out,
+  raft::handle_t &handle, std::vector<Matrix::Data<int> *> *out,
   std::vector<Matrix::Data<int64_t> *> *out_I,
   std::vector<Matrix::floatData_t *> *out_D, device_buffer<int> &res,
   device_buffer<int64_t> &res_I, device_buffer<float> &res_D,
@@ -621,7 +621,7 @@ template void reduce<int>(
   std::vector<int *> *uniq_labels, std::vector<int> *n_unique);
 
 template void reduce<float>(
-  ML::cumlHandle &handle, std::vector<Matrix::Data<float> *> *out,
+  raft::handle_t &handle, std::vector<Matrix::Data<float> *> *out,
   std::vector<Matrix::Data<int64_t> *> *out_I,
   std::vector<Matrix::floatData_t *> *out_D, device_buffer<float> &res,
   device_buffer<int64_t> &res_I, device_buffer<float> &res_D,

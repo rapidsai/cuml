@@ -26,7 +26,7 @@ namespace MLCommon {
  * deallocation so this can be used for temporary memory 
  * @code{.cpp}
  * template<typename T>
- * void foo( const cumlHandle_impl& h, const T* in_d , T* out_d, ..., cudaStream_t stream )
+ * void foo( const raft::handle_t& h, const T* in_d , T* out_d, ..., cudaStream_t stream )
  * {
  *     ...
  *     host_buffer<T> temp( handle->getHostAllocator(), stream, 0 )

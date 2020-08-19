@@ -43,7 +43,7 @@ namespace ML {
 namespace SVM {
 
 template <typename math_t>
-void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
+void svrFit(const raft::handle_t &handle, math_t *X, int n_rows, int n_cols,
             math_t *y, const svmParameter &param,
             MLCommon::Matrix::KernelParams &kernel_params,
             svmModel<math_t> &model, const math_t *sample_weight) {
@@ -55,7 +55,7 @@ void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
   // KernelCache could use multiple streams, not implemented currently
   // See Issue #948.
   //ML::detail::streamSyncer _(handle_impl.getImpl());
-  const cumlHandle_impl &handle_impl = handle.getImpl();
+  const raft::handle_t &handle_impl = handle;
 
   cudaStream_t stream = handle_impl.getStream();
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel =

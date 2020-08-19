@@ -186,7 +186,7 @@ void exchange_results(device_buffer<int64_t> &res_I,
   }
 }
 
-void brute_force_knn(ML::cumlHandle &handle,
+void brute_force_knn(raft::handle_t &handle,
                      std::vector<Matrix::Data<int64_t> *> &out_I,
                      std::vector<Matrix::floatData_t *> &out_D,
                      std::vector<Matrix::floatData_t *> &idx_data,
@@ -203,11 +203,11 @@ void brute_force_knn(ML::cumlHandle &handle,
            "k must be <= the number of rows in the smallest index partition.");
   }
 
-  const ML::cumlHandle_impl &h = handle.getImpl();
+  const raft::handle_t &h = handle;
   const auto &comm = h.getCommunicator();
   cudaStream_t stream = h.getStream();
 
-  const std::shared_ptr<deviceAllocator> allocator = h.getDeviceAllocator();
+  const auto allocator = h.get_device_allocator();
 
   int my_rank = comm.get_rank();
 
@@ -307,15 +307,15 @@ void brute_force_knn(ML::cumlHandle &handle,
         // Offset nearest neighbor index matrix by partition indices
         std::vector<size_t> start_indices = idx_desc.startIndices(my_rank);
 
-        cudaStream_t int_streams[handle.getImpl().getNumInternalStreams()];
-        for (int i = 0; i < handle.getImpl().getNumInternalStreams(); i++) {
-          int_streams[i] = handle.getImpl().getInternalStream(i);
+        cudaStream_t int_streams[handle.getNumInternalStreams()];
+        for (int i = 0; i < handle.getNumInternalStreams(); i++) {
+          int_streams[i] = handle.getInternalStream(i);
         }
 
         perform_local_knn(res_I.data(), res_D.data(), idx_data, idx_desc,
                           local_idx_parts, start_indices, stream, &*int_streams,
                           handle.getNumInternalStreams(),
-                          handle.getDeviceAllocator(), cur_batch_size, k,
+                          handle.get_device_allocator(), cur_batch_size, k,
                           cur_query_ptr, rowMajorIndex, rowMajorQuery);
 
         // Synchronize before sending

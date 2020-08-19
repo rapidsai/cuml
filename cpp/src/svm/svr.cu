@@ -30,12 +30,12 @@ namespace ML {
 namespace SVM {
 
 // Explicit instantiation for the library
-template void svrFit<float>(const cumlHandle &handle, float *X, int n_rows,
+template void svrFit<float>(const raft::handle_t &handle, float *X, int n_rows,
                             int n_cols, float *y, const svmParameter &param,
                             MLCommon::Matrix::KernelParams &kernel_params,
                             svmModel<float> &model, const float *sample_weight);
 
-template void svrFit<double>(const cumlHandle &handle, double *X, int n_rows,
+template void svrFit<double>(const raft::handle_t &handle, double *X, int n_rows,
                              int n_cols, double *y, const svmParameter &param,
                              MLCommon::Matrix::KernelParams &kernel_params,
                              svmModel<double> &model,

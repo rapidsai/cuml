@@ -36,7 +36,7 @@ __global__ void conv1d_kernel(const Dtype *input, int batch_size,
 }
 
 template <typename Dtype>
-void conv1d(const ML::cumlHandle_impl &handle, const Dtype *input,
+void conv1d(const raft::handle_t &handle, const Dtype *input,
             int batch_size, const Dtype *filter, int filter_size, Dtype *output,
             int output_size) {
   int total_threads = batch_size;
@@ -78,7 +78,7 @@ __global__ void season_mean_kernel(const Dtype *season, int len, int batch_size,
 }
 
 template <typename Dtype>
-void season_mean(const ML::cumlHandle_impl &handle, const Dtype *season,
+void season_mean(const raft::handle_t &handle, const Dtype *season,
                  int len, int batch_size, Dtype *start_season, int frequency,
                  int half_filter_size, ML::SeasonalType seasonal) {
   cudaStream_t stream = handle.getStream();
@@ -121,13 +121,13 @@ __global__ void batched_ls_solver_kernel(const Dtype *B, const Dtype *rq,
 }
 
 template <typename Dtype>
-void batched_ls(const ML::cumlHandle_impl &handle, const Dtype *data,
+void batched_ls(const raft::handle_t &handle, const Dtype *data,
                 int trend_len, int batch_size, Dtype *level, Dtype *trend) {
   cudaStream_t stream = handle.getStream();
   cublasHandle_t cublas_h = handle.getCublasHandle();
   cusolverDnHandle_t cusolver_h = handle.getcusolverDnHandle();
-  std::shared_ptr<MLCommon::deviceAllocator> dev_allocator =
-    handle.getDeviceAllocator();
+  auto dev_allocator =
+    handle.get_device_allocator();
 
   const Dtype one = (Dtype)1.;
   const Dtype zero = (Dtype)0.;
@@ -183,15 +183,15 @@ void batched_ls(const ML::cumlHandle_impl &handle, const Dtype *data,
 }
 
 template <typename Dtype>
-void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
+void stl_decomposition_gpu(const raft::handle_t &handle, const Dtype *ts,
                            int n, int batch_size, int frequency,
                            int start_periods, Dtype *start_level,
                            Dtype *start_trend, Dtype *start_season,
                            ML::SeasonalType seasonal) {
   cudaStream_t stream = handle.getStream();
   cublasHandle_t cublas_h = handle.getCublasHandle();
-  std::shared_ptr<MLCommon::deviceAllocator> dev_allocator =
-    handle.getDeviceAllocator();
+  auto dev_allocator =
+    handle.get_device_allocator();
 
   const int end = start_periods * frequency;
   const int filter_size = (frequency / 2) * 2 + 1;

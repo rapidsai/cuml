@@ -140,9 +140,9 @@ __global__ void sigmas_kernel_2d(const float *restrict distances,
 float perplexity_search(const float *restrict distances, float *restrict P,
                         const float perplexity, const int epochs,
                         const float tol, const int n, const int dim,
-                        const cumlHandle &handle) {
+                        const raft::handle_t &handle) {
   const float desired_entropy = logf(perplexity);
-  auto d_alloc = handle.getDeviceAllocator();
+  auto d_alloc = handle.get_device_allocator();
   cudaStream_t stream = handle.getStream();
 
   float *P_sum = (float *)d_alloc->allocate(sizeof(float), stream);

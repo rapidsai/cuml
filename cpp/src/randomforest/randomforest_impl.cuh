@@ -152,7 +152,7 @@ const DecisionTree::DecisionTreeClassifier<T>* rfClassifier<T>::get_trees_ptr()
 /**
  * @brief Build (i.e., fit, train) random forest classifier for input data.
  * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: cumlHandle
+ * @param[in] user_handle: raft::handle_t
  * @param[in] input: train data (n_rows samples, n_cols features) in column major format,
  *   excluding labels. Device pointer.
  * @param[in] n_rows: number of training data samples.
@@ -164,17 +164,17 @@ const DecisionTree::DecisionTreeClassifier<T>* rfClassifier<T>::get_trees_ptr()
  * @param[in] forest: CPU point to RandomForestMetaData struct.
  */
 template <typename T>
-void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
+void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
                           int n_rows, int n_cols, int* labels,
                           int n_unique_labels,
                           RandomForestMetaData<T, int>*& forest) {
   this->error_checking(input, labels, n_rows, n_cols, false);
 
-  const cumlHandle_impl& handle = user_handle.getImpl();
+  const raft::handle_t& handle = user_handle.getImpl();
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
   ASSERT(n_streams <= handle.getNumInternalStreams(),
-         "rf_params.n_streams (=%d) should be <= cumlHandle.n_streams (=%d)",
+         "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%d)",
          n_streams, handle.getNumInternalStreams());
 
   cudaStream_t stream = handle.getStream();
@@ -184,7 +184,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
   for (int i = 0; i < n_streams; i++) {
     auto s = handle.getInternalStream(i);
     selected_rows[i] = new MLCommon::device_buffer<unsigned int>(
-      handle.getDeviceAllocator(), s, n_sampled_rows);
+      handle.get_device_allocator(), s, n_sampled_rows);
   }
 
   std::shared_ptr<TemporaryMemory<T, int>> tempmem[n_streams];
@@ -218,7 +218,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
 
     this->prepare_fit_per_tree(
       i, n_rows, n_sampled_rows, rowids, tempmem[stream_id]->num_sms,
-      tempmem[stream_id]->stream, handle.getDeviceAllocator());
+      tempmem[stream_id]->stream, handle.get_device_allocator());
 
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -230,7 +230,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
     */
     DecisionTree::TreeMetaDataNode<T, int>* tree_ptr = &(forest->trees[i]);
     tree_ptr->treeid = i;
-    trees[i].fit(handle.getDeviceAllocator(), handle.getHostAllocator(),
+    trees[i].fit(handle.get_device_allocator(), handle.getHostAllocator(),
                  tempmem[stream_id]->stream, input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, n_unique_labels, tree_ptr,
                  this->rf_params.tree_params, tempmem[stream_id]);
@@ -250,7 +250,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
 /**
  * @brief Predict target feature for input data; n-ary classification for single feature supported.
  * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: cumlHandle.
+ * @param[in] user_handle: raft::handle_t.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
@@ -258,14 +258,14 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
  * @param[in] verbosity: verbosity level for logging messages during execution
  */
 template <typename T>
-void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
+void rfClassifier<T>::predict(const raft::handle_t& user_handle, const T* input,
                               int n_rows, int n_cols, int* predictions,
                               const RandomForestMetaData<T, int>* forest,
                               int verbosity) const {
   ML::Logger::get().setLevel(verbosity);
   this->error_checking(input, predictions, n_rows, n_cols, true);
   std::vector<int> h_predictions(n_rows);
-  const cumlHandle_impl& handle = user_handle.getImpl();
+  const raft::handle_t& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.getStream();
 
   std::vector<T> h_input(n_rows * n_cols);
@@ -314,7 +314,7 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
 /**
  * @brief Predict target feature for input data; n-ary classification for single feature supported.
  * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: cumlHandle.
+ * @param[in] user_handle: raft::handle_t.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
@@ -322,7 +322,7 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
  * @param[in] verbosity: verbosity level for logging messages during execution
  */
 template <typename T>
-void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
+void rfClassifier<T>::predictGetAll(const raft::handle_t& user_handle,
                                     const T* input, int n_rows, int n_cols,
                                     int* predictions,
                                     const RandomForestMetaData<T, int>* forest,
@@ -332,7 +332,7 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
   std::vector<int> h_predictions(n_rows * num_trees);
 
   std::vector<T> h_input(n_rows * n_cols);
-  const cumlHandle_impl& handle = user_handle.getImpl();
+  const raft::handle_t& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.getStream();
   MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -367,7 +367,7 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
 /**
  * @brief Predict target feature for input data and validate against ref_labels.
  * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: cumlHandle.
+ * @param[in] user_handle: raft::handle_t.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
  * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
  * @param[in] n_rows: number of  data samples.
@@ -376,12 +376,12 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
  * @param[in] verbosity: verbosity level for logging messages during execution
  */
 template <typename T>
-RF_metrics rfClassifier<T>::score(const cumlHandle& user_handle,
+RF_metrics rfClassifier<T>::score(const raft::handle_t& user_handle,
                                   const int* ref_labels, int n_rows,
                                   const int* predictions, int verbosity) {
   ML::Logger::get().setLevel(verbosity);
   cudaStream_t stream = user_handle.getImpl().getStream();
-  auto d_alloc = user_handle.getDeviceAllocator();
+  auto d_alloc = user_handle.get_device_allocator();
   float accuracy = MLCommon::Score::accuracy_score(predictions, ref_labels,
                                                    n_rows, d_alloc, stream);
   RF_metrics stats = set_rf_metrics_classification(accuracy);
@@ -426,7 +426,7 @@ const DecisionTree::DecisionTreeRegressor<T>* rfRegressor<T>::get_trees_ptr()
 /**
  * @brief Build (i.e., fit, train) random forest regressor for input data.
  * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: cumlHandle
+ * @param[in] user_handle: raft::handle_t
  * @param[in] input: train data (n_rows samples, n_cols features) in column major format, excluding labels. Device pointer.
  * @param[in] n_rows: number of training data samples.
  * @param[in] n_cols: number of features (i.e., columns) excluding target feature.
@@ -434,16 +434,16 @@ const DecisionTree::DecisionTreeRegressor<T>* rfRegressor<T>::get_trees_ptr()
  * @param[in, out] forest: CPU pointer to RandomForestMetaData struct
  */
 template <typename T>
-void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
+void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
                          int n_rows, int n_cols, T* labels,
                          RandomForestMetaData<T, T>*& forest) {
   this->error_checking(input, labels, n_rows, n_cols, false);
 
-  const cumlHandle_impl& handle = user_handle.getImpl();
+  const raft::handle_t& handle = user_handle.getImpl();
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
   ASSERT(n_streams <= handle.getNumInternalStreams(),
-         "rf_params.n_streams (=%d) should be <= cumlHandle.n_streams (=%d)",
+         "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%d)",
          n_streams, handle.getNumInternalStreams());
 
   cudaStream_t stream = user_handle.getStream();
@@ -453,7 +453,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
   for (int i = 0; i < n_streams; i++) {
     auto s = handle.getInternalStream(i);
     selected_rows[i] = new MLCommon::device_buffer<unsigned int>(
-      handle.getDeviceAllocator(), s, n_sampled_rows);
+      handle.get_device_allocator(), s, n_sampled_rows);
   }
 
   std::shared_ptr<TemporaryMemory<T, T>> tempmem[n_streams];
@@ -485,7 +485,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
     unsigned int* rowids = selected_rows[stream_id]->data();
     this->prepare_fit_per_tree(
       i, n_rows, n_sampled_rows, rowids, tempmem[stream_id]->num_sms,
-      tempmem[stream_id]->stream, handle.getDeviceAllocator());
+      tempmem[stream_id]->stream, handle.get_device_allocator());
 
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -496,7 +496,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
     */
     DecisionTree::TreeMetaDataNode<T, T>* tree_ptr = &(forest->trees[i]);
     tree_ptr->treeid = i;
-    trees[i].fit(handle.getDeviceAllocator(), handle.getHostAllocator(),
+    trees[i].fit(handle.get_device_allocator(), handle.getHostAllocator(),
                  tempmem[stream_id]->stream, input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, tree_ptr, this->rf_params.tree_params,
                  tempmem[stream_id]);
@@ -516,7 +516,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
 /**
  * @brief Predict target feature for input data; regression for single feature supported.
  * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: cumlHandle.
+ * @param[in] user_handle: raft::handle_t.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
@@ -525,14 +525,14 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
  * @param[in] verbosity: verbosity level for logging messages during execution
  */
 template <typename T>
-void rfRegressor<T>::predict(const cumlHandle& user_handle, const T* input,
+void rfRegressor<T>::predict(const raft::handle_t& user_handle, const T* input,
                              int n_rows, int n_cols, T* predictions,
                              const RandomForestMetaData<T, T>* forest,
                              int verbosity) const {
   this->error_checking(input, predictions, n_rows, n_cols, true);
 
   std::vector<T> h_predictions(n_rows);
-  const cumlHandle_impl& handle = user_handle.getImpl();
+  const raft::handle_t& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.getStream();
 
   std::vector<T> h_input(n_rows * n_cols);
@@ -570,7 +570,7 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T* input,
 /**
  * @brief Predict target feature for input data and validate against ref_labels.
  * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: cumlHandle.
+ * @param[in] user_handle: raft::handle_t.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
  * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
  * @param[in] n_rows: number of  data samples.
@@ -580,12 +580,12 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T* input,
  * @param[in] verbosity: verbosity level for logging messages during execution
  */
 template <typename T>
-RF_metrics rfRegressor<T>::score(const cumlHandle& user_handle,
+RF_metrics rfRegressor<T>::score(const raft::handle_t& user_handle,
                                  const T* ref_labels, int n_rows,
                                  const T* predictions, int verbosity) {
   ML::Logger::get().setLevel(verbosity);
   cudaStream_t stream = user_handle.getImpl().getStream();
-  auto d_alloc = user_handle.getDeviceAllocator();
+  auto d_alloc = user_handle.get_device_allocator();
 
   double mean_abs_error, mean_squared_error, median_abs_error;
   MLCommon::Score::regression_metrics(predictions, ref_labels, n_rows, d_alloc,

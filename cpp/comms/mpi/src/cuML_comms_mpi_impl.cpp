@@ -181,7 +181,7 @@ void initialize_mpi_comms(cumlHandle& handle, MPI_Comm comm) {
   auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
     std::unique_ptr<MLCommon::cumlCommunicator_iface>(
       new cumlMPICommunicator_impl(comm)));
-  handle.getImpl().setCommunicator(communicator);
+  handle.setCommunicator(communicator);
 }
 
 cumlMPICommunicator_impl::cumlMPICommunicator_impl(MPI_Comm comm,

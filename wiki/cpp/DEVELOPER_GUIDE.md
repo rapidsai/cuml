@@ -368,7 +368,7 @@ This can be ensured by introducing interstream dependencies with CUDA events and
 ```cpp
 void cumlAlgo(const ML::cumlHandle& handle, ...)
 {
-    ML::detail::streamSyncer _(handle.getImpl());
+    ML::detail::streamSyncer _(handle);
 }
 ```
 This ensures the stream ordering behavior described above.
@@ -397,7 +397,7 @@ int main(int argc, char** argv)
 {
     int nStreams = argc > 1 ? atoi(argv[1]) : 0;
     ML::cumlHandle handle(nStreams);
-    foo(handle.getImpl(), ...);
+    foo(handle, ...);
 }
 ```
 
@@ -408,7 +408,7 @@ The purpose of `ML::cumlHandle` is to be the public interface of cuML, i.e. it i
 ```cpp
 void ml_algo(const ML::cumlHandle& handle, ...)
 {
-    const ML::cumlHandle_impl& h = handle.getImpl();
+    const ML::cumlHandle_impl& h = handle;
     ML::detail::streamSyncer _(h);
     ...
     foo(h, ...);

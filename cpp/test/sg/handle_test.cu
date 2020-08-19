@@ -39,7 +39,7 @@ TEST(HandleTest, DoubleDestoryFails) {
   EXPECT_EQ(CUML_INVALID_HANDLE, status);
 }
 
-TEST(HandleTest, SetStream) {
+TEST(HandleTest, set_stream) {
   cumlHandle_t handle;
   cumlError_t status = cumlCreate(&handle);
   EXPECT_EQ(CUML_SUCCESS, status);

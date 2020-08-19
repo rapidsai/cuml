@@ -77,7 +77,7 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
  * @return in case the temp buffer is null, this returns the size needed.
  */
 template <typename Type_f, typename Index_ = int>
-size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
+size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
            Type_f eps, Index_ minPts, Index_* labels,
            Index_* core_sample_indices, int algoVd, int algoAdj, int algoCcl,
            void* workspace, Index_ nBatches, cudaStream_t stream) {
@@ -139,7 +139,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
   // Running VertexDeg
   MLCommon::Sparse::WeakCCState state(xa, fa, m);
-  MLCommon::device_buffer<Index_> adj_graph(handle.getDeviceAllocator(),
+  MLCommon::device_buffer<Index_> adj_graph(handle.get_device_allocator(),
                                             stream);
 
   for (int i = 0; i < nBatches; i++) {
@@ -213,7 +213,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::PUSH_RANGE("Trace::Dbscan::CoreSampleIndices");
 
     // Create the execution policy
-    ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
+    ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
     auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
 
     // Get wrappers for the device ptrs

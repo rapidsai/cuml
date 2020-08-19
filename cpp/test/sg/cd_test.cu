@@ -80,13 +80,13 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     ML::loss_funct loss = ML::loss_funct::SQRD_LOSS;
 
     intercept = T(0);
-    cdFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef,
+    cdFit(handle, data, params.n_row, params.n_col, labels, coef,
           &intercept, fit_intercept, normalize, epochs, loss, alpha, l1_ratio,
           shuffle, tol, stream);
 
     fit_intercept = true;
     intercept2 = T(0);
-    cdFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef2,
+    cdFit(handle, data, params.n_row, params.n_col, labels, coef2,
           &intercept2, fit_intercept, normalize, epochs, loss, alpha, l1_ratio,
           shuffle, tol, stream);
 
@@ -94,21 +94,21 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     l1_ratio = T(0.5);
     fit_intercept = false;
     intercept = T(0);
-    cdFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef3,
+    cdFit(handle, data, params.n_row, params.n_col, labels, coef3,
           &intercept, fit_intercept, normalize, epochs, loss, alpha, l1_ratio,
           shuffle, tol, stream);
 
     fit_intercept = true;
     normalize = true;
     intercept2 = T(0);
-    cdFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef4,
+    cdFit(handle, data, params.n_row, params.n_col, labels, coef4,
           &intercept2, fit_intercept, normalize, epochs, loss, alpha, l1_ratio,
           shuffle, tol, stream);
   }
 
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.setStream(stream);
+    handle.set_stream(stream);
     lasso();
   }
 
@@ -134,7 +134,7 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
   T *coef4, *coef4_ref;
   T intercept, intercept2;
   cudaStream_t stream;
-  cumlHandle handle;
+  raft::handle_t handle;
 };
 
 const std::vector<CdInputs<float>> inputsf2 = {{0.01f, 4, 2}};

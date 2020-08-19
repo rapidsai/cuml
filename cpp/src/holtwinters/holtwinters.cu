@@ -31,7 +31,7 @@ void buffer_size(int n, int batch_size, int frequency,
                             season_coef_shift);
 }
 
-void fit(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
+void fit(const raft::handle_t &handle, int n, int batch_size, int frequency,
          int start_periods, ML::SeasonalType seasonal, float epsilon,
          float *data, float *level_d, float *trend_d, float *season_d,
          float *error_d) {
@@ -40,7 +40,7 @@ void fit(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
                                   level_d, trend_d, season_d, error_d);
 }
 
-void fit(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
+void fit(const raft::handle_t &handle, int n, int batch_size, int frequency,
          int start_periods, ML::SeasonalType seasonal, double epsilon,
          double *data, double *level_d, double *trend_d, double *season_d,
          double *error_d) {
@@ -49,7 +49,7 @@ void fit(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
                                    level_d, trend_d, season_d, error_d);
 }
 
-void forecast(const ML::cumlHandle &handle, int n, int batch_size,
+void forecast(const raft::handle_t &handle, int n, int batch_size,
               int frequency, int h, ML::SeasonalType seasonal, float *level_d,
               float *trend_d, float *season_d, float *forecast_d) {
   ML::HoltWintersForecastHelper<float>(handle, n, batch_size, frequency, h,
@@ -57,7 +57,7 @@ void forecast(const ML::cumlHandle &handle, int n, int batch_size,
                                        forecast_d);
 }
 
-void forecast(const ML::cumlHandle &handle, int n, int batch_size,
+void forecast(const raft::handle_t &handle, int n, int batch_size,
               int frequency, int h, ML::SeasonalType seasonal, double *level_d,
               double *trend_d, double *season_d, double *forecast_d) {
   ML::HoltWintersForecastHelper<double>(handle, n, batch_size, frequency, h,

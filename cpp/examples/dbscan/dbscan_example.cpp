@@ -140,7 +140,7 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  ML::cumlHandle cumlHandle;
+  raft::handle_t raft::handle_t;
 
 #ifdef HAVE_RMM
   rmmOptions_t rmmOptions;
@@ -162,7 +162,7 @@ int main(int argc, char* argv[]) {
   std::shared_ptr<ML::deviceAllocator> allocator(
     new ML::defaultDeviceAllocator());
 #endif  // HAVE_RMM
-  cumlHandle.setDeviceAllocator(allocator);
+  raft::handle_t.set_device_allocator(allocator);
 
   std::vector<float> h_inputData;
 
@@ -204,7 +204,7 @@ int main(int argc, char* argv[]) {
 
   cudaStream_t stream;
   CUDA_RT_CALL(cudaStreamCreate(&stream));
-  cumlHandle.setStream(stream);
+  raft::handle_t.set_stream(stream);
 
   std::vector<int> h_labels(nRows);
   int* d_labels = nullptr;
@@ -223,7 +223,7 @@ int main(int argc, char* argv[]) {
             << "eps - " << eps << std::endl
             << "max_bytes_per_batch - " << max_bytes_per_batch << std::endl;
 
-  ML::dbscanFit(cumlHandle, d_inputData, nRows, nCols, eps, minPts, d_labels,
+  ML::dbscanFit(raft::handle_t, d_inputData, nRows, nCols, eps, minPts, d_labels,
                 nullptr, max_bytes_per_batch, false);
   CUDA_RT_CALL(cudaMemcpyAsync(h_labels.data(), d_labels, nRows * sizeof(int),
                                cudaMemcpyDeviceToHost, stream));

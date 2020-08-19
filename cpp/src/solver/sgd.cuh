@@ -46,7 +46,7 @@ using namespace MLCommon;
 /**
  * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver
  * @param handle
- *        Reference of cumlHandle
+ *        Reference of raft::handle_t
  * @param input
  *        pointer to an array in column-major format (size of n_rows, n_cols)
  * @param n_rows
@@ -91,7 +91,7 @@ using namespace MLCommon;
  *        cuda stream
  */
 template <typename math_t>
-void sgdFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
+void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows,
             int n_cols, math_t *labels, math_t *coef, math_t *intercept,
             bool fit_intercept, int batch_size, int epochs, ML::lr_type lr_type,
             math_t eta0, math_t power_t, ML::loss_funct loss,
@@ -105,7 +105,7 @@ void sgdFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
 
   cublasHandle_t cublas_handle = handle.getCublasHandle();
 
-  auto allocator = handle.getDeviceAllocator();
+  auto allocator = handle.get_device_allocator();
   device_buffer<math_t> mu_input(allocator, stream, 0);
   device_buffer<math_t> mu_labels(allocator, stream, 0);
   device_buffer<math_t> norm2_input(allocator, stream, 0);
@@ -247,7 +247,7 @@ void sgdFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
 /**
  * Make predictions
  * @param handle
- *        Reference of cumlHandle
+ *        Reference of raft::handle_t
  * @param input
  *        pointer to an array in column-major format (size of n_rows, n_cols)
  * @param n_rows
@@ -266,7 +266,7 @@ void sgdFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
  *        cuda stream
  */
 template <typename math_t>
-void sgdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
+void sgdPredict(const raft::handle_t &handle, const math_t *input, int n_rows,
                 int n_cols, const math_t *coef, math_t intercept, math_t *preds,
                 ML::loss_funct loss, cudaStream_t stream) {
   ASSERT(n_cols > 0,
@@ -291,7 +291,7 @@ void sgdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
 /**
  * Make binary classifications
  * @param handle
- *        Reference of cumlHandle
+ *        Reference of raft::handle_t
  * @param input
  *        pointer to an array in column-major format (size of n_rows, n_cols)
  * @param n_rows
@@ -310,7 +310,7 @@ void sgdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
  *        cuda stream
  */
 template <typename math_t>
-void sgdPredictBinaryClass(const cumlHandle_impl &handle, const math_t *input,
+void sgdPredictBinaryClass(const raft::handle_t &handle, const math_t *input,
                            int n_rows, int n_cols, const math_t *coef,
                            math_t intercept, math_t *preds, ML::loss_funct loss,
                            cudaStream_t stream) {

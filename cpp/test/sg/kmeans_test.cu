@@ -48,7 +48,7 @@ template <typename T>
 class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
  protected:
   void basicTest() {
-    cumlHandle handle;
+    raft::handle_t handle;
     testparams = ::testing::TestWithParam<KmeansInputs<T>>::GetParam();
 
     int n_samples = testparams.n_row;
@@ -59,10 +59,10 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     params.seed = 1;
     params.oversampling_factor = 0;
 
-    device_buffer<T> X(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<T> X(handle.get_device_allocator(), handle.getStream(),
                        n_samples * n_features);
 
-    device_buffer<int> labels(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<int> labels(handle.get_device_allocator(), handle.getStream(),
                               n_samples);
 
     make_blobs(handle, X.data(), labels.data(), n_samples, n_features,

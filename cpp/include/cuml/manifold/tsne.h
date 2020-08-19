@@ -71,7 +71,7 @@ namespace ML {
  * approach is available in their article t-SNE-CUDA: GPU-Accelerated t-SNE and
  * its Applications to Modern Data (https://arxiv.org/abs/1807.11824).
  */
-void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
+void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y, const int n,
               const int p, const int dim = 2, int n_neighbors = 1023,
               const float theta = 0.5f, const float epssq = 0.0025,
               float perplexity = 50.0f, const int perplexity_max_iter = 100,

@@ -103,7 +103,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // setup
     ps = testing::TestWithParam<FilTestParams>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.setStream(stream);
+    handle.set_stream(stream);
 
     generate_forest();
     generate_data();
@@ -359,7 +359,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   // parameters
   cudaStream_t stream;
-  cumlHandle handle;
+  raft::handle_t handle;
   FilTestParams ps;
 };
 

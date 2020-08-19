@@ -74,7 +74,7 @@ cdef class Handle:
         cdef shared_ptr[deviceAllocator] rmmAlloc = (
             shared_ptr[deviceAllocator](new rmmAllocatorAdapter()))
         cdef cumlHandle* h_ = <cumlHandle*>self.h
-        h_.setDeviceAllocator(rmmAlloc)
+        h_.set_device_allocator(rmmAlloc)
 
     def __dealloc__(self):
         h_ = <cumlHandle*>self.h
@@ -84,7 +84,7 @@ cdef class Handle:
         cdef shared_ptr[deviceAllocator] rmmPoolAlloc = (
             shared_ptr[deviceAllocator](new rmmPoolAllocatorAdapter()))
         cdef cumlHandle* h_ = <cumlHandle*>self.h
-        h_.setDeviceAllocator(rmmPoolAlloc)
+        h_.set_device_allocator(rmmPoolAlloc)
 
     def setStream(self, stream):
         cdef size_t s = <size_t>stream.getStream()

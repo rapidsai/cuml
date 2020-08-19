@@ -43,7 +43,7 @@ using namespace MLCommon::Datasets::Digits;
 class UMAPTest : public ::testing::Test {
  protected:
   void xformTest() {
-    cumlHandle handle;
+    raft::handle_t handle;
 
     cudaStream_t stream = handle.getStream();
 
@@ -52,9 +52,9 @@ class UMAPTest : public ::testing::Test {
     umap_params->init = 1;
     umap_params->verbosity = CUML_LEVEL_INFO;
 
-    UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
+    UMAPAlgo::find_ab(umap_params, handle.get_device_allocator(), stream);
 
-    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<float> X_d(handle.get_device_allocator(), handle.getStream(),
                              n_samples * n_features);
 
     MLCommon::updateDevice(X_d.data(), digits.data(), n_samples * n_features,
@@ -62,7 +62,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    device_buffer<float> embeddings(handle.getDeviceAllocator(),
+    device_buffer<float> embeddings(handle.get_device_allocator(),
                                     handle.getStream(),
                                     n_samples * umap_params->n_components);
 
@@ -72,7 +72,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    device_buffer<float> xformed(handle.getDeviceAllocator(),
+    device_buffer<float> xformed(handle.get_device_allocator(),
                                  handle.getStream(),
                                  n_samples * umap_params->n_components);
 
@@ -88,7 +88,7 @@ class UMAPTest : public ::testing::Test {
   }
 
   void fitTest() {
-    cumlHandle handle;
+    raft::handle_t handle;
 
     cudaStream_t stream = handle.getStream();
 
@@ -97,9 +97,9 @@ class UMAPTest : public ::testing::Test {
     umap_params->init = 1;
     umap_params->verbosity = CUML_LEVEL_INFO;
 
-    UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
+    UMAPAlgo::find_ab(umap_params, handle.get_device_allocator(), stream);
 
-    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<float> X_d(handle.get_device_allocator(), handle.getStream(),
                              n_samples * n_features);
 
     MLCommon::updateDevice(X_d.data(), digits.data(), n_samples * n_features,
@@ -107,7 +107,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    device_buffer<float> embeddings(handle.getDeviceAllocator(),
+    device_buffer<float> embeddings(handle.get_device_allocator(),
                                     handle.getStream(),
                                     n_samples * umap_params->n_components);
 
@@ -123,7 +123,7 @@ class UMAPTest : public ::testing::Test {
   }
 
   void supervisedTest() {
-    cumlHandle handle;
+    raft::handle_t handle;
 
     cudaStream_t stream = handle.getStream();
 
@@ -132,11 +132,11 @@ class UMAPTest : public ::testing::Test {
     umap_params->init = 1;
     umap_params->verbosity = CUML_LEVEL_INFO;
 
-    UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
+    UMAPAlgo::find_ab(umap_params, handle.get_device_allocator(), stream);
 
-    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<float> X_d(handle.get_device_allocator(), handle.getStream(),
                              n_samples * n_features);
-    device_buffer<float> Y_d(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<float> Y_d(handle.get_device_allocator(), handle.getStream(),
                              n_samples * 2);
 
     MLCommon::updateDevice(X_d.data(), digits.data(), n_samples * n_features,
@@ -144,7 +144,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    device_buffer<float> embeddings(handle.getDeviceAllocator(),
+    device_buffer<float> embeddings(handle.get_device_allocator(),
                                     handle.getStream(),
                                     n_samples * umap_params->n_components);
 
@@ -160,17 +160,17 @@ class UMAPTest : public ::testing::Test {
   }
 
   void fitWithKNNTest() {
-    cumlHandle handle;
+    raft::handle_t handle;
 
     UMAPParams *umap_params = new UMAPParams();
     umap_params->n_neighbors = 10;
     umap_params->init = 1;
     umap_params->verbosity = CUML_LEVEL_INFO;
 
-    UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(),
+    UMAPAlgo::find_ab(umap_params, handle.get_device_allocator(),
                       handle.getStream());
 
-    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<float> X_d(handle.get_device_allocator(), handle.getStream(),
                              n_samples * n_features);
 
     MLCommon::updateDevice(X_d.data(), digits.data(), n_samples * n_features,
@@ -178,18 +178,18 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    device_buffer<float> embeddings(handle.getDeviceAllocator(),
+    device_buffer<float> embeddings(handle.get_device_allocator(),
                                     handle.getStream(),
                                     n_samples * umap_params->n_components);
 
     MLCommon::device_buffer<int64_t> knn_indices(
-      handle.getDeviceAllocator(), handle.getStream(),
+      handle.get_device_allocator(), handle.getStream(),
       n_samples * umap_params->n_components);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     MLCommon::device_buffer<float> knn_dists(
-      handle.getDeviceAllocator(), handle.getStream(),
+      handle.get_device_allocator(), handle.getStream(),
       n_samples * umap_params->n_components);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
@@ -201,7 +201,7 @@ class UMAPTest : public ::testing::Test {
 
     MLCommon::Selection::brute_force_knn(
       ptrs, sizes, n_features, X_d.data(), n_samples, knn_indices.data(),
-      knn_dists.data(), umap_params->n_neighbors, handle.getDeviceAllocator(),
+      knn_dists.data(), umap_params->n_neighbors, handle.get_device_allocator(),
       handle.getStream());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));

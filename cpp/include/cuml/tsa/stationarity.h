@@ -36,10 +36,10 @@ namespace Stationarity {
  * @param[in]   pval_threshold  P-value threshold above which a series is
  *                              considered stationary
  */
-void kpss_test(const cumlHandle& handle, const float* d_y, bool* results,
+void kpss_test(const raft::handle_t& handle, const float* d_y, bool* results,
                int batch_size, int n_obs, int d, int D, int s,
                float pval_threshold);
-void kpss_test(const cumlHandle& handle, const double* d_y, bool* results,
+void kpss_test(const raft::handle_t& handle, const double* d_y, bool* results,
                int batch_size, int n_obs, int d, int D, int s,
                double pval_threshold);
 

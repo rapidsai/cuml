@@ -121,14 +121,14 @@ void flip(T *input, int n_rows, int n_cols, T *max_vals,
  * @{
  */
 template <typename T>
-void sign_flip_imp(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input,
+void sign_flip_imp(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input,
                    Matrix::PartDescriptor &input_desc, T *components,
                    int n_components, cudaStream_t *streams, int n_stream) {
-  int rank = handle.getImpl().getCommunicator().get_rank();
+  int rank = handle.getCommunicator().get_rank();
 
-  const auto &comm = handle.getImpl().getCommunicator();
-  const std::shared_ptr<deviceAllocator> allocator =
-    handle.getImpl().getDeviceAllocator();
+  const auto &comm = handle.getCommunicator();
+  const auto allocator =
+    handle.get_device_allocator();
 
   std::vector<Matrix::RankSizePair *> local_blocks =
     input_desc.blocksOwnedBy(rank);
@@ -168,7 +168,7 @@ void sign_flip_imp(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input,
        streams[0]);
 }
 
-void sign_flip(cumlHandle &handle,
+void sign_flip(raft::handle_t &handle,
                std::vector<Matrix::Data<float> *> &input_data,
                Matrix::PartDescriptor &input_desc, float *components,
                int n_components, cudaStream_t *streams, int n_stream) {
@@ -176,7 +176,7 @@ void sign_flip(cumlHandle &handle,
                 streams, n_stream);
 }
 
-void sign_flip(cumlHandle &handle,
+void sign_flip(raft::handle_t &handle,
                std::vector<Matrix::Data<double> *> &input_data,
                Matrix::PartDescriptor &input_desc, double *components,
                int n_components, cudaStream_t *streams, int n_stream) {

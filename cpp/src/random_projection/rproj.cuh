@@ -41,11 +41,11 @@ using namespace MLCommon::Sparse;
 	 * @param[in] params: data structure that includes all the parameters of the model
 	 */
 template <typename math_t>
-void gaussian_random_matrix(const cumlHandle& h,
+void gaussian_random_matrix(const raft::handle_t& h,
                             rand_mat<math_t>* random_matrix,
                             paramsRPROJ& params) {
   cudaStream_t stream = h.getStream();
-  auto d_alloc = h.getDeviceAllocator();
+  auto d_alloc = h.get_device_allocator();
   int len = params.n_components * params.n_features;
   random_matrix->dense_data.resize(len, stream);
   auto rng = Random::Rng(params.random_state);
@@ -60,10 +60,10 @@ void gaussian_random_matrix(const cumlHandle& h,
  * @param[in] params: data structure that includes all the parameters of the model
  */
 template <typename math_t>
-void sparse_random_matrix(const cumlHandle& h, rand_mat<math_t>* random_matrix,
+void sparse_random_matrix(const raft::handle_t& h, rand_mat<math_t>* random_matrix,
                           paramsRPROJ& params) {
   cudaStream_t stream = h.getStream();
-  auto d_alloc = h.getDeviceAllocator();
+  auto d_alloc = h.get_device_allocator();
 
   if (params.density == 1.0f) {
     int len = params.n_components * params.n_features;
@@ -125,7 +125,7 @@ void sparse_random_matrix(const cumlHandle& h, rand_mat<math_t>* random_matrix,
 	 * @param[in] params: data structure that includes all the parameters of the model
 	 */
 template <typename math_t>
-void RPROJfit(const cumlHandle& handle, rand_mat<math_t>* random_matrix,
+void RPROJfit(const raft::handle_t& handle, rand_mat<math_t>* random_matrix,
               paramsRPROJ* params) {
   random_matrix->reset();
 
@@ -150,7 +150,7 @@ void RPROJfit(const cumlHandle& handle, rand_mat<math_t>* random_matrix,
 	 * @param[in] params: data structure that includes all the parameters of the model
 	 */
 template <typename math_t>
-void RPROJtransform(const cumlHandle& handle, math_t* input,
+void RPROJtransform(const raft::handle_t& handle, math_t* input,
                     rand_mat<math_t>* random_matrix, math_t* output,
                     paramsRPROJ* params) {
   cudaStream_t stream = handle.getStream();
@@ -158,7 +158,7 @@ void RPROJtransform(const cumlHandle& handle, math_t* input,
   check_parameters(*params);
 
   if (random_matrix->type == dense) {
-    cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
+    cublasHandle_t cublas_handle = handle.getCublasHandle();
 
     const math_t alfa = 1;
     const math_t beta = 0;
@@ -176,7 +176,7 @@ void RPROJtransform(const cumlHandle& handle, math_t* input,
                             ldb, &beta, output, ldc, stream));
 
   } else if (random_matrix->type == sparse) {
-    cusparseHandle_t cusparse_handle = handle.getImpl().getcusparseHandle();
+    cusparseHandle_t cusparse_handle = handle.getcusparseHandle();
     CUSPARSE_CHECK(cusparseSetStream(cusparse_handle, stream));
 
     const math_t alfa = 1;

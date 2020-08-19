@@ -33,7 +33,7 @@ bool test_collective_allreduce(const ML::cumlHandle& h) {
 
   cudaStream_t stream = handle.getStream();
 
-  MLCommon::device_buffer<int> temp_d(handle.getDeviceAllocator(), stream);
+  MLCommon::device_buffer<int> temp_d(handle.get_device_allocator(), stream);
   temp_d.resize(1, stream);
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));

@@ -54,9 +54,9 @@ __global__ void sum_bools(bool* in_bools, int n, int* out_val) {
   }
 }
 
-inline size_t binomial(const ML::cumlHandle& h, size_t n, double p,
+inline size_t binomial(const raft::handle_t& h, size_t n, double p,
                        int random_state) {
-  auto alloc = h.getDeviceAllocator();
+  auto alloc = h.get_device_allocator();
 
   struct timeval tp;
   gettimeofday(&tp, NULL);

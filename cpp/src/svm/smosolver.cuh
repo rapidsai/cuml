@@ -74,7 +74,7 @@ namespace SVM {
 template <typename math_t>
 class SmoSolver {
  public:
-  SmoSolver(const cumlHandle_impl &handle, svmParameter param,
+  SmoSolver(const raft::handle_t &handle, svmParameter param,
             MLCommon::Matrix::GramMatrixBase<math_t> *kernel)
     : handle(handle),
       n_rows(n_rows),
@@ -86,12 +86,12 @@ class SmoSolver {
       epsilon(param.epsilon),
       svmType(param.svmType),
       stream(handle.getStream()),
-      return_buff(handle.getDeviceAllocator(), stream, 2),
-      alpha(handle.getDeviceAllocator(), stream),
-      C_vec(handle.getDeviceAllocator(), stream),
-      delta_alpha(handle.getDeviceAllocator(), stream),
-      f(handle.getDeviceAllocator(), stream),
-      y_label(handle.getDeviceAllocator(), stream) {
+      return_buff(handle.get_device_allocator(), stream, 2),
+      alpha(handle.get_device_allocator(), stream),
+      C_vec(handle.get_device_allocator(), stream),
+      delta_alpha(handle.get_device_allocator(), stream),
+      f(handle.get_device_allocator(), stream),
+      y_label(handle.get_device_allocator(), stream) {
     ML::Logger::get().setLevel(param.verbosity);
   }
 
@@ -339,7 +339,7 @@ class SmoSolver {
   }
 
  private:
-  const cumlHandle_impl &handle;
+  const raft::handle_t &handle;
   cudaStream_t stream;
 
   int n_rows = 0;  //!< training data number of rows
