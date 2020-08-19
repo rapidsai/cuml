@@ -307,8 +307,9 @@ def test_single_input(client, model_type):
         y = y.astype(np.int32)
     else:
         y = y.astype(np.float32)
-    
-    X, y = _prep_training_data(client, X, y, partitions_per_worker=2)
+
+    X, y = _prep_training_data(client, X, y,
+                               partitions_per_worker=2)
     if model_type == 'classification':
         cu_rf_mg = cuRFC_mg(n_bins=1)
     else:
