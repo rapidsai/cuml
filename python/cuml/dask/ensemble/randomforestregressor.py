@@ -112,11 +112,12 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         Base seed for the random number generator. Unseeded by default. Does
         not currently fully guarantee the exact same results.
     ignore_empty_partitions: Boolean (default = False)
-        Specify behavior when a worker does not recieve any data
+        Specify behavior when a worker does not hold any data
         while splitting. When True, it returns the results from workers
-        with data (estimators will be less than n_estimators)
-        When False, throws a RuntimeError. This is an experiemental
-        parameter, and may be removed in the future.
+        with data (the number of trained estimators will be less than
+        n_estimators) When False, throws a RuntimeError.
+        This is an experiemental parameter, and may be removed
+        in the future.
 
     """
 

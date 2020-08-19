@@ -42,7 +42,10 @@ class BaseRandomForestModel(object):
                       **kwargs):
 
         self.client = get_client(client)
-        self.workers = self.client.scheduler_info()['workers'].keys()
+        if workers is None:
+            # Default to all workers
+            workers = self.client.scheduler_info()['workers'].keys()
+        self.workers = workers
         self._set_internal_model(None)
         self.active_workers = list()
         self.ignore_empty_partitions = ignore_empty_partitions
@@ -119,15 +122,21 @@ class BaseRandomForestModel(object):
             )
         if len(self.workers) > len(self.active_workers):
             if self.ignore_empty_partitions:
-                warn_text = "Data was not split among all workers"\
-                            " using only %d workers to fit" %\
-                            (len(self.active_workers))
+                curent_estimators = \
+                    self.n_estimators_per_worker * len(self.active_workers)
+                warn_text = (
+                    f"Data was not split among all workers "
+                    f"using only {self.active_workers} workers to fit."
+                    f"This will only train {curent_estimators}"
+                    f" estimators instead of the requested "
+                    f"{self.n_estimators_per_worker * len(self.workers)}"
+                )
                 warnings.warn(warn_text)
             else:
-                raise RuntimeError("Data was not split among all workers. "
-                                   "Re-run the code or "
-                                   "use ignore_empty_partitions=True"
-                                   " while creating model")
+                raise ValueError("Data was not split among all workers. "
+                                 "Re-run the code or "
+                                 "use ignore_empty_partitions=True"
+                                 " while creating model")
         wait_and_raise_from_futures(futures)
         return self
 
