@@ -24,6 +24,7 @@
 - PR #2594: Confidence intervals for ARIMA forecasts
 - PR #2607: Add support for probability estimates in SVC
 - PR #2618: SVM class and sample weights
+- PR #2270: Multi class MNMG RF
 - PR #2661: CUDA-11 support for single-gpu code
 - PR #2322: Sparse FIL forests with 8-byte nodes
 - PR #2675: Update conda recipes to support CUDA 11
