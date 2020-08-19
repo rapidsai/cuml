@@ -281,8 +281,8 @@ class Base:
             else:
                 raise AttributeError
 
-    
-    def _set_base_attributes(self, X, output_type=False, y=None, n_features=None):
+    def _set_base_attributes(self, X, output_type=False, y=None,
+                             n_features=None):
         """
         X: input data
         output_type: Boolean; if we should set output type on X
@@ -298,7 +298,7 @@ class Base:
             self._set_n_features_in(n_features)
         elif n_features:
             self._set_n_features_in(X)
-        
+
     def _set_output_type(self, input):
         """
         Method to be called by fit methods of inheriting classes
