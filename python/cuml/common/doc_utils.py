@@ -278,8 +278,7 @@ def generate_docstring(X='dense',
 
                 else:
                     func.__doc__ += \
-                        _parameters_docstrings['\
-                            convert_dtype_single'].format(
+                        _parameters_docstrings['convert_dtype_single'].format(
                             default=params['convert_dtype'].default,
                             dtype=convert_dtype_cast
                         )
