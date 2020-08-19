@@ -141,7 +141,7 @@ class KMeans(Base):
         print(b)
 
         print("Calling fit")
-        kmeans_float = KMeans(n_clusters=2, n_gpu=-1)
+        kmeans_float = KMeans(n_clusters=2)
         kmeans_float.fit(b)
 
         print("labels:")
