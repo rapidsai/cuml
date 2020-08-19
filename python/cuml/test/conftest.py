@@ -185,7 +185,9 @@ def pytest_addoption(parser):
                      action="store_true",
                      default=False,
                      help="run unit tests")
-
+    parser.addoption('--use-rmm-pool',
+                     action='store_true',
+                     default=False, help='Use RMM pool')
 
 def pytest_collection_modifyitems(config, items):
     if config.getoption("--run_quality"):
@@ -233,3 +235,14 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "stress" in item.keywords:
                 item.add_marker(skip_stress)
+
+
+@pytest.fixture(autouse=True, scope="module")
+def setup_rmm(request, pytestconfig):
+    """Enable RMM pool if --use-rmm-pool flag is set."""
+    # Strongly inspired by https://github.com/dmlc/xgboost/pull/5873/files
+    if pytestconfig.getoption('--use-rmm-pool'):
+        from dask_cuda.utils import get_n_gpus
+        import rmm
+        rmm.reinitialize(pool_allocator=True,
+                         devices=list(range(get_n_gpus())))
