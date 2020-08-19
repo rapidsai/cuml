@@ -312,10 +312,11 @@ def test_single_input(client, model_type, ignore_empty_partitions):
     X, y = _prep_training_data(client, X, y,
                                partitions_per_worker=2)
     if model_type == 'classification':
-        cu_rf_mg = cuRFC_mg(n_bins=1, ignore_empty_partitions=ignore_empty_partitions)
+        cu_rf_mg = cuRFC_mg(n_bins=1,
+                            ignore_empty_partitions=ignore_empty_partitions)
     else:
-        cu_rf_mg = cuRFR_mg(n_bins=1, ignore_empty_partitions=ignore_empty_partitions)
-
+        cu_rf_mg = cuRFR_mg(n_bins=1,
+                            ignore_empty_partitions=ignore_empty_partitions)
 
     if ignore_empty_partitions:
         cu_rf_mg.fit(X, y)
