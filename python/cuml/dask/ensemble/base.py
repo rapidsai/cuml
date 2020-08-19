@@ -16,6 +16,7 @@
 import dask
 import math
 import numpy as np
+import warnings
 
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
@@ -114,6 +115,11 @@ class BaseRandomForestModel(object):
                     workers=[worker],
                     pure=False)
             )
+        if len(self.workers) > len(self.active_workers):
+            warn_text = "Data was not split among all workers"\
+                        " using only %d workers to fit" %\
+                        (len(self.active_workers))
+            warnings.warn(warn_text)
         wait_and_raise_from_futures(futures)
         return self
 
