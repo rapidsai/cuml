@@ -63,11 +63,11 @@ template <typename T>
 class KNNTestHelper {
  public:
   void generate_data(const KNNParams &params) {
-    this->handle = new ML::cumlHandle();
+    this->handle = new raft::handle_t();
     ML::initialize_mpi_comms(*handle, MPI_COMM_WORLD);
-    const ML::cumlHandle_impl &h = handle->getImpl();
+    const raft::handle_t &h = handle->getImpl();
     const cumlCommunicator &comm = h.getCommunicator();
-    this->allocator = h.getDeviceAllocator();
+    this->allocator = h.get_device_allocator();
 
     this->stream = h.getStream();
 
@@ -243,7 +243,7 @@ class KNNTestHelper {
     delete handle;
   }
 
-  ML::cumlHandle *handle;
+  raft::handle_t *handle;
   std::vector<Matrix::Data<T> *> out_parts;
   std::vector<Matrix::Data<int64_t> *> out_i_parts;
   std::vector<Matrix::floatData_t *> out_d_parts;

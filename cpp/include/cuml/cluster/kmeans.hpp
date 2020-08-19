@@ -96,12 +96,12 @@ struct KMeansParams {
  closest cluster center.
  * @param[out]    n_iter        Number of iterations run.
  */
-void fit_predict(const ML::cumlHandle &handle, const KMeansParams &params,
+void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
                  const float *X, int n_samples, int n_features,
                  const float *sample_weight, float *centroids, int *labels,
                  float &inertia, int &n_iter);
 
-void fit_predict(const ML::cumlHandle &handle, const KMeansParams &params,
+void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
                  const double *X, int n_samples, int n_features,
                  const double *sample_weight, double *centroids, int *labels,
                  double &inertia, int &n_iter);
@@ -128,12 +128,12 @@ void fit_predict(const ML::cumlHandle &handle, const KMeansParams &params,
  * @param[out]    n_iter        Number of iterations run.
  */
 
-void fit(const ML::cumlHandle &handle, const KMeansParams &params,
+void fit(const raft::handle_t &handle, const KMeansParams &params,
          const float *X, int n_samples, int n_features,
          const float *sample_weight, float *centroids, float &inertia,
          int &n_iter);
 
-void fit(const ML::cumlHandle &handle, const KMeansParams &params,
+void fit(const raft::handle_t &handle, const KMeansParams &params,
          const double *X, int n_samples, int n_features,
          const double *sample_weight, double *centroids, double &inertia,
          int &n_iter);
@@ -158,12 +158,12 @@ void fit(const ML::cumlHandle &handle, const KMeansParams &params,
  * closest cluster center.
  */
 
-void predict(const ML::cumlHandle &handle, const KMeansParams &params,
+void predict(const raft::handle_t &handle, const KMeansParams &params,
              const float *centroids, const float *X, int n_samples,
              int n_features, const float *sample_weight, int *labels,
              float &inertia);
 
-void predict(const ML::cumlHandle &handle, const KMeansParams &params,
+void predict(const raft::handle_t &handle, const KMeansParams &params,
              const double *centroids, const double *X, int n_samples,
              int n_features, const double *sample_weight, int *labels,
              double &inertia);
@@ -187,11 +187,11 @@ void predict(const ML::cumlHandle &handle, const KMeansParams &params,
  * metric from ML::Distance::DistanceType can be used
  * @param[out]    X_new         X transformed in the new space..
  */
-void transform(const ML::cumlHandle &handle, const KMeansParams &params,
+void transform(const raft::handle_t &handle, const KMeansParams &params,
                const float *centroids, const float *X, int n_samples,
                int n_features, int metric, float *X_new);
 
-void transform(const ML::cumlHandle &handle, const KMeansParams &params,
+void transform(const raft::handle_t &handle, const KMeansParams &params,
                const double *centroids, const double *X, int n_samples,
                int n_features, int metric, double *X_new);
 

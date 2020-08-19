@@ -27,7 +27,7 @@
 
 namespace ML {
 
-void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
+void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y, const int n,
               const int p, const int dim, int n_neighbors, const float theta,
               const float epssq, float perplexity,
               const int perplexity_max_iter, const float perplexity_tol,
@@ -65,7 +65,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
       "# of Nearest Neighbors should be at least 3 * perplexity. Your results"
       " might be a bit strange...");
 
-  auto d_alloc = handle.getDeviceAllocator();
+  auto d_alloc = handle.get_device_allocator();
   cudaStream_t stream = handle.getStream();
 
   START_TIMER;

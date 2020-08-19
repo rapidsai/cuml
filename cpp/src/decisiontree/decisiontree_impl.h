@@ -105,7 +105,7 @@ class DecisionTreeBase {
   void print(const std::vector<SparseTreeNode<T, L>> &sparsetree) const;
 
   // Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format.
-  void predict(const ML::cumlHandle &handle, const TreeMetaDataNode<T, L> *tree,
+  void predict(const raft::handle_t &handle, const TreeMetaDataNode<T, L> *tree,
                const T *rows, const int n_rows, const int n_cols,
                L *predictions, int verbosity = -1) const;
   void predict_all(const TreeMetaDataNode<T, L> *tree, const T *rows,
@@ -124,7 +124,7 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
   // Expects column major T dataset, integer labels
   // data, labels are both device ptr.
   // Assumption: labels are all mapped to contiguous numbers starting from 0 during preprocessing. Needed for gini hist impl.
-  void fit(const ML::cumlHandle &handle, const T *data, const int ncols,
+  void fit(const raft::handle_t &handle, const T *data, const int ncols,
            const int nrows, const int *labels, unsigned int *rowids,
            const int n_sampled_rows, const int unique_labels,
            TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_parameters,
@@ -152,7 +152,7 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
 template <class T>
 class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
  public:
-  void fit(const ML::cumlHandle &handle, const T *data, const int ncols,
+  void fit(const raft::handle_t &handle, const T *data, const int ncols,
            const int nrows, const T *labels, unsigned int *rowids,
            const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
            DecisionTreeParams tree_parameters,

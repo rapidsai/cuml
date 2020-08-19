@@ -34,7 +34,7 @@ class RPROJTest : public ::testing::Test {
  protected:
   T* transpose(T* in, int n_rows, int n_cols) {
     cudaStream_t stream = h.getStream();
-    cublasHandle_t cublas_handle = h.getImpl().getCublasHandle();
+    cublasHandle_t cublas_handle = handle.getCublasHandle();
     T* result;
     allocate(result, n_rows * n_cols);
     MLCommon::LinAlg::transpose(in, result, n_rows, n_cols, cublas_handle,
@@ -73,7 +73,7 @@ class RPROJTest : public ::testing::Test {
     };
 
     cudaStream_t stream = h.getStream();
-    auto alloc = h.getDeviceAllocator();
+    auto alloc = h.get_device_allocator();
     random_matrix1 = new rand_mat<T>(alloc, stream);
     RPROJfit(h, random_matrix1, params1);
     allocate(d_output1, N * params1->n_components);
@@ -96,7 +96,7 @@ class RPROJTest : public ::testing::Test {
     };
 
     cudaStream_t stream = h.getStream();
-    auto alloc = h.getDeviceAllocator();
+    auto alloc = h.get_device_allocator();
     random_matrix2 = new rand_mat<T>(alloc, stream);
     RPROJfit(h, random_matrix2, params2);
 
@@ -202,7 +202,7 @@ class RPROJTest : public ::testing::Test {
   }
 
  protected:
-  ML::cumlHandle h;
+  raft::handle_t h;
   paramsRPROJ* params1;
   T epsilon;
 

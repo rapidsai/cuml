@@ -62,13 +62,13 @@ template <typename T, typename IdxT>
 class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
  protected:
   void basicTest() {
-    cumlHandle handle;
+    raft::handle_t handle;
 
     params = ::testing::TestWithParam<DbscanInputs<T, IdxT>>::GetParam();
 
-    device_buffer<T> out(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<T> out(handle.get_device_allocator(), handle.getStream(),
                          params.n_row * params.n_col);
-    device_buffer<IdxT> l(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<IdxT> l(handle.get_device_allocator(), handle.getStream(),
                           params.n_row);
 
     make_blobs(handle, out.data(), l.data(), params.n_row, params.n_col,
@@ -184,7 +184,7 @@ template <typename T>
 class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
  protected:
   void basicTest() {
-    cumlHandle handle;
+    raft::handle_t handle;
 
     params = ::testing::TestWithParam<DBScan2DArrayInputs<T>>::GetParam();
 

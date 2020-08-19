@@ -46,7 +46,7 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
   ML::SVM::svmModel<float> model;
 
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
@@ -98,7 +98,7 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle, double *input, int n_rows,
   ML::SVM::svmModel<double> model;
 
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
@@ -147,7 +147,7 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle, float *input, int n_rows,
   model.unique_labels = unique_labels;
 
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
@@ -190,7 +190,7 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle, double *input, int n_rows,
   model.unique_labels = unique_labels;
 
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {

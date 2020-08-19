@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Run KMeans with k=" << params.n_clusters
               << ", max_iterations=" << params.max_iter << std::endl;
 
-    ML::cumlHandle cumlHandle;
+    raft::handle_t raft::handle_t;
 #ifdef HAVE_RMM
     std::shared_ptr<ML::deviceAllocator> allocator(
       new ML::rmmAllocatorAdapter());
@@ -154,11 +154,11 @@ int main(int argc, char *argv[]) {
     std::shared_ptr<ML::deviceAllocator> allocator(
       new ML::defaultDeviceAllocator());
 #endif  // HAVE_RMM
-    cumlHandle.setDeviceAllocator(allocator);
+    raft::handle_t.set_device_allocator(allocator);
 
     cudaStream_t stream;
     CUDA_RT_CALL(cudaStreamCreate(&stream));
-    cumlHandle.setStream(stream);
+    raft::handle_t.set_stream(stream);
 
     // srcdata size n_samples * n_features
     double *d_srcdata = nullptr;
@@ -178,7 +178,7 @@ int main(int argc, char *argv[]) {
 
     double inertia = 0;
     int n_iter = 0;
-    ML::kmeans::fit_predict(cumlHandle, params, d_srcdata, n_samples,
+    ML::kmeans::fit_predict(raft::handle_t, params, d_srcdata, n_samples,
                             n_features, 0, d_pred_centroids, d_pred_labels,
                             inertia, n_iter);
 

@@ -46,14 +46,14 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
  public:
   void SetUp() {
     params = GetParam();
-    handle = new ML::cumlHandle();
+    handle = new raft::handle_t();
     ML::initialize_mpi_comms(*handle, MPI_COMM_WORLD);
 
     // Prepare resource
-    const ML::cumlHandle_impl& h = handle->getImpl();
+    const raft::handle_t& h = handle->getImpl();
     const cumlCommunicator& comm = h.getCommunicator();
     stream = h.getStream();
-    const std::shared_ptr<deviceAllocator> allocator = h.getDeviceAllocator();
+    const auto allocator = h.get_device_allocator();
     cublasHandle_t cublasHandle = h.getCublasHandle();
 
     myRank = comm.getRank();
@@ -134,7 +134,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
 
  protected:
   PCAOpgParams params;
-  ML::cumlHandle* handle;
+  raft::handle_t* handle;
   cudaStream_t stream;
   int myRank;
   int totalRanks;

@@ -38,12 +38,12 @@ TemporaryMemory<T, L>::TemporaryMemory(
 
 template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(
-  const ML::cumlHandle_impl& handle, cudaStream_t stream_in, int N, int Ncols,
+  const raft::handle_t& handle, cudaStream_t stream_in, int N, int Ncols,
   int n_unique, const ML::DecisionTree::DecisionTreeParams& tree_params) {
   stream = stream_in;
   max_shared_mem = MLCommon::getSharedMemPerBlock();
   num_sms = MLCommon::getMultiProcessorCount();
-  device_allocator = handle.getDeviceAllocator();
+  device_allocator = handle.get_device_allocator();
   host_allocator = handle.getHostAllocator();
   LevelMemAllocator(N, Ncols, n_unique, tree_params);
 }

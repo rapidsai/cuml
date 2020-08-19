@@ -22,20 +22,20 @@
 
 namespace ML {
 
-void transform(const cumlHandle &handle, float *X, int n, int d,
+void transform(const raft::handle_t &handle, float *X, int n, int d,
                int64_t *knn_indices, float *knn_dists, float *orig_X,
                int orig_n, float *embedding, int embedding_n,
                UMAPParams *params, float *transformed);
 
-void find_ab(const cumlHandle &handle, UMAPParams *params);
+void find_ab(const raft::handle_t &handle, UMAPParams *params);
 
-void fit(const cumlHandle &handle,
+void fit(const raft::handle_t &handle,
          float *X,  // input matrix
          float *y,  // labels
          int n, int d, int64_t *knn_indices, float *knn_dists,
          UMAPParams *params, float *embeddings);
 
-void fit(const cumlHandle &handle,
+void fit(const raft::handle_t &handle,
          float *X,  // input matrix
          int n,     // rows
          int d,     // cols
@@ -45,11 +45,11 @@ void fit(const cumlHandle &handle,
 class UMAP_API {
   float *orig_X;
   int orig_n;
-  cumlHandle *handle;
+  raft::handle_t *handle;
   UMAPParams *params;
 
  public:
-  UMAP_API(const cumlHandle &handle, UMAPParams *params);
+  UMAP_API(const raft::handle_t &handle, UMAPParams *params);
   ~UMAP_API();
 
   /**

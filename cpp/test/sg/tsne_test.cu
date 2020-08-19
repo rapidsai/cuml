@@ -37,16 +37,16 @@ using namespace ML;
 class TSNETest : public ::testing::Test {
  protected:
   void basicTest() {
-    cumlHandle handle;
+    raft::handle_t handle;
 
     // Allocate memory
-    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<float> X_d(handle.get_device_allocator(), handle.getStream(),
                              n * p);
     MLCommon::updateDevice(X_d.data(), digits.data(), n * p,
                            handle.getStream());
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    device_buffer<float> Y_d(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<float> Y_d(handle.get_device_allocator(), handle.getStream(),
                              n * 2);
 
     // Test Barnes Hut
@@ -79,7 +79,7 @@ class TSNETest : public ::testing::Test {
     score_bh =
       trustworthiness_score<float,
                             ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
-        X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
+        X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
         handle.getStream());
 
     // Test Exact TSNE
@@ -108,7 +108,7 @@ class TSNETest : public ::testing::Test {
     score_exact =
       trustworthiness_score<float,
                             ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
-        X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
+        X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
         handle.getStream());
 
     // Free space

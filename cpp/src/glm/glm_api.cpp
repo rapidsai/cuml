@@ -26,7 +26,7 @@ extern "C" cumlError_t cumlSpQnFit(cumlHandle_t cuml_handle, float *X, float *y,
                                    float *f, int *num_iters, bool X_col_major,
                                    int loss_type) {
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(cuml_handle);
   if (status == CUML_SUCCESS) {
     try {
@@ -54,7 +54,7 @@ extern "C" cumlError_t cumlDpQnFit(
   int linesearch_max_iter, int lbfgs_memory, int verbosity, double *w0,
   double *f, int *num_iters, bool X_col_major, int loss_type) {
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(cuml_handle);
   if (status == CUML_SUCCESS) {
     try {

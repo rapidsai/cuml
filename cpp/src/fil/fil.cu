@@ -109,7 +109,7 @@ struct forest {
   void init_max_shm() {
     int max_shm_std = 48 * 1024;  // 48 KiB
     int device = 0;
-    // TODO(canonizer): use cumlHandle for this
+    // TODO(canonizer): use raft::handle_t for this
     CUDA_CHECK(cudaGetDevice(&device));
     CUDA_CHECK(cudaDeviceGetAttribute(
       &max_shm_, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
@@ -132,7 +132,7 @@ struct forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
 
-  void predict(const cumlHandle& h, float* preds, const float* data,
+  void predict(const raft::handle_t& h, float* preds, const float* data,
                size_t num_rows, bool predict_proba) {
     // Initialize prediction parameters.
     predict_params params;
@@ -216,7 +216,7 @@ struct forest {
     }
   }
 
-  virtual void free(const cumlHandle& h) = 0;
+  virtual void free(const raft::handle_t& h) = 0;
   virtual ~forest() {}
 
   int num_trees_ = 0;
@@ -243,13 +243,13 @@ struct dense_forest : forest {
     }
   }
 
-  void init(const cumlHandle& h, const dense_node_t* nodes,
+  void init(const raft::handle_t& h, const dense_node_t* nodes,
             const forest_params_t* params) {
     init_common(params);
     if (algo_ == algo_t::NAIVE) algo_ = algo_t::BATCH_TREE_REORG;
 
     int num_nodes = forest_num_nodes(num_trees_, depth_);
-    nodes_ = (dense_node*)h.getDeviceAllocator()->allocate(
+    nodes_ = (dense_node*)h.get_device_allocator()->allocate(
       sizeof(dense_node) * num_nodes, h.getStream());
     h_nodes_.resize(num_nodes);
     if (algo_ == algo_t::NAIVE) {
@@ -273,9 +273,9 @@ struct dense_forest : forest {
     fil::infer(forest, params, stream);
   }
 
-  virtual void free(const cumlHandle& h) override {
+  virtual void free(const raft::handle_t& h) override {
     int num_nodes = forest_num_nodes(num_trees_, depth_);
-    h.getDeviceAllocator()->deallocate(nodes_, sizeof(dense_node) * num_nodes,
+    h.get_device_allocator()->deallocate(nodes_, sizeof(dense_node) * num_nodes,
                                        h.getStream());
   }
 
@@ -284,7 +284,7 @@ struct dense_forest : forest {
 };
 
 struct sparse_forest : forest {
-  void init(const cumlHandle& h, const int* trees, const sparse_node_t* nodes,
+  void init(const raft::handle_t& h, const int* trees, const sparse_node_t* nodes,
             const forest_params_t* params) {
     init_common(params);
     if (algo_ == algo_t::ALGO_AUTO) algo_ = algo_t::NAIVE;
@@ -292,13 +292,13 @@ struct sparse_forest : forest {
     num_nodes_ = params->num_nodes;
 
     // trees
-    trees_ = (int*)h.getDeviceAllocator()->allocate(sizeof(int) * num_trees_,
+    trees_ = (int*)h.get_device_allocator()->allocate(sizeof(int) * num_trees_,
                                                     h.getStream());
     CUDA_CHECK(cudaMemcpyAsync(trees_, trees, sizeof(int) * num_trees_,
                                cudaMemcpyHostToDevice, h.getStream()));
 
     // nodes
-    nodes_ = (sparse_node*)h.getDeviceAllocator()->allocate(
+    nodes_ = (sparse_node*)h.get_device_allocator()->allocate(
       sizeof(sparse_node) * num_nodes_, h.getStream());
     CUDA_CHECK(cudaMemcpyAsync(nodes_, nodes, sizeof(sparse_node) * num_nodes_,
                                cudaMemcpyHostToDevice, h.getStream()));
@@ -309,10 +309,10 @@ struct sparse_forest : forest {
     fil::infer(forest, params, stream);
   }
 
-  void free(const cumlHandle& h) override {
-    h.getDeviceAllocator()->deallocate(trees_, sizeof(int) * num_trees_,
+  void free(const raft::handle_t& h) override {
+    h.get_device_allocator()->deallocate(trees_, sizeof(int) * num_trees_,
                                        h.getStream());
-    h.getDeviceAllocator()->deallocate(nodes_, sizeof(sparse_node) * num_nodes_,
+    h.get_device_allocator()->deallocate(nodes_, sizeof(sparse_node) * num_nodes_,
                                        h.getStream());
   }
 
@@ -661,7 +661,7 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<sparse_node_t>* pnodes,
   params->num_nodes = pnodes->size();
 }
 
-void init_dense(const cumlHandle& h, forest_t* pf, const dense_node_t* nodes,
+void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node_t* nodes,
                 const forest_params_t* params) {
   check_params(params, true);
   dense_forest* f = new dense_forest;
@@ -669,7 +669,7 @@ void init_dense(const cumlHandle& h, forest_t* pf, const dense_node_t* nodes,
   *pf = f;
 }
 
-void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
+void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
                  const sparse_node_t* nodes, const forest_params_t* params) {
   check_params(params, false);
   sparse_forest* f = new sparse_forest;
@@ -677,7 +677,7 @@ void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
   *pf = f;
 }
 
-void from_treelite(const cumlHandle& handle, forest_t* pforest,
+void from_treelite(const raft::handle_t& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {
   storage_type_t storage_type = tl_params->storage_type;
   // build dense trees by default
@@ -723,12 +723,12 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
   }
 }
 
-void free(const cumlHandle& h, forest_t f) {
+void free(const raft::handle_t& h, forest_t f) {
   f->free(h);
   delete f;
 }
 
-void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
+void predict(const raft::handle_t& h, forest_t f, float* preds, const float* data,
              size_t num_rows, bool predict_proba) {
   f->predict(h, preds, data, num_rows, predict_proba);
 }

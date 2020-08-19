@@ -47,13 +47,13 @@ namespace opg {
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
  */
-void fit(cumlHandle &handle,
+void fit(raft::handle_t &handle,
          std::vector<MLCommon::Matrix::Data<float> *> &input_data,
          MLCommon::Matrix::PartDescriptor &input_desc, float *components,
          float *explained_var, float *explained_var_ratio, float *singular_vals,
          float *mu, float *noise_vars, paramsPCAMG prms, bool verbose = false);
 
-void fit(cumlHandle &handle,
+void fit(raft::handle_t &handle,
          std::vector<MLCommon::Matrix::Data<double> *> &input_data,
          MLCommon::Matrix::PartDescriptor &input_desc, double *components,
          double *explained_var, double *explained_var_ratio,
@@ -76,7 +76,7 @@ void fit(cumlHandle &handle,
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
  */
-void fit_transform(cumlHandle &handle,
+void fit_transform(raft::handle_t &handle,
                    MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,
                    MLCommon::Matrix::floatData_t **input,
                    MLCommon::Matrix::floatData_t **trans_input,
@@ -84,7 +84,7 @@ void fit_transform(cumlHandle &handle,
                    float *explained_var_ratio, float *singular_vals, float *mu,
                    float *noise_vars, paramsPCAMG prms, bool verbose);
 
-void fit_transform(cumlHandle &handle,
+void fit_transform(raft::handle_t &handle,
                    MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,
                    MLCommon::Matrix::doubleData_t **input,
                    MLCommon::Matrix::doubleData_t **trans_input,
@@ -106,12 +106,12 @@ void fit_transform(cumlHandle &handle,
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
  */
-void transform(cumlHandle &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
+void transform(raft::handle_t &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
                size_t n_parts, MLCommon::Matrix::Data<float> **input,
                float *components, MLCommon::Matrix::Data<float> **trans_input,
                float *singular_vals, float *mu, paramsPCAMG prms, bool verbose);
 
-void transform(cumlHandle &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
+void transform(raft::handle_t &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
                size_t n_parts, MLCommon::Matrix::Data<double> **input,
                double *components, MLCommon::Matrix::Data<double> **trans_input,
                double *singular_vals, double *mu, paramsPCAMG prms,
@@ -130,7 +130,7 @@ void transform(cumlHandle &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
  */
-void inverse_transform(cumlHandle &handle,
+void inverse_transform(raft::handle_t &handle,
                        MLCommon::Matrix::RankSizePair **rank_sizes,
                        size_t n_parts,
                        MLCommon::Matrix::Data<float> **trans_input,
@@ -139,7 +139,7 @@ void inverse_transform(cumlHandle &handle,
                        bool verbose);
 
 void inverse_transform(
-  cumlHandle &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
+  raft::handle_t &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
   size_t n_parts, MLCommon::Matrix::Data<double> **trans_input,
   double *components, MLCommon::Matrix::Data<double> **input,
   double *singular_vals, double *mu, paramsPCAMG prms, bool verbose);

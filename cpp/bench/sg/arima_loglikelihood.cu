@@ -76,7 +76,7 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
 
     auto& handle = *this->handle;
     auto stream = handle.getStream();
-    auto allocator = handle.getDeviceAllocator();
+    auto allocator = handle.get_device_allocator();
 
     // Buffer for the model parameters
     param = (DataT*)allocator->allocate(
@@ -94,7 +94,7 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
 
     auto& handle = *this->handle;
     auto stream = handle.getStream();
-    auto allocator = handle.getDeviceAllocator();
+    auto allocator = handle.get_device_allocator();
 
     allocator->deallocate(
       param, order.complexity() * this->params.batch_size * sizeof(DataT),
