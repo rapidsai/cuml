@@ -339,8 +339,8 @@ class RegressorMixin:
 
     @generate_docstring(return_values={'name': 'score',
                                        'type': 'float',
-                                       'description': 'R^2 of self.predict(X) \
-                                                       wrt. y.'})
+                                       'description': 'R^2 of self.predict(X) '
+                                                      'wrt. y.'})
     def score(self, X, y, **kwargs):
         """
         Scoring function for regression estimators
@@ -367,9 +367,9 @@ class ClassifierMixin:
     @generate_docstring(return_values={'name': 'score',
                                        'type': 'float',
                                        'description': 'Accuracy of \
-                                                       self.predict(X) wrt. y \
-                                                       (fraction where y == \
-                                                       pred_y)'})
+                                                      'self.predict(X) wrt. y '
+                                                      '(fraction where y == '
+                                                      'pred_y)'})
     def score(self, X, y, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.
