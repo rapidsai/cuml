@@ -124,7 +124,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
     print(X.shape, 'y', y.shape)
     # identify shape and indices
     n_rows, n_columns = X.shape
-    train_size = 0.80
+    train_size = 0.8
 
     X_train, X_validation, y_train, y_validation = train_test_split(
         X, y, train_size=train_size, random_state=0)
@@ -146,15 +146,15 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
     xgb_preds_int = np.around(xgb_preds)
     if num_classes == 2:
         xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
-    #else:
+    else:
+        xgb_proba = bst.predict(dvalidation, output_margin=True).reshape((y_validation.size, -1, num_classes)).sum(axis=1)
         #xgb_preds = skl_gbdt.predict(X_validation)
         #xgb_proba = skl_gbdt.predict_proba(X_validation)
-
-    print('xgb_preds.shape', xgb_preds.shape)
     if num_classes == 2:
-        print('xgb_proba.shape', xgb_proba.shape)
-    
-    xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
+        xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
+    else:
+        xgb_acc = accuracy_score(y_validation, xgb_preds)
+
     fm = ForestInference.load(model_path,
                               algo='auto',
                               output_class=True,
@@ -162,15 +162,18 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
     fil_proba = np.asarray(fm.predict_proba(X_validation))
+    fil_proba = np.reshape(fil_proba, np.shape(xgb_proba))
 
-    if num_classes == 2:
-        fil_proba = np.reshape(fil_proba, np.shape(xgb_proba))
+    print('fil_preds', fil_preds.shape, '\n', fil_preds[:10])
+    print('xgb_preds', xgb_preds.shape, '\n', xgb_preds[:10])
+    print('fil_proba', fil_proba.shape, '\n', fil_proba[:10, :])
+    print('xgb_proba', xgb_proba.shape, '\n', xgb_proba[:10, :])
+
     fil_acc = accuracy_score(y_validation, fil_preds)
 
     assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
     assert array_equal(fil_preds, xgb_preds_int)
-    if num_classes == 2:
-        assert np.allclose(fil_proba, xgb_proba, 1e-3)
+    assert np.allclose(fil_proba, xgb_proba, 1e-3)
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),

@@ -18,16 +18,11 @@
 
 #pragma once
 
-#define diprint(a)
-//printf(#a " = %d\n", a)
-#define dhprint(a)
-//printf(#a " = %0x\n", a)
-#define dsprint(a)
-//printf(#a " = %s\n", a)
-#define dfprint(a)
-//printf(#a " = %f\n", a)
-#define dbprint(a)
-//printf(#a " = %s\n", a ? "true" : "false")
+#define diprint(a) printf(#a " = %d\n", a)
+#define dhprint(a) printf(#a " = %0x\n", a)
+#define dsprint(a) printf(#a " = %s\n", a)
+#define dfprint(a) printf(#a " = %f\n", a)
+#define dbprint(a) printf(#a " = %s\n", a ? "true" : "false")
 
 #include <cuml/cuml.hpp>
 #include <cuml/ensemble/treelite_defs.hpp>
@@ -300,7 +295,8 @@ void free(const cumlHandle& h, forest_t f);
 void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
              size_t num_rows, bool predict_proba = false);
 
-#define dleafprint(a)
-//printf(#a " = %s\n", a == leaf_value_t::INT_CLASS_LABEL ? "INT_CLASS_LABEL" : "FLOAT_SCALAR")
+#define dleafprint(a)                                                         \
+  printf(#a " = %s\n", a == leaf_value_t::INT_CLASS_LABEL ? "INT_CLASS_LABEL" \
+                                                          : "FLOAT_SCALAR")
 }  // namespace fil
 }  // namespace ML

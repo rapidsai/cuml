@@ -313,6 +313,8 @@ cdef class ForestInference_impl():
         cdef uintptr_t preds_ptr
         preds_ptr = preds.ptr
 
+        print('preds pre-inference\n', preds.to_output(output_type='numpy')[:, :10])
+        self.handle.sync()
         for fd in self.forest_data:
           predict(handle_[0],
                   fd,
@@ -320,6 +322,8 @@ cdef class ForestInference_impl():
                   <float*> X_ptr,
                   <size_t> n_rows,
                   <bool> predict_proba)
+        self.handle.sync()
+        print('preds pre-adjust\n', preds.to_output(output_type='numpy')[:, :10])
         if self.forest_data.size() > 1:
             if predict_proba:
                 # xgboost-style inference will produce transposed output

@@ -101,6 +101,12 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
                             float inv_num_trees, float threshold,
                             float global_bias, bool complement_proba) {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
+  if (!i) {
+    printf("preds pre-transform \n");
+    for (int x = 0; x < n; x++) printf("%.2f ", preds[x]);
+    printf("\n\n");
+  }
+  __syncthreads();
   if (i >= n) return;
   if (complement_proba && i % 2 != 0) return;
 
@@ -119,6 +125,12 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
     preds[i + 1] = result;
   } else
     preds[i] = result;
+  __syncthreads();
+  if (false) {
+    printf("preds post-transform \n");
+    for (int x = 0; x < n; x++) printf("%.2f ", preds[x]);
+    printf("\n\n");
+  }
 }
 
 struct forest {
@@ -152,21 +164,19 @@ struct forest {
 
   void predict(const cumlHandle& h, float* preds, const float* data,
                size_t num_rows, bool predict_proba) {
+    dhprint(preds);
+    diprint(output_group_num_);
     // Initialize prediction parameters.
     predict_params params;
     params.num_cols = num_cols_;
     params.algo = algo_;
-    params.preds = preds;
+    // C layer will infer in a transposed fashion, to be un-transposed in cython
+    params.preds = preds + output_group_num_ * num_rows;
     params.data = data;
     params.num_rows = num_rows;
     params.max_shm = max_shm_;
     params.num_classes = num_classes_;
     params.leaf_payload_type = leaf_payload_type_;
-
-    dhprint(preds);
-    // C layer will infer in a transposed fashion, to be un-transposed in cython
-    preds += output_group_num_ * num_rows;
-    diprint(output_group_num_);
 
     /**
     The binary classification / regression (FLOAT_SCALAR) predict_proba() works as follows
@@ -244,12 +254,13 @@ struct forest {
       diprint(num_values_to_transform);
       diprint(ceildiv(num_values_to_transform, (size_t)FIL_TPB));
       diprint(FIL_TPB);
-      dhprint(preds);
+      dhprint(params.preds);
       transform_k<<<ceildiv(num_values_to_transform, (size_t)FIL_TPB), FIL_TPB,
-                    0, stream>>>(preds, num_values_to_transform, ot,
+                    0, stream>>>(params.preds, num_values_to_transform, ot,
                                  num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
                                  threshold_, global_bias_, complement_proba);
       CUDA_CHECK(cudaPeekAtLastError());
+      printf("inference done\n\n");
     }
   }
 
@@ -713,6 +724,33 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   }
 }
 
+struct treelite_tree_it {
+  treelite_tree_it(const tl::Model& model, const treelite_params_t* tl_params,
+                   const leaf_value_t leaf_payload_type)
+    : trees(model.trees) {
+    if (leaf_payload_type == FLOAT_SCALAR) {
+      tree = tl_params->output_group_num;
+      tree_stride = model.num_output_group;
+    } else {  // INT_CLASS_LABEL
+      tree = 0;
+      tree_stride = 1;
+    }
+  }
+
+  const tl::Tree* next_tree() {
+    if (tree < trees.size()) {
+      const tl::Tree* res = &trees[tree];
+      tree += tree_stride;
+      return res;
+    } else
+      return NULL;
+  }
+
+  int tree;
+  const std::vector<tl::Tree>& trees;
+  long tree_stride;
+};
+
 // uses treelite model with additional tl_params to initialize FIL params
 // and dense nodes (stored in *pnodes)
 void tl2fil_dense(std::vector<dense_node_t>* pnodes, forest_params_t* params,
@@ -722,17 +760,14 @@ void tl2fil_dense(std::vector<dense_node_t>* pnodes, forest_params_t* params,
   // convert the nodes
   int num_nodes = forest_num_nodes(params->num_trees, params->depth);
   pnodes->resize(num_nodes, dense_node_t{0, 0});
-  int tree0, tree_stride;
-  if (params->leaf_payload_type == FLOAT_SCALAR) {
-    tree0 = tl_params->output_group_num;
-    tree_stride = model.num_output_group;
-  } else {  // INT_CLASS_LABEL
-    tree0 = 0;
-    tree_stride = 1;
-  }
-  for (int i = 0; tree0 + i * tree_stride < model.trees.size(); ++i) {
-    tree2fil_dense(pnodes, i * tree_num_nodes(params->depth),
-                   model.trees[tree0 + i * tree_stride], *params);
+
+  treelite_tree_it input(model, tl_params, params->leaf_payload_type);
+  int fil_root = 0;
+  const tl::Tree* tl_tree;
+  while (NULL != (tl_tree = input.next_tree())) {
+    // convert the nodes
+    tree2fil_dense(pnodes, fil_root, *tl_tree, *params);
+    fil_root += tree_num_nodes(params->depth);
   }
 }
 
@@ -784,9 +819,11 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
   tl2fil_common(params, model, tl_params);
   tl2fil_sparse_check_t<fil_node_t>::check(model);
 
-  // convert the nodes
-  for (int i = 0; i < model.trees.size(); ++i) {
-    int root = tree2fil_sparse(pnodes, model.trees[i], *params);
+  treelite_tree_it input(model, tl_params, params->leaf_payload_type);
+  const tl::Tree* tl_tree;
+  while (NULL != (tl_tree = input.next_tree())) {
+    // convert the nodes
+    int root = tree2fil_sparse(pnodes, *tl_tree, *params);
     ptrees->push_back(root);
   }
   params->num_nodes = pnodes->size();
