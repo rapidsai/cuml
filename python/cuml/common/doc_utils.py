@@ -163,6 +163,7 @@ def generate_docstring(X='dense',
                        convert_dtype_cast=False,
                        skip_parameters=[],
                        skip_parameters_heading=False,
+                       prepend_parameters=True,
                        parameters=False,
                        return_values=False):
     """
@@ -224,8 +225,12 @@ def generate_docstring(X='dense',
     skip_parameters : list of str (default = [])
         Use if you want the decorator to skip generating a docstring entry
         for a specific parameter
-    skip_parameters_heading : boolean (deafault = False)
+    skip_parameters_heading : boolean (default = False)
         Set to True to not generate the Parameters section heading
+    prepend_parameters : boolean (default = True)
+        Use when setting skip_parameters_heading to True, so that the
+        parameters inserted by the decorator are inserted before the
+        parameters you already have in your docstring.
     return_values : dict or list of dicts (default = False)
         Use to generate docstrings of return values. One dictionary per
         return value, this is the format:
@@ -248,6 +253,14 @@ def generate_docstring(X='dense',
 
             func.__doc__ += \
                 '\nParameters\n----------\n'
+
+        # Check if we want to prepend the parameters
+        if skip_parameters_heading and prepend_parameters:
+            loc_pars = func.__doc__.find("----------") + 11
+            current_params_in_docstring = \
+                func.__doc__[loc_pars:]
+
+            func.__doc__ = func.__doc__[:loc_pars]
 
         # Process each parameter
         for par, value in params.items():
@@ -291,6 +304,12 @@ def generate_docstring(X='dense',
                             default=params[par].default
                         )
             func.__doc__ += '\n\n'
+
+        if skip_parameters_heading and prepend_parameters:
+            # indexing at 8 to match indentation of inserted parameters
+            # this can be replaced with indentation detection
+            # https://github.com/rapidsai/cuml/issues/2714
+            func.__doc__ += current_params_in_docstring[8:]
 
         # Add return section header if needed, no option to skip currently.
         if(return_values):
