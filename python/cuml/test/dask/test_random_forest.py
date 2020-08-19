@@ -300,7 +300,8 @@ def test_rf_concatenation_dask(client, model_type):
 
 
 @pytest.mark.parametrize('model_type', ['classification', 'regression'])
-def test_single_input(client, model_type):
+@pytest.mark.parametrize('ignore_empty_partitions', [True, False])
+def test_single_input(client, model_type, ignore_empty_partitions):
     X, y = make_classification(n_samples=1)
     X = X.astype(np.float32)
     if model_type == 'classification':
@@ -311,14 +312,21 @@ def test_single_input(client, model_type):
     X, y = _prep_training_data(client, X, y,
                                partitions_per_worker=2)
     if model_type == 'classification':
-        cu_rf_mg = cuRFC_mg(n_bins=1, ignore_empty_partitions=True)
+        cu_rf_mg = cuRFC_mg(n_bins=1, ignore_empty_partitions=ignore_empty_partitions)
     else:
-        cu_rf_mg = cuRFR_mg(n_bins=1, ignore_empty_partitions=True)
-    cu_rf_mg.fit(X, y)
-    cuml_mod_predict = cu_rf_mg.predict(X)
-    cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict.compute()))
-    y = cp.asnumpy(cp.array(y.compute()))
+        cu_rf_mg = cuRFR_mg(n_bins=1, ignore_empty_partitions=ignore_empty_partitions)
 
-    acc_score = accuracy_score(cuml_mod_predict, y)
 
-    assert acc_score == 1.0
+    if ignore_empty_partitions:
+        cu_rf_mg.fit(X, y)
+        cuml_mod_predict = cu_rf_mg.predict(X)
+        cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict.compute()))
+
+        y = cp.asnumpy(cp.array(y.compute()))
+
+        acc_score = accuracy_score(cuml_mod_predict, y)
+
+        assert acc_score == 1.0
+    else:
+        with pytest.raises(RuntimeError):
+            cu_rf_mg.fit(X, y)
