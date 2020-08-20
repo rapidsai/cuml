@@ -334,7 +334,11 @@ def test_single_input(client, model_type, ignore_empty_partitions):
         cu_rf_mg = cuRFR_mg(n_bins=1,
                             ignore_empty_partitions=ignore_empty_partitions)
 
-    if ignore_empty_partitions:
+    if not ignore_empty_partitions and \
+       len(client.scheduler_info()['workers'].keys()) > 1:
+        with pytest.raises(ValueError):
+            cu_rf_mg.fit(X, y)
+    else:
         cu_rf_mg.fit(X, y)
         cuml_mod_predict = cu_rf_mg.predict(X)
         cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict.compute()))
@@ -344,6 +348,3 @@ def test_single_input(client, model_type, ignore_empty_partitions):
         acc_score = accuracy_score(cuml_mod_predict, y)
 
         assert acc_score == 1.0
-    else:
-        with pytest.raises(ValueError):
-            cu_rf_mg.fit(X, y)
