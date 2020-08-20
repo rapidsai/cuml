@@ -329,5 +329,5 @@ def test_single_input(client, model_type, ignore_empty_partitions):
 
         assert acc_score == 1.0
     else:
-        with pytest.raises(RuntimeError):
+        with pytest.raises(ValueError):
             cu_rf_mg.fit(X, y)
