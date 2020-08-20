@@ -190,7 +190,7 @@ class Lasso(Base, RegressorMixin):
 
         return self
 
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the y for X.
 
