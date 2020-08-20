@@ -19,8 +19,9 @@ import sys
 import pytest
 
 import cupy as cp
-import numpy as np
 import cudf
+import numpy as np
+import operator
 
 from copy import deepcopy
 from numba import cuda
@@ -463,6 +464,20 @@ def test_deepcopy(input_type):
     if input_type != 'series':
         # skipping one dimensional ary order test
         assert ary.order == b.order
+
+
+@pytest.mark.parametrize('operation', [operator.add, operator.sub])
+def test_cumlary_binops(operation):
+    a = cp.arange(5)
+    b = cp.arange(5)
+
+    ary_a = CumlArray(a)
+    ary_b = CumlArray(b)
+
+    c = operation(a, b)
+    ary_c = operation(ary_a, ary_b)
+
+    assert(cp.all(ary_c.to_output('cupy') == c))
 
 
 def create_input(input_type, dtype, shape, order):
