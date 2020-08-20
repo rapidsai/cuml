@@ -78,9 +78,9 @@ class LogisticRegression(Base, ClassifierMixin):
         reg.fit(X,y)
 
         print("Coefficients:")
-        print(reg.coef_.to_output('cupy'))
+        print(reg.coef_)
         print("Intercept:")
-        print(reg.intercept_.to_output('cupy'))
+        print(reg.intercept_)
 
         X_new = cudf.DataFrame()
         X_new['col1'] = np.array([1,5], dtype = np.float32)
