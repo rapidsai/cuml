@@ -229,7 +229,7 @@ class ElasticNet(Base, RegressorMixin):
 
         return self
 
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the y for X.
 
@@ -252,7 +252,7 @@ class ElasticNet(Base, RegressorMixin):
 
         """
 
-        return self.solver_model.predict(X)
+        return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
     def get_params(self, deep=True):
         """
