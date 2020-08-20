@@ -20,7 +20,7 @@
 # cython: language_level = 3
 
 import numpy as np
-import pandas as pd
+import cupy as cp
 import cudf
 import ctypes
 import cuml
@@ -28,6 +28,8 @@ import warnings
 
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.doc_utils import insert_into_docstring
 from cuml.common import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
@@ -36,9 +38,6 @@ from cuml.common.handle cimport cumlHandle
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
-
-import rmm
-from libc.stdlib cimport malloc, free
 
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
@@ -126,7 +125,7 @@ class NearestNeighbors(Base):
     metric_params : dict, optional (default = None) This is currently ignored.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
       import cudf
@@ -137,7 +136,7 @@ class NearestNeighbors(Base):
                         n_features=10, random_state=42)
 
       # build a cudf Dataframe
-      X_cudf = cudf.DataFrame.from_gpu_matrix(X)
+      X_cudf = cudf.DataFrame(X)
 
       # fit model
       model = NearestNeighbors(n_neighbors=3)
@@ -186,7 +185,7 @@ class NearestNeighbors(Base):
     -----
 
     For an additional example see `the NearestNeighbors notebook
-    <https://github.com/rapidsai/cuml/blob/branch-0.14/notebooks/nearest_neighbors_demo.ipynb>`_.
+    <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/nearest_neighbors_demo.ipynb>`_.
 
     For additional docs, see `scikit-learn's NearestNeighbors
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
@@ -221,20 +220,11 @@ class NearestNeighbors(Base):
         self.p = p
         self.algorithm = algorithm
 
+    @generate_docstring()
     def fit(self, X, convert_dtype=True):
         """
         Fit GPU index for performing nearest neighbor queries.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
         """
         self._set_n_features_in(X)
         self._set_output_type(X)
@@ -244,7 +234,7 @@ class NearestNeighbors(Base):
 
         self.n_dims = X.shape[1]
 
-        self.X_m, n_rows, n_cols, dtype = \
+        self._X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F', check_dtype=np.float32,
                                 convert_to_dtype=(np.float32
                                                   if convert_dtype
@@ -291,8 +281,44 @@ class NearestNeighbors(Base):
 
         return m, expanded
 
-    def kneighbors(self, X=None, n_neighbors=None,
-                   return_distance=True, convert_dtype=True):
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
+                           return_values=[('dense', '(n_samples, n_features)'),
+                                          ('dense',
+                                           '(n_samples, n_features)')])
+    def kneighbors(self, X=None, n_neighbors=None, return_distance=True,
+                   convert_dtype=True):
+        """
+        Query the GPU index for the k nearest neighbors of column vectors in X.
+
+        Parameters
+        ----------
+        X : {}
+
+        n_neighbors : Integer
+            Number of neighbors to search. If not provided, the n_neighbors
+            from the model instance is used (default=10)
+
+        return_distance: Boolean
+            If False, distances will not be returned
+
+        convert_dtype : bool, optional (default = True)
+            When set to True, the kneighbors method will automatically
+            convert the inputs to np.float32.
+
+        Returns
+        -------
+        distances : {}
+            The distances of the k-nearest neighbors for each column vector
+            in X
+
+        indices : {}
+            The indices of the k-nearest neighbors for each column vector in X
+        """
+
+        return self._kneighbors(X, n_neighbors, return_distance, convert_dtype)
+
+    def _kneighbors(self, X=None, n_neighbors=None, return_distance=True,
+                    convert_dtype=True, _output_cumlarray=False):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -314,26 +340,31 @@ class NearestNeighbors(Base):
             When set to True, the kneighbors method will automatically
             convert the inputs to np.float32.
 
+        _output_cumlarray : bool, optional (default = False)
+            When set to True, the class self.output_type is overwritten
+            and this method returns the output as a cumlarray
+
         Returns
         -------
-        distances: cuDF DataFrame or numpy ndarray
+        distances: cuDF DataFrame, pandas DataFrame, numpy or cupy ndarray
             The distances of the k-nearest neighbors for each column vector
             in X
 
-        indices: cuDF DataFrame of numpy ndarray
+        indices: cuDF DataFrame, pandas DataFrame, numpy or cupy ndarray
             The indices of the k-nearest neighbors for each column vector in X
         """
-
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
-        X = self.X_m if X is None else X
 
-        out_type = self._get_output_type(X)
+        use_training_data = X is None
+        if X is None:
+            X = self._X_m
+            n_neighbors += 1
 
         if (n_neighbors is None and self.n_neighbors is None) \
                 or n_neighbors <= 0:
             raise ValueError("k or n_neighbors must be a positive integers")
 
-        if n_neighbors > self.X_m.shape[0]:
+        if n_neighbors > self._X_m.shape[0]:
             raise ValueError("n_neighbors must be <= number of "
                              "samples in index")
 
@@ -362,9 +393,9 @@ class NearestNeighbors(Base):
         cdef vector[float*] *inputs = new vector[float*]()
         cdef vector[int] *sizes = new vector[int]()
 
-        cdef uintptr_t idx_ptr = self.X_m.ptr
+        cdef uintptr_t idx_ptr = self._X_m.ptr
         inputs.push_back(<float*>idx_ptr)
-        sizes.push_back(<int>self.X_m.shape[0])
+        sizes.push_back(<int>self._X_m.shape[0])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -393,5 +424,172 @@ class NearestNeighbors(Base):
 
         self.handle.sync()
 
-        return (D_ndarr.to_output(out_type), I_ndarr.to_output(out_type)) \
-            if return_distance else I_ndarr.to_output(out_type)
+        if _output_cumlarray:
+            return (D_ndarr, I_ndarr) if return_distance else I_ndarr
+
+        out_type = self._get_output_type(X)
+        I_output = I_ndarr.to_output(out_type)
+        if return_distance:
+            D_output = D_ndarr.to_output(out_type)
+
+        # drop first column if using training data as X
+        # this will need to be moved to the C++ layer (cuml issue #2562)
+        if use_training_data:
+            if out_type in {'cupy', 'numpy', 'numba'}:
+                return (D_output[:, 1:], I_output[:, 1:]) \
+                    if return_distance else I_output[:, 1:]
+            else:
+                I_output.drop(I_output.columns[0], axis=1)
+                if return_distance:
+                    D_output.drop(D_output.columns[0], axis=1)
+
+        return (D_output, I_output) if return_distance else I_output
+
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
+    def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):
+        """
+        Find the k nearest neighbors of column vectors in X and return as
+        a sparse matrix in CSR format.
+
+        Parameters
+        ----------
+        X : {}
+
+        n_neighbors : Integer
+            Number of neighbors to search. If not provided, the n_neighbors
+            from the model instance is used
+
+        mode : string (default='connectivity')
+            Values in connectivity matrix: 'connectivity' returns the
+            connectivity matrix with ones and zeros, 'distance' returns the
+            edges as the distances between points with the requested metric.
+
+        Returns
+        -------
+        A : sparse graph in CSR format, shape = (n_samples, n_samples_fit)
+            n_samples_fit is the number of samples in the fitted data where
+            A[i, j] is assigned the weight of the edge that connects i to j.
+            Values will either be ones/zeros or the selected distance metric.
+            Return types are either cupy's CSR sparse graph (device) or
+            numpy's CSR sparse graph (host)
+
+        """
+        if not self._X_m:
+            raise ValueError('This NearestNeighbors instance has not been '
+                             'fitted yet, call "fit" before using this '
+                             'estimator')
+
+        if n_neighbors is None:
+            n_neighbors = self.n_neighbors
+
+        if mode == 'connectivity':
+            ind_mlarr = self._kneighbors(X, n_neighbors,
+                                         return_distance=False,
+                                         _output_cumlarray=True)
+            n_samples = ind_mlarr.shape[0]
+            distances = cp.ones(n_samples * n_neighbors, dtype=np.float32)
+
+        elif mode == 'distance':
+            dist_mlarr, ind_mlarr = self._kneighbors(X, n_neighbors,
+                                                     _output_cumlarray=True)
+            distances = dist_mlarr.to_output('cupy')[:, 1:] if X is None \
+                else dist_mlarr.to_output('cupy')
+            distances = cp.ravel(distances)
+
+        else:
+            raise ValueError('Unsupported mode, must be one of "connectivity"'
+                             ' or "distance" but got "%s" instead' % mode)
+
+        indices = ind_mlarr.to_output('cupy')[:, 1:] if X is None \
+            else ind_mlarr.to_output('cupy')
+        n_samples = indices.shape[0]
+        n_samples_fit = self._X_m.shape[0]
+        n_nonzero = n_samples * n_neighbors
+        rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
+
+        sparse_csr = cp.sparse.csr_matrix((distances, cp.ravel(indices),
+                                          rowptr), shape=(n_samples,
+                                          n_samples_fit))
+
+        if self._get_output_type(X) is 'numpy':
+            return sparse_csr.get()
+        else:
+            return sparse_csr
+
+
+def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
+                     handle=None, algorithm="brute", metric="euclidean", p=2,
+                     include_self=False, metric_params=None, output_type=None):
+    """
+    Computes the (weighted) graph of k-Neighbors for points in X.
+
+    Parameters
+    ----------
+    X : array-like (device or host) shape = (n_samples, n_features)
+        Dense matrix (floats or doubles) of shape (n_samples, n_features).
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy
+
+    n_neighbors : Integer
+        Number of neighbors to search. If not provided, the n_neighbors
+        from the model instance is used (default=5)
+
+    mode : string (default='connectivity')
+        Values in connectivity matrix: 'connectivity' returns the
+        connectivity matrix with ones and zeros, 'distance' returns the
+        edges as the distances between points with the requested metric.
+
+    verbose : int or boolean (default = False)
+        Logging level
+
+    handle : cumlHandle
+        The cumlHandle resources to use
+
+    algorithm : string (default='brute')
+        The query algorithm to use. Currently, only 'brute' is supported.
+
+    metric : string (default='euclidean').
+        Distance metric to use. Supported distances are ['l1, 'cityblock',
+        'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
+        'minkowski', 'chebyshev', 'jensenshannon', 'cosine', 'correlation']
+
+    p : float (default=2) Parameter for the Minkowski metric. When p = 1, this
+        is equivalent to manhattan distance (l1), and euclidean distance (l2)
+        for p = 2. For arbitrary p, minkowski distance (lp) is used.
+
+    include_self : bool or 'auto' (default=False)
+        Whether or not to mark each sample as the first nearest neighbor to
+        itself. If 'auto', then True is used for mode='connectivity' and False
+        for mode='distance'.
+
+    metric_params : dict, optional (default = None) This is currently ignored.
+
+    output_type : {'input', 'cupy', 'numpy'}, optional (default=None)
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
+
+    Returns
+    -------
+    A : sparse graph in CSR format, shape = (n_samples, n_samples_fit)
+        n_samples_fit is the number of samples in the fitted data where
+        A[i, j] is assigned the weight of the edge that connects i to j.
+        Values will either be ones/zeros or the selected distance metric.
+        Return types are either cupy's CSR sparse graph (device) or
+        numpy's CSR sparse graph (host)
+
+    """
+    X = NearestNeighbors(n_neighbors, verbose, handle, algorithm, metric, p,
+                         metric_params=metric_params,
+                         output_type=output_type).fit(X)
+
+    if include_self == 'auto':
+        include_self = mode == 'connectivity'
+
+    if not include_self:
+        query = None
+    else:
+        query = X.X_m
+
+    return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)

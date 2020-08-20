@@ -19,8 +19,9 @@ import sys
 import pytest
 
 import cupy as cp
-import numpy as np
 import cudf
+import numpy as np
+import operator
 
 from copy import deepcopy
 from numba import cuda
@@ -279,10 +280,9 @@ def test_output(output_type, dtype, out_dtype, order, shape):
             assert np.all(comp.to_array())
 
         elif output_type == 'dataframe':
-            mat = cuda.to_device(inp)
-            if len(mat.shape) == 1:
-                mat = mat.reshape(mat.shape[0], 1)
-            comp = cudf.DataFrame.from_gpu_matrix(mat)
+            if len(inp.shape) == 1:
+                inp = inp.reshape(inp.shape[0], 1)
+            comp = cudf.DataFrame(inp)
             comp = comp == res
             assert np.all(comp.as_gpu_matrix().copy_to_host())
 
@@ -464,6 +464,20 @@ def test_deepcopy(input_type):
     if input_type != 'series':
         # skipping one dimensional ary order test
         assert ary.order == b.order
+
+
+@pytest.mark.parametrize('operation', [operator.add, operator.sub])
+def test_cumlary_binops(operation):
+    a = cp.arange(5)
+    b = cp.arange(5)
+
+    ary_a = CumlArray(a)
+    ary_b = CumlArray(b)
+
+    c = operation(a, b)
+    ary_c = operation(ary_a, ary_b)
+
+    assert(cp.all(ary_c.to_output('cupy') == c))
 
 
 def create_input(input_type, dtype, shape, order):

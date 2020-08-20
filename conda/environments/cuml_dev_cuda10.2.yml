@@ -15,6 +15,7 @@ dependencies:
 - rmm=0.15*
 - cython>=0.29,<0.30
 - pytest>=4.6
+- gtest=1.10.0
 - pytest-timeout
 - scikit-learn>=0.21
 - umap-learn>=0.3.9
@@ -25,8 +26,9 @@ dependencies:
 - dask-cudf=0.15*
 - dask-ml
 - ucx-py=0.15*
+- ucx-proc=*=gpu
 - nccl>=2.5
-- libcumlprims=0.15.0a200622
+- libcumlprims=0.15.0a200812
 - statsmodels
 - treelite=0.92
 - doxygen

@@ -23,6 +23,7 @@ import warnings
 from cuml.common import with_cupy_rmm
 from cuml.common import CumlArray
 from cuml.common.base import Base
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.kernel_utils import cuda_kernel_factory
 from cuml.common.import_utils import has_scipy
@@ -114,9 +115,6 @@ def count_features_dense_kernel(float_dtype, int_dtype):
 
 
 class MultinomialNB(Base):
-
-    # TODO: Make this extend cuml.Base:
-    # https://github.com/rapidsai/cuml/issues/1834
 
     """
     Naive Bayes classifier for multinomial models
@@ -210,30 +208,19 @@ class MultinomialNB(Base):
             self._class_prior_ = None
 
         self.fit_called_ = False
-
-        self._classes_ = None
         self._n_classes_ = 0
-
         self._n_features_ = None
 
         # Needed until Base no longer assumed cumlHandle
         self.handle = None
 
+    @generate_docstring(X='dense_sparse')
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     @with_cupy_rmm
     def fit(self, X, y, sample_weight=None):
         """
         Fit Naive Bayes classifier according to X, y
 
-        Parameters
-        ----------
-
-        X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
-            Training vectors, where n_samples is the number of samples and
-            n_features is the number of features.
-        y : array-like shape (n_samples) Target values.
-        sample_weight : array-like of shape (n_samples)
-            Weights applied to individial samples (1. for unweighted).
         """
         self._set_n_features_in(X)
         return self.partial_fit(X, y, sample_weight)
@@ -273,7 +260,7 @@ class MultinomialNB(Base):
             else:
                 self._classes_ = CumlArray(data=label_classes)
 
-            self._n_classes_ = self._classes_.shape[0]
+            self._n_classes_ = self.classes_.shape[0]
             self._n_features_ = X.shape[1]
             self._init_counters(self._n_classes_, self._n_features_,
                                 X.dtype)
@@ -339,21 +326,16 @@ class MultinomialNB(Base):
         return self._partial_fit(X, y, sample_weight=sample_weight,
                                  _classes=classes)
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'y_hat',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_rows, 1)'})
     @cp.prof.TimeRangeDecorator(message="predict()", color_id=1)
     @with_cupy_rmm
     def predict(self, X):
         """
         Perform classification on an array of test vectors X.
-
-        Parameters
-        ----------
-
-        X : array-like of shape (n_samples, n_features)
-
-        Returns
-        -------
-
-        C : cupy.ndarray of shape (n_samples)
 
         """
         out_type = self._get_output_type(X)
@@ -376,29 +358,23 @@ class MultinomialNB(Base):
             X = input_to_cuml_array(X, order='K').array.to_output('cupy')
 
         jll = self._joint_log_likelihood(X)
-        indices = cp.argmax(jll, axis=1).astype(self._classes_.dtype)
+        indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
-        y_hat = invert_labels(indices, classes=self._classes_)
+        y_hat = invert_labels(indices, classes=self.classes_)
         return CumlArray(data=y_hat).to_output(out_type)
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'C',
+                                       'type': 'dense',
+            'description': 'Returns the log-probability of the samples for each class in the \
+            model. The columns correspond to the classes in sorted order, as \
+            they appear in the attribute `classes_`.',  # noqa
+                                       'shape': '(n_rows, 1)'})
     @with_cupy_rmm
     def predict_log_proba(self, X):
         """
         Return log-probability estimates for the test vector X.
 
-        Parameters
-        ----------
-
-        X : array-like of shape (n_samples, n_features)
-
-
-        Returns
-        -------
-
-        C : array-like of shape (n_samples, n_classes)
-            Returns the log-probability of the samples for each class in the
-            model. The columns correspond to the classes in sorted order, as
-            they appear in the attribute classes_.
         """
         out_type = self._get_output_type(X)
 
@@ -440,28 +416,28 @@ class MultinomialNB(Base):
         result = jll - log_prob_x.T
         return CumlArray(result).to_output(out_type)
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'C',
+                                       'type': 'dense',
+            'description': 'Returns the probability of the samples for each class in the \
+            model. The columns correspond to the classes in sorted order, as \
+            they appear in the attribute `classes_`.',  # noqa
+                                       'shape': '(n_rows, 1)'})
     @with_cupy_rmm
     def predict_proba(self, X):
         """
         Return probability estimates for the test vector X.
 
-        Parameters
-        ----------
-
-        X : array-like of shape (n_samples, n_features)
-
-        Returns
-        -------
-
-        C : array-like of shape (n_samples, n_classes)
-            Returns the probability of the samples for each class in the model.
-            The columns correspond to the classes in sorted order, as they
-            appear in the attribute classes_.
         """
         out_type = self._get_output_type(X)
         result = cp.exp(self.predict_log_proba(X))
         return CumlArray(result).to_output(out_type)
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'score',
+                                       'type': 'float',
+                                       'description': 'Mean accuracy of \
+                                       self.predict(X) with respect to y.'})
     @with_cupy_rmm
     def score(self, X, y, sample_weight=None):
         """
@@ -471,21 +447,8 @@ class MultinomialNB(Base):
         harsh metric since you require for each sample that each label set be
         correctly predicted.
 
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-        Test samples.
+        Currently, sample weight is ignored
 
-        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
-        True labels for X.
-
-        sample_weight : array-like of shape (n_samples,), default=None
-        Sample weights. Currently, sample weight is ignored
-
-        Returns
-        -------
-
-        score : float Mean accuracy of self.predict(X) with respect to y.
         """
         y_hat = self.predict(X)
         return accuracy_score(y_hat, cp.asarray(y, dtype=y.dtype))
@@ -511,7 +474,7 @@ class MultinomialNB(Base):
         if X.ndim != 2:
             raise ValueError("Input samples should be a 2D array")
 
-        if Y.dtype != self._classes_.dtype:
+        if Y.dtype != self.classes_.dtype:
             warnings.warn("Y dtype does not match classes_ dtype. Y will be "
                           "converted, which will increase memory consumption")
 
@@ -523,7 +486,7 @@ class MultinomialNB(Base):
         n_rows = X.shape[0]
         n_cols = X.shape[1]
 
-        labels_dtype = self._classes_.dtype
+        labels_dtype = self.classes_.dtype
 
         if cp.sparse.isspmatrix(X):
             X = X.tocoo()
@@ -561,8 +524,8 @@ class MultinomialNB(Base):
         count_classes((math.ceil(n_rows / 32),), (32,),
                       (class_c, n_rows, Y))
 
-        self._feature_count_ += counts
-        self._class_count_ += class_c
+        self._feature_count_ = CumlArray(self._feature_count_ + counts)
+        self._class_count_ = CumlArray(self._class_count_ + class_c)
 
     def _update_class_log_prior(self, class_prior=None):
 
@@ -576,11 +539,12 @@ class MultinomialNB(Base):
 
         elif self.fit_prior:
             log_class_count = cp.log(self._class_count_)
-            self._class_log_prior_ = log_class_count - \
-                cp.log(self._class_count_.sum())
+            self._class_log_prior_ = \
+                CumlArray(log_class_count - cp.log(
+                    cp.asarray(self._class_count_).sum()))
         else:
-            self._class_log_prior_ = cp.full(self._n_classes_,
-                                             -1*math.log(self._n_classes_))
+            self._class_log_prior_ = CumlArray(cp.full(self._n_classes_,
+                                               -1*math.log(self._n_classes_)))
 
     def _update_feature_log_prob(self, alpha):
         """
@@ -592,10 +556,10 @@ class MultinomialNB(Base):
 
         alpha : float amount of smoothing to apply (0. means no smoothing)
         """
-        smoothed_fc = self._feature_count_ + alpha
+        smoothed_fc = cp.asarray(self._feature_count_) + alpha
         smoothed_cc = smoothed_fc.sum(axis=1).reshape(-1, 1)
-        self._feature_log_prob_ = (cp.log(smoothed_fc) -
-                                   cp.log(smoothed_cc.reshape(-1, 1)))
+        self._feature_log_prob_ = CumlArray(cp.log(smoothed_fc) -
+                                            cp.log(smoothed_cc.reshape(-1, 1)))
 
     def _joint_log_likelihood(self, X):
         """
@@ -607,6 +571,6 @@ class MultinomialNB(Base):
         X : array-like of size (n_samples, n_features)
         """
 
-        ret = X.dot(self._feature_log_prob_.T)
-        ret += self._class_log_prior_
+        ret = X.dot(cp.asarray(self._feature_log_prob_).T)
+        ret += cp.asarray(self._class_log_prior_)
         return ret

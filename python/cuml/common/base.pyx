@@ -29,6 +29,7 @@ import inspect
 from cudf.core import Series as cuSeries
 from cudf.core import DataFrame as cuDataFrame
 from cuml.common.array import CumlArray
+from cuml.common.doc_utils import generate_docstring
 from cupy import ndarray as cupyArray
 from numba.cuda import devicearray as numbaArray
 from numpy import ndarray as numpyArray
@@ -192,7 +193,7 @@ class Base:
         Pretty prints the arguments of a class using Scikit-learn standard :)
         """
         cdef list signature = inspect.getfullargspec(self.__init__).args
-        if signature[0] == 'self':
+        if len(signature) > 0 and signature[0] == 'self':
             del signature[0]
         cdef dict state = self.__dict__
         cdef str string = self.__class__.__name__ + '('
@@ -274,7 +275,12 @@ class Base:
             else:
                 return self.__dict__[real_name]
         else:
-            raise AttributeError
+            if attr == "solver_model":
+                return self.__dict__['solver_model']
+            if "solver_model" in self.__dict__.keys():
+                return getattr(self.solver_model, attr)
+            else:
+                raise AttributeError
 
     def _set_output_type(self, input):
         """
@@ -331,26 +337,16 @@ class RegressorMixin:
 
     _estimator_type = "regressor"
 
+    @generate_docstring(return_values={'name': 'score',
+                                       'type': 'float',
+                                       'description': 'R^2 of self.predict(X) '
+                                                      'wrt. y.'})
     def score(self, X, y, **kwargs):
-        """Scoring function for regression estimators
+        """
+        Scoring function for regression estimators
 
         Returns the coefficient of determination R^2 of the prediction.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Test samples on which we predict
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        y : array-like (device or host) shape = (n_samples, n_features)
-            Ground truth values for predict(X)
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        score : float
-            R^2 of self.predict(X) wrt. y.
         """
         from cuml.metrics.regression import r2_score
 
@@ -368,21 +364,16 @@ class ClassifierMixin:
 
     _estimator_type = "classifier"
 
+    @generate_docstring(return_values={'name': 'score',
+                                       'type': 'float',
+                                       'description': 'Accuracy of \
+                                                      self.predict(X) wrt. y \
+                                                      (fraction where y == \
+                                                      pred_y)'})
     def score(self, X, y, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.
 
-        Parameters
-        ----------
-        X : [cudf.DataFrame]
-            Test samples on which we predict
-        y : [cudf.Series, device array, or numpy array]
-            Ground truth values for predict(X)
-
-        Returns
-        -------
-        score : float
-            Accuracy of self.predict(X) wrt. y (fraction where y == pred_y)
         """
         from cuml.metrics.accuracy import accuracy_score
         from cuml.common import input_to_dev_array
@@ -442,3 +433,23 @@ def _input_target_to_dtype(target):
     else:
         dtype = None
     return dtype
+
+
+def _determine_stateless_output_type(output_type, input_obj):
+    """
+    This function determines the output type using the same steps that are
+    performed in `cuml.common.base.Base`. This can be used to mimic the
+    functionality in `Base` for stateless functions or objects that do not
+    derive from `Base`.
+    """
+
+    # Default to the global type if not specified, otherwise, check the
+    # output_type string
+    temp_output = cuml.global_output_type if output_type is None \
+        else _check_output_type_str(output_type)
+
+    # If we are using 'input', determine the the type from the input object
+    if temp_output == 'input':
+        temp_output = _input_to_type(input_obj)
+
+    return temp_output

@@ -21,8 +21,6 @@
 
 namespace ML {
 
-/** @} */
-
 /**
  * @defgroup DbscanCpp C++ implementation of Dbscan algo
  * @brief Fits a DBSCAN model on an input feature matrix and outputs the labels
