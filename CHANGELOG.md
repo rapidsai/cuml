@@ -3,7 +3,7 @@
 ## New Features
 
 ## Improvements
-- PR #2723: Support convert_dtype in basic svc predict and set convert_dtype as True in logit
+- PR #2723: Support and enable convert_dtype in estimator predict
 
 ## Bug Fixes
 
