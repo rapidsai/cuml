@@ -31,6 +31,7 @@ from cuml.test.utils import (
 
 import sklearn
 from sklearn.datasets import make_regression, make_classification
+from sklearn.datasets import load_breast_cancer
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import Ridge as skRidge
 from sklearn.linear_model import LogisticRegression as skLog
@@ -199,9 +200,6 @@ def test_logistic_regression(
     num_classes, dtype, penalty, l1_ratio,
     fit_intercept, nrows, column_info, C, tol
 ):
-    if penalty in ["l1", "elasticnet"]:
-        pytest.xfail("OWL numerical stability is being improved")
-
     ncols, n_info = column_info
     # Checking sklearn >= 0.21 for testing elasticnet
     sk_check = LooseVersion(str(sklearn.__version__)) >= LooseVersion("0.21.0")
@@ -255,11 +253,40 @@ def test_logistic_regression(
     # Setting tolerance to lowest possible per loss to detect regressions
     # as much as possible
     cu_preds = culog.predict(X_test)
+    tol_test = 0.012
+    tol_train = 0.006
+    if num_classes == 10 and penalty in ["elasticnet", "l1"]:
+        tol_test *= 10
+        tol_train *= 10
 
     assert culog.score(X_train, y_train) >= sklog.score(X_train, y_train) - \
-        0.006
-    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.012
+        tol_train
+    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - \
+        tol_test
     assert len(np.unique(cu_preds)) == len(np.unique(y_test))
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("penalty", ["none", "l1", "l2", "elasticnet"])
+def test_logistic_regression_unscaled(dtype, penalty):
+    # Test logistic regression on the breast cancer dataset. We do not scale
+    # the dataset which could lead to numerical problems (fixed in PR #2543).
+    X, y = load_breast_cancer(return_X_y=True)
+    X = X.astype(dtype)
+    y = y.astype(dtype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
+    params = {"penalty": penalty, "C": 1, "tol": 1e-4, "fit_intercept": True,
+              'max_iter': 5000}
+    if penalty == "elasticnet":
+        params["l1_ratio"] = 1.0
+    culog = cuLog(**params)
+    culog.fit(X_train, y_train)
+
+    score_test = 0.94
+    score_train = 0.94
+
+    assert culog.score(X_train, y_train) >= score_train
+    assert culog.score(X_test, y_test) >= score_test
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -294,18 +321,18 @@ def test_logistic_regression_decision_function(
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
 
-    culog = cuLog(fit_intercept=fit_intercept)
+    culog = cuLog(fit_intercept=fit_intercept, output_type="numpy")
     culog.fit(X_train, y_train)
 
     sklog = skLog(fit_intercept=fit_intercept)
-    sklog.coef_ = cp.asnumpy(culog.coef_.to_output("cupy").T)
+    sklog.coef_ = culog.coef_.to_output('numpy').T
     if fit_intercept:
-        sklog.intercept_ = cp.asnumpy(culog.intercept_.to_output("cupy"))
+        sklog.intercept_ = culog.intercept_.to_output('numpy')
     else:
         skLog.intercept_ = 0
     sklog.classes_ = np.arange(num_classes)
 
-    cu_dec_func = culog.decision_function(X_test).to_output("cupy")
+    cu_dec_func = culog.decision_function(X_test)
     if num_classes > 2:
         cu_dec_func = cu_dec_func.T
     sk_dec_func = sklog.decision_function(X_test)
@@ -330,7 +357,7 @@ def test_logistic_regression_predict_proba(
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
 
-    culog = cuLog(fit_intercept=fit_intercept)
+    culog = cuLog(fit_intercept=fit_intercept, output_type="numpy")
     culog.fit(X_train, y_train)
 
     if num_classes > 2:
@@ -341,9 +368,9 @@ def test_logistic_regression_predict_proba(
         )
     else:
         sklog = skLog(fit_intercept=fit_intercept)
-    sklog.coef_ = cp.asnumpy(culog.coef_.to_output("cupy")).T
+    sklog.coef_ = culog.coef_.to_output('numpy').T
     if fit_intercept:
-        sklog.intercept_ = cp.asnumpy(culog.intercept_.to_output("cupy"))
+        sklog.intercept_ = culog.intercept_.to_output('numpy')
     else:
         skLog.intercept_ = 0
     sklog.classes_ = np.arange(num_classes)

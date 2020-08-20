@@ -16,12 +16,14 @@
 
 set(CUML_TEST_INCLUDE_DIRS
   ${CUML_INCLUDE_DIRECTORIES}
-  ${GTEST_DIR}/include
+  ${GTEST_INCLUDE_DIRS}/include
   ${TREELITE_DIR}/runtime/native/include)
-
 
 set(CUML_TEST_LINK_LIBRARIES
   ${CUML_CPP_TARGET}
+  FAISS::FAISS
+  GTest::GTest
+  GTest::Main
   treelite::treelite
   treelite::treelite_runtime
   ${CUDA_cublas_LIBRARY}
@@ -29,19 +31,14 @@ set(CUML_TEST_LINK_LIBRARIES
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
-  ${CUDA_nvgraph_LIBRARY}
-  gtestlib
-  gtest_mainlib
   )
-
 
 set(PRIMS_TEST_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
   ${CUDA_curand_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY}
-  ${CUDA_nvgraph_LIBRARY})
+  ${CUDA_cusparse_LIBRARY})
 
 ##############################################################################
 # - build ml_test executable -------------------------------------------------
@@ -61,12 +58,12 @@ if(BUILD_CUML_TESTS)
     sg/pca_test.cu
     sg/quasi_newton.cu
     sg/rf_accuracy_test.cu
+    sg/rf_depth_test.cu
     sg/rf_test.cu
     sg/rf_treelite_test.cu
     sg/ridge.cu
     sg/rproj_test.cu
     sg/sgd.cu
-    sg/spectral_test.cu
     sg/svc_test.cu
     sg/trustworthiness_test.cu
     sg/tsne_test.cu
@@ -88,6 +85,8 @@ if(BUILD_CUML_MG_TESTS)
     # (please keep the filenames in alphabetical order)
     add_executable(ml_mg
       mg/knn.cu
+      mg/knn_classify.cu
+      mg/knn_regress.cu
       mg/main.cu
       mg/pca.cu
       mg/test_ml_mg_utils.cu)
@@ -101,9 +100,11 @@ if(BUILD_CUML_MG_TESTS)
 
     target_include_directories(ml_mg PUBLIC ${CUML_TEST_INCLUDE_DIRS})
 
-    set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} ${MPI_CXX_LIBRARIES})
-
-    set(CUML_TEST_LINK_LIBRARIES ${CUML_TEST_LINK_LIBRARIES} cumlcommsmpi)
+    set(CUML_TEST_LINK_LIBRARIES 
+    	${CUML_TEST_LINK_LIBRARIES} 
+    	${MPI_CXX_LIBRARIES}
+    	cumlcommsmpi
+    	cumlprims)
 
     target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
 
@@ -216,16 +217,16 @@ if(BUILD_PRIMS_TESTS)
     prims/unary_op.cu
     prims/vMeasure.cu
     prims/weighted_mean.cu
-    ../src/common/logger.cpp  # because prims is header only!
-    )
+    ../src/common/logger.cpp)  # because prims is header only!
 
   target_include_directories(prims PRIVATE ${CUML_TEST_INCLUDE_DIRS})
 
   add_dependencies(prims cutlass)
 
   target_link_libraries(prims
-    gtestlib
-    gtest_mainlib
-    ${PRIMS_TEST_LINK_LIBRARIES}
-    faisslib)
+  	GTest::GTest
+  	GTest::Main
+  	FAISS::FAISS
+    ${PRIMS_TEST_LINK_LIBRARIES})
+
 endif(BUILD_PRIMS_TESTS)

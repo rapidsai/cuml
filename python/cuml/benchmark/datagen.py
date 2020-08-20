@@ -41,7 +41,7 @@ import numpy as np
 import os
 import pandas as pd
 
-import sklearn.datasets
+import cuml.datasets
 import sklearn.model_selection
 
 from urllib.request import urlretrieve
@@ -55,13 +55,9 @@ def _gen_data_regression(n_samples, n_features, random_state=42):
         n_samples = int(1e6)
     if n_features == 0:
         n_features = 100
-    X_arr, y_arr = sklearn.datasets.make_regression(
-        n_samples, n_features, random_state=random_state
-    )
-    return (
-        pd.DataFrame(X_arr.astype(np.float32)),
-        pd.Series(y_arr.astype(np.float32)),
-    )
+    X_arr, y_arr = cuml.datasets.make_regression(
+        n_samples=n_samples, n_features=n_features, random_state=random_state)
+    return cudf.DataFrame(X_arr), cudf.Series(y_arr)
 
 
 def _gen_data_blobs(n_samples, n_features, random_state=42, centers=None):
@@ -70,20 +66,21 @@ def _gen_data_blobs(n_samples, n_features, random_state=42, centers=None):
         n_samples = int(1e6)
     if n_features == 0:
         n_samples = 100
-    X_arr, y_arr = sklearn.datasets.make_blobs(
-        n_samples, n_features, centers=centers, random_state=random_state
-    )
+    X_arr, y_arr = cuml.datasets.make_blobs(
+        n_samples=n_samples, n_features=n_features, centers=centers,
+        random_state=random_state)
+    print(type(X_arr), type(y_arr))
     return (
-        pd.DataFrame(X_arr.astype(np.float32)),
-        pd.Series(y_arr.astype(np.float32)),
+        cudf.DataFrame(X_arr.astype(np.float32)),
+        cudf.Series(y_arr.astype(np.float32)),
     )
 
 
 def _gen_data_zeros(n_samples, n_features, random_state=42):
     """Dummy generator for use in testing - returns all 0s"""
     return (
-        np.zeros((n_samples, n_features), dtype=np.float32),
-        np.zeros(n_samples, dtype=np.float32),
+        cudf.DataFrame(np.zeros((n_samples, n_features), dtype=np.float32)),
+        cudf.Series(np.zeros(n_samples, dtype=np.float32)),
     )
 
 
@@ -96,13 +93,13 @@ def _gen_data_classification(
     if n_features == 0:
         n_samples = 100
 
-    X_arr, y_arr = sklearn.datasets.make_classification(
-        n_samples, n_features, n_classes, random_state=random_state
-    )
+    X_arr, y_arr = cuml.datasets.make_classification(
+        n_samples=n_samples, n_features=n_features, n_classes=n_classes,
+        random_state=random_state)
 
     return (
-        pd.DataFrame(X_arr.astype(np.float32)),
-        pd.Series(y_arr.astype(np.float32)),
+        cudf.DataFrame(X_arr.astype(np.float32)),
+        cudf.Series(y_arr.astype(np.float32)),
     )
 
 
@@ -160,7 +157,7 @@ def load_higgs():
     )
     X_df = data_df[data_df.columns.difference(['label'])]
     y_df = data_df['label']
-    return X_df, y_df
+    return cudf.DataFrame.from_pandas(X_df), cudf.Series.from_pandas(y_df)
 
 
 def _convert_to_numpy(data):
@@ -171,6 +168,10 @@ def _convert_to_numpy(data):
         return tuple([_convert_to_numpy(d) for d in data])
     elif isinstance(data, np.ndarray):
         return data
+    elif isinstance(data, cudf.DataFrame):
+        return data.as_matrix()
+    elif isinstance(data, cudf.Series):
+        return data.to_array()
     elif isinstance(data, (pd.DataFrame, pd.Series)):
         return data.to_numpy()
     else:
@@ -182,6 +183,8 @@ def _convert_to_cudf(data):
         return None
     elif isinstance(data, tuple):
         return tuple([_convert_to_cudf(d) for d in data])
+    elif isinstance(data, (cudf.DataFrame, cudf.Series)):
+        return data
     elif isinstance(data, pd.DataFrame):
         return cudf.DataFrame.from_pandas(data)
     elif isinstance(data, pd.Series):
@@ -195,11 +198,9 @@ def _convert_to_pandas(data):
         return None
     elif isinstance(data, tuple):
         return tuple([_convert_to_pandas(d) for d in data])
-    elif isinstance(data, pd.DataFrame):
+    elif isinstance(data, (pd.DataFrame, pd.Series)):
         return data
-    elif isinstance(data, pd.Series):
-        return data
-    elif isinstance(data, cudf.DataFrame):
+    elif isinstance(data, (cudf.DataFrame, cudf.Series)):
         return data.to_pandas()
     else:
         raise Exception("Unsupported type %s" % str(type(data)))

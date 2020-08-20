@@ -98,7 +98,7 @@ class Ridge(Base, RegressorMixin):
     Coordinate Descent and can be faster when data is large.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -174,7 +174,7 @@ class Ridge(Base, RegressorMixin):
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
     ------
@@ -229,7 +229,6 @@ class Ridge(Base, RegressorMixin):
             msg = "solver {!r} is not supported"
             raise TypeError(msg.format(solver))
         self.intercept_value = 0.0
-        # Define Hyperparams for getter-setter
         self._hyperparams = ['solver', 'fit_intercept', 'normalize', 'alpha']
 
     def _check_alpha(self, alpha):
@@ -408,7 +407,5 @@ class Ridge(Base, RegressorMixin):
 
         return preds.to_output(out_type)
 
-
     def get_param_names(self):
         return self._hyperparams
-

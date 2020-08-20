@@ -115,7 +115,7 @@ class TruncatedSVD(Base):
     might be less accurate.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -221,14 +221,15 @@ class TruncatedSVD(Base):
 
     **Applications of TruncatedSVD**
 
-        TruncatedSVD is also known as Latent Semantic Indexing (LSI) which
-        tries to find topics of a word count matrix. If X previously was
-        centered with mean removal, TruncatedSVD is the same as TruncatedPCA.
-        TruncatedSVD is also used in information retrieval tasks,
-        recommendation systems and data compression.
+    TruncatedSVD is also known as Latent Semantic Indexing (LSI) which
+    tries to find topics of a word count matrix. If X previously was
+    centered with mean removal, TruncatedSVD is the same as TruncatedPCA.
+    TruncatedSVD is also used in information retrieval tasks,
+    recommendation systems and data compression.
 
     For additional documentation, see `scikitlearn's TruncatedSVD docs
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
+
     """
 
     def __init__(self, algorithm='full', handle=None, n_components=1,
@@ -254,6 +255,9 @@ class TruncatedSVD(Base):
 
         self._singular_values_ = None
         # accessed via estimator.singular_values_
+        
+        self._hyperparams = ["algorithm", "n_components", "n_iter", "random_state", "tol"]
+
 
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
@@ -449,12 +453,14 @@ class TruncatedSVD(Base):
     def transform(self, X, convert_dtype=False):
         """
         Perform dimensionality reduction on X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
         convert_dtype : bool, optional (default = False)
             When set to True, the transform method will automatically
             convert the input to the data type which was used to train the
@@ -464,6 +470,7 @@ class TruncatedSVD(Base):
         -------
         X_new : cuDF DataFrame, shape (n_samples, n_components)
             Reduced version of X. This will always be a dense DataFrame.
+
         """
         input, n_rows, _, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -507,4 +514,4 @@ class TruncatedSVD(Base):
         return t_input_data.to_output(out_type)
 
     def get_param_names(self):
-        return ["algorithm", "n_components", "n_iter", "random_state", "tol"]
+        return self._hyperparams

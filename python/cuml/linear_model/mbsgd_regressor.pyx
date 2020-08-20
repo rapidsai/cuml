@@ -26,9 +26,19 @@ class MBSGDRegressor(Base, RegressorMixin):
     """
     Linear regression model fitted by minimizing a
     regularized empirical loss with mini-batch SGD.
+    The MBSGD Regressor implementation is experimental and and it uses a
+    different algorithm than sklearn's SGDClassifier. In order to improve
+    the results obtained from cuML's MBSGD Regressor:
+    * Reduce the batch size
+    * Increase the eta0
+    * Increase the number of iterations
+    Since cuML is analyzing the data in batches using a small eta0 might
+    not let the model learn as much as scikit learn does. Furthermore,
+    decreasing the batch size might seen an increase in the time required
+    to fit the model.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         import numpy as np
@@ -82,6 +92,12 @@ class MBSGDRegressor(Base, RegressorMixin):
     fit_intercept : boolean (default = True)
        If True, the model tries to correct for the global mean of y.
        If False, the model expects that you have centered the data.
+    l1_ratio: float (default=0.15)
+        The l1_ratio is used only when `penalty = elasticnet`. The value for
+        l1_ratio should be `0 <= l1_ratio <= 1`. When `l1_ratio = 0` then the
+        `penalty = 'l2'` and if `l1_ratio = 1` then `penalty = 'l1'`
+    batch_size: int (default = 32)
+        It sets the number of samples that will be included in each batch.
     epochs : int (default = 1000)
         The number of times the model should iterate through the entire dataset
         during training (default = 1000)
@@ -144,12 +160,12 @@ class MBSGDRegressor(Base, RegressorMixin):
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
-        # Define Hyperparams for getter-setter
         self._hyperparams = ['loss', 'penalty', 'alpha', 'l1_ratio', 'fit_intercept',
                      'epochs', 'tol', 'shuffle', 'learning_rate', 'eta0',
                      'power_t', 'batch_size', 'n_iter_no_change', 'handle']
-        # Call SGD after setting self._hyperparams, order matters!
-        self.cu_mbsgd_classifier = SGD(**self.get_params())
+        
+        # Order matters: init after declaration of self._hyperparams!
+        self.solver_model = SGD(**self.get_param_names())
 
     def fit(self, X, y, convert_dtype=True):
         """
@@ -173,10 +189,7 @@ class MBSGDRegressor(Base, RegressorMixin):
             will increase memory used for the method.
         """
         self._set_n_features_in(X)
-        self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
-        self.coef_ = self.cu_mbsgd_classifier.coef_
-        self.intercept_ = self.cu_mbsgd_classifier.intercept_
-
+        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 
     def predict(self, X, convert_dtype=False):
@@ -201,12 +214,10 @@ class MBSGDRegressor(Base, RegressorMixin):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        preds = self.cu_mbsgd_classifier.predict(X,
-                                                 convert_dtype=convert_dtype)
+        preds = self.solver_model.predict(X,
+                                          convert_dtype=convert_dtype)
         return preds
 
-  
-    def get_param_names(self):
+
+   def get_param_names(self):
         return self._hyperparams
-
-

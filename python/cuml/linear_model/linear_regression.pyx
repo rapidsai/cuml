@@ -86,7 +86,7 @@ class LinearRegression(Base, RegressorMixin):
     stable, but Eig (default) is much faster.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -157,7 +157,7 @@ class LinearRegression(Base, RegressorMixin):
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If `fit_intercept_` is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
     ------
@@ -204,7 +204,6 @@ class LinearRegression(Base, RegressorMixin):
             raise TypeError(msg.format(algorithm))
 
         self.intercept_value = 0.0
-        # Define Hyperparams for getter-setter
         self._hyperparams = ['algorithm', 'fit_intercept', 'normalize']
 
     def _get_algorithm_int(self, algorithm):
@@ -370,4 +369,3 @@ class LinearRegression(Base, RegressorMixin):
 
     def get_param_names(self):
         return self._hyperparams
-

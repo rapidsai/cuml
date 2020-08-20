@@ -37,7 +37,7 @@ class Lasso(Base, RegressorMixin):
     a linear model.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -118,7 +118,7 @@ class Lasso(Base, RegressorMixin):
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
     -----
@@ -136,13 +136,11 @@ class Lasso(Base, RegressorMixin):
 
         self._check_alpha(alpha)
         self.alpha = alpha
-        self.coef_ = None
-        self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
         self.max_iter = max_iter
         self.tol = tol
-        self.culasso = None
+        self.solver_model = None
         if selection in ['cyclic', 'random']:
             self.selection = selection
         else:
@@ -155,14 +153,13 @@ class Lasso(Base, RegressorMixin):
         if self.selection == 'random':
             shuffle = True
 
-        # Define Hyperparams for getter-setter
+        self.solver_model = CD(fit_intercept=self.fit_intercept,
+                               normalize=self.normalize, alpha=self.alpha,
+                               l1_ratio=1.0, shuffle=shuffle,
+                               max_iter=self.max_iter, handle=self.handle)
+        
         self._hyperparams = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
                      'selection']
-        
-        self.culasso = CD(fit_intercept=self.fit_intercept,
-                          normalize=self.normalize, alpha=self.alpha,
-                          l1_ratio=1.0, shuffle=shuffle,
-                          max_iter=self.max_iter, handle=self.handle)
 
     def _check_alpha(self, alpha):
         if alpha <= 0.0:
@@ -191,12 +188,8 @@ class Lasso(Base, RegressorMixin):
             will increase memory used for the method.
         """
         self._set_n_features_in(X)
-
-        self.culasso.fit(X, y, convert_dtype=convert_dtype)
-
-        self.coef_ = self.culasso.coef_
-        self.intercept_ = self.culasso.intercept_
-
+        self._set_output_type(X)
+        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 
     def predict(self, X, convert_dtype=False):
@@ -217,9 +210,11 @@ class Lasso(Base, RegressorMixin):
 
         """
 
-        return self.culasso.predict(X, convert_dtype=convert_dtype)
+        return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
 
     def get_param_names(self):
         return self._hyperparams
+
+
 
