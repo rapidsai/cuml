@@ -523,14 +523,14 @@ class QN(Base):
     def __getattr__(self, attr):
         if attr == 'intercept_':
             if self.fit_intercept:
-                return self._coef_[-1]
+                return self._coef_[-1].to_output(self.output_type)
             else:
                 return CumlArray.zeros(shape=1)
         elif attr == 'coef_':
             if self.fit_intercept:
-                return self._coef_[0:-1]
+                return self._coef_[0:-1].to_output(self.output_type)
             else:
-                return self._coef_
+                return self._coef_.to_output()
         else:
             return super().__getattr__(attr)
 
