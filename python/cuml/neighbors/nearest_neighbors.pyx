@@ -20,7 +20,6 @@
 # cython: language_level = 3
 
 import numpy as np
-import pandas as pd
 import cupy as cp
 import cudf
 import ctypes
@@ -29,6 +28,8 @@ import warnings
 
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.doc_utils import insert_into_docstring
 from cuml.common import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
@@ -219,20 +220,11 @@ class NearestNeighbors(Base):
         self.p = p
         self.algorithm = algorithm
 
+    @generate_docstring()
     def fit(self, X, convert_dtype=True):
         """
         Fit GPU index for performing nearest neighbor queries.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
         """
         self._set_base_attributes(X, output_type=True, n_features=True)
 
@@ -288,6 +280,10 @@ class NearestNeighbors(Base):
 
         return m, expanded
 
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
+                           return_values=[('dense', '(n_samples, n_features)'),
+                                          ('dense',
+                                           '(n_samples, n_features)')])
     def kneighbors(self, X=None, n_neighbors=None, return_distance=True,
                    convert_dtype=True):
         """
@@ -295,10 +291,7 @@ class NearestNeighbors(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        X : {}
 
         n_neighbors : Integer
             Number of neighbors to search. If not provided, the n_neighbors
@@ -313,11 +306,11 @@ class NearestNeighbors(Base):
 
         Returns
         -------
-        distances: cuDF DataFrame, pandas DataFrame, numpy or cupy ndarray
+        distances : {}
             The distances of the k-nearest neighbors for each column vector
             in X
 
-        indices: cuDF DataFrame, pandas DataFrame, numpy or cupy ndarray
+        indices : {}
             The indices of the k-nearest neighbors for each column vector in X
         """
 
@@ -451,6 +444,7 @@ class NearestNeighbors(Base):
 
         return (D_output, I_output) if return_distance else I_output
 
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
     def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):
         """
         Find the k nearest neighbors of column vectors in X and return as
@@ -458,10 +452,7 @@ class NearestNeighbors(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        X : {}
 
         n_neighbors : Integer
             Number of neighbors to search. If not provided, the n_neighbors
