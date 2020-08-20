@@ -121,14 +121,12 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
     X, y = simulate_data(n_rows, n_columns, num_classes,
                          random_state=random_state,
                          classification=classification)
-    print(X.shape, 'y', y.shape)
     # identify shape and indices
     n_rows, n_columns = X.shape
     train_size = 0.8
 
     X_train, X_validation, y_train, y_validation = train_test_split(
         X, y, train_size=train_size, random_state=0)
-    [print(i.shape) for i in (X_train, X_validation, y_train, y_validation)]
 
     model_path = os.path.join(tmp_path, 'xgb_class.model')
 
@@ -160,14 +158,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
                               output_class=True,
                               threshold=0.50)
     fil_preds = np.asarray(fm.predict(X_validation))
-    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
     fil_proba = np.asarray(fm.predict_proba(X_validation))
-    fil_proba = np.reshape(fil_proba, np.shape(xgb_proba))
-
-    print('fil_preds', fil_preds.shape, '\n', fil_preds[:10])
-    print('xgb_preds', xgb_preds.shape, '\n', xgb_preds[:10])
-    print('fil_proba', fil_proba.shape, '\n', fil_proba[:10, :])
-    print('xgb_proba', xgb_proba.shape, '\n', xgb_proba[:10, :])
 
     fil_acc = accuracy_score(y_validation, fil_preds)
 

@@ -22,7 +22,6 @@
 import copy
 import cudf
 import cupy as cp
-# implementation cannot avoid cupy for xgboost multiclass
 import ctypes
 import math
 import numpy as np
@@ -286,25 +285,24 @@ cdef class ForestInference_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        print('self.num_output_groups = ', self.num_output_groups)
         if preds is None:
-            shape = (n_rows, )
             if predict_proba:
                 if self.num_output_groups <= 2:
-                    shape += (2,)
+                    shape = (n_rows, 2)
                 else:
                     if self.forest_data.size() > 1:
-                        shape = (self.num_output_groups,) + shape
-                        # xgboost-style inference will produce transposed output
+                        shape = (self.num_output_groups, n_rows)
+                        # xgboost-style inference produces transposed output
                     else:
-                        shape += (self.num_output_groups,)
+                        shape = (n_rows, self.num_output_groups)
                         # cuML RF-style inference
-            elif (self.forest_data.size() > 1) and (self.num_output_groups > 2):
-                shape = (self.num_output_groups,) + shape
-                # xgboost-style inference will produce non-max-reduced output
-            print("fil.pyx:preds.shape ", shape)
+            elif (self.forest_data.size() > 1) and\
+                 (self.num_output_groups > 2):
+                shape = (self.num_output_groups, n_rows)
+                # xgboost-style inference produces non-max-reduced output
+            else:
+                shape = (n_rows,)
             preds = CumlArray.empty(shape=shape, dtype=np.float32, order='C')
-            print("fil.pyx:preds 0x", hex(preds.ptr))
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
             raise ValueError("Invalid type for output preds,"
@@ -313,8 +311,6 @@ cdef class ForestInference_impl():
         cdef uintptr_t preds_ptr
         preds_ptr = preds.ptr
 
-        print('preds pre-inference\n', preds.to_output(output_type='numpy')[:, :10])
-        self.handle.sync()
         for fd in self.forest_data:
           predict(handle_[0],
                   fd,
@@ -322,33 +318,22 @@ cdef class ForestInference_impl():
                   <float*> X_ptr,
                   <size_t> n_rows,
                   <bool> predict_proba)
-        self.handle.sync()
-        print('preds pre-adjust\n', preds.to_output(output_type='numpy')[:, :10])
+
+        preds = preds.to_output('cupy')
         if self.forest_data.size() > 1:
             if predict_proba:
-                # xgboost-style inference will produce transposed output
-                print('======================      predict_proba   ===================')
-                print(preds.shape)
-                preds = cp.asarray(preds, order='C').T
-                print(preds.shape)
-            elif (self.num_output_groups > 2):
-                # xgboost-style inference will produce non-max-reduced output
-                print('-----------------------   NO   predict_proba   ===================')
-                print(preds.shape)
-                preds = cp.argmax(cp.asarray(preds, order='C'), axis=0)
-                print(preds.shape)
-            preds = CumlArray(preds)
-            print('++++++++++++++++++++++++     cumlArray(preds)       ++++++++++++++++++++')
-            print(preds.shape)
-        self.handle.sync()
+                # xgboost-style inference produces transposed output
+                preds = preds.T
+            elif self.num_output_groups > 2:
+                # xgboost-style inference produces non-max-reduced output
+                preds = preds.argmax(axis=0)
 
+        self.handle.sync()
         # special case due to predict and predict_proba
         # both coming from the same CUDA/C++ function
-        if predict_proba:
-            output_dtype = None
-        return preds.to_output(
+        return CumlArray(preds).to_output(
             output_type=output_type,
-            output_dtype=output_dtype
+            output_dtype=None if predict_proba else output_dtype
         )
 
     def load_from_treelite_model_handle(self,

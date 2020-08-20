@@ -101,12 +101,6 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
                             float inv_num_trees, float threshold,
                             float global_bias, bool complement_proba) {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
-  if (!i) {
-    printf("preds pre-transform \n");
-    for (int x = 0; x < n; x++) printf("%.2f ", preds[x]);
-    printf("\n\n");
-  }
-  __syncthreads();
   if (i >= n) return;
   if (complement_proba && i % 2 != 0) return;
 
@@ -125,12 +119,6 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
     preds[i + 1] = result;
   } else
     preds[i] = result;
-  __syncthreads();
-  if (false) {
-    printf("preds post-transform \n");
-    for (int x = 0; x < n; x++) printf("%.2f ", preds[x]);
-    printf("\n\n");
-  }
 }
 
 struct forest {
@@ -164,8 +152,6 @@ struct forest {
 
   void predict(const cumlHandle& h, float* preds, const float* data,
                size_t num_rows, bool predict_proba) {
-    dhprint(preds);
-    diprint(output_group_num_);
     // Initialize prediction parameters.
     predict_params params;
     params.num_cols = num_cols_;
@@ -221,6 +207,8 @@ struct forest {
         }
       } else {
         params.num_outputs = 1;
+        if (num_output_group_ > 1) // xgboost multi-class
+          ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
       }
       if (ot != output_t::RAW || complement_proba) do_transform = true;
     } else if (leaf_payload_type_ == leaf_value_t::INT_CLASS_LABEL) {
@@ -235,13 +223,6 @@ struct forest {
         do_transform = false;
       }
     }
-    diprint(num_classes_);
-    diprint(num_output_group_);
-    diprint(params.num_outputs);
-    dhprint(ot);
-    dleafprint(leaf_payload_type_);
-    dbprint(complement_proba);
-    dbprint(do_transform);
 
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
@@ -251,16 +232,11 @@ struct forest {
       size_t num_values_to_transform =
         (size_t)num_rows * (size_t)params.num_outputs;
 
-      diprint(num_values_to_transform);
-      diprint(ceildiv(num_values_to_transform, (size_t)FIL_TPB));
-      diprint(FIL_TPB);
-      dhprint(params.preds);
       transform_k<<<ceildiv(num_values_to_transform, (size_t)FIL_TPB), FIL_TPB,
                     0, stream>>>(params.preds, num_values_to_transform, ot,
                                  num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
                                  threshold_, global_bias_, complement_proba);
       CUDA_CHECK(cudaPeekAtLastError());
-      printf("inference done\n\n");
     }
   }
 
@@ -663,7 +639,6 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   // assuming either all leaves use the .leaf_vector() or all leaves use .leaf_value()
   size_t leaf_vec_size = tl_leaf_vector_size(model);
   std::string pred_transform(param.pred_transform);
-  printf("pred_transform = %s\n", pred_transform.c_str());
   if (leaf_vec_size > 0) {
     ASSERT(leaf_vec_size == model.num_output_group,
            "treelite model inconsistent");
@@ -859,7 +834,6 @@ void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
 
 void from_treelite(const cumlHandle& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {
-  diprint(tl_params->output_group_num);
   storage_type_t storage_type = tl_params->storage_type;
   // build dense trees by default
   const tl::Model& model_ref = *(tl::Model*)model;
