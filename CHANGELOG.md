@@ -32,6 +32,7 @@
 - PR #2594: Confidence intervals for ARIMA forecasts
 - PR #2607: Add support for probability estimates in SVC
 - PR #2618: SVM class and sample weights
+- PR #2635: Decorator to generate docstrings with autodetection of parameters
 - PR #2270: Multi class MNMG RF
 - PR #2661: CUDA-11 support for single-gpu code
 - PR #2322: Sparse FIL forests with 8-byte nodes
@@ -106,6 +107,7 @@
 - PR #2692: Changin LBFGS log level
 - PR #2705: Add sum operator and base operator overloader functions to cumlarray
 - PR #2701: Updating README + Adding ref to UMAP paper
+- PR #2721: Update API docs
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -171,6 +173,10 @@
 - PR #2695: Fix debug build issue due to incorrect host/device method setup
 - PR #2709: Fixing OneHotEncoder Overflow Error
 - PR #2710: Fix SVC doc statement about predic_proba
+- PR #2711: Fix Dask RF failure intermittently
+- PR #2718: Fix temp directory for py.test
+- PR #2719: Set KNeighborsRegressor output dtype according to training target dtype
+- PR #2720: Updates to outdated links
 
 # cuML 0.14.0 (03 Jun 2020)
 
