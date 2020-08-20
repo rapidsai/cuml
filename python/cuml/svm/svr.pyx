@@ -301,7 +301,7 @@ class SVR(SVMBase, RegressorMixin):
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the values for X.
 
@@ -318,4 +318,4 @@ class SVR(SVMBase, RegressorMixin):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        return super(SVR, self).predict(X, False)
+        return super(SVR, self).predict(X, False, convert_dtype)
