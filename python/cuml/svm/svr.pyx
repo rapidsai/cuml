@@ -29,7 +29,9 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.base import RegressorMixin
+from cuml.common.doc_utils import generate_docstring
 from cuml.metrics import r2_score
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
@@ -223,26 +225,11 @@ class SVR(SVMBase, RegressorMixin):
                                   verbose, epsilon)
         self.svmType = EPSILON_SVR
 
+    @generate_docstring()
     def fit(self, X, y, sample_weight=None, convert_dtype=True):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
         self._set_n_features_in(X)
         self._set_output_type(X)
@@ -301,21 +288,14 @@ class SVR(SVMBase, RegressorMixin):
 
         return self
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
     def predict(self, X):
         """
         Predicts the values for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        y : cuDF Series
-           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
         return super(SVR, self).predict(X, False)
