@@ -48,6 +48,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, r2_score, mean_squared_error
 from sklearn.ensemble import RandomForestClassifier as skrfc
 
+from dask.distributed import Client
+
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     workers = c.has_what().keys()
@@ -68,34 +70,48 @@ def _prep_training_data(c, X_train, y_train, partitions_per_worker):
 
 
 @pytest.mark.parametrize('partitions_per_worker', [3])
-def test_rf_classification_dask_cudf(partitions_per_worker, client):
+def test_rf_classification_multi_class(partitions_per_worker, cluster):
 
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
-    X, y = make_classification(n_samples=10000, n_features=20,
-                               n_clusters_per_class=1, n_informative=10,
-                               random_state=123, n_classes=5)
+    c = Client(cluster)
 
-    X = X.astype(np.float32)
-    y = y.astype(np.int32)
+    try:
 
-    X_train, X_test, y_train, y_test = \
-        train_test_split(X, y, test_size=1000)
+        X, y = make_classification(n_samples=10000, n_features=20,
+                                   n_clusters_per_class=1, n_informative=10,
+                                   random_state=123, n_classes=15)
 
-    cu_rf_params = {
-        'n_estimators': 40,
-        'max_depth': 16,
-        'n_bins': 16,
-    }
+        X = X.astype(np.float32)
+        y = y.astype(np.int32)
 
-    X_train_df, y_train_df = _prep_training_data(client, X_train, y_train,
-                                                 partitions_per_worker)
+        X_train, X_test, y_train, y_test = \
+            train_test_split(X, y, test_size=1000, random_state=123)
 
-    cuml_mod = cuRFC_mg(**cu_rf_params)
-    cuml_mod.fit(X_train_df, y_train_df)
-    cuml_mod_predict = cuml_mod.predict(X_test)
-    acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
+        cu_rf_params = {
+            'n_estimators': 25,
+            'max_depth': 16,
+            'n_bins': 256,
+            'seed': 10,
+        }
 
-    assert acc_score > 0.8
+        X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
+                                                     partitions_per_worker)
+
+        cuml_mod = cuRFC_mg(**cu_rf_params)
+        cuml_mod.fit(X_train_df, y_train_df)
+        X_test_dask_array = from_array(X_test)
+        cuml_preds_gpu = cuml_mod.predict(X_test_dask_array,
+                                          predict_model="GPU").compute()
+        acc_score_gpu = accuracy_score(cuml_preds_gpu, y_test)
+
+        # the sklearn model when ran with the same parameters gives an
+        # accuracy of 0.69. There is a difference of 0.0632 (6.32%) between
+        # the two when the code runs on a single GPU (seen in the CI)
+
+        assert acc_score_gpu >= 0.61
+
+    finally:
+        c.close()
 
 
 @pytest.mark.parametrize('dtype', [np.float32, np.float64])

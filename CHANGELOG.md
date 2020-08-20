@@ -24,6 +24,8 @@
 - PR #2594: Confidence intervals for ARIMA forecasts
 - PR #2607: Add support for probability estimates in SVC
 - PR #2618: SVM class and sample weights
+- PR #2635: Decorator to generate docstrings with autodetection of parameters
+- PR #2270: Multi class MNMG RF
 - PR #2661: CUDA-11 support for single-gpu code
 - PR #2322: Sparse FIL forests with 8-byte nodes
 - PR #2675: Update conda recipes to support CUDA 11
@@ -95,6 +97,7 @@
 - PR #2648: Replace CNMeM with `rmm::mr::pool_memory_resource`.
 - PR #2686: Improve SVM tests
 - PR #2692: Changin LBFGS log level
+- PR #2705: Add sum operator and base operator overloader functions to cumlarray
 - PR #2701: Updating README + Adding ref to UMAP paper
 
 ## Bug Fixes
@@ -159,6 +162,7 @@
 - PR #2669: Revert PR 2655 Revert "Fixes C++ RF predict function"
 - PR #2683: Fix incorrect "Bad CumlArray Use" error messages on test failures
 - PR #2695: Fix debug build issue due to incorrect host/device method setup
+- PR #2709: Fixing OneHotEncoder Overflow Error
 - PR #2710: Fix SVC doc statement about predic_proba
 - PR #2711: Fix Dask RF failure intermittently
 
