@@ -167,6 +167,7 @@
 - PR #2711: Fix Dask RF failure intermittently
 - PR #2718: Fix temp directory for py.test
 - PR #2720: Updates to outdated links
+- PR #2722: Getting cuML covariance test passing w/ Cupy 7.8 & CUDA 11
 
 # cuML 0.14.0 (03 Jun 2020)
 
