@@ -108,6 +108,13 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     seed : int (default = None)
         Base seed for the random number generator. Unseeded by default. Does
         not currently fully guarantee the exact same results.
+    ignore_empty_partitions: Boolean (default = False)
+        Specify behavior when a worker does not hold any data
+        while splitting. When True, it returns the results from workers
+        with data (the number of trained estimators will be less than
+        n_estimators) When False, throws a RuntimeError.
+        This is an experiemental parameter, and may be removed
+        in the future.
 
     Examples
     --------
@@ -122,6 +129,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         verbose=False,
         n_estimators=10,
         seed=None,
+        ignore_empty_partitions=False,
         **kwargs
     ):
 
@@ -135,6 +143,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             workers=workers,
             n_estimators=n_estimators,
             base_seed=seed,
+            ignore_empty_partitions=ignore_empty_partitions,
             **kwargs)
 
     @staticmethod
