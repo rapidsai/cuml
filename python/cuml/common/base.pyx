@@ -293,7 +293,7 @@ class Base:
         """
         if output_type:
             self._set_output_type(X)
-        if y:
+        if y is not None:
             self._set_target_dtype(y)
         if isinstance(n_features, int):
             self._set_n_features_in(n_features)
