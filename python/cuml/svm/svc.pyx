@@ -30,6 +30,7 @@ from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base, ClassifierMixin
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.logger import warn
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
@@ -318,27 +319,12 @@ class SVC(SVMBase, ClassifierMixin):
 
         return sample_weight
 
+    @generate_docstring(y='dense_anydtype')
     @with_cupy_rmm
     def fit(self, X, y, sample_weight=None, convert_dtype=True):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (any numeric type) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
         self._set_base_attributes(X, output_type=True, y=y, n_features=True)
 
@@ -410,22 +396,14 @@ class SVC(SVMBase, ClassifierMixin):
 
         return self
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
     def predict(self, X):
         """
         Predicts the class labels for X. The returned y values are the class
         labels associated to sign(decision_function(X)).
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        y : (same as the input datatype)
-            Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
 
         if self.probability:
@@ -438,6 +416,12 @@ class SVC(SVMBase, ClassifierMixin):
         else:
             return super(SVC, self).predict(X, True)
 
+    @generate_docstring(skip_parameters_heading=True,
+                        return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted \
+                                       probabilities',
+                                       'shape': '(n_samples, n_classes)'})
     def predict_proba(self, X, log=False):
         """
         Predicts the class probabilities for X.
@@ -446,18 +430,8 @@ class SVC(SVMBase, ClassifierMixin):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of input features.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
         log: boolean (default = False)
              Whether to return log probabilities.
-
-        Returns
-        -------
-        P : array-like (device or host) shape = (n_samples, n_classes)
-            Dense matrix of classs probabilities for each sample.
 
         """
 
@@ -475,42 +449,29 @@ class SVC(SVMBase, ClassifierMixin):
                                  "probabilities. Fit a new classifier with"
                                  "probability=True to enable predict_proba.")
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Log of predicted \
+                                       probabilities',
+                                       'shape': '(n_samples, n_classes)'})
     def predict_log_proba(self, X):
         """
         Predicts the log probabilities for X (returns log(predict_proba(x)).
 
         The model has to be trained with probability=True to use this method.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of input features.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy.
-
-        Returns
-        -------
-        P : array-like (device or host) shape = (n_samples, n_classes)
-            Dense matrix of log probabilities for each sample.
-
         """
         return self.predict_proba(X, log=True)
 
+    @generate_docstring(return_values={'name': 'results',
+                                       'type': 'dense',
+                                       'description': 'Decision function \
+                                       values',
+                                       'shape': '(n_samples, 1)'})
     def decision_function(self, X):
         """
         Calculates the decision function values for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        y : cuDF Series
-           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         if self.probability:
             self._check_is_fitted('prob_svc')
