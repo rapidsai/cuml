@@ -530,7 +530,7 @@ class QN(Base):
             if self.fit_intercept:
                 return self._coef_[0:-1].to_output(self.output_type)
             else:
-                return self._coef_.to_output()
+                return self._coef_.to_output(self.output_type)
         else:
             return super().__getattr__(attr)
 
