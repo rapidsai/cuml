@@ -99,6 +99,7 @@
 - PR #2692: Changin LBFGS log level
 - PR #2705: Add sum operator and base operator overloader functions to cumlarray
 - PR #2701: Updating README + Adding ref to UMAP paper
+- PR #2721: Update API docs
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
