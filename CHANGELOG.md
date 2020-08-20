@@ -164,8 +164,10 @@
 - PR #2695: Fix debug build issue due to incorrect host/device method setup
 - PR #2709: Fixing OneHotEncoder Overflow Error
 - PR #2710: Fix SVC doc statement about predic_proba
+- PR #2711: Fix Dask RF failure intermittently
 - PR #2718: Fix temp directory for py.test
 - PR #2719: Set KNeighborsRegressor output dtype according to training target dtype
+- PR #2720: Updates to outdated links
 
 # cuML 0.14.0 (03 Jun 2020)
 
