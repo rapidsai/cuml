@@ -163,6 +163,7 @@
 - PR #2695: Fix debug build issue due to incorrect host/device method setup
 - PR #2709: Fixing OneHotEncoder Overflow Error
 - PR #2710: Fix SVC doc statement about predic_proba
+- PR #2726: Return correct output type in QN
 
 # cuML 0.14.0 (03 Jun 2020)
 
