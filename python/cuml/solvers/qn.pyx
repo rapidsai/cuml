@@ -158,9 +158,9 @@ class QN(Base):
         # Note: for now, the coefficients also include the intercept in the
         # last position if fit_intercept=True
         print("Coefficients:")
-        print(solver.coef_.copy_to_host())
+        print(solver.coef_
         print("Intercept:")
-        print(solver.intercept_.copy_to_host())
+        print(solver.intercept_
 
         X_new = cudf.DataFrame()
         X_new['col1'] = np.array([1,5], dtype = np.float32)
