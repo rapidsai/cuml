@@ -434,6 +434,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                 <int> self.verbose)
         # make sure that the `fit` is complete before the following delete
         # call happens
+        self.handle.sync()
         del X_m
         del y_m
         return self
