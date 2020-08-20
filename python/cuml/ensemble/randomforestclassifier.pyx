@@ -29,6 +29,8 @@ import cuml.common.logger as logger
 from cuml import ForestInference
 from cuml.common.array import CumlArray
 from cuml.common.base import ClassifierMixin
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.doc_utils import insert_into_docstring
 from cuml.common.handle import Handle
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
@@ -383,26 +385,15 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
-    """
-    TODO : Move functions duplicated in the RF classifier and regressor
-           to a shared file. Cuml issue #1854 has been created to track this.
-    """
-
+    @generate_docstring(skip_parameters_heading=True,
+                        y='dense_intdtype',
+                        convert_dtype_cast='np.float32')
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (int32) of shape (n_samples, 1).
-            Acceptable formats: NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-            These labels should be contiguous integers from 0 to n_classes.
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will, when necessary, convert
             y to be of dtype int32. This will increase memory used for
@@ -531,6 +522,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         del(X_m)
         return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
+                           return_values=[('dense', '(n_samples, 1)')])
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
                 algo='auto', num_classes=None,
@@ -541,10 +534,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        X : {}
         predict_model : String (default = 'GPU')
             'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
@@ -591,8 +581,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         Returns
         ----------
-        y : (same as the input datatype)
-            Dense vector (ints, floats, or doubles) of shape (n_samples, 1)
+        y : {}
         """
         if num_classes:
             warnings.warn("num_classes is deprecated and will be removed"
@@ -683,6 +672,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         del(X_m)
         return preds.to_output(out_type)
 
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
+                           return_values=[('dense', '(n_samples, 1)')])
     def predict_proba(self, X, output_class=True,
                       threshold=0.5, algo='auto',
                       num_classes=None, convert_dtype=True,
@@ -694,10 +685,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        X : {}
         output_class: boolean (default = True)
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -739,10 +727,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         Returns
         -------
-        y : (same as the input datatype)
-            Dense vector (float) of shape (n_samples, 1). The datatype of y
-            depend on the value of 'output_type' varaible specified by the
-            user while intializing the model.
+        y : {}
         """
         if self.dtype == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \
@@ -771,6 +756,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         return preds_proba
 
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
+                                       ('dense_intdtype', '(n_samples, 1)')])
     def score(self, X, y, threshold=0.5,
               algo='auto', num_classes=None, predict_model="GPU",
               convert_dtype=True, fil_sparse_format='auto'):
@@ -779,12 +766,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        y : NumPy
-            Dense vector (int) of shape (n_samples, 1)
+        X : {}
+        y : {}
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
