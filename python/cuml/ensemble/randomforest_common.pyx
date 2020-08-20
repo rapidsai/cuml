@@ -45,7 +45,7 @@ class BaseRandomForestModel(Base):
     criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
                       '3': MAE, '4': CRITERION_END}
 
-    def __init__(self, split_criterion, seed=None,
+    def __init__(self, split_criterion, random_state=None,
                  n_streams=8, n_estimators=100,
                  max_depth=16, handle=None, max_features='auto',
                  n_bins=8, split_algo=1, bootstrap=True,
@@ -57,7 +57,7 @@ class BaseRandomForestModel(Base):
                  min_weight_fraction_leaf=None, n_jobs=None,
                  max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None,
-                 random_state=None, warm_start=None, class_weight=None,
+                 warm_start=None, class_weight=None,
                  quantile_per_tree=False, criterion=None):
 
         if accuracy_metric:
@@ -69,7 +69,7 @@ class BaseRandomForestModel(Base):
                           "max_leaf_nodes": max_leaf_nodes,
                           "min_impurity_split": min_impurity_split,
                           "oob_score": oob_score, "n_jobs": n_jobs,
-                          "random_state": random_state,
+#                           "random_state": random_state,
                           "warm_start": warm_start,
                           "class_weight": class_weight}
 
@@ -82,13 +82,13 @@ class BaseRandomForestModel(Base):
                     "(https://docs.rapids.ai/api/cuml/nightly/"
                     "api.html#random-forest) for more information")
 
-        if ((seed is not None) and (n_streams != 1)):
+        if ((random_state is not None) and (n_streams != 1)):
             warnings.warn("For reproducible results in Random Forest"
                           " Classifier or for almost reproducible results"
                           " in Random Forest Regressor, n_streams==1 is "
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
-                          "random_seed is set")
+                          "random_state is set")
         if handle is None:
             handle = Handle(n_streams)
 
@@ -126,7 +126,7 @@ class BaseRandomForestModel(Base):
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = handle.getNumInternalStreams()
-        self.seed = seed
+        self.random_state = random_state
         self.rf_forest = 0
         self.rf_forest64 = 0
         self.model_pbuf_bytes = bytearray()
