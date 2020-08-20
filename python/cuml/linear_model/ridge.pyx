@@ -192,7 +192,7 @@ class Ridge(Base, RegressorMixin):
 
 
     For additional docs, see `Scikit-learn's Ridge Regression
-    <https://github.com/rapidsai/notebooks/blob/master/cuml/ridge_regression_demo.ipynb>`_.
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
     """
 
     def __init__(self, alpha=1.0, solver='eig', fit_intercept=True,
