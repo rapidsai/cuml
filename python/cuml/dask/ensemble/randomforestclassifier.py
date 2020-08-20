@@ -119,7 +119,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     Examples
     --------
     For usage examples, please see the RAPIDS notebooks repository:
-    https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/random_forest_mnmg_demo.ipynb
+    https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/random_forest_mnmg_demo.ipynb
     """
 
     def __init__(
