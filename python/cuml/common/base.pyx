@@ -29,6 +29,7 @@ import inspect
 from cudf.core import Series as cuSeries
 from cudf.core import DataFrame as cuDataFrame
 from cuml.common.array import CumlArray
+from cuml.common.doc_utils import generate_docstring
 from cupy import ndarray as cupyArray
 from numba.cuda import devicearray as numbaArray
 from numpy import ndarray as numpyArray
@@ -336,26 +337,16 @@ class RegressorMixin:
 
     _estimator_type = "regressor"
 
+    @generate_docstring(return_values={'name': 'score',
+                                       'type': 'float',
+                                       'description': 'R^2 of self.predict(X) '
+                                                      'wrt. y.'})
     def score(self, X, y, **kwargs):
-        """Scoring function for regression estimators
+        """
+        Scoring function for regression estimators
 
         Returns the coefficient of determination R^2 of the prediction.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Test samples on which we predict
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        y : array-like (device or host) shape = (n_samples, n_features)
-            Ground truth values for predict(X)
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        score : float
-            R^2 of self.predict(X) wrt. y.
         """
         from cuml.metrics.regression import r2_score
 
@@ -373,21 +364,16 @@ class ClassifierMixin:
 
     _estimator_type = "classifier"
 
+    @generate_docstring(return_values={'name': 'score',
+                                       'type': 'float',
+                                       'description': 'Accuracy of \
+                                                      self.predict(X) wrt. y \
+                                                      (fraction where y == \
+                                                      pred_y)'})
     def score(self, X, y, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.
 
-        Parameters
-        ----------
-        X : [cudf.DataFrame]
-            Test samples on which we predict
-        y : [cudf.Series, device array, or numpy array]
-            Ground truth values for predict(X)
-
-        Returns
-        -------
-        score : float
-            Accuracy of self.predict(X) wrt. y (fraction where y == pred_y)
         """
         from cuml.metrics.accuracy import accuracy_score
         from cuml.common import input_to_dev_array
