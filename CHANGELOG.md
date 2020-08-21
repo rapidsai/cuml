@@ -4,6 +4,8 @@
 
 ## Improvements
 
+- PR #2739: Use cusparse_wrappers.h from RAFT
+
 ## Bug Fixes
 
 # cuML 0.15.0 (Date TBD)
