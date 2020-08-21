@@ -184,9 +184,7 @@ inline void select_k(float *inK, int64_t *inV, size_t n_rows, size_t n_cols,
 }
 
 template <typename value_idx = int, typename value_t = float>
-void compute_distances() {
-
-}
+void compute_distances() {}
 
 /**
    * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
@@ -212,7 +210,6 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                      size_t batch_size = 2 << 20,  // approx 1M
                      ML::MetricType metric = ML::MetricType::METRIC_L2,
                      float metricArg = 0, bool expanded_form = false) {
-
   using namespace raft::sparse;
 
   int n_batches_query = ceildiv(n_query_rows, batch_size);
@@ -335,52 +332,52 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
 
       size_t workspace_size1;
 
-// TODO: Pull the matrix multiply into a separate function
+      // TODO: Pull the matrix multiply into a separate function
 
-//      CUSPARSE_CHECK(cusparsespgemm_workestimation(
-//        cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-//        CUSPARSE_OPERATION_TRANSPOSE, &alpha, matA, matB, &beta, matC,
-//        CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &workspace_size1, NULL));
-//
-//      // cusparseSpGEMM_compute
+      //      CUSPARSE_CHECK(cusparsespgemm_workestimation(
+      //        cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+      //        CUSPARSE_OPERATION_TRANSPOSE, &alpha, matA, matB, &beta, matC,
+      //        CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &workspace_size1, NULL));
+      //
+      //      // cusparseSpGEMM_compute
       device_buffer<char> workspace1(allocator, stream, workspace_size1);
-//
+      //
       size_t workspace_size2;
-//
-//      // ask bufferSize2 bytes for external memory
-//      CUSPARSE_CHECK(cusparsespgemm_compute(
-//        cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-//        CUSPARSE_OPERATION_TRANSPOSE, &alpha, matA, matB, &beta, matC,
-//        CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &workspace_size2, NULL));
-//
+      //
+      //      // ask bufferSize2 bytes for external memory
+      //      CUSPARSE_CHECK(cusparsespgemm_compute(
+      //        cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+      //        CUSPARSE_OPERATION_TRANSPOSE, &alpha, matA, matB, &beta, matC,
+      //        CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &workspace_size2, NULL));
+      //
       device_buffer<char> workspace2(allocator, stream, workspace_size2);
-//
-//      // cusparseSpGEMM_compute
-//      // compute the intermediate product of A * B
-//      CUSPARSE_CHECK(
-//        cusparsespgemm_compute(cusparseHandle, opA, opB, &alpha, matA, matB,
-//                               &beta, matC, CUSPARSE_SPGEMM_DEFAULT, spgemmDesc,
-//                               &workspace_size2, workspace2.data()));
-//
-//      // get matrix C non-zero entries C_num_nnz1
+      //
+      //      // cusparseSpGEMM_compute
+      //      // compute the intermediate product of A * B
+      //      CUSPARSE_CHECK(
+      //        cusparsespgemm_compute(cusparseHandle, opA, opB, &alpha, matA, matB,
+      //                               &beta, matC, CUSPARSE_SPGEMM_DEFAULT, spgemmDesc,
+      //                               &workspace_size2, workspace2.data()));
+      //
+      //      // get matrix C non-zero entries C_num_nnz1
       int64_t C_num_rows1, C_num_cols1, C_num_nnz1;
-//      CUSPARSE_CHECK(
-//        cusparseSpMatGetSize(matC, &C_num_rows1, &C_num_cols1, &C_num_nnz1));
-//      // allocate matrix C
-//
-//      // update matC with the new pointers
-//
+      //      CUSPARSE_CHECK(
+      //        cusparseSpMatGetSize(matC, &C_num_rows1, &C_num_cols1, &C_num_nnz1));
+      //      // allocate matrix C
+      //
+      //      // update matC with the new pointers
+      //
       device_buffer<value_idx> matC_rowind(allocator, stream, C_num_rows1 + 1);
       device_buffer<value_idx> matC_indices(allocator, stream, C_num_nnz1);
       device_buffer<value_t> matC_data(allocator, stream, C_num_nnz1);
-//
-//      CUSPARSE_CHECK(cusparseCsrSetPointers(
-//        matC, matC_rowind.data(), matC_indices.data(), matC_data.data()));
-//
-//      // copy the final products to the matrix C
-//      CUSPARSE_CHECK(cusparsespgemm_copy(cusparseHandle, opA, opB, &alpha, matA,
-//                                         matB, &beta, matC,
-//                                         CUSPARSE_SPGEMM_DEFAULT, spgemmDesc));
+      //
+      //      CUSPARSE_CHECK(cusparseCsrSetPointers(
+      //        matC, matC_rowind.data(), matC_indices.data(), matC_data.data()));
+      //
+      //      // copy the final products to the matrix C
+      //      CUSPARSE_CHECK(cusparsespgemm_copy(cusparseHandle, opA, opB, &alpha, matA,
+      //                                         matB, &beta, matC,
+      //                                         CUSPARSE_SPGEMM_DEFAULT, spgemmDesc));
 
       workspace1.release(stream);
       workspace2.release(stream);
