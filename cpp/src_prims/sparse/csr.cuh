@@ -386,15 +386,15 @@ __device__ int get_stop_idx(T row, T m, T nnz, const T *ind) {
   return stop_idx;
 }
 
-template <int TPB_X = 32>
-__global__ void csr_to_coo_kernel(const int *row_ind, int m, int *coo_rows,
-                                  int nnz) {
+template <typename value_idx = int, int TPB_X = 32>
+__global__ void csr_to_coo_kernel(const value_idx *row_ind, value_idx m, value_idx *coo_rows,
+                                  value_idx nnz) {
   // row-based matrix 1 thread per row
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  value_idx row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < m) {
-    int start_idx = row_ind[row];
-    int stop_idx = get_stop_idx(row, m, nnz, row_ind);
-    for (int i = start_idx; i < stop_idx; i++) coo_rows[i] = row;
+    value_idx start_idx = row_ind[row];
+    value_idx stop_idx = get_stop_idx(row, m, nnz, row_ind);
+    for (value_idx i = start_idx; i < stop_idx; i++) coo_rows[i] = row;
   }
 }
 
@@ -406,13 +406,13 @@ __global__ void csr_to_coo_kernel(const int *row_ind, int m, int *coo_rows,
  * @param nnz: size of output COO row array
  * @param stream: cuda stream to use
  */
-template <int TPB_X>
-void csr_to_coo(const int *row_ind, int m, int *coo_rows, int nnz,
+template <typename value_idx = int, int TPB_X = 32>
+void csr_to_coo(const value_idx *row_ind, value_idx m, value_idx *coo_rows, value_idx nnz,
                 cudaStream_t stream) {
-  dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
+  dim3 grid(MLCommon::ceildiv(m, (value_idx)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  csr_to_coo_kernel<TPB_X><<<grid, blk, 0, stream>>>(row_ind, m, coo_rows, nnz);
+  csr_to_coo_kernel<value_idx, TPB_X><<<grid, blk, 0, stream>>>(row_ind, m, coo_rows, nnz);
 
   CUDA_CHECK(cudaGetLastError());
 }

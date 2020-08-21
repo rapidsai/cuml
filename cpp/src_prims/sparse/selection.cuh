@@ -21,6 +21,7 @@
 #include <matrix/matrix.cuh>
 
 #include <selection/knn.cuh>
+#include <sparse/coo.cuh>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -51,7 +52,7 @@ void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
 	updateHost(stop_offset, indptr+stop_row+1, 1, stream);
 	CUDA_CHECK(cudaStreamSynchronize(stream));
 
-	copyAsync(indptr_out, indptr+start_row, indptr+stop_row+1, stream);
+	copyAsync(indptr_out, indptr+start_row, (stop_row-start_row)+1, stream);
 }
 
 template<typename value_idx, typename value_t>
@@ -59,8 +60,26 @@ void csr_row_slice_populate(value_idx start_offset, value_idx stop_offset,
 		const value_idx *indices, const value_t *data,
 		value_idx *indices_out, value_t *data_out, cudaStream_t stream) {
 
-	copy(indices_out, indices+start_offset, indices+stop_offset, stream);
-	copy(data_out, data+start_offset, data+stop_offset, stream);
+	copy(indices_out, indices+start_offset, stop_offset-start_offset, stream);
+	copy(data_out, data+start_offset, stop_offset-start_offset, stream);
+}
+
+template<typename value_idx, typename value_t>
+__global__ void coo_to_dense_kernel(value_t *out,
+		value_idx n_rows, value_idx n_cols, value_idx nnz,
+		value_idx *rows, value_idx *cols, value_t *data,
+		bool column_major = false) {
+
+	value_idx i = blockDim.x * blockIdx.x + threadIdx.x;
+
+	value_idx row = rows[i];
+	value_idx col = cols[i];
+	value_idx val = data[i];
+
+	if(column_major)
+		out[col * n_rows +row] = val;
+	else
+		out[row * n_cols + col] = val;
 }
 
 template <typename K,
@@ -212,6 +231,9 @@ void brute_force_knn(const value_idx *idxIndptr,
 	if(metric == ML::MetricType::METRIC_INNER_PRODUCT)
 		ascending = false;
 
+	cusparseOperation_t opA = CUSPARSE_OPERATION_NON_TRANSPOSE;
+	cusparseOperation_t opB = CUSPARSE_OPERATION_TRANSPOSE;
+
 	value_t alpha = 1.0, beta = 0.0;
 
 	for(int i = 0; i < n_batches_query; i++) {
@@ -244,7 +266,7 @@ void brute_force_knn(const value_idx *idxIndptr,
 		value_idx n_query_batch_elms = query_stop_offset - query_start_offset;
 
 		device_buffer<value_idx> query_batch_indices(allocator, stream, n_query_batch_elms);
-		device_buffer<value_idx> query_batch_data(allocator, stream, n_query_batch_elms);
+		device_buffer<value_t> query_batch_data(allocator, stream, n_query_batch_elms);
 
 		csr_row_slice_populate(query_start_offset, query_stop_offset,
 				queryIndptr, queryData, query_batch_indices.data(), query_batch_data.data(), stream);
@@ -253,7 +275,8 @@ void brute_force_knn(const value_idx *idxIndptr,
 		 * Create cusparse descriptors
 		 */
 		cusparseSpMatDescr_t matA;
-		CUSPARSE_CHECK(cusparsecreatecsr(&matA, n_query_rows, n_query_cols, queryNNZ, queryIndptr, queryIndices, queryData));
+		CUSPARSE_CHECK(cusparsecreatecsr2(&matA, n_query_rows, n_query_cols, queryNNZ, const_cast<value_idx*>(queryIndptr),
+				const_cast<value_idx*>(queryIndices), const_cast<value_t*>(queryData)));
 
 		// A 3-partition temporary merge space to scale the batching. 2 parts for subsequent
 		// batches and 1 space for the results of the merge, which get copied back to the
@@ -291,7 +314,7 @@ void brute_force_knn(const value_idx *idxIndptr,
 			value_idx n_idx_batch_elms = idx_stop_offset - idx_start_offset;
 
 			device_buffer<value_idx> idx_batch_indices(allocator, stream, n_idx_batch_elms);
-			device_buffer<value_idx> idx_batch_data(allocator, stream, n_idx_batch_elms);
+			device_buffer<value_t> idx_batch_data(allocator, stream, n_idx_batch_elms);
 
 			csr_row_slice_populate(idx_start_offset, idx_stop_offset,
 					idxIndptr, idxData, idx_batch_indices.data(), idx_batch_data.data(), stream);
@@ -300,34 +323,43 @@ void brute_force_knn(const value_idx *idxIndptr,
 			 * Create cusparse descriptors
 			 */
 			cusparseSpMatDescr_t matB;
-			CUSPARSE_CHECK(cusparsecreatecsr(&matB, n_idx_rows, n_idx_cols, idxNNZ,
-					idxIndptr, idxIndices, idxData));
+			CUSPARSE_CHECK(cusparsecreatecsr2(&matB, n_idx_rows, n_idx_cols, idxNNZ,
+					const_cast<value_idx*>(idxIndptr), const_cast<value_idx*>(idxIndices),
+					const_cast<value_t*>(idxData)));
+
+			cusparseSpMatDescr_t matC;
 
 			// cusparseSpGEMM_workEstimation
 
 			cusparseSpGEMMDescr_t spgemmDesc;
-			CUSPARSE_CHECK(cusparseSpGemm_createDescr(&spgemmDesc));
+			CUSPARSE_CHECK(cusparseSpGEMM_createDescr(&spgemmDesc));
+
+			size_t workspace_size1;
 
 			CUSPARSE_CHECK(cusparsespgemm_workestimation(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
 					CUSPARSE_OPERATION_TRANSPOSE, &alpha, matA, matB, &beta, matC,
-					CUSPARSE_SPGEMM_DEFAULT, &workspace_size1, NULL));
+					CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &workspace_size1, NULL));
 
 			// cusparseSpGEMM_compute
 			device_buffer<char> workspace1(allocator, stream, workspace_size1);
 
+			size_t workspace_size2;
+
 		    // ask bufferSize2 bytes for external memory
-		    CUSPARSE_CHECK(cusparsespgemm_compute(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+		    CUSPARSE_CHECK(cusparsespgemm_compute(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
 		    		CUSPARSE_OPERATION_TRANSPOSE, &alpha, matA, matB, &beta, matC,
 		    		CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &workspace_size2, NULL));
 
 			device_buffer<char> workspace2(allocator, stream, workspace_size2);
 
+
 			// cusparseSpGEMM_compute
 		    // compute the intermediate product of A * B
-		    CUSPARSE_CHECK(cusparsespgemm_compute(handle, opA, opB,
+		    CUSPARSE_CHECK(cusparsespgemm_compute(cusparseHandle,
+		    		opA, opB,
 		                           &alpha, matA, matB, &beta, matC,
 		                           CUSPARSE_SPGEMM_DEFAULT,
-		                           spgemmDesc, &workspace_size2, workspace2));
+		                           spgemmDesc, &workspace_size2, workspace2.data()));
 
 		    // get matrix C non-zero entries C_num_nnz1
 		    int64_t C_num_rows1, C_num_cols1, C_num_nnz1;
@@ -335,12 +367,18 @@ void brute_force_knn(const value_idx *idxIndptr,
 		    // allocate matrix C
 
 		    // update matC with the new pointers
-		    CUSPARSE_CHECK(cusparseCsrSetPointers(matC, dC_csrOffsets, dC_columns, dC_values));
+
+		    device_buffer<value_idx> matC_rowind(allocator, stream, C_num_rows1+1);
+		    device_buffer<value_idx> matC_indices(allocator, stream, C_num_nnz1);
+		    device_buffer<value_t> matC_data(allocator, stream, C_num_nnz1);
+
+		    CUSPARSE_CHECK(cusparseCsrSetPointers(matC, matC_rowind.data(), matC_indices.data(), matC_data.data()));
 
 		    // copy the final products to the matrix C
-		    CUSPARSE_CHECK(cusparsespgemm_copy(handle, opA, opB,
-		                        &alpha, matA, matB, &beta, matC,
-		                        CUSPARSE_SPGEMM_DEFAULT, spgemmDesc));
+		    CUSPARSE_CHECK(cusparsespgemm_copy(cusparseHandle,
+		    		opA, opB,
+					&alpha, matA, matB, &beta, matC,
+					CUSPARSE_SPGEMM_DEFAULT, spgemmDesc));
 
 		    workspace1.release(stream);
 		    workspace2.release(stream);
@@ -351,9 +389,13 @@ void brute_force_knn(const value_idx *idxIndptr,
 
 		    device_buffer<value_t> C_dense(allocator, stream, C_num_rows1*C_num_cols1);
 
-			// cusparseScsr2dense
-		    CUSPARSE_CHECK(cusparsecsr2dense(handle, C_num_rows_1, C_num_cols_1, matC,
-		    		dC_csrOffsets, dC_columns, dC_values, C_dense.data(), C_num_cols_1));
+		    // cusparse allows 64-bit indices but forces integers when converting to dense.
+		    device_buffer<value_idx> C_coorows(allocator, stream, C_num_nnz1);
+
+		    csr_to_coo<value_idx, 256>(matC_rowind.data(), C_num_rows1, C_coorows.data(), C_num_nnz1, stream);
+
+		    coo_to_dense_kernel<<<C_num_nnz1, ceildiv(C_num_nnz1, (int64_t)256), 0, stream>>>(C_dense.data(), C_num_rows1, C_num_cols1, C_num_nnz1,
+		    		C_coorows.data(), matC_indices.data(), matC_data.data());
 
 		    device_buffer<value_idx> batch_indices(allocator, stream, C_num_rows1*C_num_cols1);
 		    device_buffer<value_t> batch_dists(allocator, stream, C_num_rows1*C_num_cols1);
@@ -361,11 +403,11 @@ void brute_force_knn(const value_idx *idxIndptr,
 		    // even numbers take bottom, odd numbers take top, merging until end of loop,
 		    // where output matrix is populated.
 		    size_t merge_buffer_offset = j % 2 == 0 ? 0 : n_query_rows * k;
-		    T dists_merge_buffer_ptr = merge_buffer_dists.data()+merge_buffer_offset;
-		    int64_t indices_merge_buffer_ptr = merge_buffer_indices.data()+merge_buffer_offset;
+		    dists_merge_buffer_ptr = merge_buffer_dists.data()+merge_buffer_offset;
+		    indices_merge_buffer_ptr = merge_buffer_indices.data()+merge_buffer_offset;
 
 		    size_t merge_buffer_tmp_out = n_query_rows * k * 2;
-		    T *dists_merge_buffer_tmp_ptr = merge_buffer_dists.data() + merge_buffer_tmp_out;
+		    value_t *dists_merge_buffer_tmp_ptr = merge_buffer_dists.data() + merge_buffer_tmp_out;
 		    int64_t *indices_merge_buffer_tmp_ptr = merge_buffer_indices.data() + merge_buffer_tmp_out;
 
 		    // build translation buffer to shift resulting indices by the batch
@@ -386,22 +428,19 @@ void brute_force_knn(const value_idx *idxIndptr,
 		            /*translation for current batch*/
 		            id_ranges[1]);
 
-		    device_buffer<value_idx> batch_indices(allocator, stream, C_num_rows1*C_num_cols1);
-		    device_buffer<value_t> batch_dists(allocator, stream, C_num_rows1*C_num_cols1);
-
 		    // combine merge buffers only if there's more than 1 partition to combine
-		    Selection::knn_merge_parts(dists_merge_buffer_ptr, indices_merge_buffer_ptr, dists_merge_buffer_tmp_ptr,
+		    MLCommon::Selection::knn_merge_parts(dists_merge_buffer_ptr, indices_merge_buffer_ptr, dists_merge_buffer_tmp_ptr,
 		                                indices_merge_buffer_tmp_ptr, C_num_rows1, 2, k,
 		                                stream, id_ranges.data());
 
 		    // copy merged output back into merge buffer partition for next iteration
-		    copyAsync(indices_merge_buffer_ptr, indices_merge_buffer_tmp_ptr, C_num_rows1, k);
-		    copyAsync(dists_merge_buffer_ptr, dists_merge_buffer_tmp_ptr, C_num_rows1, k);
+		    copyAsync(indices_merge_buffer_ptr, indices_merge_buffer_tmp_ptr, C_num_rows1 * k, stream);
+		    copyAsync(dists_merge_buffer_ptr, dists_merge_buffer_tmp_ptr, C_num_rows1 * k, stream);
 		}
 
 		// Copy final merged batch to output array
-		copyAsync(output_indices, indices_merge_buffer_ptr, query_batch_start * k);
-		copyAsync(output_dists, dists_merge_buffer_ptr, query_batch_start * k);
+		copyAsync(output_indices, indices_merge_buffer_ptr, query_batch_start * k, stream);
+		copyAsync(output_dists, dists_merge_buffer_ptr, query_batch_start * k, stream);
 	}
 }
 }; // END namespace Selection

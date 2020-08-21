@@ -59,7 +59,7 @@ TEST_P(CSRToCOO, Result) {
   updateDevice(ex_scan, ex_scan_h, 4, stream);
   updateDevice(verify, verify_h, 10, stream);
 
-  csr_to_coo<32>(ex_scan, 4, result, 10, stream);
+  csr_to_coo<int, 32>(ex_scan, 4, result, 10, stream);
 
   ASSERT_TRUE(devArrMatch<int>(verify, result, 10, Compare<float>(), stream));
 

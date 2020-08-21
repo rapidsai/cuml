@@ -185,7 +185,7 @@ void general_simplicial_set_intersection(
     result->vals(), stream);
 
   //@todo: Write a wrapper function for this
-  MLCommon::Sparse::csr_to_coo<TPB_X>(result_ind.data(), result->n_rows,
+  MLCommon::Sparse::csr_to_coo<int, TPB_X>(result_ind.data(), result->n_rows,
                                       result->rows(), result->nnz, stream);
 
   thrust::device_ptr<const T> d_ptr1 = thrust::device_pointer_cast(in1->vals());

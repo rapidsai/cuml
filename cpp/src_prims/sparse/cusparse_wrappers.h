@@ -167,49 +167,55 @@ inline cusparseStatus_t cusparsegemmi(
  * @{
  */
 template <typename IndexT, typename ValueT>
-cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
-                                   int64_t rows, int64_t cols, int64_t nnz,
-                                   IndexT* csrRowOffsets, IndexT* csrColInd,
-                                   ValueT* csrValues);
+cusparseStatus_t
+cusparsecreatecsr2(cusparseSpMatDescr_t* spMatDescr,
+				  int64_t rows, int64_t cols, int64_t nnz,
+				  IndexT* csrRowOffsets, IndexT* csrColInd,
+				  ValueT* csrValues);
+
 template <>
-inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
-                                          int64_t rows, int64_t cols,
-                                          int64_t nnz, int32_t* csrRowOffsets,
-                                          int32_t* csrColInd,
-                                          float* csrValues) {
+inline cusparseStatus_t
+cusparsecreatecsr2(cusparseSpMatDescr_t* spMatDescr,
+				  int64_t rows, int64_t cols,
+				  int64_t nnz, int32_t* csrRowOffsets,
+				  int32_t* csrColInd,
+				  float* csrValues) {
   return cusparseCreateCsr(spMatDescr, rows, cols, nnz, csrRowOffsets,
                            csrColInd, csrValues, CUSPARSE_INDEX_32I,
                            CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
                            CUDA_R_32F);
 }
 template <>
-inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
-                                          int64_t rows, int64_t cols,
-                                          int64_t nnz, int32_t* csrRowOffsets,
-                                          int32_t* csrColInd,
-                                          double* csrValues) {
+inline cusparseStatus_t
+cusparsecreatecsr2(cusparseSpMatDescr_t* spMatDescr,
+				  int64_t rows, int64_t cols,
+				  int64_t nnz, int32_t* csrRowOffsets,
+				  int32_t* csrColInd,
+				  double* csrValues) {
   return cusparseCreateCsr(spMatDescr, rows, cols, nnz, csrRowOffsets,
                            csrColInd, csrValues, CUSPARSE_INDEX_32I,
                            CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
                            CUDA_R_64F);
 }
 template <>
-inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
-                                          int64_t rows, int64_t cols,
-                                          int64_t nnz, int64_t* csrRowOffsets,
-                                          int64_t* csrColInd,
-                                          float* csrValues) {
+inline cusparseStatus_t
+cusparsecreatecsr2(cusparseSpMatDescr_t* spMatDescr,
+				  int64_t rows, int64_t cols,
+				  int64_t nnz, int64_t* csrRowOffsets,
+				  int64_t* csrColInd,
+				  float* csrValues) {
   return cusparseCreateCsr(spMatDescr, rows, cols, nnz, csrRowOffsets,
                            csrColInd, csrValues, CUSPARSE_INDEX_64I,
                            CUSPARSE_INDEX_64I, CUSPARSE_INDEX_BASE_ZERO,
                            CUDA_R_32F);
 }
 template <>
-inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
-                                          int64_t rows, int64_t cols,
-                                          int64_t nnz, int64_t* csrRowOffsets,
-                                          int64_t* csrColInd,
-                                          double* csrValues) {
+inline cusparseStatus_t
+cusparsecreatecsr2(cusparseSpMatDescr_t* spMatDescr,
+				  int64_t rows, int64_t cols,
+				  int64_t nnz, int64_t* csrRowOffsets,
+				  int64_t* csrColInd,
+				  double* csrValues) {
   return cusparseCreateCsr(spMatDescr, rows, cols, nnz, csrRowOffsets,
                            csrColInd, csrValues, CUSPARSE_INDEX_64I,
                            CUSPARSE_INDEX_64I, CUSPARSE_INDEX_BASE_ZERO,
@@ -288,7 +294,6 @@ cusparsespgemm_compute(cusparseHandle_t      handle,
                        cusparseSpMatDescr_t  matC,
                        cusparseSpGEMMAlg_t   alg,
                        cusparseSpGEMMDescr_t spgemmDescr,
-                       void*                 externalBuffer1,
                        size_t*               bufferSize2,
                        void*                 externalBuffer2);
 
@@ -304,14 +309,13 @@ cusparsespgemm_compute(cusparseHandle_t      handle,
                        cusparseSpMatDescr_t  matC,
                        cusparseSpGEMMAlg_t   alg,
                        cusparseSpGEMMDescr_t spgemmDescr,
-                       void*                 externalBuffer1,
                        size_t*               bufferSize2,
                        void*                 externalBuffer2) {
 
 	return cusparseSpGEMM_compute(handle,
             opA, opB, alpha, matA, matB, beta,
             matC, CUDA_R_32F, alg, spgemmDescr,
-            externalBuffer1, bufferSize2, externalBuffer2);
+            bufferSize2, externalBuffer2);
 }
 
 
@@ -327,14 +331,13 @@ cusparsespgemm_compute(cusparseHandle_t      handle,
                        cusparseSpMatDescr_t  matC,
                        cusparseSpGEMMAlg_t   alg,
                        cusparseSpGEMMDescr_t spgemmDescr,
-                       void*                 externalBuffer1,
                        size_t*               bufferSize2,
                        void*                 externalBuffer2) {
 
 	return cusparseSpGEMM_compute(handle,
             opA, opB, alpha, matA, matB, beta,
             matC, CUDA_R_64F, alg, spgemmDescr,
-            externalBuffer1, bufferSize2, externalBuffer2);
+            bufferSize2, externalBuffer2);
 }
 
 template<typename T>
@@ -348,8 +351,7 @@ cusparsespgemm_copy(cusparseHandle_t      handle,
                     const T*           beta,
                     cusparseSpMatDescr_t  matC,
                     cusparseSpGEMMAlg_t   alg,
-                    cusparseSpGEMMDescr_t spgemmDescr,
-                    void*                 externalBuffer2);
+                    cusparseSpGEMMDescr_t spgemmDescr);
 
 template<>
 inline cusparseStatus_t
@@ -362,11 +364,10 @@ cusparsespgemm_copy(cusparseHandle_t      handle,
                     const float*           beta,
                     cusparseSpMatDescr_t  matC,
                     cusparseSpGEMMAlg_t   alg,
-                    cusparseSpGEMMDescr_t spgemmDescr,
-                    void*                 externalBuffer2) {
-	return cusparsespgemm_copy(handle,
+                    cusparseSpGEMMDescr_t spgemmDescr) {
+	return cusparseSpGEMM_copy(handle,
 			opA, opB, alpha, matA, matB, beta, matC,
-			CUDA_R_32F, alg, spgemmDescr, externalBuffer2);
+			CUDA_R_32F, alg, spgemmDescr);
 }
 
 
@@ -381,58 +382,11 @@ cusparsespgemm_copy(cusparseHandle_t      handle,
                     const double*           beta,
                     cusparseSpMatDescr_t  matC,
                     cusparseSpGEMMAlg_t   alg,
-                    cusparseSpGEMMDescr_t spgemmDescr,
-                    void*                 externalBuffer2) {
-	return cusparsespgemm_copy(handle,
+                    cusparseSpGEMMDescr_t spgemmDescr) {
+	return cusparseSpGEMM_copy(handle,
 			opA, opB, alpha, matA, matB, beta, matC,
-			CUDA_R_64F, alg, spgemmDescr, externalBuffer2);
+			CUDA_R_64F, alg, spgemmDescr);
 }
-
-
-template<typename T>
-inline cusparseStatus_t
-cusparsecsr2dense(cusparseHandle_t         handle,
-                   int                      m,
-                   int                      n,
-                   const cusparseMatDescr_t descrA,
-                   const T*             csrValA,
-                   const int*               csrRowPtrA,
-                   const int*               csrColIndA,
-                   float*                   A,
-                   int                      lda);
-
-template<>
-inline cusparseStatus_t
-cusparsecsr2dense(cusparseHandle_t         handle,
-                   int                      m,
-                   int                      n,
-                   const cusparseMatDescr_t descrA,
-                   const float*             csrValA,
-                   const int*               csrRowPtrA,
-                   const int*               csrColIndA,
-                   float*                   A,
-                   int                      lda) {
-	return cusparseScsr2dense(handle, m, n, descrA,
-	                   csrValA, csrRowPtrA, csrColIndA, A, lda);
-}
-
-
-template<>
-inline cusparseStatus_t
-cusparsecsr2dense(cusparseHandle_t         handle,
-                   int                      m,
-                   int                      n,
-                   const cusparseMatDescr_t descrA,
-                   const double*             csrValA,
-                   const int*               csrRowPtrA,
-                   const int*               csrColIndA,
-                   float*                   A,
-                   int                      lda) {
-	return cusparseDcsr2dense(handle, m, n, descrA,
-	                   csrValA, csrRowPtrA, csrColIndA, A, lda);
-}
-
-
 
 
 /** @} */
