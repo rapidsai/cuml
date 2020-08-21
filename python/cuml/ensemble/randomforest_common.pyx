@@ -84,7 +84,7 @@ class BaseRandomForestModel(Base):
         if seed is not None:
             if random_state is None:
                 warnings.warn("Parameter 'seed' is deprecated and will be"
-                              "removed in 0.17. Please use 'random_state'"
+                              " removed in 0.17. Please use 'random_state'"
                               " instead.",
                               DeprecationWarning)
                 random_state = seed
