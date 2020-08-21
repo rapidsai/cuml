@@ -5,6 +5,7 @@
 ## Improvements
 
 ## Bug Fixes
+- PR #2740: Add FAISS to cuml_dev environment for CUDA 10.2
 
 # cuML 0.15.0 (Date TBD)
 
