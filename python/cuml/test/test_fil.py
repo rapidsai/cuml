@@ -293,7 +293,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
                          random_state=random_state,
                          classification=False)
     # identify shape and indices
-    train_size = 0.80
+    train_size = 0.8
 
     X_train, X_validation, y_train, y_validation = train_test_split(
         X, y, train_size=train_size, random_state=0)
@@ -411,7 +411,6 @@ def test_output_args(small_classifier_and_preds):
     assert array_equal(fil_preds, xgb_preds, 1e-3)
 
 
-@pytest.mark.parametrize('num_classes', [2, 2]) # raise to 5 when supported
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
 def test_lightgbm(num_classes, tmp_path):
     import lightgbm as lgb
@@ -419,15 +418,8 @@ def test_lightgbm(num_classes, tmp_path):
                          random_state=43210,
                          classification=True)
     train_data = lgb.Dataset(X, label=y)
-
-    if num_classes == 2:
-        param = {'objective': 'binary',
-                 'metric': 'binary_logloss',
-                 'num_classes': 1}
-    else:
-        param = {'objective': 'multiclass',
-                 'metric': 'multi_logloss',
-                 'num_classes': num_classes}
+    param = {'objective': 'binary',
+             'metric': 'binary_logloss'}
     num_round = 5
     bst = lgb.train(param, train_data, num_round)
     gbm_preds = bst.predict(X)
@@ -444,7 +436,8 @@ def test_lightgbm(num_classes, tmp_path):
 
     assert array_equal(np.round(gbm_preds), fil_preds)
 
-    lcls = lgb.LGBMClassifier().set_params(**param)
+    lcls = lgb.LGBMClassifier().set_params(objective='binary',
+                                           metric='binary_logloss')
     lcls.fit(X, y)
     gbm_proba = lcls.predict_proba(X)
 

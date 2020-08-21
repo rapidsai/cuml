@@ -210,7 +210,6 @@ cdef class ForestInference_impl():
     def __cinit__(self,
                   handle=None):
         self.handle = handle
-        #self.forest_data = []
 
     def get_algo(self, algo_str):
         algo_dict={'AUTO': algo_t.ALGO_AUTO,
@@ -360,6 +359,7 @@ cdef class ForestInference_impl():
           free(handle_[0], self.forest_data.back())
           self.forest_data.pop_back()
         # TODO: add test for repeated load_from* to detect memory leaks
+        # once rapidsai/rmm#415 is merged
         cdef forest_t fd
         for g in range(self.num_output_groups):
           treelite_params.output_group_num = g
@@ -382,7 +382,7 @@ cdef class ForestInference_impl():
         return self.load_from_treelite_model_handle(<uintptr_t>model.handle,
                                                     output_class, algo,
                                                     threshold, storage_type)
-    # TODO: how to know if model is xgboost or cuml RF? (num_output_group-wise)?
+
     def load_using_treelite_handle(self,
                                    model_handle,
                                    bool output_class,
