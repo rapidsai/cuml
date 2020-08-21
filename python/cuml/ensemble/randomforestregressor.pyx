@@ -29,6 +29,8 @@ from cuml import ForestInference
 from cuml.common.array import CumlArray
 
 from cuml.common.base import RegressorMixin
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.doc_utils import insert_into_docstring
 from cuml.common.handle import Handle
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
@@ -365,30 +367,11 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
-    """
-    TODO : Move functions duplicated in the RF classifier and regressor
-           to a shared file. Cuml issue #1854 has been created to track this.
-    """
-
+    @generate_docstring()
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Regression on the input data
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (int32) of shape (n_samples, 1).
-            Acceptable formats: NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-            These labels should be contiguous integers from 0 to n_classes.
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This will increase
-            memory used for the method.
         """
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
@@ -503,6 +486,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         del(X_m)
         return preds.to_output(out_type)
 
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
+                           return_values=[('dense', '(n_samples, 1)')])
     def predict(self, X, predict_model="GPU",
                 algo='auto', convert_dtype=True,
                 fil_sparse_format='auto'):
@@ -511,10 +496,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        X : {}
         predict_model : String (default = 'GPU')
             'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
             be used if the model was trained on float32 data and `X` is float32
@@ -546,8 +528,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
         Returns
         ----------
-        y : NumPy
-            Dense vector (int) of shape (n_samples, 1)
+        y : {}
 
         """
         if predict_model == "CPU":
@@ -570,6 +551,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
         return preds
 
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
+                                       ('dense', '(n_samples, 1)')])
     def score(self, X, y, algo='auto', convert_dtype=True,
               fil_sparse_format='auto', predict_model="GPU"):
         """
@@ -577,12 +560,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        y : NumPy
-            Dense vector (int) of shape (n_samples, 1)
+        X : {}
+        y : {}
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.

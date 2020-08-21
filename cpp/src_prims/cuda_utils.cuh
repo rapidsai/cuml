@@ -112,7 +112,7 @@ DI int laneId() {
  * @param b second input
  */
 template <typename T>
-HDI void swap(T &a, T &b) {
+HDI void swapVals(T &a, T &b) {
   T tmp = a;
   a = b;
   b = tmp;
