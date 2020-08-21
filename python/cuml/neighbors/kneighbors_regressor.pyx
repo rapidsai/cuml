@@ -159,6 +159,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
         Fit a GPU index for k-nearest neighbors regression model.
 
         """
+        self._set_target_dtype(y)
         super(KNeighborsRegressor, self).fit(X, convert_dtype=convert_dtype)
         self._y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.float32,
@@ -180,6 +181,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
         """
 
         out_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype() if convert_dtype else None
 
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
@@ -219,7 +221,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
 
         self.handle.sync()
 
-        return results.to_output(out_type)
+        return results.to_output(out_type, output_dtype=out_dtype)
 
     def get_param_names(self):
         return super(KNeighborsRegressor, self).get_param_names() \
