@@ -21,6 +21,7 @@
 
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>
+#include <sparse/csr.cuh>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -33,7 +34,8 @@
 #include <common/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
-#include "cusparse_wrappers.h"
+
+#include <raft/sparse/cusparse_wrappers.h>
 
 #include <cusparse_v2.h>
 
@@ -205,6 +207,9 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                      size_t batch_size = 2 << 20,  // approx 1M
                      ML::MetricType metric = ML::MetricType::METRIC_L2,
                      float metricArg = 0, bool expanded_form = false) {
+
+  using namespace raft::sparse;
+
   int n_batches_query = ceildiv(n_query_rows, batch_size);
   bool ascending = true;
   if (metric == ML::MetricType::METRIC_INNER_PRODUCT) ascending = false;
@@ -256,7 +261,7 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
 		 * Create cusparse descriptors
 		 */
     cusparseSpMatDescr_t matA;
-    CUSPARSE_CHECK(cusparsecreatecsr2(
+    CUSPARSE_CHECK(cusparsecreatecsr(
       &matA, n_query_rows, n_query_cols, queryNNZ,
       const_cast<value_idx *>(queryIndptr),
       const_cast<value_idx *>(queryIndices), const_cast<value_t *>(queryData)));
@@ -311,10 +316,10 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
 			 * Create cusparse descriptors
 			 */
       cusparseSpMatDescr_t matB;
-      CUSPARSE_CHECK(cusparsecreatecsr2(&matB, n_idx_rows, n_idx_cols, idxNNZ,
-                                        const_cast<value_idx *>(idxIndptr),
-                                        const_cast<value_idx *>(idxIndices),
-                                        const_cast<value_t *>(idxData)));
+      CUSPARSE_CHECK(cusparsecreatecsr(&matB, n_idx_rows, n_idx_cols, idxNNZ,
+                                       const_cast<value_idx *>(idxIndptr),
+                                       const_cast<value_idx *>(idxIndices),
+                                       const_cast<value_t *>(idxData)));
 
       cusparseSpMatDescr_t matC;
 
