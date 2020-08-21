@@ -207,8 +207,8 @@ struct forest {
         }
       } else {
         params.num_outputs = 1;
-        if (num_output_group_ > 1) // xgboost multi-class
-          ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
+        if (num_output_group_ > 1)  // xgboost multi-class
+          ot = output_t(ot & ~output_t::CLASS);
       }
       if (ot != output_t::RAW || complement_proba) do_transform = true;
     } else if (leaf_payload_type_ == leaf_value_t::INT_CLASS_LABEL) {

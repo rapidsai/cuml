@@ -64,7 +64,7 @@ def _build_and_save_xgboost(model_path,
     dtrain = xgb.DMatrix(X_train, label=y_train)
 
     # instantiate params
-    params = {} #'silent': 1}
+    params = {}
 
     # learning task params
     params['eval_metric'] = 'error'
@@ -75,30 +75,20 @@ def _build_and_save_xgboost(model_path,
         else:
             # cannot use this interface as it's not supported by treelite
             # will cause "softmax" as the output transform
-            #params['objective'] = 'multi:softprob'
+            # params['objective'] = 'multi:softprob'
             # output transform == 'max_index'
             params['objective'] = 'multi:softmax'
-        #skl_class = xgb.XGBClassifier
     else:
         params['objective'] = 'reg:squarederror'
         params['base_score'] = 0.0
-        #skl_class = xgb.XGBRegressor
 
     params['max_depth'] = 25
-    #params['booster'] = 'gbtree'
     params.update(xgboost_params)
     bst = xgb.train(params, dtrain, num_rounds)
 
-    #skl_gbdt = skl_class(**params)
-    #skl_gbdt.fit(X_train, y_train)
-    #print(skl_gbdt.get_params())
-    #print(skl_gbdt.get_xgb_params())
-    #bst = skl_gbdt.get_booster()
-    #print(bst.attributes())
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
-    #return skl_gbdt, bst
-    return None, bst
+    return bst
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000),
@@ -134,7 +124,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
         xgb_num_classes = 1
     else:
         xgb_num_classes = num_classes
-    skl_gbdt, bst = _build_and_save_xgboost(model_path, X_train, y_train,
+    bst = _build_and_save_xgboost(model_path, X_train, y_train,
                                   num_rounds=num_rounds,
                                   classification=classification,
                                   num_classes=xgb_num_classes)
@@ -146,8 +136,6 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
         xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
     else:
         xgb_proba = bst.predict(dvalidation, output_margin=True).reshape((y_validation.size, -1, num_classes)).sum(axis=1)
-        #xgb_preds = skl_gbdt.predict(X_validation)
-        #xgb_proba = skl_gbdt.predict_proba(X_validation)
     if num_classes == 2:
         xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
     else:
@@ -195,7 +183,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
         X, y, train_size=train_size, random_state=0)
 
     model_path = os.path.join(tmp_path, 'xgb_reg.model')
-    _, bst = _build_and_save_xgboost(model_path, X_train,
+    bst = _build_and_save_xgboost(model_path, X_train,
                                   y_train,
                                   classification=classification,
                                   num_rounds=num_rounds,
@@ -350,7 +338,7 @@ def small_classifier_and_preds(tmpdir_factory):
                          classification=True)
 
     model_path = str(tmpdir_factory.mktemp("models").join("small_class.model"))
-    _, bst = _build_and_save_xgboost(model_path, X, y)
+    bst = _build_and_save_xgboost(model_path, X, y)
     # just do within-sample since it's not an accuracy test
     dtrain = xgb.DMatrix(X, label=y)
     xgb_preds = bst.predict(dtrain)
