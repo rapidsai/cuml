@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #2735: Update seed to random_state in random forest and associated tests
 
 ## Bug Fixes
 

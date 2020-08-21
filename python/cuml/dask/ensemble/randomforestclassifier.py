@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import warnings
+
 import numpy as np
 
 from cuml.dask.common.base import BaseEstimator
@@ -131,6 +133,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         client=None,
         verbose=False,
         n_estimators=10,
+        random_state=None,
         seed=None,
         ignore_empty_partitions=False,
         **kwargs
