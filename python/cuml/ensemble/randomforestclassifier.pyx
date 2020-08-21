@@ -225,6 +225,9 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         Only relevant for GLOBAL_QUANTILE split_algo.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default.
+    seed : int (default = None)
+        Deprecated in favor of `random_state`.
+        Seed for the random number generator. Unseeded by default.
 
     """
 
