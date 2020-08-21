@@ -20,6 +20,7 @@
 
 import ctypes
 import cudf
+import cupy as cp
 import numpy as np
 
 from numba import cuda
@@ -29,11 +30,13 @@ from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base, ClassifierMixin
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.logger import warn
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
+from cuml.preprocessing import LabelEncoder
 from cuml.common.memory_utils import using_output_type
-from libcpp cimport bool
+from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
 from sklearn.calibration import CalibratedClassifierCV
 
@@ -86,7 +89,8 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                              int n_rows, int n_cols, math_t *labels,
                              const svmParameter &param,
                              KernelParams &kernel_params,
-                             svmModel[math_t] &model) except+
+                             svmModel[math_t] &model,
+                             const math_t *sample_weight) except+
 
     cdef void svcPredict[math_t](
         const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
@@ -121,13 +125,13 @@ class SVC(SVMBase, ClassifierMixin):
 
     Construct an SVC classifier for training and predictions.
 
-    Known limitations
-    -----------------
-    - Currently only binary classification is supported.
-    - predict_proba is not yet supported
+    .. note::
+        This implementation has the following known limitations:
+
+        - Currently only binary classification is supported.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
             import numpy as np
@@ -175,6 +179,10 @@ class SVC(SVMBase, ClassifierMixin):
         matrix elements (this can be signifficant if n_support is large).
         The cache_size variable sets an upper limit to the prediction
         buffer as well.
+    class_weight : dict or string (default=None)
+        Weights to modify the parameter C for class i to class_weight[i]*C. The
+        string 'balanced' is also accepted, in which case class_weight[i] =
+        n_samples / (n_classes * n_samples_of_class[i])
     max_iter : int (default = 100*n_samples)
         Limit the number of outer iterations in the solver
     nochange_steps : int (default = 1000)
@@ -197,7 +205,7 @@ class SVC(SVMBase, ClassifierMixin):
         future to represent number support vectors for each class (like
         in Sklearn, see https://github.com/rapidsai/cuml/issues/956 )
     support_ : int, shape = (n_support)
-        Device array of suppurt vector indices
+        Device array of support vector indices
     support_vectors_ : float, shape (n_support, n_cols)
         Device array of support vectors
     dual_coef_ : float, shape = (1, n_support)
@@ -213,29 +221,32 @@ class SVC(SVMBase, ClassifierMixin):
     classes_: shape (n_classes_,)
         Array of class labels.
 
-    For additional docs, see `scikitlearn's SVC
-    <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
-
     Notes
     -----
     The solver uses the SMO method to fit the classifier. We use the Optimized
-    Hierarchical Decomposition [1] variant of the SMO algorithm, similar to [2]
+    Hierarchical Decomposition [1]_ variant of the SMO algorithm, similar to
+    [2]_.
+
+    For additional docs, see `scikitlearn's SVC
+    <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
 
     References
     ----------
-    [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical Decomposition
-    Algorithm for Support VectorMachine Training, IEEE Transactions on
-    Parallel and Distributed Systems, vol 28, no 12, 3330, (2017)
+    .. [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical
+       Decomposition Algorithm for Support VectorMachine Training, IEEE
+       Transactions on Parallel and Distributed Systems, vol 28, no 12, 3330,
+       (2017)
 
-    [2] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
-    of Machine Learning Research, 19, 1-5 (2018)
-    https://github.com/Xtra-Computing/thundersvm
+    .. [2] `Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs,
+       Journal of Machine Learning Research, 19, 1-5 (2018)
+       <https://github.com/Xtra-Computing/thundersvm>`_
 
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=200.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
-                 output_type=None, probability=False, random_state=None):
+                 output_type=None, probability=False, random_state=None,
+                 class_weight=None):
         super(SVC, self).__init__(handle, C, kernel, degree, gamma, coef0, tol,
                                   cache_size, max_iter, nochange_steps,
                                   verbose, output_type=output_type)
@@ -243,6 +254,7 @@ class SVC(SVMBase, ClassifierMixin):
         self.random_state = random_state
         if probability and random_state is not None:
             warn("Random state is currently ignored by probabilistic SVC")
+        self.class_weight = class_weight
         self.svmType = C_SVC
 
     @property
@@ -253,26 +265,66 @@ class SVC(SVMBase, ClassifierMixin):
             return self.unique_labels
 
     @with_cupy_rmm
-    def fit(self, X, y, convert_dtype=True):
+    def _apply_class_weight(self, sample_weight, y_m):
+        """
+        Scale the sample weights with the class weights.
+
+        Returns the modified sample weights, or None if neither class weights
+        nor sample weights are defined. The returned weights are defined as
+
+        sample_weight[i] = class_weight[y[i]] * sample_weight[i].
+
+        Parameters:
+        -----------
+        sample_weight: array-like (device or host), shape = (n_samples, 1)
+            sample weights or None if not given
+        y_m: device array of floats or doubles, shape = (n_samples, 1)
+            Array of target labels already copied to the device.
+
+        Returns
+        --------
+        sample_weight: device array shape = (n_samples, 1) or None
+        """
+        if self.class_weight is None:
+            return sample_weight
+
+        le = LabelEncoder()
+        labels = y_m.to_output(output_type='series')
+        encoded_labels = cp.asarray(le.fit_transform(labels))
+
+        # Define class weights for the encoded labels
+        if self.class_weight == 'balanced':
+            counts = cp.asnumpy(cp.bincount(encoded_labels))
+            n_classes = len(counts)
+            n_samples = y_m.shape[0]
+            weights = n_samples / (n_classes * counts)
+            class_weight = {i: weights[i] for i in range(n_classes)}
+        else:
+            keys = self.class_weight.keys()
+            keys_series = cudf.Series(keys)
+            encoded_keys = le.transform(cudf.Series(keys)).values_host
+            class_weight = {enc_key: self.class_weight[key]
+                            for enc_key, key in zip(encoded_keys, keys)}
+
+        if sample_weight is None:
+            sample_weight = cp.ones(y_m.shape, dtype=self.dtype)
+        else:
+            sample_weight_m, _, _, _ = \
+                input_to_cuml_array(sample_weight, convert_to_dtype=self.dtype,
+                                    check_rows=self.n_rows, check_cols=1)
+            sample_weight = sample_weight_m.to_output(output_type='cupy')
+
+        for label, weight in class_weight.items():
+            sample_weight[encoded_labels==label] *= weight
+
+        return sample_weight
+
+    @generate_docstring(y='dense_anydtype')
+    @with_cupy_rmm
+    def fit(self, X, y, sample_weight=None, convert_dtype=True):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (any numeric type) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
         self._set_n_features_in(X)
         self._set_output_type(X)
@@ -296,13 +348,23 @@ class SVC(SVMBase, ClassifierMixin):
             input_to_cuml_array(X, order='F')
 
         cdef uintptr_t X_ptr = X_m.ptr
+        convert_to_dtype = self.dtype if convert_dtype else None
         y_m, _, _, _ = \
             input_to_cuml_array(y, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
+                                convert_to_dtype=convert_to_dtype,
                                 check_rows=self.n_rows, check_cols=1)
 
         cdef uintptr_t y_ptr = y_m.ptr
+
+        sample_weight = self._apply_class_weight(sample_weight, y_m)
+        cdef uintptr_t sample_weight_ptr = <uintptr_t> nullptr
+        if sample_weight is not None:
+            sample_weight_m, _, _, _ = \
+                input_to_cuml_array(sample_weight, check_dtype=self.dtype,
+                                    convert_to_dtype=convert_to_dtype,
+                                    check_rows=self.n_rows, check_cols=1)
+            sample_weight_ptr = sample_weight_m.ptr
+
         self._dealloc()  # delete any previously fitted model
         self._coef_ = None
 
@@ -316,13 +378,13 @@ class SVC(SVMBase, ClassifierMixin):
             model_f = new svmModel[float]()
             svcFit(handle_[0], <float*>X_ptr, <int>self.n_rows,
                    <int>self.n_cols, <float*>y_ptr, param, _kernel_params,
-                   model_f[0])
+                   model_f[0], <float*>sample_weight_ptr)
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
             model_d = new svmModel[double]()
             svcFit(handle_[0], <double*>X_ptr, <int>self.n_rows,
                    <int>self.n_cols, <double*>y_ptr, param, _kernel_params,
-                   model_d[0])
+                   model_d[0], <double*>sample_weight_ptr)
             self._model = <uintptr_t>model_d
         else:
             raise TypeError('Input data type should be float32 or float64')
@@ -336,22 +398,14 @@ class SVC(SVMBase, ClassifierMixin):
 
         return self
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
     def predict(self, X):
         """
         Predicts the class labels for X. The returned y values are the class
         labels associated to sign(decision_function(X)).
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        y : (same as the input datatype)
-            Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
 
         if self.probability:
@@ -364,6 +418,12 @@ class SVC(SVMBase, ClassifierMixin):
         else:
             return super(SVC, self).predict(X, True)
 
+    @generate_docstring(skip_parameters_heading=True,
+                        return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted \
+                                       probabilities',
+                                       'shape': '(n_samples, n_classes)'})
     def predict_proba(self, X, log=False):
         """
         Predicts the class probabilities for X.
@@ -372,18 +432,8 @@ class SVC(SVMBase, ClassifierMixin):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of input features.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
         log: boolean (default = False)
              Whether to return log probabilities.
-
-        Returns
-        -------
-        P : array-like (device or host) shape = (n_samples, n_classes)
-            Dense matrix of classs probabilities for each sample.
 
         """
 
@@ -401,42 +451,29 @@ class SVC(SVMBase, ClassifierMixin):
                                  "probabilities. Fit a new classifier with"
                                  "probability=True to enable predict_proba.")
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Log of predicted \
+                                       probabilities',
+                                       'shape': '(n_samples, n_classes)'})
     def predict_log_proba(self, X):
         """
         Predicts the log probabilities for X (returns log(predict_proba(x)).
 
         The model has to be trained with probability=True to use this method.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of input features.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy.
-
-        Returns
-        -------
-        P : array-like (device or host) shape = (n_samples, n_classes)
-            Dense matrix of log probabilities for each sample.
-
         """
         return self.predict_proba(X, log=True)
 
+    @generate_docstring(return_values={'name': 'results',
+                                       'type': 'dense',
+                                       'description': 'Decision function \
+                                       values',
+                                       'shape': '(n_samples, 1)'})
     def decision_function(self, X):
         """
         Calculates the decision function values for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        y : cuDF Series
-           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         if self.probability:
             self._check_is_fitted('prob_svc')
@@ -459,4 +496,4 @@ class SVC(SVMBase, ClassifierMixin):
 
     def get_param_names(self):
         return super(SVC, self).get_param_names() + \
-            ["probability", "random_state"]
+            ["probability", "random_state", "class_weight"]

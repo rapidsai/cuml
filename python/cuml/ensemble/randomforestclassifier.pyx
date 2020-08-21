@@ -29,6 +29,8 @@ import cuml.common.logger as logger
 from cuml import ForestInference
 from cuml.common.array import CumlArray
 from cuml.common.base import ClassifierMixin
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.doc_utils import insert_into_docstring
 from cuml.common.handle import Handle
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
@@ -133,8 +135,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     histogram-based algorithms to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
 
-    **Known Limitations**: This is an early release of the cuML
-    Random Forest code. It contains a few known limitations:
+    .. note:: This is an early release of the cuML
+        Random Forest code. It contains a few known limitations:
 
        * GPU-based inference is only supported if the model was trained
          with 32-bit (float32) datatypes. CPU-based inference may be used
@@ -142,9 +144,11 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
        * Very deep / very wide models may exhaust available GPU memory.
          Future versions of cuML will provide an alternative algorithm to
          reduce memory consumption.
+       * While training the model for multi class classification problems,
+         using deep trees or `max_features=1.0` provides better performance.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
             import numpy as np
@@ -221,6 +225,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         Only relevant for GLOBAL_QUANTILE split_algo.
     seed : int (default = None)
         Seed for the random number generator. Unseeded by default.
+
     """
 
     def __init__(self, split_criterion=0,
@@ -332,6 +337,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         Parameters
         ----------
+
         output_class : boolean (default = True)
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -364,10 +370,12 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             or algo='auto'
 
         Returns
-        ----------
-        fil_model :
+        -------
+
+        fil_model
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
+
         """
         treelite_handle = self._obtain_treelite_handle()
         return _obtain_fil_model(treelite_handle=treelite_handle,
@@ -377,26 +385,15 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
-    """
-    TODO : Move functions duplicated in the RF classifier and regressor
-           to a shared file. Cuml issue #1854 has been created to track this.
-    """
-
+    @generate_docstring(skip_parameters_heading=True,
+                        y='dense_intdtype',
+                        convert_dtype_cast='np.float32')
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (int32) of shape (n_samples, 1).
-            Acceptable formats: NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-            These labels should be contiguous integers from 0 to n_classes.
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will, when necessary, convert
             y to be of dtype int32. This will increase memory used for
@@ -525,6 +522,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         del(X_m)
         return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
+                           return_values=[('dense', '(n_samples, 1)')])
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
                 algo='auto', num_classes=None,
@@ -535,10 +534,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        X : {}
         predict_model : String (default = 'GPU')
             'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
@@ -567,7 +563,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = None)
             number of different classes present in the dataset. This variable
-            will be depricated in 0.16
+            will be deprecated in 0.16. The number of classes passed
+            must match the number of classes the model was trained on
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -584,19 +581,15 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         Returns
         ----------
-        y : (same as the input datatype)
-            Dense vector (ints, floats, or doubles) of shape (n_samples, 1)
+        y : {}
         """
-        if (num_classes and self.num_classes != num_classes):
-            raise ValueError("The number of classes in the test dataset"
-                             " should be equal to the number of classes"
-                             " present in the training dataset.")
-
-        elif predict_model == "CPU" or self.num_classes > 2:
-            if self.num_classes > 2 and predict_model == "GPU":
-                warnings.warn("Switching over to use the CPU predict since "
-                              "the GPU predict currently cannot perform "
-                              "multi-class classification.")
+        if num_classes:
+            warnings.warn("num_classes is deprecated and will be removed"
+                          " in an upcoming version")
+            if num_classes != self.num_classes:
+                raise NotImplementedError("limiting num_classes for predict"
+                                          " is not implemented")
+        if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X,
                                                convert_dtype=convert_dtype)
 
@@ -679,25 +672,20 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         del(X_m)
         return preds.to_output(out_type)
 
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
+                           return_values=[('dense', '(n_samples, 1)')])
     def predict_proba(self, X, output_class=True,
                       threshold=0.5, algo='auto',
-                      convert_dtype=True,
-                      fil_sparse_format='auto',
-                      num_classes=None):
+                      num_classes=None, convert_dtype=True,
+                      fil_sparse_format='auto'):
         """
         Predicts class probabilites for X. This function uses the GPU
         implementation of predict. Therefore, data with 'dtype = np.float32'
-        and 'num_classes = 2' should be used while using this function.
-        The option to use predict_proba for multi_class classification is not
-        currently implemented. Please check cuml issue #1679 for more
-        information.
+        should be used with this function.
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        X : {}
         output_class: boolean (default = True)
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -721,7 +709,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = None)
             number of different classes present in the dataset. This variable
-            will be depricated in 0.16
+            will be deprecated in 0.16. The number of classes passed
+            must match the number of classes the model was trained on
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -738,10 +727,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         Returns
         -------
-        y : (same as the input datatype)
-            Dense vector (float) of shape (n_samples, 1). The datatype of y
-            depend on the value of 'output_type' varaible specified by the
-            user while intializing the model.
+        y : {}
         """
         if self.dtype == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \
@@ -751,16 +737,15 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                             then please use the CPU based predict by \
                             setting predict_model = 'CPU'")
 
-        elif self.num_classes > 2:
-            raise NotImplementedError("Predict_proba for multi-class "
-                                      "classification models is currently not "
-                                      "implemented. Please check cuml issue "
-                                      "#1679 for more information.")
+        if num_classes:
+            warnings.warn("num_classes is deprecated and will be removed"
+                          " in an upcoming version")
+            if num_classes != self.num_classes:
+                raise NotImplementedError("The number of classes in the test "
+                                          "dataset should be equal to the "
+                                          "number of classes present in the "
+                                          "training dataset.")
 
-        elif (num_classes and self.num_classes != num_classes):
-            raise ValueError("The number of classes in the test dataset"
-                             " should be equal to the number of classes"
-                             " present in the training dataset.")
         preds_proba = \
             self._predict_model_on_gpu(X, output_class=output_class,
                                        threshold=threshold,
@@ -771,6 +756,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         return preds_proba
 
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
+                                       ('dense_intdtype', '(n_samples, 1)')])
     def score(self, X, y, threshold=0.5,
               algo='auto', num_classes=None, predict_model="GPU",
               convert_dtype=True, fil_sparse_format='auto'):
@@ -779,12 +766,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        y : NumPy
-            Dense vector (int) of shape (n_samples, 1)
+        X : {}
+        y : {}
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -802,7 +785,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             predict operation on the GPU.
         num_classes : int (default = None)
             number of different classes present in the dataset. This variable
-            will be depricated in 0.16
+            will be deprecated in 0.16. The number of classes passed
+            must match the number of classes the model was trained on
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
         predict_model : String (default = 'GPU')

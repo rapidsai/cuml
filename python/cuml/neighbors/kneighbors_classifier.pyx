@@ -24,6 +24,7 @@ from cuml.neighbors.nearest_neighbors import NearestNeighbors
 from cuml.common.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.common.base import ClassifierMixin
+from cuml.common.doc_utils import generate_docstring
 
 import numpy as np
 import cupy as cp
@@ -99,7 +100,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         supported.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
       from cuml.neighbors import KNeighborsClassifier
@@ -121,7 +122,6 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
 
     Output:
-    -------
 
     .. code-block:: python
 
@@ -138,64 +138,42 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
     def __init__(self, weights="uniform", **kwargs):
         super(KNeighborsClassifier, self).__init__(**kwargs)
 
-        self.y = None
+        self._y = None
+        self._classes_ = None
         self.weights = weights
 
         if weights != "uniform":
             raise ValueError("Only uniform weighting strategy is "
                              "supported currently.")
 
+    @generate_docstring(convert_dtype_cast='np.float32')
     @with_cupy_rmm
     def fit(self, X, y, convert_dtype=True):
         """
         Fit a GPU index for k-nearest neighbors classifier model.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, n_outputs)
-            Dense matrix (floats or doubles) of shape (n_samples, n_outputs).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
         """
         self._set_target_dtype(y)
 
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
-        self.y, _, _, _ = \
+        self._y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.int32,
                                 convert_to_dtype=(np.int32
                                                   if convert_dtype
                                                   else None))
-        self.classes_ = cp.unique(self.y)
+        self._classes_ = CumlArray(cp.unique(self._y))
         return self
 
+    @generate_docstring(convert_dtype_cast='np.float32',
+                        return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Labels predicted',
+                                       'shape': '(n_samples, 1)'})
     def predict(self, X, convert_dtype=True):
         """
         Use the trained k-nearest neighbors classifier to
         predict the labels for X
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
-
-        Returns
-        ----------
-        y : (same as the input datatype)
-            Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
 
         out_type = self._get_output_type(X)
@@ -211,7 +189,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                                                   else None))
         cdef uintptr_t inds_ctype = inds.ptr
 
-        out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
+        out_cols = self._y.shape[1] if len(self._y.shape) == 2 else 1
 
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
 
@@ -223,7 +201,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         # classification
         cdef uintptr_t y_ptr
         for i in range(out_cols):
-            col = self.y[:, i] if out_cols > 1 else self.y
+            col = self._y[:, i] if out_cols > 1 else self._y
             y_ptr = col.ptr
             y_vec.push_back(<int*>y_ptr)
 
@@ -245,21 +223,17 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
         return classes.to_output(output_type=out_type, output_dtype=out_dtype)
 
+    @generate_docstring(convert_dtype_cast='np.float32',
+                        return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Labels probabilities',
+                                       'shape': '(n_samples, 1)'})
     @with_cupy_rmm
     def predict_proba(self, X, convert_dtype=True):
         """
         Use the trained k-nearest neighbors classifier to
         predict the label probabilities for X
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
         """
 
         out_type = self._get_output_type(X)
@@ -275,7 +249,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                                                   else None))
         cdef uintptr_t inds_ctype = inds.ptr
 
-        out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
+        out_cols = self._y.shape[1] if len(self._y.shape) == 2 else 1
 
         cdef vector[int*] *y_vec = new vector[int*]()
         cdef vector[float*] *out_vec = new vector[float*]()
@@ -284,7 +258,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         cdef uintptr_t classes_ptr
         cdef uintptr_t y_ptr
         for out_col in range(out_cols):
-            col = self.y[:, out_col] if out_cols > 1 else self.y
+            col = self._y[:, out_col] if out_cols > 1 else self._y
             classes = CumlArray.zeros((n_rows,
                                        len(cp.unique(cp.asarray(col)))),
                                       dtype=np.float32,
