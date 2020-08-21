@@ -194,6 +194,15 @@ struct forest_params_t {
   // labels in leaves instead of the whole vector, this keeps track
   // of the number of classes
   int num_classes;
+  // only used for FLOAT_SCALAR xgboost-style inference,
+  // where the forest is divided into num_output_group forests (groups)
+  // each of which predicts the probability of one class vs all others
+  int num_output_group;
+  // only used for FLOAT_SCALAR xgboost-style inference,
+  // where the forest is divided into num_output_group forests (groups)
+  // each of which predicts the probability of one class vs all others
+  // this is the cardinal number of the output group
+  int output_group_num;
 };
 
 /** treelite_params_t are parameters for importing treelite models */
@@ -210,6 +219,12 @@ struct treelite_params_t {
   float threshold;
   // storage_type indicates whether the forest should be imported as dense or sparse
   storage_type_t storage_type;
+  // output_group_num is used in xgboost-style inference, when
+  // tl_model.random_forest_flag == false,
+  // tl_model.param.pred_transform == "max_index",
+  // tl_model.num_output_group > 1
+  // it determines which of the output groups this forest predicts
+  int output_group_num;
 };
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf

@@ -143,6 +143,8 @@ struct forest {
     global_bias_ = params->global_bias;
     leaf_payload_type_ = params->leaf_payload_type;
     num_classes_ = params->num_classes;
+    output_group_num_ = params->output_group_num;
+    num_output_group_ = params->num_output_group;
     init_max_shm();
   }
 
@@ -154,7 +156,8 @@ struct forest {
     predict_params params;
     params.num_cols = num_cols_;
     params.algo = algo_;
-    params.preds = preds;
+    // C layer will infer in a transposed fashion, to be un-transposed in cython
+    params.preds = preds + output_group_num_ * num_rows;
     params.data = data;
     params.num_rows = num_rows;
     params.max_shm = max_shm_;
@@ -196,14 +199,18 @@ struct forest {
 
     if (leaf_payload_type_ == leaf_value_t::FLOAT_SCALAR) {
       if (predict_proba) {
-        params.num_outputs = 2;
         ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
-        complement_proba = true;
-        do_transform = true;
+        if (num_output_group_ == 1) {
+          // not one of the xgboost multi-class inferences
+          params.num_outputs = 2;
+          complement_proba = true;
+        }
       } else {
         params.num_outputs = 1;
-        if (ot != output_t::RAW) do_transform = true;
+        if (num_output_group_ > 1)  // xgboost multi-class
+          ot = output_t(ot & ~output_t::CLASS);
       }
+      if (ot != output_t::RAW || complement_proba) do_transform = true;
     } else if (leaf_payload_type_ == leaf_value_t::INT_CLASS_LABEL) {
       if (predict_proba) {
         params.num_outputs = num_classes_;
@@ -224,8 +231,9 @@ struct forest {
     if (do_transform) {
       size_t num_values_to_transform =
         (size_t)num_rows * (size_t)params.num_outputs;
+
       transform_k<<<ceildiv(num_values_to_transform, (size_t)FIL_TPB), FIL_TPB,
-                    0, stream>>>(preds, num_values_to_transform, ot,
+                    0, stream>>>(params.preds, num_values_to_transform, ot,
                                  num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
                                  threshold_, global_bias_, complement_proba);
       CUDA_CHECK(cudaPeekAtLastError());
@@ -245,6 +253,8 @@ struct forest {
   float global_bias_ = 0;
   leaf_value_t leaf_payload_type_ = leaf_value_t::FLOAT_SCALAR;
   int num_classes_ = 0;
+  int num_output_group_ = 1;
+  int output_group_num_ = 0;
 };
 
 struct dense_forest : forest {
@@ -379,8 +389,13 @@ void check_params(const forest_params_t* params, bool dense) {
       /* params->num_classes is ignored in this case, since the user might call
          predict_proba() on regression. Hence, no point checking the range of
          an ignored variable */
+      ASSERT(params->num_output_group >= 1,
+             "num_output_group must be positive");
       break;
     case leaf_value_t::INT_CLASS_LABEL:
+      ASSERT(params->num_output_group == 1,
+             "cannot do xgboost-style tree grouping when"
+             " leaf_payload_type == INT_CLASS_LABEL");
       ASSERT(params->num_classes >= 2,
              "num_classes >= 2 is required for "
              "leaf_payload_type == INT_CLASS_LABEL");
@@ -618,12 +633,16 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
 
   const tl::ModelParam& param = model.param;
 
+  ASSERT(tl_params->output_group_num >= 0,
+         "output_group_num must be non-negative");
+
   // assuming either all leaves use the .leaf_vector() or all leaves use .leaf_value()
   size_t leaf_vec_size = tl_leaf_vector_size(model);
   std::string pred_transform(param.pred_transform);
   if (leaf_vec_size > 0) {
     ASSERT(leaf_vec_size == model.num_output_group,
            "treelite model inconsistent");
+    params->num_output_group = 1;
     params->num_classes = leaf_vec_size;
     params->leaf_payload_type = leaf_value_t::INT_CLASS_LABEL;
 
@@ -635,11 +654,31 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
       "only max_index and identity_multiclass values of pred_transform "
       "are supported for multi-class models");
 
+    params->num_trees = model.trees.size();
+    params->output_group_num = 0;
   } else {
     printf("pred_transform == %s\n", param.pred_transform);
-    ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
-           "only sigmoid and identity values of pred_transform "
-           "are supported for binary classification and regression models");
+    params->num_output_group = model.num_output_group;
+    params->num_trees = model.trees.size() / model.num_output_group;
+    if (model.num_output_group > 1) {
+      params->output_group_num = tl_params->output_group_num;
+      ASSERT(tl_params->output_class,
+             "output_class==true is required for multi-class models");
+      ASSERT(
+        pred_transform == "sigmoid" || pred_transform == "identity" ||
+          pred_transform == "max_index",
+        "only sigmoid, identity and max_index values of pred_transform "
+        "are supported for xgboost-style multi-class classification models");
+      if (pred_transform == "max_index") {
+        params->output = output_t(params->output & ~output_t::CLASS);
+        // will choose best class in fil.pyx, don't use threshold
+      }
+    } else {
+      ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
+             "only sigmoid and identity values of pred_transform "
+             "are supported for binary classification and regression models");
+      params->output_group_num = 0;
+    }
     params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
     params->num_classes = 0;  // ignored
   }
@@ -659,8 +698,34 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   if (std::string(param.pred_transform) == "sigmoid") {
     params->output = output_t(params->output | output_t::SIGMOID);
   }
-  params->num_trees = model.trees.size();
 }
+
+struct treelite_tree_it {
+  treelite_tree_it(const tl::Model& model, const treelite_params_t* tl_params,
+                   const leaf_value_t leaf_payload_type)
+    : trees(model.trees) {
+    if (leaf_payload_type == FLOAT_SCALAR) {
+      tree = tl_params->output_group_num;
+      tree_stride = model.num_output_group;
+    } else {  // INT_CLASS_LABEL
+      tree = 0;
+      tree_stride = 1;
+    }
+  }
+
+  const tl::Tree* next_tree() {
+    if (tree < trees.size()) {
+      const tl::Tree* res = &trees[tree];
+      tree += tree_stride;
+      return res;
+    } else
+      return NULL;
+  }
+
+  int tree;
+  const std::vector<tl::Tree>& trees;
+  long tree_stride;
+};
 
 // uses treelite model with additional tl_params to initialize FIL params
 // and dense nodes (stored in *pnodes)
@@ -671,9 +736,14 @@ void tl2fil_dense(std::vector<dense_node_t>* pnodes, forest_params_t* params,
   // convert the nodes
   int num_nodes = forest_num_nodes(params->num_trees, params->depth);
   pnodes->resize(num_nodes, dense_node_t{0, 0});
-  for (int i = 0; i < model.trees.size(); ++i) {
-    tree2fil_dense(pnodes, i * tree_num_nodes(params->depth), model.trees[i],
-                   *params);
+
+  treelite_tree_it input(model, tl_params, params->leaf_payload_type);
+  int fil_root = 0;
+  const tl::Tree* tl_tree;
+  while (NULL != (tl_tree = input.next_tree())) {
+    // convert the nodes
+    tree2fil_dense(pnodes, fil_root, *tl_tree, *params);
+    fil_root += tree_num_nodes(params->depth);
   }
 }
 
@@ -725,9 +795,11 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
   tl2fil_common(params, model, tl_params);
   tl2fil_sparse_check_t<fil_node_t>::check(model);
 
-  // convert the nodes
-  for (int i = 0; i < model.trees.size(); ++i) {
-    int root = tree2fil_sparse(pnodes, model.trees[i], *params);
+  treelite_tree_it input(model, tl_params, params->leaf_payload_type);
+  const tl::Tree* tl_tree;
+  while (NULL != (tl_tree = input.next_tree())) {
+    // convert the nodes
+    int root = tree2fil_sparse(pnodes, *tl_tree, *params);
     ptrees->push_back(root);
   }
   params->num_nodes = pnodes->size();
