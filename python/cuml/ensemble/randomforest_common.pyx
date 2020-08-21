@@ -45,7 +45,7 @@ class BaseRandomForestModel(Base):
     criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
                       '3': MAE, '4': CRITERION_END}
 
-    def __init__(self, split_criterion, random_state=None,
+    def __init__(self, split_criterion, seed=None,
                  n_streams=8, n_estimators=100,
                  max_depth=16, handle=None, max_features='auto',
                  n_bins=8, split_algo=1, bootstrap=True,
@@ -57,7 +57,7 @@ class BaseRandomForestModel(Base):
                  min_weight_fraction_leaf=None, n_jobs=None,
                  max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None,
-                 warm_start=None, class_weight=None,
+                 random_state=None, warm_start=None, class_weight=None,
                  quantile_per_tree=False, criterion=None):
 
         if accuracy_metric:
@@ -69,7 +69,6 @@ class BaseRandomForestModel(Base):
                           "max_leaf_nodes": max_leaf_nodes,
                           "min_impurity_split": min_impurity_split,
                           "oob_score": oob_score, "n_jobs": n_jobs,
-#                           "random_state": random_state,
                           "warm_start": warm_start,
                           "class_weight": class_weight}
 
@@ -81,6 +80,19 @@ class BaseRandomForestModel(Base):
                     " please read the cuML documentation at "
                     "(https://docs.rapids.ai/api/cuml/nightly/"
                     "api.html#random-forest) for more information")
+
+        if seed is not None:
+            if random_state is None:
+                warnings.warn("Parameter 'seed' is deprecated and will be"
+                              "removed in 0.17. Please use 'random_state'"
+                              " instead.",
+                              DeprecationWarning)
+                random_state = seed
+            else:
+                warnings.warn("Both 'seed' and 'random_state' parameters were"
+                              " set. Using 'random_state' since 'seed' is"
+                              " deprecated and will be removed in 0.17.",
+                              DeprecationWarning)
 
         if ((random_state is not None) and (n_streams != 1)):
             warnings.warn("For reproducible results in Random Forest"

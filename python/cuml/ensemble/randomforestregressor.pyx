@@ -214,6 +214,10 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
+    seed : int (default = None)
+        Deprecated in favor of `random_state`.
+        Seed for the random number generator. Unseeded by default. Does not
+        currently fully guarantee the exact same results.
 
     """
 
