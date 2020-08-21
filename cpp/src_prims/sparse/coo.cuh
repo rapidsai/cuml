@@ -287,8 +287,8 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
 
   device_buffer<T> vals_sorted(d_alloc, stream, nnz);
 
-  CUSPARSE_CHECK(
-    raft::sparse::cusparsegthr<T>(handle, nnz, vals, vals_sorted.data(), d_P.data(), stream));
+  CUSPARSE_CHECK(raft::sparse::cusparsegthr<T>(
+    handle, nnz, vals, vals_sorted.data(), d_P.data(), stream));
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
