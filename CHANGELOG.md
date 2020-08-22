@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- Use rapids build packages in conda environments
 
 ## Bug Fixes
 
