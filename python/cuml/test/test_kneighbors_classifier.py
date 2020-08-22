@@ -263,9 +263,6 @@ def test_nonmonotonic_labels(n_classes, n_rows, n_cols,
         p = p.to_frame().as_gpu_matrix().copy_to_host().reshape(p.shape[0])
         y_test = y_test.as_gpu_matrix().copy_to_host().reshape(y_test.shape[0])
 
-    print(str(p))
-    print(str(y_test))
-
     assert array_equal(p.astype(np.int32), y_test.astype(np.int32))
 
 
