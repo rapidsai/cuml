@@ -4,6 +4,8 @@
 
 ## Improvements
 
+- PR #2729: Replace `cupy.sparse` with `cupyx.scipy.sparse`
+
 ## Bug Fixes
 
 # cuML 0.15.0 (Date TBD)

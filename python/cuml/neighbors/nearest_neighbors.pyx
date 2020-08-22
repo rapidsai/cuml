@@ -21,6 +21,7 @@
 
 import numpy as np
 import cupy as cp
+import cupyx
 import cudf
 import ctypes
 import cuml
@@ -507,9 +508,10 @@ class NearestNeighbors(Base):
         n_nonzero = n_samples * n_neighbors
         rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
 
-        sparse_csr = cp.sparse.csr_matrix((distances, cp.ravel(indices),
-                                          rowptr), shape=(n_samples,
-                                          n_samples_fit))
+        sparse_csr = cupyx.scipy.sparse.csr_matrix((distances,
+                                                   cp.ravel(indices),
+                                                   rowptr), shape=(n_samples,
+                                                   n_samples_fit))
 
         if self._get_output_type(X) is 'numpy':
             return sparse_csr.get()

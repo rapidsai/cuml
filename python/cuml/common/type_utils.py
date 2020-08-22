@@ -16,5 +16,5 @@
 import cupy as cp
 
 
-# Those are the only data types supported by cupy.sparse matrices.
+# Those are the only data types supported by cupyx.scipy.sparse matrices.
 CUPY_SPARSE_DTYPES = [cp.float32, cp.float64, cp.complex64, cp.complex128]
