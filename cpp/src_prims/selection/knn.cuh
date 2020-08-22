@@ -380,12 +380,12 @@ __global__ void class_vote_kernel(OutType *out, const float *class_proba,
   int i = row * n_uniq_labels;
 
   extern __shared__ int label_cache[];
-  if(use_shared_mem) {
-	  for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
-	    label_cache[j] = unique_labels[j];
-	  }
+  if (use_shared_mem) {
+    for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
+      label_cache[j] = unique_labels[j];
+    }
 
-	  __syncthreads();
+    __syncthreads();
   }
 
   if (row >= n_samples) return;
@@ -559,8 +559,8 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
     bool use_shared_mem = smem < MLCommon::getSharedMemPerBlock();
 
     class_vote_kernel<<<grid, blk, use_shared_mem ? smem : 0, stream>>>(
-      out, probs[i], uniq_labels[i], n_unique_labels, n_query_rows, y.size(),
-      i, use_shared_mem);
+      out, probs[i], uniq_labels[i], n_unique_labels, n_query_rows, y.size(), i,
+      use_shared_mem);
     CUDA_CHECK(cudaPeekAtLastError());
 
     delete tmp_probs[i];
