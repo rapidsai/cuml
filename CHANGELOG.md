@@ -8,6 +8,8 @@
 
 ## Bug Fixes
 
+- PR #2744: Supporting larger number of classes in KNeighborsClassifier
+
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
