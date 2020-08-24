@@ -15,9 +15,11 @@ dependencies:
 - dask-cudf=0.16.*
 - dask-cuda=0.16.*
 - ucx-py=0.16.*
-- xgboost=1.2.0dev.rapidsai0.16
 - pip
 - pip:
     - sphinx_markdown_tables
     - git+https://github.com/dask/dask.git
     - git+https://github.com/dask/distributed.git
+
+# rapids-build-env, notebook-env and doc-env are defined in
+# https://docs.rapids.ai/maintainers/depmgmt/
