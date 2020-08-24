@@ -3,7 +3,7 @@
 ## New Features
 
 ## Improvements
-- Use rapids build packages in conda environments
+- PR #2741: Use rapids build packages in conda environments
 
 ## Bug Fixes
 
