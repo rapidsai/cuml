@@ -24,6 +24,7 @@ from sklearn.neighbors import NearestNeighbors as skKNN
 from sklearn.datasets.samples_generator import make_blobs
 
 import cupy as cp
+import cupyx
 import cudf
 import pandas as pd
 import numpy as np
@@ -301,6 +302,6 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
     assert np.array_equal(sparse_sk.toarray().shape, sparse_cu.toarray().shape)
 
     if output_type == 'cupy':
-        assert cp.sparse.isspmatrix_csr(sparse_cu)
+        assert cupyx.scipy.sparse.isspmatrix_csr(sparse_cu)
     else:
         assert isspmatrix_csr(sparse_cu)

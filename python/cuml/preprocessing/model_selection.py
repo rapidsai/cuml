@@ -15,6 +15,7 @@
 
 import cudf
 import cupy as cp
+import cupyx
 import numpy as np
 import warnings
 
@@ -405,7 +406,7 @@ def train_test_split(X,
                                     cp.dtype(y.dtype))
 
     if hasattr(X, "__cuda_array_interface__") or \
-            isinstance(X, cp.sparse.csr_matrix):
+            isinstance(X, cupyx.scipy.sparse.csr_matrix):
         X_train = cp.array(X[0:train_size], order=x_order)
         if y is not None:
             y_train = cp.array(y[0:train_size], order=y_order)
@@ -415,7 +416,7 @@ def train_test_split(X,
             y_train = y.iloc[0:train_size]
 
     if hasattr(X, "__cuda_array_interface__") or \
-            isinstance(X, cp.sparse.csr_matrix):
+            isinstance(X, cupyx.scipy.sparse.csr_matrix):
         X_test = cp.array(X[-1 * test_size:], order=x_order)
         if y is not None:
             y_test = cp.array(y[-1 * test_size:], order=y_order)
