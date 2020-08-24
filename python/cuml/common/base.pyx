@@ -282,14 +282,41 @@ class Base:
             else:
                 raise AttributeError
 
-    def _set_base_attributes(self, X, output_type=False, y=None,
+    def _set_base_attributes(self,
+                             X,
+                             output_type=False,
+                             y=None,
                              n_features=None):
         """
-        X: input data
-        output_type: Boolean; if we should set output type on X
-        y: target column, passed if we should set target dtype
-        n_features: Can be Boolean or int. If an int is passed
-                    we set it to the number passed
+        Method to set the base class attributes - output type,
+        target dtype and n_features. It combines the three different
+        function calls. It's called in fit function from estimators.
+
+        Parameters
+        --------
+        X : cuDF DataFrame
+            Specifies the input data training
+        output_type : Boolean (default = False)
+            Specifies if we should set output type on X
+        y : Target column (default = None)
+            If y is passed, we set the target dtype on y
+        n_features: Boolean or int (default=None)
+            If an int is passed, we set it to the number passed
+            If set to True, we set based on input X
+
+        Examples
+        --------
+
+        .. code-block:: python
+
+                # To set output_type and n_features based on X
+                self._set_base_attributes(X, output_type=True, n_features=True)
+
+                # To set output_type on X and n_features to 10
+                self._set_base_attributes(X, output_type=True, n_features=10)
+
+                # To only set target_dtype
+                self._set_base_attributes(X, y=y)
         """
         if output_type:
             self._set_output_type(X)
