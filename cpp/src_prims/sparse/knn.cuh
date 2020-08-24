@@ -150,37 +150,6 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
     query_batcher.get_batch_csr_indices_data(query_batch_indices.data(),
                                              query_batch_data.data(), stream);
 
-    /**
-     * Transpose query array
-     */
-    size_t convert_csc_workspace_size = 0;
-
-    device_buffer<value_idx> csc_query_batch_indptr(allocator, stream,
-                                                    n_query_cols + 1);
-    device_buffer<value_idx> csc_query_batch_indices(allocator, stream,
-                                                     n_query_batch_nnz);
-
-    CUSPARSE_CHECK(cusparsecsr2csc_bufferSize(
-      cusparseHandle, query_batcher.batch_rows(), n_query_cols,
-      n_query_batch_nnz, query_batch_data.data(), query_batch_indptr.data(),
-      query_batch_indices.data(), query_batch_data.data(),
-      csc_query_batch_indptr.data(), csc_query_batch_indices.data(),
-      CUSPARSE_ACTION_SYMBOLIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1,
-      &convert_csc_workspace_size, stream));
-
-    device_buffer<char> convert_csc_workspace(allocator, stream,
-                                              convert_csc_workspace_size);
-
-    CUSPARSE_CHECK(cusparsecsr2csc(
-      cusparseHandle, query_batcher.batch_rows(), n_query_cols,
-      n_query_batch_nnz, query_batch_data.data(), query_batch_indptr.data(),
-      query_batch_indices.data(), query_batch_data.data(),
-      csc_query_batch_indptr.data(), csc_query_batch_indices.data(),
-      CUSPARSE_ACTION_SYMBOLIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1,
-      &convert_csc_workspace, stream));
-
-    convert_csc_workspace.release(stream);
-
     // A 3-partition temporary merge space to scale the batching. 2 parts for subsequent
     // batches and 1 space for the results of the merge, which get copied back to the
     device_buffer<value_idx> merge_buffer_indices(allocator, stream,
@@ -216,20 +185,51 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
       idx_batcher.get_batch_csr_indices_data(idx_batch_indices.data(),
                                              idx_batch_data.data(), stream);
 
+      /**
+       * Transpose index array
+       */
+      size_t convert_csc_workspace_size = 0;
+
+      device_buffer<value_idx> csc_idx_batch_indptr(allocator, stream,
+                                                    n_idx_cols + 1);
+      device_buffer<value_idx> csc_idx_batch_indices(allocator, stream,
+                                                     idx_batch_nnz);
+
+      CUSPARSE_CHECK(cusparsecsr2csc_bufferSize(
+        cusparseHandle, idx_batcher.batch_rows(), n_idx_cols, n_query_batch_nnz,
+        idx_batch_data.data(), idx_batch_indptr.data(),
+        idx_batch_indices.data(), idx_batch_data.data(),
+        csc_idx_batch_indptr.data(), csc_idx_batch_indices.data(),
+        CUSPARSE_ACTION_SYMBOLIC, CUSPARSE_INDEX_BASE_ZERO,
+        CUSPARSE_CSR2CSC_ALG1, &convert_csc_workspace_size, stream));
+
+      device_buffer<char> convert_csc_workspace(allocator, stream,
+                                                convert_csc_workspace_size);
+
+      CUSPARSE_CHECK(cusparsecsr2csc(
+        cusparseHandle, idx_batcher.batch_rows(), n_idx_cols, idx_batch_nnz,
+        idx_batch_data.data(), idx_batch_indptr.data(),
+        idx_batch_indices.data(), idx_batch_data.data(),
+        csc_idx_batch_indptr.data(), csc_idx_batch_indices.data(),
+        CUSPARSE_ACTION_SYMBOLIC, CUSPARSE_INDEX_BASE_ZERO,
+        CUSPARSE_CSR2CSC_ALG1, &convert_csc_workspace, stream));
+
+      convert_csc_workspace.release(stream);
+
       MLCommon::Sparse::Distance::distances_config_t<value_idx, value_t>
         dist_config;
       dist_config.index_nrows = idx_batcher.batch_rows();
       dist_config.index_ncols = n_idx_cols;
       dist_config.index_nnz = idx_batch_nnz;
-      dist_config.csr_index_indptr = idx_batch_indptr.data();
-      dist_config.csr_index_indices = idx_batch_indices.data();
-      dist_config.csr_index_data = idx_batch_data.data();
+      dist_config.csc_index_indptr = idx_batch_indptr.data();
+      dist_config.csc_index_indices = idx_batch_indices.data();
+      dist_config.csc_index_data = idx_batch_data.data();
       dist_config.search_nrows = query_batcher.batch_rows();
       dist_config.search_ncols = n_query_cols;
       dist_config.search_nnz = n_query_batch_nnz;
-      dist_config.csc_search_indptr = csc_query_batch_indptr.data();
-      dist_config.csc_search_indices = csc_query_batch_indices.data();
-      dist_config.csc_search_data = query_batch_data.data();
+      dist_config.csr_search_indptr = query_batch_indptr.data();
+      dist_config.csr_search_indices = query_batch_indices.data();
+      dist_config.csr_search_data = query_batch_data.data();
       dist_config.handle = cusparseHandle;
       dist_config.allocator = allocator;
       dist_config.stream = stream;
@@ -322,6 +322,6 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
   }
 }
 
-};  // namespace Selection
-};  // namespace Sparse
-};  // namespace MLCommon
+};  // END namespace Selection
+};  // END namespace Sparse
+};  // END namespace MLCommon

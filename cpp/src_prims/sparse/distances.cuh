@@ -33,17 +33,17 @@ struct distances_config_t {
   value_idx index_nrows;
   value_idx index_ncols;
   value_idx index_nnz;
-  value_idx *csr_index_indptr;
-  value_idx *csr_index_indices;
-  value_t *csr_index_data;
+  value_idx *csc_index_indptr;
+  value_idx *csc_index_indices;
+  value_t *csc_index_data;
 
   // right side
   value_idx search_nrows;
   value_idx search_ncols;
   value_idx search_nnz;
-  value_idx *csc_search_indptr;
-  value_idx *csc_search_indices;
-  value_t *csc_search_data;
+  value_idx *csr_search_indptr;
+  value_idx *csr_search_indices;
+  value_t *csr_search_data;
 
   cusparseHandle_t handle;
 
@@ -51,6 +51,9 @@ struct distances_config_t {
   cudaStream_t stream;
 };
 
+/**
+ * Simple inner product distance with sparse matrix multiply
+ */
 template <typename value_idx = int, typename value_t = float>
 struct ip_distances_t {
   explicit ip_distances_t(distances_config_t<value_idx, value_t> config)
@@ -77,15 +80,15 @@ struct ip_distances_t {
   }
 
   value_idx get_nnz(value_idx *csr_out_indptr) {
-    value_idx m = config_.index_nrows, n = config_.search_ncols,
-              k = config_.index_ncols;
+    value_idx m = config_.search_nrows, n = config_.search_ncols,
+              k = config_.index_nrows;
 
     size_t workspace_size;
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2_buffersizeext(
-      config_.handle, m, n, k, &alpha, &beta, matA, config_.index_nnz,
-      config_.csr_index_indptr, config_.csr_index_indices, matB,
-      config_.search_nnz, config_.csc_search_indptr, config_.csc_search_indices,
+      config_.handle, m, n, k, &alpha, &beta, matA, config_.search_nnz,
+      config_.csr_search_indptr, config_.csr_search_indices, matB,
+      config_.index_nnz, config_.csc_index_indptr, config_.csc_index_indices,
       NULL, 0, NULL, NULL, info, &workspace_size, config_.stream));
 
     workspace.resize(workspace_size, config_.stream);
@@ -93,9 +96,9 @@ struct ip_distances_t {
     value_idx out_nnz;
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2nnz(
-      config_.handle, m, n, k, matA, config_.index_nnz,
-      config_.csr_index_indptr, config_.csr_index_indices, matB,
-      config_.search_nnz, config_.csc_search_indptr, config_.csc_search_indices,
+      config_.handle, m, n, k, matA, config_.search_nnz,
+      config_.csr_search_indptr, config_.csr_search_indices, matB,
+      config_.index_nnz, config_.csc_index_indptr, config_.csc_index_indices,
       NULL, 0, NULL, NULL, matC, csr_out_indptr, &out_nnz, info,
       workspace.data(), config_.stream));
 
@@ -104,17 +107,23 @@ struct ip_distances_t {
 
   void compute(value_idx *csr_out_indptr, value_idx *csr_out_indices,
                value_t *csr_out_data) {
-    value_idx m = config_.index_nrows, n = config_.search_ncols,
-              k = config_.index_ncols;
+    value_idx m = config_.search_nrows, n = config_.search_ncols,
+              k = config_.index_rows;
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2(
-      config_.handle, m, n, k, &alpha, matA, config_.index_nnz,
-      config_.csr_index_data, config_.csr_index_rowind,
-      config_.csr_index_indices, matB, config_.search_nna,
-      config_.csc_search_data, config_.csc_search_rowind,
-      config_.csc_search_indices, &beta, NULL, 0, NULL, NULL, NULL, matC,
+      config_.handle, m, n, k, &alpha, matA, config_.search_nnz,
+      config_.csr_search_data, config_.csr_search_rowind,
+      config_.csr_search_indices, matB, config_.index_nna,
+      config_.csc_index_data, config_.csc_index_rowind,
+      config_.csc_index_indices, &beta, NULL, 0, NULL, NULL, NULL, matC,
       config_.csr_out_data, config_.csr_out_rowind, config_.csr_out_indices,
       info, workspace.data()));
+  }
+
+  ~ip_distances_t() {
+    CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matA));
+    CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matB));
+    CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matC));
   }
 
  private:
@@ -128,6 +137,6 @@ struct ip_distances_t {
   distances_config_t<value_idx, value_t> config_;
 };
 
-}  // namespace Distance
-};  // namespace Sparse
-};  // namespace MLCommon
+};  // END namespace Distance
+};  // END namespace Sparse
+};  // END namespace MLCommon
