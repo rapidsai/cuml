@@ -288,7 +288,6 @@ __global__ void csr_row_normalize_l1_kernel(
   }
 }
 
-
 template <typename value_idx>
 void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
                           const value_idx *indptr, value_idx *indptr_out,
@@ -309,7 +308,6 @@ void csr_row_slice_populate(value_idx start_offset, value_idx stop_offset,
   copy(indices_out, indices + start_offset, stop_offset - start_offset, stream);
   copy(data_out, data + start_offset, stop_offset - start_offset, stream);
 }
-
 
 /**
  * @brief Perform L1 normalization on the rows of a given CSR-formatted sparse matrix

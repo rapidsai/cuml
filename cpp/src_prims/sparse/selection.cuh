@@ -44,7 +44,6 @@ namespace MLCommon {
 namespace Sparse {
 namespace Selection {
 
-
 template <typename K, typename IndexType, int warp_q, int thread_q, int tpb>
 __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
                                 size_t n_cols, K *outK, IndexType *outV,
@@ -92,7 +91,7 @@ template <typename value_idx = int, int warp_q, int thread_q>
 inline void select_k_impl(float *inK, value_idx *inV, size_t n_rows,
                           size_t n_cols, float *outK, value_idx *outV,
                           bool select_min, int k, cudaStream_t stream,
-						  value_idx translation = 0) {
+                          value_idx translation = 0) {
   auto grid = dim3(n_rows);
 
   constexpr int n_threads = (warp_q <= 1024) ? 128 : 64;
@@ -121,33 +120,32 @@ inline void select_k_impl(float *inK, value_idx *inV, size_t n_rows,
  * @param stream CUDA stream to use
  * @param translations mapping of index offsets for each partition
  */
-template<typename value_idx = int>
+template <typename value_idx = int>
 inline void select_k(float *inK, value_idx *inV, size_t n_rows, size_t n_cols,
                      float *outK, value_idx *outV, bool select_min, int k,
                      cudaStream_t stream, value_idx translation = 0) {
   if (k == 1)
-    select_k_impl<value_idx, 1, 1>(inK, inV, n_rows, n_cols, outK, outV, select_min, k,
-                        stream, translation);
+    select_k_impl<value_idx, 1, 1>(inK, inV, n_rows, n_cols, outK, outV,
+                                   select_min, k, stream, translation);
   else if (k <= 32)
-    select_k_impl<value_idx, 32, 2>(inK, inV, n_rows, n_cols, outK, outV, select_min, k,
-                         stream, translation);
+    select_k_impl<value_idx, 32, 2>(inK, inV, n_rows, n_cols, outK, outV,
+                                    select_min, k, stream, translation);
   else if (k <= 64)
-    select_k_impl<value_idx, 64, 3>(inK, inV, n_rows, n_cols, outK, outV, select_min, k,
-                         stream, translation);
+    select_k_impl<value_idx, 64, 3>(inK, inV, n_rows, n_cols, outK, outV,
+                                    select_min, k, stream, translation);
   else if (k <= 128)
-    select_k_impl<value_idx, 128, 3>(inK, inV, n_rows, n_cols, outK, outV, select_min, k,
-                          stream, translation);
+    select_k_impl<value_idx, 128, 3>(inK, inV, n_rows, n_cols, outK, outV,
+                                     select_min, k, stream, translation);
   else if (k <= 256)
-    select_k_impl<value_idx, 256, 4>(inK, inV, n_rows, n_cols, outK, outV, select_min, k,
-                          stream, translation);
+    select_k_impl<value_idx, 256, 4>(inK, inV, n_rows, n_cols, outK, outV,
+                                     select_min, k, stream, translation);
   else if (k <= 512)
-    select_k_impl<value_idx, 512, 8>(inK, inV, n_rows, n_cols, outK, outV, select_min, k,
-                          stream, translation);
+    select_k_impl<value_idx, 512, 8>(inK, inV, n_rows, n_cols, outK, outV,
+                                     select_min, k, stream, translation);
   else if (k <= 1024)
-    select_k_impl<value_idx, 1024, 8>(inK, inV, n_rows, n_cols, outK, outV, select_min, k,
-                           stream, translation);
+    select_k_impl<value_idx, 1024, 8>(inK, inV, n_rows, n_cols, outK, outV,
+                                      select_min, k, stream, translation);
 }
-
 
 /**
    * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
@@ -159,8 +157,7 @@ inline void select_k(float *inK, value_idx *inV, size_t n_rows, size_t n_cols,
    * @param metricArg metric argument to use. Corresponds to the p arg for lp norm
    * @param expanded_form whether or not lp variants should be reduced w/ lp-root
    */
-template <typename value_idx = int, typename value_t = float,
-          int TPB_X = 32>
+template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
 void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                      const value_t *idxData, size_t idxNNZ, size_t n_idx_rows,
                      size_t n_idx_cols, const value_idx *queryIndptr,
@@ -202,40 +199,50 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
 
     value_idx query_start_offset, query_stop_offset;
 
-    MLCommon::Sparse::csr_row_slice_indptr(query_batch_start, query_batch_stop, queryIndptr,
-                         query_batch_indptr.data(), &query_start_offset,
-                         &query_stop_offset, stream);
+    MLCommon::Sparse::csr_row_slice_indptr(
+      query_batch_start, query_batch_stop, queryIndptr,
+      query_batch_indptr.data(), &query_start_offset, &query_stop_offset,
+      stream);
 
     value_idx n_query_batch_nnz = query_stop_offset - query_start_offset;
 
-    device_buffer<value_idx> query_batch_indices(allocator, stream, n_query_batch_nnz);
-    device_buffer<value_t> query_batch_data(allocator, stream, n_query_batch_nnz);
+    device_buffer<value_idx> query_batch_indices(allocator, stream,
+                                                 n_query_batch_nnz);
+    device_buffer<value_t> query_batch_data(allocator, stream,
+                                            n_query_batch_nnz);
 
-    MLCommon::Sparse::csr_row_slice_populate(query_start_offset, query_stop_offset, queryIndptr,
-                           queryData, query_batch_indices.data(),
-                           query_batch_data.data(), stream);
+    MLCommon::Sparse::csr_row_slice_populate(
+      query_start_offset, query_stop_offset, queryIndptr, queryData,
+      query_batch_indices.data(), query_batch_data.data(), stream);
 
     /**
      * Transpose query array
      */
     size_t convert_csc_workspace_size = 0;
 
-    device_buffer<value_idx> csc_query_batch_indptr(allocator, stream, n_query_cols+1);
-    device_buffer<value_idx> csc_query_batch_indices(allocator, stream, n_query_batch_nnz);
+    device_buffer<value_idx> csc_query_batch_indptr(allocator, stream,
+                                                    n_query_cols + 1);
+    device_buffer<value_idx> csc_query_batch_indices(allocator, stream,
+                                                     n_query_batch_nnz);
 
     CUSPARSE_CHECK(cusparsecsr2csc_bufferSize(
-    		cusparseHandle, n_query_batch_rows, n_query_cols, n_query_batch_nnz, query_batch_data.data(),
-      query_batch_indptr.data(), query_batch_indices.data(), query_batch_data.data(), csc_query_batch_indptr.data(),
-      csc_query_batch_indices.data(), CUSPARSE_ACTION_SYMBOLIC, CUSPARSE_INDEX_BASE_ZERO,
-	  CUSPARSE_CSR2CSC_ALG1, &convert_csc_workspace_size, stream));
+      cusparseHandle, n_query_batch_rows, n_query_cols, n_query_batch_nnz,
+      query_batch_data.data(), query_batch_indptr.data(),
+      query_batch_indices.data(), query_batch_data.data(),
+      csc_query_batch_indptr.data(), csc_query_batch_indices.data(),
+      CUSPARSE_ACTION_SYMBOLIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1,
+      &convert_csc_workspace_size, stream));
 
-    device_buffer<char> convert_csc_workspace(allocator, stream, convert_csc_workspace_size);
+    device_buffer<char> convert_csc_workspace(allocator, stream,
+                                              convert_csc_workspace_size);
 
     CUSPARSE_CHECK(cusparsecsr2csc(
-    		cusparseHandle, n_query_batch_rows, n_query_cols, n_query_batch_nnz, query_batch_data.data(),
-      query_batch_indptr.data(), query_batch_indices.data(), query_batch_data.data(), csc_query_batch_indptr.data(),
-      csc_query_batch_indices.data(), CUSPARSE_ACTION_SYMBOLIC, CUSPARSE_INDEX_BASE_ZERO,
-	  CUSPARSE_CSR2CSC_ALG1, &convert_csc_workspace, stream));
+      cusparseHandle, n_query_batch_rows, n_query_cols, n_query_batch_nnz,
+      query_batch_data.data(), query_batch_indptr.data(),
+      query_batch_indices.data(), query_batch_data.data(),
+      csc_query_batch_indptr.data(), csc_query_batch_indices.data(),
+      CUSPARSE_ACTION_SYMBOLIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1,
+      &convert_csc_workspace, stream));
 
     convert_csc_workspace.release(stream);
 
@@ -269,22 +276,22 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
 
       value_idx idx_start_offset, idx_stop_offset;
 
-      MLCommon::Sparse::csr_row_slice_indptr(idx_batch_start, idx_batch_stop, idxIndptr,
-                           idx_batch_indptr.data(), &idx_start_offset,
-                           &idx_stop_offset, stream);
+      MLCommon::Sparse::csr_row_slice_indptr(
+        idx_batch_start, idx_batch_stop, idxIndptr, idx_batch_indptr.data(),
+        &idx_start_offset, &idx_stop_offset, stream);
 
       value_idx n_idx_batch_nnz = idx_stop_offset - idx_start_offset;
 
       device_buffer<value_idx> idx_batch_indices(allocator, stream,
                                                  n_idx_batch_nnz);
-      device_buffer<value_t> idx_batch_data(allocator, stream,
-                                            n_idx_batch_nnz);
+      device_buffer<value_t> idx_batch_data(allocator, stream, n_idx_batch_nnz);
 
-      MLCommon::Sparse::csr_row_slice_populate(idx_start_offset, idx_stop_offset, idxIndptr,
-                             idxData, idx_batch_indices.data(),
-                             idx_batch_data.data(), stream);
+      MLCommon::Sparse::csr_row_slice_populate(
+        idx_start_offset, idx_stop_offset, idxIndptr, idxData,
+        idx_batch_indices.data(), idx_batch_data.data(), stream);
 
-      MLCommon::Sparse::Distance::distances_config_t<value_idx, value_t> dist_config;
+      MLCommon::Sparse::Distance::distances_config_t<value_idx, value_t>
+        dist_config;
       dist_config.index_nrows = n_idx_batch_rows;
       dist_config.index_ncols = n_idx_cols;
       dist_config.index_nnz = n_idx_batch_nnz;
@@ -301,26 +308,31 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
       dist_config.allocator = allocator;
       dist_config.stream = stream;
 
-      device_buffer<value_idx> out_batch_rowind(allocator, stream, n_query_batch_rows+1);
+      device_buffer<value_idx> out_batch_rowind(allocator, stream,
+                                                n_query_batch_rows + 1);
 
-      MLCommon::Sparse::Distance::ip_distances_t<value_idx, value_t> compute_dists(dist_config);
+      MLCommon::Sparse::Distance::ip_distances_t<value_idx, value_t>
+        compute_dists(dist_config);
       value_idx out_batch_nnz = compute_dists.get_nnz(out_batch_rowind.data());
 
-      device_buffer<value_idx> out_batch_indices(allocator, stream, out_batch_nnz);
+      device_buffer<value_idx> out_batch_indices(allocator, stream,
+                                                 out_batch_nnz);
       device_buffer<value_t> out_batch_data(allocator, stream, out_batch_nnz);
 
       idx_batch_indptr.release(stream);
       idx_batch_indices.release(stream);
       idx_batch_data.release(stream);
 
-      device_buffer<value_t> out_batch_dense(allocator, stream, n_idx_batch_rows * n_query_batch_rows);
+      device_buffer<value_t> out_batch_dense(
+        allocator, stream, n_idx_batch_rows * n_query_batch_rows);
 
       cusparseMatDescr_t out_mat;
       CUSPARSE_CHECK(cusparseCreateMatDescr(&out_mat));
 
-      CUSPARSE_CHECK(cusparsecsr2dense(cusparseHandle, n_query_batch_rows, n_idx_batch_rows, out_mat,
-    		  out_batch_data.data(), out_batch_rowind.data(), out_batch_indices.data(), out_batch_dense.data(),
-			  n_idx_cols, stream));
+      CUSPARSE_CHECK(cusparsecsr2dense(
+        cusparseHandle, n_query_batch_rows, n_idx_batch_rows, out_mat,
+        out_batch_data.data(), out_batch_rowind.data(),
+        out_batch_indices.data(), out_batch_dense.data(), n_idx_cols, stream));
 
       out_batch_rowind.release(stream);
       out_batch_indices.release(stream);
@@ -329,8 +341,10 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
       /**
        * Perform k-selection on batch & merge with other k-selections
        */
-      device_buffer<value_idx> batch_indices(allocator, stream, out_batch_dense.size());
-      device_buffer<value_t> batch_dists(allocator, stream, out_batch_dense.size());
+      device_buffer<value_idx> batch_indices(allocator, stream,
+                                             out_batch_dense.size());
+      device_buffer<value_t> batch_dists(allocator, stream,
+                                         out_batch_dense.size());
 
       // even numbers take bottom, odd numbers take top, merging until end of loop,
       // where output matrix is populated.
@@ -349,27 +363,26 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
       std::vector<value_idx> id_ranges;
       id_ranges.push_back(0);
 
-      if(idx_batch_start > 0)
-    	  id_ranges.push_back(idx_batch_start);
+      if (idx_batch_start > 0) id_ranges.push_back(idx_batch_start);
 
       // kernel to slice first (min) k cols and copy into batched merge buffer
       select_k(batch_dists.data(), batch_indices.data(), n_query_batch_rows,
-               n_idx_batch_rows, dists_merge_buffer_ptr, indices_merge_buffer_ptr,
-               ascending, k, stream,
+               n_idx_batch_rows, dists_merge_buffer_ptr,
+               indices_merge_buffer_ptr, ascending, k, stream,
                /*translation for current batch*/
                id_ranges[1]);
 
       // combine merge buffers only if there's more than 1 partition to combine
       MLCommon::Selection::knn_merge_parts(
         dists_merge_buffer_ptr, indices_merge_buffer_ptr,
-        dists_merge_buffer_tmp_ptr, indices_merge_buffer_tmp_ptr, n_query_batch_rows,
-        2, k, stream, id_ranges.data());
+        dists_merge_buffer_tmp_ptr, indices_merge_buffer_tmp_ptr,
+        n_query_batch_rows, 2, k, stream, id_ranges.data());
 
       // copy merged output back into merge buffer partition for next iteration
       copyAsync(indices_merge_buffer_ptr, indices_merge_buffer_tmp_ptr,
-    		  n_query_batch_rows * k, stream);
+                n_query_batch_rows * k, stream);
       copyAsync(dists_merge_buffer_ptr, dists_merge_buffer_tmp_ptr,
-    		  n_query_batch_rows * k, stream);
+                n_query_batch_rows * k, stream);
     }
 
     // Copy final merged batch to output array

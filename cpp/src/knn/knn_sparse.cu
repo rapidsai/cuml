@@ -23,41 +23,28 @@
 
 #include <cusparse_v2.h>
 
-
 namespace ML {
 namespace Sparse {
 
-void brute_force_knn(cumlHandle &handle,
-				     const int *idxIndptr,
-					 const int *idxIndices,
-					 const float *idxData,
-					 size_t idxNNZ,
-					 size_t n_idx_rows, size_t n_idx_cols,
-					 const int *queryIndptr,
-					 const int *queryIndices,
-					 const float *queryData,
-					 size_t queryNNZ,
-					 size_t n_query_rows, size_t n_query_cols,
-					 int *output_indices,
-					 float *output_dists,
-					 int k,
-					 size_t batch_size, // approx 1M
-                     ML::MetricType metric,
-                     float metricArg, bool expanded_form) {
+void brute_force_knn(cumlHandle &handle, const int *idxIndptr,
+                     const int *idxIndices, const float *idxData, size_t idxNNZ,
+                     size_t n_idx_rows, size_t n_idx_cols,
+                     const int *queryIndptr, const int *queryIndices,
+                     const float *queryData, size_t queryNNZ,
+                     size_t n_query_rows, size_t n_query_cols,
+                     int *output_indices, float *output_dists, int k,
+                     size_t batch_size,  // approx 1M
+                     ML::MetricType metric, float metricArg,
+                     bool expanded_form) {
+  std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
+  cusparseHandle_t cusparse_handle = handle.getImpl().getcusparseHandle();
+  cudaStream_t stream = handle.getStream();
 
-	std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
-	cusparseHandle_t cusparse_handle = handle.getImpl().getcusparseHandle();
-	cudaStream_t stream = handle.getStream();
-
-	MLCommon::Sparse::Selection::brute_force_knn(idxIndptr, idxIndices, idxData,
-										idxNNZ, n_idx_rows, n_idx_cols,
-										queryIndptr, queryIndices,
-										queryData, queryNNZ,
-										n_query_rows, n_query_cols,
-										output_indices, output_dists,
-										k, cusparse_handle,
-										d_alloc, stream, batch_size, metric,
-										metricArg, expanded_form);
+  MLCommon::Sparse::Selection::brute_force_knn(
+    idxIndptr, idxIndices, idxData, idxNNZ, n_idx_rows, n_idx_cols, queryIndptr,
+    queryIndices, queryData, queryNNZ, n_query_rows, n_query_cols,
+    output_indices, output_dists, k, cusparse_handle, d_alloc, stream,
+    batch_size, metric, metricArg, expanded_form);
 }
-};
-};
+};  // namespace Sparse
+};  // namespace ML
