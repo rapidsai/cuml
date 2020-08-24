@@ -329,7 +329,7 @@ class LogisticRegression(Base, ClassifierMixin):
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
     @with_cupy_rmm
-    def predict_proba(self, X, convert_dtype=False):
+    def predict_proba(self, X, convert_dtype=True):
         """
         Predicts the class probabilities for each class in X
 
