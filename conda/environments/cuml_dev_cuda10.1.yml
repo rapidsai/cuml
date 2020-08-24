@@ -21,5 +21,10 @@ dependencies:
     - git+https://github.com/dask/dask.git
     - git+https://github.com/dask/distributed.git
 
-# rapids-build-env, notebook-env and doc-env are defined in
+# rapids-build-env, notebook-env and doc-env meta packages are defined in
 # https://docs.rapids.ai/maintainers/depmgmt/
+
+# To install different versions of packages contained in those meta packages,
+# it is recommended to remove those meta packages (without removing the actual
+# packages contained in the environment) first with:
+# conda remove --force rapids-build-env rapids-notebook-env rapids-doc-env
