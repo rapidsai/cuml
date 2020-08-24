@@ -4,6 +4,9 @@
 
 ## Improvements
 
+- PR #2729: Replace `cupy.sparse` with `cupyx.scipy.sparse`
+- PR #2749: Correct docs for python version used in cuml_dev conda environment
+
 ## Bug Fixes
 
 # cuML 0.15.0 (Date TBD)
@@ -109,6 +112,7 @@
 - PR #2705: Add sum operator and base operator overloader functions to cumlarray
 - PR #2701: Updating README + Adding ref to UMAP paper
 - PR #2721: Update API docs
+- PR #2730: Unpin cumlprims in conda recipes for release
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
@@ -174,10 +178,12 @@
 - PR #2695: Fix debug build issue due to incorrect host/device method setup
 - PR #2709: Fixing OneHotEncoder Overflow Error
 - PR #2710: Fix SVC doc statement about predic_proba
+- PR #2726: Return correct output type in QN
 - PR #2711: Fix Dask RF failure intermittently
 - PR #2718: Fix temp directory for py.test
 - PR #2719: Set KNeighborsRegressor output dtype according to training target dtype
 - PR #2720: Updates to outdated links
+- PR #2722: Getting cuML covariance test passing w/ Cupy 7.8 & CUDA 11
 
 # cuML 0.14.0 (03 Jun 2020)
 
