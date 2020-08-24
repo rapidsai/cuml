@@ -5,6 +5,9 @@
 ## Improvements
 - PR #2741: Use rapids build packages in conda environments
 
+- PR #2729: Replace `cupy.sparse` with `cupyx.scipy.sparse`
+- PR #2749: Correct docs for python version used in cuml_dev conda environment
+
 ## Bug Fixes
 
 # cuML 0.15.0 (Date TBD)

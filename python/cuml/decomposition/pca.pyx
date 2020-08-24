@@ -23,6 +23,7 @@ import ctypes
 import cudf
 import numpy as np
 import cupy as cp
+import cupyx
 import scipy
 
 from enum import IntEnum
@@ -422,7 +423,7 @@ class PCA(Base):
         self._set_n_features_in(X)
         self._set_output_type(X)
 
-        if cp.sparse.issparse(X):
+        if cupyx.scipy.sparse.issparse(X):
             return self._sparse_fit(X)
         elif scipy.sparse.issparse(X):
             X = sparse_scipy_to_cp(X)
@@ -525,7 +526,7 @@ class PCA(Base):
         if return_sparse:
             X_inv = cp.where(X_inv < sparse_tol, 0, X_inv)
 
-            X_inv = cp.sparse.csr_matrix(X_inv)
+            X_inv = cupyx.scipy.sparse.csr_matrix(X_inv)
 
             return X_inv
 
@@ -552,7 +553,7 @@ class PCA(Base):
 
         out_type = self._get_output_type(X)
 
-        if cp.sparse.issparse(X):
+        if cupyx.scipy.sparse.issparse(X):
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
                                                   sparse_tol=sparse_tol,
@@ -666,7 +667,7 @@ class PCA(Base):
 
         out_type = self._get_output_type(X)
 
-        if cp.sparse.issparse(X):
+        if cupyx.scipy.sparse.issparse(X):
             return self._sparse_transform(X, out_type=out_type)
         elif scipy.sparse.issparse(X):
             X = sparse_scipy_to_cp(X)

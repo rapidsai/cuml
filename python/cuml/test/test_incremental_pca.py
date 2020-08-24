@@ -16,6 +16,7 @@
 
 import pytest
 import cupy as cp
+import cupyx
 
 from sklearn.decomposition import IncrementalPCA as skIPCA
 
@@ -41,8 +42,8 @@ def test_fit(nrows, ncols, n_components, sparse_input, density,
                     " indexing as of cupy 7.6.0")
 
     if sparse_input:
-        X = cp.sparse.random(nrows, ncols, density=density,
-                             random_state=10, format=sparse_format)
+        X = cupyx.scipy.sparse.random(nrows, ncols, density=density,
+                                      random_state=10, format=sparse_format)
     else:
         X, _ = make_blobs(n_samples=nrows, n_features=ncols, random_state=10)
 
