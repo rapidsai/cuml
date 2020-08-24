@@ -1,6 +1,7 @@
 import os
 
 import cupy as cp
+import cupyx
 import pytest
 from pytest import Item
 from sklearn.datasets import fetch_20newsgroups
@@ -113,7 +114,8 @@ def fail_on_bad_cuml_array_name(monkeypatch, request):
             assert name.startswith("_"), "Invalid CumlArray Use! CumlArray \
                 attributes need a leading underscore. Attribute: '{}' In: {}" \
                     .format(name, self.__repr__())
-        elif (supported_type == cp.ndarray and cp.sparse.issparse(value)):
+        elif (supported_type == cp.ndarray and
+              cupyx.scipy.sparse.issparse(value)):
             # Leave sparse matrices alone for now.
             pass
         elif (supported_type is not None):

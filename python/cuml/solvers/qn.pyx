@@ -160,9 +160,9 @@ class QN(Base):
         # Note: for now, the coefficients also include the intercept in the
         # last position if fit_intercept=True
         print("Coefficients:")
-        print(solver.coef_.copy_to_host())
+        print(solver.coef_)
         print("Intercept:")
-        print(solver.intercept_.copy_to_host())
+        print(solver.intercept_)
 
         X_new = cudf.DataFrame()
         X_new['col1'] = np.array([1,5], dtype = np.float32)
@@ -498,14 +498,14 @@ class QN(Base):
     def __getattr__(self, attr):
         if attr == 'intercept_':
             if self.fit_intercept:
-                return self._coef_[-1]
+                return self._coef_[-1].to_output(self.output_type)
             else:
                 return CumlArray.zeros(shape=1)
         elif attr == 'coef_':
             if self.fit_intercept:
-                return self._coef_[0:-1]
+                return self._coef_[0:-1].to_output(self.output_type)
             else:
-                return self._coef_
+                return self._coef_.to_output(self.output_type)
         else:
             return super().__getattr__(attr)
 
