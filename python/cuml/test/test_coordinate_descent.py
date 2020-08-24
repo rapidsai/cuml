@@ -173,7 +173,7 @@ def test_elastic_net_predict_convert_dtype(train_dtype, test_dtype):
 
     clf = cuElasticNet()
     clf.fit(X_train, y_train)
-    preds = clf.predict(X_test.astype(test_dtype))
+    clf.predict(X_test.astype(test_dtype))
 
 
 @pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
@@ -188,4 +188,4 @@ def test_lasso_predict_convert_dtype(train_dtype, test_dtype):
 
     clf = cuLasso()
     clf.fit(X_train, y_train)
-    preds = clf.predict(X_test.astype(test_dtype))
+    clf.predict(X_test.astype(test_dtype))

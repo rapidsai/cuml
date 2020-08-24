@@ -414,7 +414,7 @@ def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
 
     clf = cuLinearRegression()
     clf.fit(X_train, y_train)
-    preds = clf.predict(X_test.astype(test_dtype))
+    clf.predict(X_test.astype(test_dtype))
 
 
 @pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
@@ -429,7 +429,7 @@ def test_ridge_predict_convert_dtype(train_dtype, test_dtype):
 
     clf = cuRidge()
     clf.fit(X_train, y_train)
-    preds = clf.predict(X_test.astype(test_dtype))
+    clf.predict(X_test.astype(test_dtype))
 
 
 @pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
@@ -442,4 +442,4 @@ def test_logistic_predict_convert_dtype(train_dtype, test_dtype):
 
     clf = cuLog()
     clf.fit(X_train, y_train)
-    preds = clf.predict(X_test.astype(test_dtype))
+    clf.predict(X_test.astype(test_dtype))
