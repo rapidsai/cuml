@@ -345,7 +345,7 @@ class LogisticRegression(Base, ClassifierMixin):
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def predict_log_proba(self, X, convert_dtype=False):
+    def predict_log_proba(self, X, convert_dtype=True):
         """
         Predicts the log class probabilities for each class in X
 
