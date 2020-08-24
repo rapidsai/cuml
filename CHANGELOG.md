@@ -5,6 +5,8 @@
 ## Improvements
 
 - PR #2739: Use cusparse_wrappers.h from RAFT
+- PR #2729: Replace `cupy.sparse` with `cupyx.scipy.sparse`
+- PR #2749: Correct docs for python version used in cuml_dev conda environment
 
 ## Bug Fixes
 
@@ -110,6 +112,7 @@
 - PR #2705: Add sum operator and base operator overloader functions to cumlarray
 - PR #2701: Updating README + Adding ref to UMAP paper
 - PR #2721: Update API docs
+- PR #2730: Unpin cumlprims in conda recipes for release
 
 ## Bug Fixes
 - PR #2369: Update RF code to fix set_params memory leak
