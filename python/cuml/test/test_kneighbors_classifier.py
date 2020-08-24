@@ -191,8 +191,8 @@ def test_predict_large_n_classes(datatype):
     y_hat = knn_cu.predict(X_test)
 
     if datatype == "dataframe":
-        y_hat = y_hat.to_gpu_array().copy_to_host()
-        y_test = y_test.as_gpu_matrix().copy_to_host().ravel()
+        y_hat = y_hat.as_matrix()
+        y_test = y_test.as_matrix().ravel()
 
     assert array_equal(y_hat.astype(np.int32), y_test.astype(np.int32))
 
