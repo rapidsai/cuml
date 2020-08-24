@@ -147,7 +147,6 @@ inline void select_k(float *inK, value_idx *inV, size_t n_rows, size_t n_cols,
                                       select_min, k, stream, translation);
 }
 
-
 };  // END namespace Selection
 };  // END namespace Sparse
 };  // END namespace MLCommon
