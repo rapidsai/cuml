@@ -28,17 +28,17 @@ namespace ML {
 namespace Sparse {
 
 void brute_force_knn(cumlHandle &handle,
-				     const int64_t *idxIndptr,
-					 const int64_t *idxIndices,
+				     const int *idxIndptr,
+					 const int *idxIndices,
 					 const float *idxData,
 					 size_t idxNNZ,
 					 size_t n_idx_rows, size_t n_idx_cols,
-					 const int64_t *queryIndptr,
-					 const int64_t *queryIndices,
+					 const int *queryIndptr,
+					 const int *queryIndices,
 					 const float *queryData,
 					 size_t queryNNZ,
 					 size_t n_query_rows, size_t n_query_cols,
-					 int64_t *output_indices,
+					 int *output_indices,
 					 float *output_dists,
 					 int k,
 					 size_t batch_size, // approx 1M

@@ -19,8 +19,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 template void RPROJfit(const cumlHandle& handle, rand_mat<float>* random_matrix,
                        paramsRPROJ* params);
 template void RPROJfit(const cumlHandle& handle,

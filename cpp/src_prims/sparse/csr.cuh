@@ -288,6 +288,29 @@ __global__ void csr_row_normalize_l1_kernel(
   }
 }
 
+
+template <typename value_idx>
+void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
+                          const value_idx *indptr, value_idx *indptr_out,
+                          value_idx *start_offset, value_idx *stop_offset,
+                          cudaStream_t stream) {
+  updateHost(start_offset, indptr + start_row, 1, stream);
+  updateHost(stop_offset, indptr + stop_row + 1, 1, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  copyAsync(indptr_out, indptr + start_row, (stop_row - start_row) + 1, stream);
+}
+
+template <typename value_idx, typename value_t>
+void csr_row_slice_populate(value_idx start_offset, value_idx stop_offset,
+                            const value_idx *indices, const value_t *data,
+                            value_idx *indices_out, value_t *data_out,
+                            cudaStream_t stream) {
+  copy(indices_out, indices + start_offset, stop_offset - start_offset, stream);
+  copy(data_out, data + start_offset, stop_offset - start_offset, stream);
+}
+
+
 /**
  * @brief Perform L1 normalization on the rows of a given CSR-formatted sparse matrix
  *
