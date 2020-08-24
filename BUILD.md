@@ -19,8 +19,7 @@ It is recommended to use conda for environment/package management. If doing so, 
 
 ```
 conda create -n cuml_dev python=3.7
-conda activate cuml_dev
-conda env update --file=conda/environments/cuml_dev_cuda10.2.yml
+conda env update -n cuml_dev --file=conda/environments/cuml_dev_cuda10.2.yml
 ```
 
 ## Installing from Source:
