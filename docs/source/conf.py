@@ -52,8 +52,8 @@ templates_path = ['_templates']
 # source_suffix = ['.rst', '.md']
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 
-# The master toctree document.
-master_doc = 'index'
+# The main toctree document.
+main_doc = 'index'
 
 # General information about the project.
 project = 'cuml'
@@ -150,7 +150,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'cuml.tex', 'cuml Documentation',
+    (main_doc, 'cuml.tex', 'cuml Documentation',
      'nvidia', 'manual'),
 ]
 
@@ -160,7 +160,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'cuml', 'cuml Documentation',
+    (main_doc, 'cuml', 'cuml Documentation',
      [author], 1)
 ]
 
@@ -171,7 +171,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'cuml', 'cuml Documentation',
+    (main_doc, 'cuml', 'cuml Documentation',
      author, 'cuml', 'One line description of project.',
      'Miscellaneous'),
 ]
