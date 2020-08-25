@@ -117,5 +117,19 @@ struct Node {
   }
 };  // end Node
 
+template <typename DataT, typename LabelT, typename IdxT, int TPB = 256>
+void printNodes(Node<DataT, LabelT, IdxT>* nodes, IdxT len, cudaStream_t s) {
+  auto op = [] __device__(Node<DataT, LabelT, IdxT>* ptr, IdxT idx) {
+    printf("prediction = %d, colid = %d, quesval = %f, best_metric_val = %f, "
+           "left_child_id = %d, start = %d, end = %d, depth = %d\n",
+      ptr->info.prediction, ptr->info.colid, ptr->info.quesval,
+      ptr->info.best_metric_val, ptr->info.left_child_id, ptr->start, ptr->end,
+      ptr->depth);
+  };
+  MLCommon::LinAlg::writeOnlyUnaryOp<Node<DataT, LabelT, IdxT>, decltype(op), IdxT,
+                                     TPB>(nodes, len, op, s);
+  CUDA_CHECK(cudaDeviceSynchronize());
+}
+
 }  // namespace DecisionTree
 }  // namespace ML
