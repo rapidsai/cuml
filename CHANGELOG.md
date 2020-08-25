@@ -4,11 +4,14 @@
 
 ## Improvements
 - PR #2741: Use rapids build packages in conda environments
-
+- PR #2735: Update seed to random_state in random forest and associated tests
+- PR #2739: Use cusparse_wrappers.h from RAFT
 - PR #2729: Replace `cupy.sparse` with `cupyx.scipy.sparse`
 - PR #2749: Correct docs for python version used in cuml_dev conda environment
 
 ## Bug Fixes
+
+- PR #2744: Supporting larger number of classes in KNeighborsClassifier
 
 # cuML 0.15.0 (Date TBD)
 
