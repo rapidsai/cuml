@@ -145,7 +145,8 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             if random_state is None:
                 warnings.warn("Parameter 'seed' is deprecated and will be"
                               " removed in 0.17. Please use 'random_state'"
-                              " instead.",
+                              " instead. Setting 'random_state' as the"
+                              " curent 'seed' value",
                               DeprecationWarning)
                 random_state = seed
             else:
