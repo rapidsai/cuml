@@ -286,7 +286,7 @@ struct Builder {
     node_end = h_total_nodes = 1;  // start with root node
     h_nodes[0].initSpNode();
     h_nodes[0].start = 0;
-    h_nodes[0].end = input.nSampledRows;
+    h_nodes[0].count = input.nSampledRows;
     h_nodes[0].depth = 0;
   }
 

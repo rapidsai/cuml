@@ -42,7 +42,7 @@ struct Node {
   /** start of sampled rows belonging to this node */
   IdxT start;
   /** number of sampled rows belonging to this node */
-  IdxT end;
+  IdxT count;
   /** depth of this node */
   IdxT depth;
 
@@ -103,13 +103,13 @@ struct Node {
     nodes[pos].initSpNode();
     nodes[pos].depth = depth + 1;
     nodes[pos].start = start;
-    nodes[pos].end = split.nLeft;
+    nodes[pos].count = split.nLeft;
     // right
     ++pos;
     nodes[pos].initSpNode();
     nodes[pos].depth = depth + 1;
     nodes[pos].start = start + split.nLeft;
-    nodes[pos].end = end - split.nLeft;
+    nodes[pos].count = end - split.nLeft;
     // update depth
     auto val = atomicMax(n_depth, depth + 1);
     __threadfence();

@@ -176,7 +176,7 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
   auto nid = blockIdx.x;
   auto split = splits[nid];
   auto range_start = curr_nodes[nid].start;
-  auto range_len = curr_nodes[nid].end;
+  auto range_len = curr_nodes[nid].count;
   auto* col = input.data + split.colid * input.M;
   auto loffset = range_start, part = loffset + split.nLeft, roffset = part;
   auto end = range_start + range_len;
@@ -230,7 +230,7 @@ __global__ void nodeSplitKernel(
   extern __shared__ char smem[];
   IdxT nid = blockIdx.x;
   volatile auto* node = curr_nodes + nid;
-  auto range_start = node->start, range_len = node->end;
+  auto range_start = node->start, range_len = node->count;
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
     node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
   if (isLeaf || splits[nid].best_metric_val <= min_impurity_decrease) {
@@ -254,7 +254,7 @@ __global__ void computeSplitClassificationKernel(
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
   auto range_start = node.start;
-  auto range_len = node.end;
+  auto range_len = node.count;
   if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_rows_per_node,
                                      max_leaves, n_leaves, range_len)) {
     return;
@@ -324,7 +324,7 @@ __global__ void computeSplitRegressionKernel(
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
   auto range_start = node.start;
-  auto range_len = node.end;
+  auto range_len = node.count;
   if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_rows_per_node,
                                      max_leaves, n_leaves, range_len)) {
     return;
