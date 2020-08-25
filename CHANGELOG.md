@@ -6,6 +6,7 @@
 
 - PR #2729: Replace `cupy.sparse` with `cupyx.scipy.sparse`
 - PR #2749: Correct docs for python version used in cuml_dev conda environment
+- PR #2762: Fix broken links and provide minor edits to docs
 
 ## Bug Fixes
 
