@@ -33,7 +33,7 @@ struct Split {
   typedef Split<DataT, IdxT> SplitT;
 
   /** start with this as the initial gain */
-  static constexpr DataT Min = std::numeric_limits<DataT>::min();
+  static constexpr DataT Min = -std::numeric_limits<DataT>::max();
   /** special value to represent invalid column id */
   static constexpr IdxT Invalid = static_cast<IdxT>(-1);
 
