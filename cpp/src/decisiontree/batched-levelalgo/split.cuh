@@ -143,5 +143,16 @@ void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
                                      TPB>(splits, len, op, s);
 }
 
+template <typename DataT, typename IdxT, int TPB = 256>
+void printSplits(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
+  auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) {
+    printf("quesval = %f, colid = %d, best_metric_val = %f, nLeft = %d\n",
+      ptr->quesval, ptr->colid, ptr->best_metric_val, ptr->nLeft);
+  };
+  MLCommon::LinAlg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT,
+                                     TPB>(splits, len, op, s);
+  CUDA_CHECK(cudaDeviceSynchronize());
+}
+
 }  // namespace DecisionTree
 }  // namespace ML
