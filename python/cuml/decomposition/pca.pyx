@@ -43,6 +43,7 @@ from cuml.common.base import Base
 from cuml.common.base import _input_to_type
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.handle cimport cumlHandle
+import cuml.common.logger as logger
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common import with_cupy_rmm
@@ -215,10 +216,10 @@ class PCA(Base):
     iterated_power : int (default = 15)
         Used in Jacobi solver. The more iterations, the more accurate, but
         slower.
-    n_components : int / None (default = None)
+    n_components : int (default = None)
         The number of top K singular vectors / values you want.
-        Must be <= number(columns). If n_components is not set all components
-        are kept::
+        Must be <= number(columns). If n_components is not set, then all
+        components are kept:
 
             n_components = min(n_samples, n_features)
 
@@ -331,10 +332,10 @@ class PCA(Base):
     def _build_params(self, n_rows, n_cols):
         cpdef paramsPCA *params = new paramsPCA()
         if self.n_components is None:
-            warnings.warn(
-                'As of v0.16, PCA invoked without an n_components argument'
-                ' will default to min(n_samples, n_features)',
-                FutureWarning
+            logger.warn(
+                'Warning(`_build_params`): As of v0.16, PCA invoked without an'
+                ' n_components argument defauts to using'
+                ' min(n_samples, n_features) rather than 1'
             )
             params.n_components = min(n_rows, n_cols)
         else:
