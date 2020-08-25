@@ -194,8 +194,8 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
     __syncthreads();
     minlen = llen < rlen ? llen : rlen;
     // compaction to figure out the right locations to swap
-    if (lflag) lcomp[lidx] = lidx + loffset;
-    if (rflag) rcomp[ridx] = ridx + roffset;
+    if (lflag) lcomp[lidx] = loff;
+    if (rflag) rcomp[ridx] = roff;
     __syncthreads();
     // reset the appropriate flags for the longer of the two
     if (lidx < minlen) lflag = 0;
