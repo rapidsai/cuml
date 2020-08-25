@@ -453,7 +453,7 @@ class SVMBase(Base):
             else:
                 self._unique_labels = None
 
-    def predict(self, X, predict_class, convert_dtype=False):
+    def predict(self, X, predict_class, convert_dtype=True):
         """
         Predicts the y for X, where y is either the decision function value
         (if predict_class == False), or the label associated with X.
