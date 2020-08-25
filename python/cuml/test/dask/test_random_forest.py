@@ -91,7 +91,7 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
             'n_estimators': 25,
             'max_depth': 16,
             'n_bins': 256,
-            'seed': 10,
+            'random_state': 10,
         }
 
         X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,

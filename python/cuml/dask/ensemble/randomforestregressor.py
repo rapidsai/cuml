@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import warnings
+
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.ensemble.base import \
@@ -108,7 +110,10 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     workers : optional, list of strings
         Dask addresses of workers to use for computation.
         If None, all available Dask workers will be used.
+    random_state : int (default = None)
+        Seed for the random number generator. Unseeded by default.
     seed : int (default = None)
+        Deprecated in favor of `random_state`.
         Base seed for the random number generator. Unseeded by default. Does
         not currently fully guarantee the exact same results.
     ignore_empty_partitions: Boolean (default = False)
@@ -127,6 +132,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         client=None,
         verbose=False,
         n_estimators=10,
+        random_state=None,
         seed=None,
         ignore_empty_partitions=False,
         **kwargs
@@ -134,12 +140,27 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         super(RandomForestRegressor, self).__init__(client=client,
                                                     verbose=verbose,
                                                     **kwargs)
+
+        if seed is not None:
+            if random_state is None:
+                warnings.warn("Parameter 'seed' is deprecated and will be"
+                              " removed in 0.17. Please use 'random_state'"
+                              " instead. Setting 'random_state' as the"
+                              " curent 'seed' value",
+                              DeprecationWarning)
+                random_state = seed
+            else:
+                warnings.warn("Both 'seed' and 'random_state' parameters were"
+                              " set. Using 'random_state' since 'seed' is"
+                              " deprecated and will be removed in 0.17.",
+                              DeprecationWarning)
+
         self._create_model(
             model_func=RandomForestRegressor._construct_rf,
             client=client,
             workers=workers,
             n_estimators=n_estimators,
-            base_seed=seed,
+            base_seed=random_state,
             ignore_empty_partitions=ignore_empty_partitions,
             **kwargs
         )
@@ -147,12 +168,12 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     @staticmethod
     def _construct_rf(
         n_estimators,
-        seed,
+        random_state,
         **kwargs
     ):
         return cuRFR(
             n_estimators=n_estimators,
-            seed=seed,
+            random_state=random_state,
             **kwargs)
 
     @staticmethod
