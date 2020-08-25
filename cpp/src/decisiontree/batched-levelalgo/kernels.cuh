@@ -231,7 +231,7 @@ __global__ void nodeSplitKernel(
   auto range_start = node->start, range_len = node->end;
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
     node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
-  if (isLeaf || splits[nid].best_metric_val < min_impurity_decrease) {
+  if (isLeaf || splits[nid].best_metric_val <= min_impurity_decrease) {
     DevTraits::computePrediction(
       range_start, range_len, input, node, n_leaves, smem);
     return;
