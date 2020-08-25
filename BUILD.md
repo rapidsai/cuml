@@ -22,7 +22,7 @@ conda create -n cuml_dev python=3.7
 conda env update -n cuml_dev --file=conda/environments/cuml_dev_cuda10.2.yml
 ```
 
-This conda environments are based on the general RAPIDS meta packages that install common dependencies for RAPIDS projects. To install different versions of packages contained in those meta packages after creating the environment, it is recommended to remove those meta packages (without removing the actual packages contained in the environment) with the following command (having the environment active):
+These conda environments are based on the general RAPIDS meta packages that install common dependencies for RAPIDS projects. To install different versions of packages contained in those meta packages after creating the environment, it is recommended to remove those meta packages (without removing the actual packages contained in the environment) with the following command (having the environment active):
 
 ```bash
 conda remove --force rapids-build-env rapids-notebook-env rapids-doc-env
