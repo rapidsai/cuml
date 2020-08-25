@@ -146,7 +146,9 @@ DI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_rows_per_node,
                           IdxT nSamples) {
   if (myDepth >= max_depth) return true;
   if (nSamples < min_rows_per_node) return true;
-  if (*n_leaves >= max_leaves) return true;
+  if(max_leaves != -1) {
+    if (*n_leaves >= max_leaves) return true;
+  }
   return false;
 }
 
