@@ -22,7 +22,7 @@ from cuml.test import test_arima
 from cuml.tsa.arima import ARIMA
 from cuml.test.utils import array_equal, unit_param, stress_param, \
     ClassEnumerator, get_classes_from_package
-from cuml.test.test_svm import compare_svm
+from cuml.test.test_svm import compare_svm, compare_probabilistic_svm
 from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification, make_regression
 from sklearn.manifold.t_sne import trustworthiness
@@ -95,7 +95,6 @@ all_models.update({
 def pickle_save_load(tmpdir, func_create_model, func_assert):
     model, X_test = func_create_model()
     pickle_file = tmpdir.join('cu_model.pickle')
-
     try:
         with open(pickle_file, 'wb') as pf:
             pickle.dump(model, pf)
@@ -131,7 +130,7 @@ def make_dataset(datatype, nrows, ncols, n_info):
     return X_train, y_train, X_test
 
 
-@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('key', rf_models.keys())
 @pytest.mark.parametrize('nrows', [unit_param(500)])
 @pytest.mark.parametrize('ncols', [unit_param(16)])
@@ -141,6 +140,9 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info,
                               n_classes, key):
 
     result = {}
+    if datatype == np.float64:
+        pytest.xfail("Pickling is not supported for dataset with"
+                     " dtype float64")
 
     def create_mod():
         if key == 'RandomForestRegressor':
@@ -156,8 +158,14 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info,
                                                                    n_classes)
 
         model = rf_models[key]()
+
         model.fit(X_train, y_train)
-        result["rf_res"] = model.predict(X_test)
+        if datatype == np.float32:
+            predict_model = "GPU"
+        else:
+            predict_model = "CPU"
+        result["rf_res"] = model.predict(X_test,
+                                         predict_model=predict_model)
         return model, X_test
 
     def assert_model(pickled_model, X_test):
@@ -167,10 +175,6 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info,
         pickled_model.score(X_test, np.zeros(X_test.shape[0]),
                             predict_model="GPU")
 
-    if (n_classes > 2 and key != 'RandomForestRegressor'):
-        with pytest.raises(NotImplementedError):
-            pickle_save_load(tmpdir, create_mod, assert_model)
-    else:
         pickle_save_load(tmpdir, create_mod, assert_model)
 
 
@@ -272,10 +276,10 @@ def test_umap_pickle(tmpdir, datatype, keys):
     def create_mod():
         X_train = load_iris().data
 
-        model = umap_model[keys]()
+        model = umap_model[keys](output_type="numpy")
         cu_before_pickle_transform = model.fit_transform(X_train)
 
-        result["umap_embedding"] = model.embedding_.to_output('numpy')
+        result["umap_embedding"] = model.embedding_
         n_neighbors = model.n_neighbors
 
         result["umap"] = trustworthiness(X_train,
@@ -284,7 +288,7 @@ def test_umap_pickle(tmpdir, datatype, keys):
         return model, X_train
 
     def assert_model(pickled_model, X_train):
-        cu_after_embed = pickled_model.embedding_.to_output('numpy')
+        cu_after_embed = pickled_model.embedding_
 
         n_neighbors = pickled_model.n_neighbors
         assert array_equal(result["umap_embedding"], cu_after_embed)
@@ -402,7 +406,7 @@ def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
         assert array_equal(result["neighbors"], D_after)
         state = pickled_model.__dict__
         assert state["n_indices"] == 1
-        assert "X_m" in state
+        assert "_X_m" in state
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -413,7 +417,7 @@ def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
 def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
     result = {}
     """
-    Note: This test digs down a bit far into the
+    .. note:: This test digs down a bit far into the
     internals of the implementation, but it's
     important that regressions do not occur
     from changes to the class.
@@ -429,13 +433,13 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
     def assert_model(loaded_model, X):
         state = loaded_model.__dict__
         assert state["n_indices"] == 0
-        assert "X_m" not in state
+        assert "_X_m" not in state
         loaded_model.fit(X[0])
 
         state = loaded_model.__dict__
 
         assert state["n_indices"] == 1
-        assert "X_m" in state
+        assert "_X_m" in state
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -504,12 +508,16 @@ def test_tsne_pickle(tmpdir):
     pickle_save_load(tmpdir, create_mod_2, assert_second_model)
 
 
+# Probabilistic SVM is tested separately because it is a meta estimator that
+# owns a set of base SV classifiers.
+@pytest.mark.parametrize('params', [{'probability': True},
+                                    {'probability': False}])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-def test_svc_pickle(tmpdir, datatype):
+def test_svc_pickle(tmpdir, datatype, params):
     result = {}
 
     def create_mod():
-        model = cuml.svm.SVC()
+        model = cuml.svm.SVC(**params)
         iris = load_iris()
         iris_selection = np.random.RandomState(42).choice(
             [True, False], 150, replace=True, p=[0.75, 0.25])
@@ -521,8 +529,13 @@ def test_svc_pickle(tmpdir, datatype):
         return model, data
 
     def assert_model(pickled_model, data):
-        compare_svm(result["model"], pickled_model, data[0], data[1], cmp_sv=0,
-                    dcoef_tol=0)
+        if result["model"].probability:
+            print("Comparing probabilistic svc")
+            compare_probabilistic_svm(result["model"], pickled_model, data[0],
+                                      data[1], 0, 0)
+        else:
+            print("comparing base svc")
+            compare_svm(result["model"], pickled_model, data[0], data[1])
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -578,14 +591,16 @@ def test_svr_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize('nrows', [unit_param(500)])
 @pytest.mark.parametrize('ncols', [unit_param(16)])
 @pytest.mark.parametrize('n_info', [unit_param(7)])
-def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
+@pytest.mark.parametrize('params', [{'probability': True},
+                                    {'probability': False}])
+def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info, params):
     def create_mod():
         X_train, y_train, X_test = make_classification_dataset(datatype,
                                                                nrows,
                                                                ncols,
                                                                n_info,
                                                                n_classes=2)
-        model = cuml.svm.SVC()
+        model = cuml.svm.SVC(**params)
         return model, [X_train, y_train, X_test]
 
     def assert_model(pickled_model, X):

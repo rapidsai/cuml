@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,15 @@
  */
 
 #include <common/cudart_utils.h>
+#include <cuml/random_projection/rproj_c.h>
 #include <gtest/gtest.h>
+#include <linalg/transpose.h>
 #include <test_utils.h>
 #include <cuda_utils.cuh>
+#include <distance/distance.cuh>
 #include <iostream>
 #include <random>
 #include <vector>
-#include "cuml/random_projection/rproj_c.h"
-#include "distance/distance.cuh"
-#include "linalg/transpose.h"
 
 namespace ML {
 
@@ -72,7 +72,9 @@ class RPROJTest : public ::testing::Test {
       42        // random seed
     };
 
-    random_matrix1 = new rand_mat<T>();
+    cudaStream_t stream = h.getStream();
+    auto alloc = h.getDeviceAllocator();
+    random_matrix1 = new rand_mat<T>(alloc, stream);
     RPROJfit(h, random_matrix1, params1);
     allocate(d_output1, N * params1->n_components);
     RPROJtransform(h, d_input, random_matrix1, d_output1, params1);
@@ -93,7 +95,9 @@ class RPROJTest : public ::testing::Test {
       42        // random seed
     };
 
-    random_matrix2 = new rand_mat<T>();
+    cudaStream_t stream = h.getStream();
+    auto alloc = h.getDeviceAllocator();
+    random_matrix2 = new rand_mat<T>(alloc, stream);
     RPROJfit(h, random_matrix2, params2);
 
     allocate(d_output2, N * params2->n_components);
@@ -125,21 +129,22 @@ class RPROJTest : public ::testing::Test {
     size_t D = johnson_lindenstrauss_min_dim(N, epsilon);
 
     ASSERT_TRUE(params1->n_components == D);
-    ASSERT_TRUE(random_matrix1->dense_data);
+    ASSERT_TRUE(random_matrix1->dense_data.size() > 0);
+    ASSERT_TRUE(random_matrix1->type == dense);
 
     ASSERT_TRUE(params2->n_components == D);
     ASSERT_TRUE(params2->density == 1 / sqrt(M));
-    ASSERT_TRUE(random_matrix2->indices);
-    ASSERT_TRUE(random_matrix2->indptr);
-    ASSERT_TRUE(random_matrix2->sparse_data);
-    ASSERT_TRUE(random_matrix2->sparse_data_size = N * D);
+    ASSERT_TRUE(random_matrix2->indices.size() > 0);
+    ASSERT_TRUE(random_matrix2->indptr.size() > 0);
+    ASSERT_TRUE(random_matrix2->sparse_data.size() > 0);
+    ASSERT_TRUE(random_matrix2->type == sparse);
   }
 
   void epsilon_check() {
     int D = johnson_lindenstrauss_min_dim(N, epsilon);
 
     constexpr auto distance_type =
-      MLCommon::Distance::DistanceType::EucUnexpandedL2Sqrt;
+      ML::Distance::DistanceType::EucUnexpandedL2Sqrt;
     size_t workspaceSize = 0;
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 

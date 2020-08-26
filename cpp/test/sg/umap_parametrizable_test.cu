@@ -15,27 +15,21 @@
  */
 
 #include <gtest/gtest.h>
-
-#include "distance/distance.cuh"
-
-#include "datasets/digits.h"
-
-#include <cuml/manifold/umapparams.h>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
-#include <cuml/neighbors/knn.hpp>
-#include <metrics/trustworthiness.cuh>
-
-#include "linalg/reduce_rows_by_key.cuh"
-#include "random/make_blobs.cuh"
-
-#include "common/device_buffer.hpp"
-#include "umap/runner.cuh"
-
-#include <cuda_utils.cuh>
-
 #include <iostream>
 #include <vector>
+
+#include <cuml/manifold/umapparams.h>
+#include <datasets/digits.h>
+#include <common/device_buffer.hpp>
+#include <cuda_utils.cuh>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/cuml.hpp>
+#include <cuml/datasets/make_blobs.hpp>
+#include <cuml/neighbors/knn.hpp>
+#include <distance/distance.cuh>
+#include <linalg/reduce_rows_by_key.cuh>
+#include <metrics/trustworthiness.cuh>
+#include <umap/runner.cuh>
 
 using namespace ML;
 using namespace ML::Metrics;
@@ -203,9 +197,11 @@ class UMAPParametrizableTest : public ::testing::Test {
     ASSERT_TRUE(!has_nan(embedding_ptr, n_samples * umap_params.n_components,
                          alloc, stream));
 
-    double trustworthiness = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
-      handle, X, embedding_ptr, n_samples, n_features, umap_params.n_components,
-      umap_params.n_neighbors);
+    double trustworthiness =
+      trustworthiness_score<float,
+                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+        handle, X, embedding_ptr, n_samples, n_features,
+        umap_params.n_components, umap_params.n_neighbors);
 
     std::cout << "min. expected trustworthiness: "
               << test_params.min_trustworthiness << std::endl;
@@ -236,9 +232,9 @@ class UMAPParametrizableTest : public ::testing::Test {
     device_buffer<float> X_d(alloc, stream, n_samples * n_features);
     device_buffer<int> y_d(alloc, stream, n_samples);
 
-    Random::make_blobs<float, int>(X_d.data(), y_d.data(), n_samples,
-                                   n_features, test_params.n_clusters, alloc,
-                                   stream, nullptr, nullptr);
+    ML::Datasets::make_blobs(handle, X_d.data(), y_d.data(), n_samples,
+                             n_features, test_params.n_clusters, true, nullptr,
+                             nullptr, 1.f, true, -10.f, 10.f, 1234ULL);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 

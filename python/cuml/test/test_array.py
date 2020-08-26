@@ -14,12 +14,14 @@
 # limitations under the License.
 #
 
+import sys
+
 import pytest
 
 import cupy as cp
-import numpy as np
 import cudf
-import pickle
+import numpy as np
+import operator
 
 from copy import deepcopy
 from numba import cuda
@@ -27,6 +29,15 @@ from cudf.core.buffer import Buffer
 from cuml.common.array import CumlArray
 from cuml.common.memory_utils import _get_size_from_shape
 from rmm import DeviceBuffer
+
+if sys.version_info < (3, 8):
+    try:
+        import pickle5 as pickle
+    except ImportError:
+        import pickle
+else:
+    import pickle
+
 
 test_input_types = [
     'numpy', 'numba', 'cupy', 'series', None
@@ -76,6 +87,7 @@ def test_array_init(input_type, dtype, shape, order):
     if input_type is not None:
         inp = create_input(input_type, dtype, shape, order)
         ary = CumlArray(data=inp)
+        ptr = ary.ptr
     else:
         inp = create_input('cupy', dtype, shape, order)
         ptr = inp.__cuda_array_interface__['data'][0]
@@ -97,9 +109,7 @@ def test_array_init(input_type, dtype, shape, order):
 
     assert ary.dtype == np.dtype(dtype)
 
-    if input_type == 'numpy':
-        assert isinstance(ary._owner, DeviceBuffer)
-    elif input_type in ['cupy', 'numba', 'series']:
+    if input_type in ['cupy', 'numba', 'series']:
         assert ary._owner is inp
         inp_copy = deepcopy(cp.asarray(inp))
 
@@ -152,6 +162,9 @@ def test_array_init_from_bytes(data_type, dtype, shape, order):
 @pytest.mark.parametrize('slice', test_slices)
 @pytest.mark.parametrize('order', ['C', 'F'])
 def test_get_set_item(slice, order):
+    if order == 'F' and slice != 'both':
+        pytest.skip("See issue https://github.com/rapidsai/cuml/issues/2412")
+
     inp = create_input('numpy', 'float32', (10, 10), order)
     ary = CumlArray(data=inp)
 
@@ -225,9 +238,10 @@ def test_create_full(shape, dtype, order):
 
 @pytest.mark.parametrize('output_type', test_output_types)
 @pytest.mark.parametrize('dtype', test_dtypes_output)
+@pytest.mark.parametrize('out_dtype', test_dtypes_output)
 @pytest.mark.parametrize('order', ['F', 'C'])
 @pytest.mark.parametrize('shape', test_shapes)
-def test_output(output_type, dtype, order, shape):
+def test_output(output_type, dtype, out_dtype, order, shape):
     inp = create_input('numpy', dtype, shape, order)
     ary = CumlArray(inp)
 
@@ -266,10 +280,9 @@ def test_output(output_type, dtype, order, shape):
             assert np.all(comp.to_array())
 
         elif output_type == 'dataframe':
-            mat = cuda.to_device(inp)
-            if len(mat.shape) == 1:
-                mat = mat.reshape(mat.shape[0], 1)
-            comp = cudf.DataFrame.from_gpu_matrix(mat)
+            if len(inp.shape) == 1:
+                inp = inp.reshape(inp.shape[0], 1)
+            comp = cudf.DataFrame(inp)
             comp = comp == res
             assert np.all(comp.as_gpu_matrix().copy_to_host())
 
@@ -281,6 +294,43 @@ def test_output(output_type, dtype, order, shape):
                 assert np.all(inp.reshape((1, 10)) == res2)
             else:
                 assert np.all(inp == res2)
+
+
+@pytest.mark.parametrize('output_type', test_output_types)
+@pytest.mark.parametrize('dtype', [
+    np.float32, np.float64,
+    np.int8, np.int16, np.int32, np.int64,
+])
+@pytest.mark.parametrize('out_dtype', [
+    np.float32, np.float64,
+    np.int8, np.int16, np.int32, np.int64,
+])
+@pytest.mark.parametrize('shape', test_shapes)
+def test_output_dtype(output_type, dtype, out_dtype, shape):
+    inp = create_input('numpy', dtype, shape, order="F")
+    ary = CumlArray(inp)
+
+    if dtype in unsupported_cudf_dtypes and \
+            output_type in ['series', 'dataframe', 'cudf']:
+        with pytest.raises(ValueError):
+            res = ary.to_output(
+                output_type=output_type,
+                output_dtype=out_dtype
+            )
+
+    elif shape in [(10, 5), (1, 10)] and output_type == 'series':
+        with pytest.raises(ValueError):
+            res = ary.to_output(
+                output_type=output_type,
+                output_dtype=out_dtype
+            )
+    else:
+        res = ary.to_output(output_type=output_type, output_dtype=out_dtype)
+
+        if isinstance(res, cudf.DataFrame):
+            res.values.dtype == out_dtype
+        else:
+            res.dtype == out_dtype
 
 
 @pytest.mark.parametrize('dtype', test_dtypes_all)
@@ -345,14 +395,29 @@ def test_serialize(input_type):
 
 
 @pytest.mark.parametrize('input_type', test_input_types)
-def test_pickle(input_type):
+@pytest.mark.parametrize('protocol', [4, 5])
+def test_pickle(input_type, protocol):
+    if protocol > pickle.HIGHEST_PROTOCOL:
+        pytest.skip(
+            f"Trying to test with pickle protocol {protocol},"
+            f" but highest supported protocol is {pickle.HIGHEST_PROTOCOL}."
+        )
     if input_type == 'series':
         inp = create_input(input_type, np.float32, (10, 1), 'C')
     else:
         inp = create_input(input_type, np.float32, (10, 5), 'F')
     ary = CumlArray(data=inp)
-    a = pickle.dumps(ary)
-    b = pickle.loads(a)
+    dumps_kwargs = {"protocol": protocol}
+    loads_kwargs = {}
+    f = []
+    len_f = 0
+    if protocol >= 5:
+        dumps_kwargs["buffer_callback"] = f.append
+        loads_kwargs["buffers"] = f
+        len_f = 1
+    a = pickle.dumps(ary, **dumps_kwargs)
+    b = pickle.loads(a, **loads_kwargs)
+    assert len(f) == len_f
     if input_type == 'numpy':
         assert np.all(inp == b.to_output('numpy'))
     elif input_type == 'series':
@@ -399,6 +464,20 @@ def test_deepcopy(input_type):
     if input_type != 'series':
         # skipping one dimensional ary order test
         assert ary.order == b.order
+
+
+@pytest.mark.parametrize('operation', [operator.add, operator.sub])
+def test_cumlary_binops(operation):
+    a = cp.arange(5)
+    b = cp.arange(5)
+
+    ary_a = CumlArray(a)
+    ary_b = CumlArray(b)
+
+    c = operation(a, b)
+    ary_c = operation(ary_a, ary_b)
+
+    assert(cp.all(ary_c.to_output('cupy') == c))
 
 
 def create_input(input_type, dtype, shape, order):

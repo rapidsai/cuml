@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
  */
 
 #pragma once
-#include "distance/algo1.cuh"
-#include "distance/distance_fragment_multiply_add.cuh"
-#include "linalg/eltwise2d.cuh"
+#include <linalg/eltwise2d.cuh>
+#include "algo1.cuh"
+#include "distance_fragment_multiply_add.cuh"
 
 namespace MLCommon {
 namespace Distance {
@@ -53,10 +53,16 @@ void cosineAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
   typedef ExpandedDistanceFragmentMultiplyAdd<CosFusedDistance>
     FragmentMultiplyAdd_;
   auto norm_op = [] __device__(AccType in) { return mySqrt(in); };
+
+  // Wrap fin_op to allow computing 1 - pA before calling fin_op
+  auto wrapped_fin_op = [fin_op] __device__(AccType d_val, Index_ g_d_idx) {
+    return fin_op(static_cast<AccType>(1.0) - d_val, g_d_idx);
+  };
+
   distanceAlgo1<InType, AccType, OutType, OutputTile_, FragmentMultiplyAdd_,
-                FinalLambda, decltype(norm_op), Index_>(
-    m, n, k, pA, pB, pD, false, workspace, worksize, fin_op, norm_op, stream,
-    isRowMajor);
+                decltype(wrapped_fin_op), decltype(norm_op), Index_>(
+    m, n, k, pA, pB, pD, false, workspace, worksize, wrapped_fin_op, norm_op,
+    stream, isRowMajor);
 }
 
 };  // end namespace Distance
