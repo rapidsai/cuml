@@ -16,6 +16,7 @@
 
 import cupy as cp
 import numpy as np
+import operator
 
 from rmm import DeviceBuffer
 from cudf.core import Buffer, Series, DataFrame
@@ -31,16 +32,16 @@ class CumlArray(Buffer):
     """
     Array represents an abstracted array allocation. It can be instantiated by
     itself, creating an rmm.DeviceBuffer underneath, or can be instantiated by
-    __cuda_array_interface__ or __array_interface__ compliant arrays, in which
-    case it'll keep a reference to that data underneath. Also can be created
-    from a pointer, specifying the characteristics of the array, in that case
-    the owner of the data referred to by the pointer should be specified
-    explicitly.
+    ``__cuda_array_interface__`` or ``__array_interface__`` compliant arrays,
+    in which case it'll keep a reference to that data underneath. Also can be
+    created from a pointer, specifying the characteristics of the array, in
+    that case the owner of the data referred to by the pointer should be
+    specified explicitly.
 
     Parameters
     ----------
 
-    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearray or
+    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearray or\
            memoryview
         An array-like object or integer representing a
         device or host pointer to pre-allocated memory.
@@ -71,23 +72,7 @@ class CumlArray(Buffer):
     strides : tuple of ints
         Strides of the data
     __cuda_array_interface__ : dictionary
-        __cuda_array_interface__ to interop with other libraries.
-
-    Object Methods
-    --------------
-
-    to_output : Convert the array to the appropriate output format.
-
-    Class Methods
-    -------------
-
-    Array.empty : Create an empty array, allocating a DeviceBuffer.
-    Array.full : Create an Array with allocated DeviceBuffer initialized with
-        a particular value.
-    Array.ones : Create an Array with allocated DeviceBuffer initialized with
-        ones.
-    Array.zeros : Create an Array with allocated DeviceBuffer initialized with
-        zeros.
+        ``__cuda_array_interface__`` to interop with other libraries.
 
     Notes
     -----
@@ -184,6 +169,15 @@ class CumlArray(Buffer):
     def __len__(self):
         return self.shape[0]
 
+    def _operator_overload(self, other, fn):
+        return CumlArray(fn(self.to_output('cupy'), other))
+
+    def __add__(self, other):
+        return self._operator_overload(other, operator.add)
+
+    def __sub__(self, other):
+        return self._operator_overload(other, operator.sub)
+
     @property
     def __cuda_array_interface__(self):
         output = {
@@ -204,16 +198,19 @@ class CumlArray(Buffer):
         ----------
         output_type : string
             Format to convert the array to. Acceptable formats are:
-            'cupy' - to cupy array
-            'numpy' - to numpy (host) array
-            'numba' - to numba device array
-            'dataframe' - to cuDF DataFrame
-            'series' - to cuDF Series
-            'cudf' - to cuDF Series if array is single dimensional, to
-                DataFrame otherwise
+
+            - 'cupy' - to cupy array
+            - 'numpy' - to numpy (host) array
+            - 'numba' - to numba device array
+            - 'dataframe' - to cuDF DataFrame
+            - 'series' - to cuDF Series
+            - 'cudf' - to cuDF Series if array is single dimensional, to
+               DataFrame otherwise
+
         output_dtype : string, optional
             Optionally cast the array to a specified dtype, creating
             a copy if necessary.
+
         """
         if output_dtype is None:
             output_dtype = self.dtype
@@ -350,12 +347,12 @@ class CumlArray(Buffer):
 
 
 def _check_low_level_type(data):
-    if not (
+    if isinstance(data, CumlArray):
+        return False
+    elif not (
         hasattr(data, "__array_interface__")
         or hasattr(data, "__cuda_array_interface__")
-    ):
-        return True
-    elif isinstance(data, (DeviceBuffer, Buffer)):
+    ) or isinstance(data, (DeviceBuffer, Buffer)):
         return True
     else:
         return False

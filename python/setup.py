@@ -198,7 +198,7 @@ class cuml_build(_build):
                       ],
                       libraries=libs,
                       language='c++',
-                      extra_compile_args=['-std=c++11'])
+              extra_compile_args=['-std=c++14'])
         ]
 
         self.distribution.ext_modules = extensions

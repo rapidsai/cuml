@@ -1,4 +1,4 @@
-# From: https://github.com/rapidsai/cudf/blob/master/Dockerfile
+# From: https://github.com/rapidsai/cudf/blob/main/Dockerfile
 FROM cudf
 
 ENV CONDA_ENV=cudf

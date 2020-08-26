@@ -37,7 +37,7 @@ class PCA(BaseDecomposition,
     then selects the top K eigenvectors.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -92,8 +92,8 @@ class PCA(BaseDecomposition,
                     1  0.011454
                     2 -0.008182
 
-    Note: Everytime this code is run, the output will be different because
-          "make_blobs" function generates random matrices.
+    .. note:: Everytime this code is run, the output will be different because
+        "make_blobs" function generates random matrices.
 
     Parameters
     ----------
@@ -146,9 +146,6 @@ class PCA(BaseDecomposition,
         datasets of everyday objects and images, and used to distinguish
         between cancerous cells from healthy cells.
 
-
-    For an additional example see `the PCA notebook
-    <https://github.com/rapidsai/notebooks/blob/master/cuml/pca_demo.ipynb>`_.
     For additional docs, see `scikitlearn's PCA
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
