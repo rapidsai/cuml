@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ class silhouetteScoreTest
 
     MLCommon::Distance::pairwiseDistance(
       d_X, d_X, d_distanceMatrix.data(), nRows, nRows, nCols, workspace,
-      static_cast<Distance::DistanceType>(params.metric), stream);
+      static_cast<ML::Distance::DistanceType>(params.metric), stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 

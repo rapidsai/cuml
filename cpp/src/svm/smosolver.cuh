@@ -18,6 +18,8 @@
 
 #include <common/cudart_utils.h>
 #include <math.h>
+#include <thrust/device_ptr.h>
+#include <thrust/fill.h>
 #include <cuda_utils.cuh>
 #include <iostream>
 #include <limits>
@@ -25,20 +27,20 @@
 #include <type_traits>
 
 #include <cuml/matrix/kernelparams.h>
+#include <linalg/cublas_wrappers.h>
+#include <linalg/gemv.h>
+#include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
-#include "common/cumlHandle.hpp"
+#include <linalg/unary_op.cuh>
+#include <matrix/grammatrix.cuh>
+#include <matrix/kernelfactory.cuh>
 #include "kernelcache.cuh"
-#include "linalg/cublas_wrappers.h"
-#include "linalg/gemv.h"
-#include "linalg/unary_op.cuh"
-#include "matrix/grammatrix.cuh"
-#include "matrix/kernelfactory.cuh"
 #include "smo_sets.cuh"
 #include "smoblocksolve.cuh"
 #include "workingset.cuh"
 #include "ws_util.cuh"
 
-#include "common/device_buffer.hpp"
+#include <common/device_buffer.hpp>
 #include "results.cuh"
 
 namespace ML {
@@ -86,6 +88,7 @@ class SmoSolver {
       stream(handle.getStream()),
       return_buff(handle.getDeviceAllocator(), stream, 2),
       alpha(handle.getDeviceAllocator(), stream),
+      C_vec(handle.getDeviceAllocator(), stream),
       delta_alpha(handle.getDeviceAllocator(), stream),
       f(handle.getDeviceAllocator(), stream),
       y_label(handle.getDeviceAllocator(), stream) {
@@ -103,6 +106,8 @@ class SmoSolver {
    * @param [in] n_rows number of rows (training vectors)
    * @param [in] n_cols number of columns (features)
    * @param [in] y labels (values +/-1), size [n_rows]
+   * @param [in] sample_weight device array of sample weights (or nullptr if not
+   *     applicable)
    * @param [out] dual_coefs size [n_support] on exit
    * @param [out] n_support number of support vectors
    * @param [out] x_support support vectors in column major format, size [n_support, n_cols]
@@ -111,13 +116,14 @@ class SmoSolver {
    * @param [in] max_outer_iter maximum number of outer iteration (default 100 * n_rows)
    * @param [in] max_inner_iter maximum number of inner iterations (default 10000)
    */
-  void Solve(math_t *x, int n_rows, int n_cols, math_t *y, math_t **dual_coefs,
-             int *n_support, math_t **x_support, int **idx, math_t *b,
-             int max_outer_iter = -1, int max_inner_iter = 10000) {
+  void Solve(math_t *x, int n_rows, int n_cols, math_t *y,
+             const math_t *sample_weight, math_t **dual_coefs, int *n_support,
+             math_t **x_support, int **idx, math_t *b, int max_outer_iter = -1,
+             int max_inner_iter = 10000) {
     // Prepare data structures for SMO
     WorkingSet<math_t> ws(handle, stream, n_rows, SMO_WS_SIZE, svmType);
     n_ws = ws.GetSize();
-    Initialize(&y, n_rows, n_cols);
+    Initialize(&y, sample_weight, n_rows, n_cols);
     KernelCache<math_t> cache(handle, x, n_rows, n_cols, n_ws, kernel,
                               cache_size, svmType);
     // Init counters
@@ -131,13 +137,13 @@ class SmoSolver {
     while (n_iter < max_outer_iter && keep_going) {
       CUDA_CHECK(
         cudaMemsetAsync(delta_alpha.data(), 0, n_ws * sizeof(math_t), stream));
-      ws.Select(f.data(), alpha.data(), y, C);
+      ws.Select(f.data(), alpha.data(), y, C_vec.data());
 
       math_t *cacheTile = cache.GetTile(ws.GetIndices());
       SmoBlockSolve<math_t, SMO_WS_SIZE><<<1, n_ws, 0, stream>>>(
         y, n_train, alpha.data(), n_ws, delta_alpha.data(), f.data(), cacheTile,
-        cache.GetWsIndices(), C, tol, return_buff.data(), max_inner_iter,
-        svmType, cache.GetColIdxMap());
+        cache.GetWsIndices(), C_vec.data(), tol, return_buff.data(),
+        max_inner_iter, svmType, cache.GetColIdxMap());
 
       CUDA_CHECK(cudaPeekAtLastError());
 
@@ -162,7 +168,7 @@ class SmoSolver {
       "SMO solver finished after %d outer iterations, total inner"
       " iterations, and diff %lf",
       n_iter, n_inner_iter, diff_prev);
-    Results<math_t> res(handle, x, y, n_rows, n_cols, C, svmType);
+    Results<math_t> res(handle, x, y, n_rows, n_cols, C_vec.data(), svmType);
     res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, x_support, b);
     ReleaseBuffers();
   }
@@ -213,10 +219,13 @@ class SmoSolver {
    *
    * @param[inout] y on entry class labels or target values,
    *    on exit device pointer to class labels
+   * @param[in] sample_weight sample weights (can be nullptr, otherwise device
+   *    array of size [n_rows])
    * @param[in] n_rows
    * @param[in] n_cols
    */
-  void Initialize(math_t **y, int n_rows, int n_cols) {
+  void Initialize(math_t **y, const math_t *sample_weight, int n_rows,
+                  int n_cols) {
     this->n_rows = n_rows;
     this->n_cols = n_cols;
     n_train = (svmType == EPSILON_SVR) ? n_rows * 2 : n_rows;
@@ -224,6 +233,7 @@ class SmoSolver {
     // Zero init alpha
     CUDA_CHECK(
       cudaMemsetAsync(alpha.data(), 0, n_train * sizeof(math_t), stream));
+    InitPenalty(C_vec.data(), sample_weight, n_rows);
     // Init f (and also class labels for SVR)
     switch (svmType) {
       case C_SVC:
@@ -240,6 +250,23 @@ class SmoSolver {
     }
   }
 
+  void InitPenalty(math_t *C_vec, const math_t *sample_weight, int n_rows) {
+    if (sample_weight == nullptr) {
+      thrust::device_ptr<math_t> c_ptr(C_vec);
+      thrust::fill(thrust::cuda::par.on(stream), c_ptr, c_ptr + n_train, C);
+    } else {
+      math_t C = this->C;
+      MLCommon::LinAlg::unaryOp(
+        C_vec, sample_weight, n_rows,
+        [C] __device__(math_t w) { return C * w; }, stream);
+      if (n_train > n_rows) {
+        // Set the same penalty parameter for the duplicate set of vectors
+        MLCommon::LinAlg::unaryOp(
+          C_vec + n_rows, sample_weight, n_rows,
+          [C] __device__(math_t w) { return C * w; }, stream);
+      }
+    }
+  }
   /** @brief Initialize Support Vector Classification
    *
    * We would like to maximize the following quantity
@@ -326,6 +353,8 @@ class SmoSolver {
   MLCommon::device_buffer<math_t> f;        //!< optimality indicator vector
   MLCommon::device_buffer<math_t> y_label;  //!< extra label for regression
 
+  MLCommon::device_buffer<math_t> C_vec;  //!< penalty parameter vector
+
   // Buffers for the working set [n_ws]
   //! change in alpha parameter during a blocksolve step
   MLCommon::device_buffer<math_t> delta_alpha;
@@ -392,8 +421,9 @@ class SmoSolver {
   }
 
   void ResizeBuffers(int n_train, int n_cols) {
-    // This needs to know n_rows, therefore it can be only called during solve
+    // This needs to know n_train, therefore it can be only called during solve
     alpha.resize(n_train, stream);
+    C_vec.resize(n_train, stream);
     f.resize(n_train, stream);
     delta_alpha.resize(n_ws, stream);
     if (svmType == EPSILON_SVR) y_label.resize(n_train, stream);

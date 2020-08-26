@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,18 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include "linalg/eltwise.cuh"
-#include "linalg/power.cuh"
-#include "linalg/subtract.cuh"
-#include "stats/mean.cuh"
+#include <linalg/eltwise.cuh>
+#include <linalg/power.cuh>
+#include <linalg/subtract.cuh>
+#include <stats/mean.cuh>
 
 #include <memory>
 
 #include <cuml/common/cuml_allocator.hpp>
 
+#include <distance/distance.cuh>
 #include <selection/columnWiseSort.cuh>
-#include "distance/distance.cuh"
-#include "selection/knn.cuh"
+#include <selection/knn.cuh>
 
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
@@ -115,7 +115,7 @@ long *get_knn_indices(math_t *input, int n, int d, int n_neighbors,
  * @param batchSize batch size
  * @return Trustworthiness score
  */
-template <typename math_t, Distance::DistanceType distance_type>
+template <typename math_t, ML::Distance::DistanceType distance_type>
 double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
                              int n_neighbors,
                              std::shared_ptr<deviceAllocator> d_alloc,

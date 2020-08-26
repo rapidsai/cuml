@@ -19,6 +19,7 @@ import numpy as np
 import pytest
 
 from cuml.preprocessing.model_selection import train_test_split
+from cuml.datasets import make_classification
 from numba import cuda
 
 test_array_input_types = [
@@ -31,17 +32,20 @@ test_seeds = [
 
 
 @pytest.mark.parametrize("train_size", [0.2, 0.6, 0.8])
-def test_split_dataframe(train_size):
+@pytest.mark.parametrize("shuffle", [True, False])
+def test_split_dataframe(train_size, shuffle):
     X = cudf.DataFrame({"x": range(100)})
     y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=train_size
+        X, y, train_size=train_size, shuffle=shuffle
     )
     assert len(X_train) == len(y_train) == pytest.approx(train_size * len(X))
     assert (
         len(X_test) == len(y_test) == pytest.approx((1 - train_size) * len(X))
     )
+    assert (all(X_train.index.to_pandas() == y_train.index.to_pandas()))
+    assert (all(X_test.index.to_pandas() == y_test.index.to_pandas()))
 
     X_reconstructed = cudf.concat([X_train, X_test]).sort_values(
         by=["x"]
@@ -49,7 +53,8 @@ def test_split_dataframe(train_size):
     y_reconstructed = y_train.append(y_test).sort_values()
 
     assert all(X_reconstructed.reset_index(drop=True) == X)
-    assert all(y_reconstructed.reset_index(drop=True) == y)
+    out = y_reconstructed.reset_index(drop=True).values_host == y.values_host
+    assert all(out)
 
 
 def test_split_column():
@@ -79,7 +84,10 @@ def test_split_column():
     )
     y_reconstructed = y_train.append(y_test).sort_values()
 
-    assert all(data == X_reconstructed.assign(y=y_reconstructed))
+    assert all(
+        data == X_reconstructed.assign(
+            y=y_reconstructed).reset_index(drop=True)
+    )
 
 
 def test_split_size_mismatch():
@@ -203,3 +211,142 @@ def test_default_values():
 
     assert X_test.shape[0] == X.shape[0] * 0.25
     assert y_test.shape[0] == y.shape[0] * 0.25
+
+
+@pytest.mark.parametrize('test_size', [0.2, 0.4, None])
+@pytest.mark.parametrize('train_size', [0.6, 0.8, None])
+@pytest.mark.parametrize('shuffle', [True, False])
+def test_split_df_single_argument(test_size, train_size, shuffle):
+    X = cudf.DataFrame({'x': range(50)})
+    X_train, X_test = train_test_split(X,
+                                       train_size=train_size,
+                                       test_size=test_size,
+                                       shuffle=shuffle,
+                                       random_state=0)
+    if train_size is not None:
+        assert X_train.shape[0] == (int)(X.shape[0] * train_size)
+
+    if test_size is not None:
+        assert X_test.shape[0] == (int)(X.shape[0] * test_size)
+
+
+@pytest.mark.parametrize('type', test_array_input_types)
+@pytest.mark.parametrize('test_size', [0.2, 0.4, None])
+@pytest.mark.parametrize('train_size', [0.6, 0.8, None])
+@pytest.mark.parametrize('shuffle', [True, False])
+def test_split_array_single_argument(type, test_size, train_size, shuffle):
+    X = np.zeros((100, 10)) + np.arange(100).reshape(100, 1)
+    if type == 'cupy':
+        X = cp.asarray(X)
+
+    if type == 'numba':
+        X = cuda.to_device(X)
+    X_train, X_test = train_test_split(X,
+                                       train_size=train_size,
+                                       test_size=test_size,
+                                       shuffle=shuffle,
+                                       random_state=0)
+
+    if type == 'cupy':
+        assert isinstance(X_train, cp.ndarray)
+        assert isinstance(X_test, cp.ndarray)
+
+    if type in ['numba', 'rmm']:
+        assert cuda.devicearray.is_cuda_ndarray(X_train)
+        assert cuda.devicearray.is_cuda_ndarray(X_test)
+
+    if train_size is not None:
+        assert X_train.shape[0] == (int)(X.shape[0] * train_size)
+
+    if test_size is not None:
+        assert X_test.shape[0] == (int)(X.shape[0] * test_size)
+
+    if shuffle is None:
+        assert X_train == X[0:train_size]
+        assert X_test == X[-1 * test_size:]
+
+        X_rec = cp.sort(cp.concatenate(X_train, X_test))
+
+        assert X_rec == X
+
+
+@pytest.mark.parametrize('type', test_array_input_types)
+@pytest.mark.parametrize('test_size', [0.2, 0.4, None])
+@pytest.mark.parametrize('train_size', [0.6, 0.8, None])
+def test_stratified_split(type, test_size, train_size):
+    # For more tolerance and reliable estimates
+    X, y = make_classification(n_samples=10000)
+
+    if type == 'cupy':
+        X = cp.asarray(X)
+        y = cp.asarray(y)
+
+    if type == 'numba':
+        X = cuda.to_device(X)
+        y = cuda.to_device(y)
+
+    def counts(y):
+        _, y_indices = cp.unique(y, return_inverse=True)
+        class_counts = cp.bincount(y_indices)
+        total = cp.sum(class_counts)
+        percent_counts = []
+        for count in (class_counts):
+            percent_counts.append(cp.around(float(count)/total.item(),
+                                            decimals=2).item())
+        return percent_counts
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        train_size=train_size,
+                                                        test_size=test_size,
+                                                        stratify=True)
+
+    original_counts = counts(y)
+    split_counts = counts(y_train)
+    assert cp.isclose(original_counts, split_counts,
+                      equal_nan=False, rtol=0.1).all()
+    if type == 'cupy':
+        assert isinstance(X_train, cp.ndarray)
+        assert isinstance(X_test, cp.ndarray)
+
+    if type in ['numba']:
+        assert cuda.devicearray.is_cuda_ndarray(X_train)
+        assert cuda.devicearray.is_cuda_ndarray(X_test)
+
+
+@pytest.mark.parametrize('seed_type', test_seeds)
+def test_stratified_random_seed(seed_type):
+    for i in range(10):
+        seed_n = np.random.randint(0, int(1e9))
+        if seed_type == 'int':
+            seed = seed_n
+        if seed_type == 'cupy':
+            seed = cp.random.RandomState(seed=seed_n)
+        if seed_type == 'numpy':
+            seed = np.random.RandomState(seed=seed_n)
+        X = cudf.DataFrame({"x": range(100)})
+        y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        random_state=seed,
+                                                        stratify=True)
+
+    if seed_type == 'cupy':
+        seed = cp.random.RandomState(seed=seed_n)
+    if seed_type == 'numpy':
+        seed = np.random.RandomState(seed=seed_n)
+
+    X_train2, X_test2, y_train2, y_test2 = \
+        train_test_split(X, y, random_state=seed, stratify=True)
+
+    assert X_train.equals(X_train2)
+    assert X_test.equals(X_test2)
+    assert y_train.equals(y_train2)
+    assert y_test.equals(y_test2)
+
+    # Ensure that data is shuffled
+    assert not X_train.head().equals(X.head())
+
+    def monotonic_inc(x):
+        dx = cp.diff(x.values, axis=0)
+        return cp.all(dx == 1)
+
+    assert not monotonic_inc(X_train)

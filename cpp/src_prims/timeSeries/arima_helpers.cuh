@@ -19,12 +19,12 @@
 #include <cuda_runtime.h>
 
 #include <common/cudart_utils.h>
-#include "cuda_utils.cuh"
-#include "cuml/tsa/arima_common.h"
-#include "linalg/batched/matrix.cuh"
-#include "linalg/matrix_vector_op.cuh"
-#include "linalg/unary_op.cuh"
-#include "timeSeries/jones_transform.cuh"
+#include <cuml/tsa/arima_common.h>
+#include <cuda_utils.cuh>
+#include <linalg/batched/matrix.cuh>
+#include <linalg/matrix_vector_op.cuh>
+#include <linalg/unary_op.cuh>
+#include "jones_transform.cuh"
 
 namespace MLCommon {
 namespace TimeSeries {
@@ -158,7 +158,7 @@ __global__ void _undiff_kernel(DataT* d_fc, const DataT* d_in, int num_steps,
 }
 
 /**
- * @brief Finalizes a forecast by adding the trend and/or undifferencing
+ * @brief Finalizes a forecast by undifferencing
  *
  * @note: It is assumed that d + D <= 2. This is enforced on the Python side
  *

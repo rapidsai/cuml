@@ -40,15 +40,12 @@ from cuml.decomposition.utils cimport *
 from cuml.linear_model import Ridge
 from cuml.linear_model.base_mg import MGFitMixin
 
-cdef extern from "cumlprims/opg/ridge.hpp" namespace "ML::Ridge::opg":
+cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg":
 
     cdef void fit(cumlHandle& handle,
-                  RankSizePair **rank_sizes,
-                  size_t n_parts,
-                  floatData_t **input,
-                  size_t n_rows,
-                  size_t n_cols,
-                  floatData_t **labels,
+                  vector[floatData_t *] input_data,
+                  PartDescriptor &input_desc,
+                  vector[floatData_t *] labels,
                   float *alpha,
                   int n_alpha,
                   float *coef,
@@ -59,12 +56,9 @@ cdef extern from "cumlprims/opg/ridge.hpp" namespace "ML::Ridge::opg":
                   bool verbose) except +
 
     cdef void fit(cumlHandle& handle,
-                  RankSizePair **rank_sizes,
-                  size_t n_parts,
-                  doubleData_t **input,
-                  size_t n_rows,
-                  size_t n_cols,
-                  doubleData_t **labels,
+                  vector[doubleData_t *] input_data,
+                  PartDescriptor &input_desc,
+                  vector[doubleData_t *] labels,
                   double *alpha,
                   int n_alpha,
                   double *coef,
@@ -80,8 +74,7 @@ class RidgeMG(MGFitMixin, Ridge):
     def __init__(self, **kwargs):
         super(RidgeMG, self).__init__(**kwargs)
 
-    def _fit(self, X, y, coef_ptr, rank_to_sizes, n_rows, n_cols,
-             n_total_parts):
+    def _fit(self, X, y, coef_ptr, input_desc):
 
         cdef float float_intercept
         cdef double double_intercept
@@ -95,12 +88,9 @@ class RidgeMG(MGFitMixin, Ridge):
             float_alpha = self.alpha
 
             fit(handle_[0],
-                <RankSizePair**><size_t>rank_to_sizes,
-                <size_t> n_total_parts,
-                <floatData_t**><size_t>X,
-                <size_t>n_rows,
-                <size_t>n_cols,
-                <floatData_t**><size_t>y,
+                deref(<vector[floatData_t*]*><uintptr_t>X),
+                deref(<PartDescriptor*><uintptr_t>input_desc),
+                deref(<vector[floatData_t*]*><uintptr_t>y),
                 <float*>&float_alpha,
                 <int>self.n_alpha,
                 <float*><size_t>coef_ptr,
@@ -116,12 +106,9 @@ class RidgeMG(MGFitMixin, Ridge):
             double_alpha = self.alpha
 
             fit(handle_[0],
-                <RankSizePair**><size_t>rank_to_sizes,
-                <size_t> n_total_parts,
-                <doubleData_t**><size_t>X,
-                <size_t>n_rows,
-                <size_t>n_cols,
-                <doubleData_t**><size_t>y,
+                deref(<vector[doubleData_t*]*><uintptr_t>X),
+                deref(<PartDescriptor*><uintptr_t>input_desc),
+                deref(<vector[doubleData_t*]*><uintptr_t>y),
                 <double*>&double_alpha,
                 <int>self.n_alpha,
                 <double*><size_t>coef_ptr,

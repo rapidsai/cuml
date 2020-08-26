@@ -28,16 +28,16 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
+#include <common/cudart_utils.h>
+#include <common/device_buffer.hpp>
+#include <common/fast_int_div.cuh>
+#include <cuda_utils.cuh>
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 
-#include <linalg/cublas_wrappers.h>
-#include <common/device_buffer.hpp>
-#include <linalg/binary_op.cuh>
-#include <linalg/unary_op.cuh>
-
-#include <common/cudart_utils.h>
-#include "cuda_utils.cuh"
+#include "../binary_op.cuh"
+#include "../cublas_wrappers.h"
+#include "../unary_op.cuh"
 
 namespace MLCommon {
 namespace LinAlg {
@@ -830,28 +830,33 @@ Matrix<T> b_lagged_mat(const Matrix<T>& vec, int lags) {
  * @note The blocks are the batches and the threads are the matrix elements,
  *       column-wise.
  * 
- * @param[in]  in            Input matrix
- * @param[out] out           Output matrix
- * @param[in]  starting_row  First row to copy
- * @param[in]  starting_col  First column to copy
- * @param[in]  in_rows       Number of rows in the input matrix
- * @param[in]  in_cols       Number of columns in the input matrix
- * @param[in]  out_rows      Number of rows to copy
- * @param[in]  out_cols      Number of columns to copy
+ * @param[in]  in                Input matrix
+ * @param[out] out               Output matrix
+ * @param[in]  in_starting_row   First row to copy in the input matrix
+ * @param[in]  in_starting_col   First column to copy in the input matrix
+ * @param[in]  in_rows           Number of rows in the input matrix
+ * @param[in]  in_cols           Number of columns in the input matrix
+ * @param[in]  copy_rows         Number of rows to copy
+ * @param[in]  n_copy            Total number of elements to copy
+ * @param[in]  out_starting_row  First row to copy in the output matrix
+ * @param[in]  out_starting_col  First column to copy in the output matrix
+ * @param[in]  out_rows          Number of rows in the output matrix
+ * @param[in]  out_cols          Number of columns in the output matrix
  */
 template <typename T>
-static __global__ void batched_2dcopy_kernel(const T* in, T* out,
-                                             int starting_row, int starting_col,
-                                             int in_rows, int in_cols,
-                                             int out_rows, int out_cols) {
-  const T* in_ =
-    in + blockIdx.x * in_rows * in_cols + starting_col * in_rows + starting_row;
-  T* out_ = out + blockIdx.x * out_rows * out_cols;
+static __global__ void batched_2dcopy_kernel(
+  const T* in, T* out, int in_starting_row, int in_starting_col, int in_rows,
+  int in_cols, MLCommon::FastIntDiv copy_rows, int n_copy, int out_starting_row,
+  int out_starting_col, int out_rows, int out_cols) {
+  const T* in_ = in + blockIdx.x * in_rows * in_cols +
+                 in_starting_col * in_rows + in_starting_row;
+  T* out_ = out + blockIdx.x * out_rows * out_cols +
+            out_starting_col * out_rows + out_starting_row;
 
-  for (int i = threadIdx.x; i < out_rows * out_cols; i += blockDim.x) {
-    int i_col = i / out_rows;
-    int i_row = i % out_rows;
-    out_[i] = in_[i_row + in_rows * i_col];
+  for (int i = threadIdx.x; i < n_copy; i += blockDim.x) {
+    int i_col = i / copy_rows;
+    int i_row = i % copy_rows;
+    out_[i_row + out_rows * i_col] = in_[i_row + in_rows * i_col];
   }
 }
 
@@ -860,24 +865,35 @@ static __global__ void batched_2dcopy_kernel(const T* in, T* out,
  * 
  * @note This overload takes two matrices as inputs
  * 
- * @param[in]  in            Batched input matrix
- * @param[out] out           Batched output matrix
- * @param[in]  starting_row  First row to copy
- * @param[in]  starting_col  First column to copy
- * @param[in]  rows          Number of rows to copy
- * @param[in]  cols          Number of columns to copy
+ * @param[in]  in                Batched input matrix
+ * @param[out] out               Batched output matrix
+ * @param[in]  in_starting_row   First row to copy in the input matrix
+ * @param[in]  in_starting_col   First column to copy in the input matrix
+ * @param[in]  copy_rows         Number of rows to copy
+ * @param[in]  copy_cols         Number of columns to copy
+ * @param[in]  out_starting_row  First row to copy in the output matrix
+ * @param[in]  out_starting_col  First column to copy in the output matrix
  */
 template <typename T>
-void b_2dcopy(const Matrix<T>& in, Matrix<T>& out, int starting_row,
-              int starting_col, int rows, int cols) {
-  ASSERT(out.shape().first == rows, "Dimension mismatch: rows");
-  ASSERT(out.shape().second == cols, "Dimension mismatch: columns");
+void b_2dcopy(const Matrix<T>& in, Matrix<T>& out, int in_starting_row,
+              int in_starting_col, int copy_rows, int copy_cols,
+              int out_starting_row = 0, int out_starting_col = 0) {
+  ASSERT(in_starting_row + copy_rows <= in.shape().first,
+         "[2D copy] Dimension mismatch: rows for input matrix");
+  ASSERT(in_starting_col + copy_cols <= in.shape().second,
+         "[2D copy] Dimension mismatch: columns for input matrix");
+  ASSERT(out_starting_row + copy_rows <= out.shape().first,
+         "[2D copy] Dimension mismatch: rows for output matrix");
+  ASSERT(out_starting_col + copy_cols <= out.shape().second,
+         "[2D copy] Dimension mismatch: columns for output matrix");
 
   // Execute the kernel
-  const int TPB = rows * cols > 512 ? 256 : 128;  // quick heuristics
+  const int TPB = copy_rows * copy_cols > 512 ? 256 : 128;  // quick heuristics
   batched_2dcopy_kernel<<<in.batches(), TPB, 0, in.stream()>>>(
-    in.raw_data(), out.raw_data(), starting_row, starting_col, in.shape().first,
-    in.shape().second, rows, cols);
+    in.raw_data(), out.raw_data(), in_starting_row, in_starting_col,
+    in.shape().first, in.shape().second, MLCommon::FastIntDiv(copy_rows),
+    copy_rows * copy_cols, out_starting_row, out_starting_col,
+    out.shape().first, out.shape().second);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

@@ -16,15 +16,29 @@
 
 set(CUML_TEST_INCLUDE_DIRS
   ${CUML_INCLUDE_DIRECTORIES}
-  ${GTEST_DIR}/include
+  ${GTEST_INCLUDE_DIRS}/include
   ${TREELITE_DIR}/runtime/native/include)
 
 set(CUML_TEST_LINK_LIBRARIES
-  treelite_runtimelib
-  ${CUML_LINK_LIBRARIES}
   ${CUML_CPP_TARGET}
-  gtestlib
-  gtest_mainlib)
+  FAISS::FAISS
+  GTest::GTest
+  GTest::Main
+  treelite::treelite
+  treelite::treelite_runtime
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  )
+
+set(PRIMS_TEST_LINK_LIBRARIES
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY})
 
 ##############################################################################
 # - build ml_test executable -------------------------------------------------
@@ -44,12 +58,12 @@ if(BUILD_CUML_TESTS)
     sg/pca_test.cu
     sg/quasi_newton.cu
     sg/rf_accuracy_test.cu
+    sg/rf_depth_test.cu
     sg/rf_test.cu
     sg/rf_treelite_test.cu
     sg/ridge.cu
     sg/rproj_test.cu
     sg/sgd.cu
-    sg/spectral_test.cu
     sg/svc_test.cu
     sg/trustworthiness_test.cu
     sg/tsne_test.cu
@@ -65,13 +79,38 @@ endif(BUILD_CUML_TESTS)
 # - build test_ml_mg executable ----------------------------------------------
 
 if(BUILD_CUML_MG_TESTS)
-  # (please keep the filenames in alphabetical order)
-  add_executable(ml_mg
-    mg/test_ml_mg_utils.cu)
+  find_package(MPI)
 
-  target_include_directories(ml_mg PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+  if(MPI_CXX_FOUND)
+    # (please keep the filenames in alphabetical order)
+    add_executable(ml_mg
+      mg/knn.cu
+      mg/knn_classify.cu
+      mg/knn_regress.cu
+      mg/main.cu
+      mg/pca.cu
+      mg/test_ml_mg_utils.cu)
 
-  target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
+    add_dependencies(ml_mg cumlcommsmpi)
+
+    set(CUML_TEST_INCLUDE_DIRS
+        ${CUML_TEST_INCLUDE_DIRS}
+        ${MPI_CXX_INCLUDE_PATH}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../comms/mpi/include)
+
+    target_include_directories(ml_mg PUBLIC ${CUML_TEST_INCLUDE_DIRS})
+
+    set(CUML_TEST_LINK_LIBRARIES 
+    	${CUML_TEST_LINK_LIBRARIES} 
+    	${MPI_CXX_LIBRARIES}
+    	cumlcommsmpi
+    	cumlprims)
+
+    target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
+
+  else(MPI_CXX_FOUND)
+   message("OpenMPI not found. Skipping 'ml_mg'")
+  endif(MPI_CXX_FOUND)
 endif(BUILD_CUML_MG_TESTS)
 
 ##############################################################################
@@ -167,7 +206,6 @@ if(BUILD_PRIMS_TESTS)
     prims/sigmoid.cu
     prims/silhouetteScore.cu
     prims/sqrt.cu
-    prims/stationarity.cu
     prims/stddev.cu
     prims/strided_reduction.cu
     prims/subtract.cu
@@ -179,16 +217,16 @@ if(BUILD_PRIMS_TESTS)
     prims/unary_op.cu
     prims/vMeasure.cu
     prims/weighted_mean.cu
-    ../src/common/logger.cpp  # because prims is header only!
-    )
+    ../src/common/logger.cpp)  # because prims is header only!
 
   target_include_directories(prims PRIVATE ${CUML_TEST_INCLUDE_DIRS})
 
   add_dependencies(prims cutlass)
 
   target_link_libraries(prims
-    gtestlib
-    gtest_mainlib
-    ${CUML_LINK_LIBRARIES}
-    faisslib)
+  	GTest::GTest
+  	GTest::Main
+  	FAISS::FAISS
+    ${PRIMS_TEST_LINK_LIBRARIES})
+
 endif(BUILD_PRIMS_TESTS)
