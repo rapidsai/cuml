@@ -64,7 +64,7 @@ class BaseRandomForestModel(object):
             worker: self.client.submit(
                 model_func,
                 n_estimators=self.n_estimators_per_worker[n],
-                seed=seeds[n],
+                random_state=seeds[n],
                 **kwargs,
                 pure=False,
                 workers=[worker],
