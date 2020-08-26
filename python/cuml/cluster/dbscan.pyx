@@ -217,7 +217,7 @@ class DBSCAN(Base):
             "int64", np.int64}.
 
         """
-        self._set_base_attributes(X, output_type=True, n_features=True)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         if self._labels_ is not None:
             del self._labels_

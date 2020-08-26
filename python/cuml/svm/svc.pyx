@@ -326,7 +326,7 @@ class SVC(SVMBase, ClassifierMixin):
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(X, output_type=True, y=y, n_features=True)
+        self._set_base_attributes(output_type=X, y=y, n_features=X)
 
         if self.probability:
             params = self.get_params()

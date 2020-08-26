@@ -420,7 +420,7 @@ class PCA(Base):
         Fit the model with X. y is currently ignored.
 
         """
-        self._set_base_attributes(X, output_type=True, n_features=True)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_fit(X)
