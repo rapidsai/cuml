@@ -19,7 +19,7 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 
 class UMAP(BaseEstimator,
            DelayedTransformMixin):
-    r"""
+    """
     Uniform Manifold Approximation and Projection
 
     Finds a low dimensional embedding of the data that approximates
@@ -67,13 +67,15 @@ class UMAP(BaseEstimator,
     -----
     This module is heavily based on Leland McInnes' reference UMAP package
     [1]_.
+
     However, there are a number of differences and features that are
     not yet implemented in `cuml.umap`:
-     * Using a non-Euclidean distance metric (support for a fixed set
-       of non-Euclidean metrics is planned for an upcoming release).
-     * Using a pre-computed pairwise distance matrix (under consideration
-       for future releases)
-     * Manual initialization of initial embedding positions
+
+    * Using a non-Euclidean distance metric (support for a fixed set
+      of non-Euclidean metrics is planned for an upcoming release).
+    * Using a pre-computed pairwise distance matrix (under consideration
+      for future releases)
+    * Manual initialization of initial embedding positions
 
     In addition to these missing features, you should expect to see
     the final embeddings differing between `cuml.umap` and the reference
@@ -85,11 +87,9 @@ class UMAP(BaseEstimator,
 
     References
     ----------
-
     .. [1] `Leland McInnes, John Healy, James Melville
-           UMAP: Uniform Manifold Approximation and Projection for Dimension
-           Reduction.
-           <https://arxiv.org/abs/1802.03426>`_
+       UMAP: Uniform Manifold Approximation and Projection for Dimension
+       Reduction. <https://arxiv.org/abs/1802.03426>`_
 
     """
     def __init__(self, model, client=None, **kwargs):
@@ -98,7 +98,7 @@ class UMAP(BaseEstimator,
         self._set_internal_model(model)
 
     def transform(self, X, convert_dtype=True):
-        r"""
+        """
         Transform X into the existing embedded space and return that
         transformed output.
 

@@ -72,32 +72,30 @@ class ExponentialSmoothing(Base):
     data with exponentially decreasing impact. This is done by analyzing
     three components of the data: level, trend, and seasonality.
 
-    Known Limitations
-    -----------------
-    This version of ExponentialSmoothing currently provides only a limited
-    number of features when compared to the
+    Notes
+    -----
+    *Known Limitations:* This version of ExponentialSmoothing currently
+    provides only a limited number of features when compared to the
     `statsmodels.holtwinters.ExponentialSmoothing` model. Noticeably, it lacks:
 
-     * predict : no support for in-sample prediction.
+    * predict : no support for in-sample prediction.
         * https://github.com/rapidsai/cuml/issues/875
 
-     * hessian : no support for returning Hessian matrix.
+    * hessian : no support for returning Hessian matrix.
         * https://github.com/rapidsai/cuml/issues/880
 
-     * information : no support for returning Fisher matrix.
+    * information : no support for returning Fisher matrix.
         * https://github.com/rapidsai/cuml/issues/880
 
-     * loglike : no support for returning Log-likelihood.
+    * loglike : no support for returning Log-likelihood.
         * https://github.com/rapidsai/cuml/issues/880
 
     Additionally, be warned that there may exist floating point instability
     issues in this model. Small values in endog may lead to faulty results.
     See https://github.com/rapidsai/cuml/issues/888 for more information.
 
-    Known Differences
-    -----------------
-    This version of ExponentialSmoothing differs from statsmodels in some
-    other minor ways:
+    *Known Differences:* This version of ExponentialSmoothing differs from
+    statsmodels in some other minor ways:
 
     * Cannot pass trend component or damped trend component
     * this version can take additional parameters `eps`,
@@ -108,6 +106,7 @@ class ExponentialSmoothing(Base):
 
     Examples
     --------
+
     .. code-block:: python
 
         from cuml import ExponentialSmoothing

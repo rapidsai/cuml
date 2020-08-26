@@ -134,9 +134,9 @@ def _shuffle(client, rs, X, y, chunksizes, n_features,
     return da.concatenate(X_dela, axis=0), da.concatenate(y_dela, axis=0)
 
 
-def _convert_C_to_F_order(client, X, chunksizes, n_features, dtype):
+def _convert_to_order(client, X, chunksizes, order, n_features, dtype):
     X_ddh = DistributedDataHandler.create(data=X, client=client)
-    X_converted = [client.submit(cp.array, X_part, copy=False, order='F',
+    X_converted = [client.submit(cp.array, X_part, copy=False, order=order,
                                  workers=[w])
                    for idx, (w, X_part) in enumerate(X_ddh.gpu_futures)]
 
@@ -415,9 +415,8 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
                                                data_chunksizes, n_features,
                                                dtype)
 
-        if order == 'F':
-            X = _convert_C_to_F_order(client, X, data_chunksizes,
-                                      n_features, dtype)
+        X = _convert_to_order(client, X, data_chunksizes, order,
+                              n_features, dtype)
 
     # Generate a ground truth model with only n_informative features being non
     # zeros (the other features are not correlated to y and should be ignored
@@ -452,11 +451,11 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
     y = da.squeeze(y)
 
     if order == 'F' and n_targets > 1:
-        y = _convert_C_to_F_order(client, y, y.chunks[0], n_targets, dtype)
+        y = _convert_to_order(client, y, y.chunks[0], order, n_targets, dtype)
         if coef:
-            ground_truth = _convert_C_to_F_order(client, ground_truth,
-                                                 ground_truth.chunks[0],
-                                                 n_targets, dtype)
+            ground_truth = _convert_to_order(client, ground_truth,
+                                             ground_truth.chunks[0], order,
+                                             n_targets, dtype)
 
     if coef:
         ground_truth = da.squeeze(ground_truth)

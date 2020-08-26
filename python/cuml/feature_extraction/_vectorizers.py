@@ -134,7 +134,9 @@ class _VectorizerMixin:
             del str_series
 
             padding = Series(self.delimiter).repeat(len(tokens))
-            tokens = padding.str.cat(tokens.str.cat(padding))
+            tokens = tokens.str.cat(padding)
+            padding = padding.reset_index(drop=True)
+            tokens = padding.str.cat(tokens)
             tokens = tokens.reset_index(drop=True)
 
             ngram_sr = tokens.str.character_ngrams(n=ngram_size)
@@ -644,10 +646,10 @@ class HashingVectorizer(_VectorizerMixin):
     """
     Convert a collection of text documents to a matrix of token occurrences
 
-    It turns a collection of text documents into a cupy.sparse matrix holding
-    token occurrence counts (or binary occurrence information), possibly
-    normalized as token frequencies if norm='l1' or projected on the euclidean
-    unit sphere if norm='l2'.
+    It turns a collection of text documents into a cupyx.scipy.sparse matrix
+    holding token occurrence counts (or binary occurrence information),
+    possibly normalized as token frequencies if norm='l1' or projected on the
+    euclidean unit sphere if norm='l2'.
 
     This text vectorizer implementation uses the hashing trick to find the
     token string name to feature integer index mapping.
@@ -655,8 +657,8 @@ class HashingVectorizer(_VectorizerMixin):
     This strategy has several advantages:
 
      - it is very low memory scalable to large datasets as there is no need to
-       store a vocabulary dictionary in memory which is even more important as
-       GPU's that are often memory constrained
+       store a vocabulary dictionary in memory which is even more important
+       as GPU's that are often memory constrained
      - it is fast to pickle and un-pickle as it holds no state besides the
        constructor parameters
      - it can be used in a streaming (partial fit) or parallel pipeline as
@@ -685,7 +687,7 @@ class HashingVectorizer(_VectorizerMixin):
     stop_words : string {'english'}, list, default=None
         If 'english', a built-in stop word list for English is used.
         There are several known issues with 'english' and you should
-        consider an alternative (see :ref:`stop_words`).
+        consider an alternative.
         If a list, that list is assumed to contain stop words, all of which
         will be removed from the resulting tokens.
         Only applies if ``analyzer == 'word'``.
