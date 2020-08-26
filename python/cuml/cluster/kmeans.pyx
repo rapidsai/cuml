@@ -313,7 +313,7 @@ class KMeans(Base):
         Compute k-means clustering with X.
 
         """
-        self._set_base_attributes(X, output_type=True, n_features=True)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         if self.init == 'preset':
             check_cols = self.n_cols

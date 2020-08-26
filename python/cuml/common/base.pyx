@@ -283,8 +283,7 @@ class Base:
                 raise AttributeError
 
     def _set_base_attributes(self,
-                             X,
-                             output_type=False,
+                             output_type=None,
                              y=None,
                              n_features=None):
         """
@@ -294,15 +293,14 @@ class Base:
 
         Parameters
         --------
-        X : cuDF DataFrame
-            Specifies the input data training
-        output_type : Boolean (default = False)
-            Specifies if we should set output type on X
+        output_type : DataFrame (default = None)
+            Is output_type is passed, aets the output_type on the
+            dataframe passed
         y : Target column (default = None)
             If y is passed, we set the target dtype on y
-        n_features: Boolean or int (default=None)
+        n_features: int or DataFrame (default=None)
             If an int is passed, we set it to the number passed
-            If set to True, we set based on input X
+            If dataframe, we set it based on the passed df.
 
         Examples
         --------
@@ -310,22 +308,21 @@ class Base:
         .. code-block:: python
 
                 # To set output_type and n_features based on X
-                self._set_base_attributes(X, output_type=True, n_features=True)
+                self._set_base_attributes(output_type=X, n_features=X)
 
                 # To set output_type on X and n_features to 10
-                self._set_base_attributes(X, output_type=True, n_features=10)
+                self._set_base_attributes(output_type=X, n_features=10)
 
                 # To only set target_dtype
-                self._set_base_attributes(X, y=y)
+                self._set_base_attributes(output_type=X, y=y)
         """
-        if output_type:
-            self._set_output_type(X)
+        if output_type is not None:
+            self._set_output_type(output_type)
         if y is not None:
             self._set_target_dtype(y)
-        if isinstance(n_features, int):
+        if n_features is not None:
             self._set_n_features_in(n_features)
-        elif n_features:
-            self._set_n_features_in(X)
+
 
     def _set_output_type(self, input):
         """
