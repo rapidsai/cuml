@@ -27,11 +27,11 @@ namespace ML {
 namespace Sparse {
 
 void brute_force_knn(cumlHandle &handle, const int *idxIndptr,
-                     const int *idxIndices, const float *idxData, size_t idxNNZ,
-                     size_t n_idx_rows, size_t n_idx_cols,
+                     const int *idxIndices, const float *idxData, int idxNNZ,
+                     int n_idx_rows, int n_idx_cols,
                      const int *queryIndptr, const int *queryIndices,
                      const float *queryData, size_t queryNNZ,
-                     size_t n_query_rows, size_t n_query_cols,
+                     int n_query_rows, int n_query_cols,
                      int *output_indices, float *output_dists, int k,
                      size_t batch_size,  // approx 1M
                      ML::MetricType metric, float metricArg,

@@ -57,13 +57,12 @@ struct distances_config_t {
 template <typename value_idx = int, typename value_t = float>
 struct ip_distances_t {
   explicit ip_distances_t(distances_config_t<value_idx, value_t> config)
-    : config_(config), workspace(config.allocator, config.stream, 0) {
-    alpha = 1.0;
-    beta = 0.0;
+    : config_(config), workspace(config.allocator, config.stream, 0), alpha(1.0) {
 
     CUSPARSE_CHECK(cusparseCreateMatDescr(&matA));
     CUSPARSE_CHECK(cusparseCreateMatDescr(&matB));
     CUSPARSE_CHECK(cusparseCreateMatDescr(&matC));
+    CUSPARSE_CHECK(cusparseCreateMatDescr(&matD));
 
     CUSPARSE_CHECK(cusparseSetMatIndexBase(matA, CUSPARSE_INDEX_BASE_ZERO));
     CUSPARSE_CHECK(cusparseSetMatIndexBase(matB, CUSPARSE_INDEX_BASE_ZERO));
@@ -80,16 +79,16 @@ struct ip_distances_t {
   }
 
   value_idx get_nnz(value_idx *csr_out_indptr) {
-    value_idx m = config_.search_nrows, n = config_.search_ncols,
-              k = config_.index_nrows;
+    value_idx m = config_.search_nrows, n = config_.index_nrows,
+              k = config_.search_ncols;
 
     size_t workspace_size;
 
-    CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2_buffersizeext(
-      config_.handle, m, n, k, &alpha, &beta, matA, config_.search_nnz,
+    CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2_buffersizeext<value_t>(
+      config_.handle, m, n, k, &alpha, NULL, matA, config_.search_nnz,
       config_.csr_search_indptr, config_.csr_search_indices, matB,
       config_.index_nnz, config_.csc_index_indptr, config_.csc_index_indices,
-      NULL, 0, NULL, NULL, info, &workspace_size, config_.stream));
+      matD, 0, NULL, NULL, info, &workspace_size, config_.stream));
 
     workspace.resize(workspace_size, config_.stream);
 
@@ -99,40 +98,44 @@ struct ip_distances_t {
       config_.handle, m, n, k, matA, config_.search_nnz,
       config_.csr_search_indptr, config_.csr_search_indices, matB,
       config_.index_nnz, config_.csc_index_indptr, config_.csc_index_indices,
-      NULL, 0, NULL, NULL, matC, csr_out_indptr, &out_nnz, info,
+	  matD, 0, NULL, NULL, matC, csr_out_indptr, &out_nnz, info,
       workspace.data(), config_.stream));
+
+    CUDA_CHECK(cudaStreamSynchronize(config_.stream));
 
     return out_nnz;
   }
 
-  void compute(value_idx *csr_out_indptr, value_idx *csr_out_indices,
+  void compute(const value_idx *csr_out_indptr, value_idx *csr_out_indices,
                value_t *csr_out_data) {
-    value_idx m = config_.search_nrows, n = config_.search_ncols,
-              k = config_.index_rows;
+    value_idx m = config_.search_nrows, n = config_.index_nrows,
+              k = config_.search_ncols;
 
-    CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2(
+    CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2<value_t>(
       config_.handle, m, n, k, &alpha, matA, config_.search_nnz,
-      config_.csr_search_data, config_.csr_search_rowind,
-      config_.csr_search_indices, matB, config_.index_nna,
-      config_.csc_index_data, config_.csc_index_rowind,
-      config_.csc_index_indices, &beta, NULL, 0, NULL, NULL, NULL, matC,
-      config_.csr_out_data, config_.csr_out_rowind, config_.csr_out_indices,
-      info, workspace.data()));
+      config_.csr_search_data, config_.csr_search_indptr,
+      config_.csr_search_indices, matB, config_.index_nnz,
+      config_.csc_index_data, config_.csc_index_indptr,
+      config_.csc_index_indices, NULL,
+	  matD, 0, NULL, NULL, NULL, matC,
+      csr_out_data, csr_out_indptr, csr_out_indices,
+      info, workspace.data(), config_.stream));
   }
 
   ~ip_distances_t() {
     CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matA));
     CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matB));
     CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matC));
+    CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matD));
   }
 
  private:
   value_t alpha;
-  value_t beta;
   csrgemm2Info_t info;
   cusparseMatDescr_t matA;
   cusparseMatDescr_t matB;
   cusparseMatDescr_t matC;
+  cusparseMatDescr_t matD;
   device_buffer<char> workspace;
   distances_config_t<value_idx, value_t> config_;
 };

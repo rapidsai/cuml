@@ -27,16 +27,16 @@
 namespace ML {
 namespace Sparse {
 
-void brute_force_knn(cumlHandle &handle, const int64_t *idxIndptr,
-                     const int64_t *idxIndices, const float *idxData,
-                     size_t idxNNZ, size_t n_idx_rows, size_t n_idx_cols,
-                     const int64_t *queryIndptr, const int64_t *queryIndices,
-                     const float *queryData, size_t queryNNZ,
-                     size_t n_query_rows, size_t n_query_cols,
-                     int64_t *output_indices, float *output_dists, int k,
+void brute_force_knn(cumlHandle &handle, const int *idxIndptr,
+                     const int *idxIndices, const float *idxData, int idxNNZ,
+                     int n_idx_rows, size_t n_idx_cols,
+                     const int *queryIndptr, const int *queryIndices,
+                     const float *queryData, int queryNNZ,
+                     int n_query_rows, int n_query_cols,
+                     int *output_indices, float *output_dists, int k,
                      size_t batch_size = 2 << 20,  // approx 1M
                      ML::MetricType metric = ML::MetricType::METRIC_L2,
-                     float metricArg = 0, bool expanded_form = false);
-
+					 float metricArg = 0,
+                     bool expanded_form = false);
 };  // end namespace Sparse
 };  // end namespace ML

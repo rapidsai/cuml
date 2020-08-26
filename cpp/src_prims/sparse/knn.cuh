@@ -99,6 +99,7 @@ struct csr_batcher_t {
   value_idx batch_csr_stop_offset_;
 };
 
+
 /**
    * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
    * @param allocator the device memory allocator to use for temporary scratch memory
@@ -111,10 +112,10 @@ struct csr_batcher_t {
    */
 template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
 void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
-                     const value_t *idxData, size_t idxNNZ, size_t n_idx_rows,
-                     size_t n_idx_cols, const value_idx *queryIndptr,
+                     const value_t *idxData, value_idx idxNNZ, value_idx n_idx_rows,
+                     value_idx n_idx_cols, const value_idx *queryIndptr,
                      const value_idx *queryIndices, const value_t *queryData,
-                     size_t queryNNZ, size_t n_query_rows, size_t n_query_cols,
+                     size_t queryNNZ, value_idx n_query_rows, value_idx n_query_cols,
                      value_idx *output_indices, value_t *output_dists, int k,
                      cusparseHandle_t cusparseHandle,
                      std::shared_ptr<deviceAllocator> allocator,
@@ -124,7 +125,7 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                      float metricArg = 0, bool expanded_form = false) {
   using namespace raft::sparse;
 
-  int n_batches_query = ceildiv(n_query_rows, batch_size);
+  int n_batches_query = ceildiv((size_t)n_query_rows, batch_size);
   bool ascending = true;
   if (metric == ML::MetricType::METRIC_INNER_PRODUCT) ascending = false;
 
@@ -160,7 +161,7 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
     value_t *dists_merge_buffer_ptr;
     value_idx *indices_merge_buffer_ptr;
 
-    int n_batches_idx = ceildiv(n_idx_rows, batch_size);
+    int n_batches_idx = ceildiv((size_t)n_idx_rows, batch_size);
 
     for (int j = 0; j < n_batches_idx; j++) {
       /**
@@ -186,36 +187,20 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                                              idx_batch_data.data(), stream);
 
       /**
-       * Transpose index array
+       * Transpose index array into csc
        */
-      size_t convert_csc_workspace_size = 0;
-
       device_buffer<value_idx> csc_idx_batch_indptr(allocator, stream,
                                                     n_idx_cols + 1);
       device_buffer<value_idx> csc_idx_batch_indices(allocator, stream,
                                                      idx_batch_nnz);
 
-      CUSPARSE_CHECK(cusparsecsr2csc_bufferSize(
-        cusparseHandle, idx_batcher.batch_rows(), n_idx_cols, n_query_batch_nnz,
-        idx_batch_data.data(), idx_batch_indptr.data(),
-        idx_batch_indices.data(), idx_batch_data.data(),
-        csc_idx_batch_indptr.data(), csc_idx_batch_indices.data(),
-        CUSPARSE_ACTION_SYMBOLIC, CUSPARSE_INDEX_BASE_ZERO,
-        CUSPARSE_CSR2CSC_ALG1, &convert_csc_workspace_size, stream));
+      csr_transpose(cusparseHandle, idx_batch_indptr.data(), idx_batch_indices.data(), idx_batch_data.data(),
+      					csc_idx_batch_indptr.data(), csc_idx_batch_indices.data(),
+      					idx_batcher.batch_rows(), n_idx_cols, idx_batch_nnz, allocator, stream);
 
-      device_buffer<char> convert_csc_workspace(allocator, stream,
-                                                convert_csc_workspace_size);
-
-      CUSPARSE_CHECK(cusparsecsr2csc(
-        cusparseHandle, idx_batcher.batch_rows(), n_idx_cols, idx_batch_nnz,
-        idx_batch_data.data(), idx_batch_indptr.data(),
-        idx_batch_indices.data(), idx_batch_data.data(),
-        csc_idx_batch_indptr.data(), csc_idx_batch_indices.data(),
-        CUSPARSE_ACTION_SYMBOLIC, CUSPARSE_INDEX_BASE_ZERO,
-        CUSPARSE_CSR2CSC_ALG1, &convert_csc_workspace, stream));
-
-      convert_csc_workspace.release(stream);
-
+      /**
+       * Compute distances
+       */
       MLCommon::Sparse::Distance::distances_config_t<value_idx, value_t>
         dist_config;
       dist_config.index_nrows = idx_batcher.batch_rows();
@@ -237,18 +222,22 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
       device_buffer<value_idx> out_batch_indptr(allocator, stream,
                                                 query_batcher.batch_rows() + 1);
 
-      MLCommon::Sparse::Distance::ip_distances_t<value_idx, value_t>
-        compute_dists(dist_config);
+      Distance::ip_distances_t<value_idx, value_t> compute_dists(dist_config);
       value_idx out_batch_nnz = compute_dists.get_nnz(out_batch_indptr.data());
 
-      device_buffer<value_idx> out_batch_indices(allocator, stream,
-                                                 out_batch_nnz);
+      device_buffer<value_idx> out_batch_indices(allocator, stream, out_batch_nnz);
       device_buffer<value_t> out_batch_data(allocator, stream, out_batch_nnz);
+
+      compute_dists.compute(out_batch_indptr.data(), out_batch_indices.data(), out_batch_data.data());
 
       idx_batch_indptr.release(stream);
       idx_batch_indices.release(stream);
       idx_batch_data.release(stream);
 
+
+      /**
+       * Convert output to dense
+       */
       device_buffer<value_t> out_batch_dense(
         allocator, stream,
         idx_batcher.batch_rows() * query_batcher.batch_rows());
