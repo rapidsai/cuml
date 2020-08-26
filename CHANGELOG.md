@@ -8,6 +8,8 @@
 - PR #2729: Replace `cupy.sparse` with `cupyx.scipy.sparse`
 - PR #2749: Correct docs for python version used in cuml_dev conda environment
 - PR #2723: Support and enable convert_dtype in estimator predict
+- PR #2766: Updates default RandomForestRegressor score function to use r2
+
 
 ## Bug Fixes
 
