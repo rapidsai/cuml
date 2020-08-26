@@ -375,16 +375,18 @@ template <typename OutType = int>
 __global__ void class_vote_kernel(OutType *out, const float *class_proba,
                                   int *unique_labels, int n_uniq_labels,
                                   size_t n_samples, int n_outputs,
-                                  int output_offset) {
+                                  int output_offset, bool use_shared_mem) {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i = row * n_uniq_labels;
 
   extern __shared__ int label_cache[];
-  for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
-    label_cache[j] = unique_labels[j];
-  }
+  if (use_shared_mem) {
+    for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
+      label_cache[j] = unique_labels[j];
+    }
 
-  __syncthreads();
+    __syncthreads();
+  }
 
   if (row >= n_samples) return;
   float cur_max = -1.0;
@@ -396,7 +398,10 @@ __global__ void class_vote_kernel(OutType *out, const float *class_proba,
       cur_label = j;
     }
   }
-  out[row * n_outputs + output_offset] = label_cache[cur_label];
+
+  int val = use_shared_mem ? label_cache[cur_label] : unique_labels[cur_label];
+
+  out[row * n_outputs + output_offset] = val;
 }
 
 template <typename LabelType, bool precomp_lbls = false>
@@ -409,7 +414,6 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
 
   if (row >= n_samples) return;
 
-  // should work for moderately small number of classes
   LabelType pred = 0;
   for (int j = 0; j < n_neighbors; j++) {
     pred += get_lbls<precomp_lbls>(labels, knn_indices, i + j);
@@ -550,11 +554,13 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
     /**
      * Choose max probability
      */
-
+    // Use shared memory for label lookups if the number of classes is small enough
     int smem = sizeof(int) * n_unique_labels;
-    class_vote_kernel<<<grid, blk, smem, stream>>>(
-      out, probs[i], uniq_labels[i], n_unique_labels, n_query_rows, y.size(),
-      i);
+    bool use_shared_mem = smem < MLCommon::getSharedMemPerBlock();
+
+    class_vote_kernel<<<grid, blk, use_shared_mem ? smem : 0, stream>>>(
+      out, probs[i], uniq_labels[i], n_unique_labels, n_query_rows, y.size(), i,
+      use_shared_mem);
     CUDA_CHECK(cudaPeekAtLastError());
 
     delete tmp_probs[i];

@@ -60,7 +60,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     random_state : int (default = 1)
         If you want results to be the same when you restart Python,
         select a state.
-    init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
+    init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray} \
            (default = 'scalable-k-means++')
         'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
         kmeans++ intialization.

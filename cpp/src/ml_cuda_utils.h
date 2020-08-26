@@ -38,11 +38,7 @@ inline cudaMemoryType memory_type(const void *p) {
     err = cudaGetLastError();
     ASSERT(err == cudaErrorInvalidValue, "%s", cudaGetErrorString(err));
   }
-#if CUDA_VERSION >= 10000
   return att.type;
-#else
-  return att.memoryType;
-#endif
 }
 
 inline bool is_device_or_managed_type(const void *p) {
@@ -50,4 +46,5 @@ inline bool is_device_or_managed_type(const void *p) {
   return p_memory_type == cudaMemoryTypeDevice ||
          p_memory_type == cudaMemoryTypeManaged;
 }
+
 }  // namespace ML
