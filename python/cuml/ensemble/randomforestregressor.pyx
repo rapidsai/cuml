@@ -624,39 +624,43 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
         # shortcut for default accuracy metric of r^2
         if self.accuracy_metric == "r2":
-            stats = r2_score(y_test, preds, handle=self.handle)
+            stats = r2_score(y_m, preds, handle=self.handle)
+            self.handle.sync()
+            del(y_m)
+            del(preds_m)
+            return stats
+
+        cdef cumlHandle* handle_ =\
+            <cumlHandle*><uintptr_t>self.handle.getHandle()
+
+        cdef RandomForestMetaData[float, float] *rf_forest = \
+            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
+
+        cdef RandomForestMetaData[double, double] *rf_forest64 = \
+            <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
+
+        if self.dtype == np.float32:
+            self.temp_stats = score(handle_[0],
+                                    rf_forest,
+                                    <float*> y_ptr,
+                                    <int> n_rows,
+                                    <float*> preds_ptr,
+                                    <int> self.verbose)
+
+        elif self.dtype == np.float64:
+            self.temp_stats = score(handle_[0],
+                                    rf_forest64,
+                                    <double*> y_ptr,
+                                    <int> n_rows,
+                                    <double*> preds_ptr,
+                                    <int> self.verbose)
+
+        if self.accuracy_metric == 'median_ae':
+            stats = self.temp_stats['median_abs_error']
+        if self.accuracy_metric == 'mean_ae':
+            stats = self.temp_stats['mean_abs_error']
         else:
-            cdef cumlHandle* handle_ =\
-                <cumlHandle*><uintptr_t>self.handle.getHandle()
-
-            cdef RandomForestMetaData[float, float] *rf_forest = \
-                <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
-
-            cdef RandomForestMetaData[double, double] *rf_forest64 = \
-                <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
-
-            if self.dtype == np.float32:
-                self.temp_stats = score(handle_[0],
-                                        rf_forest,
-                                        <float*> y_ptr,
-                                        <int> n_rows,
-                                        <float*> preds_ptr,
-                                        <int> self.verbose)
-
-            elif self.dtype == np.float64:
-                self.temp_stats = score(handle_[0],
-                                        rf_forest64,
-                                        <double*> y_ptr,
-                                        <int> n_rows,
-                                        <double*> preds_ptr,
-                                        <int> self.verbose)
-
-            if self.accuracy_metric == 'median_ae':
-                stats = self.temp_stats['median_abs_error']
-            if self.accuracy_metric == 'mean_ae':
-                stats = self.temp_stats['mean_abs_error']
-            else:
-                stats = self.temp_stats['mean_squared_error']
+            stats = self.temp_stats['mean_squared_error']
 
         self.handle.sync()
         del(y_m)
