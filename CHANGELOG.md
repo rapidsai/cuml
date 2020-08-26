@@ -8,6 +8,7 @@
 - PR #2739: Use cusparse_wrappers.h from RAFT
 - PR #2729: Replace `cupy.sparse` with `cupyx.scipy.sparse`
 - PR #2749: Correct docs for python version used in cuml_dev conda environment
+- PR #2763: Add aarch64 Jetson compute codes to CMakeLists.txt and aarch64 support to conda recipes
 
 ## Bug Fixes
 
