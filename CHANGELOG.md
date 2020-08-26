@@ -1,4 +1,4 @@
-# cuML 0.15.0 (Date TBD)
+# cuML 0.15.0 (26 Aug 2020)
 
 ## New Features
 - PR #2581: Added model persistence via joblib in each section of estimator_intro.ipynb
