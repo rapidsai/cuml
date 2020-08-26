@@ -80,8 +80,8 @@ def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
 
     See https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
 
-    Example
-    -------
+    Examples
+    --------
 
     .. code-block:: python
 
