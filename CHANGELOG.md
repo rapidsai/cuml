@@ -1,6 +1,7 @@
 # cuML 0.16.0 (Date TBD)
 
 ## New Features
+- PR #2541: Improve Documentation Examples and Source Linking
 
 ## Improvements
 - PR #2735: Update seed to random_state in random forest and associated tests
@@ -45,7 +46,6 @@
 - PR #2322: Sparse FIL forests with 8-byte nodes
 - PR #2675: Update conda recipes to support CUDA 11
 - PR #2638: Improve cython build with custom `build_ext`
-- PR #2541: Improve Documentation Examples and Source Linking
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
