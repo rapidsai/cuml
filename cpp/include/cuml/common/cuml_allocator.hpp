@@ -19,6 +19,9 @@
 #include <cuda_runtime.h>
 #include <cuml/common/utils.hpp>
 
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
+
 namespace MLCommon {
 
 using deviceAllocator = raft::mr::device::allocator;
