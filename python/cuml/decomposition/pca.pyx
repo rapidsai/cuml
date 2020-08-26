@@ -25,7 +25,6 @@ import numpy as np
 import cupy as cp
 import cupyx
 import scipy
-import warnings
 
 from enum import IntEnum
 
