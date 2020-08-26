@@ -109,7 +109,7 @@ struct Node {
     nodes[pos].initSpNode();
     nodes[pos].depth = depth + 1;
     nodes[pos].start = start + split.nLeft;
-    nodes[pos].count = end - split.nLeft;
+    nodes[pos].count = count - split.nLeft;
     // update depth
     auto val = atomicMax(n_depth, depth + 1);
     __threadfence();
@@ -121,9 +121,9 @@ template <typename DataT, typename LabelT, typename IdxT, int TPB = 256>
 void printNodes(Node<DataT, LabelT, IdxT>* nodes, IdxT len, cudaStream_t s) {
   auto op = [] __device__(Node<DataT, LabelT, IdxT>* ptr, IdxT idx) {
     printf("prediction = %d, colid = %d, quesval = %f, best_metric_val = %f, "
-           "left_child_id = %d, start = %d, end = %d, depth = %d\n",
+           "left_child_id = %d, start = %d, count = %d, depth = %d\n",
       ptr->info.prediction, ptr->info.colid, ptr->info.quesval,
-      ptr->info.best_metric_val, ptr->info.left_child_id, ptr->start, ptr->end,
+      ptr->info.best_metric_val, ptr->info.left_child_id, ptr->start, ptr->count,
       ptr->depth);
   };
   MLCommon::LinAlg::writeOnlyUnaryOp<Node<DataT, LabelT, IdxT>, decltype(op), IdxT,
