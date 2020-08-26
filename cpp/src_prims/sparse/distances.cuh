@@ -57,8 +57,9 @@ struct distances_config_t {
 template <typename value_idx = int, typename value_t = float>
 struct ip_distances_t {
   explicit ip_distances_t(distances_config_t<value_idx, value_t> config)
-    : config_(config), workspace(config.allocator, config.stream, 0), alpha(1.0) {
-
+    : config_(config),
+      workspace(config.allocator, config.stream, 0),
+      alpha(1.0) {
     CUSPARSE_CHECK(cusparseCreateMatDescr(&matA));
     CUSPARSE_CHECK(cusparseCreateMatDescr(&matB));
     CUSPARSE_CHECK(cusparseCreateMatDescr(&matC));
@@ -98,7 +99,7 @@ struct ip_distances_t {
       config_.handle, m, n, k, matA, config_.search_nnz,
       config_.csr_search_indptr, config_.csr_search_indices, matB,
       config_.index_nnz, config_.csc_index_indptr, config_.csc_index_indices,
-	  matD, 0, NULL, NULL, matC, csr_out_indptr, &out_nnz, info,
+      matD, 0, NULL, NULL, matC, csr_out_indptr, &out_nnz, info,
       workspace.data(), config_.stream));
 
     CUDA_CHECK(cudaStreamSynchronize(config_.stream));
@@ -116,10 +117,9 @@ struct ip_distances_t {
       config_.csr_search_data, config_.csr_search_indptr,
       config_.csr_search_indices, matB, config_.index_nnz,
       config_.csc_index_data, config_.csc_index_indptr,
-      config_.csc_index_indices, NULL,
-	  matD, 0, NULL, NULL, NULL, matC,
-      csr_out_data, csr_out_indptr, csr_out_indices,
-      info, workspace.data(), config_.stream));
+      config_.csc_index_indices, NULL, matD, 0, NULL, NULL, NULL, matC,
+      csr_out_data, csr_out_indptr, csr_out_indices, info, workspace.data(),
+      config_.stream));
   }
 
   ~ip_distances_t() {

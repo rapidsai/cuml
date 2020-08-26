@@ -99,9 +99,9 @@ struct csr_batcher_t {
   value_idx batch_csr_stop_offset_;
 };
 
-
 /**
    * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
+   * using some distance implementation
    * @param allocator the device memory allocator to use for temporary scratch memory
    * @param userStream the main cuda stream to use
    * @param translations translation ids for indices when index rows represent
@@ -111,18 +111,17 @@ struct csr_batcher_t {
    * @param expanded_form whether or not lp variants should be reduced w/ lp-root
    */
 template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
-void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
-                     const value_t *idxData, value_idx idxNNZ, value_idx n_idx_rows,
-                     value_idx n_idx_cols, const value_idx *queryIndptr,
-                     const value_idx *queryIndices, const value_t *queryData,
-                     size_t queryNNZ, value_idx n_query_rows, value_idx n_query_cols,
-                     value_idx *output_indices, value_t *output_dists, int k,
-                     cusparseHandle_t cusparseHandle,
-                     std::shared_ptr<deviceAllocator> allocator,
-                     cudaStream_t stream,
-                     size_t batch_size = 2 << 20,  // approx 1M
-                     ML::MetricType metric = ML::MetricType::METRIC_L2,
-                     float metricArg = 0, bool expanded_form = false) {
+void brute_force_knn(
+  const value_idx *idxIndptr, const value_idx *idxIndices,
+  const value_t *idxData, value_idx idxNNZ, value_idx n_idx_rows,
+  value_idx n_idx_cols, const value_idx *queryIndptr,
+  const value_idx *queryIndices, const value_t *queryData, size_t queryNNZ,
+  value_idx n_query_rows, value_idx n_query_cols, value_idx *output_indices,
+  value_t *output_dists, int k, cusparseHandle_t cusparseHandle,
+  std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
+  size_t batch_size = 2 << 20,  // approx 1M
+  ML::MetricType metric = ML::MetricType::METRIC_L2, float metricArg = 0,
+  bool expanded_form = false) {
   using namespace raft::sparse;
 
   int n_batches_query = ceildiv((size_t)n_query_rows, batch_size);
@@ -165,7 +164,7 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
 
     for (int j = 0; j < n_batches_idx; j++) {
       /**
-        * Compute query batch info
+        * Compute index batch info
 		*/
       csr_batcher_t<value_idx, value_t> idx_batcher(
         batch_size, n_idx_rows, idxIndptr, idxIndices, idxData);
@@ -176,12 +175,14 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
 	   */
       device_buffer<value_idx> idx_batch_indptr(allocator, stream,
                                                 idx_batcher.batch_rows() + 1);
+      device_buffer<value_idx> idx_batch_indices(allocator, stream, 0);
+      device_buffer<value_t> idx_batch_data(allocator, stream, 0);
+
       value_idx idx_batch_nnz =
         idx_batcher.get_batch_csr_indptr_nnz(idx_batch_indptr.data(), stream);
 
-      device_buffer<value_idx> idx_batch_indices(allocator, stream,
-                                                 idx_batch_nnz);
-      device_buffer<value_t> idx_batch_data(allocator, stream, idx_batch_nnz);
+      idx_batch_indices.resize(idx_batch_nnz, stream);
+      idx_batch_data.resize(idx_batch_nnz, stream);
 
       idx_batcher.get_batch_csr_indices_data(idx_batch_indices.data(),
                                              idx_batch_data.data(), stream);
@@ -193,10 +194,14 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                                                     n_idx_cols + 1);
       device_buffer<value_idx> csc_idx_batch_indices(allocator, stream,
                                                      idx_batch_nnz);
+      device_buffer<value_t> csc_idx_batch_data(allocator, stream,
+                                                idx_batch_nnz);
 
-      csr_transpose(cusparseHandle, idx_batch_indptr.data(), idx_batch_indices.data(), idx_batch_data.data(),
-      					csc_idx_batch_indptr.data(), csc_idx_batch_indices.data(),
-      					idx_batcher.batch_rows(), n_idx_cols, idx_batch_nnz, allocator, stream);
+      csr_transpose(cusparseHandle, idx_batch_indptr.data(),
+                    idx_batch_indices.data(), idx_batch_data.data(),
+                    csc_idx_batch_indptr.data(), csc_idx_batch_indices.data(),
+                    csc_idx_batch_data.data(), idx_batcher.batch_rows(),
+                    n_idx_cols, idx_batch_nnz, allocator, stream);
 
       /**
        * Compute distances
@@ -221,34 +226,33 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
 
       device_buffer<value_idx> out_batch_indptr(allocator, stream,
                                                 query_batcher.batch_rows() + 1);
+      device_buffer<value_idx> out_batch_indices(allocator, stream, 0);
+      device_buffer<value_t> out_batch_data(allocator, stream, 0);
 
       Distance::ip_distances_t<value_idx, value_t> compute_dists(dist_config);
       value_idx out_batch_nnz = compute_dists.get_nnz(out_batch_indptr.data());
 
-      device_buffer<value_idx> out_batch_indices(allocator, stream, out_batch_nnz);
-      device_buffer<value_t> out_batch_data(allocator, stream, out_batch_nnz);
+      out_batch_indices.resize(out_batch_nnz, stream);
+      out_batch_data.resize(out_batch_nnz, stream);
 
-      compute_dists.compute(out_batch_indptr.data(), out_batch_indices.data(), out_batch_data.data());
+      compute_dists.compute(out_batch_indptr.data(), out_batch_indices.data(),
+                            out_batch_data.data());
 
       idx_batch_indptr.release(stream);
       idx_batch_indices.release(stream);
       idx_batch_data.release(stream);
 
-
       /**
        * Convert output to dense
        */
-      device_buffer<value_t> out_batch_dense(
-        allocator, stream,
-        idx_batcher.batch_rows() * query_batcher.batch_rows());
+      value_idx dense_size =
+        idx_batcher.batch_rows() * query_batcher.batch_rows();
+      device_buffer<value_t> out_batch_dense(allocator, stream, dense_size);
 
-      cusparseMatDescr_t out_mat;
-      CUSPARSE_CHECK(cusparseCreateMatDescr(&out_mat));
-
-      CUSPARSE_CHECK(cusparsecsr2dense(
-        cusparseHandle, query_batcher.batch_rows(), idx_batcher.batch_rows(),
-        out_mat, out_batch_data.data(), out_batch_indptr.data(),
-        out_batch_indices.data(), out_batch_dense.data(), n_idx_cols, stream));
+      csr_to_dense(cusparseHandle, query_batcher.batch_rows(),
+                   idx_batcher.batch_rows(), out_batch_indptr.data(),
+                   out_batch_indices.data(), out_batch_data.data(), true,
+                   out_batch_dense.data(), stream);
 
       out_batch_indptr.release(stream);
       out_batch_indices.release(stream);
