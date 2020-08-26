@@ -92,8 +92,6 @@ class DistancesTest
 
     make_data();
 
-    std::cout << "Done making data. Running dists" << std::endl;
-
     Distance::distances_config_t<value_idx, value_t> dist_config;
     dist_config.index_nrows = 4;
     dist_config.index_ncols = 2;
@@ -116,22 +114,12 @@ class DistancesTest
     Distance::ip_distances_t<value_idx, value_t> compute_dists(dist_config);
     out_nnz = compute_dists.get_nnz(out_indptr);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    std::cout << "New NNZ: " << out_nnz << std::endl;
-
     allocate(out_indices, out_nnz);
     allocate(out_data, out_nnz);
 
-    std::cout << "Running compute()" << std::endl;
-
     compute_dists.compute(out_indptr, out_indices, out_data);
 
-    std::cout << "Synchronizing" << std::endl;
-
     CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    std::cout << "Done running dists" << std::endl;
   }
 
   void TearDown() override {
