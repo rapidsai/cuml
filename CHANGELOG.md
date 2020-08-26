@@ -10,7 +10,6 @@
 - PR #2723: Support and enable convert_dtype in estimator predict
 - PR #2766: Updates default RandomForestRegressor score function to use r2
 
-
 ## Bug Fixes
 
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
