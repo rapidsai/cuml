@@ -315,7 +315,7 @@ class LogisticRegression(Base, ClassifierMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the y for X.
 
@@ -328,7 +328,7 @@ class LogisticRegression(Base, ClassifierMixin):
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
     @with_cupy_rmm
-    def predict_proba(self, X, convert_dtype=False):
+    def predict_proba(self, X, convert_dtype=True):
         """
         Predicts the class probabilities for each class in X
 
@@ -344,7 +344,7 @@ class LogisticRegression(Base, ClassifierMixin):
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def predict_log_proba(self, X, convert_dtype=False):
+    def predict_log_proba(self, X, convert_dtype=True):
         """
         Predicts the log class probabilities for each class in X
 

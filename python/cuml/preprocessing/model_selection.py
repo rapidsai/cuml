@@ -327,13 +327,17 @@ def train_test_split(X,
 
     if seed is not None:
         if random_state is None:
-            warnings.warn("Parameter 'seed' is deprecated, please use \
-                          'random_state' instead.")
+            warnings.warn("Parameter 'seed' is deprecated and will be"
+                          " removed in 0.17. Please use 'random_state'"
+                          " instead. Setting 'random_state' as the"
+                          " curent 'seed' value",
+                          DeprecationWarning)
             random_state = seed
         else:
-            warnings.warn("Both 'seed' and 'random_state' parameters were \
-                          set, using 'random_state' since 'seed' is \
-                          deprecated. ")
+            warnings.warn("Both 'seed' and 'random_state' parameters were"
+                          " set. Using 'random_state' since 'seed' is"
+                          " deprecated and will be removed in 0.17.",
+                          DeprecationWarning)
 
     # Determining sizes of splits
     if isinstance(train_size, float):
