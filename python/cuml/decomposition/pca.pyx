@@ -44,7 +44,7 @@ from cuml.decomposition.utils cimport *
 from cuml.common.memory_utils import BaseMetaClass
 from cuml.common import input_to_cuml_array, using_output_type
 from cuml.common import with_cupy_rmm
-from cuml.common import CumlArrayDescriptor
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.prims.stats import cov
 from cuml.common.input_utils import sparse_scipy_to_cp
 
@@ -280,6 +280,7 @@ class PCA(Base, metaclass = BaseMetaClass):
     singular_values_ = CumlArrayDescriptor()
     mean_ = CumlArrayDescriptor()
     noise_variance_ = CumlArrayDescriptor()
+    trans_input_ = CumlArrayDescriptor()
 
     def __init__(self, copy=True, handle=None, iterated_power=15,
                  n_components=1, random_state=None, svd_solver='auto',
@@ -299,7 +300,7 @@ class PCA(Base, metaclass = BaseMetaClass):
 
         # internal array attributes
         # self._components_ = None  # accessed via estimator.components_
-        self._trans_input_ = None  # accessed via estimator.trans_input_
+        # self._trans_input_ = None  # accessed via estimator.trans_input_
         # self._explained_variance_ = None
         # accessed via estimator.explained_variance_
 
@@ -358,7 +359,6 @@ class PCA(Base, metaclass = BaseMetaClass):
                                                  dtype=self.dtype)
         self.noise_variance_ = CumlArray.zeros(1, dtype=self.dtype)
 
-    @with_cupy_rmm
     def _sparse_fit(self, X):
 
         self._sparse_model = True
@@ -422,7 +422,6 @@ class PCA(Base, metaclass = BaseMetaClass):
 
         return self
 
-    @with_cupy_rmm
     def fit(self, X, y=None):
         """
         Fit the model with X.
@@ -533,7 +532,6 @@ class PCA(Base, metaclass = BaseMetaClass):
 
         return self.fit(X).transform(X)
 
-    @with_cupy_rmm
     def _sparse_inverse_transform(self, X, return_sparse=False,
                                   sparse_tol=1e-10):
 
@@ -675,7 +673,6 @@ class PCA(Base, metaclass = BaseMetaClass):
 
         return input_data.to_output(out_type)
 
-    @with_cupy_rmm
     def _sparse_transform(self, X):
 
         # NOTE: All intermediate calculations are done using cupy.ndarray and
@@ -767,7 +764,7 @@ class PCA(Base, metaclass = BaseMetaClass):
         cdef uintptr_t components_ptr = self.components_.ptr
         cdef uintptr_t singular_vals_ptr = \
             self.singular_values_.ptr
-        cdef uintptr_t _mean_ptr = self._mean_.ptr
+        cdef uintptr_t _mean_ptr = self.mean_.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if dtype.type == np.float32:

@@ -6,8 +6,6 @@ from pytest import Item
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
 
-from cuml.common.array_descriptor import CumlArrayDescriptorMeta
-
 # Stores incorrect uses of CumlArray on cuml.common.base.Base to print at the
 # end
 bad_cuml_array_loc = set()
@@ -87,6 +85,32 @@ def pytest_unconfigure(config):
         print(
             "See https://github.com/rapidsai/cuml/issues/2456#issuecomment-666106406"  # noqa
             " for more information on naming conventions")
+
+
+# This fixture will monkeypatch cuml.common.base.Base to check for incorrect
+# uses of CumlArray.
+@pytest.fixture(autouse=True)
+def fail_on_old_cuml_array_conversion(monkeypatch):
+
+    from cuml.common import CumlArray
+    from cuml.common.base import Base
+
+    saved_get_attr = Base.__getattr__
+
+    def patched__getattr__(self, name):
+
+        real_name = '_' + name
+
+        if real_name in self.__dict__.keys():
+
+            assert not isinstance(self.__dict__[real_name], CumlArray), \
+                "Old-style CumlArray conversion. Should use CumlArrayDescriptor"
+
+        return saved_get_attr(self, name)
+
+    # Monkeypatch CumlArray.__setattr__ to test for incorrect uses of
+    # array-like objects
+    monkeypatch.setattr(Base, "__getattr__", patched__getattr__)
 
 
 # This fixture will monkeypatch cuml.common.base.Base to check for incorrect

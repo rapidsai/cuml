@@ -28,10 +28,13 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
+import cuml
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
+from cuml.common.memory_utils import BaseMetaClass, cuml_ignore_base_wrapper
+from cuml.common.array_descriptor import CumlArrayDescriptor
 
 from collections import defaultdict
 
@@ -82,7 +85,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         int verbosity) except +
 
 
-class DBSCAN(Base):
+class DBSCAN(Base, metaclass=BaseMetaClass):
     """
     DBSCAN is a very powerful yet fast clustering technique that finds clusters
     where data is concentrated. This allows DBSCAN to generalize to many
@@ -184,6 +187,9 @@ class DBSCAN(Base):
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """
 
+    labels_ = CumlArrayDescriptor()
+    core_sample_indices_ = CumlArrayDescriptor()
+
     def __init__(self, eps=0.5, handle=None, min_samples=5,
                  verbose=False, max_mbytes_per_batch=None,
                  output_type=None, calc_core_sample_indices=True):
@@ -194,11 +200,11 @@ class DBSCAN(Base):
         self.calc_core_sample_indices = calc_core_sample_indices
 
         # internal array attributes
-        self._labels_ = None  # accessed via estimator.labels_
+        self.labels_ = None  # accessed via estimator.labels_
 
         # accessed via estimator._core_sample_indices_ when
         # self.calc_core_sample_indices == True
-        self._core_sample_indices_ = None
+        self.core_sample_indices_ = None
 
         # C++ API expects this to be numeric.
         if self.max_mbytes_per_batch is None:
@@ -221,8 +227,7 @@ class DBSCAN(Base):
         self._set_n_features_in(X)
         self._set_output_type(X)
 
-        if self._labels_ is not None:
-            del self._labels_
+        # del self.labels_
 
         if out_dtype not in ["int32", np.int32, "int64", np.int64]:
             raise ValueError("Invalid value for out_dtype. "
@@ -237,16 +242,16 @@ class DBSCAN(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        self._labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
-        cdef uintptr_t labels_ptr = self._labels_.ptr
+        self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
+        cdef uintptr_t labels_ptr = self.labels_.ptr
 
         cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL
 
         # Create the output core_sample_indices only if needed
         if self.calc_core_sample_indices:
-            self._core_sample_indices_ = \
+            self.core_sample_indices_ = \
                 CumlArray.empty(n_rows, dtype=out_dtype)
-            core_sample_indices_ptr = self._core_sample_indices_.ptr
+            core_sample_indices_ptr = self.core_sample_indices_.ptr
 
         if self.dtype == np.float32:
             if out_dtype is "int32" or out_dtype is np.int32:
@@ -305,7 +310,8 @@ class DBSCAN(Base):
         if self.calc_core_sample_indices:
 
             # Temp convert to cupy array only once
-            core_samples_cupy = self._core_sample_indices_.to_output("cupy")
+            with cuml.using_output_type("cupy"):
+                core_samples_cupy = self.core_sample_indices_
 
             # First get the min index. These have to monotonically increasing,
             # so the min index should be the first returned -1
@@ -316,11 +322,12 @@ class DBSCAN(Base):
                 # Nothing to delete. The array has no -1's
                 pass
             else:
-                self._core_sample_indices_ = \
-                    self._core_sample_indices_[:min_index]
+                self.core_sample_indices_ = \
+                    self.core_sample_indices_[:min_index]
 
         return self
 
+    @cuml_ignore_base_wrapper
     def fit_predict(self, X, out_dtype="int32"):
         """
         Performs clustering on input_gdf and returns cluster labels.

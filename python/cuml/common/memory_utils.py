@@ -68,14 +68,31 @@ def cuml_internal_func(func):
 
     return wrapped
 
+def cuml_ignore_base_wrapper(func):
+
+    func.__dict__["__cuml_do_not_wrap"] = True
+
+    return func
+
+
 class BaseMetaClass(type):
     def __new__(meta, classname, bases, classDict):
+
         newClassDict = {}
+
         for attributeName, attribute in classDict.items():
             if callable(attribute) and not attributeName.startswith("_"):
-                # replace it with a wrapped version
-                attribute = cuml_internal_func(attribute)
+
+                # Skip items marked with cuml_ignore_base_wrapper
+                if ("__cuml_do_not_wrap" in attribute.__dict__
+                        and attribute.__dict__["__cuml_do_not_wrap"]):
+                    pass
+                else:
+                    # replace it with a wrapped version
+                    attribute = cuml_internal_func(attribute)
+
             newClassDict[attributeName] = attribute
+
         return type.__new__(meta, classname, bases, newClassDict)
 
 

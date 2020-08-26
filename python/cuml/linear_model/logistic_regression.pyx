@@ -24,6 +24,8 @@ import pprint
 
 from cuml.solvers import QN
 from cuml.common.base import Base, ClassifierMixin
+from cuml.common.memory_utils import BaseMetaClass
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array, with_cupy_rmm
@@ -34,7 +36,7 @@ supported_penalties = ["l1", "l2", "none", "elasticnet"]
 supported_solvers = ["qn"]
 
 
-class LogisticRegression(Base, ClassifierMixin):
+class LogisticRegression(Base, ClassifierMixin, metaclass=BaseMetaClass):
     """
     LogisticRegression is a linear model that is used to model probability of
     occurrence of certain events, for example probability of success or fail of
@@ -159,6 +161,8 @@ class LogisticRegression(Base, ClassifierMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 
+    classes_ = CumlArrayDescriptor()
+
     def __init__(
         self,
         penalty="l2",
@@ -245,7 +249,6 @@ class LogisticRegression(Base, ClassifierMixin):
         else:
             self.verb_prefix = ""
 
-    @with_cupy_rmm
     def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
@@ -276,8 +279,8 @@ class LogisticRegression(Base, ClassifierMixin):
         # Not needed to check dtype since qn class checks it already
         y_m, _, _, _ = input_to_cuml_array(y)
 
-        self._classes_ = CumlArray(cp.unique(y_m))
-        self._num_classes = len(self._classes_)
+        self.classes_ = CumlArray(cp.unique(y_m))
+        self._num_classes = len(self.classes_)
 
         if self._num_classes > 2:
             loss = "softmax"
@@ -361,7 +364,6 @@ class LogisticRegression(Base, ClassifierMixin):
         """
         return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
-    @with_cupy_rmm
     def predict_proba(self, X, convert_dtype=False):
         """
         Predicts the class probabilities for each class in X

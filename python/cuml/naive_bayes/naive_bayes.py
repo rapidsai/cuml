@@ -14,23 +14,20 @@
 # limitations under the License.
 #
 
-
-import cupy as cp
-import cupy.prof
 import math
 import warnings
 
-from cuml.common import with_cupy_rmm
-from cuml.common import CumlArray
+import cupy as cp
+import cupy.prof
+from cuml.common import CumlArray, with_cupy_rmm
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
+from cuml.common.import_utils import has_scipy
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.kernel_utils import cuda_kernel_factory
-from cuml.common.import_utils import has_scipy
-from cuml.prims.label import make_monotonic
-from cuml.prims.label import check_labels
-from cuml.prims.label import invert_labels
-
+from cuml.common.memory_utils import BaseMetaClass
 from cuml.metrics import accuracy_score
+from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
 def count_features_coo_kernel(float_dtype, int_dtype):
@@ -113,7 +110,7 @@ def count_features_dense_kernel(float_dtype, int_dtype):
                                "count_features_dense")
 
 
-class MultinomialNB(Base):
+class MultinomialNB(Base, metaclass=BaseMetaClass):
 
     # TODO: Make this extend cuml.Base:
     # https://github.com/rapidsai/cuml/issues/1834
@@ -178,6 +175,13 @@ class MultinomialNB(Base):
     0.9244298934936523
 
     """
+
+    classes_ = CumlArrayDescriptor()
+    class_count_ = CumlArrayDescriptor()
+    feature_count_ = CumlArrayDescriptor()
+    class_log_prior_ = CumlArrayDescriptor()
+    feature_log_prob_ = CumlArrayDescriptor()
+
     @with_cupy_rmm
     def __init__(self,
                  alpha=1.0,
@@ -217,7 +221,6 @@ class MultinomialNB(Base):
         self.handle = None
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
-    @with_cupy_rmm
     def fit(self, X, y, sample_weight=None):
         """
         Fit Naive Bayes classifier according to X, y
@@ -266,16 +269,16 @@ class MultinomialNB(Base):
             if _classes is not None:
                 _classes, *_ = input_to_cuml_array(_classes, order='K')
                 check_labels(Y, _classes.to_output('cupy'))
-                self._classes_ = _classes
+                self.classes_ = _classes
             else:
-                self._classes_ = CumlArray(data=label_classes)
+                self.classes_ = label_classes
 
             self._n_classes_ = self.classes_.shape[0]
             self._n_features_ = X.shape[1]
             self._init_counters(self._n_classes_, self._n_features_,
                                 X.dtype)
         else:
-            check_labels(Y, self._classes_)
+            check_labels(Y, self.classes_)
 
         self._count(X, Y)
 
@@ -284,7 +287,6 @@ class MultinomialNB(Base):
 
         return self
 
-    @with_cupy_rmm
     def update_log_probs(self):
         """
         Updates the log probabilities. This enables lazy update for
@@ -295,7 +297,6 @@ class MultinomialNB(Base):
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self._class_prior_)
 
-    @with_cupy_rmm
     def partial_fit(self, X, y, classes=None, sample_weight=None):
         """
         Incremental fit on a batch of samples.
@@ -337,7 +338,6 @@ class MultinomialNB(Base):
                                  _classes=classes)
 
     @cp.prof.TimeRangeDecorator(message="predict()", color_id=1)
-    @with_cupy_rmm
     def predict(self, X):
         """
         Perform classification on an array of test vectors X.
@@ -375,10 +375,11 @@ class MultinomialNB(Base):
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
+        y_hat = CumlArrayDescriptor()
+
         y_hat = invert_labels(indices, classes=self.classes_)
         return CumlArray(data=y_hat).to_output(out_type)
 
-    @with_cupy_rmm
     def predict_log_proba(self, X):
         """
         Return log-probability estimates for the test vector X.
@@ -437,7 +438,6 @@ class MultinomialNB(Base):
         result = jll - log_prob_x.T
         return CumlArray(result).to_output(out_type)
 
-    @with_cupy_rmm
     def predict_proba(self, X):
         """
         Return probability estimates for the test vector X.
@@ -488,11 +488,11 @@ class MultinomialNB(Base):
         return accuracy_score(y_hat, cp.asarray(y, dtype=y.dtype))
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
-        self._class_count_ = CumlArray.zeros(n_effective_classes,
-                                             order="F", dtype=dtype)
-        self._feature_count_ = CumlArray.zeros((n_effective_classes,
-                                                n_features),
-                                               order="F", dtype=dtype)
+        self.class_count_ = CumlArray.zeros(n_effective_classes,
+                                            order="F", dtype=dtype)
+        self.feature_count_ = CumlArray.zeros((n_effective_classes,
+                                               n_features),
+                                              order="F", dtype=dtype)
 
     def _count(self, X, Y):
         """
@@ -558,8 +558,8 @@ class MultinomialNB(Base):
         count_classes((math.ceil(n_rows / 32),), (32,),
                       (class_c, n_rows, Y))
 
-        self._feature_count_ = CumlArray(self._feature_count_ + counts)
-        self._class_count_ = CumlArray(self._class_count_ + class_c)
+        self.feature_count_ = self.feature_count_ + counts
+        self.class_count_ = self.class_count_ + class_c
 
     def _update_class_log_prior(self, class_prior=None):
 
@@ -569,16 +569,17 @@ class MultinomialNB(Base):
                 raise ValueError("Number of classes must match "
                                  "number of priors")
 
-            self._class_log_prior_ = cp.log(class_prior)
+            self.class_log_prior_ = cp.log(class_prior)
 
         elif self.fit_prior:
-            log_class_count = cp.log(self._class_count_)
-            self._class_log_prior_ = \
-                CumlArray(log_class_count - cp.log(
-                    cp.asarray(self._class_count_).sum()))
+            log_class_count = cp.log(self.class_count_)
+
+            self.class_log_prior_ = \
+                log_class_count - cp.log(
+                    self.class_count_.sum())
         else:
-            self._class_log_prior_ = CumlArray(cp.full(self._n_classes_,
-                                               -1*math.log(self._n_classes_)))
+            self.class_log_prior_ = cp.full(self._n_classes_,
+                                            -1 * math.log(self._n_classes_))
 
     def _update_feature_log_prob(self, alpha):
         """
@@ -590,10 +591,10 @@ class MultinomialNB(Base):
 
         alpha : float amount of smoothing to apply (0. means no smoothing)
         """
-        smoothed_fc = cp.asarray(self._feature_count_) + alpha
+        smoothed_fc = self.feature_count_ + alpha
         smoothed_cc = smoothed_fc.sum(axis=1).reshape(-1, 1)
-        self._feature_log_prob_ = CumlArray(cp.log(smoothed_fc) -
-                                            cp.log(smoothed_cc.reshape(-1, 1)))
+        self.feature_log_prob_ = cp.log(smoothed_fc) - cp.log(
+            smoothed_cc.reshape(-1, 1))
 
     def _joint_log_likelihood(self, X):
         """
@@ -605,6 +606,6 @@ class MultinomialNB(Base):
         X : array-like of size (n_samples, n_features)
         """
 
-        ret = X.dot(cp.asarray(self._feature_log_prob_).T)
-        ret += cp.asarray(self._class_log_prior_)
+        ret = X.dot(self.feature_log_prob_.T)
+        ret += self.class_log_prior_
         return ret

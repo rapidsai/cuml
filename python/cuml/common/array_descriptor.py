@@ -22,40 +22,61 @@ _input_type_to_str = {
 }
 
 
-def _input_to_type(input):
+def _input_to_type(input_array):
     # function to access _input_to_str, while still using the correct
     # numba check for a numba device_array
-    if type(input) in _input_type_to_str.keys():
-        return _input_type_to_str[type(input)]
-    elif numbaArray.is_cuda_ndarray(input):
+    if type(input_array) in _input_type_to_str.keys():
+        return _input_type_to_str[type(input_array)]
+    elif numbaArray.is_cuda_ndarray(input_array):
         return 'numba'
+    elif input_array is None:
+        return "none"
     else:
         return 'cupy'
 
 
 @dataclass
 class CumlArrayDescriptorMeta:
+
+    # The type for the input value. One of: _input_type_to_str
     input_type: str
+
+    # Dict containing values in different formats. One entry per type. Both the
+    # input type and any cached converted types will be stored. Erased on set
     values: dict = field(default_factory=dict)
+
+    def get_input_value(self):
+        if (self.input_type is None):
+            # TODO: Need to determine if this raises an error or not
+            return None
+
+        assert self.input_type in self.values, \
+            "Missing value for input_type {}".format(self.input_type)
+
+        return self.values[self.input_type]
 
 
 class CumlArrayDescriptor():
     '''Descriptor for a meter.'''
     def __set_name__(self, owner, name):
         self.name = name
-        self.internal_name = self.name
 
     # def __init__(self, value=None):
     #     self.value = float(value)
 
     def _get_value(self, instance) -> CumlArrayDescriptorMeta:
         return instance.__dict__.setdefault(
-            self.internal_name,
+            self.name,
             CumlArrayDescriptorMeta(input_type=None, values={}))
 
     def _to_output(self, instance, to_output_type):
 
         existing = self._get_value(instance)
+
+        # Handle setting npone
+
+        if (existing.input_type == "none"):
+            return None
 
         # Return a cached value if it exists
         if (to_output_type in existing.values):
@@ -64,12 +85,12 @@ class CumlArrayDescriptor():
         # If the input type was anything but CumlArray, need to create one now
         if ("cuml" not in existing.values):
             existing.values["cuml"] = CumlArray(
-                existing.values[existing.input_type])
+                existing.get_input_value())
 
-        cumlArr = existing.values["cuml"]
+        cuml_arr: CumlArray = existing.values["cuml"]
 
         # Do the conversion
-        output = cumlArr.to_output(to_output_type)
+        output = cuml_arr.to_output(to_output_type)
 
         # Cache the value
         existing.values[to_output_type] = output
@@ -79,7 +100,7 @@ class CumlArrayDescriptor():
     def __get__(self, instance, owner):
 
         if (instance is None):
-            return None
+            return self
 
         existing = self._get_value(instance)
 
@@ -91,7 +112,7 @@ class CumlArrayDescriptor():
         # First, determine if we need to call to_output at all
         if (output_type == "mirror"):
             # We must be internal, just return the input type
-            return existing.values[existing.input_type]
+            return existing.get_input_value()
 
         else:
             # We are external, determine the target output type

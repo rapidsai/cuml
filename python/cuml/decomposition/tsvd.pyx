@@ -36,6 +36,8 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
+from cuml.common.memory_utils import BaseMetaClass
+from cuml.common.array_descriptor import CumlArrayDescriptor
 
 from cython.operator cimport dereference as deref
 
@@ -102,7 +104,7 @@ class Solver(IntEnum):
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
-class TruncatedSVD(Base):
+class TruncatedSVD(Base, metaclass = BaseMetaClass):
     """
     TruncatedSVD is used to compute the top K singular values and vectors of a
     large matrix X. It is much faster when n_components is small, such as in
@@ -231,6 +233,11 @@ class TruncatedSVD(Base):
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
     """
 
+    components_ = CumlArrayDescriptor()
+    explained_variance_ = CumlArrayDescriptor()
+    explained_variance_ratio_ = CumlArrayDescriptor()
+    singular_values_ = CumlArrayDescriptor()
+
     def __init__(self, algorithm='full', handle=None, n_components=1,
                  n_iter=15, random_state=None, tol=1e-7,
                  verbose=False, output_type=None):
@@ -245,14 +252,14 @@ class TruncatedSVD(Base):
         self.c_algorithm = self._get_algorithm_c_name(self.algorithm)
 
         # internal array attributes
-        self._components_ = None  # accessed via estimator.components_
-        self._explained_variance_ = None
+        # self._components_ = None  # accessed via estimator.components_
+        # self._explained_variance_ = None
         # accessed via estimator.explained_variance_
 
-        self._explained_variance_ratio_ = None
+        # self._explained_variance_ratio_ = None
         # accessed via estimator.explained_variance_ratio_
 
-        self._singular_values_ = None
+        # self._singular_values_ = None
         # accessed via estimator.singular_values_
 
     def _get_algorithm_c_name(self, algorithm):
@@ -280,16 +287,14 @@ class TruncatedSVD(Base):
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self._components_ = CumlArray.zeros((n_components, n_cols),
+        self.components_ = CumlArray.zeros((n_components, n_cols),
                                             dtype=self.dtype)
-        self._explained_variance_ = CumlArray.zeros(n_components,
+        self.explained_variance_ = CumlArray.zeros(n_components,
                                                     dtype=self.dtype)
-        self._explained_variance_ratio_ = CumlArray.zeros(n_components,
+        self.explained_variance_ratio_ = CumlArray.zeros(n_components,
                                                           dtype=self.dtype)
-        self._mean_ = CumlArray.zeros(n_cols, dtype=self.dtype)
-        self._singular_values_ = CumlArray.zeros(n_components,
+        self.singular_values_ = CumlArray.zeros(n_components,
                                                  dtype=self.dtype)
-        self._noise_variance_ = CumlArray.zeros(1, dtype=self.dtype)
 
     def fit(self, X, y=None):
         """
@@ -340,16 +345,16 @@ class TruncatedSVD(Base):
 
         self._initialize_arrays(self.n_components, self.n_rows, self.n_cols)
 
-        cdef uintptr_t comp_ptr = self._components_.ptr
+        cdef uintptr_t comp_ptr = self.components_.ptr
 
         cdef uintptr_t explained_var_ptr = \
-            self._explained_variance_.ptr
+            self.explained_variance_.ptr
 
         cdef uintptr_t explained_var_ratio_ptr = \
-            self._explained_variance_ratio_.ptr
+            self.explained_variance_ratio_.ptr
 
         cdef uintptr_t singular_vals_ptr = \
-            self._singular_values_.ptr
+            self.singular_values_.ptr
 
         _trans_input_ = CumlArray.zeros((params.n_rows, params.n_components),
                                         dtype=self.dtype)
@@ -422,7 +427,7 @@ class TruncatedSVD(Base):
 
         cdef uintptr_t trans_input_ptr = trans_input.ptr
         cdef uintptr_t input_ptr = input_data.ptr
-        cdef uintptr_t components_ptr = self._components_.ptr
+        cdef uintptr_t components_ptr = self.components_.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -482,7 +487,7 @@ class TruncatedSVD(Base):
 
         cdef uintptr_t input_ptr = input.ptr
         cdef uintptr_t trans_input_ptr = t_input_data.ptr
-        cdef uintptr_t components_ptr = self._components_.ptr
+        cdef uintptr_t components_ptr = self.components_.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 

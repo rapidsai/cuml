@@ -21,7 +21,7 @@
 
 from cuml.solvers import CD
 from cuml.common.base import Base, RegressorMixin
-from cuml.common import CumlArrayDescriptor
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.memory_utils import with_cupy_rmm
 
 class ElasticNet(Base, RegressorMixin):

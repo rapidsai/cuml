@@ -20,7 +20,7 @@
 # cython: language_level = 3
 
 from cuml.solvers import CD
-from cuml.common import CumlArrayDescriptor
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.base import Base, RegressorMixin
 

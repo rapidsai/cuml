@@ -28,7 +28,9 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common import CumlArray, CumlArrayDescriptor
+from cuml.common import CumlArray
+from cuml.common.memory_utils import BaseMetaClass
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.common import get_cudf_column_ptr
@@ -92,7 +94,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                         int loss) except +
 
 
-class CD(Base):
+class CD(Base, metaclass = BaseMetaClass):
     """
     Coordinate Descent (CD) is a very common optimization algorithm that
     minimizes along coordinate directions to find the minimum of a function.
@@ -197,7 +199,7 @@ class CD(Base):
         self.tol = tol
         self.shuffle = shuffle
         self.intercept_value = 0.0
-        self.coef_ = None   # accessed via estimator.coef_
+        # self.coef_ = None   # accessed via estimator.coef_
         self.intercept_ = None
 
     def _check_alpha(self, alpha):
