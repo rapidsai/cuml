@@ -23,7 +23,7 @@
 #include <common/cudart_utils.h>
 #include <cuml/random_projection/rproj_c.h>
 #include <linalg/cublas_wrappers.h>
-#include <sparse/cusparse_wrappers.h>
+#include <raft/sparse/cusparse_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <cuda_utils.cuh>
 #include "rproj_utils.cuh"
@@ -32,7 +32,6 @@ namespace ML {
 
 using namespace MLCommon;
 using namespace MLCommon::LinAlg;
-using namespace MLCommon::Sparse;
 
 /**
 	 * @brief generates a gaussian random matrix
@@ -177,7 +176,6 @@ void RPROJtransform(const cumlHandle& handle, math_t* input,
 
   } else if (random_matrix->type == sparse) {
     cusparseHandle_t cusparse_handle = handle.getImpl().getcusparseHandle();
-    CUSPARSE_CHECK(cusparseSetStream(cusparse_handle, stream));
 
     const math_t alfa = 1;
     const math_t beta = 0;
@@ -190,10 +188,10 @@ void RPROJtransform(const cumlHandle& handle, math_t* input,
     int& lda = m;
     int& ldc = m;
 
-    CUSPARSE_CHECK(cusparsegemmi(
+    CUSPARSE_CHECK(raft::sparse::cusparsegemmi(
       cusparse_handle, m, n, k, nnz, &alfa, input, lda,
       random_matrix->sparse_data.data(), random_matrix->indptr.data(),
-      random_matrix->indices.data(), &beta, output, ldc));
+      random_matrix->indices.data(), &beta, output, ldc, stream));
   } else {
     ASSERT(false,
            "Could not find a random matrix. Please perform a fit operation "
