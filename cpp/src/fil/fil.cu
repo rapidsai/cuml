@@ -135,7 +135,6 @@ struct forest {
 
   void init_common(const forest_params_t* params) {
     depth_ = params->depth;
-    num_trees_ = params->num_trees;
     num_cols_ = params->num_cols;
     algo_ = params->algo;
     output_ = params->output;
@@ -144,7 +143,10 @@ struct forest {
     leaf_payload_type_ = params->leaf_payload_type;
     num_classes_ = params->num_classes;
     output_group_num_ = params->output_group_num;
-    num_output_group_ = params->num_output_group;
+    if (num_classes_ == 2)
+      num_trees_ = params->num_trees;
+    else
+      num_trees_ = params->num_trees / num_classes_;
     init_max_shm();
   }
 
@@ -200,14 +202,14 @@ struct forest {
     if (leaf_payload_type_ == leaf_value_t::FLOAT_SCALAR) {
       if (predict_proba) {
         ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
-        if (num_output_group_ == 1) {
+        if (num_classes_ == 1) {
           // not one of the xgboost multi-class inferences
           params.num_outputs = 2;
           complement_proba = true;
         }
       } else {
         params.num_outputs = 1;
-        if (num_output_group_ > 1)  // xgboost multi-class
+        if (num_classes_ > 1)  // xgboost multi-class
           ot = output_t(ot & ~output_t::CLASS);
       }
       if (ot != output_t::RAW || complement_proba) do_transform = true;
@@ -253,17 +255,22 @@ struct forest {
   float global_bias_ = 0;
   leaf_value_t leaf_payload_type_ = leaf_value_t::FLOAT_SCALAR;
   int num_classes_ = 0;
-  int num_output_group_ = 1;
+  int num_classes_ = 1;
   int output_group_num_ = 0;
 };
 
 struct dense_forest : forest {
   void transform_trees(const dense_node_t* nodes) {
+    int tree_nodes = tree_num_nodes(depth_);
     // populate node information
     for (int i = 0, gid = 0; i < num_trees_; ++i) {
       for (int j = 0, nid = 0; j <= depth_; ++j) {
-        for (int k = 0; k < 1 << j; ++k, ++nid, ++gid) {
+        for (int k = 0; k < 1 << j; ++k, ++nid) {
           h_nodes_[nid * num_trees_ + i] = dense_node(nodes[gid]);
+          ++gid;
+          if (num_classes_ != 2 && 
+              gid / tree_nodes % num_classes_ != output_group_num_)
+            gid += tree_nodes * num_classes_;
         }
       }
     }
@@ -279,7 +286,18 @@ struct dense_forest : forest {
       sizeof(dense_node) * num_nodes, h.getStream());
     h_nodes_.resize(num_nodes);
     if (algo_ == algo_t::NAIVE) {
-      std::copy(nodes, nodes + num_nodes, h_nodes_.begin());
+      if (num_classes_ <= 2)
+        std::copy(nodes, nodes + num_nodes, h_nodes_.begin());
+      else {
+        int tree_nodes = tree_num_nodes(depth_);
+        int t = 0;
+        dense_node_t* src = nodes;
+        while(t < num_trees) {
+          std::copy(src, src + tree_nodes, &h_nodes_[t * tree_nodes]);
+          src += tree_nodes * num_classes_;
+          t++;
+        }
+      }
     } else {
       transform_trees(nodes);
     }
@@ -330,19 +348,33 @@ struct sparse_forest : forest {
     init_common(params);
     if (algo_ == algo_t::ALGO_AUTO) algo_ = algo_t::NAIVE;
     depth_ = 0;  // a placeholder value
-    num_nodes_ = params->num_nodes;
+
+    if (num_classes_ == 2)
+      num_nodes_ = params->num_nodes;
+    else {
+      // TODO(levsnv): scan the node counts
+    }
 
     // trees
     trees_ = (int*)h.getDeviceAllocator()->allocate(sizeof(int) * num_trees_,
                                                     h.getStream());
-    CUDA_CHECK(cudaMemcpyAsync(trees_, trees, sizeof(int) * num_trees_,
-                               cudaMemcpyHostToDevice, h.getStream()));
-
+    if (num_classes_ == 2) {
+      CUDA_CHECK(cudaMemcpyAsync(trees_, trees, sizeof(int) * num_trees_,
+                                 cudaMemcpyHostToDevice, h.getStream()));
+    } else {
+      // dst, dst_pitch[B], src, src_pitch[B], width[B], height[rows]
+      CUDA_CHECK(cudaMemcpyAsync2D(trees_, sizeof(int),
+        trees + output_group_num_, num_classes_ * sizeof(int),
+        sizeof(int), num_trees_,
+        cudaMemcpyHostToDevice, h.getStream()));
+    }
     // nodes
     nodes_ = (node_t*)h.getDeviceAllocator()->allocate(
       sizeof(node_t) * num_nodes_, h.getStream());
     CUDA_CHECK(cudaMemcpyAsync(nodes_, nodes, sizeof(node_t) * num_nodes_,
                                cudaMemcpyHostToDevice, h.getStream()));
+    // TODO(levsnv): segmented copy if tree nodes stored contiguously,
+    // else traverse relevant trees and gather nodes and remap node idxs
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) override {
@@ -389,13 +421,14 @@ void check_params(const forest_params_t* params, bool dense) {
       /* params->num_classes is ignored in this case, since the user might call
          predict_proba() on regression. Hence, no point checking the range of
          an ignored variable */
-      ASSERT(params->num_output_group >= 1,
-             "num_output_group must be positive");
+      ASSERT(params->num_classes >= 1,
+             "num_classes must be positive");
+      ASSERT(params->num_classes <= 2 ||
+             params->num_trees % params->num_classes == 0,
+             "for xgboost-style inference, need the same number of trees "
+             "for each class");
       break;
     case leaf_value_t::INT_CLASS_LABEL:
-      ASSERT(params->num_output_group == 1,
-             "cannot do xgboost-style tree grouping when"
-             " leaf_payload_type == INT_CLASS_LABEL");
       ASSERT(params->num_classes >= 2,
              "num_classes >= 2 is required for "
              "leaf_payload_type == INT_CLASS_LABEL");
@@ -640,9 +673,9 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   size_t leaf_vec_size = tl_leaf_vector_size(model);
   std::string pred_transform(param.pred_transform);
   if (leaf_vec_size > 0) {
-    ASSERT(leaf_vec_size == model.num_output_group,
+    ASSERT(leaf_vec_size == model.num_classes,
            "treelite model inconsistent");
-    params->num_output_group = 1;
+    params->num_classes = 1;
     params->num_classes = leaf_vec_size;
     params->leaf_payload_type = leaf_value_t::INT_CLASS_LABEL;
 
@@ -657,9 +690,9 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     params->num_trees = model.trees.size();
     params->output_group_num = 0;
   } else {
-    params->num_output_group = model.num_output_group;
-    params->num_trees = model.trees.size() / model.num_output_group;
-    if (model.num_output_group > 1) {
+    params->num_classes = model.num_classes;
+    params->num_trees = model.trees.size() / model.num_classes;
+    if (model.num_classes > 1) {
       params->output_group_num = tl_params->output_group_num;
       ASSERT(tl_params->output_class,
              "output_class==true is required for multi-class models");
@@ -705,7 +738,7 @@ struct treelite_tree_it {
     : trees(model.trees) {
     if (leaf_payload_type == FLOAT_SCALAR) {
       tree = tl_params->output_group_num;
-      tree_stride = model.num_output_group;
+      tree_stride = model.num_classes;
     } else {  // INT_CLASS_LABEL
       tree = 0;
       tree_stride = 1;
