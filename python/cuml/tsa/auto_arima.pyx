@@ -409,8 +409,8 @@ class AutoARIMA(Base):
     def predict(self, start=0, end=None, level=None):
         """Compute in-sample and/or out-of-sample prediction for each series
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         start: int
             Index where to start the predictions (0 <= start <= num_samples)
         end:
@@ -420,7 +420,7 @@ class AutoARIMA(Base):
             the point forecasts. 0 < level < 1
 
         Returns
-        --------
+        -------
         y_p : array-like (device)
             Predictions. Shape = (end - start, batch_size)
         lower: array-like (device) (optional)
@@ -462,7 +462,7 @@ class AutoARIMA(Base):
     def forecast(self, nsteps: int, level=None):
         """Forecast `nsteps` into the future.
 
-        Parameters:
+        Parameters
         ----------
         nsteps : int
             The number of steps to forecast beyond end of the given series
@@ -471,7 +471,7 @@ class AutoARIMA(Base):
             the point forecasts. 0 < level < 1
 
         Returns
-        --------
+        -------
         y_fc : array-like
                Forecasts. Shape = (nsteps, batch_size)
         lower: array-like (device) (optional)
@@ -514,7 +514,7 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
     .. note:: in case the mask contains only False or only True, one sub-batch
         will be the original batch (not a copy!) and the other None
 
-    Parameters:
+    Parameters
     ----------
     original : cumlArray (float32 or float64)
         Original batch
@@ -526,7 +526,7 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
         If it is None, a new one is created just for this call
 
     Returns
-    --------
+    -------
     out0 : cumlArray (float32 or float64)
         Sub-batch 0, or None if empty
     batch0_id : cumlArray (int)
@@ -633,7 +633,7 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
     """Divide a given batch into multiple sub-batches according to the values
     of the given metrics, by selecting the minimum value for each member
 
-    Parameters:
+    Parameters
     ----------
     original : cumlArray (float32 or float64)
         Original batch
@@ -645,7 +645,7 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
         If it is None, a new one is created just for this call
 
     Returns
-    --------
+    -------
     sub_batches : List[cumlArray] (float32 or float64)
         List of arrays containing each sub-batch, or None if empty
     sub_id : List[cumlArray] (int)
@@ -752,7 +752,7 @@ def _build_division_map(id_tracker, batch_size, handle=None):
     """Build a map to associate each batch member with a model and index in
     the associated sub-batch
 
-    Parameters:
+    Parameters
     ----------
     id_tracker : List[cumlArray] (int)
         List of the index arrays of each sub-batch
@@ -760,7 +760,7 @@ def _build_division_map(id_tracker, batch_size, handle=None):
         Size of the initial batch
 
     Returns
-    --------
+    -------
     id_to_model : cumlArray (int)
         Associates each batch member with a model
     id_to_pos : cumlArray (int)
@@ -804,7 +804,7 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
     associate each id in the unique batch to a sub-batch and a position in
     this sub-batch.
 
-    Parameters:
+    Parameters
     ----------
     data_in : List[cumlArray] (float32 or float64)
         List of sub-batches to merge
@@ -816,7 +816,7 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
         Size of the initial batch
 
     Returns
-    --------
+    -------
     data_out : cumlArray (float32 or float64)
         Merged batch
     """
