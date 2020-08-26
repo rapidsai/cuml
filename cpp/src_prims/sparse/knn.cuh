@@ -99,6 +99,16 @@ struct csr_batcher_t {
   value_idx batch_csr_stop_offset_;
 };
 
+template <typename value_idx>
+__global__ void iota_fill_kernel(value_idx *indices, value_idx nrows,
+                                 value_idx ncols) {
+  value_idx index = blockIdx.x * blockDim.x + threadIdx.x;
+
+  value_idx i = index / ncols, j = index % ncols;
+
+  if (i < nrows && j < ncols) indices[i * ncols + j] = j;
+}
+
 /**
    * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
    * using some distance implementation
@@ -247,71 +257,78 @@ void brute_force_knn(
        */
       value_idx dense_size =
         idx_batcher.batch_rows() * query_batcher.batch_rows();
-      device_buffer<value_t> out_batch_dense(allocator, stream, dense_size);
+      device_buffer<value_t> batch_dists(allocator, stream, dense_size);
 
       csr_to_dense(cusparseHandle, query_batcher.batch_rows(),
                    idx_batcher.batch_rows(), out_batch_indptr.data(),
                    out_batch_indices.data(), out_batch_data.data(), true,
-                   out_batch_dense.data(), stream);
+                   batch_dists.data(), stream);
 
       out_batch_indptr.release(stream);
       out_batch_indices.release(stream);
       out_batch_data.release(stream);
 
+      // Build batch indices array
+      device_buffer<value_idx> batch_indices(allocator, stream,
+                                             batch_dists.size());
+
+      // populate batch indices array
+      value_idx batch_rows = query_batcher.batch_rows(),
+                batch_cols = idx_batcher.batch_rows();
+      iota_fill_kernel<<<ceildiv(batch_rows * batch_cols, 256), 256, 0,
+                         stream>>>(batch_indices.data(), batch_rows,
+                                   batch_cols);
+
       /**
        * Perform k-selection on batch & merge with other k-selections
        */
-      device_buffer<value_idx> batch_indices(allocator, stream,
-                                             out_batch_dense.size());
-      device_buffer<value_t> batch_dists(allocator, stream,
-                                         out_batch_dense.size());
-
-      // even numbers take bottom, odd numbers take top, merging until end of loop,
-      // where output matrix is populated.
-      size_t merge_buffer_offset = j % 2 == 0 ? 0 : n_query_rows * k;
+      size_t merge_buffer_offset = batch_rows * k;
       dists_merge_buffer_ptr = merge_buffer_dists.data() + merge_buffer_offset;
       indices_merge_buffer_ptr =
         merge_buffer_indices.data() + merge_buffer_offset;
 
-      size_t merge_buffer_tmp_out = n_query_rows * k * 2;
-      value_t *dists_merge_buffer_tmp_ptr =
-        merge_buffer_dists.data() + merge_buffer_tmp_out;
-      value_idx *indices_merge_buffer_tmp_ptr =
-        merge_buffer_indices.data() + merge_buffer_tmp_out;
-
       // build translation buffer to shift resulting indices by the batch
       std::vector<value_idx> id_ranges;
       id_ranges.push_back(0);
-
-      if (idx_batcher.batch_start() > 0)
-        id_ranges.push_back(idx_batcher.batch_start());
+      id_ranges.push_back(idx_batcher.batch_start());
 
       // kernel to slice first (min) k cols and copy into batched merge buffer
-      select_k(batch_dists.data(), batch_indices.data(),
-               query_batcher.batch_rows(), idx_batcher.batch_rows(),
+      select_k(batch_dists.data(), batch_indices.data(), batch_rows, batch_cols,
                dists_merge_buffer_ptr, indices_merge_buffer_ptr, ascending, k,
                stream,
                /*translation for current batch*/
                id_ranges[1]);
 
-      // combine merge buffers only if there's more than 1 partition to combine
-      MLCommon::Selection::knn_merge_parts(
-        dists_merge_buffer_ptr, indices_merge_buffer_ptr,
-        dists_merge_buffer_tmp_ptr, indices_merge_buffer_tmp_ptr,
-        query_batcher.batch_rows(), 2, k, stream, id_ranges.data());
+      size_t merge_buffer_tmp_out = batch_rows * k * 2;
+      value_t *dists_merge_buffer_tmp_ptr = dists_merge_buffer_ptr;
+      value_idx *indices_merge_buffer_tmp_ptr = indices_merge_buffer_ptr;
+
+      // Merge results of difference batches if necessary
+      if (idx_batcher.batch_start() > 0) {
+        dists_merge_buffer_tmp_ptr =
+          merge_buffer_dists.data() + merge_buffer_tmp_out;
+        indices_merge_buffer_tmp_ptr =
+          merge_buffer_indices.data() + merge_buffer_tmp_out;
+
+        // combine merge buffers only if there's more than 1 partition to combine
+        MLCommon::Selection::knn_merge_parts(
+          dists_merge_buffer_ptr, indices_merge_buffer_ptr,
+          dists_merge_buffer_tmp_ptr, indices_merge_buffer_tmp_ptr,
+          query_batcher.batch_rows(), 2, k, stream, id_ranges.data());
+      }
 
       // copy merged output back into merge buffer partition for next iteration
-      copyAsync(indices_merge_buffer_ptr, indices_merge_buffer_tmp_ptr,
-                query_batcher.batch_rows() * k, stream);
-      copyAsync(dists_merge_buffer_ptr, dists_merge_buffer_tmp_ptr,
-                query_batcher.batch_rows() * k, stream);
+      copyAsync(merge_buffer_indices.data(), indices_merge_buffer_tmp_ptr,
+                batch_rows * k, stream);
+      copyAsync(merge_buffer_dists.data(), dists_merge_buffer_tmp_ptr,
+                batch_rows * k, stream);
     }
 
     // Copy final merged batch to output array
     copyAsync(output_indices, indices_merge_buffer_ptr,
-              query_batcher.batch_start() * k, stream);
+              query_batcher.batch_rows() * k, stream);
     copyAsync(output_dists, dists_merge_buffer_ptr,
-              query_batcher.batch_start() * k, stream);
+              query_batcher.batch_rows() * k, stream);
   }
 }
 
