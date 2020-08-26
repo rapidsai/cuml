@@ -131,10 +131,10 @@ if not libcuml_path:
 #    exists on a different command.
 #
 # Using custom commands also allows combining commands at the command line. For
-# example, the following will all work as expected: `python setup.py clean
-# --all build --singlegpu build_ext --inplace` `python setup.py clean --all
-# build --singlegpu install --record=record.txt` `python setup.py build_ext
-# --debug --singlegpu`
+# example, the following will all work as expected:
+# `python setup.py clean --all build --singlegpu build_ext --inplace`
+# `python setup.py clean --all build --singlegpu install --record=record.txt`
+# `python setup.py build_ext --debug --singlegpu`
 
 
 class cuml_build(_build):
@@ -198,7 +198,7 @@ class cuml_build(_build):
                       ],
                       libraries=libs,
                       language='c++',
-              extra_compile_args=['-std=c++14'])
+                      extra_compile_args=['-std=c++14'])
         ]
 
         self.distribution.ext_modules = extensions
