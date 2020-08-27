@@ -145,6 +145,75 @@ struct ip_distances_t {
   distances_config_t<value_idx, value_t> config_;
 };
 
+
+template<typename value_idx, typename value_t>
+__global__
+void compute_sq_norm_kernel(value_t *out, value_idx *csr_indices, value_t *csr_data, value_idx nnz) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (i < nnz)
+    atomicAdd(&out[csr_indices[i]], csr_data[i] * csr_data[i]);
+}
+
+template<typename value_idx, typename value_t>
+__global__
+void compute_euclidean_kernel(value_t *C, value_t *Q_sq_norms, value_t *R_sq_norms, value_idx n_rows, value_idx n_cols) {
+  int index = blockIdx.x * blockDim.x + threadIdx.x;
+
+  int i = index / n_cols;
+  int j = index % n_cols;
+
+  // Cuda store row major.
+  if (i < n_rows && j < n_cols)
+    C[i * n_cols + j] = Q_sq_norms[i] - 2.0 * C[i * n_cols + j] + R_sq_norms[j];
+}
+
+template <typename value_idx, typename value_t, int tpb=256>
+void compute_l2(value_t *out, value_idx *Q_csr_indices, value_t *Q_csr_data, value_idx Q_nnz,
+                  value_idx *R_csr_indices, value_t *R_csr_data, value_idx R_nnz,
+                  value_idx m, value_idx n, cusparseHandle_t handle, std::shared_ptr<deviceAllocator> alloc,
+				  cudaStream_t stream) {
+
+  device_buffer<value_t> Q_sq_norms(alloc, stream, m);
+  device_buffer<value_t> R_sq_norms(alloc, stream, n);
+
+  get_col_norms<<<ceildiv(Q_nnz, tpb), tpb, 0, stream>>>(Q_sq_norms.data(), Q_csr_indices, Q_csr_data, Q_nnz);
+  get_col_norms<<<ceildiv(R_nnz, tpb), tpb, 0, stream>>>(R_sq_norms.data(), R_csr_indices, R_csr_data, R_nnz);
+
+  add_norms<<<ceildiv(m * n, tpb), tpb, 0, stream>>>(out, Q_sq_norms.data(), R_sq_norms.data(), m, n);
+}
+
+/**
+ * L2 distance using the expanded form: sum(x_k)^2 + sum(y_k)^2 - 2 * sum(x_k * y_k)
+ */
+template <typename value_idx = int, typename value_t = float>
+struct l2_distances_t {
+  explicit l2_distances_t(distances_config_t<value_idx, value_t> config)
+    : config_(config),
+      workspace(config.allocator, config.stream, 0), ip_dists(config) {
+  }
+
+  value_idx get_nnz(value_idx *csr_out_indptr) {
+    return ip_dists.get_nnz(csr_out_indptr);
+  }
+
+  void compute(const value_idx *csr_out_indptr, value_idx *csr_out_indices,
+               value_t *csr_out_data) {
+    value_idx m = config_.search_nrows, n = config_.index_nrows,
+              k = config_.search_ncols;
+
+    //TODO: Output dense directly and just make a compute call.
+
+  }
+
+  private:
+	  distances_config_t<value_idx, value_t> config_;
+	  device_buffer<char> workspace;
+	  ip_distances_t<value_idx, value_t> ip_dists;
+};
+
+
+
 };  // END namespace Distance
 };  // END namespace Sparse
 };  // END namespace MLCommon
