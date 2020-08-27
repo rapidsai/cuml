@@ -85,7 +85,7 @@ class SmoSolver {
       nochange_steps(param.nochange_steps),
       epsilon(param.epsilon),
       svmType(param.svmType),
-      stream(handle.getStream()),
+      stream(handle.get_stream()),
       return_buff(handle.get_device_allocator(), stream, 2),
       alpha(handle.get_device_allocator(), stream),
       C_vec(handle.get_device_allocator(), stream),
@@ -192,13 +192,13 @@ class SmoSolver {
     // multipliers used in the equation : f = 1*cachtile * delta_alpha + 1*f
     math_t one = 1;
     CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
-      handle.getCublasHandle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
+      handle.get_cublas_handle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
       n_rows, delta_alpha, 1, &one, f, 1, stream));
     if (svmType == EPSILON_SVR) {
       // SVR has doubled the number of trainig vectors and we need to update
       // alpha for both batches individually
       CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
-        handle.getCublasHandle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
+        handle.get_cublas_handle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
         n_rows, delta_alpha, 1, &one, f + n_rows, 1, stream));
     }
   }

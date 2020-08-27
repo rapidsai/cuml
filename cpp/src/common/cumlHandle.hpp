@@ -36,6 +36,9 @@
 
 namespace ML {
 
+using MLCommon::deviceAllocator;
+using MLCommon::hostAllocator;
+
 /**
  * Map from integral cumlHandle_t identifiers to cumlHandle pointer protected
  * by a mutex for thread-safe access.

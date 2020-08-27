@@ -28,7 +28,7 @@
 #endif  //HAVE_CUB
 
 #ifdef HAVE_RMM
-#include <cuml/common/rmmAllocatorAdapter.hpp>
+#include <raft/mr/device/allocator.hpp>
 #endif  //HAVE_RMM
 
 #include <cuml/cluster/dbscan.hpp>
@@ -154,13 +154,10 @@ int main(int argc, char* argv[]) {
   }
 #endif  //HAVE_RMM
 #ifdef HAVE_RMM
-  std::shared_ptr<ML::deviceAllocator> allocator(new ML::rmmAllocatorAdapter());
+  std::shared_ptr<ML::deviceAllocator> allocator(new raft::mr::device::default_allocator());
 #elif defined(HAVE_CUB)
   std::shared_ptr<ML::deviceAllocator> allocator(
     new ML::cachingDeviceAllocator());
-#else
-  std::shared_ptr<ML::deviceAllocator> allocator(
-    new ML::defaultDeviceAllocator());
 #endif  // HAVE_RMM
   raft::handle_t.set_device_allocator(allocator);
 

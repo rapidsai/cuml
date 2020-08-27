@@ -162,7 +162,7 @@ void holtwinters_eval_gpu(const raft::handle_t &handle, const Dtype *ts,
                           const Dtype *beta, const Dtype *gamma, Dtype *level,
                           Dtype *trend, Dtype *season, Dtype *xhat,
                           Dtype *error, ML::SeasonalType seasonal) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto dev_allocator =
     handle.get_device_allocator();
 

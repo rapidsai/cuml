@@ -364,7 +364,7 @@ void DecisionTreeClassifier<T>::fit(
   this->tree_params = tree_parameters;
   this->base_fit(handle.get_device_allocator(),
                  handle.getHostAllocator(),
-                 handle.getStream(), data, ncols, nrows, labels,
+                 handle.get_stream(), data, ncols, nrows, labels,
                  rowids, n_sampled_rows, unique_labels, tree->sparsetree,
                  tree->treeid, true, in_tempmem);
   this->set_metadata(tree);
@@ -396,7 +396,7 @@ void DecisionTreeRegressor<T>::fit(
   this->tree_params = tree_parameters;
   this->base_fit(
     handle.get_device_allocator(), handle.getHostAllocator(),
-    handle.getStream(), data, ncols, nrows, labels, rowids,
+    handle.get_stream(), data, ncols, nrows, labels, rowids,
     n_sampled_rows, 1, tree->sparsetree, tree->treeid, false, in_tempmem);
   this->set_metadata(tree);
 }

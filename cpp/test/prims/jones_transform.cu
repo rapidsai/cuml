@@ -100,7 +100,7 @@ template
     MLCommon::updateDevice(d_golden_ar_trans, newParams, (size_t)nElements,
                            stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new defaultDeviceAllocator);
+      new raft::mr::device::default_allocator);
 
     //calling the ar_trans_param CUDA implementation
     MLCommon::TimeSeries::jones_transform(d_params, params.batchSize,

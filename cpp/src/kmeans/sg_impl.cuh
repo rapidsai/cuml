@@ -28,7 +28,7 @@ template <typename DataT, typename IndexT>
 void initRandom(const raft::handle_t &handle, const KMeansParams &params,
                 Tensor<DataT, 2, IndexT> &X,
                 MLCommon::device_buffer<DataT> &centroidsRawData) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
   // allocate centroids buffer
@@ -46,7 +46,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
          MLCommon::device_buffer<DataT> &centroidsRawData, DataT &inertia,
          int &n_iter, MLCommon::device_buffer<char> &workspace) {
   ML::Logger::get().setLevel(params.verbosity);
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
@@ -268,7 +268,7 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
                         const KMeansParams &params, Tensor<DataT, 2, IndexT> &X,
                         MLCommon::device_buffer<DataT> &centroidsRawData,
                         MLCommon::device_buffer<char> &workspace) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
@@ -305,7 +305,7 @@ void initScalableKMeansPlusPlus(
   const raft::handle_t &handle, const KMeansParams &params,
   Tensor<DataT, 2, IndexT> &X, MLCommon::device_buffer<DataT> &centroidsRawData,
   MLCommon::device_buffer<char> &workspace) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
@@ -499,7 +499,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &km_params,
          const DataT *sample_weight, DataT *centroids, DataT &inertia,
          int &n_iter) {
   ML::Logger::get().setLevel(km_params.verbosity);
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
 
   ASSERT(n_samples > 0, "# of samples must be > 0");
 
@@ -618,7 +618,7 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
              const int n_features, const DataT *sample_weight,
              IndexT *labelsRawPtr, DataT &inertia) {
   ML::Logger::get().setLevel(params.verbosity);
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto n_clusters = params.n_clusters;
 
   ASSERT(n_clusters > 0 && cptr != nullptr, "no clusters exist");
@@ -729,7 +729,7 @@ void transform(const raft::handle_t &handle, const KMeansParams &params,
                const DataT *cptr, const DataT *Xptr, int n_samples,
                int n_features, int transform_metric, DataT *X_new) {
   ML::Logger::get().setLevel(params.verbosity);
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto n_clusters = params.n_clusters;
   ML::Distance::DistanceType metric =
     static_cast<ML::Distance::DistanceType>(transform_metric);

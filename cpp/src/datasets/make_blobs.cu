@@ -28,7 +28,7 @@ void make_blobs(const raft::handle_t& handle, float* out, int64_t* labels,
                 float center_box_min, float center_box_max, uint64_t seed) {
   MLCommon::Random::make_blobs(
     out, labels, n_rows, n_cols, n_clusters, handle.get_device_allocator(),
-    handle.getStream(), row_major, centers, cluster_std, cluster_std_scalar,
+    handle.get_stream(), row_major, centers, cluster_std, cluster_std_scalar,
     shuffle, center_box_min, center_box_max, seed);
 }
 
@@ -40,7 +40,7 @@ void make_blobs(const raft::handle_t& handle, double* out, int64_t* labels,
                 uint64_t seed) {
   MLCommon::Random::make_blobs(
     out, labels, n_rows, n_cols, n_clusters, handle.get_device_allocator(),
-    handle.getStream(), row_major, centers, cluster_std, cluster_std_scalar,
+    handle.get_stream(), row_major, centers, cluster_std, cluster_std_scalar,
     shuffle, center_box_min, center_box_max, seed);
 }
 
@@ -51,7 +51,7 @@ void make_blobs(const raft::handle_t& handle, float* out, int* labels, int n_row
                 float center_box_min, float center_box_max, uint64_t seed) {
   MLCommon::Random::make_blobs(
     out, labels, n_rows, n_cols, n_clusters, handle.get_device_allocator(),
-    handle.getStream(), row_major, centers, cluster_std, cluster_std_scalar,
+    handle.get_stream(), row_major, centers, cluster_std, cluster_std_scalar,
     shuffle, center_box_min, center_box_max, seed);
 }
 
@@ -62,7 +62,7 @@ void make_blobs(const raft::handle_t& handle, double* out, int* labels, int n_ro
                 double center_box_min, double center_box_max, uint64_t seed) {
   MLCommon::Random::make_blobs(
     out, labels, n_rows, n_cols, n_clusters, handle.get_device_allocator(),
-    handle.getStream(), row_major, centers, cluster_std, cluster_std_scalar,
+    handle.get_stream(), row_major, centers, cluster_std, cluster_std_scalar,
     shuffle, center_box_min, center_box_max, seed);
 }
 }  // namespace Datasets

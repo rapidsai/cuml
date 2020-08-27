@@ -124,9 +124,9 @@ template <typename T>
 void sign_flip_imp(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input,
                    Matrix::PartDescriptor &input_desc, T *components,
                    int n_components, cudaStream_t *streams, int n_stream) {
-  int rank = handle.getCommunicator().get_rank();
+  int rank = handle.get_comms().get_rank();
 
-  const auto &comm = handle.getCommunicator();
+  const auto &comm = handle.get_comms();
   const auto allocator =
     handle.get_device_allocator();
 

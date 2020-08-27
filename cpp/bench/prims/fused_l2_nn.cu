@@ -33,7 +33,7 @@ template <typename T>
 struct FusedL2NN : public Fixture {
   FusedL2NN(const std::string& name, const FLNParams& p)
     : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+              std::shared_ptr<deviceAllocator>(new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:

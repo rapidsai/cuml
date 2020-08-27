@@ -63,7 +63,7 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
     MLCommon::updateDevice(d_candidatePDF, &h_candidatePDF[0], (int)nElements,
                            stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new defaultDeviceAllocator);
+      new raft::mr::device::default_allocator);
 
     //generating the golden output
     for (int i = 0; i < nElements; ++i) {

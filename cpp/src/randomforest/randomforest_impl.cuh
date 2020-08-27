@@ -173,16 +173,16 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
   const raft::handle_t& handle = user_handle.getImpl();
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
-  ASSERT(n_streams <= handle.getNumInternalStreams(),
+  ASSERT(n_streams <= handle.get_num_internal_streams(),
          "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%d)",
-         n_streams, handle.getNumInternalStreams());
+         n_streams, handle.get_num_internal_streams());
 
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
   // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
   MLCommon::device_buffer<unsigned int>* selected_rows[n_streams];
   for (int i = 0; i < n_streams; i++) {
-    auto s = handle.getInternalStream(i);
+    auto s = handle.get_internal_stream(i);
     selected_rows[i] = new MLCommon::device_buffer<unsigned int>(
       handle.get_device_allocator(), s, n_sampled_rows);
   }
@@ -190,7 +190,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem[n_streams];
   for (int i = 0; i < n_streams; i++) {
     tempmem[i] = std::make_shared<TemporaryMemory<T, int>>(
-      handle, handle.getInternalStream(i), n_rows, n_cols, n_unique_labels,
+      handle, handle.get_internal_stream(i), n_rows, n_cols, n_unique_labels,
       this->rf_params.tree_params);
   }
   //Preprocess once only per forest
@@ -244,7 +244,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     delete selected_rows[i];
   }
 
-  CUDA_CHECK(cudaStreamSynchronize(user_handle.getStream()));
+  CUDA_CHECK(cudaStreamSynchronize(user_handle.get_stream()));
 }
 
 /**
@@ -266,7 +266,7 @@ void rfClassifier<T>::predict(const raft::handle_t& user_handle, const T* input,
   this->error_checking(input, predictions, n_rows, n_cols, true);
   std::vector<int> h_predictions(n_rows);
   const raft::handle_t& handle = user_handle.getImpl();
-  cudaStream_t stream = user_handle.getStream();
+  cudaStream_t stream = user_handle.get_stream();
 
   std::vector<T> h_input(n_rows * n_cols);
   MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
@@ -333,7 +333,7 @@ void rfClassifier<T>::predictGetAll(const raft::handle_t& user_handle,
 
   std::vector<T> h_input(n_rows * n_cols);
   const raft::handle_t& handle = user_handle.getImpl();
-  cudaStream_t stream = user_handle.getStream();
+  cudaStream_t stream = user_handle.get_stream();
   MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -380,7 +380,7 @@ RF_metrics rfClassifier<T>::score(const raft::handle_t& user_handle,
                                   const int* ref_labels, int n_rows,
                                   const int* predictions, int verbosity) {
   ML::Logger::get().setLevel(verbosity);
-  cudaStream_t stream = user_handle.getImpl().getStream();
+  cudaStream_t stream = user_handle.getImpl().get_stream();
   auto d_alloc = user_handle.get_device_allocator();
   float accuracy = MLCommon::Score::accuracy_score(predictions, ref_labels,
                                                    n_rows, d_alloc, stream);
@@ -442,16 +442,16 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
   const raft::handle_t& handle = user_handle.getImpl();
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
-  ASSERT(n_streams <= handle.getNumInternalStreams(),
+  ASSERT(n_streams <= handle.get_num_internal_streams(),
          "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%d)",
-         n_streams, handle.getNumInternalStreams());
+         n_streams, handle.get_num_internal_streams());
 
-  cudaStream_t stream = user_handle.getStream();
+  cudaStream_t stream = user_handle.get_stream();
   // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
   // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
   MLCommon::device_buffer<unsigned int>* selected_rows[n_streams];
   for (int i = 0; i < n_streams; i++) {
-    auto s = handle.getInternalStream(i);
+    auto s = handle.get_internal_stream(i);
     selected_rows[i] = new MLCommon::device_buffer<unsigned int>(
       handle.get_device_allocator(), s, n_sampled_rows);
   }
@@ -459,7 +459,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem[n_streams];
   for (int i = 0; i < n_streams; i++) {
     tempmem[i] = std::make_shared<TemporaryMemory<T, T>>(
-      handle, handle.getInternalStream(i), n_rows, n_cols, 1,
+      handle, handle.get_internal_stream(i), n_rows, n_cols, 1,
       this->rf_params.tree_params);
   }
   //Preprocess once only per forest
@@ -510,7 +510,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     delete selected_rows[i];
   }
 
-  CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
 
 /**
@@ -533,7 +533,7 @@ void rfRegressor<T>::predict(const raft::handle_t& user_handle, const T* input,
 
   std::vector<T> h_predictions(n_rows);
   const raft::handle_t& handle = user_handle.getImpl();
-  cudaStream_t stream = user_handle.getStream();
+  cudaStream_t stream = user_handle.get_stream();
 
   std::vector<T> h_input(n_rows * n_cols);
   MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
@@ -584,7 +584,7 @@ RF_metrics rfRegressor<T>::score(const raft::handle_t& user_handle,
                                  const T* ref_labels, int n_rows,
                                  const T* predictions, int verbosity) {
   ML::Logger::get().setLevel(verbosity);
-  cudaStream_t stream = user_handle.getImpl().getStream();
+  cudaStream_t stream = user_handle.getImpl().get_stream();
   auto d_alloc = user_handle.get_device_allocator();
 
   double mean_abs_error, mean_squared_error, median_abs_error;

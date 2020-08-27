@@ -46,7 +46,7 @@ class hostAllocatorFunctionWrapper : public raft::mr::host::allocator {
   const std::function<cudaError_t(void*, size_t, cudaStream_t)> _deallocate_fn;
 };
 
-class deviceAllocatorFunctionWrapper : public raft::mr::device::allocator {
+class deviceAllocatorFunctionWrapper : public raft::mr::device::default_allocator {
  public:
   deviceAllocatorFunctionWrapper(cuml_allocate allocate_fn,
                                  cuml_deallocate deallocate_fn)
@@ -115,7 +115,7 @@ extern "C" cumlError_t cumlGetStream(cumlHandle_t handle,
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
-      *stream = handle_ptr->getStream();
+      *stream = handle_ptr->get_stream();
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)

@@ -30,7 +30,7 @@ template <typename T>
 struct MatVecOp : public Fixture {
   MatVecOp(const std::string& name, const Params& p)
     : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+              std::shared_ptr<deviceAllocator>(new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:

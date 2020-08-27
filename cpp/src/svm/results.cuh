@@ -62,7 +62,7 @@ class Results {
   Results(const raft::handle_t &handle, const math_t *x, const math_t *y,
           int n_rows, int n_cols, const math_t *C, SvmType svmType)
     : allocator(handle.get_device_allocator()),
-      stream(handle.getStream()),
+      stream(handle.get_stream()),
       handle(handle),
       n_rows(n_rows),
       n_cols(n_cols),

@@ -174,13 +174,13 @@ void perform_local_operation(T *out, int64_t *knn_indices, T *labels,
     y[o] = labels + (o * n_labels);
   }
 
-  cudaStream_t stream = h.getStream();
+  cudaStream_t stream = h.get_stream();
   const auto alloc = h.get_device_allocator();
 
-  int n_int_streams = handle.getNumInternalStreams();
+  int n_int_streams = handle.get_num_internal_streams();
   cudaStream_t int_streams[n_int_streams];
   for (int i = 0; i < n_int_streams; i++) {
-    int_streams[i] = handle.getInternalStream(i);
+    int_streams[i] = handle.get_internal_stream(i);
   }
 
   launch_local_operation<T>(out, knn_indices, y, total_labels, cur_batch_size,
@@ -201,7 +201,7 @@ void reduce(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
             std::vector<int *> *uniq_labels = nullptr,
             std::vector<int> *n_unique = nullptr) {
   const raft::handle_t &h = handle;
-  cudaStream_t stream = h.getStream();
+  cudaStream_t stream = h.get_stream();
   const auto alloc = h.get_device_allocator();
 
   device_buffer<int64_t> trans(alloc, stream, idxRanks.size());
@@ -416,8 +416,8 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
   }
 
   const raft::handle_t &h = handle;
-  const auto &comm = h.getCommunicator();
-  cudaStream_t stream = h.getStream();
+  const auto &comm = h.get_comms();
+  cudaStream_t stream = h.get_stream();
 
   const auto allocator = h.get_device_allocator();
 
@@ -521,14 +521,14 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
         // Offset nearest neighbor index matrix by partition indices
         std::vector<size_t> start_indices = idx_desc.startIndices(my_rank);
 
-        cudaStream_t int_streams[handle.getNumInternalStreams()];
-        for (int i = 0; i < handle.getNumInternalStreams(); i++) {
-          int_streams[i] = handle.getInternalStream(i);
+        cudaStream_t int_streams[handle.get_num_internal_streams()];
+        for (int i = 0; i < handle.get_num_internal_streams(); i++) {
+          int_streams[i] = handle.get_internal_stream(i);
         }
 
         perform_local_knn(res_I.data(), res_D.data(), idx_data, idx_desc,
                           local_idx_parts, start_indices, stream, int_streams,
-                          handle.getNumInternalStreams(),
+                          handle.get_num_internal_streams(),
                           handle.get_device_allocator(), cur_batch_size, k,
                           cur_query_ptr, rowMajorIndex, rowMajorQuery);
 

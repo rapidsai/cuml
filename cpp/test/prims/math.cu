@@ -124,7 +124,7 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
 
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocator.reset(new defaultDeviceAllocator);
+    allocator.reset(new raft::mr::device::default_allocator);
 
     allocate(in_ratio, 4);
     T in_ratio_h[4] = {1.0, 2.0, 2.0, 3.0};

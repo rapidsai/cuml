@@ -46,7 +46,7 @@ struct QuasiNewtonTest : ::testing::Test {
   std::shared_ptr<deviceAllocator> allocator;
   QuasiNewtonTest() : handle(cuml_handle.getImpl()) {}
   void SetUp() {
-    stream = cuml_handle.getStream();
+    stream = cuml_handle.get_stream();
     Xdev.reset(new SimpleMatOwning<double>(handle.get_device_allocator(), N, D,
                                            stream, ROW_MAJOR));
     updateDevice(Xdev->data, &X[0][0], Xdev->len, stream);

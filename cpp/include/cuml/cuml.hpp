@@ -21,3 +21,8 @@
 #include <memory>
 #include <vector>
 #include <raft/handle.hpp>
+
+namespace ML {
+    using MLCommon::deviceAllocator;
+    using MLCommon::hostAllocator;
+}

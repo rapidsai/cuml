@@ -45,7 +45,7 @@ void launcher(const raft::handle_t &handle, const T *X, int n, int d,
               const int64_t *knn_indices, const T *knn_dists,
               MLCommon::Sparse::COO<float> *coo, UMAPParams *params,
               T *embedding) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
 
   ASSERT(n > params->n_components,
          "Spectral layout requires n_samples > n_components");
@@ -59,7 +59,7 @@ void launcher(const raft::handle_t &handle, const T *X, int n, int d,
 
   MLCommon::LinAlg::transpose(tmp_storage.data(), embedding, n,
                               params->n_components,
-                              handle.getCublasHandle(), stream);
+                              handle.get_cublas_handle(), stream);
 
   MLCommon::LinAlg::unaryOp<T>(
     tmp_storage.data(), tmp_storage.data(), n * params->n_components,

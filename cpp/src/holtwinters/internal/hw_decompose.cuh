@@ -42,7 +42,7 @@ void conv1d(const raft::handle_t &handle, const Dtype *input,
   int total_threads = batch_size;
   conv1d_kernel<Dtype>
     <<<GET_NUM_BLOCKS(total_threads), GET_THREADS_PER_BLOCK(total_threads), 0,
-       handle.getStream()>>>(input, batch_size, filter, filter_size, output,
+       handle.get_stream()>>>(input, batch_size, filter, filter_size, output,
                              output_size);
 }
 
@@ -81,7 +81,7 @@ template <typename Dtype>
 void season_mean(const raft::handle_t &handle, const Dtype *season,
                  int len, int batch_size, Dtype *start_season, int frequency,
                  int half_filter_size, ML::SeasonalType seasonal) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   bool is_additive = seasonal == ML::SeasonalType::ADDITIVE;
   season_mean_kernel<Dtype>
     <<<GET_NUM_BLOCKS(batch_size), GET_THREADS_PER_BLOCK(batch_size), 0,
@@ -123,9 +123,9 @@ __global__ void batched_ls_solver_kernel(const Dtype *B, const Dtype *rq,
 template <typename Dtype>
 void batched_ls(const raft::handle_t &handle, const Dtype *data,
                 int trend_len, int batch_size, Dtype *level, Dtype *trend) {
-  cudaStream_t stream = handle.getStream();
-  cublasHandle_t cublas_h = handle.getCublasHandle();
-  cusolverDnHandle_t cusolver_h = handle.getcusolverDnHandle();
+  cudaStream_t stream = handle.get_stream();
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
+  cusolverDnHandle_t cusolver_h = handle.get_cusolver_dn_handle();
   auto dev_allocator =
     handle.get_device_allocator();
 
@@ -188,8 +188,8 @@ void stl_decomposition_gpu(const raft::handle_t &handle, const Dtype *ts,
                            int start_periods, Dtype *start_level,
                            Dtype *start_trend, Dtype *start_season,
                            ML::SeasonalType seasonal) {
-  cudaStream_t stream = handle.getStream();
-  cublasHandle_t cublas_h = handle.getCublasHandle();
+  cudaStream_t stream = handle.get_stream();
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
   auto dev_allocator =
     handle.get_device_allocator();
 

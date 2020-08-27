@@ -66,7 +66,7 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y, const int 
       " might be a bit strange...");
 
   auto d_alloc = handle.get_device_allocator();
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
 
   START_TIMER;
   //---------------------------------------------------

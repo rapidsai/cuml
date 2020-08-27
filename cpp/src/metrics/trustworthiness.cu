@@ -37,7 +37,7 @@ template <typename math_t, ML::Distance::DistanceType distance_type>
 double trustworthiness_score(const raft::handle_t& h, math_t* X, math_t* X_embedded,
                              int n, int m, int d, int n_neighbors,
                              int batchSize) {
-  cudaStream_t stream = h.getStream();
+  cudaStream_t stream = h.get_stream();
   auto d_alloc = h.get_device_allocator();
 
   return MLCommon::Score::trustworthiness_score<math_t, distance_type>(

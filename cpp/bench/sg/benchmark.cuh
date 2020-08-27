@@ -33,7 +33,7 @@ class Fixture : public MLCommon::Bench::Fixture {
  public:
   Fixture(const std::string& name)
     : MLCommon::Bench::Fixture(
-        name, std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)) {}
+        name, std::shared_ptr<deviceAllocator>(new raft::mr::device::default_allocator)) {}
   Fixture() = delete;
 
   void SetUp(const ::benchmark::State& state) override {

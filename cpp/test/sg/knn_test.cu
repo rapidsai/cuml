@@ -61,7 +61,7 @@ void create_index_parts(raft::handle_t &handle, float *query_data,
                         int *query_labels, vector<float *> &part_inputs,
                         vector<int *> &part_labels, vector<int> &part_sizes,
                         const KNNInputs &params, const float *centers) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   gen_blobs<float>(handle, query_data, query_labels,
                    params.n_rows * params.n_parts, params.n_cols,
                    params.n_centers, centers);
@@ -104,7 +104,7 @@ template <typename T>
 class KNNTest : public ::testing::TestWithParam<KNNInputs> {
  protected:
   void testBruteForce() {
-    cudaStream_t stream = handle.getStream();
+    cudaStream_t stream = handle.get_stream();
 
     allocate(actual_labels,
              params.n_query_row * params.n_neighbors * params.n_parts, true);
@@ -131,7 +131,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   }
 
   void testClassification() {
-    cudaStream_t stream = handle.getStream();
+    cudaStream_t stream = handle.get_stream();
 
     allocate(actual_labels, params.n_query_row, true);
     allocate(expected_labels, params.n_query_row, true);
@@ -154,7 +154,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   }
 
   void testRegression() {
-    cudaStream_t stream = handle.getStream();
+    cudaStream_t stream = handle.get_stream();
 
     allocate(actual_labels, params.n_query_row, true);
     allocate(expected_labels, params.n_query_row, true);
@@ -191,7 +191,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   }
 
   void SetUp() override {
-    cudaStream_t stream = handle.getStream();
+    cudaStream_t stream = handle.get_stream();
 
     params = ::testing::TestWithParam<KNNInputs>::GetParam();
 
@@ -220,7 +220,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
 
  private:
   void create_data() {
-    cudaStream_t stream = handle.getStream();
+    cudaStream_t stream = handle.get_stream();
 
     device_buffer<T> rand_centers(handle.get_device_allocator(), stream,
                                   params.n_centers * params.n_cols);

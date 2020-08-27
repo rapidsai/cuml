@@ -71,7 +71,7 @@ void postProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
   ASSERT(n_rows > 1,
          "Parameter n_rows: number of rows cannot be less than two");
 
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
   auto allocator = handle.get_device_allocator();
   device_buffer<math_t> d_intercept(allocator, stream, 1);
 

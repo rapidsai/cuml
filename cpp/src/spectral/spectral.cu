@@ -40,8 +40,8 @@ void fit_embedding(const raft::handle_t &handle, int *rows, int *cols, float *va
                    int nnz, int n, int n_components, float *out) {
   const auto &impl = handle;
   MLCommon::Spectral::fit_embedding(
-    impl.getcusparseHandle(), rows, cols, vals, nnz, n, n_components, out,
-    handle.get_device_allocator(), handle.getStream());
+    impl.get_cusparse_handle(), rows, cols, vals, nnz, n, n_components, out,
+    handle.get_device_allocator(), handle.get_stream());
 }
 }  // namespace Spectral
 }  // namespace ML

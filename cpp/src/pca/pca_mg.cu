@@ -44,15 +44,15 @@ void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data
               T *explained_var, T *explained_var_ratio, T *singular_vals, T *mu,
               T *noise_vars, paramsPCAMG prms, cudaStream_t *streams,
               int n_streams, bool verbose) {
-  const auto &comm = handle.getCommunicator();
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
+  const auto &comm = handle.get_comms();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
   const auto allocator =
     handle.get_device_allocator();
 
   Matrix::Data<T> mu_data{mu, size_t(prms.n_cols)};
 
   Stats::opg::mean(mu_data, input_data, input_desc, comm, allocator, streams,
-                   n_streams, handle.getCublasHandle());
+                   n_streams, handle.get_cublas_handle());
 
   device_buffer<T> cov_data(allocator, streams[0], prms.n_cols * prms.n_cols);
   size_t cov_data_size = cov_data.size();
@@ -92,7 +92,7 @@ void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data
               Matrix::PartDescriptor &input_desc, T *components,
               T *explained_var, T *explained_var_ratio, T *singular_vals, T *mu,
               T *noise_vars, paramsPCAMG prms, bool verbose) {
-  int rank = handle.getCommunicator().get_rank();
+  int rank = handle.get_comms().get_rank();
 
   // TODO: These streams should come from raft::handle_t
   // Reference issue https://github.com/rapidsai/cuml/issues/2470
@@ -112,14 +112,14 @@ void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data
     }
   } else if (prms.algorithm == mg_solver::QR) {
     const raft::handle_t &h = handle;
-    cudaStream_t stream = h.getStream();
+    cudaStream_t stream = h.get_stream();
     const auto allocator = h.get_device_allocator();
-    const auto &comm = h.getCommunicator();
+    const auto &comm = h.get_comms();
 
     // Center the data
     Matrix::Data<T> mu_data{mu, size_t(prms.n_cols)};
     Stats::opg::mean(mu_data, input_data, input_desc, comm, allocator, streams,
-                     n_streams, handle.getCublasHandle());
+                     n_streams, handle.get_cublas_handle());
     Stats::opg::mean_center(input_data, input_desc, mu_data, comm, streams,
                             n_streams);
     for (int i = 0; i < n_streams; i++) {
@@ -189,7 +189,7 @@ void transform_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &inpu
                     std::vector<Matrix::Data<T> *> &trans_input,
                     T *singular_vals, T *mu, const paramsPCAMG prms,
                     cudaStream_t *streams, int n_streams, bool verbose) {
-  cublasHandle_t cublas_h = handle.getCublasHandle();
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
   const auto allocator =
     handle.get_device_allocator();
   std::vector<Matrix::RankSizePair *> local_blocks = input_desc.partsToRanks;
@@ -255,7 +255,7 @@ void transform_impl(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
   // We want to update the API of this function, and other functions with
   // regards to https://github.com/rapidsai/cuml/issues/2471
 
-  int rank = handle.getCommunicator().get_rank();
+  int rank = handle.get_comms().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
@@ -289,7 +289,7 @@ void inverse_transform_impl(
   Matrix::PartDescriptor trans_input_desc, T *components,
   std::vector<Matrix::Data<T> *> &input, T *singular_vals, T *mu,
   paramsPCAMG prms, cudaStream_t *streams, int n_streams, bool verbose) {
-  cublasHandle_t cublas_h = handle.getCublasHandle();
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
   const auto allocator =
     handle.get_device_allocator();
   std::vector<Matrix::RankSizePair *> local_blocks =
@@ -351,7 +351,7 @@ void inverse_transform_impl(raft::handle_t &handle,
                             Matrix::Data<T> **trans_input, T *components,
                             Matrix::Data<T> **input, T *singular_vals, T *mu,
                             paramsPCAMG prms, bool verbose) {
-  int rank = handle.getCommunicator().get_rank();
+  int rank = handle.get_comms().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
@@ -403,7 +403,7 @@ void fit_transform_impl(raft::handle_t &handle, Matrix::RankSizePair **rank_size
                         T *explained_var, T *explained_var_ratio,
                         T *singular_vals, T *mu, T *noise_vars,
                         paramsPCAMG prms, bool verbose) {
-  int rank = handle.getCommunicator().get_rank();
+  int rank = handle.get_comms().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);

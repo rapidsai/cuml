@@ -45,7 +45,7 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
   void SetUp() override {
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
     CUBLAS_CHECK(cublasCreate(&cublasH));
-    allocator.reset(new defaultDeviceAllocator);
+    allocator.reset(new raft::mr::device::default_allocator);
 
     params = ::testing::TestWithParam<SvdInputs<T>>::GetParam();
     Random::Rng r(params.seed);

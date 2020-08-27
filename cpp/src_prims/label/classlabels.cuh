@@ -153,7 +153,7 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
   dim3 blocks(ceildiv(N, TPB_X));
   dim3 threads(TPB_X);
 
-  std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
+  std::shared_ptr<deviceAllocator> allocator(new raft::mr::device::default_allocator);
 
   Type *map_ids;
   int num_clusters;

@@ -87,7 +87,7 @@ void _fit(const raft::handle_t &handle,
           int64_t *knn_indices, T *knn_dists, UMAPParams *params,
           T *embeddings) {
   ML::PUSH_RANGE("umap::unsupervised::fit");
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
 
   int k = params->n_neighbors;
@@ -167,7 +167,7 @@ void _fit(const raft::handle_t &handle,
           T *embeddings) {
   ML::PUSH_RANGE("umap::supervised::fit");
   auto d_alloc = handle.get_device_allocator();
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
 
   int k = params->n_neighbors;
 
@@ -286,7 +286,7 @@ void _transform(const raft::handle_t &handle, T *X, int n, int d,
                 T *transformed) {
   ML::PUSH_RANGE("umap::transform");
   auto d_alloc = handle.get_device_allocator();
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
 
   ML::Logger::get().setLevel(params->verbosity);
 

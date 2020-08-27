@@ -83,7 +83,7 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
     MLCommon::updateDevice(firstClusterArray, &arr1[0], (int)size, stream);
     MLCommon::updateDevice(secondClusterArray, &arr2[0], (int)size, stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new defaultDeviceAllocator);
+      new raft::mr::device::default_allocator);
 
     //calling the randIndex CUDA implementation
     computedRandIndex = MLCommon::Metrics::computeRandIndex(

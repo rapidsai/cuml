@@ -600,7 +600,7 @@ void batched_kalman_loop(raft::handle_t& handle, const double* ys, int nobs,
     // Note: not always used
     MLCommon::Sparse::Batched::CSR<double> T_sparse =
       MLCommon::Sparse::Batched::CSR<double>::from_dense(
-        T, T_mask, handle.getcusolverSpHandle());
+        T, T_mask, handle.get_cusolver_sp_handle());
     _batched_kalman_loop_large(ys, nobs, T, T_sparse, Z, RQR, P0, alpha,
                                intercept, d_mu, rd, vs, Fs, sum_logFs, n_diff,
                                fc_steps, d_fc, conf_int, d_F_fc);
@@ -674,8 +674,8 @@ void _batched_kalman_filter(raft::handle_t& handle, const double* d_ys, int nobs
                             const double* d_mu, int fc_steps, double* d_fc,
                             double level, double* d_lower, double* d_upper) {
   const size_t batch_size = Zb.batches();
-  auto stream = handle.getStream();
-  auto cublasHandle = handle.getCublasHandle();
+  auto stream = handle.get_stream();
+  auto cublasHandle = handle.get_cublas_handle();
   auto allocator = handle.get_device_allocator();
 
   auto counting = thrust::make_counting_iterator(0);
@@ -742,7 +742,7 @@ void _batched_kalman_filter(raft::handle_t& handle, const double* d_ys, int nobs
   // T* = T[d+s*D:, d+s*D:]
   // x* = alpha_0[d+s*D:]
   MLCommon::LinAlg::Batched::Matrix<double> alpha(
-    rd, 1, batch_size, handle.getCublasHandle(),
+    rd, 1, batch_size, handle.get_cublas_handle(),
     handle.get_device_allocator(), stream, false);
   if (intercept) {
     // Compute I-T*
@@ -826,7 +826,7 @@ void init_batched_kalman_matrices(raft::handle_t& handle, const double* d_ar,
                                   std::vector<bool>& T_mask) {
   ML::PUSH_RANGE(__func__);
 
-  auto stream = handle.getStream();
+  auto stream = handle.get_stream();
 
   // Note: Z is unused yet but kept to avoid reintroducing it later when
   // adding support for exogeneous variables
@@ -973,8 +973,8 @@ void batched_kalman_filter(raft::handle_t& handle, const double* d_ys, int nobs,
                            double* d_upper) {
   ML::PUSH_RANGE(__func__);
 
-  auto cublasHandle = handle.getCublasHandle();
-  auto stream = handle.getStream();
+  auto cublasHandle = handle.get_cublas_handle();
+  auto stream = handle.get_stream();
   auto allocator = handle.get_device_allocator();
 
   // see (3.18) in TSA by D&K
@@ -1011,7 +1011,7 @@ void batched_jones_transform(raft::handle_t& handle, const ARIMAOrder& order,
                              double* h_Tparams) {
   int N = order.complexity();
   auto allocator = handle.get_device_allocator();
-  auto stream = handle.getStream();
+  auto stream = handle.get_stream();
   double* d_params =
     (double*)allocator->allocate(N * batch_size * sizeof(double), stream);
   double* d_Tparams =

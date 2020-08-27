@@ -55,8 +55,8 @@ void olsFit(const raft::handle_t &handle, math_t *input, int n_rows,
             int n_cols, math_t *labels, math_t *coef, math_t *intercept,
             bool fit_intercept, bool normalize, cudaStream_t stream,
             int algo = 0) {
-  auto cublas_handle = handle.getCublasHandle();
-  auto cusolver_handle = handle.getcusolverDnHandle();
+  auto cublas_handle = handle.get_cublas_handle();
+  auto cusolver_handle = handle.get_cusolver_dn_handle();
   auto allocator = handle.get_device_allocator();
 
   ASSERT(n_cols > 0, "olsFit: number of columns cannot be less than one");
@@ -116,7 +116,7 @@ template <typename math_t>
 void olsPredict(const raft::handle_t &handle, const math_t *input, int n_rows,
                 int n_cols, const math_t *coef, math_t intercept, math_t *preds,
                 cudaStream_t stream) {
-  auto cublas_handle = handle.getCublasHandle();
+  auto cublas_handle = handle.get_cublas_handle();
 
   ASSERT(n_cols > 0, "olsPredict: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "olsPredict: number of rows cannot be less than one");

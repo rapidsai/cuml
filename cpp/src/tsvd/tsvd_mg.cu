@@ -42,8 +42,8 @@ void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data
               Matrix::PartDescriptor &input_desc, T *components,
               T *singular_vals, paramsTSVD prms, cudaStream_t *streams,
               int n_streams, bool verbose) {
-  const auto &comm = handle.getCommunicator();
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
+  const auto &comm = handle.get_comms();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
   const auto allocator =
     handle.get_device_allocator();
 
@@ -87,7 +87,7 @@ template <typename T>
 void fit_impl(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
               size_t n_parts, Matrix::Data<T> **input, T *components,
               T *singular_vals, paramsTSVD prms, bool verbose) {
-  int rank = handle.getCommunicator().get_rank();
+  int rank = handle.get_comms().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
@@ -121,9 +121,9 @@ void transform_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &inpu
                     std::vector<Matrix::Data<T> *> &trans_input,
                     paramsTSVD prms, cudaStream_t *streams, int n_streams,
                     bool verbose) {
-  int rank = handle.getCommunicator().get_rank();
+  int rank = handle.get_comms().get_rank();
 
-  cublasHandle_t cublas_h = handle.getCublasHandle();
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
   const auto allocator =
     handle.get_device_allocator();
 
@@ -162,7 +162,7 @@ void transform_impl(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
                     size_t n_parts, Matrix::Data<T> **input, T *components,
                     Matrix::Data<T> **trans_input, paramsTSVD prms,
                     bool verbose) {
-  int rank = handle.getCommunicator().get_rank();
+  int rank = handle.get_comms().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
@@ -198,7 +198,7 @@ void inverse_transform_impl(raft::handle_t &handle,
                             std::vector<Matrix::Data<T> *> &input,
                             paramsTSVD prms, cudaStream_t *streams,
                             int n_streams, bool verbose) {
-  cublasHandle_t cublas_h = handle.getCublasHandle();
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
   const auto allocator =
     handle.get_device_allocator();
   std::vector<Matrix::RankSizePair *> local_blocks =
@@ -237,7 +237,7 @@ void inverse_transform_impl(raft::handle_t &handle,
                             Matrix::Data<T> **trans_input, T *components,
                             Matrix::Data<T> **input, paramsTSVD prms,
                             bool verbose) {
-  int rank = handle.getCommunicator().get_rank();
+  int rank = handle.get_comms().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
@@ -288,7 +288,7 @@ void fit_transform_impl(raft::handle_t &handle,
                         Matrix::PartDescriptor &trans_desc, T *components,
                         T *explained_var, T *explained_var_ratio,
                         T *singular_vals, paramsTSVD prms, bool verbose) {
-  int rank = handle.getCommunicator().get_rank();
+  int rank = handle.get_comms().get_rank();
 
   // TODO: These streams should come from raft::handle_t
   int n_streams = input_desc.blocksOwnedBy(rank).size();
@@ -312,34 +312,34 @@ void fit_transform_impl(raft::handle_t &handle,
   Matrix::Data<T> mu_trans_data{mu_trans.data(), size_t(prms.n_components)};
 
   Stats::opg::mean(mu_trans_data, trans_data, trans_desc,
-                   handle.getCommunicator(),
+                   handle.get_comms(),
                    handle.get_device_allocator(), streams, n_streams,
-                   handle.getCublasHandle());
+                   handle.get_cublas_handle());
 
   Matrix::Data<T> explained_var_data{explained_var, size_t(prms.n_components)};
 
   Stats::opg::var(explained_var_data, trans_data, trans_desc, mu_trans_data.ptr,
-                  handle.getCommunicator(),
+                  handle.get_comms(),
                   handle.get_device_allocator(), streams, n_streams,
-                  handle.getCublasHandle());
+                  handle.get_cublas_handle());
 
   device_buffer<T> mu(handle.get_device_allocator(), streams[0],
                       prms.n_rows);
   Matrix::Data<T> mu_data{mu.data(), size_t(prms.n_rows)};
 
   Stats::opg::mean(mu_data, input_data, input_desc,
-                   handle.getCommunicator(),
+                   handle.get_comms(),
                    handle.get_device_allocator(), streams, n_streams,
-                   handle.getCublasHandle());
+                   handle.get_cublas_handle());
 
   device_buffer<T> var_input(handle.get_device_allocator(), streams[0],
                              prms.n_rows);
   Matrix::Data<T> var_input_data{var_input.data(), size_t(prms.n_rows)};
 
   Stats::opg::var(var_input_data, input_data, input_desc, mu_data.ptr,
-                  handle.getCommunicator(),
+                  handle.get_comms(),
                   handle.get_device_allocator(), streams, n_streams,
-                  handle.getCublasHandle());
+                  handle.get_cublas_handle());
 
   device_buffer<T> total_vars(handle.get_device_allocator(), streams[0],
                               1);

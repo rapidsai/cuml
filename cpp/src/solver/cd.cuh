@@ -89,7 +89,7 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
   ASSERT(loss == ML::loss_funct::SQRD_LOSS,
          "Parameter loss: Only SQRT_LOSS function is supported for now");
 
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
 
   auto allocator = handle.get_device_allocator();
   device_buffer<math_t> pred(allocator, stream, n_rows);
@@ -231,7 +231,7 @@ void cdPredict(const raft::handle_t &handle, const math_t *input, int n_rows,
   ASSERT(loss == ML::loss_funct::SQRD_LOSS,
          "Parameter loss: Only SQRT_LOSS function is supported for now");
 
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
   Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept,
                         cublas_handle, stream);
 }

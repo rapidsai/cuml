@@ -49,7 +49,7 @@ class MakeRegressionTest
     // Noise must be zero to compare the actual and expected values
     T noise = (T)0.0, tail_strength = (T)0.5;
 
-    allocator.reset(new defaultDeviceAllocator);
+    allocator.reset(new raft::mr::device::default_allocator);
     CUBLAS_CHECK(cublasCreate(&cublas_handle));
     CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
     CUDA_CHECK(cudaStreamCreate(&stream));

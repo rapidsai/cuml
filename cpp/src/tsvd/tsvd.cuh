@@ -46,8 +46,8 @@ void calCompExpVarsSvd(const raft::handle_t &handle, math_t *in,
                        math_t *components, math_t *singular_vals,
                        math_t *explained_vars, math_t *explained_var_ratio,
                        const paramsTSVD &prms, cudaStream_t stream) {
-  auto cusolver_handle = handle.getcusolverDnHandle();
-  auto cublas_handle = handle.getCublasHandle();
+  auto cusolver_handle = handle.get_cusolver_dn_handle();
+  auto cublas_handle = handle.get_cublas_handle();
   auto allocator = handle.get_device_allocator();
 
   int diff = prms.n_cols - prms.n_components;
@@ -86,7 +86,7 @@ template <typename math_t, typename enum_solver = solver>
 void calEig(const raft::handle_t &handle, math_t *in, math_t *components,
             math_t *explained_var, const paramsTSVDTemplate<enum_solver> &prms,
             cudaStream_t stream) {
-  auto cusolver_handle = handle.getcusolverDnHandle();
+  auto cusolver_handle = handle.get_cusolver_dn_handle();
   auto allocator = handle.get_device_allocator();
 
   if (prms.algorithm == enum_solver::COV_EIG_JACOBI) {
@@ -168,7 +168,7 @@ template <typename math_t>
 void tsvdFit(const raft::handle_t &handle, math_t *input, math_t *components,
              math_t *singular_vals, const paramsTSVD &prms,
              cudaStream_t stream) {
-  auto cublas_handle = handle.getCublasHandle();
+  auto cublas_handle = handle.get_cublas_handle();
   auto allocator = handle.get_device_allocator();
 
   ASSERT(prms.n_cols > 1,
@@ -269,7 +269,7 @@ template <typename math_t>
 void tsvdTransform(const raft::handle_t &handle, math_t *input,
                    math_t *components, math_t *trans_input,
                    const paramsTSVD &prms, cudaStream_t stream) {
-  auto cublas_handle = handle.getCublasHandle();
+  auto cublas_handle = handle.get_cublas_handle();
 
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
@@ -299,7 +299,7 @@ template <typename math_t>
 void tsvdInverseTransform(const raft::handle_t &handle, math_t *trans_input,
                           math_t *components, math_t *input,
                           const paramsTSVD &prms, cudaStream_t stream) {
-  auto cublas_handle = handle.getCublasHandle();
+  auto cublas_handle = handle.get_cublas_handle();
 
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than one");

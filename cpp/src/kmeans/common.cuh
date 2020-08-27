@@ -56,7 +56,7 @@ namespace ML {
   do {                                             \
     bool isRoot = true;                            \
     if (handle.commsInitialized()) {               \
-      const auto &comm = handle.getCommunicator(); \
+      const auto &comm = handle.get_comms(); \
       const int my_rank = comm.get_rank();         \
       isRoot = my_rank == 0;                       \
     }                                              \

@@ -476,7 +476,7 @@ The initialized instance of `MLCommon::cumlCommunicator` can be accessed from th
 ```cpp
 void foo(const ML::cumlHandle_impl& h, ...)
 {
-    const MLCommon::cumlCommunicator& communicator = h.getCommunicator();
+    const MLCommon::cumlCommunicator& communicator = h.get_comms();
     const int rank = communicator.getRank();
     const int size = communicator.getSize();
     ...

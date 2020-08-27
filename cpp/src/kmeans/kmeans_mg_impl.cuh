@@ -28,8 +28,8 @@ template <typename DataT, typename IndexT>
 void initRandom(const raft::handle_t &handle, const KMeansParams &params,
                 Tensor<DataT, 2, IndexT> &X,
                 MLCommon::device_buffer<DataT> &centroidsRawData) {
-  const auto &comm = handle.getCommunicator();
-  cudaStream_t stream = handle.getStream();
+  const auto &comm = handle.get_comms();
+  cudaStream_t stream = handle.get_stream();
   auto n_local_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
@@ -105,8 +105,8 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
                         const KMeansParams &params, Tensor<DataT, 2, IndexT> &X,
                         MLCommon::device_buffer<DataT> &centroidsRawData,
                         MLCommon::device_buffer<char> &workspace) {
-  const auto &comm = handle.getCommunicator();
-  cudaStream_t stream = handle.getStream();
+  const auto &comm = handle.get_comms();
+  cudaStream_t stream = handle.get_stream();
   const int my_rank = comm.get_rank();
   const int n_rank = comm.get_size();
 
@@ -379,8 +379,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
          Tensor<DataT, 2, IndexT> &X,
          MLCommon::device_buffer<DataT> &centroidsRawData, DataT &inertia,
          int &n_iter, MLCommon::device_buffer<char> &workspace) {
-  const auto &comm = handle.getCommunicator();
-  cudaStream_t stream = handle.getStream();
+  const auto &comm = handle.get_comms();
+  cudaStream_t stream = handle.get_stream();
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
@@ -597,7 +597,7 @@ template <typename DataT, typename IndexT = int>
 void fit(const raft::handle_t &handle, const KMeansParams &params,
          const DataT *X, const int n_local_samples, const int n_features,
          DataT *centroids, DataT &inertia, int &n_iter) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
 
   ASSERT(n_local_samples > 0, "# of samples must be > 0");
 

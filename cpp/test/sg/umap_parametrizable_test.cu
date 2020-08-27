@@ -110,7 +110,7 @@ class UMAPParametrizableTest : public ::testing::Test {
   void get_embedding(raft::handle_t& handle, float* X, float* y,
                      float* embedding_ptr, TestParams& test_params,
                      UMAPParams& umap_params) {
-    cudaStream_t stream = handle.getStream();
+    cudaStream_t stream = handle.get_stream();
     auto alloc = handle.get_device_allocator();
     int& n_samples = test_params.n_samples;
     int& n_features = test_params.n_features;
@@ -189,7 +189,7 @@ class UMAPParametrizableTest : public ::testing::Test {
 
   void assertions(raft::handle_t& handle, float* X, float* embedding_ptr,
                   TestParams& test_params, UMAPParams& umap_params) {
-    cudaStream_t stream = handle.getStream();
+    cudaStream_t stream = handle.get_stream();
     auto alloc = handle.get_device_allocator();
     int& n_samples = test_params.n_samples;
     int& n_features = test_params.n_features;
@@ -222,7 +222,7 @@ class UMAPParametrizableTest : public ::testing::Test {
               << "-" << test_params.min_trustworthiness << "]" << std::endl;
 
     raft::handle_t handle;
-    cudaStream_t stream = handle.getStream();
+    cudaStream_t stream = handle.get_stream();
     auto alloc = handle.get_device_allocator();
     int& n_samples = test_params.n_samples;
     int& n_features = test_params.n_features;

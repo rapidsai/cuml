@@ -40,12 +40,12 @@ void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
 
-  std::vector<cudaStream_t> int_streams = handle.getInternalStreams();
+  std::vector<cudaStream_t> int_streams = handle.get_internal_streams();
 
   MLCommon::Selection::brute_force_knn(
     input, sizes, D, search_items, n, res_I, res_D, k,
-    handle.get_device_allocator(), handle.getStream(),
-    int_streams.data(), handle.getNumInternalStreams(), rowMajorIndex,
+    handle.get_device_allocator(), handle.get_stream(),
+    int_streams.data(), handle.get_num_internal_streams(), rowMajorIndex,
     rowMajorQuery, nullptr, metric, metric_arg, expanded);
 }
 
@@ -53,7 +53,7 @@ void knn_classify(raft::handle_t &handle, int *out, int64_t *knn_indices,
                   std::vector<int *> &y, size_t n_index_rows,
                   size_t n_query_rows, int k) {
   auto d_alloc = handle.get_device_allocator();
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
 
   std::vector<int *> uniq_labels(y.size());
   std::vector<int> n_unique(y.size());
@@ -72,14 +72,14 @@ void knn_regress(raft::handle_t &handle, float *out, int64_t *knn_indices,
                  std::vector<float *> &y, size_t n_index_rows,
                  size_t n_query_rows, int k) {
   MLCommon::Selection::knn_regress(out, knn_indices, y, n_index_rows,
-                                   n_query_rows, k, handle.getStream());
+                                   n_query_rows, k, handle.get_stream());
 }
 
 void knn_class_proba(raft::handle_t &handle, std::vector<float *> &out,
                      int64_t *knn_indices, std::vector<int *> &y,
                      size_t n_index_rows, size_t n_query_rows, int k) {
   auto d_alloc = handle.get_device_allocator();
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
 
   std::vector<int *> uniq_labels(y.size());
   std::vector<int> n_unique(y.size());
@@ -124,7 +124,7 @@ extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
 
   std::vector<cudaStream_t> int_streams =
-    handle_ptr->getImpl().getInternalStreams();
+    handle_ptr->getImpl().get_internal_streams();
 
   std::vector<float *> input_vec(n_params);
   std::vector<int> sizes_vec(n_params);
@@ -138,8 +138,8 @@ extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
       MLCommon::Selection::brute_force_knn(
         input_vec, sizes_vec, D, search_items, n, res_I, res_D, k,
         handle_ptr->getImpl().get_device_allocator(),
-        handle_ptr->getImpl().getStream(), int_streams.data(),
-        handle_ptr->getImpl().getNumInternalStreams(), rowMajorIndex,
+        handle_ptr->getImpl().get_stream(), int_streams.data(),
+        handle_ptr->getImpl().get_num_internal_streams(), rowMajorIndex,
         rowMajorQuery, nullptr, (ML::MetricType)metric_type, metric_arg,
         expanded);
     } catch (...) {

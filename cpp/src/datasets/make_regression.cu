@@ -28,9 +28,9 @@ void make_regression_helper(const raft::handle_t& handle, DataT* out, DataT* val
                             IdxT effective_rank, DataT tail_strength,
                             DataT noise, bool shuffle, uint64_t seed) {
   const auto& handle_impl = handle;
-  cudaStream_t stream = handle_impl.getStream();
-  cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
-  cusolverDnHandle_t cusolver_handle = handle_impl.getcusolverDnHandle();
+  cudaStream_t stream = handle_impl.get_stream();
+  cublasHandle_t cublas_handle = handle_impl.get_cublas_handle();
+  cusolverDnHandle_t cusolver_handle = handle_impl.get_cusolver_dn_handle();
   auto allocator = handle_impl.get_device_allocator();
 
   MLCommon::Random::make_regression(

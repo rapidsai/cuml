@@ -42,9 +42,9 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
                 const std::vector<Matrix::Data<T> *> &b, const T *alpha,
                 const int n_alpha, T *w, cudaStream_t *streams, int n_streams,
                 bool verbose) {
-  auto cublasH = handle.getCublasHandle();
-  auto cusolverH = handle.getcusolverDnHandle();
-  const auto &comm = handle.getCommunicator();
+  auto cublasH = handle.get_cublas_handle();
+  auto cusolverH = handle.get_cusolver_dn_handle();
+  const auto &comm = handle.get_comms();
   const auto allocator =
     handle.get_device_allocator();
 
@@ -86,10 +86,10 @@ void ridgeEig(raft::handle_t &handle, const std::vector<Matrix::Data<T> *> &A,
               const std::vector<Matrix::Data<T> *> &b, const T *alpha,
               const int n_alpha, T *coef, cudaStream_t *streams, int n_streams,
               bool verbose) {
-  const auto &comm = handle.getCommunicator();
-  const cublasHandle_t cublas_handle = handle.getCublasHandle();
+  const auto &comm = handle.get_comms();
+  const cublasHandle_t cublas_handle = handle.get_cublas_handle();
   const cusolverDnHandle_t cusolver_handle =
-    handle.getcusolverDnHandle();
+    handle.get_cusolver_dn_handle();
   const auto allocator =
     handle.get_device_allocator();
 
@@ -198,7 +198,7 @@ void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data
               std::vector<Matrix::Data<T> *> &labels, T *alpha, int n_alpha,
               T *coef, T *intercept, bool fit_intercept, bool normalize,
               int algo, bool verbose) {
-  int rank = handle.getCommunicator().get_rank();
+  int rank = handle.get_comms().get_rank();
 
   // TODO: These streams should come from raft::handle_t
   // Tracking issue: https://github.com/rapidsai/cuml/issues/2470
@@ -236,7 +236,7 @@ void predict_impl(raft::handle_t &handle,
     int si = i % n_streams;
     LinAlg::gemm(input_data[i]->ptr, local_blocks[i]->size, input_desc.N, coef,
                  preds[i]->ptr, local_blocks[i]->size, size_t(1), CUBLAS_OP_N,
-                 CUBLAS_OP_N, alpha, beta, handle.getCublasHandle(),
+                 CUBLAS_OP_N, alpha, beta, handle.get_cublas_handle(),
                  streams[si]);
 
     LinAlg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
@@ -249,7 +249,7 @@ void predict_impl(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
                   size_t n_parts, Matrix::Data<T> **input, size_t n_rows,
                   size_t n_cols, T *coef, T intercept, Matrix::Data<T> **preds,
                   bool verbose) {
-  int rank = handle.getCommunicator().get_rank();
+  int rank = handle.get_comms().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);

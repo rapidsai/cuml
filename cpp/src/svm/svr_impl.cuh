@@ -57,10 +57,10 @@ void svrFit(const raft::handle_t &handle, math_t *X, int n_rows, int n_cols,
   //ML::detail::streamSyncer _(handle_impl.getImpl());
   const raft::handle_t &handle_impl = handle;
 
-  cudaStream_t stream = handle_impl.getStream();
+  cudaStream_t stream = handle_impl.get_stream();
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel =
     MLCommon::Matrix::KernelFactory<math_t>::create(
-      kernel_params, handle_impl.getCublasHandle());
+      kernel_params, handle_impl.get_cublas_handle());
 
   SmoSolver<math_t> smo(handle_impl, param, kernel);
   smo.Solve(X, n_rows, n_cols, y, sample_weight, &(model.dual_coefs),

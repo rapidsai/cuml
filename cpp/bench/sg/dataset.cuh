@@ -83,7 +83,7 @@ struct Dataset {
   /** allocate space needed for the dataset */
   void allocate(const raft::handle_t& handle, const DatasetParams& p) {
     auto allocator = handle.get_device_allocator();
-    auto stream = handle.getStream();
+    auto stream = handle.get_stream();
     X = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
     y = (L*)allocator->allocate(p.nrows * sizeof(L), stream);
   }
@@ -91,7 +91,7 @@ struct Dataset {
   /** free-up the buffers */
   void deallocate(const raft::handle_t& handle, const DatasetParams& p) {
     auto allocator = handle.get_device_allocator();
-    auto stream = handle.getStream();
+    auto stream = handle.get_stream();
     allocator->deallocate(X, p.nrows * p.ncols * sizeof(D), stream);
     allocator->deallocate(y, p.nrows * sizeof(L), stream);
   }
@@ -106,8 +106,8 @@ struct Dataset {
   void blobs(const raft::handle_t& handle, const DatasetParams& p,
              const BlobsParams& b) {
     const auto& handle_impl = handle;
-    auto stream = handle_impl.getStream();
-    auto cublas_handle = handle_impl.getCublasHandle();
+    auto stream = handle_impl.get_stream();
+    auto cublas_handle = handle_impl.get_cublas_handle();
     auto allocator = handle_impl.get_device_allocator();
 
     // Make blobs will generate labels of type IdxT which has to be an integer
@@ -139,9 +139,9 @@ struct Dataset {
     ASSERT(!isClassification(),
            "make_regression: is only for regression problems!");
     const auto& handle_impl = handle;
-    auto stream = handle_impl.getStream();
-    auto cublas_handle = handle_impl.getCublasHandle();
-    auto cusolver_handle = handle_impl.getcusolverDnHandle();
+    auto stream = handle_impl.get_stream();
+    auto cublas_handle = handle_impl.get_cublas_handle();
+    auto cusolver_handle = handle_impl.get_cusolver_dn_handle();
     auto allocator = handle_impl.get_device_allocator();
 
     D* tmpX = X;
@@ -192,7 +192,7 @@ struct Dataset {
       counter++;
     }
     myfile.close();
-    auto stream = handle.getStream();
+    auto stream = handle.get_stream();
     MLCommon::copy(X, &(_X[0]), p.nrows * p.ncols, stream);
     MLCommon::copy(y, &(_y[0]), p.nrows, stream);
   }
