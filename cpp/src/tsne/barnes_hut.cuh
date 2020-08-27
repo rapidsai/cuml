@@ -58,7 +58,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
                 const long long random_state = -1) {
   auto d_alloc = handle.get_device_allocator();
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
 
   // Get device properites
   //---------------------------------------------------

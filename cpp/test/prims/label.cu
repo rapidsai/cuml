@@ -74,7 +74,7 @@ TEST_F(MakeMonotonicTest, Result) {
 TEST(LabelTest, ClassLabels) {
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
-  std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
+  std::shared_ptr<deviceAllocator> allocator(new raft::mr::device::default_allocator);
 
   int n_rows = 6;
   float *y_d;

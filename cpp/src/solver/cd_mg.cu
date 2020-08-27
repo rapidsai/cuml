@@ -46,8 +46,8 @@ void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data
               bool fit_intercept, bool normalize, int epochs, T alpha,
               T l1_ratio, bool shuffle, T tol, cudaStream_t *streams,
               int n_streams, bool verbose) {
-  const auto &comm = handle.getCommunicator();
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
+  const auto &comm = handle.get_comms();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
   const auto allocator =
     handle.get_device_allocator();
 
@@ -274,7 +274,7 @@ void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data
               std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
               bool fit_intercept, bool normalize, int epochs, T alpha,
               T l1_ratio, bool shuffle, T tol, bool verbose) {
-  int rank = handle.getCommunicator().get_rank();
+  int rank = handle.get_comms().get_rank();
 
   // TODO: These streams should come from raft::handle_t
   // Tracking issue: https://github.com/rapidsai/cuml/issues/2470
@@ -313,7 +313,7 @@ void predict_impl(raft::handle_t &handle,
     int si = i % n_streams;
     LinAlg::gemm(input_data[i]->ptr, local_blocks[i]->size, input_desc.N, coef,
                  preds[i]->ptr, local_blocks[i]->size, size_t(1), CUBLAS_OP_N,
-                 CUBLAS_OP_N, alpha, beta, handle.getCublasHandle(),
+                 CUBLAS_OP_N, alpha, beta, handle.get_cublas_handle(),
                  streams[si]);
 
     LinAlg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
@@ -326,7 +326,7 @@ void predict_impl(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
                   size_t n_parts, Matrix::Data<T> **input, size_t n_rows,
                   size_t n_cols, T *coef, T intercept, Matrix::Data<T> **preds,
                   bool verbose) {
-  int rank = handle.getCommunicator().get_rank();
+  int rank = handle.get_comms().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);

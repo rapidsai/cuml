@@ -33,8 +33,8 @@ template <typename T, int N, int M>
 class RPROJTest : public ::testing::Test {
  protected:
   T* transpose(T* in, int n_rows, int n_cols) {
-    cudaStream_t stream = h.getStream();
-    cublasHandle_t cublas_handle = handle.getCublasHandle();
+    cudaStream_t stream = h.get_stream();
+    cublasHandle_t cublas_handle = handle.get_cublas_handle();
     T* result;
     allocate(result, n_rows * n_cols);
     MLCommon::LinAlg::transpose(in, result, n_rows, n_cols, cublas_handle,
@@ -72,7 +72,7 @@ class RPROJTest : public ::testing::Test {
       42        // random seed
     };
 
-    cudaStream_t stream = h.getStream();
+    cudaStream_t stream = h.get_stream();
     auto alloc = h.get_device_allocator();
     random_matrix1 = new rand_mat<T>(alloc, stream);
     RPROJfit(h, random_matrix1, params1);
@@ -95,7 +95,7 @@ class RPROJTest : public ::testing::Test {
       42        // random seed
     };
 
-    cudaStream_t stream = h.getStream();
+    cudaStream_t stream = h.get_stream();
     auto alloc = h.get_device_allocator();
     random_matrix2 = new rand_mat<T>(alloc, stream);
     RPROJfit(h, random_matrix2, params2);
@@ -153,7 +153,7 @@ class RPROJTest : public ::testing::Test {
 
     MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
       d_input, d_input, d_pdist, N, N, M, (void*)nullptr, workspaceSize,
-      h.getStream());
+      h.get_stream());
     CUDA_CHECK(cudaPeekAtLastError());
 
     T* h_pdist = new T[N * N];
@@ -164,7 +164,7 @@ class RPROJTest : public ::testing::Test {
     allocate(d_pdist1, N * N);
     MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
       d_output1, d_output1, d_pdist1, N, N, D, (void*)nullptr, workspaceSize,
-      h.getStream());
+      h.get_stream());
     CUDA_CHECK(cudaPeekAtLastError());
 
     T* h_pdist1 = new T[N * N];
@@ -175,7 +175,7 @@ class RPROJTest : public ::testing::Test {
     allocate(d_pdist2, N * N);
     MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
       d_output2, d_output2, d_pdist2, N, N, D, (void*)nullptr, workspaceSize,
-      h.getStream());
+      h.get_stream());
     CUDA_CHECK(cudaPeekAtLastError());
 
     T* h_pdist2 = new T[N * N];

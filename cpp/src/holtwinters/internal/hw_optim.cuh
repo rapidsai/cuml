@@ -420,7 +420,7 @@ void holtwinters_optim_gpu(
   bool optim_beta, Dtype *gamma, bool optim_gamma, Dtype *level, Dtype *trend,
   Dtype *season, Dtype *xhat, Dtype *error, ML::OptimCriterion *optim_result,
   ML::SeasonalType seasonal, const ML::OptimParams<Dtype> optim_params) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto dev_allocator =
     handle.get_device_allocator();
 

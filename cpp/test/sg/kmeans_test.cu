@@ -59,10 +59,10 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     params.seed = 1;
     params.oversampling_factor = 0;
 
-    device_buffer<T> X(handle.get_device_allocator(), handle.getStream(),
+    device_buffer<T> X(handle.get_device_allocator(), handle.get_stream(),
                        n_samples * n_features);
 
-    device_buffer<int> labels(handle.get_device_allocator(), handle.getStream(),
+    device_buffer<int> labels(handle.get_device_allocator(), handle.get_stream(),
                               n_samples);
 
     make_blobs(handle, X.data(), labels.data(), n_samples, n_features,
@@ -75,15 +75,15 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
     if (testparams.weighted) {
       allocate(d_sample_weight, n_samples);
-      thrust::fill(thrust::cuda::par.on(handle.getStream()), d_sample_weight,
+      thrust::fill(thrust::cuda::par.on(handle.get_stream()), d_sample_weight,
                    d_sample_weight + n_samples, 1);
     } else {
       d_sample_weight = nullptr;
     }
 
-    MLCommon::copy(d_labels_ref, labels.data(), n_samples, handle.getStream());
+    MLCommon::copy(d_labels_ref, labels.data(), n_samples, handle.get_stream());
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     T inertia = 0;
     int n_iter = 0;
@@ -91,17 +91,17 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
                         d_sample_weight, d_centroids, d_labels, inertia,
                         n_iter);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     score = adjustedRandIndex(handle, d_labels_ref, d_labels, n_samples);
 
     if (score < 1.0) {
       std::stringstream ss;
       ss << "Expected: "
-         << arr2Str(d_labels_ref, 25, "d_labels_ref", handle.getStream());
+         << arr2Str(d_labels_ref, 25, "d_labels_ref", handle.get_stream());
       CUML_LOG_DEBUG(ss.str().c_str());
       ss.str(std::string());
-      ss << "Actual: " << arr2Str(d_labels, 25, "d_labels", handle.getStream());
+      ss << "Actual: " << arr2Str(d_labels, 25, "d_labels", handle.get_stream());
       CUML_LOG_DEBUG(ss.str().c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }

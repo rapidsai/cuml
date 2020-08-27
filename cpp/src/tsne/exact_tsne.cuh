@@ -57,7 +57,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const long long random_state = -1,
                 const bool intialize_embeddings = true) {
   auto d_alloc = handle.get_device_allocator();
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
 
   if (intialize_embeddings)
     random_vector(Y, -0.0001f, 0.0001f, n * dim, stream, random_state);

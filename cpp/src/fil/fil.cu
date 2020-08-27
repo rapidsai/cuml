@@ -218,7 +218,7 @@ struct forest {
     }
 
     // Predict using the forest.
-    cudaStream_t stream = h.getStream();
+    cudaStream_t stream = h.get_stream();
     infer(params, stream);
 
     if (do_transform) {
@@ -266,7 +266,7 @@ struct dense_forest : forest {
 
     int num_nodes = forest_num_nodes(num_trees_, depth_);
     nodes_ = (dense_node*)h.get_device_allocator()->allocate(
-      sizeof(dense_node) * num_nodes, h.getStream());
+      sizeof(dense_node) * num_nodes, h.get_stream());
     h_nodes_.resize(num_nodes);
     if (algo_ == algo_t::NAIVE) {
       std::copy(nodes, nodes + num_nodes, h_nodes_.begin());
@@ -275,9 +275,9 @@ struct dense_forest : forest {
     }
     CUDA_CHECK(cudaMemcpyAsync(nodes_, h_nodes_.data(),
                                num_nodes * sizeof(dense_node),
-                               cudaMemcpyHostToDevice, h.getStream()));
+                               cudaMemcpyHostToDevice, h.get_stream()));
     // copy must be finished before freeing the host data
-    CUDA_CHECK(cudaStreamSynchronize(h.getStream()));
+    CUDA_CHECK(cudaStreamSynchronize(h.get_stream()));
     h_nodes_.clear();
     h_nodes_.shrink_to_fit();
   }
@@ -292,7 +292,7 @@ struct dense_forest : forest {
   virtual void free(const raft::handle_t& h) override {
     int num_nodes = forest_num_nodes(num_trees_, depth_);
     h.get_device_allocator()->deallocate(nodes_, sizeof(dense_node) * num_nodes,
-                                       h.getStream());
+                                       h.get_stream());
   }
 
   dense_node* nodes_ = nullptr;
@@ -328,21 +328,21 @@ struct sparse_forest : forest {
 
     // trees
     trees_ = (int*)h.get_device_allocator()->allocate(sizeof(int) * num_trees_,
-                                                    h.getStream());
+                                                    h.get_stream());
     CUDA_CHECK(cudaMemcpyAsync(trees_, trees, sizeof(int) * num_trees_,
-                               cudaMemcpyHostToDevice, h.getStream()));
+                               cudaMemcpyHostToDevice, h.get_stream()));
 
     // nodes
 <<<<<<< HEAD
     nodes_ = (sparse_node*)h.get_device_allocator()->allocate(
-      sizeof(sparse_node) * num_nodes_, h.getStream());
+      sizeof(sparse_node) * num_nodes_, h.get_stream());
     CUDA_CHECK(cudaMemcpyAsync(nodes_, nodes, sizeof(sparse_node) * num_nodes_,
 =======
     nodes_ = (node_t*)h.getDeviceAllocator()->allocate(
-      sizeof(node_t) * num_nodes_, h.getStream());
+      sizeof(node_t) * num_nodes_, h.get_stream());
     CUDA_CHECK(cudaMemcpyAsync(nodes_, nodes, sizeof(node_t) * num_nodes_,
 >>>>>>> b83688caa6ed55f8163f86708d0054ab276d6f35
-                               cudaMemcpyHostToDevice, h.getStream()));
+                               cudaMemcpyHostToDevice, h.get_stream()));
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) override {
@@ -352,13 +352,13 @@ struct sparse_forest : forest {
 
   void free(const raft::handle_t& h) override {
     h.get_device_allocator()->deallocate(trees_, sizeof(int) * num_trees_,
-                                       h.getStream());
+                                       h.get_stream());
 <<<<<<< HEAD
     h.get_device_allocator()->deallocate(nodes_, sizeof(sparse_node) * num_nodes_,
 =======
     h.getDeviceAllocator()->deallocate(nodes_, sizeof(node_t) * num_nodes_,
 >>>>>>> b83688caa6ed55f8163f86708d0054ab276d6f35
-                                       h.getStream());
+                                       h.get_stream());
   }
 
   int num_nodes_ = 0;
@@ -804,7 +804,7 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
       init_dense(handle, pforest, nodes.data(), &params);
       // sync is necessary as nodes is used in init_dense(),
       // but destructed at the end of this function
-      CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       break;
     }
     case storage_type_t::SPARSE: {
@@ -813,7 +813,7 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
       tl2fil_sparse(&trees, &nodes, &params, model_ref, tl_params);
       init_sparse<sparse_node16>(handle, pforest, trees.data(), nodes.data(),
                                  &params);
-      CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       break;
     }
     case storage_type_t::SPARSE8: {
@@ -822,7 +822,7 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
       tl2fil_sparse(&trees, &nodes, &params, model_ref, tl_params);
       init_sparse<sparse_node8>(handle, pforest, trees.data(), nodes.data(),
                                 &params);
-      CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       break;
     }
     default:

@@ -29,7 +29,7 @@ template <typename T>
 struct AddBench : public Fixture {
   AddBench(const std::string& name, const AddParams& p)
     : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+              std::shared_ptr<deviceAllocator>(new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:

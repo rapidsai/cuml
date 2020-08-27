@@ -52,9 +52,9 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
     // Prepare resource
     const raft::handle_t& h = handle->getImpl();
     const cumlCommunicator& comm = h.getCommunicator();
-    stream = h.getStream();
+    stream = h.get_stream();
     const auto allocator = h.get_device_allocator();
-    cublasHandle_t cublasHandle = h.getCublasHandle();
+    cublasHandle_t cublasHandle = h.get_cublas_handle();
 
     myRank = comm.getRank();
     totalRanks = comm.getSize();

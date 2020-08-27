@@ -42,9 +42,9 @@ void preProcessData_impl(raft::handle_t &handle,
                          T *mu_labels, T *norm2_input, bool fit_intercept,
                          bool normalize, cudaStream_t *streams, int n_streams,
                          bool verbose) {
-  const auto &comm = handle.getCommunicator();
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
-  cusolverDnHandle_t cusolver_handle = handle.getcusolverDnHandle();
+  const auto &comm = handle.get_comms();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
+  cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
   const auto allocator =
     handle.get_device_allocator();
 
@@ -84,9 +84,9 @@ void postProcessData_impl(raft::handle_t &handle,
                           T *intercept, T *mu_input, T *mu_labels,
                           T *norm2_input, bool fit_intercept, bool normalize,
                           cudaStream_t *streams, int n_streams, bool verbose) {
-  const auto &comm = handle.getCommunicator();
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
-  cusolverDnHandle_t cusolver_handle = handle.getcusolverDnHandle();
+  const auto &comm = handle.get_comms();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
+  cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
   const auto allocator =
     handle.get_device_allocator();
 

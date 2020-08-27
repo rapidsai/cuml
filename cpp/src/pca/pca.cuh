@@ -78,7 +78,7 @@ void pcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
             math_t *explained_var, math_t *explained_var_ratio,
             math_t *singular_vals, math_t *mu, math_t *noise_vars,
             const paramsPCA &prms, cudaStream_t stream) {
-  auto cublas_handle = handle.getCublasHandle();
+  auto cublas_handle = handle.get_cublas_handle();
 
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");

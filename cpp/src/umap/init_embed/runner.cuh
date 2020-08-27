@@ -40,7 +40,7 @@ void run(const raft::handle_t &handle, const T *X, int n, int d,
              */
     case 0:
       RandomInit::launcher(X, n, d, knn_indices, knn_dists, params, embedding,
-                           handle.getStream());
+                           handle.get_stream());
       break;
 
     case 1:

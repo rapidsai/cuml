@@ -24,13 +24,13 @@ using namespace MLCommon;
 void tsvdFit(raft::handle_t &handle, float *input, float *components,
              float *singular_vals, const paramsTSVD &prms) {
   tsvdFit(handle, input, components, singular_vals, prms,
-          handle.getStream());
+          handle.get_stream());
 }
 
 void tsvdFit(raft::handle_t &handle, double *input, double *components,
              double *singular_vals, const paramsTSVD &prms) {
   tsvdFit(handle, input, components, singular_vals, prms,
-          handle.getStream());
+          handle.get_stream());
 }
 
 void tsvdFitTransform(raft::handle_t &handle, float *input, float *trans_input,
@@ -39,7 +39,7 @@ void tsvdFitTransform(raft::handle_t &handle, float *input, float *trans_input,
                       const paramsTSVD &prms) {
   tsvdFitTransform(handle, input, trans_input, components,
                    explained_var, explained_var_ratio, singular_vals, prms,
-                   handle.getStream());
+                   handle.get_stream());
 }
 
 void tsvdFitTransform(raft::handle_t &handle, double *input, double *trans_input,
@@ -48,33 +48,33 @@ void tsvdFitTransform(raft::handle_t &handle, double *input, double *trans_input
                       const paramsTSVD &prms) {
   tsvdFitTransform(handle, input, trans_input, components,
                    explained_var, explained_var_ratio, singular_vals, prms,
-                   handle.getStream());
+                   handle.get_stream());
 }
 
 void tsvdTransform(raft::handle_t &handle, float *input, float *components,
                    float *trans_input, const paramsTSVD &prms) {
   tsvdTransform(handle, input, components, trans_input, prms,
-                handle.getStream());
+                handle.get_stream());
 }
 
 void tsvdTransform(raft::handle_t &handle, double *input, double *components,
                    double *trans_input, const paramsTSVD &prms) {
   tsvdTransform(handle, input, components, trans_input, prms,
-                handle.getStream());
+                handle.get_stream());
 }
 
 void tsvdInverseTransform(raft::handle_t &handle, float *trans_input,
                           float *components, float *input,
                           const paramsTSVD &prms) {
   tsvdInverseTransform(handle, trans_input, components, input, prms,
-                       handle.getStream());
+                       handle.get_stream());
 }
 
 void tsvdInverseTransform(raft::handle_t &handle, double *trans_input,
                           double *components, double *input,
                           const paramsTSVD &prms) {
   tsvdInverseTransform(handle, trans_input, components, input, prms,
-                       handle.getStream());
+                       handle.get_stream());
 }
 
 };  // end namespace ML

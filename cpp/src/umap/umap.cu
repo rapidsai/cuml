@@ -52,7 +52,7 @@ void fit(const raft::handle_t &handle,
 }
 
 void find_ab(const raft::handle_t &handle, UMAPParams *params) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
   UMAPAlgo::find_ab(params, d_alloc, stream);
 }

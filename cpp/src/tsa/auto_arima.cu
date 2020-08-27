@@ -23,7 +23,7 @@ namespace ML {
 
 int divide_by_mask_build_index(const raft::handle_t& handle, const bool* d_mask,
                                int* d_index, int batch_size) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto allocator = handle.get_device_allocator();
   return ML::TimeSeries::divide_by_mask_build_index(d_mask, d_index, batch_size,
                                                     allocator, stream);
@@ -35,7 +35,7 @@ inline void divide_by_mask_execute_helper(const raft::handle_t& handle,
                                           const int* d_index, DataT* d_out0,
                                           DataT* d_out1, int batch_size,
                                           int n_obs) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   ML::TimeSeries::divide_by_mask_execute(d_in, d_mask, d_index, d_out0, d_out1,
                                          batch_size, n_obs, stream);
 }
@@ -69,7 +69,7 @@ inline void divide_by_min_build_index_helper(const raft::handle_t& handle,
                                              int* d_batch, int* d_index,
                                              int* h_size, int batch_size,
                                              int n_sub) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto allocator = handle.get_device_allocator();
   ML::TimeSeries::divide_by_min_build_index(
     d_matrix, d_batch, d_index, h_size, batch_size, n_sub, allocator, stream);
@@ -94,7 +94,7 @@ inline void divide_by_min_execute_helper(const raft::handle_t& handle,
                                          const DataT* d_in, const int* d_batch,
                                          const int* d_index, DataT** hd_out,
                                          int batch_size, int n_sub, int n_obs) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto allocator = handle.get_device_allocator();
   ML::TimeSeries::divide_by_min_execute(d_in, d_batch, d_index, hd_out,
                                         batch_size, n_sub, n_obs, allocator,
@@ -127,7 +127,7 @@ void divide_by_min_execute(const raft::handle_t& handle, const int* d_in,
 void build_division_map(const raft::handle_t& handle, const int* const* hd_id,
                         const int* h_size, int* d_id_to_pos, int* d_id_to_model,
                         int batch_size, int n_sub) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto allocator = handle.get_device_allocator();
   ML::TimeSeries::build_division_map(hd_id, h_size, d_id_to_pos, d_id_to_model,
                                      batch_size, n_sub, allocator, stream);
@@ -139,7 +139,7 @@ inline void merge_series_helper(const raft::handle_t& handle,
                                 const int* d_id_to_pos, const int* d_id_to_sub,
                                 DataT* d_out, int batch_size, int n_sub,
                                 int n_obs) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto allocator = handle.get_device_allocator();
   ML::TimeSeries::merge_series(hd_in, d_id_to_pos, d_id_to_sub, d_out,
                                batch_size, n_sub, n_obs, allocator, stream);

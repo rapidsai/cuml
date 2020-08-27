@@ -97,7 +97,7 @@ class KernelCache {
               int n_cols, int n_ws,
               MLCommon::Matrix::GramMatrixBase<math_t> *kernel,
               float cache_size = 200, SvmType svmType = C_SVC)
-    : cache(handle.get_device_allocator(), handle.getStream(), n_rows,
+    : cache(handle.get_device_allocator(), handle.get_stream(), n_rows,
             cache_size),
       kernel(kernel),
       x(x),
@@ -105,16 +105,16 @@ class KernelCache {
       n_cols(n_cols),
       n_ws(n_ws),
       svmType(svmType),
-      cublas_handle(handle.getCublasHandle()),
-      d_num_selected_out(handle.get_device_allocator(), handle.getStream(), 1),
-      d_temp_storage(handle.get_device_allocator(), handle.getStream()),
-      x_ws(handle.get_device_allocator(), handle.getStream(), n_ws * n_cols),
-      tile(handle.get_device_allocator(), handle.getStream(), n_ws * n_rows),
-      unique_idx(handle.get_device_allocator(), handle.getStream(), n_ws),
-      k_col_idx(handle.get_device_allocator(), handle.getStream(), n_ws),
-      ws_cache_idx(handle.get_device_allocator(), handle.getStream(), n_ws) {
+      cublas_handle(handle.get_cublas_handle()),
+      d_num_selected_out(handle.get_device_allocator(), handle.get_stream(), 1),
+      d_temp_storage(handle.get_device_allocator(), handle.get_stream()),
+      x_ws(handle.get_device_allocator(), handle.get_stream(), n_ws * n_cols),
+      tile(handle.get_device_allocator(), handle.get_stream(), n_ws * n_rows),
+      unique_idx(handle.get_device_allocator(), handle.get_stream(), n_ws),
+      k_col_idx(handle.get_device_allocator(), handle.get_stream(), n_ws),
+      ws_cache_idx(handle.get_device_allocator(), handle.get_stream(), n_ws) {
     ASSERT(kernel != nullptr, "Kernel pointer required for KernelCache!");
-    stream = handle.getStream();
+    stream = handle.get_stream();
 
     // Default kernel_column_idx map for SVC
     MLCommon::LinAlg::range(k_col_idx.data(), n_ws, stream);

@@ -70,7 +70,7 @@ void sgdFit(raft::handle_t &handle, float *input, int n_rows, int n_cols,
   sgdFit(handle, input, n_rows, n_cols, labels, coef, intercept,
          fit_intercept, batch_size, epochs, learning_rate_type, eta0, power_t,
          loss_funct, pen, alpha, l1_ratio, shuffle, tol, n_iter_no_change,
-         handle.getStream());
+         handle.get_stream());
 }
 
 void sgdFit(raft::handle_t &handle, double *input, int n_rows, int n_cols,
@@ -118,7 +118,7 @@ void sgdFit(raft::handle_t &handle, double *input, int n_rows, int n_cols,
   sgdFit(handle, input, n_rows, n_cols, labels, coef, intercept,
          fit_intercept, batch_size, epochs, learning_rate_type, eta0, power_t,
          loss_funct, pen, alpha, l1_ratio, shuffle, tol, n_iter_no_change,
-         handle.getStream());
+         handle.get_stream());
 }
 
 void sgdPredict(raft::handle_t &handle, const float *input, int n_rows, int n_cols,
@@ -135,7 +135,7 @@ void sgdPredict(raft::handle_t &handle, const float *input, int n_rows, int n_co
   }
 
   sgdPredict(handle, input, n_rows, n_cols, coef, intercept, preds,
-             loss_funct, handle.getStream());
+             loss_funct, handle.get_stream());
 }
 
 void sgdPredict(raft::handle_t &handle, const double *input, int n_rows, int n_cols,
@@ -152,7 +152,7 @@ void sgdPredict(raft::handle_t &handle, const double *input, int n_rows, int n_c
   }
 
   sgdPredict(handle, input, n_rows, n_cols, coef, intercept, preds,
-             loss_funct, handle.getStream());
+             loss_funct, handle.get_stream());
 }
 
 void sgdPredictBinaryClass(raft::handle_t &handle, const float *input, int n_rows,
@@ -170,7 +170,7 @@ void sgdPredictBinaryClass(raft::handle_t &handle, const float *input, int n_row
   }
 
   sgdPredictBinaryClass(handle, input, n_rows, n_cols, coef,
-                        intercept, preds, loss_funct, handle.getStream());
+                        intercept, preds, loss_funct, handle.get_stream());
 }
 
 void sgdPredictBinaryClass(raft::handle_t &handle, const double *input, int n_rows,
@@ -188,7 +188,7 @@ void sgdPredictBinaryClass(raft::handle_t &handle, const double *input, int n_ro
   }
 
   sgdPredictBinaryClass(handle, input, n_rows, n_cols, coef,
-                        intercept, preds, loss_funct, handle.getStream());
+                        intercept, preds, loss_funct, handle.get_stream());
 }
 
 void cdFit(raft::handle_t &handle, float *input, int n_rows, int n_cols,
@@ -202,7 +202,7 @@ void cdFit(raft::handle_t &handle, float *input, int n_rows, int n_cols,
 
   cdFit(handle, input, n_rows, n_cols, labels, coef, intercept,
         fit_intercept, normalize, epochs, loss_funct, alpha, l1_ratio, shuffle,
-        tol, handle.getStream());
+        tol, handle.get_stream());
 }
 
 void cdFit(raft::handle_t &handle, double *input, int n_rows, int n_cols,
@@ -216,7 +216,7 @@ void cdFit(raft::handle_t &handle, double *input, int n_rows, int n_cols,
 
   cdFit(handle, input, n_rows, n_cols, labels, coef, intercept,
         fit_intercept, normalize, epochs, loss_funct, alpha, l1_ratio, shuffle,
-        tol, handle.getStream());
+        tol, handle.get_stream());
 }
 
 void cdPredict(raft::handle_t &handle, const float *input, int n_rows, int n_cols,
@@ -229,7 +229,7 @@ void cdPredict(raft::handle_t &handle, const float *input, int n_rows, int n_col
   }
 
   cdPredict(handle, input, n_rows, n_cols, coef, intercept, preds,
-            loss_funct, handle.getStream());
+            loss_funct, handle.get_stream());
 }
 
 void cdPredict(raft::handle_t &handle, const double *input, int n_rows, int n_cols,
@@ -242,7 +242,7 @@ void cdPredict(raft::handle_t &handle, const double *input, int n_rows, int n_co
   }
 
   cdPredict(handle, input, n_rows, n_cols, coef, intercept, preds,
-            loss_funct, handle.getStream());
+            loss_funct, handle.get_stream());
 }
 
 }  // namespace Solver

@@ -29,7 +29,7 @@ void dbscanFit(const raft::handle_t &handle, float *input, int n_rows, int n_col
                int verbosity) {
   dbscanFitImpl<float, int>(handle, input, n_rows, n_cols, eps,
                             min_pts, labels, nullptr, max_bytes_per_batch,
-                            handle.getStream(), verbosity);
+                            handle.get_stream(), verbosity);
 }
 
 void dbscanFit(const raft::handle_t &handle, double *input, int n_rows, int n_cols,
@@ -37,7 +37,7 @@ void dbscanFit(const raft::handle_t &handle, double *input, int n_rows, int n_co
                int verbosity) {
   dbscanFitImpl<double, int>(handle, input, n_rows, n_cols, eps,
                              min_pts, labels, nullptr, max_bytes_per_batch,
-                             handle.getStream(), verbosity);
+                             handle.get_stream(), verbosity);
 }
 
 void dbscanFit(const raft::handle_t &handle, float *input, int n_rows, int n_cols,
@@ -45,7 +45,7 @@ void dbscanFit(const raft::handle_t &handle, float *input, int n_rows, int n_col
                size_t max_bytes_per_batch, int verbosity) {
   dbscanFitImpl<float, int>(handle, input, n_rows, n_cols, eps,
                             min_pts, labels, core_sample_indices,
-                            max_bytes_per_batch, handle.getStream(), verbosity);
+                            max_bytes_per_batch, handle.get_stream(), verbosity);
 }
 
 void dbscanFit(const raft::handle_t &handle, double *input, int n_rows, int n_cols,
@@ -53,7 +53,7 @@ void dbscanFit(const raft::handle_t &handle, double *input, int n_rows, int n_co
                size_t max_bytes_per_batch, int verbosity) {
   dbscanFitImpl<double, int>(
     handle, input, n_rows, n_cols, eps, min_pts, labels,
-    core_sample_indices, max_bytes_per_batch, handle.getStream(), verbosity);
+    core_sample_indices, max_bytes_per_batch, handle.get_stream(), verbosity);
 }
 
 void dbscanFit(const raft::handle_t &handle, float *input, int64_t n_rows,
@@ -61,7 +61,7 @@ void dbscanFit(const raft::handle_t &handle, float *input, int64_t n_rows,
                size_t max_bytes_per_batch, int verbosity) {
   dbscanFitImpl<float, int64_t>(handle, input, n_rows, n_cols, eps,
                                 min_pts, labels, nullptr, max_bytes_per_batch,
-                                handle.getStream(), verbosity);
+                                handle.get_stream(), verbosity);
 }
 
 void dbscanFit(const raft::handle_t &handle, double *input, int64_t n_rows,
@@ -69,7 +69,7 @@ void dbscanFit(const raft::handle_t &handle, double *input, int64_t n_rows,
                size_t max_bytes_per_batch, int verbosity) {
   dbscanFitImpl<double, int64_t>(handle, input, n_rows, n_cols, eps,
                                  min_pts, labels, nullptr, max_bytes_per_batch,
-                                 handle.getStream(), verbosity);
+                                 handle.get_stream(), verbosity);
 }
 
 void dbscanFit(const raft::handle_t &handle, float *input, int64_t n_rows,
@@ -78,7 +78,7 @@ void dbscanFit(const raft::handle_t &handle, float *input, int64_t n_rows,
                int verbosity) {
   dbscanFitImpl<float, int64_t>(
     handle, input, n_rows, n_cols, eps, min_pts, labels,
-    core_sample_indices, max_bytes_per_batch, handle.getStream(), verbosity);
+    core_sample_indices, max_bytes_per_batch, handle.get_stream(), verbosity);
 }
 
 void dbscanFit(const raft::handle_t &handle, double *input, int64_t n_rows,
@@ -87,7 +87,7 @@ void dbscanFit(const raft::handle_t &handle, double *input, int64_t n_rows,
                int verbosity) {
   dbscanFitImpl<double, int64_t>(
     handle, input, n_rows, n_cols, eps, min_pts, labels,
-    core_sample_indices, max_bytes_per_batch, handle.getStream(), verbosity);
+    core_sample_indices, max_bytes_per_batch, handle.get_stream(), verbosity);
 }
 
 };  // end namespace ML

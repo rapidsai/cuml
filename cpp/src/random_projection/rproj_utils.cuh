@@ -64,26 +64,26 @@ inline size_t binomial(const raft::handle_t& h, size_t n, double p,
 
   auto rng = MLCommon::Random::Rng(random_state + seed);
 
-  bool* rand_array = (bool*)alloc->allocate(n * sizeof(bool), h.getStream());
-  int* successes = (int*)alloc->allocate(sizeof(int), h.getStream());
+  bool* rand_array = (bool*)alloc->allocate(n * sizeof(bool), h.get_stream());
+  int* successes = (int*)alloc->allocate(sizeof(int), h.get_stream());
 
-  rng.bernoulli(rand_array, n, p, h.getStream());
+  rng.bernoulli(rand_array, n, p, h.get_stream());
 
-  cudaMemsetAsync(successes, 0, sizeof(int), h.getStream());
+  cudaMemsetAsync(successes, 0, sizeof(int), h.get_stream());
 
   dim3 grid_n(MLCommon::ceildiv(n, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  sum_bools<<<grid_n, blk, 0, h.getStream()>>>(rand_array, n, successes);
+  sum_bools<<<grid_n, blk, 0, h.get_stream()>>>(rand_array, n, successes);
   CUDA_CHECK(cudaPeekAtLastError());
 
   int ret = 0;
-  MLCommon::updateHost(&ret, successes, 1, h.getStream());
-  cudaStreamSynchronize(h.getStream());
+  MLCommon::updateHost(&ret, successes, 1, h.get_stream());
+  cudaStreamSynchronize(h.get_stream());
   CUDA_CHECK(cudaPeekAtLastError());
 
-  alloc->deallocate(rand_array, n * sizeof(bool), h.getStream());
-  alloc->deallocate(successes, sizeof(int), h.getStream());
+  alloc->deallocate(rand_array, n * sizeof(bool), h.get_stream());
+  alloc->deallocate(successes, sizeof(int), h.get_stream());
 
   return n - ret;
 }

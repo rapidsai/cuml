@@ -43,7 +43,7 @@ template <typename math_t>
 void gaussian_random_matrix(const raft::handle_t& h,
                             rand_mat<math_t>* random_matrix,
                             paramsRPROJ& params) {
-  cudaStream_t stream = h.getStream();
+  cudaStream_t stream = h.get_stream();
   auto d_alloc = h.get_device_allocator();
   int len = params.n_components * params.n_features;
   random_matrix->dense_data.resize(len, stream);
@@ -61,7 +61,7 @@ void gaussian_random_matrix(const raft::handle_t& h,
 template <typename math_t>
 void sparse_random_matrix(const raft::handle_t& h, rand_mat<math_t>* random_matrix,
                           paramsRPROJ& params) {
-  cudaStream_t stream = h.getStream();
+  cudaStream_t stream = h.get_stream();
   auto d_alloc = h.get_device_allocator();
 
   if (params.density == 1.0f) {
@@ -152,12 +152,12 @@ template <typename math_t>
 void RPROJtransform(const raft::handle_t& handle, math_t* input,
                     rand_mat<math_t>* random_matrix, math_t* output,
                     paramsRPROJ* params) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
 
   check_parameters(*params);
 
   if (random_matrix->type == dense) {
-    cublasHandle_t cublas_handle = handle.getCublasHandle();
+    cublasHandle_t cublas_handle = handle.get_cublas_handle();
 
     const math_t alfa = 1;
     const math_t beta = 0;

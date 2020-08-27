@@ -49,7 +49,7 @@ namespace opg {
  * @param[in] verbose: print extra logging info
  *
  */
-void brute_force_knn(ML::raft::handle_t &handle,
+void brute_force_knn(raft::handle_t &handle,
                      std::vector<Matrix::Data<int64_t> *> &out_I,
                      std::vector<Matrix::floatData_t *> &out_D,
                      std::vector<Matrix::floatData_t *> &idx_data,
@@ -88,7 +88,7 @@ void brute_force_knn(ML::raft::handle_t &handle,
  * @param[in] batch_size the max number of rows to broadcast at a time
  * @param[in] verbose print extra logging info
  */
-void knn_classify(ML::raft::handle_t &handle, std::vector<Matrix::Data<int> *> *out,
+void knn_classify(raft::handle_t &handle, std::vector<Matrix::Data<int> *> *out,
                   std::vector<Matrix::Data<int64_t> *> *out_I,
                   std::vector<Matrix::floatData_t *> *out_D,
                   std::vector<std::vector<float *>> *probas,
@@ -127,7 +127,7 @@ void knn_classify(ML::raft::handle_t &handle, std::vector<Matrix::Data<int> *> *
  * @param[in] batch_size the max number of rows to broadcast at a time
  * @param[in] verbose print extra logging info
  */
-void knn_regress(ML::raft::handle_t &handle,
+void knn_regress(raft::handle_t &handle,
                  std::vector<Matrix::Data<float> *> *out,
                  std::vector<Matrix::Data<int64_t> *> *out_I,
                  std::vector<Matrix::floatData_t *> *out_D,

@@ -103,7 +103,7 @@ void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows,
   ASSERT(n_rows > 1,
          "Parameter n_rows: number of rows cannot be less than two");
 
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
 
   auto allocator = handle.get_device_allocator();
   device_buffer<math_t> mu_input(allocator, stream, 0);
@@ -274,7 +274,7 @@ void sgdPredict(const raft::handle_t &handle, const math_t *input, int n_rows,
   ASSERT(n_rows > 1,
          "Parameter n_rows: number of rows cannot be less than two");
 
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
 
   if (loss == ML::loss_funct::SQRD_LOSS) {
     Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept,

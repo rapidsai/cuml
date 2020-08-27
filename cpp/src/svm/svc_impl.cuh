@@ -57,7 +57,7 @@ void svcFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
   //ML::detail::streamSyncer _(handle_impl.getImpl());
   const raft::handle_t &handle_impl = handle;
 
-  cudaStream_t stream = handle_impl.getStream();
+  cudaStream_t stream = handle_impl.get_stream();
   MLCommon::Label::getUniqueLabels(labels, n_rows, &(model.unique_labels),
                                    &(model.n_classes), stream,
                                    handle_impl.get_device_allocator());
@@ -72,7 +72,7 @@ void svcFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
 
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel =
     MLCommon::Matrix::KernelFactory<math_t>::create(
-      kernel_params, handle_impl.getCublasHandle());
+      kernel_params, handle_impl.get_cublas_handle());
   SmoSolver<math_t> smo(handle_impl, param, kernel);
   smo.Solve(input, n_rows, n_cols, y.data(), sample_weight, &(model.dual_coefs),
             &(model.n_support), &(model.x_support), &(model.support_idx),
@@ -101,7 +101,7 @@ void svcPredict(const raft::handle_t &handle, math_t *input, int n_rows, int n_c
   }
 
   const raft::handle_t &handle_impl = handle;
-  cudaStream_t stream = handle_impl.getStream();
+  cudaStream_t stream = handle_impl.get_stream();
 
   MLCommon::device_buffer<math_t> K(handle_impl.get_device_allocator(), stream,
                                     n_batch * model.n_support);
@@ -111,7 +111,7 @@ void svcPredict(const raft::handle_t &handle, math_t *input, int n_rows, int n_c
                                         stream);
   MLCommon::device_buffer<int> idx(handle_impl.get_device_allocator(), stream);
 
-  cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
+  cublasHandle_t cublas_handle = handle_impl.get_cublas_handle();
 
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel =
     MLCommon::Matrix::KernelFactory<math_t>::create(kernel_params,
@@ -178,7 +178,7 @@ void svcPredict(const raft::handle_t &handle, math_t *input, int n_rows, int n_c
 template <typename math_t>
 void svmFreeBuffers(const raft::handle_t &handle, svmModel<math_t> &m) {
   auto allocator = handle.get_device_allocator();
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   if (m.dual_coefs)
     allocator->deallocate(m.dual_coefs, m.n_support * sizeof(math_t), stream);
   if (m.support_idx)

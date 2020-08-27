@@ -107,7 +107,7 @@ TYPED_TEST_CASE(WorkingSetTest, FloatTypes);
 
 TYPED_TEST(WorkingSetTest, Init) {
   this->ws = new WorkingSet<TypeParam>(this->handle,
-                                       this->handle.getStream(), 10);
+                                       this->handle.get_stream(), 10);
   EXPECT_EQ(this->ws->GetSize(), 10);
   delete this->ws;
 
@@ -146,7 +146,7 @@ class KernelCacheTest : public ::testing::Test {
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
-    cublas_handle = handle.getCublasHandle();
+    cublas_handle = handle.get_cublas_handle();
     allocate(x_dev, n_rows * n_cols);
     updateDevice(x_dev, x_host, n_rows * n_cols, stream);
 
@@ -245,7 +245,7 @@ TYPED_TEST_P(KernelCacheTest, EvalTest) {
   for (auto params : param_vec) {
     Matrix::GramMatrixBase<TypeParam> *kernel =
       Matrix::KernelFactory<TypeParam>::create(
-        params, this->handle.getCublasHandle());
+        params, this->handle.get_cublas_handle());
     KernelCache<TypeParam> cache(this->handle, this->x_dev,
                                  this->n_rows, this->n_cols, this->n_ws, kernel,
                                  cache_size, C_SVC);
@@ -265,7 +265,7 @@ TYPED_TEST_P(KernelCacheTest, CacheEvalTest) {
 
   Matrix::GramMatrixBase<TypeParam> *kernel =
     Matrix::KernelFactory<TypeParam>::create(
-      param, this->handle.getCublasHandle());
+      param, this->handle.get_cublas_handle());
   KernelCache<TypeParam> cache(this->handle, this->x_dev,
                                this->n_rows, this->n_cols, this->n_ws, kernel,
                                cache_size, C_SVC);
@@ -288,7 +288,7 @@ TYPED_TEST_P(KernelCacheTest, SvrEvalTest) {
 
   Matrix::GramMatrixBase<TypeParam> *kernel =
     Matrix::KernelFactory<TypeParam>::create(
-      param, this->handle.getCublasHandle());
+      param, this->handle.get_cublas_handle());
   KernelCache<TypeParam> cache(this->handle, this->x_dev,
                                this->n_rows, this->n_cols, this->n_ws, kernel,
                                cache_size, EPSILON_SVR);
@@ -403,8 +403,8 @@ template <typename math_t>
 class SmoUpdateTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    stream = handle.getInternalStream(0);
-    cublasHandle_t cublas_handle = handle.getCublasHandle();
+    stream = handle.get_internal_stream(0);
+    cublasHandle_t cublas_handle = handle.get_cublas_handle();
     allocate(f_dev, n_rows, true);
     allocate(kernel_dev, n_rows * n_ws);
     updateDevice(kernel_dev, kernel_host, n_ws * n_rows, stream);
@@ -445,7 +445,7 @@ class SmoBlockSolverTest : public ::testing::Test {
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
-    cublas_handle = handle.getCublasHandle();
+    cublas_handle = handle.get_cublas_handle();
     allocate(ws_idx_dev, n_ws);
     allocate(y_dev, n_rows);
     allocate(C_dev, n_rows);
@@ -675,7 +675,7 @@ class SmoSolverTest : public ::testing::Test {
     allocate(return_buff_dev, 2);
     allocate(sample_weights_dev, n_rows);
     LinAlg::range(sample_weights_dev, 1, n_rows + 1, stream);
-    cublas_handle = handle.getCublasHandle();
+    cublas_handle = handle.get_cublas_handle();
 
     updateDevice(x_dev, x_host, n_rows * n_cols, stream);
     updateDevice(ws_idx_dev, ws_idx_host, n_ws, stream);
@@ -874,7 +874,7 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest) {
     param.tol = p.tol;
     //param.max_iter = p.max_iter;
     GramMatrixBase<TypeParam> *kernel = KernelFactory<TypeParam>::create(
-      p.kernel_params, this->handle.getCublasHandle());
+      p.kernel_params, this->handle.get_cublas_handle());
     SmoSolver<TypeParam> smo(this->handle, param, kernel);
     svmModel<TypeParam> model{0,       this->n_cols, 0, nullptr,
                               nullptr, nullptr,      0, nullptr};
@@ -993,8 +993,8 @@ template <typename math_t>
 void make_blobs(const raft::handle_t &handle, math_t *x, math_t *y, int n_rows,
                 int n_cols, int n_cluster, float *centers = nullptr) {
   auto allocator = handle.get_device_allocator();
-  auto cublas_h = handle.getCublasHandle();
-  auto stream = handle.getStream();
+  auto cublas_h = handle.get_cublas_handle();
+  auto stream = handle.get_stream();
   device_buffer<float> x_float(allocator, stream, n_rows * n_cols);
   device_buffer<int> y_int(allocator, stream, n_rows);
 

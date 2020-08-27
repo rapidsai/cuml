@@ -24,12 +24,8 @@
 #include <linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
-#include <common/cuml_comms_int.hpp>
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
-
-#include <common/cuml_comms_iface.hpp>
-#include <common/cuml_comms_int.hpp>
 
 #include <common/cumlHandle.hpp>
 
@@ -66,10 +62,10 @@ class KNNTestHelper {
     this->handle = new raft::handle_t();
     ML::initialize_mpi_comms(*handle, MPI_COMM_WORLD);
     const raft::handle_t &h = handle->getImpl();
-    const cumlCommunicator &comm = h.getCommunicator();
+    const auto &comm = h.get_comms();
     this->allocator = h.get_device_allocator();
 
-    this->stream = h.getStream();
+    this->stream = h.get_stream();
 
     int my_rank = comm.getRank();
     int size = comm.getSize();

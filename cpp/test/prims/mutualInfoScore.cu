@@ -116,7 +116,7 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
     MLCommon::updateDevice(secondClusterArray, &arr2[0], (int)nElements,
                            stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new defaultDeviceAllocator);
+      new raft::mr::device::default_allocator);
 
     //calling the mutualInfo CUDA implementation
     computedmutualInfo = MLCommon::Metrics::mutualInfoScore(

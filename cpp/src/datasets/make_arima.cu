@@ -26,7 +26,7 @@ inline void make_arima_helper(const raft::handle_t& handle, DataT* out,
                               IdxT batch_size, IdxT n_obs, ARIMAOrder order,
                               DataT scale, DataT noise_scale,
                               DataT intercept_scale, uint64_t seed) {
-  auto stream = handle.getStream();
+  auto stream = handle.get_stream();
   auto allocator = handle.get_device_allocator();
 
   MLCommon::Random::make_arima(out, batch_size, n_obs, order, allocator, stream,
