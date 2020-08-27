@@ -507,7 +507,7 @@ void shuffleAndGather(const raft::handle_t &handle,
                                      stream);
   } else {
     // shuffle indices on host and copy to device...
-    MLCommon::host_buffer<IndexT> ht_indices(handle.getHostAllocator(), stream,
+    MLCommon::host_buffer<IndexT> ht_indices(handle.get_host_allocator(), stream,
                                              n_samples);
 
     std::iota(ht_indices.begin(), ht_indices.end(), 0);
@@ -604,7 +604,7 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
   auto dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
 
   // temporary buffers
-  MLCommon::host_buffer<DataT> h_wt(handle.getHostAllocator(), stream,
+  MLCommon::host_buffer<DataT> h_wt(handle.get_host_allocator(), stream,
                                     n_samples);
 
   MLCommon::device_buffer<DataT> distBuffer(handle.get_device_allocator(), stream,

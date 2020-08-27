@@ -132,11 +132,11 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
   int rp = dis(gen);
 
   // buffer to flag the sample that is chosen as initial centroids
-  MLCommon::host_buffer<int> h_isSampleCentroid(handle.getHostAllocator(),
+  MLCommon::host_buffer<int> h_isSampleCentroid(handle.get_host_allocator(),
                                                 stream, n_samples);
   std::fill(h_isSampleCentroid.begin(), h_isSampleCentroid.end(), 0);
 
-  MLCommon::host_buffer<int> nPtsSampledByRank(handle.getHostAllocator(),
+  MLCommon::host_buffer<int> nPtsSampledByRank(handle.get_host_allocator(),
                                                stream, n_rank);
 
   Tensor<DataT, 2, IndexT> initialCentroid({1, n_features},

@@ -195,9 +195,9 @@ class KernelCacheTest : public ::testing::Test {
 
   void check(const math_t *tile_dev, int n_ws, int n_rows, const int *ws_idx,
              const int *kColIdx) {
-    host_buffer<int> ws_idx_h(handle.getHostAllocator(), stream, n_ws);
+    host_buffer<int> ws_idx_h(handle.get_host_allocator(), stream, n_ws);
     updateHost(ws_idx_h.data(), ws_idx, n_ws, stream);
-    host_buffer<int> kidx_h(handle.getHostAllocator(), stream, n_ws);
+    host_buffer<int> kidx_h(handle.get_host_allocator(), stream, n_ws);
     updateHost(kidx_h.data(), kColIdx, n_ws, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     // Note: kernel cache can permute the working set, so we have to look

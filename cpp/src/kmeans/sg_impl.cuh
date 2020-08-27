@@ -323,7 +323,7 @@ void initScalableKMeansPlusPlus(
   auto initialCentroid = X.template view<2>({1, n_features}, {cIdx, 0});
 
   // flag the sample that is chosen as initial centroid
-  MLCommon::host_buffer<int> h_isSampleCentroid(handle.getHostAllocator(),
+  MLCommon::host_buffer<int> h_isSampleCentroid(handle.get_host_allocator(),
                                                 stream, n_samples);
   std::fill(h_isSampleCentroid.begin(), h_isSampleCentroid.end(), 0);
   h_isSampleCentroid[cIdx] = 1;

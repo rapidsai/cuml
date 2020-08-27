@@ -72,7 +72,7 @@ void sparse_random_matrix(const raft::handle_t& h, rand_mat<math_t>* random_matr
     rng.scaled_bernoulli(random_matrix->dense_data.data(), len, math_t(0.5),
                          scale, stream);
   } else {
-    auto alloc = h.getHostAllocator();
+    auto alloc = h.get_host_allocator();
 
     double max_total_density = params.density * 1.2;
     size_t indices_alloc =
