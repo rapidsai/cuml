@@ -7,10 +7,10 @@
 - PR #2739: Use cusparse_wrappers.h from RAFT
 - PR #2729: Replace `cupy.sparse` with `cupyx.scipy.sparse`
 - PR #2749: Correct docs for python version used in cuml_dev conda environment
+- PR #2762: Fix broken links and provide minor edits to docs
 - PR #2723: Support and enable convert_dtype in estimator predict
 
 ## Bug Fixes
-
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
 
 # cuML 0.15.0 (Date TBD)
