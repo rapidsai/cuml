@@ -452,7 +452,6 @@
 - PR #1948: Adjust BatchedMargin margin and disable tests temporarily
 - PR #1950: Fix UMAP test failure
 
-
 # cuML 0.12.0 (04 Feb 2020)
 
 ## New Features
