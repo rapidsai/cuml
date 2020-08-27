@@ -34,7 +34,7 @@ class RPROJTest : public ::testing::Test {
  protected:
   T* transpose(T* in, int n_rows, int n_cols) {
     cudaStream_t stream = h.get_stream();
-    cublasHandle_t cublas_handle = handle.get_cublas_handle();
+    cublasHandle_t cublas_handle = h.get_cublas_handle();
     T* result;
     allocate(result, n_rows * n_cols);
     MLCommon::LinAlg::transpose(in, result, n_rows, n_cols, cublas_handle,
