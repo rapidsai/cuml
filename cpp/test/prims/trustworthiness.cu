@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <cuda_utils.cuh>
+#include <common/cudart_utils.h>
 #include <distance/distance.cuh>
 #include <iostream>
 #include <score/scores.cuh>

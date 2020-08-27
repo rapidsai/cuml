@@ -23,13 +23,7 @@
 #include <sstream>
 #include <vector>
 
-#ifdef HAVE_CUB
-#include <cuml/common/cubAllocatorAdapter.hpp>
-#endif  //HAVE_CUB
-
-#ifdef HAVE_RMM
 #include <raft/mr/device/allocator.hpp>
-#endif  //HAVE_RMM
 
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/cuml.hpp>
@@ -140,26 +134,11 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  raft::handle_t raft::handle_t;
+  raft::handle_t handle;
 
-#ifdef HAVE_RMM
-  rmmOptions_t rmmOptions;
-  rmmOptions.allocation_mode = PoolAllocation;
-  rmmOptions.initial_pool_size = 0;
-  rmmOptions.enable_logging = false;
-  rmmError_t rmmStatus = rmmInitialize(&rmmOptions);
-  if (RMM_SUCCESS != rmmStatus) {
-    std::cerr << "WARN: Could not initialize RMM: "
-              << rmmGetErrorString(rmmStatus) << std::endl;
-  }
-#endif  //HAVE_RMM
-#ifdef HAVE_RMM
   std::shared_ptr<ML::deviceAllocator> allocator(new raft::mr::device::default_allocator());
-#elif defined(HAVE_CUB)
-  std::shared_ptr<ML::deviceAllocator> allocator(
-    new ML::cachingDeviceAllocator());
-#endif  // HAVE_RMM
-  raft::handle_t.set_device_allocator(allocator);
+
+  handle.set_device_allocator(allocator);
 
   std::vector<float> h_inputData;
 
@@ -201,7 +180,7 @@ int main(int argc, char* argv[]) {
 
   cudaStream_t stream;
   CUDA_RT_CALL(cudaStreamCreate(&stream));
-  raft::handle_t.set_stream(stream);
+  handle.set_stream(stream);
 
   std::vector<int> h_labels(nRows);
   int* d_labels = nullptr;
@@ -220,7 +199,7 @@ int main(int argc, char* argv[]) {
             << "eps - " << eps << std::endl
             << "max_bytes_per_batch - " << max_bytes_per_batch << std::endl;
 
-  ML::dbscanFit(raft::handle_t, d_inputData, nRows, nCols, eps, minPts, d_labels,
+  ML::dbscanFit(handle, d_inputData, nRows, nCols, eps, minPts, d_labels,
                 nullptr, max_bytes_per_batch, false);
   CUDA_RT_CALL(cudaMemcpyAsync(h_labels.data(), d_labels, nRows * sizeof(int),
                                cudaMemcpyDeviceToHost, stream));
