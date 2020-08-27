@@ -4,11 +4,14 @@
 
 ## Improvements
 - PR #2735: Update seed to random_state in random forest and associated tests
-
 - PR #2739: Use cusparse_wrappers.h from RAFT
 - PR #2729: Replace `cupy.sparse` with `cupyx.scipy.sparse`
 - PR #2749: Correct docs for python version used in cuml_dev conda environment
+<<<<<<< HEAD
 - PR #2763: Add aarch64 Jetson compute codes to CMakeLists.txt and aarch64 support to conda recipes
+=======
+- PR #2723: Support and enable convert_dtype in estimator predict
+>>>>>>> upstream/branch-0.16
 
 ## Bug Fixes
 
