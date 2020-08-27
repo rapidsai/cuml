@@ -27,6 +27,7 @@ from cuml.common.base import Base, ClassifierMixin
 from cuml.common.memory_utils import BaseMetaClass
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
+from cuml.common.doc_utils import generate_docstring
 import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array, with_cupy_rmm
 
@@ -61,7 +62,7 @@ class LogisticRegression(Base, ClassifierMixin, metaclass=BaseMetaClass):
     Note that, just like in Scikit-learn, the bias will not be regularized.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         import cudf
@@ -80,9 +81,9 @@ class LogisticRegression(Base, ClassifierMixin, metaclass=BaseMetaClass):
         reg.fit(X,y)
 
         print("Coefficients:")
-        print(reg.coef_.to_output('cupy'))
+        print(reg.coef_)
         print("Intercept:")
-        print(reg.intercept_.to_output('cupy'))
+        print(reg.intercept_)
 
         X_new = cudf.DataFrame()
         X_new['col1'] = np.array([1,5], dtype = np.float32)
@@ -146,7 +147,7 @@ class LogisticRegression(Base, ClassifierMixin, metaclass=BaseMetaClass):
         Note: this includes the intercept as the last column if fit_intercept
         is True
     intercept_: device array (n_classes, 1)
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
     ------
@@ -249,26 +250,11 @@ class LogisticRegression(Base, ClassifierMixin, metaclass=BaseMetaClass):
         else:
             self.verb_prefix = ""
 
+    @generate_docstring()
     def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
         self.solver_model._set_target_dtype(y)
         self._set_output_type(X)
@@ -315,75 +301,40 @@ class LogisticRegression(Base, ClassifierMixin, metaclass=BaseMetaClass):
 
         return self
 
+    @generate_docstring(return_values={'name': 'score',
+                                       'type': 'dense',
+                                       'description': 'Confidence score',
+                                       'shape': '(n_samples, n_classes)'})
     def decision_function(self, X, convert_dtype=False):
         """
         Gives confidence score for X
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y: array-like (device)
-           Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
         return self.solver_model._decision_function(
             X,
             convert_dtype=convert_dtype
         ).to_output(output_type=self._get_output_type(X))
 
-    def predict(self, X, convert_dtype=False):
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the y for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y : (same as the input datatype)
-            Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
         return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
-    def predict_proba(self, X, convert_dtype=False):
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted class \
+                                                       probabilities',
+                                       'shape': '(n_samples, n_classes)'})
+    def predict_proba(self, X, convert_dtype=True):
         """
         Predicts the class probabilities for each class in X
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y: array-like (device)
-           Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
         return self._predict_proba_impl(
             X,
@@ -391,26 +342,15 @@ class LogisticRegression(Base, ClassifierMixin, metaclass=BaseMetaClass):
             log_proba=False
         )
 
-    def predict_log_proba(self, X, convert_dtype=False):
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Logaright of predicted \
+                                                       class probabilities',
+                                       'shape': '(n_samples, n_classes)'})
+    def predict_log_proba(self, X, convert_dtype=True):
         """
         Predicts the log class probabilities for each class in X
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y: array-like (device)
-           Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
         return self._predict_proba_impl(
             X,

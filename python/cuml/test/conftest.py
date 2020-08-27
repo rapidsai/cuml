@@ -1,10 +1,12 @@
 import os
 
 import cupy as cp
+import cupyx
 import pytest
 from pytest import Item
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
+import numbers
 
 # Stores incorrect uses of CumlArray on cuml.common.base.Base to print at the
 # end
@@ -27,6 +29,10 @@ def pytest_runtest_makereport(item: Item, call):
 
     if (report.failed):
 
+        # Save the abs path to this file. We will only mark bad CumlArray uses
+        # if the assertion failure comes from this file
+        conf_test_path = os.path.abspath(__file__)
+
         found_assert = False
 
         # Ensure these attributes exist. They can be missing if something else
@@ -36,8 +42,10 @@ def pytest_runtest_makereport(item: Item, call):
 
             for entry in reversed(report.longrepr.reprtraceback.reprentries):
 
-                if (not found_assert and entry.reprfileloc.message.startswith(
-                        "AssertionError")):
+                if (not found_assert and
+                        entry.reprfileloc.message.startswith("AssertionError")
+                        and os.path.abspath(
+                            entry.reprfileloc.path) == conf_test_path):
                     found_assert = True
                 elif (found_assert):
                     true_path = "{}:{}".format(entry.reprfileloc.path,
@@ -104,7 +112,7 @@ def fail_on_old_cuml_array_conversion(monkeypatch):
         if real_name in self.__dict__.keys():
 
             assert not isinstance(self.__dict__[real_name], CumlArray), \
-                "Old-style CumlArray conversion. Should use CumlArrayDescriptor"
+                "Old-style CumlArray conversion. Use CumlArrayDescriptor"
 
         return saved_get_attr(self, name)
 
@@ -116,10 +124,12 @@ def fail_on_old_cuml_array_conversion(monkeypatch):
 # This fixture will monkeypatch cuml.common.base.Base to check for incorrect
 # uses of CumlArray.
 @pytest.fixture(autouse=True)
-def fail_on_bad_cuml_array_name(monkeypatch):
+def fail_on_bad_cuml_array_name(monkeypatch, request):
+
+    if 'no_bad_cuml_array_check' in request.keywords:
+        return
 
     from cuml.common import CumlArray
-    from cuml.common.array_descriptor import CumlArrayDescriptorMeta
     from cuml.common.base import Base
     from cuml.common.input_utils import get_supported_input_type
 
@@ -128,29 +138,34 @@ def fail_on_bad_cuml_array_name(monkeypatch):
         supported_type = get_supported_input_type(value)
 
         if (supported_type == CumlArray):
-
-            pass
-            # assert name.startswith("_"), "Invalid CumlArray Use! CumlArray \
-            #     attributes need a leading underscore. Attribute: '{}' In: {}" \
-            #         .format(name, self.__repr__())
-        elif (supported_type == cp.ndarray and cp.sparse.issparse(value)):
+            assert name.startswith("_"), "Invalid CumlArray Use! CumlArray \
+                attributes need a leading underscore. Attribute: '{}' In: {}" \
+                    .format(name, self.__repr__())
+        elif (supported_type == cp.ndarray
+              and cupyx.scipy.sparse.issparse(value)):
             # Leave sparse matrices alone for now.
             pass
         elif (supported_type is not None):
-            # Is this an estimated property? If so, should always be CumlArray
-            assert not name.endswith("_"), "Invalid Estimated Array-Like \
-                Attribute! Estimated attributes should always be CumlArray. \
-                Attribute: '{}' In: {}".format(name, self.__repr__())
-            assert not name.startswith("_"), "Invalid Public Array-Like \
-                Attribute! Public array-like attributes should always be \
-                CumlArray. Attribute: '{}' In: {}".format(
-                name, self.__repr__())
+            if not isinstance(value, numbers.Number):
+                # Is this an estimated property?
+                # If so, should always be CumlArray
+                assert not name.endswith("_"), "Invalid Estimated Array-Like \
+                    Attribute! Estimated attributes should always be \
+                    CumlArray. \
+                    Attribute: '{}' In: {}".format(name, self.__repr__())
+                assert not name.startswith("_"), "Invalid Public Array-Like \
+                    Attribute! Public array-like attributes should always be \
+                    CumlArray. Attribute: '{}' In: {}".format(name,
+                                                              self.__repr__())
+            else:
+                # Estimated properties can be numbers
+                pass
 
         return super(Base, self).__setattr__(name, value)
 
     # Monkeypatch CumlArray.__setattr__ to test for incorrect uses of
     # array-like objects
-    # monkeypatch.setattr(Base, "__setattr__", patched__setattr__)
+    monkeypatch.setattr(Base, "__setattr__", patched__setattr__)
 
 
 @pytest.fixture(scope="module")

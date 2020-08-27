@@ -8,7 +8,6 @@ from numba.cuda import devicearray as numbaArray
 from numpy import ndarray as numpyArray
 from pandas import DataFrame as pdDataFrame
 from pandas import Series as pdSeries
-import cupy as cp
 import cuml
 
 _input_type_to_str = {

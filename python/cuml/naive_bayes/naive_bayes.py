@@ -14,14 +14,17 @@
 # limitations under the License.
 #
 
+
 import math
 import warnings
 
 import cupy as cp
 import cupy.prof
+import cupyx
 from cuml.common import CumlArray, with_cupy_rmm
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.import_utils import has_scipy
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.kernel_utils import cuda_kernel_factory
@@ -112,9 +115,6 @@ def count_features_dense_kernel(float_dtype, int_dtype):
 
 class MultinomialNB(Base, metaclass=BaseMetaClass):
 
-    # TODO: Make this extend cuml.Base:
-    # https://github.com/rapidsai/cuml/issues/1834
-
     """
     Naive Bayes classifier for multinomial models
 
@@ -138,6 +138,7 @@ class MultinomialNB(Base, metaclass=BaseMetaClass):
     .. code-block:: python
 
     import cupy as cp
+    import cupyx
 
     from sklearn.datasets import fetch_20newsgroups
     from sklearn.feature_extraction.text import CountVectorizer
@@ -156,7 +157,7 @@ class MultinomialNB(Base, metaclass=BaseMetaClass):
 
     # Put feature vectors and labels on the GPU
 
-    X = cp.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
+    X = cupyx.scipy.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
     y = cp.asarray(twenty_train.target, dtype=cp.int32)
 
     # Train model
@@ -220,20 +221,12 @@ class MultinomialNB(Base, metaclass=BaseMetaClass):
         # Needed until Base no longer assumed cumlHandle
         self.handle = None
 
+    @generate_docstring(X='dense_sparse')
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     def fit(self, X, y, sample_weight=None):
         """
         Fit Naive Bayes classifier according to X, y
 
-        Parameters
-        ----------
-
-        X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
-            Training vectors, where n_samples is the number of samples and
-            n_features is the number of features.
-        y : array-like shape (n_samples) Target values.
-        sample_weight : array-like of shape (n_samples)
-            Weights applied to individial samples (1. for unweighted).
         """
         self._set_n_features_in(X)
         return self.partial_fit(X, y, sample_weight)
@@ -251,12 +244,13 @@ class MultinomialNB(Base, metaclass=BaseMetaClass):
 
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
             data = cp.asarray(X.data, dtype=X.data.dtype)
-            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
+            X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
+                                              shape=X.shape)
         else:
             X = input_to_cuml_array(X, order='K').array.to_output('cupy')
 
@@ -337,20 +331,15 @@ class MultinomialNB(Base, metaclass=BaseMetaClass):
         return self._partial_fit(X, y, sample_weight=sample_weight,
                                  _classes=classes)
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'y_hat',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_rows, 1)'})
     @cp.prof.TimeRangeDecorator(message="predict()", color_id=1)
     def predict(self, X):
         """
         Perform classification on an array of test vectors X.
-
-        Parameters
-        ----------
-
-        X : array-like of shape (n_samples, n_features)
-
-        Returns
-        -------
-
-        C : cupy.ndarray of shape (n_samples)
 
         """
         out_type = self._get_output_type(X)
@@ -363,40 +352,33 @@ class MultinomialNB(Base, metaclass=BaseMetaClass):
 
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
             data = cp.asarray(X.data, dtype=X.data.dtype)
-            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
+            X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
+                                              shape=X.shape)
         else:
             X = input_to_cuml_array(X, order='K').array.to_output('cupy')
 
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
-        y_hat = CumlArrayDescriptor()
-
         y_hat = invert_labels(indices, classes=self.classes_)
         return CumlArray(data=y_hat).to_output(out_type)
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'C',
+                                       'type': 'dense',
+            'description': 'Returns the log-probability of the samples for each class in the \
+            model. The columns correspond to the classes in sorted order, as \
+            they appear in the attribute `classes_`.',  # noqa
+                                       'shape': '(n_rows, 1)'})
     def predict_log_proba(self, X):
         """
         Return log-probability estimates for the test vector X.
 
-        Parameters
-        ----------
-
-        X : array-like of shape (n_samples, n_features)
-
-
-        Returns
-        -------
-
-        C : array-like of shape (n_samples, n_classes)
-            Returns the log-probability of the samples for each class in the
-            model. The columns correspond to the classes in sorted order, as
-            they appear in the attribute classes_.
         """
         out_type = self._get_output_type(X)
 
@@ -408,12 +390,13 @@ class MultinomialNB(Base, metaclass=BaseMetaClass):
 
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
             data = cp.asarray(X.data, dtype=X.data.dtype)
-            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
+            X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
+                                              shape=X.shape)
         else:
             X = input_to_cuml_array(X, order='K').array.to_output('cupy')
 
@@ -438,27 +421,27 @@ class MultinomialNB(Base, metaclass=BaseMetaClass):
         result = jll - log_prob_x.T
         return CumlArray(result).to_output(out_type)
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'C',
+                                       'type': 'dense',
+            'description': 'Returns the probability of the samples for each class in the \
+            model. The columns correspond to the classes in sorted order, as \
+            they appear in the attribute `classes_`.',  # noqa
+                                       'shape': '(n_rows, 1)'})
     def predict_proba(self, X):
         """
         Return probability estimates for the test vector X.
 
-        Parameters
-        ----------
-
-        X : array-like of shape (n_samples, n_features)
-
-        Returns
-        -------
-
-        C : array-like of shape (n_samples, n_classes)
-            Returns the probability of the samples for each class in the model.
-            The columns correspond to the classes in sorted order, as they
-            appear in the attribute classes_.
         """
         out_type = self._get_output_type(X)
         result = cp.exp(self.predict_log_proba(X))
         return CumlArray(result).to_output(out_type)
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'score',
+                                       'type': 'float',
+                                       'description': 'Mean accuracy of \
+                                       self.predict(X) with respect to y.'})
     @with_cupy_rmm
     def score(self, X, y, sample_weight=None):
         """
@@ -468,21 +451,8 @@ class MultinomialNB(Base, metaclass=BaseMetaClass):
         harsh metric since you require for each sample that each label set be
         correctly predicted.
 
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-        Test samples.
+        Currently, sample weight is ignored
 
-        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
-        True labels for X.
-
-        sample_weight : array-like of shape (n_samples,), default=None
-        Sample weights. Currently, sample weight is ignored
-
-        Returns
-        -------
-
-        score : float Mean accuracy of self.predict(X) with respect to y.
         """
         y_hat = self.predict(X)
         return accuracy_score(y_hat, cp.asarray(y, dtype=y.dtype))
@@ -500,7 +470,7 @@ class MultinomialNB(Base, metaclass=BaseMetaClass):
 
         Parameters
         ----------
-        X : cupy.ndarray or cupy.sparse matrix of size
+        X : cupy.ndarray or cupyx.scipy.sparse matrix of size
                   (n_rows, n_features)
         Y : cupy.array of monotonic class labels
         """
@@ -522,7 +492,7 @@ class MultinomialNB(Base, metaclass=BaseMetaClass):
 
         labels_dtype = self.classes_.dtype
 
-        if cp.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocoo()
 
             count_features_coo = count_features_coo_kernel(X.dtype,

@@ -140,6 +140,7 @@ class LabelEncoder(object):
         -------
         self : LabelEncoder
             A fitted instance of itself to allow method chaining
+
         """
         self._validate_keywords()
         self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
