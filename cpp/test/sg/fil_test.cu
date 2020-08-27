@@ -260,19 +260,19 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     std::vector<float> want_proba_h(ps.num_proba_outputs());
     int num_nodes = tree_num_nodes();
     std::vector<float> class_scores(ps.num_classes);
-    for (int i = 0; i < ps.num_rows; ++i) {
+    for (int r = 0; r < ps.num_rows; ++r) {
       std::fill(class_scores.begin(), class_scores.end(), 0.0f);
       switch (ps.leaf_payload_type) {
         case fil::leaf_value_t::FLOAT_SCALAR:
           for (int j = 0; j < ps.num_trees; ++j) {
             class_scores[j % ps.num_classes] +=
-              infer_one_tree(&nodes[j * num_nodes], &data_h[i * ps.num_cols]).f;
+              infer_one_tree(&nodes[j * num_nodes], &data_h[r * ps.num_cols]).f;
           }
           if (ps.num_classes == 2) {
             // all trees predict the probability for the same class
             class_scores[0] += class_scores[1];
-            transform(class_scores[0], want_proba_h[i * 2 + 1], want_preds_h[i]);
-            complement(&(want_proba_h[i * 2]));
+            transform(class_scores[0], want_proba_h[r * 2 + 1], want_preds_h[r]);
+            complement(&(want_proba_h[r * 2]));
           }
           break;
         case fil::leaf_value_t::INT_CLASS_LABEL:
@@ -310,18 +310,22 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   virtual void init_forest(fil::forest_t* pforest) = 0;
 
   void predict_on_gpu() {
-    std::vector<fil::forest_t> forest;
-    init_forest(&forest);
+    std::vector<fil::forest_t> forest(ps.num_classes);
+    for (int c = 0; c < ps.num_classes; c++)
+      init_forest(&forest[c]);
 
     // predict
     allocate(preds_d, ps.num_preds_outputs());
     allocate(proba_d, ps.num_proba_outputs());
-    fil::predict(handle, forest, preds_d, data_d, ps.num_rows);
-    fil::predict(handle, forest, proba_d, data_d, ps.num_rows, true);
+    for (int c = 0; c < ps.num_classes; c++) {
+      fil::predict(handle, forest[c], preds_d, data_d, ps.num_rows);
+      fil::predict(handle, forest[c], proba_d, data_d, ps.num_rows, true);
+    }
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // cleanup
-    fil::free(handle, forest);
+    for (int c = 0; c < ps.num_classes; c++)
+      fil::free(handle, forest[c]);
   }
 
   void compare() {
