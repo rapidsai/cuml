@@ -58,12 +58,11 @@ struct csr_batcher_t {
     batch_stop_ = batch_start_ + batch_size_;
 
     if (batch_stop_ >= total_rows_) {
-    	batch_stop_ = total_rows_-1;
-        batch_rows_ = (batch_stop_ - batch_start_) + 1;
+      batch_stop_ = total_rows_ - 1;
+      batch_rows_ = (batch_stop_ - batch_start_) + 1;
     } else {
-        batch_rows_ = batch_stop_ - batch_start_;
+      batch_rows_ = batch_stop_ - batch_start_;
     }
-
   }
 
   value_idx get_batch_csr_indptr_nnz(value_idx *batch_indptr,
@@ -167,10 +166,10 @@ void brute_force_knn(
 
     // A 3-partition temporary merge space to scale the batching. 2 parts for subsequent
     // batches and 1 space for the results of the merge, which get copied back to the
-    device_buffer<value_idx> merge_buffer_indices(allocator, stream,
-                                                  k * query_batcher.batch_rows() * 3);
-    device_buffer<value_t> merge_buffer_dists(allocator, stream,
-                                              k * query_batcher.batch_rows() * 3);
+    device_buffer<value_idx> merge_buffer_indices(
+      allocator, stream, k * query_batcher.batch_rows() * 3);
+    device_buffer<value_t> merge_buffer_dists(
+      allocator, stream, k * query_batcher.batch_rows() * 3);
 
     value_t *dists_merge_buffer_ptr;
     value_idx *indices_merge_buffer_ptr;
