@@ -304,6 +304,7 @@ if("${GPU_ARCHS}" STREQUAL "ALL")
   # Check for embedded vs workstation architectures
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
     # This is being built for Linux4Tegra or SBSA ARM64
+    message(STATUS "Detected aarch64 cpu architecture: using L4T and SBSA compatible GPU_ARCHS")
     set(GPU_ARCHS "62")
     if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
       set(GPU_ARCHS "${GPU_ARCHS};72")
@@ -314,6 +315,7 @@ if("${GPU_ARCHS}" STREQUAL "ALL")
 
   else()
     # This is being built for an x86 or x86_64 architecture
+    message(STATUS "Selecting GPU_ARCHS compatible with most GPUs")
     set(GPU_ARCHS "60")
     if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
       set(GPU_ARCHS "${GPU_ARCHS};70")
