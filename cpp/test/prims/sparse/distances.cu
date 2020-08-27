@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <sparse/distances.cuh>
-#include "test_utils.h"
+#include <test_utils.h>
 
 namespace MLCommon {
 namespace Sparse {
