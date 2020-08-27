@@ -25,7 +25,7 @@ from cuml.dask.common.utils import get_client
 from cuml import Base
 from cuml.common.array import CumlArray
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.dask.common.comms import CommsContext
+from cuml.raft.dask.common.comms import Comms
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common import parts_to_ranks
 
@@ -355,7 +355,7 @@ class SyncFitMixinLinearModel(object):
         data = DistributedDataHandler.create(data=data, client=self.client)
         self.datatype = data.datatype
 
-        comms = CommsContext(comms_p2p=False)
+        comms = Comms(comms_p2p=False)
         comms.init(workers=data.workers)
 
         data.calculate_parts_to_sizes(comms)

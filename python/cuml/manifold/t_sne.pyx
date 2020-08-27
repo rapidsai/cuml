@@ -29,7 +29,7 @@ import pandas as pd
 import warnings
 
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 import cuml.common.logger as logger
 
 from cuml.common.array import CumlArray
@@ -41,12 +41,11 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libcpp.memory cimport shared_ptr
 
-cimport cuml.common.handle
 cimport cuml.common.cuda
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit(
-        const cumlHandle &handle,
+        const handle_t &handle,
         const float *X,
         float *Y,
         const int n,
@@ -307,7 +306,7 @@ class TSNE(Base):
         """
         self._set_n_features_in(X)
         cdef int n, p
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if handle_ == NULL:
             raise ValueError("cuML Handle is Null! Terminating TSNE.")
 

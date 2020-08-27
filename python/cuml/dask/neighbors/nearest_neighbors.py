@@ -19,7 +19,8 @@ from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common import raise_mg_import_exception
 from cuml.dask.common.base import BaseEstimator
 
-from cuml.dask.common.comms import worker_state, CommsContext
+from cuml.raft.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import Comms
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common.input_utils import DistributedDataHandler
 
@@ -100,8 +101,8 @@ class NearestNeighbors(BaseEstimator):
         workers = set(index_handler.workers)
         workers.update(query_handler.workers)
 
-        comms = CommsContext(comms_p2p=True,
-                             streams_per_handle=streams_per_handle)
+        comms = Comms(comms_p2p=True,
+                      streams_per_handle=streams_per_handle)
         comms.init(workers=workers)
         return comms
 
