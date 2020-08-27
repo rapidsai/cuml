@@ -131,13 +131,11 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
     xgb_preds = bst.predict(dvalidation)
     xgb_preds_int = np.around(xgb_preds)
     if num_classes == 2:
+        xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
         xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
     else:
-        xgb_proba = bst.predict(dvalidation, output_margin=True).reshape((y_validation.size, -1, num_classes)).sum(axis=1)
-    if num_classes == 2:
-        xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
-    else:
         xgb_acc = accuracy_score(y_validation, xgb_preds)
+        xgb_proba = bst.predict(dvalidation, output_margin=True).reshape((y_validation.size, -1, num_classes)).sum(axis=1)
 
     fm = ForestInference.load(model_path,
                               algo='auto',
