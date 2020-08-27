@@ -1,6 +1,7 @@
 # cuML 0.16.0 (Date TBD)
 
 ## New Features
+- PR #2694: FIL python can infer xgboost multiclass forests
 
 ## Improvements
 
