@@ -39,7 +39,6 @@ class SparseKNNTest
   : public ::testing::TestWithParam<KNNInputs<value_idx, value_t>> {
  protected:
   void make_data() {
-
     std::vector<value_idx> indptr_h = {0, 2, 4, 6, 8};
     std::vector<value_idx> indices_h = {0, 4, 0, 3, 0, 2, 0, 8};
     std::vector<value_t> data_h = {0.0f, 1.0f, 5.0f, 6.0f,
@@ -53,20 +52,22 @@ class SparseKNNTest
     updateDevice(indices, indices_h.data(), indices_h.size(), stream);
     updateDevice(data, data_h.data(), data_h.size(), stream);
 
-    std::vector<value_t> out_dists_ref_h = {1,    0,    0,   61,   25,    0,   61,   25,    0,    1,    0,    0 };
-    std::vector<value_idx> out_indices_ref_h = {0,    3,    1,    1,    2,    3,    2,    1,    3,    3,    2,    0};
-
+    std::vector<value_t> out_dists_ref_h = {1,  0,  0, 61, 25, 0,
+                                            61, 25, 0, 1,  0,  0};
+    std::vector<value_idx> out_indices_ref_h = {0, 3, 1, 1, 2, 3,
+                                                2, 1, 3, 3, 2, 0};
 
     allocate(out_indices_ref, out_indices_ref_h.size());
     allocate(out_dists_ref, out_dists_ref_h.size());
 
-    updateDevice(out_indices_ref, out_indices_ref_h.data(), out_indices_ref_h.size(), stream);
-    updateDevice(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(), stream);
+    updateDevice(out_indices_ref, out_indices_ref_h.data(),
+                 out_indices_ref_h.size(), stream);
+    updateDevice(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
+                 stream);
 
-    allocate(out_dists, 4*k);
-    allocate(out_indices, 4*k);
+    allocate(out_dists, 4 * k);
+    allocate(out_indices, 4 * k);
   }
-
 
   /**
    * void brute_force_knn(
@@ -94,10 +95,10 @@ class SparseKNNTest
 
     make_data();
 
-    brute_force_knn<value_idx, value_t>(indptr, indices, data, 8, 4, 9,
-    		indptr, indices, data, 8, 4, 9,
-    		out_indices, out_dists, k,
-			cusparseHandle, alloc, stream, 2<<20, ML::MetricType::METRIC_INNER_PRODUCT);
+    brute_force_knn<value_idx, value_t>(
+      indptr, indices, data, 8, 4, 9, indptr, indices, data, 8, 4, 9,
+      out_indices, out_dists, k, cusparseHandle, alloc, stream, 2 << 20,
+      ML::MetricType::METRIC_INNER_PRODUCT);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -112,10 +113,10 @@ class SparseKNNTest
   }
 
   void compare() {
-	    ASSERT_TRUE(
-	      devArrMatch(out_dists_ref,out_dists, 4*k, Compare<value_t>()));
-	    ASSERT_TRUE(
-	      devArrMatch(out_indices_ref, out_indices, 4*k, Compare<value_idx>()));
+    ASSERT_TRUE(
+      devArrMatch(out_dists_ref, out_dists, 4 * k, Compare<value_t>()));
+    ASSERT_TRUE(
+      devArrMatch(out_indices_ref, out_indices, 4 * k, Compare<value_idx>()));
   }
 
  protected:
