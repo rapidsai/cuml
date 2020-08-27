@@ -14,7 +14,7 @@
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
-- PR #2679: Remove outdated doxygen options for 1.8.20
+- PR #2769: Remove outdated doxygen options for 1.8.20
 
 # cuML 0.15.0 (Date TBD)
 
