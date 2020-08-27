@@ -14,7 +14,7 @@ For large datasets, these GPU-based implementations can complete 10-50x faster
 than their CPU equivalents. For details on performance, see the [cuML Benchmarks
 Notebook](https://github.com/rapidsai/cuml/tree/branch-0.14/notebooks/tools).
 
-As an example, the following Python snippet loads input and computes DBSCAN clusters, all on GPU:
+As an example, the following Python snippet loads input and computes DBSCAN clusters, all on GPU, using cuDF:
 ```python
 import cudf
 from cuml.cluster import DBSCAN
@@ -43,10 +43,25 @@ dtype: int32
 cuML also features multi-GPU and multi-node-multi-GPU operation, using [Dask](https://www.dask.org), for a
 growing list of algorithms. The following Python snippet reads input from a CSV file and performs
 a NearestNeighbors query across a cluster of Dask workers, using multiple GPUs on a single node:
+
+
+Initialize a `LocalCUDACluster` configured with [UCX](https://github.com/rapidsai/ucx-py) for fast transport of CUDA arrays
 ```python
-# Create a Dask CUDA cluster w/ one worker per device
+# Initialize UCX for high-speed transport of CUDA arrays
 from dask_cuda import LocalCUDACluster
-cluster = LocalCUDACluster()
+
+# Create a Dask single-node CUDA cluster w/ one worker per device
+cluster = LocalCUDACluster(protocol="ucx",
+                           enable_tcp_over_ucx=True,
+                           enable_nvlink=True,
+                           enable_infiniband=False)
+```
+
+Load data and perform `k-Nearest Neighbors` search. `cuml.dask` estimators also support `Dask.Array` as input:
+```python
+
+from dask.distributed import Client
+client = Client(cluster)
 
 # Read CSV file in parallel across workers
 import dask_cudf
@@ -54,16 +69,15 @@ df = dask_cudf.read_csv("/path/to/csv")
 
 # Fit a NearestNeighbors model and query it
 from cuml.dask.neighbors import NearestNeighbors
-nn = NearestNeighbors(n_neighbors = 10)
+nn = NearestNeighbors(n_neighbors = 10, client=client)
 nn.fit(df)
 neighbors = nn.kneighbors(df)
 ```
 
-
 For additional examples, browse our complete [API
 documentation](https://docs.rapids.ai/api/cuml/stable/), or check out our
 example [walkthrough
-notebooks](https://github.com/rapidsai/cuml/tree/branch-0.14/notebooks). Finally, you
+notebooks](https://github.com/rapidsai/cuml/tree/branch-0.15/notebooks). Finally, you
 can find complete end-to-end examples in the [notebooks-contrib
 repo](https://github.com/rapidsai/notebooks-contrib).
 
@@ -74,6 +88,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | **Clustering** |  Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | |
 |  | K-Means | Multi-node multi-GPU via Dask |
 | **Dimensionality Reduction** | Principal Components Analysis (PCA) | Multi-node multi-GPU via Dask|
+| | Incremental PCA | Experimental |
 | | Truncated Singular Value Decomposition (tSVD) | Multi-node multi-GPU via Dask |
 | | Uniform Manifold Approximation and Projection (UMAP) | Multi-node multi-GPU Inference via Dask |
 | | Random Projection | |
@@ -82,17 +97,18 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | | Linear Regression with Lasso or Ridge Regularization | Multi-node multi-GPU via Dask |
 | | ElasticNet Regression | |
 | | Logistic Regression | |
+| | Naive Bayes | Multi-node multi-GPU via Dask |
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
 | **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node multi-GPU via Dask |
 | | Random Forest (RF) Regression | Experimental multi-node multi-GPU via Dask |
 | | Inference for decision tree-based models | Forest Inference Library (FIL) |
-|  | K-Nearest Neighbors (KNN) | Multi-node multi-GPU via Dask, uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
-|  | K-Nearest Neighbors (KNN) Classification | |
-|  | K-Nearest Neighbors (KNN) Regression | |
+|  | K-Nearest Neighbors (KNN) Classification | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+|  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 |  | Support Vector Machine Classifier (SVC) | |
 |  | Epsilon-Support Vector Regression (SVR) | |
 | **Time Series** | Holt-Winters Exponential Smoothing | |
 |  | Auto-regressive Integrated Moving Average (ARIMA) | Supports seasonality (SARIMA) |
+| **Other** | K-Nearest Neighbors (KNN) Search | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 ---
 
 ## Installation
@@ -115,12 +131,14 @@ For additional details on the technologies behind cuML, as well as a broader ove
 
 Please consider citing this when using cuML in a project. You can use the citation BibTeX:
 
-> @article{raschka2020machine,
->   title={Machine Learning in Python: Main developments and technology trends in data science, machine learning, and artificial intelligence},
->   author={Raschka, Sebastian and Patterson, Joshua and Nolet, Corey},
->   journal={arXiv preprint arXiv:2002.04803},
->   year={2020}
-> }
+```
+@article{raschka2020machine,
+  title={Machine Learning in Python: Main developments and technology trends in data science, machine learning, and artificial intelligence},
+  author={Raschka, Sebastian and Patterson, Joshua and Nolet, Corey},
+  journal={arXiv preprint arXiv:2002.04803},
+  year={2020}
+}
+```
 
 ## Contact
 

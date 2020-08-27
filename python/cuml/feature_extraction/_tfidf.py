@@ -16,15 +16,17 @@
 from sklearn.utils.validation import FLOAT_DTYPES
 from cuml.common.exceptions import NotFittedError
 import cupy as cp
+import cupyx
 from cuml.common import with_cupy_rmm
 from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
 from cuml.common.sparsefuncs import csr_diag_mul
+from cuml.common.array import CumlArray
 from cuml import Base
 
 
 def _sparse_document_frequency(X):
     """Count the number of non-zero values for each feature in sparse X."""
-    if cp.sparse.isspmatrix_csr(X):
+    if cupyx.scipy.sparse.isspmatrix_csr(X):
         return cp.bincount(X.indices, minlength=X.shape[1])
     else:
         return cp.diff(X.indptr)
@@ -120,12 +122,9 @@ class TfidfTransformer(Base):
         n_samples, n_features = X.shape
         df = _sparse_document_frequency(X)
         df = df.astype(output_dtype, copy=False)
-        # TODO Finding it difficult to
-        # map below to cumlarray
-        # removed trailing underscores for now
-        self.df = df
-        self.n_samples = n_samples
-        self.n_features = n_features
+        self.__df = CumlArray(df)
+        self.__n_samples = n_samples
+        self.__n_features = n_features
 
         return
 
@@ -135,21 +134,19 @@ class TfidfTransformer(Base):
             Sets idf_diagonal sparse array
         """
         # perform idf smoothing if required
-        df = self.df + int(self.smooth_idf)
-        n_samples = self.n_samples + int(self.smooth_idf)
+        df = self.__df.to_output('cupy') + int(self.smooth_idf)
+        n_samples = self.__n_samples + int(self.smooth_idf)
 
         # log+1 instead of log makes sure terms with zero idf don't get
         # suppressed entirely.
         idf = cp.log(n_samples / df) + 1
         self._idf_diag = cp.sparse.dia_matrix(
             (idf, 0),
-            shape=(self.n_features, self.n_features),
+            shape=(self.__n_features, self.__n_features),
             dtype=df.dtype
         )
         # Free up memory occupied by below
-        del self.df
-        del self.n_samples
-        del self.n_features
+        del self.__df
 
     @with_cupy_rmm
     def fit(self, X):
@@ -245,9 +242,9 @@ class TfidfTransformer(Base):
 
     def _convert_to_csr(self, X, dtype):
         """Convert array to CSR format if it not sparse nor CSR."""
-        if not cp.sparse.isspmatrix_csr(X):
-            if not cp.sparse.issparse(X):
-                X = cp.sparse.csr_matrix(X.astype(dtype))
+        if not cupyx.scipy.sparse.isspmatrix_csr(X):
+            if not cupyx.scipy.sparse.issparse(X):
+                X = cupyx.scipy.sparse.csr_matrix(X.astype(dtype))
             else:
                 X = X.tocsr()
         return X
@@ -262,7 +259,7 @@ class TfidfTransformer(Base):
     def idf_(self, value):
         value = cp.asarray(value, dtype=cp.float32)
         n_features = value.shape[0]
-        self._idf_diag = cp.sparse.dia_matrix(
+        self._idf_diag = cupyx.scipy.sparse.dia_matrix(
             (value, 0),
             shape=(n_features, n_features),
             dtype=cp.float32

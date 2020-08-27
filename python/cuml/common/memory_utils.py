@@ -142,6 +142,9 @@ def _order_to_strides(order, shape, dtype):
     if isinstance(shape, int):
         return (itemsize,)
 
+    elif len(shape) == 0:
+        return None
+
     elif len(shape) == 1:
         return (itemsize,)
 
@@ -234,7 +237,7 @@ def set_global_output_type(output_type):
     Method to set cuML's single GPU estimators global output type.
     It will be used by all estimators unless overriden in their initialization
     with their own output_type parameter. Can also be overriden by the context
-    manager method `using_output_type`
+    manager method :func:`using_output_type`.
 
     Parameters
     ----------
