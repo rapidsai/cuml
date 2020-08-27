@@ -324,7 +324,6 @@ class Base:
         if n_features is not None:
             self._set_n_features_in(n_features)
 
-
     def _set_output_type(self, input):
         if self.output_type == 'input' or self._mirror_input:
             self.output_type = _input_to_type(input)
