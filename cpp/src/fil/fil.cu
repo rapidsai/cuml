@@ -199,14 +199,14 @@ struct forest {
     if (leaf_payload_type_ == leaf_value_t::FLOAT_SCALAR) {
       if (predict_proba) {
         ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
-        if (num_classes_ == 1) {
+        if (num_classes_ <= 2) {
           // not one of the xgboost multi-class inferences
           params.num_outputs = 2;
           complement_proba = true;
         }
       } else {
         params.num_outputs = 1;
-        if (num_classes_ > 1)  // xgboost multi-class
+        if (num_classes_ > 2)  // xgboost multi-class
           ot = output_t(ot & ~output_t::CLASS);
       }
       if (ot != output_t::RAW || complement_proba) do_transform = true;
@@ -630,7 +630,6 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   ASSERT(tl_params->output_group_num >= 0 && 
          tl_params->output_group_num < model.num_output_group,
          "output_group_num must be within [0, model.num_output_group)");
-  printf("model.num_output_group %d tl_params->output_class %d\n", model.num_output_group, int(tl_params->output_class));
 
   // assuming either all leaves use the .leaf_vector() or all leaves use .leaf_value()
   size_t leaf_vec_size = tl_leaf_vector_size(model);
