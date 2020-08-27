@@ -59,7 +59,7 @@ void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
   std::vector<int> n_unique(y.size());
 
   for (int i = 0; i < y.size(); i++) {
-    MLCommon::Label::getUniqueLabels(y[i], n_query_rows, &(uniq_labels[i]),
+    MLCommon::Label::getUniqueLabels(y[i], n_index_rows, &(uniq_labels[i]),
                                      &(n_unique[i]), stream, d_alloc);
   }
 
@@ -85,7 +85,7 @@ void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
   std::vector<int> n_unique(y.size());
 
   for (int i = 0; i < y.size(); i++) {
-    MLCommon::Label::getUniqueLabels(y[i], n_query_rows, &(uniq_labels[i]),
+    MLCommon::Label::getUniqueLabels(y[i], n_index_rows, &(uniq_labels[i]),
                                      &(n_unique[i]), stream, d_alloc);
   }
 

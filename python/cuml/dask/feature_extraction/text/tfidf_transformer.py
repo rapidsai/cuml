@@ -112,8 +112,8 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
         modela = first(models)
         if modela.use_idf:
             for model in models[1:]:
-                modela.n_samples += model.n_samples
-                modela.df += model.df
+                modela.__n_samples += model.__n_samples
+                modela.__df += model.__df
         return modela
 
     @staticmethod
