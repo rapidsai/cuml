@@ -111,7 +111,7 @@ def fail_on_bad_cuml_array_name(monkeypatch, request):
         supported_type = get_supported_input_type(value)
 
         if name == 'idf_':
-            # We skip this test because idf_' fot tfidf setter returns
+            # We skip this test because idf_' for tfidf setter returns
             # a sparse diagonal matrix and getter gets a cupy array
             # see discussion at:
             # https://github.com/rapidsai/cuml/pull/2698/files#r471865982

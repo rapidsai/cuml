@@ -34,7 +34,7 @@ def _sparse_document_frequency(X):
 
 def _get_dtype(X):
     """
-        Returns the valid dtype for tf-idf transoformer
+        Returns the valid dtype for tf-idf transformer
     """
     dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float32
     return dtype
@@ -116,7 +116,7 @@ class TfidfTransformer(Base):
         n_features
         df(document frequency)
         """
-        # Should not have a cost if allready sparse
+        # Should not have a cost if already sparse
         output_dtype = _get_dtype(X)
         X = self._convert_to_csr(X, output_dtype)
         n_samples, n_features = X.shape
