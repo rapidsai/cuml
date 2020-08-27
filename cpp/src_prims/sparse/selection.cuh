@@ -54,7 +54,7 @@ __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
   __shared__ K smemK[kNumWarps * warp_q];
   __shared__ IndexType smemV[kNumWarps * warp_q];
 
-  // TODO: order of resulting is hardcoded here currently
+  // TODO: This is currently hardcoded for max inner product. Need to propagate through templates (and instantiate)
   faiss::gpu::BlockSelect<K, IndexType, true, faiss::gpu::Comparator<K>, warp_q,
                           thread_q, tpb>
     heap(initK, initV, smemK, smemV, k);
@@ -76,8 +76,7 @@ __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
 
   // Handle last remainder fraction of a warp of elements
   if (i < n_cols) {
-        faiss::gpu::kWarpSize, *inKStart, *inVStart);
-        heap.addThreadQ(*inKStart, (*inVStart) + translation);
+    heap.addThreadQ(*inKStart, (*inVStart) + translation);
   }
 
   heap.reduce();

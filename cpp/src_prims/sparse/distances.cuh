@@ -60,25 +60,21 @@ struct ip_distances_t {
     : config_(config),
       workspace(config.allocator, config.stream, 0),
       alpha(1.0) {
-    CUSPARSE_CHECK(cusparseCreateMatDescr(&matA));
-    CUSPARSE_CHECK(cusparseCreateMatDescr(&matB));
-    CUSPARSE_CHECK(cusparseCreateMatDescr(&matC));
-    CUSPARSE_CHECK(cusparseCreateMatDescr(&matD));
-
-    CUSPARSE_CHECK(cusparseSetMatIndexBase(matA, CUSPARSE_INDEX_BASE_ZERO));
-    CUSPARSE_CHECK(cusparseSetMatIndexBase(matB, CUSPARSE_INDEX_BASE_ZERO));
-    CUSPARSE_CHECK(cusparseSetMatIndexBase(matC, CUSPARSE_INDEX_BASE_ZERO));
-    CUSPARSE_CHECK(cusparseSetMatIndexBase(matD, CUSPARSE_INDEX_BASE_ZERO));
-
-    CUSPARSE_CHECK(cusparseSetMatType(matA, CUSPARSE_MATRIX_TYPE_GENERAL));
-    CUSPARSE_CHECK(cusparseSetMatType(matB, CUSPARSE_MATRIX_TYPE_GENERAL));
-    CUSPARSE_CHECK(cusparseSetMatType(matC, CUSPARSE_MATRIX_TYPE_GENERAL));
-    CUSPARSE_CHECK(cusparseSetMatType(matD, CUSPARSE_MATRIX_TYPE_GENERAL));
+    init_mat_descriptor(matA);
+    init_mat_descriptor(matB);
+    init_mat_descriptor(matC);
+    init_mat_descriptor(matD);
 
     CUSPARSE_CHECK(cusparseCreateCsrgemm2Info(&info));
 
     CUSPARSE_CHECK(
       cusparseSetPointerMode(config.handle, CUSPARSE_POINTER_MODE_HOST));
+  }
+
+  void init_mat_descriptor(cusparseMatDescr_t mat) {
+    CUSPARSE_CHECK(cusparseCreateMatDescr(&mat));
+    CUSPARSE_CHECK(cusparseSetMatIndexBase(mat, CUSPARSE_INDEX_BASE_ZERO));
+    CUSPARSE_CHECK(cusparseSetMatType(mat, CUSPARSE_MATRIX_TYPE_GENERAL));
   }
 
   value_idx get_nnz(value_idx *csr_out_indptr) {
