@@ -14,7 +14,8 @@
 #
 
 from cuml.dask.common import raise_exception_from_futures
-from cuml.dask.common.comms import worker_state, CommsContext
+from cuml.raft.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import Comms
 
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common import parts_to_ranks
@@ -63,9 +64,9 @@ class DecompositionSyncFitMixin(object):
 
         if "svd_solver" in self.kwargs \
                 and self.kwargs["svd_solver"] == "tsqr":
-            comms = CommsContext(comms_p2p=True)
+            comms = Comms(comms_p2p=True)
         else:
-            comms = CommsContext(comms_p2p=False)
+            comms = Comms(comms_p2p=False)
 
         comms.init(workers=data.workers)
 

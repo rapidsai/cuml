@@ -31,7 +31,7 @@ from cuml.common.array import CumlArray
 from cuml.common.base import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from cuml.common.handle import Handle
+from cuml.raft.common.handle import Handle
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -49,8 +49,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
-from cuml.common.handle cimport cumlHandle
-cimport cuml.common.handle
+from cuml.raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
@@ -58,7 +57,7 @@ cimport cython
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   RandomForestMetaData[float, float]*,
                   float*,
                   int,
@@ -67,7 +66,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   RF_params,
                   int) except +
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   RandomForestMetaData[double, double]*,
                   double*,
                   int,
@@ -76,7 +75,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   RF_params,
                   int) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       RandomForestMetaData[float, float] *,
                       float*,
                       int,
@@ -84,7 +83,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       float*,
                       int) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       RandomForestMetaData[double, double]*,
                       double*,
                       int,
@@ -92,14 +91,14 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       double*,
                       int) except +
 
-    cdef RF_metrics score(cumlHandle& handle,
+    cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[float, float]*,
                           float*,
                           int,
                           float*,
                           int) except +
 
-    cdef RF_metrics score(cumlHandle& handle,
+    cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[double, double]*,
                           double*,
                           int,
@@ -385,8 +384,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         X_ptr = X_m.ptr
         y_ptr = y_m.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
@@ -455,8 +454,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         preds = CumlArray.zeros(n_rows, dtype=dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
@@ -619,8 +618,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             input_to_cuml_array(preds, convert_to_dtype=dtype)
         preds_ptr = preds_m.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest

@@ -295,7 +295,7 @@ dask-cuda-worker ucx://10.0.0.50:8786
 ### First, create a Dask `Client` and cuML `CommsContext`:
 ```python
 from dask.distributed import Client, wait
-from cuml.dask.common.comms import CommsContext
+from cuml.raft.dask.common.comms import CommsContext
 from cuml.dask.common import worker_state
 from cuml.dask.common import perform_test_comms_send_recv
 from cuml.dask.common import perform_test_comms_allreduce

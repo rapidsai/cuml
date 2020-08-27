@@ -22,7 +22,7 @@ import warnings
 import numpy as np
 from cuml import ForestInference
 from cuml.fil.fil import TreeliteModel
-from cuml.common.handle import Handle
+from cuml.raft.common.handle import Handle
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
 
