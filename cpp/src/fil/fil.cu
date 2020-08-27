@@ -257,16 +257,11 @@ struct forest {
 
 struct dense_forest : forest {
   void transform_trees(const dense_node_t* nodes) {
-    int tree_nodes = tree_num_nodes(depth_);
     // populate node information
     for (int i = 0, gid = 0; i < num_trees_; ++i) {
       for (int j = 0, nid = 0; j <= depth_; ++j) {
-        for (int k = 0; k < 1 << j; ++k, ++nid) {
+        for (int k = 0; k < 1 << j; ++k, ++nid, ++gid) {
           h_nodes_[nid * num_trees_ + i] = dense_node(nodes[gid]);
-          ++gid;
-          if (num_classes_ != 2 && 
-              gid / tree_nodes % num_classes_ != output_group_num_)
-            gid += tree_nodes * num_classes_;
         }
       }
     }
@@ -282,18 +277,7 @@ struct dense_forest : forest {
       sizeof(dense_node) * num_nodes, h.getStream());
     h_nodes_.resize(num_nodes);
     if (algo_ == algo_t::NAIVE) {
-      if (num_classes_ <= 2)
-        std::copy(nodes, nodes + num_nodes, h_nodes_.begin());
-      else {
-        int tree_nodes = tree_num_nodes(depth_);
-        int t = 0;
-        const dense_node_t* src = nodes;
-        while(t < num_trees_) {
-          std::copy(src, src + tree_nodes, &h_nodes_[t * tree_nodes]);
-          src += tree_nodes * num_classes_;
-          t++;
-        }
-      }
+      std::copy(nodes, nodes + num_nodes, h_nodes_.begin());
     } else {
       transform_trees(nodes);
     }
@@ -344,29 +328,18 @@ struct sparse_forest : forest {
     init_common(params);
     if (algo_ == algo_t::ALGO_AUTO) algo_ = algo_t::NAIVE;
     depth_ = 0;  // a placeholder value
-
     num_nodes_ = params->num_nodes;
 
     // trees
     trees_ = (int*)h.getDeviceAllocator()->allocate(sizeof(int) * num_trees_,
                                                     h.getStream());
-    if (num_classes_ == 2) {
-      CUDA_CHECK(cudaMemcpyAsync(trees_, trees, sizeof(int) * num_trees_,
-                                 cudaMemcpyHostToDevice, h.getStream()));
-    } else {
-      // dst, dst_pitch[B], src, src_pitch[B], width[B], height[rows]
-      CUDA_CHECK(cudaMemcpy2DAsync(trees_, sizeof(int),
-        trees + output_group_num_, num_classes_ * sizeof(int),
-        sizeof(int), num_trees_,
-        cudaMemcpyHostToDevice, h.getStream()));
-    }
+    CUDA_CHECK(cudaMemcpyAsync(trees_, trees, sizeof(int) * num_trees_,
+                               cudaMemcpyHostToDevice, h.getStream()));
     // nodes
     nodes_ = (node_t*)h.getDeviceAllocator()->allocate(
       sizeof(node_t) * num_nodes_, h.getStream());
     CUDA_CHECK(cudaMemcpyAsync(nodes_, nodes, sizeof(node_t) * num_nodes_,
                                cudaMemcpyHostToDevice, h.getStream()));
-    // TODO(levsnv): segmented copy if tree nodes stored contiguously,
-    // else traverse relevant trees and gather nodes and remap node idxs
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) override {
