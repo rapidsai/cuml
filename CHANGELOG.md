@@ -8,6 +8,7 @@
 - PR #2739: Use cusparse_wrappers.h from RAFT
 - PR #2729: Replace `cupy.sparse` with `cupyx.scipy.sparse`
 - PR #2749: Correct docs for python version used in cuml_dev conda environment
+- PR #2747: Adopting raft::handle_t and raft::comms::comms_t in cuML
 
 ## Bug Fixes
 
@@ -950,7 +951,7 @@
 - PR #477: Fixes default stream initialization in cumlHandle
 - PR #480: Replaced qn_fit() declaration with #include of file containing definition to fix linker error
 - PR #495: Update cuDF and RMM versions in GPU ci test scripts
-- PR #499: DEVELOPER_GUIDE.md: fixed links and clarified raft::stream_syncer example
+- PR #499: DEVELOPER_GUIDE.md: fixed links and clarified ML::detail::streamSyncer example
 - PR #506: Re enable ml-prim tests in CI
 - PR #508: Fix for an error with default argument in LinAlg::meanSquaredError
 - PR #519: README.md Updates and adding BUILD.md back
