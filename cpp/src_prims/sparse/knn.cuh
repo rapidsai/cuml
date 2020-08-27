@@ -165,8 +165,6 @@ void brute_force_knn(
     query_batcher.get_batch_csr_indices_data(query_batch_indices.data(),
                                              query_batch_data.data(), stream);
 
-    std::cout << "Done slicing query" << std::endl;
-
     // A 3-partition temporary merge space to scale the batching. 2 parts for subsequent
     // batches and 1 space for the results of the merge, which get copied back to the
     device_buffer<value_idx> merge_buffer_indices(allocator, stream,
@@ -198,8 +196,6 @@ void brute_force_knn(
       value_idx idx_batch_nnz =
         idx_batcher.get_batch_csr_indptr_nnz(idx_batch_indptr.data(), stream);
 
-      std::cout << "idx_batch_nnz " << idx_batch_nnz << std::endl;
-
       idx_batch_indices.resize(idx_batch_nnz, stream);
       idx_batch_data.resize(idx_batch_nnz, stream);
 
@@ -216,24 +212,11 @@ void brute_force_knn(
       device_buffer<value_t> csc_idx_batch_data(allocator, stream,
                                                 idx_batch_nnz);
 
-      std::cout << "About to transpose" << std::endl;
-
       csr_transpose(cusparseHandle, idx_batch_indptr.data(),
                     idx_batch_indices.data(), idx_batch_data.data(),
                     csc_idx_batch_indptr.data(), csc_idx_batch_indices.data(),
                     csc_idx_batch_data.data(), idx_batcher.batch_rows(),
                     n_idx_cols, idx_batch_nnz, allocator, stream);
-
-//      cudaStreamSynchronize(stream);
-//      std::cout << "Done transposing" << std::endl;
-//
-      std::cout << "Query vals: " << arr2Str(query_batch_data.data(), query_batch_data.size(), "query_data", stream) << std::endl;
-      std::cout << "Query indices: " << arr2Str(query_batch_indices.data(), query_batch_indices.size(), "query_indices", stream) << std::endl;
-      std::cout << "Query indptr: " << arr2Str(query_batch_indptr.data(), query_batch_indptr.size(), "query_indptr", stream) << std::endl;
-//
-      std::cout << "idx_rows=" << idx_batcher.batch_rows() << ", query_rows=" << query_batcher.batch_rows() << std::endl;
-      std::cout << "idx_batch_nnz=" << idx_batch_nnz << ", query_batch_nnz=" << n_query_batch_nnz << std::endl;
-      std::cout << "n_idx_cols=" << n_idx_cols << ", n_query_cols=" << n_query_cols << std::endl;
 
       /**
        * Compute distances
@@ -268,8 +251,6 @@ void brute_force_knn(
       Distance::ip_distances_t<value_idx, value_t> compute_dists(dist_config);
       value_idx out_batch_nnz = compute_dists.get_nnz(out_batch_indptr.data());
 
-      std::cout << "Done computing distances. nnz=" << out_batch_nnz << std::endl;
-
       out_batch_indices.resize(out_batch_nnz, stream);
       out_batch_data.resize(out_batch_nnz, stream);
 
@@ -283,9 +264,6 @@ void brute_force_knn(
       csc_idx_batch_indptr.release(stream);
       csc_idx_batch_indices.release(stream);
       csc_idx_batch_data.release(stream);
-
-
-      std::cout << arr2Str(out_batch_data.data(), out_batch_data.size(), "batch_dists", stream) << std::endl;
 
       /**
        * Convert output to dense
@@ -303,10 +281,6 @@ void brute_force_knn(
       out_batch_indices.release(stream);
       out_batch_data.release(stream);
 
-      std::cout << "k=" << k << std::endl;
-
-      std::cout << "Done converting to dense: " << arr2Str(batch_dists.data(), batch_dists.size(), "batch_dists", stream) << std::endl;
-
       // Build batch indices array
       device_buffer<value_idx> batch_indices(allocator, stream,
                                              batch_dists.size());
@@ -317,8 +291,6 @@ void brute_force_knn(
       iota_fill_kernel<<<ceildiv(batch_rows * batch_cols, 256), 256, 0,
                          stream>>>(batch_indices.data(), batch_rows,
                                    batch_cols);
-
-      std::cout << "iota_fill " << arr2Str(batch_indices.data(), batch_rows*batch_cols, "iota_fill", stream) << std::endl;
 
       /**
        * Perform k-selection on batch & merge with other k-selections
@@ -341,8 +313,6 @@ void brute_force_knn(
                id_ranges[1]);
 
       CUDA_CHECK(cudaStreamSynchronize(stream));
-
-      std::cout << "After select_k " << arr2Str(indices_merge_buffer_ptr, batch_rows * k, "batch_indices", stream) << std::endl;
 
       size_t merge_buffer_tmp_out = batch_rows * k * 2;
       value_t *dists_merge_buffer_tmp_ptr = dists_merge_buffer_ptr;

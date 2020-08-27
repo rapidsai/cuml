@@ -94,8 +94,6 @@ struct ip_distances_t {
       config_.index_nnz, config_.csc_index_indptr, config_.csc_index_indices,
       matD, 0, NULL, NULL, info, &workspace_size, config_.stream));
 
-    std::cout << "m=" << m << ", n=" << n << ", k=" << k << ", workerspace_size=" << workspace_size << std::endl;
-
     workspace.resize(workspace_size, config_.stream);
 
     value_idx out_nnz = 0;
@@ -106,8 +104,6 @@ struct ip_distances_t {
       config_.index_nnz, config_.csc_index_indptr, config_.csc_index_indices,
       matD, 0, NULL, NULL, matC, csr_out_indptr, &out_nnz, info,
       workspace.data(), config_.stream));
-    std::cout << "rowIndC=" << arr2Str(csr_out_indptr, m+1, "csr_out_indptr", config_.stream) << std::endl;
-    std::cout << "out_nnz_inside_dists " << out_nnz << std::endl;
 
     return out_nnz;
   }
@@ -202,8 +198,7 @@ struct l2_distances_t {
     value_idx m = config_.search_nrows, n = config_.index_nrows,
               k = config_.search_ncols;
 
-    //TODO: Output dense directly and just make a compute call.
-
+    //TODO: Modify interface to just output dense directly and just make a compute call.
   }
 
   private:

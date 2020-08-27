@@ -54,6 +54,7 @@ __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
   __shared__ K smemK[kNumWarps * warp_q];
   __shared__ IndexType smemV[kNumWarps * warp_q];
 
+  // TODO: order of resulting is hardcoded here currently
   faiss::gpu::BlockSelect<K, IndexType, true, faiss::gpu::Comparator<K>,
                           warp_q, thread_q, tpb>
     heap(initK, initV, smemK, smemV, k);
@@ -76,7 +77,6 @@ __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
 
   // Handle last remainder fraction of a warp of elements
   if (i < n_cols) {
-    printf("k=%d, row=%d, i=%d, kwarpsize=%d, inKStart=%f, inVStart=%d\n", k, row, i,
     		faiss::gpu::kWarpSize, *inKStart, *inVStart);
     heap.addThreadQ(*inKStart, (*inVStart) + translation);
   }
@@ -85,7 +85,6 @@ __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
 
   for (int i = threadIdx.x; i < k; i += tpb) {
 
-	printf("Results: row=%d, outK=%f, outV=%d\n", row, smemK[i], smemV[i]);
     outK[row * k + i] = smemK[i];
     outV[row * k + i] = smemV[i];
   }
