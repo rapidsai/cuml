@@ -68,10 +68,12 @@ struct ip_distances_t {
     CUSPARSE_CHECK(cusparseSetMatIndexBase(matA, CUSPARSE_INDEX_BASE_ZERO));
     CUSPARSE_CHECK(cusparseSetMatIndexBase(matB, CUSPARSE_INDEX_BASE_ZERO));
     CUSPARSE_CHECK(cusparseSetMatIndexBase(matC, CUSPARSE_INDEX_BASE_ZERO));
+    CUSPARSE_CHECK(cusparseSetMatIndexBase(matD, CUSPARSE_INDEX_BASE_ZERO));
 
     CUSPARSE_CHECK(cusparseSetMatType(matA, CUSPARSE_MATRIX_TYPE_GENERAL));
     CUSPARSE_CHECK(cusparseSetMatType(matB, CUSPARSE_MATRIX_TYPE_GENERAL));
     CUSPARSE_CHECK(cusparseSetMatType(matC, CUSPARSE_MATRIX_TYPE_GENERAL));
+    CUSPARSE_CHECK(cusparseSetMatType(matD, CUSPARSE_MATRIX_TYPE_GENERAL));
 
     CUSPARSE_CHECK(cusparseCreateCsrgemm2Info(&info));
 
@@ -83,6 +85,7 @@ struct ip_distances_t {
     value_idx m = config_.search_nrows, n = config_.index_nrows,
               k = config_.search_ncols;
 
+
     size_t workspace_size;
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2_buffersizeext<value_t>(
@@ -91,9 +94,11 @@ struct ip_distances_t {
       config_.index_nnz, config_.csc_index_indptr, config_.csc_index_indices,
       matD, 0, NULL, NULL, info, &workspace_size, config_.stream));
 
+    std::cout << "m=" << m << ", n=" << n << ", k=" << k << ", workerspace_size=" << workspace_size << std::endl;
+
     workspace.resize(workspace_size, config_.stream);
 
-    value_idx out_nnz;
+    value_idx out_nnz = 0;
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2nnz(
       config_.handle, m, n, k, matA, config_.search_nnz,
@@ -101,8 +106,8 @@ struct ip_distances_t {
       config_.index_nnz, config_.csc_index_indptr, config_.csc_index_indices,
       matD, 0, NULL, NULL, matC, csr_out_indptr, &out_nnz, info,
       workspace.data(), config_.stream));
-
-    CUDA_CHECK(cudaStreamSynchronize(config_.stream));
+    std::cout << "rowIndC=" << arr2Str(csr_out_indptr, m+1, "csr_out_indptr", config_.stream) << std::endl;
+    std::cout << "out_nnz_inside_dists " << out_nnz << std::endl;
 
     return out_nnz;
   }

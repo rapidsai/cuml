@@ -206,6 +206,7 @@ if(BUILD_PRIMS_TESTS)
     prims/sigmoid.cu
     prims/silhouetteScore.cu
     prims/sparse/distances.cu
+    prims/sparse/knn.cu
     prims/sqrt.cu
     prims/stddev.cu
     prims/strided_reduction.cu
