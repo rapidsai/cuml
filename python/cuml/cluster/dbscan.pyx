@@ -331,8 +331,8 @@ class DBSCAN(Base, metaclass=BaseMetaClass):
                                        'type': 'dense',
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
-    @cuml_ignore_base_wrapper
-    def fit_predict(self, X, out_dtype="int32"):
+    # @cuml_ignore_base_wrapper
+    def fit_predict(self, X, out_dtype="int32") -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.
 

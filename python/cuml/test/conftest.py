@@ -165,7 +165,7 @@ def fail_on_bad_cuml_array_name(monkeypatch, request):
 
     # Monkeypatch CumlArray.__setattr__ to test for incorrect uses of
     # array-like objects
-    monkeypatch.setattr(Base, "__setattr__", patched__setattr__)
+    # monkeypatch.setattr(Base, "__setattr__", patched__setattr__)
 
 
 @pytest.fixture(scope="module")

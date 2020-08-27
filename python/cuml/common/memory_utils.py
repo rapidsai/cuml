@@ -15,15 +15,16 @@
 #
 
 import contextlib
+import typing
+import functools
+import operator
+from functools import wraps
+
 import cuml
 import cupy as cp
-import functools
 import numpy as np
-import operator
 import rmm
-
 from cuml.common.import_utils import check_min_cupy_version
-from functools import wraps
 from numba import cuda as nbcuda
 
 try:
@@ -68,6 +69,30 @@ def cuml_internal_func(func):
 
     return wrapped
 
+def cuml_internal_func_check_type(func):
+
+    # Import this here to prevent circular imports
+    from cuml.common.array import CumlArray
+    from cuml.common.base import Base
+
+    @wraps(func)
+    def wrapped(*args, **kwargs):
+        with cupy_using_allocator(rmm.rmm_cupy_allocator):
+            with using_output_type("mirror") as prev_type:
+                ret_val = func(*args, **kwargs)
+
+                if isinstance(ret_val, CumlArray):
+                    if (prev_type == "input"):
+
+                        if (len(args) > 0 and isinstance(args[0], Base)):
+                            prev_type = args[0].output_type
+                        
+                    return ret_val.to_output(prev_type)
+                else:
+                    return ret_val
+
+    return wrapped
+
 
 def cuml_ignore_base_wrapper(func):
 
@@ -79,6 +104,8 @@ def cuml_ignore_base_wrapper(func):
 class BaseMetaClass(type):
     def __new__(meta, classname, bases, classDict):
 
+        from cuml.common.array import CumlArray
+
         newClassDict = {}
 
         for attributeName, attribute in classDict.items():
@@ -89,8 +116,13 @@ class BaseMetaClass(type):
                         and attribute.__dict__["__cuml_do_not_wrap"]):
                     pass
                 else:
-                    # replace it with a wrapped version
-                    attribute = cuml_internal_func(attribute)
+                    type_hints = typing.get_type_hints(attribute)
+
+                    if ("return" in type_hints and type_hints["return"] == CumlArray):
+                        attribute = cuml_internal_func_check_type(attribute)
+                    else:
+                        # replace it with a wrapped version
+                        attribute = cuml_internal_func(attribute)
 
             newClassDict[attributeName] = attribute
 
@@ -452,7 +484,7 @@ def using_output_type(output_type):
             prev_output_type = cuml.global_output_type
             try:
                 cuml.global_output_type = output_type
-                yield
+                yield prev_output_type
             finally:
                 cuml.global_output_type = prev_output_type
         else:

@@ -232,7 +232,6 @@ class MultinomialNB(Base, metaclass=BaseMetaClass):
         return self.partial_fit(X, y, sample_weight)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
-    @with_cupy_rmm
     def _partial_fit(self, X, y, sample_weight=None, _classes=None):
         self._set_output_type(X)
 
@@ -442,7 +441,6 @@ class MultinomialNB(Base, metaclass=BaseMetaClass):
                                        'type': 'float',
                                        'description': 'Mean accuracy of \
                                        self.predict(X) with respect to y.'})
-    @with_cupy_rmm
     def score(self, X, y, sample_weight=None):
         """
         Return the mean accuracy on the given test data and labels.
@@ -458,9 +456,9 @@ class MultinomialNB(Base, metaclass=BaseMetaClass):
         return accuracy_score(y_hat, cp.asarray(y, dtype=y.dtype))
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
-        self.class_count_ = CumlArray.zeros(n_effective_classes,
+        self.class_count_ = cp.zeros(n_effective_classes,
                                             order="F", dtype=dtype)
-        self.feature_count_ = CumlArray.zeros((n_effective_classes,
+        self.feature_count_ = cp.zeros((n_effective_classes,
                                                n_features),
                                               order="F", dtype=dtype)
 
