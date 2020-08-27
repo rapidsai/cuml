@@ -191,7 +191,8 @@ def train_test_split(X,
                      stratify=None):
     """
     Partitions device data into four collated objects, mimicking
-    Scikit-learn's `train_test_split`.
+    Scikit-learn's `train_test_split
+    <https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html>`_.
 
     Parameters
     ----------
@@ -327,13 +328,17 @@ def train_test_split(X,
 
     if seed is not None:
         if random_state is None:
-            warnings.warn("Parameter 'seed' is deprecated, please use \
-                          'random_state' instead.")
+            warnings.warn("Parameter 'seed' is deprecated and will be"
+                          " removed in 0.17. Please use 'random_state'"
+                          " instead. Setting 'random_state' as the"
+                          " curent 'seed' value",
+                          DeprecationWarning)
             random_state = seed
         else:
-            warnings.warn("Both 'seed' and 'random_state' parameters were \
-                          set, using 'random_state' since 'seed' is \
-                          deprecated. ")
+            warnings.warn("Both 'seed' and 'random_state' parameters were"
+                          " set. Using 'random_state' since 'seed' is"
+                          " deprecated and will be removed in 0.17.",
+                          DeprecationWarning)
 
     # Determining sizes of splits
     if isinstance(train_size, float):

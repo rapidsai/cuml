@@ -219,13 +219,13 @@ class ElasticNet(Base, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts `y` values for `X`.
 
         """
 
-        return self.solver_model.predict(X)
+        return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
     def get_params(self, deep=True):
         """
