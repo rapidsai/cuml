@@ -453,7 +453,7 @@ class SVMBase(Base):
             else:
                 self._unique_labels = None
 
-    def predict(self, X, predict_class):
+    def predict(self, X, predict_class, convert_dtype=True):
         """
         Predicts the y for X, where y is either the decision function value
         (if predict_class == False), or the label associated with X.
@@ -483,7 +483,11 @@ class SVMBase(Base):
         self._check_is_fitted('_model')
 
         X_m, n_rows, n_cols, pred_dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype)
+            input_to_cuml_array(
+                X,
+                check_dtype=self.dtype,
+                convert_to_dtype=(self.dtype if convert_dtype else None))
+
         cdef uintptr_t X_ptr = X_m.ptr
 
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)

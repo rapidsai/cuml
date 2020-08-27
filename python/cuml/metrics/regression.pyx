@@ -31,7 +31,7 @@ from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.memory_utils import with_cupy_rmm
 
 
-def r2_score(y, y_hat, convert_dtype=False, handle=None):
+def r2_score(y, y_hat, convert_dtype=True, handle=None):
     """
     Calculates r2 score between y and y_hat
 

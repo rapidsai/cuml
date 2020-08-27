@@ -211,7 +211,11 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     quantile_per_tree : boolean (default = False)
         Whether quantile is computed for individal trees in RF.
         Only relevant for GLOBAL_QUANTILE split_algo.
+    random_state : int (default = None)
+        Seed for the random number generator. Unseeded by default. Does not
+        currently fully guarantee the exact same results.
     seed : int (default = None)
+        Deprecated in favor of `random_state`.
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
 
@@ -390,10 +394,10 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
             new RandomForestMetaData[double, double]()
         self.rf_forest64 = <uintptr_t> rf_forest64
-        if self.seed is None:
+        if self.random_state is None:
             seed_val = <uintptr_t>NULL
         else:
-            seed_val = <uintptr_t>self.seed
+            seed_val = <uintptr_t>self.random_state
 
         rf_params = set_rf_class_obj(<int> self.max_depth,
                                      <int> self.max_leaves,

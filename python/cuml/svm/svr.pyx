@@ -292,10 +292,10 @@ class SVR(SVMBase, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the values for X.
 
         """
 
-        return super(SVR, self).predict(X, False)
+        return super(SVR, self).predict(X, False, convert_dtype)
