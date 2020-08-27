@@ -56,11 +56,12 @@ inline __device__ T get_lbls(const T *labels, const int64_t *knn_indices,
   }
 }
 
-template <typename value_idx = int64_t, typename value_t = float, int warp_q, int thread_q, int tpb>
-__global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV, value_t *outK,
-                                       value_idx *outV, size_t n_samples,
-                                       int n_parts, value_t initK,
-                                       value_idx initV, int k,
+template <typename value_idx = int64_t, typename value_t = float, int warp_q,
+          int thread_q, int tpb>
+__global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV,
+                                       value_t *outK, value_idx *outV,
+                                       size_t n_samples, int n_parts,
+                                       value_t initK, value_idx initV, int k,
                                        value_idx *translations) {
   constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
@@ -71,7 +72,8 @@ __global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV, value_t *ou
    * Uses shared memory
    */
   faiss::gpu::BlockSelect<value_t, value_idx, false,
-                          faiss::gpu::Comparator<value_t>, warp_q, thread_q, tpb>
+                          faiss::gpu::Comparator<value_t>, warp_q, thread_q,
+                          tpb>
     heap(initK, initV, smemK, smemV, k);
 
   // Grid is exactly sized to rows available
@@ -119,7 +121,8 @@ __global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV, value_t *ou
   }
 }
 
-template <typename value_idx = int64_t, typename value_t = float, int warp_q, int thread_q>
+template <typename value_idx = int64_t, typename value_t = float, int warp_q,
+          int thread_q>
 inline void knn_merge_parts_impl(value_t *inK, value_idx *inV, value_t *outK,
                                  value_idx *outV, size_t n_samples, int n_parts,
                                  int k, cudaStream_t stream,
@@ -157,26 +160,26 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
                             int k, cudaStream_t stream,
                             value_idx *translations) {
   if (k == 1)
-    knn_merge_parts_impl<value_idx, value_t, 1, 1>(inK, inV, outK, outV, n_samples,
-                                          n_parts, k, stream, translations);
+    knn_merge_parts_impl<value_idx, value_t, 1, 1>(
+      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
   else if (k <= 32)
-    knn_merge_parts_impl<value_idx, value_t, 32, 2>(inK, inV, outK, outV, n_samples,
-                                           n_parts, k, stream, translations);
+    knn_merge_parts_impl<value_idx, value_t, 32, 2>(
+      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
   else if (k <= 64)
-    knn_merge_parts_impl<value_idx, value_t, 64, 3>(inK, inV, outK, outV, n_samples,
-                                           n_parts, k, stream, translations);
+    knn_merge_parts_impl<value_idx, value_t, 64, 3>(
+      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
   else if (k <= 128)
-    knn_merge_parts_impl<value_idx, value_t, 128, 3>(inK, inV, outK, outV, n_samples,
-                                            n_parts, k, stream, translations);
+    knn_merge_parts_impl<value_idx, value_t, 128, 3>(
+      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
   else if (k <= 256)
-    knn_merge_parts_impl<value_idx, value_t, 256, 4>(inK, inV, outK, outV, n_samples,
-                                            n_parts, k, stream, translations);
+    knn_merge_parts_impl<value_idx, value_t, 256, 4>(
+      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
   else if (k <= 512)
-    knn_merge_parts_impl<value_idx, value_t, 512, 8>(inK, inV, outK, outV, n_samples,
-                                            n_parts, k, stream, translations);
+    knn_merge_parts_impl<value_idx, value_t, 512, 8>(
+      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
   else if (k <= 1024)
-    knn_merge_parts_impl<value_idx, value_t, 1024, 8>(inK, inV, outK, outV, n_samples,
-                                             n_parts, k, stream, translations);
+    knn_merge_parts_impl<value_idx, value_t, 1024, 8>(
+      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
 }
 
 inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
