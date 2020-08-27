@@ -28,7 +28,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
          float &inertia, int &n_iter) {
   const raft::handle_t &h = handle;
 
-  ML::detail::streamSyncer _(h);
+  raft::stream_syncer _(h);
   ML::kmeans::opg::fit(h, params, X, n_samples, n_features, centroids, inertia,
                        n_iter);
 }
@@ -37,7 +37,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
          const double *X, int n_samples, int n_features, double *centroids,
          double &inertia, int &n_iter) {
   const raft::handle_t &h = handle;
-  ML::detail::streamSyncer _(h);
+  raft::stream_syncer _(h);
   ML::kmeans::opg::fit(h, params, X, n_samples, n_features, centroids, inertia,
                        n_iter);
 }

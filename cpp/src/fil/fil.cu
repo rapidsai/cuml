@@ -314,12 +314,8 @@ struct external_node<sparse_node8> {
 
 template <typename node_t>
 struct sparse_forest : forest {
-<<<<<<< HEAD
-  void init(const raft::handle_t& h, const int* trees, const sparse_node_t* nodes,
-=======
   typedef typename external_node<node_t>::t external_node_t;
-  void init(const cumlHandle& h, const int* trees, const external_node_t* nodes,
->>>>>>> b83688caa6ed55f8163f86708d0054ab276d6f35
+  void init(const raft::handle_t& h, const int* trees, const external_node_t* nodes,
             const forest_params_t* params) {
     init_common(params);
     if (algo_ == algo_t::ALGO_AUTO) algo_ = algo_t::NAIVE;
@@ -333,15 +329,9 @@ struct sparse_forest : forest {
                                cudaMemcpyHostToDevice, h.get_stream()));
 
     // nodes
-<<<<<<< HEAD
-    nodes_ = (sparse_node*)h.get_device_allocator()->allocate(
-      sizeof(sparse_node) * num_nodes_, h.get_stream());
-    CUDA_CHECK(cudaMemcpyAsync(nodes_, nodes, sizeof(sparse_node) * num_nodes_,
-=======
-    nodes_ = (node_t*)h.getDeviceAllocator()->allocate(
+    nodes_ = (node_t*)h.get_device_allocator()->allocate(
       sizeof(node_t) * num_nodes_, h.get_stream());
     CUDA_CHECK(cudaMemcpyAsync(nodes_, nodes, sizeof(node_t) * num_nodes_,
->>>>>>> b83688caa6ed55f8163f86708d0054ab276d6f35
                                cudaMemcpyHostToDevice, h.get_stream()));
   }
 
@@ -353,11 +343,7 @@ struct sparse_forest : forest {
   void free(const raft::handle_t& h) override {
     h.get_device_allocator()->deallocate(trees_, sizeof(int) * num_trees_,
                                        h.get_stream());
-<<<<<<< HEAD
-    h.get_device_allocator()->deallocate(nodes_, sizeof(sparse_node) * num_nodes_,
-=======
-    h.getDeviceAllocator()->deallocate(nodes_, sizeof(node_t) * num_nodes_,
->>>>>>> b83688caa6ed55f8163f86708d0054ab276d6f35
+    h.get_device_allocator()->deallocate(nodes_, sizeof(node_t) * num_nodes_,
                                        h.get_stream());
   }
 

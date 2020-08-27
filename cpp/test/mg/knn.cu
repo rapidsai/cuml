@@ -60,7 +60,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
   bool runTest(const KNNParams &params) {
     raft::handle_t *handle = new raft::handle_t();
     ML::initialize_mpi_comms(*handle, MPI_COMM_WORLD);
-    const raft::handle_t &h = handle->getImpl();
+    const raft::handle_t &h = handle;
     const auto &comm = h.get_comms();
     const auto allocator = h.get_device_allocator();
 

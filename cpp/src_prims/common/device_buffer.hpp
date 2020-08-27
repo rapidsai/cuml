@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuml/common/cuml_allocator.hpp>
-#include "buffer_base.hpp"
+#include <raft/mr/device/buffer.hpp>
 
 namespace MLCommon {
 
@@ -39,6 +39,6 @@ namespace MLCommon {
  * @endcode
  */
 template <typename T>
-using device_buffer = buffer_base<T, deviceAllocator>;
+using device_buffer = raft::mr::device::buffer<T>;
 
 }  // namespace MLCommon

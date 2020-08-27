@@ -50,7 +50,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
     ML::initialize_mpi_comms(*handle, MPI_COMM_WORLD);
 
     // Prepare resource
-    const raft::handle_t& h = handle->getImpl();
+    const raft::handle_t& h = handle;
     const cumlCommunicator& comm = h.getCommunicator();
     stream = h.get_stream();
     const auto allocator = h.get_device_allocator();

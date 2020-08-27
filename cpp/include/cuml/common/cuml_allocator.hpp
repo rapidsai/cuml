@@ -24,7 +24,7 @@
 
 namespace MLCommon {
 
-using deviceAllocator = raft::mr::device::default_allocator;
+using deviceAllocator = raft::mr::device::allocator;
 using hostAllocator = raft::mr::host::allocator;
 
 };  // end namespace MLCommon

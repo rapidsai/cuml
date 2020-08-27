@@ -170,7 +170,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
                           RandomForestMetaData<T, int>*& forest) {
   this->error_checking(input, labels, n_rows, n_cols, false);
 
-  const raft::handle_t& handle = user_handle.getImpl();
+  const raft::handle_t& handle = user_handle;
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
   ASSERT(n_streams <= handle.get_num_internal_streams(),
@@ -265,7 +265,6 @@ void rfClassifier<T>::predict(const raft::handle_t& user_handle, const T* input,
   ML::Logger::get().setLevel(verbosity);
   this->error_checking(input, predictions, n_rows, n_cols, true);
   std::vector<int> h_predictions(n_rows);
-  const raft::handle_t& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.get_stream();
 
   std::vector<T> h_input(n_rows * n_cols);
@@ -332,7 +331,6 @@ void rfClassifier<T>::predictGetAll(const raft::handle_t& user_handle,
   std::vector<int> h_predictions(n_rows * num_trees);
 
   std::vector<T> h_input(n_rows * n_cols);
-  const raft::handle_t& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.get_stream();
   MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -380,7 +378,7 @@ RF_metrics rfClassifier<T>::score(const raft::handle_t& user_handle,
                                   const int* ref_labels, int n_rows,
                                   const int* predictions, int verbosity) {
   ML::Logger::get().setLevel(verbosity);
-  cudaStream_t stream = user_handle.getImpl().get_stream();
+  cudaStream_t stream = user_handle.get_stream();
   auto d_alloc = user_handle.get_device_allocator();
   float accuracy = MLCommon::Score::accuracy_score(predictions, ref_labels,
                                                    n_rows, d_alloc, stream);
@@ -439,7 +437,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
                          RandomForestMetaData<T, T>*& forest) {
   this->error_checking(input, labels, n_rows, n_cols, false);
 
-  const raft::handle_t& handle = user_handle.getImpl();
+  const raft::handle_t& handle = user_handle;
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
   ASSERT(n_streams <= handle.get_num_internal_streams(),
@@ -532,7 +530,6 @@ void rfRegressor<T>::predict(const raft::handle_t& user_handle, const T* input,
   this->error_checking(input, predictions, n_rows, n_cols, true);
 
   std::vector<T> h_predictions(n_rows);
-  const raft::handle_t& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.get_stream();
 
   std::vector<T> h_input(n_rows * n_cols);
@@ -584,7 +581,7 @@ RF_metrics rfRegressor<T>::score(const raft::handle_t& user_handle,
                                  const T* ref_labels, int n_rows,
                                  const T* predictions, int verbosity) {
   ML::Logger::get().setLevel(verbosity);
-  cudaStream_t stream = user_handle.getImpl().get_stream();
+  cudaStream_t stream = user_handle.get_stream();
   auto d_alloc = user_handle.get_device_allocator();
 
   double mean_abs_error, mean_squared_error, median_abs_error;
