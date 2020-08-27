@@ -75,16 +75,18 @@ inline void divide_by_min_build_index_helper(const raft::handle_t& handle,
     d_matrix, d_batch, d_index, h_size, batch_size, n_sub, allocator, stream);
 }
 
-void divide_by_min_build_index(const raft::handle_t& handle, const float* d_matrix,
-                               int* d_batch, int* d_index, int* h_size,
-                               int batch_size, int n_sub) {
+void divide_by_min_build_index(const raft::handle_t& handle,
+                               const float* d_matrix, int* d_batch,
+                               int* d_index, int* h_size, int batch_size,
+                               int n_sub) {
   divide_by_min_build_index_helper(handle, d_matrix, d_batch, d_index, h_size,
                                    batch_size, n_sub);
 }
 
-void divide_by_min_build_index(const raft::handle_t& handle, const double* d_matrix,
-                               int* d_batch, int* d_index, int* h_size,
-                               int batch_size, int n_sub) {
+void divide_by_min_build_index(const raft::handle_t& handle,
+                               const double* d_matrix, int* d_batch,
+                               int* d_index, int* h_size, int batch_size,
+                               int n_sub) {
   divide_by_min_build_index_helper(handle, d_matrix, d_batch, d_index, h_size,
                                    batch_size, n_sub);
 }

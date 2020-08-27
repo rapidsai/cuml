@@ -57,7 +57,8 @@ float r2_score_py(const raft::handle_t &handle, float *y, float *y_hat, int n);
 * @param n: Number of elements in y and y_hat
 * @return: The R-squared value.
 */
-double r2_score_py(const raft::handle_t &handle, double *y, double *y_hat, int n);
+double r2_score_py(const raft::handle_t &handle, double *y, double *y_hat,
+                   int n);
 
 /**
 * Calculates the "rand index"
@@ -141,8 +142,8 @@ double klDivergence(const raft::handle_t &handle, const double *y,
 * @param n: Number of elements in y and y_hat
 * @return: The KL Divergence value
 */
-float klDivergence(const raft::handle_t &handle, const float *y, const float *y_hat,
-                   int n);
+float klDivergence(const raft::handle_t &handle, const float *y,
+                   const float *y_hat, int n);
 
 /**
 * Calculates the "entropy" of a labelling
@@ -173,8 +174,9 @@ double entropy(const raft::handle_t &handle, const int *y, const int n,
 * @param upper_class_range: the highest value in the range of classes
 * @return: The mutual information score
 */
-double mutualInfoScore(const raft::handle_t &handle, const int *y, const int *y_hat,
-                       const int n, const int lower_class_range,
+double mutualInfoScore(const raft::handle_t &handle, const int *y,
+                       const int *y_hat, const int n,
+                       const int lower_class_range,
                        const int upper_class_range);
 
 /**
@@ -284,8 +286,8 @@ void pairwiseDistance(const raft::handle_t &handle, const double *x,
  * @param isRowMajor specifies whether the x and y data pointers are row (C
  *                   type array) or col (F type array) major
  */
-void pairwiseDistance(const raft::handle_t &handle, const float *x, const float *y,
-                      float *dist, int m, int n, int k,
+void pairwiseDistance(const raft::handle_t &handle, const float *x,
+                      const float *y, float *dist, int m, int n, int k,
                       ML::Distance::DistanceType metric,
                       bool isRowMajor = true);
 

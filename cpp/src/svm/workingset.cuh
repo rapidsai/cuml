@@ -89,7 +89,7 @@ class WorkingSet {
 
   ~WorkingSet() {
     handle.get_device_allocator()->deallocate(d_num_selected, 1 * sizeof(int),
-                                            stream);
+                                              stream);
   }
 
   /**

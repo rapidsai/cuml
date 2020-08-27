@@ -45,8 +45,7 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
   auto cublasH = handle.get_cublas_handle();
   auto cusolverH = handle.get_cusolver_dn_handle();
   const auto &comm = handle.get_comms();
-  const auto allocator =
-    handle.get_device_allocator();
+  const auto allocator = handle.get_device_allocator();
 
   // Implements this: w = V * inv(S^2 + λ*I) * S * U^T * b
   T *S_nnz;
@@ -88,10 +87,8 @@ void ridgeEig(raft::handle_t &handle, const std::vector<Matrix::Data<T> *> &A,
               bool verbose) {
   const auto &comm = handle.get_comms();
   const cublasHandle_t cublas_handle = handle.get_cublas_handle();
-  const cusolverDnHandle_t cusolver_handle =
-    handle.get_cusolver_dn_handle();
-  const auto allocator =
-    handle.get_device_allocator();
+  const cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
+  const auto allocator = handle.get_device_allocator();
 
   int rank = comm.get_rank();
 
@@ -131,13 +128,13 @@ void ridgeEig(raft::handle_t &handle, const std::vector<Matrix::Data<T> *> &A,
 }
 
 template <typename T>
-void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data,
+void fit_impl(raft::handle_t &handle,
+              std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc,
               std::vector<Matrix::Data<T> *> &labels, T *alpha, int n_alpha,
               T *coef, T *intercept, bool fit_intercept, bool normalize,
               int algo, cudaStream_t *streams, int n_streams, bool verbose) {
-  const auto allocator =
-    handle.get_device_allocator();
+  const auto allocator = handle.get_device_allocator();
 
   device_buffer<T> mu_input(allocator, streams[0]);
   device_buffer<T> norm2_input(allocator, streams[0]);
@@ -193,7 +190,8 @@ void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data
  * @input param verbose
  */
 template <typename T>
-void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data,
+void fit_impl(raft::handle_t &handle,
+              std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc,
               std::vector<Matrix::Data<T> *> &labels, T *alpha, int n_alpha,
               T *coef, T *intercept, bool fit_intercept, bool normalize,
@@ -285,7 +283,8 @@ void fit(raft::handle_t &handle, std::vector<Matrix::Data<float> *> &input_data,
            intercept, fit_intercept, normalize, algo, verbose);
 }
 
-void fit(raft::handle_t &handle, std::vector<Matrix::Data<double> *> &input_data,
+void fit(raft::handle_t &handle,
+         std::vector<Matrix::Data<double> *> &input_data,
          Matrix::PartDescriptor &input_desc,
          std::vector<Matrix::Data<double> *> &labels, double *alpha,
          int n_alpha, double *coef, double *intercept, bool fit_intercept,

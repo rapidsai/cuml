@@ -33,19 +33,21 @@ void sgdFit(raft::handle_t &handle, double *input, int n_rows, int n_cols,
             double power_t, int loss, int penalty, double alpha,
             double l1_ratio, bool shuffle, double tol, int n_iter_no_change);
 
-void sgdPredict(raft::handle_t &handle, const float *input, int n_rows, int n_cols,
-                const float *coef, float intercept, float *preds, int loss);
+void sgdPredict(raft::handle_t &handle, const float *input, int n_rows,
+                int n_cols, const float *coef, float intercept, float *preds,
+                int loss);
 
-void sgdPredict(raft::handle_t &handle, const double *input, int n_rows, int n_cols,
-                const double *coef, double intercept, double *preds, int loss);
+void sgdPredict(raft::handle_t &handle, const double *input, int n_rows,
+                int n_cols, const double *coef, double intercept, double *preds,
+                int loss);
 
-void sgdPredictBinaryClass(raft::handle_t &handle, const float *input, int n_rows,
-                           int n_cols, const float *coef, float intercept,
-                           float *preds, int loss);
+void sgdPredictBinaryClass(raft::handle_t &handle, const float *input,
+                           int n_rows, int n_cols, const float *coef,
+                           float intercept, float *preds, int loss);
 
-void sgdPredictBinaryClass(raft::handle_t &handle, const double *input, int n_rows,
-                           int n_cols, const double *coef, double intercept,
-                           double *preds, int loss);
+void sgdPredictBinaryClass(raft::handle_t &handle, const double *input,
+                           int n_rows, int n_cols, const double *coef,
+                           double intercept, double *preds, int loss);
 
 void cdFit(raft::handle_t &handle, float *input, int n_rows, int n_cols,
            float *labels, float *coef, float *intercept, bool fit_intercept,
@@ -57,11 +59,13 @@ void cdFit(raft::handle_t &handle, double *input, int n_rows, int n_cols,
            bool normalize, int epochs, int loss, double alpha, double l1_ratio,
            bool shuffle, double tol);
 
-void cdPredict(raft::handle_t &handle, const float *input, int n_rows, int n_cols,
-               const float *coef, float intercept, float *preds, int loss);
+void cdPredict(raft::handle_t &handle, const float *input, int n_rows,
+               int n_cols, const float *coef, float intercept, float *preds,
+               int loss);
 
-void cdPredict(raft::handle_t &handle, const double *input, int n_rows, int n_cols,
-               const double *coef, double intercept, double *preds, int loss);
+void cdPredict(raft::handle_t &handle, const double *input, int n_rows,
+               int n_cols, const double *coef, double intercept, double *preds,
+               int loss);
 
 };  // namespace Solver
 };  // end namespace ML

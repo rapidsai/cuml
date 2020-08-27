@@ -56,14 +56,14 @@ void olsFit(const raft::handle_t &handle, double *input, int n_rows, int n_cols,
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition)
  * @{
  */
-void ridgeFit(const raft::handle_t &handle, float *input, int n_rows, int n_cols,
-              float *labels, float *alpha, int n_alpha, float *coef,
+void ridgeFit(const raft::handle_t &handle, float *input, int n_rows,
+              int n_cols, float *labels, float *alpha, int n_alpha, float *coef,
               float *intercept, bool fit_intercept, bool normalize,
               int algo = 0);
-void ridgeFit(const raft::handle_t &handle, double *input, int n_rows, int n_cols,
-              double *labels, double *alpha, int n_alpha, double *coef,
-              double *intercept, bool fit_intercept, bool normalize,
-              int algo = 0);
+void ridgeFit(const raft::handle_t &handle, double *input, int n_rows,
+              int n_cols, double *labels, double *alpha, int n_alpha,
+              double *coef, double *intercept, bool fit_intercept,
+              bool normalize, int algo = 0);
 /** @} */
 
 /**
@@ -130,8 +130,8 @@ void qnFit(const raft::handle_t &cuml_handle, float *X, float *y, int N, int D,
            float grad_tol, int linesearch_max_iter, int lbfgs_memory,
            int verbosity, float *w0, float *f, int *num_iters, bool X_col_major,
            int loss_type);
-void qnFit(const raft::handle_t &cuml_handle, double *X, double *y, int N, int D,
-           int C, bool fit_intercept, double l1, double l2, int max_iter,
+void qnFit(const raft::handle_t &cuml_handle, double *X, double *y, int N,
+           int D, int C, bool fit_intercept, double l1, double l2, int max_iter,
            double grad_tol, int linesearch_max_iter, int lbfgs_memory,
            int verbosity, double *w0, double *f, int *num_iters,
            bool X_col_major, int loss_type);
@@ -151,11 +151,11 @@ void qnFit(const raft::handle_t &cuml_handle, double *X, double *y, int N, int D
  * @param scores                device pointer to confidence scores of length N (for binary logistic: [0,1], for multinomial:  [0,...,C-1])
  * @{
  */
-void qnDecisionFunction(const raft::handle_t &cuml_handle, float *X, int N, int D,
-                        int C, bool fit_intercept, float *params,
+void qnDecisionFunction(const raft::handle_t &cuml_handle, float *X, int N,
+                        int D, int C, bool fit_intercept, float *params,
                         bool X_col_major, int loss_type, float *scores);
-void qnDecisionFunction(const raft::handle_t &cuml_handle, double *X, int N, int D,
-                        int C, bool fit_intercept, double *params,
+void qnDecisionFunction(const raft::handle_t &cuml_handle, double *X, int N,
+                        int D, int C, bool fit_intercept, double *params,
                         bool X_col_major, int loss_type, double *scores);
 /** @} */
 
@@ -176,8 +176,8 @@ void qnDecisionFunction(const raft::handle_t &cuml_handle, double *X, int N, int
 void qnPredict(const raft::handle_t &cuml_handle, float *X, int N, int D, int C,
                bool fit_intercept, float *params, bool X_col_major,
                int loss_type, float *preds);
-void qnPredict(const raft::handle_t &cuml_handle, double *X, int N, int D, int C,
-               bool fit_intercept, double *params, bool X_col_major,
+void qnPredict(const raft::handle_t &cuml_handle, double *X, int N, int D,
+               int C, bool fit_intercept, double *params, bool X_col_major,
                int loss_type, double *preds);
 /** @} */
 

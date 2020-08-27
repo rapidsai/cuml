@@ -44,9 +44,9 @@ void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
 
   MLCommon::Selection::brute_force_knn(
     input, sizes, D, search_items, n, res_I, res_D, k,
-    handle.get_device_allocator(), handle.get_stream(),
-    int_streams.data(), handle.get_num_internal_streams(), rowMajorIndex,
-    rowMajorQuery, nullptr, metric, metric_arg, expanded);
+    handle.get_device_allocator(), handle.get_stream(), int_streams.data(),
+    handle.get_num_internal_streams(), rowMajorIndex, rowMajorQuery, nullptr,
+    metric, metric_arg, expanded);
 }
 
 void knn_classify(raft::handle_t &handle, int *out, int64_t *knn_indices,
@@ -123,8 +123,7 @@ extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
   raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
 
-  std::vector<cudaStream_t> int_streams =
-    handle_ptr->get_internal_streams();
+  std::vector<cudaStream_t> int_streams = handle_ptr->get_internal_streams();
 
   std::vector<float *> input_vec(n_params);
   std::vector<int> sizes_vec(n_params);
@@ -137,11 +136,10 @@ extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
     try {
       MLCommon::Selection::brute_force_knn(
         input_vec, sizes_vec, D, search_items, n, res_I, res_D, k,
-        handle_ptr->get_device_allocator(),
-        handle_ptr->get_stream(), int_streams.data(),
-        handle_ptr->get_num_internal_streams(), rowMajorIndex,
-        rowMajorQuery, nullptr, (ML::MetricType)metric_type, metric_arg,
-        expanded);
+        handle_ptr->get_device_allocator(), handle_ptr->get_stream(),
+        int_streams.data(), handle_ptr->get_num_internal_streams(),
+        rowMajorIndex, rowMajorQuery, nullptr, (ML::MetricType)metric_type,
+        metric_arg, expanded);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }

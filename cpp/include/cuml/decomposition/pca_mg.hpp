@@ -106,14 +106,16 @@ void fit_transform(raft::handle_t &handle,
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
  */
-void transform(raft::handle_t &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
-               size_t n_parts, MLCommon::Matrix::Data<float> **input,
-               float *components, MLCommon::Matrix::Data<float> **trans_input,
+void transform(raft::handle_t &handle,
+               MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,
+               MLCommon::Matrix::Data<float> **input, float *components,
+               MLCommon::Matrix::Data<float> **trans_input,
                float *singular_vals, float *mu, paramsPCAMG prms, bool verbose);
 
-void transform(raft::handle_t &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
-               size_t n_parts, MLCommon::Matrix::Data<double> **input,
-               double *components, MLCommon::Matrix::Data<double> **trans_input,
+void transform(raft::handle_t &handle,
+               MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,
+               MLCommon::Matrix::Data<double> **input, double *components,
+               MLCommon::Matrix::Data<double> **trans_input,
                double *singular_vals, double *mu, paramsPCAMG prms,
                bool verbose);
 

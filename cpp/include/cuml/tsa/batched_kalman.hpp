@@ -43,8 +43,8 @@ namespace ML {
  * @param[out] d_lower       Lower limit of the prediction interval
  * @param[out] d_upper       Upper limit of the prediction interval
  */
-void batched_kalman_filter(raft::handle_t& handle, const double* d_ys_b, int nobs,
-                           const ARIMAParams<double>& params,
+void batched_kalman_filter(raft::handle_t& handle, const double* d_ys_b,
+                           int nobs, const ARIMAParams<double>& params,
                            const ARIMAOrder& order, int batch_size,
                            double* d_loglike, double* d_vs, int fc_steps = 0,
                            double* d_fc = nullptr, double level = 0,

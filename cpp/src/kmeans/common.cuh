@@ -52,17 +52,17 @@
 
 namespace ML {
 
-#define LOG(handle, fmt, ...)                      \
-  do {                                             \
-    bool isRoot = true;                            \
-    if (handle.comms_initialized()) {               \
+#define LOG(handle, fmt, ...)                \
+  do {                                       \
+    bool isRoot = true;                      \
+    if (handle.comms_initialized()) {        \
       const auto &comm = handle.get_comms(); \
-      const int my_rank = comm.get_rank();         \
-      isRoot = my_rank == 0;                       \
-    }                                              \
-    if (isRoot) {                                  \
-      CUML_LOG_DEBUG(fmt, ##__VA_ARGS__);          \
-    }                                              \
+      const int my_rank = comm.get_rank();   \
+      isRoot = my_rank == 0;                 \
+    }                                        \
+    if (isRoot) {                            \
+      CUML_LOG_DEBUG(fmt, ##__VA_ARGS__);    \
+    }                                        \
   } while (0)
 
 namespace kmeans {
@@ -242,8 +242,7 @@ void computeClusterCost(const raft::handle_t &handle,
 // calculate pairwise distance between 'dataset[n x d]' and 'centroids[k x d]',
 // result will be stored in 'pairwiseDistance[n x k]'
 template <typename DataT, typename IndexT>
-void pairwiseDistance(const raft::handle_t &handle,
-                      Tensor<DataT, 2, IndexT> &X,
+void pairwiseDistance(const raft::handle_t &handle, Tensor<DataT, 2, IndexT> &X,
                       Tensor<DataT, 2, IndexT> &centroids,
                       Tensor<DataT, 2, IndexT> &pairwiseDistance,
                       MLCommon::device_buffer<char> &workspace,
@@ -507,8 +506,8 @@ void shuffleAndGather(const raft::handle_t &handle,
                                      stream);
   } else {
     // shuffle indices on host and copy to device...
-    MLCommon::host_buffer<IndexT> ht_indices(handle.get_host_allocator(), stream,
-                                             n_samples);
+    MLCommon::host_buffer<IndexT> ht_indices(handle.get_host_allocator(),
+                                             stream, n_samples);
 
     std::iota(ht_indices.begin(), ht_indices.end(), 0);
 
@@ -607,8 +606,8 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
   MLCommon::host_buffer<DataT> h_wt(handle.get_host_allocator(), stream,
                                     n_samples);
 
-  MLCommon::device_buffer<DataT> distBuffer(handle.get_device_allocator(), stream,
-                                            n_trials * n_samples);
+  MLCommon::device_buffer<DataT> distBuffer(handle.get_device_allocator(),
+                                            stream, n_trials * n_samples);
 
   Tensor<DataT, 2, IndexT> centroidCandidates(
     {n_trials, n_features}, handle.get_device_allocator(), stream);

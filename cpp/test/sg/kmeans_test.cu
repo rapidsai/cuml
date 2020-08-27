@@ -62,8 +62,8 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     device_buffer<T> X(handle.get_device_allocator(), handle.get_stream(),
                        n_samples * n_features);
 
-    device_buffer<int> labels(handle.get_device_allocator(), handle.get_stream(),
-                              n_samples);
+    device_buffer<int> labels(handle.get_device_allocator(),
+                              handle.get_stream(), n_samples);
 
     make_blobs(handle, X.data(), labels.data(), n_samples, n_features,
                params.n_clusters, true, nullptr, nullptr, 1.0, false, -10.0f,
@@ -101,7 +101,8 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
          << arr2Str(d_labels_ref, 25, "d_labels_ref", handle.get_stream());
       CUML_LOG_DEBUG(ss.str().c_str());
       ss.str(std::string());
-      ss << "Actual: " << arr2Str(d_labels, 25, "d_labels", handle.get_stream());
+      ss << "Actual: "
+         << arr2Str(d_labels, 25, "d_labels", handle.get_stream());
       CUML_LOG_DEBUG(ss.str().c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }

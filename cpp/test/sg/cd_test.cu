@@ -80,30 +80,30 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     ML::loss_funct loss = ML::loss_funct::SQRD_LOSS;
 
     intercept = T(0);
-    cdFit(handle, data, params.n_row, params.n_col, labels, coef,
-          &intercept, fit_intercept, normalize, epochs, loss, alpha, l1_ratio,
-          shuffle, tol, stream);
+    cdFit(handle, data, params.n_row, params.n_col, labels, coef, &intercept,
+          fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle, tol,
+          stream);
 
     fit_intercept = true;
     intercept2 = T(0);
-    cdFit(handle, data, params.n_row, params.n_col, labels, coef2,
-          &intercept2, fit_intercept, normalize, epochs, loss, alpha, l1_ratio,
-          shuffle, tol, stream);
+    cdFit(handle, data, params.n_row, params.n_col, labels, coef2, &intercept2,
+          fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle, tol,
+          stream);
 
     alpha = T(1.0);
     l1_ratio = T(0.5);
     fit_intercept = false;
     intercept = T(0);
-    cdFit(handle, data, params.n_row, params.n_col, labels, coef3,
-          &intercept, fit_intercept, normalize, epochs, loss, alpha, l1_ratio,
-          shuffle, tol, stream);
+    cdFit(handle, data, params.n_row, params.n_col, labels, coef3, &intercept,
+          fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle, tol,
+          stream);
 
     fit_intercept = true;
     normalize = true;
     intercept2 = T(0);
-    cdFit(handle, data, params.n_row, params.n_col, labels, coef4,
-          &intercept2, fit_intercept, normalize, epochs, loss, alpha, l1_ratio,
-          shuffle, tol, stream);
+    cdFit(handle, data, params.n_row, params.n_col, labels, coef4, &intercept2,
+          fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle, tol,
+          stream);
   }
 
   void SetUp() override {

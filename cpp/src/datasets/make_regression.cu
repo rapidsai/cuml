@@ -22,11 +22,12 @@ namespace ML {
 namespace Datasets {
 
 template <typename DataT, typename IdxT>
-void make_regression_helper(const raft::handle_t& handle, DataT* out, DataT* values,
-                            IdxT n_rows, IdxT n_cols, IdxT n_informative,
-                            DataT* coef, IdxT n_targets, DataT bias,
-                            IdxT effective_rank, DataT tail_strength,
-                            DataT noise, bool shuffle, uint64_t seed) {
+void make_regression_helper(const raft::handle_t& handle, DataT* out,
+                            DataT* values, IdxT n_rows, IdxT n_cols,
+                            IdxT n_informative, DataT* coef, IdxT n_targets,
+                            DataT bias, IdxT effective_rank,
+                            DataT tail_strength, DataT noise, bool shuffle,
+                            uint64_t seed) {
   const auto& handle_impl = handle;
   cudaStream_t stream = handle_impl.get_stream();
   cublasHandle_t cublas_handle = handle_impl.get_cublas_handle();

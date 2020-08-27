@@ -98,12 +98,12 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     else
       prms.algorithm = solver::COV_EIG_JACOBI;
 
-    pcaFit(handle, data, components, explained_vars,
-           explained_var_ratio, singular_vals, mean, noise_vars, prms, stream);
-    pcaTransform(handle, data, components, trans_data, singular_vals,
-                 mean, prms, stream);
-    pcaInverseTransform(handle, trans_data, components, singular_vals,
-                        mean, data_back, prms, stream);
+    pcaFit(handle, data, components, explained_vars, explained_var_ratio,
+           singular_vals, mean, noise_vars, prms, stream);
+    pcaTransform(handle, data, components, trans_data, singular_vals, mean,
+                 prms, stream);
+    pcaInverseTransform(handle, trans_data, components, singular_vals, mean,
+                        data_back, prms, stream);
   }
 
   void advancedTest() {
@@ -133,13 +133,13 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     allocate(mean2, prms.n_cols);
     allocate(noise_vars2, 1);
 
-    pcaFitTransform(handle, data2, data2_trans, components2,
-                    explained_vars2, explained_var_ratio2, singular_vals2,
-                    mean2, noise_vars2, prms, stream);
+    pcaFitTransform(handle, data2, data2_trans, components2, explained_vars2,
+                    explained_var_ratio2, singular_vals2, mean2, noise_vars2,
+                    prms, stream);
 
     allocate(data2_back, len);
-    pcaInverseTransform(handle, data2_trans, components2,
-                        singular_vals2, mean2, data2_back, prms, stream);
+    pcaInverseTransform(handle, data2_trans, components2, singular_vals2, mean2,
+                        data2_back, prms, stream);
   }
 
   void SetUp() override {

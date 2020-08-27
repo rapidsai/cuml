@@ -58,8 +58,8 @@ void launcher(const raft::handle_t &handle, const T *X, int n, int d,
                           tmp_storage.data());
 
   MLCommon::LinAlg::transpose(tmp_storage.data(), embedding, n,
-                              params->n_components,
-                              handle.get_cublas_handle(), stream);
+                              params->n_components, handle.get_cublas_handle(),
+                              stream);
 
   MLCommon::LinAlg::unaryOp<T>(
     tmp_storage.data(), tmp_storage.data(), n * params->n_components,

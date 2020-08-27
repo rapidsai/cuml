@@ -40,7 +40,8 @@ namespace CD {
 namespace opg {
 
 template <typename T>
-void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data,
+void fit_impl(raft::handle_t &handle,
+              std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc,
               std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
               bool fit_intercept, bool normalize, int epochs, T alpha,
@@ -48,8 +49,7 @@ void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data
               int n_streams, bool verbose) {
   const auto &comm = handle.get_comms();
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
-  const auto allocator =
-    handle.get_device_allocator();
+  const auto allocator = handle.get_device_allocator();
 
   std::vector<Matrix::RankSizePair *> partsToRanks =
     input_desc.blocksOwnedBy(comm.get_rank());
@@ -269,7 +269,8 @@ void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data
  * @input param verbose
  */
 template <typename T>
-void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data,
+void fit_impl(raft::handle_t &handle,
+              std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc,
               std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
               bool fit_intercept, bool normalize, int epochs, T alpha,
@@ -364,7 +365,8 @@ void fit(raft::handle_t &handle, std::vector<Matrix::Data<float> *> &input_data,
            verbose);
 }
 
-void fit(raft::handle_t &handle, std::vector<Matrix::Data<double> *> &input_data,
+void fit(raft::handle_t &handle,
+         std::vector<Matrix::Data<double> *> &input_data,
          Matrix::PartDescriptor &input_desc,
          std::vector<Matrix::Data<double> *> &labels, double *coef,
          double *intercept, bool fit_intercept, bool normalize, int epochs,

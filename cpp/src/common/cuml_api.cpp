@@ -18,9 +18,9 @@
 #include <cuml/cuml_api.h>
 #include <cuml/common/utils.hpp>
 #include <functional>
-#include "cumlHandle.hpp"
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/allocator.hpp>
+#include "cumlHandle.hpp"
 
 namespace ML {
 namespace detail {
@@ -46,7 +46,8 @@ class hostAllocatorFunctionWrapper : public raft::mr::host::allocator {
   const std::function<cudaError_t(void*, size_t, cudaStream_t)> _deallocate_fn;
 };
 
-class deviceAllocatorFunctionWrapper : public raft::mr::device::default_allocator {
+class deviceAllocatorFunctionWrapper
+  : public raft::mr::device::default_allocator {
  public:
   deviceAllocatorFunctionWrapper(cuml_allocate allocate_fn,
                                  cuml_deallocate deallocate_fn)

@@ -28,8 +28,8 @@ namespace AdjGraph {
 namespace Naive {
 
 template <typename Index_ = int>
-void launcher(const raft::handle_t& handle, Pack<Index_> data,
-              Index_ batchSize, cudaStream_t stream) {
+void launcher(const raft::handle_t& handle, Pack<Index_> data, Index_ batchSize,
+              cudaStream_t stream) {
   Index_ k = 0;
   Index_ N = data.N;
   MLCommon::host_buffer<Index_> host_vd(handle.get_host_allocator(), stream,
@@ -38,8 +38,8 @@ void launcher(const raft::handle_t& handle, Pack<Index_> data,
                                             batchSize);
   MLCommon::host_buffer<bool> host_adj(handle.get_host_allocator(), stream,
                                        batchSize * N);
-  MLCommon::host_buffer<Index_> host_ex_scan(handle.get_host_allocator(), stream,
-                                             batchSize);
+  MLCommon::host_buffer<Index_> host_ex_scan(handle.get_host_allocator(),
+                                             stream, batchSize);
   MLCommon::updateHost(host_adj.data(), data.adj, batchSize * N, stream);
   MLCommon::updateHost(host_vd.data(), data.vd, batchSize + 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));

@@ -127,10 +127,11 @@ void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
  * @param[in]  truncate     For CSS, start the sum-of-squares after a given
  *                          number of observations
  */
-void batched_loglike_grad(raft::handle_t& handle, const double* d_y, int batch_size,
-                          int n_obs, const ARIMAOrder& order, const double* d_x,
-                          double* d_grad, double h, bool trans = true,
-                          LoglikeMethod method = MLE, int truncate = 0);
+void batched_loglike_grad(raft::handle_t& handle, const double* d_y,
+                          int batch_size, int n_obs, const ARIMAOrder& order,
+                          const double* d_x, double* d_grad, double h,
+                          bool trans = true, LoglikeMethod method = MLE,
+                          int truncate = 0);
 
 /**
  * Batched in-sample and out-of-sample prediction of a time-series given all
@@ -153,8 +154,8 @@ void batched_loglike_grad(raft::handle_t& handle, const double* d_y, int batch_s
  * @param[out] d_lower     Lower limit of the prediction interval
  * @param[out] d_upper     Upper limit of the prediction interval
  */
-void predict(raft::handle_t& handle, const double* d_y, int batch_size, int n_obs,
-             int start, int end, const ARIMAOrder& order,
+void predict(raft::handle_t& handle, const double* d_y, int batch_size,
+             int n_obs, int start, int end, const ARIMAOrder& order,
              const ARIMAParams<double>& params, double* d_y_p,
              bool pre_diff = true, double level = 0, double* d_lower = nullptr,
              double* d_upper = nullptr);

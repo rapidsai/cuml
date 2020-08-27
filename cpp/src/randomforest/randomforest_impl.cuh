@@ -173,9 +173,10 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
   const raft::handle_t& handle = user_handle;
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
-  ASSERT(n_streams <= handle.get_num_internal_streams(),
-         "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%d)",
-         n_streams, handle.get_num_internal_streams());
+  ASSERT(
+    n_streams <= handle.get_num_internal_streams(),
+    "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%d)",
+    n_streams, handle.get_num_internal_streams());
 
   cudaStream_t stream = handle.get_stream();
   // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
@@ -440,9 +441,10 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
   const raft::handle_t& handle = user_handle;
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
-  ASSERT(n_streams <= handle.get_num_internal_streams(),
-         "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%d)",
-         n_streams, handle.get_num_internal_streams());
+  ASSERT(
+    n_streams <= handle.get_num_internal_streams(),
+    "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%d)",
+    n_streams, handle.get_num_internal_streams());
 
   cudaStream_t stream = user_handle.get_stream();
   // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.

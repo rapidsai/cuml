@@ -86,7 +86,6 @@ int main(int argc, char *argv[]) {
                 << "(" << cudaGetErrorString(cudaStatus) << ")" << std::endl;
       return 1;
     }
-
   }
 
   std::vector<double> h_srcdata;
@@ -156,9 +155,8 @@ int main(int argc, char *argv[]) {
 
     double inertia = 0;
     int n_iter = 0;
-    ML::kmeans::fit_predict(handle, params, d_srcdata, n_samples,
-                            n_features, 0, d_pred_centroids, d_pred_labels,
-                            inertia, n_iter);
+    ML::kmeans::fit_predict(handle, params, d_srcdata, n_samples, n_features, 0,
+                            d_pred_centroids, d_pred_labels, inertia, n_iter);
 
     std::vector<int> h_pred_labels(n_samples);
     CUDA_RT_CALL(cudaMemcpyAsync(h_pred_labels.data(), d_pred_labels,

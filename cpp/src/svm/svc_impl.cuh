@@ -82,8 +82,8 @@ void svcFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
 }
 
 template <typename math_t>
-void svcPredict(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
-                MLCommon::Matrix::KernelParams &kernel_params,
+void svcPredict(const raft::handle_t &handle, math_t *input, int n_rows,
+                int n_cols, MLCommon::Matrix::KernelParams &kernel_params,
                 const svmModel<math_t> &model, math_t *preds,
                 math_t buffer_size, bool predict_class) {
   ASSERT(n_cols == model.n_cols,

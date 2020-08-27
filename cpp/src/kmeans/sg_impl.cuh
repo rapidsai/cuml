@@ -526,7 +526,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &km_params,
                                                   stream);
 
   // Device-accessible allocation of expandable storage used as temorary buffers
-  MLCommon::device_buffer<char> workspace(handle.get_device_allocator(), stream);
+  MLCommon::device_buffer<char> workspace(handle.get_device_allocator(),
+                                          stream);
 
   // check if weights sum up to n_samples
   kmeans::detail::checkWeights(handle, workspace, weight, stream);
@@ -650,7 +651,8 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
                                                 stream);
 
   // Device-accessible allocation of expandable storage used as temorary buffers
-  MLCommon::device_buffer<char> workspace(handle.get_device_allocator(), stream);
+  MLCommon::device_buffer<char> workspace(handle.get_device_allocator(),
+                                          stream);
 
   // check if weights sum up to n_samples
   kmeans::detail::checkWeights(handle, workspace, weight, stream);
@@ -751,7 +753,8 @@ void transform(const raft::handle_t &handle, const KMeansParams &params,
                                             {n_samples, n_clusters});
 
   // Device-accessible allocation of expandable storage used as temorary buffers
-  MLCommon::device_buffer<char> workspace(handle.get_device_allocator(), stream);
+  MLCommon::device_buffer<char> workspace(handle.get_device_allocator(),
+                                          stream);
 
   auto dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
 

@@ -51,10 +51,9 @@ using namespace MLCommon;
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2: QR-decomposition)
  */
 template <typename math_t>
-void olsFit(const raft::handle_t &handle, math_t *input, int n_rows,
-            int n_cols, math_t *labels, math_t *coef, math_t *intercept,
-            bool fit_intercept, bool normalize, cudaStream_t stream,
-            int algo = 0) {
+void olsFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
+            math_t *labels, math_t *coef, math_t *intercept, bool fit_intercept,
+            bool normalize, cudaStream_t stream, int algo = 0) {
   auto cublas_handle = handle.get_cublas_handle();
   auto cusolver_handle = handle.get_cusolver_dn_handle();
   auto allocator = handle.get_device_allocator();

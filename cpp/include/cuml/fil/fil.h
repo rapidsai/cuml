@@ -219,8 +219,8 @@ struct treelite_params_t {
       (2**(params->depth + 1) - 1) * params->ntrees
  *  @param params pointer to parameters used to initialize the forest
  */
-void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node_t* nodes,
-                const forest_params_t* params);
+void init_dense(const raft::handle_t& h, forest_t* pf,
+                const dense_node_t* nodes, const forest_params_t* params);
 
 /** init_sparse uses params, trees and nodes to initialize the sparse forest
  *  with 16-byte nodes stored in pf
@@ -271,8 +271,8 @@ void free(const raft::handle_t& h, forest_t f);
  *  @param predict_proba for classifier models, this forces to output both class probabilities
  *      instead of binary class prediction. format matches scikit-learn API
  */
-void predict(const raft::handle_t& h, forest_t f, float* preds, const float* data,
-             size_t num_rows, bool predict_proba = false);
+void predict(const raft::handle_t& h, forest_t f, float* preds,
+             const float* data, size_t num_rows, bool predict_proba = false);
 
 }  // namespace fil
 }  // namespace ML

@@ -663,8 +663,8 @@ __global__ void confidence_intervals(const double* d_fc, const double* d_sigma2,
 }
 
 /// Internal Kalman filter implementation that assumes data exists on GPU.
-void _batched_kalman_filter(raft::handle_t& handle, const double* d_ys, int nobs,
-                            const ARIMAOrder& order,
+void _batched_kalman_filter(raft::handle_t& handle, const double* d_ys,
+                            int nobs, const ARIMAOrder& order,
                             const MLCommon::LinAlg::Batched::Matrix<double>& Zb,
                             const MLCommon::LinAlg::Batched::Matrix<double>& Tb,
                             const MLCommon::LinAlg::Batched::Matrix<double>& Rb,

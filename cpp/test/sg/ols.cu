@@ -98,18 +98,18 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
 
     intercept = T(0);
 
-    olsFit(handle, data, params.n_row, params.n_col, labels, coef,
-           &intercept, false, false, stream, params.algo);
+    olsFit(handle, data, params.n_row, params.n_col, labels, coef, &intercept,
+           false, false, stream, params.algo);
 
-    olsPredict(handle, pred_data, params.n_row_2, params.n_col, coef,
-               intercept, pred, stream);
+    olsPredict(handle, pred_data, params.n_row_2, params.n_col, coef, intercept,
+               pred, stream);
 
     updateDevice(data, data_h.data(), len, stream);
     updateDevice(labels, labels_h.data(), params.n_row, stream);
 
     intercept2 = T(0);
-    olsFit(handle, data, params.n_row, params.n_col, labels, coef2,
-           &intercept2, true, false, stream, params.algo);
+    olsFit(handle, data, params.n_row, params.n_col, labels, coef2, &intercept2,
+           true, false, stream, params.algo);
 
     olsPredict(handle, pred_data, params.n_row_2, params.n_col, coef2,
                intercept2, pred2, stream);
@@ -118,8 +118,8 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
     updateDevice(labels, labels_h.data(), params.n_row, stream);
 
     intercept3 = T(0);
-    olsFit(handle, data, params.n_row, params.n_col, labels, coef3,
-           &intercept3, true, true, stream, params.algo);
+    olsFit(handle, data, params.n_row, params.n_col, labels, coef3, &intercept3,
+           true, true, stream, params.algo);
 
     olsPredict(handle, pred_data, params.n_row_2, params.n_col, coef3,
                intercept3, pred3, stream);
@@ -148,8 +148,8 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
 
     T intercept_sc = T(0);
 
-    olsFit(handle, data_sc, len, 1, labels_sc, coef_sc, &intercept_sc,
-           true, false, stream, params.algo);
+    olsFit(handle, data_sc, len, 1, labels_sc, coef_sc, &intercept_sc, true,
+           false, stream, params.algo);
   }
 
   void SetUp() override {

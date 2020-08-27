@@ -90,15 +90,17 @@ void fit_transform(raft::handle_t &handle,
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
  */
-void transform(raft::handle_t &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
-               size_t n_parts, MLCommon::Matrix::Data<float> **input,
-               float *components, MLCommon::Matrix::Data<float> **trans_input,
-               paramsTSVD prms, bool verbose);
+void transform(raft::handle_t &handle,
+               MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,
+               MLCommon::Matrix::Data<float> **input, float *components,
+               MLCommon::Matrix::Data<float> **trans_input, paramsTSVD prms,
+               bool verbose);
 
-void transform(raft::handle_t &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
-               size_t n_parts, MLCommon::Matrix::Data<double> **input,
-               double *components, MLCommon::Matrix::Data<double> **trans_input,
-               paramsTSVD prms, bool verbose);
+void transform(raft::handle_t &handle,
+               MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,
+               MLCommon::Matrix::Data<double> **input, double *components,
+               MLCommon::Matrix::Data<double> **trans_input, paramsTSVD prms,
+               bool verbose);
 
 /**
  * @brief performs MNMG inverse transform operation for the output.

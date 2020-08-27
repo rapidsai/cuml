@@ -41,8 +41,8 @@ static const int TPB_X = 256;
  * CSR row_ind_ptr array (adj_graph) and filters into a core_pts array based on min_pts.
  */
 template <typename Index_ = int>
-void launcher(const raft::handle_t &handle, Pack<Index_> data,
-              Index_ batchSize, cudaStream_t stream) {
+void launcher(const raft::handle_t &handle, Pack<Index_> data, Index_ batchSize,
+              cudaStream_t stream) {
   device_ptr<Index_> dev_vd = device_pointer_cast(data.vd);
   device_ptr<Index_> dev_ex_scan = device_pointer_cast(data.ex_scan);
 

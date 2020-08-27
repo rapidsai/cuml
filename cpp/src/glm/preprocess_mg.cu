@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <common/cumlHandle.hpp>
 #include <common/cudart_utils.h>
+#include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -46,8 +46,7 @@ void preProcessData_impl(raft::handle_t &handle,
   const auto &comm = handle.get_comms();
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
   cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
-  const auto allocator =
-    handle.get_device_allocator();
+  const auto allocator = handle.get_device_allocator();
 
   if (fit_intercept) {
     Matrix::Data<T> mu_input_data{mu_input, size_t(input_desc.N)};
@@ -88,8 +87,7 @@ void postProcessData_impl(raft::handle_t &handle,
   const auto &comm = handle.get_comms();
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
   cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
-  const auto allocator =
-    handle.get_device_allocator();
+  const auto allocator = handle.get_device_allocator();
 
   device_buffer<T> d_intercept(allocator, streams[0], 1);
 
