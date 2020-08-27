@@ -230,7 +230,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     */
     DecisionTree::TreeMetaDataNode<T, int>* tree_ptr = &(forest->trees[i]);
     tree_ptr->treeid = i;
-    trees[i].fit(handle.get_device_allocator(), handle.getHostAllocator(),
+    trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  tempmem[stream_id]->stream, input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, n_unique_labels, tree_ptr,
                  this->rf_params.tree_params, tempmem[stream_id]);
@@ -496,7 +496,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     */
     DecisionTree::TreeMetaDataNode<T, T>* tree_ptr = &(forest->trees[i]);
     tree_ptr->treeid = i;
-    trees[i].fit(handle.get_device_allocator(), handle.getHostAllocator(),
+    trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  tempmem[stream_id]->stream, input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, tree_ptr, this->rf_params.tree_params,
                  tempmem[stream_id]);
