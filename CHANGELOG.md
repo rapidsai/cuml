@@ -9,6 +9,7 @@
 - PR #2749: Correct docs for python version used in cuml_dev conda environment
 - PR #2762: Fix broken links and provide minor edits to docs
 - PR #2723: Support and enable convert_dtype in estimator predict
+- PR #2758: Match sklearn's default n_components behavior for PCA
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
