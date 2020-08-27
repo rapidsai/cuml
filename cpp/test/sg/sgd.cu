@@ -77,17 +77,16 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     MLCommon::Functions::penalty pen = MLCommon::Functions::penalty::NONE;
     int n_iter_no_change = 10;
 
-    sgdFit(handle, data, params.n_row, params.n_col, labels, coef,
-           &intercept, fit_intercept, params.batch_size, epochs, lr_type, lr,
-           power_t, loss, pen, alpha, l1_ratio, shuffle, tol, n_iter_no_change,
-           stream);
+    sgdFit(handle, data, params.n_row, params.n_col, labels, coef, &intercept,
+           fit_intercept, params.batch_size, epochs, lr_type, lr, power_t, loss,
+           pen, alpha, l1_ratio, shuffle, tol, n_iter_no_change, stream);
 
     fit_intercept = true;
     intercept2 = T(0);
-    sgdFit(handle, data, params.n_row, params.n_col, labels, coef2,
-           &intercept2, fit_intercept, params.batch_size, epochs,
-           ML::lr_type::CONSTANT, lr, power_t, loss, pen, alpha, l1_ratio,
-           shuffle, tol, n_iter_no_change, stream);
+    sgdFit(handle, data, params.n_row, params.n_col, labels, coef2, &intercept2,
+           fit_intercept, params.batch_size, epochs, ML::lr_type::CONSTANT, lr,
+           power_t, loss, pen, alpha, l1_ratio, shuffle, tol, n_iter_no_change,
+           stream);
   }
 
   void logisticRegressionTest() {
@@ -130,10 +129,10 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     MLCommon::Functions::penalty pen = MLCommon::Functions::penalty::NONE;
     int n_iter_no_change = 10;
 
-    sgdFit(handle, data_logreg, params.n_row2, params.n_col2,
-           labels_logreg, coef_class, &intercept_class, fit_intercept,
-           params.batch_size, epochs, lr_type, lr, power_t, loss, pen, alpha,
-           l1_ratio, shuffle, tol, n_iter_no_change, stream);
+    sgdFit(handle, data_logreg, params.n_row2, params.n_col2, labels_logreg,
+           coef_class, &intercept_class, fit_intercept, params.batch_size,
+           epochs, lr_type, lr, power_t, loss, pen, alpha, l1_ratio, shuffle,
+           tol, n_iter_no_change, stream);
 
     sgdPredictBinaryClass(handle, data_logreg_test, params.n_row2,
                           params.n_col2, coef_class, intercept_class, pred_log,
@@ -182,10 +181,10 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     MLCommon::Functions::penalty pen = MLCommon::Functions::penalty::L2;
     int n_iter_no_change = 10;
 
-    sgdFit(handle, data_svmreg, params.n_row2, params.n_col2,
-           labels_svmreg, coef_class, &intercept_class, fit_intercept,
-           params.batch_size, epochs, lr_type, lr, power_t, loss, pen, alpha,
-           l1_ratio, shuffle, tol, n_iter_no_change, stream);
+    sgdFit(handle, data_svmreg, params.n_row2, params.n_col2, labels_svmreg,
+           coef_class, &intercept_class, fit_intercept, params.batch_size,
+           epochs, lr_type, lr, power_t, loss, pen, alpha, l1_ratio, shuffle,
+           tol, n_iter_no_change, stream);
 
     sgdPredictBinaryClass(handle, data_svmreg_test, params.n_row2,
                           params.n_col2, coef_class, intercept_class, pred_svm,

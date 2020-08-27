@@ -59,7 +59,8 @@ void gaussian_random_matrix(const raft::handle_t& h,
  * @param[in] params: data structure that includes all the parameters of the model
  */
 template <typename math_t>
-void sparse_random_matrix(const raft::handle_t& h, rand_mat<math_t>* random_matrix,
+void sparse_random_matrix(const raft::handle_t& h,
+                          rand_mat<math_t>* random_matrix,
                           paramsRPROJ& params) {
   cudaStream_t stream = h.get_stream();
   auto d_alloc = h.get_device_allocator();

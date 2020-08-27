@@ -32,12 +32,13 @@ float r2_score_py(const raft::handle_t &handle, float *y, float *y_hat, int n) {
   return MLCommon::Score::r2_score(y, y_hat, n, handle.get_stream());
 }
 
-double r2_score_py(const raft::handle_t &handle, double *y, double *y_hat, int n) {
+double r2_score_py(const raft::handle_t &handle, double *y, double *y_hat,
+                   int n) {
   return MLCommon::Score::r2_score(y, y_hat, n, handle.get_stream());
 }
 
-double randIndex(const raft::handle_t &handle, const double *y, const double *y_hat,
-                 int n) {
+double randIndex(const raft::handle_t &handle, const double *y,
+                 const double *y_hat, int n) {
   return MLCommon::Metrics::computeRandIndex(
     y, y_hat, (uint64_t)n, handle.get_device_allocator(), handle.get_stream());
 }
@@ -69,8 +70,8 @@ double klDivergence(const raft::handle_t &handle, const double *y,
     y, y_hat, n, handle.get_device_allocator(), handle.get_stream());
 }
 
-float klDivergence(const raft::handle_t &handle, const float *y, const float *y_hat,
-                   int n) {
+float klDivergence(const raft::handle_t &handle, const float *y,
+                   const float *y_hat, int n) {
   return MLCommon::Metrics::klDivergence(
     y, y_hat, n, handle.get_device_allocator(), handle.get_stream());
 }
@@ -82,8 +83,9 @@ double entropy(const raft::handle_t &handle, const int *y, const int n,
                                     handle.get_stream());
 }
 
-double mutualInfoScore(const raft::handle_t &handle, const int *y, const int *y_hat,
-                       const int n, const int lower_class_range,
+double mutualInfoScore(const raft::handle_t &handle, const int *y,
+                       const int *y_hat, const int n,
+                       const int lower_class_range,
                        const int upper_class_range) {
   return MLCommon::Metrics::mutualInfoScore(
     y, y_hat, n, lower_class_range, upper_class_range,
@@ -131,8 +133,8 @@ void pairwiseDistance(const raft::handle_t &handle, const double *x,
                                       handle.get_stream(), isRowMajor);
 }
 
-void pairwiseDistance(const raft::handle_t &handle, const float *x, const float *y,
-                      float *dist, int m, int n, int k,
+void pairwiseDistance(const raft::handle_t &handle, const float *x,
+                      const float *y, float *dist, int m, int n, int k,
                       ML::Distance::DistanceType metric, bool isRowMajor) {
   MLCommon::Metrics::pairwiseDistance(x, y, dist, m, n, k, metric,
                                       handle.get_device_allocator(),

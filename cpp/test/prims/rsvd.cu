@@ -232,7 +232,8 @@ TEST_P(RsvdTestSquareMatrixNormF, Result) {
   CUBLAS_CHECK(cublasCreate(&cublasH));
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
-  std::shared_ptr<deviceAllocator> allocator(new raft::mr::device::default_allocator);
+  std::shared_ptr<deviceAllocator> allocator(
+    new raft::mr::device::default_allocator);
   ASSERT_TRUE(evaluateSVDByL2Norm(A, U, S, V, params.n_row, params.n_col,
                                   params.k, 4 * params.tolerance, cublasH,
                                   stream, allocator));
@@ -246,7 +247,8 @@ TEST_P(RsvdTestSquareMatrixNormD, Result) {
   CUBLAS_CHECK(cublasCreate(&cublasH));
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
-  std::shared_ptr<deviceAllocator> allocator(new raft::mr::device::default_allocator);
+  std::shared_ptr<deviceAllocator> allocator(
+    new raft::mr::device::default_allocator);
   ASSERT_TRUE(evaluateSVDByL2Norm(A, U, S, V, params.n_row, params.n_col,
                                   params.k, 4 * params.tolerance, cublasH,
                                   stream, allocator));

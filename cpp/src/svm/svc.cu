@@ -32,8 +32,8 @@ namespace SVM {
 using namespace MLCommon;
 
 // Explicit instantiation for the library
-template void svcFit<float>(const raft::handle_t &handle, float *input, int n_rows,
-                            int n_cols, float *labels,
+template void svcFit<float>(const raft::handle_t &handle, float *input,
+                            int n_rows, int n_cols, float *labels,
                             const svmParameter &param,
                             MLCommon::Matrix::KernelParams &kernel_params,
                             svmModel<float> &model, const float *sample_weight);

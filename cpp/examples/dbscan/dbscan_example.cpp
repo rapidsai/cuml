@@ -136,7 +136,8 @@ int main(int argc, char* argv[]) {
 
   raft::handle_t handle;
 
-  std::shared_ptr<ML::deviceAllocator> allocator(new raft::mr::device::default_allocator());
+  std::shared_ptr<ML::deviceAllocator> allocator(
+    new raft::mr::device::default_allocator());
 
   handle.set_device_allocator(allocator);
 

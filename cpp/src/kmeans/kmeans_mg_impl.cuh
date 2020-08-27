@@ -67,7 +67,8 @@ void initRandom(const raft::handle_t &handle, const KMeansParams &params,
          my_rank, nCentroidsSampledInRank, n_local_samples);
 
   Tensor<DataT, 2, IndexT> centroidsSampledInRank(
-    {nCentroidsSampledInRank, n_features}, handle.get_device_allocator(), stream);
+    {nCentroidsSampledInRank, n_features}, handle.get_device_allocator(),
+    stream);
 
   kmeans::detail::shuffleAndGather(handle, X, centroidsSampledInRank,
                                    nCentroidsSampledInRank, params.seed,
@@ -139,8 +140,8 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
   MLCommon::host_buffer<int> nPtsSampledByRank(handle.get_host_allocator(),
                                                stream, n_rank);
 
-  Tensor<DataT, 2, IndexT> initialCentroid({1, n_features},
-                                           handle.get_device_allocator(), stream);
+  Tensor<DataT, 2, IndexT> initialCentroid(
+    {1, n_features}, handle.get_device_allocator(), stream);
   LOG(handle, "@Rank-%d : KMeans|| : initial centroid is sampled at rank-%d\n",
       my_rank, rp);
 
@@ -614,7 +615,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
                                                   stream);
 
   // Device-accessible allocation of expandable storage used as temorary buffers
-  MLCommon::device_buffer<char> workspace(handle.get_device_allocator(), stream);
+  MLCommon::device_buffer<char> workspace(handle.get_device_allocator(),
+                                          stream);
 
   if (params.init == KMeansParams::InitMethod::Random) {
     // initializing with random samples from input dataset

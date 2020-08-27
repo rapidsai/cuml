@@ -205,8 +205,8 @@ void ridgeFit(const raft::handle_t &handle, math_t *input, int n_rows,
  * @param stream        cuda stream
  */
 template <typename math_t>
-void ridgePredict(const raft::handle_t &handle, const math_t *input,
-                  int n_rows, int n_cols, const math_t *coef, math_t intercept,
+void ridgePredict(const raft::handle_t &handle, const math_t *input, int n_rows,
+                  int n_cols, const math_t *coef, math_t intercept,
                   math_t *preds, cudaStream_t stream) {
   auto cublas_handle = handle.get_cublas_handle();
 

@@ -44,8 +44,8 @@ void make_blobs(const raft::handle_t& handle, double* out, int64_t* labels,
     shuffle, center_box_min, center_box_max, seed);
 }
 
-void make_blobs(const raft::handle_t& handle, float* out, int* labels, int n_rows,
-                int n_cols, int n_clusters, bool row_major,
+void make_blobs(const raft::handle_t& handle, float* out, int* labels,
+                int n_rows, int n_cols, int n_clusters, bool row_major,
                 const float* centers, const float* cluster_std,
                 const float cluster_std_scalar, bool shuffle,
                 float center_box_min, float center_box_max, uint64_t seed) {
@@ -55,8 +55,8 @@ void make_blobs(const raft::handle_t& handle, float* out, int* labels, int n_row
     shuffle, center_box_min, center_box_max, seed);
 }
 
-void make_blobs(const raft::handle_t& handle, double* out, int* labels, int n_rows,
-                int n_cols, int n_clusters, bool row_major,
+void make_blobs(const raft::handle_t& handle, double* out, int* labels,
+                int n_rows, int n_cols, int n_clusters, bool row_major,
                 const double* centers, const double* cluster_std,
                 const double cluster_std_scalar, bool shuffle,
                 double center_box_min, double center_box_max, uint64_t seed) {

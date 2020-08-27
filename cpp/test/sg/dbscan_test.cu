@@ -193,7 +193,8 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     allocate(labels_ref, params.n_out);
     allocate(core_sample_indices_d, params.n_row);
 
-    MLCommon::copy(inputs, params.points, params.n_row * 2, handle.get_stream());
+    MLCommon::copy(inputs, params.points, params.n_row * 2,
+                   handle.get_stream());
     MLCommon::copy(labels_ref, params.out, params.n_out, handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 

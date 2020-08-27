@@ -111,13 +111,12 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     allocate(explained_var_ratio2, prms.n_components);
     allocate(singular_vals2, prms.n_components);
 
-    tsvdFitTransform(handle, data2, data2_trans, components2,
-                     explained_vars2, explained_var_ratio2, singular_vals2,
-                     prms, stream);
+    tsvdFitTransform(handle, data2, data2_trans, components2, explained_vars2,
+                     explained_var_ratio2, singular_vals2, prms, stream);
 
     allocate(data2_back, len);
-    tsvdInverseTransform(handle, data2_trans, components2, data2_back,
-                         prms, stream);
+    tsvdInverseTransform(handle, data2_trans, components2, data2_back, prms,
+                         stream);
   }
 
   void SetUp() override {

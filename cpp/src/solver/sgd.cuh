@@ -91,13 +91,12 @@ using namespace MLCommon;
  *        cuda stream
  */
 template <typename math_t>
-void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows,
-            int n_cols, math_t *labels, math_t *coef, math_t *intercept,
-            bool fit_intercept, int batch_size, int epochs, ML::lr_type lr_type,
-            math_t eta0, math_t power_t, ML::loss_funct loss,
-            Functions::penalty penalty, math_t alpha, math_t l1_ratio,
-            bool shuffle, math_t tol, int n_iter_no_change,
-            cudaStream_t stream) {
+void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
+            math_t *labels, math_t *coef, math_t *intercept, bool fit_intercept,
+            int batch_size, int epochs, ML::lr_type lr_type, math_t eta0,
+            math_t power_t, ML::loss_funct loss, Functions::penalty penalty,
+            math_t alpha, math_t l1_ratio, bool shuffle, math_t tol,
+            int n_iter_no_change, cudaStream_t stream) {
   ASSERT(n_cols > 0,
          "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 1,

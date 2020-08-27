@@ -89,31 +89,31 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
 
     intercept = T(0);
 
-    ridgeFit(handle, data, params.n_row, params.n_col, labels, &alpha,
-             1, coef, &intercept, false, false, stream, params.algo);
+    ridgeFit(handle, data, params.n_row, params.n_col, labels, &alpha, 1, coef,
+             &intercept, false, false, stream, params.algo);
 
-    ridgePredict(handle, pred_data, params.n_row_2, params.n_col,
-                 coef, intercept, pred, stream);
+    ridgePredict(handle, pred_data, params.n_row_2, params.n_col, coef,
+                 intercept, pred, stream);
 
     updateDevice(data, data_h, len, stream);
     updateDevice(labels, labels_h, params.n_row, stream);
 
     intercept2 = T(0);
-    ridgeFit(handle, data, params.n_row, params.n_col, labels, &alpha,
-             1, coef2, &intercept2, true, false, stream, params.algo);
+    ridgeFit(handle, data, params.n_row, params.n_col, labels, &alpha, 1, coef2,
+             &intercept2, true, false, stream, params.algo);
 
-    ridgePredict(handle, pred_data, params.n_row_2, params.n_col,
-                 coef2, intercept2, pred2, stream);
+    ridgePredict(handle, pred_data, params.n_row_2, params.n_col, coef2,
+                 intercept2, pred2, stream);
 
     updateDevice(data, data_h, len, stream);
     updateDevice(labels, labels_h, params.n_row, stream);
 
     intercept3 = T(0);
-    ridgeFit(handle, data, params.n_row, params.n_col, labels, &alpha,
-             1, coef3, &intercept3, true, true, stream, params.algo);
+    ridgeFit(handle, data, params.n_row, params.n_col, labels, &alpha, 1, coef3,
+             &intercept3, true, true, stream, params.algo);
 
-    ridgePredict(handle, pred_data, params.n_row_2, params.n_col,
-                 coef3, intercept3, pred3, stream);
+    ridgePredict(handle, pred_data, params.n_row_2, params.n_col, coef3,
+                 intercept3, pred3, stream);
   }
 
   void basicTest2() {
@@ -140,8 +140,8 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
     T intercept_sc = T(0);
     T alpha_sc = T(1.0);
 
-    ridgeFit(handle, data_sc, len, 1, labels_sc, &alpha_sc, 1,
-             coef_sc, &intercept_sc, true, false, stream, params.algo);
+    ridgeFit(handle, data_sc, len, 1, labels_sc, &alpha_sc, 1, coef_sc,
+             &intercept_sc, true, false, stream, params.algo);
   }
 
   void SetUp() override {

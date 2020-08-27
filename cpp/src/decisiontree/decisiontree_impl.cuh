@@ -362,11 +362,10 @@ void DecisionTreeClassifier<T>::fit(
   DecisionTreeParams tree_parameters,
   std::shared_ptr<TemporaryMemory<T, int>> in_tempmem) {
   this->tree_params = tree_parameters;
-  this->base_fit(handle.get_device_allocator(),
-                 handle.get_host_allocator(),
-                 handle.get_stream(), data, ncols, nrows, labels,
-                 rowids, n_sampled_rows, unique_labels, tree->sparsetree,
-                 tree->treeid, true, in_tempmem);
+  this->base_fit(handle.get_device_allocator(), handle.get_host_allocator(),
+                 handle.get_stream(), data, ncols, nrows, labels, rowids,
+                 n_sampled_rows, unique_labels, tree->sparsetree, tree->treeid,
+                 true, in_tempmem);
   this->set_metadata(tree);
 }
 
@@ -394,10 +393,10 @@ void DecisionTreeRegressor<T>::fit(
   TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_parameters,
   std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
   this->tree_params = tree_parameters;
-  this->base_fit(
-    handle.get_device_allocator(), handle.get_host_allocator(),
-    handle.get_stream(), data, ncols, nrows, labels, rowids,
-    n_sampled_rows, 1, tree->sparsetree, tree->treeid, false, in_tempmem);
+  this->base_fit(handle.get_device_allocator(), handle.get_host_allocator(),
+                 handle.get_stream(), data, ncols, nrows, labels, rowids,
+                 n_sampled_rows, 1, tree->sparsetree, tree->treeid, false,
+                 in_tempmem);
   this->set_metadata(tree);
 }
 

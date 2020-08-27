@@ -19,10 +19,10 @@
 #include <cuda_runtime.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <memory>
-#include <vector>
 #include <raft/handle.hpp>
+#include <vector>
 
 namespace ML {
-    using MLCommon::deviceAllocator;
-    using MLCommon::hostAllocator;
-}
+using MLCommon::deviceAllocator;
+using MLCommon::hostAllocator;
+}  // namespace ML

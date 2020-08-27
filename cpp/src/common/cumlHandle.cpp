@@ -66,7 +66,8 @@ std::pair<raft::handle_t*, cumlError_t> HandleMap::lookupHandlePointer(
   std::lock_guard<std::mutex> guard(_mapMutex);
   auto it = _handleMap.find(handle);
   if (it == _handleMap.end()) {
-    return std::pair<raft::handle_t*, cumlError_t>(nullptr, CUML_INVALID_HANDLE);
+    return std::pair<raft::handle_t*, cumlError_t>(nullptr,
+                                                   CUML_INVALID_HANDLE);
   } else {
     return std::pair<raft::handle_t*, cumlError_t>(it->second, CUML_SUCCESS);
   }

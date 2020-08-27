@@ -106,20 +106,18 @@ typedef ::testing::Types<float, double> FloatTypes;
 TYPED_TEST_CASE(WorkingSetTest, FloatTypes);
 
 TYPED_TEST(WorkingSetTest, Init) {
-  this->ws = new WorkingSet<TypeParam>(this->handle,
-                                       this->handle.get_stream(), 10);
+  this->ws =
+    new WorkingSet<TypeParam>(this->handle, this->handle.get_stream(), 10);
   EXPECT_EQ(this->ws->GetSize(), 10);
   delete this->ws;
 
-  this->ws =
-    new WorkingSet<TypeParam>(this->handle, this->stream, 100000);
+  this->ws = new WorkingSet<TypeParam>(this->handle, this->stream, 100000);
   EXPECT_EQ(this->ws->GetSize(), 1024);
   delete this->ws;
 }
 
 TYPED_TEST(WorkingSetTest, Select) {
-  this->ws =
-    new WorkingSet<TypeParam>(this->handle, this->stream, 10, 4);
+  this->ws = new WorkingSet<TypeParam>(this->handle, this->stream, 10, 4);
   EXPECT_EQ(this->ws->GetSize(), 4);
   this->ws->SimpleSelect(this->f_dev, this->alpha_dev, this->y_dev,
                          this->C_dev);
@@ -246,9 +244,9 @@ TYPED_TEST_P(KernelCacheTest, EvalTest) {
     Matrix::GramMatrixBase<TypeParam> *kernel =
       Matrix::KernelFactory<TypeParam>::create(
         params, this->handle.get_cublas_handle());
-    KernelCache<TypeParam> cache(this->handle, this->x_dev,
-                                 this->n_rows, this->n_cols, this->n_ws, kernel,
-                                 cache_size, C_SVC);
+    KernelCache<TypeParam> cache(this->handle, this->x_dev, this->n_rows,
+                                 this->n_cols, this->n_ws, kernel, cache_size,
+                                 C_SVC);
     TypeParam *tile_dev = cache.GetTile(this->ws_idx_dev);
     // apply nonlinearity on tile_host_expected
     this->ApplyNonlin(params);
@@ -264,11 +262,11 @@ TYPED_TEST_P(KernelCacheTest, CacheEvalTest) {
   float cache_size = sizeof(TypeParam) * this->n_rows * 32 / (1024.0 * 1024);
 
   Matrix::GramMatrixBase<TypeParam> *kernel =
-    Matrix::KernelFactory<TypeParam>::create(
-      param, this->handle.get_cublas_handle());
-  KernelCache<TypeParam> cache(this->handle, this->x_dev,
-                               this->n_rows, this->n_cols, this->n_ws, kernel,
-                               cache_size, C_SVC);
+    Matrix::KernelFactory<TypeParam>::create(param,
+                                             this->handle.get_cublas_handle());
+  KernelCache<TypeParam> cache(this->handle, this->x_dev, this->n_rows,
+                               this->n_cols, this->n_ws, kernel, cache_size,
+                               C_SVC);
   for (int i = 0; i < 2; i++) {
     // We calculate cache tile multiple times to see if cache lookup works
     TypeParam *tile_dev = cache.GetTile(this->ws_idx_dev);
@@ -287,11 +285,11 @@ TYPED_TEST_P(KernelCacheTest, SvrEvalTest) {
   updateDevice(this->ws_idx_dev, ws_idx_svr, 6, this->stream);
 
   Matrix::GramMatrixBase<TypeParam> *kernel =
-    Matrix::KernelFactory<TypeParam>::create(
-      param, this->handle.get_cublas_handle());
-  KernelCache<TypeParam> cache(this->handle, this->x_dev,
-                               this->n_rows, this->n_cols, this->n_ws, kernel,
-                               cache_size, EPSILON_SVR);
+    Matrix::KernelFactory<TypeParam>::create(param,
+                                             this->handle.get_cublas_handle());
+  KernelCache<TypeParam> cache(this->handle, this->x_dev, this->n_rows,
+                               this->n_cols, this->n_ws, kernel, cache_size,
+                               EPSILON_SVR);
 
   for (int i = 0; i < 2; i++) {
     // We calculate cache tile multiple times to see if cache lookup works
@@ -328,8 +326,8 @@ class GetResultsTest : public ::testing::Test {
     updateDevice(alpha_dev.data(), alpha_host, n_rows, stream);
     device_buffer<math_t> C_dev(allocator, stream, n_rows);
     init_C(C, C_dev.data(), n_rows, stream);
-    Results<math_t> res(handle, x_dev.data(), y_dev.data(), n_rows,
-                        n_cols, C_dev.data(), C_SVC);
+    Results<math_t> res(handle, x_dev.data(), y_dev.data(), n_rows, n_cols,
+                        C_dev.data(), C_SVC);
     res.Get(alpha_dev.data(), f_dev.data(), &dual_coefs, &n_coefs, &idx,
             &x_support, &b);
 
@@ -1212,8 +1210,7 @@ class SvrTest : public ::testing::Test {
   void TestSvrWorkingSet() {
     init_C((math_t)1.0, C_dev, 2 * n_rows, stream);
     WorkingSet<math_t> *ws;
-    ws =
-      new WorkingSet<math_t>(handle, stream, n_rows, 20, EPSILON_SVR);
+    ws = new WorkingSet<math_t>(handle, stream, n_rows, 20, EPSILON_SVR);
     EXPECT_EQ(ws->GetSize(), 2 * n_rows);
 
     updateDevice(alpha, alpha_host, n_train, stream);
@@ -1227,8 +1224,7 @@ class SvrTest : public ::testing::Test {
 
     delete ws;
 
-    ws =
-      new WorkingSet<math_t>(handle, stream, n_rows, 10, EPSILON_SVR);
+    ws = new WorkingSet<math_t>(handle, stream, n_rows, 10, EPSILON_SVR);
     EXPECT_EQ(ws->GetSize(), 10);
     ws->Select(f, alpha, yc, C_dev);
     int exp_idx2[] = {6, 12, 5, 11, 3, 9, 8, 1, 7, 0};
@@ -1240,8 +1236,7 @@ class SvrTest : public ::testing::Test {
   void TestSvrResults() {
     updateDevice(yc, yc_exp, n_train, stream);
     init_C((math_t)0.001, C_dev, n_rows * 2, stream);
-    Results<math_t> res(handle, x_dev, yc, n_rows, n_cols, C_dev,
-                        EPSILON_SVR);
+    Results<math_t> res(handle, x_dev, yc, n_rows, n_cols, C_dev, EPSILON_SVR);
     model.n_cols = n_cols;
     updateDevice(alpha, alpha_host, n_train, stream);
     updateDevice(f, f_exp, n_train, stream);

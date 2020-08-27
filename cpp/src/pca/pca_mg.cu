@@ -39,15 +39,15 @@ namespace PCA {
 namespace opg {
 
 template <typename T>
-void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data,
+void fit_impl(raft::handle_t &handle,
+              std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc, T *components,
               T *explained_var, T *explained_var_ratio, T *singular_vals, T *mu,
               T *noise_vars, paramsPCAMG prms, cudaStream_t *streams,
               int n_streams, bool verbose) {
   const auto &comm = handle.get_comms();
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
-  const auto allocator =
-    handle.get_device_allocator();
+  const auto allocator = handle.get_device_allocator();
 
   Matrix::Data<T> mu_data{mu, size_t(prms.n_cols)};
 
@@ -61,9 +61,8 @@ void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data
   Stats::opg::cov(cov, input_data, input_desc, mu_data, true, comm, allocator,
                   streams, n_streams, cublas_handle);
 
-  ML::truncCompExpVars<T, mg_solver>(handle, cov.ptr, components,
-                                     explained_var, explained_var_ratio, prms,
-                                     streams[0]);
+  ML::truncCompExpVars<T, mg_solver>(handle, cov.ptr, components, explained_var,
+                                     explained_var_ratio, prms, streams[0]);
 
   T scalar = (prms.n_rows - 1);
   Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components,
@@ -88,7 +87,8 @@ void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data
  * @input param verbose
  */
 template <typename T>
-void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data,
+void fit_impl(raft::handle_t &handle,
+              std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc, T *components,
               T *explained_var, T *explained_var_ratio, T *singular_vals, T *mu,
               T *noise_vars, paramsPCAMG prms, bool verbose) {
@@ -184,14 +184,14 @@ void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data
 }
 
 template <typename T>
-void transform_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input,
+void transform_impl(raft::handle_t &handle,
+                    std::vector<Matrix::Data<T> *> &input,
                     const Matrix::PartDescriptor input_desc, T *components,
                     std::vector<Matrix::Data<T> *> &trans_input,
                     T *singular_vals, T *mu, const paramsPCAMG prms,
                     cudaStream_t *streams, int n_streams, bool verbose) {
   cublasHandle_t cublas_h = handle.get_cublas_handle();
-  const auto allocator =
-    handle.get_device_allocator();
+  const auto allocator = handle.get_device_allocator();
   std::vector<Matrix::RankSizePair *> local_blocks = input_desc.partsToRanks;
 
   if (prms.whiten) {
@@ -290,8 +290,7 @@ void inverse_transform_impl(
   std::vector<Matrix::Data<T> *> &input, T *singular_vals, T *mu,
   paramsPCAMG prms, cudaStream_t *streams, int n_streams, bool verbose) {
   cublasHandle_t cublas_h = handle.get_cublas_handle();
-  const auto allocator =
-    handle.get_device_allocator();
+  const auto allocator = handle.get_device_allocator();
   std::vector<Matrix::RankSizePair *> local_blocks =
     trans_input_desc.partsToRanks;
 
@@ -397,10 +396,10 @@ void inverse_transform_impl(raft::handle_t &handle,
  * @input param verbose
  */
 template <typename T>
-void fit_transform_impl(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
-                        size_t n_parts, Matrix::Data<T> **input,
-                        Matrix::Data<T> **trans_input, T *components,
-                        T *explained_var, T *explained_var_ratio,
+void fit_transform_impl(raft::handle_t &handle,
+                        Matrix::RankSizePair **rank_sizes, size_t n_parts,
+                        Matrix::Data<T> **input, Matrix::Data<T> **trans_input,
+                        T *components, T *explained_var, T *explained_var_ratio,
                         T *singular_vals, T *mu, T *noise_vars,
                         paramsPCAMG prms, bool verbose) {
   int rank = handle.get_comms().get_rank();
@@ -446,7 +445,8 @@ void fit(raft::handle_t &handle, std::vector<Matrix::Data<float> *> &input_data,
            explained_var_ratio, singular_vals, mu, noise_vars, prms, verbose);
 }
 
-void fit(raft::handle_t &handle, std::vector<Matrix::Data<double> *> &input_data,
+void fit(raft::handle_t &handle,
+         std::vector<Matrix::Data<double> *> &input_data,
          Matrix::PartDescriptor &input_desc, double *components,
          double *explained_var, double *explained_var_ratio,
          double *singular_vals, double *mu, double *noise_vars,
@@ -493,20 +493,20 @@ void transform(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
                  singular_vals, mu, prms, verbose);
 }
 
-void inverse_transform(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
-                       size_t n_parts, Matrix::Data<float> **trans_input,
-                       float *components, Matrix::Data<float> **input,
-                       float *singular_vals, float *mu, paramsPCAMG prms,
-                       bool verbose) {
+void inverse_transform(raft::handle_t &handle,
+                       Matrix::RankSizePair **rank_sizes, size_t n_parts,
+                       Matrix::Data<float> **trans_input, float *components,
+                       Matrix::Data<float> **input, float *singular_vals,
+                       float *mu, paramsPCAMG prms, bool verbose) {
   inverse_transform_impl(handle, rank_sizes, n_parts, trans_input, components,
                          input, singular_vals, mu, prms, verbose);
 }
 
-void inverse_transform(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
-                       size_t n_parts, Matrix::Data<double> **trans_input,
-                       double *components, Matrix::Data<double> **input,
-                       double *singular_vals, double *mu, paramsPCAMG prms,
-                       bool verbose) {
+void inverse_transform(raft::handle_t &handle,
+                       Matrix::RankSizePair **rank_sizes, size_t n_parts,
+                       Matrix::Data<double> **trans_input, double *components,
+                       Matrix::Data<double> **input, double *singular_vals,
+                       double *mu, paramsPCAMG prms, bool verbose) {
   inverse_transform_impl(handle, rank_sizes, n_parts, trans_input, components,
                          input, singular_vals, mu, prms, verbose);
 }

@@ -33,8 +33,8 @@ inline void make_arima_helper(const raft::handle_t& handle, DataT* out,
                                scale, noise_scale, intercept_scale, seed);
 }
 
-void make_arima(const raft::handle_t& handle, float* out, int batch_size, int n_obs,
-                ARIMAOrder order, float scale, float noise_scale,
+void make_arima(const raft::handle_t& handle, float* out, int batch_size,
+                int n_obs, ARIMAOrder order, float scale, float noise_scale,
                 float intercept_scale, uint64_t seed) {
   make_arima_helper(handle, out, batch_size, n_obs, order, scale, noise_scale,
                     intercept_scale, seed);

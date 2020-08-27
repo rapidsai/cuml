@@ -205,8 +205,7 @@ void HoltWintersFitHelper(const raft::handle_t &handle, int n, int batch_size,
   const raft::handle_t &handle_impl = handle;
   raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
-  auto dev_allocator =
-    handle_impl.get_device_allocator();
+  auto dev_allocator = handle_impl.get_device_allocator();
 
   bool optim_alpha = true, optim_beta = true, optim_gamma = true;
   // initial values for alpha, beta and gamma
@@ -287,8 +286,7 @@ void HoltWintersForecastHelper(const raft::handle_t &handle, int n,
   const raft::handle_t &handle_impl = handle;
   raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
-  auto dev_allocator =
-    handle_impl.get_device_allocator();
+  auto dev_allocator = handle_impl.get_device_allocator();
 
   bool optim_beta = true, optim_gamma = true;
 

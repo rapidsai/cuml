@@ -47,8 +47,8 @@ void batched_diff(raft::handle_t& handle, double* d_y_diff, const double* d_y,
                                      order.D, order.s, stream);
 }
 
-void predict(raft::handle_t& handle, const double* d_y, int batch_size, int n_obs,
-             int start, int end, const ARIMAOrder& order,
+void predict(raft::handle_t& handle, const double* d_y, int batch_size,
+             int n_obs, int start, int end, const ARIMAOrder& order,
              const ARIMAParams<double>& params, double* d_y_p, bool pre_diff,
              double level, double* d_lower, double* d_upper) {
   ML::PUSH_RANGE(__func__);
@@ -349,10 +349,10 @@ void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
   ML::POP_RANGE();
 }
 
-void batched_loglike_grad(raft::handle_t& handle, const double* d_y, int batch_size,
-                          int n_obs, const ARIMAOrder& order, const double* d_x,
-                          double* d_grad, double h, bool trans,
-                          LoglikeMethod method, int truncate) {
+void batched_loglike_grad(raft::handle_t& handle, const double* d_y,
+                          int batch_size, int n_obs, const ARIMAOrder& order,
+                          const double* d_x, double* d_grad, double h,
+                          bool trans, LoglikeMethod method, int truncate) {
   ML::PUSH_RANGE(__func__);
   auto allocator = handle.get_device_allocator();
   auto stream = handle.get_stream();

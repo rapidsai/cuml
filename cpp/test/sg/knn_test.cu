@@ -165,10 +165,10 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
                     params.n_query_row, output_indices, output_dists,
                     params.n_neighbors, true, true);
 
-    device_buffer<float> index_labels_float(handle.get_device_allocator(), stream,
-                                            params.n_rows * params.n_parts);
-    device_buffer<float> query_labels_float(handle.get_device_allocator(), stream,
-                                            params.n_query_row);
+    device_buffer<float> index_labels_float(
+      handle.get_device_allocator(), stream, params.n_rows * params.n_parts);
+    device_buffer<float> query_labels_float(handle.get_device_allocator(),
+                                            stream, params.n_query_row);
     to_float<<<ceildiv((int)index_labels_float.size(), 32), 32, 0, stream>>>(
       index_labels_float.data(), index_labels, index_labels_float.size());
     to_float<<<ceildiv(params.n_query_row, 32), 32, 0, stream>>>(

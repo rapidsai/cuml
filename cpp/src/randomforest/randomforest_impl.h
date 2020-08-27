@@ -58,11 +58,12 @@ class rfClassifier : public rf<T, int> {
   void predict(const raft::handle_t& user_handle, const T* input, int n_rows,
                int n_cols, int* predictions,
                const RandomForestMetaData<T, int>* forest, int verbosity) const;
-  void predictGetAll(const raft::handle_t& user_handle, const T* input, int n_rows,
-                     int n_cols, int* predictions,
+  void predictGetAll(const raft::handle_t& user_handle, const T* input,
+                     int n_rows, int n_cols, int* predictions,
                      const RandomForestMetaData<T, int>* forest, int verbosity);
-  static RF_metrics score(const raft::handle_t& user_handle, const int* ref_labels,
-                          int n_rows, const int* predictions, int verbosity);
+  static RF_metrics score(const raft::handle_t& user_handle,
+                          const int* ref_labels, int n_rows,
+                          const int* predictions, int verbosity);
 };
 
 template <class T>
@@ -80,7 +81,8 @@ class rfRegressor : public rf<T, T> {
   void predict(const raft::handle_t& user_handle, const T* input, int n_rows,
                int n_cols, T* predictions,
                const RandomForestMetaData<T, T>* forest, int verbosity) const;
-  static RF_metrics score(const raft::handle_t& user_handle, const T* ref_labels,
-                          int n_rows, const T* predictions, int verbosity);
+  static RF_metrics score(const raft::handle_t& user_handle,
+                          const T* ref_labels, int n_rows, const T* predictions,
+                          int verbosity);
 };
 }  //End namespace ML

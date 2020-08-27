@@ -35,7 +35,8 @@ namespace OLS {
 namespace opg {
 
 template <typename T>
-void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data,
+void fit_impl(raft::handle_t &handle,
+              std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc,
               std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
               bool fit_intercept, bool normalize, int algo,
@@ -43,8 +44,7 @@ void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data
   const auto &comm = handle.get_comms();
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
   cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
-  const auto allocator =
-    handle.get_device_allocator();
+  const auto allocator = handle.get_device_allocator();
 
   device_buffer<T> mu_input(allocator, streams[0]);
   device_buffer<T> norm2_input(allocator, streams[0]);
@@ -96,7 +96,8 @@ void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data
  * @input param verbose
  */
 template <typename T>
-void fit_impl(raft::handle_t &handle, std::vector<Matrix::Data<T> *> &input_data,
+void fit_impl(raft::handle_t &handle,
+              std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc,
               std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
               bool fit_intercept, bool normalize, int algo, bool verbose) {
@@ -187,7 +188,8 @@ void fit(raft::handle_t &handle, std::vector<Matrix::Data<float> *> &input_data,
            fit_intercept, normalize, algo, verbose);
 }
 
-void fit(raft::handle_t &handle, std::vector<Matrix::Data<double> *> &input_data,
+void fit(raft::handle_t &handle,
+         std::vector<Matrix::Data<double> *> &input_data,
          Matrix::PartDescriptor &input_desc,
          std::vector<Matrix::Data<double> *> &labels, double *coef,
          double *intercept, bool fit_intercept, bool normalize, int algo,

@@ -26,8 +26,8 @@
 #include <cusolverSp.h>
 #include <cusparse.h>
 
-#include <raft/comms/comms.hpp>
 #include <cuml/cuml.hpp>
+#include <raft/comms/comms.hpp>
 
 #include <cuml/cuml_api.h>
 #include <raft/handle.hpp>

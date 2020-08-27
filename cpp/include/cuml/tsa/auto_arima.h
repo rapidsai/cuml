@@ -72,12 +72,14 @@ void divide_by_mask_execute(const raft::handle_t& handle, const int* d_in,
  * @param[in]  batch_size Batch size
  * @param[in]  n_sub      Number of sub-batches
  */
-void divide_by_min_build_index(const raft::handle_t& handle, const float* d_matrix,
-                               int* d_batch, int* d_index, int* h_size,
-                               int batch_size, int n_sub);
-void divide_by_min_build_index(const raft::handle_t& handle, const double* d_matrix,
-                               int* d_batch, int* d_index, int* h_size,
-                               int batch_size, int n_sub);
+void divide_by_min_build_index(const raft::handle_t& handle,
+                               const float* d_matrix, int* d_batch,
+                               int* d_index, int* h_size, int batch_size,
+                               int n_sub);
+void divide_by_min_build_index(const raft::handle_t& handle,
+                               const double* d_matrix, int* d_batch,
+                               int* d_index, int* h_size, int batch_size,
+                               int n_sub);
 
 /**
  * Batch division by minimum value step 2: create all the sub-batches
