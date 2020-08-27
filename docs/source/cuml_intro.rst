@@ -24,7 +24,7 @@ then call ``predict`` or ``transform`` for inference.
    y_prediction = model.predict(X_test)
 
 You can find many more complete examples in the `Introductory Notebook
-estimator_intro.ipynb` and in the cuML API documentation.
+<estimator_intro.ipynb>`_ and in the cuML API documentation.
 
 2. Accept flexible input types, return predictable output types
 ---------------------------------------------------------------
@@ -69,6 +69,6 @@ Learn more
 ----------
 
 To get started learning cuML, walk through the `Introductory Notebook
-estimator_intro.ipynb`. Then try out some of the other notebook
+<estimator_intro.ipynb>`_. Then try out some of the other notebook
 examples in the ``notebooks`` directory of the repository. Finally, do
-a deeper dive with the `cuML blogs cuml_blogs.rst`.
+a deeper dive with the `cuML blogs <cuml_blogs.rst>`_.
