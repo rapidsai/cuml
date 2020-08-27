@@ -26,7 +26,7 @@ void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
                  const float *sample_weight, float *centroids, int *labels,
                  float &inertia, int &n_iter) {
   const raft::handle_t &h = handle;
-  ML::detail::streamSyncer _(h);
+  raft::stream_syncer _(h);
 
   fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia,
       n_iter);
@@ -39,7 +39,7 @@ void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
                  const double *sample_weight, double *centroids, int *labels,
                  double &inertia, int &n_iter) {
   const raft::handle_t &h = handle;
-  ML::detail::streamSyncer _(h);
+  raft::stream_syncer _(h);
 
   fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia,
       n_iter);
@@ -54,7 +54,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
          const float *sample_weight, float *centroids, float &inertia,
          int &n_iter) {
   const raft::handle_t &h = handle;
-  ML::detail::streamSyncer _(h);
+  raft::stream_syncer _(h);
 
   fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia,
       n_iter);
@@ -65,7 +65,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
          const double *sample_weight, double *centroids, double &inertia,
          int &n_iter) {
   const raft::handle_t &h = handle;
-  ML::detail::streamSyncer _(h);
+  raft::stream_syncer _(h);
 
   fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia,
       n_iter);
@@ -78,7 +78,7 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
              int n_features, const float *sample_weight, int *labels,
              float &inertia) {
   const raft::handle_t &h = handle;
-  ML::detail::streamSyncer _(h);
+  raft::stream_syncer _(h);
 
   predict(h, params, centroids, X, n_samples, n_features, sample_weight, labels,
           inertia);
@@ -89,7 +89,7 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
              int n_features, const double *sample_weight, int *labels,
              double &inertia) {
   const raft::handle_t &h = handle;
-  ML::detail::streamSyncer _(h);
+  raft::stream_syncer _(h);
 
   predict(h, params, centroids, X, n_samples, n_features, sample_weight, labels,
           inertia);
@@ -100,7 +100,7 @@ void transform(const raft::handle_t &handle, const KMeansParams &params,
                const float *centroids, const float *X, int n_samples,
                int n_features, int metric, float *X_new) {
   const raft::handle_t &h = handle;
-  ML::detail::streamSyncer _(h);
+  raft::stream_syncer _(h);
 
   transform(h, params, centroids, X, n_samples, n_features, metric, X_new);
 }
@@ -109,7 +109,7 @@ void transform(const raft::handle_t &handle, const KMeansParams &params,
                const double *centroids, const double *X, int n_samples,
                int n_features, int metric, double *X_new) {
   const raft::handle_t &h = handle;
-  ML::detail::streamSyncer _(h);
+  raft::stream_syncer _(h);
 
   transform(h, params, centroids, X, n_samples, n_features, metric, X_new);
 }

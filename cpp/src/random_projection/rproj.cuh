@@ -175,7 +175,7 @@ void RPROJtransform(const raft::handle_t& handle, math_t* input,
                             ldb, &beta, output, ldc, stream));
 
   } else if (random_matrix->type == sparse) {
-    cusparseHandle_t cusparse_handle = handle.getImpl().get_cusparse_handle();
+    cusparseHandle_t cusparse_handle = handle.get_cusparse_handle();
 
     const math_t alfa = 1;
     const math_t beta = 0;

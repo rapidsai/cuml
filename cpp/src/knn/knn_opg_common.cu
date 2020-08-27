@@ -177,10 +177,10 @@ void perform_local_operation(T *out, int64_t *knn_indices, T *labels,
   cudaStream_t stream = h.get_stream();
   const auto alloc = h.get_device_allocator();
 
-  int n_int_streams = handle.get_num_internal_streams();
+  int n_int_streams = h.get_num_internal_streams();
   cudaStream_t int_streams[n_int_streams];
   for (int i = 0; i < n_int_streams; i++) {
-    int_streams[i] = handle.get_internal_stream(i);
+    int_streams[i] = h.get_internal_stream(i);
   }
 
   launch_local_operation<T>(out, knn_indices, y, total_labels, cur_batch_size,

@@ -32,7 +32,7 @@ void HWTranspose(const raft::handle_t &handle, Dtype *data_in, int m, int n,
   ASSERT(!(!data_in || !data_out || n < 1 || m < 1), "HW error in in line %d",
          __LINE__);
   const raft::handle_t &handle_impl = handle;
-  ML::detail::streamSyncer _(handle_impl);
+  raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
   cublasHandle_t cublas_h = handle_impl.get_cublas_handle();
 
@@ -65,7 +65,7 @@ void HoltWintersDecompose(const raft::handle_t &handle, const Dtype *ts, int n,
                           Dtype *start_trend, Dtype *start_season,
                           int start_periods, ML::SeasonalType seasonal) {
   const raft::handle_t &handle_impl = handle;
-  ML::detail::streamSyncer _(handle_impl);
+  raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
   cublasHandle_t cublas_h = handle_impl.get_cublas_handle();
 
@@ -96,7 +96,7 @@ void HoltWintersEval(const raft::handle_t &handle, const Dtype *ts, int n,
                      Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
                      Dtype *error, ML::SeasonalType seasonal) {
   const raft::handle_t &handle_impl = handle;
-  ML::detail::streamSyncer _(handle_impl);
+  raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
 
   ASSERT(!((!start_trend) != (!beta) || (!start_season) != (!gamma)),
@@ -126,7 +126,7 @@ void HoltWintersOptim(const raft::handle_t &handle, const Dtype *ts, int n,
                       OptimParams<Dtype> *optim_params,
                       ML::SeasonalType seasonal) {
   const raft::handle_t &handle_impl = handle;
-  ML::detail::streamSyncer _(handle_impl);
+  raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
 
   // default values
@@ -184,7 +184,7 @@ void HoltWintersForecast(const raft::handle_t &handle, Dtype *forecast, int h,
                          const Dtype *trend_coef, const Dtype *season_coef,
                          ML::SeasonalType seasonal) {
   const raft::handle_t &handle_impl = handle;
-  ML::detail::streamSyncer _(handle_impl);
+  raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
 
   ASSERT(!(!level_coef && !trend_coef && !season_coef),
@@ -203,7 +203,7 @@ void HoltWintersFitHelper(const raft::handle_t &handle, int n, int batch_size,
                           Dtype *level_d, Dtype *trend_d, Dtype *season_d,
                           Dtype *error_d) {
   const raft::handle_t &handle_impl = handle;
-  ML::detail::streamSyncer _(handle_impl);
+  raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
   auto dev_allocator =
     handle_impl.get_device_allocator();
@@ -285,7 +285,7 @@ void HoltWintersForecastHelper(const raft::handle_t &handle, int n,
                                Dtype *trend_d, Dtype *season_d,
                                Dtype *forecast_d) {
   const raft::handle_t &handle_impl = handle;
-  ML::detail::streamSyncer _(handle_impl);
+  raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
   auto dev_allocator =
     handle_impl.get_device_allocator();

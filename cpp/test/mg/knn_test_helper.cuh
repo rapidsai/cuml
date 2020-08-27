@@ -61,7 +61,7 @@ class KNNTestHelper {
   void generate_data(const KNNParams &params) {
     this->handle = new raft::handle_t();
     ML::initialize_mpi_comms(*handle, MPI_COMM_WORLD);
-    const raft::handle_t &h = handle->getImpl();
+    const raft::handle_t &h = handle;
     const auto &comm = h.get_comms();
     this->allocator = h.get_device_allocator();
 

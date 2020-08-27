@@ -55,7 +55,7 @@ namespace ML {
 #define LOG(handle, fmt, ...)                      \
   do {                                             \
     bool isRoot = true;                            \
-    if (handle.commsInitialized()) {               \
+    if (handle.comms_initialized()) {               \
       const auto &comm = handle.get_comms(); \
       const int my_rank = comm.get_rank();         \
       isRoot = my_rank == 0;                       \
