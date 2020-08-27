@@ -253,7 +253,7 @@ class LogisticRegression(Base, ClassifierMixin):
         Fit the model with X and y.
 
         """
-        self.solver_model._set_base_attributes(y=y)
+        self.solver_model._set_base_attributes(target_dtype=y)
         self._set_base_attributes(output_type=X, n_features=X)
 
         # Converting y to device array here to use `unique` function
