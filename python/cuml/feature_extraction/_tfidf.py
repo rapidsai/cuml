@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from sklearn.utils.validation import FLOAT_DTYPES
 from cuml.common.exceptions import NotFittedError
 import cupy as cp
 import cupyx
@@ -36,6 +35,9 @@ def _get_dtype(X):
     """
         Returns the valid dtype for tf-idf transformer
     """
+    import numpy as np
+    FLOAT_DTYPES = (np.float64, np.float32, np.float16)
+
     dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float32
     return dtype
 
