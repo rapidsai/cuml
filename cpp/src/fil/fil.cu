@@ -386,8 +386,7 @@ void check_params(const forest_params_t* params, bool dense) {
       /* params->num_classes is ignored in this case, since the user might call
          predict_proba() on regression. Hence, no point checking the range of
          an ignored variable */
-      ASSERT(params->num_classes >= 1,
-             "num_classes must be positive");
+      ASSERT(params->num_classes >= 1, "num_classes must be positive");
       break;
     case leaf_value_t::INT_CLASS_LABEL:
       ASSERT(params->num_classes >= 2,
@@ -627,8 +626,8 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
 
   const tl::ModelParam& param = model.param;
 
-  ASSERT(tl_params->output_group_num >= 0 && 
-         tl_params->output_group_num < model.num_output_group,
+  ASSERT(tl_params->output_group_num >= 0 &&
+           tl_params->output_group_num < model.num_output_group,
          "output_group_num must be within [0, model.num_output_group)");
 
   // assuming either all leaves use the .leaf_vector() or all leaves use .leaf_value()

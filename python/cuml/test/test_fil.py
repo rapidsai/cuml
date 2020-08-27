@@ -101,7 +101,8 @@ def _build_and_save_xgboost(model_path,
                                         stress_param(90)])
 @pytest.mark.parametrize('num_classes', [2, 5])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path):
+def test_fil_classification(n_rows, n_columns, num_rounds,
+                            num_classes, tmp_path):
     # settings
     classification = True  # change this to false to use regression
     random_state = np.random.RandomState(43210)
@@ -135,7 +136,9 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
         xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
     else:
         xgb_acc = accuracy_score(y_validation, xgb_preds)
-        xgb_proba = bst.predict(dvalidation, output_margin=True).reshape((y_validation.size, -1, num_classes)).sum(axis=1)
+        xgb_proba = bst.predict(dvalidation, output_margin=True)\
+                       .reshape((y_validation.size, -1, num_classes))\
+                       .sum(axis=1)
 
     fm = ForestInference.load(model_path,
                               algo='auto',

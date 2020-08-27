@@ -59,7 +59,7 @@ struct FilTestParams {
   fil::leaf_value_t leaf_payload_type;
   // when FLOAT_SCALAR == leaf_payload_type:
   // num_classes = 1 means it's regression
-  // num_classes = 2 means it's binary classification 
+  // num_classes = 2 means it's binary classification
   // (complement probabilities, then use threshold)
   // num_classes > 2 means it's multiclass classification,
   // done by splitting the forest in num_classes groups,
@@ -271,7 +271,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           if (ps.num_classes == 2) {
             // all trees predict the probability for the same class
             class_scores[0] += class_scores[1];
-            transform(class_scores[0], want_proba_h[r * 2 + 1], want_preds_h[r]);
+            transform(class_scores[0], want_proba_h[r * 2 + 1],
+                      want_preds_h[r]);
             complement(&(want_proba_h[r * 2]));
           }
           break;
@@ -311,8 +312,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void predict_on_gpu() {
     std::vector<fil::forest_t> forest(ps.num_classes);
-    for (int c = 0; c < ps.num_classes; c++)
-      init_forest(&forest[c]);
+    for (int c = 0; c < ps.num_classes; c++) init_forest(&forest[c]);
 
     // predict
     allocate(preds_d, ps.num_preds_outputs());
@@ -324,8 +324,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // cleanup
-    for (int c = 0; c < ps.num_classes; c++)
-      fil::free(handle, forest[c]);
+    for (int c = 0; c < ps.num_classes; c++) fil::free(handle, forest[c]);
   }
 
   void compare() {
