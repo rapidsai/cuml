@@ -379,6 +379,7 @@ class PredictDenseFilTest : public BaseFilTest {
     fil_ps.global_bias = ps.global_bias;
     fil_ps.leaf_payload_type = ps.leaf_payload_type;
     fil_ps.num_classes = ps.num_classes;
+    fil_ps.output_group_num = 0;
 
     fil::init_dense(handle, pforest, nodes.data(), &fil_ps);
   }
@@ -437,6 +438,7 @@ class BasePredictSparseFilTest : public BaseFilTest {
     fil_params.global_bias = ps.global_bias;
     fil_params.leaf_payload_type = ps.leaf_payload_type;
     fil_params.num_classes = ps.num_classes;
+    fil_params.output_group_num = 0;
 
     dense2sparse();
     fil_params.num_nodes = sparse_nodes.size();
