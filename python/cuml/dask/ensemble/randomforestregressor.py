@@ -100,8 +100,11 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         The minimum number of samples (rows) needed to split a node.
         If int then number of sample rows
         If float the min_rows_per_sample*n_rows
-    accuracy_metric : string (default = 'mse')
+    accuracy_metric : string (default = 'r2')
         Decides the metric used to evaluate the performance of the model.
+        In the 0.16 release, the default scoring metric was changed
+        from mean squared error to r-squared.
+        for r-squared : 'r2'
         for median of abs error : 'median_ae'
         for mean of abs error : 'mean_ae'
         for mean square error' : 'mse'
