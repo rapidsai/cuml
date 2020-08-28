@@ -652,7 +652,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     ASSERT(
       pred_transform == "max_index" || pred_transform == "identity_multiclass",
       "only max_index and identity_multiclass values of pred_transform "
-      "are supported for multi-class models");
+      "are supported for multi-class models. provided: '%s'", pred_transform);
 
     params->num_trees = model.trees.size();
     params->output_group_num = 0;
@@ -666,9 +666,9 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
              "output_class==true is required for multi-class models");
       ASSERT(
         pred_transform == "sigmoid" || pred_transform == "identity" ||
-          pred_transform == "max_index",
-        "only sigmoid, identity and max_index values of pred_transform "
-        "are supported for xgboost-style multi-class classification models");
+          pred_transform == "max_index" || pred_transform == "multiclass_ova",
+        "only sigmoid, identity, max_index and multiclass_ova values of pred_transform "
+        "are supported for xgboost-style multi-class classification models. provided: %s", pred_transform);
       if (pred_transform == "max_index") {
         params->output = output_t(params->output & ~output_t::CLASS);
         // will choose best class in fil.pyx, don't use threshold
@@ -676,7 +676,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     } else {
       ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
              "only sigmoid and identity values of pred_transform "
-             "are supported for binary classification and regression models");
+             "are supported for binary classification and regression models. provided: %s", pred_transform);
       params->output_group_num = 0;
     }
     params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;

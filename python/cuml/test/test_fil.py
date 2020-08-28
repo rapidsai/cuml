@@ -136,10 +136,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
         xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
     else:
         xgb_proba = bst.predict(dvalidation, output_margin=True).reshape((y_validation.size, -1, num_classes)).sum(axis=1)
-    if num_classes == 2:
-        xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
-    else:
-        xgb_acc = accuracy_score(y_validation, xgb_preds)
+    xgb_acc = accuracy_score(y_validation, np.round(xgb_preds))
 
     fm = ForestInference.load(model_path,
                               algo='auto',
@@ -440,7 +437,6 @@ def test_lightgbm(num_classes, tmp_path):
                               model_type="lightgbm")
 
     fil_preds = np.asarray(fm.predict(X))
-    fil_preds = np.reshape(fil_preds, np.shape(gbm_preds))
 
     assert array_equal(np.round(gbm_preds), fil_preds)
 
@@ -455,6 +451,5 @@ def test_lightgbm(num_classes, tmp_path):
                               model_type="lightgbm")
 
     fil_proba = np.asarray(fm.predict_proba(X))
-    fil_proba = np.reshape(fil_proba, np.shape(gbm_proba))
 
     assert np.allclose(gbm_proba, fil_proba, 1e-3)
