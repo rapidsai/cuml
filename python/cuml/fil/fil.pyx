@@ -311,12 +311,12 @@ cdef class ForestInference_impl():
         preds_ptr = preds.ptr
 
         for fd in self.forest_data:
-          predict(handle_[0],
-                  fd,
-                  <float*> preds_ptr,
-                  <float*> X_ptr,
-                  <size_t> n_rows,
-                  <bool> predict_proba)
+            predict(handle_[0],
+                    fd,
+                    <float*> preds_ptr,
+                    <float*> X_ptr,
+                    <size_t> n_rows,
+                    <bool> predict_proba)
 
         preds = preds.to_output('cupy')
         if self.forest_data.size() > 1:
@@ -348,27 +348,27 @@ cdef class ForestInference_impl():
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
         treelite_params.storage_type = self.get_storage_type(storage_type)
-        
+
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>model_handle
         TreeliteQueryNumOutputGroups(<ModelHandle> model_ptr,
                                      & self.num_output_groups)
-        
+
         while self.forest_data.size():
-          free(handle_[0], self.forest_data.back())
-          self.forest_data.pop_back()
+            free(handle_[0], self.forest_data.back())
+            self.forest_data.pop_back()
         # TODO: add test for repeated load_from* to detect memory leaks
         # once rapidsai/rmm#415 is merged
         cdef forest_t fd
         for g in range(self.num_output_groups):
-          treelite_params.output_group_num = g
-          fd = NULL
-          from_treelite(handle_[0],
-                        &fd,
-                        <ModelHandle> model_ptr,
-                        &treelite_params)
-          self.forest_data.push_back(fd)
+            treelite_params.output_group_num = g
+            fd = NULL
+            from_treelite(handle_[0],
+                          &fd,
+                          <ModelHandle> model_ptr,
+                          &treelite_params)
+            self.forest_data.push_back(fd)
         return self
 
     def load_from_treelite_model(self,
@@ -397,8 +397,8 @@ cdef class ForestInference_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         while self.forest_data.size():
-          free(handle_[0], self.forest_data.back())
-          self.forest_data.pop_back()
+            free(handle_[0], self.forest_data.back())
+            self.forest_data.pop_back()
 
 
 class ForestInference(Base):

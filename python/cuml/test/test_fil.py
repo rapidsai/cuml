@@ -85,8 +85,6 @@ def _build_and_save_xgboost(model_path,
     params['max_depth'] = 25
     params.update(xgboost_params)
     bst = xgb.train(params, dtrain, num_rounds)
-
-    bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
     return bst
 
@@ -103,7 +101,8 @@ def _build_and_save_xgboost(model_path,
                                         stress_param(90)])
 @pytest.mark.parametrize('num_classes', [2, 5])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path):
+def test_fil_classification(n_rows, n_columns, num_rounds,
+                            num_classes, tmp_path):
     # settings
     classification = True  # change this to false to use regression
     random_state = np.random.RandomState(43210)
@@ -113,7 +112,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
                          classification=classification)
     # identify shape and indices
     n_rows, n_columns = X.shape
-    train_size = 0.8
+    train_size = 0.80
 
     X_train, X_validation, y_train, y_validation = train_test_split(
         X, y, train_size=train_size, random_state=0)
@@ -132,11 +131,13 @@ def test_fil_classification(n_rows, n_columns, num_rounds, num_classes, tmp_path
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
     xgb_preds = bst.predict(dvalidation)
     xgb_preds_int = np.around(xgb_preds)
+    xgb_acc = accuracy_score(y_validation, np.round(xgb_preds))
     if num_classes == 2:
         xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
     else:
-        xgb_proba = bst.predict(dvalidation, output_margin=True).reshape((y_validation.size, -1, num_classes)).sum(axis=1)
-    xgb_acc = accuracy_score(y_validation, np.round(xgb_preds))
+        xgb_proba = bst.predict(dvalidation, output_margin=True)\
+                       .reshape((y_validation.size, -1, num_classes))\
+                       .sum(axis=1)
 
     fm = ForestInference.load(model_path,
                               algo='auto',
@@ -290,7 +291,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
                          random_state=random_state,
                          classification=False)
     # identify shape and indices
-    train_size = 0.8
+    train_size = 0.80
 
     X_train, X_validation, y_train, y_validation = train_test_split(
         X, y, train_size=train_size, random_state=0)
@@ -410,7 +411,7 @@ def test_output_args(small_classifier_and_preds):
 
 @pytest.mark.parametrize('num_classes', [2, 5])
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
-def test_lightgbm(num_classes, tmp_path):
+def test_lightgbm(tmp_path):
     import lightgbm as lgb
     X, y = simulate_data(500, 50, num_classes,
                          random_state=43210,
