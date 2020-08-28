@@ -1,6 +1,7 @@
 # cuML 0.16.0 (Date TBD)
 
 ## New Features
+- PR #2698: Distributed TF-IDF transformer
 
 ## Improvements
 - PR #2741: Use rapids build packages in conda environments
