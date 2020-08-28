@@ -1,6 +1,7 @@
 import os
 
 import cupy as cp
+import cupyx
 import pytest
 from pytest import Item
 from sklearn.datasets import fetch_20newsgroups
@@ -109,11 +110,18 @@ def fail_on_bad_cuml_array_name(monkeypatch, request):
 
         supported_type = get_supported_input_type(value)
 
-        if (supported_type == CumlArray):
+        if name == 'idf_':
+            # We skip this test because idf_' for tfidf setter returns
+            # a sparse diagonal matrix and getter gets a cupy array
+            # see discussion at:
+            # https://github.com/rapidsai/cuml/pull/2698/files#r471865982
+            pass
+        elif (supported_type == CumlArray):
             assert name.startswith("_"), "Invalid CumlArray Use! CumlArray \
                 attributes need a leading underscore. Attribute: '{}' In: {}" \
                     .format(name, self.__repr__())
-        elif (supported_type == cp.ndarray and cp.sparse.issparse(value)):
+        elif (supported_type == cp.ndarray and
+              cupyx.scipy.sparse.issparse(value)):
             # Leave sparse matrices alone for now.
             pass
         elif (supported_type is not None):

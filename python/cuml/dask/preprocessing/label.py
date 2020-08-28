@@ -21,6 +21,7 @@ from cuml.common import rmm_cupy_ary
 
 import dask
 import cupy as cp
+import cupyx
 
 
 class LabelBinarizer(BaseEstimator):
@@ -39,6 +40,7 @@ class LabelBinarizer(BaseEstimator):
     .. code-block:: python
 
         import cupy as cp
+        import cupyx
         from cuml.dask.preprocessing import LabelBinarizer
 
         from dask_cuda import LocalCUDACluster
@@ -190,7 +192,7 @@ class LabelBinarizer(BaseEstimator):
         xform_func = dask.delayed(LabelBinarizer._func_xform)
         meta = rmm_cupy_ary(cp.zeros, 1)
         if internal_model.sparse_output:
-            meta = cp.sparse.csr_matrix(meta)
+            meta = cupyx.scipy.sparse.csr_matrix(meta)
         f = [dask.array.from_delayed(xform_func(internal_model, part),
              meta=meta, dtype=cp.float32,
              shape=(len(y), len(self.classes_))) for w, part in parts]

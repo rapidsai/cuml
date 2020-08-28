@@ -14,6 +14,4 @@
 # limitations under the License.
 #
 
-from cuml.prims.label.classlabels import make_monotonic  # NOQA
-from cuml.prims.label.classlabels import check_labels  # NOQA
-from cuml.prims.label.classlabels import invert_labels  # NOQA
+from cuml.dask.feature_extraction import text

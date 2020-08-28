@@ -17,6 +17,7 @@
 import copy
 import cudf
 import cupy as cp
+import cupyx
 import numpy as np
 import pandas as pd
 
@@ -527,7 +528,7 @@ def order_to_str(order):
 def sparse_scipy_to_cp(sp, dtype):
     """
     Convert object of scipy.sparse to
-    cupy.sparse.coo_matrix
+    cupyx.scipy.sparse.coo_matrix
     """
 
     coo = sp.tocoo()
@@ -537,4 +538,4 @@ def sparse_scipy_to_cp(sp, dtype):
     c = cp.asarray(coo.col)
     v = cp.asarray(values, dtype=dtype)
 
-    return cp.sparse.coo_matrix((v, (r, c)), sp.shape)
+    return cupyx.scipy.sparse.coo_matrix((v, (r, c)), sp.shape)

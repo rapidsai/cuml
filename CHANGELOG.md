@@ -2,10 +2,22 @@
 
 ## New Features
 - PR #2694: FIL python can infer xgboost multiclass forests
+- PR #2698: Distributed TF-IDF transformer
 
 ## Improvements
+- PR #2741: Use rapids build packages in conda environments
+- PR #2735: Update seed to random_state in random forest and associated tests
+- PR #2739: Use cusparse_wrappers.h from RAFT
+- PR #2729: Replace `cupy.sparse` with `cupyx.scipy.sparse`
+- PR #2749: Correct docs for python version used in cuml_dev conda environment
+- PR #2762: Fix broken links and provide minor edits to docs
+- PR #2723: Support and enable convert_dtype in estimator predict
+- PR #2758: Match sklearn's default n_components behavior for PCA
+- PR #2770: Fix doxygen version during cmake
 
 ## Bug Fixes
+- PR #2744: Supporting larger number of classes in KNeighborsClassifier
+- PR #2769: Remove outdated doxygen options for 1.8.20
 
 # cuML 0.15.0 (Date TBD)
 

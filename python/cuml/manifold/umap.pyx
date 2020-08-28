@@ -32,7 +32,7 @@ import cupy
 
 import numba.cuda as cuda
 
-from cupy.sparse import csr_matrix as cp_csr_matrix,\
+from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
     coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
 
 from cuml.common.base import Base
@@ -450,7 +450,7 @@ class UMAP(Base):
             csc_matrix = DummyClass
 
         if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
-            knn_graph = cupy.sparse.csr_matrix(knn_graph)
+            knn_graph = cp_csr_matrix(knn_graph)
             n_samples = knn_graph.shape[0]
             reordering = knn_graph.data.reshape((n_samples, -1))
             reordering = reordering.argsort()
