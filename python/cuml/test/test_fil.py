@@ -423,7 +423,7 @@ def test_lightgbm(tmp_path, num_classes):
                  'metric': 'binary_logloss',
                  'num_class': 1}
     else:
-        param = {'objective': 'ova', #'multiclass', would use softmax
+        param = {'objective': 'ova',  # 'multiclass', would use softmax
                  'metric': 'multi_logloss',
                  'num_class': num_classes}
     num_round = 5
