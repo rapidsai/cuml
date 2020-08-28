@@ -1,6 +1,7 @@
 # cuML 0.16.0 (Date TBD)
 
 ## New Features
+- PR #2698: Distributed TF-IDF transformer
 
 ## Improvements
 - PR #2741: Use rapids build packages in conda environments
@@ -11,10 +12,12 @@
 - PR #2762: Fix broken links and provide minor edits to docs
 - PR #2723: Support and enable convert_dtype in estimator predict
 - PR #2758: Match sklearn's default n_components behavior for PCA
+- PR #2770: Fix doxygen version during cmake
 - PR #2766: Update default RandomForestRegressor score function to use r2
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
+- PR #2769: Remove outdated doxygen options for 1.8.20
 
 # cuML 0.15.0 (Date TBD)
 
