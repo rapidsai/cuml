@@ -39,11 +39,8 @@ def test_redirected_logger():
     new_stdout = StringIO()
 
     with logger.set_level(logger.level_trace):
-        test_msg = "This is a trace message"
-        with redirect_stdout(new_stdout):
-            logger.trace(test_msg)
-        assert test_msg in new_stdout.getvalue()
-
+        # We do not test trace because CUML_LOG_TRACE is not compiled by
+        # default
         test_msg = "This is a debug message"
         with redirect_stdout(new_stdout):
             logger.debug(test_msg)
