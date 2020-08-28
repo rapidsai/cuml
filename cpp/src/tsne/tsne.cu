@@ -93,6 +93,10 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   //---------------------------------------------------
   END_TIMER(DistancesTime);
 
+  int64_t host_indices;
+  cudaMemcpy(&host_indices, knn_indices, sizeof(knn_indices), cudaMemcpyDeviceToHost);
+  std::cout << "THIS IS THE INDICES" << host_indices << "\n";
+
   START_TIMER;
   //---------------------------------------------------
   // Normalize distances
