@@ -242,19 +242,14 @@ void brute_force_knn(
       dist_config.allocator = allocator;
       dist_config.stream = stream;
 
-      device_buffer<value_idx> out_batch_indptr(allocator, stream,
-                                                query_batcher.batch_rows() + 1);
-      device_buffer<value_idx> out_batch_indices(allocator, stream, 0);
-      device_buffer<value_t> out_batch_data(allocator, stream, 0);
+      value_idx dense_size =
+        idx_batcher.batch_rows() * query_batcher.batch_rows();
+      device_buffer<value_t> batch_dists(allocator, stream, dense_size);
+
 
       Distance::ip_distances_t<value_idx, value_t> compute_dists(dist_config);
-      value_idx out_batch_nnz = compute_dists.get_nnz(out_batch_indptr.data());
 
-      out_batch_indices.resize(out_batch_nnz, stream);
-      out_batch_data.resize(out_batch_nnz, stream);
-
-      compute_dists.compute(out_batch_indptr.data(), out_batch_indices.data(),
-                            out_batch_data.data());
+      compute_dists.compute(batch_dists.data());
 
       idx_batch_indptr.release(stream);
       idx_batch_indices.release(stream);
@@ -263,22 +258,6 @@ void brute_force_knn(
       csc_idx_batch_indptr.release(stream);
       csc_idx_batch_indices.release(stream);
       csc_idx_batch_data.release(stream);
-
-      /**
-       * Convert output to dense
-       */
-      value_idx dense_size =
-        idx_batcher.batch_rows() * query_batcher.batch_rows();
-      device_buffer<value_t> batch_dists(allocator, stream, dense_size);
-
-      csr_to_dense(cusparseHandle, query_batcher.batch_rows(),
-                   idx_batcher.batch_rows(), out_batch_indptr.data(),
-                   out_batch_indices.data(), out_batch_data.data(), true,
-                   batch_dists.data(), stream);
-
-      out_batch_indptr.release(stream);
-      out_batch_indices.release(stream);
-      out_batch_data.release(stream);
 
       // Build batch indices array
       device_buffer<value_idx> batch_indices(allocator, stream,

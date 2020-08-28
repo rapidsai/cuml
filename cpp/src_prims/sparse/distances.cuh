@@ -19,6 +19,7 @@
 #include <common/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
+#include <sparse/csr.cuh>
 
 #include <cusparse_v2.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -71,6 +72,42 @@ struct ip_distances_t {
       cusparseSetPointerMode(config.handle, CUSPARSE_POINTER_MODE_HOST));
   }
 
+  void compute(value_t *out_distances) {
+
+	  /**
+	   * Compute pairwise distances
+	   */
+      device_buffer<value_idx> out_batch_indptr(config_.allocator, config_.stream,
+                                                config_.search_nrows + 1);
+      device_buffer<value_idx> out_batch_indices(config_.allocator, config_.stream, 0);
+      device_buffer<value_t> out_batch_data(config_.allocator, config_.stream, 0);
+
+      value_idx out_batch_nnz = get_nnz(out_batch_indptr.data());
+
+      out_batch_indices.resize(out_batch_nnz, config_.stream);
+      out_batch_data.resize(out_batch_nnz, config_.stream);
+
+      compute(out_batch_indptr.data(), out_batch_indices.data(),
+                            out_batch_data.data());
+
+      /**
+       * Convert output to dense
+       */
+      csr_to_dense(config_.handle, config_.search_nrows,
+                   config_.index_nrows, out_batch_indptr.data(),
+                   out_batch_indices.data(), out_batch_data.data(), true,
+				   out_distances, config_.stream);
+  }
+
+  ~ip_distances_t() {
+    CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matA));
+    CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matB));
+    CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matC));
+    CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matD));
+  }
+
+ private:
+
   void init_mat_descriptor(cusparseMatDescr_t mat) {
     CUSPARSE_CHECK(cusparseCreateMatDescr(&mat));
     CUSPARSE_CHECK(cusparseSetMatIndexBase(mat, CUSPARSE_INDEX_BASE_ZERO));
@@ -118,14 +155,6 @@ struct ip_distances_t {
       config_.stream));
   }
 
-  ~ip_distances_t() {
-    CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matA));
-    CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matB));
-    CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matC));
-    CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matD));
-  }
-
- private:
   value_t alpha;
   csrgemm2Info_t info;
   cusparseMatDescr_t matA;
@@ -203,6 +232,9 @@ struct l2_distances_t {
   device_buffer<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
+
+
+
 
 };  // END namespace Distance
 };  // END namespace Sparse

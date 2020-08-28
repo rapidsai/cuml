@@ -18,8 +18,8 @@
 #include <cusparse_v2.h>
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <test_utils.h>
 #include <sparse/distances.cuh>
+#include "test_utils.h"
 
 namespace MLCommon {
 namespace Sparse {
@@ -65,21 +65,15 @@ class DistancesTest
     updateDevice(csc_indices, csc_indices_h.data(), 8, stream);
     updateDevice(csc_data, csc_data_h.data(), 8, stream);
 
-    std::vector<value_idx> out_indptr_ref_h = {0, 4, 8, 12, 16};
-    std::vector<value_idx> out_indices_ref_h = {0, 1, 2, 3, 0, 1, 2, 3,
-                                                0, 1, 2, 3, 0, 1, 2, 3};
-    std::vector<value_t> out_data_ref_h = {
+    std::vector<value_t> out_dists_ref_h = {
       5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0,
       5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0,
     };
 
-    allocate(out_indptr_ref, 5);
-    allocate(out_indices_ref, 16);
-    allocate(out_data_ref, 16);
+    allocate(out_dists_ref, 16);
 
-    updateDevice(out_indptr_ref, out_indptr_ref_h.data(), 5, stream);
-    updateDevice(out_indices_ref, out_indices_ref_h.data(), 16, stream);
-    updateDevice(out_data_ref, out_data_ref_h.data(), 16, stream);
+    updateDevice(out_dists_ref, out_dists_ref_h.data(),
+    		out_dists_ref_h.size(), stream);
   }
 
   void SetUp() override {
@@ -109,15 +103,11 @@ class DistancesTest
     dist_config.allocator = alloc;
     dist_config.stream = stream;
 
-    allocate(out_indptr, 5);
+    allocate(out_dists, 16);
 
     Distance::ip_distances_t<value_idx, value_t> compute_dists(dist_config);
-    out_nnz = compute_dists.get_nnz(out_indptr);
 
-    allocate(out_indices, out_nnz);
-    allocate(out_data, out_nnz);
-
-    compute_dists.compute(out_indptr, out_indices, out_data);
+    compute_dists.compute(out_dists);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -129,22 +119,13 @@ class DistancesTest
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(csc_indptr));
     CUDA_CHECK(cudaFree(csc_indices));
-    CUDA_CHECK(cudaFree(out_indptr));
-    CUDA_CHECK(cudaFree(out_indices));
-    CUDA_CHECK(cudaFree(out_data));
+    CUDA_CHECK(cudaFree(out_dists));
+    CUDA_CHECK(cudaFree(out_dists_ref));
   }
 
   void compare() {
-    std::cout << arr2Str(out_indptr, 5, "out_indptr", stream) << std::endl;
-    std::cout << arr2Str(out_indices, 16, "out_indices", stream) << std::endl;
-    std::cout << arr2Str(out_data, 16, "out_data", stream) << std::endl;
-
-    ASSERT_TRUE(out_nnz == 16);
     ASSERT_TRUE(
-      devArrMatch(out_data_ref, out_data, out_nnz, Compare<value_t>()));
-    ASSERT_TRUE(
-      devArrMatch(out_indices_ref, out_indices, out_nnz, Compare<value_t>()));
-    ASSERT_TRUE(devArrMatch(out_indptr_ref, out_indptr, 5, Compare<value_t>()));
+      devArrMatch(out_dists_ref, out_dists, 16, Compare<value_t>()));
   }
 
  protected:
@@ -160,13 +141,7 @@ class DistancesTest
   value_t *csc_data;
 
   // output data
-  value_idx *out_indptr, *out_indices;
-  value_t *out_data;
-
-  value_idx out_nnz;
-
-  value_idx *out_indptr_ref, *out_indices_ref;
-  value_t *out_data_ref;
+  value_t *out_dists, *out_dists_ref;
 
   DistancesInputs<value_idx, value_t> params;
 };
