@@ -26,6 +26,7 @@
 #include <limits>
 #include <stack>
 #include <utility>
+#include <stdlib.h>
 
 #include <cuml/fil/fil.h>
 #include <cuml/common/cuml_allocator.hpp>
@@ -154,6 +155,7 @@ struct forest {
     predict_params params;
     params.num_cols = num_cols_;
     params.algo = algo_;
+    // C layer will infer in a transposed fashion, to be un-transposed in cython
     params.preds = preds;
     params.data = data;
     params.num_rows = num_rows;
@@ -196,14 +198,15 @@ struct forest {
 
     if (leaf_payload_type_ == leaf_value_t::FLOAT_SCALAR) {
       if (predict_proba) {
-        params.num_outputs = 2;
         ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
-        complement_proba = true;
-        do_transform = true;
-      } else {
+        if (num_classes_ <= 2) {
+          // not one of the xgboost multi-class inferences
+          params.num_outputs = 2;
+          complement_proba = true;
+        }
+      } else
         params.num_outputs = 1;
-        if (ot != output_t::RAW) do_transform = true;
-      }
+      if (ot != output_t::RAW || complement_proba) do_transform = true;
     } else if (leaf_payload_type_ == leaf_value_t::INT_CLASS_LABEL) {
       if (predict_proba) {
         params.num_outputs = num_classes_;
@@ -217,6 +220,7 @@ struct forest {
       }
     }
 
+    printf("ot %o num_classes_ %d params.preds offset %d leaf_payload_type %d num_outputs %d do_transform %d\n", ot, num_classes_, params.preds - preds, leaf_payload_type_, params.num_outputs, do_transform);
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
     infer(params, stream);
@@ -224,8 +228,9 @@ struct forest {
     if (do_transform) {
       size_t num_values_to_transform =
         (size_t)num_rows * (size_t)params.num_outputs;
+
       transform_k<<<ceildiv(num_values_to_transform, (size_t)FIL_TPB), FIL_TPB,
-                    0, stream>>>(preds, num_values_to_transform, ot,
+                    0, stream>>>(params.preds, num_values_to_transform, ot,
                                  num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
                                  threshold_, global_bias_, complement_proba);
       CUDA_CHECK(cudaPeekAtLastError());
@@ -244,7 +249,7 @@ struct forest {
   float threshold_ = 0.5;
   float global_bias_ = 0;
   leaf_value_t leaf_payload_type_ = leaf_value_t::FLOAT_SCALAR;
-  int num_classes_ = 0;
+  int num_classes_ = 1;
 };
 
 struct dense_forest : forest {
@@ -327,7 +332,6 @@ struct sparse_forest : forest {
                                                     h.getStream());
     CUDA_CHECK(cudaMemcpyAsync(trees_, trees, sizeof(int) * num_trees_,
                                cudaMemcpyHostToDevice, h.getStream()));
-
     // nodes
     nodes_ = (node_t*)h.getDeviceAllocator()->allocate(
       sizeof(node_t) * num_nodes_, h.getStream());
@@ -379,6 +383,7 @@ void check_params(const forest_params_t* params, bool dense) {
       /* params->num_classes is ignored in this case, since the user might call
          predict_proba() on regression. Hence, no point checking the range of
          an ignored variable */
+      ASSERT(params->num_classes >= 1, "num_classes must be positive");
       break;
     case leaf_value_t::INT_CLASS_LABEL:
       ASSERT(params->num_classes >= 2,
@@ -633,15 +638,35 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     ASSERT(
       pred_transform == "max_index" || pred_transform == "identity_multiclass",
       "only max_index and identity_multiclass values of pred_transform "
-      "are supported for multi-class models");
+      "are supported for multi-class models. provided: '%s'",
+      pred_transform);
 
   } else {
-    ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
-           "only sigmoid and identity values of pred_transform "
-           "are supported for binary classification and regression models");
+    if (model.num_output_group > 1) {
+      params->num_classes = model.num_output_group;
+      ASSERT(tl_params->output_class,
+             "output_class==true is required for multi-class models");
+      ASSERT(pred_transform == "sigmoid" || pred_transform == "identity" ||
+               pred_transform == "max_index" ||
+               pred_transform == "multiclass_ova",
+             "only sigmoid, identity, max_index and multiclass_ova values of "
+             "pred_transform "
+             "are supported for xgboost-style multi-class classification "
+             "models. provided: %s",
+             pred_transform);
+      }
+    } else {
+      params->num_classes = tl_params->output_class ? 2 : 1;
+      ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
+             "only sigmoid and identity values of pred_transform "
+             "are supported for binary classification and regression models. "
+             "provided: %s",
+             pred_transform);
+    }
     params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
-    params->num_classes = 0;  // ignored
   }
+  if (pred_transform == "max_index")
+    params->output = output_t(params->output & ~output_t::CLASS);
 
   params->num_cols = model.num_feature;
 

@@ -173,7 +173,9 @@ struct forest_params_t {
   int num_nodes;
   // maximum depth; ignored for sparse forests
   int depth;
-  // ntrees is the number of trees
+  // ntrees is the number of trees in the FIL forest.
+  // when importing xgboost-style models, this will be the
+  // source number of trees divided by the number of classes.
   int num_trees;
   // num_cols is the number of columns in the data
   int num_cols;
@@ -190,9 +192,12 @@ struct forest_params_t {
   // global_bias is added to the sum of tree predictions
   // (after averaging, if it is used, but before any further transformations)
   float global_bias;
-  // only used for INT_CLASS_LABEL inference. since we're storing the
+  // for INT_CLASS_LABEL inference: since we're storing the
   // labels in leaves instead of the whole vector, this keeps track
   // of the number of classes
+  // for FLOAT_SCALAR xgboost-style inference:
+  // where the forest is divided into num_classes forests (groups)
+  // each of which predicts the probability of one class vs all others
   int num_classes;
 };
 
