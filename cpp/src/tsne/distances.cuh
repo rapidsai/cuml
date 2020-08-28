@@ -20,7 +20,6 @@
 #include <linalg/eltwise.cuh>
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>
-#include <iostream>
 
 namespace ML {
 namespace TSNE {
@@ -53,11 +52,9 @@ void get_distances(const float *X, const int n, const int p, int64_t *indices,
                      std::shared_ptr<deviceAllocator> allocator,
                      cudaStream_t userStream,
  */
-  std::cout << "About to brute force knn..." << "\n";
   MLCommon::Selection::brute_force_knn(input_vec, sizes_vec, p,
                                        const_cast<float *>(X), n, indices,
                                        distances, n_neighbors, d_alloc, stream);
-  std::cout << "Successfully brute force knn..." << "\n";
 }
 
 /**
@@ -70,20 +67,17 @@ void get_distances(const float *X, const int n, const int p, int64_t *indices,
  */
 void normalize_distances(const int n, float *distances, const int n_neighbors,
                          cudaStream_t stream) {
-  std::cout << "EXACT TSNE 3.2"<< "\n";
+
   // Now D / max(abs(D)) to allow exp(D) to not explode
   thrust::device_ptr<float> begin = thrust::device_pointer_cast(distances);
-  std::cout << "EXACT TSNE 3.3"<< "\n";
   float maxNorm = *thrust::max_element(thrust::cuda::par.on(stream), begin,
                                        begin + n * n_neighbors);
-  std::cout << "EXACT TSNE 3.4"<< "\n";
   if (maxNorm == 0.0f) maxNorm = 1.0f;
 
   // Divide distances inplace by max
   const float div = 1.0f / maxNorm;  // Mult faster than div
   MLCommon::LinAlg::scalarMultiply(distances, distances, div, n * n_neighbors,
                                    stream);
-  std::cout << "EXACT TSNE 3.8"<< "\n";
 }
 
 /**

@@ -27,6 +27,8 @@
 #include <iostream>
 #include <score/scores.cuh>
 #include <vector>
+#include "tsne/distances.cuh"
+#include <iostream>
 
 using namespace MLCommon;
 using namespace MLCommon::Score;
@@ -127,81 +129,74 @@ class TSNETest : public ::testing::Test {
 
     device_buffer<float> Y_d(handle.getDeviceAllocator(), handle.getStream(),
                              n * 2);
-  
+
     MLCommon::device_buffer<int64_t> knn_indices(
       handle.getDeviceAllocator(), handle.getStream(),
-      n_samples * 2);
+      n * 90);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     MLCommon::device_buffer<float> knn_dists(
       handle.getDeviceAllocator(), handle.getStream(),
-      n_samples * 2);
+      n * 90);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    std::vector<float *> ptrs(1);
-    std::vector<int> sizes(1);
-    ptrs[0] = X_d.data();
-    sizes[0] = n_samples;
-
-    MLCommon::Selection::brute_force_knn(
-      ptrs, sizes, n_features, X_d.data(), n_samples, knn_indices.data(),
-      knn_dists.data(), 90, handle.getDeviceAllocator(),
-      handle.getStream());
-    
+    TSNE::get_distances(X_d.data(), n, p, knn_indices.data(), knn_dists.data(), 90,
+      handle.getDeviceAllocator(), handle.getStream());
+  
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    // // Test Barnes Hut
-    // TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(), knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100,
-    //          1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1);
+    // Test Barnes Hut
+    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(), knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100,
+             1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1);
 
     // Move embeddings to host.
     // This can be used for printing if needed.
     float *embeddings_h = (float *)malloc(sizeof(float) * n * 2);
     assert(embeddings_h != NULL);
 
-    // MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
-    //                      handle.getStream());
-    // CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
+                         handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    // // Transpose the data
+    // Transpose the data
     int k = 0;
     float C_contiguous_embedding[n * 2];
-    // for (int i = 0; i < n; i++) {
-    //   for (int j = 0; j < 2; j++)
-    //     C_contiguous_embedding[k++] = embeddings_h[j * n + i];
-    // }
+    for (int i = 0; i < n; i++) {
+      for (int j = 0; j < 2; j++)
+        C_contiguous_embedding[k++] = embeddings_h[j * n + i];
+    }
 
-    // // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
-    // MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2,
-    //                        handle.getStream());
-    // CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
+    MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2,
+                           handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    // // Test trustworthiness
-    // score_bh =
-    //   trustworthiness_score<float,
-    //                         ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
-    //     X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
-    //     handle.getStream());
+    // Test trustworthiness
+    score_bh =
+      trustworthiness_score<float,
+                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+        X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
+        handle.getStream());
 
-    std::cout << "About to Exact TSNE" << "\n";
     // Test Exact TSNE
     TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(), knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100,
              1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1,
              CUML_LEVEL_INFO, false, false);
-    std::cout << "Successfully Exact TSNE" << "\n";
+
     MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
                          handle.getStream());
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Move embeddings to host.
     // This can be used for printing if needed.
-    // k = 0;
+    k = 0;
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < 2; j++)
         C_contiguous_embedding[k++] = embeddings_h[j * n + i];
     }
+
     // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
     MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2,
                            handle.getStream());
@@ -213,15 +208,14 @@ class TSNETest : public ::testing::Test {
                             ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
         X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
         handle.getStream());
+
     // Free space
     free(embeddings_h);
   }
 
   void SetUp() override { 
     basicTest();
-    std::cout << "Running the Test..." << "\n";
     fitWithKNNTest();
-    std::cout << "Successfully Finished the Test" << "\n";
   }
 
   void TearDown() override {}
@@ -231,8 +225,8 @@ class TSNETest : public ::testing::Test {
   int p = 64;
   double score_bh;
   double score_exact;
-  // double knn_score_bh;
-  // double knn_score_exact;
+  double knn_score_bh;
+  double knn_score_exact;
 };
 
 typedef TSNETest TSNETestF;
@@ -241,7 +235,9 @@ TEST_F(TSNETestF, Result) {
   if (score_exact < 0.98) CUML_LOG_DEBUG("Exact score = %f", score_exact);
   ASSERT_TRUE(0.98 < score_bh && 0.98 < score_exact);
 
-  // if (knn_score_bh < 0.98) CUML_LOG_DEBUG("BH score = %f", knn_score_bh);
-  // if (knn_score_exact < 0.98) CUML_LOG_DEBUG("Exact score = %f", knn_score_exact);
-  // ASSERT_TRUE(0.98 < knn_score_bh && 0.98 < knn_score_exact);
+  std::cout << knn_score_bh << "\n";
+  std::cout << knn_score_exact << "\n";
+  if (knn_score_bh < 0.98) CUML_LOG_DEBUG("BH score = %f", knn_score_bh);
+  if (knn_score_exact < 0.98) CUML_LOG_DEBUG("Exact score = %f", knn_score_exact);
+  ASSERT_TRUE(0.98 < knn_score_bh && 0.98 < knn_score_exact);
 }

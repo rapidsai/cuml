@@ -21,7 +21,6 @@
 #include "distances.cuh"
 #include "exact_kernels.cuh"
 #include "utils.cuh"
-#include <iostream>
 
 #include "barnes_hut.cuh"
 #include "exact_tsne.cuh"
@@ -29,7 +28,7 @@
 namespace ML {
 
 void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
-              const int p, int64_t * knn_indices, float * knn_dists,
+              const int p, int64_t *knn_indices, float *knn_dists,
               const int dim, int n_neighbors, const float theta,
               const float epssq, float perplexity,
               const int perplexity_max_iter, const float perplexity_tol,
@@ -55,7 +54,6 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   // Perplexity must be less than number of datapoints
   // "How to Use t-SNE Effectively" https://distill.pub/2016/misread-tsne/
   if (perplexity > n) perplexity = n;
-  std::cout << "EXACT TSNE 1"<< "\n";
   CUML_LOG_DEBUG("Data size = (%d, %d) with dim = %d perplexity = %f", n, p,
                  dim, perplexity);
   if (perplexity < 5 or perplexity > 50)
@@ -66,7 +64,6 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
     CUML_LOG_WARN(
       "# of Nearest Neighbors should be at least 3 * perplexity. Your results"
       " might be a bit strange...");
-  std::cout << "EXACT TSNE 2"<< "\n";
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
@@ -76,10 +73,10 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   CUML_LOG_DEBUG("Getting distances.");
   MLCommon::device_buffer<int64_t> *knn_indices_b = nullptr;
   MLCommon::device_buffer<float> *knn_dists_b = nullptr;
+
   if (!knn_indices || !knn_dists) {
     ASSERT(!knn_indices && !knn_dists,
            "Either both or none of the KNN parameters should be provided");
-    std::cout << "THIS SHOULD NOT RUN"<< "\n";
     knn_indices_b =
       new MLCommon::device_buffer<int64_t>(d_alloc, stream, n * n_neighbors);
     knn_dists_b = 
@@ -89,24 +86,15 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
     TSNE::get_distances(X, n, p, knn_indices, knn_dists, n_neighbors,
       d_alloc, stream);
   }
-  std::cout << "EXACT TSNE 3"<< "\n";
   //---------------------------------------------------
   END_TIMER(DistancesTime);
-
-  int64_t host_indices;
-  cudaMemcpy(&host_indices, knn_indices, sizeof(knn_indices), cudaMemcpyDeviceToHost);
-  std::cout << "THIS IS THE INDICES" << host_indices << "\n";
-
   START_TIMER;
   //---------------------------------------------------
   // Normalize distances
   CUML_LOG_DEBUG("Now normalizing distances so exp(D) doesn't explode.");
-  std::cout << "EXACT TSNE 3.1"<< "\n";
   TSNE::normalize_distances(n, knn_dists, n_neighbors, stream);
-  std::cout << "EXACT TSNE 3.9"<< "\n";
   //---------------------------------------------------
   END_TIMER(NormalizeTime);
-  std::cout << "EXACT TSNE 4"<< "\n";
   START_TIMER;
   //---------------------------------------------------
   // Optimal perplexity
@@ -118,7 +106,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   CUML_LOG_DEBUG("Perplexity sum = %f", P_sum);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
-  std::cout << "EXACT TSNE 5"<< "\n";
+
   START_TIMER;
   //---------------------------------------------------
   // Convert data to COO layout
@@ -126,13 +114,15 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   TSNE::symmetrize_perplexity(P.data(), knn_indices, n, n_neighbors, P_sum,
                               early_exaggeration, &COO_Matrix, stream, handle);
   P.release(stream);
+  if (knn_indices_b) delete knn_indices_b;
+  if (knn_dists_b) delete knn_dists_b;
   const int NNZ = COO_Matrix.nnz;
   float *VAL = COO_Matrix.vals();
   const int *COL = COO_Matrix.cols();
   const int *ROW = COO_Matrix.rows();
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
-  std::cout << "EXACT TSNE 6"<< "\n";
+
   if (barnes_hut) {
     TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
                      early_exaggeration, exaggeration_iter, min_gain,
@@ -144,7 +134,6 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
                      post_learning_rate, max_iter, min_grad_norm, pre_momentum,
                      post_momentum, random_state, intialize_embeddings);
   }
-  std::cout << "Exited TSNE_fit()..." << "\n";
 }
 
 }  // namespace ML
