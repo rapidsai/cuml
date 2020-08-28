@@ -39,7 +39,7 @@ else(DEFINED ENV{RAFT_PATH})
 
   ExternalProject_Add(raft
     GIT_REPOSITORY    https://github.com/rapidsai/raft.git
-    GIT_TAG           051b8b8d61e14c8e60db0d38bf2ea2152400ad53
+    GIT_TAG           b77aa376f6b725cbee4aa40d15faae2589a3b9d2
     PREFIX            ${RAFT_DIR}
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
