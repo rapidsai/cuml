@@ -205,6 +205,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         The minimum decrease in impurity required for node to be split
     accuracy_metric : string (default = 'r2')
         Decides the metric used to evaluate the performance of the model.
+        In the 0.16 release, the default scoring metric was changed
+        from mean squared error to r-squared.
         for r-squared : 'r2'
         for median of abs error : 'median_ae'
         for mean of abs error : 'mean_ae'
@@ -562,6 +564,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
               fil_sparse_format='auto', predict_model="GPU"):
         """
         Calculates the accuracy metric score of the model for X.
+        In the 0.16 release, the default scoring metric was changed
+        from mean squared error to r-squared.
 
         Parameters
         ----------
