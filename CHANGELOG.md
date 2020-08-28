@@ -13,6 +13,7 @@
 - PR #2723: Support and enable convert_dtype in estimator predict
 - PR #2758: Match sklearn's default n_components behavior for PCA
 - PR #2770: Fix doxygen version during cmake
+- PR #2766: Update default RandomForestRegressor score function to use r2
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
