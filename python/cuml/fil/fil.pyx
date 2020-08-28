@@ -397,8 +397,8 @@ cdef class ForestInference_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         while self.forest_data.size():
-          free(handle_[0], self.forest_data.back())
-          self.forest_data.pop_back()
+            free(handle_[0], self.forest_data.back())
+            self.forest_data.pop_back()
 
 
 class ForestInference(Base):
