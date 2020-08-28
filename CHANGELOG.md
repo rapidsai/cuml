@@ -12,6 +12,7 @@
 - PR #2762: Fix broken links and provide minor edits to docs
 - PR #2723: Support and enable convert_dtype in estimator predict
 - PR #2758: Match sklearn's default n_components behavior for PCA
+- PR #2770: Fix doxygen version during cmake
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
