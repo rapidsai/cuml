@@ -48,7 +48,7 @@ Logger& Logger::get() {
   return logger;
 }
 
-Logger::Logger() : logger{spdlog::stdout_color_mt("cuml")}, currPattern() {
+Logger::Logger() : logger{spdlog::stdout_color_mt("cuml")}, currPattern(), logCallback(nullptr) {
   setPattern(DefaultPattern);
   setLevel(CUML_LEVEL_INFO);
 }
@@ -63,6 +63,10 @@ void Logger::setPattern(const std::string& pattern) {
   logger->set_pattern(pattern);
 }
 
+void Logger::registerCallback(void (*callback)(int, const char*)) {
+  logCallback = callback;
+}
+
 bool Logger::shouldLogFor(int level) const {
   level = convert_level_to_spdlog(level);
   auto level_e = static_cast<spdlog::level::level_enum>(level);
@@ -74,6 +78,11 @@ int Logger::getLevel() const {
   return CUML_LEVEL_TRACE - static_cast<int>(level_e);
 }
 
+void Logger::logFormatted(int spd_level, const char * msg) {
+    auto level_e = static_cast<spdlog::level::level_enum>(spd_level);
+    logger->log(level_e, msg);
+}
+
 void Logger::log(int level, const char* fmt, ...) {
   level = convert_level_to_spdlog(level);
   auto level_e = static_cast<spdlog::level::level_enum>(level);
@@ -83,7 +92,11 @@ void Logger::log(int level, const char* fmt, ...) {
     va_start(vl, fmt);
     auto msg = format(fmt, vl);
     va_end(vl);
-    logger->log(level_e, msg);
+    if (logCallback == nullptr) {
+      logFormatted(level, msg.c_str());
+    } else {
+      logCallback(level, msg.c_str());
+    }
   }
 }
 

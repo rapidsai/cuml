@@ -105,6 +105,13 @@ class Logger {
   void setPattern(const std::string& pattern);
 
   /**
+   * @brief Register a callback function to be run in place of usual log call
+   *
+   * @param[in] callback the function to be run on all logged messages
+   */
+  void registerCallback(void (*callback)(int, const char*));
+
+  /**
    * @brief Tells whether messages will be logged for the given log level
    *
    * @param[in] level log level to be checked for
@@ -133,12 +140,26 @@ class Logger {
    */
   void log(int level, const char* fmt, ...);
 
+  /**
+   * @brief Logging method for pre-formatted messages
+   *
+   * This method is publicly exposed primarily to facilitate logging callbacks
+   * which may have difficulty dealing with the variable-length arguments of
+   * the log method.
+   *
+   * @param[in] spd_level SPD logging level of this message
+   * @param[in] msg       a C-style string message to be logged
+   */
+  void logFormatted(int spd_level, const char* msg);
+
  private:
   Logger();
   ~Logger() {}
 
   std::shared_ptr<spdlog::logger> logger;
   std::string currPattern;
+
+  void (*logCallback)(int, const char*);
   static const std::string DefaultPattern;
 };  // class Logger
 

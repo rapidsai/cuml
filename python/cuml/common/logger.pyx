@@ -20,19 +20,26 @@
 # cython: language_level = 3
 
 
+from contextlib import contextmanager
 from libcpp.string cimport string
 from libcpp cimport bool
+from libc.stdio cimport fflush, stdout as c_stdout, stderr as c_stderr
+import os
+import sys
+import tempfile
 
 
-cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
+cdef extern from "cuml/common/logger.hpp" namespace "ML":
     cdef cppclass Logger:
         @staticmethod
-        Logger& get()
-        void setLevel(int level)
-        void setPattern(const string& pattern)
-        bool shouldLogFor(int level) const
-        int getLevel() const
-        string getPattern() const
+        Logger& get() nogil
+        void setLevel(int level) nogil
+        void setPattern(const string& pattern) nogil
+        void registerCallback(void (*callback)(int, char*))
+        bool shouldLogFor(int level) nogil const
+        int getLevel() nogil const
+        string getPattern() nogil const
+        void logFormatted(int level, const char* msg) nogil
 
 
 cdef extern from "cuml/common/logger.hpp" nogil:
@@ -72,6 +79,93 @@ level_critical = CUML_LEVEL_CRITICAL
 
 """Disables all log messages"""
 level_off = CUML_LEVEL_OFF
+
+STDOUT_FILENO = 1
+STDERR_FILENO = 2
+
+
+@contextmanager
+def redirect_c_logs():
+    """
+    Context manager for redirecting OS-defined stdout/stderr to Python-defined
+    equivalents.
+
+    This context manager ensures that output from C/C++ logs that would go
+    directly to the OS-defined stdout/stderr for the process get redirected to
+    Python's currently-defined sys.stdout and sys.stderr.
+    """
+    try:
+        stdout_fd = sys.stdout.fileno()
+    except:  # Python stdout does not have a fileno
+        stdout_fd = None
+
+    try:
+        stderr_fd = sys.stderr.fileno()
+    except:  # Python stderr does not have a fileno
+        stderr_fd = None
+
+    tmp_out = None
+    newstdout = None
+    tmp_err = None
+    newstderr = None
+
+    try:
+        # Redirect os stdout and stderr to temporary files
+
+        if stdout_fd != STDOUT_FILENO:  # stdout has been redirected
+            tmp_out = tempfile.TemporaryFile(mode='w+')
+            fflush(c_stdout)
+            sys.stdout.flush()
+
+            # Copy os-assigned stdout to a new file descriptor
+            newstdout = os.dup(STDOUT_FILENO)
+            # Copy tempfile descriptor to fd 1
+            os.dup2(tmp_out.fileno(), STDOUT_FILENO)
+            # C output will now go to tempfile
+
+        if stderr_fd != STDERR_FILENO:  # stderr has been redirected
+            tmp_err = tempfile.TemporaryFile(mode='w+')
+            fflush(c_stderr)
+            sys.stderr.flush()
+
+            # Copy os-assigned stdout to a new file descriptor
+            newstderr = os.dup(STDERR_FILENO)
+            # Copy tempfile descriptor to fd 1
+            os.dup2(tmp_err.fileno(), STDERR_FILENO)
+            # C output will now go to tempfile
+
+        # Run code that includes C output
+        yield
+
+        # Write content of temporary files back to Python objects
+
+        if tmp_out is not None:
+            tmp_out.flush()
+            tmp_out.seek(0)
+            # Write contents of tempfile to Python stdout
+            sys.stdout.write(tmp_out.read())
+        if tmp_err is not None:
+            tmp_err.flush()
+            tmp_err.seek(0)
+            # Write contents of tempfile to Python stderr
+            sys.stderr.write(tmp_err.read())
+    finally:
+        if tmp_out is not None:
+            tmp_out.close()
+        if newstdout is not None:
+            os.dup2(newstdout, STDOUT_FILENO)
+        if tmp_err is not None:
+            tmp_err.close()
+        if newstderr is not None:
+            os.dup2(newstderr, STDERR_FILENO)
+
+cdef void _log_callback(int lvl, const char * msg):
+    """Default logging callback to redirect to Python's stdout/stderr"""
+
+    with redirect_c_logs():
+        Logger.get().logFormatted(lvl, msg)
+
+Logger.get().registerCallback(_log_callback)
 
 
 class LogLevelSetter:
