@@ -518,8 +518,6 @@ class UMAP(Base):
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
         """
-        self._set_n_features_in(X)
-
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
@@ -538,7 +536,7 @@ class UMAP(Base):
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
 
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
             self._extract_knn_graph(knn_graph, convert_dtype)

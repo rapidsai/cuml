@@ -112,6 +112,7 @@
 - PR #2623: Fixing kmeans score() API to be compatible with Scikit-learn
 - PR #2629: Add naive_bayes api docs
 - PR #2643: 'dense' and 'sparse' values of `storage_type` for FIL
+- PR #2691: Generic Base class attribute setter
 - PR #2666: Update MBSGD documentation to mention that the model is experimental
 - PR #2687: Update xgboost version to 1.2.0dev.rapidsai0.15
 - PR #2684: CUDA 11 conda development environment yml and faiss patch
