@@ -118,15 +118,19 @@ using BlockReduceHost =
 template <int NITEMS,
           leaf_value_t leaf_payload_type>  // = FLOAT_SCALAR
 struct tree_aggregator_t {
-  vec<NITEMS, float> acc;
+  typedef vec<NITEMS, float> Acc;
+  Acc acc;
   void* tmp_storage;
+  int num_classes;
 
   /** shared memory footprint of the accumulator during
   the finalization of forest inference kernel, when infer_k output
   value is computed.
   num_classes is used for other template parameters */
   static size_t smem_finalize_footprint(int num_classes) {
-    return sizeof(typename BlockReduceHost<NITEMS>::TempStorage);
+    if (num_classes <= 2)
+      return sizeof(typename BlockReduceHost<NITEMS>::TempStorage);
+    return (FIL_TPB - FIL_TPB % num_classes) * sizeof(Acc);
   }
 
   /** shared memory footprint of the accumulator during
@@ -137,24 +141,56 @@ struct tree_aggregator_t {
 
   /** 
   num_classes is used for other template parameters */
-  __device__ __forceinline__ tree_aggregator_t(int num_classes,
+  __device__ __forceinline__ tree_aggregator_t(int num_classes_,
                                                void* shared_workspace, size_t)
-    : tmp_storage(shared_workspace) {}
+    : tmp_storage(shared_workspace), num_classes(num_classes_) {}
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction) {
+    Acc single_tree_prediction) {
     acc += single_tree_prediction;
   }
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
-                                           int output_stride) {
-    __syncthreads();
-    typedef typename BlockReduce<NITEMS>::TempStorage TempStorage;
-    acc = BlockReduce<NITEMS>(*(TempStorage*)tmp_storage).Sum(acc);
-    if (threadIdx.x == 0) {
-      for (int i = 0; i < NITEMS; ++i) {
-        int row = blockIdx.x * NITEMS + i;
-        if (row < num_rows) out[row * output_stride] = acc[i];
+                                           int num_outputs) {
+    if (num_classes <= 2) {
+      __syncthreads();
+      typedef typename BlockReduce<NITEMS>::TempStorage TempStorage;
+      acc = BlockReduce<NITEMS>(*(TempStorage*)tmp_storage).Sum(acc);
+      if (threadIdx.x == 0) {
+        for (int i = 0; i < NITEMS; ++i) {
+          int row = blockIdx.x * NITEMS + i;
+          if (row < num_rows) out[row * num_outputs] = acc[i];
+        }
+      }
+    } else { // predict_proba() not supported yet
+      per_thread = (*Acc)tmp_storage;
+      if (threadIdx.x >= num_classes)
+        per_thread[threadIdx.x] = acc;
+      __syncthreads();
+      if (threadIdx.x < num_classes) {
+        for(int c = threadIdx.x; c < blockDim.x; c += num_classes)
+          acc += per_thread[c];
+        per_thread[threadIdx.x] = acc;
+      }
+      __syncthreads();
+      if (threadIdx.x == 0) {
+        Acc best_margin, best_class;
+        for (int i = 0; i < NITEMS; ++i) {
+          best_margin[i] = -INF;
+          best_class[i] = -1;
+        }
+        for (int c = 0; c < num_classes; c++) {
+          for (int i = 0; i < NITEMS; ++i) {
+            if (best_margin[i] < per_thread[c][i]) {
+              best_margin[i] = per_thread[c][i];
+              best_class[i] = c;
+            }
+          }
+        }
+        for (int i = 0; i < NITEMS; ++i) {
+          int row = blockIdx.x * NITEMS + i;
+          if (row < num_rows) out[row * num_classes] = best_class[i];
+        }
       }
     }
   }
@@ -323,25 +359,28 @@ void infer_k_launcher(storage_type forest, predict_params params,
            given_num_cols, params.num_cols,
            leaf_payload_type == INT_CLASS_LABEL
              ? " (accounting for shared class vote histogram)"
-             : "");
+             : (num_classes > 2
+                ? ""
+                : " (accounting for per-thread accumulator)"));
   }
   int num_blocks = ceildiv(int(params.num_rows), num_items);
+  int blockdim_x = FIL_TPB - (num_classes > 2 ? FIL_TPB % num_classes : 0);
   switch (num_items) {
     case 1:
       infer_k<1, leaf_payload_type>
-        <<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
+        <<<num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
       break;
     case 2:
       infer_k<2, leaf_payload_type>
-        <<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
+        <<<num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
       break;
     case 3:
       infer_k<3, leaf_payload_type>
-        <<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
+        <<<num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
       break;
     case 4:
       infer_k<4, leaf_payload_type>
-        <<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
+        <<<num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
       break;
     default:
       ASSERT(false, "internal error: nitems > 4");

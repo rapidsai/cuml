@@ -203,7 +203,8 @@ struct forest {
           // not one of the xgboost multi-class inferences
           params.num_outputs = 2;
           complement_proba = true;
-        }
+        } else
+          ASSERT(false, "predict_proba not supported for multi-class GBMs");
       } else
         params.num_outputs = 1;
       if (ot != output_t::RAW || complement_proba) do_transform = true;
