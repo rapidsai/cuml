@@ -79,7 +79,6 @@ endif(BUILD_CUML_TESTS)
 # - build test_ml_mg executable ----------------------------------------------
 
 if(BUILD_CUML_MG_TESTS)
-  find_package(MPI)
 
   if(MPI_CXX_FOUND)
     # (please keep the filenames in alphabetical order)
@@ -91,20 +90,19 @@ if(BUILD_CUML_MG_TESTS)
       mg/pca.cu
       mg/test_ml_mg_utils.cu)
 
-    add_dependencies(ml_mg cumlcommsmpi)
-
     set(CUML_TEST_INCLUDE_DIRS
         ${CUML_TEST_INCLUDE_DIRS}
+        NCCL::NCCL
         ${MPI_CXX_INCLUDE_PATH}
-        ${CMAKE_CURRENT_SOURCE_DIR}/../comms/mpi/include)
+        ${cumlprims_mg_INCLUDE_DIRS})
 
     target_include_directories(ml_mg PUBLIC ${CUML_TEST_INCLUDE_DIRS})
 
     set(CUML_TEST_LINK_LIBRARIES 
     	${CUML_TEST_LINK_LIBRARIES} 
+    	NCCL::NCCL
     	${MPI_CXX_LIBRARIES}
-    	cumlcommsmpi
-    	cumlprims)
+    	cumlprims_mg::cumlprims_mg)
 
     target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
 

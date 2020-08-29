@@ -87,6 +87,19 @@ set(RMM_INSTALL_DIR ENV{RMM_ROOT})
 find_package(RMM
              REQUIRED)
 
+##############################################################################
+# - NCCL ---------------------------------------------------------------------
+
+if(BUILD_CUML_MPI_COMMS OR BUILD_CUML_STD_COMMS)
+  find_package(NCCL REQUIRED)
+endif(BUILD_CUML_MPI_COMMS OR BUILD_CUML_STD_COMMS)
+
+##############################################################################
+# - MPI ---------------------------------------------------------------------
+
+if(BUILD_CUML_MPI_COMMS)
+  find_package(MPI REQUIRED)
+endif(BUILD_CUML_MPI_COMMS)
 
 ##############################################################################
 # - cub - (header only) ------------------------------------------------------
@@ -182,6 +195,8 @@ if(BUILD_GTEST)
 	set(GTEST_BINARY_DIR ${PROJECT_BINARY_DIR}/googletest)
 	set(GTEST_INSTALL_DIR ${GTEST_BINARY_DIR}/install)
 	set(GTEST_LIB ${GTEST_INSTALL_DIR}/lib/libgtest_main.a)
+
+
 	include(ExternalProject)
 	ExternalProject_Add(googletest
 	  GIT_REPOSITORY    https://github.com/google/googletest.git
