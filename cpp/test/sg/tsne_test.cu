@@ -28,7 +28,6 @@
 #include <score/scores.cuh>
 #include <vector>
 #include "tsne/distances.cuh"
-#include <iostream>
 
 using namespace MLCommon;
 using namespace MLCommon::Score;
@@ -174,7 +173,7 @@ class TSNETest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test trustworthiness
-    score_bh =
+    knn_score_bh =
       trustworthiness_score<float,
                             ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
         X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
@@ -203,7 +202,7 @@ class TSNETest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test trustworthiness
-    score_exact =
+    knn_score_exact =
       trustworthiness_score<float,
                             ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
         X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
@@ -235,8 +234,6 @@ TEST_F(TSNETestF, Result) {
   if (score_exact < 0.98) CUML_LOG_DEBUG("Exact score = %f", score_exact);
   ASSERT_TRUE(0.98 < score_bh && 0.98 < score_exact);
 
-  std::cout << knn_score_bh << "\n";
-  std::cout << knn_score_exact << "\n";
   if (knn_score_bh < 0.98) CUML_LOG_DEBUG("BH score = %f", knn_score_bh);
   if (knn_score_exact < 0.98) CUML_LOG_DEBUG("Exact score = %f", knn_score_exact);
   ASSERT_TRUE(0.98 < knn_score_bh && 0.98 < knn_score_exact);

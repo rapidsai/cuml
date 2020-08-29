@@ -17,8 +17,10 @@ import numpy as np
 import pytest
 
 from cuml.manifold import TSNE
-from cuml.test.utils import stress_param
+from cuml.test.utils import array_equal, stress_param
+from cuml.neighbors import NearestNeighbors as cuKNN
 
+from sklearn.neighbors import NearestNeighbors as skKNN
 from sklearn.datasets.samples_generator import make_blobs
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn import datasets
@@ -29,6 +31,12 @@ import cuml.common.logger as logger
 dataset_names = ['digits', 'boston', 'iris', 'breast_cancer',
                  'diabetes']
 
+def check_embedding(X, Y):
+    nans = np.sum(np.isnan(Y))
+    trust = trustworthiness(X, Y)
+    print("Trust = ", trust)
+    assert trust > 0.76
+    assert nans == 0
 
 @pytest.mark.parametrize('name', dataset_names)
 def test_tsne(name):
@@ -52,11 +60,7 @@ def test_tsne(name):
 
         # Reuse
         Y = tsne.fit_transform(X)
-        nans = np.sum(np.isnan(Y))
-        trust = trustworthiness(X, Y)
-        print("Trust = ", trust)
-        assert trust > 0.76
-        assert nans == 0
+        check_embedding(X, Y)
         del Y
 
         # Again
@@ -65,11 +69,7 @@ def test_tsne(name):
 
         # Reuse
         Y = tsne.fit_transform(X)
-        nans = np.sum(np.isnan(Y))
-        trust = trustworthiness(X, Y)
-        print("Trust = ", trust)
-        assert trust > 0.76
-        assert nans == 0
+        check_embedding(X, Y)
         del Y
 
 
@@ -84,11 +84,7 @@ def test_tsne_default(name):
 
         tsne = TSNE()
         Y = tsne.fit_transform(X)
-        nans = np.sum(np.isnan(Y))
-        trust = trustworthiness(X, Y)
-        print("Trust = ", trust)
-        assert trust > 0.76
-        assert nans == 0
+        check_embedding(X, Y)
         del Y
 
 
@@ -107,3 +103,29 @@ def test_tsne_large(nrows, ncols):
     Y = tsne.fit_transform(X)
     nans = np.sum(np.isnan(Y))
     assert nans == 0
+
+@pytest.mark.parametrize('name', dataset_names)
+@pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
+def test_tsne_knn_parameters(name, type_knn_graph):
+
+    datasets
+    X = eval("datasets.load_{}".format(name))().data
+
+    neigh = skKNN(n_neighbors=90) if type_knn_graph == 'sklearn' \
+        else cuKNN(n_neighbors=90)
+
+    neigh.fit(X)
+    knn_graph = neigh.kneighbors_graph(X, mode="distance")
+
+    for i in range(3):
+        print("iteration = ", i)
+        tsne = TSNE()
+        Y = tsne.fit_transform(X, True, knn_graph)
+        check_embedding(X, Y)
+
+        Y = tsne.fit_transform(X, True, knn_graph.tocoo())
+        check_embedding(X, Y)
+
+        Y = tsne.fit_transform(X, True, knn_graph.tocsc())
+        check_embedding(X, Y)
+        del Y
