@@ -43,6 +43,7 @@ from cuml.common.base import _input_to_type
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
+import cuml.common.logger as logger
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common import with_cupy_rmm
@@ -215,9 +216,13 @@ class PCA(Base):
     iterated_power : int (default = 15)
         Used in Jacobi solver. The more iterations, the more accurate, but
         slower.
-    n_components : int (default = 1)
+    n_components : int (default = None)
         The number of top K singular vectors / values you want.
-        Must be <= number(columns).
+        Must be <= number(columns). If n_components is not set, then all
+        components are kept:
+
+            n_components = min(n_samples, n_features)
+
     random_state : int / None (default = None)
         If you want results to be the same when you restart Python, select a
         state.
@@ -275,7 +280,7 @@ class PCA(Base):
     """
 
     def __init__(self, copy=True, handle=None, iterated_power=15,
-                 n_components=1, random_state=None, svd_solver='auto',
+                 n_components=None, random_state=None, svd_solver='auto',
                  tol=1e-7, verbose=False, whiten=False,
                  output_type=None):
         # parameters
@@ -326,7 +331,15 @@ class PCA(Base):
 
     def _build_params(self, n_rows, n_cols):
         cpdef paramsPCA *params = new paramsPCA()
-        params.n_components = self.n_components
+        if self.n_components is None:
+            logger.warn(
+                'Warning(`_build_params`): As of v0.16, PCA invoked without an'
+                ' n_components argument defauts to using'
+                ' min(n_samples, n_features) rather than 1'
+            )
+            params.n_components = min(n_rows, n_cols)
+        else:
+            params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
@@ -437,7 +450,7 @@ class PCA(Base):
         cdef paramsPCA *params = <paramsPCA*><size_t> \
             self._build_params(self.n_rows, self.n_cols)
 
-        if self.n_components > self.n_cols:
+        if params.n_components > self.n_cols:
             raise ValueError('Number of components should not be greater than'
                              'the number of columns in the data')
 

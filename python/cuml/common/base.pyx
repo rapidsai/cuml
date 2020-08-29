@@ -356,7 +356,7 @@ class RegressorMixin:
         else:
             handle = None
 
-        preds = self.predict(X)
+        preds = self.predict(X, **kwargs)
         return r2_score(y, preds, handle=handle)
 
 
