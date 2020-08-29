@@ -444,7 +444,7 @@ class ForestInference(Base):
     Notes
     ------
     For additional usage examples, see the sample notebook at
-    https://github.com/rapidsai/cuml/blob/branch-0.14/notebooks/forest_inference_demo.ipynb
+    https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/forest_inference_demo.ipynb
 
     """
 

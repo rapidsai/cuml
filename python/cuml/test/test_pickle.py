@@ -632,7 +632,7 @@ def test_small_rf(tmpdir, key, datatype, nrows, ncols, n_info):
                                                                n_info,
                                                                n_classes=2)
         model = rf_models[key](n_estimators=1, max_depth=1,
-                               max_features=1.0, seed=10)
+                               max_features=1.0, random_state=10)
         model.fit(X_train, y_train)
         result['rf_res'] = model.predict(X_test)
         return model, X_test

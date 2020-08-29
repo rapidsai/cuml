@@ -33,6 +33,7 @@ from cuml.common.handle cimport cumlHandle
 import cuml.common.logger as logger
 
 from cuml.common.array import CumlArray
+from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
 from cuml.common.sparsefuncs import extract_knn_graph
 import rmm
@@ -302,6 +303,7 @@ class TSNE(Base):
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
 
+    @generate_docstring(convert_dtype_cast='np.float32')
     def fit(self, X, convert_dtype=True, knn_graph=None):
         """Fit X into an embedded space.
 
@@ -332,8 +334,9 @@ class TSNE(Base):
             when performing a grid search.
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
+
         """
-        self._set_n_features_in(X)
+        self._set_base_attributes(n_features=X)
         cdef int n, p
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if handle_ == NULL:
@@ -437,6 +440,13 @@ class TSNE(Base):
             del self._embedding_
             self._embedding_ = None
 
+    @generate_docstring(convert_dtype_cast='np.float32',
+                        return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Embedding of the \
+                                                       training data in \
+                                                       low-dimensional space.',
+                                       'shape': '(n_samples, n_components)'})
     def fit_transform(self, X, convert_dtype=True, knn_graph=None):
         """Fit X into an embedded space and return that transformed output.
 

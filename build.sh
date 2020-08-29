@@ -19,7 +19,7 @@ ARGS=$*
 REPODIR=$(cd $(dirname $0); pwd)
 
 VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
-VALIDFLAGS="-v -g -n --allgpuarch --buildfaiss --singlegpu --nvtx --show_depr_warn -h --help "
+VALIDFLAGS="-v -g -n --allgpuarch --buildfaiss --buildgtest --singlegpu --nvtx --show_depr_warn -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
@@ -39,6 +39,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -n               - no install step
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into libcuml
+   --buildgtest     - build googletest library
    --singlegpu      - Build libcuml and cuml without multigpu components
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
@@ -123,6 +124,9 @@ if hasArg cpp-mgtests; then
 fi
 if hasArg --buildfaiss; then
     BUILD_STATIC_FAISS=ON
+fi
+if hasArg --buildgtest; then
+    BUILD_GTEST=ON
 fi
 if hasArg --nvtx; then
     NVTX=ON

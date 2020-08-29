@@ -33,6 +33,7 @@ Current cmake offers the following configuration options:
 | Flag | Possible Values | Default Value | Behavior |
 | --- | --- | --- | --- |
 | BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
+| BUILD_GTEST | [ON, OFF]  | ON  |  Enable/disable building Googletest for test executables. The library search path will be used to find an existing version. |
 | BUILD_CUML_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_test`.  |
 | BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. Requires MPI to be installed. When enabled, BUILD_CUML_MPI_COMMS will be automatically set to ON. |
 | BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
@@ -53,6 +54,7 @@ Current cmake offers the following configuration options:
 | --- | --- | --- | --- |
 | BLAS_LIBRARIES | path/to/blas_lib | "" | Optional variable allowing to manually specify location of BLAS library. This is only used when BUILD_STATIC_FAISS=ON |
 | FAISS_ROOT | path/to/faiss | "" | Optional variable allowing to manually specify the location of FAISS. |
+| GTEST_ROOT | path/to/gtest | "" | Optional variable allowing to manually specify the location of Googletest. |
 | NCCL_PATH| path/to/nccl | "" | Optional variable allowing to manually specify location of NCCL library. |
 | CUMLPRIMS_MG_PATH | path/to/libcumlprims | "" | Optional variable allowing to manually specify location of libcumlprims library. |
 

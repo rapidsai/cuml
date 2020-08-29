@@ -16,7 +16,10 @@
 import math
 import numpy as np
 import cupy as cp
-from cuml.common import with_cupy_rmm, has_scipy, input_to_cuml_array
+import cupyx
+from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.memory_utils import with_cupy_rmm
+from cuml.common.import_utils import has_scipy
 from cuml.common.kernel_utils import cuda_kernel_factory
 from cupy.sparse import csr_matrix as cp_csr_matrix,\
     coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
@@ -142,7 +145,7 @@ def create_csr_matrix_from_count_df(count_df, empty_doc_ids, n_doc, n_features,
     indptr = token_counts.cumsum()
     indptr = cp.pad(indptr, (1, 0), "constant")
 
-    return cp.sparse.csr_matrix(
+    return cupyx.scipy.sparse.csr_matrix(
         arg1=(data, indices, indptr), dtype=dtype,
         shape=(n_doc, n_features)
     )

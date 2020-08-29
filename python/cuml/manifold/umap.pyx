@@ -34,9 +34,11 @@ import numba.cuda as cuda
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.common import input_to_cuml_array, zeros, \
-    with_cupy_rmm, has_scipy
 from cuml.common.sparsefuncs import extract_knn_graph
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.memory_utils import with_cupy_rmm
+from cuml.common.import_utils import has_scipy
 from cuml.common.array import CumlArray
 
 import rmm
@@ -133,6 +135,9 @@ class UMAP(Base):
     an underlying manifold.
 
     Adapted from https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
+
+    The UMAP algorithm is outlined in [1]. This implementation follows the
+    GPU-accelerated version as described in [2].
 
     Parameters
     ----------
@@ -258,8 +263,6 @@ class UMAP(Base):
     However, there are a number of differences and features that are not yet
     implemented in `cuml.umap`:
 
-    * Using a non-Euclidean distance metric (support for a fixed set
-      of non-Euclidean metrics is planned for an upcoming release).
     * Using a pre-computed pairwise distance matrix (under consideration
       for future releases)
     * Manual initialization of initial embedding positions
@@ -270,15 +273,16 @@ class UMAP(Base):
     algorithm for large data sizes while cuml.umap always uses exact
     kNN.
 
-    **Known issue:** If a UMAP model has not yet been fit, it cannot be
-    pickled. However, after fitting, a UMAP mode.
-
     References
     ----------
     .. [1] `Leland McInnes, John Healy, James Melville
        UMAP: Uniform Manifold Approximation and Projection for Dimension
        Reduction <https://arxiv.org/abs/1802.03426>`_
 
+    .. [2] `Corey Nolet, Victor Lafargue, Edward Raff, Thejaswi Nanditale,
+       Tim Oates, John Zedlewski, Joshua Patterson
+       Bringing UMAP Closer to the Speed of Light with GPU Acceleration
+       <https://arxiv.org/abs/2008.00325>`_
     """
 
     def __init__(self,
@@ -434,6 +438,8 @@ class UMAP(Base):
         return params[0], params[1]
 
 
+    @generate_docstring(convert_dtype_cast='np.float32',
+                        skip_parameters_heading=True)
     @with_cupy_rmm
     def fit(self, X, y=None, convert_dtype=True,
             knn_graph=None):
@@ -442,14 +448,6 @@ class UMAP(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            X contains a sample per row.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        y : array-like (device or host) shape = (n_samples, 1)
-            y contains a label per row.
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
         knn_graph : sparse array-like (device or host)
             shape=(n_samples, n_samples)
             A sparse array containing the k-nearest neighbors of X,
@@ -469,8 +467,6 @@ class UMAP(Base):
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
         """
-        self._set_n_features_in(X)
-
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
@@ -489,7 +485,7 @@ class UMAP(Base):
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
 
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
             extract_knn_graph(knn_graph, convert_dtype)
@@ -549,6 +545,14 @@ class UMAP(Base):
 
         return self
 
+    @generate_docstring(convert_dtype_cast='np.float32',
+                        skip_parameters_heading=True,
+                        return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Embedding of the \
+                                                       data in \
+                                                       low-dimensional space.',
+                                       'shape': '(n_samples, n_components)'})
     def fit_transform(self, X, y=None, convert_dtype=True,
                       knn_graph=None):
         """
@@ -564,10 +568,6 @@ class UMAP(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            X contains a sample per row.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
         knn_graph : sparse array-like (device or host)
             shape=(n_samples, n_samples)
             A sparse array containing the k-nearest neighbors of X,
@@ -587,16 +587,20 @@ class UMAP(Base):
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
 
-        Returns
-        -------
-        X_new : array, shape (n_samples, n_components)
-            Embedding of the training data in low-dimensional space.
         """
         self.fit(X, y, convert_dtype=convert_dtype,
                  knn_graph=knn_graph)
         out_type = self._get_output_type(X)
         return self._embedding_.to_output(out_type)
 
+    @generate_docstring(convert_dtype_cast='np.float32',
+                        skip_parameters_heading=True,
+                        return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Embedding of the \
+                                                       data in \
+                                                       low-dimensional space.',
+                                       'shape': '(n_samples, n_components)'})
     @with_cupy_rmm
     def transform(self, X, convert_dtype=True,
                   knn_graph=None):
@@ -613,10 +617,6 @@ class UMAP(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            New data to be transformed.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
         knn_graph : sparse array-like (device or host)
             shape=(n_samples, n_samples)
             A sparse array containing the k-nearest neighbors of X,
@@ -636,10 +636,6 @@ class UMAP(Base):
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
 
-        Returns
-        -------
-        X_new : array, shape (n_samples, n_components)
-            Embedding of the new data in low-dimensional space.
         """
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")

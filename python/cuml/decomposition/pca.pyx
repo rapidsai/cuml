@@ -23,6 +23,7 @@ import ctypes
 import cudf
 import numpy as np
 import cupy as cp
+import cupyx
 import scipy
 
 from enum import IntEnum
@@ -39,7 +40,9 @@ from cython.operator cimport dereference as deref
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.base import _input_to_type
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.handle cimport cumlHandle
+import cuml.common.logger as logger
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common import with_cupy_rmm
@@ -212,9 +215,13 @@ class PCA(Base):
     iterated_power : int (default = 15)
         Used in Jacobi solver. The more iterations, the more accurate, but
         slower.
-    n_components : int (default = 1)
+    n_components : int (default = None)
         The number of top K singular vectors / values you want.
-        Must be <= number(columns).
+        Must be <= number(columns). If n_components is not set, then all
+        components are kept:
+
+            n_components = min(n_samples, n_features)
+
     random_state : int / None (default = None)
         If you want results to be the same when you restart Python, select a
         state.
@@ -272,7 +279,7 @@ class PCA(Base):
     """
 
     def __init__(self, copy=True, handle=None, iterated_power=15,
-                 n_components=1, random_state=None, svd_solver='auto',
+                 n_components=None, random_state=None, svd_solver='auto',
                  tol=1e-7, verbose=False, whiten=False,
                  output_type=None):
         # parameters
@@ -323,7 +330,15 @@ class PCA(Base):
 
     def _build_params(self, n_rows, n_cols):
         cpdef paramsPCA *params = new paramsPCA()
-        params.n_components = self.n_components
+        if self.n_components is None:
+            logger.warn(
+                'Warning(`_build_params`): As of v0.16, PCA invoked without an'
+                ' n_components argument defauts to using'
+                ' min(n_samples, n_features) rather than 1'
+            )
+            params.n_components = min(n_rows, n_cols)
+        else:
+            params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
@@ -412,31 +427,15 @@ class PCA(Base):
 
         return self
 
+    @generate_docstring(X='dense_sparse')
     def fit(self, X, y=None):
         """
-        Fit the model with X.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-            sparse array-like (device) shape = (n_samples, n_features)
-            Acceptable formats: cupy.sparse
-
-        y : ignored
-
-        Returns
-        -------
-        cluster labels
+        Fit the model with X. y is currently ignored.
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
-        if cp.sparse.issparse(X):
+        if cupyx.scipy.sparse.issparse(X):
             return self._sparse_fit(X)
         elif scipy.sparse.issparse(X):
             X = sparse_scipy_to_cp(X)
@@ -449,7 +448,7 @@ class PCA(Base):
         cdef paramsPCA *params = <paramsPCA*><size_t> \
             self._build_params(self.n_rows, self.n_cols)
 
-        if self.n_components > self.n_cols:
+        if params.n_components > self.n_cols:
             raise ValueError('Number of components should not be greater than'
                              'the number of columns in the data')
 
@@ -500,30 +499,22 @@ class PCA(Base):
 
         return self
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'trans',
+                                       'type': 'dense_sparse',
+                                       'description': 'Transformed values',
+                                       'shape': '(n_samples, n_components)'})
     def fit_transform(self, X, y=None):
         """
         Fit the model with X and apply the dimensionality reduction on X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-          training data (floats or doubles), where n_samples is the number of
-          samples, and n_features is the number of features.
-          Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-          ndarray, cuda array interface compliant array like CuPy
-
-        y : ignored
-
-        Returns
-        -------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
         """
 
         return self.fit(X).transform(X)
 
     @with_cupy_rmm
     def _sparse_inverse_transform(self, X, return_sparse=False,
-                                  sparse_tol=1e-10):
+                                  sparse_tol=1e-10, out_type=None):
 
         # NOTE: All intermediate calculations are done using cupy.ndarray and
         # then converted to CumlArray at the end to minimize conversions
@@ -547,15 +538,22 @@ class PCA(Base):
         if return_sparse:
             X_inv = cp.where(X_inv < sparse_tol, 0, X_inv)
 
-            X_inv = cp.sparse.csr_matrix(X_inv)
+            X_inv = cupyx.scipy.sparse.csr_matrix(X_inv)
 
             return X_inv
 
-        if self._get_output_type(X) == 'cupy':
+        if out_type == 'cupy':
             return X_inv
-        elif self._get_output_type(X) == 'numpy':
-            return X_inv.get()
+        else:
+            X_inv, _, _, _ = input_to_cuml_array(X_inv, order='K')
+            return X_inv.to_output(out_type)
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'X_inv',
+                                       'type': 'dense_sparse',
+                                       'description': 'Transformed values',
+                                       'shape': '(n_samples, n_features)'})
+    @with_cupy_rmm
     def inverse_transform(self, X, convert_dtype=False,
                           return_sparse=False, sparse_tol=1e-10):
         """
@@ -563,57 +561,30 @@ class PCA(Base):
 
         In other words, return an input X_original whose transform would be X.
 
-        Parameters
-        ----------
-        X : dense array-like (device or host) shape = (n_samples, n_features)
-            New data (floats or doubles), where n_samples is the number of
-            samples and n_components is the number of components.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-            sparse array-like (device) shape = (n_samples, n_features)
-            Acceptable formats: cupy.sparse
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the inverse_transform method will automatically
-            convert the input to the data type which was used to train the
-            model. This will increase memory used for the method.
-
-        return_sparse : bool, optional (default = False)
-            Ignored when the model is not fit on a sparse matrix
-            If True, the method will convert the inverse transform to a
-            cupy.sparse.csr_matrix object
-
-            NOTE: Currently, there is a loss of information when converting
-            to csr matrix (cusolver bug). Default can be switched to True
-            once this is solved
-
-        sparse_tol : float, optional (default = 1e-10)
-            Ignored when return_sparse=False
-            If True, values in the inverse transform below this parameter
-            are clipped to 0
-
-        Returns
-        -------
-        X_original : cuDF DataFrame, shape (n_samples, n_features)
-
         """
 
-        if cp.sparse.issparse(X):
+        out_type = self._get_output_type(X)
+
+        if cupyx.scipy.sparse.issparse(X):
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
-                                                  sparse_tol=sparse_tol)
+                                                  sparse_tol=sparse_tol,
+                                                  out_type=out_type)
         elif scipy.sparse.issparse(X):
             X = sparse_scipy_to_cp(X)
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
-                                                  sparse_tol=sparse_tol)
+                                                  sparse_tol=sparse_tol,
+                                                  out_type=out_type)
         elif self._sparse_model:
+            X, _, _, _ = \
+                input_to_cuml_array(X, order='K',
+                                    check_dtype=[cp.float32, cp.float64])
+            X = X.to_output(output_type='cupy')
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
-                                                  sparse_tol=sparse_tol)
-
-        out_type = self._get_output_type(X)
+                                                  sparse_tol=sparse_tol,
+                                                  out_type=out_type)
 
         X_m, n_rows, _, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -663,7 +634,7 @@ class PCA(Base):
         return input_data.to_output(out_type)
 
     @with_cupy_rmm
-    def _sparse_transform(self, X):
+    def _sparse_transform(self, X, out_type=None):
 
         # NOTE: All intermediate calculations are done using cupy.ndarray and
         # then converted to CumlArray at the end to minimize conversions
@@ -677,7 +648,6 @@ class PCA(Base):
 
         X = X - temp_mean_
         X_transformed = X.dot(temp_components_.T)
-        X = X + temp_mean_
 
         if self.whiten:
             temp_components_ *= self._singular_values_
@@ -687,9 +657,17 @@ class PCA(Base):
 
         if self._get_output_type(X) == 'cupy':
             return X_transformed
-        elif self._get_output_type(X) == 'numpy':
-            return X_transformed.get()
+        else:
+            X_transformed, _, _, _ = \
+                input_to_cuml_array(X_transformed, order='K')
+            return X_transformed.to_output(out_type)
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'trans',
+                                       'type': 'dense_sparse',
+                                       'description': 'Transformed values',
+                                       'shape': '(n_samples, n_components)'})
+    @with_cupy_rmm
     def transform(self, X, convert_dtype=False):
         """
         Apply dimensionality reduction to X.
@@ -697,38 +675,21 @@ class PCA(Base):
         X is projected on the first principal components previously extracted
         from a training set.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            New data (floats or doubles), where n_samples is the number of
-            samples and n_components is the number of components.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-            sparse array-like (device) shape = (n_samples, n_features)
-            Acceptable formats: cupy.sparse
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the transform method will automatically
-            convert the input to the data type which was used to train the
-            model. This will increase memory used for the method.
-
-
-        Returns
-        -------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
-
         """
 
-        if cp.sparse.issparse(X):
-            return self._sparse_transform(X)
+        out_type = self._get_output_type(X)
+
+        if cupyx.scipy.sparse.issparse(X):
+            return self._sparse_transform(X, out_type=out_type)
         elif scipy.sparse.issparse(X):
             X = sparse_scipy_to_cp(X)
-            return self._sparse_transform(X)
+            return self._sparse_transform(X, out_type=out_type)
         elif self._sparse_model:
-            return self._sparse_transform(X)
-
-        out_type = self._get_output_type(X)
+            X, _, _, _ = \
+                input_to_cuml_array(X, order='K',
+                                    check_dtype=[cp.float32, cp.float64])
+            X = X.to_output(output_type='cupy')
+            return self._sparse_transform(X, out_type=out_type)
 
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,

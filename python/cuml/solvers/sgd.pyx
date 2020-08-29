@@ -30,7 +30,8 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
-from cuml.common import CumlArray
+from cuml.common.array import CumlArray
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array, with_cupy_rmm
 
@@ -294,30 +295,14 @@ class SGD(Base):
             'elasticnet': 3
         }[penalty]
 
+    @generate_docstring()
     @with_cupy_rmm
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
-        self._set_output_type(X)
-        self._set_target_dtype(y)
+        self._set_base_attributes(output_type=X, target_dtype=y)
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -399,26 +384,14 @@ class SGD(Base):
 
         return self
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y: Type specified in `output_type`
-           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         output_type = self._get_output_type(X)
 
@@ -461,26 +434,14 @@ class SGD(Base):
 
         return preds.to_output(output_type)
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
     def predictClass(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predictClass method will automatically
-            convert the input to the data type which was used to train the
-            model. This will increase memory used for the method.
-
-        Returns
-        ----------
-        y : Type specified in `output_type`
-           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         output_type = self._get_output_type(X)
         out_dtype = self._get_target_dtype()

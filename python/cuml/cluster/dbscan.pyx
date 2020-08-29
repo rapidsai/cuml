@@ -30,6 +30,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
 
@@ -204,22 +205,19 @@ class DBSCAN(Base):
         if self.max_mbytes_per_batch is None:
             self.max_mbytes_per_batch = 0
 
+    @generate_docstring(skip_parameters_heading=True)
     def fit(self, X, out_dtype="int32"):
         """
         Perform DBSCAN clustering from features.
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-           Dense matrix (floats or doubles) of shape (n_samples, n_features).
-           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-           ndarray, cuda array interface compliant array like CuPy
         out_dtype: dtype Determines the precision of the output labels array.
             default: "int32". Valid values are { "int32", np.int32,
-            "int64", np.int64}. When the number of samples exceed
+            "int64", np.int64}.
+
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         if self._labels_ is not None:
             del self._labels_
@@ -321,21 +319,21 @@ class DBSCAN(Base):
 
         return self
 
+    @generate_docstring(skip_parameters_heading=True,
+                        return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Cluster labels',
+                                       'shape': '(n_samples, 1)'})
     def fit_predict(self, X, out_dtype="int32"):
         """
-        Performs clustering on input_gdf and returns cluster labels.
+        Performs clustering on X and returns cluster labels.
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-          Dense matrix (floats or doubles) of shape (n_samples, n_features)
-          Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-          ndarray, cuda array interface compliant array like CuPy
+        out_dtype: dtype Determines the precision of the output labels array.
+            default: "int32". Valid values are { "int32", np.int32,
+            "int64", np.int64}.
 
-        Returns
-        -------
-        y : cuDF Series, shape (n_samples)
-          cluster labels
         """
         self.fit(X, out_dtype)
         return self.labels_

@@ -36,7 +36,8 @@ def test_fit_function(dataset, model_name):
         "SparseRandomProjection",
         "TSNE",
         "TruncatedSVD",
-        "AutoARIMA"
+        "AutoARIMA",
+        "MultinomialNB"
     ]:
         pytest.xfail("These models are not tested yet")
 
@@ -59,7 +60,7 @@ def test_fit_function(dataset, model_name):
         # and the inspect module doesn't work with Cython. Therefore we need
         # to register the number of arguments manually if `fit` is decorated
         pos_args_spec = {
-            "ARIMA": 1,
+            "ARIMA": 1
         }
         n_pos_args_fit = (
             pos_args_spec[model_name]
