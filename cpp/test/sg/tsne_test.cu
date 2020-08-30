@@ -27,7 +27,7 @@
 #include <iostream>
 #include <score/scores.cuh>
 #include <vector>
-#include "tsne/distances.cuh"
+#include <tsne/distances.cuh>
 
 using namespace MLCommon;
 using namespace MLCommon::Score;

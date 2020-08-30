@@ -200,7 +200,6 @@ def extract_knn_graph(self, knn_graph, convert_dtype=True):
     elif isinstance(knn_graph, (coo_matrix, cp_coo_matrix)):
         knn_indices = knn_graph.col
 
-    knn_indices_ptr, knn_dists_ptr = None, None
     if knn_indices is not None:
         knn_dists = knn_graph.data
         knn_indices_m, _, _, _ = \
@@ -208,17 +207,17 @@ def extract_knn_graph(self, knn_graph, convert_dtype=True):
                                 deepcopy=True,
                                 check_dtype=np.int64,
                                 convert_to_dtype=(np.int64
-                                                    if convert_dtype
-                                                    else None))
+                                                  if convert_dtype
+                                                  else None))
 
         knn_dists_m, _, _, _ = \
             input_to_cuml_array(knn_dists, order='C',
                                 deepcopy=True,
                                 check_dtype=np.float32,
                                 convert_to_dtype=(np.float32
-                                                    if convert_dtype
-                                                    else None))
+                                                  if convert_dtype
+                                                  else None))
 
         return (knn_indices_m, knn_indices_m.ptr),\
-                (knn_dists_m, knn_dists_m.ptr)
+            (knn_dists_m, knn_dists_m.ptr)
     return (None, None), (None, None)

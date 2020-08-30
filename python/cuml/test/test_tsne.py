@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 
 from cuml.manifold import TSNE
-from cuml.test.utils import array_equal, stress_param
+from cuml.test.utils import stress_param
 from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.neighbors import NearestNeighbors as skKNN
@@ -31,12 +31,14 @@ import cuml.common.logger as logger
 dataset_names = ['digits', 'boston', 'iris', 'breast_cancer',
                  'diabetes']
 
-def check_embedding(X, Y):
+
+def check_embeddings(X, Y):
     nans = np.sum(np.isnan(Y))
     trust = trustworthiness(X, Y)
     print("Trust = ", trust)
     assert trust > 0.76
     assert nans == 0
+
 
 @pytest.mark.parametrize('name', dataset_names)
 def test_tsne(name):
@@ -103,6 +105,7 @@ def test_tsne_large(nrows, ncols):
     Y = tsne.fit_transform(X)
     nans = np.sum(np.isnan(Y))
     assert nans == 0
+
 
 @pytest.mark.parametrize('name', dataset_names)
 @pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
