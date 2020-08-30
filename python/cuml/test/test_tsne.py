@@ -33,6 +33,7 @@ dataset_names = ['digits', 'boston', 'iris', 'breast_cancer',
 
 
 def check_embedding(X, Y):
+    """Compares TSNE embedding trustworthiness, NAN and verbosity"""
     nans = np.sum(np.isnan(Y))
     trust = trustworthiness(X, Y)
     print("Trust = ", trust)

@@ -175,6 +175,11 @@ def _insert_zeros(ary, zero_indices):
 
 @with_cupy_rmm
 def extract_knn_graph(self, knn_graph, convert_dtype=True):
+    """
+    Converts KNN graph from CSR, COO and CSC formats into separate
+    distance and indice arrays. Input can be a cupy sparse graph (device)
+    or a numpy sparse graph (host).
+    """
     if has_scipy():
         from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
     else:

@@ -52,6 +52,7 @@ void get_distances(const float *X, const int n, const int p, int64_t *indices,
                      std::shared_ptr<deviceAllocator> allocator,
                      cudaStream_t userStream,
  */
+ 
   MLCommon::Selection::brute_force_knn(input_vec, sizes_vec, p,
                                        const_cast<float *>(X), n, indices,
                                        distances, n_neighbors, d_alloc, stream);
