@@ -437,7 +437,6 @@ class UMAP(Base):
         params, covar = curve_fit(curve, xv, yv)
         return params[0], params[1]
 
-
     @generate_docstring(convert_dtype_cast='np.float32',
                         skip_parameters_heading=True)
     @with_cupy_rmm
