@@ -311,26 +311,21 @@ class TSNE(Base):
         -----------
         X : array-like (device or host) shape = (n_samples, n_features)
             X contains a sample per row.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
-        knn_graph : sparse array-like (device or host)
+         knn_graph : sparse array-like (device or host)
             shape=(n_samples, n_samples)
             A sparse array containing the k-nearest neighbors of X,
             where the columns are the nearest neighbor indices
             for each row and the values are their distances.
-            It's important that `k>=n_neighbors`,
-            so that UMAP can model the neighbors from this graph,
-            instead of building its own internally.
-            Users using the knn_graph parameter provide UMAP
+            Users using the knn_graph parameter provide t-SNE
             with their own run of the KNN algorithm. This allows the user
             to pick a custom distance function (sometimes useful
-            on certain datasets) whereas UMAP uses euclidean by default.
+            on certain datasets) whereas t-SNE uses euclidean by default.
             The custom distance function should match the metric used
-            to train UMAP embeedings. Storing and reusing a knn_graph
-            will also provide a speedup to the UMAP algorithm
+            to train t-SNE embeedings. Storing and reusing a knn_graph
+            will also provide a speedup to the t-SNE algorithm
             when performing a grid search.
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
@@ -454,26 +449,21 @@ class TSNE(Base):
         -----------
         X : array-like (device or host) shape = (n_samples, n_features)
             X contains a sample per row.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
         convert_dtype : bool, optional (default = True)
-            When set to True, the fit_transform method will automatically
+            When set to True, the fit method will automatically
             convert the inputs to np.float32.
-        knn_graph : sparse array-like (device or host)
+         knn_graph : sparse array-like (device or host)
             shape=(n_samples, n_samples)
             A sparse array containing the k-nearest neighbors of X,
             where the columns are the nearest neighbor indices
             for each row and the values are their distances.
-            It's important that `k>=n_neighbors`,
-            so that UMAP can model the neighbors from this graph,
-            instead of building its own internally.
-            Users using the knn_graph parameter provide UMAP
+            Users using the knn_graph parameter provide t-SNE
             with their own run of the KNN algorithm. This allows the user
             to pick a custom distance function (sometimes useful
-            on certain datasets) whereas UMAP uses euclidean by default.
+            on certain datasets) whereas t-SNE uses euclidean by default.
             The custom distance function should match the metric used
-            to train UMAP embeedings. Storing and reusing a knn_graph
-            will also provide a speedup to the UMAP algorithm
+            to train t-SNE embeedings. Storing and reusing a knn_graph
+            will also provide a speedup to the t-SNE algorithm
             when performing a grid search.
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
