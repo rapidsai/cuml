@@ -32,7 +32,7 @@ dataset_names = ['digits', 'boston', 'iris', 'breast_cancer',
                  'diabetes']
 
 
-def check_embeddings(X, Y):
+def check_embedding(X, Y):
     nans = np.sum(np.isnan(Y))
     trust = trustworthiness(X, Y)
     print("Trust = ", trust)

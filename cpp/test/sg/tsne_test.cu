@@ -26,8 +26,8 @@
 #include <cuml/common/logger.hpp>
 #include <iostream>
 #include <score/scores.cuh>
-#include <vector>
 #include <tsne/distances.cuh>
+#include <vector>
 
 using namespace MLCommon;
 using namespace MLCommon::Score;
@@ -51,8 +51,9 @@ class TSNETest : public ::testing::Test {
                              n * 2);
 
     // Test Barnes Hut
-    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, NULL, NULL, 2, 90, 0.5, 0.0025, 50, 100,
-             1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1);
+    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, NULL, NULL, 2, 90, 0.5,
+             0.0025, 50, 100, 1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5,
+             0.8, -1);
 
     // Move embeddings to host.
     // This can be used for printing if needed.
@@ -84,9 +85,9 @@ class TSNETest : public ::testing::Test {
         handle.getStream());
 
     // Test Exact TSNE
-    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, NULL, NULL, 2, 90, 0.5, 0.0025, 50, 100,
-             1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1,
-             CUML_LEVEL_INFO, false, false);
+    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, NULL, NULL, 2, 90, 0.5,
+             0.0025, 50, 100, 1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5,
+             0.8, -1, CUML_LEVEL_INFO, false, false);
 
     MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
                          handle.getStream());
@@ -129,26 +130,25 @@ class TSNETest : public ::testing::Test {
     device_buffer<float> Y_d(handle.getDeviceAllocator(), handle.getStream(),
                              n * 2);
 
-    MLCommon::device_buffer<int64_t> knn_indices(
-      handle.getDeviceAllocator(), handle.getStream(),
-      n * 90);
+    MLCommon::device_buffer<int64_t> knn_indices(handle.getDeviceAllocator(),
+                                                 handle.getStream(), n * 90);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    MLCommon::device_buffer<float> knn_dists(
-      handle.getDeviceAllocator(), handle.getStream(),
-      n * 90);
+    MLCommon::device_buffer<float> knn_dists(handle.getDeviceAllocator(),
+                                             handle.getStream(), n * 90);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    TSNE::get_distances(X_d.data(), n, p, knn_indices.data(), knn_dists.data(), 90,
-      handle.getDeviceAllocator(), handle.getStream());
-  
+    TSNE::get_distances(X_d.data(), n, p, knn_indices.data(), knn_dists.data(),
+                        90, handle.getDeviceAllocator(), handle.getStream());
+
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test Barnes Hut
-    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(), knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100,
-             1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1);
+    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(),
+             knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100, 1e-5, 12, 250, 0.01,
+             200, 500, 1000, 1e-7, 0.5, 0.8, -1);
 
     // Move embeddings to host.
     // This can be used for printing if needed.
@@ -180,9 +180,9 @@ class TSNETest : public ::testing::Test {
         handle.getStream());
 
     // Test Exact TSNE
-    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(), knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100,
-             1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1,
-             CUML_LEVEL_INFO, false, false);
+    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(),
+             knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100, 1e-5, 12, 250, 0.01,
+             200, 500, 1000, 1e-7, 0.5, 0.8, -1, CUML_LEVEL_INFO, false, false);
 
     MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
                          handle.getStream());
@@ -212,7 +212,7 @@ class TSNETest : public ::testing::Test {
     free(embeddings_h);
   }
 
-  void SetUp() override { 
+  void SetUp() override {
     basicTest();
     fitWithKNNTest();
   }
@@ -235,6 +235,7 @@ TEST_F(TSNETestF, Result) {
   ASSERT_TRUE(0.98 < score_bh && 0.98 < score_exact);
 
   if (knn_score_bh < 0.98) CUML_LOG_DEBUG("BH score = %f", knn_score_bh);
-  if (knn_score_exact < 0.98) CUML_LOG_DEBUG("Exact score = %f", knn_score_exact);
+  if (knn_score_exact < 0.98)
+    CUML_LOG_DEBUG("Exact score = %f", knn_score_exact);
   ASSERT_TRUE(0.98 < knn_score_bh && 0.98 < knn_score_exact);
 }

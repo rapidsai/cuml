@@ -67,7 +67,6 @@ void get_distances(const float *X, const int n, const int p, int64_t *indices,
  */
 void normalize_distances(const int n, float *distances, const int n_neighbors,
                          cudaStream_t stream) {
-
   // Now D / max(abs(D)) to allow exp(D) to not explode
   thrust::device_ptr<float> begin = thrust::device_pointer_cast(distances);
   float maxNorm = *thrust::max_element(thrust::cuda::par.on(stream), begin,

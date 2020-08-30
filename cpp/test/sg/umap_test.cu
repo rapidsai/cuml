@@ -206,11 +206,11 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    UMAPAlgo::_fit<float, 256>(
-      handle, X_d.data(), n_samples, n_features,
-      knn_indices.data(), knn_dists.data(), umap_params,
-      // nullptr, nullptr, umap_params,
-      embeddings.data());
+    UMAPAlgo::_fit<float, 256>(handle, X_d.data(), n_samples, n_features,
+                               knn_indices.data(), knn_dists.data(),
+                               umap_params,
+                               // nullptr, nullptr, umap_params,
+                               embeddings.data());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 

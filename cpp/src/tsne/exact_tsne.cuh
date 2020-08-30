@@ -47,8 +47,8 @@ namespace TSNE {
  * @param[in] intialize_embeddings: Whether to overwrite the current Y vector with random noise.
  */
 void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
-                const cumlHandle &handle, float *Y, const int n,
-                const int dim, const float early_exaggeration = 12.0f,
+                const cumlHandle &handle, float *Y, const int n, const int dim,
+                const float early_exaggeration = 12.0f,
                 const int exaggeration_iter = 250, const float min_gain = 0.01f,
                 const float pre_learning_rate = 200.0f,
                 const float post_learning_rate = 500.0f,

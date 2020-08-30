@@ -79,12 +79,12 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
            "Either both or none of the KNN parameters should be provided");
     knn_indices_b =
       new MLCommon::device_buffer<int64_t>(d_alloc, stream, n * n_neighbors);
-    knn_dists_b = 
+    knn_dists_b =
       new MLCommon::device_buffer<float>(d_alloc, stream, n * n_neighbors);
     knn_indices = knn_indices_b->data();
     knn_dists = knn_dists_b->data();
-    TSNE::get_distances(X, n, p, knn_indices, knn_dists, n_neighbors,
-      d_alloc, stream);
+    TSNE::get_distances(X, n, p, knn_indices, knn_dists, n_neighbors, d_alloc,
+                        stream);
   }
   //---------------------------------------------------
   END_TIMER(DistancesTime);
@@ -101,8 +101,8 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
   MLCommon::device_buffer<float> P(d_alloc, stream, n * n_neighbors);
   const float P_sum = TSNE::perplexity_search(
-    knn_dists, P.data(), perplexity, perplexity_max_iter, perplexity_tol,
-    n, n_neighbors, handle);
+    knn_dists, P.data(), perplexity, perplexity_max_iter, perplexity_tol, n,
+    n_neighbors, handle);
   CUML_LOG_DEBUG("Perplexity sum = %f", P_sum);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
