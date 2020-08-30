@@ -234,8 +234,7 @@ TEST_F(TSNETestF, Result) {
   if (score_exact < 0.98) CUML_LOG_DEBUG("Exact score = %f", score_exact);
   ASSERT_TRUE(0.98 < score_bh && 0.98 < score_exact);
 
-  if (knn_score_bh < 0.98) 
-    CUML_LOG_DEBUG("KNN BH score = %f", knn_score_bh);
+  if (knn_score_bh < 0.98) CUML_LOG_DEBUG("KNN BH score = %f", knn_score_bh);
   if (knn_score_exact < 0.98)
     CUML_LOG_DEBUG("KNN Exact score = %f", knn_score_exact);
   ASSERT_TRUE(0.98 < knn_score_bh && 0.98 < knn_score_exact);
