@@ -6,13 +6,13 @@ Please start by reading [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Performance
 1. In performance critical sections of the code, favor `cudaDeviceGetAttribute` over `cudaDeviceGetProperties`. See corresponding CUDA devblog [here](https://devblogs.nvidia.com/cuda-pro-tip-the-fast-way-to-query-device-properties/) to know more.
-2. If an algo requires you to launch GPU work in multiple cuda streams, do not create multiple `cumlHandle` objects, one for each such work stream. Instead, expose a `n_streams` parameter in that algo's cuML C++ interface and then rely on `cumlHandle_impl::getInternalStream()` to pick up the right cuda stream. Refer to the section on [CUDA Resources](#cuda-resources) and the section on [Threading](#TBD) for more details. TIP: use `cumlHandle_impl::getNumInternalStreams()` to know how many such streams are available at your disposal.
+2. If an algo requires you to launch GPU work in multiple cuda streams, do not create multiple `cumlHandle` objects, one for each such work stream. Instead, expose a `n_streams` parameter in that algo's cuML C++ interface and then rely on `raft::handle_t::get_internal_stream()` to pick up the right cuda stream. Refer to the section on [CUDA Resources](#cuda-resources) and the section on [Threading](#TBD) for more details. TIP: use `raft::handle_t::get_num_internal_streams` to know how many such streams are available at your disposal.
 
 ## Threading Model
 
-With the exception of the cumlHandle, cuML algorithms should maintain thread-safety and are, in general, 
+With the exception of the raft::handle_t, cuML algorithms should maintain thread-safety and are, in general, 
 assumed to be single threaded. This means they should be able to be called from multiple host threads so 
-long as different instances of `cumlHandle` are used.
+long as different instances of `raft::handle_t` are used.
 
 Exceptions are made for algorithms that can take advantage of multiple CUDA streams within multiple host threads
 in order to oversubscribe or increase occupancy on a single GPU. In these cases, the use of multiple host 
@@ -267,7 +267,7 @@ TODO: Add this
 To enable `libcuml.so` users to control how memory for temporary data is allocated, allocate device memory using the allocator provided:
 ```cpp
 template<typename T>
-void foo(const ML::cumlHandle_impl& h, cudaStream_t stream, ... )
+void foo(const raft::handle_t& h, cudaStream_t stream, ... )
 {
     T* temp_h = h.get_device_allocator()->allocate(n*sizeof(T), stream);
     ...
@@ -277,7 +277,7 @@ void foo(const ML::cumlHandle_impl& h, cudaStream_t stream, ... )
 The same rule applies to larger amounts of host heap memory:
 ```cpp
 template<typename T>
-void foo(const ML::cumlHandle_impl& h, cudaStream_t stream, ... )
+void foo(const raft::handle_t& h, cudaStream_t stream, ... )
 {
     T* temp_h = h.get_host_allocator()->allocate(n*sizeof(T), stream);
     ...
@@ -354,7 +354,7 @@ void foo(const double* const srcdata, double* const result)
 
     CUDA_CHECK( cudaMemcpyAsync( srcdata, h_srcdata.data(), n*sizeof(double), cudaMemcpyHostToDevice, stream ) );
 
-    ML::algo(cumlHandle, dopredict, srcdata, result, ... );
+    ML::algo(raft::handle_t, dopredict, srcdata, result, ... );
 
     CUDA_CHECK( cudaMemcpyAsync( h_result.data(), result, m*sizeof(int), cudaMemcpyDeviceToHost, stream ) );
 
@@ -457,7 +457,7 @@ A cuML developer can assume the following:
 The initialized instance of `raft::comms::comms_t` can be accessed from the `raft::handle_t` instance:
 
 ```cpp
-void foo(const ML::cumlHandle_impl& h, ...)
+void foo(const raft::handle_t& h, ...)
 {
     const MLCommon::cumlCommunicator& communicator = h.get_comms();
     const int rank = communicator.get_rank();
