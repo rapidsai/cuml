@@ -35,8 +35,8 @@
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 
-#include "../binary_op.cuh"
 #include <raft/linalg/cublas_wrappers.h>
+#include "../binary_op.cuh"
 #include "../unary_op.cuh"
 
 namespace MLCommon {
@@ -356,11 +356,11 @@ class Matrix {
     Matrix<T> Ainv(n, n, m_batch_size, m_cublasHandle, m_allocator, m_stream,
                    false);
 
-    CUBLAS_CHECK(raft::linalg::cublasgetrfBatched(m_cublasHandle, n, Acopy.data(), n,
-                                            P, info, m_batch_size, m_stream));
-    CUBLAS_CHECK(raft::linalg::cublasgetriBatched(m_cublasHandle, n, Acopy.data(), n,
-                                            P, Ainv.data(), n, info,
-                                            m_batch_size, m_stream));
+    CUBLAS_CHECK(raft::linalg::cublasgetrfBatched(
+      m_cublasHandle, n, Acopy.data(), n, P, info, m_batch_size, m_stream));
+    CUBLAS_CHECK(raft::linalg::cublasgetriBatched(
+      m_cublasHandle, n, Acopy.data(), n, P, Ainv.data(), n, info, m_batch_size,
+      m_stream));
 
     m_allocator->deallocate(P, sizeof(int) * n * m_batch_size, m_stream);
     m_allocator->deallocate(info, sizeof(int) * m_batch_size, m_stream);

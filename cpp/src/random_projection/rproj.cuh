@@ -170,9 +170,9 @@ void RPROJtransform(const raft::handle_t& handle, math_t* input,
     int& ldb = k;
     int& ldc = m;
 
-    CUBLAS_CHECK(raft::linalg::cublasgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k,
-                            &alfa, input, lda, random_matrix->dense_data.data(),
-                            ldb, &beta, output, ldc, stream));
+    CUBLAS_CHECK(raft::linalg::cublasgemm(
+      cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alfa, input, lda,
+      random_matrix->dense_data.data(), ldb, &beta, output, ldc, stream));
 
   } else if (random_matrix->type == sparse) {
     cusparseHandle_t cusparse_handle = handle.get_cusparse_handle();

@@ -19,8 +19,8 @@
 #include <thrust/device_vector.h>
 
 #include <common/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <linalg/transpose.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <cuda_utils.cuh>
 #include <linalg/subtract.cuh>
 #include <random/make_regression.cuh>

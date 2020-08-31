@@ -77,8 +77,8 @@ void HoltWintersDecompose(const raft::handle_t &handle, const Dtype *ts, int n,
     MLCommon::copy(start_level, ts + batch_size, batch_size, stream);
     MLCommon::copy(start_trend, ts + batch_size, batch_size, stream);
     const Dtype alpha = -1.;
-    CUBLAS_CHECK(raft::linalg::cublasaxpy(cublas_h, batch_size, &alpha, ts,
-                                              1, start_trend, 1, stream));
+    CUBLAS_CHECK(raft::linalg::cublasaxpy(cublas_h, batch_size, &alpha, ts, 1,
+                                          start_trend, 1, stream));
     // cublas::axpy(batch_size, (Dtype)-1., ts, start_trend);
   } else if (start_level != nullptr && start_trend != nullptr &&
              start_season != nullptr) {

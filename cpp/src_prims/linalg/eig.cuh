@@ -18,11 +18,11 @@
 
 #include <common/cudart_utils.h>
 #include <cuda_runtime_api.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <matrix/matrix.cuh>
-#include <raft/linalg/cusolver_wrappers.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -46,19 +46,19 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
            math_t *eig_vals, cusolverDnHandle_t cusolverH, cudaStream_t stream,
            std::shared_ptr<deviceAllocator> allocator) {
   int lwork;
-  CUSOLVER_CHECK(raft::linalg::cusolverDnsyevd_bufferSize(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
-                                            CUBLAS_FILL_MODE_UPPER, n_rows, in,
-                                            n_cols, eig_vals, &lwork));
+  CUSOLVER_CHECK(raft::linalg::cusolverDnsyevd_bufferSize(
+    cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n_rows, in,
+    n_cols, eig_vals, &lwork));
 
   device_buffer<math_t> d_work(allocator, stream, lwork);
   device_buffer<int> d_dev_info(allocator, stream, 1);
 
   MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
-  CUSOLVER_CHECK(raft::linalg::cusolverDnsyevd(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
-                                 CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,
-                                 n_cols, eig_vals, d_work.data(), lwork,
-                                 d_dev_info.data(), stream));
+  CUSOLVER_CHECK(raft::linalg::cusolverDnsyevd(
+    cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n_rows,
+    eig_vectors, n_cols, eig_vals, d_work.data(), lwork, d_dev_info.data(),
+    stream));
   CUDA_CHECK(cudaGetLastError());
 
   int dev_info;
@@ -177,10 +177,10 @@ void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
 
   MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
-  CUSOLVER_CHECK(raft::linalg::cusolverDnsyevj(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
-                                 CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,
-                                 n_cols, eig_vals, d_work.data(), lwork,
-                                 dev_info.data(), syevj_params, stream));
+  CUSOLVER_CHECK(raft::linalg::cusolverDnsyevj(
+    cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n_rows,
+    eig_vectors, n_cols, eig_vals, d_work.data(), lwork, dev_info.data(),
+    syevj_params, stream));
 
   int executed_sweeps;
   CUSOLVER_CHECK(
