@@ -17,13 +17,13 @@
 #pragma once
 
 #include <common/cudart_utils.h>
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/cusolver_wrappers.h>
 #include "eig.cuh"
 #include "gemm.cuh"
 #include "transpose.h"
@@ -73,8 +73,8 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
   T *d_rwork = nullptr;
 
   int lwork = 0;
-  CUSOLVER_CHECK(
-    raft::linalg::cusolverDngesvd_bufferSize<T>(cusolverH, n_rows, n_cols, &lwork));
+  CUSOLVER_CHECK(raft::linalg::cusolverDngesvd_bufferSize<T>(cusolverH, n_rows,
+                                                             n_cols, &lwork));
   device_buffer<T> d_work(allocator, stream, lwork);
 
   char jobu = 'S';
@@ -180,10 +180,10 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
 
   device_buffer<math_t> d_work(allocator, stream, lwork);
 
-  CUSOLVER_CHECK(raft::linalg::cusolverDngesvdj(cusolverH, CUSOLVER_EIG_MODE_VECTOR, econ, m,
-                                  n, in, m, sing_vals, left_sing_vecs, m,
-                                  right_sing_vecs, n, d_work.data(), lwork,
-                                  devInfo.data(), gesvdj_params, stream));
+  CUSOLVER_CHECK(raft::linalg::cusolverDngesvdj(
+    cusolverH, CUSOLVER_EIG_MODE_VECTOR, econ, m, n, in, m, sing_vals,
+    left_sing_vecs, m, right_sing_vecs, n, d_work.data(), lwork, devInfo.data(),
+    gesvdj_params, stream));
 
   CUSOLVER_CHECK(cusolverDnDestroyGesvdjInfo(gesvdj_params));
 }
@@ -261,9 +261,9 @@ bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
   CUDA_CHECK(
     cudaMemsetAsync(A_minus_P.data(), 0, sizeof(math_t) * m * n, stream));
 
-  CUBLAS_CHECK(raft::linalg::cublasgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, m, n, &alpha, A_d,
-                          m, &beta, P_d.data(), m, A_minus_P.data(), m,
-                          stream));
+  CUBLAS_CHECK(raft::linalg::cublasgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, m, n,
+                                        &alpha, A_d, m, &beta, P_d.data(), m,
+                                        A_minus_P.data(), m, stream));
 
   math_t norm_A_minus_P =
     Matrix::getL2Norm(A_minus_P.data(), m * n, cublasH, stream);

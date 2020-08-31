@@ -55,9 +55,9 @@ void cov(Type *covar, Type *data, const Type *mu, int D, int N, bool sample,
     Type alpha = Type(1) / (sample ? Type(N - 1) : Type(N));
     Type beta = Type(0);
     if (rowMajor) {
-      CUBLAS_CHECK(raft::linalg::cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, D, D, N,
-                                      &alpha, data, D, data, D, &beta, covar, D,
-                                      stream));
+      CUBLAS_CHECK(raft::linalg::cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, D,
+                                            D, N, &alpha, data, D, data, D,
+                                            &beta, covar, D, stream));
     } else {
       LinAlg::gemm(data, N, D, data, covar, D, D, CUBLAS_OP_T, CUBLAS_OP_N,
                    alpha, beta, handle, stream);

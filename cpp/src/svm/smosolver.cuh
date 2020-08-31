@@ -27,8 +27,8 @@
 #include <type_traits>
 
 #include <cuml/matrix/kernelparams.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <linalg/gemv.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
 #include <linalg/unary_op.cuh>

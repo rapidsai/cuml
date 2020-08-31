@@ -153,8 +153,8 @@ class MultiVarGaussian {
     CURAND_CHECK(curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT));
     CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(gen, 28));  // SEED
     if (method == chol_decomp) {
-      CUSOLVER_CHECK(raft::linalg::cusolverDnpotrf_bufferSize(cusolverHandle, uplo,
-                                                        dim, P, dim, &Lwork));
+      CUSOLVER_CHECK(raft::linalg::cusolverDnpotrf_bufferSize(
+        cusolverHandle, uplo, dim, P, dim, &Lwork));
     } else if (method == jacobi) {  // jacobi init
       CUSOLVER_CHECK(cusolverDnCreateSyevjInfo(&syevj_params));
       CUSOLVER_CHECK(cusolverDnXsyevjSetTolerance(syevj_params, tol));
@@ -177,18 +177,18 @@ class MultiVarGaussian {
   void give_gaussian(const int nPoints, T *P, T *X, const T *x = 0) {
     if (method == chol_decomp) {
       // lower part will contains chol_decomp
-      CUSOLVER_CHECK(raft::linalg::cusolverDnpotrf(cusolverHandle, uplo, dim, P, dim,
-                                             workspace_decomp, Lwork, info,
-                                             cudaStream));
+      CUSOLVER_CHECK(raft::linalg::cusolverDnpotrf(cusolverHandle, uplo, dim, P,
+                                                   dim, workspace_decomp, Lwork,
+                                                   info, cudaStream));
     } else if (method == jacobi) {
       CUSOLVER_CHECK(raft::linalg::cusolverDnsyevj(
         cusolverHandle, jobz, uplo, dim, P, dim, eig, workspace_decomp, Lwork,
         info, syevj_params,
         cudaStream));  // vectors stored as cols. & col major
     } else {           // qr
-      CUSOLVER_CHECK(raft::linalg::cusolverDnsyevd(cusolverHandle, jobz, uplo, dim, P,
-                                             dim, eig, workspace_decomp, Lwork,
-                                             info, cudaStream));
+      CUSOLVER_CHECK(raft::linalg::cusolverDnsyevd(
+        cusolverHandle, jobz, uplo, dim, P, dim, eig, workspace_decomp, Lwork,
+        info, cudaStream));
     }
     updateHost(&info_h, info, 1, cudaStream);
     CUDA_CHECK(cudaStreamSynchronize(cudaStream));
@@ -207,9 +207,9 @@ class MultiVarGaussian {
       CUDA_CHECK(cudaPeekAtLastError());
 
       // P is lower triangular chol decomp mtrx
-      CUBLAS_CHECK(raft::linalg::cublasgemm(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N,
-                                      dim, nPoints, dim, &alfa, P, dim, X, dim,
-                                      &beta, X, dim, cudaStream));
+      CUBLAS_CHECK(raft::linalg::cublasgemm(
+        cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, dim, nPoints, dim, &alfa, P,
+        dim, X, dim, &beta, X, dim, cudaStream));
     } else {
       epsilonToZero(eig, epsilon, dim, cudaStream);
       dim3 block(64);
@@ -226,9 +226,9 @@ class MultiVarGaussian {
       ASSERT(info_h == 0, "mvg: Cov matrix has %dth Eigenval negative", info_h);
 
       // Got Q = eigvect*eigvals.sqrt in P, Q*X in X below
-      CUBLAS_CHECK(raft::linalg::cublasgemm(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N,
-                                      dim, nPoints, dim, &alfa, P, dim, X, dim,
-                                      &beta, X, dim, cudaStream));
+      CUBLAS_CHECK(raft::linalg::cublasgemm(
+        cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, dim, nPoints, dim, &alfa, P,
+        dim, X, dim, &beta, X, dim, cudaStream));
     }
     // working to make mean not 0
     // since we are working with column-major, nPoints and dim are swapped

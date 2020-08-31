@@ -16,13 +16,13 @@
 
 #pragma once
 
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
 #include <random/rng.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/cusolver_wrappers.h>
 #include "eig.cuh"
 #include "gemm.cuh"
 #include "gemv.h"
@@ -105,29 +105,30 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
   const int lda = m;
   const int ldb = m;
 
-  CUSOLVER_CHECK(
-    raft::linalg::cusolverDngeqrf_bufferSize(cusolverH, m, n, A, lda, &lwork_geqrf));
+  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf_bufferSize(cusolverH, m, n, A,
+                                                          lda, &lwork_geqrf));
 
-  CUSOLVER_CHECK(raft::linalg::cusolverDnormqr_bufferSize(cusolverH, side, trans, m, 1, n, A,
-                                            lda, d_tau.data(), b,  // C,
-                                            lda,                   // ldc,
-                                            &lwork_ormqr));
+  CUSOLVER_CHECK(raft::linalg::cusolverDnormqr_bufferSize(
+    cusolverH, side, trans, m, 1, n, A, lda, d_tau.data(), b,  // C,
+    lda,                                                       // ldc,
+    &lwork_ormqr));
 
   lwork = (lwork_geqrf > lwork_ormqr) ? lwork_geqrf : lwork_ormqr;
 
   device_buffer<math_t> d_work(allocator, stream, lwork);
 
-  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf(cusolverH, m, n, A, lda, d_tau.data(),
-                                 d_work.data(), lwork, d_info.data(), stream));
+  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf(cusolverH, m, n, A, lda,
+                                               d_tau.data(), d_work.data(),
+                                               lwork, d_info.data(), stream));
 
   CUDA_CHECK(cudaMemcpyAsync(&info, d_info.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   ASSERT(0 == info, "lstsq.h: QR wasn't successful");
 
-  CUSOLVER_CHECK(raft::linalg::cusolverDnormqr(cusolverH, side, trans, m, 1, n, A, lda,
-                                 d_tau.data(), b, ldb, d_work.data(), lwork,
-                                 d_info.data(), stream));
+  CUSOLVER_CHECK(raft::linalg::cusolverDnormqr(
+    cusolverH, side, trans, m, 1, n, A, lda, d_tau.data(), b, ldb,
+    d_work.data(), lwork, d_info.data(), stream));
 
   CUDA_CHECK(cudaMemcpyAsync(&info, d_info.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
@@ -136,9 +137,9 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 
   const math_t one = 1;
 
-  CUBLAS_CHECK(raft::linalg::cublastrsm(cublasH, side, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
-                          CUBLAS_DIAG_NON_UNIT, n, 1, &one, A, lda, b, ldb,
-                          stream));
+  CUBLAS_CHECK(raft::linalg::cublastrsm(cublasH, side, CUBLAS_FILL_MODE_UPPER,
+                                        CUBLAS_OP_N, CUBLAS_DIAG_NON_UNIT, n, 1,
+                                        &one, A, lda, b, ldb, stream));
 
   CUDA_CHECK(cudaMemcpyAsync(w, b, sizeof(math_t) * n, cudaMemcpyDeviceToDevice,
                              stream));
