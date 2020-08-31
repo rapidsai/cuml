@@ -57,11 +57,12 @@ __global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL) {
  * an array of labels drawn from a monotonically increasing set.
  */
 template <typename Index_ = int>
-void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
+void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream,
+                   std::shared_ptr<deviceAllocator> allocator) {
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   MLCommon::Label::make_monotonic(
     db_cluster, db_cluster, N, stream,
-    [MAX_LABEL] __device__(Index_ val) { return val == MAX_LABEL; });
+    [MAX_LABEL] __device__(Index_ val) { return val == MAX_LABEL; }, allocator);
 }
 
 /* @param N number of points
@@ -202,7 +203,8 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   }
 
   ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
-  if (algoCcl == 2) final_relabel(labels, N, stream);
+  if (algoCcl == 2)
+    final_relabel(labels, N, stream, handle.get_device_allocator());
   size_t nblks = ceildiv<size_t>(N, TPB);
   relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
   CUDA_CHECK(cudaPeekAtLastError());

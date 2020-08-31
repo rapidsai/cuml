@@ -147,14 +147,12 @@ __global__ void map_label_kernel(Type *map_ids, size_t N_labels, Type *in,
    */
 template <typename Type, typename Lambda>
 void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
-                    Lambda filter_op) {
+                    Lambda filter_op,
+                    std::shared_ptr<deviceAllocator> allocator) {
   static const size_t TPB_X = 256;
 
   dim3 blocks(ceildiv(N, TPB_X));
   dim3 threads(TPB_X);
-
-  std::shared_ptr<deviceAllocator> allocator(
-    new raft::mr::device::default_allocator);
 
   Type *map_ids;
   int num_clusters;
@@ -184,9 +182,10 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
    * @param stream cuda stream to use
    */
 template <typename Type>
-void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream) {
-  make_monotonic<Type>(out, in, N, stream,
-                       [] __device__(Type val) { return false; });
+void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
+                    std::shared_ptr<deviceAllocator> allocator) {
+  make_monotonic<Type>(
+    out, in, N, stream, [] __device__(Type val) { return false; }, allocator);
 }
 };  // namespace Label
 };  // end namespace MLCommon
