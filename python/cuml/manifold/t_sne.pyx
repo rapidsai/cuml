@@ -298,6 +298,12 @@ class TSNE(Base):
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
 
+        self._hyperparams = ["n_components", "perplexity", "early_exaggeration", 
+            "learning_rate", "n_iter", "n_iter_without_progress", "min_grad_norm", "metric", 
+            "init", "verbose", "random_state", "method", "angle", "learning_rate_method", 
+            "n_neighbors", "perplexity_max_iter", "exaggeration_iter", "pre_momentum", 
+            "post_momentum"]
+
     def fit(self, X, convert_dtype=True):
         """Fit X into an embedded space.
 
@@ -444,3 +450,6 @@ class TSNE(Base):
                                    verbose=state['verbose'])
         self.__dict__.update(state)
         return state
+
+   def get_param_names(self):
+        return self._hyperparams

@@ -364,6 +364,14 @@ class UMAP(Base):
         self._embedding_ = None  # accessed via embedding_
 
         self.validate_hyperparams()
+    
+        self._hyperparams = ["n_neighbors", "n_components", "n_epochs", 
+            "learning_rate", "min_dist", "spread", "set_op_mix_ratio", 
+            "local_connectivity", "repulsion_strength", "negative_sample_rate", 
+            "transform_queue_size", "init", "a", "b", "target_n_neighbors", 
+            "target_weights", "target_metric", "hash_input", "random_state", 
+            "optim_batch_size"]
+
 
     def validate_hyperparams(self):
 
@@ -759,3 +767,8 @@ class UMAP(Base):
         ret = embedding.to_output(out_type)
         del X_m
         return ret
+
+
+
+   def get_param_names(self):
+        return self._hyperparams

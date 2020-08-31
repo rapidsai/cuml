@@ -219,6 +219,9 @@ class NearestNeighbors(Base):
         self.p = p
         self.algorithm = algorithm
 
+        self._hyperparams = ["n_neighbors", "algorithm", "metric", "p", 
+            "metric_params"]
+
     def fit(self, X, convert_dtype=True):
         """
         Fit GPU index for performing nearest neighbor queries.
@@ -602,3 +605,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         query = X.X_m
 
     return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)
+
+
+   def get_param_names(self):
+        return self._hyperparams
