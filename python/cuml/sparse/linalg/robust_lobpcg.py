@@ -25,25 +25,109 @@ def isNaN(num):
     return num!=num
 
 
-def lobpcg(A,                   # type:  ndarray
-           k=None,              # type:  [int]
-           B=None,              # type:  [ndarray]
-           X=None,              # type:  [ndarray]
-           n=None,              # type:  [int]
-           iK=None,             # type:  [ndarray]
-           niter=None,          # type:  [int]
-           tol=None,            # type:  [float]
-           largest=None,        # type:  [bool]
-           method=None,         # type:  [str]
-           ortho_iparams=None,  # type:  [Dict[str, int]]
-           ortho_fparams=None,  # type:  [Dict[str, float]]
-           ortho_bparams=None,  # type:  [Dict[str, bool]]
-           verbosityLevel = 0,   #type: int
-           retLambdaHistory=False, #type: Boolean
-           retResidualNormsHistory=False #Type: Boolean
+def lobpcg(A,
+           k=None,
+           B=None,
+           X=None,
+           n=None,
+           iK=None,
+           niter=None,
+           tol=None,
+           largest=None,
+           method=None,
+           ortho_iparams=None,
+           ortho_fparams=None,
+           ortho_bparams=None,
+           verbosityLevel = 0,
+           retLambdaHistory=False,
+           retResidualNormsHistory=False
            ):
+    """
+    This method implements the `method = "ortho"` and method = "basic"`
+    LOBPCG algos.
 
-    # print('\n------------------------CuPy LOBPCG----------------------------\n')
+    Parameters
+    ----------
+
+    A : cupy.ndarray
+            input ndarray of shape (n,n)
+
+    B : cupy.ndarray, optional
+            When not specified, `B` is interpereted as
+            identity matrix.
+
+    X : cupy.ndarray, optional
+            the input ndarray of shape (n,k)
+            When specified, it is used as
+            initial approximation of eigenvectors. X must be a
+            dense ndarray.
+
+    iK : cupy.ndarray, optional
+            the input ndarray of size (n,n).
+            When specified, it will be used as preconditioner.
+
+    k : integer, optional (but needs to be specified if X isn't)
+            the number of requested
+            eigenpairs.
+
+    niter : int, optional
+            maximum number of iterations.
+            When reached, the iteration process is hard-stopped and
+            the current approximation of eigenpairs is returned.
+            For infinite iteration but until convergence criteria
+            is met, use `-1`.
+
+    method : str, optional
+            select LOBPCG method.
+            `method="ortho"` - the Default LOBPCG method with
+                orthogonal basis selection [StathopoulosEtal2002].
+                A robust method.
+            `method="basic"` - the LOBPCG method introduced by Andrew
+                Knyazev, see [Knyazev2001]. A less robust method,
+                may fail when Cholesky is applied to singular input.
+
+    tol : float, optional
+            residual tolerance for stopping
+            criterion. Default is `feps ** 0.5` where `feps` is
+            smallest non-zero floating-point number of the given
+            input ndarray `A` data type.
+
+    largest : bool, optional
+            when True, solve the eigenproblem for
+            the largest eigenvalues. Otherwise, solve the
+            eigenproblem for smallest eigenvalues. Default is
+            `True`.
+
+    VerbosityLevel : int, optional
+            Prints verbose trace of the iterations if value
+            greater than 0.
+
+    ortho_iparams, ortho_fparams, ortho_bparams : dict, optional
+            various parameters to LOBPCG algorithm when using
+            `method="ortho"`.
+
+    retLambdaHistory: boolean, optional
+            Whether to return the history of eigen-values as a list
+            of arrays
+
+    retResidualNormsHistory: boolean, optional
+            Whether to return the residual L2 norm history of
+            eigen-vectors as a list of ndarrays.
+
+    Returns
+    -------
+
+    E : cupy.ndarray
+            eigenvalues of size (k,)
+    X : cupy.ndarray
+            eigenvectors of size (n,k)
+    lambdas : list of cupy.ndarrays, optional
+            The eigenvalue history, if `retLambdaHistory` is True.
+    rnorms : list of cupy.ndarrays
+            The history of residual norms, if `retResidualNormsHistory`
+            is True.
+    """
+
     # A must be square:
     assert A.shape[-2] == A.shape[-1], A.shape
     if B is not None:
@@ -52,11 +136,7 @@ def lobpcg(A,                   # type:  ndarray
 
     #dtype = _utils.get_floating_dtype(A)
     dtype = cp.float32 if A.dtype not in (cp.float32, cp.float64) else A.dtype
-    #device = A.device
-    #print("dtype value holds:{}".format(dtype))
     if tol is None:
-        """feps = {cp.float32: 1.2e-07,
-                cp.float64: 2.23e-16}[dtype]"""
         feps = 2.23e-16 if dtype == cp.float64 else 1.2e-07
         tol = feps ** 0.5
 
@@ -161,17 +241,16 @@ class LOBPCG(object):
     """
 
     def __init__(self,
-                 A,        # type:  [ndarray]
-                 B,        # type:  [ndarray]
-                 X,        # type: ndarray
-                 iK,       # type:  [ndarray]
-                 iparams,  # type: Dict[str, int]
-                 fparams,  # type: Dict[str, float]
-                 bparams,  # type: Dict[str, bool]
-                 method,   # type: str
-                 verbosityLevel #type:  [int]
+                 A,
+                 B,
+                 X,
+                 iK,
+                 iparams,
+                 fparams,
+                 bparams,
+                 method,
+                 verbosityLevel
                  ):
-        # type: (...) -> None
 
         # constant parameters
         self.A = A
@@ -418,27 +497,23 @@ class LOBPCG(object):
           D` with one element-wise product `M * dd`; and `d` replaces
           matrix product `D M` with element-wise product `M *
           d`. Also, creating the diagonal matrix `D` is avoided.
-        Arguments:
+        Parameters
+        ------------
         S (ndarray): the matrix basis for the search subspace, size is
                     :math:`(m, n)`.
-        Returns:
+        Returns
+        -------
         Ri (ndarray): upper-triangular transformation matrix of size
                      :math:`(n, n)`.
         """
-        #print("\ninput to rayleigh ritz function:\n{}\n".format(S))
         B = self.B
         mm = cp.matmul
         SBS = _utils.qform(B, S)
         d_row = SBS.diagonal(0, -2, -1) ** -0.5
         d_col = d_row.reshape(d_row.shape[0], 1)
         ch_inp= (SBS * d_row) * d_col
-        #print("input to cholesky:\n", ch_inp, "\nshape of input to cholesky:\n",ch_inp.shape,"\ndeterminant of input:", cp.linalg.det(ch_inp))
         R = cp.linalg.cholesky((SBS * d_row) * d_col).transpose()#cupy linalg cholesky returns the lower triangular matrix. we transpose to get the upper one.
-        #print("output R of cupy cholesky\n", R)
-        #print("output R of torch cholesky\n", torch_R)
-        # TODO: could use LAPACK ?trtri as R is upper-triangular
         Rinv = cp.linalg.inv(R)
-        #print("\noutput to rayleigh ritz function:\n", out)
         return Rinv * d_col
 
     def _get_svqb(self,
@@ -452,17 +527,18 @@ class LOBPCG(object):
                   Algorithm 4 from [DuerschPhD2015] that is a slight
                   modification of the corresponding algorithm
                   introduced in [StathopolousWu2002].
-        Arguments:
+        Parameters
+        ------------
           U (ndarray) : initial approximation, size is (m, n)
           drop (bool) : when True, drop columns that
                      contribution to the `span([U])` is small.
           tau (float) : positive tolerance
-        Returns:
+        Returns
+        -------
           U (ndarray) : B-orthonormal columns (:math:`U^T B U = I`), size
                        is (m, n1), where `n1 = n` if `drop` is `False,
                        otherwise `n1 <= n`.
         """
-        #if len(U) == 0 or U.shape[-1] == 0:
         if U.size == 0:
             return U
         UBU = _utils.qform(self.B, U)
@@ -489,7 +565,6 @@ class LOBPCG(object):
         # The original algorithm 4 from [DuerschPhD2015].
         d_col = (d ** -0.5).reshape(d.shape[0], 1)
         DUBUD = (UBU * d_col) * _utils.transpose(d_col)
-        assert len(DUBUD), print("logs:\n{}\n d-shape:{}\nDUBUD shape:{}\n UBU shape:{}\n U:{}\n ".format(self.__str__(), d.shape, DUBUD.shape, UBU.shape, U))
         E, Z = _utils.symeig(DUBUD)
         t = tau * cp.abs(E).max()
         if drop:
@@ -513,10 +588,14 @@ class LOBPCG(object):
                   implements Algorithm 6 from [DuerschPhD2015]
         .. note:: If all U columns are B-collinear to V then the
                   returned ndarray U will be empty.
-        Arguments:
+        Parameters
+        ----------
+
           U (ndarray) : initial approximation, size is (m, n)
           V (ndarray) : B-orthogonal external basis, size is (m, k)
-        Returns:
+
+        Returns
+        -------
           U (ndarray) : B-orthonormal columns (:math:`U^T B U = I`)
                        such that :math:`V^T B U=0`, size is (m, n1),
                        where `n1 = n` if `drop` is `False, otherwise
@@ -557,7 +636,6 @@ class LOBPCG(object):
                     tau_svqb = tau_replace
                 else:
                     U = self._get_svqb(U, False, tau_replace)
-                #if len(U) == 0 or U.shape[-1] == 0:
                 if U.size == 0:
                     # all initial U columns are B-collinear to V
                     self.ivars['ortho_i'] = i
@@ -570,7 +648,6 @@ class LOBPCG(object):
                 R = UBU - cp.eye(UBU.shape[-1],
                                     dtype=UBU.dtype)
                 R_norm = cp.linalg.norm(R)
-                # https://github.com/pycp/pycp/issues/33810 workaround:
                 rerr = float(R_norm) * float(BU_norm * U_norm) ** -1
                 vkey = 'ortho_UBUmI_rerr[{}, {}]'.format(i, j)
                 self.fvars[vkey] = rerr

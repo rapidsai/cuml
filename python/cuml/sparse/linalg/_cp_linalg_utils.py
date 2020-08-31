@@ -18,6 +18,9 @@ import numpy as np
 import cupy as cp
 import cupyx.scipy.sparse
 
+"""
+A Set of utility methods that is called by the `robust_lobpcg.py` implementation.
+"""
 
 
 def is_sparse(A):
@@ -38,7 +41,6 @@ def get_floating_dtype(A):
 
 
 def matmul(A, B):
-    # type: (Optional[Tensor], Tensor) -> Tensor
     """Multiply two matrices.
     If A is None, return B. A can be sparse or dense. B is always
     dense.
@@ -49,25 +51,9 @@ def matmul(A, B):
         return A.multiply(B)
     return cp.matmul(A, B)
 
-"""
-def conjugate(A):
-    if A.is_complex():
-        return A.conj()
-    return A
-"""
-
 def transpose(A):
     ndim = len(A.shape)
     return A.transpose(ndim - 1, ndim - 2)
-
-"""
-def transjugate(A):
-    return conjugate(transpose(A))
-
-
-def bform(X, A, Y):
-    return matmul(transpose(X), matmul(A, Y))
-"""
 
 def qform(A, S):
     return matmul(transpose(S), matmul(A, S))

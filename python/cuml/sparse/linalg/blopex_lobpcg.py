@@ -43,7 +43,6 @@ def _report_nonhermitian(M, name):
     """
     Report if `M` is not a hermitian matrix given its type.
     """
-    #from scipy.linalg import norm
     from cupy.linalg import norm
 
     md = M - M.T.conj()
@@ -72,7 +71,6 @@ def _as2d(ar):
 def _applyConstraints(blockVectorV, YBY, blockVectorBY, blockVectorY):
     """Changes blockVectorV in place."""
     YBV = cp.dot(blockVectorBY.T.conj(), blockVectorV)
-    #tmp = cho_solve(factYBY, YBV)
     tmp = solve(YBY, YBV)
     blockVectorV -= cp.dot(blockVectorY, tmp)
 
@@ -95,10 +93,8 @@ def _b_orthonormalize(B, blockVectorV, blockVectorBV=None, retInvR=False):
         VBV = cp.transpose(cholesky(VBV)) #cupy cholesky module returns lower triangular matrix!!!
         VBV = inv(VBV)
         blockVectorV = cp.matmul(blockVectorV, VBV)
-        # blockVectorV = (cho_solve((VBV.T, True), blockVectorV.T)).T
         if B is not None:
             blockVectorBV = cp.matmul(blockVectorBV, VBV)
-            # blockVectorBV = (cho_solve((VBV.T, True), blockVectorBV.T)).T
         else:
             blockVectorBV = None
     except:
@@ -120,7 +116,6 @@ def _get_indx(_lambda, num, largest):
         ii = ii[:-num - 1:-1]
     else:
         ii = ii[:num]
-    #print('sizeX:{}, ii:{}'.format(num, ii))
     return ii
 
 
@@ -136,7 +131,6 @@ def _genEigh(A, B):
     F = cp.matmul(RTi, cp.matmul(A,Ri))
     vals, vecs = eigh(F)
     eigVec = cp.matmul(Ri,vecs)
-    #print("input to _genEigh:\n A:{}, B:{} \n output: lmbd:{}, X:{}\n".format(A,B,vals, eigVec))
 
     return vals, eigVec
 
@@ -146,7 +140,6 @@ def _bmat(list_obj):
     using iterated vertical and horizontal stacking
     """
 
-    #obj = cp.array(list_obj)
     arr_rows = cp.array([])
     for row in list_obj: #row & list_obj are a list of cupy arrays
         arr_cols = cp.array([])
@@ -156,13 +149,13 @@ def _bmat(list_obj):
             if(arr_cols.size == 0):
                 arr_cols = col
                 continue
-            #print("ndim of col:", col.ndim, "ndim of arr_col:", arr_cols.ndim)
+
             arr_cols = cp.hstack((arr_cols, col))
         if(arr_rows.size == 0):
             arr_rows = arr_cols
             continue
         arr_rows = cp.vstack((arr_rows, arr_cols))
-    #print("output shape:", arr_rows.shape)
+
     return arr_rows
 
 
@@ -170,10 +163,6 @@ def _handle_gramA_gramB_verbosity(gramA, gramB, verbosityLevel):
     if verbosityLevel > 0:
         _report_nonhermitian(gramA, 'gramA')
         _report_nonhermitian(gramB, 'gramB')
-    #if verbosityLevel > 10:
-    # Note: not documented, but leave it in here for now
-    #cp.savetxt('gramA.txt', gramA)
-    #cp.savetxt('gramB.txt', gramB)
 
 
 def lobpcg(A,
@@ -192,10 +181,10 @@ def lobpcg(A,
     definite (SPD) generalized eigenproblems.
     Parameters
     ----------
-    A : {cupy ndarray}
-        The symmetric linear operator of the problem, usually a
-        sparse matrix.  Often called the "stiffness matrix".
-    X : ndarray, float32 or float64
+    A : {cupy.ndarray}
+        The symmetric linear operator of the problem, Is treated as a 2D matrix.
+        Often called the "stiffness matrix".
+    X : cupy.ndarray, float32 or float64
         Initial approximation to the ``k`` eigenvectors (non-sparse). If `A`
         has ``shape=(n,n)`` then `X` should have shape ``shape=(n,k)``.
     B : {cupy ndarray}, optional
@@ -288,7 +277,6 @@ def lobpcg(A,
 
         vals, vecs = _genEigh(A_dense, B_dense)
         if largest:
-            # Reverse order to be compatible with eigs() in 'LM' mode.
             vals = vals[::-1]
             vecs = vecs[:, ::-1]
 
