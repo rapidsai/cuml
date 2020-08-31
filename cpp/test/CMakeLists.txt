@@ -87,8 +87,7 @@ if(BUILD_CUML_MG_TESTS)
       mg/knn_classify.cu
       mg/knn_regress.cu
       mg/main.cu
-      mg/pca.cu
-      mg/test_ml_mg_utils.cu)
+      mg/pca.cu)
 
     set(CUML_TEST_INCLUDE_DIRS
         ${CUML_TEST_INCLUDE_DIRS}
