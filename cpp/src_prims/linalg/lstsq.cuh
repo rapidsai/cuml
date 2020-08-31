@@ -21,8 +21,8 @@
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
 #include <random/rng.cuh>
-#include "cublas_wrappers.h"
-#include "cusolver_wrappers.h"
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include "eig.cuh"
 #include "gemm.cuh"
 #include "gemv.h"
@@ -106,9 +106,9 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
   const int ldb = m;
 
   CUSOLVER_CHECK(
-    cusolverDngeqrf_bufferSize(cusolverH, m, n, A, lda, &lwork_geqrf));
+    raft::linalg::cusolverDngeqrf_bufferSize(cusolverH, m, n, A, lda, &lwork_geqrf));
 
-  CUSOLVER_CHECK(cusolverDnormqr_bufferSize(cusolverH, side, trans, m, 1, n, A,
+  CUSOLVER_CHECK(raft::linalg::cusolverDnormqr_bufferSize(cusolverH, side, trans, m, 1, n, A,
                                             lda, d_tau.data(), b,  // C,
                                             lda,                   // ldc,
                                             &lwork_ormqr));
@@ -117,7 +117,7 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 
   device_buffer<math_t> d_work(allocator, stream, lwork);
 
-  CUSOLVER_CHECK(cusolverDngeqrf(cusolverH, m, n, A, lda, d_tau.data(),
+  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf(cusolverH, m, n, A, lda, d_tau.data(),
                                  d_work.data(), lwork, d_info.data(), stream));
 
   CUDA_CHECK(cudaMemcpyAsync(&info, d_info.data(), sizeof(int),
@@ -125,7 +125,7 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
   CUDA_CHECK(cudaStreamSynchronize(stream));
   ASSERT(0 == info, "lstsq.h: QR wasn't successful");
 
-  CUSOLVER_CHECK(cusolverDnormqr(cusolverH, side, trans, m, 1, n, A, lda,
+  CUSOLVER_CHECK(raft::linalg::cusolverDnormqr(cusolverH, side, trans, m, 1, n, A, lda,
                                  d_tau.data(), b, ldb, d_work.data(), lwork,
                                  d_info.data(), stream));
 
@@ -136,7 +136,7 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 
   const math_t one = 1;
 
-  CUBLAS_CHECK(cublastrsm(cublasH, side, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
+  CUBLAS_CHECK(raft::linalg::cublastrsm(cublasH, side, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
                           CUBLAS_DIAG_NON_UNIT, n, 1, &one, A, lda, b, ldb,
                           stream));
 

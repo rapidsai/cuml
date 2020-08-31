@@ -24,7 +24,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 
 #include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <linalg/init.h>
 #include <linalg/transpose.h>
 #include <linalg/add.cuh>
@@ -95,10 +95,10 @@ static void _make_low_rank_matrix(DataT* out, IdxT n_rows, IdxT n_cols,
   temp_q0s.resize(n_rows * n, stream);
   temp_out.resize(n_rows * n_cols, stream);
   DataT alpha = 1.0, beta = 0.0;
-  LinAlg::cublasgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, n_rows, n, n,
+  raft::linalg::cublasgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, n_rows, n, n,
                      &alpha, q0.data(), n_rows, singular_mat.data(), n, &beta,
                      temp_q0s.data(), n_rows, stream);
-  LinAlg::cublasgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T, n_rows, n_cols, n,
+  raft::linalg::cublasgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T, n_rows, n_cols, n,
                      &alpha, temp_q0s.data(), n_rows, q1.data(), n_cols, &beta,
                      temp_out.data(), n_rows, stream);
 
@@ -226,7 +226,7 @@ void make_regression(DataT* out, DataT* values, IdxT n_rows, IdxT n_cols,
 
   // Compute the output values
   DataT alpha = (DataT)1.0, beta = (DataT)0.0;
-  CUBLAS_CHECK(LinAlg::cublasgemm(
+  CUBLAS_CHECK(raft::linalg::cublasgemm(
     cublas_handle, CUBLAS_OP_T, CUBLAS_OP_T, n_rows, n_targets, n_informative,
     &alpha, out, n_cols, _coef, n_targets, &beta, _values_col, n_rows, stream));
 

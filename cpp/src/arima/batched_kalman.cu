@@ -25,7 +25,7 @@
 #include <cuml/tsa/batched_kalman.hpp>
 
 #include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <common/nvtx.hpp>

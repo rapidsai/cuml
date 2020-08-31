@@ -150,17 +150,17 @@ void batched_ls(const raft::handle_t &handle, const Dtype *data, int trend_len,
   }
   MLCommon::updateDevice(A_d.data(), A_h.data(), 2 * trend_len, stream);
 
-  CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDngeqrf_bufferSize<Dtype>(
+  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf_bufferSize<Dtype>(
     cusolver_h, trend_len, 2, A_d.data(), 2, &geqrf_buffer));
 
-  CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnorgqr_bufferSize<Dtype>(
+  CUSOLVER_CHECK(raft::linalg::cusolverDnorgqr_bufferSize<Dtype>(
     cusolver_h, trend_len, 2, 2, A_d.data(), 2, tau_d.data(), &orgqr_buffer));
 
   lwork_size = geqrf_buffer > orgqr_buffer ? geqrf_buffer : orgqr_buffer;
   MLCommon::device_buffer<Dtype> lwork_d(dev_allocator, stream, lwork_size);
 
   // QR decomposition of A
-  CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDngeqrf<Dtype>(
+  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf<Dtype>(
     cusolver_h, trend_len, 2, A_d.data(), trend_len, tau_d.data(),
     lwork_d.data(), lwork_size, dev_info_d.data(), stream));
 
@@ -168,11 +168,11 @@ void batched_ls(const raft::handle_t &handle, const Dtype *data, int trend_len,
   RinvKernel<Dtype><<<1, 1, 0, stream>>>(A_d.data(), Rinv_d.data(), trend_len);
 
   // R1QT = inv(R)*transpose(Q)
-  CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnorgqr<Dtype>(
+  CUSOLVER_CHECK(raft::linalg::cusolverDnorgqr<Dtype>(
     cusolver_h, trend_len, 2, 2, A_d.data(), trend_len, tau_d.data(),
     lwork_d.data(), lwork_size, dev_info_d.data(), stream));
 
-  CUBLAS_CHECK(MLCommon::LinAlg::cublasgemm<Dtype>(
+  CUBLAS_CHECK(raft::linalg::cublasgemm<Dtype>(
     cublas_h, CUBLAS_OP_N, CUBLAS_OP_T, 2, trend_len, 2, &one, Rinv_d.data(), 2,
     A_d.data(), trend_len, &zero, R1Qt_d.data(), 2, stream));
 
@@ -217,7 +217,7 @@ void stl_decomposition_gpu(const raft::handle_t &handle, const Dtype *ts, int n,
   if (seasonal == ML::SeasonalType::ADDITIVE) {
     const Dtype one = 1.;
     const Dtype minus_one = -1.;
-    CUBLAS_CHECK(MLCommon::LinAlg::cublasgeam<Dtype>(
+    CUBLAS_CHECK(raft::linalg::cublasgeam<Dtype>(
       cublas_h, CUBLAS_OP_N, CUBLAS_OP_N, trend_len, batch_size, &one,
       ts + ts_offset, trend_len, &minus_one, trend_d.data(), trend_len,
       season_d.data(), trend_len, stream));

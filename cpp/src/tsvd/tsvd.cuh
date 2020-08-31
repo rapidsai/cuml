@@ -17,7 +17,7 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <linalg/transpose.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>

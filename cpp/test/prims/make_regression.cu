@@ -19,7 +19,7 @@
 #include <thrust/device_vector.h>
 
 #include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <linalg/transpose.h>
 #include <cuda_utils.cuh>
 #include <linalg/subtract.cuh>
@@ -69,7 +69,7 @@ class MakeRegressionTest
 
     // Calculate the values from the data and coefficients (column-major)
     T alpha = (T)1.0, beta = (T)0.0;
-    CUBLAS_CHECK(LinAlg::cublasgemm(
+    CUBLAS_CHECK(raft::linalg::cublasgemm(
       cublas_handle, CUBLAS_OP_T, CUBLAS_OP_T, params.n_samples,
       params.n_targets, params.n_features, &alpha, data, params.n_features,
       coef, params.n_targets, &beta, values_cm, params.n_samples, stream));

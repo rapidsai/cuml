@@ -155,7 +155,7 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     T alfa = 1.0 / (nPoints - 1), beta = 0.0;
     cublasHandle_t handle;
     CUBLAS_CHECK(cublasCreate(&handle));
-    CUBLAS_CHECK(LinAlg::cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, dim, dim,
+    CUBLAS_CHECK(raft::linalg::cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, dim, dim,
                                     nPoints, &alfa, X_d, dim, X_d, dim, &beta,
                                     Rand_cov, dim, stream));
 

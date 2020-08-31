@@ -19,7 +19,7 @@
 #include <vector>
 
 #include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
@@ -80,7 +80,7 @@ struct SimpleMat {
 
     if (ord == COL_MAJOR && A.ord == COL_MAJOR &&
         B.ord == COL_MAJOR) {  // base case
-      MLCommon::LinAlg::cublasgemm(
+      raft::linalg::cublasgemm(
         handle.get_cublas_handle(),          // handle
         transA ? CUBLAS_OP_T : CUBLAS_OP_N,  // transA
         transB ? CUBLAS_OP_T : CUBLAS_OP_N,  // transB

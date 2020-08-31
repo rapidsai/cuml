@@ -20,8 +20,8 @@
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
 #include <random/rng.cuh>
-#include "cublas_wrappers.h"
-#include "cusolver_wrappers.h"
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include "eig.cuh"
 #include "gemm.cuh"
 #include "qr.cuh"
