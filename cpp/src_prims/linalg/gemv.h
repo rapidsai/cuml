@@ -18,7 +18,7 @@
 
 #include <cublas_v2.h>
 #include <cuda_utils.cuh>
-#include "cublas_wrappers.h"
+#include <raft/linalg/cublas_wrappers.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -46,7 +46,7 @@ void gemv(const math_t* a, int n_rows, int n_cols, const math_t* x, int incx,
   int n = n_cols;
   int lda = trans_a ? m : n;
 
-  CUBLAS_CHECK(cublasgemv(cublas_h, op_a, m, n, &alpha, a, lda, x, incx, &beta,
+  CUBLAS_CHECK(raft::linalg::cublasgemv(cublas_h, op_a, m, n, &alpha, a, lda, x, incx, &beta,
                           y, incy, stream));
 }
 

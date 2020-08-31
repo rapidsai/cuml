@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <linalg/transpose.h>
 #include <cuda_utils.cuh>
 #include <linalg/add.cuh>

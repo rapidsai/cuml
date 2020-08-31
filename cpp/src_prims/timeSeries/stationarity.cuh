@@ -34,7 +34,7 @@
 #include <vector>
 
 #include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <linalg/matrix_vector_op.cuh>

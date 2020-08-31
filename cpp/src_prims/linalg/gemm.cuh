@@ -18,7 +18,7 @@
 
 #include <cublas_v2.h>
 #include <cuda_utils.cuh>
-#include "cublas_wrappers.h"
+#include <raft/linalg/cublas_wrappers.h>
 #include "cutlass_wrappers.cuh"
 
 namespace MLCommon {
@@ -165,7 +165,7 @@ void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
   int lda = trans_a == CUBLAS_OP_T ? k : m;
   int ldb = trans_b == CUBLAS_OP_T ? n : k;
   int ldc = m;
-  CUBLAS_CHECK(LinAlg::cublasgemm(cublas_h, trans_a, trans_b, m, n, k, &alpha,
+  CUBLAS_CHECK(raft::linalg::cublasgemm(cublas_h, trans_a, trans_b, m, n, k, &alpha,
                                   a, lda, b, ldb, &beta, c, ldc, stream));
 }
 
@@ -270,7 +270,7 @@ void gemm(cublasHandle_t handle, T *z, T *x, T *y, int _M, int _N, int _K,
     K = _K;
   }
   // Actual cuBLAS call
-  CUBLAS_CHECK(LinAlg::cublasgemm(handle, trans_a, trans_b, M, N, K, &alpha, a,
+  CUBLAS_CHECK(raft::linalg::cublasgemm(handle, trans_a, trans_b, M, N, K, &alpha, a,
                                   lda, b, ldb, &beta, c, ldc, stream));
 }
 

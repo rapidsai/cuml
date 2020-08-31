@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <linalg/transpose.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>

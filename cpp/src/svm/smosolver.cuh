@@ -27,7 +27,7 @@
 #include <type_traits>
 
 #include <cuml/matrix/kernelparams.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <linalg/gemv.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
@@ -191,13 +191,13 @@ class SmoSolver {
                const math_t *cacheTile) {
     // multipliers used in the equation : f = 1*cachtile * delta_alpha + 1*f
     math_t one = 1;
-    CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
+    CUBLAS_CHECK(raft::linalg::cublasgemv(
       handle.get_cublas_handle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
       n_rows, delta_alpha, 1, &one, f, 1, stream));
     if (svmType == EPSILON_SVR) {
       // SVR has doubled the number of trainig vectors and we need to update
       // alpha for both batches individually
-      CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
+      CUBLAS_CHECK(raft::linalg::cublasgemv(
         handle.get_cublas_handle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
         n_rows, delta_alpha, 1, &one, f + n_rows, 1, stream));
     }

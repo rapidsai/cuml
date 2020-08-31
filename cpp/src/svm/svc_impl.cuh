@@ -26,7 +26,7 @@
 #include <cublas_v2.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -150,7 +150,7 @@ void svcPredict(const raft::handle_t &handle, math_t *input, int n_rows,
                      K.data(), stream, ld1, model.n_support, n_batch);
     math_t one = 1;
     math_t null = 0;
-    CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
+    CUBLAS_CHECK(raft::linalg::cublasgemv(
       cublas_handle, CUBLAS_OP_N, n_batch, model.n_support, &one, K.data(),
       n_batch, model.dual_coefs, 1, &null, y.data() + i, 1, stream));
   }

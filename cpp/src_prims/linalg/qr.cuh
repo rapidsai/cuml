@@ -19,8 +19,8 @@
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <matrix/matrix.cuh>
-#include "cublas_wrappers.h"
-#include "cusolver_wrappers.h"
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/cusolver_wrappers.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -56,9 +56,9 @@ void qrGetQ(math_t *M, math_t *Q, int n_rows, int n_cols,
   device_buffer<int> devInfo(allocator, stream, 1);
   int Lwork;
 
-  CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, m, n, Q, m, &Lwork));
+  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf_bufferSize(cusolverH, m, n, Q, m, &Lwork));
   device_buffer<math_t> workspace(allocator, stream, Lwork);
-  CUSOLVER_CHECK(cusolverDngeqrf(cusolverH, m, n, Q, m, tau.data(),
+  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf(cusolverH, m, n, Q, m, tau.data(),
                                  workspace.data(), Lwork, devInfo.data(),
                                  stream));
   /// @note in v9.2, without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail.
@@ -66,9 +66,9 @@ void qrGetQ(math_t *M, math_t *Q, int n_rows, int n_cols,
   CUDA_CHECK(cudaDeviceSynchronize());
 #endif
   CUSOLVER_CHECK(
-    cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau.data(), &Lwork));
+    raft::linalg::cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau.data(), &Lwork));
   workspace.resize(Lwork, stream);
-  CUSOLVER_CHECK(cusolverDnorgqr(cusolverH, m, n, k, Q, m, tau.data(),
+  CUSOLVER_CHECK(raft::linalg::cusolverDnorgqr(cusolverH, m, n, k, Q, m, tau.data(),
                                  workspace.data(), Lwork, devInfo.data(),
                                  stream));
 }
@@ -100,11 +100,11 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
   int Lwork;
   device_buffer<int> devInfo(allocator, stream, 1);
 
-  CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, R_full_nrows,
+  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf_bufferSize(cusolverH, R_full_nrows,
                                             R_full_ncols, R_full.data(),
                                             R_full_nrows, &Lwork));
   device_buffer<math_t> workspace(allocator, stream, Lwork);
-  CUSOLVER_CHECK(cusolverDngeqrf(
+  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf(
     cusolverH, R_full_nrows, R_full_ncols, R_full.data(), R_full_nrows,
     tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
   // @note in v9.2, without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail.
@@ -118,11 +118,11 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
                              cudaMemcpyDeviceToDevice, stream));
   int Q_nrows = m, Q_ncols = n;
 
-  CUSOLVER_CHECK(cusolverDnorgqr_bufferSize(cusolverH, Q_nrows, Q_ncols,
+  CUSOLVER_CHECK(raft::linalg::cusolverDnorgqr_bufferSize(cusolverH, Q_nrows, Q_ncols,
                                             min(Q_ncols, Q_nrows), Q, Q_nrows,
                                             tau.data(), &Lwork));
   workspace.resize(Lwork, stream);
-  CUSOLVER_CHECK(cusolverDnorgqr(
+  CUSOLVER_CHECK(raft::linalg::cusolverDnorgqr(
     cusolverH, Q_nrows, Q_ncols, min(Q_ncols, Q_nrows), Q, Q_nrows, tau.data(),
     workspace.data(), Lwork, devInfo.data(), stream));
 }

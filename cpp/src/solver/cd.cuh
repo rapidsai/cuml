@@ -17,7 +17,7 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/solvers/params.hpp>

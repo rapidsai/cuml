@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <linalg/gemm.cuh>
 #include "mean_center.cuh"
 
@@ -55,7 +55,7 @@ void cov(Type *covar, Type *data, const Type *mu, int D, int N, bool sample,
     Type alpha = Type(1) / (sample ? Type(N - 1) : Type(N));
     Type beta = Type(0);
     if (rowMajor) {
-      CUBLAS_CHECK(LinAlg::cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, D, D, N,
+      CUBLAS_CHECK(raft::linalg::cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, D, D, N,
                                       &alpha, data, D, data, D, &beta, covar, D,
                                       stream));
     } else {
