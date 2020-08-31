@@ -66,7 +66,7 @@ class DistancesTest
     updateDevice(csc_data, csc_data_h.data(), 8, stream);
 
     std::vector<value_t> out_dists_ref_h = {
-      5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0,
+      5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0,
       5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0,
     };
 
@@ -106,7 +106,6 @@ class DistancesTest
     allocate(out_dists, 16);
 
     Distance::ip_distances_t<value_idx, value_t> compute_dists(dist_config);
-
     compute_dists.compute(out_dists);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));

@@ -108,7 +108,7 @@ struct ip_distances_t {
 
  private:
 
-  void init_mat_descriptor(cusparseMatDescr_t mat) {
+  void init_mat_descriptor(cusparseMatDescr_t &mat) {
     CUSPARSE_CHECK(cusparseCreateMatDescr(&mat));
     CUSPARSE_CHECK(cusparseSetMatIndexBase(mat, CUSPARSE_INDEX_BASE_ZERO));
     CUSPARSE_CHECK(cusparseSetMatType(mat, CUSPARSE_MATRIX_TYPE_GENERAL));
@@ -215,17 +215,12 @@ struct l2_distances_t {
       workspace(config.allocator, config.stream, 0),
       ip_dists(config) {}
 
-  value_idx get_nnz(value_idx *csr_out_indptr) {
-    return ip_dists.get_nnz(csr_out_indptr);
-  }
-
-  void compute(const value_idx *csr_out_indptr, value_idx *csr_out_indices,
-               value_t *csr_out_data) {
-    value_idx m = config_.search_nrows, n = config_.index_nrows,
-              k = config_.search_ncols;
-
     //TODO: Modify interface to just output dense directly and just make a compute call.
-  }
+    void compute(value_t *out_dists) {
+
+
+    }
+
 
  private:
   distances_config_t<value_idx, value_t> config_;

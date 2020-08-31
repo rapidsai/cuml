@@ -221,6 +221,13 @@ class NearestNeighbors(Base):
         self.p = p
         self.algorithm = algorithm
 
+    def _sparse_fit(self, X, convert_dtype=True):
+
+
+
+
+
+
     @generate_docstring()
     def fit(self, X, convert_dtype=True):
         """
