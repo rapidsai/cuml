@@ -31,7 +31,6 @@
 namespace ML {
 
 using namespace MLCommon;
-using namespace MLCommon::LinAlg;
 
 /**
 	 * @brief generates a gaussian random matrix

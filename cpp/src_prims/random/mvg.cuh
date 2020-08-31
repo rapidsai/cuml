@@ -153,7 +153,7 @@ class MultiVarGaussian {
     CURAND_CHECK(curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT));
     CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(gen, 28));  // SEED
     if (method == chol_decomp) {
-      CUSOLVER_CHECK(raft::linalg::Dnpotrf_bufferSize(cusolverHandle, uplo,
+      CUSOLVER_CHECK(raft::linalg::cusolverDnpotrf_bufferSize(cusolverHandle, uplo,
                                                         dim, P, dim, &Lwork));
     } else if (method == jacobi) {  // jacobi init
       CUSOLVER_CHECK(cusolverDnCreateSyevjInfo(&syevj_params));
