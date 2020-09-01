@@ -417,17 +417,13 @@ void infer_k_launcher(storage_type forest, predict_params params,
            get_smem_footprint<1, leaf_payload_type>(params) > params.max_shm) {
       --params.num_cols;
     }
-    ASSERT(false, "p.num_cols == %d: too many features, only %d allowed%s",
-           given_num_cols, params.num_cols,
-           leaf_payload_type == INT_CLASS_LABEL
-             ? " (accounting for shared class vote histogram)"
-             : (params.num_classes > 2
-                  ? ""
-                  : " (accounting for per-thread accumulator)"));
+    ASSERT(false, "p.num_cols == %d: too many features, only %d allowed",
+           given_num_cols, params.num_cols);
   }
   int num_blocks = ceildiv(int(params.num_rows), num_items);
-  int blockdim_x =
-    FIL_TPB - (params.num_classes > 2 ? FIL_TPB % params.num_classes : 0);
+  int blockdim_x = FIL_TPB;
+  if (params.num_classes <= blockdim_x && params.leaf_payload_type == FLOAT_SCALAR)
+    blockdim_x -= blockdim_x % params.num_classes;
   switch (num_items) {
     case 1:
       infer_k<1, leaf_payload_type>
