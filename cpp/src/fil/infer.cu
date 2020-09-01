@@ -42,6 +42,10 @@ struct vec {
     r += b;
     return r;
   }
+  inline __host__ __device__ void fill(T val) {
+#pragma unroll
+    for (int i = 0; i < N; ++i) data[i] = val;
+  }
 };
 
 template <int NITEMS, typename output_type, typename tree_type>
@@ -119,6 +123,24 @@ template <int NITEMS,
           leaf_value_t leaf_payload_type>  // = FLOAT_SCALAR
 struct tree_aggregator_t {
   typedef vec<NITEMS, float> Acc;
+  struct best_margin_label {
+    Acc margin, label;
+    __host__ __device__ best_margin_label
+    operator()(const best_margin_label& a, const best_margin_label& b) {
+      best_margin_label c;
+      for (int i = 0; i < NITEMS; i++) {
+        if (a.margin[i] > b.margin[i]) {
+          c.margin[i] = a.margin[i];
+          c.label[i] = a.label[i];
+        } else {
+          c.margin[i] = b.margin[i];
+          c.label[i] = b.label[i];
+        }
+      }
+      return c;
+    }
+  };
+
   Acc acc;
   void* tmp_storage;
   int num_classes;
@@ -143,11 +165,21 @@ struct tree_aggregator_t {
   num_classes is used for other template parameters */
   __device__ __forceinline__ tree_aggregator_t(int num_classes_,
                                                void* shared_workspace, size_t)
-    : tmp_storage(shared_workspace), num_classes(num_classes_) {}
+    : tmp_storage(shared_workspace), num_classes(num_classes_) {
+    if (blockDim.x < num_classes) {
+      for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
+        ((Acc*)tmp_storage)[c].fill(0.0f);
+    }
+  }
 
-  __device__ __forceinline__ void accumulate(
-    Acc single_tree_prediction) {
-    acc += single_tree_prediction;
+  __device__ __forceinline__ void accumulate(Acc single_tree_prediction,
+                                             int tree) {
+    if (blockDim.x >= num_classes)
+      acc += single_tree_prediction;
+    else {
+      ((Acc*)tmp_storage)[tree % num_classes] += single_tree_prediction;
+      __syncthreads();
+    }
   }
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
@@ -162,34 +194,44 @@ struct tree_aggregator_t {
           if (row < num_rows) out[row * num_outputs] = acc[i];
         }
       }
-    } else { // predict_proba() not supported yet
-      per_thread = (*Acc)tmp_storage;
-      if (threadIdx.x >= num_classes)
-        per_thread[threadIdx.x] = acc;
-      __syncthreads();
-      if (threadIdx.x < num_classes) {
-        for(int c = threadIdx.x; c < blockDim.x; c += num_classes)
-          acc += per_thread[c];
-        per_thread[threadIdx.x] = acc;
+    } else {  // predict_proba() not supported yet
+      best_margin_label best;
+      if (blockDim.x >= num_classes) {
+        Acc* per_thread = (Acc*)tmp_storage;
+        if (threadIdx.x >= num_classes) per_thread[threadIdx.x] = acc;
+        __syncthreads();
+        if (threadIdx.x < num_classes) {
+          for (int c = threadIdx.x + num_classes; c < blockDim.x;
+               c += num_classes)
+            acc += per_thread[c];
+          best.margin = acc;
+          best.label.fill(threadIdx.x);
+        }
+        __syncthreads();
+        typedef typename cub::BlockReduce<best_margin_label, FIL_TPB> BR;
+        best = BR(*(typename BR::TempStorage*)tmp_storage)
+                 .Reduce(best, best, num_classes);
+      } else {
+        Acc* per_class = (Acc*)tmp_storage;
+        best.margin = per_class[threadIdx.x];
+        best.label.fill(threadIdx.x);
+        for (int c = threadIdx.x + blockDim.x; c < num_classes;
+             c += blockDim.x) {
+          best_margin_label candidate;
+          candidate.margin = per_class[c];
+          candidate.label.fill(c);
+          best = best(best, candidate);
+        }
+        __syncthreads();
+        typedef typename cub::BlockReduce<best_margin_label, FIL_TPB> BR;
+        best = BR(*(typename BR::TempStorage*)tmp_storage)
+                 .Reduce(best, best, blockDim.x);
       }
-      __syncthreads();
+
       if (threadIdx.x == 0) {
-        Acc best_margin, best_class;
-        for (int i = 0; i < NITEMS; ++i) {
-          best_margin[i] = -INF;
-          best_class[i] = -1;
-        }
-        for (int c = 0; c < num_classes; c++) {
-          for (int i = 0; i < NITEMS; ++i) {
-            if (best_margin[i] < per_thread[c][i]) {
-              best_margin[i] = per_thread[c][i];
-              best_class[i] = c;
-            }
-          }
-        }
         for (int i = 0; i < NITEMS; ++i) {
           int row = blockIdx.x * NITEMS + i;
-          if (row < num_rows) out[row * num_classes] = best_class[i];
+          if (row < num_rows) out[row * num_classes] = best.label[i];
         }
       }
     }
@@ -221,7 +263,7 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
     //__syncthreads(); // happening outside already
   }
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, int> single_tree_prediction) {
+    vec<NITEMS, int> single_tree_prediction, int tree) {
 #pragma unroll
     for (int item = 0; item < NITEMS; ++item)
       atomicAdd(votes + single_tree_prediction[item] * NITEMS + item, 1);
@@ -291,7 +333,8 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   // one block works on NITEMS rows and the whole forest
   for (int j = threadIdx.x; j < forest.num_trees(); j += blockDim.x) {
     acc.accumulate(infer_one_tree<NITEMS, leaf_output_t<leaf_payload_type>::T>(
-      forest[j], sdata, params.num_cols));
+                     forest[j], sdata, params.num_cols),
+                   j);
   }
   acc.finalize(params.preds, params.num_rows, params.num_outputs);
 }
@@ -359,12 +402,13 @@ void infer_k_launcher(storage_type forest, predict_params params,
            given_num_cols, params.num_cols,
            leaf_payload_type == INT_CLASS_LABEL
              ? " (accounting for shared class vote histogram)"
-             : (num_classes > 2
-                ? ""
-                : " (accounting for per-thread accumulator)"));
+             : (params.num_classes > 2
+                  ? ""
+                  : " (accounting for per-thread accumulator)"));
   }
   int num_blocks = ceildiv(int(params.num_rows), num_items);
-  int blockdim_x = FIL_TPB - (num_classes > 2 ? FIL_TPB % num_classes : 0);
+  int blockdim_x =
+    FIL_TPB - (params.num_classes > 2 ? FIL_TPB % params.num_classes : 0);
   switch (num_items) {
     case 1:
       infer_k<1, leaf_payload_type>

@@ -16,6 +16,7 @@
 
 /** @file fil.cu implements forest inference */
 
+#include <stdlib.h>
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
@@ -26,7 +27,6 @@
 #include <limits>
 #include <stack>
 #include <utility>
-#include <stdlib.h>
 
 #include <cuml/fil/fil.h>
 #include <cuml/common/cuml_allocator.hpp>
@@ -221,7 +221,11 @@ struct forest {
       }
     }
 
-    printf("ot %o num_classes_ %d params.preds offset %d leaf_payload_type %d num_outputs %d do_transform %d\n", ot, num_classes_, params.preds - preds, leaf_payload_type_, params.num_outputs, do_transform);
+    printf(
+      "ot %o num_classes_ %d params.preds offset %d leaf_payload_type %d "
+      "num_outputs %d do_transform %d\n",
+      ot, num_classes_, params.preds - preds, leaf_payload_type_,
+      params.num_outputs, do_transform);
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
     infer(params, stream);
@@ -631,7 +635,6 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     ASSERT(leaf_vec_size == model.num_output_group,
            "treelite model inconsistent");
     params->num_classes = leaf_vec_size;
-    params->leaf_payload_type = leaf_value_t::INT_CLASS_LABEL;
 
     ASSERT(tl_params->output_class,
            "output_class==true is required for multi-class models");
@@ -640,8 +643,9 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
       pred_transform == "max_index" || pred_transform == "identity_multiclass",
       "only max_index and identity_multiclass values of pred_transform "
       "are supported for multi-class models. provided: '%s'",
-      pred_transform);
+      param.pred_transform);
 
+    params->leaf_payload_type = leaf_value_t::INT_CLASS_LABEL;
   } else {
     if (model.num_output_group > 1) {
       params->num_classes = model.num_output_group;
@@ -654,27 +658,24 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
              "pred_transform "
              "are supported for xgboost-style multi-class classification "
              "models. provided: %s",
-             pred_transform);
-      }
+             param.pred_transform);
     } else {
       params->num_classes = tl_params->output_class ? 2 : 1;
       ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
              "only sigmoid and identity values of pred_transform "
              "are supported for binary classification and regression models. "
              "provided: %s",
-             pred_transform);
+             param.pred_transform);
     }
     params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
   }
-  if (pred_transform == "max_index")
-    params->output = output_t(params->output & ~output_t::CLASS);
 
   params->num_cols = model.num_feature;
 
   ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
   params->global_bias = param.global_bias;
   params->output = output_t::RAW;
-  if (tl_params->output_class) {
+  if (tl_params->output_class && pred_transform != "max_index") {
     params->output = output_t(params->output | output_t::CLASS);
   }
   // "random forest" in treelite means tree output averaging
