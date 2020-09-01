@@ -170,8 +170,7 @@ class Lasso(Base, RegressorMixin):
         Fit the model with X and y.
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
 
         return self
@@ -180,7 +179,7 @@ class Lasso(Base, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the y for X.
 

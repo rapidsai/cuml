@@ -45,7 +45,7 @@ class KNeighborsMG(NearestNeighbors):
 
     def get_out_type(self, data, query):
         if len(data) > 0:
-            self._set_output_type(data[0])
+            self._set_base_attributes(output_type=data[0])
         out_type = self.output_type
         if len(query) > 0:
             out_type = self._get_output_type(query[0])

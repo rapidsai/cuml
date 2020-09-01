@@ -141,7 +141,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
         cuml_model = curfc(max_features=1.0, n_bins=8,
                             split_algo=0, min_rows_per_node=2,
-                            n_estimators=40, accuracy_metric='mse')
+                            n_estimators=40, accuracy_metric='r2')
         cuml_model.fit(X,y)
         cuml_score = cuml_model.score(X,y)
         print("MSE score of cuml : ", cuml_score)
@@ -202,8 +202,11 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         If float the min_rows_per_sample*n_rows
     min_impurity_decrease : float (default = 0.0)
         The minimum decrease in impurity required for node to be split
-    accuracy_metric : string (default = 'mse')
+    accuracy_metric : string (default = 'r2')
         Decides the metric used to evaluate the performance of the model.
+        In the 0.16 release, the default scoring metric was changed
+        from mean squared error to r-squared.
+        for r-squared : 'r2'
         for median of abs error : 'median_ae'
         for mean of abs error : 'mean_ae'
         for mean square error' : 'mse'
@@ -221,7 +224,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     """
 
     def __init__(self, split_criterion=2,
-                 accuracy_metric='mse',
+                 accuracy_metric='r2',
                  **kwargs):
         self.RF_type = REGRESSION
         super(RandomForestRegressor, self).__init__(
@@ -560,6 +563,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
               fil_sparse_format='auto', predict_model="GPU"):
         """
         Calculates the accuracy metric score of the model for X.
+        In the 0.16 release, the default scoring metric was changed
+        from mean squared error to r-squared.
 
         Parameters
         ----------
@@ -598,6 +603,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         median_abs_error : float or
         mean_abs_error : float
         """
+        from cuml.metrics.regression import r2_score
+
         cdef uintptr_t y_ptr
         _, n_rows, _, dtype = \
             input_to_cuml_array(X,
@@ -617,6 +624,14 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         preds_m, _, _, _ = \
             input_to_cuml_array(preds, convert_to_dtype=dtype)
         preds_ptr = preds_m.ptr
+
+        # shortcut for default accuracy metric of r^2
+        if self.accuracy_metric == "r2":
+            stats = r2_score(y_m, preds, handle=self.handle)
+            self.handle.sync()
+            del(y_m)
+            del(preds_m)
+            return stats
 
         cdef handle_t* handle_ =\
             <handle_t*><uintptr_t>self.handle.getHandle()

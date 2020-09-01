@@ -195,8 +195,7 @@ cdef class BaseRandomProjection():
             generated random matrix as attributes
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         _, n_samples, n_features, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
