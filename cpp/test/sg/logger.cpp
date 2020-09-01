@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <string>
 #include <gtest/gtest.h>
 #include <cuml/common/logger.hpp>
 
@@ -34,6 +35,40 @@ TEST(Logger, Test) {
   ASSERT_FALSE(Logger::get().shouldLogFor(CUML_LEVEL_DEBUG));
   ASSERT_TRUE(Logger::get().shouldLogFor(CUML_LEVEL_INFO));
   ASSERT_TRUE(Logger::get().shouldLogFor(CUML_LEVEL_WARN));
+}
+
+
+std::string logged = "";
+void exampleCallback(int lvl, const char * msg) {
+  logged = std::string(msg);
+}
+
+TEST(Logger, callback) {
+  Logger::get().setCallback(exampleCallback);
+  Logger::get().setLevel(CUML_LEVEL_TRACE);
+
+  std::string testMsg;
+
+  testMsg = "This is a critical message";
+  CUML_LOG_CRITICAL(testMsg.c_str());
+  ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
+
+  testMsg = "This is an error message";
+  CUML_LOG_ERROR(testMsg.c_str());
+  ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
+
+  testMsg = "This is a warning message";
+  CUML_LOG_WARN(testMsg.c_str());
+  ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
+
+  testMsg = "This is an info message";
+  CUML_LOG_INFO(testMsg.c_str());
+  ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
+
+  testMsg = "This is a debug message";
+  CUML_LOG_DEBUG(testMsg.c_str());
+  ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
+
 }
 
 }  // namespace ML
