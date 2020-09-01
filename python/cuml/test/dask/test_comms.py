@@ -155,7 +155,7 @@ def test_recv_any_rank(n_trials, ucx_client):
         assert result
 
     finally:
-        cb.dest
+        cb.destroy()
 
 
 # Sanity check to make sure all GPUs have unique ids. If this fails, something
