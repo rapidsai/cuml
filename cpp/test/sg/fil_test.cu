@@ -57,9 +57,16 @@ struct FilTestParams {
   // treelite parameters, only used for treelite tests
   tl::Operator op;
   fil::leaf_value_t leaf_payload_type;
-  // num_classes must be 1 or 2 when FLOAT_SCALAR == leaf_payload_type
-  // (1 if it's regression)
-  // num_classes must be >1 when INT_CLASS_LABEL == leaf_payload_type
+  // when FLOAT_SCALAR == leaf_payload_type:
+  // num_classes = 1 means it's regression
+  // num_classes = 2 means it's binary classification 
+  // (complement probabilities, then use threshold)
+  // num_classes > 2 means it's multiclass classification,
+  // done by splitting the forest in num_classes groups,
+  // each of which computes one-vs-all probability for its class.
+  // when INT_CLASS_LABEL == leaf_payload_type:
+  // num_classes must be > 1 and it's multiclass classification.
+  // done by storing the class label in each leaf and voting.
   // it's used in treelite ModelBuilder initialization
   int num_classes;
 
@@ -252,38 +259,42 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     std::vector<float> want_preds_h(ps.num_preds_outputs());
     std::vector<float> want_proba_h(ps.num_proba_outputs());
     int num_nodes = tree_num_nodes();
-    switch (ps.leaf_payload_type) {
-      case fil::leaf_value_t::FLOAT_SCALAR:
-        for (int i = 0; i < ps.num_rows; ++i) {
-          float pred = 0.0f;
+    std::vector<float> class_scores(ps.num_classes);
+    for (int r = 0; r < ps.num_rows; ++r) {
+      std::fill(class_scores.begin(), class_scores.end(), 0.0f);
+      switch (ps.leaf_payload_type) {
+        case fil::leaf_value_t::FLOAT_SCALAR:
           for (int j = 0; j < ps.num_trees; ++j) {
-            pred +=
-              infer_one_tree(&nodes[j * num_nodes], &data_h[i * ps.num_cols]).f;
+            class_scores[j % ps.num_classes] +=
+              infer_one_tree(&nodes[j * num_nodes], &data_h[r * ps.num_cols]).f;
           }
-          transform(pred, want_proba_h[i * 2 + 1], want_preds_h[i]);
-          complement(&(want_proba_h[i * 2]));
-        }
-        break;
-      case fil::leaf_value_t::INT_CLASS_LABEL:
-        std::vector<int> class_votes(ps.num_classes);
-        for (int r = 0; r < ps.num_rows; ++r) {
-          std::fill(class_votes.begin(), class_votes.end(), 0);
+          if (ps.num_classes == 2) {
+            // all trees predict the probability for the same class
+            class_scores[0] += class_scores[1];
+            transform(class_scores[0], want_proba_h[r * 2 + 1], want_preds_h[r]);
+            complement(&(want_proba_h[r * 2]));
+          }
+          break;
+        case fil::leaf_value_t::INT_CLASS_LABEL:
           for (int j = 0; j < ps.num_trees; ++j) {
             int class_label =
               infer_one_tree(&nodes[j * num_nodes], &data_h[r * ps.num_cols])
                 .idx;
-            ++class_votes[class_label];
+            ++class_scores[class_label];
           }
-          for (int c = 0; c < ps.num_classes; ++c) {
-            float thresholded_proba;  // not used; do argmax instead
-            transform(class_votes[c], want_proba_h[r * ps.num_classes + c],
-                      thresholded_proba);
-          }
-          want_preds_h[r] =
-            std::max_element(class_votes.begin(), class_votes.end()) -
-            class_votes.begin();
+          break;
+      }
+      if (ps.num_classes != 2 ||
+          ps.leaf_payload_type == fil::leaf_value_t::INT_CLASS_LABEL) {
+        for (int c = 0; c < ps.num_classes; ++c) {
+          float thresholded_proba;  // not used; do argmax instead
+          transform(class_scores[c], want_proba_h[r * ps.num_classes + c],
+                    thresholded_proba);
         }
-        break;
+        want_preds_h[r] =
+          std::max_element(class_scores.begin(), class_scores.end()) -
+          class_scores.begin();
+      }
     }
 
     // copy to GPU
