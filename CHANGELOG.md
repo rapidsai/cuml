@@ -1,18 +1,24 @@
 # cuML 0.16.0 (Date TBD)
 
 ## New Features
+- PR #2698: Distributed TF-IDF transformer
 
 ## Improvements
+- PR #2741: Use rapids build packages in conda environments
 - PR #2735: Update seed to random_state in random forest and associated tests
-
 - PR #2739: Use cusparse_wrappers.h from RAFT
 - PR #2729: Replace `cupy.sparse` with `cupyx.scipy.sparse`
 - PR #2749: Correct docs for python version used in cuml_dev conda environment
 - PR #2747: Adopting raft::handle_t and raft::comms::comms_t in cuML
+- PR #2762: Fix broken links and provide minor edits to docs
+- PR #2723: Support and enable convert_dtype in estimator predict
+- PR #2758: Match sklearn's default n_components behavior for PCA
+- PR #2770: Fix doxygen version during cmake
+- PR #2766: Update default RandomForestRegressor score function to use r2
 
 ## Bug Fixes
-
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
+- PR #2769: Remove outdated doxygen options for 1.8.20
 
 # cuML 0.15.0 (Date TBD)
 
@@ -107,6 +113,7 @@
 - PR #2623: Fixing kmeans score() API to be compatible with Scikit-learn
 - PR #2629: Add naive_bayes api docs
 - PR #2643: 'dense' and 'sparse' values of `storage_type` for FIL
+- PR #2691: Generic Base class attribute setter
 - PR #2666: Update MBSGD documentation to mention that the model is experimental
 - PR #2687: Update xgboost version to 1.2.0dev.rapidsai0.15
 - PR #2684: CUDA 11 conda development environment yml and faiss patch

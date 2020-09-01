@@ -231,8 +231,7 @@ class SVR(SVMBase, RegressorMixin):
         Fit the model with X and y.
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
         cdef uintptr_t X_ptr, y_ptr
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
@@ -292,10 +291,10 @@ class SVR(SVMBase, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the values for X.
 
         """
 
-        return super(SVR, self).predict(X, False)
+        return super(SVR, self).predict(X, False, convert_dtype)
