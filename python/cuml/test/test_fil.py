@@ -58,19 +58,27 @@ def _build_and_save_xgboost(model_path,
                             y_train,
                             classification=True,
                             num_rounds=5,
+                            num_classes=1,
                             xgboost_params={}):
     """Trains a small xgboost classifier and saves it to model_path"""
     dtrain = xgb.DMatrix(X_train, label=y_train)
 
     # instantiate params
-    params = {'silent': 1}
+    params = {}
 
     # learning task params
+    params['eval_metric'] = 'error'
     if classification:
-        params['eval_metric'] = 'error'
-        params['objective'] = 'binary:logistic'
+        params['num_class'] = num_classes
+        if num_classes == 1:
+            params['objective'] = 'binary:logistic'
+        else:
+            # cannot use this interface as it's not supported by treelite
+            # will cause "softmax" as the output transform
+            # params['objective'] = 'multi:softprob'
+            # output transform == 'max_index'
+            params['objective'] = 'multi:softmax'
     else:
-        params['eval_metric'] = 'error'
         params['objective'] = 'reg:squarederror'
         params['base_score'] = 0.0
 
@@ -91,16 +99,15 @@ def _build_and_save_xgboost(model_path,
                                         unit_param(5),
                                         quality_param(50),
                                         stress_param(90)])
+@pytest.mark.parametrize('num_classes', [2, 5])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
+def test_fil_classification(n_rows, n_columns, num_rounds,
+                            num_classes, tmp_path):
     # settings
     classification = True  # change this to false to use regression
-    n_rows = n_rows  # we'll use 1 millions rows
-    n_columns = n_columns
-    n_categories = 2
     random_state = np.random.RandomState(43210)
 
-    X, y = simulate_data(n_rows, n_columns, n_categories,
+    X, y = simulate_data(n_rows, n_columns, num_classes,
                          random_state=random_state,
                          classification=classification)
     # identify shape and indices
@@ -112,30 +119,40 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
 
     model_path = os.path.join(tmp_path, 'xgb_class.model')
 
+    if num_classes == 2:
+        xgb_num_classes = 1
+    else:
+        xgb_num_classes = num_classes
     bst = _build_and_save_xgboost(model_path, X_train, y_train,
                                   num_rounds=num_rounds,
-                                  classification=classification)
+                                  classification=classification,
+                                  num_classes=xgb_num_classes)
 
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
     xgb_preds = bst.predict(dvalidation)
     xgb_preds_int = np.around(xgb_preds)
-    xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
+    xgb_acc = accuracy_score(y_validation, xgb_preds_int)
 
-    xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
     fm = ForestInference.load(model_path,
                               algo='auto',
                               output_class=True,
                               threshold=0.50)
-    fil_preds = np.asarray(fm.predict(X_validation))
-    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
-    fil_proba = np.asarray(fm.predict_proba(X_validation))
-
-    fil_proba = np.reshape(fil_proba, np.shape(xgb_proba))
+    fil_preds = fm.predict(X_validation)
     fil_acc = accuracy_score(y_validation, fil_preds)
+    print('gbm_preds\n\n', xgb_preds_int[:20], '\nfil_preds\n\n', fil_preds[:20])
+    if num_classes > 2:
+      print('gbm margins\n\n', bst.predict(dvalidation, output_margin=True)\
+                         .reshape((y_validation.size, -1, num_classes))\
+                         .sum(axis=1)[:20])
 
     assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
-    assert array_equal(fil_preds, xgb_preds_int)
-    assert np.allclose(fil_proba, xgb_proba, 1e-3)
+    if num_classes == 2:
+      assert array_equal(fil_preds, xgb_preds_int)
+    
+    if num_classes == 2:
+      xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
+      fil_proba = np.asarray(fm.predict_proba(X_validation))
+      assert np.allclose(fil_proba, xgb_proba, 1e-3)
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
@@ -397,10 +414,11 @@ def test_output_args(small_classifier_and_preds):
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
 def test_lightgbm(tmp_path):
     import lightgbm as lgb
-    X, y = simulate_data(500, 10,
+    X, y = simulate_data(500, 50, 2,
                          random_state=43210,
                          classification=True)
     train_data = lgb.Dataset(X, label=y)
+
     param = {'objective': 'binary',
              'metric': 'binary_logloss'}
     num_round = 5
@@ -413,11 +431,14 @@ def test_lightgbm(tmp_path):
                               algo='TREE_REORG',
                               output_class=True,
                               model_type="lightgbm")
-
     fil_preds = np.asarray(fm.predict(X))
     fil_preds = np.reshape(fil_preds, np.shape(gbm_preds))
-
-    assert array_equal(np.round(gbm_preds), fil_preds)
+    
+    fil_acc = accuracy_score(y, fil_preds)
+    gbm_acc = accuracy_score(y, gbm_preds)
+    assert fil_acc == pytest.approx(gbm_acc, abs=0.01)
+    
+    assert array_equal(gbm_preds, fil_preds)
 
     lcls = lgb.LGBMClassifier().set_params(objective='binary',
                                            metric='binary_logloss')

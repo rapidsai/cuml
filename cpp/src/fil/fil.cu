@@ -203,11 +203,18 @@ struct forest {
           // not one of the xgboost multi-class inferences
           params.num_outputs = 2;
           complement_proba = true;
+          do_transform = true;
         } else
-          ASSERT(false, "predict_proba not supported for multi-class GBMs");
-      } else
+          ASSERT(false, "predict_proba not supported for multi-class GBDTs");
+      } else {
         params.num_outputs = 1;
-      if (ot != output_t::RAW || complement_proba) do_transform = true;
+        if (num_classes_ > 2) {
+          // moot since choosing best class and all transforms are monotonic
+          // also, would break current code
+          do_transform = false;
+        } else
+          if (ot != output_t::RAW || complement_proba) do_transform = true;
+      }
     } else if (leaf_payload_type_ == leaf_value_t::INT_CLASS_LABEL) {
       if (predict_proba) {
         params.num_outputs = num_classes_;

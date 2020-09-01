@@ -225,19 +225,38 @@ struct tree_aggregator_t {
             acc += per_thread[c];
           best.margin = acc;
           best.label.fill(threadIdx.x);
+          for(int block = 0; block < 5; block++) {
+            if(block == blockIdx.x)
+          for(int i = 0; i < NITEMS; i++) {
+          int row = blockIdx.x * NITEMS + i;
+            printf("row %d Margin[%d] for class %d is %.2f\n", row, i, threadIdx.x, best.margin[i]);
+          }}
         }
         __syncthreads();
         typedef BlockReduceMultiClass<NITEMS> BR;
         best = BR(*(typename BR::TempStorage*)tmp_storage)
                  .Reduce(best, best, num_classes);
+        if(threadIdx.x == 0) {
+          for(int block = 0; block < 5; block++) {
+            if(block == blockIdx.x)
+          for(int i = 0; i < NITEMS; i++) {
+          int row = blockIdx.x * NITEMS + i;
+          printf("row %d Selected best class %d with margin %.2f\n", row, best.label[i], best.margin[i]);
+          }
+          }
+        }
       } else {
         Acc* per_class = (Acc*)tmp_storage;
         best.margin = per_class[threadIdx.x];
         best.label.fill(threadIdx.x);
+          if(blockIdx.x == 0)
+        printf("Margin[2] for class %d is %.2f\n", threadIdx.x, best.margin[2]);
         for (int c = threadIdx.x + blockDim.x; c < num_classes;
              c += blockDim.x) {
           best_margin_label<NITEMS> candidate;
           candidate.margin = per_class[c];
+          if(blockIdx.x == 0)
+          printf("Margin[2] for class %d is %.2f\n", c, candidate.margin[2]);
           candidate.label.fill(c);
           best = best(best, candidate);
         }
@@ -250,7 +269,12 @@ struct tree_aggregator_t {
       if (threadIdx.x == 0) {
         for (int i = 0; i < NITEMS; ++i) {
           int row = blockIdx.x * NITEMS + i;
-          if (row < num_rows) out[row * num_classes] = best.label[i];
+          for(int block = 0; block < 5; block++) {
+            __syncthreads();
+            if(block == blockIdx.x)
+            printf("block %d row %d label %d\n", (int)block, row, (int)best.label[i]);
+          }
+          if (row < num_rows) out[row] = best.label[i];
         }
       }
     }
