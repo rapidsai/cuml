@@ -28,10 +28,12 @@ y_out = fm.predict(X)
 
 See [the sample notebook](https://github.com/rapidsai/cuml/blob/branch-0.16/notebooks/forest_inference_demo.ipynb) for much more detail and runnable samples.
 
+Additionally, FIL can be called directly from C or C++ code. See [the API docs here](https://docs.rapids.ai/api/libcuml/nightly/namespaceML_1_1fil.html)
+
 # Features
 
 * Input model source: XGBoost (binary format), cuML RandomForest, scikit-learn RandomForest, LightGBM
-* Model types: Regression, Binary Classification, Multi-class Classification (for Random Forests, but not GBDTs)
+* Model types: Regression, Binary Classification, Multi-class Classification (for cuML Random Forests, but not GBDTs or scikit-learn Random Forests)
 * Tree storage types: Dense or sparse tree storage (see Sparse Forests with FIL blog below)
 * Input formats: Dense, row-major, FP32 arrays on GPU or CPU (e.g. NumPy, cuPy, or other data formats supported by cuML)
 * High performance batch inference
@@ -41,9 +43,10 @@ Upcoming features:
 
 * Support for multi-class GBDTs is planned for RAPIDS 0.16
 
+
 # Benchmarks and performance notes
 
-(1) The core data format supported by FIL is an FP32, row-major array on
+(1) The core data format supported by FIL is an FP32, (row-major)[https://en.wikipedia.org/wiki/Row-_and_column-major_order] array on
 GPU. All other input types will be automatically converted to this
 format internally, but you will get the lowest latency if you use that
 format to start with.
