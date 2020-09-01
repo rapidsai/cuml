@@ -18,7 +18,9 @@
 #include <spdlog/spdlog.h>                    // NOLINT
 
 #include <algorithm>
+#include <memory>
 #include <cuml/common/logger.hpp>
+#include <cuml/common/callbackSink.hpp>
 
 namespace ML {
 
@@ -48,7 +50,10 @@ Logger& Logger::get() {
   return logger;
 }
 
-Logger::Logger() : logger{spdlog::stdout_color_mt("cuml")}, currPattern() {
+Logger::Logger() : sink{std::make_shared<spdlog::sinks::callback_sink_mt>()},
+                   logger{std::make_shared<spdlog::logger>("cuml", sink)},
+                   currPattern()
+{
   setPattern(DefaultPattern);
   setLevel(CUML_LEVEL_INFO);
 }
@@ -61,6 +66,14 @@ void Logger::setLevel(int level) {
 void Logger::setPattern(const std::string& pattern) {
   currPattern = pattern;
   logger->set_pattern(pattern);
+}
+
+void Logger::setCallback(spdlog::sinks::LogCallback callback) {
+  sink->set_callback(callback);
+}
+
+void Logger::setFlush(void (*flush)()) {
+  sink->set_flush(flush);
 }
 
 bool Logger::shouldLogFor(int level) const {

@@ -17,11 +17,16 @@
 
 #include <stdarg.h>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 
 namespace spdlog {
 class logger;
+namespace sinks {
+  template<class Mutex> class CallbackSink;
+  using callback_sink_mt = CallbackSink<std::mutex>;
+};
 };
 
 namespace ML {
@@ -105,6 +110,20 @@ class Logger {
   void setPattern(const std::string& pattern);
 
   /**
+   * @brief Register a callback function to be run in place of usual log call
+   *
+   * @param[in] callback the function to be run on all logged messages
+   */
+  void setCallback(void(*callback)(int lvl, const char* msg));
+
+  /**
+   * @brief Register a flush function compatible with the registered callback
+   *
+   * @param[in] flush the function to use when flushing logs
+   */
+  void setFlush(void(*flush)());
+
+  /**
    * @brief Tells whether messages will be logged for the given log level
    *
    * @param[in] level log level to be checked for
@@ -137,6 +156,7 @@ class Logger {
   Logger();
   ~Logger() {}
 
+  std::shared_ptr<spdlog::sinks::callback_sink_mt> sink;
   std::shared_ptr<spdlog::logger> logger;
   std::string currPattern;
   static const std::string DefaultPattern;

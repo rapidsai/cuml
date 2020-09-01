@@ -20,19 +20,23 @@
 # cython: language_level = 3
 
 
+import sys
+
 from libcpp.string cimport string
 from libcpp cimport bool
 
 
-cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
+cdef extern from "cuml/common/logger.hpp" namespace "ML":
     cdef cppclass Logger:
         @staticmethod
-        Logger& get()
-        void setLevel(int level)
-        void setPattern(const string& pattern)
-        bool shouldLogFor(int level) const
-        int getLevel() const
-        string getPattern() const
+        Logger& get() nogil
+        void setLevel(int level) nogil
+        void setPattern(const string& pattern) nogil
+        void setCallback(void (*callback)(int, char*))
+        void setFlush(void (*flush)())
+        bool shouldLogFor(int level) nogil const
+        int getLevel() nogil const
+        string getPattern() nogil const
 
 
 cdef extern from "cuml/common/logger.hpp" nogil:
@@ -72,6 +76,15 @@ level_critical = CUML_LEVEL_CRITICAL
 
 """Disables all log messages"""
 level_off = CUML_LEVEL_OFF
+
+cdef void _log_callback(int lvl, const char * msg):
+    print(msg.decode('utf-8'), end='')
+
+cdef void _log_flush():
+    sys.stdout.flush()
+
+Logger.get().setCallback(_log_callback)
+Logger.get().setFlush(_log_flush)
 
 
 class LogLevelSetter:
