@@ -56,8 +56,9 @@ def valid_metrics():
 @pytest.mark.parametrize("ncols", [100, 1000])
 @pytest.mark.parametrize("n_neighbors", [10, 50])
 @pytest.mark.parametrize("n_clusters", [2, 10])
+@pytest.mark.parametrize("algo", ["brute", "PQ"])
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
-                                  datatype):
+                                  datatype, algo):
     if not has_scipy():
         pytest.skip('Skipping test_neighborhood_predictions because ' +
                     'Scipy is missing')
@@ -70,7 +71,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
     if datatype == "dataframe":
         X = cudf.DataFrame(X)
 
-    knn_cu = cuKNN()
+    knn_cu = cuKNN(algorithm=algo)
     knn_cu.fit(X)
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
                                   return_distance=False)

@@ -79,8 +79,22 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         METRIC_Cosine = 100,
         METRIC_Correlation
 
-    void brute_force_knn(
+    enum knnIndexType:
+        Bruteforce,
+        PQ
+
+    cdef cppclass knnIndexParam:
+        knnIndexType type,
+        bool automated,
+
+        int nlist,
+        int M,
+        int n_bits,
+        bool usePrecomputedTables
+
+    void perform_knn(
         cumlHandle &handle,
+        knnIndexParam* algo_params,
         vector[float*] &inputs,
         vector[int] &sizes,
         int D,
@@ -112,7 +126,7 @@ class NearestNeighbors(Base):
     handle : cumlHandle
         The cumlHandle resources to use
     algorithm : string (default='brute')
-        The query algorithm to use. Currently, only 'brute' is supported.
+        The query algorithm to use.
     metric : string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
@@ -124,6 +138,7 @@ class NearestNeighbors(Base):
         Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
         by using the expanded form and not computing the n-th roots.
     metric_params : dict, optional (default = None) This is currently ignored.
+    algo_params : dict, optional (default = None) Used to configure the nearest neighbor algorithm to be used.
 
     Examples
     --------
@@ -199,15 +214,12 @@ class NearestNeighbors(Base):
                  metric="euclidean",
                  p=2,
                  metric_params=None,
+                 algo_params=None,
                  output_type=None):
 
         super(NearestNeighbors, self).__init__(handle=handle,
                                                verbose=verbose,
                                                output_type=output_type)
-
-        if algorithm != "brute":
-            raise ValueError("Algorithm %s is not valid. Only 'brute' is"
-                             "supported currently." % algorithm)
 
         if metric not in cuml.neighbors.VALID_METRICS[algorithm]:
             raise ValueError("Metric %s is not valid. "
@@ -220,6 +232,43 @@ class NearestNeighbors(Base):
         self.metric_params = metric_params
         self.p = p
         self.algorithm = algorithm
+        self.algo_params = algo_params
+
+    @staticmethod
+    def _check_algo_params(algo, params):
+        if params is None:
+            return
+        if 'automated' in params and params['automated']:
+            if algo == "PQ":
+                for param in ['nlist', 'M', 'n_bits', 'usePrecomputedTables']:
+                    if not hasattr(params, param):
+                        ValueError('algo_params misconfigured : {} \
+                                    parameter unset'.format(param))
+
+    @staticmethod
+    def _build_algo_params(algo, params):
+        NearestNeighbors._check_algo_params(algo, params)
+        if params is None:
+            params = dict({'automated': True})
+
+        cdef knnIndexParam* algo_params = new knnIndexParam()
+
+        if algo == 'brute':
+            algo_params.type = Bruteforce
+        elif algo == 'PQ':
+            algo_params.type = PQ
+
+        automated = 'automated' in params and params['automated']
+        algo_params.automated = <bool> automated
+
+        if not automated:
+            if algo == 'PQ':
+                algo_params.nlist = <int> params.nlist
+                algo_params.M = <int> params.M
+                algo_params.n_bits = <int> params.n_bits
+                algo_params.usePrecomputedTables = \
+                    <bool> params.usePrecomputedTables
+        return <size_t>algo_params
 
     @generate_docstring()
     def fit(self, X, convert_dtype=True):
@@ -404,8 +453,13 @@ class NearestNeighbors(Base):
 
         metric, expanded = self._build_metric_type(self.metric)
 
-        brute_force_knn(
+        cdef knnIndexParam* algo_params = \
+          <knnIndexParam*> <size_t> \
+          NearestNeighbors._build_algo_params(self.algorithm, self.algo_params)
+
+        perform_knn(
             handle_[0],
+            algo_params,
             deref(inputs),
             deref(sizes),
             <int>self.n_dims,
@@ -417,7 +471,6 @@ class NearestNeighbors(Base):
             False,
             False,
             <MetricType>metric,
-
             # minkowski order is currently the only metric argument.
             <float>self.p,
             < bool > expanded

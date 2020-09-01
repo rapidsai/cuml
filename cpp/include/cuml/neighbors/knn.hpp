@@ -36,35 +36,87 @@ enum MetricType {
   METRIC_Correlation
 };
 
+
+typedef enum {
+    Bruteforce,
+    PQ
+} knnIndexType;
+
+
+struct knnIndexParam {
+    knnIndexType type;
+    bool automated;
+
+    size_t nlist;
+    size_t M;
+    size_t n_bits;
+    bool usePrecomputedTables;
+};
+
+
 /**
-   * @brief Flat C++ API function to perform a brute force knn on
-   * a series of input arrays and combine the results into a single
-   * output array for indexes and distances.
-   *
-   * @param[in] handle the cuml handle to use
-   * @param[in] input vector of pointers to the input arrays
-   * @param[in] sizes vector of sizes of input arrays
-   * @param[in] D the dimensionality of the arrays
-   * @param[in] search_items array of items to search of dimensionality D
-   * @param[in] n number of rows in search_items
-   * @param[out] res_I the resulting index array of size n * k
-   * @param[out] res_D the resulting distance array of size n * k
-   * @param[in] k the number of nearest neighbors to return
-   * @param[in] rowMajorIndex are the index arrays in row-major order?
-   * @param[in] rowMajorQuery are the query arrays in row-major order?
-   * @param[in] metric distance metric to use. Euclidean (L2) is used by
-   * 			   default
+ * @brief Flat C++ API function to perform a brute force knn on
+ * a series of input arrays and combine the results into a single
+ * output array for indexes and distances.
+ *
+ * @param[in] handle the cuml handle to use
+ * @param[in] input vector of pointers to the input arrays
+ * @param[in] sizes vector of sizes of input arrays
+ * @param[in] D the dimensionality of the arrays
+ * @param[in] search_items array of items to search of dimensionality D
+ * @param[in] n number of rows in search_items
+ * @param[out] res_I the resulting index array of size n * k
+ * @param[out] res_D the resulting distance array of size n * k
+ * @param[in] k the number of nearest neighbors to return
+ * @param[in] rowMajorIndex are the index arrays in row-major order?
+ * @param[in] rowMajorQuery are the query arrays in row-major order?
+ * @param[in] metric distance metric to use. Euclidean (L2) is used by
+ * 			   default
  * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
  * 					 is ignored if the metric_type is not Minkowski.
  * @param[in] expanded should lp-based distances be returned in their expanded
  * 					 form (e.g., without raising to the 1/p power).
-   */
+ */
 void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k,
                      bool rowMajorIndex = false, bool rowMajorQuery = false,
                      MetricType metric = MetricType::METRIC_L2,
                      float metric_arg = 2.0f, bool expanded = false);
+
+
+/**
+ * @brief Flat C++ API function to perform a brute force knn on
+ * a series of input arrays and combine the results into a single
+ * output array for indexes and distances.
+ *
+ * @param[in] handle the cuml handle to use
+ * @param[in] params the parameters for the choosen KNN strategy
+ * @param[in] input vector of pointers to the input arrays
+ * @param[in] sizes vector of sizes of input arrays  
+ * @param[in] D the dimensionality of the arrays
+ * @param[in] search_items array of items to search of dimensionality D
+ * @param[in] n number of rows in search_items
+ * @param[out] res_I the resulting index array of size n * k
+ * @param[out] res_D the resulting distance array of size n * k
+ * @param[in] k the number of nearest neighbors to return
+ * @param[in] rowMajorIndex are the index arrays in row-major order?
+ * @param[in] rowMajorQuery are the query arrays in row-major order?
+ * @param[in] metric distance metric to use. Euclidean (L2) is used by
+ * 			   default
+ * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
+ * 					 is ignored if the metric_type is not Minkowski.
+ * @param[in] expanded should lp-based distances be returned in their expanded
+ * 					 form (e.g., without raising to the 1/p power).
+ */
+void perform_knn(cumlHandle &handle, ML::knnIndexParam* params,
+                     std::vector<float *> &input, std::vector<int> &sizes,
+                     int D, float *search_items, int n,
+                     int64_t *res_I, float *res_D, int k,
+                     bool rowMajorIndex = false, bool rowMajorQuery = false,
+                     MetricType metric = MetricType::METRIC_L2,
+                     float metric_arg = 2.0f, bool expanded = false);
+
 
 /**
  * @brief Flat C++ API function to perform a knn classification using a

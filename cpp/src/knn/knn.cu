@@ -49,6 +49,24 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
     rowMajorQuery, nullptr, metric, metric_arg, expanded);
 }
 
+void perform_knn(cumlHandle &handle, knnIndexParam* algo_params,
+                 std::vector<float *> &input, std::vector<int> &sizes,
+                 int D, float *search_items, int n,
+                 int64_t *res_I, float *res_D, int k,
+                 bool rowMajorIndex, bool rowMajorQuery,
+                 MetricType metric, float metric_arg, bool expanded) {
+    ASSERT(input.size() == sizes.size(),
+    "input and sizes vectors must be the same size");
+
+    std::vector<cudaStream_t> int_streams = handle.getImpl().getInternalStreams();
+
+    MLCommon::Selection::perform_knn(
+      algo_params, input, sizes, D, search_items, n, res_I, res_D, k,
+      handle.getImpl().getDeviceAllocator(), handle.getImpl().getStream(),
+      int_streams.data(), handle.getImpl().getNumInternalStreams(), rowMajorIndex,
+      rowMajorQuery, nullptr, metric, metric_arg, expanded);
+}
+
 void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
                   std::vector<int *> &y, size_t n_index_rows,
                   size_t n_query_rows, int k) {
