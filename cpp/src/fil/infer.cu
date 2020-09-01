@@ -95,10 +95,32 @@ __device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
   return out;
 }
 
+template <int NITEMS>
+struct best_margin_label {
+  vec<NITEMS, float> margin;
+  vec<NITEMS, int> label;
+
+  __host__ __device__ best_margin_label<NITEMS>
+  operator()(const best_margin_label<NITEMS>& a, const best_margin_label<NITEMS>& b) {
+    best_margin_label<NITEMS> c;
+    for (int i = 0; i < NITEMS; i++) {
+      if (a.margin[i] > b.margin[i]) {
+        c.margin[i] = a.margin[i];
+        c.label[i] = a.label[i];
+      } else {
+        c.margin[i] = b.margin[i];
+        c.label[i] = b.label[i];
+      }
+    }
+    return c;
+  }
+};
 // the device template should achieve the best performance, using up-to-date
 // CUB defaults
 template <int NITEMS>
 using BlockReduce = typename cub::BlockReduce<vec<NITEMS, float>, FIL_TPB>;
+template <int NITEMS>
+using BlockReduceMultiClass = typename cub::BlockReduce<best_margin_label<NITEMS>, FIL_TPB>;
 /**
 The shared memory requirements for finalization stage may differ based
 on the set of PTX architectures the kernels were compiled for, as well as 
@@ -118,28 +140,15 @@ template <int NITEMS>
 using BlockReduceHost =
   typename cub::BlockReduce<vec<NITEMS, float>, FIL_TPB,
                             cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, 600>;
+template <int NITEMS>
+using BlockReduceHostMultiClass =
+  typename cub::BlockReduce<best_margin_label<NITEMS>, FIL_TPB,
+                            cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, 600>;
 
 template <int NITEMS,
           leaf_value_t leaf_payload_type>  // = FLOAT_SCALAR
 struct tree_aggregator_t {
   typedef vec<NITEMS, float> Acc;
-  struct best_margin_label {
-    Acc margin, label;
-    __host__ __device__ best_margin_label
-    operator()(const best_margin_label& a, const best_margin_label& b) {
-      best_margin_label c;
-      for (int i = 0; i < NITEMS; i++) {
-        if (a.margin[i] > b.margin[i]) {
-          c.margin[i] = a.margin[i];
-          c.label[i] = a.label[i];
-        } else {
-          c.margin[i] = b.margin[i];
-          c.label[i] = b.label[i];
-        }
-      }
-      return c;
-    }
-  };
 
   Acc acc;
   void* tmp_storage;
@@ -152,14 +161,24 @@ struct tree_aggregator_t {
   static size_t smem_finalize_footprint(int num_classes) {
     if (num_classes <= 2)
       return sizeof(typename BlockReduceHost<NITEMS>::TempStorage);
-    return (FIL_TPB - FIL_TPB % num_classes) * sizeof(Acc);
+    
+    size_t phase1;
+    if (num_classes <= FIL_TPB)
+      phase1 = (FIL_TPB - FIL_TPB % num_classes) * sizeof(Acc);
+    else
+      phase1 = num_classes * sizeof(Acc);
+    
+    size_t phase2 = sizeof(typename BlockReduceHostMultiClass<NITEMS>::TempStorage);
+    return std::max(phase1, phase2);
   }
 
   /** shared memory footprint of the accumulator during
   the accumulation of forest inference, when individual trees
   are inferred and partial aggregates are accumulated.
   num_classes is used for other template parameters */
-  static size_t smem_accumulate_footprint(int num_classes) { return 0; }
+  static size_t smem_accumulate_footprint(int num_classes) {
+    return num_classes > FIL_TPB ? num_classes * sizeof(Acc) : 0;
+  }
 
   /** 
   num_classes is used for other template parameters */
@@ -186,8 +205,8 @@ struct tree_aggregator_t {
                                            int num_outputs) {
     if (num_classes <= 2) {
       __syncthreads();
-      typedef typename BlockReduce<NITEMS>::TempStorage TempStorage;
-      acc = BlockReduce<NITEMS>(*(TempStorage*)tmp_storage).Sum(acc);
+      typedef BlockReduce<NITEMS> BR;
+      acc = BR(*(typename BR::TempStorage*)tmp_storage).Sum(acc);
       if (threadIdx.x == 0) {
         for (int i = 0; i < NITEMS; ++i) {
           int row = blockIdx.x * NITEMS + i;
@@ -195,7 +214,7 @@ struct tree_aggregator_t {
         }
       }
     } else {  // predict_proba() not supported yet
-      best_margin_label best;
+      best_margin_label<NITEMS> best;
       if (blockDim.x >= num_classes) {
         Acc* per_thread = (Acc*)tmp_storage;
         if (threadIdx.x >= num_classes) per_thread[threadIdx.x] = acc;
@@ -208,7 +227,7 @@ struct tree_aggregator_t {
           best.label.fill(threadIdx.x);
         }
         __syncthreads();
-        typedef typename cub::BlockReduce<best_margin_label, FIL_TPB> BR;
+        typedef BlockReduceMultiClass<NITEMS> BR;
         best = BR(*(typename BR::TempStorage*)tmp_storage)
                  .Reduce(best, best, num_classes);
       } else {
@@ -217,13 +236,13 @@ struct tree_aggregator_t {
         best.label.fill(threadIdx.x);
         for (int c = threadIdx.x + blockDim.x; c < num_classes;
              c += blockDim.x) {
-          best_margin_label candidate;
+          best_margin_label<NITEMS> candidate;
           candidate.margin = per_class[c];
           candidate.label.fill(c);
           best = best(best, candidate);
         }
         __syncthreads();
-        typedef typename cub::BlockReduce<best_margin_label, FIL_TPB> BR;
+        typedef BlockReduceMultiClass<NITEMS> BR;
         best = BR(*(typename BR::TempStorage*)tmp_storage)
                  .Reduce(best, best, blockDim.x);
       }
