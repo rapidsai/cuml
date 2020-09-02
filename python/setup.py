@@ -153,8 +153,6 @@ class cuml_build(_build):
 
     def finalize_options(self):
 
-        # cumlcomms and nccl are still needed for multigpu algos not based
-        # on libcumlprims
         libs = ['cuda', 'cuml++', 'rmm']
 
         include_dirs = [
@@ -169,8 +167,6 @@ class cuml_build(_build):
             os.path.dirname(sysconfig.get_path("include"))
         ]
 
-        # Exclude multigpu components that use libcumlprims if
-        # --singlegpu is used
         python_exc_list = []
 
         if (self.singlegpu):
@@ -262,8 +258,8 @@ setup(name='cuml',
       classifiers=[
           "Intended Audience :: Developers",
           "Programming Language :: Python",
-          "Programming Language :: Python :: 3.6",
-          "Programming Language :: Python :: 3.7"
+          "Programming Language :: Python :: 3.7",
+          "Programming Language :: Python :: 3.8"
       ],
       author="NVIDIA Corporation",
       setup_requires=['cython'],
