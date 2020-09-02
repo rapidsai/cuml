@@ -2,6 +2,7 @@
 
 ## New Features
 - PR #2698: Distributed TF-IDF transformer
+- PR #2789: Dask LabelEncoder
 
 ## Improvements
 - PR #2741: Use rapids build packages in conda environments
