@@ -15,6 +15,7 @@
 - PR #2770: Fix doxygen version during cmake
 - PR #2766: Update default RandomForestRegressor score function to use r2
 - PR #2783: Add pytest that will fail when GPU IDs in Dask cluster are not unique
+- PR #2784: Add SparseCumlArray container for sparse index/data arrays
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
