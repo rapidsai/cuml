@@ -369,7 +369,7 @@
 - PR #2305: Fixed race condition in DBScan
 - PR #2354: Fix broken links in README
 - PR #2619: Explicitly skip raft test folder for pytest 6.0.0
-- PR #2767: Set the minimum number of columns that can be sampled to 1 to fix 0 mem allocation error
+- PR #2788: Set the minimum number of columns that can be sampled to 1 to fix 0 mem allocation error
 
 # cuML 0.13.0 (31 Mar 2020)
 
