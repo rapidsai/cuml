@@ -1,8 +1,18 @@
-import cudf
-import numpy as np
-from numba import cuda
-import nvtext
-
+#
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 def is_consonant(str_ser, i):
     """Returns True if word[i] is a consonant, False otherwise
@@ -15,20 +25,14 @@ def is_consonant(str_ser, i):
         are T and Y, and in SYZYGY they are S, Z and G. If a letter
         is not a consonant it is a vowel.
     """
-
-    bool_ser = cudf.Series(cuda.device_array(len(str_ser), dtype=np.int8)).astype(
-        "bool"
-    )
-    nvtext.is_consonant(str_ser._column.nvstrings, i, devptr=bool_ser.data.ptr)
-    return bool_ser
+    return str_ser.str.is_consonant(i)
 
 
 def is_vowel(str_ser, i):
-    bool_ser = cudf.Series(cuda.device_array(len(str_ser), dtype=np.int8)).astype(
-        "bool"
-    )
-    nvtext.is_vowel(str_ser._column.nvstrings, i, devptr=bool_ser.data.ptr)
-    return bool_ser
+    """Returns True if word[i] is a vowel, False otherwise
+       see:  is_consonant for more description
+    """
+    return str_ser.str.is_vowel(i)
 
 
 def contains_vowel(stem_ser):

@@ -1,28 +1,50 @@
+#
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import cudf
 import numpy as np
 import cupy as cp
-
-from stem.porter_stemmer_utils.suffix_utils import (
+from cuml.preprocessing.text.stem.porter_stemmer_utils.suffix_utils import (
     get_stem_series,
     get_str_replacement_series,
     replace_suffix,
 )
-from stem.porter_stemmer_utils.porter_stemmer_rules import (
+from cuml.preprocessing.text.stem.porter_stemmer_utils.porter_stemmer_rules import (
     ends_with_suffix,
     ends_with_double_constant,
     last_char_not_in,
     last_char_in,
     ends_cvc,
 )
-from stem.porter_stemmer_utils.consonant_vowel_utils import contains_vowel, is_consonant
-from stem.porter_stemmer_utils.len_flags_utils import len_eq_n, len_gt_n
-from stem.porter_stemmer_utils.measure_utils import (
+from cuml.preprocessing.text.stem.porter_stemmer_utils.consonant_vowel_utils import (
+    contains_vowel,
+    is_consonant,
+)
+from cuml.preprocessing.text.stem.porter_stemmer_utils.len_flags_utils import (
+    len_eq_n,
+    len_gt_n,
+)
+from cuml.preprocessing.text.stem.porter_stemmer_utils.measure_utils import (
     has_positive_measure,
     measure_gt_n,
     measure_eq_n,
 )
 
-
+# Implimentation based on nltk//stem/porter.html
+# https://www.nltk.org/_modules/nltk/stem/porter.html
 class PorterStemmer:
     """
     A word stemmer based on the Porter stemming algorithm.
@@ -63,7 +85,7 @@ class PorterStemmer:
             str_series : (cudf.Series)
         """
         # this is only for NLTK_EXTENSIONS
-        # remove the length condition for original algo
+        # remove the length condition for original algorithm
         # do not stem is len(word) <= 2:
         can_replace_mask = len_gt_n(word_strs, 2)
 
@@ -770,7 +792,7 @@ def apply_rule(word_strs, rule, w_in_c_flag):
 def apply_rule_list(word_strs, rules, condition_flag):
     """Applies the first applicable suffix-removal rule to the word
 
-    Takes a word and a list of suffix-removal rules represented as
+    Takes a word series and a list of suffix-removal rules represented as
     3-tuples, with the first element being the suffix to remove,
     the second element being the string to replace it with, and the
     final element being the condition for the rule to be applicable,
