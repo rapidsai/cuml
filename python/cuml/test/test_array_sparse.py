@@ -40,6 +40,7 @@ def test_input(input_type, dtype):
 
     assert X.shape == X_m.shape
     assert X.nnz == X_m.nnz
+    assert X.dtype == X_m.dtype
 
     # Just a sanity check
     assert isinstance(X_m.indptr, CumlArray)
@@ -49,6 +50,22 @@ def test_input(input_type, dtype):
     assert X_m.indptr.dtype == cp.int32
     assert X_m.indices.dtype == cp.int32
     assert X_m.data.dtype == dtype
+
+
+@pytest.mark.parametrize('input_type', test_input_types)
+def test_different_dtype(input_type):
+
+    rand_func = cupyx.scipy.sparse if input_type == 'cupy' else scipy.sparse
+
+    X = rand_func.random(100, 100, format='csr', density=0.5, dtype=cp.float64)
+
+    X_m = SparseCumlArray(X, dtype=cp.float32)
+
+    assert X_m.dtype == cp.float32
+
+    assert X_m.indptr.dtype == cp.int32
+    assert X_m.indices.dtype == cp.int32
+    assert X_m.data.dtype == cp.float32
 
 
 @pytest.mark.parametrize('input_type', test_input_types)
