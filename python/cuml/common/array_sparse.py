@@ -35,7 +35,8 @@ class SparseCumlArray:
         SparseCumlArray abstracts sparse array allocations. This will
         accept either a Scipy or Cupy sparse array and construct CumlArrays
         out of the underlying index and data arrays. Currently, this class
-        only supports the CSR array format.
+        only supports the CSR array format and input in any other sparse
+        format will be converted to CSR.
 
         Parameters
         ----------
