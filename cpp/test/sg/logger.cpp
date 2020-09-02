@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <string>
 #include <gtest/gtest.h>
 #include <cuml/common/logger.hpp>
+#include <string>
 
 namespace ML {
 
@@ -37,11 +37,8 @@ TEST(Logger, Test) {
   ASSERT_TRUE(Logger::get().shouldLogFor(CUML_LEVEL_WARN));
 }
 
-
 std::string logged = "";
-void exampleCallback(int lvl, const char * msg) {
-  logged = std::string(msg);
-}
+void exampleCallback(int lvl, const char* msg) { logged = std::string(msg); }
 
 TEST(Logger, callback) {
   Logger::get().setCallback(exampleCallback);
@@ -68,7 +65,6 @@ TEST(Logger, callback) {
   testMsg = "This is a debug message";
   CUML_LOG_DEBUG(testMsg.c_str());
   ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
-
 }
 
 }  // namespace ML

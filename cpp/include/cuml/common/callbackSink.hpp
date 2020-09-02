@@ -19,30 +19,25 @@
 #include <mutex>
 
 #define SPDLOG_HEADER_ONLY
-#include <spdlog/sinks/base_sink.h>
 #include <spdlog/common.h>
 #include <spdlog/details/log_msg.h>
+#include <spdlog/sinks/base_sink.h>
 
 namespace spdlog {
 namespace sinks {
 
-typedef void(*LogCallback)(int lvl, const char* msg);
+typedef void (*LogCallback)(int lvl, const char* msg);
 
-template<class Mutex>
+template <class Mutex>
 class CallbackSink : public base_sink<Mutex> {
  public:
   explicit CallbackSink(std::string tag = "spdlog",
                         LogCallback callback = nullptr,
-                        void(*flush)() = nullptr) : _callback{callback}, _flush{flush}
-  {
-  };
+                        void (*flush)() = nullptr)
+    : _callback{callback}, _flush{flush} {};
 
-  void set_callback(LogCallback callback) {
-    _callback = callback;
-  }
-  void set_flush(void(*flush)()) {
-    _flush = flush;
-  }
+  void set_callback(LogCallback callback) { _callback = callback; }
+  void set_flush(void (*flush)()) { _flush = flush; }
 
  protected:
   void sink_it_(const details::log_msg& msg) override {

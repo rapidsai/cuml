@@ -24,10 +24,11 @@
 namespace spdlog {
 class logger;
 namespace sinks {
-  template<class Mutex> class CallbackSink;
-  using callback_sink_mt = CallbackSink<std::mutex>;
-};
-};
+template <class Mutex>
+class CallbackSink;
+using callback_sink_mt = CallbackSink<std::mutex>;
+};  // namespace sinks
+};  // namespace spdlog
 
 namespace ML {
 
@@ -114,14 +115,14 @@ class Logger {
    *
    * @param[in] callback the function to be run on all logged messages
    */
-  void setCallback(void(*callback)(int lvl, const char* msg));
+  void setCallback(void (*callback)(int lvl, const char* msg));
 
   /**
    * @brief Register a flush function compatible with the registered callback
    *
    * @param[in] flush the function to use when flushing logs
    */
-  void setFlush(void(*flush)());
+  void setFlush(void (*flush)());
 
   /**
    * @brief Tells whether messages will be logged for the given log level
