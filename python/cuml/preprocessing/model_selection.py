@@ -191,7 +191,8 @@ def train_test_split(X,
                      stratify=None):
     """
     Partitions device data into four collated objects, mimicking
-    Scikit-learn's `train_test_split`.
+    Scikit-learn's `train_test_split
+    <https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html>`_.
 
     Parameters
     ----------

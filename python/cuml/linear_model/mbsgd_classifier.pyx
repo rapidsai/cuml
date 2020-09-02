@@ -173,7 +173,7 @@ class MBSGDClassifier(Base, ClassifierMixin):
         Fit the model with X and y.
 
         """
-        self._set_n_features_in(X)
+        self._set_base_attributes(n_features=X)
         self.solver_model._estimator_type = self._estimator_type
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self

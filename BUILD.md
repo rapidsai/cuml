@@ -17,9 +17,15 @@ To install cuML from source, ensure the following dependencies are met:
 
 It is recommended to use conda for environment/package management. If doing so, a convenience environment .yml file is located in `conda/environments/cuml_dec_cudax.y.yml` (replace x.y for your CUDA version). This file contains most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To use it, for example to create an environment named `cuml_dev` for CUDA 10.2 and Python 3.7, you can use the follow command:
 
-```
+```bash
 conda create -n cuml_dev python=3.7
 conda env update -n cuml_dev --file=conda/environments/cuml_dev_cuda10.2.yml
+```
+
+These conda environments are based on the general RAPIDS meta packages that install common dependencies for RAPIDS projects. To install different versions of packages contained in those meta packages after creating the environment, it is recommended to remove those meta packages (without removing the actual packages contained in the environment) with the following command (having the environment active):
+
+```bash
+conda remove --force rapids-build-env rapids-notebook-env rapids-doc-env
 ```
 
 ## Installing from Source:
