@@ -1,6 +1,7 @@
 # cuML 0.16.0 (Date TBD)
 
 ## New Features
+- PR #2698: Distributed TF-IDF transformer
 
 ## Improvements
 
@@ -15,6 +16,10 @@
 - PR #2762: Fix broken links and provide minor edits to docs
 - PR #2723: Support and enable convert_dtype in estimator predict
 - PR #2758: Match sklearn's default n_components behavior for PCA
+- PR #2770: Fix doxygen version during cmake
+- PR #2766: Update default RandomForestRegressor score function to use r2
+- PR #2783: Add pytest that will fail when GPU IDs in Dask cluster are not unique
+- PR #2784: Add SparseCumlArray container for sparse index/data arrays
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
@@ -114,6 +119,7 @@
 - PR #2623: Fixing kmeans score() API to be compatible with Scikit-learn
 - PR #2629: Add naive_bayes api docs
 - PR #2643: 'dense' and 'sparse' values of `storage_type` for FIL
+- PR #2691: Generic Base class attribute setter
 - PR #2666: Update MBSGD documentation to mention that the model is experimental
 - PR #2687: Update xgboost version to 1.2.0dev.rapidsai0.15
 - PR #2684: CUDA 11 conda development environment yml and faiss patch

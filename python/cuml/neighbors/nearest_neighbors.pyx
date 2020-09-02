@@ -234,8 +234,7 @@ class NearestNeighbors(Base):
         Fit GPU index for performing nearest neighbor queries.
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
