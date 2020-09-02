@@ -16,12 +16,14 @@
 
 import cudf
 import cupy as cp
+from cuml import Base
+
 
 from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.exceptions import NotFittedError
 
 
-class LabelEncoder(object):
+class LabelEncoder(Base):
     """
     An nvcategory based implementation of ordinal label encoding
 
@@ -126,7 +128,7 @@ class LabelEncoder(object):
             raise ValueError(msg)
 
     @with_cupy_rmm
-    def fit(self, y):
+    def fit(self, y, _classes=None):
         """
         Fit a LabelEncoder (nvcategory) instance to a set of categories
 
@@ -143,9 +145,14 @@ class LabelEncoder(object):
 
         """
         self._validate_keywords()
+
         self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
 
-        self.classes_ = y.unique()  # dedupe and sort
+        # Check if it not None
+        if _classes is not None:
+            self.classes_ = _classes
+        else:
+            self.classes_ = y.unique()  # dedupe and sort
 
         self._fitted = True
         return self
@@ -176,7 +183,7 @@ class LabelEncoder(object):
         """
         self._check_is_fitted()
 
-        y = y.astype('category')
+        y = y.astype("category")
 
         encoded = y.cat.set_categories(self.classes_)._column.codes
 
