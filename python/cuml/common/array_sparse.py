@@ -42,10 +42,6 @@ class SparseCumlArray:
 
         data : scipy.sparse.csr_matrix or cupyx.scipy.sparse.csr_matrix
             A Scipy or Cupy sparse csr_matrix
-        owner : object, optional
-            Python object to which the lifetime of the memory
-            allocation is tied. If provided, a reference to this
-            object is kept in this Buffer.
         dtype : data-type, optional
             Any object that can be interpreted as a numpy or cupy data type.
 
@@ -58,6 +54,8 @@ class SparseCumlArray:
             Column indices array
         data : CumlArray
             Data array
+        dtype : dtype
+            Data type of data array
         shape : tuple of ints
             Shape of the array
         nnz : int
@@ -80,6 +78,7 @@ class SparseCumlArray:
                                                  convert_to_dtype=dtype)
 
         self.shape = data.shape
+        self.dtype = data.dtype
         self.nnz = data.nnz
 
     @with_cupy_rmm
