@@ -78,7 +78,7 @@ class SparseCumlArray:
                                                  convert_to_dtype=dtype)
 
         self.shape = data.shape
-        self.dtype = data.dtype
+        self.dtype = self.data.dtype
         self.nnz = data.nnz
 
     @with_cupy_rmm
