@@ -49,22 +49,18 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
     rowMajorQuery, nullptr, metric, metric_arg, expanded);
 }
 
-void perform_knn(cumlHandle &handle, knnIndexParam* algo_params,
-                 std::vector<float *> &input, std::vector<int> &sizes,
-                 int D, float *search_items, int n,
-                 int64_t *res_I, float *res_D, int k,
-                 bool rowMajorIndex, bool rowMajorQuery,
-                 MetricType metric, float metric_arg, bool expanded) {
-    ASSERT(input.size() == sizes.size(),
-    "input and sizes vectors must be the same size");
+void approx_knn_build_index(cumlHandle &handle, ML::knnIndex* index,
+                            ML::knnIndexParam* params, int D,
+                            ML::MetricType metric, float *search_items,
+                            int n) {
+  MLCommon::Selection::approx_knn_build_index(index, params,
+    D, metric, search_items, n, handle.getStream());
+}
 
-    std::vector<cudaStream_t> int_streams = handle.getImpl().getInternalStreams();
-
-    MLCommon::Selection::perform_knn(
-      algo_params, input, sizes, D, search_items, n, res_I, res_D, k,
-      handle.getImpl().getDeviceAllocator(), handle.getImpl().getStream(),
-      int_streams.data(), handle.getImpl().getNumInternalStreams(), rowMajorIndex,
-      rowMajorQuery, nullptr, metric, metric_arg, expanded);
+void approx_knn_search(ML::knnIndex* index, int n,
+                      const float* x, int k,
+                      float* distances, int64_t* labels) {
+  MLCommon::Selection::approx_knn_search(index, n, x, k, distances, labels);
 }
 
 void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,

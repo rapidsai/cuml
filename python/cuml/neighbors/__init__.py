@@ -31,5 +31,5 @@ VALID_METRICS = {
         "jensenshannon",
         "cosine", "correlation"
     ]),
-    "PQ": set(["l2", "euclidean"])
+    "ivfpq": set(["l2", "euclidean"])
 }

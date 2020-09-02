@@ -187,75 +187,90 @@ inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
   }
 }
 
+
+const std::set<int> allowedSubDimSize = {1, 2, 3, 4, 6, 8, 10, 12, 16, 20, 24, 28, 32};
+const std::initializer_list<int> allowedSubquantizers = { 32, 28, 24, 20, 16, 12, 8, 4, 3, 2, 1 };
+
+
 template <typename IntType = int>
-faiss::gpu::GpuIndex* approx_knn_build_index(faiss::gpu::StandardGpuResources* gpu_res,
-                                             ML::knnIndexParam* params,
-                                             IntType D, ML::MetricType metric,
-                                             float *search_items, IntType n,
-                                             cudaStream_t userStream) {
+void approx_knn_ivfpq_build_index(ML::knnIndex* index,
+                                  ML::IVFPQParam* params,
+                                  IntType D, ML::MetricType metric,
+                                  IntType n) {
+  if (params->automated) {
+    params->M = 0;
+    params->n_bits = 0;
+    params->nlist = 8;
+
+    for (int n_subq : allowedSubquantizers) {
+      if (D % n_subq == 0 &&
+          allowedSubDimSize.find(D / n_subq) != allowedSubDimSize.end()) {
+        params->usePrecomputedTables = false;
+        params->M = n_subq;
+        break;
+      }
+    }
+
+    if (params->M == 0) {
+      for (int n_subq : allowedSubquantizers) {
+        if (D % n_subq == 0) {
+          params->usePrecomputedTables = true;
+          params->M = n_subq;
+          break;
+        }
+      }
+    }
+
+    for (size_t i = 8; i > 0; --i) {
+      size_t min_train_points = std::pow(2, i) * 39;
+      if (n >= min_train_points) {
+        params->n_bits = i;
+        break;
+      }
+    }
+  }
+
+  faiss::gpu::GpuIndexIVFPQConfig config;
+  config.device = index->device;
+  config.usePrecomputedTables = params->usePrecomputedTables;
+  faiss::MetricType faiss_metric = build_faiss_metric(metric);
+  index->index = new faiss::gpu::GpuIndexIVFPQ(index->gpu_res, D, params->nlist, params->M,
+                                                params->n_bits, faiss_metric, config);
+}
+
+template <typename IntType = int>
+void approx_knn_build_index(ML::knnIndex* index,
+                            ML::knnIndexParam* params,
+                            IntType D, ML::MetricType metric,
+                            float *search_items, IntType n,
+                            cudaStream_t userStream) {
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
 
-  faiss::gpu::GpuIndex* index = nullptr;
+  faiss::gpu::StandardGpuResources* gpu_res = new faiss::gpu::StandardGpuResources();
+  gpu_res->noTempMemory();
+  gpu_res->setCudaMallocWarning(false);
+  gpu_res->setDefaultStream(device, userStream);
+  index->gpu_res = gpu_res;
+  index->device = device;
 
-  if (params->type == ML::knnIndexType::PQ) {
-    if (params->automated) {
-      params->M = 0;
-      params->n_bits = 0;
-      params->nlist = 8;
-
-      const std::set<int> allowedSubDimSize = {1, 2, 3, 4, 6, 8, 10, 12, 16, 20, 24, 28, 32};
-      const std::initializer_list<int> divisors = { 32, 28, 24, 20, 16, 12, 8, 4, 3, 2, 1 };
-
-      for (int divisor : divisors) {
-          if (D % divisor == 0 &&
-              allowedSubDimSize.find(D / divisor) != allowedSubDimSize.end()) {
-          params->usePrecomputedTables = false;
-          params->M = divisor;
-          break;
-          }
-      }
-
-      if (params->M == 0) {
-          for (int divisor : divisors) {
-              if (D % divisor == 0) {
-                  params->usePrecomputedTables = true;
-                  params->M = divisor;
-                  break;
-              }
-          }
-      }
-
-      for (size_t i = 8; i > 0; --i) {
-          size_t min_train_points = std::pow(2, i) * 39;
-          if (n >= min_train_points) {
-          params->n_bits = i;
-          break;
-          }
-      }
-
-      config.usePrecomputedTables = params->usePrecomputedTables;
-    }
-
-    faiss::gpu::GpuIndexIVFPQConfig config;
-    config.device = device;
-    faiss::MetricType faiss_metric = build_faiss_metric(metric);
-    index = new faiss::gpu::GpuIndexIVFPQ(gpu_res, D, params->nlist, params->M,
-                                          params->n_bits, faiss_metric, config);
+  if (dynamic_cast<ML::IVFPQParam*>(params)) {
+    ML::IVFPQParam* IVFPQ_param = dynamic_cast<ML::IVFPQParam*>(params);
+    approx_knn_ivfpq_build_index(index, IVFPQ_param, D, metric, n);
+  } else {
+    ASSERT(index, "KNN index could not be initialized");
   }
 
-  ASSERT(index, "KNN index could not be initialized");
-
-  index->train(n, search_items);
-  return index;
+  index->index->train(n, search_items);
+  index->index->add(n, search_items);
 }
 
 
 template <typename IntType = int>
-void approx_knn_search(faiss::gpu::GpuIndex* index, IntType n,
+void approx_knn_search(ML::knnIndex* index, IntType n,
                        const float* x, IntType k,
                        float* distances, int64_t* labels) {
-  index->search(n, x, k, distances, labels);
+  index->index->search(n, x, k, distances, labels);
 }
 
 
@@ -394,193 +409,6 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   // fully serial execution.
   for (int i = 0; i < n_int_streams; i++) {
     CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
-  }
-
-  if (input.size() > 1 || translations != nullptr) {
-    // This is necessary for proper index translations. If there are
-    // no translations or partitions to combine, it can be skipped.
-    knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k, userStream,
-                    trans.data());
-  }
-
-  // Perform necessary post-processing
-  if ((m == faiss::MetricType::METRIC_L2 ||
-       m == faiss::MetricType::METRIC_Lp) &&
-      !expanded_form) {
-    /**
-	* post-processing
-	*/
-    float p = 0.5;  // standard l2
-    if (m == faiss::MetricType::METRIC_Lp) p = 1.0 / metricArg;
-    MLCommon::LinAlg::unaryOp<float>(
-      res_D, res_D, n * k,
-      [p] __device__(float input) { return powf(input, p); }, userStream);
-  }
-
-  query_metric_processor->revert(search_items);
-  query_metric_processor->postprocess(out_D);
-  for (int i = 0; i < input.size(); i++) {
-    metric_processors[i]->revert(input[i]);
-  }
-
-  if (translations == nullptr) delete id_ranges;
-};
-
-
-/**
- * Search the kNN for the k-nearest neighbors of a set of query vectors
- * @param[in] params the parameters for the choosen KNN strategy
- * @param[in] input vector of device device memory array pointers to search
- * @param[in] sizes vector of memory sizes for each device array pointer in input
- * @param[in] D number of cols in input and search_items
- * @param[in] search_items set of vectors to query for neighbors
- * @param[in] n        number of items in search_items
- * @param[out] res_I    pointer to device memory for returning k nearest indices
- * @param[out] res_D    pointer to device memory for returning k nearest distances
- * @param[in] k        number of neighbors to query
- * @param[in] allocator the device memory allocator to use for temporary scratch memory
- * @param[in] userStream the main cuda stream to use
- * @param[in] internalStreams optional when n_params > 0, the index partitions can be
- *        queried in parallel using these streams. Note that n_int_streams also
- *        has to be > 0 for these to be used and their cardinality does not need
- *        to correspond to n_parts.
- * @param[in] n_int_streams size of internalStreams. When this is <= 0, only the
- *        user stream will be used.
- * @param[in] rowMajorIndex are the index arrays in row-major layout?
- * @param[in] rowMajorQuery are the query array in row-major layout?
- * @param[in] translations translation ids for indices when index rows represent
- *        non-contiguous partitions
- * @param[in] metric corresponds to the FAISS::metricType enum (default is euclidean)
- * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
- * @param[in] expanded_form whether or not lp variants should be reduced w/ lp-root
- */
-template <typename IntType = int>
-void perform_knn(ML::knnIndexParam* params, std::vector<float *> &input, std::vector<int> &sizes,
-                     IntType D, float *search_items, IntType n, int64_t *res_I,
-                     float *res_D, IntType k,
-                     std::shared_ptr<deviceAllocator> allocator,
-                     cudaStream_t userStream,
-                     cudaStream_t *internalStreams = nullptr,
-                     int n_int_streams = 0, bool rowMajorIndex = true,
-                     bool rowMajorQuery = true,
-                     std::vector<int64_t> *translations = nullptr,
-                     ML::MetricType metric = ML::MetricType::METRIC_L2,
-                     float metricArg = 0, bool expanded_form = false) {
-  ASSERT(input.size() == sizes.size(),
-         "input and sizes vectors should be the same size");
-
-  faiss::MetricType m = build_faiss_metric(metric);
-
-  std::vector<int64_t> *id_ranges;
-  if (translations == nullptr) {
-    // If we don't have explicit translations
-    // for offsets of the indices, build them
-    // from the local partitions
-    id_ranges = new std::vector<int64_t>();
-    int64_t total_n = 0;
-    for (int i = 0; i < input.size(); i++) {
-      id_ranges->push_back(total_n);
-      total_n += sizes[i];
-    }
-  } else {
-    // otherwise, use the given translations
-    id_ranges = translations;
-  }
-
-  // perform preprocessing
-  std::unique_ptr<MetricProcessor<float>> query_metric_processor =
-    create_processor<float>(metric, n, D, k, rowMajorQuery, userStream,
-                            allocator);
-  query_metric_processor->preprocess(search_items);
-
-  std::vector<std::unique_ptr<MetricProcessor<float>>> metric_processors(
-    input.size());
-  for (int i = 0; i < input.size(); i++) {
-    metric_processors[i] = create_processor<float>(
-      metric, n, D, k, rowMajorQuery, userStream, allocator);
-    metric_processors[i]->preprocess(input[i]);
-  }
-
-  int device;
-  CUDA_CHECK(cudaGetDevice(&device));
-
-  device_buffer<int64_t> trans(allocator, userStream, id_ranges->size());
-  updateDevice(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
-
-  device_buffer<float> all_D(allocator, userStream, 0);
-  device_buffer<int64_t> all_I(allocator, userStream, 0);
-
-  float *out_D = res_D;
-  int64_t *out_I = res_I;
-
-  if (input.size() > 1) {
-    all_D.resize(input.size() * k * n, userStream);
-    all_I.resize(input.size() * k * n, userStream);
-
-    out_D = all_D.data();
-    out_I = all_I.data();
-  }
-
-  if (params->type == ML::knnIndexType::Bruteforce) {
-    // Sync user stream only if using other streams to parallelize query
-    if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
-
-    for (int i = 0; i < input.size(); i++) {
-      faiss::gpu::StandardGpuResources gpu_res;
-
-      cudaStream_t stream =
-        select_stream(userStream, internalStreams, n_int_streams, i);
-
-      gpu_res.noTempMemory();
-      gpu_res.setCudaMallocWarning(false);
-      gpu_res.setDefaultStream(device, stream);
-
-      faiss::gpu::GpuDistanceParams args;
-      args.metric = m;
-      args.metricArg = metricArg;
-      args.k = k;
-      args.dims = D;
-      args.vectors = input[i];
-      args.vectorsRowMajor = rowMajorIndex;
-      args.numVectors = sizes[i];
-      args.queries = search_items;
-      args.queriesRowMajor = rowMajorQuery;
-      args.numQueries = n;
-      args.outDistances = out_D + (i * k * n);
-      args.outIndices = out_I + (i * k * n);
-
-      /**
-       * @todo: Until FAISS supports pluggable allocation strategies,
-       * we will not reap the benefits of the pool allocator for
-       * avoiding device-wide synchronizations from cudaMalloc/cudaFree
-       */
-      bfKnn(&gpu_res, args);
-
-      CUDA_CHECK(cudaPeekAtLastError());
-    }
-
-    // Sync internal streams if used. We don't need to
-    // sync the user stream because we'll already have
-    // fully serial execution.
-    for (int i = 0; i < n_int_streams; i++) {
-      CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
-    }
-  } else {
-    faiss::gpu::StandardGpuResources gpu_res;
-    gpu_res.noTempMemory();
-    gpu_res.setCudaMallocWarning(false);
-    gpu_res.setDefaultStream(device, userStream);
-
-    faiss::gpu::GpuIndex* index = nullptr;
-    index = approx_knn_build_index(&gpu_res, params, D, metric, search_items, n, userStream);
-
-    for (int i = 0; i < input.size(); i++) {
-      approx_knn_search(index, sizes[i], input[i], k, out_D + (i * k * n), out_I + (i * k * n));
-    }
-
-    CUDA_CHECK(cudaPeekAtLastError());
-    CUDA_CHECK(cudaStreamSynchronize(userStream));
-    delete index;
   }
 
   if (input.size() > 1 || translations != nullptr) {

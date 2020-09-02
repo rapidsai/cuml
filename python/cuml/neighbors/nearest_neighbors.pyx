@@ -79,22 +79,20 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         METRIC_Cosine = 100,
         METRIC_Correlation
 
-    enum knnIndexType:
-        Bruteforce,
-        PQ
+    cdef cppclass knnIndex:
+        int device
 
     cdef cppclass knnIndexParam:
-        knnIndexType type,
-        bool automated,
+        bool automated
 
+    cdef cppclass IVFPQParam(knnIndexParam):
         int nlist,
         int M,
         int n_bits,
         bool usePrecomputedTables
 
-    void perform_knn(
+    void brute_force_knn(
         cumlHandle &handle,
-        knnIndexParam* algo_params,
         vector[float*] &inputs,
         vector[int] &sizes,
         int D,
@@ -108,6 +106,25 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         MetricType metric,
         float metric_arg,
         bool expanded
+    ) except +
+
+    void approx_knn_build_index(
+        cumlHandle &handle,
+        knnIndex* index,
+        knnIndexParam* params,
+        int D,
+        MetricType metric,
+        float *search_items,
+        int n
+    ) except +
+
+    void approx_knn_search(
+        knnIndex* index,
+        int n,
+        const float *x,
+        int k,
+        float *distances,
+        int64_t* labels
     ) except +
 
 
@@ -126,7 +143,8 @@ class NearestNeighbors(Base):
     handle : cumlHandle
         The cumlHandle resources to use
     algorithm : string (default='brute')
-        The query algorithm to use.
+        The query algorithm to use. Valid options are 'brute' for brute-force
+        or 'ivfpq' for product quantized approximate nearest neighbors.
     metric : string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
@@ -239,11 +257,23 @@ class NearestNeighbors(Base):
         if params is None:
             return
         if 'automated' in params and params['automated']:
-            if algo == "PQ":
+            if algo == "ivfpq":
                 for param in ['nlist', 'M', 'n_bits', 'usePrecomputedTables']:
                     if not hasattr(params, param):
                         ValueError('algo_params misconfigured : {} \
                                     parameter unset'.format(param))
+
+    @staticmethod
+    def _build_ivfpq_algo_params(params, automated):
+        cdef IVFPQParam* algo_params = new IVFPQParam()
+        if automated:
+            return <size_t>algo_params
+        algo_params.nlist = <int> params.nlist
+        algo_params.M = <int> params.M
+        algo_params.n_bits = <int> params.n_bits
+        algo_params.usePrecomputedTables = \
+            <bool> params.usePrecomputedTables
+        return <size_t>algo_params
 
     @staticmethod
     def _build_algo_params(algo, params):
@@ -251,24 +281,19 @@ class NearestNeighbors(Base):
         if params is None:
             params = dict({'automated': True})
 
-        cdef knnIndexParam* algo_params = new knnIndexParam()
-
-        if algo == 'brute':
-            algo_params.type = Bruteforce
-        elif algo == 'PQ':
-            algo_params.type = PQ
-
         automated = 'automated' in params and params['automated']
-        algo_params.automated = <bool> automated
+        cdef knnIndexParam* algo_params = <knnIndexParam*> 0
+        if algo == 'ivfpq':
+            algo_params = <knnIndexParam*><size_t> \
+                NearestNeighbors._build_ivfpq_algo_params(params, automated)
 
-        if not automated:
-            if algo == 'PQ':
-                algo_params.nlist = <int> params.nlist
-                algo_params.M = <int> params.M
-                algo_params.n_bits = <int> params.n_bits
-                algo_params.usePrecomputedTables = \
-                    <bool> params.usePrecomputedTables
+        algo_params.automated = <bool>automated
         return <size_t>algo_params
+
+    @staticmethod
+    def _destroy_algo_params(ptr):
+        cdef knnIndexParam* algo_params = <knnIndexParam*> <size_t> ptr
+        del algo_params
 
     @generate_docstring()
     def fit(self, X, convert_dtype=True):
@@ -292,6 +317,27 @@ class NearestNeighbors(Base):
 
         self.n_rows = n_rows
         self.n_indices = 1
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef knnIndex* knn_index = <knnIndex*> 0
+        cdef knnIndexParam* algo_params = <knnIndexParam*> 0
+        if not self.algorithm == 'brute':
+            knn_index = new knnIndex()
+            self.knn_index = <size_t> knn_index
+            algo_params =  <knnIndexParam*> <size_t> \
+                NearestNeighbors._build_algo_params(self.algorithm, self.algo_params)
+            metric, expanded = self._build_metric_type(self.metric)
+
+            approx_knn_build_index(handle_[0],
+                <knnIndex*>knn_index,
+                <knnIndexParam*>algo_params,
+                <int>n_cols,
+                <MetricType>metric,
+                <float*><uintptr_t>self._X_m.ptr,
+                <int>n_rows)
+            self.handle.sync()
+
+            NearestNeighbors._destroy_algo_params(<size_t>algo_params)
 
         return self
 
@@ -452,30 +498,36 @@ class NearestNeighbors(Base):
         cdef uintptr_t x_ctype_st = X_m.ptr
 
         metric, expanded = self._build_metric_type(self.metric)
+        cdef knnIndex* knn_index = <knnIndex*> 0
 
-        cdef knnIndexParam* algo_params = \
-          <knnIndexParam*> <size_t> \
-          NearestNeighbors._build_algo_params(self.algorithm, self.algo_params)
-
-        perform_knn(
-            handle_[0],
-            algo_params,
-            deref(inputs),
-            deref(sizes),
-            <int>self.n_dims,
-            <float*>x_ctype_st,
-            <int>N,
-            <int64_t*>I_ptr,
-            <float*>D_ptr,
-            <int>n_neighbors,
-            False,
-            False,
-            <MetricType>metric,
-            # minkowski order is currently the only metric argument.
-            <float>self.p,
-            < bool > expanded
-        )
-
+        if self.algorithm == 'brute':
+            brute_force_knn(
+                handle_[0],
+                deref(inputs),
+                deref(sizes),
+                <int>self.n_dims,
+                <float*>x_ctype_st,
+                <int>N,
+                <int64_t*>I_ptr,
+                <float*>D_ptr,
+                <int>n_neighbors,
+                False,
+                False,
+                <MetricType>metric,
+                # minkowski order is currently the only metric argument.
+                <float>self.p,
+                < bool > expanded
+            )
+        else:
+            knn_index = <knnIndex*><uintptr_t> self.knn_index
+            approx_knn_search(
+                <knnIndex*>knn_index,
+                <int>N,
+                <float*><uintptr_t>X_m.ptr,
+                <int>n_neighbors,
+                <float*>D_ptr,
+                <int64_t*>I_ptr,
+            )
         self.handle.sync()
 
         if _output_cumlarray:
@@ -648,3 +700,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         query = X.X_m
 
     return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)
+
+    def __dealloc__(self):
+        cdef knnIndex* knn_index = <knnIndex*> <size_t> slf.knn_index
+        del knn_index

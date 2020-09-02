@@ -18,6 +18,8 @@
 
 #include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
+#include <faiss/gpu/StandardGpuResources.h>
+#include <faiss/gpu/GpuIndex.h>
 
 namespace ML {
 
@@ -36,21 +38,26 @@ enum MetricType {
   METRIC_Correlation
 };
 
-
-typedef enum {
-    Bruteforce,
-    PQ
-} knnIndexType;
-
+struct knnIndex {
+  faiss::gpu::StandardGpuResources* gpu_res;
+  faiss::gpu::GpuIndex* index;
+  int device;
+  ~knnIndex() {
+    delete gpu_res;
+    delete index;
+  }
+};
 
 struct knnIndexParam {
-    knnIndexType type;
-    bool automated;
+  bool automated;
+  virtual bool isBaseClass() { return true; }
+};
 
-    size_t nlist;
-    size_t M;
-    size_t n_bits;
-    bool usePrecomputedTables;
+struct IVFPQParam : knnIndexParam {
+  int nlist;
+  int M;
+  int n_bits;
+  bool usePrecomputedTables;
 };
 
 
@@ -85,38 +92,14 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
                      float metric_arg = 2.0f, bool expanded = false);
 
 
-/**
- * @brief Flat C++ API function to perform a brute force knn on
- * a series of input arrays and combine the results into a single
- * output array for indexes and distances.
- *
- * @param[in] handle the cuml handle to use
- * @param[in] params the parameters for the choosen KNN strategy
- * @param[in] input vector of pointers to the input arrays
- * @param[in] sizes vector of sizes of input arrays  
- * @param[in] D the dimensionality of the arrays
- * @param[in] search_items array of items to search of dimensionality D
- * @param[in] n number of rows in search_items
- * @param[out] res_I the resulting index array of size n * k
- * @param[out] res_D the resulting distance array of size n * k
- * @param[in] k the number of nearest neighbors to return
- * @param[in] rowMajorIndex are the index arrays in row-major order?
- * @param[in] rowMajorQuery are the query arrays in row-major order?
- * @param[in] metric distance metric to use. Euclidean (L2) is used by
- * 			   default
- * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
- * 					 is ignored if the metric_type is not Minkowski.
- * @param[in] expanded should lp-based distances be returned in their expanded
- * 					 form (e.g., without raising to the 1/p power).
- */
-void perform_knn(cumlHandle &handle, ML::knnIndexParam* params,
-                     std::vector<float *> &input, std::vector<int> &sizes,
-                     int D, float *search_items, int n,
-                     int64_t *res_I, float *res_D, int k,
-                     bool rowMajorIndex = false, bool rowMajorQuery = false,
-                     MetricType metric = MetricType::METRIC_L2,
-                     float metric_arg = 2.0f, bool expanded = false);
+void approx_knn_build_index(cumlHandle &handle, ML::knnIndex* index,
+                            ML::knnIndexParam* params, int D,
+                            ML::MetricType metric, float *search_items,
+                            int n);
 
+void approx_knn_search(ML::knnIndex* index, int n,
+                       const float* x, int k,
+                       float* distances, int64_t* labels);
 
 /**
  * @brief Flat C++ API function to perform a knn classification using a
