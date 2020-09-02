@@ -15,6 +15,8 @@
 
 import pytest
 
+import numba.cuda
+
 import random
 
 from dask.distributed import wait
@@ -154,3 +156,13 @@ def test_recv_any_rank(n_trials, ucx_client):
 
     finally:
         cb.destroy()
+
+
+# Sanity check to make sure all GPUs have unique ids. If this fails, something
+def test_gpus_unique_ids(client):
+    def get_dev():
+        return numba.cuda.gpus[0]._device.get_device_identity()
+    n_gpus_unique = len({tuple(a.values())
+                         for a in client.run(get_dev).values()})
+    n_workers = len(client.scheduler_info()['workers'])
+    assert n_gpus_unique == n_workers
