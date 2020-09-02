@@ -271,6 +271,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           if (ps.num_classes == 2) {
             // all trees predict the probability for the same class
             class_scores[0] += class_scores[1];
+          }
+          if (ps.num_classes <= 2) {
             transform(class_scores[0], want_proba_h[r * 2 + 1], want_preds_h[r]);
             complement(&(want_proba_h[r * 2]));
           }
@@ -284,7 +286,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           }
           break;
       }
-      if (ps.num_classes != 2 ||
+      if (ps.num_classes > 2 ||
           ps.leaf_payload_type == fil::leaf_value_t::INT_CLASS_LABEL) {
         for (int c = 0; c < ps.num_classes; ++c) {
           float thresholded_proba;  // not used; do argmax instead
