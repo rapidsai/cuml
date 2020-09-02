@@ -62,6 +62,13 @@ class SparseCumlArray:
             Number of nonzeros in underlying arrays
         """
 
+        if not cpx.scipy.sparse.isspmatrix(data) and \
+                not (has_scipy() and scipy.sparse.isspmatrix(data)):
+            raise ValueError("A sparse matrix is expected as input. "
+                             "Received %s" % type(data))
+
+        data = data.tocsr()  # currently only CSR is supported
+
         # Note: Only 32-bit indexing is supported currently.
         # In CUDA11, Cusparse provides 64-bit function calls
         # but these are not yet used in RAFT/Cuml
