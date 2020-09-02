@@ -99,7 +99,8 @@ class SparseCumlArray:
             Optionally cast the array to a specified dtype, creating
             a copy if necessary.
         """
-        output_dtype = self.data.dtype if output_dtype is None else output_dtype
+        output_dtype = self.data.dtype \
+            if output_dtype is None else output_dtype
 
         if output_type not in ['cupy', 'scipy']:
             raise ValueError("Unsupported output_type: %s" % output_dtype)
