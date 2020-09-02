@@ -55,14 +55,18 @@ def replace_suffix(word_strs, suffix, replacement, can_replace_mask):
     else:
         stem_ser = get_stem_series(word_strs, len_suffix, can_replace_mask)
         if isinstance(replacement, str):
-            replacement_ser = get_str_replacement_series(replacement, can_replace_mask)
+            replacement_ser = get_str_replacement_series(
+                replacement, can_replace_mask
+            )
         if isinstance(replacement, int):
             replacement_ser = get_index_replacement_series(
                 word_strs, replacement, can_replace_mask
             )
         else:
             assert ValueError(
-                "replacement: {} value should be a string or a int".format(replacement)
+                "replacement: {} value should be a string or a int".format(
+                    replacement
+                )
             )
 
         return stem_ser + replacement_ser
@@ -92,4 +96,6 @@ def get_stem_series(word_strs, suffix_len, can_replace_mask):
     can_replace_mask_ar = can_replace_mask._column.data_array_view
 
     subtract_valid[NBLCK, NTHRD](end_ar, can_replace_mask_ar, suffix_len)
-    return word_strs.str.slice_from(starts=start_series, stops=end_ser.fillna(0))
+    return word_strs.str.slice_from(
+        starts=start_series, stops=end_ser.fillna(0)
+    )

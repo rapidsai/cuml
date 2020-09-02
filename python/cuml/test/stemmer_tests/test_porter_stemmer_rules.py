@@ -16,7 +16,9 @@
 
 import cudf
 import numpy as np
-from cuml.preprocessing.text.stem.porter_stemmer_utils.porter_stemmer_rules import ends_with_suffix
+from cuml.preprocessing.text.stem.porter_stemmer_utils.porter_stemmer_rules import (
+    ends_with_suffix,
+)
 
 
 def test_ends_with_suffix():

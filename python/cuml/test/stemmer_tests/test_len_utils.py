@@ -16,7 +16,10 @@
 
 import cudf
 import numpy as np
-from cuml.preprocessing.text.stem.porter_stemmer_utils.len_flags_utils import len_eq_n, len_gt_n
+from cuml.preprocessing.text.stem.porter_stemmer_utils.len_flags_utils import (
+    len_eq_n,
+    len_gt_n,
+)
 
 
 def test_len_gt_n():

@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+
 def is_consonant(str_ser, i):
     """Returns True if word[i] is a consonant, False otherwise
 

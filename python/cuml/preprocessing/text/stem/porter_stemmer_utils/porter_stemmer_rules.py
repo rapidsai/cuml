@@ -88,7 +88,11 @@ def ends_cvc(string_ser, mode="NLTK_EXTENSIONS"):
                 last_char_flag = last_char_ser != char
 
         rule_1 = (
-            len_flag & first_consonant & middle_vowel & last_consonant & last_char_flag
+            len_flag
+            & first_consonant
+            & middle_vowel
+            & last_consonant
+            & last_char_flag
         )
         # rule_2
         # self.mode == self.NLTK_EXTENSIONS

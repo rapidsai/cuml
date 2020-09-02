@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+
 def has_positive_measure(word_ser):
     measure_ser = word_ser.str.porter_stemmer_measure()
     return measure_ser > 0

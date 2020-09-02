@@ -91,7 +91,9 @@ class PorterStemmer:
 
         word_strs = word_strs.str.lower()
 
-        word_strs, can_replace_mask = map_irregular_forms(word_strs, can_replace_mask)
+        word_strs, can_replace_mask = map_irregular_forms(
+            word_strs, can_replace_mask
+        )
 
         # apply step 1
         word_strs = self._step1a(word_strs, can_replace_mask)
@@ -143,7 +145,9 @@ class PorterStemmer:
             word_strs = replace_suffix(word_strs, "ies", "ie", valid_mask)
 
             # update can replace mask
-            can_replace_mask = can_replace_mask & cudf.logical_not(condition_mask)
+            can_replace_mask = can_replace_mask & cudf.logical_not(
+                condition_mask
+            )
 
         return apply_rule_list(
             word_strs,
@@ -206,14 +210,18 @@ class PorterStemmer:
             word_strs = replace_suffix(word_strs, "ied", "ie", valid_mask)
 
             # update can replace mask
-            can_replace_mask = can_replace_mask & cudf.logical_not(condition_mask)
+            can_replace_mask = can_replace_mask & cudf.logical_not(
+                condition_mask
+            )
 
             condition_mask = suffix_mask
             valid_mask = can_replace_mask & condition_mask
             word_strs = replace_suffix(word_strs, "ied", "i", valid_mask)
 
             # update can replace mask
-            can_replace_mask = can_replace_mask & cudf.logical_not(condition_mask)
+            can_replace_mask = can_replace_mask & cudf.logical_not(
+                condition_mask
+            )
 
         # (m>0) EED -> EE
         # if suffix ==eed we stop processing
@@ -274,10 +282,16 @@ class PorterStemmer:
                 (
                     "*d",
                     -1,  # intermediate_stem[-1],
-                    lambda stem: last_char_not_in(stem, characters=["l", "s", "z"]),
+                    lambda stem: last_char_not_in(
+                        stem, characters=["l", "s", "z"]
+                    ),
                 ),
                 # (m=1 and *o) -> E
-                ("", "e", lambda stem: measure_eq_n(stem, n=1) & ends_cvc(stem)),
+                (
+                    "",
+                    "e",
+                    lambda stem: measure_eq_n(stem, n=1) & ends_cvc(stem),
+                ),
             ],
             can_replace_mask,
         )[0]
@@ -590,7 +604,9 @@ class PorterStemmer:
         #
 
         e_suffix_flag = ends_with_suffix(word_strs, "e")
-        stem = replace_suffix(word_strs, "e", "", e_suffix_flag & can_replace_mask)
+        stem = replace_suffix(
+            word_strs, "e", "", e_suffix_flag & can_replace_mask
+        )
 
         measure_gt_1_flag = measure_gt_n(stem, 1)
 
@@ -653,7 +669,9 @@ class PorterStemmer:
         #
 
         e_suffix_flag = ends_with_suffix(word_strs, "e")
-        stem = replace_suffix(word_strs, "e", "", e_suffix_flag & can_replace_mask)
+        stem = replace_suffix(
+            word_strs, "e", "", e_suffix_flag & can_replace_mask
+        )
 
         measure_gt_1_flag = measure_gt_n(stem, 1)
 

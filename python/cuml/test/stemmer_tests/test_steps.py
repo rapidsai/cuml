@@ -149,7 +149,15 @@ def test_step3():
         "hopeful",
         "goodness",
     ]
-    expect = ["triplic", "form", "formal", "electric", "electric", "hope", "good"]
+    expect = [
+        "triplic",
+        "form",
+        "formal",
+        "electric",
+        "electric",
+        "hope",
+        "good",
+    ]
 
     word_strs = cudf.Series(word_strs_ls)
     st = PorterStemmer()
