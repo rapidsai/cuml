@@ -26,17 +26,17 @@ from libcpp.string cimport string
 from libcpp cimport bool
 
 
-cdef extern from "cuml/common/logger.hpp" namespace "ML":
+cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
     cdef cppclass Logger:
         @staticmethod
-        Logger& get() nogil
-        void setLevel(int level) nogil
-        void setPattern(const string& pattern) nogil
+        Logger& get()
+        void setLevel(int level)
+        void setPattern(const string& pattern)
         void setCallback(void (*callback)(int, char*))
         void setFlush(void (*flush)())
-        bool shouldLogFor(int level) nogil const
-        int getLevel() nogil const
-        string getPattern() nogil const
+        bool shouldLogFor(int level) const
+        int getLevel() const
+        string getPattern() const
 
 
 cdef extern from "cuml/common/logger.hpp" nogil:
@@ -77,10 +77,10 @@ level_critical = CUML_LEVEL_CRITICAL
 """Disables all log messages"""
 level_off = CUML_LEVEL_OFF
 
-cdef void _log_callback(int lvl, const char * msg):
+cdef void _log_callback(int lvl, const char * msg) with gil:
     print(msg.decode('utf-8'), end='')
 
-cdef void _log_flush():
+cdef void _log_flush() with gil:
     sys.stdout.flush()
 
 Logger.get().setCallback(_log_callback)
