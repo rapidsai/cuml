@@ -305,3 +305,13 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
         assert cupyx.scipy.sparse.isspmatrix_csr(sparse_cu)
     else:
         assert isspmatrix_csr(sparse_cu)
+
+
+def test_sparse_nearest_neighbors():
+
+    a = cp.sparse.random(10, 5, format='csr', density=0.9)
+
+    nn = cuKNN()
+    nn.fit(a)
+
+    print(str(nn.kneighbors(a)))

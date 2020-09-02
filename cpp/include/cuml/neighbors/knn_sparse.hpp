@@ -18,8 +18,6 @@
 
 #include <cuml/cuml.hpp>
 
-#include <sparse/selection.cuh>
-
 #include <cusparse_v2.h>
 
 #include <cuml/neighbors/knn.hpp>

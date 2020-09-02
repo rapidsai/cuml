@@ -58,6 +58,8 @@ class SparseCumlArray:
             Column indices array
         data : CumlArray
             Data array
+        dtype : dtype
+            Data type of data array
         shape : tuple of ints
             Shape of the array
         nnz : int
@@ -80,6 +82,7 @@ class SparseCumlArray:
                                                  convert_to_dtype=dtype)
 
         self.shape = data.shape
+        self.dtype = data.dtype
         self.nnz = data.nnz
 
     @with_cupy_rmm

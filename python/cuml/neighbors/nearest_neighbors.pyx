@@ -29,8 +29,10 @@ import warnings
 
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
+from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
+from cuml.common.import_utils import has_scipy
 from cuml.common import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
@@ -52,6 +54,9 @@ import rmm
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
+
+if has_scipy():
+    import scipy.sparse
 
 cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
     cdef cppclass deviceAllocator:
@@ -95,6 +100,28 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         float metric_arg,
         bool expanded
     ) except +
+
+cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
+    void brute_force_knn(cumlHandle &handle,
+                         const int *idxIndptr,
+                         const int *idxIndices,
+                         const float *idxData,
+                         int idxNNZ,
+                         int n_idx_rows,
+                         size_t n_idx_cols,
+                         const int *queryIndptr,
+                         const int *queryIndices,
+                         const float *queryData,
+                         int queryNNZ,
+                         int n_query_rows,
+                         int n_query_cols,
+                         int *output_indices,
+                         float *output_dists,
+                         int k,
+                         size_t batch_size,
+                         MetricType metric,
+                         float metricArg,
+                         bool expanded_form)
 
 
 class NearestNeighbors(Base):
@@ -221,12 +248,6 @@ class NearestNeighbors(Base):
         self.p = p
         self.algorithm = algorithm
 
-    def _sparse_fit(self, X, convert_dtype=True):
-
-
-
-
-
 
     @generate_docstring()
     def fit(self, X, convert_dtype=True):
@@ -241,13 +262,19 @@ class NearestNeighbors(Base):
 
         self.n_dims = X.shape[1]
 
-        self._X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='F', check_dtype=np.float32,
-                                convert_to_dtype=(np.float32
-                                                  if convert_dtype
-                                                  else None))
+        if cupyx.scipy.sparse.isspmatrix(X) or \
+            (has_scipy() and scipy.sparse.isspmatrix(X)):
 
-        self.n_rows = n_rows
+            self._X_m = SparseCumlArray(X)
+            self.n_rows = self._X_m.shape[0]
+
+        else:
+            self._X_m, self.n_rows, n_cols, dtype = \
+                input_to_cuml_array(X, order='F', check_dtype=np.float32,
+                                    convert_to_dtype=(np.float32
+                                                      if convert_dtype
+                                                      else None))
+
         self.n_indices = 1
 
         return self
@@ -383,51 +410,10 @@ class NearestNeighbors(Base):
             raise ValueError("Dimensions of X need to match dimensions of "
                              "indices (%d)" % self.n_dims)
 
-        X_m, N, _, dtype = \
-            input_to_cuml_array(X, order='F', check_dtype=np.float32,
-                                convert_to_dtype=(np.float32 if convert_dtype
-                                                  else False))
-
-        # Need to establish result matrices for indices (Nxk)
-        # and for distances (Nxk)
-        I_ndarr = CumlArray.zeros((N, n_neighbors), dtype=np.int64, order="C")
-        D_ndarr = CumlArray.zeros((N, n_neighbors),
-                                  dtype=np.float32, order="C")
-
-        cdef uintptr_t I_ptr = I_ndarr.ptr
-        cdef uintptr_t D_ptr = D_ndarr.ptr
-
-        cdef vector[float*] *inputs = new vector[float*]()
-        cdef vector[int] *sizes = new vector[int]()
-
-        cdef uintptr_t idx_ptr = self._X_m.ptr
-        inputs.push_back(<float*>idx_ptr)
-        sizes.push_back(<int>self._X_m.shape[0])
-
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-        cdef uintptr_t x_ctype_st = X_m.ptr
-
-        metric, expanded = self._build_metric_type(self.metric)
-
-        brute_force_knn(
-            handle_[0],
-            deref(inputs),
-            deref(sizes),
-            <int>self.n_dims,
-            <float*>x_ctype_st,
-            <int>N,
-            <int64_t*>I_ptr,
-            <float*>D_ptr,
-            <int>n_neighbors,
-            False,
-            False,
-            <MetricType>metric,
-
-            # minkowski order is currently the only metric argument.
-            <float>self.p,
-            < bool > expanded
-        )
+        if isinstance(self._X_m, CumlArray):
+            D_ndarr, I_ndarr = self._kneighbors_dense(X, n_neighbors, convert_dtype)
+        elif isinstance(self._X_m, SparseCumlArray):
+            D_ndarr, I_ndarr = self._kneighbors_sparse(X, n_neighbors, convert_dtype)
 
         self.handle.sync()
 
@@ -451,6 +437,107 @@ class NearestNeighbors(Base):
                     D_output.drop(D_output.columns[0], axis=1)
 
         return (D_output, I_output) if return_distance else I_output
+
+    def _kneighbors_dense(self, X, n_neighbors, convert_dtype=None):
+
+        # TODO: Verify both X and self._X_m are dense
+
+        metric, expanded = self._build_metric_type(self.metric)
+
+        X_m, N, _, dtype = \
+            input_to_cuml_array(X, order='F', check_dtype=np.float32,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else False))
+
+        # Need to establish result matrices for indices (Nxk)
+        # and for distances (Nxk)
+        I_ndarr = CumlArray.zeros((N, n_neighbors), dtype=np.int64, order="C")
+        D_ndarr = CumlArray.zeros((N, n_neighbors),
+                                  dtype=np.float32, order="C")
+
+        cdef uintptr_t I_ptr = I_ndarr.ptr
+        cdef uintptr_t D_ptr = D_ndarr.ptr
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
+
+        cdef vector[float*] *inputs = new vector[float*]()
+        cdef vector[int] *sizes = new vector[int]()
+
+        cdef uintptr_t idx_ptr = self._X_m.ptr
+        inputs.push_back(<float*>idx_ptr)
+        sizes.push_back(<int>self._X_m.shape[0])
+
+        cdef uintptr_t x_ctype_st = X_m.ptr
+
+        brute_force_knn(
+            handle_[0],
+            deref(inputs),
+            deref(sizes),
+            <int>self.n_dims,
+            <float*>x_ctype_st,
+            <int>N,
+            <int64_t*>I_ptr,
+            <float*>D_ptr,
+            <int>n_neighbors,
+            False,
+            False,
+            <MetricType>metric,
+
+            # minkowski order is currently the only metric argument.
+            <float>self.p,
+            < bool > expanded
+        )
+
+        return D_ndarr, I_ndarr
+
+    def _kneighbors_sparse(self, X, n_neighbors, convert_dtype=None):
+
+        # TODO: Verify both X and self._X_m are sparse
+
+        X_m = SparseCumlArray(X)
+        metric, expanded = self._build_metric_type(self.metric)
+
+        cdef uintptr_t idx_indptr = self._X_m.indptr.ptr
+        cdef uintptr_t idx_indices = self._X_m.indices.ptr
+        cdef uintptr_t idx_data = self._X_m.data.ptr
+
+        cdef uintptr_t search_indptr = X_m.indptr.ptr
+        cdef uintptr_t search_indices = X_m.indices.ptr
+        cdef uintptr_t search_data = X_m.data.ptr
+
+        # Need to establish result matrices for indices (Nxk)
+        # and for distances (Nxk)
+        I_ndarr = CumlArray.zeros((X_m.shape[0], n_neighbors),
+                                  dtype=np.int64, order="C")
+        D_ndarr = CumlArray.zeros((X_m.shape[0], n_neighbors),
+                                  dtype=np.float32, order="C")
+
+        cdef uintptr_t I_ptr = I_ndarr.ptr
+        cdef uintptr_t D_ptr = D_ndarr.ptr
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
+        brute_force_knn(handle_[0],
+                        <int*> idx_indptr,
+                        <int*> idx_indices,
+                        <float*> idx_data,
+                        self._X_m.nna,
+                        self._X_m.shape[0],
+                        self._X_m.shape[1],
+                        <int*> search_indptr,
+                        <int*> search_indices,
+                        <float*> search_data,
+                        X_m.nnz,
+                        X_m.shape[0],
+                        X_m.shape[1],
+                        <int*>I_ptr,
+                        <float*>D_ptr,
+                        n_neighbors,
+                        2<<20, # TODO: Make this an option
+                        <MetricType> metric,
+                        self.p,
+                        <bool> expanded)
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
     def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):
