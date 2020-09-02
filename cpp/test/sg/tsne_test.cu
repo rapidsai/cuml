@@ -170,7 +170,6 @@ class TSNETest : public ::testing::Test {
     // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
     MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2,
                            handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test trustworthiness
     knn_score_bh =

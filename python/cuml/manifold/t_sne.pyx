@@ -303,7 +303,6 @@ class TSNE(Base):
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
 
-    @generate_docstring(convert_dtype_cast='np.float32')
     def fit(self, X, convert_dtype=True, knn_graph=None):
         """Fit X into an embedded space.
 
@@ -435,13 +434,6 @@ class TSNE(Base):
             del self._embedding_
             self._embedding_ = None
 
-    @generate_docstring(convert_dtype_cast='np.float32',
-                        return_values={'name': 'X_new',
-                                       'type': 'dense',
-                                       'description': 'Embedding of the \
-                                                       training data in \
-                                                       low-dimensional space.',
-                                       'shape': '(n_samples, n_components)'})
     def fit_transform(self, X, convert_dtype=True, knn_graph=None):
         """Fit X into an embedded space and return that transformed output.
 
@@ -473,7 +465,7 @@ class TSNE(Base):
         X_new : array, shape (n_samples, n_components)
                 Embedding of the training data in low-dimensional space.
         """
-        self.fit(X, convert_dtype, knn_graph)
+        self.fit(X, convert_dtype=convert_dtype, knn_graph=knn_graph)
         out_type = self._get_output_type(X)
 
         data = self._embedding_.to_output(out_type)
