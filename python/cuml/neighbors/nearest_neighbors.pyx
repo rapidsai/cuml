@@ -106,13 +106,13 @@ cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
                          const int *idxIndptr,
                          const int *idxIndices,
                          const float *idxData,
-                         int idxNNZ,
+                         size_t idxNNZ,
                          int n_idx_rows,
-                         size_t n_idx_cols,
+                         int n_idx_cols,
                          const int *queryIndptr,
                          const int *queryIndices,
                          const float *queryData,
-                         int queryNNZ,
+                         size_t queryNNZ,
                          int n_query_rows,
                          int n_query_cols,
                          int *output_indices,
@@ -265,7 +265,7 @@ class NearestNeighbors(Base):
         if cupyx.scipy.sparse.isspmatrix(X) or \
             (has_scipy() and scipy.sparse.isspmatrix(X)):
 
-            self._X_m = SparseCumlArray(X)
+            self._X_m = SparseCumlArray(X, dtype=cp.float32)
             self.n_rows = self._X_m.shape[0]
 
         else:
@@ -495,7 +495,7 @@ class NearestNeighbors(Base):
 
         # TODO: Verify both X and self._X_m are sparse
 
-        X_m = SparseCumlArray(X)
+        X_m = SparseCumlArray(X, dtype=cp.float32)
         metric, expanded = self._build_metric_type(self.metric)
 
         cdef uintptr_t idx_indptr = self._X_m.indptr.ptr
@@ -509,7 +509,7 @@ class NearestNeighbors(Base):
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
         I_ndarr = CumlArray.zeros((X_m.shape[0], n_neighbors),
-                                  dtype=np.int64, order="C")
+                                  dtype=np.int32, order="C")
         D_ndarr = CumlArray.zeros((X_m.shape[0], n_neighbors),
                                   dtype=np.float32, order="C")
 
@@ -522,7 +522,7 @@ class NearestNeighbors(Base):
                         <int*> idx_indptr,
                         <int*> idx_indices,
                         <float*> idx_data,
-                        self._X_m.nna,
+                        self._X_m.nnz,
                         self._X_m.shape[0],
                         self._X_m.shape[1],
                         <int*> search_indptr,
@@ -538,6 +538,8 @@ class NearestNeighbors(Base):
                         <MetricType> metric,
                         self.p,
                         <bool> expanded)
+
+        return D_ndarr, I_ndarr
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
     def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):

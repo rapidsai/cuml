@@ -127,7 +127,7 @@ __global__ void iota_fill_kernel(value_idx *indices, value_idx nrows,
 template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
 void brute_force_knn(
   const value_idx *idxIndptr, const value_idx *idxIndices,
-  const value_t *idxData, value_idx idxNNZ, value_idx n_idx_rows,
+  const value_t *idxData, size_t idxNNZ, value_idx n_idx_rows,
   value_idx n_idx_cols, const value_idx *queryIndptr,
   const value_idx *queryIndices, const value_t *queryData, size_t queryNNZ,
   value_idx n_query_rows, value_idx n_query_cols, value_idx *output_indices,
@@ -139,7 +139,7 @@ void brute_force_knn(
   using namespace raft::sparse;
 
   int n_batches_query = ceildiv((size_t)n_query_rows, batch_size);
-  bool ascending = true;
+  bool ascending = false;
   if (metric == ML::MetricType::METRIC_INNER_PRODUCT) ascending = false;
 
   csr_batcher_t<value_idx, value_t> query_batcher(
