@@ -810,11 +810,7 @@ def apply_rule(word_strs, rule, w_in_c_flag):
 def apply_rule_list(word_strs, rules, condition_flag):
     """Applies the first applicable suffix-removal rule to the word
 
-<<<<<<< HEAD
     Takes a word series and a list of suffix-removal rules represented as
-=======
-    Takes a word and a list of suffix-removal rules represented as
->>>>>>> e597e058b77de0e3b15317306bd4794a93ed3560
     3-tuples, with the first element being the suffix to remove,
     the second element being the string to replace it with, and the
     final element being the condition for the rule to be applicable,
