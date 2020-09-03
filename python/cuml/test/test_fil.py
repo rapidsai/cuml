@@ -397,6 +397,9 @@ def test_output_args(small_classifier_and_preds):
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
 def test_lightgbm(tmp_path):
     import lightgbm as lgb
+    from distutils.version import LooseVersion
+    if LooseVersion(lgb.__version__) >= LooseVersion('3.0.0'):
+        pytest.skip('lightgbm version 3 support is underway.')
     X, y = simulate_data(500, 10,
                          random_state=43210,
                          classification=True)

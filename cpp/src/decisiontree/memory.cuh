@@ -83,6 +83,7 @@ void TemporaryMemory<T, L>::LevelMemAllocator(
   }
   size_t maxnodes = max_nodes_per_level;
   size_t ncols_sampled = (size_t)(ncols * tree_params.max_features);
+  ncols_sampled = ncols_sampled > 0 ? ncols_sampled : 1;
   if (depth < 64) {
     gather_max_nodes = std::min((size_t)(nrows + 1),
                                 (size_t)(pow((size_t)2, (size_t)depth) + 1));
