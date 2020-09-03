@@ -14,10 +14,12 @@
 - PR #2758: Match sklearn's default n_components behavior for PCA
 - PR #2770: Fix doxygen version during cmake
 - PR #2766: Update default RandomForestRegressor score function to use r2
+- PR #2783: Add pytest that will fail when GPU IDs in Dask cluster are not unique
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
 - PR #2769: Remove outdated doxygen options for 1.8.20
+- PR #2787: Skip lightgbm test for version 3 and above temporarily
 - PR #2781: Use Python print to correctly redirect spdlogs when sys.stdout is changed
 
 # cuML 0.15.0 (Date TBD)
