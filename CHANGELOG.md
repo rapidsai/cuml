@@ -14,10 +14,14 @@
 - PR #2758: Match sklearn's default n_components behavior for PCA
 - PR #2770: Fix doxygen version during cmake
 - PR #2766: Update default RandomForestRegressor score function to use r2
+- PR #2783: Add pytest that will fail when GPU IDs in Dask cluster are not unique
+- PR #2785: Add in cuML-specific dev conda dependencies
+- PR #2778: Add README for FIL
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
 - PR #2769: Remove outdated doxygen options for 1.8.20
+- PR #2787: Skip lightgbm test for version 3 and above temporarily
 
 # cuML 0.15.0 (Date TBD)
 
@@ -112,6 +116,7 @@
 - PR #2623: Fixing kmeans score() API to be compatible with Scikit-learn
 - PR #2629: Add naive_bayes api docs
 - PR #2643: 'dense' and 'sparse' values of `storage_type` for FIL
+- PR #2691: Generic Base class attribute setter
 - PR #2666: Update MBSGD documentation to mention that the model is experimental
 - PR #2687: Update xgboost version to 1.2.0dev.rapidsai0.15
 - PR #2684: CUDA 11 conda development environment yml and faiss patch
@@ -367,6 +372,7 @@
 - PR #2305: Fixed race condition in DBScan
 - PR #2354: Fix broken links in README
 - PR #2619: Explicitly skip raft test folder for pytest 6.0.0
+- PR #2788: Set the minimum number of columns that can be sampled to 1 to fix 0 mem allocation error
 
 # cuML 0.13.0 (31 Mar 2020)
 
