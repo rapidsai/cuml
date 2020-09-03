@@ -96,7 +96,8 @@ def test_different_dtype(input_type):
 @pytest.mark.parametrize('input_type', test_input_types)
 @pytest.mark.parametrize('dtype', ['float32', 'float64'])
 @pytest.mark.parametrize('output_type', test_input_types)
-def test_output(input_type, output_type, dtype):
+@pytest.mark.parametrize('output_format', [None, 'coo', 'csc'])
+def test_output(input_type, output_type, dtype, output_format):
 
     rand_func = cupyx.scipy.sparse if input_type == 'cupy' else scipy.sparse
 
@@ -104,11 +105,25 @@ def test_output(input_type, output_type, dtype):
 
     X_m = SparseCumlArray(X)
 
-    output = X_m.to_output(output_type)
+    output = X_m.to_output(output_type, output_format=output_format)
 
     if output_type == 'scipy':
-        assert isinstance(output, scipy.sparse.csr_matrix)
+        if output_format is None:
+            assert isinstance(output, scipy.sparse.csr_matrix)
+        elif output_format == 'coo':
+            assert isinstance(output, scipy.sparse.coo_matrix)
+        elif output_format == 'csc':
+            assert isinstance(output, scipy.sparse.csc_matrix)
+        else:
+            pytest.fail("unecpected output format")
     else:
-        assert isinstance(output, cupyx.scipy.sparse.csr_matrix)
+        if output_format is None:
+            assert isinstance(output, cupyx.scipy.sparse.csr_matrix)
+        elif output_format == 'coo':
+            assert isinstance(output, cupyx.scipy.sparse.coo_matrix)
+        elif output_format == 'csc':
+            assert isinstance(output, cupyx.scipy.sparse.csc_matrix)
+        else:
+            pytest.fail("unecpected output format")
 
     cp.testing.assert_array_equal(X.todense(), output.todense())

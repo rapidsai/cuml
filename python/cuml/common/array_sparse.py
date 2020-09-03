@@ -92,7 +92,9 @@ class SparseCumlArray:
         self.has_sorted_indices = data.has_sorted_indices
 
     @with_cupy_rmm
-    def to_output(self, output_type='cupy', output_dtype=None):
+    def to_output(self, output_type='cupy',
+                  output_format=None,
+                  output_dtype=None):
         """
         Convert array to output format
 
@@ -104,6 +106,8 @@ class SparseCumlArray:
             - 'cupy' - to cupy array
             - 'scipy' - to scipy (host) array
 
+        output_format : string, optional { 'coo', 'csc' }
+            Optionally convert the output to the specified format.
         output_dtype : string, optional
             Optionally cast the array to a specified dtype, creating
             a copy if necessary.
@@ -129,5 +133,15 @@ class SparseCumlArray:
             else:
                 raise ValueError("Scipy library is not available.")
 
-        return constructor((data, indices, indptr),
-                           dtype=output_dtype, shape=self.shape)
+        ret = constructor((data, indices, indptr),
+                          dtype=output_dtype, shape=self.shape)
+
+        if output_format is not None:
+            if output_format == 'coo':
+                ret = ret.tocoo()
+            elif output_format == 'csc':
+                ret = ret.tocsc()
+            else: raise ValueError("Output format % not supported"
+                                   % output_format)
+
+        return ret
