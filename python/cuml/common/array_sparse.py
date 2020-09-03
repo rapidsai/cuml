@@ -35,17 +35,14 @@ class SparseCumlArray:
         SparseCumlArray abstracts sparse array allocations. This will
         accept either a Scipy or Cupy sparse array and construct CumlArrays
         out of the underlying index and data arrays. Currently, this class
-        only supports the CSR array format.
+        only supports the CSR array format and input in any other sparse
+        format will be converted to CSR.
 
         Parameters
         ----------
 
         data : scipy.sparse.csr_matrix or cupyx.scipy.sparse.csr_matrix
             A Scipy or Cupy sparse csr_matrix
-        owner : object, optional
-            Python object to which the lifetime of the memory
-            allocation is tied. If provided, a reference to this
-            object is kept in this Buffer.
         dtype : data-type, optional
             Any object that can be interpreted as a numpy or cupy data type.
 
@@ -64,7 +61,16 @@ class SparseCumlArray:
             Shape of the array
         nnz : int
             Number of nonzeros in underlying arrays
+        has_sorted_indices : bool
+            Whether column indices and data are sorted by column
         """
+
+        if not cpx.scipy.sparse.isspmatrix(data) and \
+                not (has_scipy() and scipy.sparse.isspmatrix(data)):
+            raise ValueError("A sparse matrix is expected as input. "
+                             "Received %s" % type(data))
+
+        data = data.tocsr()  # currently only CSR is supported
 
         # Note: Only 32-bit indexing is supported currently.
         # In CUDA11, Cusparse provides 64-bit function calls
@@ -82,8 +88,9 @@ class SparseCumlArray:
                                                  convert_to_dtype=dtype)
 
         self.shape = data.shape
-        self.dtype = data.dtype
+        self.dtype = self.data.dtype
         self.nnz = data.nnz
+        self.has_sorted_indices = data.has_sorted_indices
 
     @with_cupy_rmm
     def to_output(self, output_type='cupy', output_dtype=None):
