@@ -249,9 +249,7 @@ class Ridge(Base, RegressorMixin):
         Fit the model with X and y.
 
         """
-        self._set_output_type(X)
-        self._set_n_features_in(X)
-
+        self._set_base_attributes(output_type=X, n_features=X)
         cdef uintptr_t X_ptr, y_ptr
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -334,7 +332,7 @@ class Ridge(Base, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the y for X.
 

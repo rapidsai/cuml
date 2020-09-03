@@ -182,7 +182,7 @@ class NearestNeighborsMG(NearestNeighbors):
         -------
         output indices, output distances
         """
-        self._set_output_type(indices[0])
+        self._set_base_attributes(output_type=indices[0])
         out_type = self._get_output_type(queries[0])
 
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors

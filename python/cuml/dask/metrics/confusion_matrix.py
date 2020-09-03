@@ -16,6 +16,7 @@
 
 import numpy as np
 import cupy as cp
+import cupyx
 from cuml.dask.common.input_utils import DistributedDataHandler
 
 from cuml.dask.common.utils import get_client
@@ -43,9 +44,9 @@ def _local_cm(inputs, labels, use_sample_weight):
     y_pred = y_pred[ind]
     y_true = y_true[ind]
     sample_weight = sample_weight[ind]
-    cm = cp.sparse.coo_matrix((sample_weight, (y_true, y_pred)),
-                              shape=(n_labels, n_labels), dtype=cp.float64,
-                              ).toarray()
+    cm = cupyx.scipy.sparse.coo_matrix((sample_weight, (y_true, y_pred)),
+                                       shape=(n_labels, n_labels),
+                                       dtype=cp.float64).toarray()
     return cp.nan_to_num(cm)
 
 

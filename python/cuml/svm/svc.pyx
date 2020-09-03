@@ -326,9 +326,7 @@ class SVC(SVMBase, ClassifierMixin):
         Fit the model with X and y.
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
-        self._set_target_dtype(y)
+        self._set_base_attributes(output_type=X, target_dtype=y, n_features=X)
 
         if self.probability:
             params = self.get_params()
@@ -402,7 +400,7 @@ class SVC(SVMBase, ClassifierMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the class labels for X. The returned y values are the class
         labels associated to sign(decision_function(X)).
@@ -416,7 +414,7 @@ class SVC(SVMBase, ClassifierMixin):
             # prob_svc has numpy output type, change it if it is necessary:
             return _to_output(preds, out_type)
         else:
-            return super(SVC, self).predict(X, True)
+            return super(SVC, self).predict(X, True, convert_dtype)
 
     @generate_docstring(skip_parameters_heading=True,
                         return_values={'name': 'preds',
