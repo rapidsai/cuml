@@ -153,7 +153,7 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     fi
 else
     #Project Flash
-    export LIBCUML_BUILD_DIR="$WORKSPACE/ci/artifacts/rmm/cpu/conda_work/cpp/build"
+    export LIBCUML_BUILD_DIR="$WORKSPACE/ci/artifacts/cuml/cpu/conda_work/cpp/build"
     export LD_LIBRARY_PATH="$LIBCUML_BUILD_DIR:$LD_LIBRARY_PATH"
     
     if hasArg --skip-tests; then
