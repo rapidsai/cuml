@@ -201,6 +201,7 @@ void approx_knn_ivfpq_build_index(ML::knnIndex* index,
     params->M = 0;
     params->n_bits = 0;
     params->nlist = 8;
+    params->nprobe = params->nlist * 0.3;
 
     for (int n_subq : allowedSubquantizers) {
       if (D % n_subq == 0 &&
@@ -234,8 +235,10 @@ void approx_knn_ivfpq_build_index(ML::knnIndex* index,
   config.device = index->device;
   config.usePrecomputedTables = params->usePrecomputedTables;
   faiss::MetricType faiss_metric = build_faiss_metric(metric);
-  index->index = new faiss::gpu::GpuIndexIVFPQ(index->gpu_res, D, params->nlist, params->M,
-                                                params->n_bits, faiss_metric, config);
+  faiss::gpu::GpuIndexIVFPQ* faiss_index = new faiss::gpu::GpuIndexIVFPQ(index->gpu_res, D, params->nlist,
+                                                params->M, params->n_bits, faiss_metric, config);
+  faiss_index->setNumProbes(params->nprobe);
+  index->index = faiss_index;
 }
 
 template <typename IntType = int>

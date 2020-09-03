@@ -90,6 +90,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int M,
         int n_bits,
         bool usePrecomputedTables
+        int nprobe
 
     void brute_force_knn(
         cumlHandle &handle,

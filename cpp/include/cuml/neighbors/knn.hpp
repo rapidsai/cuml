@@ -58,6 +58,7 @@ struct IVFPQParam : knnIndexParam {
   int M;
   int n_bits;
   bool usePrecomputedTables;
+  int nprobe;
 };
 
 
