@@ -141,7 +141,8 @@ class SparseCumlArray:
                 ret = ret.tocoo()
             elif output_format == 'csc':
                 ret = ret.tocsc()
-            else: raise ValueError("Output format % not supported"
-                                   % output_format)
+            else:
+                raise ValueError("Output format %s not supported"
+                                 % output_format)
 
         return ret
