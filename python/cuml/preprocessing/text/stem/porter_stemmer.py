@@ -17,31 +17,32 @@
 import cudf
 import numpy as np
 import cupy as cp
-from cuml.preprocessing.text.stem.porter_stemmer_utils.suffix_utils import (
+from .porter_stemmer_utils.suffix_utils import (
     get_stem_series,
     get_str_replacement_series,
     replace_suffix,
 )
-from cuml.preprocessing.text.stem.porter_stemmer_utils.porter_stemmer_rules import (
+from .porter_stemmer_utils.porter_stemmer_rules import (
     ends_with_suffix,
     ends_with_double_constant,
     last_char_not_in,
     last_char_in,
     ends_cvc,
 )
-from cuml.preprocessing.text.stem.porter_stemmer_utils.consonant_vowel_utils import (
+from .porter_stemmer_utils.consonant_vowel_utils import (
     contains_vowel,
     is_consonant,
 )
-from cuml.preprocessing.text.stem.porter_stemmer_utils.len_flags_utils import (
+from .porter_stemmer_utils.len_flags_utils import (
     len_eq_n,
     len_gt_n,
 )
-from cuml.preprocessing.text.stem.porter_stemmer_utils.measure_utils import (
+from .porter_stemmer_utils.measure_utils import (
     has_positive_measure,
     measure_gt_n,
     measure_eq_n,
 )
+
 
 # Implimentation based on nltk//stem/porter.html
 # https://www.nltk.org/_modules/nltk/stem/porter.html
@@ -122,7 +123,8 @@ class PorterStemmer:
 
             SSES -> SS                         caresses  ->  caress
             IES  -> I                          ponies    ->  poni
-                                            ties      ->  ti ### this is for orignal impl
+                                               ties      ->  ti
+                                               (### this is for orignal impl)
             SS   -> SS                         caress    ->  caress
             S    ->                            cats      ->  cat
         """
@@ -236,7 +238,8 @@ class PorterStemmer:
         # adding ee series to stem
         word_strs = replace_suffix(word_strs, "eed", "ee", valid_mask)
 
-        # to be consistent with nltk we dont replace  if word.endswith('eed') we stop proceesing
+        # to be consistent with nltk we dont replace
+        # if word.endswith('eed') we stop proceesing
         can_replace_mask = can_replace_mask & cudf.logical_not(suffix_mask)
 
         # rule 2
@@ -389,10 +392,6 @@ class PorterStemmer:
             # Instead of applying the ALLI -> AL rule after '(a)bli' per
             # the published algorithm, instead we apply it first, and,
             # if it succeeds, run the result through step2 again.
-            #       if word.endswith('alli') and self.has_positive_measure(
-            #             self._replace_suffix(word, 'alli', '')
-            #         ):
-            #             return self._step2(self._replace_suffix(word, 'alli', 'al'))
 
             alli_suffix_flag = ends_with_suffix(word_strs, "alli")
             stem_ser = replace_suffix(
@@ -453,10 +452,12 @@ class PorterStemmer:
             valid_flag = measure_flag & logi_suffix_flag & can_replace_mask
             return replace_suffix(word_strs, "logi", "log", valid_flag)
 
-            # as below works on word rather than stem i don't send it to apply rules but do it here
-            #         rules.append(
-            #             ("logi", "log", lambda stem: self._has_positive_measure(word[:-3]))
-            #         )
+            # as below works on word rather than stem i don't
+            # send it to apply rules but do it here
+            # rules.append(
+            # ("logi", "log", lambda stem:
+            # self._has_positive_measure(word[:-3])
+            # ))
 
         if self.mode == "MARTIN_EXTENSIONS":
             rules.append(("logi", "log", has_positive_measure))
@@ -525,7 +526,8 @@ class PorterStemmer:
         if can_replace_mask is None:
             can_replace_mask = cudf.Series(cp.ones(len(word_strs), np.bool))
 
-        measure_gt_1 = lambda stem: measure_gt_n(stem, 1)
+        def measure_gt_1(ser):
+            return measure_gt_n(ser, 1)
 
         return apply_rule_list(
             word_strs,
@@ -558,71 +560,6 @@ class PorterStemmer:
             ],
             can_replace_mask,
         )[0]
-
-    def _step5a(word_strs, can_replace_mask=None):
-        """Implements Step 5a from "An algorithm for suffix stripping"
-
-        From the paper:
-
-        Step 5a
-
-            (m>1) E     ->                  probate        ->  probat
-                                            rate           ->  rate
-            (m=1 and not *o) E ->           cease          ->  ceas
-        """
-
-        if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_strs), np.bool))
-
-        # Note that Martin's test vocabulary and reference
-        # implementations are inconsistent in how they handle the case
-        # where two rules both refer to a suffix that matches the word
-        # to be stemmed, but only the condition of the second one is
-        # true.
-        # Earlier in step2b we had the rules:
-        #     (m>0) EED -> EE
-        #     (*v*) ED  ->
-        # but the examples in the paper included "feed"->"feed", even
-        # though (*v*) is true for "fe" and therefore the second rule
-        # alone would map "feed"->"fe".
-        # However, in THIS case, we need to handle the consecutive rules
-        # differently and try both conditions (obviously; the second
-        # rule here would be redundant otherwise). Martin's paper makes
-        # no explicit mention of the inconsistency; you have to infer it
-        # from the examples.
-        # For this reason, we can't use _apply_rule_list here.
-
-        ##
-
-        # logic is equivalent to below
-        # if word.endswith('e'):
-        #  stem = self._replace_suffix(word, 'e', '')
-        #  if self._measure(stem) > 1:
-        #      return stem  rule_1
-        #  if self._measure(stem) == 1 and not self._ends_cvc(stem):
-        #      return stem  rule_2
-        #
-
-        e_suffix_flag = ends_with_suffix(word_strs, "e")
-        stem = replace_suffix(
-            word_strs, "e", "", e_suffix_flag & can_replace_mask
-        )
-
-        measure_gt_1_flag = measure_gt_n(stem, 1)
-
-        # if self._measure(stem) > 1:
-        rule_1_flag = measure_gt_1_flag
-
-        # if measure==1 and not self._ends_cvc(stem):
-        measure_eq_1_flag = measure_eq_n(stem, 1)
-        does_not_ends_with_cvc_flag = cudf.logical_not(ends_cvc(stem))
-        rule_2_flag = measure_eq_1_flag & does_not_ends_with_cvc_flag
-
-        overall_rule_flag = (
-            (rule_1_flag | rule_2_flag) & e_suffix_flag & can_replace_mask
-        )
-
-        return replace_suffix(word_strs, "e", "", overall_rule_flag)
 
     def _step5a(self, word_strs, can_replace_mask=None):
         """Implements Step 5a from "An algorithm for suffix stripping"

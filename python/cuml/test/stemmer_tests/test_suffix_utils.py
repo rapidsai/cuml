@@ -44,7 +44,7 @@ def test_replace_suffix():
     expect = ["shopps", "parks", "drinks", "sing", "bing"]
     assert sorted(list(got.to_pandas().values)) == sorted(expect)
 
-    ### basic test 'ies' -> 's'
+    # basic test 'ies' -> 's'
     word_strs = cudf.Series(["shops", "ties"])
     can_replace_mask = cudf.Series([False, True])
     got = replace_suffix(word_strs, "ies", "i", can_replace_mask)

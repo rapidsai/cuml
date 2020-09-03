@@ -23,7 +23,8 @@ from cudf.utils.utils import scalar_broadcast_to
 
 def get_str_replacement_series(replacement, bool_mask):
     """
-     get replacement series with replacement at places marked by bool mask and empty other wise
+     get replacement series with replacement at
+     places marked by bool mask and empty other wise
     """
     word_ser = cudf.Series(scalar_broadcast_to("", size=len(bool_mask)))
     word_ser.iloc[bool_mask] = replacement
@@ -44,7 +45,7 @@ def get_index_replacement_series(word_strs, replacment_index, bool_mask):
 
 
 def replace_suffix(word_strs, suffix, replacement, can_replace_mask):
-    """ 
+    """
         replaces string column with valid suffix with replacement
     """
 
