@@ -107,9 +107,12 @@ struct best_margin_label {
       if (a.margin[i] > b.margin[i]) {
         c.margin[i] = a.margin[i];
         c.label[i] = a.label[i];
-      } else {
+      } else if (a.margin[i] < b.margin[i]) {
         c.margin[i] = b.margin[i];
         c.label[i] = b.label[i];
+      } else {
+        c.label[i] = a.label[i] > b.label[i] ? b.label[i] : a.label[i];
+        c.margin[i] = a.label[i] > b.label[i] ? b.margin[i] : a.margin[i];
       }
     }
     return c;
