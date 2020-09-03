@@ -28,43 +28,42 @@ if has_scipy():
 
 
 class SparseCumlArray:
+    """
+    SparseCumlArray abstracts sparse array allocations. This will
+    accept either a Scipy or Cupy sparse array and construct CumlArrays
+    out of the underlying index and data arrays. Currently, this class
+    only supports the CSR array format and input in any other sparse
+    format will be converted to CSR.
+
+    Parameters
+    ----------
+
+    data : scipy.sparse.spmatrix or cupyx.scipy.sparse.spmatrix
+        A Scipy or Cupy sparse matrix
+    dtype : data-type, optional
+        Any object that can be interpreted as a numpy or cupy data type.
+
+    Attributes
+    ----------
+
+    indptr : CumlArray
+        Compressed row index array
+    indices : CumlArray
+        Column indices array
+    data : CumlArray
+        Data array
+    dtype : dtype
+        Data type of data array
+    shape : tuple of ints
+        Shape of the array
+    nnz : int
+        Number of nonzeros in underlying arrays
+    has_sorted_indices : bool
+        Whether column indices and data are sorted by column
+    """
 
     @with_cupy_rmm
     def __init__(self, data=None, dtype=None):
-        """
-        SparseCumlArray abstracts sparse array allocations. This will
-        accept either a Scipy or Cupy sparse array and construct CumlArrays
-        out of the underlying index and data arrays. Currently, this class
-        only supports the CSR array format and input in any other sparse
-        format will be converted to CSR.
-
-        Parameters
-        ----------
-
-        data : scipy.sparse.csr_matrix or cupyx.scipy.sparse.csr_matrix
-            A Scipy or Cupy sparse csr_matrix
-        dtype : data-type, optional
-            Any object that can be interpreted as a numpy or cupy data type.
-
-        Attributes
-        ----------
-
-        indptr : CumlArray
-            Compressed row index array
-        indices : CumlArray
-            Column indices array
-        data : CumlArray
-            Data array
-        dtype : dtype
-            Data type of data array
-        shape : tuple of ints
-            Shape of the array
-        nnz : int
-            Number of nonzeros in underlying arrays
-        has_sorted_indices : bool
-            Whether column indices and data are sorted by column
-        """
-
         if not cpx.scipy.sparse.isspmatrix(data) and \
                 not (has_scipy() and scipy.sparse.isspmatrix(data)):
             raise ValueError("A sparse matrix is expected as input. "
@@ -93,7 +92,9 @@ class SparseCumlArray:
         self.has_sorted_indices = data.has_sorted_indices
 
     @with_cupy_rmm
-    def to_output(self, output_type='cupy', output_dtype=None):
+    def to_output(self, output_type='cupy',
+                  output_format=None,
+                  output_dtype=None):
         """
         Convert array to output format
 
@@ -105,6 +106,8 @@ class SparseCumlArray:
             - 'cupy' - to cupy array
             - 'scipy' - to scipy (host) array
 
+        output_format : string, optional { 'coo', 'csc' }
+            Optionally convert the output to the specified format.
         output_dtype : string, optional
             Optionally cast the array to a specified dtype, creating
             a copy if necessary.
@@ -130,5 +133,16 @@ class SparseCumlArray:
             else:
                 raise ValueError("Scipy library is not available.")
 
-        return constructor((data, indices, indptr),
-                           dtype=output_dtype, shape=self.shape)
+        ret = constructor((data, indices, indptr),
+                          dtype=output_dtype, shape=self.shape)
+
+        if output_format is not None:
+            if output_format == 'coo':
+                ret = ret.tocoo()
+            elif output_format == 'csc':
+                ret = ret.tocsc()
+            else:
+                raise ValueError("Output format %s not supported"
+                                 % output_format)
+
+        return ret
