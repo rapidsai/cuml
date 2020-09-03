@@ -139,11 +139,6 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
                               threshold=0.50)
     fil_preds = fm.predict(X_validation)
     fil_acc = accuracy_score(y_validation, fil_preds)
-    print('gbm_preds\n\n', xgb_preds_int[:20], '\nfil_preds\n\n', fil_preds[:20])
-    if num_classes > 2:
-      print('gbm margins\n\n', bst.predict(dvalidation, output_margin=True)\
-                         .reshape((y_validation.size, -1, num_classes))\
-                         .sum(axis=1)[:20])
 
     assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
     if num_classes == 2:
@@ -426,7 +421,7 @@ def test_lightgbm(tmp_path):
              'metric': 'binary_logloss'}
     num_round = 5
     bst = lgb.train(param, train_data, num_round)
-    gbm_preds = bst.predict(X)
+    gbm_preds = np.round(bst.predict(X))
     model_path = str(os.path.join(tmp_path,
                                   'lgb.model'))
     bst.save_model(model_path)
