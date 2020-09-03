@@ -61,6 +61,8 @@ class SparseCumlArray:
             Shape of the array
         nnz : int
             Number of nonzeros in underlying arrays
+        has_sorted_indices : bool
+            Whether column indices and data are sorted by column
         """
 
         if not cpx.scipy.sparse.isspmatrix(data) and \
@@ -88,6 +90,7 @@ class SparseCumlArray:
         self.shape = data.shape
         self.dtype = self.data.dtype
         self.nnz = data.nnz
+        self.has_sorted_indices = data.has_sorted_indices
 
     @with_cupy_rmm
     def to_output(self, output_type='cupy', output_dtype=None):
