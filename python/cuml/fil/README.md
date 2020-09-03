@@ -35,14 +35,15 @@ Additionally, FIL can be called directly from C or C++ code. See [the API docs h
 * Input model source: XGBoost (binary format), cuML RandomForest, scikit-learn RandomForest, LightGBM
 * Model types: Regression, Binary Classification, Multi-class Classification (for cuML Random Forests, but not GBDTs or scikit-learn Random Forests)
 * Tree storage types: Dense or sparse tree storage (see Sparse Forests with FIL blog below)
-* Input formats: Dense, row-major, FP32 arrays on GPU or CPU (e.g. NumPy, cuPy, or other data formats supported by cuML)
+* Input formats: Dense, row-major, FP32 arrays on GPU or CPU (e.g. NumPy, cuPy, or other data formats supported by cuML). Trees are expected to be trained for float32 inputs. There may be rounding differences if trees were trained for float64 inputs.
 * High performance batch inference
 * Input parsing based on (Treelite)[https://github.com/dmlc/treelite]
 
 Upcoming features:
 
 * Support for multi-class GBDTs is planned for RAPIDS 0.16
-
+* Support for smaller node storage (8-byte) to reduce memory usage for
+  small trees is experimental
 
 # Benchmarks and performance notes
 
