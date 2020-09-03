@@ -310,6 +310,8 @@ class NearestNeighbors(Base):
             m = MetricType.METRIC_Cosine
         elif metric == "correlation":
             m = MetricType.METRIC_Correlation
+        elif metric == "inner_product":
+            m = MetricType.METRIC_INNER_PRODUCT
         else:
             raise ValueError("Metric %s is not supported" % metric)
 
@@ -536,7 +538,7 @@ class NearestNeighbors(Base):
                         n_neighbors,
                         2<<20, # TODO: Make this an option
                         <MetricType> metric,
-                        self.p,
+                        <float>self.p,
                         <bool> expanded)
 
         return D_ndarr, I_ndarr

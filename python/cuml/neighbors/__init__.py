@@ -28,5 +28,6 @@ VALID_METRICS = {"brute": set([
         "minkowski", "lp",
         "chebyshev", "linf",
         "jensenshannon",
-        "cosine", "correlation"
+        "cosine", "correlation",
+        "inner_product", "sqeuclidean"
     ])}

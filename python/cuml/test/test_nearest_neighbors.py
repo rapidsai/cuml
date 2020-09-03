@@ -307,11 +307,19 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
         assert isspmatrix_csr(sparse_cu)
 
 
-def test_sparse_nearest_neighbors():
+def test_sparse_nearest_neighbors_euclidean():
 
-    a = cp.sparse.random(10, 5, format='csr', density=0.9)
+    a = cp.sparse.random(10, 5, format='csr', density=0.8)
 
-    nn = cuKNN()
+    nn = cuKNN(metric='euclidean', n_neighbors=4)
     nn.fit(a)
 
-    print(str(nn.kneighbors(a)))
+    cuD, cuI = nn.kneighbors(a)
+
+    sknn = skKNN(metric='euclidean', n_neighbors=4)
+    sknn.fit(a.todense().get())
+
+    skD, skI = sknn.kneighbors(a.todense().get())
+
+    cp.testing.assert_allclose(cuD, skD, atol=1e-6, rtol=1e-6)
+    cp.testing.assert_allclose(cuI, skI, atol=1e-6, rtol=1e-6)

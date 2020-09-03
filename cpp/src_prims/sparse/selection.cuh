@@ -101,11 +101,11 @@ inline void select_k_impl(value_t *inK, value_idx *inV, size_t n_rows,
                           : faiss::gpu::Limits<float>::getMin();
   auto vInit = -1;
   if(select_min) {
-	  select_k_kernel<value_t, value_idx, true, warp_q, thread_q, n_threads>
+	  select_k_kernel<value_t, value_idx, false, warp_q, thread_q, n_threads>
 	    <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV, kInit,
 	                                 vInit, k, translation);
   } else {
-	  select_k_kernel<value_t, value_idx, false, warp_q, thread_q, n_threads>
+	  select_k_kernel<value_t, value_idx, true, warp_q, thread_q, n_threads>
 	    <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV, kInit,
 	                                 vInit, k, translation);
   }

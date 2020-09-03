@@ -17,6 +17,8 @@
 #include <matrix/matrix.cuh>
 #include <matrix/reverse.cuh>
 
+#include <linalg/unary_op.cuh>
+
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>
 #include <sparse/csr.cuh>
@@ -139,7 +141,7 @@ void brute_force_knn(
   using namespace raft::sparse;
 
   int n_batches_query = ceildiv((size_t)n_query_rows, batch_size);
-  bool ascending = false;
+  bool ascending = true;
   if (metric == ML::MetricType::METRIC_INNER_PRODUCT) ascending = false;
 
   csr_batcher_t<value_idx, value_t> query_batcher(
@@ -246,10 +248,15 @@ void brute_force_knn(
         idx_batcher.batch_rows() * query_batcher.batch_rows();
       device_buffer<value_t> batch_dists(allocator, stream, dense_size);
 
-
-      Distance::ip_distances_t<value_idx, value_t> compute_dists(dist_config);
-
-      compute_dists.compute(batch_dists.data());
+      if(metric == ML::MetricType::METRIC_INNER_PRODUCT) {
+          Distance::ip_distances_t<value_idx, value_t> compute_dists(dist_config);
+          compute_dists.compute(batch_dists.data());
+      } else if(metric == ML::MetricType::METRIC_L2) {
+          Distance::l2_distances_t<value_idx, value_t> compute_dists(dist_config);
+          compute_dists.compute(batch_dists.data());
+      } else {
+    	  throw "MetricType not supported";
+      }
 
       idx_batch_indptr.release(stream);
       idx_batch_indices.release(stream);
@@ -290,7 +297,21 @@ void brute_force_knn(
                /*translation for current batch*/
                id_ranges[1]);
 
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      // Perform necessary post-processing
+      if ((metric == ML::MetricType::METRIC_L2 ||
+           metric == ML::MetricType::METRIC_Lp) &&
+          !expanded_form) {
+        /**
+    	* post-processing
+    	*/
+
+    	CUML_LOG_INFO("Taking sqrt");
+        value_t p = 0.5;  // standard l2
+        if (metric == ML::MetricType::METRIC_Lp) p = 1.0 / metricArg;
+        MLCommon::LinAlg::unaryOp<value_t>(
+        		dists_merge_buffer_ptr, dists_merge_buffer_ptr, batch_rows * k,
+          [p] __device__(value_t input) { return powf(input, p); }, stream);
+      }
 
       size_t merge_buffer_tmp_out = batch_rows * k * 2;
       value_t *dists_merge_buffer_tmp_ptr = dists_merge_buffer_ptr;
