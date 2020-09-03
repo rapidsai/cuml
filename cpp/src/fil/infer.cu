@@ -100,8 +100,8 @@ struct best_margin_label {
   vec<NITEMS, float> margin;
   vec<NITEMS, int> label;
 
-  __host__ __device__ best_margin_label<NITEMS>
-  operator()(const best_margin_label<NITEMS>& a, const best_margin_label<NITEMS>& b) {
+  __host__ __device__ best_margin_label<NITEMS> operator()(
+    const best_margin_label<NITEMS>& a, const best_margin_label<NITEMS>& b) {
     best_margin_label<NITEMS> c;
     for (int i = 0; i < NITEMS; i++) {
       if (a.margin[i] > b.margin[i]) {
@@ -120,7 +120,8 @@ struct best_margin_label {
 template <int NITEMS>
 using BlockReduce = typename cub::BlockReduce<vec<NITEMS, float>, FIL_TPB>;
 template <int NITEMS>
-using BlockReduceMultiClass = typename cub::BlockReduce<best_margin_label<NITEMS>, FIL_TPB>;
+using BlockReduceMultiClass =
+  typename cub::BlockReduce<best_margin_label<NITEMS>, FIL_TPB>;
 /**
 The shared memory requirements for finalization stage may differ based
 on the set of PTX architectures the kernels were compiled for, as well as 
@@ -161,14 +162,15 @@ struct tree_aggregator_t {
   static size_t smem_finalize_footprint(int num_classes) {
     if (num_classes <= 2)
       return sizeof(typename BlockReduceHost<NITEMS>::TempStorage);
-    
+
     size_t phase1;
     if (num_classes <= FIL_TPB)
       phase1 = (FIL_TPB - FIL_TPB % num_classes) * sizeof(Acc);
     else
       phase1 = num_classes * sizeof(Acc);
-    
-    size_t phase2 = sizeof(typename BlockReduceHostMultiClass<NITEMS>::TempStorage);
+
+    size_t phase2 =
+      sizeof(typename BlockReduceHostMultiClass<NITEMS>::TempStorage);
     return std::max(phase1, phase2);
   }
 
@@ -188,6 +190,7 @@ struct tree_aggregator_t {
     if (blockDim.x < num_classes) {
       for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
         ((Acc*)tmp_storage)[c].fill(0.0f);
+      //__syncthreads(); // done in the main loop
     }
   }
 
@@ -195,10 +198,8 @@ struct tree_aggregator_t {
                                              int tree) {
     if (blockDim.x >= num_classes)
       acc += single_tree_prediction;
-    else {
+    else
       ((Acc*)tmp_storage)[tree % num_classes] += single_tree_prediction;
-      __syncthreads();
-    }
   }
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
@@ -225,38 +226,33 @@ struct tree_aggregator_t {
             acc += per_thread[c];
           best.margin = acc;
           best.label.fill(threadIdx.x);
-          for(int block = 0; block < 5; block++) {
-            if(block == blockIdx.x)
-          for(int i = 0; i < NITEMS; i++) {
-          int row = blockIdx.x * NITEMS + i;
-            printf("row %d Margin[%d] for class %d is %.2f\n", row, i, threadIdx.x, best.margin[i]);
-          }}
+          for (int i = 0; i < NITEMS; i++) {
+            int row = blockIdx.x * NITEMS + i;
+            if (row == 5091 || row == 627)
+              printf("row %d M[%d] c %d is %.2e\n", row, i, threadIdx.x,
+                     best.margin[i]);
+          }
         }
         __syncthreads();
         typedef BlockReduceMultiClass<NITEMS> BR;
         best = BR(*(typename BR::TempStorage*)tmp_storage)
                  .Reduce(best, best, num_classes);
-        if(threadIdx.x == 0) {
-          for(int block = 0; block < 5; block++) {
-            if(block == blockIdx.x)
-          for(int i = 0; i < NITEMS; i++) {
-          int row = blockIdx.x * NITEMS + i;
-          printf("row %d Selected best class %d with margin %.2f\n", row, best.label[i], best.margin[i]);
-          }
+        if (threadIdx.x == 0) {
+          for (int i = 0; i < NITEMS; i++) {
+            int row = blockIdx.x * NITEMS + i;
+            if (row == 5091 || row == 627)
+              printf("row %d Selected best class %d with margin %.2e\n", row,
+                     best.label[i], best.margin[i]);
           }
         }
       } else {
         Acc* per_class = (Acc*)tmp_storage;
         best.margin = per_class[threadIdx.x];
         best.label.fill(threadIdx.x);
-          if(blockIdx.x == 0)
-        printf("Margin[2] for class %d is %.2f\n", threadIdx.x, best.margin[2]);
         for (int c = threadIdx.x + blockDim.x; c < num_classes;
              c += blockDim.x) {
           best_margin_label<NITEMS> candidate;
           candidate.margin = per_class[c];
-          if(blockIdx.x == 0)
-          printf("Margin[2] for class %d is %.2f\n", c, candidate.margin[2]);
           candidate.label.fill(c);
           best = best(best, candidate);
         }
@@ -269,11 +265,9 @@ struct tree_aggregator_t {
       if (threadIdx.x == 0) {
         for (int i = 0; i < NITEMS; ++i) {
           int row = blockIdx.x * NITEMS + i;
-          for(int block = 0; block < 5; block++) {
-            __syncthreads();
-            if(block == blockIdx.x)
-            printf("block %d row %d label %d\n", (int)block, row, (int)best.label[i]);
-          }
+          if (row == 5091 || row == 627)
+            printf("block %d row %d label %d\n", (int)blockIdx.x, row,
+                   (int)best.label[i]);
           if (row < num_rows) out[row] = best.label[i];
         }
       }
@@ -374,10 +368,16 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   __syncthreads();  // for both row cache init and acc init
 
   // one block works on NITEMS rows and the whole forest
-  for (int j = threadIdx.x; j < forest.num_trees(); j += blockDim.x) {
-    acc.accumulate(infer_one_tree<NITEMS, leaf_output_t<leaf_payload_type>::T>(
-                     forest[j], sdata, params.num_cols),
-                   j);
+  for (int j = threadIdx.x; j - threadIdx.x < forest.num_trees();
+       j += blockDim.x) {
+    if (j < forest.num_trees()) {
+      acc.accumulate(
+        infer_one_tree<NITEMS, leaf_output_t<leaf_payload_type>::T>(
+          forest[j], sdata, params.num_cols),
+        j);
+    }
+    if (params.num_classes > blockDim.x && leaf_payload_type == FLOAT_SCALAR)
+      __syncthreads();
   }
   acc.finalize(params.preds, params.num_rows, params.num_outputs);
 }
@@ -446,7 +446,8 @@ void infer_k_launcher(storage_type forest, predict_params params,
   }
   int num_blocks = ceildiv(int(params.num_rows), num_items);
   int blockdim_x = FIL_TPB;
-  if (params.num_classes <= blockdim_x && params.leaf_payload_type == FLOAT_SCALAR)
+  if (params.num_classes <= blockdim_x &&
+      params.leaf_payload_type == FLOAT_SCALAR)
     blockdim_x -= blockdim_x % params.num_classes;
   switch (num_items) {
     case 1:

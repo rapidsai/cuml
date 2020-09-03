@@ -212,8 +212,8 @@ struct forest {
           // moot since choosing best class and all transforms are monotonic
           // also, would break current code
           do_transform = false;
-        } else
-          if (ot != output_t::RAW || complement_proba) do_transform = true;
+        } else if (ot != output_t::RAW || complement_proba)
+          do_transform = true;
       }
     } else if (leaf_payload_type_ == leaf_value_t::INT_CLASS_LABEL) {
       if (predict_proba) {
