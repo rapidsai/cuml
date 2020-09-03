@@ -66,6 +66,9 @@ option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)"
 
 option(BUILD_STATIC_FAISS "Build the FAISS library for nearest neighbors search on GPU" OFF)
 
+option(BUILD_GTEST "Build the GTEST library for running libcuml++ and prims test executables" OFF)
+
+
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)

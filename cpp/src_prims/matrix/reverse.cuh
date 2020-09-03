@@ -68,8 +68,8 @@ __global__ void reverseKernel(math_t *out, const math_t *in, int nrows,
   if ((rowMajor && !alongRows) || (!rowMajor && alongRows)) {
 #pragma unroll
     for (int i = 0; i < VecType::Ratio; ++i) {
-      swap(a.val.data[i], a.val.data[VecType::Ratio - i - 1]);
-      swap(b.val.data[i], b.val.data[VecType::Ratio - i - 1]);
+      swapVals(a.val.data[i], a.val.data[VecType::Ratio - i - 1]);
+      swapVals(b.val.data[i], b.val.data[VecType::Ratio - i - 1]);
     }
   }
 #pragma unroll

@@ -29,6 +29,8 @@ from cuml import ForestInference
 from cuml.common.array import CumlArray
 
 from cuml.common.base import RegressorMixin
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.doc_utils import insert_into_docstring
 from cuml.common.handle import Handle
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
@@ -110,43 +112,46 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     """
     Implements a Random Forest regressor model which fits multiple decision
     trees in an ensemble.
-    Note that the underlying algorithm for tree node splits differs from that
-    used in scikit-learn. By default, the cuML Random Forest uses a
-    histogram-based algorithm to determine splits, rather than an exact
-    count. You can tune the size of the histograms with the n_bins parameter.
+
+    .. note:: that the underlying algorithm for tree node splits differs from
+        that used in scikit-learn. By default, the cuML Random Forest uses a
+        histogram-based algorithm to determine splits, rather than an exact
+        count. You can tune the size of the histograms with the n_bins
+        parameter.
 
     **Known Limitations**: This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
-       * GPU-based inference is only supported if the model was trained
-         with 32-bit (float32) datatypes. CPU-based inference may be used
-         in this case as a slower fallback.
-       * Very deep / very wide models may exhaust available GPU memory.
-         Future versions of cuML will provide an alternative algorithm to
-         reduce memory consumption.
+     * GPU-based inference is only supported if the model was trained
+       with 32-bit (float32) datatypes. CPU-based inference may be used
+       in this case as a slower fallback.
+     * Very deep / very wide models may exhaust available GPU memory.
+       Future versions of cuML will provide an alternative algorithm to
+       reduce memory consumption.
 
     Examples
-    ---------
+    --------
+
     .. code-block:: python
 
-            import numpy as np
-            from cuml.test.utils import get_handle
-            from cuml.ensemble import RandomForestRegressor as curfc
-            from cuml.test.utils import get_handle
-            X = np.asarray([[0,10],[0,20],[0,30],[0,40]], dtype=np.float32)
-            y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
-            cuml_model = curfc(max_features=1.0, n_bins=8,
-                               split_algo=0, min_rows_per_node=2,
-                               n_estimators=40, accuracy_metric='mse')
-            cuml_model.fit(X,y)
-            cuml_score = cuml_model.score(X,y)
-            print("MSE score of cuml : ", cuml_score)
+        import numpy as np
+        from cuml.test.utils import get_handle
+        from cuml.ensemble import RandomForestRegressor as curfc
+        from cuml.test.utils import get_handle
+        X = np.asarray([[0,10],[0,20],[0,30],[0,40]], dtype=np.float32)
+        y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
+        cuml_model = curfc(max_features=1.0, n_bins=8,
+                            split_algo=0, min_rows_per_node=2,
+                            n_estimators=40, accuracy_metric='r2')
+        cuml_model.fit(X,y)
+        cuml_score = cuml_model.score(X,y)
+        print("MSE score of cuml : ", cuml_score)
 
     Output:
 
     .. code-block:: python
 
-            MSE score of cuml :  0.1123437201231765
+        MSE score of cuml :  0.1123437201231765
 
     Parameters
     -----------
@@ -165,7 +170,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         2 for MSE, or 3 for MAE
         0 and 1 not valid for regression
     bootstrap : boolean (default = True)
-       Control bootstrapping.
+        Control bootstrapping.
         If True, each tree in the forest is built
         on a bootstrapped sample with replacement.
         If False, sampling without replacement is done.
@@ -182,7 +187,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited,
         if -1.
-     max_features : int, float, or string (default = 'auto')
+    max_features : int, float, or string (default = 'auto')
         Ratio of number of features (columns) to consider
         per node split.
         If int then max_features/n_features.
@@ -198,22 +203,29 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         If float the min_rows_per_sample*n_rows
     min_impurity_decrease : float (default = 0.0)
         The minimum decrease in impurity required for node to be split
-    accuracy_metric : string (default = 'mse')
+    accuracy_metric : string (default = 'r2')
         Decides the metric used to evaluate the performance of the model.
+        In the 0.16 release, the default scoring metric was changed
+        from mean squared error to r-squared.
+        for r-squared : 'r2'
         for median of abs error : 'median_ae'
         for mean of abs error : 'mean_ae'
         for mean square error' : 'mse'
     quantile_per_tree : boolean (default = False)
         Whether quantile is computed for individal trees in RF.
         Only relevant for GLOBAL_QUANTILE split_algo.
+    random_state : int (default = None)
+        Seed for the random number generator. Unseeded by default. Does not
+        currently fully guarantee the exact same results.
     seed : int (default = None)
+        Deprecated in favor of `random_state`.
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
 
     """
 
     def __init__(self, split_criterion=2,
-                 accuracy_metric='mse',
+                 accuracy_metric='r2',
                  **kwargs):
         self.RF_type = REGRESSION
         super(RandomForestRegressor, self).__init__(
@@ -315,6 +327,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         """
         Create a Forest Inference (FIL) model from the trained cuML
         Random Forest model.
+
         Parameters
         ----------
         output_class : boolean (default = False)
@@ -323,6 +336,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             If true, return a 1 or 0 depending on whether the raw
             prediction exceeds the threshold. If False, just return
             the raw prediction.
+
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -334,6 +348,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             `auto` - choose the algorithm automatically. Currently
             'batch_tree_reorg' is used for dense storage
             and 'naive' for sparse storage
+
         fil_sparse_format : boolean or string (default = 'auto')
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
@@ -343,11 +358,14 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             False - create a dense forest
             True - create a sparse forest, requires algo='naive'
             or algo='auto'
+
         Returns
-        ----------
-        fil_model :
+        -------
+
+        fil_model
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
+
         """
         treelite_handle = self._obtain_treelite_handle()
         return _obtain_fil_model(treelite_handle=treelite_handle,
@@ -356,30 +374,11 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
-    """
-    TODO : Move functions duplicated in the RF classifier and regressor
-           to a shared file. Cuml issue #1854 has been created to track this.
-    """
-
+    @generate_docstring()
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Regression on the input data
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (int32) of shape (n_samples, 1).
-            Acceptable formats: NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-            These labels should be contiguous integers from 0 to n_classes.
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This will increase
-            memory used for the method.
         """
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
@@ -398,10 +397,10 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
             new RandomForestMetaData[double, double]()
         self.rf_forest64 = <uintptr_t> rf_forest64
-        if self.seed is None:
+        if self.random_state is None:
             seed_val = <uintptr_t>NULL
         else:
-            seed_val = <uintptr_t>self.seed
+            seed_val = <uintptr_t>self.random_state
 
         rf_params = set_rf_class_obj(<int> self.max_depth,
                                      <int> self.max_leaves,
@@ -494,6 +493,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         del(X_m)
         return preds.to_output(out_type)
 
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
+                           return_values=[('dense', '(n_samples, 1)')])
     def predict(self, X, predict_model="GPU",
                 algo='auto', convert_dtype=True,
                 fil_sparse_format='auto'):
@@ -502,10 +503,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        X : {}
         predict_model : String (default = 'GPU')
             'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
             be used if the model was trained on float32 data and `X` is float32
@@ -537,8 +535,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
         Returns
         ----------
-        y : NumPy
-            Dense vector (int) of shape (n_samples, 1)
+        y : {}
 
         """
         if predict_model == "CPU":
@@ -561,19 +558,19 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
         return preds
 
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
+                                       ('dense', '(n_samples, 1)')])
     def score(self, X, y, algo='auto', convert_dtype=True,
               fil_sparse_format='auto', predict_model="GPU"):
         """
         Calculates the accuracy metric score of the model for X.
+        In the 0.16 release, the default scoring metric was changed
+        from mean squared error to r-squared.
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        y : NumPy
-            Dense vector (int) of shape (n_samples, 1)
+        X : {}
+        y : {}
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -607,6 +604,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         median_abs_error : float or
         mean_abs_error : float
         """
+        from cuml.metrics.regression import r2_score
+
         cdef uintptr_t y_ptr
         _, n_rows, _, dtype = \
             input_to_cuml_array(X,
@@ -626,6 +625,14 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         preds_m, _, _, _ = \
             input_to_cuml_array(preds, convert_to_dtype=dtype)
         preds_ptr = preds_m.ptr
+
+        # shortcut for default accuracy metric of r^2
+        if self.accuracy_metric == "r2":
+            stats = r2_score(y_m, preds, handle=self.handle)
+            self.handle.sync()
+            del(y_m)
+            del(preds_m)
+            return stats
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><uintptr_t>self.handle.getHandle()

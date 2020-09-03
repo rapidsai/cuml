@@ -30,6 +30,7 @@ from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base, ClassifierMixin
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.logger import warn
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
@@ -124,13 +125,13 @@ class SVC(SVMBase, ClassifierMixin):
 
     Construct an SVC classifier for training and predictions.
 
-    Known limitations
-    -----------------
-    - Currently only binary classification is supported.
-    - predict_proba is not yet supported
+    .. note::
+        This implementation has the following known limitations:
+
+        - Currently only binary classification is supported.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
             import numpy as np
@@ -204,7 +205,7 @@ class SVC(SVMBase, ClassifierMixin):
         future to represent number support vectors for each class (like
         in Sklearn, see https://github.com/rapidsai/cuml/issues/956 )
     support_ : int, shape = (n_support)
-        Device array of suppurt vector indices
+        Device array of support vector indices
     support_vectors_ : float, shape (n_support, n_cols)
         Device array of support vectors
     dual_coef_ : float, shape = (1, n_support)
@@ -220,23 +221,25 @@ class SVC(SVMBase, ClassifierMixin):
     classes_: shape (n_classes_,)
         Array of class labels.
 
-    For additional docs, see `scikitlearn's SVC
-    <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
-
     Notes
     -----
     The solver uses the SMO method to fit the classifier. We use the Optimized
-    Hierarchical Decomposition [1] variant of the SMO algorithm, similar to [2]
+    Hierarchical Decomposition [1]_ variant of the SMO algorithm, similar to
+    [2]_.
+
+    For additional docs, see `scikitlearn's SVC
+    <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
 
     References
     ----------
-    [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical Decomposition
-    Algorithm for Support VectorMachine Training, IEEE Transactions on
-    Parallel and Distributed Systems, vol 28, no 12, 3330, (2017)
+    .. [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical
+       Decomposition Algorithm for Support VectorMachine Training, IEEE
+       Transactions on Parallel and Distributed Systems, vol 28, no 12, 3330,
+       (2017)
 
-    [2] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
-    of Machine Learning Research, 19, 1-5 (2018)
-    https://github.com/Xtra-Computing/thundersvm
+    .. [2] `Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs,
+       Journal of Machine Learning Research, 19, 1-5 (2018)
+       <https://github.com/Xtra-Computing/thundersvm>`_
 
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
@@ -278,7 +281,7 @@ class SVC(SVMBase, ClassifierMixin):
         y_m: device array of floats or doubles, shape = (n_samples, 1)
             Array of target labels already copied to the device.
 
-        Returns:
+        Returns
         --------
         sample_weight: device array shape = (n_samples, 1) or None
         """
@@ -316,31 +319,14 @@ class SVC(SVMBase, ClassifierMixin):
 
         return sample_weight
 
+    @generate_docstring(y='dense_anydtype')
     @with_cupy_rmm
     def fit(self, X, y, sample_weight=None, convert_dtype=True):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (any numeric type) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
-        self._set_target_dtype(y)
+        self._set_base_attributes(output_type=X, target_dtype=y, n_features=X)
 
         if self.probability:
             params = self.get_params()
@@ -410,22 +396,14 @@ class SVC(SVMBase, ClassifierMixin):
 
         return self
 
-    def predict(self, X):
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the class labels for X. The returned y values are the class
         labels associated to sign(decision_function(X)).
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        y : (same as the input datatype)
-            Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
 
         if self.probability:
@@ -436,8 +414,14 @@ class SVC(SVMBase, ClassifierMixin):
             # prob_svc has numpy output type, change it if it is necessary:
             return _to_output(preds, out_type)
         else:
-            return super(SVC, self).predict(X, True)
+            return super(SVC, self).predict(X, True, convert_dtype)
 
+    @generate_docstring(skip_parameters_heading=True,
+                        return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted \
+                                       probabilities',
+                                       'shape': '(n_samples, n_classes)'})
     def predict_proba(self, X, log=False):
         """
         Predicts the class probabilities for X.
@@ -446,18 +430,8 @@ class SVC(SVMBase, ClassifierMixin):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of input features.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
         log: boolean (default = False)
              Whether to return log probabilities.
-
-        Returns
-        -------
-        P : array-like (device or host) shape = (n_samples, n_classes)
-            Dense matrix of classs probabilities for each sample.
 
         """
 
@@ -475,42 +449,29 @@ class SVC(SVMBase, ClassifierMixin):
                                  "probabilities. Fit a new classifier with"
                                  "probability=True to enable predict_proba.")
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Log of predicted \
+                                       probabilities',
+                                       'shape': '(n_samples, n_classes)'})
     def predict_log_proba(self, X):
         """
         Predicts the log probabilities for X (returns log(predict_proba(x)).
 
         The model has to be trained with probability=True to use this method.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of input features.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy.
-
-        Returns
-        -------
-        P : array-like (device or host) shape = (n_samples, n_classes)
-            Dense matrix of log probabilities for each sample.
-
         """
         return self.predict_proba(X, log=True)
 
+    @generate_docstring(return_values={'name': 'results',
+                                       'type': 'dense',
+                                       'description': 'Decision function \
+                                       values',
+                                       'shape': '(n_samples, 1)'})
     def decision_function(self, X):
         """
         Calculates the decision function values for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        y : cuDF Series
-           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         if self.probability:
             self._check_is_fitted('prob_svc')

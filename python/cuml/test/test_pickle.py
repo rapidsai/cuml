@@ -417,7 +417,7 @@ def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
 def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
     result = {}
     """
-    Note: This test digs down a bit far into the
+    .. note:: This test digs down a bit far into the
     internals of the implementation, but it's
     important that regressions do not occur
     from changes to the class.
@@ -535,8 +535,7 @@ def test_svc_pickle(tmpdir, datatype, params):
                                       data[1], 0, 0)
         else:
             print("comparing base svc")
-            compare_svm(result["model"], pickled_model, data[0], data[1],
-                        cmp_sv=0, dcoef_tol=0)
+            compare_svm(result["model"], pickled_model, data[0], data[1])
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -633,7 +632,7 @@ def test_small_rf(tmpdir, key, datatype, nrows, ncols, n_info):
                                                                n_info,
                                                                n_classes=2)
         model = rf_models[key](n_estimators=1, max_depth=1,
-                               max_features=1.0, seed=10)
+                               max_features=1.0, random_state=10)
         model.fit(X_train, y_train)
         result['rf_res'] = model.predict(X_test)
         return model, X_test

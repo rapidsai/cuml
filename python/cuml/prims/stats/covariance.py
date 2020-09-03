@@ -15,6 +15,7 @@
 #
 
 import cupy as cp
+import cupyx
 import math
 
 from cuml.common.memory_utils import with_cupy_rmm
@@ -60,8 +61,8 @@ def cov(x, y, mean_x=None, mean_y=None, return_gram=False,
     Parameters
     ----------
 
-    x : device-array or cupy.sparse of size (m, n)
-    y : device-array or cupy.sparse of size (m, n)
+    x : device-array or cupyx.scipy.sparse of size (m, n)
+    y : device-array or cupyx.scipy.sparse of size (m, n)
     mean_x : float (default = None)
         device-array of size (n, ) which is the mean
         of x across rows
@@ -111,7 +112,7 @@ def cov(x, y, mean_x=None, mean_y=None, return_gram=False,
 
     gram_matrix = x.T.dot(y) * (1 / x.shape[0])
 
-    if cp.sparse.issparse(gram_matrix):
+    if cupyx.scipy.sparse.issparse(gram_matrix):
         gram_matrix = gram_matrix.todense()
 
     if mean_x is None:

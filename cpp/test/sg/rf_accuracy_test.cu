@@ -83,7 +83,7 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     DecisionTree::DecisionTreeParams tree_params;
     auto algo = SPLIT_ALGO::GLOBAL_QUANTILE;
     auto sc = CRITERION::CRITERION_END;
-    set_tree_params(tree_params, 1, /* max_depth */
+    set_tree_params(tree_params, 0, /* max_depth */
                     -1,             /* max_leaves */
                     1.0,            /* max_features */
                     16,             /* n_bins */

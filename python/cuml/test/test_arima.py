@@ -261,9 +261,12 @@ def _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
                          intercept, dtype):
     """Utility function to transfer the parameters from a statsmodels'
     SARIMAXResults object to a cuML ARIMA object.
-    Note: be cautious with the intercept, it is not always equivalent
-    in statsmodels and cuML models (it depends on the order).
+
+    .. note:: be cautious with the intercept, it is not always equivalent
+        in statsmodels and cuML models (it depends on the order).
+
     """
+
     nb = cuml_model.batch_size
     N = cuml_model.complexity
     x = np.zeros(nb * N, dtype=np.float64)
@@ -399,8 +402,11 @@ def test_loglikelihood(key, data, dtype, simple_differencing):
 @pytest.mark.parametrize('key, data', test_data)
 @pytest.mark.parametrize('dtype', [np.float64])
 def test_gradient(key, data, dtype):
-    """Test batched gradient implementation against scipy non-batched
-    gradient. Note: it doesn't test that the loglikelihood is correct!
+    """
+    Test batched gradient implementation against scipy non-batched
+    gradient.
+
+    .. note:: it doesn't test that the loglikelihood is correct!
     """
     order, seasonal_order, intercept = extract_order(key)
     p, _, q = order

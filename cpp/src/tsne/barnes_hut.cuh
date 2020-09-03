@@ -41,7 +41,8 @@ namespace TSNE {
  * @param[in] pre_learning_rate: The learning rate during the exaggeration phase.
  * @param[in] post_learning_rate: The learning rate after the exaggeration phase.
  * @param[in] max_iter: The maximum number of iterations TSNE should run for.
- * @param[in] min_grad_norm: The smallest gradient norm TSNE should terminate on.
+ * @param[in] min_grad_norm: The smallest gradient norm TSNE should terminate on. 
+              This argument is currently ignored.
  * @param[in] pre_momentum: The momentum used during the exaggeration phase.
  * @param[in] post_momentum: The momentum used after the exaggeration phase.
  * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
@@ -62,7 +63,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   // Get device properites
   //---------------------------------------------------
   const int blocks = MLCommon::getMultiProcessorCount();
-  int h_flag;
 
   int nnodes = n * 2;
   if (nnodes < 1024 * blocks) nnodes = 1024 * blocks;
@@ -76,14 +76,11 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   MLCommon::device_buffer<int> maxdepthd(d_alloc, stream, 1);
   MLCommon::device_buffer<int> bottomd(d_alloc, stream, 1);
   MLCommon::device_buffer<float> radiusd(d_alloc, stream, 1);
-  MLCommon::device_buffer<int> flag_unstable_computation(d_alloc, stream, 1);
 
   TSNE::InitializationKernel<<<1, 1, 0, stream>>>(/*errl.data(),*/
                                                   limiter.data(),
                                                   maxdepthd.data(),
-                                                  radiusd.data(),
-                                                  flag_unstable_computation
-                                                    .data());
+                                                  radiusd.data());
   CUDA_CHECK(cudaPeekAtLastError());
 
   const int FOUR_NNODES = 4 * nnodes;
@@ -117,7 +114,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   MLCommon::device_buffer<float> attr_forces(
     d_alloc, stream, n * 2);  // n*2 double for reduction sum
 
-  MLCommon::device_buffer<float> norm(d_alloc, stream, n);
   MLCommon::device_buffer<float> Z_norm(d_alloc, stream, 1);
 
   MLCommon::device_buffer<float> radiusd_squared(d_alloc, stream, 1);
@@ -242,32 +238,14 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     END_TIMER(Reduction_time);
 
     START_TIMER;
-    TSNE::get_norm<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
-      YY.data(), YY.data() + nnodes + 1, norm.data(), n);
-    CUDA_CHECK(cudaPeekAtLastError());
-
     // TODO: Calculate Kullback-Leibler divergence
     // For general embedding dimensions
     TSNE::
       attractive_kernel_bh<<<MLCommon::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
-        VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, norm.data(),
-        attr_forces.data(), attr_forces.data() + n, NNZ,
-        flag_unstable_computation.data());
+        VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, attr_forces.data(),
+        attr_forces.data() + n, NNZ);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
-
-    MLCommon::copy(&h_flag, flag_unstable_computation.data(), 1, stream);
-    if (h_flag) {
-      CUML_LOG_ERROR(
-        "Detected zero divisor in attractive force kernel after '%d' "
-        "iterations;"
-        " returning early. Your final results may not be accurate. In some "
-        "cases"
-        " this error can be resolved by increasing perplexity, and n_neighbors;"
-        " if the problem persists, please use 'method=exact'.",
-        iter);
-      break;
-    }
 
     START_TIMER;
     TSNE::IntegrationKernel<<<blocks * FACTOR6, THREADS6, 0, stream>>>(

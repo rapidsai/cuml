@@ -114,7 +114,7 @@ def build_rank_size_pair(parts_to_sizes, rank):
     parts_to_sizes: array of tuples in the format: [(rank,size)]
     rank: rank to be mapped
 
-    Returns:
+    Returns
     --------
     ptr: vector pointer of the RankSizePair*
     """
@@ -162,7 +162,7 @@ def build_part_descriptor(m, n, rank_size_t, rank):
         building the part descriptor
     rank: rank to be mapped
 
-    Returns:
+    Returns
     --------
     ptr: PartDescriptor object
     """

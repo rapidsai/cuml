@@ -838,6 +838,8 @@ void init_batched_kalman_matrices(cumlHandle& handle, const double* d_ar,
   int r = order.r();
 
   auto counting = thrust::make_counting_iterator(0);
+  auto n_theta = order.n_theta();
+  auto n_phi = order.n_phi();
   thrust::for_each(
     thrust::cuda::par.on(stream), counting, counting + nb,
     [=] __device__(int bid) {
@@ -859,7 +861,7 @@ void init_batched_kalman_matrices(cumlHandle& handle, const double* d_ar,
       //     |theta_{r-1}|
       //
       d_R_b[bid * rd + n_diff] = 1.0;
-      for (int i = 0; i < order.n_theta(); i++) {
+      for (int i = 0; i < n_theta; i++) {
         d_R_b[bid * rd + n_diff + i + 1] =
           MLCommon::TimeSeries::reduced_polynomial<false>(
             bid, d_ma, order.q, d_sma, order.Q, order.s, i + 1);
@@ -908,7 +910,7 @@ void init_batched_kalman_matrices(cumlHandle& handle, const double* d_ar,
         batch_T[(n_diff - 1) * rd + order.d] = 1.0;
       }
       // 3. Auto-Regressive component
-      for (int i = 0; i < order.n_phi(); i++) {
+      for (int i = 0; i < n_phi; i++) {
         batch_T[n_diff * (rd + 1) + i] =
           MLCommon::TimeSeries::reduced_polynomial<true>(
             bid, d_ar, order.p, d_sar, order.P, order.s, i + 1);
