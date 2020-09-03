@@ -19,17 +19,19 @@ from cuml.preprocessing.text.stem.porter_stemmer import PorterStemmer
 
 
 def test_step1a():
-    word_strs = cudf.Series(["caresses", "ponies", "ties", "caress", "cats"])
+    word_str_ser = cudf.Series(
+        ["caresses", "ponies", "ties", "caress", "cats"]
+    )
 
     st = PorterStemmer()
-    got = st._step1a(word_strs)
+    got = st._step1a(word_str_ser)
 
     expect = ["caress", "poni", "tie", "caress", "cat"]
     assert list(got.to_pandas().values) == expect
 
 
 def test_step1b():
-    word_strs_ls = [
+    word_str_ser_ls = [
         "feed",
         "agreed",
         "plastered",
@@ -67,25 +69,25 @@ def test_step1b():
         "file",
     ]
 
-    word_strs = cudf.Series(word_strs_ls)
+    word_str_ser = cudf.Series(word_str_ser_ls)
     st = PorterStemmer()
-    got = st._step1b(word_strs)
+    got = st._step1b(word_str_ser)
 
     assert list(got.to_pandas().values) == expected
 
 
 def test_step1c():
-    word_strs_ls = ["happy", "sky", "enjoy", "boy", "toy", "y"]
-    word_strs = cudf.Series(word_strs_ls)
+    word_str_ser_ls = ["happy", "sky", "enjoy", "boy", "toy", "y"]
+    word_str_ser = cudf.Series(word_str_ser_ls)
     st = PorterStemmer()
-    got = st._step1c(word_strs)
+    got = st._step1c(word_str_ser)
 
     expect = ["happi", "ski", "enjoy", "boy", "toy", "y"]
     assert list(got.to_pandas().values) == expect
 
 
 def test_step2():
-    word_strs_ls = [
+    word_str_ser_ls = [
         "relational",
         "conditional",
         "rational",
@@ -133,14 +135,14 @@ def test_step2():
         "sensible",
     ]
 
-    word_strs = cudf.Series(word_strs_ls)
+    word_str_ser = cudf.Series(word_str_ser_ls)
     st = PorterStemmer()
-    got = st._step2(word_strs)
+    got = st._step2(word_str_ser)
     assert list(got.to_pandas().values) == expect
 
 
 def test_step3():
-    word_strs_ls = [
+    word_str_ser_ls = [
         "triplicate",
         "formative",
         "formalize",
@@ -159,14 +161,14 @@ def test_step3():
         "good",
     ]
 
-    word_strs = cudf.Series(word_strs_ls)
+    word_str_ser = cudf.Series(word_str_ser_ls)
     st = PorterStemmer()
-    got = st._step3(word_strs)
+    got = st._step3(word_str_ser)
     assert list(got.to_pandas().values) == expect
 
 
 def test_step4():
-    word_strs_ls = [
+    word_str_ser_ls = [
         "revival",
         "allowance",
         "inference",
@@ -210,27 +212,27 @@ def test_step4():
         "bowdler",
     ]
 
-    word_strs = cudf.Series(word_strs_ls)
+    word_str_ser = cudf.Series(word_str_ser_ls)
     st = PorterStemmer()
-    got = st._step4(word_strs)
+    got = st._step4(word_str_ser)
     assert list(got.to_pandas().values) == expect
 
 
 def test_step5a():
-    word_strs_ls = ["probate", "rate", "cease", "ones"]
-    word_strs = cudf.Series(word_strs_ls)
+    word_str_ser_ls = ["probate", "rate", "cease", "ones"]
+    word_str_ser = cudf.Series(word_str_ser_ls)
 
     expect = ["probat", "rate", "ceas", "ones"]
     st = PorterStemmer()
-    got = st._step5a(word_strs)
+    got = st._step5a(word_str_ser)
     assert list(got.to_pandas().values) == expect
 
 
 def test_step5b():
-    word_strs_ls = ["controll", "roll"]
-    word_strs = cudf.Series(word_strs_ls)
+    word_str_ser_ls = ["controll", "roll"]
+    word_str_ser = cudf.Series(word_str_ser_ls)
     expect = ["control", "roll"]
 
     st = PorterStemmer()
-    got = st._step5b(word_strs)
+    got = st._step5b(word_str_ser)
     assert list(got.to_pandas().values) == expect

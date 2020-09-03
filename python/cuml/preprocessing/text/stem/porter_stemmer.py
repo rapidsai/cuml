@@ -50,8 +50,8 @@ class PorterStemmer:
     """
     A word stemmer based on the Porter stemming algorithm.
 
-        Porter, M. "An algorithm for suffix stripping."
-        Program 14.3 (1980): 130-137.
+    Porter, M. "An algorithm for suffix stripping."
+    Program 14.3 (1980): 130-137.
 
     See http://www.tartarus.org/~martin/PorterStemmer/ for the homepage
     of the algorithm.
@@ -60,15 +60,37 @@ class PorterStemmer:
     algorithm since writing his original paper, and those extensions are
     included in the implementations on his website. Additionally, others
     have proposed further improvements to the algorithm, including NLTK
-    contributors. There are thus three modes that can be selected by
-    passing the appropriate constant to the class constructor's `mode`
-    attribute:
+    contributors. Only below mode is supported currently
+    PorterStemmer.NLTK_EXTENSIONS
 
-        PorterStemmer.NLTK_EXTENSIONS (default)
-        - Implementation that includes further improvements devised by
-          NLTK contributors or taken from other modified implementations
-          found on the web.
+    - Implementation that includes further improvements devised by
+      NLTK contributors or taken from other modified implementations
+      found on the web.
 
+    Parameters
+    ----------
+        mode: Modes of stemming (Only supports (NLTK_EXTENSIONS) currently)
+              default("NLTK_EXTENSIONS")
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cudf
+        from cuml.preprocessing.text.stem import PorterStemmer
+        stemmer = PorterStemmer()
+        word_str_ser =  cudf.Series(['revival','singing','adjustable'])
+        print(stemmer.stem(word_str_ser))
+
+    Output:
+
+    .. code-block:: python
+
+        0     reviv
+        1      sing
+        2    adjust
+        dtype: object
     """
 
     def __init__(self, mode="NLTK_EXTENSIONS"):
@@ -78,45 +100,52 @@ class PorterStemmer:
             )
         self.mode = mode
 
-    def stem(self, word_strs):
+    def stem(self, word_str_ser):
         """
-            Stem Words using Porter stemmer
-            Parameters
-            ----------
-            str_series : (cudf.Series)
+        Stem Words using Porter stemmer
+
+        Parameters
+        ----------
+        word_str_ser : cudf.Series
+            A string series of words to stem
+
+        Returns
+        -------
+        stemmed_ser : cudf.Series
+            Stemmed words strings series
         """
         # this is only for NLTK_EXTENSIONS
         # remove the length condition for original algorithm
         # do not stem is len(word) <= 2:
-        can_replace_mask = len_gt_n(word_strs, 2)
+        can_replace_mask = len_gt_n(word_str_ser, 2)
 
-        word_strs = word_strs.str.lower()
+        word_str_ser = word_str_ser.str.lower()
 
-        word_strs, can_replace_mask = map_irregular_forms(
-            word_strs, can_replace_mask
+        word_str_ser, can_replace_mask = map_irregular_forms(
+            word_str_ser, can_replace_mask
         )
 
         # apply step 1
-        word_strs = self._step1a(word_strs, can_replace_mask)
-        word_strs = self._step1b(word_strs, can_replace_mask)
-        word_strs = self._step1c(word_strs, can_replace_mask)
+        word_str_ser = self._step1a(word_str_ser, can_replace_mask)
+        word_str_ser = self._step1b(word_str_ser, can_replace_mask)
+        word_str_ser = self._step1c(word_str_ser, can_replace_mask)
 
         # apply step 2
-        word_strs = self._step2(word_strs, can_replace_mask)
+        word_str_ser = self._step2(word_str_ser, can_replace_mask)
 
         # apply step 3
-        word_strs = self._step3(word_strs, can_replace_mask)
+        word_str_ser = self._step3(word_str_ser, can_replace_mask)
 
         # apply step 4
-        word_strs = self._step4(word_strs, can_replace_mask)
+        word_str_ser = self._step4(word_str_ser, can_replace_mask)
 
         # apply step 5
-        word_strs = self._step5a(word_strs, can_replace_mask)
-        word_strs = self._step5b(word_strs, can_replace_mask)
+        word_str_ser = self._step5a(word_str_ser, can_replace_mask)
+        word_str_ser = self._step5b(word_str_ser, can_replace_mask)
 
-        return word_strs
+        return word_str_ser
 
-    def _step1a(self, word_strs, can_replace_mask=None):
+    def _step1a(self, word_str_ser, can_replace_mask=None):
         """Implements Step 1a from "An algorithm for suffix stripping"
 
         From the paper:
@@ -130,7 +159,7 @@ class PorterStemmer:
         """
 
         if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_strs), np.bool))
+            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
 
         # this NLTK-only rule extends the original algorithm, so
         # that 'flies'->'fli' but 'dies'->'die' etc
@@ -138,13 +167,15 @@ class PorterStemmer:
         if self.mode == "NLTK_EXTENSIONS":
             # equivalent to
             # word.endswith('ies') and len(word) == 4:
-            suffix_mask = ends_with_suffix(word_strs, "ies")
-            len_mask = len_eq_n(word_strs, 4)
+            suffix_mask = ends_with_suffix(word_str_ser, "ies")
+            len_mask = len_eq_n(word_str_ser, 4)
 
             condition_mask = suffix_mask & len_mask
 
             valid_mask = can_replace_mask & condition_mask
-            word_strs = replace_suffix(word_strs, "ies", "ie", valid_mask)
+            word_str_ser = replace_suffix(
+                word_str_ser, "ies", "ie", valid_mask
+            )
 
             # update can replace mask
             can_replace_mask = can_replace_mask & cudf.logical_not(
@@ -152,7 +183,7 @@ class PorterStemmer:
             )
 
         return apply_rule_list(
-            word_strs,
+            word_str_ser,
             [
                 ("sses", "ss", None),  # SSES -> SS
                 ("ies", "i", None),  # IES  -> I
@@ -162,7 +193,7 @@ class PorterStemmer:
             can_replace_mask,
         )[0]
 
-    def _step1b(self, word_strs, can_replace_mask=None):
+    def _step1b(self, word_str_ser, can_replace_mask=None):
         """Implements Step 1b from "An algorithm for suffix stripping"
 
         From the paper:
@@ -197,19 +228,21 @@ class PorterStemmer:
         """
 
         if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_strs), np.bool))
+            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
 
         # this NLTK-only block extends the original algorithm, so that
         # 'spied'->'spi' but 'died'->'die' etc
         if self.mode == "NLTK_EXTENSIONS":
             # word.endswith('ied'):
-            suffix_mask = ends_with_suffix(word_strs, "ied")
-            len_mask = len_eq_n(word_strs, 4)
+            suffix_mask = ends_with_suffix(word_str_ser, "ied")
+            len_mask = len_eq_n(word_str_ser, 4)
 
             condition_mask = suffix_mask & len_mask
 
             valid_mask = can_replace_mask & condition_mask
-            word_strs = replace_suffix(word_strs, "ied", "ie", valid_mask)
+            word_str_ser = replace_suffix(
+                word_str_ser, "ied", "ie", valid_mask
+            )
 
             # update can replace mask
             can_replace_mask = can_replace_mask & cudf.logical_not(
@@ -218,7 +251,7 @@ class PorterStemmer:
 
             condition_mask = suffix_mask
             valid_mask = can_replace_mask & condition_mask
-            word_strs = replace_suffix(word_strs, "ied", "i", valid_mask)
+            word_str_ser = replace_suffix(word_str_ser, "ied", "i", valid_mask)
 
             # update can replace mask
             can_replace_mask = can_replace_mask & cudf.logical_not(
@@ -228,15 +261,15 @@ class PorterStemmer:
         # (m>0) EED -> EE
         # if suffix ==eed we stop processing
         # to be consistent with nltk
-        suffix_mask = ends_with_suffix(word_strs, "eed")
+        suffix_mask = ends_with_suffix(word_str_ser, "eed")
         valid_mask = suffix_mask & can_replace_mask
 
-        stem = replace_suffix(word_strs, "eed", "", valid_mask)
+        stem = replace_suffix(word_str_ser, "eed", "", valid_mask)
         measure_mask = measure_gt_n(stem, 0)
 
         valid_mask = measure_mask & suffix_mask & can_replace_mask
         # adding ee series to stem
-        word_strs = replace_suffix(word_strs, "eed", "ee", valid_mask)
+        word_str_ser = replace_suffix(word_str_ser, "eed", "ee", valid_mask)
 
         # to be consistent with nltk we dont replace
         # if word.endswith('eed') we stop proceesing
@@ -246,9 +279,9 @@ class PorterStemmer:
         #    (*v*) ED  ->   plastered ->  plaster
         #                   bled      ->  bled
 
-        ed_suffix_mask = ends_with_suffix(word_strs, "ed")
+        ed_suffix_mask = ends_with_suffix(word_str_ser, "ed")
         intermediate_stem = replace_suffix(
-            word_strs, "ed", "", ed_suffix_mask & can_replace_mask
+            word_str_ser, "ed", "", ed_suffix_mask & can_replace_mask
         )
         vowel_mask = contains_vowel(intermediate_stem)
 
@@ -258,9 +291,9 @@ class PorterStemmer:
 
         #    (*v*) ING ->  motoring  ->  motor
         #                   sing      ->  sing
-        ing_suffix_mask = ends_with_suffix(word_strs, "ing")
+        ing_suffix_mask = ends_with_suffix(word_str_ser, "ing")
         intermediate_stem = replace_suffix(
-            word_strs, "ing", "", ing_suffix_mask & can_replace_mask
+            word_str_ser, "ing", "", ing_suffix_mask & can_replace_mask
         )
         vowel_mask = contains_vowel(intermediate_stem)
         rule_3_mask = vowel_mask & ing_suffix_mask & can_replace_mask
@@ -268,7 +301,9 @@ class PorterStemmer:
         rule_2_or_rule_3_mask = rule_2_mask | rule_3_mask
 
         # replace masks only if rule_2_or_rule_3_mask
-        intermediate_stem_1 = replace_suffix(word_strs, "ed", "", rule_2_mask)
+        intermediate_stem_1 = replace_suffix(
+            word_str_ser, "ed", "", rule_2_mask
+        )
         intermediate_stem_2 = replace_suffix(
             intermediate_stem_1, "ing", "", rule_3_mask
         )
@@ -299,7 +334,7 @@ class PorterStemmer:
             can_replace_mask,
         )[0]
 
-    def _step1c(self, word_strs, can_replace_mask=None):
+    def _step1c(self, word_str_ser, can_replace_mask=None):
         """Implements Step 1c from "An algorithm for suffix stripping"
 
         From the paper:
@@ -310,7 +345,7 @@ class PorterStemmer:
                                             sky          ->  sky
         """
         if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_strs), np.bool))
+            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
 
         def nltk_condition(stem):
             """
@@ -342,7 +377,7 @@ class PorterStemmer:
             return contains_vowel(stem)
 
         return apply_rule_list(
-            word_strs,
+            word_str_ser,
             [
                 (
                     "y",
@@ -355,7 +390,7 @@ class PorterStemmer:
             can_replace_mask,
         )[0]
 
-    def _step2(self, word_strs, can_replace_mask=None):
+    def _step2(self, word_str_ser, can_replace_mask=None):
         """Implements Step 2 from "An algorithm for suffix stripping"
 
         From the paper:
@@ -386,21 +421,21 @@ class PorterStemmer:
         """
 
         if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_strs), np.bool))
+            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
 
         if self.mode == "NLTK_EXTENSIONS":
             # Instead of applying the ALLI -> AL rule after '(a)bli' per
             # the published algorithm, instead we apply it first, and,
             # if it succeeds, run the result through step2 again.
 
-            alli_suffix_flag = ends_with_suffix(word_strs, "alli")
+            alli_suffix_flag = ends_with_suffix(word_str_ser, "alli")
             stem_ser = replace_suffix(
-                word_strs, "alli", "", alli_suffix_flag & can_replace_mask
+                word_str_ser, "alli", "", alli_suffix_flag & can_replace_mask
             )
             positive_measure_flag = has_positive_measure(stem_ser)
 
-            word_strs = replace_suffix(
-                word_strs,
+            word_str_ser = replace_suffix(
+                word_str_ser,
                 "alli",
                 "al",
                 alli_suffix_flag & positive_measure_flag & can_replace_mask,
@@ -437,20 +472,20 @@ class PorterStemmer:
         if self.mode == "NLTK_EXTENSIONS":
             rules.append(("fulli", "ful", has_positive_measure))
 
-            word_strs, can_replace_mask = apply_rule_list(
-                word_strs, rules, can_replace_mask
+            word_str_ser, can_replace_mask = apply_rule_list(
+                word_str_ser, rules, can_replace_mask
             )
 
             # The 'l' of the 'logi' -> 'log' rule is put with the stem,
             # so that short stems like 'geo' 'theo' etc work like
             # 'archaeo' 'philo' etc.
 
-            logi_suffix_flag = ends_with_suffix(word_strs, "logi")
-            stem = word_strs.str.slice(stop=-3)
+            logi_suffix_flag = ends_with_suffix(word_str_ser, "logi")
+            stem = word_str_ser.str.slice(stop=-3)
             measure_flag = has_positive_measure(stem)
 
             valid_flag = measure_flag & logi_suffix_flag & can_replace_mask
-            return replace_suffix(word_strs, "logi", "log", valid_flag)
+            return replace_suffix(word_str_ser, "logi", "log", valid_flag)
 
             # as below works on word rather than stem i don't
             # send it to apply rules but do it here
@@ -461,9 +496,9 @@ class PorterStemmer:
 
         if self.mode == "MARTIN_EXTENSIONS":
             rules.append(("logi", "log", has_positive_measure))
-            return apply_rule_list(word_strs, rules, can_replace_mask)[0]
+            return apply_rule_list(word_str_ser, rules, can_replace_mask)[0]
 
-    def _step3(self, word_strs, can_replace_mask=None):
+    def _step3(self, word_str_ser, can_replace_mask=None):
         """Implements Step 3 from "An algorithm for suffix stripping"
 
         From the paper:
@@ -479,10 +514,10 @@ class PorterStemmer:
             (m>0) NESS  ->                  goodness       ->  good
         """
         if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_strs), np.bool))
+            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
 
         return apply_rule_list(
-            word_strs,
+            word_str_ser,
             [
                 ("icate", "ic", has_positive_measure),
                 ("ative", "", has_positive_measure),
@@ -495,7 +530,7 @@ class PorterStemmer:
             can_replace_mask,
         )[0]
 
-    def _step4(self, word_strs, can_replace_mask=None):
+    def _step4(self, word_str_ser, can_replace_mask=None):
         """Implements Step 4 from "An algorithm for suffix stripping"
 
         Step 4
@@ -524,13 +559,13 @@ class PorterStemmer:
         tidying up.
         """
         if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_strs), np.bool))
+            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
 
         def measure_gt_1(ser):
             return measure_gt_n(ser, 1)
 
         return apply_rule_list(
-            word_strs,
+            word_str_ser,
             [
                 ("al", "", measure_gt_1),
                 ("ance", "", measure_gt_1),
@@ -561,7 +596,7 @@ class PorterStemmer:
             can_replace_mask,
         )[0]
 
-    def _step5a(self, word_strs, can_replace_mask=None):
+    def _step5a(self, word_str_ser, can_replace_mask=None):
         """Implements Step 5a from "An algorithm for suffix stripping"
 
         From the paper:
@@ -574,7 +609,7 @@ class PorterStemmer:
         """
 
         if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_strs), np.bool))
+            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
 
         # Note that Martin's test vocabulary and reference
         # implementations are inconsistent in how they handle the case
@@ -605,9 +640,9 @@ class PorterStemmer:
         #      return stem  rule_2
         #
 
-        e_suffix_flag = ends_with_suffix(word_strs, "e")
+        e_suffix_flag = ends_with_suffix(word_str_ser, "e")
         stem = replace_suffix(
-            word_strs, "e", "", e_suffix_flag & can_replace_mask
+            word_str_ser, "e", "", e_suffix_flag & can_replace_mask
         )
 
         measure_gt_1_flag = measure_gt_n(stem, 1)
@@ -624,9 +659,9 @@ class PorterStemmer:
             (rule_1_flag | rule_2_flag) & e_suffix_flag & can_replace_mask
         )
 
-        return replace_suffix(word_strs, "e", "", overall_rule_flag)
+        return replace_suffix(word_str_ser, "e", "", overall_rule_flag)
 
-    def _step5b(self, word_strs, can_replace_mask=None):
+    def _step5b(self, word_str_ser, can_replace_mask=None):
         """Implements Step 5a from "An algorithm for suffix stripping"
 
         From the paper:
@@ -639,23 +674,23 @@ class PorterStemmer:
         """
 
         if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_strs), np.bool))
+            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
 
         # word, [('ll', 'l', lambda stem: self._measure(word[:-1]) > 1)]
         # because here we are applying rule on word instead of stem
         # so, unlike nltk we don't use apply rules
 
-        ll_suffix_flag = ends_with_suffix(word_strs, "ll")
+        ll_suffix_flag = ends_with_suffix(word_str_ser, "ll")
 
-        stem = word_strs.str.slice(stops=-1)
+        stem = word_str_ser.str.slice(stops=-1)
         measure_gt_1_flag = measure_gt_n(stem, 1)
 
         valid_flag = measure_gt_1_flag & ll_suffix_flag & can_replace_mask
 
-        return replace_suffix(word_strs, "ll", "l", valid_flag)
+        return replace_suffix(word_str_ser, "ll", "l", valid_flag)
 
 
-def map_irregular_forms(word_strs, can_replace_mask):
+def map_irregular_forms(word_str_ser, can_replace_mask):
     # replaces all strings and stop rules
     # need to process it
     irregular_forms = {
@@ -674,32 +709,32 @@ def map_irregular_forms(word_strs, can_replace_mask):
     }
     for replacement, form_ls in irregular_forms.items():
         for form in form_ls:
-            equal_flag = word_strs == form
+            equal_flag = word_str_ser == form
             stem_ser = get_stem_series(
-                word_strs, len(form), can_replace_mask & equal_flag
+                word_str_ser, len(form), can_replace_mask & equal_flag
             )
             replacement_ser = get_str_replacement_series(
                 replacement, can_replace_mask & equal_flag
             )
 
-            word_strs = stem_ser.str.cat(replacement_ser)
+            word_str_ser = stem_ser.str.cat(replacement_ser)
             can_replace_mask = can_replace_mask & cudf.logical_not(equal_flag)
 
-    return word_strs, can_replace_mask
+    return word_str_ser, can_replace_mask
 
 
-def get_condition_flag(word_strs, condition):
+def get_condition_flag(word_str_ser, condition):
     """
         condition  = None or a function that returns a bool series
         return a bool series where flag is valid
     """
     if condition is None:
-        return cudf.Series(cp.ones(len(word_strs), np.bool))
+        return cudf.Series(cp.ones(len(word_str_ser), np.bool))
     else:
-        return condition(word_strs)
+        return condition(word_str_ser)
 
 
-def apply_rule(word_strs, rule, w_in_c_flag):
+def apply_rule(word_str_ser, rule, w_in_c_flag):
     """Applies the first applicable suffix-removal rule to the word
 
     Takes a word and a list of suffix-removal rules represented as
@@ -710,41 +745,45 @@ def apply_rule(word_strs, rule, w_in_c_flag):
     """
     suffix, replacement, condition = rule
     if suffix == "*d":
-        double_consonant_mask = ends_with_double_constant(word_strs)
+        double_consonant_mask = ends_with_double_constant(word_str_ser)
         # all flags needed  here
         # with **d in nltk we pass word_series rather than stem_series
         # see below:
         # lambda stem: intermediate_stem[-1] not in ('l', 's', 'z'),
         # condition is on  intermediate_stem
-        intermediate_stem = word_strs.str.slice(stop=-1)
+        intermediate_stem = word_str_ser.str.slice(stop=-1)
         condition_mask = get_condition_flag(intermediate_stem, condition)
 
         # mask where replacement will happen
         valid_mask = double_consonant_mask & condition_mask & w_in_c_flag
 
         # new series with updated valid_mask
-        word_strs = replace_suffix(word_strs, suffix, replacement, valid_mask)
+        word_str_ser = replace_suffix(
+            word_str_ser, suffix, replacement, valid_mask
+        )
         w_in_c_flag = w_in_c_flag & cudf.logical_not(double_consonant_mask)
 
     else:
 
-        suffix_mask = ends_with_suffix(word_strs, suffix)
+        suffix_mask = ends_with_suffix(word_str_ser, suffix)
         valid_mask = suffix_mask & w_in_c_flag
 
-        stem_ser = replace_suffix(word_strs, suffix, "", valid_mask)
+        stem_ser = replace_suffix(word_str_ser, suffix, "", valid_mask)
 
         condition_mask = get_condition_flag(stem_ser, condition)
         # mask where replacement will happen
         valid_mask = condition_mask & suffix_mask & w_in_c_flag
-        word_strs = replace_suffix(word_strs, suffix, replacement, valid_mask)
+        word_str_ser = replace_suffix(
+            word_str_ser, suffix, replacement, valid_mask
+        )
 
         # we wont apply further rules if it has a matching suffix
         w_in_c_flag = w_in_c_flag & cudf.logical_not(suffix_mask)
 
-    return word_strs, w_in_c_flag
+    return word_str_ser, w_in_c_flag
 
 
-def apply_rule_list(word_strs, rules, condition_flag):
+def apply_rule_list(word_str_ser, rules, condition_flag):
     """Applies the first applicable suffix-removal rule to the word
 
     Takes a word series and a list of suffix-removal rules represented as
@@ -755,6 +794,8 @@ def apply_rule_list(word_strs, rules, condition_flag):
     """
 
     for rule in rules:
-        word_strs, condition_flag = apply_rule(word_strs, rule, condition_flag)
+        word_str_ser, condition_flag = apply_rule(
+            word_str_ser, rule, condition_flag
+        )
 
-    return word_strs, condition_flag
+    return word_str_ser, condition_flag
