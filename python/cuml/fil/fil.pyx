@@ -68,7 +68,7 @@ cdef class TreeliteModel():
     """
     Wrapper for Treelite-loaded forest
 
-    Note: This is only used for loading saved models into ForestInference,
+    .. note:: This is only used for loading saved models into ForestInference,
     it does not actually perform inference. Users typically do
     not need to access TreeliteModel instances directly.
 
@@ -257,8 +257,10 @@ cdef class ForestInference_impl():
             matches sklearn
 
         Returns
-        ----------
+        -------
+
         Predicted results of type as defined by the output_type variable
+
         """
         if (not self.output_class) and predict_proba:
             raise NotImplementedError("Predict_proba function is not available"
@@ -383,7 +385,8 @@ cdef class ForestInference_impl():
 
 
 class ForestInference(Base):
-    """ForestInference provides GPU-accelerated inference (prediction)
+    """
+    ForestInference provides GPU-accelerated inference (prediction)
     for random forest and boosted decision tree models.
 
     This module does not support training models. Rather, users should
@@ -441,9 +444,10 @@ class ForestInference(Base):
     Notes
     ------
     For additional usage examples, see the sample notebook at
-    https://github.com/rapidsai/cuml/blob/branch-0.14/notebooks/forest_inference_demo.ipynb
+    https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/forest_inference_demo.ipynb
 
     """
+
     def __init__(self,
                  handle=None, output_type=None):
         super(ForestInference, self).__init__(handle,
@@ -513,41 +517,42 @@ class ForestInference(Base):
 
         Parameters
         ----------
-        model : the trained model information in the treelite format
-           loaded from a saved model using the treelite API
-           https://treelite.readthedocs.io/en/latest/treelite-api.html
+        model
+            the trained model information in the treelite format
+            loaded from a saved model using the treelite API
+            https://treelite.readthedocs.io/en/latest/treelite-api.html
         output_class: boolean (default=False)
-           For a Classification model output_class must be True.
-           For a Regression model output_class must be False.
+            For a Classification model output_class must be True.
+            For a Regression model output_class must be False.
         algo : string (default='auto')
-            name of the algo from (from algo_t enum)
-             'AUTO' or 'auto' - choose the algorithm automatically;
-                   currently 'BATCH_TREE_REORG' is used for dense storage,
-                   and 'NAIVE' for sparse storage
-             'NAIVE' or 'naive' - simple inference using shared memory
-             'TREE_REORG' or 'tree_reorg' - similar to naive but trees
-                              rearranged to be more coalescing-friendly
-             'BATCH_TREE_REORG' or 'batch_tree_reorg' - similar to TREE_REORG
-                                    but predicting multiple rows
-                                    per thread block
+            name of the algo from (from algo_t enum) :
+             - 'AUTO' or 'auto' - choose the algorithm automatically;
+               currently 'BATCH_TREE_REORG' is used for dense storage,
+               and 'NAIVE' for sparse storage
+             - 'NAIVE' or 'naive' - simple inference using shared memory
+             - 'TREE_REORG' or 'tree_reorg' - similar to naive but trees
+               rearranged to be more coalescing-friendly
+             - 'BATCH_TREE_REORG' or 'batch_tree_reorg' - similar to TREE_REORG
+               but predicting multiple rows per thread block
         threshold : float (default=0.5)
             Threshold is used to for classification. It is applied
             only if output_class == True, else it is ignored.
         storage_type : string or boolean (default='auto')
-            In-memory storage format to be used for the FIL model.
-             'auto' - choose the storage type automatically
-                      (currently DENSE is always used)
-             False - create a dense forest
-             True - create a sparse forest;
-                      requires algo='NAIVE' or algo='AUTO'
-             'sparse8' - (experimental) create a sparse forest
+            In-memory storage format to be used for the FIL model:
+             - 'auto' - choose the storage type automatically
+               (currently DENSE is always used)
+             - False - create a dense forest
+             - True - create a sparse forest;
+               requires algo='NAIVE' or algo='AUTO'
+             - 'sparse8' - (experimental) create a sparse forest
                       with 8-byte nodes; requires algo='NAIVE' or algo='AUTO';
                       can fail if 8-byte nodes are not enough
                       to store the forest, e.g. if there are
                       too many nodes in a tree or too many features
+
         Returns
         ----------
-        fil_model :
+        fil_model
             A Forest Inference model which can be used to perform
             inferencing on the random forest/ XGBoost model.
         """
@@ -574,35 +579,35 @@ class ForestInference(Base):
 
         Parameters
         ----------
-        skl_model : The scikit-learn model from which to build the FIL version.
+        skl_model
+            The scikit-learn model from which to build the FIL version.
         output_class: boolean (default=False)
-           For a Classification model output_class must be True.
-           For a Regression model output_class must be False.
+            For a Classification model output_class must be True.
+            For a Regression model output_class must be False.
         algo : string (default='auto')
-            name of the algo from (from algo_t enum)
-             'AUTO' or 'auto' - choose the algorithm automatically;
-                   currently 'BATCH_TREE_REORG' is used for dense storage,
-                   and 'NAIVE' for sparse storage
-             'NAIVE' or 'naive' - simple inference using shared memory
-             'TREE_REORG' or 'tree_reorg' - similar to naive but trees
-                              rearranged to be more coalescing-friendly
-             'BATCH_TREE_REORG' or 'batch_tree_reorg' - similar to TREE_REORG
-                                    but predicting multiple rows
-                                    per thread block
+            name of the algo from (from algo_t enum):
+             - 'AUTO' or 'auto' - choose the algorithm automatically;
+               currently 'BATCH_TREE_REORG' is used for dense storage,
+               and 'NAIVE' for sparse storage
+             - 'NAIVE' or 'naive' - simple inference using shared memory
+             - 'TREE_REORG' or 'tree_reorg' - similar to naive but trees
+               rearranged to be more coalescing-friendly
+             - 'BATCH_TREE_REORG' or 'batch_tree_reorg' - similar to TREE_REORG
+               but predicting multiple rows per thread block
         threshold : float (default=0.5)
             Threshold is used to for classification. It is applied
-            only if output_class == True, else it is ignored.
+            only if ``output_class == True``, else it is ignored.
         storage_type : string or boolean (default='auto')
-            In-memory storage format to be used for the FIL model.
-             'auto' - choose the storage type automatically
-                      (currently DENSE is always used)
-             False - create a dense forest
-             True - create a sparse forest;
-                      requires algo='NAIVE' or algo='AUTO'
+            In-memory storage format to be used for the FIL model:
+             - 'auto' - choose the storage type automatically
+               (currently DENSE is always used)
+             - False - create a dense forest
+             - True - create a sparse forest;
+               requires algo='NAIVE' or algo='AUTO'
 
         Returns
         ----------
-        fil_model :
+        fil_model
             A Forest Inference model created from the scikit-learn
             model passed.
 
@@ -623,36 +628,37 @@ class ForestInference(Base):
              model_type="xgboost",
              handle=None):
         """
-        Returns a FIL instance containing the forest saved in 'filename'
+        Returns a FIL instance containing the forest saved in `filename`
         This uses Treelite to load the saved model.
 
         Parameters
         ----------
         filename : string
-           Path to saved model file in a treelite-compatible format
-           (See https://treelite.readthedocs.io/en/latest/treelite-api.html
+            Path to saved model file in a treelite-compatible format
+            (See https://treelite.readthedocs.io/en/latest/treelite-api.html
             for more information)
         output_class: boolean (default=False)
-           For a Classification model output_class must be True.
-           For a Regression model output_class must be False.
+            For a Classification model `output_class` must be True.
+            For a Regression model `output_class` must be False.
         threshold : float (default=0.5)
-           Cutoff value above which a prediction is set to 1.0
-           Only used if the model is classification and output_class is True
+            Cutoff value above which a prediction is set to 1.0
+            Only used if the model is classification and `output_class` is True
         algo : string (default='auto')
-           Which inference algorithm to use.
-           See documentation in FIL.load_from_treelite_model
+            Which inference algorithm to use.
+            See documentation in `FIL.load_from_treelite_model`
         storage_type : string (default='auto')
             In-memory storage format to be used for the FIL model.
-            See documentation in FIL.load_from_treelite_model
+            See documentation in `FIL.load_from_treelite_model`
         model_type : string (default="xgboost")
             Format of the saved treelite model to be load.
             It can be 'xgboost', 'lightgbm'.
 
         Returns
         ----------
-        fil_model :
+        fil_model
             A Forest Inference model which can be used to perform
             inferencing on the model read from the file.
+
         """
         cuml_fm = ForestInference(handle=handle)
         tl_model = TreeliteModel.from_filename(filename, model_type=model_type)
@@ -679,21 +685,21 @@ class ForestInference(Base):
             (See https://treelite.readthedocs.io/en/latest/treelite-api.html
             for more information)
         output_class: boolean (default=False)
-           For a Classification model output_class must be True.
-           For a Regression model output_class must be False.
+            For a Classification model `output_class` must be True.
+            For a Regression model `output_class` must be False.
         threshold : float (default=0.5)
-           Cutoff value above which a prediction is set to 1.0
-           Only used if the model is classification and output_class is True
+            Cutoff value above which a prediction is set to 1.0
+            Only used if the model is classification and output_class is True
         algo : string (default='auto')
-           Which inference algorithm to use.
-           See documentation in FIL.load_from_treelite_model
+            Which inference algorithm to use.
+            See documentation in `FIL.load_from_treelite_model`
         storage_type : string (default='auto')
             In-memory storage format to be used for the FIL model.
-            See documentation in FIL.load_from_treelite_model
+            See documentation in `FIL.load_from_treelite_model`
 
         Returns
         ----------
-        fil_model :
+        fil_model
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
         """

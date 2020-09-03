@@ -102,7 +102,7 @@ class ARIMA(Base):
     large batches of time series.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         import numpy as np
@@ -159,7 +159,7 @@ class ARIMA(Base):
         In some cases this setting can be ignored: computing forecasts with
         confidence intervals will force it to False ; fitting with the CSS
         method will force it to True.
-        Note that forecasts are always for the original series, whereas
+        Note: that forecasts are always for the original series, whereas
         statsmodels computes forecasts for the differenced series when
         simple_differencing is True.
     handle : cuml.Handle
@@ -191,12 +191,13 @@ class ARIMA(Base):
         After fitting, contains the number of iterations before convergence
         for each time series.
 
-    Performance
-    -----------
-    Let `r=max(p+s*P, q+s*Q+1)`. The device memory used for most operations
-    is `O(batch_size*n_obs + batch_size*r^2)`. The execution time is a linear
-    function of `n_obs` and `batch_size` (if `batch_size` is large), but grows
-    very fast with `r`.
+    Notes
+    -----
+    *Performance:* Let :math:`r=max(p+s*P, q+s*Q+1)`. The device memory used
+    for most operations is
+    :math:`O(\mathtt{batch\_size}*\mathtt{n\_obs} + \mathtt{batch\_size}*r^2)`.
+    The execution time is a linear function of `n_obs` and `batch_size`
+    (if `batch_size` is large), but grows very fast with `r`.
 
     The performance is optimized for very large batch sizes (e.g thousands of
     series).
@@ -205,11 +206,12 @@ class ARIMA(Base):
     ----------
     This class is heavily influenced by the Python library `statsmodels`,
     particularly `statsmodels.tsa.statespace.sarimax.SARIMAX`.
-    See https://www.statsmodels.org/stable/statespace.html
+    See https://www.statsmodels.org/stable/statespace.html.
 
     Additionally the following book is a useful reference:
     "Time Series Analysis by State Space Methods",
     J. Durbin, S.J. Koopman, 2nd Edition (2012).
+
     """
 
     def __init__(self,
@@ -230,7 +232,7 @@ class ARIMA(Base):
 
         # Initialize base class
         super().__init__(handle, verbose, output_type)
-        self._set_output_type(endog)
+        self._set_base_attributes(output_type=endog)
 
         # Set the ARIMA order
         cdef ARIMAOrder cpp_order
@@ -384,7 +386,7 @@ class ARIMA(Base):
     def get_params(self) -> Dict[str, np.ndarray]:
         """Get the parameters of the model
 
-        Returns:
+        Returns
         --------
         params: Dict[str, np.ndarray]
             A dictionary of parameter names and associated arrays
@@ -405,8 +407,8 @@ class ARIMA(Base):
     def set_params(self, params: Mapping[str, object]):
         """Set the parameters of the model
 
-        Parameters:
-        --------
+        Parameters
+        ----------
         params: Mapping[str, np.ndarray]
             A mapping (e.g dictionary) of parameter names and associated arrays
             The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
@@ -423,33 +425,34 @@ class ARIMA(Base):
     def predict(self, start=0, end=None, level=None):
         """Compute in-sample and/or out-of-sample prediction for each series
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         start: int (default = 0)
             Index where to start the predictions (0 <= start <= num_samples)
         end: int (default = None)
             Index where to end the predictions, excluded (end > start), or
-            None to predict until the last observation
+            ``None`` to predict until the last observation
         level: float or None (default = None)
             Confidence level for prediction intervals, or None to return only
-            the point forecasts. 0 < level < 1
+            the point forecasts. ``0 < level < 1``
 
-        Returns:
-        --------
+        Returns
+        -------
         y_p : array-like (device)
             Predictions. Shape = (end - start, batch_size)
         lower: array-like (device) (optional)
-            Lower limit of the prediction interval if level != None
+            Lower limit of the prediction interval if ``level != None``
             Shape = (end - start, batch_size)
         upper: array-like (device) (optional)
-            Upper limit of the prediction interval if level != None
+            Upper limit of the prediction interval if ``level != None``
             Shape = (end - start, batch_size)
 
-        Example:
+        Examples
         --------
         .. code-block:: python
+
             from cuml.tsa.arima import ARIMA
-            ...
+
             model = ARIMA(ys, (1,1,1))
             model.fit()
             y_pred = model.predict()
@@ -550,7 +553,7 @@ class ARIMA(Base):
     def forecast(self, nsteps: int, level=None):
         """Forecast the given model `nsteps` into the future.
 
-        Parameters:
+        Parameters
         ----------
         nsteps : int
             The number of steps to forecast beyond end of the given series
@@ -558,8 +561,8 @@ class ARIMA(Base):
             Confidence level for prediction intervals, or None to return only
             the point forecasts. 0 < level < 1
 
-        Returns:
-        --------
+        Returns
+        -------
         y_fc : array-like
             Forecasts. Shape = (nsteps, batch_size)
         lower: array-like (device) (optional)
@@ -569,9 +572,10 @@ class ARIMA(Base):
             Upper limit of the prediction interval if level != None
             Shape = (end - start, batch_size)
 
-        Example:
+        Examples
         --------
         .. code-block:: python
+
             from cuml.tsa.arima import ARIMA
             ...
             model = ARIMA(ys, (1,1,1))
@@ -653,7 +657,7 @@ class ARIMA(Base):
             maxiter: int = 1000,
             method="ml",
             truncate: int = 0):
-        """Fit the ARIMA model to each time series.
+        r"""Fit the ARIMA model to each time series.
 
         Parameters
         ----------
@@ -664,17 +668,19 @@ class ARIMA(Base):
             (n, batch_size) for any other type, where n is the corresponding
             number of parameters of this type.
             Pass None for automatic estimation (recommended)
+
         opt_disp : int
             Fit diagnostic level (for L-BFGS solver):
-             * `-1` for no output (default)
-             * `0<n<100` for output every `n` steps
-             * `n>100` for more detailed output
+
+            * `-1` for no output (default)
+            * `0<n<100` for output every `n` steps
+            * `n>100` for more detailed output
+
         h : float
             Finite-differencing step size. The gradient is computed using
             forward finite differencing:
-                    f(x+h) - f(x)
-                g = ------------- + O(h)
-                          h
+            :math:`g = \frac{f(x + \mathtt{h}) - f(x)}{\mathtt{h}} + O(\mathtt{h})` # noqa
+
         maxiter : int
             Maximum number of iterations of L-BFGS-B
         method : str
@@ -742,7 +748,7 @@ class ARIMA(Base):
     def _loglike(self, x, trans=True, method="ml", truncate=0):
         """Compute the batched log-likelihood for the given parameters.
 
-        Parameters:
+        Parameters
         ----------
         x : array-like
             Packed parameter array, grouped by series
@@ -756,8 +762,8 @@ class ARIMA(Base):
             When using CSS, start the sum of squares after a given number of
             observations
 
-        Returns:
-        --------
+        Returns
+        -------
         loglike : numpy.ndarray
             Batched log-likelihood. Shape: (batch_size,)
         """
@@ -796,7 +802,7 @@ class ARIMA(Base):
         """Compute the gradient (via finite differencing) of the batched
         log-likelihood.
 
-        Parameters:
+        Parameters
         ----------
         x : array-like
             Packed parameter array, grouped by series.
@@ -813,8 +819,8 @@ class ARIMA(Base):
             When using CSS, start the sum of squares after a given number of
             observations
 
-        Returns:
-        --------
+        Returns
+        -------
         grad : numpy.ndarray
             Batched log-likelihood gradient. Shape: (n_params * batch_size,)
             where n_params is the complexity of the model
@@ -859,8 +865,8 @@ class ARIMA(Base):
         """Unpack linearized parameter vector `x` into the separate
         parameter arrays of the model
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         x : array-like
             Packed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
@@ -895,8 +901,8 @@ class ARIMA(Base):
     def pack(self) -> np.ndarray:
         """Pack parameters of the model into a linearized vector `x`
 
-        Returns:
-        -----------
+        Returns
+        -------
         x : array-like
             Packed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
@@ -928,14 +934,14 @@ class ARIMA(Base):
     def _batched_transform(self, x, isInv=False):
         """Applies Jones transform or inverse transform to a parameter vector
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         x : array-like
             Packed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
 
-        Returns:
-        -----------
+        Returns
+        -------
         Tx : array-like
             Packed transformed parameter array, grouped by series.
             Shape: (n_params * batch_size,)

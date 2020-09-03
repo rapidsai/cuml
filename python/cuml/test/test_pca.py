@@ -15,6 +15,7 @@
 
 import numpy as np
 import cupy as cp
+import cupyx
 import pytest
 
 from cuml import PCA as cuPCA
@@ -67,6 +68,25 @@ def test_pca_fit(datatype, input_type, name, use_handle):
 
         skl_res = getattr(skpca, attr)
         assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
+
+
+@pytest.mark.parametrize('n_samples', [200])
+@pytest.mark.parametrize('n_features', [100, 300])
+def test_pca_defaults(n_samples, n_features):
+    X, Y = make_multilabel_classification(n_samples=n_samples,
+                                          n_features=n_features,
+                                          n_classes=2,
+                                          n_labels=1,
+                                          random_state=1)
+    skpca = skPCA()
+    skpca.fit(X)
+
+    cupca = cuPCA()
+    cupca.fit(X)
+    cupca.handle.sync()
+
+    assert skpca.svd_solver == cupca.svd_solver
+    assert cupca.components_.shape[0] == skpca.components_.shape[0]
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -189,8 +209,8 @@ def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse):
     if return_sparse:
         pytest.skip("Loss of information in converting to cupy sparse csr")
 
-    X = cp.sparse.random(nrows, ncols, density=0.07, dtype=cp.float32,
-                         random_state=10)
+    X = cupyx.scipy.sparse.random(nrows, ncols, density=0.07, dtype=cp.float32,
+                                  random_state=10)
 
     p_sparse = cuPCA(n_components=ncols, whiten=whiten)
 
@@ -201,7 +221,7 @@ def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse):
 
     if return_sparse:
 
-        assert isinstance(i_sparse, cp.sparse.csr_matrix)
+        assert isinstance(i_sparse, cupyx.scipy.sparse.csr_matrix)
 
         assert array_equal(i_sparse.todense(), X.todense(), 1e-1,
                            with_sign=True)

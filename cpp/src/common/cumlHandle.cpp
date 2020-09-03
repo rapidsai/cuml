@@ -18,7 +18,7 @@
 #include <common/cudart_utils.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/cusolver_wrappers.h>
-#include <sparse/cusparse_wrappers.h>
+#include <raft/sparse/cusparse_wrappers.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
 

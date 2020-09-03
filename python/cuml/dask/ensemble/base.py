@@ -16,6 +16,7 @@
 import dask
 import math
 import numpy as np
+import warnings
 
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
@@ -37,11 +38,18 @@ class BaseRandomForestModel(object):
                       workers,
                       n_estimators,
                       base_seed,
+                      ignore_empty_partitions,
                       **kwargs):
 
         self.client = get_client(client)
-        self.workers = self.client.scheduler_info()['workers'].keys()
+        if workers is None:
+            # Default to all workers
+            workers = self.client.scheduler_info()['workers'].keys()
+        self.workers = workers
         self._set_internal_model(None)
+        self.active_workers = list()
+        self.ignore_empty_partitions = ignore_empty_partitions
+        self.n_estimators = n_estimators
 
         self.n_estimators_per_worker = \
             self._estimators_per_worker(n_estimators)
@@ -56,7 +64,7 @@ class BaseRandomForestModel(object):
             worker: self.client.submit(
                 model_func,
                 n_estimators=self.n_estimators_per_worker[n],
-                seed=seeds[n],
+                random_state=seeds[n],
                 **kwargs,
                 pure=False,
                 workers=[worker],
@@ -85,6 +93,7 @@ class BaseRandomForestModel(object):
 
     def _fit(self, model, dataset, convert_dtype):
         data = DistributedDataHandler.create(dataset, client=self.client)
+        self.active_workers = data.workers
         self.datatype = data.datatype
         if self.datatype == 'cudf':
             has_float64 = (dataset[0].dtypes.any() == np.float64)
@@ -112,6 +121,24 @@ class BaseRandomForestModel(object):
                     workers=[worker],
                     pure=False)
             )
+        if len(self.workers) > len(self.active_workers):
+            if self.ignore_empty_partitions:
+                curent_estimators = self.n_estimators / \
+                                    len(self.workers) * \
+                                    len(self.active_workers)
+                warn_text = (
+                    f"Data was not split among all workers "
+                    f"using only {self.active_workers} workers to fit."
+                    f"This will only train {curent_estimators}"
+                    f" estimators instead of the requested "
+                    f"{self.n_estimators}"
+                )
+                warnings.warn(warn_text)
+            else:
+                raise ValueError("Data was not split among all workers. "
+                                 "Re-run the code or "
+                                 "use ignore_empty_partitions=True"
+                                 " while creating model")
         wait_and_raise_from_futures(futures)
         return self
 
@@ -123,7 +150,7 @@ class BaseRandomForestModel(object):
         bytes format.
         """
         model_serialized_futures = list()
-        for w in self.workers:
+        for w in self.active_workers:
             model_serialized_futures.append(
                 dask.delayed(_get_serialized_model)
                 (self.rfs[w]))

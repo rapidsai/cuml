@@ -46,6 +46,7 @@ def log_loss(y_true, y_pred, eps=1e-15, normalize=True, sample_weight=None):
     Returns
     -------
     loss : float
+
     Examples
     --------
     >>> from cuml.metrics import log_loss
@@ -53,13 +54,16 @@ def log_loss(y_true, y_pred, eps=1e-15, normalize=True, sample_weight=None):
     >>> log_loss(np.array([1, 0, 0, 1]),
     ...          np.array([[.1, .9], [.9, .1], [.8, .2], [.35, .65]]))
     0.21616...
+
     References
     ----------
     C.M. Bishop (2006). Pattern Recognition and Machine Learning. Springer,
     p. 209.
+
     Notes
     -----
     The logarithm used is the natural logarithm (base-e).
+
     """
     y_true, n_rows, n_cols, ytype = \
         input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64,

@@ -9,7 +9,6 @@ if [ "$BUILD_LIBCUML" == "1" ]; then
 
   export UPLOADFILE=`conda build conda/recipes/libcuml -c conda-forge -c numba -c conda-forge/label/rc_ucx -c nvidia -c rapidsai -c pytorch -c defaults --python=${PYTHON} --output`
 
-  SOURCE_BRANCH=master
 
   LABEL_OPTION="--label main"
   echo "LABEL_OPTION=${LABEL_OPTION}"
@@ -17,7 +16,7 @@ if [ "$BUILD_LIBCUML" == "1" ]; then
   test -e ${UPLOADFILE}
 
   # Restrict uploads to master branch
-  if [ ${GIT_BRANCH} != ${SOURCE_BRANCH} ]; then
+  if [ ${BUILD_MODE} != "branch" ]; then
     echo "Skipping upload"
     return 0
   fi

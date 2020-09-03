@@ -61,7 +61,7 @@ void grow_deep_tree_classification(
                                                      n_unique_labels, histvec,
                                                      initial_metric, tempmem);
   }
-  int reserve_depth = std::min(tempmem->swap_depth, tree_params.max_depth);
+  int reserve_depth = std::min(tempmem->swap_depth, tree_params.max_depth + 1);
   size_t total_nodes = pow(2, (reserve_depth + 1)) - 1;
 
   unsigned int* h_parent_hist = tempmem->h_parent_hist->data();
@@ -109,10 +109,11 @@ void grow_deep_tree_classification(
   }
   std::vector<unsigned int> feature_selector(h_colids, h_colids + Ncols);
 
-  int scatter_algo_depth = std::min(tempmem->swap_depth, tree_params.max_depth);
+  int scatter_algo_depth =
+    std::min(tempmem->swap_depth, tree_params.max_depth + 1);
   for (int depth = 0; (depth < scatter_algo_depth) && (n_nodes_nextitr != 0);
        depth++) {
-    depth_cnt = depth + 1;
+    depth_cnt = depth;
     n_nodes = n_nodes_nextitr;
     sparsesize = sparsesize_nextitr;
     sparsesize_nextitr = sparsetree.size();
@@ -195,6 +196,9 @@ void grow_deep_tree_classification(
   sparsetree.resize(sparsetree.size() - lastsize);
   convert_scatter_to_gather(flagsptr, sample_cnt, n_nodes, nrows, d_nodecount,
                             d_nodestart, d_samplelist, tempmem);
+  if (tempmem->swap_depth == tree_params.max_depth) {
+    ++depth_cnt;
+  }
   for (int depth = tempmem->swap_depth;
        (depth < tree_params.max_depth) && (n_nodes != 0); depth++) {
     depth_cnt = depth + 1;

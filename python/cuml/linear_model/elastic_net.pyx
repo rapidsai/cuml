@@ -21,6 +21,7 @@
 
 from cuml.solvers import CD
 from cuml.common.base import Base, RegressorMixin
+from cuml.common.doc_utils import generate_docstring
 
 
 class ElasticNet(Base, RegressorMixin):
@@ -36,7 +37,7 @@ class ElasticNet(Base, RegressorMixin):
     descent to fit a linear model.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -129,7 +130,7 @@ class ElasticNet(Base, RegressorMixin):
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
     -----
@@ -201,58 +202,28 @@ class ElasticNet(Base, RegressorMixin):
             msg = "l1_ratio value has to be between 0.0 and 1.0"
             raise ValueError(msg.format(l1_ratio))
 
+    @generate_docstring()
     def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the transform method will, when necessary,
-            convert y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
-
+        self._set_base_attributes(output_type=X, n_features=X)
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
 
         return self
 
-    def predict(self, X, convert_dtype=False):
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
+    def predict(self, X, convert_dtype=True):
         """
-        Predicts the y for X.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
+        Predicts `y` values for `X`.
 
         """
 
-        return self.solver_model.predict(X)
+        return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
     def get_params(self, deep=True):
         """

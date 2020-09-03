@@ -195,8 +195,7 @@ cdef class BaseRandomProjection():
             generated random matrix as attributes
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         _, n_samples, n_features, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -293,10 +292,11 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
 
     The components of the random matrix are drawn from N(0, 1 / n_components).
 
-    Example
-    ---------
+    Examples
+    --------
 
     .. code-block:: python
+
         from cuml.random_projection import GaussianRandomProjection
         from sklearn.datasets.samples_generator import make_blobs
         from sklearn.svm import SVC
@@ -324,6 +324,7 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
     Output:
 
     .. code-block:: python
+
         Score: 1.0
 
     Parameters
@@ -389,16 +390,18 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     (e.g. Gaussian) that guarantees similar embedding quality while being much
     more memory efficient and allowing faster computation of the projected data
     (with sparse enough matrices).
-    If we note 's = 1 / density' the components of the random matrix are
+    If we note ``s = 1 / density`` the components of the random matrix are
     drawn from:
-      - -sqrt(s) / sqrt(n_components)   with probability 1 / 2s
-      -  0                              with probability 1 - 1 / s
-      - +sqrt(s) / sqrt(n_components)   with probability 1 / 2s
 
-    Example
-    ---------
+    - ``-sqrt(s) / sqrt(n_components)`` - with probability ``1 / 2s``
+    - ``0`` - with probability ``1 - 1 / s``
+    - ``+sqrt(s) / sqrt(n_components)`` - with probability ``1 / 2s``
+
+    Examples
+    --------
 
     .. code-block:: python
+
         from cuml.random_projection import SparseRandomProjection
         from sklearn.datasets.samples_generator import make_blobs
         from sklearn.svm import SVC
@@ -426,11 +429,11 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     Output:
 
     .. code-block:: python
+
         Score: 1.0
 
     Parameters
     ----------
-
     handle : cuml.Handle
         If it is None, a new one is created just for this class
 
@@ -439,13 +442,11 @@ class SparseRandomProjection(Base, BaseRandomProjection):
         the parameter is deducted thanks to Johnson–Lindenstrauss lemma.
         The automatic deduction make use of the number of samples and
         the eps parameter.
-
         The Johnson–Lindenstrauss lemma can produce very conservative
         n_components parameter as it makes no assumption on dataset structure.
 
     density : float in range (0, 1] (default = 'auto')
         Ratio of non-zero component in the random projection matrix.
-
         If density = 'auto', the value is set to the minimum density
         as recommended by Ping Li et al.: 1 / sqrt(n_features).
 
@@ -461,14 +462,14 @@ class SparseRandomProjection(Base, BaseRandomProjection):
 
     Attributes
     ----------
-        gaussian_method : boolean
-            To be passed to base class in order to determine
-            random matrix generation method
+    gaussian_method : boolean
+        To be passed to base class in order to determine
+        random matrix generation method
 
     Notes
-    ------
-        Inspired by Scikit-learn's implementation :
-        https://scikit-learn.org/stable/modules/random_projection.html
+    -----
+    Inspired by Scikit-learn's `implementation
+    <https://scikit-learn.org/stable/modules/random_projection.html>`_.
 
     """
 

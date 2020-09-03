@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import warnings
+
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.ensemble.base import \
@@ -30,12 +32,12 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     (possibly on different nodes).
 
     Currently, this API makes the following assumptions:
-    * The set of Dask workers used between instantiation, fit,
-    and predict are all consistent
-    * Training data comes in the form of cuDF dataframes or Dask Arrays
-    distributed so that each worker has at least one partition.
-    * The print_summary and print_detailed functions print the
-    information of the forest on the worker.
+     * The set of Dask workers used between instantiation, fit,
+       and predict are all consistent
+     * Training data comes in the form of cuDF dataframes or Dask Arrays
+       distributed so that each worker has at least one partition.
+     * The print_summary and print_detailed functions print the
+       information of the forest on the worker.
 
     Future versions of the API will support more flexible data
     distribution and additional input types. User-facing APIs are
@@ -98,8 +100,11 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         The minimum number of samples (rows) needed to split a node.
         If int then number of sample rows
         If float the min_rows_per_sample*n_rows
-    accuracy_metric : string (default = 'mse')
+    accuracy_metric : string (default = 'r2')
         Decides the metric used to evaluate the performance of the model.
+        In the 0.16 release, the default scoring metric was changed
+        from mean squared error to r-squared.
+        for r-squared : 'r2'
         for median of abs error : 'median_ae'
         for mean of abs error : 'mean_ae'
         for mean square error' : 'mse'
@@ -108,9 +113,19 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     workers : optional, list of strings
         Dask addresses of workers to use for computation.
         If None, all available Dask workers will be used.
+    random_state : int (default = None)
+        Seed for the random number generator. Unseeded by default.
     seed : int (default = None)
+        Deprecated in favor of `random_state`.
         Base seed for the random number generator. Unseeded by default. Does
         not currently fully guarantee the exact same results.
+    ignore_empty_partitions: Boolean (default = False)
+        Specify behavior when a worker does not hold any data
+        while splitting. When True, it returns the results from workers
+        with data (the number of trained estimators will be less than
+        n_estimators) When False, throws a RuntimeError.
+        This is an experiemental parameter, and may be removed
+        in the future.
 
     """
 
@@ -120,30 +135,48 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         client=None,
         verbose=False,
         n_estimators=10,
+        random_state=None,
         seed=None,
+        ignore_empty_partitions=False,
         **kwargs
     ):
         super(RandomForestRegressor, self).__init__(client=client,
                                                     verbose=verbose,
                                                     **kwargs)
+
+        if seed is not None:
+            if random_state is None:
+                warnings.warn("Parameter 'seed' is deprecated and will be"
+                              " removed in 0.17. Please use 'random_state'"
+                              " instead. Setting 'random_state' as the"
+                              " curent 'seed' value",
+                              DeprecationWarning)
+                random_state = seed
+            else:
+                warnings.warn("Both 'seed' and 'random_state' parameters were"
+                              " set. Using 'random_state' since 'seed' is"
+                              " deprecated and will be removed in 0.17.",
+                              DeprecationWarning)
+
         self._create_model(
             model_func=RandomForestRegressor._construct_rf,
             client=client,
             workers=workers,
             n_estimators=n_estimators,
-            base_seed=seed,
+            base_seed=random_state,
+            ignore_empty_partitions=ignore_empty_partitions,
             **kwargs
         )
 
     @staticmethod
     def _construct_rf(
         n_estimators,
-        seed,
+        random_state,
         **kwargs
     ):
         return cuRFR(
             n_estimators=n_estimators,
-            seed=seed,
+            random_state=random_state,
             **kwargs)
 
     @staticmethod
@@ -174,7 +207,9 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         on each Dask worker being used by the forest (self.workers).
 
         When persisting data, you can use
-        cuml.dask.common.utils.persist_across_workers to simplify this::
+        `cuml.dask.common.utils.persist_across_workers` to simplify this:
+
+        .. code-block:: python
 
             X_dask_cudf = dask_cudf.from_cudf(X_cudf, npartitions=n_workers)
             y_dask_cudf = dask_cudf.from_cudf(y_cudf, npartitions=n_workers)
@@ -182,7 +217,10 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
                                                               [X_dask_cudf,
                                                                y_dask_cudf])
 
-        (this is equivalent to calling `persist` with the data and workers)::
+        This is equivalent to calling `persist` with the data and workers):
+
+        .. code-block:: python
+
             X_dask_cudf, y_dask_cudf = dask_client.persist([X_dask_cudf,
                                                             y_dask_cudf],
                                                            workers={
@@ -202,6 +240,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             When set to True, the fit method will, when necessary, convert
             y to be the same data type as X if they differ. This will increase
             memory used for the method.
+
         """
         self.internal_model = None
         self._fit(model=self.rfs,
@@ -274,8 +313,9 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             eagerly executed one.
 
         Returns
-        ----------
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        -------
+        y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
+
         """
         if predict_model == "CPU":
             preds = self.predict_model_on_cpu(X, convert_dtype=convert_dtype)

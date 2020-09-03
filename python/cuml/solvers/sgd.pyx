@@ -30,7 +30,8 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
-from cuml.common import CumlArray
+from cuml.common.array import CumlArray
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array, with_cupy_rmm
 
@@ -127,7 +128,7 @@ class SGD(Base):
     ridge regression and SVM models.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -164,35 +165,35 @@ class SGD(Base):
     Parameters
     -----------
     loss : 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
-       'hinge' uses linear SVM
-       'log' uses logistic regression
-       'squared_loss' uses linear regression
+        'hinge' uses linear SVM
+        'log' uses logistic regression
+        'squared_loss' uses linear regression
     penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'none')
-       'none' does not perform any regularization
-       'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
-       of coefficients
-       'l2' performs L2 norm (Ridge) which minimizes the sum of the square of
-       the coefficients
-       'elasticnet' performs Elastic Net regularization which is a weighted
-       average of L1 and L2 norms
+        'none' does not perform any regularization
+        'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
+        of coefficients
+        'l2' performs L2 norm (Ridge) which minimizes the sum of the square of
+        the coefficients
+        'elasticnet' performs Elastic Net regularization which is a weighted
+        average of L1 and L2 norms
     alpha: float (default = 0.0001)
         The constant value which decides the degree of regularization
     fit_intercept : boolean (default = True)
-       If True, the model tries to correct for the global mean of y.
-       If False, the model expects that you have centered the data.
+        If True, the model tries to correct for the global mean of y.
+        If False, the model expects that you have centered the data.
     epochs : int (default = 1000)
         The number of times the model should iterate through the entire dataset
         during training (default = 1000)
     tol : float (default = 1e-3)
-       The training process will stop if current_loss > previous_loss - tol
+        The training process will stop if current_loss > previous_loss - tol
     shuffle : boolean (default = True)
-       True, shuffles the training data after each epoch
-       False, does not shuffle the training data after each epoch
+        True, shuffles the training data after each epoch
+        False, does not shuffle the training data after each epoch
     eta0 : float (default = 0.001)
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
-    learning_rate : 'optimal', 'constant', 'invscaling',
+    learning_rate : 'optimal', 'constant', 'invscaling', \
                     'adaptive' (default = 'constant')
         optimal option supported in the next version
         constant keeps the learning rate constant
@@ -294,30 +295,14 @@ class SGD(Base):
             'elasticnet': 3
         }[penalty]
 
+    @generate_docstring()
     @with_cupy_rmm
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
-        self._set_output_type(X)
-        self._set_target_dtype(y)
+        self._set_base_attributes(output_type=X, target_dtype=y)
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -399,26 +384,14 @@ class SGD(Base):
 
         return self
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y: Type specified in `output_type`
-           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         output_type = self._get_output_type(X)
 
@@ -461,26 +434,14 @@ class SGD(Base):
 
         return preds.to_output(output_type)
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
     def predictClass(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predictClass method will automatically
-            convert the input to the data type which was used to train the
-            model. This will increase memory used for the method.
-
-        Returns
-        ----------
-        y : Type specified in `output_type`
-           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         output_type = self._get_output_type(X)
         out_dtype = self._get_target_dtype()
