@@ -226,25 +226,11 @@ struct tree_aggregator_t {
             acc += per_thread[c];
           best.margin = acc;
           best.label.fill(threadIdx.x);
-          for (int i = 0; i < NITEMS; i++) {
-            int row = blockIdx.x * NITEMS + i;
-            if (row == 5091 || row == 627)
-              printf("row %d M[%d] c %d is %.2e\n", row, i, threadIdx.x,
-                     best.margin[i]);
-          }
         }
         __syncthreads();
         typedef BlockReduceMultiClass<NITEMS> BR;
         best = BR(*(typename BR::TempStorage*)tmp_storage)
                  .Reduce(best, best, num_classes);
-        if (threadIdx.x == 0) {
-          for (int i = 0; i < NITEMS; i++) {
-            int row = blockIdx.x * NITEMS + i;
-            if (row == 5091 || row == 627)
-              printf("row %d Selected best class %d with margin %.2e\n", row,
-                     best.label[i], best.margin[i]);
-          }
-        }
       } else {
         Acc* per_class = (Acc*)tmp_storage;
         best.margin = per_class[threadIdx.x];
@@ -265,9 +251,6 @@ struct tree_aggregator_t {
       if (threadIdx.x == 0) {
         for (int i = 0; i < NITEMS; ++i) {
           int row = blockIdx.x * NITEMS + i;
-          if (row == 5091 || row == 627)
-            printf("block %d row %d label %d\n", (int)blockIdx.x, row,
-                   (int)best.label[i]);
           if (row < num_rows) out[row] = best.label[i];
         }
       }

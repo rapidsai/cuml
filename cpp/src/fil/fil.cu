@@ -228,11 +228,6 @@ struct forest {
       }
     }
 
-    printf(
-      "ot %o num_classes_ %d params.preds offset %d leaf_payload_type %d "
-      "num_outputs %d do_transform %d\n",
-      ot, num_classes_, params.preds - preds, leaf_payload_type_,
-      params.num_outputs, do_transform);
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
     infer(params, stream);
@@ -662,9 +657,8 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
                pred_transform == "max_index" ||
                pred_transform == "multiclass_ova",
              "only sigmoid, identity, max_index and multiclass_ova values of "
-             "pred_transform "
-             "are supported for xgboost-style multi-class classification "
-             "models. provided: %s",
+             "pred_transform are supported for xgboost-style multi-class "
+             "classification models. provided: %s",
              param.pred_transform);
     } else {
       params->num_classes = tl_params->output_class ? 2 : 1;
