@@ -292,10 +292,10 @@ dask-cuda-worker ucx://10.0.0.50:8786
 
 ## 7. Run cumlCommunicator test:
 
-### First, create a Dask `Client` and cuML `CommsContext`:
+### First, create a Dask `Client` and cuML `Comms`:
 ```python
 from dask.distributed import Client, wait
-from cuml.raft.dask.common.comms import CommsContext
+from cuml.raft.dask.common.comms import Comms
 from cuml.dask.common import worker_state
 from cuml.dask.common import perform_test_comms_send_recv
 from cuml.dask.common import perform_test_comms_allreduce
@@ -303,7 +303,7 @@ from cuml.dask.common import perform_test_comms_allreduce
 import random
 
 c = Client("ucx://10.0.0.50:8786")
-cb = CommsContext(comms_p2p=True)
+cb = Comms(comms_p2p=True)
 cb.init()
 ```
 

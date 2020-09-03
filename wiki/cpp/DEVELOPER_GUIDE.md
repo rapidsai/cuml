@@ -6,7 +6,7 @@ Please start by reading [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Performance
 1. In performance critical sections of the code, favor `cudaDeviceGetAttribute` over `cudaDeviceGetProperties`. See corresponding CUDA devblog [here](https://devblogs.nvidia.com/cuda-pro-tip-the-fast-way-to-query-device-properties/) to know more.
-2. If an algo requires you to launch GPU work in multiple cuda streams, do not create multiple `cumlHandle` objects, one for each such work stream. Instead, expose a `n_streams` parameter in that algo's cuML C++ interface and then rely on `raft::handle_t::get_internal_stream()` to pick up the right cuda stream. Refer to the section on [CUDA Resources](#cuda-resources) and the section on [Threading](#TBD) for more details. TIP: use `raft::handle_t::get_num_internal_streams` to know how many such streams are available at your disposal.
+2. If an algo requires you to launch GPU work in multiple cuda streams, do not create multiple `raft::handle_t` objects, one for each such work stream. Instead, expose a `n_streams` parameter in that algo's cuML C++ interface and then rely on `raft::handle_t::get_internal_stream()` to pick up the right cuda stream. Refer to the section on [CUDA Resources](#cuda-resources) and the section on [Threading](#TBD) for more details. TIP: use `raft::handle_t::get_num_internal_streams` to know how many such streams are available at your disposal.
 
 ## Threading Model
 
@@ -286,7 +286,7 @@ void foo(const raft::handle_t& h, cudaStream_t stream, ... )
 ```
 Small host memory heap allocations, e.g. as internally done by STL containers, are fine, e.g. an `std::vector` managing only a handful of integers.
 Both the Host and the Device Allocators might allow asynchronous stream ordered allocation and deallocation. This can provide significant performance benefits so a stream always needs to be specified when allocating or deallocating (see [Asynchronous operations and stream ordering](#asynchronous-operations-and-stream-ordering)). `ML::deviceAllocator` returns pinned device memory on the current device, while `ML::hostAllocator` returns host memory. A user of cuML can write customized allocators and pass them into cuML. If a cuML user does not provide custom allocators default allocators will be used. For `ML::deviceAllocator` the default is to use `cudaMalloc`/`cudaFree`. For `ML::hostAllocator` the default is to use `cudaMallocHost`/`cudaFreeHost`.
-There are two simple container classes compatible with the allocator interface `MLCommon::device_buffer` available in `ml-prims/src/common/device_buffer.hpp` and `MLCommon::host_buffer` available in `ml-prims/src/common/host_buffer.hpp`. These allow to follow the [RAII idiom](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization) to avoid resources leaks and enable exception safe code. These containers also allow asynchronous allocation and deallocation using the `resize` and `release` member functions:
+There are two simple container classes compatible with the allocator interface `MLCommon::device_buffer` available in `src_prims/common/device_buffer.hpp` and `MLCommon::host_buffer` available in `src_prims/common/host_buffer.hpp`. These allow to follow the [RAII idiom](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization) to avoid resources leaks and enable exception safe code. These containers also allow asynchronous allocation and deallocation using the `resize` and `release` member functions:
 ```cpp
 template<typename T>
 void foo(const raft::handle_t& h, ..., cudaStream_t stream )
