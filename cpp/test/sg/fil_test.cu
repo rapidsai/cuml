@@ -537,8 +537,10 @@ class TreeliteFilTest : public BaseFilTest {
   void init_forest_impl(fil::forest_t* pforest,
                         fil::storage_type_t storage_type) {
     bool random_forest_flag = (ps.output & fil::output_t::AVG) != 0;
-    ASSERT((ps.leaf_payload_type == fil::leaf_value_t::INT_CLASS_LABEL && random_forest_flag) ||
-            (ps.leaf_payload_type == fil::leaf_value_t::FLOAT_SCALAR && (ps.num_classes <= 2 || !random_forest_flag)),
+    ASSERT((ps.leaf_payload_type == fil::leaf_value_t::INT_CLASS_LABEL &&
+            random_forest_flag) ||
+             (ps.leaf_payload_type == fil::leaf_value_t::FLOAT_SCALAR &&
+              (ps.num_classes <= 2 || !random_forest_flag)),
            "treelite interprets leaf averaging as random forest indicator"
            " (vs GBDTs) for multiclass");
     int treelite_num_classes =
@@ -1034,7 +1036,8 @@ std::vector<FilTestParams> import_auto_inputs = {
   {20000, 50, 0.05, 19, 50, 0.05, fil::output_t::RAW, 0, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT,
    fil::leaf_value_t::FLOAT_SCALAR, 1},
-  {20000, 50, 0.05, 10, 50, 0.05, fil::output_t(fil::output_t::AVG | fil::output_t::CLASS), 0, 0,
+  {20000, 50, 0.05, 10, 50, 0.05,
+   fil::output_t(fil::output_t::AVG | fil::output_t::CLASS), 0, 0,
    fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT,
    fil::leaf_value_t::INT_CLASS_LABEL, 3},
   {20000, 50, 0.05, 10, 51, 0.05, fil::output_t::CLASS, 0, 0,
