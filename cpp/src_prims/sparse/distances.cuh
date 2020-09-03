@@ -166,47 +166,55 @@ struct ip_distances_t {
 };
 
 template <typename value_idx, typename value_t>
-__global__ void compute_sq_norm_kernel(value_t *out, value_idx *csr_indices,
-                                       value_t *csr_data, value_idx nnz) {
+__global__ void compute_sq_norm_kernel(value_t *out, const value_idx *coo_rows,
+                                       const value_t *data, value_idx nnz) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
-
-  if (i < nnz) atomicAdd(&out[csr_indices[i]], csr_data[i] * csr_data[i]);
+  if (i < nnz) {
+	  atomicAdd(&out[coo_rows[i]], data[i] * data[i]);
+  }
 }
 
 template <typename value_idx, typename value_t>
-__global__ void compute_euclidean_kernel(value_t *C, value_t *Q_sq_norms,
-                                         value_t *R_sq_norms, value_idx n_rows,
+__global__ void compute_euclidean_kernel(value_t *C, const value_t *Q_sq_norms,
+                                         const value_t *R_sq_norms, value_idx n_rows,
                                          value_idx n_cols) {
-  int index = blockIdx.x * blockDim.x + threadIdx.x;
+  value_idx index = blockIdx.x * blockDim.x + threadIdx.x;
 
-  int i = index / n_cols;
-  int j = index % n_cols;
+  value_idx i = index / n_cols;
+  value_idx j = index % n_cols;
 
   // Cuda store row major.
-  if (i < n_rows && j < n_cols)
-    C[i * n_cols + j] = Q_sq_norms[i] - 2.0 * C[i * n_cols + j] + R_sq_norms[j];
+  if (i < n_rows && j < n_cols) {
+	    C[i * n_cols + j] = Q_sq_norms[i] - 2.0 * C[i * n_cols + j] + R_sq_norms[j];
+  }
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>
-void compute_l2(value_t *out, value_idx *Q_csr_indices, value_t *Q_csr_data,
-                value_idx Q_nnz, value_idx *R_csr_indices, value_t *R_csr_data,
+void compute_l2(value_t *out, const value_idx *Q_coo_rows, const value_t *Q_data,
+                value_idx Q_nnz, const value_idx *R_coo_rows, const value_t *R_data,
                 value_idx R_nnz, value_idx m, value_idx n,
                 cusparseHandle_t handle, std::shared_ptr<deviceAllocator> alloc,
                 cudaStream_t stream) {
   device_buffer<value_t> Q_sq_norms(alloc, stream, m);
+  CUDA_CHECK(cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size()*sizeof(value_t)));
+
   device_buffer<value_t> R_sq_norms(alloc, stream, n);
+  CUDA_CHECK(cudaMemsetAsync(R_sq_norms.data(), 0, R_sq_norms.size()*sizeof(value_t)));
 
-  get_col_norms<<<ceildiv(Q_nnz, tpb), tpb, 0, stream>>>(
-    Q_sq_norms.data(), Q_csr_indices, Q_csr_data, Q_nnz);
-  get_col_norms<<<ceildiv(R_nnz, tpb), tpb, 0, stream>>>(
-    R_sq_norms.data(), R_csr_indices, R_csr_data, R_nnz);
+  compute_sq_norm_kernel<<<ceildiv(Q_nnz, tpb), tpb, 0, stream>>>(
+    Q_sq_norms.data(), Q_coo_rows, Q_data, Q_nnz);
+  compute_sq_norm_kernel<<<ceildiv(R_nnz, tpb), tpb, 0, stream>>>(
+    R_sq_norms.data(), R_coo_rows, R_data, R_nnz);
 
-  add_norms<<<ceildiv(m * n, tpb), tpb, 0, stream>>>(out, Q_sq_norms.data(),
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  compute_euclidean_kernel<<<ceildiv(m * n, tpb), tpb, 0, stream>>>(out, Q_sq_norms.data(),
                                                      R_sq_norms.data(), m, n);
 }
 
 /**
  * L2 distance using the expanded form: sum(x_k)^2 + sum(y_k)^2 - 2 * sum(x_k * y_k)
+ * The expanded form is more efficient for sparse data.
  */
 template <typename value_idx = int, typename value_t = float>
 struct l2_distances_t {
@@ -215,20 +223,25 @@ struct l2_distances_t {
       workspace(config.allocator, config.stream, 0),
       ip_dists(config) {}
 
-    //TODO: Modify interface to just output dense directly and just make a compute call.
     void compute(value_t *out_dists) {
+    	ip_dists.compute(out_dists);
 
+    	device_buffer<value_idx> search_coo_rows(config_.allocator, config_.stream, config_.search_nrows);
 
+    	csr_to_coo(config_.csr_search_indptr, config_.search_nrows, search_coo_rows.data(),
+    	                config_.search_nnz, config_.stream);
+
+    	compute_l2(out_dists, search_coo_rows.data(), config_.csr_search_data, config_.search_nnz,
+    			config_.csc_index_indices, config_.csc_index_data, config_.index_nnz,
+				config_.search_nrows, config_.index_nrows, config_.handle, config_.allocator,
+				config_.stream);
     }
-
 
  private:
   distances_config_t<value_idx, value_t> config_;
   device_buffer<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
-
-
 
 
 };  // END namespace Distance
