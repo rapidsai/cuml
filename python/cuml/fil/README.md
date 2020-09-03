@@ -26,7 +26,7 @@ y_out = fm.predict(X)
 
 ```
 
-See [the sample notebook](https://github.com/rapidsai/cuml/blob/branch-0.16/notebooks/forest_inference_demo.ipynb) for much more detail and runnable samples.
+See [the sample notebook](https://github.com/rapidsai/cuml/blob/main/notebooks/forest_inference_demo.ipynb) for much more detail and runnable samples.
 
 Additionally, FIL can be called directly from C or C++ code. See [the API docs here](https://docs.rapids.ai/api/libcuml/nightly/namespaceML_1_1fil.html)
 
@@ -65,7 +65,7 @@ library) and GPU-based inference (XGBoost and FIL).
 
 (_Benchmarks were run on a DGX1-Volta system with 2x 20-core
 Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz CPUs and a single V100-32gb
-GPU._)
+GPU, using FIL 0.9.)
 
 
 # Blogs and further references
