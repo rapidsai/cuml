@@ -73,30 +73,29 @@ struct ip_distances_t {
   }
 
   void compute(value_t *out_distances) {
-
-	  /**
+    /**
 	   * Compute pairwise distances
 	   */
-      device_buffer<value_idx> out_batch_indptr(config_.allocator, config_.stream,
-                                                config_.search_nrows + 1);
-      device_buffer<value_idx> out_batch_indices(config_.allocator, config_.stream, 0);
-      device_buffer<value_t> out_batch_data(config_.allocator, config_.stream, 0);
+    device_buffer<value_idx> out_batch_indptr(config_.allocator, config_.stream,
+                                              config_.search_nrows + 1);
+    device_buffer<value_idx> out_batch_indices(config_.allocator,
+                                               config_.stream, 0);
+    device_buffer<value_t> out_batch_data(config_.allocator, config_.stream, 0);
 
-      value_idx out_batch_nnz = get_nnz(out_batch_indptr.data());
+    value_idx out_batch_nnz = get_nnz(out_batch_indptr.data());
 
-      out_batch_indices.resize(out_batch_nnz, config_.stream);
-      out_batch_data.resize(out_batch_nnz, config_.stream);
+    out_batch_indices.resize(out_batch_nnz, config_.stream);
+    out_batch_data.resize(out_batch_nnz, config_.stream);
 
-      compute(out_batch_indptr.data(), out_batch_indices.data(),
-                            out_batch_data.data());
+    compute(out_batch_indptr.data(), out_batch_indices.data(),
+            out_batch_data.data());
 
-      /**
+    /**
        * Convert output to dense
        */
-      csr_to_dense(config_.handle, config_.search_nrows,
-                   config_.index_nrows, out_batch_indptr.data(),
-                   out_batch_indices.data(), out_batch_data.data(), true,
-				   out_distances, config_.stream);
+    csr_to_dense(config_.handle, config_.search_nrows, config_.index_nrows,
+                 out_batch_indptr.data(), out_batch_indices.data(),
+                 out_batch_data.data(), true, out_distances, config_.stream);
   }
 
   ~ip_distances_t() {
@@ -107,7 +106,6 @@ struct ip_distances_t {
   }
 
  private:
-
   void init_mat_descriptor(cusparseMatDescr_t &mat) {
     CUSPARSE_CHECK(cusparseCreateMatDescr(&mat));
     CUSPARSE_CHECK(cusparseSetMatIndexBase(mat, CUSPARSE_INDEX_BASE_ZERO));
@@ -170,14 +168,14 @@ __global__ void compute_sq_norm_kernel(value_t *out, const value_idx *coo_rows,
                                        const value_t *data, value_idx nnz) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < nnz) {
-	  atomicAdd(&out[coo_rows[i]], data[i] * data[i]);
+    atomicAdd(&out[coo_rows[i]], data[i] * data[i]);
   }
 }
 
 template <typename value_idx, typename value_t>
 __global__ void compute_euclidean_kernel(value_t *C, const value_t *Q_sq_norms,
-                                         const value_t *R_sq_norms, value_idx n_rows,
-                                         value_idx n_cols) {
+                                         const value_t *R_sq_norms,
+                                         value_idx n_rows, value_idx n_cols) {
   value_idx index = blockIdx.x * blockDim.x + threadIdx.x;
 
   value_idx i = index / n_cols;
@@ -185,21 +183,24 @@ __global__ void compute_euclidean_kernel(value_t *C, const value_t *Q_sq_norms,
 
   // Cuda store row major.
   if (i < n_rows && j < n_cols) {
-	    C[i * n_cols + j] = Q_sq_norms[i] - 2.0 * C[i * n_cols + j] + R_sq_norms[j];
+    C[i * n_cols + j] = Q_sq_norms[i] - 2.0 * C[i * n_cols + j] + R_sq_norms[j];
   }
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>
-void compute_l2(value_t *out, const value_idx *Q_coo_rows, const value_t *Q_data,
-                value_idx Q_nnz, const value_idx *R_coo_rows, const value_t *R_data,
+void compute_l2(value_t *out, const value_idx *Q_coo_rows,
+                const value_t *Q_data, value_idx Q_nnz,
+                const value_idx *R_coo_rows, const value_t *R_data,
                 value_idx R_nnz, value_idx m, value_idx n,
                 cusparseHandle_t handle, std::shared_ptr<deviceAllocator> alloc,
                 cudaStream_t stream) {
   device_buffer<value_t> Q_sq_norms(alloc, stream, m);
-  CUDA_CHECK(cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size()*sizeof(value_t)));
+  CUDA_CHECK(
+    cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size() * sizeof(value_t)));
 
   device_buffer<value_t> R_sq_norms(alloc, stream, n);
-  CUDA_CHECK(cudaMemsetAsync(R_sq_norms.data(), 0, R_sq_norms.size()*sizeof(value_t)));
+  CUDA_CHECK(
+    cudaMemsetAsync(R_sq_norms.data(), 0, R_sq_norms.size() * sizeof(value_t)));
 
   compute_sq_norm_kernel<<<ceildiv(Q_nnz, tpb), tpb, 0, stream>>>(
     Q_sq_norms.data(), Q_coo_rows, Q_data, Q_nnz);
@@ -208,8 +209,8 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows, const value_t *Q_data
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  compute_euclidean_kernel<<<ceildiv(m * n, tpb), tpb, 0, stream>>>(out, Q_sq_norms.data(),
-                                                     R_sq_norms.data(), m, n);
+  compute_euclidean_kernel<<<ceildiv(m * n, tpb), tpb, 0, stream>>>(
+    out, Q_sq_norms.data(), R_sq_norms.data(), m, n);
 }
 
 /**
@@ -223,26 +224,27 @@ struct l2_distances_t {
       workspace(config.allocator, config.stream, 0),
       ip_dists(config) {}
 
-    void compute(value_t *out_dists) {
-    	ip_dists.compute(out_dists);
+  void compute(value_t *out_dists) {
+    ip_dists.compute(out_dists);
 
-    	device_buffer<value_idx> search_coo_rows(config_.allocator, config_.stream, config_.search_nrows);
+    device_buffer<value_idx> search_coo_rows(config_.allocator, config_.stream,
+                                             config_.search_nrows);
 
-    	csr_to_coo(config_.csr_search_indptr, config_.search_nrows, search_coo_rows.data(),
-    	                config_.search_nnz, config_.stream);
+    csr_to_coo(config_.csr_search_indptr, config_.search_nrows,
+               search_coo_rows.data(), config_.search_nnz, config_.stream);
 
-    	compute_l2(out_dists, search_coo_rows.data(), config_.csr_search_data, config_.search_nnz,
-    			config_.csc_index_indices, config_.csc_index_data, config_.index_nnz,
-				config_.search_nrows, config_.index_nrows, config_.handle, config_.allocator,
-				config_.stream);
-    }
+    compute_l2(out_dists, search_coo_rows.data(), config_.csr_search_data,
+               config_.search_nnz, config_.csc_index_indices,
+               config_.csc_index_data, config_.index_nnz, config_.search_nrows,
+               config_.index_nrows, config_.handle, config_.allocator,
+               config_.stream);
+  }
 
  private:
   distances_config_t<value_idx, value_t> config_;
   device_buffer<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
-
 
 };  // END namespace Distance
 };  // END namespace Sparse

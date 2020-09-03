@@ -248,14 +248,14 @@ void brute_force_knn(
         idx_batcher.batch_rows() * query_batcher.batch_rows();
       device_buffer<value_t> batch_dists(allocator, stream, dense_size);
 
-      if(metric == ML::MetricType::METRIC_INNER_PRODUCT) {
-          Distance::ip_distances_t<value_idx, value_t> compute_dists(dist_config);
-          compute_dists.compute(batch_dists.data());
-      } else if(metric == ML::MetricType::METRIC_L2) {
-          Distance::l2_distances_t<value_idx, value_t> compute_dists(dist_config);
-          compute_dists.compute(batch_dists.data());
+      if (metric == ML::MetricType::METRIC_INNER_PRODUCT) {
+        Distance::ip_distances_t<value_idx, value_t> compute_dists(dist_config);
+        compute_dists.compute(batch_dists.data());
+      } else if (metric == ML::MetricType::METRIC_L2) {
+        Distance::l2_distances_t<value_idx, value_t> compute_dists(dist_config);
+        compute_dists.compute(batch_dists.data());
       } else {
-    	  throw "MetricType not supported";
+        throw "MetricType not supported";
       }
 
       idx_batch_indptr.release(stream);
@@ -304,12 +304,10 @@ void brute_force_knn(
         /**
     	* post-processing
     	*/
-
-    	CUML_LOG_INFO("Taking sqrt");
         value_t p = 0.5;  // standard l2
         if (metric == ML::MetricType::METRIC_Lp) p = 1.0 / metricArg;
         MLCommon::LinAlg::unaryOp<value_t>(
-        		dists_merge_buffer_ptr, dists_merge_buffer_ptr, batch_rows * k,
+          dists_merge_buffer_ptr, dists_merge_buffer_ptr, batch_rows * k,
           [p] __device__(value_t input) { return powf(input, p); }, stream);
       }
 

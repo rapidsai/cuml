@@ -44,18 +44,19 @@ namespace MLCommon {
 namespace Sparse {
 namespace Selection {
 
-template <typename K, typename IndexType, bool select_min, int warp_q, int thread_q, int tpb>
+template <typename K, typename IndexType, bool select_min, int warp_q,
+          int thread_q, int tpb>
 __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
                                 size_t n_cols, K *outK, IndexType *outV,
-                                K initK, IndexType initV,
-                                int k, IndexType translation = 0) {
+                                K initK, IndexType initV, int k,
+                                IndexType translation = 0) {
   constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
   __shared__ K smemK[kNumWarps * warp_q];
   __shared__ IndexType smemV[kNumWarps * warp_q];
 
-  faiss::gpu::BlockSelect<K, IndexType, select_min, faiss::gpu::Comparator<K>, warp_q,
-                          thread_q, tpb>
+  faiss::gpu::BlockSelect<K, IndexType, select_min, faiss::gpu::Comparator<K>,
+                          warp_q, thread_q, tpb>
     heap(initK, initV, smemK, smemV, k);
 
   // Grid is exactly sized to rows available
@@ -100,14 +101,14 @@ inline void select_k_impl(value_t *inK, value_idx *inV, size_t n_rows,
   auto kInit = select_min ? faiss::gpu::Limits<float>::getMax()
                           : faiss::gpu::Limits<float>::getMin();
   auto vInit = -1;
-  if(select_min) {
-	  select_k_kernel<value_t, value_idx, false, warp_q, thread_q, n_threads>
-	    <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV, kInit,
-	                                 vInit, k, translation);
+  if (select_min) {
+    select_k_kernel<value_t, value_idx, false, warp_q, thread_q, n_threads>
+      <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV, kInit,
+                                   vInit, k, translation);
   } else {
-	  select_k_kernel<value_t, value_idx, true, warp_q, thread_q, n_threads>
-	    <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV, kInit,
-	                                 vInit, k, translation);
+    select_k_kernel<value_t, value_idx, true, warp_q, thread_q, n_threads>
+      <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV, kInit,
+                                   vInit, k, translation);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }
