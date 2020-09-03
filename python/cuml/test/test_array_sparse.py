@@ -43,6 +43,7 @@ def test_input(input_type, sparse_format, dtype):
     assert X.shape == X_m.shape
     assert X.nnz == X_m.nnz
     assert X.dtype == X_m.dtype
+    assert X_m.has_sorted_indices
 
     # Just a sanity check
     assert isinstance(X_m.indptr, CumlArray)
@@ -52,6 +53,20 @@ def test_input(input_type, sparse_format, dtype):
     assert X_m.indptr.dtype == cp.int32
     assert X_m.indices.dtype == cp.int32
     assert X_m.data.dtype == dtype
+
+
+def test_has_unsorted_indices():
+
+    indptr = cp.array([0, 2, 4])
+    indices = cp.array([4, 3, 2, 1])
+    data = cp.array([0, 0, 0, 0], dtype='float32')
+
+    unsorted_array = \
+        cupyx.scipy.sparse.csr_matrix((data, indices, indptr))
+
+    X = SparseCumlArray(unsorted_array)
+
+    assert not X.has_sorted_indices
 
 
 def test_nonsparse_input_fails():
