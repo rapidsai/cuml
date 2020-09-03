@@ -4,7 +4,7 @@
 
 set -e
 
-if [ "$UPLOAD_LIBCUML" == "1" ]; then
+if [[ "$BUILD_LIBCUML" == "1" && "$UPLOAD_LIBCUML" == "1" ]]; then
   CUDA_REL=${CUDA_VERSION%.*}
 
   export UPLOADFILE=`conda build conda/recipes/libcuml -c conda-forge -c numba -c conda-forge/label/rc_ucx -c nvidia -c rapidsai -c pytorch -c defaults --python=${PYTHON} --output`
