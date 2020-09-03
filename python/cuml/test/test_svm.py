@@ -623,3 +623,22 @@ def test_svr_skl_cmp_weighted():
     sklSVR.fit(X, y, sample_weights)
 
     compare_svr(cuSVR, sklSVR, X, y)
+
+
+@pytest.mark.parametrize('classifier', [True, False])
+@pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('test_dtype', [np.float64, np.float32])
+def test_svm_predict_convert_dtype(train_dtype, test_dtype, classifier):
+    X, y = make_classification(n_samples=50, random_state=0)
+
+    X = X.astype(train_dtype)
+    y = y.astype(train_dtype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    if classifier:
+        clf = cu_svm.SVC()
+    else:
+        clf = cu_svm.SVR()
+    clf.fit(X_train, y_train)
+    clf.predict(X_test.astype(test_dtype))

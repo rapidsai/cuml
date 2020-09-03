@@ -223,7 +223,10 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     quantile_per_tree : boolean (default = False)
         Whether quantile is computed for individal trees in RF.
         Only relevant for GLOBAL_QUANTILE split_algo.
+    random_state : int (default = None)
+        Seed for the random number generator. Unseeded by default.
     seed : int (default = None)
+        Deprecated in favor of `random_state`.
         Seed for the random number generator. Unseeded by default.
 
     """
@@ -399,7 +402,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        self._set_target_dtype(y)
+        self._set_base_attributes(target_dtype=y)
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
@@ -418,10 +421,10 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             new RandomForestMetaData[double, int]()
         self.rf_forest64 = <uintptr_t> rf_forest64
 
-        if self.seed is None:
+        if self.random_state is None:
             seed_val = <uintptr_t>NULL
         else:
-            seed_val = <uintptr_t>self.seed
+            seed_val = <uintptr_t>self.random_state
 
         rf_params = set_rf_class_obj(<int> self.max_depth,
                                      <int> self.max_leaves,

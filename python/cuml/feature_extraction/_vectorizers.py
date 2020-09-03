@@ -646,10 +646,10 @@ class HashingVectorizer(_VectorizerMixin):
     """
     Convert a collection of text documents to a matrix of token occurrences
 
-    It turns a collection of text documents into a cupy.sparse matrix holding
-    token occurrence counts (or binary occurrence information), possibly
-    normalized as token frequencies if norm='l1' or projected on the euclidean
-    unit sphere if norm='l2'.
+    It turns a collection of text documents into a cupyx.scipy.sparse matrix
+    holding token occurrence counts (or binary occurrence information),
+    possibly normalized as token frequencies if norm='l1' or projected on the
+    euclidean unit sphere if norm='l2'.
 
     This text vectorizer implementation uses the hashing trick to find the
     token string name to feature integer index mapping.

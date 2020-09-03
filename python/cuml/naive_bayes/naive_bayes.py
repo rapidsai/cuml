@@ -16,6 +16,7 @@
 
 
 import cupy as cp
+import cupyx
 import cupy.prof
 import math
 import warnings
@@ -139,6 +140,7 @@ class MultinomialNB(Base):
     .. code-block:: python
 
     import cupy as cp
+    import cupyx
 
     from sklearn.datasets import fetch_20newsgroups
     from sklearn.feature_extraction.text import CountVectorizer
@@ -157,7 +159,7 @@ class MultinomialNB(Base):
 
     # Put feature vectors and labels on the GPU
 
-    X = cp.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
+    X = cupyx.scipy.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
     y = cp.asarray(twenty_train.target, dtype=cp.int32)
 
     # Train model
@@ -222,7 +224,7 @@ class MultinomialNB(Base):
         Fit Naive Bayes classifier according to X, y
 
         """
-        self._set_n_features_in(X)
+        self._set_base_attributes(output_type=X)
         return self.partial_fit(X, y, sample_weight)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
@@ -238,12 +240,13 @@ class MultinomialNB(Base):
 
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
             data = cp.asarray(X.data, dtype=X.data.dtype)
-            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
+            X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
+                                              shape=X.shape)
         else:
             X = input_to_cuml_array(X, order='K').array.to_output('cupy')
 
@@ -348,12 +351,13 @@ class MultinomialNB(Base):
 
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
             data = cp.asarray(X.data, dtype=X.data.dtype)
-            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
+            X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
+                                              shape=X.shape)
         else:
             X = input_to_cuml_array(X, order='K').array.to_output('cupy')
 
@@ -386,12 +390,13 @@ class MultinomialNB(Base):
 
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
             data = cp.asarray(X.data, dtype=X.data.dtype)
-            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
+            X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
+                                              shape=X.shape)
         else:
             X = input_to_cuml_array(X, order='K').array.to_output('cupy')
 
@@ -466,7 +471,7 @@ class MultinomialNB(Base):
 
         Parameters
         ----------
-        X : cupy.ndarray or cupy.sparse matrix of size
+        X : cupy.ndarray or cupyx.scipy.sparse matrix of size
                   (n_rows, n_features)
         Y : cupy.array of monotonic class labels
         """
@@ -488,7 +493,7 @@ class MultinomialNB(Base):
 
         labels_dtype = self.classes_.dtype
 
-        if cp.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocoo()
 
             count_features_coo = count_features_coo_kernel(X.dtype,
