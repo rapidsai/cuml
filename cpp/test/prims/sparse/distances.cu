@@ -72,8 +72,8 @@ class DistancesTest
 
     allocate(out_dists_ref, 16);
 
-    updateDevice(out_dists_ref, out_dists_ref_h.data(),
-    		out_dists_ref_h.size(), stream);
+    updateDevice(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
+                 stream);
   }
 
   void SetUp() override {
@@ -123,8 +123,7 @@ class DistancesTest
   }
 
   void compare() {
-    ASSERT_TRUE(
-      devArrMatch(out_dists_ref, out_dists, 16, Compare<value_t>()));
+    ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists, 16, Compare<value_t>()));
   }
 
  protected:

@@ -72,13 +72,13 @@ class L2DistancesTest
 
     allocate(out_dists_ref, 16);
 
-    updateDevice(out_dists_ref, out_dists_ref_h.data(),
-    		out_dists_ref_h.size(), stream);
+    updateDevice(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
+                 stream);
   }
 
   void SetUp() override {
-    params =
-      ::testing::TestWithParam<L2DistancesInputs<value_idx, value_t>>::GetParam();
+    params = ::testing::TestWithParam<
+      L2DistancesInputs<value_idx, value_t>>::GetParam();
     std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
@@ -123,8 +123,7 @@ class L2DistancesTest
   }
 
   void compare() {
-    ASSERT_TRUE(
-      devArrMatch(out_dists_ref, out_dists, 16, Compare<value_t>()));
+    ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists, 16, Compare<value_t>()));
   }
 
  protected:
