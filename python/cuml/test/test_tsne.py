@@ -112,6 +112,8 @@ def test_tsne_large(nrows, ncols):
 @pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
 def test_tsne_knn_parameters(name, type_knn_graph):
 
+    from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
+
     datasets
     X = eval("datasets.load_{}".format(name))().data
 
@@ -133,3 +135,42 @@ def test_tsne_knn_parameters(name, type_knn_graph):
         Y = tsne.fit_transform(X, True, knn_graph.tocsc())
         check_embedding(X, Y)
         del Y
+
+
+@pytest.mark.parametrize('name', dataset_names)
+@pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
+def test_tsne_knn_graph_used(name, type_knn_graph):
+
+    datasets
+    X = eval("datasets.load_{}".format(name))().data
+
+    neigh = skKNN(n_neighbors=90) if type_knn_graph == 'sklearn' \
+        else cuKNN(n_neighbors=90)
+
+    neigh.fit(X)
+    knn_graph = neigh.kneighbors_graph(X, mode="distance")
+    tsne = TSNE()
+
+    # Perform tsne with normal knn_graph
+    Y = tsne.fit_transform(X, True, knn_graph)
+    trust_normal = trustworthiness(X, Y)
+    print("Trust = ", trust_normal)
+
+    X_garbage = np.ones(X.shape)
+    knn_graph_garbage = neigh.kneighbors_graph(X_garbage, mode="distance")
+
+    # Perform tsne with garbage knn_graph
+    Y = tsne.fit_transform(X, True, knn_graph_garbage)
+    trust_garbage = trustworthiness(X, Y)
+    print("Trust = ", trust_garbage)
+    assert (trust_normal - trust_garbage) > 0.15
+
+    Y = tsne.fit_transform(X, True, knn_graph_garbage.tocoo())
+    trust_garbage = trustworthiness(X, Y)
+    print("Trust = ", trust_garbage)
+    assert (trust_normal - trust_garbage) > 0.15
+
+    Y = tsne.fit_transform(X, True, knn_graph_garbage.tocsc())
+    trust_garbage = trustworthiness(X, Y)
+    print("Trust = ", trust_garbage)
+    assert (trust_normal - trust_garbage) > 0.15

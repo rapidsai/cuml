@@ -465,6 +465,7 @@ class TSNE(Base):
         X_new : array, shape (n_samples, n_components)
                 Embedding of the training data in low-dimensional space.
         """
+
         self.fit(X, convert_dtype=convert_dtype, knn_graph=knn_graph)
         out_type = self._get_output_type(X)
 
