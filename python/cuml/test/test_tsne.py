@@ -112,8 +112,6 @@ def test_tsne_large(nrows, ncols):
 @pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
 def test_tsne_knn_parameters(name, type_knn_graph):
 
-    from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
-
     datasets
     X = eval("datasets.load_{}".format(name))().data
 
