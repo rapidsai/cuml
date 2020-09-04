@@ -123,7 +123,7 @@ class LabelEncoder(BaseEstimator,
         Simultaneously fit and transform an input
 
         This is functionally equivalent to (but faster than)
-        `LabelEncoder().fit(y).transform(y)`
+        LabelEncoder().fit(y).transform(y)
         """
         return self.fit(y).transform(y, delayed=delayed)
 
