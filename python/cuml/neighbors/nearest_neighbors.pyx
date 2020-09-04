@@ -163,8 +163,10 @@ class NearestNeighbors(Base):
     handle : cumlHandle
         The cumlHandle resources to use
     algorithm : string (default='brute')
-        The query algorithm to use. Valid options are 'brute' for brute-force
-        or 'ivfpq' for product quantized approximate nearest neighbors.
+        The query algorithm to use. Valid options are 'brute' for brute-force,
+        'ivfflat' for inverted file, 'ivfpq' for inverted file and product quantizization,
+        and 'ivfsq' for inverted file and scalar quantizization (for more information
+        please refer to FAISS documentation)
     metric : string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
@@ -177,6 +179,23 @@ class NearestNeighbors(Base):
         by using the expanded form and not computing the n-th roots.
     metric_params : dict, optional (default = None) This is currently ignored.
     algo_params : dict, optional (default = None) Used to configure the nearest neighbor algorithm to be used.
+        If set to None, parameters will be generated automatically.
+        In ivfflat mode, set parameters:
+            - nlist : (int) number of cells to partition dataset into
+            - nprobe : (int) at query time, number of cells in which to perform search
+        In ivfpq mode, please set parameters:
+            - nlist : (int) number of cells to partition dataset into
+            - nprobe : (int) at query time, number of cells in which to perform search
+            - M : (int) number of subquantizers
+            - n_bits : (int) bits allocated per subquantizer
+            - usePrecomputedTables : (bool) wether to use precomputed tables
+        In ivfsq mode, please set parameters:
+            - nlist : (int) number of cells to partition dataset into
+            - nprobe : (int) at query time, number of cells in which to perform search
+            - qtype : (string) quantizer type (among QT_8bit, QT_4bit, QT_8bit_uniform,
+                QT_4bit_uniform, QT_fp16, QT_8bit_direct, QT_6bit)
+            - encodeResidual : (bool) wether to encode residuals
+
 
     Examples
     --------
