@@ -29,7 +29,9 @@
 #include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
+#include <faiss/gpu/GpuIndexIVFFlat.h>
 #include <faiss/gpu/GpuIndexIVFPQ.h>
+#include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
 
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
@@ -187,10 +189,46 @@ inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
   }
 }
 
+inline faiss::ScalarQuantizer::QuantizerType build_faiss_qtype(ML::QuantizerType qtype) {
+  switch (qtype) {
+    case ML::QuantizerType::QT_8bit:
+      return faiss::ScalarQuantizer::QuantizerType::QT_8bit;
+    case ML::QuantizerType::QT_8bit_uniform:
+      return faiss::ScalarQuantizer::QuantizerType::QT_8bit_uniform;
+    case ML::QuantizerType::QT_4bit_uniform:
+      return faiss::ScalarQuantizer::QuantizerType::QT_4bit_uniform;
+    case ML::QuantizerType::QT_fp16:
+      return faiss::ScalarQuantizer::QuantizerType::QT_fp16;
+    case ML::QuantizerType::QT_8bit_direct:
+      return faiss::ScalarQuantizer::QuantizerType::QT_8bit_direct;
+    case ML::QuantizerType::QT_6bit:
+      return faiss::ScalarQuantizer::QuantizerType::QT_6bit;
+    default:
+      return (faiss::ScalarQuantizer::QuantizerType)qtype;
+  }
+}
 
 const std::set<int> allowedSubDimSize = {1, 2, 3, 4, 6, 8, 10, 12, 16, 20, 24, 28, 32};
 const std::initializer_list<int> allowedSubquantizers = { 32, 28, 24, 20, 16, 12, 8, 4, 3, 2, 1 };
 
+template <typename IntType = int>
+void approx_knn_ivfflat_build_index(ML::knnIndex* index,
+                                  ML::IVFParam* params,
+                                  IntType D, ML::MetricType metric,
+                                  IntType n) {
+  if (params->automated) {
+    params->nlist = 8;
+    params->nprobe = params->nlist * 0.3;
+  }
+
+  faiss::gpu::GpuIndexIVFFlatConfig config;
+  config.device = index->device;
+  faiss::MetricType faiss_metric = build_faiss_metric(metric);
+  faiss::gpu::GpuIndexIVFFlat* faiss_index = new faiss::gpu::GpuIndexIVFFlat(
+    index->gpu_res, D, params->nlist, faiss_metric, config);
+  faiss_index->setNumProbes(params->nprobe);
+  index->index = faiss_index;
+}
 
 template <typename IntType = int>
 void approx_knn_ivfpq_build_index(ML::knnIndex* index,
@@ -242,9 +280,31 @@ void approx_knn_ivfpq_build_index(ML::knnIndex* index,
 }
 
 template <typename IntType = int>
+void approx_knn_ivfsq_build_index(ML::knnIndex* index,
+                                  ML::IVFSQParam* params,
+                                  IntType D, ML::MetricType metric,
+                                  IntType n) {
+  if (params->automated) {
+    params->nlist = 8;
+    params->nprobe = params->nlist * 0.3;
+    params->qtype = ML::QuantizerType::QT_8bit;
+    params->encodeResidual = true;
+  }
+
+  faiss::gpu::GpuIndexIVFScalarQuantizerConfig config;
+  config.device = index->device;
+  faiss::MetricType faiss_metric = build_faiss_metric(metric);
+  faiss::ScalarQuantizer::QuantizerType faiss_qtype = build_faiss_qtype(params->qtype);
+  faiss::gpu::GpuIndexIVFScalarQuantizer* faiss_index = new faiss::gpu::GpuIndexIVFScalarQuantizer(
+    index->gpu_res, D, params->nlist, faiss_qtype, faiss_metric, params->encodeResidual);
+  faiss_index->setNumProbes(params->nprobe);
+  index->index = faiss_index;
+}
+
+template <typename IntType = int>
 void approx_knn_build_index(ML::knnIndex* index,
-                            ML::knnIndexParam* params,
-                            IntType D, ML::MetricType metric,
+                            ML::knnIndexParam* params, IntType D,
+                            ML::MetricType metric, float metricArg,
                             float *search_items, IntType n,
                             cudaStream_t userStream) {
   int device;
@@ -256,10 +316,15 @@ void approx_knn_build_index(ML::knnIndex* index,
   gpu_res->setDefaultStream(device, userStream);
   index->gpu_res = gpu_res;
   index->device = device;
-
-  if (dynamic_cast<ML::IVFPQParam*>(params)) {
+  if (dynamic_cast<ML::IVFFlatParam*>(params)) {
+    ML::IVFFlatParam* IVFFlat_param = dynamic_cast<ML::IVFFlatParam*>(params);
+    approx_knn_ivfflat_build_index(index, IVFFlat_param, D, metric, n);
+  } else if (dynamic_cast<ML::IVFPQParam*>(params)) {
     ML::IVFPQParam* IVFPQ_param = dynamic_cast<ML::IVFPQParam*>(params);
     approx_knn_ivfpq_build_index(index, IVFPQ_param, D, metric, n);
+  } else if (dynamic_cast<ML::IVFSQParam*>(params)) {
+    ML::IVFSQParam* IVFSQ_param = dynamic_cast<ML::IVFSQParam*>(params);
+    approx_knn_ivfsq_build_index(index, IVFSQ_param, D, metric, n);
   } else {
     ASSERT(index, "KNN index could not be initialized");
   }

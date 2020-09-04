@@ -48,17 +48,38 @@ struct knnIndex {
   }
 };
 
+typedef enum {
+  QT_8bit,
+  QT_4bit,
+  QT_8bit_uniform,
+  QT_4bit_uniform,
+  QT_fp16,
+  QT_8bit_direct,
+  QT_6bit
+} QuantizerType;
+
 struct knnIndexParam {
   bool automated;
   virtual bool isBaseClass() { return true; }
 };
 
-struct IVFPQParam : knnIndexParam {
+struct IVFParam : knnIndexParam {
   int nlist;
+  int nprobe;
+};
+
+struct IVFFlatParam : IVFParam {
+};
+
+struct IVFPQParam : IVFParam {
   int M;
   int n_bits;
   bool usePrecomputedTables;
-  int nprobe;
+};
+
+struct IVFSQParam : IVFParam {
+  QuantizerType qtype;
+  bool encodeResidual;
 };
 
 
@@ -95,8 +116,8 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
 
 void approx_knn_build_index(cumlHandle &handle, ML::knnIndex* index,
                             ML::knnIndexParam* params, int D,
-                            ML::MetricType metric, float *search_items,
-                            int n);
+                            ML::MetricType metric, float metricArg,
+                            float *search_items, int n);
 
 void approx_knn_search(ML::knnIndex* index, int n,
                        const float* x, int k,
