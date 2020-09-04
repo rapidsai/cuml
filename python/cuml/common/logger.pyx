@@ -37,6 +37,7 @@ cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
         bool shouldLogFor(int level) const
         int getLevel() const
         string getPattern() const
+        void flush()
 
 
 cdef extern from "cuml/common/logger.hpp" nogil:
@@ -94,7 +95,8 @@ cdef void _log_flush() with gil:
     """
     Default spdlogs callback function to flush logs
     """
-    sys.stdout.flush()
+    if sys.stdout is not None:
+        sys.stdout.flush()
 
 
 class LogLevelSetter:
@@ -336,6 +338,13 @@ def critical(msg):
     """
     cdef string s = msg.encode("UTF-8")
     CUML_LOG_CRITICAL(s.c_str())
+
+
+def flush():
+    """
+    Flush the logs.
+    """
+    Logger.get().flush()
 
 
 # Set callback functions to handle redirected sys.stdout in Python
