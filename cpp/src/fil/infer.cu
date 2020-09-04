@@ -209,10 +209,6 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, FEWER_THAN_THREADS> {
   void* tmp_storage;
   int num_classes;
 
-  /** shared memory footprint of the accumulator during
-  the finalization of forest inference kernel, when infer_k output
-  value is computed.
-  num_classes is used for other template parameters */
   static size_t smem_finalize_footprint(int num_classes) {
     size_t phase1 = (FIL_TPB - FIL_TPB % num_classes) * sizeof(Acc);
     size_t phase2 =
@@ -220,14 +216,8 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, FEWER_THAN_THREADS> {
     return std::max(phase1, phase2);
   }
 
-  /** shared memory footprint of the accumulator during
-  the accumulation of forest inference, when individual trees
-  are inferred and partial aggregates are accumulated.
-  num_classes is used for other template parameters */
   static size_t smem_accumulate_footprint(int num_classes) { return 0; }
 
-  /** 
-  num_classes is used for other template parameters */
   __device__ __forceinline__ tree_aggregator_t(int num_classes_,
                                                void* shared_workspace, size_t)
     : tmp_storage(shared_workspace), num_classes(num_classes_) {}
@@ -271,10 +261,6 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, MORE_THAN_THREADS> {
   void* tmp_storage;
   int num_classes;
 
-  /** shared memory footprint of the accumulator during
-  the finalization of forest inference kernel, when infer_k output
-  value is computed.
-  num_classes is used for other template parameters */
   static size_t smem_finalize_footprint(int num_classes) {
     size_t phase1 = num_classes * sizeof(Acc);
 
@@ -283,16 +269,10 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, MORE_THAN_THREADS> {
     return std::max(phase1, phase2);
   }
 
-  /** shared memory footprint of the accumulator during
-  the accumulation of forest inference, when individual trees
-  are inferred and partial aggregates are accumulated.
-  num_classes is used for other template parameters */
   static size_t smem_accumulate_footprint(int num_classes) {
     return num_classes * sizeof(Acc);
   }
 
-  /** 
-  num_classes is used for other template parameters */
   __device__ __forceinline__ tree_aggregator_t(int num_classes_,
                                                void* shared_workspace,
                                                size_t data_row_size)

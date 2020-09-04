@@ -155,7 +155,6 @@ struct forest {
     predict_params params;
     params.num_cols = num_cols_;
     params.algo = algo_;
-    // C layer will infer in a transposed fashion, to be un-transposed in cython
     params.preds = preds;
     params.data = data;
     params.num_rows = num_rows;
