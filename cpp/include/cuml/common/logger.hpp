@@ -153,6 +153,11 @@ class Logger {
    */
   void log(int level, const char* fmt, ...);
 
+  /**
+   * @brief Flush logs by calling flush on underlying logger
+   */
+  void flush();
+
  private:
   Logger();
   ~Logger() {}
