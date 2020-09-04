@@ -241,6 +241,7 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, FEWER_THAN_THREADS> {
       best.margin = acc;
       best.label.fill(threadIdx.x);
     }
+    __syncthreads();
     typedef BlockReduceMultiClass<NITEMS> BR;
     best = BR(*(typename BR::TempStorage*)tmp_storage)
              .Reduce(best, best, num_classes);
