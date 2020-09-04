@@ -304,7 +304,8 @@ class TSNE(Base):
         self.post_learning_rate = learning_rate * 2
 
     def fit(self, X, convert_dtype=True, knn_graph=None):
-        """Fit X into an embedded space.
+        """
+        Fit X into an embedded space.
 
         Parameters
         -----------
@@ -435,7 +436,8 @@ class TSNE(Base):
             self._embedding_ = None
 
     def fit_transform(self, X, convert_dtype=True, knn_graph=None):
-        """Fit X into an embedded space and return that transformed output.
+        """
+        Fit X into an embedded space and return that transformed output.
 
         Parameters
         -----------
