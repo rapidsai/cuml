@@ -40,11 +40,29 @@ TEST(Logger, Test) {
 std::string logged = "";
 void exampleCallback(int lvl, const char* msg) { logged = std::string(msg); }
 
-TEST(Logger, callback) {
-  Logger::get().setCallback(exampleCallback);
-  Logger::get().setLevel(CUML_LEVEL_TRACE);
+int flushCount = 0;
+void exampleFlush() { ++flushCount; }
+
+class LoggerTest : public ::testing::Test {
+ protected:
+   void SetUp() override {
+     flushCount = 0;
+     logged = "";
+     Logger::get().setLevel(CUML_LEVEL_TRACE);
+   }
+
+   void TearDown() override {
+     Logger::get().setCallback(nullptr);
+     Logger::get().setFlush(nullptr);
+     Logger::get().setLevel(CUML_LEVEL_INFO);
+   }
+
+};
+
+TEST_F(LoggerTest, callback) {
 
   std::string testMsg;
+  Logger::get().setCallback(exampleCallback);
 
   testMsg = "This is a critical message";
   CUML_LOG_CRITICAL(testMsg.c_str());
@@ -67,10 +85,7 @@ TEST(Logger, callback) {
   ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
 }
 
-int flushCount = 0;
-void exampleFlush() { ++flushCount; }
-
-TEST(Logger, flush) {
+TEST_F(LoggerTest, flush) {
   Logger::get().setFlush(exampleFlush);
   Logger::get().flush();
   ASSERT_EQ(1, flushCount);
