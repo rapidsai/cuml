@@ -336,3 +336,8 @@ def critical(msg):
     """
     cdef string s = msg.encode("UTF-8")
     CUML_LOG_CRITICAL(s.c_str())
+
+
+# Set callback functions to handle redirected sys.stdout in Python
+Logger.get().setCallback(_log_callback)
+Logger.get().setFlush(_log_flush)
