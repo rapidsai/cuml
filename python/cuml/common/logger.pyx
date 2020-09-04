@@ -78,13 +78,23 @@ level_critical = CUML_LEVEL_CRITICAL
 level_off = CUML_LEVEL_OFF
 
 cdef void _log_callback(int lvl, const char * msg) with gil:
+    """
+    Default spdlogs callback function to redirect logs correctly to sys.stdout
+
+    Parameters
+    ----------
+    lvl : int
+        Level of the logging message as defined by spdlogs
+    msg : char *
+        Message to be logged
+    """
     print(msg.decode('utf-8'), end='')
 
 cdef void _log_flush() with gil:
+    """
+    Default spdlogs callback function to flush logs
+    """
     sys.stdout.flush()
-
-Logger.get().setCallback(_log_callback)
-Logger.get().setFlush(_log_flush)
 
 
 class LogLevelSetter:
