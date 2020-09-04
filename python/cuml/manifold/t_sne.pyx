@@ -303,12 +303,19 @@ class TSNE(Base):
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
 
+    @generate_docstring(convert_dtype_cast='np.float32',
+                        skip_parameters_heading=True)
     def fit(self, X, convert_dtype=True, knn_graph=None):
         """
         Fit X into an embedded space.
 
         Parameters
         -----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            X contains a sample per row.
+        convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will automatically
+            convert the inputs to np.float32.
         knn_graph : sparse array-like (device or host)
             shape=(n_samples, n_samples)
             A sparse array containing the k-nearest neighbors of X,
@@ -430,12 +437,25 @@ class TSNE(Base):
             del self._embedding_
             self._embedding_ = None
 
+    @generate_docstring(convert_dtype_cast='np.float32',
+                        skip_parameters_heading=True,
+                        return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Embedding of the \
+                                                       data in \
+                                                       low-dimensional space.',
+                                       'shape': '(n_samples, n_components)'})
     def fit_transform(self, X, convert_dtype=True, knn_graph=None):
         """
         Fit X into an embedded space and return that transformed output.
 
         Parameters
         -----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            X contains a sample per row.
+        convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will automatically
+            convert the inputs to np.float32.
         knn_graph : sparse array-like (device or host)
             shape=(n_samples, n_samples)
             A sparse array containing the k-nearest neighbors of X,
