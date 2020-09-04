@@ -142,12 +142,10 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
 
     assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
     if num_classes == 2:
-      assert array_equal(fil_preds, xgb_preds_int)
-    
-    if num_classes == 2:
-      xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
-      fil_proba = np.asarray(fm.predict_proba(X_validation))
-      assert np.allclose(fil_proba, xgb_proba, 1e-3)
+        assert array_equal(fil_preds, xgb_preds_int)
+        xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
+        fil_proba = np.asarray(fm.predict_proba(X_validation))
+        assert np.allclose(fil_proba, xgb_proba, 1e-3)
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
@@ -431,11 +429,11 @@ def test_lightgbm(tmp_path):
                               model_type="lightgbm")
     fil_preds = np.asarray(fm.predict(X))
     fil_preds = np.reshape(fil_preds, np.shape(gbm_preds))
-    
+
     fil_acc = accuracy_score(y, fil_preds)
     gbm_acc = accuracy_score(y, gbm_preds)
     assert fil_acc == pytest.approx(gbm_acc, abs=0.01)
-    
+
     assert array_equal(gbm_preds, fil_preds)
 
     lcls = lgb.LGBMClassifier().set_params(objective='binary',

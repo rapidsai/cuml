@@ -149,9 +149,13 @@ using BlockReduceHostMultiClass =
   typename cub::BlockReduce<best_margin_label<NITEMS>, FIL_TPB,
                             cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, 600>;
 
-template <int NITEMS,
-          leaf_value_t leaf_payload_type>  // = FLOAT_SCALAR
-struct tree_aggregator_t {
+enum multi_class_mode { UNARY_BINARY, FEWER_THAN_THREADS, MORE_THAN_THREADS };
+
+template <int NITEMS, leaf_value_t leaf_payload_type, multi_class_mode mcm>
+struct tree_aggregator_t;
+
+template <int NITEMS>
+struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, UNARY_BINARY> {
   typedef vec<NITEMS, float> Acc;
 
   Acc acc;
@@ -163,14 +167,116 @@ struct tree_aggregator_t {
   value is computed.
   num_classes is used for other template parameters */
   static size_t smem_finalize_footprint(int num_classes) {
-    if (num_classes <= 2)
-      return sizeof(typename BlockReduceHost<NITEMS>::TempStorage);
+    return sizeof(typename BlockReduceHost<NITEMS>::TempStorage);
+  }
 
-    size_t phase1;
-    if (num_classes <= FIL_TPB)
-      phase1 = (FIL_TPB - FIL_TPB % num_classes) * sizeof(Acc);
-    else
-      phase1 = num_classes * sizeof(Acc);
+  /** shared memory footprint of the accumulator during
+  the accumulation of forest inference, when individual trees
+  are inferred and partial aggregates are accumulated.
+  num_classes is used for other template parameters */
+  static size_t smem_accumulate_footprint(int num_classes) { return 0; }
+
+  /** 
+  num_classes is used for other template parameters */
+  __device__ __forceinline__ tree_aggregator_t(int num_classes_,
+                                               void* shared_workspace, size_t)
+    : tmp_storage(shared_workspace), num_classes(num_classes_) {}
+
+  __device__ __forceinline__ void accumulate(Acc single_tree_prediction,
+                                             int tree) {
+    acc += single_tree_prediction;
+  }
+
+  __device__ __forceinline__ void finalize(float* out, int num_rows,
+                                           int num_outputs) {
+    __syncthreads();
+    typedef BlockReduce<NITEMS> BR;
+    acc = BR(*(typename BR::TempStorage*)tmp_storage).Sum(acc);
+    if (threadIdx.x == 0) {
+      for (int i = 0; i < NITEMS; ++i) {
+        int row = blockIdx.x * NITEMS + i;
+        if (row < num_rows) out[row * num_outputs] = acc[i];
+      }
+    }
+  }
+};
+
+template <int NITEMS>
+struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, FEWER_THAN_THREADS> {
+  typedef vec<NITEMS, float> Acc;
+
+  Acc acc;
+  void* tmp_storage;
+  int num_classes;
+
+  /** shared memory footprint of the accumulator during
+  the finalization of forest inference kernel, when infer_k output
+  value is computed.
+  num_classes is used for other template parameters */
+  static size_t smem_finalize_footprint(int num_classes) {
+    size_t phase1 = (FIL_TPB - FIL_TPB % num_classes) * sizeof(Acc);
+    size_t phase2 =
+      sizeof(typename BlockReduceHostMultiClass<NITEMS>::TempStorage);
+    return std::max(phase1, phase2);
+  }
+
+  /** shared memory footprint of the accumulator during
+  the accumulation of forest inference, when individual trees
+  are inferred and partial aggregates are accumulated.
+  num_classes is used for other template parameters */
+  static size_t smem_accumulate_footprint(int num_classes) { return 0; }
+
+  /** 
+  num_classes is used for other template parameters */
+  __device__ __forceinline__ tree_aggregator_t(int num_classes_,
+                                               void* shared_workspace, size_t)
+    : tmp_storage(shared_workspace), num_classes(num_classes_) {}
+
+  __device__ __forceinline__ void accumulate(Acc single_tree_prediction,
+                                             int tree) {
+    acc += single_tree_prediction;
+  }
+
+  __device__ __forceinline__ void finalize(float* out, int num_rows,
+                                           int num_outputs) {
+    __syncthreads();
+    best_margin_label<NITEMS> best;
+    Acc* per_thread = (Acc*)tmp_storage;
+    if (threadIdx.x >= num_classes) per_thread[threadIdx.x] = acc;
+
+    __syncthreads();
+    if (threadIdx.x < num_classes) {
+      for (int c = threadIdx.x + num_classes; c < blockDim.x; c += num_classes)
+        acc += per_thread[c];
+      best.margin = acc;
+      best.label.fill(threadIdx.x);
+    }
+    typedef BlockReduceMultiClass<NITEMS> BR;
+    best = BR(*(typename BR::TempStorage*)tmp_storage)
+             .Reduce(best, best, num_classes);
+    if (threadIdx.x == 0) {
+      for (int i = 0; i < NITEMS; ++i) {
+        int row = blockIdx.x * NITEMS + i;
+        if (row < num_rows) out[row] = best.label[i];
+      }
+    }
+  }
+};
+
+template <int NITEMS>
+struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, MORE_THAN_THREADS> {
+  typedef vec<NITEMS, float> Acc;
+
+  Acc acc;
+  void* tmp_storage;
+  int num_classes;
+
+  /** shared memory footprint of the accumulator during
+  the finalization of forest inference kernel, when infer_k output
+  value is computed.
+  num_classes is used for other template parameters */
+  static size_t smem_finalize_footprint(int num_classes) {
+    size_t phase1 = num_classes * sizeof(Acc);
 
     size_t phase2 =
       sizeof(typename BlockReduceHostMultiClass<NITEMS>::TempStorage);
@@ -182,87 +288,54 @@ struct tree_aggregator_t {
   are inferred and partial aggregates are accumulated.
   num_classes is used for other template parameters */
   static size_t smem_accumulate_footprint(int num_classes) {
-    return num_classes > FIL_TPB ? num_classes * sizeof(Acc) : 0;
+    return num_classes * sizeof(Acc);
   }
 
   /** 
   num_classes is used for other template parameters */
   __device__ __forceinline__ tree_aggregator_t(int num_classes_,
-                                               void* shared_workspace, size_t)
-    : tmp_storage(shared_workspace), num_classes(num_classes_) {
-    if (blockDim.x < num_classes) {
-      for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
-        ((Acc*)tmp_storage)[c].fill(0.0f);
-      //__syncthreads(); // done in the main loop
-    }
+                                               void* shared_workspace,
+                                               size_t data_row_size)
+    : tmp_storage((char*)shared_workspace + data_row_size),
+      num_classes(num_classes_) {
+    for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
+      ((Acc*)tmp_storage)[c].fill(0.0f);
+    //__syncthreads(); // done in the main loop
   }
 
   __device__ __forceinline__ void accumulate(Acc single_tree_prediction,
                                              int tree) {
-    if (blockDim.x >= num_classes)
-      acc += single_tree_prediction;
-    else
-      ((Acc*)tmp_storage)[tree % num_classes] += single_tree_prediction;
+    ((Acc*)tmp_storage)[tree % num_classes] += single_tree_prediction;
   }
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs) {
-    if (num_classes <= 2) {
-      __syncthreads();
-      typedef BlockReduce<NITEMS> BR;
-      acc = BR(*(typename BR::TempStorage*)tmp_storage).Sum(acc);
-      if (threadIdx.x == 0) {
-        for (int i = 0; i < NITEMS; ++i) {
-          int row = blockIdx.x * NITEMS + i;
-          if (row < num_rows) out[row * num_outputs] = acc[i];
-        }
-      }
-    } else {  // predict_proba() not supported yet
-      best_margin_label<NITEMS> best;
-      if (blockDim.x >= num_classes) {
-        Acc* per_thread = (Acc*)tmp_storage;
-        if (threadIdx.x >= num_classes) per_thread[threadIdx.x] = acc;
-        __syncthreads();
-        if (threadIdx.x < num_classes) {
-          for (int c = threadIdx.x + num_classes; c < blockDim.x;
-               c += num_classes)
-            acc += per_thread[c];
-          best.margin = acc;
-          best.label.fill(threadIdx.x);
-        }
-        __syncthreads();
-        typedef BlockReduceMultiClass<NITEMS> BR;
-        best = BR(*(typename BR::TempStorage*)tmp_storage)
-                 .Reduce(best, best, num_classes);
-      } else {
-        Acc* per_class = (Acc*)tmp_storage;
-        best.margin = per_class[threadIdx.x];
-        best.label.fill(threadIdx.x);
-        for (int c = threadIdx.x + blockDim.x; c < num_classes;
-             c += blockDim.x) {
-          best_margin_label<NITEMS> candidate;
-          candidate.margin = per_class[c];
-          candidate.label.fill(c);
-          best = best(best, candidate);
-        }
-        __syncthreads();
-        typedef BlockReduceMultiClass<NITEMS> BR;
-        best = BR(*(typename BR::TempStorage*)tmp_storage)
-                 .Reduce(best, best, blockDim.x);
-      }
+    Acc* per_class = (Acc*)tmp_storage;
+    best_margin_label<NITEMS> best;
+    best.margin = per_class[threadIdx.x];
+    best.label.fill(threadIdx.x);
+    for (int c = threadIdx.x + blockDim.x; c < num_classes; c += blockDim.x) {
+      best_margin_label<NITEMS> candidate;
+      candidate.margin = per_class[c];
+      candidate.label.fill(c);
+      best = best(best, candidate);
+    }
+    __syncthreads();
+    typedef BlockReduceMultiClass<NITEMS> BR;
+    best = BR(*(typename BR::TempStorage*)tmp_storage)
+             .Reduce(best, best, blockDim.x);
 
-      if (threadIdx.x == 0) {
-        for (int i = 0; i < NITEMS; ++i) {
-          int row = blockIdx.x * NITEMS + i;
-          if (row < num_rows) out[row] = best.label[i];
-        }
+    if (threadIdx.x == 0) {
+      for (int i = 0; i < NITEMS; ++i) {
+        int row = blockIdx.x * NITEMS + i;
+        if (row < num_rows) out[row] = best.label[i];
       }
     }
   }
 };
 
 template <int NITEMS>
-struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
+struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL, MORE_THAN_THREADS> {
   // could switch to unsigned short to save shared memory
   // provided atomicAdd(short*) simulated with appropriate shifts
   int* votes;
@@ -285,12 +358,14 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
       for (int item = 0; item < NITEMS; ++item) votes[c * NITEMS + item] = 0;
     //__syncthreads(); // happening outside already
   }
+
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, int> single_tree_prediction, int tree) {
 #pragma unroll
     for (int item = 0; item < NITEMS; ++item)
       atomicAdd(votes + single_tree_prediction[item] * NITEMS + item, 1);
   }
+
   // class probabilities or regression. for regression, num_classes
   // is just the number of outputs for each data instance
   __device__ __forceinline__ void finalize_multiple_outputs(float* out,
@@ -304,6 +379,7 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
         out[row * num_classes + c] = votes[c * NITEMS + item];
     }
   }
+
   // using this when predicting a single class label, as opposed to sparse class vector
   // or class probabilities or regression
   __device__ __forceinline__ void finalize_class_label(float* out,
@@ -323,6 +399,7 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
       out[row] = best_class;
     }
   }
+
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs) {
     if (num_outputs > 1) {
@@ -334,7 +411,8 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
   }
 };
 
-template <int NITEMS, leaf_value_t leaf_payload_type, class storage_type>
+template <int NITEMS, leaf_value_t leaf_payload_type, multi_class_mode mcm,
+          class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params) {
   // cache the row for all threads to reuse
   extern __shared__ char smem[];
@@ -348,7 +426,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
     }
   }
 
-  tree_aggregator_t<NITEMS, leaf_payload_type> acc(
+  tree_aggregator_t<NITEMS, leaf_payload_type, mcm> acc(
     params.num_classes, sdata, params.num_cols * NITEMS * sizeof(float));
 
   __syncthreads();  // for both row cache init and acc init
@@ -368,20 +446,21 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   acc.finalize(params.preds, params.num_rows, params.num_outputs);
 }
 
-template <int NITEMS, leaf_value_t leaf_payload_type>
+template <int NITEMS, leaf_value_t leaf_payload_type, multi_class_mode mcm>
 size_t get_smem_footprint(predict_params params) {
   size_t finalize_footprint =
-    tree_aggregator_t<NITEMS, leaf_payload_type>::smem_finalize_footprint(
+    tree_aggregator_t<NITEMS, leaf_payload_type, mcm>::smem_finalize_footprint(
       params.num_classes);
   size_t accumulate_footprint =
     sizeof(float) * params.num_cols * NITEMS +
-    tree_aggregator_t<NITEMS, leaf_payload_type>::smem_accumulate_footprint(
-      params.num_classes);
+    tree_aggregator_t<NITEMS, leaf_payload_type,
+                      mcm>::smem_accumulate_footprint(params.num_classes);
 
   return std::max(accumulate_footprint, finalize_footprint);
 }
 
-template <leaf_value_t leaf_payload_type, typename storage_type>
+template <leaf_value_t leaf_payload_type, multi_class_mode mcm,
+          typename storage_type>
 void infer_k_launcher(storage_type forest, predict_params params,
                       cudaStream_t stream) {
   const int MAX_BATCH_ITEMS = 4;
@@ -397,16 +476,16 @@ void infer_k_launcher(storage_type forest, predict_params params,
     size_t peak_footprint;
     switch (nitems) {
       case 1:
-        peak_footprint = get_smem_footprint<1, leaf_payload_type>(params);
+        peak_footprint = get_smem_footprint<1, leaf_payload_type, mcm>(params);
         break;
       case 2:
-        peak_footprint = get_smem_footprint<2, leaf_payload_type>(params);
+        peak_footprint = get_smem_footprint<2, leaf_payload_type, mcm>(params);
         break;
       case 3:
-        peak_footprint = get_smem_footprint<3, leaf_payload_type>(params);
+        peak_footprint = get_smem_footprint<3, leaf_payload_type, mcm>(params);
         break;
       case 4:
-        peak_footprint = get_smem_footprint<4, leaf_payload_type>(params);
+        peak_footprint = get_smem_footprint<4, leaf_payload_type, mcm>(params);
         break;
       default:
         ASSERT(false, "internal error: nitems > 4");
@@ -423,8 +502,8 @@ void infer_k_launcher(storage_type forest, predict_params params,
     // given_num_cols is a random large int
     params.num_cols = params.max_shm / sizeof(float);
     // since we're crashing, this will not take too long
-    while (params.num_cols > 0 &&
-           get_smem_footprint<1, leaf_payload_type>(params) > params.max_shm) {
+    while (params.num_cols > 0 && get_smem_footprint<1, leaf_payload_type, mcm>(
+                                    params) > params.max_shm) {
       --params.num_cols;
     }
     ASSERT(false, "p.num_cols == %d: too many features, only %d allowed",
@@ -437,19 +516,19 @@ void infer_k_launcher(storage_type forest, predict_params params,
     blockdim_x -= blockdim_x % params.num_classes;
   switch (num_items) {
     case 1:
-      infer_k<1, leaf_payload_type>
+      infer_k<1, leaf_payload_type, mcm>
         <<<num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
       break;
     case 2:
-      infer_k<2, leaf_payload_type>
+      infer_k<2, leaf_payload_type, mcm>
         <<<num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
       break;
     case 3:
-      infer_k<3, leaf_payload_type>
+      infer_k<3, leaf_payload_type, mcm>
         <<<num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
       break;
     case 4:
-      infer_k<4, leaf_payload_type>
+      infer_k<4, leaf_payload_type, mcm>
         <<<num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
       break;
     default:
@@ -462,10 +541,20 @@ template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
   switch (params.leaf_payload_type) {
     case FLOAT_SCALAR:
-      infer_k_launcher<FLOAT_SCALAR, storage_type>(forest, params, stream);
+      if (params.num_classes <= 2) {
+        infer_k_launcher<FLOAT_SCALAR, UNARY_BINARY, storage_type>(
+          forest, params, stream);
+      } else if (params.num_classes > FIL_TPB) {
+        infer_k_launcher<FLOAT_SCALAR, MORE_THAN_THREADS, storage_type>(
+          forest, params, stream);
+      } else {
+        infer_k_launcher<FLOAT_SCALAR, FEWER_THAN_THREADS, storage_type>(
+          forest, params, stream);
+      }
       break;
     case INT_CLASS_LABEL:
-      infer_k_launcher<INT_CLASS_LABEL, storage_type>(forest, params, stream);
+      infer_k_launcher<INT_CLASS_LABEL, MORE_THAN_THREADS, storage_type>(
+        forest, params, stream);
       break;
     default:
       ASSERT(false, "internal error: invalid leaf_payload_type");
