@@ -309,11 +309,6 @@ class TSNE(Base):
 
         Parameters
         -----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            X contains a sample per row.
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
         knn_graph : sparse array-like (device or host)
             shape=(n_samples, n_samples)
             A sparse array containing the k-nearest neighbors of X,
@@ -441,11 +436,6 @@ class TSNE(Base):
 
         Parameters
         -----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            X contains a sample per row.
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
         knn_graph : sparse array-like (device or host)
             shape=(n_samples, n_samples)
             A sparse array containing the k-nearest neighbors of X,
