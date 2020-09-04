@@ -148,11 +148,15 @@ class LabelEncoder(Base):
 
         self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
 
-        # Check if it not None
         if _classes is not None:
+            print(type(_classes))
             self.classes_ = _classes
+            print(type(self.classes_))
         else:
+            print("cudf")
+            print(type(y.unique()))
             self.classes_ = y.unique()  # dedupe and sort
+            print(type(self.classes_))
 
         self._fitted = True
         return self
