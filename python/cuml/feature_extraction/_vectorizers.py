@@ -64,8 +64,8 @@ def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" ",
         else:
             doc = doc.str.filter_alphanum(' ', keep=True)
 
-        # sklearn by default only keeps
-        # single length tokens if its remove alphanums
+        # sklearn by default removes tokens of
+        # length 1, if its remove alphanumerics
         if remove_single_token_len:
             doc = doc.str.filter_tokens(2)
 
