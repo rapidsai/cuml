@@ -28,7 +28,7 @@ import cuml.common.logger as logger
 
 
 def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" ",
-                keep_underscore_char=True):
+                keep_underscore_char=True, remove_single_token_len=True):
     """
     Chain together an optional series of text preprocessing steps to
     apply to a document.
@@ -63,6 +63,12 @@ def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" ",
             doc = doc.str.replace(temp_string, '_', regex=False)
         else:
             doc = doc.str.filter_alphanum(' ', keep=True)
+
+        # sklearn by default only keeps
+        # single length tokens if its remove alphanums
+        if remove_single_token_len:
+            doc = doc.str.filter_tokens(2)
+
     return doc
 
 
