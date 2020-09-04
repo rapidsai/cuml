@@ -264,7 +264,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     std::vector<float> want_proba_h(ps.num_proba_outputs());
     int num_nodes = tree_num_nodes();
     // GPU accumulates in a different order in some cases
-    std::vector<double> class_scores(ps.num_classes);
+    std::vector<float> class_scores(ps.num_classes);
     for (int r = 0; r < ps.num_rows; ++r) {
       std::fill(class_scores.begin(), class_scores.end(), 0.0f);
       switch (ps.leaf_payload_type) {
