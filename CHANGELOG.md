@@ -4,6 +4,7 @@
 - PR #2698: Distributed TF-IDF transformer
 
 ## Improvements
+- PR #2796: Remove tokens of length 1 by default for text vectorizers
 - PR #2741: Use rapids build packages in conda environments
 - PR #2735: Update seed to random_state in random forest and associated tests
 - PR #2739: Use cusparse_wrappers.h from RAFT
