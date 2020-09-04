@@ -147,7 +147,10 @@ class LabelEncoder(Base):
         self._validate_keywords()
 
         self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
-        self.classes_ = y.unique()  # dedupe and sort
+        if _classes is not None:
+            self.classes_ = _classes
+        else:
+            self.classes_ = y.unique()  # dedupe and sort
 
         self._fitted = True
         return self
@@ -178,7 +181,7 @@ class LabelEncoder(Base):
         """
         self._check_is_fitted()
 
-        y = y.astype("category")
+        y = y.astype('category')
 
         encoded = y.cat.set_categories(self.classes_)._column.codes
 

@@ -110,13 +110,12 @@ class LabelEncoder(BaseEstimator,
             A fitted instance of itself to allow method chaining
 
         """
-
+        _classes = y.unique().compute()
         el = first(y) if isinstance(y, Sequence) else y
         self.datatype = ('cudf' if isinstance(el, (dcDataFrame, daskSeries))
                          else 'cupy')
         from cuml.preprocessing import LabelEncoder as LE
-        classes_ = y.unique().compute()
-        self._set_internal_model(LE(**self.kwargs).fit(y, _classes = classes_))
+        self._set_internal_model(LE(**self.kwargs).fit(y, _classes=_classes))
         return self
 
     def fit_transform(self, y, delayed=True):
