@@ -45,22 +45,20 @@ void exampleFlush() { ++flushCount; }
 
 class LoggerTest : public ::testing::Test {
  protected:
-   void SetUp() override {
-     flushCount = 0;
-     logged = "";
-     Logger::get().setLevel(CUML_LEVEL_TRACE);
-   }
+  void SetUp() override {
+    flushCount = 0;
+    logged = "";
+    Logger::get().setLevel(CUML_LEVEL_TRACE);
+  }
 
-   void TearDown() override {
-     Logger::get().setCallback(nullptr);
-     Logger::get().setFlush(nullptr);
-     Logger::get().setLevel(CUML_LEVEL_INFO);
-   }
-
+  void TearDown() override {
+    Logger::get().setCallback(nullptr);
+    Logger::get().setFlush(nullptr);
+    Logger::get().setLevel(CUML_LEVEL_INFO);
+  }
 };
 
 TEST_F(LoggerTest, callback) {
-
   std::string testMsg;
   Logger::get().setCallback(exampleCallback);
 
