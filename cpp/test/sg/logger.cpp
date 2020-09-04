@@ -67,4 +67,13 @@ TEST(Logger, callback) {
   ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
 }
 
+int flushCount = 0;
+void exampleFlush() { ++flushCount; }
+
+TEST(Logger, flush) {
+  Logger::get().setFlush(exampleFlush);
+  Logger::get().flush();
+  ASSERT_EQ(1, flushCount);
+}
+
 }  // namespace ML

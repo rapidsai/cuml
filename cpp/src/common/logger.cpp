@@ -98,6 +98,10 @@ void Logger::log(int level, const char* fmt, ...) {
   }
 }
 
+void Logger::flush() {
+  logger->flush();
+}
+
 PatternSetter::PatternSetter(const std::string& pattern) : prevPattern() {
   prevPattern = Logger::get().getPattern();
   Logger::get().setPattern(pattern);
