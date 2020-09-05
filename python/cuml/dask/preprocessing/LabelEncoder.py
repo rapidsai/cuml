@@ -7,6 +7,7 @@ from toolz import first
 from collections.abc import Sequence
 from dask_cudf.core import DataFrame as dcDataFrame
 from dask_cudf.core import Series as daskSeries
+from cuml.common.exceptions import NotFittedError
 
 
 class LabelEncoder(BaseEstimator,
@@ -151,10 +152,15 @@ class LabelEncoder(BaseEstimator,
         KeyError
             if a category appears that was not seen in `fit`
         """
-        return self._transform(y,
-                               delayed=delayed,
-                               output_dtype='int64',
-                               output_collection_type='series')
+        if self._get_internal_model() is not None:
+            return self._transform(y,
+                                   delayed=delayed,
+                                   output_dtype='int64',
+                                   output_collection_type='series')
+        else:
+            msg = ("This LabelEncoder instance is not fitted yet. Call 'fit' "
+                   "with appropriate arguments before using this estimator.")
+            raise NotFittedError(msg)
 
     def inverse_transform(self, y, delayed=True):
         """
@@ -174,6 +180,11 @@ class LabelEncoder(BaseEstimator,
         X_tr : CuPy backed Dask Array
             Distributed object containing the inverse transformed array.
         """
-        return self._inverse_transform(y,
-                                       delayed=delayed,
-                                       output_collection_type='cudf')
+        if self._get_internal_model() is not None:
+            return self._inverse_transform(y,
+                                           delayed=delayed,
+                                           output_collection_type='cudf')
+        else:
+            msg = ("This LabelEncoder instance is not fitted yet. Call 'fit' "
+                   "with appropriate arguments before using this estimator.")
+            raise NotFittedError(msg)
