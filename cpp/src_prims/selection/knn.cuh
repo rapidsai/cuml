@@ -316,6 +316,8 @@ void approx_knn_build_index(ML::knnIndex* index,
   gpu_res->setDefaultStream(device, userStream);
   index->gpu_res = gpu_res;
   index->device = device;
+  index->index = nullptr;
+
   if (dynamic_cast<ML::IVFFlatParam*>(params)) {
     ML::IVFFlatParam* IVFFlat_param = dynamic_cast<ML::IVFFlatParam*>(params);
     approx_knn_ivfflat_build_index(index, IVFFlat_param, D, metric, n);
@@ -326,7 +328,7 @@ void approx_knn_build_index(ML::knnIndex* index,
     ML::IVFSQParam* IVFSQ_param = dynamic_cast<ML::IVFSQParam*>(params);
     approx_knn_ivfsq_build_index(index, IVFSQ_param, D, metric, n);
   } else {
-    ASSERT(index, "KNN index could not be initialized");
+    ASSERT(index->index, "KNN index could not be initialized");
   }
 
   index->index->train(n, search_items);

@@ -369,7 +369,7 @@ class NearestNeighbors(Base):
         if algo == 'ivfpq':
             algo_params = <knnIndexParam*><size_t> \
                 NearestNeighbors._build_ivfpq_algo_params(params, automated)
-        elif algo == 'ivfpq':
+        elif algo == 'ivfsq':
             algo_params = <knnIndexParam*><size_t> \
                 NearestNeighbors._build_ivfsq_algo_params(params, automated)
 
