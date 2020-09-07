@@ -275,6 +275,17 @@ def test_non_ascii():
     cp.testing.assert_array_equal(res.todense(), ref.toarray())
 
 
+def test_sngle_len():
+    single_token_ser = ['S I N G L E T 0 K E N Example', '1 2 3 4 5 eg']
+    single_token_gpu = Series(single_token_ser)
+
+    cv = CountVectorizer()
+    res = cv.fit_transform(single_token_gpu)
+    ref = SkCountVect().fit_transform(single_token_ser)
+
+    cp.testing.assert_array_equal(res.todense(), ref.toarray())
+
+
 def test_only_delimiters():
     data = ['abc def. 123',
             '   ',
