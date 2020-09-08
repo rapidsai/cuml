@@ -2,8 +2,10 @@
 
 ## New Features
 - PR #2698: Distributed TF-IDF transformer
+- PR #2793: Enable FIL multi-class inference for xgboost models
 
 ## Improvements
+- PR #2796: Remove tokens of length 1 by default for text vectorizers
 - PR #2741: Use rapids build packages in conda environments
 - PR #2735: Update seed to random_state in random forest and associated tests
 - PR #2739: Use cusparse_wrappers.h from RAFT
@@ -17,7 +19,7 @@
 - PR #2783: Add pytest that will fail when GPU IDs in Dask cluster are not unique
 - PR #2785: Add in cuML-specific dev conda dependencies
 - PR #2778: Add README for FIL
-- PR #2793: Enable FIL multi-class inference for xgboost models
+- PR #2800: Align cuML's spdlog version with RMM's
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
