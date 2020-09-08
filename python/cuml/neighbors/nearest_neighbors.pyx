@@ -709,6 +709,10 @@ class NearestNeighbors(Base):
         else:
             return sparse_csr
 
+    def __del__(self):
+        cdef knnIndex* knn_index = <knnIndex*> <size_t> self.knn_index
+        del knn_index
+
 
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
                      handle=None, algorithm="brute", metric="euclidean", p=2,
@@ -786,7 +790,3 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         query = X.X_m
 
     return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)
-
-    def __dealloc__(self):
-        cdef knnIndex* knn_index = <knnIndex*> <size_t> self.knn_index
-        del knn_index

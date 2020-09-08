@@ -87,6 +87,30 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
     assert array_equal(labels, y)
 
 
+@pytest.mark.parametrize("algo", ["ivfflat", "ivfpq", "ivfsq"])
+def test_ann_pred(algo):
+    if not has_scipy():
+        pytest.skip('Skipping test_neighborhood_predictions because ' +
+                    'Scipy is missing')
+
+    n_neighbors = 10
+    X, y = make_blobs(n_samples=2000, centers=5,
+                      n_features=256, random_state=0)
+
+    X = X.astype(np.float32)
+
+    knn_cu = cuKNN(algorithm=algo)
+    knn_cu.fit(X)
+    neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
+                                  return_distance=False)
+
+    assert isinstance(neigh_ind, np.ndarray)
+
+    labels, probs = predict(neigh_ind, y, n_neighbors)
+
+    assert array_equal(labels, y)
+
+
 def test_return_dists():
     n_samples = 50
     n_feats = 50
