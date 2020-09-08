@@ -127,7 +127,7 @@ class SparseCumlArray:
         if output_type == 'cupy':
             constructor = cpx.scipy.sparse.csr_matrix
 
-        elif output_type == 'scipy' and has_scipy():
+        elif output_type == 'scipy':
             if has_scipy():
                 constructor = scipy.sparse.csr_matrix
             else:

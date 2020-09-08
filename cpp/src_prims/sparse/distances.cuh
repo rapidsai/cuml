@@ -183,7 +183,14 @@ __global__ void compute_euclidean_kernel(value_t *C, const value_t *Q_sq_norms,
 
   // Cuda store row major.
   if (i < n_rows && j < n_cols) {
-    C[i * n_cols + j] = Q_sq_norms[i] - 2.0 * C[i * n_cols + j] + R_sq_norms[j];
+	value_t val = R_sq_norms[i] + Q_sq_norms[j] - 2.0 * C[i * n_cols + j];
+
+  printf("i=%d, j=%d, Q=%f, R=%f, C=%f, val=%f\n", i, j, Q_sq_norms[j], R_sq_norms[i], C[i * n_cols + j], val);
+
+	if(fabsf(val) < 0.00001)
+		val = 0.0;
+
+    C[i * n_cols + j] = val;
   }
 }
 
@@ -194,9 +201,12 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 value_idx R_nnz, value_idx m, value_idx n,
                 cusparseHandle_t handle, std::shared_ptr<deviceAllocator> alloc,
                 cudaStream_t stream) {
+
   device_buffer<value_t> Q_sq_norms(alloc, stream, m);
   CUDA_CHECK(
     cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size() * sizeof(value_t)));
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   device_buffer<value_t> R_sq_norms(alloc, stream, n);
   CUDA_CHECK(
@@ -207,10 +217,15 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
   compute_sq_norm_kernel<<<ceildiv(R_nnz, tpb), tpb, 0, stream>>>(
     R_sq_norms.data(), R_coo_rows, R_data, R_nnz);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  std::cout << arr2Str(Q_sq_norms.data(), m,
+                       "q norms", stream) << std::endl;
+
+  std::cout << arr2Str(R_sq_norms.data(), n,
+                       "r norms", stream) << std::endl;
 
   compute_euclidean_kernel<<<ceildiv(m * n, tpb), tpb, 0, stream>>>(
     out, Q_sq_norms.data(), R_sq_norms.data(), m, n);
+
 }
 
 /**
@@ -225,19 +240,31 @@ struct l2_distances_t {
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
+
+	CUML_LOG_DEBUG("Computing inner products");
     ip_dists.compute(out_dists);
 
+    CUDA_CHECK(cudaStreamSynchronize(config_.stream));
+
+    std::cout << arr2Str(out_dists, config_.search_nrows * config_.index_nrows,
+                         "inner products", config_.stream) << std::endl;
+
+    CUML_LOG_DEBUG("Computing COO row index array");
     device_buffer<value_idx> search_coo_rows(config_.allocator, config_.stream,
-                                             config_.search_nrows);
+                                             config_.search_nnz);
 
     csr_to_coo(config_.csr_search_indptr, config_.search_nrows,
                search_coo_rows.data(), config_.search_nnz, config_.stream);
 
+    CUML_LOG_DEBUG("Done.");
+
+    CUML_LOG_DEBUG("Computing L2");
     compute_l2(out_dists, search_coo_rows.data(), config_.csr_search_data,
                config_.search_nnz, config_.csc_index_indices,
                config_.csc_index_data, config_.index_nnz, config_.search_nrows,
                config_.index_nrows, config_.handle, config_.allocator,
                config_.stream);
+    CUML_LOG_DEBUG("Done.");
   }
 
  private:

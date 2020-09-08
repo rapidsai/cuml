@@ -286,21 +286,16 @@ void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,
     CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1,
     &convert_csc_workspace_size, stream));
 
+  CUML_LOG_DEBUG("Transpose workspace size: %d", convert_csc_workspace_size);
+
   device_buffer<char> convert_csc_workspace(allocator, stream,
                                             convert_csc_workspace_size);
-
-  std::cout << "Generated workspace" << std::endl;
 
   CUSPARSE_CHECK(raft::sparse::cusparsecsr2csc(
     handle, csr_nrows, csr_ncols, nnz, csr_data, csr_indptr, csr_indices,
     csc_data, csc_indptr, csc_indices, CUSPARSE_ACTION_NUMERIC,
     CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1,
     convert_csc_workspace.data(), stream));
-
-  std::cout << arr2Str(csc_indptr, csr_ncols + 1, "csr_indptr", stream)
-            << std::endl;
-  std::cout << arr2Str(csc_indices, nnz, "csr_indices", stream) << std::endl;
-  std::cout << arr2Str(csc_data, nnz, "csr_data", stream) << std::endl;
 }
 
 template <int TPB_X, typename T>
@@ -343,12 +338,20 @@ void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
                           const value_idx *indptr, value_idx *indptr_out,
                           value_idx *start_offset, value_idx *stop_offset,
                           cudaStream_t stream) {
-  CUML_LOG_INFO("start_row=%d, stop_row=%d", start_row, stop_row);
-
   updateHost(start_offset, indptr + start_row, 1, stream);
   updateHost(stop_offset, indptr + stop_row + 1, 1, stream);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  value_idx s_offset = *start_offset;
+
+  // 0-based indexing so we need to add 1 to stop row. Because we want n_rows+1, we add another 1 to stop row.
   copyAsync(indptr_out, indptr + start_row, (stop_row + 2) - start_row, stream);
+
+  MLCommon::LinAlg::unaryOp<value_idx>(
+    indptr_out, indptr_out, (stop_row+2) - start_row,
+    [s_offset] __device__(value_idx input) { return input - s_offset; }, stream);
+
 }
 
 template <typename value_idx, typename value_t>

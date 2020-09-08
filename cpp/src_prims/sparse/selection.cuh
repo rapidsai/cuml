@@ -70,12 +70,16 @@ __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
   int limit = faiss::gpu::utils::roundDown(n_cols, faiss::gpu::kWarpSize);
   for (; i < limit; i += tpb) {
     heap.add(*inKStart, (*inVStart) + translation);
+
+    printf("row=%d, i=%d, inKStart=%f, inVStart=%d\n", row, i, *inKStart, *inVStart);
     inKStart += tpb;
     inVStart += tpb;
   }
 
+
   // Handle last remainder fraction of a warp of elements
   if (i < n_cols) {
+	    printf("row=%d, i=%d, inKStart=%f, inVStart=%d\n", row, i, *inKStart, *inVStart);
     heap.addThreadQ(*inKStart, (*inVStart) + translation);
   }
 
@@ -84,6 +88,7 @@ __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
   for (int i = threadIdx.x; i < k; i += tpb) {
     outK[row * k + i] = smemK[i];
     outV[row * k + i] = smemV[i];
+    printf("selected: row=%d, i=%d, inKStart=%f, inVStart=%d\n", row, i, smemK[i], smemV[i]);
   }
 }
 

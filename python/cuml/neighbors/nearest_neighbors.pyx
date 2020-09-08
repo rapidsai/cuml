@@ -536,7 +536,7 @@ class NearestNeighbors(Base):
                         <int*>I_ptr,
                         <float*>D_ptr,
                         n_neighbors,
-                        2<<20, # TODO: Make this an option
+                        25, # TODO: Make this an option
                         <MetricType> metric,
                         <float>self.p,
                         <bool> expanded)
