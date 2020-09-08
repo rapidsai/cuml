@@ -4,6 +4,7 @@
 - PR #2698: Distributed TF-IDF transformer
 
 ## Improvements
+- PR #2796: Remove tokens of length 1 by default for text vectorizers
 - PR #2741: Use rapids build packages in conda environments
 - PR #2735: Update seed to random_state in random forest and associated tests
 - PR #2739: Use cusparse_wrappers.h from RAFT
@@ -15,6 +16,9 @@
 - PR #2770: Fix doxygen version during cmake
 - PR #2766: Update default RandomForestRegressor score function to use r2
 - PR #2783: Add pytest that will fail when GPU IDs in Dask cluster are not unique
+- PR #2785: Add in cuML-specific dev conda dependencies
+- PR #2778: Add README for FIL
+- PR #2800: Align cuML's spdlog version with RMM's
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
@@ -371,6 +375,7 @@
 - PR #2305: Fixed race condition in DBScan
 - PR #2354: Fix broken links in README
 - PR #2619: Explicitly skip raft test folder for pytest 6.0.0
+- PR #2788: Set the minimum number of columns that can be sampled to 1 to fix 0 mem allocation error
 
 # cuML 0.13.0 (31 Mar 2020)
 
