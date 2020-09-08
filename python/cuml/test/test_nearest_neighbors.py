@@ -87,28 +87,89 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
     assert array_equal(labels, y)
 
 
-@pytest.mark.parametrize("algo", ["ivfflat", "ivfpq", "ivfsq"])
-def test_ann_pred(algo):
-    if not has_scipy():
-        pytest.skip('Skipping test_neighborhood_predictions because ' +
-                    'Scipy is missing')
+@pytest.mark.parametrize("nlist", [4, 8, 32])
+@pytest.mark.parametrize("nprobe", [1, 2, 3, 16])
+def test_ivfsq_pred(nlist, nprobe, qtype, encodeResidual):
+    algo_params = {
+        'nlist': nlist,
+        'nprobe': nprobe
+    }
 
     n_neighbors = 10
-    X, y = make_blobs(n_samples=2000, centers=5,
+    X, y = make_blobs(n_samples=10000, centers=5,
                       n_features=256, random_state=0)
 
     X = X.astype(np.float32)
 
-    knn_cu = cuKNN(algorithm=algo)
+    knn_cu = cuKNN(algorithm="ivfflat", algo_params=algo_params)
     knn_cu.fit(X)
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
                                   return_distance=False)
 
-    assert isinstance(neigh_ind, np.ndarray)
+    labels, probs = predict(neigh_ind, y, n_neighbors)
+
+    correctness = np.mean(labels == y)
+    assert correctness > 0.5
+
+
+@pytest.mark.parametrize("nlist", [4, 8, 32])
+@pytest.mark.parametrize("nprobe", [1, 2, 3, 16])
+@pytest.mark.parametrize("M", [4, 8, 16, 64])
+@pytest.mark.parametrize("n_bits", [2, 4])
+@pytest.mark.parametrize("usePrecomputedTables", [False, True])
+def test_ivfpq_pred(nlist, nprobe, M, n_bits, usePrecomputedTables):
+    algo_params = {
+        'nlist': nlist,
+        'nprobe': nprobe,
+        'M': M,
+        'n_bits': n_bits,
+        'usePrecomputedTables': usePrecomputedTables
+    }
+
+    n_neighbors = 10
+    X, y = make_blobs(n_samples=10000, centers=5,
+                      n_features=256, random_state=0)
+
+    X = X.astype(np.float32)
+
+    knn_cu = cuKNN(algorithm="ivfpq", algo_params=algo_params)
+    knn_cu.fit(X)
+    neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
+                                  return_distance=False)
 
     labels, probs = predict(neigh_ind, y, n_neighbors)
 
-    assert array_equal(labels, y)
+    correctness = np.mean(labels == y)
+    assert correctness > 0.5
+
+
+@pytest.mark.parametrize("nlist", [4, 8, 32])
+@pytest.mark.parametrize("nprobe", [1, 2, 3, 16])
+@pytest.mark.parametrize("qtype", ['QT_4bit', 'QT_8bit', 'QT_fp16'])
+@pytest.mark.parametrize("encodeResidual", [False, True])
+def test_ivfsq_pred(nlist, nprobe, qtype, encodeResidual):
+    algo_params = {
+        'nlist': nlist,
+        'nprobe': nprobe,
+        'qtype': qtype,
+        'encodeResidual': encodeResidual
+    }
+
+    n_neighbors = 10
+    X, y = make_blobs(n_samples=10000, centers=5,
+                      n_features=256, random_state=0)
+
+    X = X.astype(np.float32)
+
+    knn_cu = cuKNN(algorithm="ivfsq", algo_params=algo_params)
+    knn_cu.fit(X)
+    neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
+                                  return_distance=False)
+
+    labels, probs = predict(neigh_ind, y, n_neighbors)
+
+    correctness = np.mean(labels == y)
+    assert correctness > 0.5
 
 
 def test_return_dists():

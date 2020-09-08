@@ -316,8 +316,8 @@ class NearestNeighbors(Base):
         cdef IVFFlatParam* algo_params = new IVFFlatParam()
         if automated:
             return <size_t>algo_params
-        algo_params.nlist = <int> params.nlist
-        algo_params.nprobe = <int> params.nprobe
+        algo_params.nlist = <int> params['nlist']
+        algo_params.nprobe = <int> params['nprobe']
         return <size_t>algo_params
 
     @staticmethod
@@ -325,12 +325,12 @@ class NearestNeighbors(Base):
         cdef IVFPQParam* algo_params = new IVFPQParam()
         if automated:
             return <size_t>algo_params
-        algo_params.nlist = <int> params.nlist
-        algo_params.nprobe = <int> params.nprobe
-        algo_params.M = <int> params.M
-        algo_params.n_bits = <int> params.n_bits
+        algo_params.nlist = <int> params['nlist']
+        algo_params.nprobe = <int> params['nprobe']
+        algo_params.M = <int> params['M']
+        algo_params.n_bits = <int> params['n_bits']
         algo_params.usePrecomputedTables = \
-            <bool> params.usePrecomputedTables
+            <bool> params['usePrecomputedTables']
         return <size_t>algo_params
 
     @staticmethod
@@ -349,10 +349,10 @@ class NearestNeighbors(Base):
             'QT_6bit': <int> QuantizerType.QT_6bit,
         }
 
-        algo_params.nlist = <int> params.nlist
-        algo_params.nprobe = <int> params.nprobe
-        algo_params.qtype = <QuantizerType> quantizer_type[params.qtype]
-        algo_params.encodeResidual = <bool> params.encodeResidual
+        algo_params.nlist = <int> params['nlist']
+        algo_params.nprobe = <int> params['nprobe']
+        algo_params.qtype = <QuantizerType> quantizer_type[params['qtype']]
+        algo_params.encodeResidual = <bool> params['encodeResidual']
         return <size_t>algo_params
 
     @staticmethod
