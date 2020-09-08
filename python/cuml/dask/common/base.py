@@ -27,6 +27,8 @@ from cuml.common.array import CumlArray
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.dask.common.comms import CommsContext
 from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.constants import DistributedDatatype
+from cuml.dask.common.input_utils import delayed_to_output
 from cuml.dask.common import parts_to_ranks
 
 from dask_cudf.core import DataFrame as dcDataFrame
@@ -275,15 +277,11 @@ class DelayedParallelFunc(object):
             dtype = first(X.dtypes) if output_dtype is None else output_dtype
 
         else:
-            preds = [func(model_delayed, part[0])
-                     for part in X_d]
+            preds = [func(model_delayed, part[0]) for part in X_d]
             dtype = X.dtype if output_dtype is None else output_dtype
 
-        # TODO: Put the following conditionals in a
-        #  `to_delayed_output()` function
-        # TODO: Add eager path back in
 
-        if output_collection_type == 'cupy':
+        if output_collection_type == DistributedDatatype.CUPY:
 
             # todo: add parameter for option of not checking directly
 
@@ -303,12 +301,16 @@ class DelayedParallelFunc(object):
                                                 )
 
                 return output if delayed else output.persist()
-        else:
+        elif output_collection_type == DistributedDatatype.CUDF:
             if output_futures:
                 return self.client.compute(preds)
             else:
                 output = dask.dataframe.from_delayed(preds)
                 return output if delayed else output.persist()
+
+
+        # return delayed_to_output(preds, dtype, n_dims, output_collection_type,
+        #                          output_futures, self.client)
 
 
 class DelayedPredictionProbaMixin(DelayedParallelFunc):

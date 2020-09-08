@@ -123,3 +123,4 @@ def test_extract_partitions_futures(nrows, ncols, n_parts, X_delayed,
 
     parts = list(map(lambda x: x[1], ddh.gpu_futures))
     assert len(parts) == n_parts
+

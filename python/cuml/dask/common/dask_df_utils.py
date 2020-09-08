@@ -37,13 +37,8 @@ def to_dask_cudf(futures, client=None):
     :return: dask.Dataframe a dask.Dataframe
     """
     c = default_client() if client is None else client
-    # Convert a list of futures containing dfs back into a dask_cudf
-    dfs = [d for d in futures if d.type != type(None)]  # NOQA
-    if logger.should_log_for(logger.level_debug):
-        logger.debug("to_dask_cudf dfs=%s" % str(dfs))
-    meta = c.submit(get_meta, dfs[0])
-    meta_local = meta.result()
-    return dd.from_delayed(dfs, meta=meta_local)
+    meta = c.submit(get_meta, futures[0]).result()
+    return dd.from_delayed(futures, meta=meta)
 
 
 def to_dask_df(dask_cudf, client=None):

@@ -199,8 +199,8 @@ class KNeighborsRegressor(NearestNeighbors):
         comms.destroy()
 
         out = to_output(out_futures, self.datatype)
-        out_i = to_output(out_i_futures, self.datatype)
-        out_d = to_output(out_d_futures, self.datatype)
+
+        # TODO: Remove out_i and out_d from here
         return out, out_i, out_d
 
     def score(self, X, y):

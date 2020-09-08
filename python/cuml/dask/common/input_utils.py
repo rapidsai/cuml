@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 
-
 import cudf
 import cuml.common.logger as logger
 import cupy as cp
 import numpy as np
+import dask
 import dask.array as da
 
 from collections.abc import Sequence
@@ -30,6 +30,8 @@ from cudf.core import DataFrame, Series
 from dask_cudf.core import DataFrame as dcDataFrame
 from dask_cudf.core import Series as daskSeries
 
+
+from cuml.dask.common.constants import DistributedDatatype
 from cuml.dask.common.utils import get_client
 from cuml.dask.common.dask_df_utils import to_dask_cudf
 from cuml.dask.common.dask_arr_utils import validate_dask_array
@@ -158,16 +160,16 @@ def _get_datatype_from_inputs(data):
     Returns
     -------
 
-    datatype : str {'cupy', 'cudf}
+    datatype : DistributedDatatype
     """
 
     multiple = isinstance(data, Sequence)
 
     if isinstance(first(data) if multiple else data,
                   (dcDataFrame, daskSeries)):
-        datatype = 'cudf'
+        datatype = DistributedDatatype.CUDF
     else:
-        datatype = 'cupy'
+        datatype = DistributedDatatype.CUPY
         if multiple:
             for d in data:
                 validate_dask_array(d)
@@ -193,10 +195,12 @@ def concatenate(objs, axis=0):
 
 # TODO: This should be delayed.
 def to_output(futures, type, client=None):
-    if type == 'cupy':
+    if type == DistributedDatatype.CUPY:
         return to_dask_cupy(futures, client=client)
-    else:
+    elif type == DistributedDatatype.CUDF:
         return to_dask_cudf(futures, client=client)
+    else:
+        raise ValueError("Unsupported type %s" % type)
 
 
 def _get_meta(df):
@@ -261,6 +265,21 @@ def _get_rows(objs, multiple):
     return total, reduce(lambda a, b: a + b, total)
 
 
+def to_dask_cupy2(preds, n_dims, dtype):
+    # todo: add parameter for option of not checking directly
+
+    shape = (np.nan,) * n_dims
+    preds_arr = [
+        dask.array.from_delayed(pred,
+                                meta=cp.zeros(1, dtype=dtype),
+                                shape=shape,
+                                dtype=dtype)
+        for pred in preds]
+
+    return dask.array.concatenate(preds_arr, axis=0,
+                                  allow_unknown_chunksizes=True)
+
+
 def to_dask_cupy(futures, dtype=None, shapes=None, client=None):
 
     wait(futures)
@@ -279,3 +298,20 @@ def to_dask_cupy(futures, dtype=None, shapes=None, client=None):
             objs.append(obj)
 
     return da.concatenate(objs, axis=0)
+
+
+def delayed_to_output(preds, dtype, n_dims, output_type,
+              output_futures, client=None):
+
+    client = get_client(client)
+
+    if output_futures:
+        return client.compute(preds)
+
+    if output_type == DistributedDatatype.CUPY:
+        return to_dask_cupy2(preds, n_dims, dtype)
+    elif output_type == DistributedDatatype.CUDF:
+        return dask.dataframe.from_delayed(preds)#to_dask_cudf(preds, client=client)
+
+    else:
+        raise ValueError("Unsupported output type: %s" % output_type)

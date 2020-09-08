@@ -111,6 +111,8 @@ class DecompositionSyncFitMixin(object):
             out_futures = flatten_grouped_results(self.client,
                                                   data.gpu_futures,
                                                   pca_fit)
+
+            #TODO: Convert this output directly from the training results. Don't make it delayed
             return to_output(out_futures, self.datatype)
 
         return self
