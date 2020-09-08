@@ -281,6 +281,9 @@ def to_dask_cupy(futures, dtype=None, shapes=None, client=None):
     return da.concatenate(objs, axis=0)
 
 
+# TODO: We know the inpnut here is delayed, so we can just
+# use the delayed collections directly and call map_blocks
+# or map_partitions. 
 def delayed_to_output(preds, dtype, n_dims, output_type,
               output_futures, client=None):
 
@@ -292,7 +295,7 @@ def delayed_to_output(preds, dtype, n_dims, output_type,
     if output_type == DistributedDatatype.CUPY:
         return to_dask_cupy2(preds, n_dims, dtype)
     elif output_type == DistributedDatatype.CUDF:
-        return dask.dataframe.from_delayed(preds)#to_dask_cudf(preds, client=client)
+        return to_dask_cudf(preds, client=client)
 
     else:
         raise ValueError("Unsupported output type: %s" % output_type)
