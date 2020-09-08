@@ -82,7 +82,7 @@ class DecompositionSyncFitMixin(object):
             self._create_model,
             comms.sessionId,
             self._model_func,
-            self.datatype,
+            self.datatype.value,
             **self.kwargs,
             pure=False,
             workers=[wf[0]]))

@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+from cuml.dask.common.input_utils import DistributedDatatype
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common import parts_to_ranks
@@ -68,6 +69,7 @@ class KNeighborsRegressor(NearestNeighbors):
         self.data_handler = \
             DistributedDataHandler.create(data=[X, y],
                                           client=self.client)
+        self.datatype = self.data_handler.datatype
         self.n_outputs = y.shape[1]
 
         return self
@@ -116,7 +118,6 @@ class KNeighborsRegressor(NearestNeighbors):
         query_handler = \
             DistributedDataHandler.create(data=X,
                                           client=self.client)
-        self.datatype = query_handler.datatype
 
         comms = KNeighborsRegressor._build_comms(self.data_handler,
                                                  query_handler,
@@ -198,9 +199,9 @@ class KNeighborsRegressor(NearestNeighbors):
 
         comms.destroy()
 
-        out = to_output(out_futures, self.datatype)
-
-        # TODO: Remove out_i and out_d from here
+        out = to_output(out_futures, query_handler.datatype)
+        out_i = to_output(out_i_futures, query_handler.datatype)
+        out_d = to_output(out_d_futures, query_handler.datatype)
         return out, out_i, out_d
 
     def score(self, X, y):
@@ -223,7 +224,7 @@ class KNeighborsRegressor(NearestNeighbors):
         """
         labels, _, _ = self.predict(X, convert_dtype=True)
         diff = (labels == y)
-        if self.data_handler.datatype == 'cupy':
+        if self.data_handler.datatype == DistributedDatatype.CUPY:
             mean = da.mean(diff)
             return mean.compute()
         else:

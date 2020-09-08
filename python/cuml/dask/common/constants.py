@@ -17,6 +17,11 @@ from enum import Enum
 
 
 class DistributedDatatype(Enum):
-    CUPY = auto()
-    CUDF = auto()
+    CUPY = "cupy"
+    CUDF = "cudf"
 
+    def __str__(self):
+        return '%s' % self.value
+
+    def __repr__(self):
+        return '%s' % self.value

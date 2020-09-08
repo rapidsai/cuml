@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import cuml.common.logger as logger
 import dask.dataframe as dd
 
 from dask.distributed import default_client
@@ -36,9 +35,7 @@ def to_dask_cudf(futures, client=None):
     :param client: dask.distributed.Client Optional client to use
     :return: dask.Dataframe a dask.Dataframe
     """
-    c = default_client() if client is None else client
-    meta = c.submit(get_meta, futures[0]).result()
-    return dd.from_delayed(futures, meta=meta)
+    return dd.from_delayed(futures)
 
 
 def to_dask_df(dask_cudf, client=None):

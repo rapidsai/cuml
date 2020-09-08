@@ -103,7 +103,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         inp_data = concatenate(objs)
 
-        return cumlKMeans(handle=handle, output_type=datatype,
+        return cumlKMeans(handle=handle, output_type=datatype.value,
                           **kwargs).fit(inp_data)
 
     @staticmethod

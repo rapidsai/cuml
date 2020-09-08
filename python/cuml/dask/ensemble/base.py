@@ -18,6 +18,7 @@ import math
 import numpy as np
 import warnings
 
+from cuml.dask.common.input_utils import DistributedDatatype
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
@@ -95,7 +96,7 @@ class BaseRandomForestModel(object):
         data = DistributedDataHandler.create(dataset, client=self.client)
         self.active_workers = data.workers
         self.datatype = data.datatype
-        if self.datatype == 'cudf':
+        if self.datatype == DistributedDatatype.CUDF:
             has_float64 = (dataset[0].dtypes.any() == np.float64)
         else:
             has_float64 = (dataset[0].dtype == np.float64)
@@ -103,7 +104,7 @@ class BaseRandomForestModel(object):
             raise TypeError("To use Dask RF data should have dtype float32.")
 
         labels = self.client.persist(dataset[1])
-        if self.datatype == 'cudf':
+        if self.datatype == DistributedDatatype.CUDF:
             self.num_classes = len(labels.unique())
         else:
             self.num_classes = \

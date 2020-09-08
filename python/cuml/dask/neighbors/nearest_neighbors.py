@@ -264,10 +264,10 @@ class NearestNeighbors(BaseEstimator):
             ret = nn_fit, out_i_futures if not return_distance else \
                 (nn_fit, out_d_futures, out_i_futures)
         else:
-            ret = to_output(out_i_futures, self.datatype) \
+            ret = to_output(out_i_futures, self.datatype.value) \
                 if not return_distance else (to_output(out_d_futures,
-                                             self.datatype), to_output(
+                                             self.datatype.value), to_output(
                                                  out_i_futures,
-                                                 self.datatype))
+                                                 self.datatype.value))
 
         return ret

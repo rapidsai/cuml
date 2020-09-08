@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+from cuml.dask.common.input_utils import DistributedDatatype
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common import parts_to_ranks
@@ -70,8 +71,10 @@ class KNeighborsClassifier(NearestNeighbors):
             DistributedDataHandler.create(data=[X, y],
                                           client=self.client)
 
+        self.datatype = self.data_handler.datatype
+
         uniq_labels = []
-        if self.data_handler.datatype == 'cupy':
+        if self.data_handler.datatype == DistributedDatatype.CUPY:
             if y.ndim == 1:
                 uniq_labels.append(da.unique(y))
             else:
@@ -143,8 +146,6 @@ class KNeighborsClassifier(NearestNeighbors):
         query_handler = \
             DistributedDataHandler.create(data=X,
                                           client=self.client)
-        self.datatype = query_handler.datatype
-
         comms = KNeighborsClassifier._build_comms(self.data_handler,
                                                   query_handler,
                                                   self.streams_per_handle)
@@ -227,9 +228,9 @@ class KNeighborsClassifier(NearestNeighbors):
 
         comms.destroy()
 
-        out = to_output(out_futures, self.datatype)
-        out_i = to_output(out_i_futures, self.datatype)
-        out_d = to_output(out_d_futures, self.datatype)
+        out = to_output(out_futures, query_handler.datatype)
+        out_i = to_output(out_i_futures, query_handler.datatype)
+        out_d = to_output(out_d_futures, query_handler.datatype)
         return out, out_i, out_d
 
     def score(self, X, y):
@@ -254,7 +255,7 @@ class KNeighborsClassifier(NearestNeighbors):
         """
         labels, _, _ = self.predict(X, convert_dtype=True)
         diff = (labels == y)
-        if self.data_handler.datatype == 'cupy':
+        if self.data_handler.datatype == DistributedDatatype.CUPY:
             mean = da.mean(diff)
             return mean.compute()
         else:
@@ -281,7 +282,6 @@ class KNeighborsClassifier(NearestNeighbors):
         query_handler = \
             DistributedDataHandler.create(data=X,
                                           client=self.client)
-        self.datatype = query_handler.datatype
 
         comms = KNeighborsClassifier._build_comms(self.data_handler,
                                                   query_handler,
@@ -356,7 +356,7 @@ class KNeighborsClassifier(NearestNeighbors):
                                               query_parts_to_ranks,
                                               knn_prob_res,
                                               getter_func=_custom_getter(o))
-            outputs.append(to_output(futures, self.datatype))
+            outputs.append(to_output(futures, query_handler.datatype))
 
         comms.destroy()
 

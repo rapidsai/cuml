@@ -271,6 +271,8 @@ class DelayedParallelFunc(object):
 
         func = dask.delayed(func, pure=False, nout=1)
 
+        # TODO: Below should just be replaced w/ map_blocks and map_partitions
+
         if isinstance(X, dcDataFrame):
 
             preds = [func(model_delayed, part, **kwargs) for part in X_d]
@@ -280,37 +282,8 @@ class DelayedParallelFunc(object):
             preds = [func(model_delayed, part[0]) for part in X_d]
             dtype = X.dtype if output_dtype is None else output_dtype
 
-
-        if output_collection_type == DistributedDatatype.CUPY:
-
-            # todo: add parameter for option of not checking directly
-
-            shape = (np.nan,) * n_dims
-            preds_arr = [
-                dask.array.from_delayed(pred,
-                                        meta=cp.zeros(1, dtype=dtype),
-                                        shape=shape,
-                                        dtype=dtype)
-                for pred in preds]
-
-            if output_futures:
-                return self.client.compute(preds)
-            else:
-                output = dask.array.concatenate(preds_arr, axis=0,
-                                                allow_unknown_chunksizes=True
-                                                )
-
-                return output if delayed else output.persist()
-        elif output_collection_type == DistributedDatatype.CUDF:
-            if output_futures:
-                return self.client.compute(preds)
-            else:
-                output = dask.dataframe.from_delayed(preds)
-                return output if delayed else output.persist()
-
-
-        # return delayed_to_output(preds, dtype, n_dims, output_collection_type,
-        #                          output_futures, self.client)
+        return delayed_to_output(preds, dtype, n_dims, output_collection_type,
+                                 output_futures, self.client)
 
 
 class DelayedPredictionProbaMixin(DelayedParallelFunc):
@@ -372,7 +345,7 @@ class SyncFitMixinLinearModel(object):
                             self.client.submit(
             model_func,
             comms.sessionId,
-            self.datatype,
+            self.datatype.value,
             **self.kwargs,
             pure=False,
             workers=[worker_data[0]]))
