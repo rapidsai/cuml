@@ -433,4 +433,4 @@ def test_lightgbm(tmp_path):
     fil_proba = np.asarray(fm.predict_proba(X))
     fil_proba = np.reshape(fil_proba, np.shape(gbm_proba))
 
-    assert np.allclose(gbm_proba, fil_proba, 1e-3)
+    assert np.allclose(gbm_proba, fil_proba, 1e-2)
