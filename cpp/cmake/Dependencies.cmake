@@ -122,7 +122,7 @@ set(SPDLOG_DIR ${CMAKE_CURRENT_BINARY_DIR}/spdlog CACHE STRING
   "Path to spdlog install directory")
 ExternalProject_Add(spdlog
   GIT_REPOSITORY    https://github.com/gabime/spdlog.git
-  GIT_TAG           v1.x
+  GIT_TAG           v1.7.0
   PREFIX            ${SPDLOG_DIR}
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
@@ -254,4 +254,3 @@ add_dependencies(GTest::GTest spdlog)
 add_dependencies(benchmark GTest::GTest)
 add_dependencies(FAISS::FAISS benchmark)
 add_dependencies(FAISS::FAISS faiss)
-
