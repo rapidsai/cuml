@@ -23,6 +23,8 @@ namespace ML {
 
 namespace kmeans {
 
+namespace impl {
+
 // Selects 'n_clusters' samples randomly from X
 template <typename DataT, typename IndexT>
 void initRandom(const raft::handle_t &handle, const KMeansParams &params,
@@ -45,7 +47,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
          Tensor<DataT, 2, IndexT> &X, Tensor<DataT, 1, IndexT> &weight,
          MLCommon::device_buffer<DataT> &centroidsRawData, DataT &inertia,
          int &n_iter, MLCommon::device_buffer<char> &workspace) {
-          std::cout << "Should not be here" << std::endl;
+  std::cout << "Should not be here" << std::endl;
   ML::Logger::get().setLevel(params.verbosity);
   cudaStream_t stream = handle.get_stream();
   auto n_samples = X.getSize(0);
@@ -460,7 +462,7 @@ void initScalableKMeansPlusPlus(
     KMeansParams default_params;
     default_params.n_clusters = params.n_clusters;
 
-    ML::kmeans::fit(handle, default_params, potentialCentroids, weight,
+    ML::kmeans::impl::fit(handle, default_params, potentialCentroids, weight,
                     centroidsRawData, inertia, n_iter, workspace);
 
   } else if (potentialCentroids.getSize(0) < n_clusters) {
@@ -785,5 +787,6 @@ void transform(const raft::handle_t &handle, const KMeansParams &params,
   }
 }
 
+};
 };  // namespace kmeans
 };  // end namespace ML
