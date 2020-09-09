@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 import ctypes
 from libcpp cimport bool
 

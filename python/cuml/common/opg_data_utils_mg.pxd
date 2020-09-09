@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 # Util functions, will be moved to their own file as the other methods are
 # refactored
 # todo: use cuda_array_interface instead of arr_interfaces for building this

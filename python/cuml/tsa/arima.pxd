@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
     ctypedef struct ARIMAOrder:
         int p  # Basic order
