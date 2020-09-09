@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include <faiss/gpu/GpuIndex.h>
+#include <faiss/gpu/StandardGpuResources.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
-#include <faiss/gpu/StandardGpuResources.h>
-#include <faiss/gpu/GpuIndex.h>
 
 namespace ML {
 
@@ -39,8 +39,8 @@ enum MetricType {
 };
 
 struct knnIndex {
-  faiss::gpu::StandardGpuResources* gpu_res;
-  faiss::gpu::GpuIndex* index;
+  faiss::gpu::StandardGpuResources *gpu_res;
+  faiss::gpu::GpuIndex *index;
   int device;
   ~knnIndex() {
     delete gpu_res;
@@ -68,8 +68,7 @@ struct IVFParam : knnIndexParam {
   int nprobe;
 };
 
-struct IVFFlatParam : IVFParam {
-};
+struct IVFFlatParam : IVFParam {};
 
 struct IVFPQParam : IVFParam {
   int M;
@@ -81,7 +80,6 @@ struct IVFSQParam : IVFParam {
   QuantizerType qtype;
   bool encodeResidual;
 };
-
 
 /**
  * @brief Flat C++ API function to perform a brute force knn on
@@ -113,15 +111,13 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
                      MetricType metric = MetricType::METRIC_L2,
                      float metric_arg = 2.0f, bool expanded = false);
 
-
-void approx_knn_build_index(cumlHandle &handle, ML::knnIndex* index,
-                            ML::knnIndexParam* params, int D,
+void approx_knn_build_index(cumlHandle &handle, ML::knnIndex *index,
+                            ML::knnIndexParam *params, int D,
                             ML::MetricType metric, float metricArg,
                             float *index_items, int n);
 
-void approx_knn_search(ML::knnIndex* index, int n,
-                       const float* x, int k,
-                       float* distances, int64_t* labels);
+void approx_knn_search(ML::knnIndex *index, int n, const float *x, int k,
+                       float *distances, int64_t *labels);
 
 /**
  * @brief Flat C++ API function to perform a knn classification using a

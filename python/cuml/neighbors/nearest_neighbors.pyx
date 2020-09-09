@@ -164,9 +164,10 @@ class NearestNeighbors(Base):
         The cumlHandle resources to use
     algorithm : string (default='brute')
         The query algorithm to use. Valid options are 'brute' for brute-force,
-        'ivfflat' for inverted file, 'ivfpq' for inverted file and product quantizization,
-        and 'ivfsq' for inverted file and scalar quantizization (for more information
-        please refer to FAISS documentation)
+        'ivfflat' for inverted file, 'ivfpq' for inverted file and
+        product quantizization, and 'ivfsq' for inverted file and
+        scalar quantizization (for more information please refer
+        to FAISS documentation)
     metric : string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
@@ -178,22 +179,24 @@ class NearestNeighbors(Base):
         Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
         by using the expanded form and not computing the n-th roots.
     metric_params : dict, optional (default = None) This is currently ignored.
-    algo_params : dict, optional (default = None) Used to configure the nearest neighbor algorithm to be used.
+    algo_params : dict, optional (default = None) Used to configure the
+        nearest neighbor algorithm to be used.
         If set to None, parameters will be generated automatically.
         In ivfflat mode, set parameters:
             - nlist : (int) number of cells to partition dataset into
-            - nprobe : (int) at query time, number of cells in which to perform search
+            - nprobe : (int) at query time, number of cells used for search
         In ivfpq mode, please set parameters:
             - nlist : (int) number of cells to partition dataset into
-            - nprobe : (int) at query time, number of cells in which to perform search
+            - nprobe : (int) at query time, number of cells used for search
             - M : (int) number of subquantizers
             - n_bits : (int) bits allocated per subquantizer
             - usePrecomputedTables : (bool) wether to use precomputed tables
         In ivfsq mode, please set parameters:
             - nlist : (int) number of cells to partition dataset into
-            - nprobe : (int) at query time, number of cells in which to perform search
-            - qtype : (string) quantizer type (among QT_8bit, QT_4bit, QT_8bit_uniform,
-                QT_4bit_uniform, QT_fp16, QT_8bit_direct, QT_6bit)
+            - nprobe : (int) at query time, number of cells used for search
+            - qtype : (string) quantizer type (among QT_8bit, QT_4bit,
+                QT_8bit_uniform, QT_4bit_uniform, QT_fp16, QT_8bit_direct,
+                QT_6bit)
             - encodeResidual : (bool) wether to encode residuals
 
 
@@ -308,9 +311,11 @@ class NearestNeighbors(Base):
             if algo == 'ivfflat':
                 check_param_list(params, ['nlist', 'nprobe'])
             elif algo == "ivfpq":
-                check_param_list(params, ['nlist', 'nprobe', 'M', 'n_bits', 'usePrecomputedTables'])
+                check_param_list(params, ['nlist', 'nprobe', 'M', 'n_bits',
+                                          'usePrecomputedTables'])
             elif algo == "ivfsq":
-                check_param_list(params, ['nlist', 'nprobe', 'qtype', 'encodeResidual'])
+                check_param_list(params, ['nlist', 'nprobe', 'qtype',
+                                          'encodeResidual'])
 
     @staticmethod
     def _build_ivfflat_algo_params(params, automated):
@@ -380,8 +385,7 @@ class NearestNeighbors(Base):
     @staticmethod
     def _destroy_algo_params(ptr):
         cdef knnIndexParam* algo_params = <knnIndexParam*> <uintptr_t> ptr
-        if algo_params:
-            del algo_params
+        del algo_params
 
     @generate_docstring()
     def fit(self, X, convert_dtype=True):
@@ -406,24 +410,26 @@ class NearestNeighbors(Base):
         self.n_rows = n_rows
         self.n_indices = 1
 
-        cdef cumlHandle* handle_ = <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef cumlHandle* handle_ = <cumlHandle*><uintptr_t> \
+            self.handle.getHandle()
         cdef knnIndex* knn_index = <knnIndex*> 0
         cdef knnIndexParam* algo_params = <knnIndexParam*> 0
         if not self.algorithm == 'brute':
             knn_index = new knnIndex()
             self.knn_index = <uintptr_t> knn_index
-            algo_params =  <knnIndexParam*> <uintptr_t> \
-                NearestNeighbors._build_algo_params(self.algorithm, self.algo_params)
+            algo_params = <knnIndexParam*><uintptr_t> \
+                NearestNeighbors._build_algo_params(self.algorithm,
+                                                    self.algo_params)
             metric, expanded = self._build_metric_type(self.metric)
 
             approx_knn_build_index(handle_[0],
-                <knnIndex*>knn_index,
-                <knnIndexParam*>algo_params,
-                <int>n_cols,
-                <MetricType>metric,
-                <float>self.p,
-                <float*><uintptr_t>self._X_m.ptr,
-                <int>n_rows)
+                                   <knnIndex*>knn_index,
+                                   <knnIndexParam*>algo_params,
+                                   <int>n_cols,
+                                   <MetricType>metric,
+                                   <float>self.p,
+                                   <float*><uintptr_t>self._X_m.ptr,
+                                   <int>n_rows)
             self.handle.sync()
 
             NearestNeighbors._destroy_algo_params(<uintptr_t>algo_params)
@@ -584,7 +590,8 @@ class NearestNeighbors(Base):
         inputs.push_back(<float*>idx_ptr)
         sizes.push_back(<int>self._X_m.shape[0])
 
-        cdef cumlHandle* handle_ = <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef cumlHandle* handle_ = <cumlHandle*><uintptr_t> \
+            self.handle.getHandle()
 
         cdef uintptr_t x_ctype_st = X_m.ptr
 
@@ -715,8 +722,9 @@ class NearestNeighbors(Base):
             return sparse_csr
 
     def __del__(self):
-        cdef knnIndex* knn_index = <knnIndex*> <uintptr_t> self.knn_index
-        del knn_index
+        cdef knnIndex* knn_index = <knnIndex*><uintptr_t>self.knn_index
+        if knn_index:
+            del knn_index
 
 
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
