@@ -66,6 +66,13 @@ class SparseKNNTest
     updateDevice(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
                  stream);
 
+    /**
+     * array([[0.        , 7.87400787, 7.87400787, 1.41421356],
+       [7.87400787, 0.        , 8.48528137, 7.87400787],
+       [7.87400787, 8.48528137, 0.        , 7.87400787],
+       [1.41421356, 7.87400787, 7.87400787, 0.        ]])
+
+     */
     allocate(out_dists, 4 * k);
     allocate(out_indices, 4 * k);
   }

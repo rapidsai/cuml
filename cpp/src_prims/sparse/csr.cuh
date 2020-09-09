@@ -264,11 +264,15 @@ void csr_to_dense(cusparseHandle_t handle, value_idx nrows, value_idx ncols,
                   cudaStream_t stream) {
   cusparseMatDescr_t out_mat;
   CUSPARSE_CHECK(cusparseCreateMatDescr(&out_mat));
+  CUSPARSE_CHECK(cusparseSetMatIndexBase(out_mat, CUSPARSE_INDEX_BASE_ZERO));
+  CUSPARSE_CHECK(cusparseSetMatType(out_mat, CUSPARSE_MATRIX_TYPE_GENERAL));
 
   value_idx lda = row_major ? ncols : nrows;
   CUSPARSE_CHECK(
     raft::sparse::cusparsecsr2dense(handle, nrows, ncols, out_mat, csr_data,
                                     csr_indptr, csr_indices, out, lda, stream));
+
+  CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(out_mat));
 }
 
 template <typename value_idx, typename value_t>

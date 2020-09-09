@@ -90,12 +90,27 @@ struct ip_distances_t {
     compute(out_batch_indptr.data(), out_batch_indices.data(),
             out_batch_data.data());
 
+    std::cout << arr2Str(out_batch_indptr.data(), out_batch_indptr.size(),
+                         "out_batch_indptr", config_.stream) << std::endl;
+    std::cout << arr2Str(out_batch_indices.data(), out_batch_indices.size(),
+                         "out_batch_indices", config_.stream) << std::endl;
+    std::cout << arr2Str(out_batch_data.data(), out_batch_data.size(),
+                         "out_batch_data", config_.stream) << std::endl;
+
+
+    CUML_LOG_DEBUG("Convertint to dense. rows=%d, cols=%d", config_.search_nrows, config_.index_nrows);
+
+
     /**
        * Convert output to dense
        */
     csr_to_dense(config_.handle, config_.search_nrows, config_.index_nrows,
                  out_batch_indptr.data(), out_batch_indices.data(),
                  out_batch_data.data(), true, out_distances, config_.stream);
+
+    std::cout << arr2Str(out_distances, config_.search_nrows * config_.index_nrows,
+                         "out_distances", config_.stream) << std::endl;
+
   }
 
   ~ip_distances_t() {
@@ -185,8 +200,6 @@ __global__ void compute_euclidean_kernel(value_t *C, const value_t *Q_sq_norms,
   if (i < n_rows && j < n_cols) {
 	value_t val = R_sq_norms[i] + Q_sq_norms[j] - 2.0 * C[i * n_cols + j];
 
-  printf("i=%d, j=%d, Q=%f, R=%f, C=%f, val=%f\n", i, j, Q_sq_norms[j], R_sq_norms[i], C[i * n_cols + j], val);
-
 	if(fabsf(val) < 0.00001)
 		val = 0.0;
 
@@ -206,8 +219,6 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
   CUDA_CHECK(
     cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size() * sizeof(value_t)));
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
   device_buffer<value_t> R_sq_norms(alloc, stream, n);
   CUDA_CHECK(
     cudaMemsetAsync(R_sq_norms.data(), 0, R_sq_norms.size() * sizeof(value_t)));
@@ -216,12 +227,6 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
     Q_sq_norms.data(), Q_coo_rows, Q_data, Q_nnz);
   compute_sq_norm_kernel<<<ceildiv(R_nnz, tpb), tpb, 0, stream>>>(
     R_sq_norms.data(), R_coo_rows, R_data, R_nnz);
-
-  std::cout << arr2Str(Q_sq_norms.data(), m,
-                       "q norms", stream) << std::endl;
-
-  std::cout << arr2Str(R_sq_norms.data(), n,
-                       "r norms", stream) << std::endl;
 
   compute_euclidean_kernel<<<ceildiv(m * n, tpb), tpb, 0, stream>>>(
     out, Q_sq_norms.data(), R_sq_norms.data(), m, n);
@@ -241,13 +246,10 @@ struct l2_distances_t {
 
   void compute(value_t *out_dists) {
 
-	CUML_LOG_DEBUG("Computing inner products");
+	  CUML_LOG_DEBUG("Computing inner products");
     ip_dists.compute(out_dists);
 
     CUDA_CHECK(cudaStreamSynchronize(config_.stream));
-
-    std::cout << arr2Str(out_dists, config_.search_nrows * config_.index_nrows,
-                         "inner products", config_.stream) << std::endl;
 
     CUML_LOG_DEBUG("Computing COO row index array");
     device_buffer<value_idx> search_coo_rows(config_.allocator, config_.stream,

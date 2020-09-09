@@ -315,8 +315,6 @@ def test_sparse_nearest_neighbors_euclidean():
 
     print(str(a.data))
 
-    print("Done generating data")
-
     logger.set_level(logger.level_debug)
 
     nn = cuKNN(metric='euclidean', n_neighbors=4, verbose=logger.level_debug)
@@ -324,16 +322,10 @@ def test_sparse_nearest_neighbors_euclidean():
 
     cuD, cuI = nn.kneighbors(a)
 
-    print(str(cuD))
-    print(str(cuI))
-
     sknn = skKNN(metric='euclidean', n_neighbors=4)
     sknn.fit(a.todense().get())
 
     skD, skI = sknn.kneighbors(a.todense().get())
 
-    print(str(skD))
-    print(str(skI))
-    #
-    # cp.testing.assert_allclose(cuD, skD, atol=1e-6, rtol=1e-6)
-    # cp.testing.assert_allclose(cuI, skI, atol=1e-6, rtol=1e-6)
+    cp.testing.assert_allclose(cuD, skD, atol=1e-5, rtol=1e-5)
+    cp.testing.assert_allclose(cuI, skI, atol=1e-5, rtol=1e-5)

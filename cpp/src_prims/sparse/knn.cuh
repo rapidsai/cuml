@@ -145,114 +145,101 @@ void brute_force_knn(
   bool expanded_form = false) {
   using namespace raft::sparse;
 
-  int n_batches_query = ceildiv((size_t)n_query_rows, batch_size);
   bool ascending = true;
   if (metric == ML::MetricType::METRIC_INNER_PRODUCT) ascending = false;
 
-  csr_batcher_t<value_idx, value_t> query_batcher(
-    batch_size, n_query_rows, queryIndptr, queryIndices, queryData);
+  CUML_LOG_DEBUG("n_query_rows=%d, n_idx_rows=%d", n_query_rows, n_idx_rows);
+
+  int n_batches_idx = ceildiv((size_t)n_idx_rows, batch_size);
+  csr_batcher_t<value_idx, value_t> idx_batcher(
+    batch_size, n_idx_rows, idxIndptr, idxIndices, idxData);
 
   size_t rows_processed = 0;
 
-  for (int i = 0; i < n_batches_query; i++) {
-
-	CUML_LOG_DEBUG("Beginning query batch %d", i);
-    query_batcher.set_batch(i);
+  for (int i = 0; i < n_batches_idx; i++) {
 
     /**
-	 * Slice CSR to rows in batch
-	 */
-    CUML_LOG_DEBUG("Slicing query CSR for batch. rows=%d out of %d", query_batcher.batch_rows(), n_query_rows);
-    device_buffer<value_idx> query_batch_indptr(allocator, stream,
-                                                query_batcher.batch_rows() + 1);
+  * Compute index batch info
+*/
+    CUML_LOG_DEBUG("Beginning index batch %d", i);
+    idx_batcher.set_batch(i);
 
-    value_idx n_query_batch_nnz =
-      query_batcher.get_batch_csr_indptr_nnz(query_batch_indptr.data(), stream);
+    /**
+      * Slice CSR to rows in batch
+   */
+    CUML_LOG_DEBUG("Slicing index CSR for batch. rows=%d out of %d",
+                   idx_batcher.batch_rows(), n_idx_rows);
+    device_buffer<value_idx> idx_batch_indptr(allocator, stream,
+                                              idx_batcher.batch_rows() + 1);
+    device_buffer<value_idx> idx_batch_indices(allocator, stream, 0);
+    device_buffer<value_t> idx_batch_data(allocator, stream, 0);
 
-    device_buffer<value_idx> query_batch_indices(allocator, stream,
-                                                 n_query_batch_nnz);
-    device_buffer<value_t> query_batch_data(allocator, stream,
-                                            n_query_batch_nnz);
+    value_idx idx_batch_nnz =
+      idx_batcher.get_batch_csr_indptr_nnz(idx_batch_indptr.data(), stream);
 
-    query_batcher.get_batch_csr_indices_data(query_batch_indices.data(),
-                                             query_batch_data.data(), stream);
+    idx_batch_indices.resize(idx_batch_nnz, stream);
+    idx_batch_data.resize(idx_batch_nnz, stream);
 
-    std::cout << arr2Str(query_batch_indptr.data(), query_batch_indptr.size(), "query indptr", stream) << std::endl;
-    std::cout << arr2Str(query_batch_indices.data(), query_batch_indices.size(), "query indices", stream) << std::endl;
-    std::cout << arr2Str(query_batch_data.data(), query_batch_data.size(), "query data", stream) << std::endl;
+    idx_batcher.get_batch_csr_indices_data(idx_batch_indices.data(),
+                                           idx_batch_data.data(), stream);
 
+    /**
+     * Transpose index array into csc
+     */
+    CUML_LOG_DEBUG("Transposing index CSR. rows=%d, cols=%d, nnz=%d",
+                   idx_batcher.batch_rows(), n_idx_cols, idx_batch_nnz);
+    device_buffer<value_idx> csc_idx_batch_indptr(allocator, stream,
+                                                  n_idx_cols + 1);
+    device_buffer<value_idx> csc_idx_batch_indices(allocator, stream,
+                                                   idx_batch_nnz);
+    device_buffer<value_t> csc_idx_batch_data(allocator, stream,
+                                              idx_batch_nnz);
+
+    csr_transpose(cusparseHandle, idx_batch_indptr.data(),
+                  idx_batch_indices.data(), idx_batch_data.data(),
+                  csc_idx_batch_indptr.data(), csc_idx_batch_indices.data(),
+                  csc_idx_batch_data.data(), idx_batcher.batch_rows(),
+                  n_idx_cols, idx_batch_nnz, allocator, stream);
+
+    int n_batches_query = ceildiv((size_t)n_query_rows, batch_size);
+    csr_batcher_t<value_idx, value_t> query_batcher(
+      batch_size, n_query_rows, queryIndptr, queryIndices, queryData);
 
     // A 3-partition temporary merge space to scale the batching. 2 parts for subsequent
     // batches and 1 space for the results of the merge, which get copied back to the top
-    device_buffer<value_idx> merge_buffer_indices(
-      allocator, stream, k * query_batcher.batch_rows() * 3);
-    device_buffer<value_t> merge_buffer_dists(
-      allocator, stream, k * query_batcher.batch_rows() * 3);
+    device_buffer<value_idx> merge_buffer_indices(allocator, stream, 0);
+    device_buffer<value_t> merge_buffer_dists(allocator, stream, 0);
 
     value_t *dists_merge_buffer_ptr;
     value_idx *indices_merge_buffer_ptr;
 
-    int n_batches_idx = ceildiv((size_t)n_idx_rows, batch_size);
 
-    csr_batcher_t<value_idx, value_t> idx_batcher(
-      batch_size, n_idx_rows, idxIndptr, idxIndices, idxData);
+    for (int j = 0; j < n_batches_query; j++) {
 
-    for (int j = 0; j < n_batches_idx; j++) {
-      /**
-        * Compute index batch info
-		*/
-      CUML_LOG_DEBUG("Beginning index batch %d", j);
-      idx_batcher.set_batch(j);
+      CUML_LOG_DEBUG("Beginning query batch %d", j);
+      query_batcher.set_batch(j);
+
+      merge_buffer_indices.resize(query_batcher.batch_rows() * k * 3, stream);
+      merge_buffer_dists.resize(query_batcher.batch_rows() * k * 3, stream);
 
       /**
-   	   * Slice CSR to rows in batch
-	   */
-      CUML_LOG_DEBUG("Slicing index CSR for batch. rows=%d out of %d", idx_batcher.batch_rows(), n_idx_rows);
-      device_buffer<value_idx> idx_batch_indptr(allocator, stream,
-                                                idx_batcher.batch_rows() + 1);
-      device_buffer<value_idx> idx_batch_indices(allocator, stream, 0);
-      device_buffer<value_t> idx_batch_data(allocator, stream, 0);
+     * Slice CSR to rows in batch
+     */
+      CUML_LOG_DEBUG("Slicing query CSR for batch. rows=%d out of %d",
+                     query_batcher.batch_rows(), n_query_rows);
+      device_buffer<value_idx> query_batch_indptr(allocator, stream,
+                                                  query_batcher.batch_rows() + 1);
 
-      value_idx idx_batch_nnz =
-        idx_batcher.get_batch_csr_indptr_nnz(idx_batch_indptr.data(), stream);
+      value_idx n_query_batch_nnz =
+        query_batcher.get_batch_csr_indptr_nnz(query_batch_indptr.data(), stream);
 
-      idx_batch_indices.resize(idx_batch_nnz, stream);
-      idx_batch_data.resize(idx_batch_nnz, stream);
+      device_buffer<value_idx> query_batch_indices(allocator, stream,
+                                                   n_query_batch_nnz);
+      device_buffer<value_t> query_batch_data(allocator, stream,
+                                              n_query_batch_nnz);
 
-      idx_batcher.get_batch_csr_indices_data(idx_batch_indices.data(),
-                                             idx_batch_data.data(), stream);
-
-      std::cout << arr2Str(idx_batch_indptr.data(), idx_batch_indptr.size(), "idx indptr", stream) << std::endl;
-      std::cout << arr2Str(idx_batch_indices.data(), idx_batch_indices.size(), "idx indices", stream) << std::endl;
-      std::cout << arr2Str(idx_batch_data.data(), idx_batch_data.size(), "idx data", stream) << std::endl;
-
-
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-
-      /**
-       * Transpose index array into csc
-       */
-      CUML_LOG_DEBUG("Transposing index CSR. rows=%d, cols=%d, nnz=%d", idx_batcher.batch_rows(), n_idx_cols, idx_batch_nnz);
-      device_buffer<value_idx> csc_idx_batch_indptr(allocator, stream,
-                                                    n_idx_cols + 1);
-      device_buffer<value_idx> csc_idx_batch_indices(allocator, stream,
-                                                     idx_batch_nnz);
-      device_buffer<value_t> csc_idx_batch_data(allocator, stream,
-                                                idx_batch_nnz);
-
-      csr_transpose(cusparseHandle, idx_batch_indptr.data(),
-                    idx_batch_indices.data(), idx_batch_data.data(),
-                    csc_idx_batch_indptr.data(), csc_idx_batch_indices.data(),
-                    csc_idx_batch_data.data(), idx_batcher.batch_rows(),
-                    n_idx_cols, idx_batch_nnz, allocator, stream);
-
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-
-
-      std::cout << arr2Str(csc_idx_batch_indptr.data(), csc_idx_batch_indptr.size(), "csc idx indptr", stream) << std::endl;
-      std::cout << arr2Str(csc_idx_batch_indices.data(), csc_idx_batch_indices.size(), "csc idx indices", stream) << std::endl;
-      std::cout << arr2Str(csc_idx_batch_data.data(), csc_idx_batch_data.size(), "csc idx data", stream) << std::endl;
-
+      query_batcher.get_batch_csr_indices_data(query_batch_indices.data(),
+                                               query_batch_data.data(), stream);
 
       /**
        * Compute distances
@@ -294,16 +281,9 @@ void brute_force_knn(
         throw "MetricType not supported";
       }
 
-      std::cout << arr2Str(batch_dists.data(), batch_dists.size(), "batch_dists", stream) << std::endl;
-
-
-      idx_batch_indptr.release(stream);
-      idx_batch_indices.release(stream);
-      idx_batch_data.release(stream);
-
-      csc_idx_batch_indptr.release(stream);
-      csc_idx_batch_indices.release(stream);
-      csc_idx_batch_data.release(stream);
+      query_batch_indptr.release(stream);
+      query_batch_indices.release(stream);
+      query_batch_data.release(stream);
 
       // Build batch indices array
       device_buffer<value_idx> batch_indices(allocator, stream,
@@ -315,6 +295,7 @@ void brute_force_knn(
       iota_fill_kernel<<<ceildiv(batch_rows * batch_cols, 256), 256, 0,
                          stream>>>(batch_indices.data(), batch_rows,
                                    batch_cols);
+
 
       /**
        * Perform k-selection on batch & merge with other k-selections
@@ -329,19 +310,13 @@ void brute_force_knn(
       // build translation buffer to shift resulting indices by the batch
       std::vector<value_idx> id_ranges;
       id_ranges.push_back(0);
-      id_ranges.push_back(idx_batcher.batch_start());
+      id_ranges.push_back(query_batcher.batch_start());
+
 
       // kernel to slice first (min) k cols and copy into batched merge buffer
       select_k(batch_dists.data(), batch_indices.data(), batch_rows, batch_cols,
                dists_merge_buffer_ptr, indices_merge_buffer_ptr, ascending, k,
                stream, 0);
-
-      std::cout << arr2Str(merge_buffer_dists.data(), query_batcher.batch_rows()*k * 2, "dists_merge_buff", stream) << std::endl;
-      std::cout << arr2Str(merge_buffer_indices.data(), query_batcher.batch_rows()*k * 2, "inds_merge_buff", stream) << std::endl;
-
-      std::cout << arr2Str(dists_merge_buffer_ptr, query_batcher.batch_rows()*k, "dists_merge_buff_ptr", stream) << std::endl;
-      std::cout << arr2Str(indices_merge_buffer_ptr, query_batcher.batch_rows()*k, "inds_merge_buff_ptr", stream) << std::endl;
-
 
       // Perform necessary post-processing
       if ((metric == ML::MetricType::METRIC_L2 ||
@@ -364,12 +339,12 @@ void brute_force_knn(
       value_idx *indices_merge_buffer_tmp_ptr = indices_merge_buffer_ptr;
 
       // Merge results of difference batches if necessary
-      if (idx_batcher.batch_start() > 0) {
+      if (query_batcher.batch_start() > 0) {
 
-		device_buffer<value_idx> trans(allocator, stream, id_ranges.size());
-		updateDevice(trans.data(), id_ranges.data(), id_ranges.size(), stream);
+        device_buffer<value_idx> trans(allocator, stream, id_ranges.size());
+        updateDevice(trans.data(), id_ranges.data(), id_ranges.size(), stream);
 
-		size_t merge_buffer_tmp_out = batch_rows * k * 2;
+        size_t merge_buffer_tmp_out = batch_rows * k * 2;
         dists_merge_buffer_tmp_ptr =
           merge_buffer_dists.data() + merge_buffer_tmp_out;
         indices_merge_buffer_tmp_ptr =
@@ -383,11 +358,6 @@ void brute_force_knn(
           dists_merge_buffer_tmp_ptr, indices_merge_buffer_tmp_ptr,
           query_batcher.batch_rows(), 2, k, stream, trans.data());
 
-        CUDA_CHECK(cudaStreamSynchronize(stream));
-
-        std::cout << arr2Str(dists_merge_buffer_tmp_ptr, query_batcher.batch_rows()*k, "dists_tmp_ptr", stream) << std::endl;
-        std::cout << arr2Str(indices_merge_buffer_tmp_ptr, query_batcher.batch_rows()*k, "inds_tmp_ptr", stream) << std::endl;
-
         CUML_LOG_DEBUG("Done.");
       }
 
@@ -399,12 +369,6 @@ void brute_force_knn(
                 batch_rows * k, stream);
       copyAsync<value_t>(merge_buffer_dists.data(), dists_merge_buffer_tmp_ptr,
                 batch_rows * k, stream);
-
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-
-      std::cout << arr2Str(merge_buffer_dists.data(), query_batcher.batch_rows()*k * 2, "dists_merge_buff", stream) << std::endl;
-      std::cout << arr2Str(merge_buffer_indices.data(), query_batcher.batch_rows()*k * 2, "inds_merge_buff", stream) << std::endl;
-
 
       CUML_LOG_DEBUG("Done.");
 
