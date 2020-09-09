@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 from libcpp cimport bool
 
 ctypedef int underlying_type_t_solver

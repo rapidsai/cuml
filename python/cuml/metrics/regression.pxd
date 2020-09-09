@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 from cuml.common.handle cimport cumlHandle
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":

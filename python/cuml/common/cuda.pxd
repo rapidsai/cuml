@@ -14,9 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
-
 # Populate this with more typedef's (eg: events) as and when needed
 cdef extern from * nogil:
     ctypedef void* _Stream "cudaStream_t"

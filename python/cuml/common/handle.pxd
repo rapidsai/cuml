@@ -14,9 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
-
 from libcpp.memory cimport shared_ptr
 cimport cuml.common.cuda
 
