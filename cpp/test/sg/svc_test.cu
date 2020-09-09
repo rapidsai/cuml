@@ -401,7 +401,7 @@ template <typename math_t>
 class SmoUpdateTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    stream = handle.get_internal_stream(0);
+    stream = handle.get_stream();
     cublasHandle_t cublas_handle = handle.get_cublas_handle();
     allocate(f_dev, n_rows, true);
     allocate(kernel_dev, n_rows * n_ws);
@@ -1115,7 +1115,7 @@ TYPED_TEST(SmoSolverTest, MemoryLeak) {
     if (d.second == ThrowException::Yes) {
       // We want to check whether we leak any memory while we unwind the stack
       EXPECT_THROW(svc.fit(x.data(), p.n_rows, p.n_cols, y.data()),
-                   MLCommon::Exception);
+                   raft::exception);
     } else {
       svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
       device_buffer<TypeParam> y_pred(this->handle.get_device_allocator(),

@@ -65,9 +65,11 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     device_buffer<int> labels(handle.get_device_allocator(),
                               handle.get_stream(), n_samples);
 
+    std::cout << "before make blobs" << std::endl;
     make_blobs(handle, X.data(), labels.data(), n_samples, n_features,
                params.n_clusters, true, nullptr, nullptr, 1.0, false, -10.0f,
                10.0f, 1234ULL);
+    std::cout << "after make blobs" << std::endl;
 
     allocate(d_labels, n_samples);
     allocate(d_labels_ref, n_samples);
@@ -87,9 +89,11 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
     T inertia = 0;
     int n_iter = 0;
+    std::cout << "before fit predict" << std::endl;
     kmeans::fit_predict(handle, params, X.data(), n_samples, n_features,
                         d_sample_weight, d_centroids, d_labels, inertia,
                         n_iter);
+    std::cout << "after fit predict" << std::endl;
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 

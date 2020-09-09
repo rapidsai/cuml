@@ -26,7 +26,9 @@ void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
                  const float *sample_weight, float *centroids, int *labels,
                  float &inertia, int &n_iter) {
   const raft::handle_t &h = handle;
+  std::cout << "Before stream sync" << std::endl;
   raft::stream_syncer _(h);
+  std::cout << "After stream sync" << std::endl;
 
   fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia,
       n_iter);

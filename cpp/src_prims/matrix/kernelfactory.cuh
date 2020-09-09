@@ -48,7 +48,7 @@ class KernelFactory {
         res = new RBFKernel<math_t>(gamma);
         break;
       default:
-        throw MLCommon::Exception("Kernel not implemented");
+        throw raft::exception("Kernel not implemented");
     }
     return res;
   }
