@@ -343,7 +343,7 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
     default_params.n_clusters = params.n_clusters;
 
     ML::kmeans::impl::fit(handle, default_params, potentialCentroids, weight,
-                    centroidsRawData, inertia, n_iter, workspace);
+                          centroidsRawData, inertia, n_iter, workspace);
 
   } else if (potentialCentroids.getSize(0) < n_clusters) {
     // supplement with random
@@ -624,13 +624,12 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
     LOG(handle,
         "KMeans.fit: initialize cluster centers by randomly choosing from the "
         "input data.\n");
-   initRandom(handle, params, data, centroidsRawData);
+    initRandom(handle, params, data, centroidsRawData);
   } else if (params.init == KMeansParams::InitMethod::KMeansPlusPlus) {
     // default method to initialize is kmeans++
     LOG(handle,
         "KMeans.fit: initialize cluster centers using k-means++ algorithm.\n");
-    initKMeansPlusPlus(handle, params, data, centroidsRawData,
-                                        workspace);
+    initKMeansPlusPlus(handle, params, data, centroidsRawData, workspace);
   } else if (params.init == KMeansParams::InitMethod::Array) {
     LOG(handle,
         "KMeans.fit: initialize cluster centers from the ndarray array input "
@@ -648,8 +647,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
     THROW("unknown initialization method to select initial centers");
   }
 
-  fit(handle, params, data, centroidsRawData, inertia, n_iter,
-                       workspace);
+  fit(handle, params, data, centroidsRawData, inertia, n_iter, workspace);
 
   MLCommon::copy(centroids, centroidsRawData.data(),
                  params.n_clusters * n_features, stream);
