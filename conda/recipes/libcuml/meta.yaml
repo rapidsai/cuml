@@ -4,7 +4,6 @@
 #   conda build . -c defaults -c conda-forge -c nvidia -c rapidsai -c pytorch
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
 {% set minor_version =  version.split('.')[0] + '.' + version.split('.')[1] %}
-{% set git_revision_count=environ.get('GIT_DESCRIBE_NUMBER', 0) %}
 {% set cuda_version='.'.join(environ.get('CUDA', '9.2').split('.')[:2]) %}
 {% set cuda_major = environ.get('CUDA', '9.2').split('.')[0] %}
 {% set cuda_minor = environ.get('CUDA', '9.2').split('.')[1] %}
@@ -13,11 +12,11 @@ package:
   version: {{ version }}
 
 source:
-  path: ../../..
+  git_url: ../../..
 
 build:
-  number: {{ git_revision_count }}
-  string: cuda{{ cuda_version }}_{{ git_revision_count }}
+  number: {{ GIT_DESCRIBE_NUMBER }}
+  string: cuda{{ cuda_version }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
   script_env:
     - CC
     - CXX
@@ -31,19 +30,25 @@ requirements:
     - clang=8.0.1
     - clang-tools=8.0.1
   host:
-    - nccl 2.5.*
+    - nccl >=2.5
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
-    - libcumlprims=0.14.*
     - ucx-py {{ minor_version }}
+    - libcumlprims=0.16.0a200821
     - lapack
-    - protobuf >=3.4.1,<4.0.0
+    - treelite=0.92
+    - faiss-proc=*=cuda
+    - gtest=1.10.0
+    - libfaiss
   run:
-    - libcumlprims=0.14.*
+    - libcumlprims=0.16.0a200821
     - cudf {{ minor_version }}
     - nccl>=2.5
     - ucx-py {{ minor_version }}
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
+    - treelite=0.92
+    - faiss-proc=*=cuda
+    - libfaiss
 
 about:
   home: http://rapids.ai/

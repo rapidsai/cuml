@@ -18,7 +18,7 @@
 #include <common/cudart_utils.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/cusolver_wrappers.h>
-#include <sparse/cusparse_wrappers.h>
+#include <raft/sparse/cusparse_wrappers.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
 
@@ -71,7 +71,18 @@ using MLCommon::defaultDeviceAllocator;
 using MLCommon::defaultHostAllocator;
 
 cumlHandle_impl::cumlHandle_impl(int n_streams)
-  : _dev_id([]() -> int {
+  : _cublas_handle(),
+    _cusolverDn_handle(),
+    _cusolverSp_handle(),
+    _cusparse_handle(),
+    _userStream(nullptr),
+    _event(),
+    _deviceAllocator(std::make_shared<defaultDeviceAllocator>()),
+    _hostAllocator(std::make_shared<defaultHostAllocator>()),
+    _communicator(),
+    _streams(),
+    _prop(),
+    _dev_id([]() -> int {
       int cur_dev = -1;
       CUDA_CHECK(cudaGetDevice(&cur_dev));
       return cur_dev;
@@ -81,9 +92,6 @@ cumlHandle_impl::cumlHandle_impl(int n_streams)
     _cusolverDnInitialized(false),
     _cusolverSpInitialized(false),
     _cusparseInitialized(false),
-    _deviceAllocator(std::make_shared<defaultDeviceAllocator>()),
-    _hostAllocator(std::make_shared<defaultHostAllocator>()),
-    _userStream(NULL),
     _devicePropInitialized(false) {
   createResources();
 }

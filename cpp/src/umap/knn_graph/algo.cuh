@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 #include <cuml/manifold/umapparams.h>
 #include <iostream>
-#include "linalg/unary_op.cuh"
-#include "selection/knn.cuh"
+#include <linalg/unary_op.cuh>
+#include <selection/knn.cuh>
 
 #pragma once
 

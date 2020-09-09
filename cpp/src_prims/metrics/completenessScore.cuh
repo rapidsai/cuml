@@ -22,10 +22,10 @@
 
 #pragma once
 
+#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
-#include "common/device_buffer.hpp"
-#include "metrics/entropy.cuh"
-#include "metrics/mutualInfoScore.cuh"
+#include "entropy.cuh"
+#include "mutualInfoScore.cuh"
 
 namespace MLCommon {
 namespace Metrics {

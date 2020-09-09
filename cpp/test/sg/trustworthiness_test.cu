@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -422,7 +422,8 @@ class TrustworthinessScoreTest : public ::testing::Test {
 
     // euclidean test
     score =
-      trustworthiness_score<float, MLCommon::Distance::EucUnexpandedL2Sqrt>(
+      trustworthiness_score<float,
+                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
         h, d_X, d_X_embedded, 50, 30, 8, 5);
 
     d_alloc->deallocate(d_X, X.size() * sizeof(float), stream);

@@ -13,45 +13,115 @@
 # limitations under the License.
 #
 
+# TODO: update!
+
 import pytest
+
 import numpy as np
+import warnings
 
-from cuml.tsa.stationarity import stationarity
-
-
-def array_eq(ref, actual):
-    success = (sum(1 if ref[i] != actual[i]
-                   else 0 for i in range(len(ref))) == 0)
-    message = "OK" if success else "Expected: {} ; Got: {}".format(ref, actual)
-    return success, message
+from statsmodels.tsa import stattools
+from cuml.tsa import stationarity
 
 
-@pytest.mark.parametrize('precision', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['numpy'])
-def test_stationarity(precision, input_type):
-    """Test the kpss stationarity check.
-    Note: this test is intended to test the Python wrapper.
-    Another more exhaustive test is part of the C++ unit tests.
+###############################################################################
+#                       Helpers and reference functions                       #
+###############################################################################
+
+def prepare_data(y, d, D, s):
+    """Applies differencing and seasonal differencing to the data
     """
-    inc_rates = [-0.7, 0.0, 0.5]
-    offsets = [-0.3, 0.5, 0.0]
-    d_ref = [1, 0, 1]
-    num_samples = 200
+    n_obs, batch_size = y.shape
+    s1 = s if D else (1 if d else 0)
+    s2 = 1 if d + D == 2 else 0
+    y_diff = np.zeros((n_obs - d - s * D, batch_size), dtype=y.dtype)
+    for i in range(batch_size):
+        temp = y[s1:, i] - y[:-s1, i] if s1 else y[:, i]
+        y_diff[:, i] = temp[s2:] - temp[:-s2] if s2 else temp[:]
+    return y_diff
 
-    xs = np.linspace(0, 1, num_samples)
-    np.random.seed(13)
-    noise = np.random.normal(scale=0.1, size=num_samples)
 
-    np_df = np.zeros((num_samples, len(d_ref)), order="F", dtype=precision)
-    for i in range(len(d_ref)):
-        np_df[:, i] = xs[:] * inc_rates[i] + offsets[i] + noise[:]
+def kpss_ref(y):
+    """Wrapper around statsmodels' KPSS test
+    """
+    batch_size = y.shape[1]
+    test_results = np.zeros(batch_size, dtype=np.bool)
+    for i in range(batch_size):
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            _, pval, *_ = stattools.kpss(
+                y[:, i], regression='c', nlags='legacy')
+        test_results[i] = pval > 0.05
+    return test_results
 
-    # Numpy is the only tested input type at the moment
-    if input_type == 'numpy':
-        df = np_df
 
-    d_actual = stationarity(df)
+cuml_tests = {
+    "kpss": stationarity.kpss_test,
+}
 
-    success, message = array_eq(d_ref, d_actual)
+ref_tests = {
+    "kpss": kpss_ref,
+}
 
-    assert success, message
+
+###############################################################################
+#                                    Tests                                    #
+###############################################################################
+
+@pytest.mark.parametrize('batch_size', [25, 100])
+@pytest.mark.parametrize('n_obs', [50, 130])
+@pytest.mark.parametrize('dD', [(0, 0), (1, 0), (2, 0), (0, 1), (1, 1)])
+@pytest.mark.parametrize('s', [4, 12])
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('test_type', ['kpss'])
+def test_stationarity(batch_size, n_obs, dD, s, dtype, test_type):
+    """Test stationarity tests against a reference implementation
+    """
+    d, D = dD
+
+    # Fix seed for stability
+    np.random.seed(42)
+
+    # Generate seasonal patterns with random walks
+    pattern = np.zeros((s, batch_size))
+    pattern[0, :] = np.random.uniform(-1.0, 1.0, batch_size)
+    for i in range(1, s):
+        pattern[i, :] = pattern[i-1, :] + \
+            np.random.uniform(-1.0, 1.0, batch_size)
+    pattern /= s
+
+    # Decide for each series whether to include a linear and/or quadratic
+    # trend and/or a seasonal pattern
+    linear_mask = np.random.choice([False, True], batch_size, p=[0.50, 0.50])
+    quadra_mask = np.random.choice([False, True], batch_size, p=[0.75, 0.25])
+    season_mask = np.random.choice([False, True], batch_size, p=[0.75, 0.25])
+
+    # Generate coefficients for the linear, quadratic and seasonal terms,
+    # taking into account the masks computed above and avoiding coefficients
+    # close to zero
+    linear_coef = linear_mask * \
+        np.random.choice([-1.0, 1.0], batch_size) * \
+        np.random.uniform(0.2, 2.0, batch_size)
+    quadra_coef = quadra_mask * \
+        np.random.choice([-1.0, 1.0], batch_size) * \
+        np.random.uniform(0.2, 2.0, batch_size)
+    season_coef = season_mask * np.random.uniform(0.4, 0.8, batch_size)
+
+    # Generate the data
+    x = np.linspace(0.0, 2.0, n_obs)
+    offset = np.random.uniform(-2.0, 2.0, batch_size)
+    y = np.zeros((n_obs, batch_size), order='F', dtype=dtype)
+    for i in range(n_obs):
+        y[i, :] = (offset[:] + linear_coef[:] * x[i]
+                   + quadra_coef[:] * x[i] * x[i]
+                   + season_coef[:] * pattern[i % s, :]
+                   + np.random.normal(0.0, 0.2, batch_size))
+
+    # Call the cuML function
+    test_cuml = cuml_tests[test_type](y, d, D, s)
+
+    # Compute differenced data and call the reference function
+    y_diff = prepare_data(y, d, D, s)
+    test_ref = ref_tests[test_type](y_diff)
+
+    np.testing.assert_array_equal(test_cuml, test_ref)

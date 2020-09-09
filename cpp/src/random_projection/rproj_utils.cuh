@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 
 #include <common/cudart_utils.h>
 #include <cuml/random_projection/rproj_c.h>
+#include <sys/time.h>
 #include <common/cumlHandle.hpp>
 #include <cuda_utils.cuh>
 #include <random/rng.cuh>
-#include "sys/time.h"
 
 const int TPB_X = 256;
 
@@ -139,19 +139,5 @@ inline void build_parameters(paramsRPROJ& params) {
   if (!params.gaussian_method) {
     params.density = check_density(params.density, params.n_features);
   }
-}
-
-template <typename math_t>
-void rand_mat<math_t>::reset() {
-  if (this->dense_data) CUDA_CHECK(cudaFree(this->dense_data));
-  if (this->indices) CUDA_CHECK(cudaFree(this->indices));
-  if (this->indptr) CUDA_CHECK(cudaFree(this->indptr));
-  if (this->sparse_data) CUDA_CHECK(cudaFree(this->sparse_data));
-
-  this->dense_data = nullptr;
-  this->indices = nullptr;
-  this->indptr = nullptr;
-  this->sparse_data = nullptr;
-  this->sparse_data_size = 0;
 }
 }  // namespace ML

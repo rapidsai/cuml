@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
-#include "../matrix/matrix.cuh"
-#include "common/device_buffer.hpp"
+#include <matrix/matrix.cuh>
 #include "cublas_wrappers.h"
 #include "cusolver_wrappers.h"
 

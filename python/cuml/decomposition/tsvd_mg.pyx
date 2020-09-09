@@ -33,37 +33,19 @@ from cython.operator cimport dereference as deref
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
+import cuml.common.opg_data_utils_mg as opg
+from cuml.common.opg_data_utils_mg cimport *
 
 from cuml.decomposition import TruncatedSVD
 from cuml.decomposition.base_mg import BaseDecompositionMG
 
-cdef extern from "cumlprims/opg/matrix/data.hpp" \
-                 namespace "MLCommon::Matrix":
-
-    cdef cppclass floatData_t:
-        floatData_t(float *ptr, size_t totalSize)
-        float *ptr
-        size_t totalSize
-
-    cdef cppclass doubleData_t:
-        doubleData_t(double *ptr, size_t totalSize)
-        double *ptr
-        size_t totalSize
-
-cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
-                 namespace "MLCommon::Matrix":
-
-    cdef cppclass RankSizePair:
-        int rank
-        size_t size
-
-cdef extern from "cumlprims/opg/tsvd.hpp" namespace "ML::TSVD::opg":
+cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg":
 
     cdef void fit_transform(cumlHandle& handle,
-                            RankSizePair **rank_sizes,
-                            size_t n_parts,
-                            floatData_t **input,
-                            floatData_t **trans_input,
+                            vector[floatData_t *] input_data,
+                            PartDescriptor &input_desc,
+                            vector[floatData_t *] trans_data,
+                            PartDescriptor &trans_desc,
                             float *components,
                             float *explained_var,
                             float *explained_var_ratio,
@@ -72,10 +54,10 @@ cdef extern from "cumlprims/opg/tsvd.hpp" namespace "ML::TSVD::opg":
                             bool verbose) except +
 
     cdef void fit_transform(cumlHandle& handle,
-                            RankSizePair **rank_sizes,
-                            size_t n_parts,
-                            doubleData_t **input,
-                            doubleData_t **trans_input,
+                            vector[doubleData_t *] input_data,
+                            PartDescriptor &input_desc,
+                            vector[doubleData_t *] trans_data,
+                            PartDescriptor &trans_desc,
                             double *components,
                             double *explained_var,
                             double *explained_var_ratio,
@@ -89,8 +71,8 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
     def __init__(self, **kwargs):
         super(TSVDMG, self).__init__(**kwargs)
 
-    def _call_fit(self, X, trans, rank, arg_rank_size_pair,
-                  n_total_parts, arg_params):
+    def _call_fit(self, X, trans, rank, input_desc,
+                  trans_desc, arg_params):
 
         cdef uintptr_t comp_ptr = self._components_.ptr
         cdef uintptr_t explained_var_ptr = self._explained_variance_.ptr
@@ -104,10 +86,10 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
         if self.dtype == np.float32:
 
             fit_transform(handle_[0],
-                          <RankSizePair**><size_t>arg_rank_size_pair,
-                          <size_t> n_total_parts,
-                          <floatData_t**><size_t> X,
-                          <floatData_t**><size_t> trans,
+                          deref(<vector[floatData_t*]*><uintptr_t>X),
+                          deref(<PartDescriptor*><uintptr_t>input_desc),
+                          deref(<vector[floatData_t*]*><uintptr_t>trans),
+                          deref(<PartDescriptor*><uintptr_t>trans_desc),
                           <float*> comp_ptr,
                           <float*> explained_var_ptr,
                           <float*> explained_var_ratio_ptr,
@@ -117,10 +99,10 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
         else:
 
             fit_transform(handle_[0],
-                          <RankSizePair**><size_t>arg_rank_size_pair,
-                          <size_t> n_total_parts,
-                          <doubleData_t**><size_t> X,
-                          <doubleData_t**><size_t> trans,
+                          deref(<vector[doubleData_t*]*><uintptr_t>X),
+                          deref(<PartDescriptor*><uintptr_t>input_desc),
+                          deref(<vector[doubleData_t*]*><uintptr_t>trans),
+                          deref(<PartDescriptor*><uintptr_t>trans_desc),
                           <double*> comp_ptr,
                           <double*> explained_var_ptr,
                           <double*> explained_var_ratio_ptr,

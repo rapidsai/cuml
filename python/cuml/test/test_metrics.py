@@ -20,6 +20,7 @@ import cuml
 import cupy as cp
 import numpy as np
 import pytest
+import cudf
 
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.metrics.cluster import adjusted_rand_score as cu_ars
@@ -33,6 +34,7 @@ from numpy.testing import assert_almost_equal
 
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score as sk_acc_score
+from sklearn.metrics import log_loss as sklearn_log_loss
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
 from sklearn.metrics.cluster import completeness_score as sk_completeness_score
@@ -52,7 +54,14 @@ from sklearn.metrics.regression import mean_squared_log_error as sklearn_msle
 from cuml.common import has_scipy
 
 from cuml.metrics import roc_auc_score
+from cuml.metrics import precision_recall_curve
+from cuml.metrics import log_loss
 from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
+from sklearn.metrics import precision_recall_curve \
+    as sklearn_precision_recall_curve
+
+from cuml.metrics import pairwise_distances, PAIRWISE_DISTANCE_METRICS
+from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -97,7 +106,7 @@ def test_sklearn_search():
     assert getattr(cu_clf, 'score', False)
     sk_cu_grid = GridSearchCV(cu_clf, params, cv=5, iid=False)
 
-    gdf_data = cudf.DataFrame.from_gpu_matrix(cuda.to_device(X_train))
+    gdf_data = cudf.DataFrame(X_train)
     gdf_train = cudf.DataFrame(dict(train=y_train))
 
     sk_cu_grid.fit(gdf_data, gdf_train.train)
@@ -370,8 +379,8 @@ def test_regression_metrics_random(n_samples, dtype, function):
         lambda rng: rng.randint(0, 1000, n_samples).astype(dtype))
 
     cuml_reg, sklearn_reg = {
-        'mse':  (mean_squared_error, sklearn_mse),
-        'mae':  (mean_absolute_error, sklearn_mae),
+        'mse': (mean_squared_error, sklearn_mse),
+        'mae': (mean_absolute_error, sklearn_mae),
         'msle': (mean_squared_log_error, sklearn_msle)
     }[function]
 
@@ -639,7 +648,356 @@ def test_roc_auc_score_at_limits():
     y_pred = np.array([0., 0.5, 1.], dtype=np.float)
 
     err_msg = ("Continuous format of y_true  "
-               "is not supported by roc_auc_score")
+               "is not supported.")
 
     with pytest.raises(ValueError, match=err_msg):
         roc_auc_score(y_true, y_pred)
+
+
+def test_precision_recall_curve():
+    y_true = np.array([0, 0, 1, 1])
+    y_score = np.array([0.1, 0.4, 0.35, 0.8])
+    precision_using_sk, recall_using_sk, thresholds_using_sk = \
+        sklearn_precision_recall_curve(
+            y_true, y_score)
+
+    precision, recall, thresholds = precision_recall_curve(
+        y_true, y_score)
+
+    assert array_equal(precision, precision_using_sk)
+    assert array_equal(recall, recall_using_sk)
+    assert array_equal(thresholds, thresholds_using_sk)
+
+
+def test_precision_recall_curve_at_limits():
+    y_true = np.array([0., 0., 0.], dtype=np.float)
+    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+
+    err_msg = ("precision_recall_curve cannot be used when "
+               "y_true is all zero.")
+
+    with pytest.raises(ValueError, match=err_msg):
+        precision_recall_curve(y_true, y_pred)
+
+    y_true = np.array([0., 0.5, 1.0], dtype=np.float)
+    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+
+    err_msg = ("Continuous format of y_true  "
+               "is not supported.")
+
+    with pytest.raises(ValueError, match=err_msg):
+        precision_recall_curve(y_true, y_pred)
+
+
+@pytest.mark.parametrize('n_samples', [50, 500000])
+@pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
+def test_precision_recall_curve_random(n_samples, dtype):
+
+    y_true, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 2, n_samples).astype(dtype))
+
+    y_score, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 1000, n_samples).astype(dtype))
+
+    precision_using_sk, recall_using_sk, thresholds_using_sk = \
+        sklearn_precision_recall_curve(
+            y_true, y_score)
+
+    precision, recall, thresholds = precision_recall_curve(
+        y_true, y_score)
+
+    assert array_equal(precision, precision_using_sk)
+    assert array_equal(recall, recall_using_sk)
+    assert array_equal(thresholds, thresholds_using_sk)
+
+
+def test_log_loss():
+    y_true = np.array([0, 0, 1, 1])
+    y_pred = np.array([0.1, 0.4, 0.35, 0.8])
+    assert_almost_equal(log_loss(y_true, y_pred),
+                        sklearn_log_loss(y_true, y_pred))
+
+    y_true = np.array([0, 0, 1, 1, 0])
+    y_pred = np.array([0.8, 0.4, 0.4, 0.8, 0.8])
+    assert_almost_equal(log_loss(y_true, y_pred),
+                        sklearn_log_loss(y_true, y_pred))
+
+
+@pytest.mark.parametrize('n_samples', [500, 500000])
+@pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
+def test_log_loss_random(n_samples, dtype):
+
+    y_true, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 10, n_samples).astype(dtype))
+
+    y_pred, _, _, _ = generate_random_labels(
+        lambda rng: rng.rand(n_samples, 10))
+
+    assert_almost_equal(log_loss(y_true, y_pred),
+                        sklearn_log_loss(y_true, y_pred))
+
+
+def test_log_loss_at_limits():
+    y_true = np.array([0., 1., 2.], dtype=np.float)
+    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+
+    err_msg = ("The shape of y_pred doesn't "
+               "match the number of classes")
+
+    with pytest.raises(ValueError, match=err_msg):
+        log_loss(y_true, y_pred)
+
+    y_true = np.array([0., 0.5, 1.0], dtype=np.float)
+    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+
+    err_msg = ("'y_true' can only have integer values")
+    with pytest.raises(ValueError, match=err_msg):
+        log_loss(y_true, y_pred)
+
+
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS)
+@pytest.mark.parametrize("matrix_size", [(5, 4), (1000, 3), (2, 10),
+                                         (500, 400)])
+@pytest.mark.parametrize("is_col_major", [True, False])
+def test_pairwise_distances(metric: str, matrix_size, is_col_major):
+    # Test the pairwise_distance helper function.
+    rng = np.random.RandomState(0)
+
+    def prep_array(array):
+        return np.asfortranarray(array) if is_col_major else array
+
+    # For fp64, compare at 13 decimals, (2 places less than the ~15 max)
+    compare_precision = 10
+
+    # Compare to sklearn, single input
+    X = prep_array(rng.random_sample(matrix_size))
+    S = pairwise_distances(X, metric=metric)
+    S2 = sklearn_pairwise_distances(X, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, double input with same dimensions
+    Y = X
+    S = pairwise_distances(X, Y, metric=metric)
+    S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare single and double inputs to eachother
+    S = pairwise_distances(X, metric=metric)
+    S2 = pairwise_distances(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, with Y dim != X dim
+    Y = prep_array(rng.random_sample((2, matrix_size[1])))
+    S = pairwise_distances(X, Y, metric=metric)
+    S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Change precision of one parameter
+    Y = np.asfarray(Y, dtype=np.float32)
+    S = pairwise_distances(X, Y, metric=metric)
+    S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # For fp32, compare at 5 decimals, (2 places less than the ~7 max)
+    compare_precision = 2
+
+    # Change precision of both parameters to float
+    X = np.asfarray(X, dtype=np.float32)
+    Y = np.asfarray(Y, dtype=np.float32)
+    S = pairwise_distances(X, Y, metric=metric)
+    S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Test sending an int type with convert_dtype=True
+    Y = prep_array(rng.randint(10, size=Y.shape))
+    S = pairwise_distances(X, Y, metric=metric, convert_dtype=True)
+    S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Test that uppercase on the metric name throws an error.
+    with pytest.raises(ValueError):
+        pairwise_distances(X, Y, metric=metric.capitalize())
+
+
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS)
+@pytest.mark.parametrize("matrix_size", [
+    unit_param((1000, 100)),
+    quality_param((2000, 1000)),
+    stress_param((10000, 10000))])
+def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
+    # Test larger sizes to sklearn
+    rng = np.random.RandomState(1)
+
+    element_count = matrix_size[0] * matrix_size[1]
+
+    X = rng.random_sample(matrix_size)
+    Y = rng.random_sample(matrix_size)
+
+    # For fp64, compare at 10 decimals, (5 places less than the ~15 max)
+    compare_precision = 10
+
+    # Compare to sklearn, fp64
+    S = pairwise_distances(X, Y, metric=metric)
+
+    if (element_count <= 2000000):
+        S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+        cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # For fp32, compare at 4 decimals, (3 places less than the ~7 max)
+    compare_precision = 4
+
+    X = np.asfarray(X, dtype=np.float32)
+    Y = np.asfarray(Y, dtype=np.float32)
+
+    # Compare to sklearn, fp32
+    S = pairwise_distances(X, Y, metric=metric)
+
+    if (element_count <= 2000000):
+        S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+        cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS)
+def test_pairwise_distances_one_dimension_order(metric: str):
+    # Test the pairwise_distance helper function for 1 dimensional cases which
+    # can break down when using a size of 1 for either dimension
+    rng = np.random.RandomState(2)
+
+    Xc = rng.random_sample((1, 4))
+    Yc = rng.random_sample((10, 4))
+    Xf = np.asfortranarray(Xc)
+    Yf = np.asfortranarray(Yc)
+
+    # For fp64, compare at 13 decimals, (2 places less than the ~15 max)
+    compare_precision = 13
+
+    # Compare to sklearn, C/C order
+    S = pairwise_distances(Xc, Yc, metric=metric)
+    S2 = sklearn_pairwise_distances(Xc, Yc, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, C/F order
+    S = pairwise_distances(Xc, Yf, metric=metric)
+    S2 = sklearn_pairwise_distances(Xc, Yf, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, F/C order
+    S = pairwise_distances(Xf, Yc, metric=metric)
+    S2 = sklearn_pairwise_distances(Xf, Yc, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, F/F order
+    S = pairwise_distances(Xf, Yf, metric=metric)
+    S2 = sklearn_pairwise_distances(Xf, Yf, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Switch which input has single dimension
+    Xc = rng.random_sample((1, 4))
+    Yc = rng.random_sample((10, 4))
+    Xf = np.asfortranarray(Xc)
+    Yf = np.asfortranarray(Yc)
+
+    # Compare to sklearn, C/C order
+    S = pairwise_distances(Xc, Yc, metric=metric)
+    S2 = sklearn_pairwise_distances(Xc, Yc, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, C/F order
+    S = pairwise_distances(Xc, Yf, metric=metric)
+    S2 = sklearn_pairwise_distances(Xc, Yf, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, F/C order
+    S = pairwise_distances(Xf, Yc, metric=metric)
+    S2 = sklearn_pairwise_distances(Xf, Yc, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, F/F order
+    S = pairwise_distances(Xf, Yf, metric=metric)
+    S2 = sklearn_pairwise_distances(Xf, Yf, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+
+@pytest.mark.parametrize("metric", ["haversine", "nan_euclidean"])
+def test_pairwise_distances_unsuppored_metrics(metric):
+    rng = np.random.RandomState(3)
+
+    X = rng.random_sample((5, 4))
+
+    with pytest.raises(ValueError):
+        pairwise_distances(X, metric=metric)
+
+
+def test_pairwise_distances_exceptions():
+
+    rng = np.random.RandomState(4)
+
+    X_int = rng.randint(10, size=(5, 4))
+    X_double = rng.random_sample((5, 4))
+    X_float = np.asfarray(X_double, dtype=np.float32)
+    X_bool = rng.choice([True, False], size=(5, 4))
+
+    # Test int inputs (only float/double accepted at this time)
+    with pytest.raises(TypeError):
+        pairwise_distances(X_int, metric="euclidean")
+
+    # Test second int inputs (should not have an exception with
+    # convert_dtype=True)
+    pairwise_distances(X_double, X_int, metric="euclidean")
+
+    # Test bool inputs (only float/double accepted at this time)
+    with pytest.raises(TypeError):
+        pairwise_distances(X_bool, metric="euclidean")
+
+    # Test sending different types with convert_dtype=False
+    with pytest.raises(TypeError):
+        pairwise_distances(X_double, X_float, metric="euclidean",
+                           convert_dtype=False)
+
+    # Invalid metric name
+    with pytest.raises(ValueError):
+        pairwise_distances(X_double, metric="Not a metric")
+
+    # Invalid dimensions
+    X = rng.random_sample((5, 4))
+    Y = rng.random_sample((5, 7))
+
+    with pytest.raises(ValueError):
+        pairwise_distances(X, Y, metric="euclidean")
+
+
+@pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
+@pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
+@pytest.mark.parametrize("use_global", [True, False])
+def test_pairwise_distances_output_types(input_type, output_type, use_global):
+    # Test larger sizes to sklearn
+    rng = np.random.RandomState(5)
+
+    X = rng.random_sample((100, 100))
+    Y = rng.random_sample((100, 100))
+
+    if input_type == "cudf":
+        X = cudf.DataFrame(X)
+        Y = cudf.DataFrame(Y)
+    elif input_type == "cupy":
+        X = cp.asarray(X)
+        Y = cp.asarray(Y)
+
+    # Set to None if we are using the global object
+    output_type_param = None if use_global else output_type
+
+    # Use the global manager object. Should do nothing unless use_global is set
+    with cuml.using_output_type(output_type):
+
+        # Compare to sklearn, fp64
+        S = pairwise_distances(X, Y, metric="euclidean",
+                               output_type=output_type_param)
+
+        if output_type == "input":
+            assert isinstance(S, type(X))
+        elif output_type == "cudf":
+            assert isinstance(S, cudf.DataFrame)
+        elif output_type == "numpy":
+            assert isinstance(S, np.ndarray)
+        elif output_type == "cupy":
+            assert isinstance(S, cp.core.core.ndarray)

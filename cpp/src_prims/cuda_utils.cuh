@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,21 @@
 
 #pragma once
 
+#include <math_constants.h>
 #include <stdint.h>
 #include <cuml/common/utils.hpp>
-#include "math_constants.h"
+
+#ifndef ENABLE_MEMCPY_ASYNC
+// enable memcpy_async interface by default for newer GPUs
+#if __CUDA_ARCH__ >= 800
+#define ENABLE_MEMCPY_ASYNC 1
+#endif
+#else  // ENABLE_MEMCPY_ASYNC
+// disable memcpy_async for all older GPUs
+#if __CUDA_ARCH__ < 800
+#define ENABLE_MEMCPY_ASYNC 0
+#endif
+#endif  // ENABLE_MEMCPY_ASYNC
 
 namespace MLCommon {
 
@@ -100,7 +112,7 @@ DI int laneId() {
  * @param b second input
  */
 template <typename T>
-HDI void swap(T &a, T &b) {
+HDI void swapVals(T &a, T &b) {
   T tmp = a;
   a = b;
   b = tmp;
@@ -365,6 +377,22 @@ DI void mySinCos(double x, double &s, double &c) {
 /** @} */
 
 /**
+ * @defgroup Sine Sine calculation
+ * @{
+ */
+template <typename T>
+DI T mySin(T x);
+template <>
+DI float mySin(float x) {
+  return sinf(x);
+}
+template <>
+DI double mySin(double x) {
+  return sin(x);
+}
+/** @} */
+
+/**
  * @defgroup Abs Absolute value
  * @{
  */
@@ -605,6 +633,20 @@ DI T blockReduce(T val, char *smem) {
   __syncthreads();
   val = lid < nWarps ? sTemp[lid] : T(0);
   return warpReduce(val);
+}
+
+/**
+ * @brief Simple utility function to determine whether user_stream or one of the
+ * internal streams should be used.
+ * @param user_stream main user stream
+ * @param int_streams array of internal streams
+ * @param n_int_streams number of internal streams
+ * @param idx the index for which to query the stream
+ */
+inline cudaStream_t select_stream(cudaStream_t user_stream,
+                                  cudaStream_t *int_streams, int n_int_streams,
+                                  int idx) {
+  return n_int_streams > 0 ? int_streams[idx % n_int_streams] : user_stream;
 }
 
 }  // namespace MLCommon

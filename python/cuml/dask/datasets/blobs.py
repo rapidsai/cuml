@@ -15,6 +15,7 @@
 #
 
 
+import cuml.common.logger as logger
 import dask.array as da
 
 from cuml.datasets.blobs import _get_centers
@@ -27,8 +28,6 @@ from cuml.dask.datasets.utils import _create_delayed
 from cuml.dask.common.utils import get_client
 
 import math
-
-import cuml.common.logger as logger
 
 
 def _create_local_data(m, n, centers, cluster_std, shuffle, random_state,
@@ -47,7 +46,7 @@ def _create_local_data(m, n, centers, cluster_std, shuffle, random_state,
 def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                n_parts=None, center_box=(-10, 10), shuffle=True,
                random_state=None, return_centers=False,
-               verbosity=logger.LEVEL_INFO, order='F', dtype='float32',
+               verbose=False, order='F', dtype='float32',
                client=None):
     """
     Makes labeled Dask-Cupy arrays containing blobs
@@ -82,7 +81,7 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
          sets random seed (or use None to reinitialize each time)
     return_centers : bool, optional (default=False)
         If True, then return the centers of each cluster
-    verbosity : int (default = cuml.logger.LEVEL_INFO)
+    verbose : int or boolean (default = False)
          Logging level.
     shuffle : bool (default=False)
               Shuffles the samples on each worker.
@@ -122,10 +121,7 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
     worker_rows = [rows_per_part] * n_parts
 
-    if rows_per_part == 1:
-        worker_rows[-1] += n_samples % n_parts
-    else:
-        worker_rows[-1] += n_samples % rows_per_part
+    worker_rows[-1] += (n_samples % n_parts)
 
     worker_rows = tuple(worker_rows)
 

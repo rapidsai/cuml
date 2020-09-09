@@ -17,18 +17,17 @@
 #pragma once
 
 #include <common/cudart_utils.h>
+#include <cuml/svm/svm_parameter.h>
 #include <limits.h>
+#include <linalg/init.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/permutation_iterator.h>
+#include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
-#include "common/cumlHandle.hpp"
-#include "common/device_buffer.hpp"
-#include "cuml/svm/svm_parameter.h"
-#include "linalg/add.cuh"
-#include "linalg/init.h"
-#include "linalg/unary_op.cuh"
-#include "ml_utils.h"
+#include <linalg/add.cuh>
+#include <linalg/unary_op.cuh>
 #include "smo_sets.cuh"
 #include "ws_util.cuh"
 
@@ -139,11 +138,11 @@ class WorkingSet {
    * @param f optimality indicator vector, size [n_train]
    * @param alpha dual coefficients, size [n_train]
    * @param y target labels (+/- 1)
-   * @param C penalty parameter
+    * @param C penalty parameter vector size [n_train]
    * @param n_already_selected
    */
 
-  void SimpleSelect(math_t *f, math_t *alpha, math_t *y, math_t C,
+  void SimpleSelect(math_t *f, math_t *alpha, math_t *y, const math_t *C,
                     int n_already_selected = 0) {
     // We are not using the topK kernel, because of the additional lower/upper
     // constraint
@@ -205,8 +204,12 @@ class WorkingSet {
   * [1] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
   *     of Machine Learning Research, 19, 1-5 (2018)
   *
+  * @param f optimality indicator vector, size [n_train]
+  * @param alpha dual coefficients, size [n_train]
+  * @param y class labels, size [n_train]
+  * @param C penalty parameter vector, size [n_train]
   */
-  void Select(math_t *f, math_t *alpha, math_t *y, math_t C) {
+  void Select(math_t *f, math_t *alpha, math_t *y, const math_t *C) {
     if (n_ws >= n_train) {
       // All elements are selected, we have initialized idx to cover this case
       return;
@@ -253,10 +256,10 @@ class WorkingSet {
    *     DOI: 10.1080/10556780500140714
    *
    * @param [in] alpha device vector of dual coefficients, size [n_train]
-   * @param [in] C penalty parameter
+   * @param [in] C_vec penalty parameter
    * @param [in] nc number of elements to select
    */
-  int PrioritySelect(math_t *alpha, math_t C, int nc) {
+  int PrioritySelect(math_t *alpha, const math_t *C, int nc) {
     int n_selected = 0;
 
     cub::DeviceRadixSort::SortPairs(
@@ -265,15 +268,16 @@ class WorkingSet {
 
     //Select first from free vectors (0<alpha<C)
     n_selected += SelectPrevWs(2 * nc, n_selected, [alpha, C] HD(int idx) {
-      return 0 < alpha[idx] && alpha[idx] < C;
+      return 0 < alpha[idx] && alpha[idx] < C[idx];
     });
 
     //then from lower bound (alpha=0)
     n_selected += SelectPrevWs(2 * nc, n_selected,
                                [alpha] HD(int idx) { return alpha[idx] <= 0; });
     // and in the end from upper bound vectors (alpha=c)
-    n_selected += SelectPrevWs(
-      2 * nc, n_selected, [alpha, C] HD(int idx) { return alpha[idx] >= C; });
+    n_selected += SelectPrevWs(2 * nc, n_selected, [alpha, C] HD(int idx) {
+      return alpha[idx] >= C[idx];
+    });
     // we have now idx[0:n_selected] indices from the old working set
     // we need to update their priority.
     update_priority<<<MLCommon::ceildiv(n_selected, TPB), TPB, 0, stream>>>(

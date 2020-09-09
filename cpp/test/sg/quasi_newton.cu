@@ -1,13 +1,29 @@
+/*
+ * Copyright (c) 2020, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <linalg/transpose.h>
+#include <test_utils.h>
 #include <cuml/linear_model/glm.hpp>
 #include <glm/qn/glm_linear.cuh>
 #include <glm/qn/glm_logistic.cuh>
 #include <glm/qn/glm_softmax.cuh>
 #include <glm/qn/qn.cuh>
 #include <vector>
-#include "test_utils.h"
 
 namespace ML {
 namespace GLM {
@@ -132,7 +148,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   updateDevice(ydev->data, &y[0], ydev->len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  double alpha = 0.01;
+  double alpha = 0.01 * N;
 
   LogisticLoss<double> loss_b(handle, D, true);
   LogisticLoss<double> loss_no_b(handle, D, false);
@@ -214,7 +230,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   double fx, l1, l2;
   int C = 4;
 
-  double alpha = 0.016;
+  double alpha = 0.016 * N;
 
   SimpleMatOwning<double> z(allocator, C, N, stream);
   SimpleVecOwning<double> w0(allocator, C * (D + 1), stream);
@@ -278,7 +294,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   double fx, l1, l2;
-  double alpha = 0.01;
+  double alpha = 0.01 * N;
 
   SimpleVecOwning<double> w0(allocator, D + 1, stream);
   SimpleVecOwning<double> z(allocator, N, stream);

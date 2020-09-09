@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,9 @@ namespace MLCommon {
 namespace Distance {
 
 template <typename DataType>
-class DistanceEucUnexpTest : public DistanceTest<EucUnexpandedL2, DataType> {};
+class DistanceEucUnexpTest
+  : public DistanceTest<ML::Distance::DistanceType::EucUnexpandedL2, DataType> {
+};
 
 const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 1024, 1024, 32, true, 1234ULL},

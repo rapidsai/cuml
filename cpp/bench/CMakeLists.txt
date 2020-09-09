@@ -27,7 +27,9 @@ if(BUILD_CUML_BENCH)
     sg/kmeans.cu
     sg/main.cpp
     sg/rf_classifier.cu
-    sg/rf_regressor.cu
+    # FIXME: RF Regressor is having an issue where the tests now seem to take
+    # forever to finish, as opposed to the classifier counterparts!
+    # sg/rf_regressor.cu
     sg/svc.cu
     sg/svr.cu
     sg/umap.cu
@@ -57,14 +59,17 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/fused_l2_nn.cu
     prims/gram_matrix.cu
     prims/main.cpp
+    prims/make_blobs.cu
     prims/map_then_reduce.cu
     prims/matrix_vector_op.cu
     prims/permute.cu
     prims/reduce.cu
     prims/rng.cu
-    ../src/common/logger.cpp  # because prims is header only!
-    )
+    ../src/common/logger.cpp)  # because prims is header only!
 
+  if(NOT CUB_IS_PART_OF_CTK)
+    add_dependencies(prims_benchmark cub)
+  endif(NOT CUB_IS_PART_OF_CTK)
   add_dependencies(prims_benchmark spdlog)
 
   target_link_libraries(prims_benchmark ${CUDA_cublas_LIBRARY} benchmarklib)

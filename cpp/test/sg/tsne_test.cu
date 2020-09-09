@@ -14,21 +14,19 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
+#include <cuml/manifold/tsne.h>
+#include <datasets/digits.h>
 #include <gtest/gtest.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <common/device_buffer.hpp>
+#include <cuda_utils.cuh>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/logger.hpp>
 #include <iostream>
 #include <score/scores.cuh>
 #include <vector>
-#include "datasets/digits.h"
-#include "tsne/tsne.cu"
-
-#include <common/cudart_utils.h>
-#include "cuda_utils.cuh"
-
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/common/logger.hpp>
-#include "common/device_buffer.hpp"
 
 using namespace MLCommon;
 using namespace MLCommon::Score;
@@ -78,9 +76,11 @@ class TSNETest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test trustworthiness
-    score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
-      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
-      handle.getStream());
+    score_bh =
+      trustworthiness_score<float,
+                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+        X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
+        handle.getStream());
 
     // Test Exact TSNE
     TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, 2, 90, 0.5, 0.0025, 50, 100,
@@ -105,9 +105,11 @@ class TSNETest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test trustworthiness
-    score_exact = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
-      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
-      handle.getStream());
+    score_exact =
+      trustworthiness_score<float,
+                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+        X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
+        handle.getStream());
 
     // Free space
     free(embeddings_h);

@@ -17,16 +17,17 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <cmath>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
 #include <random>
 #include <vector>
 
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/cuml.hpp>
+
 #include <common/cudart_utils.h>
-#include "add.cuh"
-#include "linalg/batched/matrix.cuh"
-#include "linalg_naive.h"
-#include "test_utils.h"
+#include <linalg/batched/matrix.cuh>
+#include "../add.cuh"
+#include "../linalg_naive.h"
+#include "../test_utils.h"
 
 namespace MLCommon {
 namespace LinAlg {

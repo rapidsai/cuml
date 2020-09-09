@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,11 @@
 #include <linalg/transpose.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
+#include <common/allocatorAdapter.hpp>
+#include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
+#include <cuml/decomposition/params.hpp>
 #include <linalg/binary_op.cuh>
 #include <linalg/eig.cuh>
 #include <linalg/eltwise.cuh>
@@ -32,10 +36,6 @@
 #include <stats/mean.cuh>
 #include <stats/stddev.cuh>
 #include <stats/sum.cuh>
-#include "common/allocatorAdapter.hpp"
-#include "common/cumlHandle.hpp"
-#include "common/device_buffer.hpp"
-#include "ml_utils.h"
 
 namespace ML {
 
@@ -82,14 +82,14 @@ void calCompExpVarsSvd(const cumlHandle_impl &handle, math_t *in,
                 allocator);
 }
 
-template <typename math_t>
+template <typename math_t, typename enum_solver = solver>
 void calEig(const cumlHandle_impl &handle, math_t *in, math_t *components,
-            math_t *explained_var, const paramsTSVD &prms,
+            math_t *explained_var, const paramsTSVDTemplate<enum_solver> &prms,
             cudaStream_t stream) {
   auto cusolver_handle = handle.getcusolverDnHandle();
   auto allocator = handle.getDeviceAllocator();
 
-  if (prms.algorithm == solver::COV_EIG_JACOBI) {
+  if (prms.algorithm == enum_solver::COV_EIG_JACOBI) {
     LinAlg::eigJacobi(in, prms.n_cols, prms.n_cols, components, explained_var,
                       cusolver_handle, stream, allocator, (math_t)prms.tol,
                       prms.n_iterations);

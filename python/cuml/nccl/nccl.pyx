@@ -19,13 +19,13 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+import cuml.common.logger as logger
+
 from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
 from libc.stdlib cimport malloc, free
-
-import cuml.common.logger as logger
 
 
 cdef extern from "cuML_comms_py.hpp" namespace "ML":

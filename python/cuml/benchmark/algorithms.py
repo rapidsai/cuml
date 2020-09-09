@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,11 +40,8 @@ from cuml.benchmark.bench_helper_funcs import (
     _build_treelite_classifier,
     _treelite_fil_accuracy_score,
 )
-from cuml.common.import_utils import has_treelite
-
-if has_treelite():
-    import treelite
-    import treelite.runtime
+import treelite
+import treelite_runtime
 
 if has_umap():
     import umap
@@ -190,14 +187,7 @@ def _labels_to_int_hook(data):
 
 def _treelite_format_hook(data):
     """Helper function converting data into treelite format"""
-    from cuml.common.import_utils import has_treelite
-
-    if has_treelite():
-        import treelite
-        import treelite.runtime
-    else:
-        raise ImportError("No treelite package found")
-    return treelite.runtime.Batch.from_npy2d(data[0]), data[1]
+    return treelite_runtime.Batch.from_npy2d(data[0]), data[1]
 
 
 def all_algorithms():
@@ -399,14 +389,14 @@ def all_algorithms():
             accuracy_function=cuml.metrics.accuracy_score
         ),
         AlgorithmPair(
-            treelite if has_treelite() else None,
+            treelite,
             cuml.ForestInference,
             shared_args=dict(num_rounds=100, max_depth=10),
             cuml_args=dict(
                 fil_algo="AUTO",
                 output_class=False,
                 threshold=0.5,
-                storage_type="AUTO",
+                storage_type="auto",
             ),
             name="FIL",
             accepts_labels=False,
@@ -417,7 +407,7 @@ def all_algorithms():
             bench_func=predict,
         ),
         AlgorithmPair(
-            treelite if has_treelite() else None,
+            treelite,
             cuml.ForestInference,
             shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
             cuml_args=dict(

@@ -49,6 +49,7 @@ def test_lasso(datatype, X_type, alpha, algorithm,
                        selection=algorithm, tol=1e-10)
 
     cu_lasso.fit(X_train, y_train)
+    assert cu_lasso.coef_ is not None
     cu_predict = cu_lasso.predict(X_test)
 
     cu_r2 = r2_score(y_test, cu_predict)
@@ -82,6 +83,7 @@ def test_lasso_default(datatype, nrows, column_info):
     cu_lasso = cuLasso()
 
     cu_lasso.fit(X_train, y_train)
+    assert cu_lasso.coef_ is not None
     cu_predict = cu_lasso.predict(X_test)
     cu_r2 = r2_score(y_test, cu_predict)
 
@@ -157,3 +159,33 @@ def test_elastic_net_default(datatype, nrows, column_info):
     sk_predict = elastic_sk.predict(X_test)
     sk_r2 = r2_score(y_test, sk_predict)
     assert cu_r2 >= sk_r2 - 0.07
+
+
+@pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('test_dtype', [np.float64, np.float32])
+def test_elastic_net_predict_convert_dtype(train_dtype, test_dtype):
+    X, y = make_regression(n_samples=50, n_features=10,
+                           n_informative=5, random_state=0)
+    X = X.astype(train_dtype)
+    y = y.astype(train_dtype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    clf = cuElasticNet()
+    clf.fit(X_train, y_train)
+    clf.predict(X_test.astype(test_dtype))
+
+
+@pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('test_dtype', [np.float64, np.float32])
+def test_lasso_predict_convert_dtype(train_dtype, test_dtype):
+    X, y = make_regression(n_samples=50, n_features=10,
+                           n_informative=5, random_state=0)
+    X = X.astype(train_dtype)
+    y = y.astype(train_dtype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    clf = cuLasso()
+    clf.fit(X_train, y_train)
+    clf.predict(X_test.astype(test_dtype))

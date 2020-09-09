@@ -66,8 +66,8 @@ def cuda_kernel_factory(nvrtc_kernel_str, dtypes, kernel_name=None):
     included in the kernel string. These will be added by this function and
     the function name will be made unique, based on the given dtypes.
 
-    Example
-    -------
+    Examples
+    --------
 
         The following kernel string with dtypes = [float, double, int]
 
@@ -110,7 +110,7 @@ def cuda_kernel_factory(nvrtc_kernel_str, dtypes, kernel_name=None):
     nvrtc_kernel_str = "%s\nvoid %s%s" % \
                        (extern_prefix, kernel_name, nvrtc_kernel_str)
 
-    if logger.should_log_for(logger.LEVEL_DEBUG):
+    if logger.should_log_for(logger.level_debug):
         logger.debug(str(nvrtc_kernel_str))
 
     return cp.RawKernel(nvrtc_kernel_str, kernel_name)

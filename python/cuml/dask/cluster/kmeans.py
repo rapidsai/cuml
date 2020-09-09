@@ -26,12 +26,9 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.comms import CommsContext
 from cuml.dask.common.comms import worker_state
 
-from cuml.dask.common.utils import raise_exception_from_futures
+from cuml.dask.common.utils import wait_and_raise_from_futures
 
-from dask.distributed import wait
 from cuml.common.memory_utils import with_cupy_rmm
-
-import cuml.common.logger as logger
 
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -58,12 +55,12 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         The more iterations of EM, the more accurate, but slower.
     tol : float (default = 1e-4)
         Stopping criterion when centroid means do not change much.
-    verbosity : int (default = cuml.logger.LEVEL_INFO)
+    verbose : int or boolean (default = False)
         Logging level for printing diagnostic information
     random_state : int (default = 1)
         If you want results to be the same when you restart Python,
         select a state.
-    init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
+    init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray} \
            (default = 'scalable-k-means++')
         'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
         kmeans++ intialization.
@@ -93,9 +90,9 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
     """
 
-    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=False, **kwargs):
         super(KMeans, self).__init__(client=client,
-                                     verbosity=verbosity,
+                                     verbose=verbose,
                                      **kwargs)
 
     @staticmethod
@@ -141,13 +138,11 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
                                          pure=False)
                       for idx, wf in enumerate(data.worker_to_parts.items())]
 
-        wait(kmeans_fit)
-        raise_exception_from_futures(kmeans_fit)
+        wait_and_raise_from_futures(kmeans_fit)
 
         comms.destroy()
 
-        self.local_model = kmeans_fit[0].result()
-        self.cluster_centers_ = self.local_model.cluster_centers_
+        self._set_internal_model(kmeans_fit[0])
 
         return self
 

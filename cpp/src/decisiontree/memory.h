@@ -16,11 +16,11 @@
 
 #pragma once
 #include <common/cudart_utils.h>
+#include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/tree/decisiontree.hpp>
-#include "common/cumlHandle.hpp"
 
 template <class T, class L>
 struct TemporaryMemory {

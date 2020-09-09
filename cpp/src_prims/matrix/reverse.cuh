@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "cuda_utils.cuh"
-#include "vectorized.cuh"
+#include <cuda_utils.cuh>
+#include <vectorized.cuh>
 
 namespace MLCommon {
 namespace Matrix {
@@ -68,8 +68,8 @@ __global__ void reverseKernel(math_t *out, const math_t *in, int nrows,
   if ((rowMajor && !alongRows) || (!rowMajor && alongRows)) {
 #pragma unroll
     for (int i = 0; i < VecType::Ratio; ++i) {
-      swap(a.val.data[i], a.val.data[VecType::Ratio - i - 1]);
-      swap(b.val.data[i], b.val.data[VecType::Ratio - i - 1]);
+      swapVals(a.val.data[i], a.val.data[VecType::Ratio - i - 1]);
+      swapVals(b.val.data[i], b.val.data[VecType::Ratio - i - 1]);
     }
   }
 #pragma unroll

@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import warnings
+
 import numpy as np
 
 from cuml.dask.common.base import BaseEstimator
@@ -24,8 +26,6 @@ from cuml.dask.common.base import DelayedPredictionMixin, \
 from cuml.dask.ensemble.base import \
     BaseRandomForestModel
 from dask.distributed import default_client
-
-import cuml.common.logger as logger
 
 
 class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
@@ -38,10 +38,12 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     (possibly on different nodes).
 
     Currently, this API makes the following assumptions:
-    * The set of Dask workers used between instantiation, fit,
-    and predict are all consistent
-    * Training data comes in the form of cuDF dataframes,
-    distributed so that each worker has at least one partition.
+     * The set of Dask workers used between instantiation, fit, \
+        and predict are all consistent
+     * Training data comes in the form of cuDF dataframes or Dask Arrays \
+        distributed so that each worker has at least one partition.
+     * The print_summary and print_detailed functions print the \
+        information of the forest on the worker.
 
     Future versions of the API will support more flexible data
     distribution and additional input types.
@@ -70,8 +72,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
         2 and 3 not valid for classification
         (default = 0)
-    split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE
-        (default = 1)
+    split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE (default = 1)
         the algorithm to determine how nodes are split in the tree.
     split_criterion : The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
@@ -106,47 +107,73 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     workers : optional, list of strings
         Dask addresses of workers to use for computation.
         If None, all available Dask workers will be used.
+    random_state : int (default = None)
+        Seed for the random number generator. Unseeded by default.
     seed : int (default = None)
+        Deprecated in favor of `random_state`.
         Base seed for the random number generator. Unseeded by default. Does
         not currently fully guarantee the exact same results.
+    ignore_empty_partitions: Boolean (default = False)
+        Specify behavior when a worker does not hold any data
+        while splitting. When True, it returns the results from workers
+        with data (the number of trained estimators will be less than
+        n_estimators) When False, throws a RuntimeError.
+        This is an experiemental parameter, and may be removed
+        in the future.
 
     Examples
-    ---------
+    --------
     For usage examples, please see the RAPIDS notebooks repository:
-    https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/random_forest_mnmg_demo.ipynb
+    https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/random_forest_mnmg_demo.ipynb
     """
 
     def __init__(
         self,
         workers=None,
         client=None,
-        verbosity=logger.LEVEL_INFO,
+        verbose=False,
         n_estimators=10,
+        random_state=None,
         seed=None,
+        ignore_empty_partitions=False,
         **kwargs
     ):
 
         super(RandomForestClassifier, self).__init__(client=client,
-                                                     verbosity=verbosity,
+                                                     verbose=verbose,
                                                      **kwargs)
+        if seed is not None:
+            if random_state is None:
+                warnings.warn("Parameter 'seed' is deprecated and will be"
+                              " removed in 0.17. Please use 'random_state'"
+                              " instead. Setting 'random_state' as the"
+                              " curent 'seed' value",
+                              DeprecationWarning)
+                random_state = seed
+            else:
+                warnings.warn("Both 'seed' and 'random_state' parameters were"
+                              " set. Using 'random_state' since 'seed' is"
+                              " deprecated and will be removed in 0.17.",
+                              DeprecationWarning)
 
         self._create_model(
             model_func=RandomForestClassifier._construct_rf,
             client=client,
             workers=workers,
             n_estimators=n_estimators,
-            base_seed=seed,
+            base_seed=random_state,
+            ignore_empty_partitions=ignore_empty_partitions,
             **kwargs)
 
     @staticmethod
     def _construct_rf(
         n_estimators,
-        seed,
+        random_state,
         **kwargs
     ):
         return cuRFC(
             n_estimators=n_estimators,
-            seed=seed,
+            random_state=random_state,
             **kwargs
         )
 
@@ -156,9 +183,19 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
 
     def print_summary(self):
         """
-        Print the summary of the forest used to train and test the model.
+        Print the summary of the forest used to train the model
+        on each worker. This information is displayed on the
+        individual workers and not the client.
         """
         return self._print_summary()
+
+    def print_detailed(self):
+        """
+        Print detailed information of the forest used to train
+        the model on each worker. This information is displayed on the
+        workers and not the client.
+        """
+        return self._print_detailed()
 
     def fit(self, X, y, convert_dtype=False):
         """
@@ -172,7 +209,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         memory consumption, ensure that each worker has exactly one partition.
 
         When persisting data, you can use
-        cuml.dask.common.utils.persist_across_workers to simplify this::
+        `cuml.dask.common.utils.persist_across_workers` to simplify this:
+
+        .. code-block:: python
 
             X_dask_cudf = dask_cudf.from_cudf(X_cudf, npartitions=n_workers)
             y_dask_cudf = dask_cudf.from_cudf(y_cudf, npartitions=n_workers)
@@ -180,7 +219,10 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                                                               [X_dask_cudf,
                                                                y_dask_cudf])
 
-        (this is equivalent to calling `persist` with the data and workers)::
+        This is equivalent to calling `persist` with the data and workers:
+
+        .. code-block:: python
+
             X_dask_cudf, y_dask_cudf = dask_client.persist([X_dask_cudf,
                                                             y_dask_cudf],
                                                            workers={
@@ -198,12 +240,11 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             **y must be partitioned the same way as X**
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
-
+            y to be of dtype int32. This will increase memory used for
+            the method.
         """
         self.num_classes = len(y.unique())
-        self.local_model = None
+        self._set_internal_model(None)
         self._fit(model=self.rfs,
                   dataset=(X, y),
                   convert_dtype=convert_dtype)
@@ -214,6 +255,28 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                 fil_sparse_format='auto', delayed=True):
         """
         Predicts the labels for X.
+
+        GPU-based prediction in a multi-node, multi-GPU context works
+        by sending the sub-forest from each worker to the client,
+        concatenating these into one forest with the full
+        `n_estimators` set of trees, and sending this combined forest to
+        the workers, which will each infer on their local set of data.
+        Within the worker, this uses the cuML Forest Inference Library
+        (cuml.fil) for high-throughput prediction.
+
+        This allows inference to scale to large datasets, but the forest
+        transmission incurs overheads for very large trees. For inference
+        on small datasets, this overhead may dominate prediction time.
+
+        The 'CPU' fallback method works with sub-forests in-place,
+        broadcasting the datasets to all workers and combining predictions
+        via a voting method at the end. This method is slower
+        on a per-row basis but may be faster for problems with many trees
+        and few rows.
+
+        In the 0.15 cuML release, inference will be updated with much
+        faster tree transfer. Preliminary builds with this updated approach
+        will be available from rapids.ai
 
         Parameters
         ----------
@@ -234,7 +297,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
             multiple rows per thread block
-            `algo` - choose the algorithm automatically. Currently
+            'algo' - choose the algorithm automatically. Currently
             'batch_tree_reorg' is used for dense storage
             and 'naive' for sparse storage
         threshold : float (default = 0.5)
@@ -267,31 +330,30 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         Returns
         ----------
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
-        """
-        if self.num_classes > 2 or predict_model == "CPU":
-            preds = self.predict_model_on_cpu(X,
-                                              convert_dtype=convert_dtype)
 
+        """
+        if predict_model == "CPU":
+            preds = self.predict_model_on_cpu(X=X,
+                                              convert_dtype=convert_dtype)
         else:
             preds = \
-                self.predict_using_fil(X, output_class=output_class,
-                                       algo=algo,
-                                       threshold=threshold,
-                                       num_classes=self.num_classes,
-                                       convert_dtype=convert_dtype,
-                                       predict_model="GPU",
-                                       fil_sparse_format=fil_sparse_format,
-                                       delayed=delayed)
+                self._predict_using_fil(X, output_class=output_class,
+                                        algo=algo,
+                                        threshold=threshold,
+                                        convert_dtype=convert_dtype,
+                                        fil_sparse_format=fil_sparse_format,
+                                        delayed=delayed)
 
         return preds
 
     def predict_using_fil(self, X, delayed, **kwargs):
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
 
         return self._predict_using_fil(X=X,
                                        delayed=delayed,
                                        **kwargs)
+
     """
     TODO : Update function names used for CPU predict.
         Cuml issue #1854 has been created to track this.
@@ -361,6 +423,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         """
         Predicts the probability of each class for X.
 
+        See documentation of `predict` for notes on performance.
+
         Parameters
         ----------
         X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
@@ -385,15 +449,13 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
             multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
+            'auto' - choose the algorithm automatically. Currently
             'batch_tree_reorg' is used for dense storage
             and 'naive' for sparse storage
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
-        num_classes : int (default = 2)
-            number of different classes present in the dataset
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -409,13 +471,13 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             or algo='auto'
 
         Returns
-        ----------
+        -------
         y : NumPy
            Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
-        """
-        if self.local_model is None:
-            self.local_model = self._concat_treelite_models()
 
+        """
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
         return self._predict_proba(X, delayed, **kwargs)

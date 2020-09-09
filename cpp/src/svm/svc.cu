@@ -16,13 +16,13 @@
 
 #include <iostream>
 
+#include <linalg/cublas_wrappers.h>
+#include <common/device_buffer.hpp>
 #include <cuml/svm/svc.hpp>
-#include "common/device_buffer.hpp"
+#include <label/classlabels.cuh>
+#include <linalg/unary_op.cuh>
+#include <matrix/kernelfactory.cuh>
 #include "kernelcache.cuh"
-#include "label/classlabels.cuh"
-#include "linalg/cublas_wrappers.h"
-#include "linalg/unary_op.cuh"
-#include "matrix/kernelfactory.cuh"
 #include "smosolver.cuh"
 #include "svc_impl.cuh"
 
@@ -36,13 +36,14 @@ template void svcFit<float>(const cumlHandle &handle, float *input, int n_rows,
                             int n_cols, float *labels,
                             const svmParameter &param,
                             MLCommon::Matrix::KernelParams &kernel_params,
-                            svmModel<float> &model);
+                            svmModel<float> &model, const float *sample_weight);
 
 template void svcFit<double>(const cumlHandle &handle, double *input,
                              int n_rows, int n_cols, double *labels,
                              const svmParameter &param,
                              MLCommon::Matrix::KernelParams &kernel_params,
-                             svmModel<double> &model);
+                             svmModel<double> &model,
+                             const double *sample_weight);
 
 template void svcPredict<float>(const cumlHandle &handle, float *input,
                                 int n_rows, int n_cols,
@@ -81,10 +82,12 @@ SVC<math_t>::~SVC() {
 }
 
 template <typename math_t>
-void SVC<math_t>::fit(math_t *input, int n_rows, int n_cols, math_t *labels) {
+void SVC<math_t>::fit(math_t *input, int n_rows, int n_cols, math_t *labels,
+                      const math_t *sample_weight) {
   model.n_cols = n_cols;
   if (model.dual_coefs) svmFreeBuffers(handle, model);
-  svcFit(handle, input, n_rows, n_cols, labels, param, kernel_params, model);
+  svcFit(handle, input, n_rows, n_cols, labels, param, kernel_params, model,
+         sample_weight);
 }
 
 template <typename math_t>

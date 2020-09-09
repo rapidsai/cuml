@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 #pragma once
 
 #include <linalg/gemv.h>
+#include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 #include <linalg/add.cuh>
 #include <linalg/lstsq.cuh>
 #include <linalg/norm.cuh>
@@ -27,9 +29,6 @@
 #include <stats/mean_center.cuh>
 #include <stats/stddev.cuh>
 #include <stats/sum.cuh>
-#include "common/cumlHandle.hpp"
-#include "common/device_buffer.hpp"
-#include "ml_utils.h"
 #include "preprocess.cuh"
 
 namespace ML {

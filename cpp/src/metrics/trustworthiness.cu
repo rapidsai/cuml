@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 #include <common/cumlHandle.hpp>
 #include <cuda_utils.cuh>
-#include "distance/distance.cuh"
-#include "score/scores.cuh"
+#include <distance/distance.cuh>
+#include <score/scores.cuh>
 
 namespace ML {
 namespace Metrics {
@@ -33,7 +33,7 @@ namespace Metrics {
         * @input tparam distance_type: Distance type to consider
         * @return Trustworthiness score
         */
-template <typename math_t, MLCommon::Distance::DistanceType distance_type>
+template <typename math_t, ML::Distance::DistanceType distance_type>
 double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
                              int n, int m, int d, int n_neighbors,
                              int batchSize) {
@@ -45,7 +45,7 @@ double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
 }
 
 template double
-trustworthiness_score<float, MLCommon::Distance::EucUnexpandedL2Sqrt>(
+trustworthiness_score<float, ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
   const cumlHandle& h, float* X, float* X_embedded, int n, int m, int d,
   int n_neighbors, int batchSize);
 

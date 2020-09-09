@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,13 @@
 #include <common/cudart_utils.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/gemv.h>
+#include <common/cumlHandle.hpp>
 #include <cuda_utils.cuh>
+#include <cuml/solvers/params.hpp>
 #include <functions/hinge.cuh>
 #include <functions/linearReg.cuh>
 #include <functions/logisticReg.cuh>
+#include <glm/preprocess.cuh>
 #include <linalg/add.cuh>
 #include <linalg/eltwise.cuh>
 #include <linalg/norm.cuh>
@@ -32,10 +35,7 @@
 #include <matrix/matrix.cuh>
 #include <stats/mean.cuh>
 #include <stats/mean_center.cuh>
-#include "common/cumlHandle.hpp"
-#include "glm/preprocess.cuh"
 #include "learning_rate.h"
-#include "ml_utils.h"
 #include "shuffle.h"
 
 namespace ML {

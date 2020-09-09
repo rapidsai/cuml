@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <iostream>
+#include <metrics/contingencyMatrix.cuh>
 #include <random>
-#include "metrics/contingencyMatrix.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

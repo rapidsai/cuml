@@ -18,8 +18,7 @@
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <cuda_utils.cuh>
-#include "cuml/ensemble/randomforest.hpp"
-#include "ml_utils.h"
+#include <cuml/ensemble/randomforest.hpp>
 
 namespace ML {
 
@@ -105,7 +104,8 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     inference_data_h = {30.0, 10.0, 1.0, 20.0, 2.0, 10.0, 0.0, 40.0};
     inference_data_h.resize(inference_data_len);
     allocate(inference_data_d, inference_data_len);
-    updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
+    updateDevice(inference_data_d, inference_data_h.data(), inference_data_len,
+                 stream);
 
     predict(handle, forest, inference_data_d, params.n_inference_rows,
             params.n_cols, predicted_labels);
@@ -203,7 +203,8 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     inference_data_h = {0.0, 10.0, 0.0, 20.0, 0.0, 30.0, 0.0, 40.0};
     inference_data_h.resize(inference_data_len);
     allocate(inference_data_d, inference_data_len);
-    updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
+    updateDevice(inference_data_d, inference_data_h.data(), inference_data_len,
+                 stream);
 
     predict(handle, forest, inference_data_d, params.n_inference_rows,
             params.n_cols, predicted_labels);
@@ -246,52 +247,56 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
 //-------------------------------------------------------------------------------------------------------------------------------------
 
 const std::vector<RfInputs<float>> inputsf2_clf = {
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::GINI},  // single tree forest, bootstrap false, depth 8, 4 bins
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::GINI},  // single tree forest, bootstrap false, depth of 8, 4 bins
-  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::
      GINI},  //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::
      GINI},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
    2, 0.0, 2,
    CRITERION::
      CRITERION_END},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
-  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 0.0, 2, CRITERION::ENTROPY}};
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
+   2, 0.0, 2, CRITERION::ENTROPY},
+  {50, 10, 10, 0.8f, 0.8f, 10, 7, -1, true, true, 3,
+   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2, CRITERION::ENTROPY}};
 
 const std::vector<RfInputs<double>> inputsd2_clf = {  // Same as inputsf2_clf
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::GINI},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::GINI},
-  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::GINI},
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::GINI},
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
    2, 0.0, 2, CRITERION::CRITERION_END},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
-  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 0.0, 2, CRITERION::ENTROPY}};
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
+   2, 0.0, 2, CRITERION::ENTROPY},
+  {50, 10, 10, 0.8f, 0.8f, 10, 7, -1, true, true, 3,
+   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2, CRITERION::ENTROPY}};
 
 typedef RfClassifierTest<float> RfClassifierTestF;
 TEST_P(RfClassifierTestF, Fit) {
@@ -338,32 +343,32 @@ TEST_P(RfRegressorTestD, Fit) {
 }
 
 const std::vector<RfInputs<float>> inputsf2_reg = {
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::MSE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::MSE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::
      CRITERION_END},  // CRITERION_END uses the default criterion (GINI for classification, MSE for regression)
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::MAE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::GLOBAL_QUANTILE,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::GLOBAL_QUANTILE,
    2, 0.0, 2, CRITERION::MAE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, true, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::CRITERION_END}};
 
 const std::vector<RfInputs<double>> inputsd2_reg = {  // Same as inputsf2_reg
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::MSE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::MSE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::CRITERION_END},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::MAE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::GLOBAL_QUANTILE,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::GLOBAL_QUANTILE,
    2, 0.0, 2, CRITERION::MAE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, true, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::CRITERION_END}};
 
 INSTANTIATE_TEST_CASE_P(RfRegressorTests, RfRegressorTestF,

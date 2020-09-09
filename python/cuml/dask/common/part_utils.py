@@ -62,7 +62,10 @@ def workers_to_parts(futures):
 
 
 def _func_get_rows(df):
-    return df.shape[0]
+    if isinstance(df, tuple):
+        return df[0].shape[0]
+    else:
+        return df.shape[0]
 
 
 def parts_to_ranks(client, worker_info, part_futures):
@@ -145,7 +148,7 @@ def _extract_partitions(dask_obj, client=None):
         # TODO: ravel() is causing strange behavior w/ delayed Arrays which are
         # not yet backed by futures. Need to investigate this behavior.
         # ref: https://github.com/rapidsai/cuml/issues/2045
-        raveled = [d.flatten() for d in dela]
+        raveled = [d.ravel() for d in dela]
         parts = client.compute([p for p in zip(*raveled)])
 
     yield wait(parts)

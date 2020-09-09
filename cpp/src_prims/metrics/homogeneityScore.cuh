@@ -20,8 +20,8 @@
 * contain only data points which are members of a single class.
 */
 
-#include "metrics/entropy.cuh"
-#include "metrics/mutualInfoScore.cuh"
+#include "entropy.cuh"
+#include "mutualInfoScore.cuh"
 
 namespace MLCommon {
 

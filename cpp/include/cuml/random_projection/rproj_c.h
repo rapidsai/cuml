@@ -16,8 +16,11 @@
 
 #pragma once
 #include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 
 namespace ML {
+
+using namespace MLCommon;
 
 /**
      * @defgroup paramsRPROJ: structure holding parameters used by random projection model
@@ -42,27 +45,40 @@ struct paramsRPROJ {
   int random_state;
 };
 
+enum random_matrix_type { unset, dense, sparse };
+
 template <typename math_t>
 struct rand_mat {
-  rand_mat()
-    : dense_data(nullptr),
-      indices(nullptr),
-      indptr(nullptr),
-      sparse_data(nullptr),
-      sparse_data_size(0) {}
+  rand_mat(std::shared_ptr<MLCommon::deviceAllocator> allocator,
+           cudaStream_t stream)
+    : dense_data(allocator, stream),
+      indices(allocator, stream),
+      indptr(allocator, stream),
+      sparse_data(allocator, stream),
+      stream(stream),
+      type(unset) {}
 
   ~rand_mat() { this->reset(); }
 
   // For dense matrices
-  math_t *dense_data;
+  device_buffer<math_t> dense_data;
 
   // For sparse CSC matrices
-  int *indices;
-  int *indptr;
-  math_t *sparse_data;
-  size_t sparse_data_size;
+  device_buffer<int> indices;
+  device_buffer<int> indptr;
+  device_buffer<math_t> sparse_data;
 
-  void reset();
+  cudaStream_t stream;
+
+  random_matrix_type type;
+
+  void reset() {
+    this->dense_data.release(this->stream);
+    this->indices.release(this->stream);
+    this->indptr.release(this->stream);
+    this->sparse_data.release(this->stream);
+    this->type = unset;
+  };
 };
 
 template <typename math_t>

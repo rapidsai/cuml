@@ -17,9 +17,9 @@
 #include <cuml/cuml_api.h>
 #include <cuml/matrix/kernelparams.h>
 #include <cuml/svm/svm_api.h>
+#include <common/cumlHandle.hpp>
 #include <cuml/svm/svc.hpp>
 #include <tuple>
-#include "common/cumlHandle.hpp"
 
 cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
                          int n_cols, float *labels, float C, float cache_size,

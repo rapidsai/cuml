@@ -15,23 +15,22 @@
  */
 
 #include <common/cudart_utils.h>
+#include <decisiontree/decisiontree_impl.h>
 #include <gtest/gtest.h>
+#include <linalg/gemv.h>
+#include <linalg/transpose.h>
 #include <sys/stat.h>
 #include <test_utils.h>
 #include <treelite/c_api.h>
 #include <treelite/c_api_runtime.h>
 #include <cstdlib>
 #include <cuda_utils.cuh>
+#include <cuml/ensemble/randomforest.hpp>
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <random/rng.cuh>
 #include <string>
-#include "cuml/ensemble/randomforest.hpp"
-#include "decisiontree/decisiontree_impl.h"
-#include "linalg/gemv.h"
-#include "linalg/transpose.h"
-#include "ml_utils.h"
-#include "random/rng.cuh"
 
 namespace ML {
 
@@ -343,7 +342,6 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
 
     for (int i = 0; i < 3; i++) {
       ModelHandle model;
-      std::vector<unsigned char> vec_data;
 
       this->rf_params.n_trees = this->rf_params.n_trees + i;
 
@@ -351,7 +349,7 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
           this->params.n_rows, this->params.n_cols, this->labels_d,
           labels_map.size(), this->rf_params);
       build_treelite_forest(&model, this->all_forest_info[i],
-                            this->params.n_cols, this->task_category, vec_data);
+                            this->params.n_cols, this->task_category);
       this->treelite_indiv_handles.push_back(model);
     }
 
@@ -413,14 +411,14 @@ class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
 
     for (int i = 0; i < 3; i++) {
       ModelHandle model;
-      std::vector<unsigned char> vec_data;
+
       this->rf_params.n_trees = this->rf_params.n_trees + i;
 
       fit(*(this->handle), this->all_forest_info[i], this->data_d,
           this->params.n_rows, this->params.n_cols, this->labels_d,
           this->rf_params);
       build_treelite_forest(&model, this->all_forest_info[i],
-                            this->params.n_cols, this->task_category, vec_data);
+                            this->params.n_cols, this->task_category);
       CUDA_CHECK(cudaStreamSynchronize(this->stream));
       this->treelite_indiv_handles.push_back(model);
     }
@@ -467,18 +465,18 @@ INSTANTIATE_TEST_CASE_P(RfBinaryClassifierConcatTests, RfClassifierConcatTestF,
                         ::testing::ValuesIn(inputsf2_clf));
 
 const std::vector<RfInputs<float>> inputsf2_reg = {
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::MSE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::MSE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::
      CRITERION_END},  // CRITERION_END uses the default criterion (GINI for classification, MSE for regression)
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::MAE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::GLOBAL_QUANTILE,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::GLOBAL_QUANTILE,
    2, 0.0, 2, CRITERION::MAE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, true, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::CRITERION_END}};
 
 typedef RfConcatTestReg<float, float> RfRegressorConcatTestF;

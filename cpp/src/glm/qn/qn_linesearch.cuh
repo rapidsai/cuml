@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <glm/qn/qn_util.cuh>
+#include "qn_util.cuh"
 
 /*
  * Linesearch functions
@@ -81,14 +81,18 @@ inline bool ls_success(const LBFGSParam<T> &param, const T fx_init,
  * \param param        LBFGS parameters
  * \param f            A function object such that `f(x, grad)` returns the
  *                     objective function value at `x`, and overwrites `grad`
- * with the gradient. \param fx           In: The objective function value at
- * the current point. Out: The function value at the new point. \param x
- * Out: The new point moved to. \param grad         In: The current gradient
- * vector. Out: The gradient at the new point. \param step         In: The
- * initial step length. Out: The calculated step length. \param drt          The
- * current moving direction. \param xp           The current point. \param
- * dev_scalar   Device pointer to workspace of at least 1 \param stream
- * Device pointer to workspace of at least 1
+ *                     with the gradient.
+ * \param fx           In: The objective function value at the current point.
+ *                     Out: The function value at the new point.
+ * \param x            Out: The new point moved to.
+ * \param grad         In: The current gradient vector.
+ *                     Out: The gradient at the new point.
+ * \param step         In: The initial step length.
+ *                     Out: The calculated step length.
+ * \param drt          The current moving direction.
+ * \param xp           The current point.
+ * \param dev_scalar   Device pointer to workspace of at least 1
+ * \param stream Device pointer to workspace of at least 1
  */
 template <typename T, typename Function>
 LINE_SEARCH_RETCODE ls_backtrack(const LBFGSParam<T> &param, Function &f, T &fx,
@@ -109,13 +113,16 @@ LINE_SEARCH_RETCODE ls_backtrack(const LBFGSParam<T> &param, Function &f, T &fx,
   const T dg_test = param.ftol * dg_init;
   T width;
 
+  CUML_LOG_TRACE("Starting line search fx_init=%f, dg_init=%f", fx_init,
+                 dg_init);
+
   int iter;
   for (iter = 0; iter < param.max_linesearch; iter++) {
     // x_{k+1} = x_k + step * d_k
     x.axpy(step, drt, xp, stream);
     // Evaluate this candidate
     fx = f(x, grad, dev_scalar, stream);
-
+    CUML_LOG_TRACE("Line search iter %d, fx=%f", iter, fx);
     // if (is_success(fx_init, dg_init, fx, dg_test, step, grad, drt, &width))
     if (ls_success(param, fx_init, dg_init, fx, dg_test, step, grad, drt,
                    &width, dev_scalar, stream))

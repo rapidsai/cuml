@@ -1,0 +1,23 @@
+
+/* Fix references to not look like parameters */
+dl.citation > dt.label {
+  display: unset !important;
+  float: left !important;
+  border: unset !important;
+  background: unset !important;
+  padding: unset !important;
+  margin: unset !important;
+  font-size: unset !important;
+  line-height: unset !important;
+  padding-right: 0.5rem !important;
+}
+
+/* Add opening bracket */
+dl.citation > dt.label > span::before {
+  content: "[";
+}
+
+/* Add closing bracket */
+dl.citation > dt.label > span::after {
+  content: "]";
+}

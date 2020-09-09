@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 #pragma once
 #include <common/cudart_utils.h>
 #include <math.h>
+#include <cuda_utils.cuh>
 #include <vector>
 #include "../memory.h"
-#include "cuda_utils.cuh"
 
 namespace ML {
 namespace DecisionTree {

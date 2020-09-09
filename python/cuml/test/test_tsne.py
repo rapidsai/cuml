@@ -17,7 +17,9 @@ import numpy as np
 import pytest
 
 from cuml.manifold import TSNE
+from cuml.test.utils import stress_param
 
+from sklearn.datasets.samples_generator import make_blobs
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn import datasets
 
@@ -45,7 +47,7 @@ def test_tsne(name):
     for i in range(3):
         print("iteration = ", i)
 
-        tsne = TSNE(2, random_state=i, verbosity=logger.LEVEL_INFO,
+        tsne = TSNE(2, random_state=i, verbose=False,
                     learning_rate=2+i)
 
         # Reuse
@@ -58,7 +60,7 @@ def test_tsne(name):
         del Y
 
         # Again
-        tsne = TSNE(2, random_state=i+2, verbosity=logger.LEVEL_DEBUG,
+        tsne = TSNE(2, random_state=i+2, verbose=logger.level_debug,
                     learning_rate=2+i+2)
 
         # Reuse
@@ -88,3 +90,20 @@ def test_tsne_default(name):
         assert trust > 0.76
         assert nans == 0
         del Y
+
+
+@pytest.mark.parametrize('nrows', [stress_param(2400000)])
+@pytest.mark.parametrize('ncols', [stress_param(250)])
+def test_tsne_large(nrows, ncols):
+    """
+    This tests how TSNE handles large input
+    """
+    X, y = make_blobs(n_samples=nrows, centers=8,
+                      n_features=ncols, random_state=0)
+
+    X = X.astype(np.float32)
+
+    tsne = TSNE(random_state=0, exaggeration_iter=1, n_iter=2)
+    Y = tsne.fit_transform(X)
+    nans = np.sum(np.isnan(Y))
+    assert nans == 0

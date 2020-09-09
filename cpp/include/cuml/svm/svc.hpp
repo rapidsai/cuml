@@ -44,12 +44,13 @@ namespace SVM {
  * @param [in] param parameters for training
  * @param [in] kernel_params parameters for the kernel function
  * @param [out] model parameters of the trained model
+ * @param [in] sample_weight optional sample weights, size [n_rows]
  */
 template <typename math_t>
 void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
             math_t *labels, const svmParameter &param,
             MLCommon::Matrix::KernelParams &kernel_params,
-            svmModel<math_t> &model);
+            svmModel<math_t> &model, const math_t *sample_weight = nullptr);
 
 /**
  * @brief Predict classes or decision function value for samples in input.
@@ -151,8 +152,10 @@ class SVC {
    * @param n_rows number of rows
    * @param n_cols number of columns
    * @param labels device pointer for the labels. Size n_rows.
+   * @param [in] sample_weight optional sample weights, size [n_rows]
    */
-  void fit(math_t *input, int n_rows, int n_cols, math_t *labels);
+  void fit(math_t *input, int n_rows, int n_cols, math_t *labels,
+           const math_t *sample_weight = nullptr);
 
   /**
    * @brief Predict classes for samples in input.

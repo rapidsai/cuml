@@ -17,7 +17,7 @@
 * @file vMeasure.cuh
 */
 
-#include "metrics/homogeneityScore.cuh"
+#include "homogeneityScore.cuh"
 
 namespace MLCommon {
 

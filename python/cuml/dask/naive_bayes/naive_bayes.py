@@ -18,7 +18,6 @@ import cupy as cp
 import dask
 from toolz import first
 
-from dask.distributed import wait
 import dask.array
 
 
@@ -27,6 +26,8 @@ from cuml.common import with_cupy_rmm
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 
+from cuml.dask.common.utils import wait_and_raise_from_futures
+
 from cuml.dask.common.func import reduce
 from cuml.dask.common.func import tree_reduce
 
@@ -34,8 +35,6 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.common import rmm_cupy_ary
 
 from cuml.naive_bayes import MultinomialNB as MNB
-
-import cuml.common.logger as logger
 
 
 class MultinomialNB(BaseEstimator,
@@ -52,53 +51,53 @@ class MultinomialNB(BaseEstimator,
 
     .. code-block:: python
 
-    import cupy as cp
+        import cupy as cp
 
-    from sklearn.datasets import fetch_20newsgroups
-    from sklearn.feature_extraction.text import CountVectorizer
+        from sklearn.datasets import fetch_20newsgroups
+        from sklearn.feature_extraction.text import CountVectorizer
 
-    from dask_cuda import LocalCUDACluster
-    from dask.distributed import Client
+        from dask_cuda import LocalCUDACluster
+        from dask.distributed import Client
 
-    from cuml.dask.common import to_sparse_dask_array
+        from cuml.dask.common import to_sparse_dask_array
 
-    from cuml.dask.naive_bayes import MultinomialNB
+        from cuml.dask.naive_bayes import MultinomialNB
 
-    # Create a local CUDA cluster
+        # Create a local CUDA cluster
 
-    cluster = LocalCUDACluster()
-    client = Client(cluster)
+        cluster = LocalCUDACluster()
+        client = Client(cluster)
 
-    # Load corpus
+        # Load corpus
 
-    twenty_train = fetch_20newsgroups(subset='train',
-                              shuffle=True, random_state=42)
+        twenty_train = fetch_20newsgroups(subset='train',
+                                  shuffle=True, random_state=42)
 
-    cv = CountVectorizer()
-    xformed = cv.fit_transform(twenty_train.data).astype(cp.float32)
+        cv = CountVectorizer()
+        xformed = cv.fit_transform(twenty_train.data).astype(cp.float32)
 
-    X = to_sparse_dask_array(xformed, client)
-    y = dask.array.from_array(twenty_train.target, asarray=False,
-                          fancy=False).astype(cp.int32)
+        X = to_sparse_dask_array(xformed, client)
+        y = dask.array.from_array(twenty_train.target, asarray=False,
+                              fancy=False).astype(cp.int32)
 
-    # Train model
+        # Train model
 
-    model = MultinomialNB()
-    model.fit(X, y)
+        model = MultinomialNB()
+        model.fit(X, y)
 
-    # Compute accuracy on training set
+        # Compute accuracy on training set
 
-    model.score(X, y)
+        model.score(X, y)
 
 
     Output:
 
     .. code-block:: python
 
-    0.9244298934936523
+        0.9244298934936523
 
     """
-    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=False, **kwargs):
 
         """
         Create new multinomial distributed Naive Bayes classifier instance
@@ -108,14 +107,14 @@ class MultinomialNB(BaseEstimator,
 
         client : dask.distributed.Client optional Dask client to use
         """
-        super(MultinomialNB, self).__init__(client=client, verbosity=verbosity,
+        super(MultinomialNB, self).__init__(client=client, verbose=verbose,
                                             **kwargs)
 
         self.datatype = "cupy"
 
         # Make any potential model args available and catch any potential
         # ValueErrors before distributed training begins.
-        self.local_model = MNB(**kwargs)
+        self._set_internal_model(MNB(**kwargs))
 
     @staticmethod
     @with_cupy_rmm
@@ -137,8 +136,8 @@ class MultinomialNB(BaseEstimator,
         modela = first(models)
 
         for model in models[1:]:
-            modela.feature_count_ += model.feature_count_
-            modela.class_count_ += model.class_count_
+            modela._feature_count_ += model._feature_count_
+            modela._class_count_ += model._class_count_
         return modela
 
     @staticmethod
@@ -186,14 +185,17 @@ class MultinomialNB(BaseEstimator,
                                      pure=False)
                   for w, part in futures.gpu_futures]
 
-        self.local_model = reduce(models,
-                                  self._merge_counts_to_model,
-                                  client=self.client)
-        self.local_model = self.client.submit(self._update_log_probs,
-                                              self.local_model,
-                                              pure=False)
+        models = reduce(models,
+                        self._merge_counts_to_model,
+                        client=self.client)
 
-        wait(self.local_model)
+        models = self.client.submit(self._update_log_probs,
+                                    models,
+                                    pure=False)
+
+        wait_and_raise_from_futures([models])
+
+        self._set_internal_model(models)
 
         return self
 

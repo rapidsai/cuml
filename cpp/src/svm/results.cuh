@@ -23,17 +23,17 @@
 #include <memory>
 
 #include <common/cudart_utils.h>
+#include <linalg/init.h>
+#include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
+#include <common/host_buffer.hpp>
 #include <cub/device/device_select.cuh>
 #include <cuml/common/cuml_allocator.hpp>
-#include "common/cumlHandle.hpp"
-#include "common/device_buffer.hpp"
-#include "common/host_buffer.hpp"
-#include "linalg/add.cuh"
-#include "linalg/binary_op.cuh"
-#include "linalg/init.h"
-#include "linalg/map_then_reduce.cuh"
-#include "linalg/unary_op.cuh"
-#include "matrix/matrix.cuh"
+#include <linalg/add.cuh>
+#include <linalg/binary_op.cuh>
+#include <linalg/map_then_reduce.cuh>
+#include <linalg/unary_op.cuh>
+#include <matrix/matrix.cuh>
 #include "ws_util.cuh"
 
 namespace ML {
@@ -60,7 +60,7 @@ class Results {
    * @param C penalty parameter
    */
   Results(const cumlHandle_impl &handle, const math_t *x, const math_t *y,
-          int n_rows, int n_cols, math_t C, SvmType svmType)
+          int n_rows, int n_cols, const math_t *C, SvmType svmType)
     : allocator(handle.getDeviceAllocator()),
       stream(handle.getStream()),
       handle(handle),
@@ -220,10 +220,7 @@ class Results {
     // For unbound support vectors f_i = -b.
 
     // Select f for unbound support vectors (0 < alpha < C)
-    math_t C = this->C;
-    auto select = [C] __device__(math_t a) -> bool { return 0 < a && a < C; };
-
-    int n_free = SelectByCoef(alpha, n_train, f, select, val_selected.data());
+    int n_free = SelectUnboundSV(alpha, n_train, f, val_selected.data());
     if (n_free > 0) {
       cub::DeviceReduce::Sum(cub_storage.data(), cub_bytes, val_selected.data(),
                              d_val_reduced.data(), n_free, stream);
@@ -242,6 +239,30 @@ class Results {
     }
   }
 
+  /**
+  * @brief Select values for unbound support vectors (not bound by C).
+  * @tparam valType type of values that will be selected
+  * @param [in] alpha dual coefficients, size [n]
+  * @param [in] n number of dual coefficients
+  * @param [in] val values to filter, size [n]
+  * @param [out] out buffer size [n]
+  * @return number of selected elements
+  */
+  template <typename valType>
+  int SelectUnboundSV(const math_t *alpha, int n, const valType *val,
+                      valType *out) {
+    auto select = [] __device__(math_t a, math_t C) -> bool {
+      return 0 < a && a < C;
+    };
+    MLCommon::LinAlg::binaryOp(flag.data(), alpha, C, n, select, stream);
+    cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, val, flag.data(),
+                               out, d_num_selected.data(), n, stream);
+    int n_selected;
+    MLCommon::updateHost(&n_selected, d_num_selected.data(), 1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    return n_selected;
+  }
+
   std::shared_ptr<deviceAllocator> allocator;
 
  private:
@@ -252,7 +273,7 @@ class Results {
   int n_cols;       //!< number of features
   const math_t *x;  //!< training vectors
   const math_t *y;  //!< labels
-  math_t C;         //!< penalty parameter
+  const math_t *C;  //!< penalty parameter
   SvmType svmType;  //!< SVM problem type: SVC or SVR
   int n_train;  //!< number of training vectors (including duplicates for SVR)
 
@@ -323,7 +344,7 @@ class Results {
    */
   math_t SelectReduce(const math_t *alpha, const math_t *f, bool min,
                       void (*flag_op)(bool *, int, const math_t *,
-                                      const math_t *, math_t)) {
+                                      const math_t *, const math_t *)) {
     flag_op<<<MLCommon::ceildiv(n_train, TPB), TPB, 0, stream>>>(
       flag.data(), n_train, alpha, y, C);
     CUDA_CHECK(cudaPeekAtLastError());

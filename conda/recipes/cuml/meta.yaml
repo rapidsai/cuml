@@ -4,7 +4,6 @@
 #   conda build . -c defaults -c conda-forge -c numba -c rapidsai -c pytorch
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
 {% set minor_version =  version.split('.')[0] + '.' + version.split('.')[1] %}
-{% set git_revision_count=environ.get('GIT_DESCRIBE_NUMBER', 0) %}
 {% set cuda_version='.'.join(environ.get('CUDA', 'unknown').split('.')[:2]) %}
 {% set py_version=environ.get('CONDA_PY', 36) %}
 
@@ -13,11 +12,11 @@ package:
   version: {{ version }}
 
 source:
-  path: ../../..
+  git_url: ../../..
 
 build:
-  number: {{ git_revision_count }}
-  string: cuda{{ cuda_version }}_py{{ py_version }}_{{ git_revision_count }}
+  number: {{ GIT_DESCRIBE_NUMBER }}
+  string: cuda{{ cuda_version }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
   script_env:
     - CC
     - CXX
@@ -29,10 +28,10 @@ requirements:
     - setuptools
     - cython>=0.29,<0.30
     - cmake>=3.14
-    - protobuf >=3.4.1,<4.0.0
+    - treelite=0.92
     - cudf {{ minor_version }}
     - libcuml={{ version }}
-    - libcumlprims=0.14.*
+    - libcumlprims 0.16.0a200821
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ minor_version }}
   run:
@@ -40,8 +39,9 @@ requirements:
     - cudf {{ minor_version }}
     - dask-cudf {{ minor_version }}
     - libcuml={{ version }}
-    - libcumlprims=0.14.*
-    - cupy>=7,<8.0.0a0
+    - libcumlprims=0.16.0a200821
+    - treelite=0.92
+    - cupy>=7,<=8.0.0dev.rapidsai0.15
     - nccl>=2.5
     - ucx-py {{ minor_version }}
     - dask>=2.12.0

@@ -16,13 +16,13 @@
 
 #include <iostream>
 
-#include "common/device_buffer.hpp"
-#include "cuml/svm/svc.hpp"
+#include <linalg/cublas_wrappers.h>
+#include <common/device_buffer.hpp>
+#include <cuml/svm/svc.hpp>
+#include <label/classlabels.cuh>
+#include <linalg/unary_op.cuh>
+#include <matrix/kernelfactory.cuh>
 #include "kernelcache.cuh"
-#include "label/classlabels.cuh"
-#include "linalg/cublas_wrappers.h"
-#include "linalg/unary_op.cuh"
-#include "matrix/kernelfactory.cuh"
 #include "smosolver.cuh"
 #include "svr_impl.cuh"
 
@@ -33,12 +33,13 @@ namespace SVM {
 template void svrFit<float>(const cumlHandle &handle, float *X, int n_rows,
                             int n_cols, float *y, const svmParameter &param,
                             MLCommon::Matrix::KernelParams &kernel_params,
-                            svmModel<float> &model);
+                            svmModel<float> &model, const float *sample_weight);
 
 template void svrFit<double>(const cumlHandle &handle, double *X, int n_rows,
                              int n_cols, double *y, const svmParameter &param,
                              MLCommon::Matrix::KernelParams &kernel_params,
-                             svmModel<double> &model);
+                             svmModel<double> &model,
+                             const double *sample_weight);
 
 };  // namespace SVM
 };  // end namespace ML

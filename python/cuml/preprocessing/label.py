@@ -14,11 +14,13 @@
 #
 
 import cupy as cp
+import cupyx
 
 from cuml.prims.label import make_monotonic, check_labels, \
     invert_labels
 
-from cuml.common import rmm_cupy_ary
+from cuml import Base
+from cuml.common import rmm_cupy_ary, with_cupy_rmm, CumlArray
 from cuml.common import has_scipy
 
 
@@ -49,10 +51,10 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
 
     val = rmm_cupy_ary(cp.full, row_ind.shape[0], pos_label, dtype=y.dtype)
 
-    sp = cp.sparse.coo_matrix((val, (row_ind, col_ind)),
-                              shape=(col_ind.shape[0],
-                                     classes.shape[0]),
-                              dtype=cp.float32)
+    sp = cupyx.scipy.sparse.coo_matrix((val, (row_ind, col_ind)),
+                                       shape=(col_ind.shape[0],
+                                              classes.shape[0]),
+                                       dtype=cp.float32)
 
     cp.cuda.Stream.null.synchronize()
 
@@ -67,7 +69,7 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
         return arr
 
 
-class LabelBinarizer(object):
+class LabelBinarizer(Base):
 
     """
     A multi-class dummy encoder for labels.
@@ -80,6 +82,7 @@ class LabelBinarizer(object):
     .. code-block:: python
 
         import cupy as cp
+        import cupyx
         from cuml.preprocessing import LabelBinarizer
 
         labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1],
@@ -129,6 +132,8 @@ class LabelBinarizer(object):
         sparse_output : bool whether to return sparse arrays for transformed
                         output
         """
+        super().__init__()
+
         if neg_label >= pos_label:
             raise ValueError("neg_label=%s must be less "
                              "than pos_label=%s." % (neg_label, pos_label))
@@ -143,7 +148,9 @@ class LabelBinarizer(object):
         self.neg_label = neg_label
         self.pos_label = pos_label
         self.sparse_output = sparse_output
+        self._classes_ = None
 
+    @with_cupy_rmm
     def fit(self, y):
         """
         Fit label binarizer
@@ -159,23 +166,26 @@ class LabelBinarizer(object):
         self : returns an instance of self.
         """
 
+        self._set_output_type(y)
+
         if y.ndim > 2:
             raise ValueError("labels cannot be greater than 2 dimensions")
 
         if y.ndim == 2:
 
-            unique_classes = rmm_cupy_ary(cp.unique, y)
+            unique_classes = cp.unique(y)
             if unique_classes != [0, 1]:
                 raise ValueError("2-d array can must be binary")
 
-            self.classes_ = rmm_cupy_ary(cp.arange, 0, y.shape[1])
+            self._classes_ = CumlArray(cp.arange(0, y.shape[1]))
         else:
-            self.classes_ = rmm_cupy_ary(cp.unique, y).astype(y.dtype)
+            self._classes_ = CumlArray(cp.unique(y).astype(y.dtype))
 
         cp.cuda.Stream.null.synchronize()
 
         return self
 
+    @with_cupy_rmm
     def fit_transform(self, y):
         """
         Fit label binarizer and transform multi-class labels to their
@@ -205,7 +215,7 @@ class LabelBinarizer(object):
         -------
         arr : array with encoded labels
         """
-        return label_binarize(y, self.classes_,
+        return label_binarize(y, self._classes_,
                               pos_label=self.pos_label,
                               neg_label=self.neg_label,
                               sparse_output=self.sparse_output)
@@ -233,8 +243,8 @@ class LabelBinarizer(object):
                     as scipy_sparse_isspmatrix
 
         # If we are already given multi-class, just return it.
-        if cp.sparse.isspmatrix(y):
-            y_mapped = y.tocsr().indices.astype(self.classes_.dtype)
+        if cupyx.scipy.sparse.isspmatrix(y):
+            y_mapped = y.tocsr().indices.astype(self._classes_.dtype)
         elif scipy_sparse_isspmatrix(y):
             y = y.tocsr()
             y_mapped = rmm_cupy_ary(cp.array, y.indices,
@@ -245,4 +255,4 @@ class LabelBinarizer(object):
                                                  dtype=y.dtype),
                                     axis=1).astype(y.dtype)
 
-        return invert_labels(y_mapped, self.classes_)
+        return invert_labels(y_mapped, self._classes_)

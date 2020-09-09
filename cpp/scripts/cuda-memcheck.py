@@ -13,8 +13,6 @@
 # limitations under the License.
 
 from __future__ import print_function
-import sys
-import re
 import os
 import subprocess
 import argparse

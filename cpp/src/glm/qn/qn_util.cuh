@@ -15,8 +15,9 @@
  */
 
 #pragma once
+#include <cuda_utils.cuh>
 #include <cuml/common/logger.hpp>
-#include "cuda_utils.cuh"
+#include <limits>
 
 namespace ML {
 namespace GLM {
@@ -149,7 +150,7 @@ inline bool check_convergence(const LBFGSParam<T> &param, const int k,
  * e.g. to compute the new search direction for g = \nabla f(x)
  */
 template <typename T>
-inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
+inline int lbfgs_search_dir(const LBFGSParam<T> &param, int *n_vec,
                             const int end_prev, const SimpleMat<T> &S,
                             const SimpleMat<T> &Y, const SimpleVec<T> &g,
                             const SimpleVec<T> &svec, const SimpleVec<T> &yvec,
@@ -161,14 +162,32 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
   // note: update_state assigned svec, yvec to m_s[:,end], m_y[:,end]
   T ys = dot(svec, yvec, dev_scalar, stream);
   T yy = dot(yvec, yvec, dev_scalar, stream);
-  if (ys == 0 || yy == 0) {
-    CUML_LOG_WARN("WARNING: zero detected");
+  CUML_LOG_TRACE("ys=%e, yy=%e", ys, yy);
+  // Skipping test:
+  if (ys <= std::numeric_limits<T>::epsilon() * yy) {
+    // We can land here for example if yvec == 0 (no change in the gradient,
+    // g_k == g_k+1). That means the Hessian is approximately zero. We cannot
+    // use the QN model to update the search dir, we just continue along the
+    // previous direction.
+    //
+    // See eq (3.9) and Section 6 in "A limited memory algorithm for bound
+    // constrained optimization" Richard H. Byrd, Peihuang Lu, Jorge Nocedal and
+    // Ciyou Zhu Technical Report NAM-08 (1994) NORTHWESTERN UNIVERSITY.
+    //
+    // Alternative condition to skip update is: ys / (-gs) <= epsmch,
+    // (where epsmch = std::numeric_limits<T>::epsilon) given in Section 5 of
+    // "L-BFGS-B Fortran subroutines for large-scale bound constrained
+    // optimization" Ciyou Zhu, Richard H. Byrd, Peihuang Lu and Jorge Nocedal
+    // (1994).
+    CUML_LOG_DEBUG("L-BFGS WARNING: skipping update step ys=%f, yy=%f", ys, yy);
+    return end;
   }
+  (*n_vec)++;
   yhist[end] = ys;
 
   // Recursive formula to compute d = -H * g
   drt.ax(-1.0, g, stream);
-  int bound = std::min(param.m, k);
+  int bound = std::min(param.m, *n_vec);
   end = (end + 1) % param.m;
   int j = end;
   for (int i = 0; i < bound; i++) {

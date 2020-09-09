@@ -1,0 +1,662 @@
+/*
+* Copyright 1993-2020 NVIDIA Corporation.  All rights reserved.
+*
+* NOTICE TO LICENSEE:
+*
+* This source code and/or documentation ("Licensed Deliverables") are
+* subject to NVIDIA intellectual property rights under U.S. and
+* international Copyright laws.
+*
+* These Licensed Deliverables contained herein is PROPRIETARY and
+* CONFIDENTIAL to NVIDIA and is being provided under the terms and
+* conditions of a form of NVIDIA software license agreement by and
+* between NVIDIA and Licensee ("License Agreement") or electronically
+* accepted by Licensee.  Notwithstanding any terms or conditions to
+* the contrary in the License Agreement, reproduction or disclosure
+* of the Licensed Deliverables to any third party without the express
+* written consent of NVIDIA is prohibited.
+*
+* NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
+* LICENSE AGREEMENT, NVIDIA MAKES NO REPRESENTATION ABOUT THE
+* SUITABILITY OF THESE LICENSED DELIVERABLES FOR ANY PURPOSE.  IT IS
+* PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.
+* NVIDIA DISCLAIMS ALL WARRANTIES WITH REGARD TO THESE LICENSED
+* DELIVERABLES, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY,
+* NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE.
+* NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
+* LICENSE AGREEMENT, IN NO EVENT SHALL NVIDIA BE LIABLE FOR ANY
+* SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, OR ANY
+* DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+* WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+* ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
+* OF THESE LICENSED DELIVERABLES.
+*
+* U.S. Government End Users.  These Licensed Deliverables are a
+* "commercial item" as that term is defined at 48 C.F.R. 2.101 (OCT
+* 1995), consisting of "commercial computer software" and "commercial
+* computer software documentation" as such terms are used in 48
+* C.F.R. 12.212 (SEPT 1995) and is provided to the U.S. Government
+* only as a commercial end item.  Consistent with 48 C.F.R.12.212 and
+* 48 C.F.R. 227.7202-1 through 227.7202-4 (JUNE 1995), all
+* U.S. Government End Users acquire the Licensed Deliverables with
+* only those rights set forth herein.
+*
+* Any use of the Licensed Deliverables in individual and commercial
+* software must include, in the user documentation and internal
+* comments to the code, the above Disclaimer and U.S. Government End
+* Users Notice.
+*/
+
+#include <cuml/neighbors/knn_mg.hpp>
+#include <selection/knn.cuh>
+
+#include <common/cumlHandle.hpp>
+
+#include <common/cuml_comms_int.hpp>
+#include <common/device_buffer.hpp>
+#include <cuml/common/cuml_allocator.hpp>
+
+#include <set>
+
+#include <cuda_utils.cuh>
+
+namespace ML {
+namespace KNN {
+namespace opg {
+
+namespace knn_common {
+
+template <typename T, int TPB_X>
+__global__ void copy_outputs_kernel(T *out, int64_t *knn_indices, T **parts,
+                                    int64_t *offsets, size_t cur_batch_size,
+                                    int n_parts, int n_labels) {
+  int64_t i = (blockIdx.x * TPB_X) + threadIdx.x;
+  if (i >= n_labels) return;
+  int64_t nn_idx = knn_indices[i];
+  int part_idx = 0;
+  for (; part_idx < n_parts && nn_idx >= offsets[part_idx]; part_idx++)
+    ;
+  part_idx = min(max((int)0, part_idx - 1), n_parts - 1);
+  int64_t offset = nn_idx - offsets[part_idx];
+  out[i] = parts[part_idx][offset];
+}
+
+template <typename T>
+void copy_outputs(T *out, int64_t *knn_indices,
+                  std::vector<std::vector<T *>> &y, size_t cur_batch_size,
+                  int k, int n_outputs, int n_features, int my_rank,
+                  std::vector<Matrix::RankSizePair *> &idxPartsToRanks,
+                  std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream) {
+  const int TPB_X = 256;
+
+  int n_labels = cur_batch_size * k;
+  dim3 grid(MLCommon::ceildiv(n_labels, TPB_X));
+  dim3 blk(TPB_X);
+
+  int64_t offset = 0;
+  std::vector<int64_t> offsets_h;
+  for (auto &rsp : idxPartsToRanks) {
+    if (rsp->rank == my_rank) {
+      offsets_h.push_back(offset);
+    }
+    offset += rsp->size;
+  }
+  size_t n_parts = offsets_h.size();
+  device_buffer<int64_t> offsets_d(alloc, stream, n_parts);
+  updateDevice(offsets_d.data(), offsets_h.data(), n_parts, stream);
+
+  std::vector<T *> parts_h(n_parts);
+  device_buffer<T *> parts_d(alloc, stream, n_parts);
+  for (int o = 0; o < n_outputs; o++) {
+    for (int p = 0; p < n_parts; p++) {
+      parts_h[p] = y[p][o];
+    }
+    updateDevice(parts_d.data(), parts_h.data(), n_parts, stream);
+
+    copy_outputs_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
+      out + (o * n_labels), knn_indices, parts_d.data(), offsets_d.data(),
+      cur_batch_size, n_parts, n_labels);
+  }
+}
+
+template <typename T>
+void launch_local_operation(T *out, int64_t *knn_indices, std::vector<T *> y,
+                            size_t total_labels, size_t cur_batch_size, int k,
+                            const std::shared_ptr<deviceAllocator> alloc,
+                            cudaStream_t stream, cudaStream_t *int_streams,
+                            int n_int_streams, bool probas_only,
+                            std::vector<float *> *probas,
+                            std::vector<int *> *uniq_labels,
+                            std::vector<int> *n_unique);
+
+template <>
+void launch_local_operation<int>(
+  int *out, int64_t *knn_indices, std::vector<int *> y, size_t total_labels,
+  size_t cur_batch_size, int k, const std::shared_ptr<deviceAllocator> alloc,
+  cudaStream_t stream, cudaStream_t *int_streams, int n_int_streams,
+  bool probas_only, std::vector<float *> *probas,
+  std::vector<int *> *uniq_labels, std::vector<int> *n_unique) {
+  if (probas_only) {
+    MLCommon::Selection::class_probs<32, true>(
+      *probas, nullptr, y, total_labels, cur_batch_size, k, *uniq_labels,
+      *n_unique, alloc, stream, &int_streams[0], n_int_streams);
+  } else {
+    MLCommon::Selection::knn_classify<32, true>(
+      out, nullptr, y, total_labels, cur_batch_size, k, *uniq_labels, *n_unique,
+      alloc, stream, &int_streams[0], n_int_streams);
+  }
+}
+
+template <>
+void launch_local_operation<float>(
+  float *out, int64_t *knn_indices, std::vector<float *> y, size_t total_labels,
+  size_t cur_batch_size, int k, const std::shared_ptr<deviceAllocator> alloc,
+  cudaStream_t stream, cudaStream_t *int_streams, int n_int_streams,
+  bool probas_only, std::vector<float *> *probas,
+  std::vector<int *> *uniq_labels, std::vector<int> *n_unique) {
+  MLCommon::Selection::knn_regress<float, 32, true>(
+    out, nullptr, y, total_labels, cur_batch_size, k, stream, &int_streams[0],
+    n_int_streams);
+}
+
+template <typename T>
+void perform_local_operation(T *out, int64_t *knn_indices, T *labels,
+                             size_t cur_batch_size, int k, int n_outputs,
+                             ML::cumlHandle &h, bool probas_only = false,
+                             std::vector<float *> *probas = nullptr,
+                             std::vector<int *> *uniq_labels = nullptr,
+                             std::vector<int> *n_unique = nullptr) {
+  size_t n_labels = cur_batch_size * k;
+  size_t total_labels = n_outputs * n_labels;
+
+  std::vector<T *> y(n_outputs);
+  for (int o = 0; o < n_outputs; o++) {
+    y[o] = labels + (o * n_labels);
+  }
+
+  cudaStream_t stream = h.getStream();
+  const std::shared_ptr<deviceAllocator> alloc = h.getDeviceAllocator();
+
+  int n_int_streams = h.getImpl().getNumInternalStreams();
+  cudaStream_t int_streams[n_int_streams];
+  for (int i = 0; i < n_int_streams; i++) {
+    int_streams[i] = h.getImpl().getInternalStream(i);
+  }
+
+  launch_local_operation<T>(out, knn_indices, y, total_labels, cur_batch_size,
+                            k, alloc, stream, int_streams, n_int_streams,
+                            probas_only, probas, uniq_labels, n_unique);
+}
+
+template <typename T>
+void reduce(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
+            std::vector<Matrix::Data<int64_t> *> *out_I,
+            std::vector<Matrix::floatData_t *> *out_D, device_buffer<T> &res,
+            device_buffer<int64_t> &res_I, device_buffer<float> &res_D,
+            Matrix::PartDescriptor &index_desc, size_t cur_batch_size, int k,
+            int n_outputs, int local_parts_completed, int cur_batch,
+            size_t total_n_processed, std::set<int> idxRanks, int my_rank,
+            bool probas_only = false,
+            std::vector<std::vector<float *>> *probas = nullptr,
+            std::vector<int *> *uniq_labels = nullptr,
+            std::vector<int> *n_unique = nullptr) {
+  const ML::cumlHandle_impl &h = handle.getImpl();
+  cudaStream_t stream = h.getStream();
+  const std::shared_ptr<deviceAllocator> alloc = h.getDeviceAllocator();
+
+  device_buffer<int64_t> trans(alloc, stream, idxRanks.size());
+  CUDA_CHECK(cudaMemsetAsync(trans.data(), 0, idxRanks.size() * sizeof(int64_t),
+                             stream));
+
+  size_t batch_offset = total_n_processed * k;
+
+  T *output = nullptr;
+  int64_t *indices = nullptr;
+  float *distances = nullptr;
+
+  device_buffer<int64_t> *indices_b;
+  device_buffer<float> *distances_b;
+  std::vector<float *> probas_with_offsets;
+
+  if (probas_only) {
+    indices_b = new device_buffer<int64_t>(alloc, stream, cur_batch_size * k);
+    distances_b = new device_buffer<float>(alloc, stream, cur_batch_size * k);
+    indices = indices_b->data();
+    distances = distances_b->data();
+
+    auto &probas_part = probas->at(local_parts_completed);
+    for (float *ptr : probas_part) {
+      probas_with_offsets.push_back(ptr + batch_offset);
+    }
+  } else {
+    output = out->at(local_parts_completed)->ptr + batch_offset;
+    indices = out_I->at(local_parts_completed)->ptr + batch_offset;
+    distances = out_D->at(local_parts_completed)->ptr + batch_offset;
+  }
+
+  MLCommon::Selection::knn_merge_parts(res_D.data(), res_I.data(), distances,
+                                       indices, cur_batch_size, idxRanks.size(),
+                                       k, stream, trans.data());
+
+  perform_local_operation(output, indices, res.data(), cur_batch_size, k,
+                          n_outputs, handle, probas_only, &probas_with_offsets,
+                          uniq_labels, n_unique);
+
+  if (probas_only) {
+    delete indices_b;
+    delete distances_b;
+  }
+}
+
+void perform_local_knn(int64_t *res_I, float *res_D,
+                       std::vector<Matrix::floatData_t *> &idx_data,
+                       Matrix::PartDescriptor &idx_desc,
+                       std::vector<Matrix::RankSizePair *> &local_idx_parts,
+                       std::vector<size_t> &start_indices, cudaStream_t stream,
+                       cudaStream_t *internal_streams, int n_internal_streams,
+                       std::shared_ptr<deviceAllocator> allocator,
+                       size_t cur_batch_size, int k, float *cur_query_ptr,
+                       bool rowMajorIndex, bool rowMajorQuery) {
+  std::vector<float *> ptrs(idx_data.size());
+  std::vector<int> sizes(idx_data.size());
+
+  for (int cur_idx = 0; cur_idx < idx_data.size(); cur_idx++) {
+    ptrs[cur_idx] = idx_data[cur_idx]->ptr;
+    sizes[cur_idx] = local_idx_parts[cur_idx]->size;
+  }
+
+  // PartDescriptor uses size_t while FAISS uses int64_t
+  // so we need to do a quick conversion.
+  std::vector<int64_t> start_indices_long;
+  for (size_t start_index : start_indices)
+    start_indices_long.push_back((int64_t)start_index);
+
+  // ID ranges need to be offset by each local partition's
+  // starting indices.
+  MLCommon::Selection::brute_force_knn(
+    ptrs, sizes, (int)idx_desc.N, cur_query_ptr, (int)cur_batch_size, res_I,
+    res_D, k, allocator, stream, internal_streams, n_internal_streams,
+    rowMajorIndex, rowMajorQuery, &start_indices_long);
+}
+
+void broadcast_query(float *query, size_t batch_input_elms, int part_rank,
+                     std::set<int> idxRanks, const cumlCommunicator &comm,
+                     cudaStream_t stream) {
+  int my_rank = comm.getRank();
+
+  int request_idx = 0;
+  std::vector<MLCommon::cumlCommunicator::request_t> requests;
+  if (part_rank == my_rank) {
+    int idx_rank_size = idxRanks.size();
+    if (idxRanks.find(my_rank) != idxRanks.end()) {
+      --idx_rank_size;
+    }
+
+    requests.resize(idx_rank_size);
+
+    for (int rank : idxRanks) {
+      if (rank != my_rank) {
+        comm.isend(query, batch_input_elms, rank, 0,
+                   requests.data() + request_idx);
+        ++request_idx;
+      }
+    }
+
+  } else {
+    requests.resize(1);
+    comm.irecv(query, batch_input_elms, part_rank, 0,
+               requests.data() + request_idx);
+    ++request_idx;
+  }
+
+  try {
+    comm.waitall(requests.size(), requests.data());
+  } catch (Exception &e) {
+    std::cout << "FAILURE!" << std::endl;
+  }
+}
+
+/**
+   * All non-root index ranks send the results for the current
+   * query batch to the root rank for the batch.
+   */
+template <typename T>
+void exchange_results(device_buffer<T> &res, device_buffer<int64_t> &res_I,
+                      device_buffer<float> &res_D, const cumlCommunicator &comm,
+                      int part_rank, std::set<int> idxRanks,
+                      cudaStream_t stream, size_t cur_batch_size, int k,
+                      int n_outputs, int local_parts_completed) {
+  int my_rank = comm.getRank();
+
+  size_t batch_elms = cur_batch_size * k;
+
+  int request_idx = 0;
+  std::vector<MLCommon::cumlCommunicator::request_t> requests;
+  if (part_rank != my_rank) {
+    requests.resize(2 + n_outputs);
+    comm.isend(res_I.data(), batch_elms, part_rank, 0,
+               requests.data() + request_idx);
+    ++request_idx;
+
+    comm.isend(res_D.data(), batch_elms, part_rank, 0,
+               requests.data() + request_idx);
+    ++request_idx;
+
+    for (size_t o = 0; o < n_outputs; o++) {
+      comm.isend(res.data() + (o * batch_elms), batch_elms, part_rank, 0,
+                 requests.data() + request_idx);
+      request_idx++;
+    }
+  } else {
+    bool part_rank_is_idx = idxRanks.find(part_rank) != idxRanks.end();
+    int idx_rank_size = idxRanks.size();
+
+    int num_received = 0;
+
+    // if root rank is an index, it will already have
+    // query data, so no need to receive from it.
+    res.resize(batch_elms * n_outputs * idx_rank_size, stream);
+    res_I.resize(batch_elms * idx_rank_size, stream);
+    res_D.resize(batch_elms * idx_rank_size, stream);
+    if (part_rank_is_idx) {
+      num_received = 1;  // root rank will take the zeroth slot
+      --idx_rank_size;
+    }
+
+    requests.resize((2 + n_outputs) * idx_rank_size);
+    for (int rank : idxRanks) {
+      if (rank != my_rank) {
+        size_t batch_offset = batch_elms * num_received;
+
+        comm.irecv(res_I.data() + batch_offset, batch_elms, rank, 0,
+                   requests.data() + request_idx);
+        ++request_idx;
+        comm.irecv(res_D.data() + batch_offset, batch_elms, rank, 0,
+                   requests.data() + request_idx);
+        ++request_idx;
+
+        for (size_t o = 0; o < n_outputs; o++) {
+          T *r = res.data() + (o * idxRanks.size() * batch_elms) + batch_offset;
+          comm.irecv(r, batch_elms, rank, 0, requests.data() + request_idx);
+          ++request_idx;
+        }
+
+        ++num_received;
+      }
+    }
+  }
+
+  try {
+    comm.waitall(requests.size(), requests.data());
+  } catch (Exception &e) {
+    std::cout << "FAILURE!" << std::endl;
+  }
+}
+
+template <typename T>
+void opg_knn(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
+             std::vector<Matrix::Data<int64_t> *> *out_I,
+             std::vector<Matrix::floatData_t *> *out_D,
+             std::vector<Matrix::floatData_t *> &idx_data,
+             Matrix::PartDescriptor &idx_desc,
+             std::vector<Matrix::floatData_t *> &query_data,
+             Matrix::PartDescriptor &query_desc,
+             std::vector<std::vector<T *>> &y, bool rowMajorIndex,
+             bool rowMajorQuery, int k, int n_outputs, size_t batch_size,
+             bool verbose, std::vector<std::vector<float *>> *probas = nullptr,
+             std::vector<int *> *uniq_labels = nullptr,
+             std::vector<int> *n_unique = nullptr, bool probas_only = false) {
+  ASSERT(k <= 1024, "k must be <= 1024");
+  ASSERT(batch_size > 0, "max_batch_size must be > 0");
+  ASSERT(k < idx_desc.M, "k must be less than the total number of query rows");
+  for (Matrix::RankSizePair *rsp : idx_desc.partsToRanks) {
+    ASSERT(rsp->size >= k,
+           "k must be <= the number of rows in the smallest index partition.");
+  }
+
+  const ML::cumlHandle_impl &h = handle.getImpl();
+  const cumlCommunicator &comm = h.getCommunicator();
+  cudaStream_t stream = h.getStream();
+
+  const std::shared_ptr<deviceAllocator> allocator = h.getDeviceAllocator();
+
+  int my_rank = comm.getRank();
+
+  std::set<int> idxRanks = idx_desc.uniqueRanks();
+
+  std::vector<Matrix::RankSizePair *> local_idx_parts =
+    idx_desc.blocksOwnedBy(comm.getRank());
+
+  int local_parts_completed = 0;
+
+  // Loop through query parts for all ranks
+  for (int i = 0; i < query_desc.totalBlocks(); i++) {
+    Matrix::RankSizePair *partition = query_desc.partsToRanks[i];
+    int part_rank = partition->rank;
+    size_t part_n_rows = partition->size;
+
+    size_t total_batches = ceildiv(part_n_rows, batch_size);
+    size_t total_n_processed = 0;
+
+    // Loop through batches for each query part
+    for (int cur_batch = 0; cur_batch < total_batches; cur_batch++) {
+      size_t cur_batch_size = batch_size;
+
+      if (cur_batch == total_batches - 1)
+        cur_batch_size = part_n_rows - (cur_batch * batch_size);
+
+      if (my_rank == part_rank && verbose) {
+        std::cout << "Root Rank is " << my_rank << std::endl;
+      }
+
+      /**
+           * Root broadcasts batch to all other ranks
+           */
+      if (verbose) {
+        std::cout << "Rank " << my_rank << ": Performing Broadcast"
+                  << std::endl;
+      }
+
+      int my_rank = comm.getRank();
+      device_buffer<float> part_data(allocator, stream, 0);
+
+      size_t batch_input_elms = cur_batch_size * query_desc.N;
+      size_t batch_input_offset = batch_input_elms * cur_batch;
+
+      float *cur_query_ptr;
+
+      device_buffer<float> tmp_batch_buf(allocator, stream, 0);
+      // current partition's owner rank broadcasts
+      if (part_rank == my_rank) {
+        Matrix::Data<float> *data = query_data[local_parts_completed];
+
+        // If query is column major and total_batches > 0, create a
+        // temporary buffer for the batch so that we can stack rows.
+        if (!rowMajorQuery && total_batches > 1) {
+          tmp_batch_buf.resize(batch_input_elms, stream);
+          for (int col_data = 0; col_data < query_desc.N; col_data++) {
+            copy(tmp_batch_buf.data() + (col_data * cur_batch_size),
+                 data->ptr + ((col_data * part_n_rows) + total_n_processed),
+                 cur_batch_size, stream);
+          }
+          cur_query_ptr = tmp_batch_buf.data();
+
+        } else {
+          cur_query_ptr = data->ptr + batch_input_offset;
+        }
+
+        // all other (index) ranks receive
+      } else if (idxRanks.find(my_rank) != idxRanks.end()) {
+        part_data.resize(batch_input_elms, stream);
+        cur_query_ptr = part_data.data();
+      }
+
+      bool my_rank_is_idx = idxRanks.find(my_rank) != idxRanks.end();
+
+      /**
+           * Send query to index partitions
+           */
+      if (my_rank == part_rank || my_rank_is_idx)
+        broadcast_query(cur_query_ptr, batch_input_elms, part_rank, idxRanks,
+                        comm, stream);
+
+      device_buffer<T> res(allocator, stream);
+      device_buffer<int64_t> res_I(allocator, stream);
+      device_buffer<float> res_D(allocator, stream);
+      if (my_rank_is_idx) {
+        /**
+             * All index ranks perform local KNN
+             */
+        if (verbose)
+          std::cout << "Rank " << my_rank << ": Performing Local KNN"
+                    << std::endl;
+
+        size_t batch_knn_elms = k * cur_batch_size;
+
+        res.resize(batch_knn_elms * n_outputs, stream);
+        res_I.resize(batch_knn_elms, stream);
+        res_D.resize(batch_knn_elms, stream);
+
+        // Offset nearest neighbor index matrix by partition indices
+        std::vector<size_t> start_indices = idx_desc.startIndices(my_rank);
+
+        cudaStream_t int_streams[handle.getImpl().getNumInternalStreams()];
+        for (int i = 0; i < handle.getImpl().getNumInternalStreams(); i++) {
+          int_streams[i] = handle.getImpl().getInternalStream(i);
+        }
+
+        perform_local_knn(res_I.data(), res_D.data(), idx_data, idx_desc,
+                          local_idx_parts, start_indices, stream, int_streams,
+                          handle.getNumInternalStreams(),
+                          handle.getDeviceAllocator(), cur_batch_size, k,
+                          cur_query_ptr, rowMajorIndex, rowMajorQuery);
+
+        // Synchronize before running labels copy
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+
+        copy_outputs(res.data(), res_I.data(), y, (size_t)cur_batch_size,
+                     (int)k, (int)n_outputs, (int)idx_desc.N, my_rank,
+                     idx_desc.partsToRanks, handle.getDeviceAllocator(),
+                     stream);
+
+        // Synchronize before sending
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+      }
+
+      /**
+             * Ranks exchange results.
+             * Partition owner receives. All other ranks send.
+             */
+      if (verbose)
+        std::cout << "Rank " << my_rank << ": Exchanging results" << std::endl;
+      exchange_results(res, res_I, res_D, comm, part_rank, idxRanks, stream,
+                       cur_batch_size, k, n_outputs, local_parts_completed);
+
+      /**
+           * Root rank performs local reduce
+           */
+      if (part_rank == my_rank) {
+        if (verbose)
+          std::cout << "Rank " << my_rank << ": Performing Reduce" << std::endl;
+
+        reduce(handle, out, out_I, out_D, res, res_I, res_D, idx_desc,
+               cur_batch_size, k, n_outputs, local_parts_completed, cur_batch,
+               total_n_processed, idxRanks, my_rank, probas_only, probas,
+               uniq_labels, n_unique);
+
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+        CUDA_CHECK(cudaPeekAtLastError());
+
+        if (verbose)
+          std::cout << "Rank " << my_rank << ": Finished Reduce" << std::endl;
+      }
+
+      total_n_processed += cur_batch_size;
+    }
+
+    if (my_rank == part_rank) local_parts_completed++;
+  }
+};
+
+template void opg_knn<int>(ML::cumlHandle &handle,
+                           std::vector<Matrix::Data<int> *> *out,
+                           std::vector<Matrix::Data<int64_t> *> *out_I,
+                           std::vector<Matrix::floatData_t *> *out_D,
+                           std::vector<Matrix::floatData_t *> &idx_data,
+                           Matrix::PartDescriptor &idx_desc,
+                           std::vector<Matrix::floatData_t *> &query_data,
+                           Matrix::PartDescriptor &query_desc,
+                           std::vector<std::vector<int *>> &y,
+                           bool rowMajorIndex, bool rowMajorQuery, int k,
+                           int n_outputs, size_t batch_size, bool verbose,
+                           std::vector<std::vector<float *>> *probas,
+                           std::vector<int *> *uniq_labels,
+                           std::vector<int> *n_unique, bool probas_only);
+
+template void opg_knn<float>(ML::cumlHandle &handle,
+                             std::vector<Matrix::Data<float> *> *out,
+                             std::vector<Matrix::Data<int64_t> *> *out_I,
+                             std::vector<Matrix::floatData_t *> *out_D,
+                             std::vector<Matrix::floatData_t *> &idx_data,
+                             Matrix::PartDescriptor &idx_desc,
+                             std::vector<Matrix::floatData_t *> &query_data,
+                             Matrix::PartDescriptor &query_desc,
+                             std::vector<std::vector<float *>> &y,
+                             bool rowMajorIndex, bool rowMajorQuery, int k,
+                             int n_outputs, size_t batch_size, bool verbose,
+                             std::vector<std::vector<float *>> *probas,
+                             std::vector<int *> *uniq_labels,
+                             std::vector<int> *n_unique, bool probas_only);
+
+template void reduce<int>(
+  ML::cumlHandle &handle, std::vector<Matrix::Data<int> *> *out,
+  std::vector<Matrix::Data<int64_t> *> *out_I,
+  std::vector<Matrix::floatData_t *> *out_D, device_buffer<int> &res,
+  device_buffer<int64_t> &res_I, device_buffer<float> &res_D,
+  Matrix::PartDescriptor &index_desc, size_t cur_batch_size, int k,
+  int n_outputs, int local_parts_completed, int cur_batch,
+  size_t total_n_processed, std::set<int> idxRanks, int my_rank,
+  bool probas_only, std::vector<std::vector<float *>> *probas,
+  std::vector<int *> *uniq_labels, std::vector<int> *n_unique);
+
+template void reduce<float>(
+  ML::cumlHandle &handle, std::vector<Matrix::Data<float> *> *out,
+  std::vector<Matrix::Data<int64_t> *> *out_I,
+  std::vector<Matrix::floatData_t *> *out_D, device_buffer<float> &res,
+  device_buffer<int64_t> &res_I, device_buffer<float> &res_D,
+  Matrix::PartDescriptor &index_desc, size_t cur_batch_size, int k,
+  int n_outputs, int local_parts_completed, int cur_batch,
+  size_t total_n_processed, std::set<int> idxRanks, int my_rank,
+  bool probas_only, std::vector<std::vector<float *>> *probas,
+  std::vector<int *> *uniq_labels, std::vector<int> *n_unique);
+
+template void exchange_results<int>(device_buffer<int> &res,
+                                    device_buffer<int64_t> &res_I,
+                                    device_buffer<float> &res_D,
+                                    const cumlCommunicator &comm, int part_rank,
+                                    std::set<int> idxRanks, cudaStream_t stream,
+                                    size_t cur_batch_size, int k, int n_outputs,
+                                    int local_parts_completed);
+
+template void exchange_results<float>(
+  device_buffer<float> &res, device_buffer<int64_t> &res_I,
+  device_buffer<float> &res_D, const cumlCommunicator &comm, int part_rank,
+  std::set<int> idxRanks, cudaStream_t stream, size_t cur_batch_size, int k,
+  int n_outputs, int local_parts_completed);
+
+template void copy_outputs<int>(
+  int *out, int64_t *knn_indices, std::vector<std::vector<int *>> &y,
+  size_t cur_batch_size, int k, int n_outputs, int n_features, int my_rank,
+  std::vector<Matrix::RankSizePair *> &idxPartsToRanks,
+  std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream);
+
+template void copy_outputs<float>(
+  float *out, int64_t *knn_indices, std::vector<std::vector<float *>> &y,
+  size_t cur_batch_size, int k, int n_outputs, int n_features, int my_rank,
+  std::vector<Matrix::RankSizePair *> &idxPartsToRanks,
+  std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream);
+
+};  // namespace knn_common
+};  // namespace opg
+};  // namespace KNN
+};  // namespace ML

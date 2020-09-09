@@ -20,8 +20,6 @@ from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
 
-import cuml.common.logger as logger
-
 
 class PCA(BaseDecomposition,
           DelayedTransformMixin,
@@ -39,7 +37,7 @@ class PCA(BaseDecomposition,
     then selects the top K eigenvectors.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -58,7 +56,7 @@ class PCA(BaseDecomposition,
 
         X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
                         cluster_std=0.01,
-                        verbosity=cuml.logger.LEVEL_INFO,
+                        verbose=cuml.logger.level_info,
                         random_state=10, dtype=np.float32)
 
         wait(X_cudf)
@@ -94,8 +92,8 @@ class PCA(BaseDecomposition,
                     1  0.011454
                     2 -0.008182
 
-    Note: Everytime this code is run, the output will be different because
-          "make_blobs" function generates random matrices.
+    .. note:: Everytime this code is run, the output will be different because
+        "make_blobs" function generates random matrices.
 
     Parameters
     ----------
@@ -104,10 +102,10 @@ class PCA(BaseDecomposition,
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
-    svd_solver : 'full'
-        Only Full algorithm is supported since it's significantly faster on GPU
-        then the other solvers including randomized SVD.
-    verbosity : int
+    svd_solver : 'full', 'jacobi', or 'tsqr'
+        'full': run exact full SVD and select the components by postprocessing
+        'jacobi': iteratively compute SVD of the covariance matrix
+    verbose : int or boolean (default = False)
         Logging level
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by
@@ -148,20 +146,16 @@ class PCA(BaseDecomposition,
         datasets of everyday objects and images, and used to distinguish
         between cancerous cells from healthy cells.
 
-
-    For an additional example see `the PCA notebook
-    <https://github.com/rapidsai/notebooks/blob/master/cuml/pca_demo.ipynb>`_.
     For additional docs, see `scikitlearn's PCA
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
-    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
+    def __init__(self, client=None, verbose=False, **kwargs):
 
         super(PCA, self).__init__(PCA._create_pca,
                                   client=client,
-                                  verbosity=verbosity,
+                                  verbose=verbose,
                                   **kwargs)
-        self.noise_variance_ = None
 
     def fit(self, X):
         """
@@ -173,7 +167,6 @@ class PCA(BaseDecomposition,
         """
 
         self._fit(X)
-        self.noise_variance_ = self.local_model.noise_variance_
         return self
 
     def fit_transform(self, X):

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 #include <gtest/gtest.h>
 #include <cuda_utils.cuh>
+#include <distance/distance.cuh>
 #include <iostream>
 #include <score/scores.cuh>
 #include <vector>
-#include "distance/distance.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -425,8 +425,10 @@ class TrustworthinessScoreTest : public ::testing::Test {
     updateDevice(d_X_embedded, X_embedded.data(), X_embedded.size(), stream);
 
     // euclidean test
-    score = trustworthiness_score<float, Distance::EucUnexpandedL2Sqrt>(
-      d_X, d_X_embedded, 50, 30, 8, 5, allocator, stream);
+    score =
+      trustworthiness_score<float,
+                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+        d_X, d_X_embedded, 50, 30, 8, 5, allocator, stream);
 
     allocator->deallocate(d_X, X.size() * sizeof(float), stream);
     allocator->deallocate(d_X_embedded, X_embedded.size() * sizeof(float),

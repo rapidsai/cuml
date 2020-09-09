@@ -21,9 +21,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
-#include "common/cumlHandle.hpp"
-#include "linalg/norm.cuh"
+#include <linalg/norm.cuh>
 
 #include <cuda_runtime.h>
 #include <cuml/cuml.hpp>
@@ -36,7 +36,6 @@
 #include <random/rng.cuh>
 #include <stats/sum.cuh>
 
-#include <sys/time.h>
 #include <unistd.h>
 #include <chrono>
 #include <iostream>

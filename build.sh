@@ -18,13 +18,16 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcuml cuml prims bench prims-bench cppdocs pydocs -v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help"
+VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
+VALIDFLAGS="-v -g -n --allgpuarch --buildfaiss --buildgtest --singlegpu --nvtx --show_depr_warn -h --help "
+VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
    libcuml          - build the cuml C++ code only. Also builds the C-wrapper library
                       around the C++ code.
    cuml             - build the cuml Python package
+   cpp-mgtests      - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
    prims            - build the ML prims tests
    bench            - build the cuml C++ benchmark
    prims-bench      - build the ml-prims C++ benchmark
@@ -35,6 +38,8 @@ HELP="$0 [<target> ...] [<flag> ...]
    -g               - build for debug
    -n               - no install step
    --allgpuarch     - build for all supported GPU architectures
+   --buildfaiss     - build faiss statically into libcuml
+   --buildgtest     - build googletest library
    --singlegpu      - Build libcuml and cuml without multigpu components
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
@@ -52,11 +57,14 @@ VERBOSE=""
 BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_ALL_GPU_ARCH=0
-SINGLEGPU=""
+SINGLEGPU_CPP_FLAG=""
+SINGLEGPU_PYTHON_FLAG=""
 NVTX=OFF
 CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
 BUILD_CUML_STD_COMMS=ON
+BUILD_CPP_MG_TESTS=OFF
+BUILD_STATIC_FAISS=OFF
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -69,6 +77,16 @@ function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
 
+function completeBuild {
+    (( ${NUMARGS} == 0 )) && return
+    for a in ${ARGS}; do
+        if (echo " ${VALIDTARGETS} " | grep -q " ${a} "); then
+          false; return
+        fi
+    done
+    true
+}
+
 if hasArg -h || hasArg --help; then
     echo "${HELP}"
     exit 0
@@ -77,10 +95,10 @@ fi
 # Check for valid usage
 if (( ${NUMARGS} != 0 )); then
     for a in ${ARGS}; do
-  if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
-      echo "Invalid option: ${a}"
-      exit 1
-  fi
+        if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
+            echo "Invalid option: ${a}"
+            exit 1
+        fi
     done
 fi
 
@@ -98,8 +116,17 @@ if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
 if hasArg --singlegpu; then
-    SINGLEGPUPYTHON="--singlegpu"
-    BUILD_CUML_STD_COMMS=OFF
+    SINGLEGPU_PYTHON_FLAG="--singlegpu"
+    SINGLEGPU_CPP_FLAG=ON
+fi
+if hasArg cpp-mgtests; then
+    BUILD_CPP_MG_TESTS=ON
+fi
+if hasArg --buildfaiss; then
+    BUILD_STATIC_FAISS=ON
+fi
+if hasArg --buildgtest; then
+    BUILD_GTEST=ON
 fi
 if hasArg --nvtx; then
     NVTX=ON
@@ -118,10 +145,10 @@ if (( ${CLEAN} == 1 )); then
     # The find removes all contents but leaves the dirs, the rmdir
     # attempts to remove the dirs but can fail safely.
     for bd in ${BUILD_DIRS}; do
-      if [ -d ${bd} ]; then
-          find ${bd} -mindepth 1 -delete
-          rmdir ${bd} || true
-      fi
+        if [ -d ${bd} ]; then
+            find ${bd} -mindepth 1 -delete
+            rmdir ${bd} || true
+        fi
     done
 
     cd ${REPODIR}/python
@@ -131,7 +158,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs; then
+if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs || hasArg cpp-mgtests; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         GPU_ARCH=""
         echo "Building for the architecture of the GPU in the system..."
@@ -149,23 +176,27 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench || ha
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
-          -DBUILD_CUML_STD_COMMS=${BUILD_CUML_STD_COMMS} \
+          -DSINGLEGPU=${SINGLEGPU_CPP_FLAG} \
           -DWITH_UCX=ON \
-          -DBUILD_CUML_MPI_COMMS=OFF \
+          -DBUILD_CUML_MPI_COMMS=${BUILD_CPP_MG_TESTS} \
+          -DBUILD_CUML_MG_TESTS=${BUILD_CPP_MG_TESTS} \
+          -DBUILD_STATIC_FAISS=${BUILD_STATIC_FAISS} \
           -DNVTX=${NVTX} \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
           -DNCCL_PATH=${INSTALL_PREFIX} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} \
           ..
-
 fi
 
 # Run all make targets at once
 
 MAKE_TARGETS=
 if hasArg libcuml; then
-    MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml ml ml_mg"
+    MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml ml"
+fi
+if hasArg cpp-mgtests; then
+    MAKE_TARGETS="${MAKE_TARGETS} ml_mg"
 fi
 if hasArg prims; then
     MAKE_TARGETS="${MAKE_TARGETS} prims"
@@ -178,12 +209,11 @@ if hasArg prims-bench; then
 fi
 
 # If `./build.sh cuml` is called, don't build C/C++ components
-if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
-# If there are no targets specified when calling build.sh, it will
-# just call `make -j`. This avoids a lot of extra printing
+if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests; then
+    # If there are no targets specified when calling build.sh, it will
+    # just call `make -j`. This avoids a lot of extra printing
     cd ${LIBCUML_BUILD_DIR}
     make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
-
 fi
 
 if hasArg cppdocs; then
@@ -193,14 +223,13 @@ fi
 
 
 # Build and (optionally) install the cuml Python package
-if (( ${NUMARGS} == 0 )) || hasArg cuml || hasArg pydocs; then
-
+if completeBuild || hasArg cuml || hasArg pydocs; then
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPUPYTHON}
-        python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPU_PYTHON_FLAG}
+        python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU_PYTHON_FLAG}
     else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU_PYTHON_FLAG}
     fi
 
     if hasArg pydocs; then

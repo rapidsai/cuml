@@ -14,6 +14,7 @@
 #
 
 import cupy as cp
+import cupyx
 
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 
@@ -31,7 +32,7 @@ def test_register_naive_bayes_serialization():
 
     mnb = MultinomialNB()
 
-    X = cp.sparse.random(1, 5)
+    X = cupyx.scipy.sparse.random(1, 5)
     y = cp.array([0])
 
     mnb.fit(X, y)

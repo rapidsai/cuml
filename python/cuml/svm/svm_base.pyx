@@ -30,10 +30,10 @@ from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.common.exceptions import NotFittedError
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
 from libcpp cimport bool
-import cuml.common.logger as logger
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
@@ -84,7 +84,8 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                              int n_rows, int n_cols, math_t *labels,
                              const svmParameter &param,
                              KernelParams &kernel_params,
-                             svmModel[math_t] &model) except+
+                             svmModel[math_t] &model,
+                             const math_t *sample_weight) except+
 
     cdef void svcPredict[math_t](
         const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
@@ -116,8 +117,8 @@ class SVMBase(Base):
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
-                 max_iter=-1, nochange_steps=1000, verbosity=logger.LEVEL_INFO,
-                 epsilon=0.1):
+                 max_iter=-1, nochange_steps=1000, verbose=False,
+                 epsilon=0.1, output_type=None):
         """
         Construct an SVC classifier for training and predictions.
 
@@ -157,7 +158,7 @@ class SVMBase(Base):
             We monitor how much our stopping criteria changes during outer
             iterations. If it does not change (changes less then 1e-3*tol)
             for nochange_steps consecutive steps, then we stop training.
-        verbosity : int (default = cuml.common.logger.LEVEL_INFO)
+        verbose : int or boolean (default = False)
             verbosity level
 
         Attributes
@@ -184,7 +185,8 @@ class SVMBase(Base):
         For additional docs, see `scikitlearn's SVC
         <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
         """
-        super(SVMBase, self).__init__(handle=handle, verbosity=verbosity)
+        super(SVMBase, self).__init__(handle=handle, verbose=verbose,
+                                      output_type=output_type)
         # Input parameters for training
         self.tol = tol
         self.C = C
@@ -273,7 +275,7 @@ class SVMBase(Base):
             if self.gamma == 'auto':
                 return 1 / self.n_cols
             elif self.gamma == 'scale':
-                x_var = cupy.asarray(X).var()
+                x_var = cupy.asarray(X).var().item()
                 return 1 / (self.n_cols * x_var)
             else:
                 raise ValueError("Not implemented gamma option: " + self.gamma)
@@ -281,8 +283,14 @@ class SVMBase(Base):
             return self.gamma
 
     def _calc_coef(self):
-        return np.dot(self._dual_coef_.to_output('numpy'),
-                      self._support_vectors_.to_output('numpy'))
+        return cupy.dot(cupy.asarray(self._dual_coef_),
+                        cupy.asarray(self._support_vectors_))
+
+    def _check_is_fitted(self, attr):
+        if not hasattr(self, attr) or (getattr(self, attr) is None):
+            msg = ("This classifier instance is not fitted yet. Call 'fit' "
+                   "with appropriate arguments before using this estimator.")
+            raise NotFittedError(msg)
 
     @property
     def coef_(self):
@@ -291,8 +299,9 @@ class SVMBase(Base):
         if self._model is None:
             raise RuntimeError("Call fit before prediction")
         if self._coef_ is None:
-            self._coef_ = self._calc_coef()
-        return self._coef_
+            self._coef_ = CumlArray(self._calc_coef())
+        # Call the base class to perform the to_output conversion
+        return super().__getattr__("coef_")
 
     def _get_kernel_params(self, X=None):
         """ Wrap the kernel parameters in a KernelParams obtect """
@@ -313,7 +322,7 @@ class SVMBase(Base):
         param.max_iter = self.max_iter
         param.nochange_steps = self.nochange_steps
         param.tol = self.tol
-        param.verbosity = self.verbosity
+        param.verbosity = self.verbose
         param.epsilon = self.epsilon
         param.svmType = self.svmType
         return param
@@ -444,69 +453,7 @@ class SVMBase(Base):
             else:
                 self._unique_labels = None
 
-    def fit(self, X, y):
-        """
-        Fit the model with X and y.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        """
-
-        self._set_output_type(X)
-
-        X_m, self.n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X, order='F')
-
-        cdef uintptr_t X_ptr = X_m.ptr
-
-        y_m, _, _, _ = input_to_cuml_array(y, convert_to_dtype=self.dtype)
-
-        cdef uintptr_t y_ptr = y_m.ptr
-
-        self._dealloc()  # delete any previously fitted model
-        self._coef_ = None
-
-        cdef KernelParams _kernel_params = self._get_kernel_params(X_m)
-        cdef svmParameter param = self._get_svm_params()
-        cdef svmModel[float] *model_f
-        cdef svmModel[double] *model_d
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-        if self.dtype == np.float32:
-            model_f = new svmModel[float]()
-            svcFit(handle_[0], <float*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <float*>y_ptr, param, _kernel_params,
-                   model_f[0])
-            self._model = <uintptr_t>model_f
-        elif self.dtype == np.float64:
-            model_d = new svmModel[double]()
-            svcFit(handle_[0], <double*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <double*>y_ptr, param, _kernel_params,
-                   model_d[0])
-            self._model = <uintptr_t>model_d
-        else:
-            raise TypeError('Input data type should be float32 or float64')
-
-        self._unpack_model()
-        self._fit_status_ = 0
-        self.handle.sync()
-
-        del X_m
-        del y_m
-
-        return self
-
-    def predict(self, X, predict_class):
+    def predict(self, X, predict_class, convert_dtype=True):
         """
         Predicts the y for X, where y is either the decision function value
         (if predict_class == False), or the label associated with X.
@@ -528,12 +475,19 @@ class SVMBase(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         out_type = self._get_output_type(X)
+        if predict_class:
+            out_dtype = self._get_target_dtype()
+        else:
+            out_dtype = self.dtype
 
-        if self._model is None:
-            raise RuntimeError("Call fit before prediction")
+        self._check_is_fitted('_model')
 
         X_m, n_rows, n_cols, pred_dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype)
+            input_to_cuml_array(
+                X,
+                check_dtype=self.dtype,
+                convert_to_dtype=(self.dtype if convert_dtype else None))
+
         cdef uintptr_t X_ptr = X_m.ptr
 
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)
@@ -559,11 +513,11 @@ class SVMBase(Base):
 
         del(X_m)
 
-        return preds.to_output(out_type)
+        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
     def get_param_names(self):
         return ["C", "kernel", "degree", "gamma", "coef0", "cache_size",
-                "max_iter", "tol", "verbosity"]
+                "max_iter", "nochange_steps", "tol"]
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -573,7 +527,7 @@ class SVMBase(Base):
 
     def __setstate__(self, state):
         super(SVMBase, self).__init__(handle=None,
-                                      verbosity=state['verbosity'])
+                                      verbose=state['verbose'])
         self.__dict__.update(state)
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False

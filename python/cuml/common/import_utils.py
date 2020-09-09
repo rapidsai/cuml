@@ -54,14 +54,6 @@ def has_umap():
         return False
 
 
-def has_treelite():
-    try:
-        import treelite  # NOQA
-        return True
-    except ImportError:
-        return False
-
-
 def has_lightgbm():
     try:
         import lightgbm  # NOQA

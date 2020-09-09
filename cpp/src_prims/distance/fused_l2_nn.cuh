@@ -22,6 +22,11 @@
 #include <limits>
 #include <linalg/contractions.cuh>
 
+#if (ENABLE_MEMCPY_ASYNC == 1)
+#include <cuda_pipeline.h>
+using namespace nvcuda::experimental;
+#endif
+
 namespace MLCommon {
 namespace Distance {
 
@@ -83,7 +88,13 @@ struct FusedL2NN : public BaseClass {
 
   ReduceOpT redOp;
 
+#if (ENABLE_MEMCPY_ASYNC == 1)
+  DataT zeros[P::Veclen];
+  nvcuda::experimental::pipeline pipe;
+#endif
+
   static const DataT Two = (DataT)2.0;
+  static constexpr size_t SizeAndAlign = P::Veclen * sizeof(DataT);
 
  public:
   DI FusedL2NN(OutT* _min, const DataT* _x, const DataT* _y, const DataT* _xn,
@@ -98,7 +109,14 @@ struct FusedL2NN : public BaseClass {
       syNorm(&(sxNorm[P::Mblk])),
       sRed((cub::KeyValuePair<IdxT, DataT>*)_smem),
       maxVal(_mv),
-      redOp(op) {}
+      redOp(op) {
+#if (ENABLE_MEMCPY_ASYNC == 1)
+#pragma unroll
+    for (int i = 0; i < P::Veclen; ++i) {
+      zeros[i] = BaseClass::Zero;
+    }
+#endif
+  }
 
   DI void run() {
     prolog();
@@ -109,8 +127,7 @@ struct FusedL2NN : public BaseClass {
 
  private:
   DI void prolog() {
-    this->ldgsts(0);
-    this->pageWr ^= 1;
+    this->ldgXY(0);
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
@@ -118,13 +135,16 @@ struct FusedL2NN : public BaseClass {
         acc[i][j] = BaseClass::Zero;
       }
     }
+    this->stsXY();
     __syncthreads();
+    this->pageWr ^= 1;
   }
 
   DI void loop() {
     for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
-      this->ldgsts(kidx);
+      this->ldgXY(kidx);
       accumulate();  // on the previous k-block
+      this->stsXY();
       __syncthreads();
       this->pageWr ^= 1;
       this->pageRd ^= 1;
@@ -254,7 +274,36 @@ struct FusedL2NN : public BaseClass {
       }
     }
   }
-};  // struct FusedL2NN
+
+#if (ENABLE_MEMCPY_ASYNC == 1)
+  DI void ldgXY(IdxT kidx) {
+    auto koffset = kidx + this->scolid;
+    auto offset =
+      this->pageWr * P::SmemPage + this->srowid * P::SmemStride + this->scolid;
+    auto* saddrx = this->sx + offset;
+    for (int i = 0; i < P::LdgPerThX; ++i) {
+      auto* sax = saddrx + i * P::LdgRowsX * P::SmemStride;
+      auto* gax = this->x + i * P::LdgRowsX * this->k + koffset;
+      auto inside =
+        koffset < this->k && (this->xrowid + i * P::LdgRowsX) < this->m;
+      __pipeline_memcpy_async(sax, inside ? gax : nullptr, SizeAndAlign,
+                              inside ? 0 : SizeAndAlign);
+    }
+    auto* saddry = this->sy + offset;
+    for (int i = 0; i < P::LdgPerThY; ++i) {
+      auto* say = saddry + i * P::LdgRowsY * P::SmemStride;
+      auto* gay = this->y + i * P::LdgRowsY * this->k + koffset;
+      auto inside =
+        koffset < this->k && (this->yrowid + i * P::LdgRowsY) < this->n;
+      __pipeline_memcpy_async(say, inside ? gay : nullptr, SizeAndAlign,
+                              inside ? 0 : SizeAndAlign);
+    }
+    pipe.commit();
+  }
+
+  DI void stsXY() { pipe.wait_prior<0>(); }
+#endif  // ENABLE_MEMCPY_ASYNC
+};      // struct FusedL2NN
 
 template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
           typename Policy, typename ReduceOpT>

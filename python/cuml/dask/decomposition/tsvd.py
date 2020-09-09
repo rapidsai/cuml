@@ -27,7 +27,7 @@ class TruncatedSVD(BaseDecomposition,
                    DecompositionSyncFitMixin):
     """
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -46,7 +46,7 @@ class TruncatedSVD(BaseDecomposition,
 
         X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
                         cluster_std=1.8,
-                        verbosity=cuml.logger.LEVEL_INFO,
+                        verbose=cuml.logger.level_info,
                         random_state=10, dtype=np.float32)
 
         wait(X_cudf)
@@ -64,25 +64,26 @@ class TruncatedSVD(BaseDecomposition,
 
     .. code-block:: python
 
-          Input Matrix:
-                              0         1          2
-                    0 -8.519647 -8.519222  -8.865648
-                    1 -6.107700 -8.350124 -10.351215
-                    2 -8.026635 -9.442240  -7.561770
-                    0 -8.519647 -8.519222  -8.865648
-                    1 -6.107700 -8.350124 -10.351215
-                    2 -8.026635 -9.442240  -7.561770
+        Input Matrix:
+                            0         1          2
+                  0 -8.519647 -8.519222  -8.865648
+                  1 -6.107700 -8.350124 -10.351215
+                  2 -8.026635 -9.442240  -7.561770
+                  0 -8.519647 -8.519222  -8.865648
+                  1 -6.107700 -8.350124 -10.351215
+                  2 -8.026635 -9.442240  -7.561770
 
-          Transformed Input Matrix:
-                               0
-                    0  14.928891
-                    1  14.487295
-                    2  14.431235
-                    0  14.928891
-                    1  14.487295
-                    2  14.431235
-    Note: Everytime this code is run, the output will be different because
-          "make_blobs" function generates random matrices.
+        Transformed Input Matrix:
+                             0
+                  0  14.928891
+                  1  14.487295
+                  2  14.431235
+                  0  14.928891
+                  1  14.487295
+                  2  14.431235
+
+    .. note:: Everytime this code is run, the output will be different because
+        "make_blobs" function generates random matrices.
 
     Parameters
     ----------
@@ -94,7 +95,7 @@ class TruncatedSVD(BaseDecomposition,
     svd_solver : 'full'
         Only Full algorithm is supported since it's significantly faster on GPU
         then the other solvers including randomized SVD.
-    verbosity : int
+    verbose : int or boolean (default = False)
         Logging level
 
     Attributes
@@ -107,6 +108,7 @@ class TruncatedSVD(BaseDecomposition,
         How much in % the variance is explained given by S**2/sum(S**2)
     singular_values_ : array
         The top K singular values. Remember all singular values >= 0
+
     """
 
     def __init__(self, client=None, **kwargs):
@@ -151,9 +153,9 @@ class TruncatedSVD(BaseDecomposition,
 
     def transform(self, X, delayed=True):
         """
-        Apply dimensionality reduction to X.
+        Apply dimensionality reduction to `X`.
 
-        X is projected on the first principal components previously extracted
+        `X` is projected on the first principal components previously extracted
         from a training set.
 
         Parameters

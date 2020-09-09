@@ -22,6 +22,7 @@
 import ctypes
 import cudf
 import numpy as np
+import cupy as cp
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
@@ -29,8 +30,8 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.handle cimport cumlHandle
-import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 
 from collections import defaultdict
@@ -44,6 +45,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         float eps,
                         int min_pts,
                         int *labels,
+                        int *core_sample_indices,
                         size_t max_mbytes_per_batch,
                         int verbosity) except +
 
@@ -54,6 +56,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         double eps,
                         int min_pts,
                         int *labels,
+                        int *core_sample_indices,
                         size_t max_mbytes_per_batch,
                         int verbosity) except +
 
@@ -64,6 +67,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         double eps,
                         int min_pts,
                         int64_t *labels,
+                        int64_t *core_sample_indices,
                         size_t max_mbytes_per_batch,
                         int verbosity) except +
 
@@ -74,6 +78,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         double eps,
                         int min_pts,
                         int64_t *labels,
+                        int64_t *core_sample_indices,
                         size_t max_mbytes_per_batch,
                         int verbosity) except +
 
@@ -89,7 +94,7 @@ class DBSCAN(Base):
     neighbours.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -127,7 +132,7 @@ class DBSCAN(Base):
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
-    verbosity : int
+    verbose : int or boolean (default = False)
         Logging level
     max_mbytes_per_batch : (optional) int64
         Calculate batch size using no more than this number of megabytes for
@@ -146,6 +151,10 @@ class DBSCAN(Base):
         default the estimator will mirror the type of the data used for each
         fit or predict call.
         If set, the estimator will override the global option for its behavior.
+    calc_core_sample_indices : (optional) boolean (default = True)
+        Indicates whether the indices of the core samples should be calculated.
+        The the attribute `core_sample_indices_` will not be used, setting this
+        to False will avoid unnecessary kernel launches
 
     Attributes
     ----------
@@ -153,6 +162,9 @@ class DBSCAN(Base):
         Which cluster each datapoint belongs to. Noisy samples are labeled as
         -1. Format depends on cuml global output type and estimator
         output_type.
+    core_sample_indices_ : array-like or cuDF series
+        The indices of the core samples. Only calculated if
+        calc_core_sample_indices==True
 
     Notes
     ------
@@ -174,36 +186,38 @@ class DBSCAN(Base):
     """
 
     def __init__(self, eps=0.5, handle=None, min_samples=5,
-                 verbosity=logger.LEVEL_INFO, max_mbytes_per_batch=None,
-                 output_type=None):
-        super(DBSCAN, self).__init__(handle, verbosity, output_type)
+                 verbose=False, max_mbytes_per_batch=None,
+                 output_type=None, calc_core_sample_indices=True):
+        super(DBSCAN, self).__init__(handle, verbose, output_type)
         self.eps = eps
         self.min_samples = min_samples
         self.max_mbytes_per_batch = max_mbytes_per_batch
+        self.calc_core_sample_indices = calc_core_sample_indices
 
         # internal array attributes
         self._labels_ = None  # accessed via estimator.labels_
+
+        # accessed via estimator._core_sample_indices_ when
+        # self.calc_core_sample_indices == True
+        self._core_sample_indices_ = None
 
         # C++ API expects this to be numeric.
         if self.max_mbytes_per_batch is None:
             self.max_mbytes_per_batch = 0
 
+    @generate_docstring(skip_parameters_heading=True)
     def fit(self, X, out_dtype="int32"):
         """
         Perform DBSCAN clustering from features.
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-           Dense matrix (floats or doubles) of shape (n_samples, n_features).
-           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-           ndarray, cuda array interface compliant array like CuPy
         out_dtype: dtype Determines the precision of the output labels array.
             default: "int32". Valid values are { "int32", np.int32,
-            "int64", np.int64}. When the number of samples exceed
-        """
+            "int64", np.int64}.
 
-        self._set_output_type(X)
+        """
+        self._set_base_attributes(output_type=X, n_features=X)
 
         if self._labels_ is not None:
             del self._labels_
@@ -224,6 +238,14 @@ class DBSCAN(Base):
         self._labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
         cdef uintptr_t labels_ptr = self._labels_.ptr
 
+        cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL
+
+        # Create the output core_sample_indices only if needed
+        if self.calc_core_sample_indices:
+            self._core_sample_indices_ = \
+                CumlArray.empty(n_rows, dtype=out_dtype)
+            core_sample_indices_ptr = self._core_sample_indices_.ptr
+
         if self.dtype == np.float32:
             if out_dtype is "int32" or out_dtype is np.int32:
                 dbscanFit(handle_[0],
@@ -233,8 +255,9 @@ class DBSCAN(Base):
                           <float> self.eps,
                           <int> self.min_samples,
                           <int*> labels_ptr,
+                          <int*> core_sample_indices_ptr,
                           <size_t>self.max_mbytes_per_batch,
-                          <int> self.verbosity)
+                          <int> self.verbose)
             else:
                 dbscanFit(handle_[0],
                           <float*>input_ptr,
@@ -243,8 +266,9 @@ class DBSCAN(Base):
                           <float> self.eps,
                           <int> self.min_samples,
                           <int64_t*> labels_ptr,
+                          <int64_t*> core_sample_indices_ptr,
                           <size_t>self.max_mbytes_per_batch,
-                          <int> self.verbosity)
+                          <int> self.verbose)
 
         else:
             if out_dtype is "int32" or out_dtype is np.int32:
@@ -255,8 +279,9 @@ class DBSCAN(Base):
                           <double> self.eps,
                           <int> self.min_samples,
                           <int*> labels_ptr,
+                          <int*> core_sample_indices_ptr,
                           <size_t> self.max_mbytes_per_batch,
-                          <int> self.verbosity)
+                          <int> self.verbose)
             else:
                 dbscanFit(handle_[0],
                           <double*>input_ptr,
@@ -265,30 +290,50 @@ class DBSCAN(Base):
                           <double> self.eps,
                           <int> self.min_samples,
                           <int64_t*> labels_ptr,
+                          <int64_t*> core_sample_indices_ptr,
                           <size_t> self.max_mbytes_per_batch,
-                          <int> self.verbosity)
+                          <int> self.verbose)
 
         # make sure that the `dbscanFit` is complete before the following
         # delete call happens
         self.handle.sync()
         del(X_m)
+
+        # Finally, resize the core_sample_indices array if necessary
+        if self.calc_core_sample_indices:
+
+            # Temp convert to cupy array only once
+            core_samples_cupy = self._core_sample_indices_.to_output("cupy")
+
+            # First get the min index. These have to monotonically increasing,
+            # so the min index should be the first returned -1
+            min_index = cp.argmin(core_samples_cupy).item()
+
+            # Check for the case where there are no -1's
+            if (min_index == 0 and core_samples_cupy[min_index].item() != -1):
+                # Nothing to delete. The array has no -1's
+                pass
+            else:
+                self._core_sample_indices_ = \
+                    self._core_sample_indices_[:min_index]
+
         return self
 
+    @generate_docstring(skip_parameters_heading=True,
+                        return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Cluster labels',
+                                       'shape': '(n_samples, 1)'})
     def fit_predict(self, X, out_dtype="int32"):
         """
-        Performs clustering on input_gdf and returns cluster labels.
+        Performs clustering on X and returns cluster labels.
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-          Dense matrix (floats or doubles) of shape (n_samples, n_features)
-          Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-          ndarray, cuda array interface compliant array like CuPy
+        out_dtype: dtype Determines the precision of the output labels array.
+            default: "int32". Valid values are { "int32", np.int32,
+            "int64", np.int64}.
 
-        Returns
-        -------
-        y : cuDF Series, shape (n_samples)
-          cluster labels
         """
         self.fit(X, out_dtype)
         return self.labels_
