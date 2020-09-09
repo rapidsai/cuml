@@ -31,7 +31,6 @@ from libc.stdint cimport uintptr_t
 from cuml.common.array import CumlArray
 from cuml.common.base import Base, ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.memory_utils import BaseMetaClass, cuml_ignore_base_wrapper
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.logger import warn
 from cuml.common.handle cimport cumlHandle
@@ -121,7 +120,7 @@ def _to_output(X, out_type):
         return X.to_output(output_type=out_type)
 
 
-class SVC(SVMBase, ClassifierMixin, metaclass=BaseMetaClass):
+class SVC(SVMBase, ClassifierMixin):
     """
     SVC (C-Support Vector Classification)
 
@@ -244,8 +243,6 @@ class SVC(SVMBase, ClassifierMixin, metaclass=BaseMetaClass):
        <https://github.com/Xtra-Computing/thundersvm>`_
 
     """
-
-    coef_ = CumlArrayDescriptor()
 
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=200.0,

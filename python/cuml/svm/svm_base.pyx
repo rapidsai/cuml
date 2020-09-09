@@ -29,6 +29,7 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.common.exceptions import NotFittedError
 from cuml.common.handle cimport cumlHandle
@@ -115,6 +116,14 @@ class SVMBase(Base):
         https://github.com/Xtra-Computing/thundersvm
 
     """
+
+    dual_coef_ = CumlArrayDescriptor()
+    support_ = CumlArrayDescriptor()
+    support_vectors_ = CumlArrayDescriptor()
+    intercept_ = CumlArrayDescriptor()
+    n_support_ = CumlArrayDescriptor()
+    coef_ = CumlArrayDescriptor()
+
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
@@ -205,11 +214,11 @@ class SVMBase(Base):
         self._fit_status_ = -1
 
         # Attributes (parameters of the fitted model)
-        self._dual_coef_ = None
-        self._support_ = None
-        self._support_vectors_ = None
-        self._intercept_ = None
-        self._n_support_ = None
+        self.dual_coef_ = None
+        self.support_ = None
+        self.support_vectors_ = None
+        self.intercept_ = None
+        self.n_support_ = None
 
         self._c_kernel = self._get_c_kernel(kernel)
         self._gamma_val = None  # the actual numerical value used for training
@@ -283,8 +292,8 @@ class SVMBase(Base):
             return self.gamma
 
     def _calc_coef(self):
-        return cupy.dot(cupy.asarray(self._dual_coef_),
-                        cupy.asarray(self._support_vectors_))
+        return cupy.dot(cupy.asarray(self.dual_coef_),
+                        cupy.asarray(self.support_vectors_))
 
     def _check_is_fitted(self, attr):
         if not hasattr(self, attr) or (getattr(self, attr) is None):
@@ -298,8 +307,8 @@ class SVMBase(Base):
             raise AttributeError("coef_ is only available for linear kernels")
         if self._model is None:
             raise RuntimeError("Call fit before prediction")
-        if self._coef_ is None:
-            self._coef_ = CumlArray(self._calc_coef())
+        if self.coef_ is None:
+            self.coef_ = CumlArray(self._calc_coef())
         # Call the base class to perform the to_output conversion
         return super().__getattr__("coef_")
 
@@ -334,20 +343,20 @@ class SVMBase(Base):
         """
         cdef svmModel[float] *model_f
         cdef svmModel[double] *model_d
-        if self._dual_coef_ is None:
+        if self.dual_coef_ is None:
             # the model is not fitted in this case
             return None
         if self.dtype == np.float32:
             model_f = new svmModel[float]()
-            model_f.n_support = self._n_support_
+            model_f.n_support = self.n_support_
             model_f.n_cols = self.n_cols
-            model_f.b = self._intercept_
+            model_f.b = self.intercept_
             model_f.dual_coefs = \
-                <float*><size_t>self._dual_coef_.ptr
+                <float*><size_t>self.dual_coef_.ptr
             model_f.x_support = \
-                <float*><uintptr_t>self._support_vectors_.ptr
+                <float*><uintptr_t>self.support_vectors_.ptr
             model_f.support_idx = \
-                <int*><uintptr_t>self._support_.ptr
+                <int*><uintptr_t>self.support_.ptr
             model_f.n_classes = self._n_classes
             if self._n_classes > 0:
                 model_f.unique_labels = \
@@ -357,15 +366,15 @@ class SVMBase(Base):
             return <uintptr_t>model_f
         else:
             model_d = new svmModel[double]()
-            model_d.n_support = self._n_support_
+            model_d.n_support = self.n_support_
             model_d.n_cols = self.n_cols
-            model_d.b = self._intercept_
+            model_d.b = self.intercept_
             model_d.dual_coefs = \
-                <double*><size_t>self._dual_coef_.ptr
+                <double*><size_t>self.dual_coef_.ptr
             model_d.x_support = \
-                <double*><uintptr_t>self._support_vectors_.ptr
+                <double*><uintptr_t>self.support_vectors_.ptr
             model_d.support_idx = \
-                <int*><uintptr_t>self._support_.ptr
+                <int*><uintptr_t>self.support_.ptr
             model_d.n_classes = self._n_classes
             if self._n_classes > 0:
                 model_d.unique_labels = \
@@ -389,24 +398,24 @@ class SVMBase(Base):
             if model_f.n_support == 0:
                 self._fit_status_ = 1  # incorrect fit
                 return
-            self._intercept_ = model_f.b
-            self._n_support_ = model_f.n_support
+            self.intercept_ = model_f.b
+            self.n_support_ = model_f.n_support
 
-            self._dual_coef_ = CumlArray(
+            self.dual_coef_ = CumlArray(
                 data=<uintptr_t>model_f.dual_coefs,
-                shape=(1, self._n_support_),
+                shape=(1, self.n_support_),
                 dtype=self.dtype,
                 order='F')
 
-            self._support_ = CumlArray(
+            self.support_ = CumlArray(
                 data=<uintptr_t>model_f.support_idx,
-                shape=(self._n_support_,),
+                shape=(self.n_support_,),
                 dtype=np.int32,
                 order='F')
 
-            self._support_vectors_ = CumlArray(
+            self.support_vectors_ = CumlArray(
                 data=<uintptr_t>model_f.x_support,
-                shape=(self._n_support_, self.n_cols),
+                shape=(self.n_support_, self.n_cols),
                 dtype=self.dtype,
                 order='F')
             self._n_classes = model_f.n_classes
@@ -423,24 +432,24 @@ class SVMBase(Base):
             if model_d.n_support == 0:
                 self._fit_status_ = 1  # incorrect fit
                 return
-            self._intercept_ = model_d.b
-            self._n_support_ = model_d.n_support
+            self.intercept_ = model_d.b
+            self.n_support_ = model_d.n_support
 
-            self._dual_coef_ = CumlArray(
+            self.dual_coef_ = CumlArray(
                 data=<uintptr_t>model_d.dual_coefs,
-                shape=(1, self._n_support_),
+                shape=(1, self.n_support_),
                 dtype=self.dtype,
                 order='F')
 
-            self._support_ = CumlArray(
+            self.support_ = CumlArray(
                 data=<uintptr_t>model_d.support_idx,
-                shape=(self._n_support_,),
+                shape=(self.n_support_,),
                 dtype=np.int32,
                 order='F')
 
-            self._support_vectors_ = CumlArray(
+            self.support_vectors_ = CumlArray(
                 data=<uintptr_t>model_d.x_support,
-                shape=(self._n_support_, self.n_cols),
+                shape=(self.n_support_, self.n_cols),
                 dtype=self.dtype,
                 order='F')
             self._n_classes = model_d.n_classes

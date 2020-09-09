@@ -207,7 +207,7 @@ class IncrementalPCA(PCA):
         self._set_output_type(X)
 
         self.n_samples_seen_ = 0
-        self._mean_ = .0
+        self.mean_ = .0
         self.var_ = .0
 
         if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
@@ -273,14 +273,14 @@ class IncrementalPCA(PCA):
         else:
             n_samples, n_features = X.shape
 
-        if not hasattr(self, '_components_'):
-            self._components_ = None
+        if not hasattr(self, 'components_'):
+            self.components_ = None
 
         if self.n_components is None:
-            if self._components_ is None:
+            if self.components_ is None:
                 self.n_components_ = min(n_samples, n_features)
             else:
-                self.n_components_ = self._components_.shape[0]
+                self.n_components_ = self.components_.shape[0]
         elif not 1 <= self.n_components <= n_features:
             raise ValueError("n_components=%r invalid for n_features=%d, need "
                              "more rows than columns for IncrementalPCA "
@@ -292,27 +292,27 @@ class IncrementalPCA(PCA):
         else:
             self.n_components_ = self.n_components
 
-        if (self._components_ is not None) and (self._components_.shape[0] !=
+        if (self.components_ is not None) and (self.components_.shape[0] !=
                                                 self.n_components_):
             raise ValueError("Number of input features has changed from %i "
                              "to %i between calls to partial_fit! Try "
                              "setting n_components to a fixed value." %
-                             (self._components_.shape[0], self.n_components_))
+                             (self.components_.shape[0], self.n_components_))
 
-        if not self._cupy_attributes:
-            self._cumlarray_to_cupy_attrs()
-            self._cupy_attributes = True
+        # if not self._cupy_attributes:
+        #     self._cumlarray_to_cupy_attrs()
+        #     self._cupy_attributes = True
 
         # This is the first partial_fit
         if not hasattr(self, 'n_samples_seen_'):
             self.n_samples_seen_ = 0
-            self._mean_ = .0
+            self.mean_ = .0
             self.var_ = .0
 
         # Update stats - they are 0 if this is the first step
         col_mean, col_var, n_total_samples = \
             _incremental_mean_and_var(
-                X, last_mean=self._mean_, last_variance=self.var_,
+                X, last_mean=self.mean_, last_variance=self.var_,
                 last_sample_count=cp.repeat(cp.asarray([self.n_samples_seen_]),
                                             X.shape[1]))
         n_total_samples = n_total_samples[0]
@@ -327,9 +327,9 @@ class IncrementalPCA(PCA):
             # Build matrix of combined previous basis and new data
             mean_correction = \
                 cp.sqrt((self.n_samples_seen_ * n_samples) /
-                        n_total_samples) * (self._mean_ - col_batch_mean)
-            X = cp.vstack((self._singular_values_.reshape((-1, 1)) *
-                           self._components_, X, mean_correction))
+                        n_total_samples) * (self.mean_ - col_batch_mean)
+            X = cp.vstack((self.singular_values_.reshape((-1, 1)) *
+                           self.components_, X, mean_correction))
 
         U, S, V = cp.linalg.svd(X, full_matrices=False)
         U, V = _svd_flip(U, V, u_based_decision=False)
@@ -337,22 +337,22 @@ class IncrementalPCA(PCA):
         explained_variance_ratio = S ** 2 / cp.sum(col_var * n_total_samples)
 
         self.n_samples_seen_ = n_total_samples
-        self._components_ = V[:self.n_components_]
-        self._singular_values_ = S[:self.n_components_]
-        self._mean_ = col_mean
+        self.components_ = V[:self.n_components_]
+        self.singular_values_ = S[:self.n_components_]
+        self.mean_ = col_mean
         self.var_ = col_var
-        self._explained_variance_ = explained_variance[:self.n_components_]
-        self._explained_variance_ratio_ = \
+        self.explained_variance_ = explained_variance[:self.n_components_]
+        self.explained_variance_ratio_ = \
             explained_variance_ratio[:self.n_components_]
         if self.n_components_ < n_features:
-            self._noise_variance_ = \
+            self.noise_variance_ = \
                 explained_variance[self.n_components_:].mean()
         else:
-            self._noise_variance_ = 0.
+            self.noise_variance_ = 0.
 
-        if self._cupy_attributes:
-            self._cupy_to_cumlarray_attrs()
-            self._cupy_attributes = False
+        # if self._cupy_attributes:
+        #     self._cupy_to_cumlarray_attrs()
+        #     self._cupy_attributes = False
 
         return self
 
@@ -391,30 +391,30 @@ class IncrementalPCA(PCA):
             output, _, _, _ = \
                 input_to_cuml_array(cp.vstack(output), order='K')
 
-            return output.to_output(out_type)
+            return output
         else:
             return super().transform(X)
 
     def get_param_names(self):
         return self._hyperparams
 
-    def _cupy_to_cumlarray_attrs(self):
-        self._components_ = CumlArray(self._components_.copy())
-        self._mean_ = CumlArray(self._mean_)
-        self._noise_variance_ = CumlArray(self._noise_variance_)
-        self._singular_values_ = CumlArray(self._singular_values_)
-        self._explained_variance_ = CumlArray(self._explained_variance_.copy())
-        self._explained_variance_ratio_ = \
-            CumlArray(self._explained_variance_ratio_)
+    # def _cupy_to_cumlarray_attrs(self):
+    #     self.components_ = CumlArray(self.components_.copy())
+    #     self.mean_ = CumlArray(self.mean_)
+    #     self.noise_variance_ = CumlArray(self.noise_variance_)
+    #     self.singular_values_ = CumlArray(self.singular_values_)
+    #     self.explained_variance_ = CumlArray(self.explained_variance_.copy())
+    #     self.explained_variance_ratio_ = \
+    #         CumlArray(self.explained_variance_ratio_)
 
-    def _cumlarray_to_cupy_attrs(self):
-        self._components_ = self._components_.to_output("cupy")
-        self._mean_ = self._mean_.to_output("cupy")
-        self._noise_variance_ = self._noise_variance_.to_output("cupy")
-        self._singular_values_ = self._singular_values_.to_output("cupy")
-        self._explained_variance_ = self._explained_variance_.to_output("cupy")
-        self._explained_variance_ratio_ = \
-            self._explained_variance_ratio_.to_output("cupy")
+    # def _cumlarray_to_cupy_attrs(self):
+    #     self.components_ = self.components_.to_output("cupy")
+    #     self.mean_ = self.mean_.to_output("cupy")
+    #     self.noise_variance_ = self.noise_variance_.to_output("cupy")
+    #     self.singular_values_ = self.singular_values_.to_output("cupy")
+    #     self.explained_variance_ = self.explained_variance_.to_output("cupy")
+    #     self.explained_variance_ratio_ = \
+    #         self.explained_variance_ratio_.to_output("cupy")
 
 
 def _validate_sparse_input(X):

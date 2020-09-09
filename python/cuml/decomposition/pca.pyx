@@ -44,7 +44,6 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.handle cimport cumlHandle
 import cuml.common.logger as logger
 from cuml.decomposition.utils cimport *
-from cuml.common.memory_utils import BaseMetaClass
 from cuml.common import input_to_cuml_array, using_output_type
 from cuml.common import with_cupy_rmm
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -112,7 +111,7 @@ class Solver(IntEnum):
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
-class PCA(Base, metaclass = BaseMetaClass):
+class PCA(Base):
 
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality
@@ -645,33 +644,34 @@ class PCA(Base, metaclass = BaseMetaClass):
 
         return input_data.to_output(out_type)
 
-    def _sparse_transform(self, X, out_type=None):
+    def _sparse_transform(self, X, out_type=None) -> CumlArray:
 
         # NOTE: All intermediate calculations are done using cupy.ndarray and
         # then converted to CumlArray at the end to minimize conversions
         # between types
-        temp_components_ = self._components_.to_output("cupy")
-        temp_mean_ = self._mean_.to_output("cupy")
+        with cuml.using_output_type("cupy"): 
 
-        if self.whiten:
-            temp_components_ *= cp.sqrt(self.n_rows - 1)
-            temp_components_ /= self._singular_values_
+            if self.whiten:
+                self.components_ *= cp.sqrt(self.n_rows - 1)
+                self.components_ /= self._singular_values_
 
-        X = X - temp_mean_
-        X_transformed = X.dot(temp_components_.T)
+            X = X - self.mean_
+            X_transformed = X.dot(self.components_.T)
 
-        if self.whiten:
-            temp_components_ *= self._singular_values_
-            temp_components_ *= (1 / cp.sqrt(self.n_rows - 1))
+            if self.whiten:
+                self.components_ *= self.singular_values_
+                self.components_ *= (1 / cp.sqrt(self.n_rows - 1))
 
-        self._components_ = CumlArray(temp_components_)
+            self.components_ = CumlArray(self.components_)
 
-        if self._get_output_type(X) == 'cupy':
-            return X_transformed
-        else:
-            X_transformed, _, _, _ = \
-                input_to_cuml_array(X_transformed, order='K')
-            return X_transformed.to_output(out_type)
+        return CumlArray(X_transformed)
+
+        # if self._get_output_type(X) == 'cupy':
+        #     return X_transformed
+        # else:
+        #     X_transformed, _, _, _ = \
+        #         input_to_cuml_array(X_transformed, order='K')
+        #     return X_transformed.to_output(out_type)
 
     @generate_docstring(X='dense_sparse',
                         return_values={'name': 'trans',

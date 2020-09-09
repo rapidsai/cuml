@@ -19,15 +19,17 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+import typing
+
 import cuml
 import cuml.common.cuda
 import cuml.common.handle
 import cuml.common.logger as logger
-from cuml.common.memory_utils import cuml_internal_func
 from cuml.common import input_to_cuml_array, using_output_type
 import inspect
 import rmm
 from functools import wraps
+from cuml.internals import cuml_internal_func_check_type, cuml_internal_func, cuml_internal
 
 from cudf.core import Series as cuSeries
 from cudf.core import DataFrame as cuDataFrame
@@ -41,7 +43,33 @@ from pandas import Series as pdSeries
 
 from numba import cuda
 
-class Base:
+class BaseMetaClass(type):
+    def __new__(meta, classname, bases, classDict):
+
+        newClassDict = {}
+
+        for attributeName, attribute in classDict.items():
+            if callable(attribute) and not attributeName.startswith("_"):
+
+                # Skip items marked with cuml_ignore_base_wrapper
+                if ("__cuml_do_not_wrap" in attribute.__dict__
+                        and attribute.__dict__["__cuml_do_not_wrap"]):
+                    pass
+                else:
+                    type_hints = typing.get_type_hints(attribute)
+
+                    if ("return" in type_hints
+                            and type_hints["return"] == CumlArray):
+                        attribute = cuml_internal_func_check_type(attribute)
+                    else:
+                        # replace it with a wrapped version
+                        attribute = cuml_internal(attribute)
+
+            newClassDict[attributeName] = attribute
+
+        return type.__new__(meta, classname, bases, newClassDict)
+
+class Base(metaclass=BaseMetaClass):
     """
     Base class for all the ML algos. It handles some of the common operations
     across all algos. Every ML algo class exposed at cython level must inherit
@@ -190,26 +218,26 @@ class Base:
 
         self._mirror_input = True if self.output_type == 'input' else False
 
-    def __repr__(self):
-        """
-        Pretty prints the arguments of a class using Scikit-learn standard :)
-        """
-        cdef list signature = inspect.getfullargspec(self.__init__).args
-        if len(signature) > 0 and signature[0] == 'self':
-            del signature[0]
-        cdef dict state = self.__dict__
-        cdef str string = self.__class__.__name__ + '('
-        cdef str key
-        for key in signature:
-            if key not in state:
-                continue
-            if type(state[key]) is str:
-                string += "{}='{}', ".format(key, state[key])
-            else:
-                if hasattr(state[key], "__str__"):
-                    string += "{}={}, ".format(key, state[key])
-        string = string.rstrip(', ')
-        return string + ')'
+    # def __repr__(self):
+    #     """
+    #     Pretty prints the arguments of a class using Scikit-learn standard :)
+    #     """
+    #     cdef list signature = inspect.getfullargspec(self.__init__).args
+    #     if len(signature) > 0 and signature[0] == 'self':
+    #         del signature[0]
+    #     cdef dict state = self.__dict__
+    #     cdef str string = self.__class__.__name__ + '('
+    #     cdef str key
+    #     for key in signature:
+    #         if key not in state:
+    #             continue
+    #         if type(state[key]) is str:
+    #             string += "{}='{}', ".format(key, state[key])
+    #         else:
+    #             if hasattr(state[key], "__str__"):
+    #                 string += "{}={}, ".format(key, state[key])
+    #     string = string.rstrip(', ')
+    #     return string + ')'
 
     def enable_rmm_pool(self):
         self.handle.enable_rmm_pool()
@@ -299,10 +327,17 @@ class Base:
         Returns the appropriate output type depending on the type of the input,
         class output type and global output type.
         """
+
+        from cuml.internals import set_api_output_type
+
+        target_output_type = self.output_type
+
         if self._mirror_input:
-            return _input_to_type(input)
-        else:
-            return self.output_type
+            target_output_type = _input_to_type(input)
+
+        set_api_output_type(target_output_type)
+
+        return target_output_type
 
     def _set_target_dtype(self, target):
         """
@@ -318,10 +353,16 @@ class Base:
         inheriting classifier classes. Returns the appropriate output
         dtype depending on the dtype of the target.
         """
+
+        from cuml.internals import set_api_target_dtype
+
         try:
             out_dtype = self.target_dtype
         except AttributeError:
             out_dtype = None
+
+        set_api_target_dtype(out_dtype)
+
         return out_dtype
 
     def _set_n_features_in(self, X):

@@ -16,12 +16,10 @@
 import cupy as cp
 import cupyx
 
-from cuml.prims.label import make_monotonic, check_labels, \
-    invert_labels
-
 from cuml import Base
-from cuml.common import rmm_cupy_ary, with_cupy_rmm, CumlArray
-from cuml.common import has_scipy
+from cuml.common import CumlArray, has_scipy, rmm_cupy_ary, with_cupy_rmm
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
 def label_binarize(y, classes, neg_label=0, pos_label=1,
@@ -120,6 +118,8 @@ class LabelBinarizer(Base):
          [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
     """
 
+    classes_ = CumlArrayDescriptor()
+
     def __init__(self, neg_label=0, pos_label=1, sparse_output=False):
         """
         Creates a LabelBinarizer instance
@@ -148,7 +148,7 @@ class LabelBinarizer(Base):
         self.neg_label = neg_label
         self.pos_label = pos_label
         self.sparse_output = sparse_output
-        self._classes_ = None
+        self.classes_ = None
 
     @with_cupy_rmm
     def fit(self, y):
@@ -177,9 +177,9 @@ class LabelBinarizer(Base):
             if unique_classes != [0, 1]:
                 raise ValueError("2-d array can must be binary")
 
-            self._classes_ = CumlArray(cp.arange(0, y.shape[1]))
+            self.classes_ = CumlArray(cp.arange(0, y.shape[1]))
         else:
-            self._classes_ = CumlArray(cp.unique(y).astype(y.dtype))
+            self.classes_ = CumlArray(cp.unique(y).astype(y.dtype))
 
         cp.cuda.Stream.null.synchronize()
 
@@ -215,7 +215,7 @@ class LabelBinarizer(Base):
         -------
         arr : array with encoded labels
         """
-        return label_binarize(y, self._classes_,
+        return label_binarize(y, self.classes_,
                               pos_label=self.pos_label,
                               neg_label=self.neg_label,
                               sparse_output=self.sparse_output)
@@ -244,7 +244,7 @@ class LabelBinarizer(Base):
 
         # If we are already given multi-class, just return it.
         if cupyx.scipy.sparse.isspmatrix(y):
-            y_mapped = y.tocsr().indices.astype(self._classes_.dtype)
+            y_mapped = y.tocsr().indices.astype(self.classes_.dtype)
         elif scipy_sparse_isspmatrix(y):
             y = y.tocsr()
             y_mapped = rmm_cupy_ary(cp.array, y.indices,
@@ -255,4 +255,4 @@ class LabelBinarizer(Base):
                                                  dtype=y.dtype),
                                     axis=1).astype(y.dtype)
 
-        return invert_labels(y_mapped, self._classes_)
+        return invert_labels(y_mapped, self.classes_)

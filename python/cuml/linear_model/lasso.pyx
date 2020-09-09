@@ -20,7 +20,6 @@
 # cython: language_level = 3
 
 from cuml.solvers import CD
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.base import Base, RegressorMixin
 from cuml.common.doc_utils import generate_docstring
@@ -128,8 +127,6 @@ class Lasso(Base, RegressorMixin):
     For additional docs, see `scikitlearn's Lasso
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
-
-    coef_ = CumlArrayDescriptor()
 
     def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
                  max_iter=1000, tol=1e-3, selection='cyclic', handle=None,

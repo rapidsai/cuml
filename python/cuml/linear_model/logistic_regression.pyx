@@ -24,7 +24,6 @@ import pprint
 
 from cuml.solvers import QN
 from cuml.common.base import Base, ClassifierMixin
-from cuml.common.memory_utils import BaseMetaClass
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
@@ -37,7 +36,7 @@ supported_penalties = ["l1", "l2", "none", "elasticnet"]
 supported_solvers = ["qn"]
 
 
-class LogisticRegression(Base, ClassifierMixin, metaclass=BaseMetaClass):
+class LogisticRegression(Base, ClassifierMixin):
     """
     LogisticRegression is a linear model that is used to model probability of
     occurrence of certain events, for example probability of success or fail of
@@ -265,7 +264,7 @@ class LogisticRegression(Base, ClassifierMixin, metaclass=BaseMetaClass):
         # Not needed to check dtype since qn class checks it already
         y_m, _, _, _ = input_to_cuml_array(y)
 
-        self.classes_ = CumlArray(cp.unique(y_m))
+        self.classes_ = cp.unique(y_m)
         self._num_classes = len(self.classes_)
 
         if self._num_classes > 2:
@@ -331,7 +330,7 @@ class LogisticRegression(Base, ClassifierMixin, metaclass=BaseMetaClass):
                                        'description': 'Predicted class \
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def predict_proba(self, X, convert_dtype=True):
+    def predict_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
 
@@ -347,7 +346,7 @@ class LogisticRegression(Base, ClassifierMixin, metaclass=BaseMetaClass):
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def predict_log_proba(self, X, convert_dtype=True):
+    def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the log class probabilities for each class in X
 
@@ -391,7 +390,7 @@ class LogisticRegression(Base, ClassifierMixin, metaclass=BaseMetaClass):
             proba = cp.log(proba)
 
         proba = CumlArray(proba)
-        return proba.to_output(out_type)
+        return proba
 
     def get_param_names(self):
         return [

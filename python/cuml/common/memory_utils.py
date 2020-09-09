@@ -15,9 +15,10 @@
 #
 
 import contextlib
-import typing
 import functools
 import operator
+import threading
+import typing
 from functools import wraps
 
 import cuml
@@ -34,7 +35,6 @@ except ImportError:
         from cupy.cuda.memory import using_allocator as cupy_using_allocator
     except ImportError:
         pass
-
 
 def with_cupy_rmm(func):
     """
@@ -57,76 +57,6 @@ def with_cupy_rmm(func):
             return func(*args, **kwargs)
 
     return cupy_rmm_wrapper
-
-
-def cuml_internal_func(func):
-
-    @wraps(func)
-    def wrapped(*args, **kwargs):
-        with cupy_using_allocator(rmm.rmm_cupy_allocator):
-            with using_output_type("mirror"):
-                return func(*args, **kwargs)
-
-    return wrapped
-
-def cuml_internal_func_check_type(func):
-
-    # Import this here to prevent circular imports
-    from cuml.common.array import CumlArray
-    from cuml.common.base import Base
-
-    @wraps(func)
-    def wrapped(*args, **kwargs):
-        with cupy_using_allocator(rmm.rmm_cupy_allocator):
-            with using_output_type("mirror") as prev_type:
-                ret_val = func(*args, **kwargs)
-
-                if isinstance(ret_val, CumlArray):
-                    if (prev_type == "input"):
-
-                        if (len(args) > 0 and isinstance(args[0], Base)):
-                            prev_type = args[0].output_type
-                        
-                    return ret_val.to_output(prev_type)
-                else:
-                    return ret_val
-
-    return wrapped
-
-
-def cuml_ignore_base_wrapper(func):
-
-    func.__dict__["__cuml_do_not_wrap"] = True
-
-    return func
-
-
-class BaseMetaClass(type):
-    def __new__(meta, classname, bases, classDict):
-
-        from cuml.common.array import CumlArray
-
-        newClassDict = {}
-
-        for attributeName, attribute in classDict.items():
-            if callable(attribute) and not attributeName.startswith("_"):
-
-                # Skip items marked with cuml_ignore_base_wrapper
-                if ("__cuml_do_not_wrap" in attribute.__dict__
-                        and attribute.__dict__["__cuml_do_not_wrap"]):
-                    pass
-                else:
-                    type_hints = typing.get_type_hints(attribute)
-
-                    if ("return" in type_hints and type_hints["return"] == CumlArray):
-                        attribute = cuml_internal_func_check_type(attribute)
-                    else:
-                        # replace it with a wrapped version
-                        attribute = cuml_internal_func(attribute)
-
-            newClassDict[attributeName] = attribute
-
-        return type.__new__(meta, classname, bases, newClassDict)
 
 
 def rmm_cupy_ary(cupy_fn, *args, **kwargs):

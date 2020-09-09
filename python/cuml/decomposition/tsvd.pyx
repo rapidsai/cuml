@@ -37,7 +37,6 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
-from cuml.common.memory_utils import BaseMetaClass
 from cuml.common.array_descriptor import CumlArrayDescriptor
 
 from cython.operator cimport dereference as deref
@@ -105,7 +104,7 @@ class Solver(IntEnum):
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
-class TruncatedSVD(Base, metaclass = BaseMetaClass):
+class TruncatedSVD(Base):
     """
     TruncatedSVD is used to compute the top K singular values and vectors of a
     large matrix X. It is much faster when n_components is small, such as in

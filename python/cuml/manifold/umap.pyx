@@ -39,9 +39,10 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.memory_utils import with_cupy_rmm
+from cuml.common.memory_utils import with_cupy_rmm, using_output_type
 from cuml.common.import_utils import has_scipy
 from cuml.common.array import CumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
 
 import rmm
 
@@ -287,6 +288,9 @@ class UMAP(Base):
        <https://arxiv.org/abs/2008.00325>`_
     """
 
+    X_m = CumlArrayDescriptor()
+    embedding_ = CumlArrayDescriptor()
+
     def __init__(self,
                  n_neighbors=15,
                  n_components=2,
@@ -362,8 +366,8 @@ class UMAP(Base):
         self.optim_batch_size = <int> optim_batch_size
 
         self.callback = callback  # prevent callback destruction
-        self._X_m = None  # accessed via X_m
-        self._embedding_ = None  # accessed via embedding_
+        self.X_m = None
+        self.embedding_ = None
 
         self.validate_hyperparams()
 
@@ -528,7 +532,7 @@ class UMAP(Base):
             raise ValueError("Cannot provide a KNN graph when in \
             semi-supervised mode with categorical target_metric for now.")
 
-        self._X_m, self.n_rows, self.n_dims, dtype = \
+        self.X_m, self.n_rows, self.n_dims, dtype = \
             input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                 convert_to_dtype=(np.float32
                                                   if convert_dtype
@@ -548,18 +552,18 @@ class UMAP(Base):
 
         self.n_neighbors = min(self.n_rows, self.n_neighbors)
 
-        self._embedding_ = CumlArray.zeros((self.n_rows,
+        self.embedding_ = CumlArray.zeros((self.n_rows,
                                            self.n_components),
                                            order="C", dtype=np.float32)
 
         if self.hash_input:
-            self.input_hash = joblib.hash(self._X_m.to_output('numpy'))
+            self.input_hash = joblib.hash(self.X_m.to_output('numpy'))
 
         cdef cumlHandle * handle_ = \
             <cumlHandle*> <size_t> self.handle.getHandle()
 
-        cdef uintptr_t x_raw = self._X_m.ptr
-        cdef uintptr_t embed_raw = self._embedding_.ptr
+        cdef uintptr_t x_raw = self.X_m.ptr
+        cdef uintptr_t embed_raw = self.embedding_.ptr
 
         cdef UMAPParams* umap_params = \
             <UMAPParams*> <size_t> UMAP._build_umap_params(self)
@@ -643,8 +647,8 @@ class UMAP(Base):
         """
         self.fit(X, y, convert_dtype=convert_dtype,
                  knn_graph=knn_graph)
-        out_type = self._get_output_type(X)
-        return self._embedding_.to_output(out_type)
+        with using_output_type(self._get_output_type(X)):
+            return self.embedding_
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         skip_parameters_heading=True,
@@ -712,12 +716,13 @@ class UMAP(Base):
 
         if self.hash_input and joblib.hash(X_m.to_output('numpy')) == \
                 self.input_hash:
-            ret = self._embedding_.to_output(out_type)
-            del X_m
-            return ret
+            with using_output_type(out_type):
+                ret = self.embedding_
+                del X_m
+                return ret
 
         embedding = CumlArray.zeros((X_m.shape[0],
-                                     self.n_components),
+                                    self.n_components),
                                     order="C", dtype=np.float32)
         cdef uintptr_t xformed_ptr = embedding.ptr
 
@@ -730,24 +735,24 @@ class UMAP(Base):
         cdef cumlHandle * handle_ = \
             <cumlHandle*> <size_t> self.handle.getHandle()
 
-        cdef uintptr_t orig_x_raw = self._X_m.ptr
-        cdef uintptr_t embed_ptr = self._embedding_.ptr
+        cdef uintptr_t orig_x_raw = self.X_m.ptr
+        cdef uintptr_t embed_ptr = self.embedding_.ptr
 
         cdef UMAPParams* umap_params = \
             <UMAPParams*> <size_t> UMAP._build_umap_params(self)
 
         transform(handle_[0],
-                  <float*>x_ptr,
-                  <int> X_m.shape[0],
-                  <int> X_m.shape[1],
-                  <int64_t*> knn_indices_raw,
-                  <float*> knn_dists_raw,
-                  <float*>orig_x_raw,
-                  <int> self.n_rows,
-                  <float*> embed_ptr,
-                  <int> self.n_rows,
-                  <UMAPParams*> umap_params,
-                  <float*> xformed_ptr)
+                <float*>x_ptr,
+                <int> X_m.shape[0],
+                <int> X_m.shape[1],
+                <int64_t*> knn_indices_raw,
+                <float*> knn_dists_raw,
+                <float*>orig_x_raw,
+                <int> self.n_rows,
+                <float*> embed_ptr,
+                <int> self.n_rows,
+                <UMAPParams*> umap_params,
+                <float*> xformed_ptr)
         self.handle.sync()
 
         UMAP._destroy_umap_params(<size_t>umap_params)

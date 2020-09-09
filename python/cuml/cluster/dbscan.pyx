@@ -34,7 +34,7 @@ from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
-from cuml.common.memory_utils import BaseMetaClass, cuml_ignore_base_wrapper
+from cuml.internals import cuml_ignore_base_wrapper
 from cuml.common.array_descriptor import CumlArrayDescriptor
 
 from collections import defaultdict
@@ -86,7 +86,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         int verbosity) except +
 
 
-class DBSCAN(Base, metaclass=BaseMetaClass):
+class DBSCAN(Base):
     """
     DBSCAN is a very powerful yet fast clustering technique that finds clusters
     where data is concentrated. This allows DBSCAN to generalize to many

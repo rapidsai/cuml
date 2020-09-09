@@ -40,6 +40,10 @@ class CumlArrayDescriptorMeta:
     # The type for the input value. One of: _input_type_to_str
     input_type: str
 
+    # Specifies the `output_dtype` argument when calling to_output. Use `None`
+    # to use the same dtype as the input
+    output_dtype: str = None
+
     # Dict containing values in different formats. One entry per type. Both the
     # input type and any cached converted types will be stored. Erased on set
     values: dict = field(default_factory=dict)
@@ -63,14 +67,19 @@ class CumlArrayDescriptor():
     # def __init__(self, value=None):
     #     self.value = float(value)
 
-    def _get_value(self, instance) -> CumlArrayDescriptorMeta:
+    def _get_value(self, instance, throw_on_missing = False) -> CumlArrayDescriptorMeta:
+
+        if (throw_on_missing):
+            if (self.name not in instance.__dict__):
+                raise AttributeError()
+
         return instance.__dict__.setdefault(
             self.name,
             CumlArrayDescriptorMeta(input_type=None, values={}))
 
-    def _to_output(self, instance, to_output_type):
+    def _to_output(self, instance, to_output_type, to_output_dtype=None):
 
-        existing = self._get_value(instance)
+        existing = self._get_value(instance, throw_on_missing=True)
 
         # Handle setting npone
 
@@ -89,7 +98,7 @@ class CumlArrayDescriptor():
         cuml_arr: CumlArray = existing.values["cuml"]
 
         # Do the conversion
-        output = cuml_arr.to_output(to_output_type)
+        output = cuml_arr.to_output(output_type=to_output_type, output_dtype=to_output_dtype)
 
         # Cache the value
         existing.values[to_output_type] = output
@@ -101,7 +110,7 @@ class CumlArrayDescriptor():
         if (instance is None):
             return self
 
-        existing = self._get_value(instance)
+        existing = self._get_value(instance, throw_on_missing=True)
 
         assert len(existing.values) > 0
 

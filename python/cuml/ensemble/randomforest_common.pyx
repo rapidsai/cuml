@@ -32,7 +32,7 @@ from cuml.ensemble.randomforest_shared import treelite_serialize, \
     treelite_deserialize
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.common import input_to_cuml_array, with_cupy_rmm
-
+from cuml.common.array_descriptor import CumlArrayDescriptor
 
 class BaseRandomForestModel(Base):
     variables = ['n_estimators', 'max_depth', 'handle',
@@ -44,6 +44,8 @@ class BaseRandomForestModel(Base):
                  'max_leaves', 'quantile_per_tree']
     criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
                       '3': MAE, '4': CRITERION_END}
+
+    classes_ = CumlArrayDescriptor()
 
     def __init__(self, split_criterion, seed=None,
                  n_streams=8, n_estimators=100,
@@ -249,16 +251,14 @@ class BaseRandomForestModel(Base):
             if y_dtype != np.int32:
                 raise TypeError("The labels `y` need to be of dtype"
                                 " `int32`")
-            temp_classes = cp.unique(y_m)
-            self.num_classes = len(temp_classes)
+            self.classes_ = cp.unique(y_m)
+            self.num_classes = len(self.classes_)
             for i in range(self.num_classes):
-                if i not in temp_classes:
+                if i not in self.classes_:
                     raise ValueError("The labels need "
                                      "to be consecutive values from "
                                      "0 to the number of unique label values")
 
-            # Save internally as CumlArray
-            self._classes_ = CumlArray(temp_classes)
         else:
             y_m, _, _, y_dtype = \
                 input_to_cuml_array(

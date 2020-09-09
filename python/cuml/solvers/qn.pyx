@@ -27,6 +27,7 @@ from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
@@ -235,6 +236,9 @@ class QN(Base):
          <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>
     """
 
+    coef_ = CumlArrayDescriptor()
+    intercept_ = CumlArrayDescriptor()
+
     def __init__(self, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
                  linesearch_max_iter=50, lbfgs_memory=5,
@@ -251,7 +255,8 @@ class QN(Base):
         self.linesearch_max_iter = linesearch_max_iter
         self.lbfgs_memory = lbfgs_memory
         self.num_iter = 0
-        self._coef_ = None  # accessed via coef_
+        self.coef_ = None
+        self.intercept_ = None
 
         if loss not in ['sigmoid', 'softmax', 'normal']:
             raise ValueError("loss " + str(loss) + " not supported.")
@@ -307,8 +312,8 @@ class QN(Base):
         else:
             coef_size = (self.n_cols, self._num_classes_dim)
 
-        self._coef_ = CumlArray.ones(coef_size, dtype=self.dtype, order='C')
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        self.coef_ = CumlArray.ones(coef_size, dtype=self.dtype, order='C')
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float objective32
         cdef double objective64
@@ -364,6 +369,8 @@ class QN(Base):
 
         self.num_iters = num_iters
 
+        self._split_coef()
+
         self.handle.sync()
 
         del X_m
@@ -402,7 +409,7 @@ class QN(Base):
         scores = CumlArray.zeros(shape=(self._num_classes_dim, n_rows),
                                  dtype=self.dtype, order='F')
 
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        cdef uintptr_t coef_ptr = self.coef_.ptr
         cdef uintptr_t scores_ptr = scores.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -431,11 +438,14 @@ class QN(Base):
                                <int> self.loss_type,
                                <double*> scores_ptr)
 
+        self._split_coef()
+
         self.handle.sync()
 
         del X_m
 
         return scores
+
 
     @generate_docstring(return_values={'name': 'preds',
                                        'type': 'dense',
@@ -457,7 +467,7 @@ class QN(Base):
         cdef uintptr_t X_ptr = X_m.ptr
 
         preds = CumlArray.zeros(shape=n_rows, dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        cdef uintptr_t coef_ptr = self.coef_.ptr
         cdef uintptr_t pred_ptr = preds.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -486,6 +496,8 @@ class QN(Base):
                       <int> self.loss_type,
                       <double*> pred_ptr)
 
+        self._split_coef()
+
         self.handle.sync()
 
         del X_m
@@ -495,19 +507,32 @@ class QN(Base):
     def score(self, X, y):
         return accuracy_score(y, self.predict(X))
 
-    def __getattr__(self, attr):
-        if attr == 'intercept_':
-            if self.fit_intercept:
-                return self._coef_[-1].to_output(self.output_type)
-            else:
-                return CumlArray.zeros(shape=1)
-        elif attr == 'coef_':
-            if self.fit_intercept:
-                return self._coef_[0:-1].to_output(self.output_type)
-            else:
-                return self._coef_.to_output(self.output_type)
+    def _split_coef(self):
+        """
+        If `fit_intercept == True`, then the last row of `coef_` contains
+        `intercept_`. This should be called after every function that sets
+        `coef_`
+        """
+
+        if (self.fit_intercept):
+            self.coef_ = self.coef_[0:-1]
+            self.intercept_ = self.coef_[-1]
         else:
-            return super().__getattr__(attr)
+            self.intercept_ = CumlArray.zeros(shape=1)
+
+    # def __getattr__(self, attr):
+    #     if attr == 'intercept_':
+    #         if self.fit_intercept:
+    #             return self.coef_[-1].to_output(self.output_type)
+    #         else:
+    #             return CumlArray.zeros(shape=1)
+    #     elif attr == 'coef_':
+    #         if self.fit_intercept:
+    #             return self.coef_[0:-1].to_output(self.output_type)
+    #         else:
+    #             return self.coef_.to_output(self.output_type)
+    #     else:
+    #         return super().__getattr__(attr)
 
     def get_param_names(self):
         return ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',

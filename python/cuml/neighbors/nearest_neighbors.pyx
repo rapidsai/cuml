@@ -28,6 +28,7 @@ import cuml
 import warnings
 
 from cuml.common.base import Base
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
@@ -191,6 +192,9 @@ class NearestNeighbors(Base):
     For additional docs, see `scikit-learn's NearestNeighbors
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
     """
+
+    X_m = CumlArrayDescriptor()
+
     def __init__(self,
                  n_neighbors=5,
                  verbose=False,
@@ -235,7 +239,7 @@ class NearestNeighbors(Base):
 
         self.n_dims = X.shape[1]
 
-        self._X_m, n_rows, n_cols, dtype = \
+        self.X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F', check_dtype=np.float32,
                                 convert_to_dtype=(np.float32
                                                   if convert_dtype
@@ -358,14 +362,14 @@ class NearestNeighbors(Base):
 
         use_training_data = X is None
         if X is None:
-            X = self._X_m
+            X = self.X_m
             n_neighbors += 1
 
         if (n_neighbors is None and self.n_neighbors is None) \
                 or n_neighbors <= 0:
             raise ValueError("k or n_neighbors must be a positive integers")
 
-        if n_neighbors > self._X_m.shape[0]:
+        if n_neighbors > self.X_m.shape[0]:
             raise ValueError("n_neighbors must be <= number of "
                              "samples in index")
 
@@ -394,9 +398,9 @@ class NearestNeighbors(Base):
         cdef vector[float*] *inputs = new vector[float*]()
         cdef vector[int] *sizes = new vector[int]()
 
-        cdef uintptr_t idx_ptr = self._X_m.ptr
+        cdef uintptr_t idx_ptr = self.X_m.ptr
         inputs.push_back(<float*>idx_ptr)
-        sizes.push_back(<int>self._X_m.shape[0])
+        sizes.push_back(<int>self.X_m.shape[0])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -475,7 +479,7 @@ class NearestNeighbors(Base):
             numpy's CSR sparse graph (host)
 
         """
-        if not self._X_m:
+        if not self.X_m:
             raise ValueError('This NearestNeighbors instance has not been '
                              'fitted yet, call "fit" before using this '
                              'estimator')
@@ -504,7 +508,7 @@ class NearestNeighbors(Base):
         indices = ind_mlarr.to_output('cupy')[:, 1:] if X is None \
             else ind_mlarr.to_output('cupy')
         n_samples = indices.shape[0]
-        n_samples_fit = self._X_m.shape[0]
+        n_samples_fit = self.X_m.shape[0]
         n_nonzero = n_samples * n_neighbors
         rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
 

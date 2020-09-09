@@ -28,7 +28,6 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.import_utils import has_scipy
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.kernel_utils import cuda_kernel_factory
-from cuml.common.memory_utils import BaseMetaClass
 from cuml.metrics import accuracy_score
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
@@ -113,7 +112,7 @@ def count_features_dense_kernel(float_dtype, int_dtype):
                                "count_features_dense")
 
 
-class MultinomialNB(Base, metaclass=BaseMetaClass):
+class MultinomialNB(Base):
 
     """
     Naive Bayes classifier for multinomial models
