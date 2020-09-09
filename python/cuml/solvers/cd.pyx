@@ -220,7 +220,7 @@ class CD(Base):
 
         """
 
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X)
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])

@@ -157,7 +157,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         Fit a GPU index for k-nearest neighbors classifier model.
 
         """
-        self._set_target_dtype(y)
+        self._set_base_attributes(output_type=X, target_dtype=y)
 
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self.y, _, _, _ = \
