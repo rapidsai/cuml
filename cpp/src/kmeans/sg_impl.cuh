@@ -462,7 +462,7 @@ void initScalableKMeansPlusPlus(
     default_params.n_clusters = params.n_clusters;
 
     ML::kmeans::impl::fit(handle, default_params, potentialCentroids, weight,
-                    centroidsRawData, inertia, n_iter, workspace);
+                          centroidsRawData, inertia, n_iter, workspace);
 
   } else if (potentialCentroids.getSize(0) < n_clusters) {
     // supplement with random
@@ -782,6 +782,6 @@ void transform(const raft::handle_t &handle, const KMeansParams &params,
   }
 }
 
-};
+};  // namespace impl
 };  // namespace kmeans
 };  // end namespace ML

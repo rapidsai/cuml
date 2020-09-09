@@ -29,8 +29,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
   const raft::handle_t &h = handle;
 
   raft::stream_syncer _(h);
-  impl::fit(h, params, X, n_samples, n_features, centroids, inertia,
-                       n_iter);
+  impl::fit(h, params, X, n_samples, n_features, centroids, inertia, n_iter);
 }
 
 void fit(const raft::handle_t &handle, const KMeansParams &params,
@@ -38,8 +37,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
          double &inertia, int &n_iter) {
   const raft::handle_t &h = handle;
   raft::stream_syncer _(h);
-  impl::fit(h, params, X, n_samples, n_features, centroids, inertia,
-                       n_iter);
+  impl::fit(h, params, X, n_samples, n_features, centroids, inertia, n_iter);
 }
 
 };  // end namespace opg
