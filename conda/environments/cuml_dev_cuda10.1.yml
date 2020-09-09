@@ -11,7 +11,7 @@ dependencies:
 - rapids-doc-env=0.16
 - cudf=0.16.*
 - rmm=0.16.*
-- libcumlprims=0.16.0a200821
+- libcumlprims=0.16.0a200908
 - dask-cudf=0.16.*
 - dask-cuda=0.16.*
 - ucx-py=0.16.*
