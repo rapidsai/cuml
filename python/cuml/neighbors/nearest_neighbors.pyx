@@ -290,6 +290,7 @@ class NearestNeighbors(Base):
         self.p = p
         self.algorithm = algorithm
         self.algo_params = algo_params
+        self.knn_index = <uintptr_t> 0
 
     @staticmethod
     def _check_algo_params(algo, params):
@@ -315,29 +316,29 @@ class NearestNeighbors(Base):
     def _build_ivfflat_algo_params(params, automated):
         cdef IVFFlatParam* algo_params = new IVFFlatParam()
         if automated:
-            return <size_t>algo_params
+            return <uintptr_t>algo_params
         algo_params.nlist = <int> params['nlist']
         algo_params.nprobe = <int> params['nprobe']
-        return <size_t>algo_params
+        return <uintptr_t>algo_params
 
     @staticmethod
     def _build_ivfpq_algo_params(params, automated):
         cdef IVFPQParam* algo_params = new IVFPQParam()
         if automated:
-            return <size_t>algo_params
+            return <uintptr_t>algo_params
         algo_params.nlist = <int> params['nlist']
         algo_params.nprobe = <int> params['nprobe']
         algo_params.M = <int> params['M']
         algo_params.n_bits = <int> params['n_bits']
         algo_params.usePrecomputedTables = \
             <bool> params['usePrecomputedTables']
-        return <size_t>algo_params
+        return <uintptr_t>algo_params
 
     @staticmethod
     def _build_ivfsq_algo_params(params, automated):
         cdef IVFSQParam* algo_params = new IVFSQParam()
         if automated:
-            return <size_t>algo_params
+            return <uintptr_t>algo_params
 
         quantizer_type = {
             'QT_8bit': <int> QuantizerType.QT_8bit,
@@ -353,7 +354,7 @@ class NearestNeighbors(Base):
         algo_params.nprobe = <int> params['nprobe']
         algo_params.qtype = <QuantizerType> quantizer_type[params['qtype']]
         algo_params.encodeResidual = <bool> params['encodeResidual']
-        return <size_t>algo_params
+        return <uintptr_t>algo_params
 
     @staticmethod
     def _build_algo_params(algo, params):
@@ -364,22 +365,23 @@ class NearestNeighbors(Base):
         automated = 'automated' in params and params['automated']
         cdef knnIndexParam* algo_params = <knnIndexParam*> 0
         if algo == 'ivfflat':
-            algo_params = <knnIndexParam*><size_t> \
+            algo_params = <knnIndexParam*><uintptr_t> \
                 NearestNeighbors._build_ivfflat_algo_params(params, automated)
         if algo == 'ivfpq':
-            algo_params = <knnIndexParam*><size_t> \
+            algo_params = <knnIndexParam*><uintptr_t> \
                 NearestNeighbors._build_ivfpq_algo_params(params, automated)
         elif algo == 'ivfsq':
-            algo_params = <knnIndexParam*><size_t> \
+            algo_params = <knnIndexParam*><uintptr_t> \
                 NearestNeighbors._build_ivfsq_algo_params(params, automated)
 
         algo_params.automated = <bool>automated
-        return <size_t>algo_params
+        return <uintptr_t>algo_params
 
     @staticmethod
     def _destroy_algo_params(ptr):
-        cdef knnIndexParam* algo_params = <knnIndexParam*> <size_t> ptr
-        del algo_params
+        cdef knnIndexParam* algo_params = <knnIndexParam*> <uintptr_t> ptr
+        if algo_params:
+            del algo_params
 
     @generate_docstring()
     def fit(self, X, convert_dtype=True):
@@ -393,9 +395,10 @@ class NearestNeighbors(Base):
             raise ValueError("data should be two dimensional")
 
         self.n_dims = X.shape[1]
+        order = 'F' if self.algorithm == 'brute' else 'C'
 
         self._X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='F', check_dtype=np.float32,
+            input_to_cuml_array(X, order=order, check_dtype=np.float32,
                                 convert_to_dtype=(np.float32
                                                   if convert_dtype
                                                   else None))
@@ -403,13 +406,13 @@ class NearestNeighbors(Base):
         self.n_rows = n_rows
         self.n_indices = 1
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef cumlHandle* handle_ = <cumlHandle*><uintptr_t>self.handle.getHandle()
         cdef knnIndex* knn_index = <knnIndex*> 0
         cdef knnIndexParam* algo_params = <knnIndexParam*> 0
         if not self.algorithm == 'brute':
             knn_index = new knnIndex()
-            self.knn_index = <size_t> knn_index
-            algo_params =  <knnIndexParam*> <size_t> \
+            self.knn_index = <uintptr_t> knn_index
+            algo_params =  <knnIndexParam*> <uintptr_t> \
                 NearestNeighbors._build_algo_params(self.algorithm, self.algo_params)
             metric, expanded = self._build_metric_type(self.metric)
 
@@ -423,7 +426,7 @@ class NearestNeighbors(Base):
                 <int>n_rows)
             self.handle.sync()
 
-            NearestNeighbors._destroy_algo_params(<size_t>algo_params)
+            NearestNeighbors._destroy_algo_params(<uintptr_t>algo_params)
 
         return self
 
@@ -558,8 +561,10 @@ class NearestNeighbors(Base):
             raise ValueError("Dimensions of X need to match dimensions of "
                              "indices (%d)" % self.n_dims)
 
+        order = 'F' if self.algorithm == 'brute' else 'C'
+
         X_m, N, _, dtype = \
-            input_to_cuml_array(X, order='F', check_dtype=np.float32,
+            input_to_cuml_array(X, order=order, check_dtype=np.float32,
                                 convert_to_dtype=(np.float32 if convert_dtype
                                                   else False))
 
@@ -579,7 +584,7 @@ class NearestNeighbors(Base):
         inputs.push_back(<float*>idx_ptr)
         sizes.push_back(<int>self._X_m.shape[0])
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef cumlHandle* handle_ = <cumlHandle*><uintptr_t>self.handle.getHandle()
 
         cdef uintptr_t x_ctype_st = X_m.ptr
 
@@ -710,7 +715,7 @@ class NearestNeighbors(Base):
             return sparse_csr
 
     def __del__(self):
-        cdef knnIndex* knn_index = <knnIndex*> <size_t> self.knn_index
+        cdef knnIndex* knn_index = <knnIndex*> <uintptr_t> self.knn_index
         del knn_index
 
 

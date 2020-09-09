@@ -56,7 +56,7 @@ def valid_metrics():
 @pytest.mark.parametrize("ncols", [128, 1024])
 @pytest.mark.parametrize("n_neighbors", [10, 50])
 @pytest.mark.parametrize("n_clusters", [2, 10])
-@pytest.mark.parametrize("algo", ["brute", "ivfpq"])
+@pytest.mark.parametrize("algo", ["brute", "ivfflat", "ivfpq", "ivfsq"])
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
                                   datatype, algo):
     if not has_scipy():
@@ -87,12 +87,11 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
     assert array_equal(labels, y)
 
 
-@pytest.mark.parametrize("nlist", [4, 8, 32])
-@pytest.mark.parametrize("nprobe", [1, 2, 3, 16])
-def test_ivfsq_pred(nlist, nprobe, qtype, encodeResidual):
+@pytest.mark.parametrize("nlist", [4, 8])
+def test_ivfflat_pred(nlist):
     algo_params = {
         'nlist': nlist,
-        'nprobe': nprobe
+        'nprobe': nlist * 0.25
     }
 
     n_neighbors = 10
@@ -108,19 +107,17 @@ def test_ivfsq_pred(nlist, nprobe, qtype, encodeResidual):
 
     labels, probs = predict(neigh_ind, y, n_neighbors)
 
-    correctness = np.mean(labels == y)
-    assert correctness > 0.5
+    assert array_equal(labels, y)
 
 
-@pytest.mark.parametrize("nlist", [4, 8, 32])
-@pytest.mark.parametrize("nprobe", [1, 2, 3, 16])
-@pytest.mark.parametrize("M", [4, 8, 16, 64])
-@pytest.mark.parametrize("n_bits", [2, 4])
+@pytest.mark.parametrize("nlist", [4, 8])
+@pytest.mark.parametrize("M", [16, 32])
+@pytest.mark.parametrize("n_bits", [2, 3, 4])
 @pytest.mark.parametrize("usePrecomputedTables", [False, True])
-def test_ivfpq_pred(nlist, nprobe, M, n_bits, usePrecomputedTables):
+def test_ivfpq_pred(nlist, M, n_bits, usePrecomputedTables):
     algo_params = {
         'nlist': nlist,
-        'nprobe': nprobe,
+        'nprobe': nlist * 0.25,
         'M': M,
         'n_bits': n_bits,
         'usePrecomputedTables': usePrecomputedTables
@@ -139,18 +136,16 @@ def test_ivfpq_pred(nlist, nprobe, M, n_bits, usePrecomputedTables):
 
     labels, probs = predict(neigh_ind, y, n_neighbors)
 
-    correctness = np.mean(labels == y)
-    assert correctness > 0.5
+    assert array_equal(labels, y)
 
 
-@pytest.mark.parametrize("nlist", [4, 8, 32])
-@pytest.mark.parametrize("nprobe", [1, 2, 3, 16])
+@pytest.mark.parametrize("nlist", [4, 8])
 @pytest.mark.parametrize("qtype", ['QT_4bit', 'QT_8bit', 'QT_fp16'])
 @pytest.mark.parametrize("encodeResidual", [False, True])
-def test_ivfsq_pred(nlist, nprobe, qtype, encodeResidual):
+def test_ivfsq_pred(nlist, qtype, encodeResidual):
     algo_params = {
         'nlist': nlist,
-        'nprobe': nprobe,
+        'nprobe': nlist * 0.25,
         'qtype': qtype,
         'encodeResidual': encodeResidual
     }
@@ -168,8 +163,7 @@ def test_ivfsq_pred(nlist, nprobe, qtype, encodeResidual):
 
     labels, probs = predict(neigh_ind, y, n_neighbors)
 
-    correctness = np.mean(labels == y)
-    assert correctness > 0.5
+    assert array_equal(labels, y)
 
 
 def test_return_dists():

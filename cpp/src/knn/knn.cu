@@ -52,9 +52,9 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
 void approx_knn_build_index(cumlHandle &handle, ML::knnIndex* index,
                             ML::knnIndexParam* params, int D,
                             ML::MetricType metric, float metricArg,
-                            float *search_items, int n) {
+                            float *index_items, int n) {
   MLCommon::Selection::approx_knn_build_index(index, params,
-    D, metric, metricArg, search_items, n, handle.getStream());
+    D, metric, metricArg, index_items, n, handle.getStream());
 }
 
 void approx_knn_search(ML::knnIndex* index, int n,

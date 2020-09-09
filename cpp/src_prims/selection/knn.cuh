@@ -213,9 +213,9 @@ const std::initializer_list<int> allowedSubquantizers = { 32, 28, 24, 20, 16, 12
 
 template <typename IntType = int>
 void approx_knn_ivfflat_build_index(ML::knnIndex* index,
-                                  ML::IVFParam* params,
-                                  IntType D, ML::MetricType metric,
-                                  IntType n) {
+                                    ML::IVFParam* params,
+                                    IntType D, ML::MetricType metric,
+                                    IntType n) {
   if (params->automated) {
     params->nlist = 8;
     params->nprobe = params->nlist * 0.3;
@@ -305,7 +305,7 @@ template <typename IntType = int>
 void approx_knn_build_index(ML::knnIndex* index,
                             ML::knnIndexParam* params, IntType D,
                             ML::MetricType metric, float metricArg,
-                            float *search_items, IntType n,
+                            float *index_items, IntType n,
                             cudaStream_t userStream) {
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
@@ -321,6 +321,11 @@ void approx_knn_build_index(ML::knnIndex* index,
   if (dynamic_cast<ML::IVFFlatParam*>(params)) {
     ML::IVFFlatParam* IVFFlat_param = dynamic_cast<ML::IVFFlatParam*>(params);
     approx_knn_ivfflat_build_index(index, IVFFlat_param, D, metric, n);
+    std::vector<float> h_index_items(n*D);
+    updateHost(h_index_items.data(), index_items, h_index_items.size(), userStream);
+    index->index->train(n, h_index_items.data());
+    index->index->add(n, h_index_items.data());
+    return;
   } else if (dynamic_cast<ML::IVFPQParam*>(params)) {
     ML::IVFPQParam* IVFPQ_param = dynamic_cast<ML::IVFPQParam*>(params);
     approx_knn_ivfpq_build_index(index, IVFPQ_param, D, metric, n);
@@ -331,8 +336,8 @@ void approx_knn_build_index(ML::knnIndex* index,
     ASSERT(index->index, "KNN index could not be initialized");
   }
 
-  index->index->train(n, search_items);
-  index->index->add(n, search_items);
+  index->index->train(n, index_items);
+  index->index->add(n, index_items);
 }
 
 
