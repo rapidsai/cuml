@@ -79,7 +79,9 @@ class FIL : public RegressionFixture<float> {
           this->params.ncols, this->data.y, rfParams);
       CUDA_CHECK(cudaStreamSynchronize(this->stream));
 
-      // export RF to treelite
+      ML::build_treelite_forest(&model, &rf_model, this->params.ncols,
+        REGRESSION_MODEL);
+
       import_from_treelite(); // TODO: add model param and supply rf_model somehow
     }
     // only time prediction
@@ -128,11 +130,11 @@ size_t tryGetSizeFromEnv(const char* name) {
 std::vector<Params> getInputs() {
   std::vector<Params> out;
   Params p;
-  size_t ncols = tryGetSizeFromEnv("NCOLS");
+  size_t ncols = 0;//tryGetSizeFromEnv("NCOLS");
   p.fit_model = (ncols == 0);
-  if (ncols != 0)
+  /*if (ncols != 0)
     TREELITE_CHECK(TreeliteLoadProtobufModel("./tl_model.pb", &p.model));
-  else
+  else*/
     ncols = 20;
   p.data.rowMajor = true;
   // see src_prims/random/make_regression.h
