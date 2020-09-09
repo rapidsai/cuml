@@ -43,6 +43,7 @@
 #include <cuml/neighbors/knn.hpp>
 
 #include <iostream>
+#include <set>
 
 namespace MLCommon {
 namespace Selection {
