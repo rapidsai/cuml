@@ -187,6 +187,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} \
           -DCMAKE_SKIP_RPATH=ON \
+          -DCMAKE_SKIP_INSTALL_RPATH=ON \
           ..
 fi
 
