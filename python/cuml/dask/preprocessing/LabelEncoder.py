@@ -160,7 +160,7 @@ class LabelEncoder(BaseEstimator,
             return self._transform(y,
                                    delayed=delayed,
                                    output_dtype='int64',
-                                   output_collection_type='cudf')
+                                   output_collection_type='series')
         else:
             msg = ("This LabelEncoder instance is not fitted yet. Call 'fit' "
                    "with appropriate arguments before using this estimator.")
@@ -187,7 +187,7 @@ class LabelEncoder(BaseEstimator,
         if self._get_internal_model() is not None:
             return self._inverse_transform(y,
                                            delayed=delayed,
-                                           output_collection_type='series')
+                                           output_collection_type='cudf')
         else:
             msg = ("This LabelEncoder instance is not fitted yet. Call 'fit' "
                    "with appropriate arguments before using this estimator.")
