@@ -10,6 +10,7 @@ from dask_cudf.core import Series as daskSeries
 from cuml.common.exceptions import NotFittedError
 from cuml.preprocessing import LabelEncoder as LE
 
+
 class LabelEncoder(BaseEstimator,
                    DelayedTransformMixin,
                    DelayedInverseTransformMixin):
@@ -109,7 +110,7 @@ class LabelEncoder(BaseEstimator,
         -------
         self : LabelEncoder
             A fitted instance of itself to allow method chaining
-        
+
         Notes
         --------
         Number of unique classes will be collected at the client. It'll
