@@ -26,6 +26,7 @@
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
 - PR #2769: Remove outdated doxygen options for 1.8.20
 - PR #2787: Skip lightgbm test for version 3 and above temporarily
+- PR #2810: Update Rf MNMG threshold to prevent sporadic test failure
 
 # cuML 0.15.0 (Date TBD)
 
