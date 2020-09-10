@@ -14,11 +14,6 @@
 # limitations under the License.
 #
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
-
 from libcpp cimport bool
 
 ctypedef int underlying_type_t_solver

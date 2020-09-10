@@ -2,6 +2,7 @@
 
 ## New Features
 - PR #2698: Distributed TF-IDF transformer
+- PR #2638: Improve cython build with custom `build_ext`
 
 ## Improvements
 - PR #2796: Remove tokens of length 1 by default for text vectorizers
