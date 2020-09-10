@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import numpy as np
 import sys
@@ -232,7 +229,7 @@ class ARIMA(Base):
 
         # Initialize base class
         super().__init__(handle, verbose, output_type)
-        self._set_output_type(endog)
+        self._set_base_attributes(output_type=endog)
 
         # Set the ARIMA order
         cdef ARIMAOrder cpp_order

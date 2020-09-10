@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import cudf
 import cupy as cp
@@ -272,7 +269,7 @@ class QN(Base):
         Fit the model with X and y.
 
         """
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X)
 
         X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
             X, order='F', check_dtype=[np.float32, np.float64]
