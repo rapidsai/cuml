@@ -164,8 +164,14 @@ else
     logger "Check GPU usage..."
     nvidia-smi
 
+    logger "Update rpaths"
+    cd $LIBCUML_BUILD_DIR
+    chrpath -d libcuml.so
+    chrpath -d libcuml++.so
+
     logger "GoogleTest for libcuml..."
     cd $LIBCUML_BUILD_DIR
+    chrpath -d ./test/ml
     GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
     logger "Installing libcuml..."
