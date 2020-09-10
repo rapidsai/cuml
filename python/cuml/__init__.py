@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+
+
 from cuml.common.base import Base
 from cuml.common.handle import Handle
 import cuml.common.cuda as cuda
@@ -51,6 +53,8 @@ from cuml.metrics.cluster.adjustedrandindex import adjusted_rand_score
 from cuml.metrics.regression import r2_score
 
 from cuml.naive_bayes.naive_bayes import MultinomialNB
+
+from cuml.sparse.linalg.lobpcg import lobpcg
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 

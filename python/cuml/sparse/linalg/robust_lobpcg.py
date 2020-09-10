@@ -16,7 +16,7 @@
 
 
 import cupy as cp
-import _cp_linalg_utils as _utils
+import cuml.sparse.linalg._cp_linalg_utils as _utils
 
 
 __all__ = ['lobpcg']
@@ -33,7 +33,7 @@ def lobpcg(A,
            iK=None,
            niter=None,
            tol=None,
-           largest=None,
+           largest=True,
            method=None,
            ortho_iparams=None,
            ortho_fparams=None,

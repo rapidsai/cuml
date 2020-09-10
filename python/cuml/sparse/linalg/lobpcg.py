@@ -15,18 +15,18 @@
 #
 
 import cupy as cp
-from robust_lobpcg import lobpcg as robust_lobpcg
-from blopex_lobpcg import lobpcg as blopex_lobpcg
+from cuml.sparse.linalg.robust_lobpcg import lobpcg as robust_lobpcg
+from cuml.sparse.linalg.blopex_lobpcg import lobpcg as blopex_lobpcg
 
 def lobpcg(A,
-           B=None,
            X=None,
+           B=None,
            M=None,
            k=None,
            maxiter=None,
-           method= 'ortho',
+           method= 'blopex',
            tol=None,
-           largest=None,
+           largest=True,
            verbosityLevel=0,
            ortho_iparams=None,
            ortho_fparams=None,
@@ -43,6 +43,7 @@ def lobpcg(A,
     selectable via `method` argument:
       `method="blopex"` - the LOBPCG method implemented by Andrew Knyazev,
       see [Knyazev2007]. It is also the algorithm implemented by Scipy.
+      It is the default and most accurate.
       `method="basic"` - the LOBPCG method introduced by Andrew
       Knyazev, see [Knyazev2001]. A less robust method, may fail when
       Cholesky is applied to singular input.
@@ -90,7 +91,7 @@ def lobpcg(A,
 
     method : str, optional
             select LOBPCG method.
-            `method="ortho"` - the Default LOBPCG method with
+            `method="ortho"` - LOBPCG method with
                 orthogonal basis selection [StathopoulosEtal2002].
                 A robust method.
             `method="blopex"` - the LOBPCG method implemented by
@@ -195,7 +196,7 @@ def lobpcg(A,
                 verbosityLevel = verbosityLevel, ortho_iparams = ortho_iparams, ortho_fparams = ortho_fparams,\
                 ortho_bparams= ortho_bparams, retLambdaHistory = retLambdaHistory, retResidualNormsHistory= retResidualNormsHistory)
     elif method == 'blopex':
-        X = cp.random.randn(A.shape[-2], k, dtype=A.dtype) if X is None else X
+        X = cp.random.randn(A, k, dtype=A.dtype) if X is None else X
         return blopex_lobpcg(A, X, B=B, M=M, tol=tol, maxiter=maxiter, largest=largest, verbosityLevel=verbosityLevel,\
                 retLambdaHistory=retLambdaHistory, retResidualNormsHistory=retResidualNormsHistory)
 

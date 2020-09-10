@@ -121,7 +121,8 @@ def _get_indx(_lambda, num, largest):
 
 def _genEigh(A, B):
     """
-    Helper function for converting a generalized eigenvalue problem AX = lambdaBX to standard using cholesky. This is because cupy does not have a functional api to solve generalized eigenvalue problem.
+    Helper function for converting a generalized eigenvalue problem AX = lambdaBX to standard using cholesky.
+    This is because cupy does not have a functional api to solve generalized eigenvalue problem.
     Factorizing B = R^TR. Let F = (R^T)^-1 A R^-1
     Equivalent Standard form: Fy = lambda(y), where our required eigvec x = R^-1 y
     """
@@ -222,7 +223,7 @@ def lobpcg(A,
         The history of residual norms, if `retResidualNormsHistory` is True.
 
     """
-
+    #print('A: {}\nX:{}\nmaxiter:{}\n'.format(A,X,maxiter))
     blockVectorX = X
     blockVectorY = Y
     residualTolerance = tol
@@ -637,4 +638,5 @@ def lobpcg(A,
         if retResidualNormsHistory:
             return _lambda, blockVectorX, residualNormsHistory
         else:
+            print("val: {}\n vec:{}\n".format(_lambda, blockVectorX))
             return _lambda, blockVectorX

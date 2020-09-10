@@ -2,6 +2,7 @@
 
 ## New Features
 - PR #2698: Distributed TF-IDF transformer
+- PR #2772: Linearly Optimal Block Preconditioned Conjugate Gradient (LOBPCG) Solver
 
 ## Improvements
 - PR #2741: Use rapids build packages in conda environments
