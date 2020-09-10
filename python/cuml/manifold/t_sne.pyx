@@ -14,11 +14,10 @@
 # limitations under the License.
 #
 
-# cython: profile = False
 # distutils: language = c++
 # distutils: extra_compile_args = -Ofast
-# cython: embedsignature = True, language_level = 3
-# cython: boundscheck = False, wraparound = False
+# cython: boundscheck = False
+# cython: wraparound = False
 
 import cudf
 import cuml

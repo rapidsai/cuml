@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+# distutils: language = c++
+
 from cuml.raft.common.handle import Handle as raftHandle
 
 Handle = raftHandle
