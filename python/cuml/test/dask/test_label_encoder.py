@@ -21,7 +21,7 @@ from cuml.common.exceptions import NotFittedError
 import cupy as cp
 
 
-def _df_to_similarity_mat(arr):
+def _arr_to_similarity_mat(arr):
     arr = arr.reshape(1, -1)
     return np.pad(arr, [(arr.shape[1] - 1, 0), (0, 0)], "edge")
 
@@ -34,8 +34,8 @@ def test_labelencoder_fit_transform(length, cardinality, client):
     tmp = cudf.Series(np.random.choice(cardinality, (length,)))
     df = dask_cudf.from_cudf(tmp, npartitions=len(client.has_what()))
     encoded = cuml.dask.preprocessing.LabelEncoder().fit_transform(df)
-    df_arr = _df_to_similarity_mat(df.compute().to_array())
-    encoded_arr = _df_to_similarity_mat(cp.asnumpy(encoded.compute()))
+    df_arr = _arr_to_similarity_mat(df.compute().to_array())
+    encoded_arr = _arr_to_similarity_mat(cp.asnumpy(encoded.compute()))
     assert ((encoded_arr == encoded_arr.T) == (df_arr == df_arr.T)).all()
 
 
@@ -51,8 +51,8 @@ def test_labelencoder_transform(length, cardinality, client):
 
     encoded = le.transform(df)
 
-    df_arr = _df_to_similarity_mat(df.compute().to_array())
-    encoded_arr = _df_to_similarity_mat(cp.asnumpy(encoded.compute()))
+    df_arr = _arr_to_similarity_mat(df.compute().to_array())
+    encoded_arr = _arr_to_similarity_mat(cp.asnumpy(encoded.compute()))
     assert (
         (encoded_arr == encoded_arr.T) == (df_arr == df_arr.T)
     ).all()

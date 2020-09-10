@@ -138,6 +138,9 @@ class LabelEncoder(Base):
             Series containing the categories to be encoded. It's elements
             may or may not be unique
 
+        _classes: int or None.
+            Passed by the dask client when dask LabelEncoder is used.
+
         Returns
         -------
         self : LabelEncoder

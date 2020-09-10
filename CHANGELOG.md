@@ -3,6 +3,7 @@
 ## New Features
 - PR #2698: Distributed TF-IDF transformer
 - PR #2789: Dask LabelEncoder
+- PR #2638: Improve cython build with custom `build_ext`
 
 ## Improvements
 - PR #2796: Remove tokens of length 1 by default for text vectorizers
@@ -19,6 +20,8 @@
 - PR #2783: Add pytest that will fail when GPU IDs in Dask cluster are not unique
 - PR #2785: Add in cuML-specific dev conda dependencies
 - PR #2778: Add README for FIL
+- PR #2799: Reenable lightgbm test with lower (1%) proba accuracy
+- PR #2800: Align cuML's spdlog version with RMM's
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier

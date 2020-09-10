@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from dask_cudf.core import DataFrame as dcDataFrame
 from dask_cudf.core import Series as daskSeries
 from cuml.common.exceptions import NotFittedError
-
+from cuml.preprocessing import LabelEncoder as LE
 
 class LabelEncoder(BaseEstimator,
                    DelayedTransformMixin,
@@ -102,20 +102,23 @@ class LabelEncoder(BaseEstimator,
         Parameters
         ----------
         y : dask_cudf.Series
-            Series containing the categories to be encoded. It's elements
+            Series containing the categories to be encoded. Its elements
             may or may not be unique
 
         Returns
         -------
         self : LabelEncoder
             A fitted instance of itself to allow method chaining
-
+        
+        Notes
+        --------
+        Number of unique classes will be collected at the client. It'll
+        consume memory proportional to the number of unique classes.
         """
         _classes = y.unique().compute()
         el = first(y) if isinstance(y, Sequence) else y
         self.datatype = ('cudf' if isinstance(el, (dcDataFrame, daskSeries))
                          else 'cupy')
-        from cuml.preprocessing import LabelEncoder as LE
         self._set_internal_model(LE(**self.kwargs).fit(y, _classes=_classes))
         return self
 
@@ -156,7 +159,7 @@ class LabelEncoder(BaseEstimator,
             return self._transform(y,
                                    delayed=delayed,
                                    output_dtype='int64',
-                                   output_collection_type='series')
+                                   output_collection_type='cudf')
         else:
             msg = ("This LabelEncoder instance is not fitted yet. Call 'fit' "
                    "with appropriate arguments before using this estimator.")
@@ -183,7 +186,7 @@ class LabelEncoder(BaseEstimator,
         if self._get_internal_model() is not None:
             return self._inverse_transform(y,
                                            delayed=delayed,
-                                           output_collection_type='cudf')
+                                           output_collection_type='series')
         else:
             msg = ("This LabelEncoder instance is not fitted yet. Call 'fit' "
                    "with appropriate arguments before using this estimator.")
