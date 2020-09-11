@@ -51,10 +51,10 @@ class FIL : public RegressionFixture<float> {
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
-    if (!this->params.rowMajor) {
+    if (!params.rowMajor) {
       state.SkipWithError("FIL only supports row-major inputs");
     }
-    if (this->predict_proba) {
+    if (predict_proba) {
       // Dataset<D, L> allocates y assuming one output value per input row
       state.SkipWithError("currently only supports scalar prediction");
     }
@@ -64,16 +64,16 @@ class FIL : public RegressionFixture<float> {
     mPtr->trees = nullptr;
     size_t train_nrows = std::min(params.nrows, 1000);
     fit(*handle, mPtr, data.X, train_nrows, params.ncols, data.y, rfParams);
-    CUDA_CHECK(cudaStreamSynchronize(this->stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    ML::build_treelite_forest(&model, &rf_model, this->params.ncols,
+    ML::build_treelite_forest(&model, &rf_model, params.ncols,
                               REGRESSION_MODEL);
     ML::fil::treelite_params_t tl_params = {
       .algo = ML::fil::algo_t::ALGO_AUTO,
-      .output_class = true,                      // cuML RF forest
-      .threshold = 1.f / this->params.nclasses,  //Fixture::DatasetParams
+      .output_class = true,                // cuML RF forest
+      .threshold = 1.f / params.nclasses,  //Fixture::DatasetParams
       .storage_type = ML::fil::storage_type_t::SPARSE};
-    ML::fil::from_treelite(*this->handle, &forest, model, &tl_params);
+    ML::fil::from_treelite(*handle, &forest, model, &tl_params);
 
     // only time prediction
     this->loopOnState(state, [this]() {
