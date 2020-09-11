@@ -156,11 +156,8 @@ struct tree_aggregator_t;
 
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, UNARY_BINARY> {
-  typedef vec<NITEMS, float> Acc;
-
-  Acc acc;
+  vec<NITEMS, float> acc;
   void* tmp_storage;
-  int num_classes;
 
   /** shared memory footprint of the accumulator during
   the finalization of forest inference kernel, when infer_k output
@@ -180,9 +177,9 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, UNARY_BINARY> {
   num_classes is used for other template parameters */
   __device__ __forceinline__ tree_aggregator_t(int num_classes_,
                                                void* shared_workspace, size_t)
-    : tmp_storage(shared_workspace), num_classes(num_classes_) {}
+    : tmp_storage(shared_workspace) {}
 
-  __device__ __forceinline__ void accumulate(Acc single_tree_prediction,
+  __device__ __forceinline__ void accumulate(vec<NITEMS, float> single_tree_prediction,
                                              int tree) {
     acc += single_tree_prediction;
   }
@@ -190,8 +187,8 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, UNARY_BINARY> {
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs) {
     __syncthreads();
-    typedef BlockReduce<NITEMS> BR;
-    acc = BR(*(typename BR::TempStorage*)tmp_storage).Sum(acc);
+    typedef typename BlockReduce<NITEMS>::TempStorage TempStorage;
+    acc = BlockReduce<NITEMS>(*(TempStorage*)tmp_storage).Sum(acc);
     if (threadIdx.x == 0) {
       for (int i = 0; i < NITEMS; ++i) {
         int row = blockIdx.x * NITEMS + i;
@@ -203,14 +200,12 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, UNARY_BINARY> {
 
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, FEWER_THAN_THREADS> {
-  typedef vec<NITEMS, float> Acc;
-
-  Acc acc;
+  vec<NITEMS, float> acc;
   void* tmp_storage;
   int num_classes;
 
   static size_t smem_finalize_footprint(int num_classes) {
-    size_t phase1 = (FIL_TPB - FIL_TPB % num_classes) * sizeof(Acc);
+    size_t phase1 = (FIL_TPB - FIL_TPB % num_classes) * sizeof(vec<NITEMS, float>);
     size_t phase2 =
       sizeof(typename BlockReduceHostMultiClass<NITEMS>::TempStorage);
     return std::max(phase1, phase2);
@@ -222,7 +217,7 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, FEWER_THAN_THREADS> {
                                                void* shared_workspace, size_t)
     : tmp_storage(shared_workspace), num_classes(num_classes_) {}
 
-  __device__ __forceinline__ void accumulate(Acc single_tree_prediction,
+  __device__ __forceinline__ void accumulate(vec<NITEMS, float> single_tree_prediction,
                                              int tree) {
     acc += single_tree_prediction;
   }
@@ -231,7 +226,7 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, FEWER_THAN_THREADS> {
                                            int num_outputs) {
     __syncthreads();
     best_margin_label<NITEMS> best;
-    Acc* per_thread = (Acc*)tmp_storage;
+    vec<NITEMS, float>* per_thread = (vec<NITEMS, float>*)tmp_storage;
     if (threadIdx.x >= num_classes) per_thread[threadIdx.x] = acc;
 
     __syncthreads();
@@ -256,14 +251,12 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, FEWER_THAN_THREADS> {
 
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, MORE_THAN_THREADS> {
-  typedef vec<NITEMS, float> Acc;
-
-  Acc acc;
+  vec<NITEMS, float> acc;
   void* tmp_storage;
   int num_classes;
 
   static size_t smem_finalize_footprint(int num_classes) {
-    size_t phase1 = num_classes * sizeof(Acc);
+    size_t phase1 = num_classes * sizeof(vec<NITEMS, float>);
 
     size_t phase2 =
       sizeof(typename BlockReduceHostMultiClass<NITEMS>::TempStorage);
@@ -271,7 +264,7 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, MORE_THAN_THREADS> {
   }
 
   static size_t smem_accumulate_footprint(int num_classes) {
-    return num_classes * sizeof(Acc);
+    return num_classes * sizeof(vec<NITEMS, float>);
   }
 
   __device__ __forceinline__ tree_aggregator_t(int num_classes_,
@@ -280,18 +273,18 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, MORE_THAN_THREADS> {
     : tmp_storage((char*)shared_workspace + data_row_size),
       num_classes(num_classes_) {
     for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
-      ((Acc*)tmp_storage)[c].fill(0.0f);
+      ((vec<NITEMS, float>*)tmp_storage)[c].fill(0.0f);
     //__syncthreads(); // done in the main loop
   }
 
-  __device__ __forceinline__ void accumulate(Acc single_tree_prediction,
+  __device__ __forceinline__ void accumulate(vec<NITEMS, float> single_tree_prediction,
                                              int tree) {
-    ((Acc*)tmp_storage)[tree % num_classes] += single_tree_prediction;
+    ((vec<NITEMS, float>*)tmp_storage)[tree % num_classes] += single_tree_prediction;
   }
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs) {
-    Acc* per_class = (Acc*)tmp_storage;
+    vec<NITEMS, float>* per_class = (vec<NITEMS, float>*)tmp_storage;
     best_margin_label<NITEMS> best;
     best.margin = per_class[threadIdx.x];
     best.label.fill(threadIdx.x);
@@ -346,7 +339,6 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL, MORE_THAN_THREADS> {
     for (int item = 0; item < NITEMS; ++item)
       atomicAdd(votes + single_tree_prediction[item] * NITEMS + item, 1);
   }
-
   // class probabilities or regression. for regression, num_classes
   // is just the number of outputs for each data instance
   __device__ __forceinline__ void finalize_multiple_outputs(float* out,
@@ -360,7 +352,6 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL, MORE_THAN_THREADS> {
         out[row * num_classes + c] = votes[c * NITEMS + item];
     }
   }
-
   // using this when predicting a single class label, as opposed to sparse class vector
   // or class probabilities or regression
   __device__ __forceinline__ void finalize_class_label(float* out,
@@ -492,8 +483,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
   }
   int num_blocks = ceildiv(int(params.num_rows), num_items);
   int blockdim_x = FIL_TPB;
-  if (params.num_classes <= blockdim_x &&
-      params.leaf_payload_type == FLOAT_SCALAR)
+  if (mcm == FEWER_THAN_THREADS)
     blockdim_x -= blockdim_x % params.num_classes;
   switch (num_items) {
     case 1:

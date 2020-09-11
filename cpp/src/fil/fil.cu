@@ -234,9 +234,8 @@ struct forest {
     if (do_transform) {
       size_t num_values_to_transform =
         (size_t)num_rows * (size_t)params.num_outputs;
-
       transform_k<<<ceildiv(num_values_to_transform, (size_t)FIL_TPB), FIL_TPB,
-                    0, stream>>>(params.preds, num_values_to_transform, ot,
+                    0, stream>>>(preds, num_values_to_transform, ot,
                                  num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
                                  threshold_, global_bias_, complement_proba);
       CUDA_CHECK(cudaPeekAtLastError());
@@ -338,6 +337,7 @@ struct sparse_forest : forest {
                                                     h.getStream());
     CUDA_CHECK(cudaMemcpyAsync(trees_, trees, sizeof(int) * num_trees_,
                                cudaMemcpyHostToDevice, h.getStream()));
+
     // nodes
     nodes_ = (node_t*)h.getDeviceAllocator()->allocate(
       sizeof(node_t) * num_nodes_, h.getStream());
@@ -386,9 +386,6 @@ void check_params(const forest_params_t* params, bool dense) {
   }
   switch (params->leaf_payload_type) {
     case leaf_value_t::FLOAT_SCALAR:
-      /* params->num_classes is ignored in this case, since the user might call
-         predict_proba() on regression. Hence, no point checking the range of
-         an ignored variable */
       ASSERT(params->num_classes >= 1, "num_classes must be positive");
       break;
     case leaf_value_t::INT_CLASS_LABEL:
@@ -636,6 +633,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     ASSERT(leaf_vec_size == model.num_output_group,
            "treelite model inconsistent");
     params->num_classes = leaf_vec_size;
+    params->leaf_payload_type = leaf_value_t::INT_CLASS_LABEL;
 
     ASSERT(tl_params->output_class,
            "output_class==true is required for multi-class models");
@@ -646,7 +644,6 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
       "are supported for multi-class models. provided: '%s'",
       param.pred_transform);
 
-    params->leaf_payload_type = leaf_value_t::INT_CLASS_LABEL;
   } else {
     if (model.num_output_group > 1) {
       params->num_classes = model.num_output_group;
