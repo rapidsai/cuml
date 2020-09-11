@@ -44,7 +44,7 @@ from .porter_stemmer_utils.measure_utils import (
 )
 
 
-# Implimentation based on nltk//stem/porter.html
+# Implementation based on nltk//stem/porter.html
 # https://www.nltk.org/_modules/nltk/stem/porter.html
 class PorterStemmer:
     """
