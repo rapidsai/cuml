@@ -69,13 +69,10 @@ class FIL : public RegressionFixture<float> {
     ML::build_treelite_forest(&model, &rf_model, this->params.ncols,
                               REGRESSION_MODEL);
     ML::fil::treelite_params_t tl_params = {
-      //.algo = ML::fil::algo_t::BATCH_TREE_REORG,
       .algo = ML::fil::algo_t::ALGO_AUTO,
       .output_class = true,                      // cuML RF forest
       .threshold = 1.f / this->params.nclasses,  //Fixture::DatasetParams
-      //.storage_type = ML::fil::storage_type_t::AUTO};
       .storage_type = ML::fil::storage_type_t::SPARSE};
-    //.storage_type = ML::fil::storage_type_t::DENSE};
     ML::fil::from_treelite(*this->handle, &forest, model, &tl_params);
 
     // only time prediction
@@ -95,7 +92,6 @@ class FIL : public RegressionFixture<float> {
   }
 
  private:
-  //int nIter;
   ML::fil::forest_t forest;
   ModelHandle model;
   bool predict_proba;
