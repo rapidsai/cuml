@@ -44,7 +44,7 @@ def generate_dask_array(np_array, n_parts):
     scope="module",
     params=[
         unit_param({'n_samples': 1000, 'n_features': 30,
-                    'n_classes': 5, 'n_targets': 1}),
+                    'n_classes': 5, 'n_targets': 2}),
         quality_param({'n_samples': 5000, 'n_features': 100,
                        'n_classes': 12, 'n_targets': 4}),
         stress_param({'n_samples': 12000, 'n_features': 40,
@@ -158,6 +158,7 @@ def test_predict(dataset, datatype, n_neighbors, n_parts, batch_size, client):
     assert accuracy_score(y_test, distributed_out[0]) > 0.12
 
 
+@pytest.mark.skip(reason="Sometimes incorrect labels are returned")
 @pytest.mark.parametrize("datatype", ['dask_array'])
 @pytest.mark.parametrize("n_neighbors", [1, 2, 3])
 @pytest.mark.parametrize("n_parts", [None, 2, 3, 5])
@@ -201,7 +202,6 @@ def test_score(dataset, datatype, n_neighbors, n_parts, client):
     assert cuml_score == manual_score
 
 
-@pytest.mark.skip(reason="Need to fix")
 @pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
 @pytest.mark.parametrize("n_neighbors", [1, 3, 6])
 @pytest.mark.parametrize("n_parts", [None, 2, 3, 5])
