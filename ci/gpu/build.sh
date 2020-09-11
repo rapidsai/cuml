@@ -84,10 +84,12 @@ logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
-logger "Building doxygen C++ docs"
-$WORKSPACE/build.sh cppdocs -v
+
 
 if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
+    logger "Building doxygen C++ docs"
+    $WORKSPACE/build.sh cppdocs -v
+
     ################################################################################
     # BUILD - Build libcuml, cuML, and prims from source
     ################################################################################
@@ -213,5 +215,8 @@ else
         cd $WORKSPACE/ci/artifacts/cuml/cpu/conda_work/cpp/build
         python ../scripts/cuda-memcheck.py -tool memcheck -exe ./test/prims
     fi
+
+    logger "Building doxygen C++ docs"
+    $WORKSPACE/build.sh cppdocs -v
 
 fi
