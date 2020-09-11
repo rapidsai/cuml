@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 from cuml.raft.common.handle cimport handle_t
 from libc.stdint cimport uintptr_t
