@@ -47,7 +47,6 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
          Tensor<DataT, 2, IndexT> &X, Tensor<DataT, 1, IndexT> &weight,
          MLCommon::device_buffer<DataT> &centroidsRawData, DataT &inertia,
          int &n_iter, MLCommon::device_buffer<char> &workspace) {
-  std::cout << "Should not be here" << std::endl;
   ML::Logger::get().setLevel(params.verbosity);
   cudaStream_t stream = handle.get_stream();
   auto n_samples = X.getSize(0);
@@ -463,7 +462,7 @@ void initScalableKMeansPlusPlus(
     default_params.n_clusters = params.n_clusters;
 
     ML::kmeans::impl::fit(handle, default_params, potentialCentroids, weight,
-                    centroidsRawData, inertia, n_iter, workspace);
+                          centroidsRawData, inertia, n_iter, workspace);
 
   } else if (potentialCentroids.getSize(0) < n_clusters) {
     // supplement with random
@@ -501,7 +500,6 @@ void fit(const raft::handle_t &handle, const KMeansParams &km_params,
          const DataT *X, const int n_samples, const int n_features,
          const DataT *sample_weight, DataT *centroids, DataT &inertia,
          int &n_iter) {
-  std::cout << "in first fit level" << std::endl;
   ML::Logger::get().setLevel(km_params.verbosity);
   cudaStream_t stream = handle.get_stream();
 
@@ -537,7 +535,6 @@ void fit(const raft::handle_t &handle, const KMeansParams &km_params,
   kmeans::detail::checkWeights(handle, workspace, weight, stream);
 
   auto n_init = km_params.n_init;
-  std::cout << "before log" << std::endl;
   if (km_params.init == KMeansParams::InitMethod::Array && n_init != 1) {
     LOG(handle,
         "Explicit initial center position passed: performing only one init in "
@@ -545,7 +542,6 @@ void fit(const raft::handle_t &handle, const KMeansParams &km_params,
         n_init);
     n_init = 1;
   }
-  std::cout << "after log" << std::endl;
 
   std::mt19937 gen(km_params.seed);
   inertia = std::numeric_limits<DataT>::max();
@@ -597,7 +593,6 @@ void fit(const raft::handle_t &handle, const KMeansParams &km_params,
       THROW("unknown initialization method to select initial centers");
     }
 
-    std::cout << "Before fit, iter: " << seed_iter << std::endl;
     fit(handle, params, data, weight, centroidsRawData, _inertia, _n_iter,
         workspace);
 
@@ -787,6 +782,6 @@ void transform(const raft::handle_t &handle, const KMeansParams &params,
   }
 }
 
-};
+};  // namespace impl
 };  // namespace kmeans
 };  // end namespace ML

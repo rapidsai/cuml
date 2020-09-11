@@ -14,12 +14,6 @@
 # limitations under the License.
 #
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
-
-
 # Populate this with more typedef's (eg: events) as and when needed
 cdef extern from * nogil:
     ctypedef void* _Stream "cudaStream_t"
