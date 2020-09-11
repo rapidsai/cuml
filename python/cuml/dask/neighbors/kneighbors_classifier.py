@@ -232,7 +232,7 @@ class KNeighborsClassifier(NearestNeighbors):
         out_d = to_output(out_d_futures, self.datatype)
         return out, out_i, out_d
 
-    def score(self, X, y):
+    def score(self, X, y, convert_dtype=True):
         """
         Predict labels for a query from previously stored index
         and index labels.
@@ -252,7 +252,7 @@ class KNeighborsClassifier(NearestNeighbors):
         -------
         score
         """
-        labels, _, _ = self.predict(X, convert_dtype=True)
+        labels, _, _ = self.predict(X, convert_dtype=convert_dtype)
         diff = (labels == y)
         if self.data_handler.datatype == 'cupy':
             mean = da.mean(diff)
