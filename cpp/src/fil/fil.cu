@@ -641,8 +641,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     ASSERT(
       pred_transform == "max_index" || pred_transform == "identity_multiclass",
       "only max_index and identity_multiclass values of pred_transform "
-      "are supported for multi-class models. provided: '%s'",
-      param.pred_transform);
+      "are supported for multi-class models.");
 
   } else {
     if (model.num_output_group > 1) {
@@ -654,15 +653,12 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
                pred_transform == "multiclass_ova",
              "only sigmoid, identity, max_index and multiclass_ova values of "
              "pred_transform are supported for xgboost-style multi-class "
-             "classification models. provided: %s",
-             param.pred_transform);
+             "classification models.");
     } else {
       params->num_classes = tl_params->output_class ? 2 : 1;
       ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
              "only sigmoid and identity values of pred_transform "
-             "are supported for binary classification and regression models. "
-             "provided: %s",
-             param.pred_transform);
+             "are supported for binary classification and regression models.");
     }
     params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
   }
