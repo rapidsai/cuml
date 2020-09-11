@@ -327,5 +327,12 @@ def test_sparse_nearest_neighbors_euclidean():
 
     skD, skI = sknn.kneighbors(a.todense().get())
 
+
+    print(str(cuD))
+    print(str(cuI))
+
+    print(str(skD))
+    print(str(skI))
+
     cp.testing.assert_allclose(cuD, skD, atol=1e-5, rtol=1e-5)
     cp.testing.assert_allclose(cuI, skI, atol=1e-5, rtol=1e-5)

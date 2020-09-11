@@ -74,7 +74,7 @@ struct ip_distances_t {
 
   void compute(value_t *out_distances) {
     /**
-	   * Compute pairwise distances
+	   * Compute pairwise distances and return dense matrix in column-major format
 	   */
     device_buffer<value_idx> out_batch_indptr(config_.allocator, config_.stream,
                                               config_.search_nrows + 1);
@@ -106,7 +106,8 @@ struct ip_distances_t {
        */
     csr_to_dense(config_.handle, config_.search_nrows, config_.index_nrows,
                  out_batch_indptr.data(), out_batch_indices.data(),
-                 out_batch_data.data(), true, out_distances, config_.stream);
+                 out_batch_data.data(), config_.search_nrows, out_distances,
+                 config_.stream);
 
     std::cout << arr2Str(out_distances, config_.search_nrows * config_.index_nrows,
                          "out_distances", config_.stream) << std::endl;
@@ -198,12 +199,12 @@ __global__ void compute_euclidean_kernel(value_t *C, const value_t *Q_sq_norms,
 
   // Cuda store row major.
   if (i < n_rows && j < n_cols) {
-	value_t val = R_sq_norms[i] + Q_sq_norms[j] - 2.0 * C[i * n_cols + j];
+	value_t val = R_sq_norms[j] + Q_sq_norms[i] - 2.0 * C[j * n_rows + i];
 
 	if(fabsf(val) < 0.00001)
 		val = 0.0;
 
-    C[i * n_cols + j] = val;
+    C[j * n_rows + i] = val;
   }
 }
 
