@@ -537,12 +537,6 @@ class TreeliteFilTest : public BaseFilTest {
   void init_forest_impl(fil::forest_t* pforest,
                         fil::storage_type_t storage_type) {
     bool random_forest_flag = (ps.output & fil::output_t::AVG) != 0;
-    ASSERT((ps.leaf_payload_type == fil::leaf_value_t::INT_CLASS_LABEL &&
-            random_forest_flag) ||
-             (ps.leaf_payload_type == fil::leaf_value_t::FLOAT_SCALAR &&
-              (ps.num_classes <= 2 || !random_forest_flag)),
-           "treelite interprets leaf averaging as random forest indicator"
-           " (vs GBDTs) for multiclass");
     int treelite_num_classes =
       ps.leaf_payload_type == fil::leaf_value_t::INT_CLASS_LABEL ||
           ps.num_classes > 2

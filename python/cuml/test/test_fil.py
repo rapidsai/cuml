@@ -67,16 +67,11 @@ def _build_and_save_xgboost(model_path,
     params = {}
 
     # learning task params
-    params['eval_metric'] = 'error'
     if classification:
         params['num_class'] = num_classes
         if num_classes == 1:
             params['objective'] = 'binary:logistic'
         else:
-            # cannot use this interface as it's not supported by treelite
-            # will cause "softmax" as the output transform
-            # params['objective'] = 'multi:softprob'
-            # output transform == 'max_index'
             params['objective'] = 'multi:softmax'
     else:
         params['objective'] = 'reg:squarederror'
@@ -119,10 +114,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
 
     model_path = os.path.join(tmp_path, 'xgb_class.model')
 
-    if num_classes == 2:
-        xgb_num_classes = 1
-    else:
-        xgb_num_classes = num_classes
+    xgb_num_classes = 1 if num_classes == 2 else num_classes
     bst = _build_and_save_xgboost(model_path, X_train, y_train,
                                   num_rounds=num_rounds,
                                   classification=classification,
