@@ -50,18 +50,6 @@ class FIL : public RegressionFixture<float> {
       rfParams(p.rf) {}
 
  protected:
-  void import_from_treelite() {
-      ML::fil::treelite_params_t tl_params = {
-        //.algo = ML::fil::algo_t::BATCH_TREE_REORG,
-        .algo = ML::fil::algo_t::ALGO_AUTO,
-        .output_class = true,                      // cuML RF forest
-        .threshold = 1.f / this->params.nclasses,  //Fixture::DatasetParams
-        //.storage_type = ML::fil::storage_type_t::AUTO};
-        .storage_type = ML::fil::storage_type_t::SPARSE};
-        //.storage_type = ML::fil::storage_type_t::DENSE};
-      ML::fil::from_treelite(*this->handle, &forest, model, &tl_params);
-  }
-
   void runBenchmark(::benchmark::State& state) override {
     if (!this->params.rowMajor) {
       state.SkipWithError("FIL only supports row-major inputs");
@@ -70,32 +58,35 @@ class FIL : public RegressionFixture<float> {
       // Dataset<D, L> allocates y assuming one output value per input row
       state.SkipWithError("currently only supports scalar prediction");
     }
-    if (fit_model) {
-      // create model
-      ML::RandomForestRegressorF rf_model;
-      auto* mPtr = &rf_model;
-      mPtr->trees = nullptr;
-      fit(*this->handle, mPtr, this->data.X, this->params.nrows,
-          this->params.ncols, this->data.y, rfParams);
-      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+    // create model
+    ML::RandomForestRegressorF rf_model;
+    auto* mPtr = &rf_model;
+    mPtr->trees = nullptr;
+    size_t train_nrows = std::min(params.nrows, 1000);
+    fit(*handle, mPtr, data.X, train_nrows, params.ncols, data.y, rfParams);
+    CUDA_CHECK(cudaStreamSynchronize(this->stream));
 
-      ML::build_treelite_forest(&model, &rf_model, this->params.ncols,
-        REGRESSION_MODEL);
+    ML::build_treelite_forest(&model, &rf_model, this->params.ncols,
+                              REGRESSION_MODEL);
+    ML::fil::treelite_params_t tl_params = {
+      //.algo = ML::fil::algo_t::BATCH_TREE_REORG,
+      .algo = ML::fil::algo_t::ALGO_AUTO,
+      .output_class = true,                      // cuML RF forest
+      .threshold = 1.f / this->params.nclasses,  //Fixture::DatasetParams
+      //.storage_type = ML::fil::storage_type_t::AUTO};
+      .storage_type = ML::fil::storage_type_t::SPARSE};
+    //.storage_type = ML::fil::storage_type_t::DENSE};
+    ML::fil::from_treelite(*this->handle, &forest, model, &tl_params);
 
-      import_from_treelite(); // TODO: add model param and supply rf_model somehow
-    }
     // only time prediction
     this->loopOnState(state, [this]() {
-      ML::fil::predict(*this->handle, this->forest, this->data.y,
-                       this->data.X, this->params.nrows, this->predict_proba);
+      ML::fil::predict(*this->handle, this->forest, this->data.y, this->data.X,
+                       this->params.nrows, this->predict_proba);
     });
   }
 
   void allocateBuffers(const ::benchmark::State& state) override {
     Base::allocateBuffers(state);
-    if (!fit_model) {
-      import_from_treelite();
-    }
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override {
@@ -119,23 +110,10 @@ struct FilBenchParams {
   bool predict_proba;
 };
 
-size_t tryGetSizeFromEnv(const char* name) {
-  const char* s = std::getenv(name);
-  if (s == nullptr) return 0;
-  signed long size = atol(s);
-  if (size <= 0) return 0;
-  return (size_t)size;
-}
-
 std::vector<Params> getInputs() {
   std::vector<Params> out;
   Params p;
-  size_t ncols = 0;//tryGetSizeFromEnv("NCOLS");
-  p.fit_model = (ncols == 0);
-  /*if (ncols != 0)
-    TREELITE_CHECK(TreeliteLoadProtobufModel("./tl_model.pb", &p.model));
-  else*/
-    ncols = 20;
+  size_t ncols = 20;
   p.data.rowMajor = true;
   // see src_prims/random/make_regression.h
   p.blobs = {.n_informative = (signed)ncols / 3,
@@ -158,11 +136,7 @@ std::vector<Params> getInputs() {
   p.rf.n_streams = 8;
   p.rf.tree_params.max_features = 1.f;
   p.rf.tree_params.max_depth = 8;
-  std::vector<FilBenchParams> var_params = {
-    {10000ul, ncols, 2ul, false}, 
-    //{10123ul, ncols, 2ul, true}, // does not work right now
-    //{1184000, ncols, 2, false},  // Mimicking Bosch dataset
-  };
+  std::vector<FilBenchParams> var_params = {{10000ul, ncols, 2ul, false}};
   for (auto& i : var_params) {
     p.data.nrows = i.nrows;
     p.data.ncols = i.ncols;
