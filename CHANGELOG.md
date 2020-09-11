@@ -28,6 +28,8 @@
 - PR #2787: Skip lightgbm test for version 3 and above temporarily
 - PR #2787: Skip lightgbm test for version 3 and above temporarily
 - PR #2813: Fix memory access in generation of non-row-major random blobs
+- PR #2810: Update Rf MNMG threshold to prevent sporadic test failure
+- PR #2808: Relax Doxygen version required in CMake to coincide with integration repo
 
 # cuML 0.15.0 (Date TBD)
 
