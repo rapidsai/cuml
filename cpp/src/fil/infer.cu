@@ -224,12 +224,15 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, FEWER_THAN_THREADS> {
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs) {
-    __syncthreads();
+    __syncthreads(); // free up input row
+    // load margin into shared memory
     best_margin_label<NITEMS> best;
     vec<NITEMS, float>* per_thread = (vec<NITEMS, float>*)tmp_storage;
     if (threadIdx.x >= num_classes) per_thread[threadIdx.x] = acc;
 
     __syncthreads();
+    // reduce per-thread margin summand into per-class complete margin
+    // (for each of the NITEMS rows)
     if (threadIdx.x < num_classes) {
       for (int c = threadIdx.x + num_classes; c < blockDim.x; c += num_classes)
         acc += per_thread[c];
@@ -237,9 +240,11 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, FEWER_THAN_THREADS> {
       best.label.fill(threadIdx.x);
     }
     __syncthreads();
-    typedef BlockReduceMultiClass<NITEMS> BR;
-    best = BR(*(typename BR::TempStorage*)tmp_storage)
+    // determine best class per block (for each of the NITEMS rows)
+    typedef BlockReduceMultiClass<NITEMS> BlockReduceT;
+    best = BlockReduceT(*(typename BlockReduceT::TempStorage*)tmp_storage)
              .Reduce(best, best, num_classes);
+    // write it out to global memory
     if (threadIdx.x == 0) {
       for (int i = 0; i < NITEMS; ++i) {
         int row = blockIdx.x * NITEMS + i;
@@ -253,6 +258,7 @@ template <int NITEMS>
 struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, MORE_THAN_THREADS> {
   vec<NITEMS, float> acc;
   void* tmp_storage;
+  vec<NITEMS, float>* per_class_margin;
   int num_classes;
 
   static size_t smem_finalize_footprint(int num_classes) {
@@ -270,35 +276,42 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, MORE_THAN_THREADS> {
   __device__ __forceinline__ tree_aggregator_t(int num_classes_,
                                                void* shared_workspace,
                                                size_t data_row_size)
-    : tmp_storage((char*)shared_workspace + data_row_size),
+    : tmp_storage(shared_workspace),
+      per_class_margin((vec<NITEMS, float>*)((char*)shared_workspace + data_row_size)),
       num_classes(num_classes_) {
+
     for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
-      ((vec<NITEMS, float>*)tmp_storage)[c].fill(0.0f);
+      per_class_margin[c].fill(0.0f);
     //__syncthreads(); // done in the main loop
   }
 
   __device__ __forceinline__ void accumulate(vec<NITEMS, float> single_tree_prediction,
                                              int tree) {
-    ((vec<NITEMS, float>*)tmp_storage)[tree % num_classes] += single_tree_prediction;
+    // since threads are assigned to consecutive classes, no need for atomics
+    per_class_margin[tree % num_classes] += single_tree_prediction;
+    //__syncthreads(); // done in the main loop
   }
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs) {
-    vec<NITEMS, float>* per_class = (vec<NITEMS, float>*)tmp_storage;
+    // reduce per-class candidate margins to one best class candidate
+    // per thread (for each of the NITEMS rows)
     best_margin_label<NITEMS> best;
-    best.margin = per_class[threadIdx.x];
+    best.margin = per_class_margin[threadIdx.x];
     best.label.fill(threadIdx.x);
     for (int c = threadIdx.x + blockDim.x; c < num_classes; c += blockDim.x) {
       best_margin_label<NITEMS> candidate;
-      candidate.margin = per_class[c];
+      candidate.margin = per_class_margin[c];
       candidate.label.fill(c);
       best = best(best, candidate);
     }
     __syncthreads();
-    typedef BlockReduceMultiClass<NITEMS> BR;
-    best = BR(*(typename BR::TempStorage*)tmp_storage)
-             .Reduce(best, best, blockDim.x);
 
+    // find best class per block (for each of the NITEMS rows)
+    typedef BlockReduceMultiClass<NITEMS> BlockReduceT;
+    best = BlockReduceT(*(typename BlockReduceT::TempStorage*)tmp_storage)
+      .Reduce(best, best, blockDim.x);
+    // write it out to global memory
     if (threadIdx.x == 0) {
       for (int i = 0; i < NITEMS; ++i) {
         int row = blockIdx.x * NITEMS + i;
