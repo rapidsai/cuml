@@ -139,19 +139,17 @@ if not libcuml_path:
 
 class cuml_build(_build):
 
-    user_options = [
-        ("singlegpu", None, "Specifies whether to include multi-gpu or not")
-    ] + _build.user_options
-
-    boolean_options = ["singlegpu"] + _build.boolean_options
-
     def initialize_options(self):
 
         self.singlegpu = False
-
         super().initialize_options()
 
     def finalize_options(self):
+
+        # distutils plain build command override cannot be done just setting
+        # user_options and boolean options like build_ext below. Distribution
+        # object has all the args used by the user, we can check that.
+        self.singlegpu = '--singlegpu' in self.distribution.script_args
 
         libs = ['cuda', 'cuml++', 'rmm']
 
