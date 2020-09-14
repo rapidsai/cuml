@@ -192,7 +192,6 @@ def test_score(dataset, datatype, n_neighbors, n_parts, client):
                                    distributed_out))
     cuml_score = d_model.score(X_test, y_test)
 
-
     if datatype == 'dask_cudf':
         y_test = y_test.compute().as_matrix()
     else:
