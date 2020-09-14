@@ -117,7 +117,7 @@ __global__ void iota_fill_kernel(value_idx *indices, value_idx nrows,
 
   value_idx i = index / ncols, j = index % ncols;
 
-  if (i < nrows && j < ncols) indices[j * nrows + i] = j;
+  if (i < nrows && j < ncols) indices[nrows * j + i] = j;
 }
 
 /**
@@ -140,18 +140,24 @@ void brute_force_knn(
   value_idx n_query_rows, value_idx n_query_cols, value_idx *output_indices,
   value_t *output_dists, int k, cusparseHandle_t cusparseHandle,
   std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
-  size_t batch_size = 2 << 20,  // approx 1M
+  size_t batch_size_index = 2 << 20,  // approx 1M
+  size_t batch_size_query = 2 << 20,
   ML::MetricType metric = ML::MetricType::METRIC_L2, float metricArg = 0,
   bool expanded_form = false) {
   using namespace raft::sparse;
+
+  // TODO: Pass this in
+  cublasHandle_t cublasHandle;
+  cublasCreate(&cublasHandle);
+
 
   bool ascending = true;
   if (metric == ML::MetricType::METRIC_INNER_PRODUCT) ascending = false;
 
   CUML_LOG_DEBUG("n_query_rows=%d, n_idx_rows=%d", n_query_rows, n_idx_rows);
-  int n_batches_query = ceildiv((size_t)n_query_rows, batch_size);
+  int n_batches_query = ceildiv((size_t)n_query_rows, batch_size_query);
   csr_batcher_t<value_idx, value_t> query_batcher(
-    batch_size, n_query_rows, queryIndptr, queryIndices, queryData);
+    batch_size_query, n_query_rows, queryIndptr, queryIndices, queryData);
 
 
 
@@ -192,9 +198,9 @@ void brute_force_knn(
     value_t *dists_merge_buffer_ptr;
     value_idx *indices_merge_buffer_ptr;
 
-    int n_batches_idx = ceildiv((size_t)n_idx_rows, batch_size);
+    int n_batches_idx = ceildiv((size_t)n_idx_rows, batch_size_index);
     csr_batcher_t<value_idx, value_t> idx_batcher(
-      batch_size, n_idx_rows, idxIndptr, idxIndices, idxData);
+      batch_size_index, n_idx_rows, idxIndptr, idxIndices, idxData);
 
     for (int j = 0; j < n_batches_idx; j++) {
 
@@ -240,7 +246,6 @@ void brute_force_knn(
                     csc_idx_batch_indptr.data(), csc_idx_batch_indices.data(),
                     csc_idx_batch_data.data(), idx_batcher.batch_rows(),
                     n_idx_cols, idx_batch_nnz, allocator, stream);
-
 
       /**
        * Compute distances
@@ -290,6 +295,7 @@ void brute_force_knn(
       csc_idx_batch_indices.release(stream);
       csc_idx_batch_data.release(stream);
 
+
       // Build batch indices array
       device_buffer<value_idx> batch_indices(allocator, stream,
                                              batch_dists.size());
@@ -297,9 +303,12 @@ void brute_force_knn(
       // populate batch indices array
       value_idx batch_rows = query_batcher.batch_rows(),
                 batch_cols = idx_batcher.batch_rows();
-      iota_fill_kernel<<<ceildiv(batch_rows * batch_cols, 256), 256, 0,
+      iota_fill_kernel<<<ceildiv(batch_rows * batch_cols, 32), 32, 0,
                          stream>>>(batch_indices.data(), batch_rows,
                                    batch_cols);
+
+//      std::cout << arr2Str(batch_dists.data(), batch_rows * batch_cols,
+//                           "batch_dists", stream) << std::endl;
 
 
       /**
@@ -317,24 +326,14 @@ void brute_force_knn(
       id_ranges.push_back(0);
       id_ranges.push_back(idx_batcher.batch_start());
 
-
       // in the case where the number of idx rows in the batch is < k, we
       // want to adjust k.
       value_idx n_neighbors = min(k, batch_cols);
-
-
-      std::cout << arr2Str(batch_dists.data(), batch_rows * batch_cols,
-                           "right before k-select", stream) << std::endl;
-
 
       // kernel to slice first (min) k cols and copy into batched merge buffer
       select_k(batch_dists.data(), batch_indices.data(), batch_rows, batch_cols,
                dists_merge_buffer_ptr, indices_merge_buffer_ptr, ascending,
                n_neighbors, stream, 0);
-
-      std::cout << arr2Str(dists_merge_buffer_ptr, batch_rows * k,
-                           "k-selected", stream) << std::endl;
-
 
       // Perform necessary post-processing
       if ((metric == ML::MetricType::METRIC_L2 ||
@@ -379,13 +378,9 @@ void brute_force_knn(
         CUML_LOG_DEBUG("Done.");
       }
 
-      std::cout << arr2Str(dists_merge_buffer_tmp_ptr, batch_rows * k,
-                           "dists_merge_buffer_tmp_ptr", stream) << std::endl;
 
-
-      std::cout << arr2Str(merge_buffer_dists.data(), batch_rows * k* 3,
-                           "merge_buffer_dists", stream) << std::endl;
-
+//      std::cout << arr2Str(dists_merge_buffer_tmp_ptr, batch_rows * k,
+//                           "dists_merge_buffer_tmp_ptr", stream) << std::endl;
 
       CUML_LOG_DEBUG("Performing copy async");
 
@@ -396,9 +391,6 @@ void brute_force_knn(
                 batch_rows * k, stream);
 
       CUML_LOG_DEBUG("Done.");
-
-      std::cout << arr2Str(merge_buffer_dists.data(), batch_rows * k* 3,
-                           "merge_buffer_dists_after_copy", stream) << std::endl;
     }
 
     // Copy final merged batch to output array
@@ -407,11 +399,13 @@ void brute_force_knn(
     copyAsync<value_t>(output_dists + (rows_processed * k), merge_buffer_dists.data(),
               query_batcher.batch_rows() * k, stream);
 
-    std::cout << arr2Str(output_dists, rows_processed*k,
-                         "output_dists", stream) << std::endl;
+//    std::cout << arr2Str(output_dists, rows_processed*k,
+//                         "output_dists", stream) << std::endl;
 
     rows_processed += query_batcher.batch_rows();
   }
+
+  cublasDestroy(cublasHandle);
 }
 
 };  // END namespace Selection

@@ -31,7 +31,8 @@ void brute_force_knn(cumlHandle &handle, const int *idxIndptr,
                      const int *queryIndices, const float *queryData,
                      size_t queryNNZ, int n_query_rows, int n_query_cols,
                      int *output_indices, float *output_dists, int k,
-                     size_t batch_size = 2 << 20,  // approx 1M
+                     size_t batch_size_index = 2 << 20,  // approx 1M
+                     size_t batch_size_query = 2 << 20,
                      ML::MetricType metric = ML::MetricType::METRIC_L2,
                      float metricArg = 0, bool expanded_form = false);
 };  // end namespace Sparse

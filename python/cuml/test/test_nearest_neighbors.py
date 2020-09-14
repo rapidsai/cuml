@@ -311,28 +311,35 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
 
 def test_sparse_nearest_neighbors_euclidean():
 
-    a = cp.sparse.random(50, 4, format='csr', density=1.0)
+    a = cp.sparse.random(50000, 15000, format='csr', density=0.01)
 
-    print(str(a.data))
+    print("Created data")
 
-    logger.set_level(logger.level_debug)
-
-    nn = cuKNN(metric='euclidean', n_neighbors=4, verbose=logger.level_debug)
+    import time
+    logger.set_level(logger.level_info)
+    nn = cuKNN(metric='euclidean', n_neighbors=500, verbose=logger.level_debug,
+               algo_params={"batch_size_index": 50000, "batch_size_query": 20000})
     nn.fit(a)
 
+    start = time.time()
     cuD, cuI = nn.kneighbors(a)
 
-    sknn = skKNN(metric='euclidean', n_neighbors=4)
-    sknn.fit(a.todense().get())
+    print("cuml Took: %f" % (time.time() - start))
 
-    skD, skI = sknn.kneighbors(a.todense().get())
+    sknn = skKNN(metric='euclidean', n_neighbors=500)
+    sk_X = a.get()
+    sknn.fit(sk_X)
+
+    start = time.time()
+    skD, skI = sknn.kneighbors(sk_X)
+    print("sklearn Took: %f" % (time.time() - start))
 
 
-    print(str(cuD))
-    print(str(cuI))
+    print(cuD)
+    print(cuI)
 
-    print(str(skD))
-    print(str(skI))
+    print(skD)
+    print(skI)
 
-    cp.testing.assert_allclose(cuD, skD, atol=1e-5, rtol=1e-5)
-    cp.testing.assert_allclose(cuI, skI, atol=1e-5, rtol=1e-5)
+    cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
+    cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)

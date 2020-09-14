@@ -68,18 +68,26 @@ __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
 
   // Whole warps must participate in the selection
   int limit = faiss::gpu::utils::roundDown(n_cols, faiss::gpu::kWarpSize);
-  for (; i < limit; i += tpb) {
-    heap.add(*inKStart, (*inVStart) + translation);
-    inKStart += tpb;
-    inVStart += tpb;
-  }
 
+  for (; i < limit; i += tpb) {
+
+//    if(row == 0)
+//      printf("[LOOP1] row=%d, i=%d, inK=%f\n", row, i, *inKStart);
+    inKStart = inK + (i * n_rows + row);
+    inVStart = inV + (i * n_rows + row);
+
+    heap.add(*inKStart, (*inVStart) + translation);
+  }
 
   // Handle last remainder fraction of a warp of elements
   if (i < n_cols) {
-    heap.addThreadQ(*inKStart, (*inVStart) + translation);
 
-    printf("row=%d, i=%d, inK=%f\n", row, i, *inKStart);
+    inKStart = inK + (i * n_rows + row);
+    inVStart = inV + (i * n_rows + row);
+
+//    if(row == 0)
+//      printf("[FINAL] row=%d, i=%d, inK=%f\n", row, i, *inKStart);
+    heap.addThreadQ(*inKStart, (*inVStart) + translation);
   }
 
   heap.reduce();
@@ -87,7 +95,9 @@ __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
   for (int i = threadIdx.x; i < k; i += tpb) {
     outK[row * k + i] = smemK[i];
     outV[row * k + i] = smemV[i];
-    printf("row=%d, i=%d, outK=%f\n", row, i, smemK[i]);
+//
+//    if(row == 0)
+//      printf("row=%d, i=%d, val=%f\n", row, i, outK[row * k + i]);
   }
 }
 

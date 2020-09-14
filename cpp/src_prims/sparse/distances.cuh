@@ -90,16 +90,6 @@ struct ip_distances_t {
     compute(out_batch_indptr.data(), out_batch_indices.data(),
             out_batch_data.data());
 
-    std::cout << arr2Str(out_batch_indptr.data(), out_batch_indptr.size(),
-                         "out_batch_indptr", config_.stream) << std::endl;
-    std::cout << arr2Str(out_batch_indices.data(), out_batch_indices.size(),
-                         "out_batch_indices", config_.stream) << std::endl;
-    std::cout << arr2Str(out_batch_data.data(), out_batch_data.size(),
-                         "out_batch_data", config_.stream) << std::endl;
-
-
-    CUML_LOG_DEBUG("Convertint to dense. rows=%d, cols=%d", config_.search_nrows, config_.index_nrows);
-
 
     /**
        * Convert output to dense
@@ -109,8 +99,6 @@ struct ip_distances_t {
                  out_batch_data.data(), config_.search_nrows, out_distances,
                  config_.stream);
 
-    std::cout << arr2Str(out_distances, config_.search_nrows * config_.index_nrows,
-                         "out_distances", config_.stream) << std::endl;
 
   }
 
@@ -201,7 +189,7 @@ __global__ void compute_euclidean_kernel(value_t *C, const value_t *Q_sq_norms,
   if (i < n_rows && j < n_cols) {
 	value_t val = R_sq_norms[j] + Q_sq_norms[i] - 2.0 * C[j * n_rows + i];
 
-	if(fabsf(val) < 0.00001)
+	if(fabsf(val) < 0.0001)
 		val = 0.0;
 
     C[j * n_rows + i] = val;

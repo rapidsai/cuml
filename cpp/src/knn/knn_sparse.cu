@@ -32,7 +32,8 @@ void brute_force_knn(cumlHandle &handle, const int *idxIndptr,
                      const int *queryIndices, const float *queryData,
                      size_t queryNNZ, int n_query_rows, int n_query_cols,
                      int *output_indices, float *output_dists, int k,
-                     size_t batch_size,  // approx 1M
+                     size_t batch_size_index,  // approx 1M
+                     size_t batch_size_query,
                      ML::MetricType metric, float metricArg,
                      bool expanded_form) {
   std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
@@ -43,7 +44,7 @@ void brute_force_knn(cumlHandle &handle, const int *idxIndptr,
     idxIndptr, idxIndices, idxData, idxNNZ, n_idx_rows, n_idx_cols, queryIndptr,
     queryIndices, queryData, queryNNZ, n_query_rows, n_query_cols,
     output_indices, output_dists, k, cusparse_handle, d_alloc, stream,
-    batch_size, metric, metricArg, expanded_form);
+    batch_size_index, batch_size_query, metric, metricArg, expanded_form);
 }
 };  // namespace Sparse
 };  // namespace ML

@@ -118,7 +118,8 @@ cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
                          int *output_indices,
                          float *output_dists,
                          int k,
-                         size_t batch_size,
+                         size_t batch_size_index,
+                         size_t batch_size_query,
                          MetricType metric,
                          float metricArg,
                          bool expanded_form)
@@ -225,6 +226,7 @@ class NearestNeighbors(Base):
                  algorithm="brute",
                  metric="euclidean",
                  p=2,
+                 algo_params=None,
                  metric_params=None,
                  output_type=None):
 
@@ -245,6 +247,7 @@ class NearestNeighbors(Base):
         self.n_indices = 0
         self.metric = metric
         self.metric_params = metric_params
+        self.algo_params = algo_params
         self.p = p
         self.algorithm = algorithm
 
@@ -497,6 +500,14 @@ class NearestNeighbors(Base):
 
         # TODO: Verify both X and self._X_m are sparse
 
+        batch_size_index = 10000
+        if self.algo_params is not None and "batch_size_index" in self.algo_params:
+            batch_size_index = self.algo_params['batch_size_index']
+
+        batch_size_query = 10000
+        if self.algo_params is not None and "batch_size_query" in self.algo_params:
+            batch_size_index = self.algo_params['batch_size_query']
+
         X_m = SparseCumlArray(X, dtype=cp.float32)
         metric, expanded = self._build_metric_type(self.metric)
 
@@ -536,7 +547,8 @@ class NearestNeighbors(Base):
                         <int*>I_ptr,
                         <float*>D_ptr,
                         n_neighbors,
-                        11, # TODO: Make this an option
+                        <size_t>batch_size_index, # TODO: Make this an option
+                        <size_t>batch_size_query,
                         <MetricType> metric,
                         <float>self.p,
                         <bool> expanded)
