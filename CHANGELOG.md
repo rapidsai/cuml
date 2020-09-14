@@ -27,6 +27,11 @@
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
 - PR #2769: Remove outdated doxygen options for 1.8.20
 - PR #2787: Skip lightgbm test for version 3 and above temporarily
+- PR #2787: Skip lightgbm test for version 3 and above temporarily
+- PR #2813: Fix memory access in generation of non-row-major random blobs
+- PR #2810: Update Rf MNMG threshold to prevent sporadic test failure
+- PR #2808: Relax Doxygen version required in CMake to coincide with integration repo
+- PR #2818: Fix parsing of singlegpu option in build command
 
 # cuML 0.15.0 (Date TBD)
 
