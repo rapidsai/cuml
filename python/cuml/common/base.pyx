@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import cuml
 import cuml.common.cuda
@@ -282,12 +279,49 @@ class Base:
             else:
                 raise AttributeError
 
+    def _set_base_attributes(self,
+                             output_type=None,
+                             target_dtype=None,
+                             n_features=None):
+        """
+        Method to set the base class attributes - output type,
+        target dtype and n_features. It combines the three different
+        function calls. It's called in fit function from estimators.
+
+        Parameters
+        --------
+        output_type : DataFrame (default = None)
+            Is output_type is passed, aets the output_type on the
+            dataframe passed
+        target_dtype : Target column (default = None)
+            If target_dtype is passed, we call _set_target_dtype
+            on it
+        n_features: int or DataFrame (default=None)
+            If an int is passed, we set it to the number passed
+            If dataframe, we set it based on the passed df.
+
+        Examples
+        --------
+
+        .. code-block:: python
+
+                # To set output_type and n_features based on X
+                self._set_base_attributes(output_type=X, n_features=X)
+
+                # To set output_type on X and n_features to 10
+                self._set_base_attributes(output_type=X, n_features=10)
+
+                # To only set target_dtype
+                self._set_base_attributes(output_type=X, target_dtype=y)
+        """
+        if output_type is not None:
+            self._set_output_type(output_type)
+        if target_dtype is not None:
+            self._set_target_dtype(target_dtype)
+        if n_features is not None:
+            self._set_n_features_in(n_features)
+
     def _set_output_type(self, input):
-        """
-        Method to be called by fit methods of inheriting classes
-        to correctly set the output type depending on the type of inputs,
-        class output type and global output type
-        """
         if self.output_type == 'input' or self._mirror_input:
             self.output_type = _input_to_type(input)
 
@@ -303,11 +337,6 @@ class Base:
             return self.output_type
 
     def _set_target_dtype(self, target):
-        """
-        Method to be called by fit methods of inheriting classifier
-        classes to correctly set the output dtype depending on the dtype of
-        the target.
-        """
         self.target_dtype = _input_target_to_dtype(target)
 
     def _get_target_dtype(self):
@@ -323,9 +352,6 @@ class Base:
         return out_dtype
 
     def _set_n_features_in(self, X):
-        """Method to be called by the fit method of the inheriting class.
-        Sets the n_features_in_ attribute based on the data passed to fit.
-        """
         if isinstance(X, int):
             self.n_features_in_ = X
         else:

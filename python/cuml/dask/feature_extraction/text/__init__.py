@@ -14,13 +14,4 @@
 # limitations under the License.
 #
 
-import cupy as cp
-
-
-def sorted_unique_labels(*ys):
-    """Extract an ordered array of unique labels from one or more dask arrays
-    of labels."""
-    ys = (cp.unique(y.map_blocks(lambda x: cp.unique(x)).compute())
-          for y in ys)
-    labels = cp.unique(cp.concatenate(ys))
-    return labels
+from cuml.dask.feature_extraction.text.tfidf_transformer import TfidfTransformer

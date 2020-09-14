@@ -14,11 +14,10 @@
 # limitations under the License.
 #
 
-# cython: profile = False
 # distutils: language = c++
 # distutils: extra_compile_args = -Ofast
-# cython: embedsignature = True, language_level = 3
-# cython: boundscheck = False, wraparound = False
+# cython: boundscheck = False
+# cython: wraparound = False
 
 import cudf
 import cuml
@@ -305,7 +304,7 @@ class TSNE(Base):
         Fit X into an embedded space.
 
         """
-        self._set_n_features_in(X)
+        self._set_base_attributes(n_features=X)
         cdef int n, p
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if handle_ == NULL:

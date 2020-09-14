@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
@@ -153,7 +150,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         Fit a GPU index for k-nearest neighbors classifier model.
 
         """
-        self._set_target_dtype(y)
+        self._set_base_attributes(output_type=X, target_dtype=y)
 
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self._y, _, _, _ = \

@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -87,7 +84,7 @@ class KMeansMG(KMeans):
             ndarray, cuda array interface compliant array like CuPy
 
         """
-        self._set_n_features_in(X)
+        self._set_base_attributes(n_features=X)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, order='C')
