@@ -70,7 +70,7 @@ class silhouetteScoreTest
     MLCommon::updateDevice(d_X, &h_X[0], (int)nElements, stream);
     MLCommon::updateDevice(d_labels, &h_labels[0], (int)nElements, stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new defaultDeviceAllocator);
+      new raft::mr::device::default_allocator);
 
     //finding the distance matrix
 

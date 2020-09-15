@@ -80,7 +80,7 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
     MLCommon::updateDevice(clusterArray, &arr1[0], (int)nElements, stream);
 
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new defaultDeviceAllocator);
+      new raft::mr::device::default_allocator);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     //calling the entropy CUDA implementation

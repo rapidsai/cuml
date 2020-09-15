@@ -14,11 +14,6 @@
 # limitations under the License.
 #
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
-
 import ctypes
 import math
 import numpy as np
@@ -29,13 +24,12 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 from libcpp.vector cimport vector
 
-from cuml.common.handle import Handle
+from cuml.raft.common.handle import Handle
 from cuml import ForestInference
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
-cimport cuml.common.handle
 cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":

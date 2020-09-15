@@ -397,10 +397,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/arima/batched_kalman.cu
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
-    src/common/cuML_comms_impl.cpp
     src/common/logger.cpp
     src/common/nvtx.cu
-    src/comms/cuML_comms_test.cpp
     src/datasets/make_arima.cu
     src/datasets/make_blobs.cu
     src/datasets/make_regression.cu
@@ -499,17 +497,6 @@ endif(BUILD_CUML_C_LIBRARY)
 if(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
   add_subdirectory(test ${PROJECT_BINARY_DIR}/test)
 endif(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
-
-##############################################################################
-# - build comms ------------------------------------------------------------------------------
-
-if(BUILD_CUML_STD_COMMS)
-  add_subdirectory(comms/std)
-endif(BUILD_CUML_STD_COMMS)
-
-if(BUILD_CUML_MPI_COMMS)
-  add_subdirectory(comms/mpi)
-endif(BUILD_CUML_MPI_COMMS)
 
 ##############################################################################
 # - build examples ------------------------------------------------------------------------------

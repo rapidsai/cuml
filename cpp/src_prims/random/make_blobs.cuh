@@ -70,6 +70,11 @@ DI void get_mu_sigma(DataT& mu, DataT& sigma, IdxT idx, const IdxT* labels,
   } else {
     center_id = 0;
   }
+
+  if (fid >= n_cols) {
+    fid = 0;
+  }
+
   if (row_major) {
     center_id = center_id * n_cols + fid;
   } else {

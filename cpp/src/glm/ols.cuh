@@ -51,13 +51,12 @@ using namespace MLCommon;
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2: QR-decomposition)
  */
 template <typename math_t>
-void olsFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
-            int n_cols, math_t *labels, math_t *coef, math_t *intercept,
-            bool fit_intercept, bool normalize, cudaStream_t stream,
-            int algo = 0) {
-  auto cublas_handle = handle.getCublasHandle();
-  auto cusolver_handle = handle.getcusolverDnHandle();
-  auto allocator = handle.getDeviceAllocator();
+void olsFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
+            math_t *labels, math_t *coef, math_t *intercept, bool fit_intercept,
+            bool normalize, cudaStream_t stream, int algo = 0) {
+  auto cublas_handle = handle.get_cublas_handle();
+  auto cusolver_handle = handle.get_cusolver_dn_handle();
+  auto allocator = handle.get_device_allocator();
 
   ASSERT(n_cols > 0, "olsFit: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "olsFit: number of rows cannot be less than two");
@@ -113,10 +112,10 @@ void olsFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
  * @param stream        cuda stream
  */
 template <typename math_t>
-void olsPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
+void olsPredict(const raft::handle_t &handle, const math_t *input, int n_rows,
                 int n_cols, const math_t *coef, math_t intercept, math_t *preds,
                 cudaStream_t stream) {
-  auto cublas_handle = handle.getCublasHandle();
+  auto cublas_handle = handle.get_cublas_handle();
 
   ASSERT(n_cols > 0, "olsPredict: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "olsPredict: number of rows cannot be less than one");

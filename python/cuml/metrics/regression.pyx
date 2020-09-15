@@ -14,18 +14,15 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import numpy as np
 import cupy as cp
 
 from libc.stdint cimport uintptr_t
 
-import cuml.common.handle
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle import Handle
+from cuml.raft.common.handle cimport handle_t
 from cuml.metrics cimport regression
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.memory_utils import with_cupy_rmm
@@ -57,8 +54,8 @@ def r2_score(y, y_hat, convert_dtype=True, handle=None):
         trustworthiness score : double
             Trustworthiness of the low-dimensional embedding
     """
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+    handle = Handle() if handle is None else handle
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     y_m, n_rows, _, ytype = \
         input_to_cuml_array(y, check_dtype=[np.float32, np.float64],
