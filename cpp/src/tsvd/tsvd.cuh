@@ -17,8 +17,8 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
 #include <linalg/transpose.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <common/allocatorAdapter.hpp>
@@ -42,13 +42,13 @@ namespace ML {
 using namespace MLCommon;
 
 template <typename math_t>
-void calCompExpVarsSvd(const cumlHandle_impl &handle, math_t *in,
+void calCompExpVarsSvd(const raft::handle_t &handle, math_t *in,
                        math_t *components, math_t *singular_vals,
                        math_t *explained_vars, math_t *explained_var_ratio,
                        const paramsTSVD &prms, cudaStream_t stream) {
-  auto cusolver_handle = handle.getcusolverDnHandle();
-  auto cublas_handle = handle.getCublasHandle();
-  auto allocator = handle.getDeviceAllocator();
+  auto cusolver_handle = handle.get_cusolver_dn_handle();
+  auto cublas_handle = handle.get_cublas_handle();
+  auto allocator = handle.get_device_allocator();
 
   int diff = prms.n_cols - prms.n_components;
   math_t ratio = math_t(diff) / math_t(prms.n_cols);
@@ -83,11 +83,11 @@ void calCompExpVarsSvd(const cumlHandle_impl &handle, math_t *in,
 }
 
 template <typename math_t, typename enum_solver = solver>
-void calEig(const cumlHandle_impl &handle, math_t *in, math_t *components,
+void calEig(const raft::handle_t &handle, math_t *in, math_t *components,
             math_t *explained_var, const paramsTSVDTemplate<enum_solver> &prms,
             cudaStream_t stream) {
-  auto cusolver_handle = handle.getcusolverDnHandle();
-  auto allocator = handle.getDeviceAllocator();
+  auto cusolver_handle = handle.get_cusolver_dn_handle();
+  auto allocator = handle.get_device_allocator();
 
   if (prms.algorithm == enum_solver::COV_EIG_JACOBI) {
     LinAlg::eigJacobi(in, prms.n_cols, prms.n_cols, components, explained_var,
@@ -165,11 +165,11 @@ void signFlip(math_t *input, int n_rows, int n_cols, math_t *components,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void tsvdFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
+void tsvdFit(const raft::handle_t &handle, math_t *input, math_t *components,
              math_t *singular_vals, const paramsTSVD &prms,
              cudaStream_t stream) {
-  auto cublas_handle = handle.getCublasHandle();
-  auto allocator = handle.getDeviceAllocator();
+  auto cublas_handle = handle.get_cublas_handle();
+  auto allocator = handle.get_device_allocator();
 
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
@@ -218,12 +218,12 @@ void tsvdFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void tsvdFitTransform(const cumlHandle_impl &handle, math_t *input,
+void tsvdFitTransform(const raft::handle_t &handle, math_t *input,
                       math_t *trans_input, math_t *components,
                       math_t *explained_var, math_t *explained_var_ratio,
                       math_t *singular_vals, const paramsTSVD &prms,
                       cudaStream_t stream) {
-  auto allocator = handle.getDeviceAllocator();
+  auto allocator = handle.get_device_allocator();
 
   tsvdFit(handle, input, components, singular_vals, prms, stream);
   tsvdTransform(handle, input, components, trans_input, prms, stream);
@@ -266,10 +266,10 @@ void tsvdFitTransform(const cumlHandle_impl &handle, math_t *input,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void tsvdTransform(const cumlHandle_impl &handle, math_t *input,
+void tsvdTransform(const raft::handle_t &handle, math_t *input,
                    math_t *components, math_t *trans_input,
                    const paramsTSVD &prms, cudaStream_t stream) {
-  auto cublas_handle = handle.getCublasHandle();
+  auto cublas_handle = handle.get_cublas_handle();
 
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
@@ -296,10 +296,10 @@ void tsvdTransform(const cumlHandle_impl &handle, math_t *input,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void tsvdInverseTransform(const cumlHandle_impl &handle, math_t *trans_input,
+void tsvdInverseTransform(const raft::handle_t &handle, math_t *trans_input,
                           math_t *components, math_t *input,
                           const paramsTSVD &prms, cudaStream_t stream) {
-  auto cublas_handle = handle.getCublasHandle();
+  auto cublas_handle = handle.get_cublas_handle();
 
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than one");

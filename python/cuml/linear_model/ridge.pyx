@@ -30,12 +30,12 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base, RegressorMixin
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
-    cdef void ridgeFit(cumlHandle& handle,
+    cdef void ridgeFit(handle_t& handle,
                        float *input,
                        int n_rows,
                        int n_cols,
@@ -48,7 +48,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                        bool normalize,
                        int algo) except +
 
-    cdef void ridgeFit(cumlHandle& handle,
+    cdef void ridgeFit(handle_t& handle,
                        double *input,
                        int n_rows,
                        int n_cols,
@@ -61,7 +61,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                        bool normalize,
                        int algo) except +
 
-    cdef void ridgePredict(cumlHandle& handle,
+    cdef void ridgePredict(handle_t& handle,
                            const float *input,
                            int n_rows,
                            int n_cols,
@@ -69,7 +69,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                            float intercept,
                            float *preds) except +
 
-    cdef void ridgePredict(cumlHandle& handle,
+    cdef void ridgePredict(handle_t& handle,
                            const double *input,
                            int n_rows,
                            int n_cols,
@@ -282,7 +282,7 @@ class Ridge(Base, RegressorMixin):
         cdef double c_intercept2
         cdef float c_alpha1
         cdef double c_alpha2
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             c_alpha1 = self.alpha
@@ -349,7 +349,7 @@ class Ridge(Base, RegressorMixin):
         preds = CumlArray.zeros(n_rows, dtype=dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if dtype.type == np.float32:
             ridgePredict(handle_[0],

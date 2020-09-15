@@ -28,7 +28,7 @@ template <typename T>
 struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
   typedef GLMBase<T, SquaredLoss<T>> Super;
 
-  SquaredLoss(const cumlHandle_impl &handle, int D, bool has_bias)
+  SquaredLoss(const raft::handle_t &handle, int D, bool has_bias)
     : Super(handle, D, 1, has_bias) {}
 
   inline __device__ T lz(const T y, const T z) const {

@@ -17,7 +17,7 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/solvers/params.hpp>
@@ -43,7 +43,7 @@ using namespace MLCommon;
 /**
  * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver
  * @param handle
- *        Reference of cumlHandle
+ *        Reference of raft::handle_t
  * @param input
  *        pointer to an array in column-major format (size of n_rows, n_cols)
  * @param n_rows
@@ -78,7 +78,7 @@ using namespace MLCommon;
  *        cuda stream
  */
 template <typename math_t>
-void cdFit(const cumlHandle_impl &handle, math_t *input, int n_rows, int n_cols,
+void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
            math_t *labels, math_t *coef, math_t *intercept, bool fit_intercept,
            bool normalize, int epochs, ML::loss_funct loss, math_t alpha,
            math_t l1_ratio, bool shuffle, math_t tol, cudaStream_t stream) {
@@ -89,9 +89,9 @@ void cdFit(const cumlHandle_impl &handle, math_t *input, int n_rows, int n_cols,
   ASSERT(loss == ML::loss_funct::SQRD_LOSS,
          "Parameter loss: Only SQRT_LOSS function is supported for now");
 
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
 
-  auto allocator = handle.getDeviceAllocator();
+  auto allocator = handle.get_device_allocator();
   device_buffer<math_t> pred(allocator, stream, n_rows);
   device_buffer<math_t> residual(allocator, stream, n_rows);
   device_buffer<math_t> squared(allocator, stream, n_cols);
@@ -221,7 +221,7 @@ void cdFit(const cumlHandle_impl &handle, math_t *input, int n_rows, int n_cols,
  *        cuda stream
  */
 template <typename math_t>
-void cdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
+void cdPredict(const raft::handle_t &handle, const math_t *input, int n_rows,
                int n_cols, const math_t *coef, math_t intercept, math_t *preds,
                ML::loss_funct loss, cudaStream_t stream) {
   ASSERT(n_cols > 0,
@@ -231,7 +231,7 @@ void cdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
   ASSERT(loss == ML::loss_funct::SQRD_LOSS,
          "Parameter loss: Only SQRT_LOSS function is supported for now");
 
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
   Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept,
                         cublas_handle, stream);
 }

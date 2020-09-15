@@ -46,7 +46,7 @@ namespace SVM {
  * @param [in] sample_weight optional sample weights, size [n_rows]
  */
 template <typename math_t>
-void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
+void svrFit(const raft::handle_t &handle, math_t *X, int n_rows, int n_cols,
             math_t *y, const svmParameter &param,
             MLCommon::Matrix::KernelParams &kernel_params,
             svmModel<math_t> &model, const math_t *sample_weight = nullptr);

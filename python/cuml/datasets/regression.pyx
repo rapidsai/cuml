@@ -19,7 +19,9 @@
 import cuml
 import numpy as np
 
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
+from cuml.raft.common.handle import Handle
+
 from cuml.common import get_dev_array_ptr, zeros
 
 from libcpp cimport bool
@@ -29,7 +31,7 @@ from random import randint
 
 cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML":
     void cpp_make_regression "ML::Datasets::make_regression" (
-        const cumlHandle& handle,
+        const handle_t& handle,
         float* out,
         float* values,
         long n_rows,
@@ -45,7 +47,7 @@ cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML":
         uint64_t seed)
 
     void cpp_make_regression "ML::Datasets::make_regression" (
-        const cumlHandle& handle,
+        const handle_t& handle,
         double* out,
         double* values,
         long n_rows,
@@ -156,8 +158,8 @@ def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
     if effective_rank is None:
         effective_rank = -1
 
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+    handle = Handle() if handle is None else handle
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     out = zeros((n_samples, n_features), dtype=dtype, order='C')
     cdef uintptr_t out_ptr = get_dev_array_ptr(out)

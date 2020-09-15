@@ -37,25 +37,25 @@ struct QuasiNewtonTest : ::testing::Test {
   const static double *nobptr;
   const static double tol;
   const static double X[N][D];
-  cumlHandle cuml_handle;
-  const cumlHandle_impl &handle;
+  raft::handle_t cuml_handle;
+  const raft::handle_t &handle;
   cudaStream_t stream;
   std::shared_ptr<SimpleMatOwning<double>> Xdev;
   std::shared_ptr<SimpleVecOwning<double>> ydev;
 
   std::shared_ptr<deviceAllocator> allocator;
-  QuasiNewtonTest() : handle(cuml_handle.getImpl()) {}
+  QuasiNewtonTest() : handle(cuml_handle) {}
   void SetUp() {
-    stream = cuml_handle.getStream();
-    Xdev.reset(new SimpleMatOwning<double>(handle.getDeviceAllocator(), N, D,
+    stream = cuml_handle.get_stream();
+    Xdev.reset(new SimpleMatOwning<double>(handle.get_device_allocator(), N, D,
                                            stream, ROW_MAJOR));
     updateDevice(Xdev->data, &X[0][0], Xdev->len, stream);
 
     ydev.reset(
-      new SimpleVecOwning<double>(handle.getDeviceAllocator(), N, stream));
+      new SimpleVecOwning<double>(handle.get_device_allocator(), N, stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    allocator = handle.getDeviceAllocator();
+    allocator = handle.get_device_allocator();
   }
   void TearDown() {}
 };
@@ -75,7 +75,7 @@ const double QuasiNewtonTest::X[QuasiNewtonTest::N][QuasiNewtonTest::D] = {
   {1.6690253095248706, -0.4385697358355719}};
 
 template <typename T, class Comp>
-::testing::AssertionResult checkParamsEqual(const cumlHandle_impl &handle,
+::testing::AssertionResult checkParamsEqual(const raft::handle_t &handle,
                                             const T *host_weights,
                                             const T *host_bias, const T *w,
                                             const GLMDims &dims, Comp &comp,
@@ -90,7 +90,7 @@ template <typename T, class Comp>
       w_ref_cm[idx++] = host_weights[c * D + d];
     }
 
-  SimpleVecOwning<T> w_ref(handle.getDeviceAllocator(), dims.n_param, stream);
+  SimpleVecOwning<T> w_ref(handle.get_device_allocator(), dims.n_param, stream);
   updateDevice(w_ref.data, &w_ref_cm[0], C * D, stream);
   if (fit_intercept) {
     updateDevice(&w_ref.data[C * D], host_bias, C, stream);
@@ -100,7 +100,7 @@ template <typename T, class Comp>
 }
 
 template <typename T, class LossFunction>
-T run(const cumlHandle_impl &handle, LossFunction &loss, const SimpleMat<T> &X,
+T run(const raft::handle_t &handle, LossFunction &loss, const SimpleMat<T> &X,
       const SimpleVec<T> &y, T l1, T l2, T *w, SimpleMat<T> &z, int verbosity,
       cudaStream_t stream) {
   int max_iter = 100;
@@ -120,7 +120,7 @@ T run(const cumlHandle_impl &handle, LossFunction &loss, const SimpleMat<T> &X,
 }
 
 template <typename T>
-T run_api(const cumlHandle &cuml_handle, int loss_type, int C,
+T run_api(const raft::handle_t &cuml_handle, int loss_type, int C,
           bool fit_intercept, const SimpleMat<T> &X, const SimpleVec<T> &y,
           T l1, T l2, T *w, SimpleMat<T> &z, int verbosity,
           cudaStream_t stream) {

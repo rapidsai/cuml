@@ -28,7 +28,7 @@ from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 import cuml.common.opg_data_utils_mg as opg
 from cuml.common.opg_data_utils_mg cimport *
@@ -38,7 +38,7 @@ from cuml.decomposition.base_mg import BaseDecompositionMG
 
 cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg":
 
-    cdef void fit_transform(cumlHandle& handle,
+    cdef void fit_transform(handle_t& handle,
                             vector[floatData_t *] input_data,
                             PartDescriptor &input_desc,
                             vector[floatData_t *] trans_data,
@@ -50,7 +50,7 @@ cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg":
                             paramsTSVD &prms,
                             bool verbose) except +
 
-    cdef void fit_transform(cumlHandle& handle,
+    cdef void fit_transform(handle_t& handle,
                             vector[doubleData_t *] input_data,
                             PartDescriptor &input_desc,
                             vector[doubleData_t *] trans_data,
@@ -76,7 +76,7 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
         cdef uintptr_t explained_var_ratio_ptr = \
             self._explained_variance_ratio_.ptr
         cdef uintptr_t singular_vals_ptr = self._singular_values_.ptr
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef paramsTSVD *params = <paramsTSVD*><size_t>arg_params
 

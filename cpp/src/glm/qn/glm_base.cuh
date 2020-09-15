@@ -17,7 +17,7 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <cuda_utils.cuh>
 #include <linalg/add.cuh>
 #include <linalg/binary_op.cuh>
@@ -31,7 +31,7 @@ namespace ML {
 namespace GLM {
 
 template <typename T>
-inline void linearFwd(const cumlHandle_impl &handle, SimpleMat<T> &Z,
+inline void linearFwd(const raft::handle_t &handle, SimpleMat<T> &Z,
                       const SimpleMat<T> &X, const SimpleMat<T> &W,
                       cudaStream_t stream) {
   // Forward pass:  compute Z <- W * X.T + bias
@@ -56,7 +56,7 @@ inline void linearFwd(const cumlHandle_impl &handle, SimpleMat<T> &Z,
 }
 
 template <typename T>
-inline void linearBwd(const cumlHandle_impl &handle, SimpleMat<T> &G,
+inline void linearBwd(const raft::handle_t &handle, SimpleMat<T> &G,
                       const SimpleMat<T> &X, const SimpleMat<T> &dZ,
                       bool setZero, cudaStream_t stream) {
   // Backward pass:
@@ -95,9 +95,9 @@ struct GLMBase : GLMDims {
   typedef SimpleMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
-  const cumlHandle_impl &handle;
+  const raft::handle_t &handle;
 
-  GLMBase(const cumlHandle_impl &handle, int D, int C, bool fit_intercept)
+  GLMBase(const raft::handle_t &handle, int D, int C, bool fit_intercept)
     : GLMDims(C, D, fit_intercept), handle(handle) {}
 
   /*
