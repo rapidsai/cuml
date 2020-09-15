@@ -204,6 +204,8 @@ else
 
     logger "Run ml-prims test..."
     cd $LIBCUML_BUILD_DIR
+    chrpath -d ./test/prims
+    patchelf --replace-needed `patchelf --print-needed ./test/prims | grep faiss` libfaiss.so ./test/prims
     GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
 
     ################################################################################
