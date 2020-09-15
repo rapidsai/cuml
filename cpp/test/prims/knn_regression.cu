@@ -16,7 +16,7 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <linalg/cusolver_wrappers.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <cuda_utils.cuh>
 #include <iostream>
 #include <label/classlabels.cuh>
@@ -68,7 +68,7 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
  protected:
   void basicTest() {
     std::shared_ptr<MLCommon::deviceAllocator> alloc(
-      new defaultDeviceAllocator);
+      new raft::mr::device::default_allocator);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 

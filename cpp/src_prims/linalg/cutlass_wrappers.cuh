@@ -26,8 +26,8 @@
 #include <cutlass/gemm/linear_scaling.h>
 #include <cutlass/gemm/thread_multiply_add.h>
 #include <cutlass/util/platform.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <cuda_utils.cuh>
-#include "cublas_wrappers.h"
 
 namespace MLCommon {
 namespace LinAlg {

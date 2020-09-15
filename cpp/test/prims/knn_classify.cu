@@ -39,7 +39,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
  protected:
   void basicTest() {
     std::shared_ptr<MLCommon::deviceAllocator> alloc(
-      new defaultDeviceAllocator);
+      new raft::mr::device::default_allocator);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 

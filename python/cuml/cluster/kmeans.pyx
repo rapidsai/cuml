@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -32,13 +29,13 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.cluster.kmeans_utils cimport *
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
 
-    cdef void fit_predict(cumlHandle& handle,
+    cdef void fit_predict(handle_t& handle,
                           KMeansParams& params,
                           const float *X,
                           int n_samples,
@@ -49,7 +46,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                           float &inertia,
                           int &n_iter) except +
 
-    cdef void fit_predict(cumlHandle& handle,
+    cdef void fit_predict(handle_t& handle,
                           KMeansParams& params,
                           const double *X,
                           int n_samples,
@@ -60,7 +57,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                           double &inertia,
                           int &n_iter) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       KMeansParams& params,
                       const float *centroids,
                       const float *X,
@@ -70,7 +67,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       int *labels,
                       float &inertia) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       KMeansParams& params,
                       double *centroids,
                       const double *X,
@@ -80,7 +77,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       int *labels,
                       double &inertia) except +
 
-    cdef void transform(cumlHandle& handle,
+    cdef void transform(handle_t& handle,
                         KMeansParams& params,
                         const float *centroids,
                         const float *X,
@@ -89,7 +86,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                         int metric,
                         float *X_new) except +
 
-    cdef void transform(cumlHandle& handle,
+    cdef void transform(handle_t& handle,
                         KMeansParams& params,
                         const double *centroids,
                         const double *X,
@@ -329,7 +326,7 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr = X_m.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if sample_weight is None:
             sample_weight_m = CumlArray.ones(shape=n_rows, dtype=self.dtype)
@@ -458,7 +455,7 @@ class KMeans(Base):
 
         cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
@@ -540,7 +537,7 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr = X_m.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 

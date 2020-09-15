@@ -35,8 +35,8 @@ class GramMatrixTest : public ::testing::Test {
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     CUBLAS_CHECK(cublasCreate(&cublas_handle));
-    allocator = std::make_shared<defaultDeviceAllocator>();
-    host_allocator = std::make_shared<defaultHostAllocator>();
+    allocator = std::make_shared<raft::mr::device::default_allocator>();
+    host_allocator = std::make_shared<raft::mr::host::default_allocator>();
     allocate(x_dev, n1 * n_cols);
     updateDevice(x_dev, x_host, n1 * n_cols, stream);
 
