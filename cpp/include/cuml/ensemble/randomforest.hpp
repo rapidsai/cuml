@@ -57,9 +57,14 @@ struct RF_params {
    */
   int n_trees;
   /**
-   * Control bootstrapping. If set, each tree in the forest is built on a
-   * bootstrapped sample with replacement.
-   * If false, sampling without replacement is done.
+   * Control bootstrapping.
+   * If bootstrapping is set to true, bootstrapped samples are used for building
+   * each tree. Bootstrapped sampling is done by randomly drawing
+   * round(rows_sample * n_samples) number of samples with replacement. More on
+   * bootstrapping:
+   *     https://en.wikipedia.org/wiki/Bootstrap_aggregating
+   * If boostrapping is set to false, whole sample set is used to build each
+   * tree.
    */
   bool bootstrap;
   /**
