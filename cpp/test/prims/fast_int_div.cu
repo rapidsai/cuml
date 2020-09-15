@@ -97,8 +97,8 @@ FastIntDiv dummyFunc(int num) {
 }
 
 TEST(FastIntDiv, IncorrectUsage) {
-  ASSERT_THROW(dummyFunc(-1), MLCommon::Exception);
-  ASSERT_THROW(dummyFunc(0), MLCommon::Exception);
+  ASSERT_THROW(dummyFunc(-1), raft::exception);
+  ASSERT_THROW(dummyFunc(0), raft::exception);
 }
 
 }  // namespace MLCommon

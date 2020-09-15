@@ -48,7 +48,8 @@ class AdjustedRandIndexTest
     allocate(firstClusterArray, nElements, true);
     allocate(secondClusterArray, nElements, true);
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
+    std::shared_ptr<deviceAllocator> allocator(
+      new raft::mr::device::default_allocator);
     if (!params.testZeroArray) {
       SetUpDifferentArrays();
     } else {

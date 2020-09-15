@@ -25,10 +25,9 @@ namespace Dbscan {
 namespace AdjGraph {
 
 template <typename Index_ = int>
-void run(const ML::cumlHandle_impl& handle, bool* adj, Index_* vd,
-         Index_* adj_graph, Index_ adjnnz, Index_* ex_scan, Index_ N,
-         Index_ minpts, bool* core_pts, int algo, Index_ batchSize,
-         cudaStream_t stream) {
+void run(const raft::handle_t& handle, bool* adj, Index_* vd, Index_* adj_graph,
+         Index_ adjnnz, Index_* ex_scan, Index_ N, Index_ minpts,
+         bool* core_pts, int algo, Index_ batchSize, cudaStream_t stream) {
   Pack<Index_> data = {vd,      adj,      adj_graph, adjnnz,
                        ex_scan, core_pts, N,         minpts};
   switch (algo) {

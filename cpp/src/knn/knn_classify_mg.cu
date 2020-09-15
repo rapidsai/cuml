@@ -55,7 +55,7 @@ namespace opg {
 
 using namespace knn_common;
 
-void knn_classify(ML::cumlHandle &handle, std::vector<Matrix::Data<int> *> *out,
+void knn_classify(raft::handle_t &handle, std::vector<Matrix::Data<int> *> *out,
                   std::vector<Matrix::Data<int64_t> *> *out_I,
                   std::vector<Matrix::floatData_t *> *out_D,
                   std::vector<std::vector<float *>> *probas,

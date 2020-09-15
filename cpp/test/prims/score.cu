@@ -120,7 +120,8 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
 
     Random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<deviceAllocator> d_allocator(new defaultDeviceAllocator);
+    std::shared_ptr<deviceAllocator> d_allocator(
+      new raft::mr::device::default_allocator);
 
     allocate(predictions, params.n);
     allocate(ref_predictions, params.n);
@@ -262,7 +263,8 @@ class RegressionMetricsTest
     ref_regression_metrics.assign(3, -1.0);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<deviceAllocator> d_allocator(new defaultDeviceAllocator);
+    std::shared_ptr<deviceAllocator> d_allocator(
+      new raft::mr::device::default_allocator);
 
     allocate(d_predictions, params.n);
     allocate(d_ref_predictions, params.n);

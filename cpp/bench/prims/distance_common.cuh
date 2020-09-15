@@ -29,8 +29,8 @@ struct Params {
 template <typename T, ML::Distance::DistanceType DType>
 struct Distance : public Fixture {
   Distance(const std::string& name, const Params& p)
-    : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    : Fixture(name, std::shared_ptr<deviceAllocator>(
+                      new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:

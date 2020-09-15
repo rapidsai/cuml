@@ -95,9 +95,9 @@ class stdAllocatorAdapter {
 /**
  * @todo: Complete doxygen documentation
  * @code{.cpp}
- * void foo( const cumlHandle_impl& h, ... , cudaStream_t stream )
+ * void foo( const raft::handle_t& h, ... , cudaStream_t stream )
  * {
- *     auto execution_policy = ML::thrust_exec_policy(h.getDeviceAllocator(),stream);
+ *     auto execution_policy = ML::thrust_exec_policy(h.get_device_allocator(),stream);
  *     thrust::for_each(execution_policy->on(stream), ... );
  * }
  * @endcode

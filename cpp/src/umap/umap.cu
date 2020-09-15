@@ -24,7 +24,7 @@ namespace ML {
 
 static const int TPB_X = 256;
 
-void transform(const cumlHandle &handle, float *X, int n, int d,
+void transform(const raft::handle_t &handle, float *X, int n, int d,
                int64_t *knn_indices, float *knn_dists, float *orig_X,
                int orig_n, float *embedding, int embedding_n,
                UMAPParams *params, float *transformed) {
@@ -32,7 +32,7 @@ void transform(const cumlHandle &handle, float *X, int n, int d,
                                      orig_X, orig_n, embedding, embedding_n,
                                      params, transformed);
 }
-void fit(const cumlHandle &handle,
+void fit(const raft::handle_t &handle,
          float *X,  // input matrix
          float *y,  // labels
          int n, int d, int64_t *knn_indices, float *knn_dists,
@@ -41,7 +41,7 @@ void fit(const cumlHandle &handle,
                                params, embeddings);
 }
 
-void fit(const cumlHandle &handle,
+void fit(const raft::handle_t &handle,
          float *X,  // input matrix
          int n,     // rows
          int d,     // cols
@@ -51,14 +51,14 @@ void fit(const cumlHandle &handle,
                                embeddings);
 }
 
-void find_ab(const cumlHandle &handle, UMAPParams *params) {
-  cudaStream_t stream = handle.getStream();
-  auto d_alloc = handle.getDeviceAllocator();
+void find_ab(const raft::handle_t &handle, UMAPParams *params) {
+  cudaStream_t stream = handle.get_stream();
+  auto d_alloc = handle.get_device_allocator();
   UMAPAlgo::find_ab(params, d_alloc, stream);
 }
-UMAP_API::UMAP_API(const cumlHandle &handle, UMAPParams *params)
+UMAP_API::UMAP_API(const raft::handle_t &handle, UMAPParams *params)
   : params(params) {
-  this->handle = const_cast<cumlHandle *>(&handle);
+  this->handle = const_cast<raft::handle_t *>(&handle);
   orig_X = nullptr;
   orig_n = 0;
 };

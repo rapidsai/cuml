@@ -21,14 +21,14 @@ import warnings
 
 from libc.stdint cimport uintptr_t
 
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
-import cuml.common.handle
+from cuml.raft.common.handle import Handle
 cimport cuml.common.cuda
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 
-    double adjustedRandIndex(cumlHandle &handle,
+    double adjustedRandIndex(handle_t &handle,
                              int *y,
                              int *y_hat,
                              int n)
@@ -53,10 +53,10 @@ def adjusted_rand_score(labels_true, labels_pred, handle=None,
         float
             The adjusted rand index value between -1.0 and 1.0
     """
-    handle = cuml.common.handle.Handle() \
+    handle = Handle() \
         if handle is None else handle
-    cdef cumlHandle* handle_ =\
-        <cumlHandle*><size_t>handle.getHandle()
+    cdef handle_t* handle_ =\
+        <handle_t*><size_t>handle.getHandle()
 
     labels_true, n_rows, _, _ = \
         input_to_cuml_array(labels_true, order='C', check_dtype=cp.int32,

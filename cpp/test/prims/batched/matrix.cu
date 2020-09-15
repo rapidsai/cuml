@@ -157,7 +157,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
     // Create handles, stream, allocator
     CUBLAS_CHECK(cublasCreate(&handle));
     CUDA_CHECK(cudaStreamCreate(&stream));
-    auto allocator = std::make_shared<MLCommon::defaultDeviceAllocator>();
+    auto allocator = std::make_shared<raft::mr::device::default_allocator>();
 
     // Created batched matrices
     Matrix<T> AbM(params.m, params.n, params.batch_size, handle, allocator,
