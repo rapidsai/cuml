@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <common/cudart_utils.h>
 #include <linalg/map_then_reduce.cuh>
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename Type, typename MapOp>
 __global__ void naiveMapReduceKernel(Type *out, const Type *in, size_t len,
@@ -58,11 +58,11 @@ template <typename T>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T>
-void mapReduceLaunch(T *out_ref, T *out, const T *in, size_t len,
-                     cudaStream_t stream) {
+void mapReduceLaunch(raft::handle_t &handle, T *out_ref, T *out, const T *in,
+                     size_t len, cudaStream_t stream) {
   auto op = [] __device__(T in) { return in; };
   naiveMapReduce(out_ref, in, len, op, stream);
-  mapThenSumReduce(out, len, op, 0, in);
+  mapThenSumReduce(handle, out, len, op, 0, in);
 }
 
 template <typename T>
@@ -70,15 +70,17 @@ class MapReduceTest : public ::testing::TestWithParam<MapReduceInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MapReduceInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    random::Rng r(params.seed);
     auto len = params.len;
+
+    raft::handle_t handle;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in, len, T(-1.0), T(1.0), stream);
-    mapReduceLaunch(out_ref, out, in, len, stream);
+    r.uniform(handle, in, len, T(-1.0), T(1.0), stream);
+    mapReduceLaunch(handle, out_ref, out, in, len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
@@ -113,5 +115,5 @@ TEST_P(MapReduceTestD, Result) {
 INSTANTIATE_TEST_CASE_P(MapReduceTests, MapReduceTestD,
                         ::testing::ValuesIn(inputsd));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

@@ -16,15 +16,16 @@
 
 #pragma once
 
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/handle.hpp>
 #include <linalg/binary_op.cuh>
 #include <linalg/map_then_reduce.cuh>
 #include <linalg/matrix_vector_op.cuh>
 #include <linalg/unary_op.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
 
-namespace MLCommon {
-namespace Matrix {
+namespace raft {
+namespace matrix {
 
 /**
  * @defgroup MatrixMathOp math operation on the input matrix
@@ -40,12 +41,12 @@ namespace Matrix {
  * @param stream cuda stream
  */
 template <typename math_t>
-void power(math_t *in, math_t *out, math_t scalar, int len,
-           cudaStream_t stream) {
+void power(raft::handle_t &handle, math_t *in, math_t *out, math_t scalar,
+           int len, cudaStream_t stream) {
   auto d_src = in;
   auto d_dest = out;
 
-  MLCommon::LinAlg::binaryOp(
+  raft::linalg::binaryOp(
     d_dest, d_src, d_src, len,
     [=] __device__(math_t a, math_t b) { return scalar * a * b; }, stream);
 }
@@ -58,8 +59,9 @@ void power(math_t *in, math_t *out, math_t scalar, int len,
  * @param stream cuda stream
  */
 template <typename math_t>
-void power(math_t *inout, math_t scalar, int len, cudaStream_t stream) {
-  power(inout, inout, scalar, len, stream);
+void power(raft::handle_t &handle, math_t *inout, math_t scalar, int len,
+           cudaStream_t stream) {
+  power(handle, inout, inout, scalar, len, stream);
 }
 
 /**
@@ -69,9 +71,10 @@ void power(math_t *inout, math_t scalar, int len, cudaStream_t stream) {
  * @param stream cuda stream
  */
 template <typename math_t>
-void power(math_t *inout, int len, cudaStream_t stream) {
+void power(raft::handle_t &handle, math_t *inout, int len,
+           cudaStream_t stream) {
   math_t scalar = 1.0;
-  power(inout, scalar, len, stream);
+  power(handle, inout, scalar, len, stream);
 }
 
 /**
@@ -83,7 +86,8 @@ void power(math_t *inout, int len, cudaStream_t stream) {
  * @{
  */
 template <typename math_t>
-void power(math_t *in, math_t *out, int len, cudaStream_t stream) {
+void power(raft::handle_t &handle, math_t *in, math_t *out, int len,
+           cudaStream_t stream) {
   math_t scalar = 1.0;
   power(in, out, scalar, len, stream);
 }
@@ -100,12 +104,12 @@ void power(math_t *in, math_t *out, int len, cudaStream_t stream) {
  * @param set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t, typename IdxType = int>
-void seqRoot(math_t *in, math_t *out, math_t scalar, IdxType len,
-             cudaStream_t stream, bool set_neg_zero = false) {
+void seqRoot(raft::handle_t &handle, math_t *in, math_t *out, math_t scalar,
+             IdxType len, cudaStream_t stream, bool set_neg_zero = false) {
   auto d_src = in;
   auto d_dest = out;
 
-  MLCommon::LinAlg::unaryOp(
+  raft::linalg::unaryOp(
     d_dest, d_src, len,
     [=] __device__(math_t a) {
       if (set_neg_zero) {
@@ -132,9 +136,9 @@ void seqRoot(math_t *in, math_t *out, math_t scalar, IdxType len,
  * @param set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t, typename IdxType = int>
-void seqRoot(math_t *inout, math_t scalar, IdxType len, cudaStream_t stream,
-             bool set_neg_zero = false) {
-  seqRoot(inout, inout, scalar, len, stream, set_neg_zero);
+void seqRoot(raft::handle_t &handle, math_t *inout, math_t scalar, IdxType len,
+             cudaStream_t stream, bool set_neg_zero = false) {
+  seqRoot(handle, inout, inout, scalar, len, stream, set_neg_zero);
 }
 
 /**
@@ -147,21 +151,24 @@ void seqRoot(math_t *inout, math_t scalar, IdxType len, cudaStream_t stream,
  * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>
-void seqRoot(math_t *in, math_t *out, IdxType len, cudaStream_t stream) {
+void seqRoot(raft::handle_t &handle, math_t *in, math_t *out, IdxType len,
+             cudaStream_t stream) {
   math_t scalar = 1.0;
-  seqRoot(in, out, scalar, len, stream);
+  seqRoot(handle, in, out, scalar, len, stream);
 }
 
 template <typename math_t, typename IdxType = int>
-void seqRoot(math_t *inout, IdxType len, cudaStream_t stream) {
+void seqRoot(raft::handle_t &handle, math_t *inout, IdxType len,
+             cudaStream_t stream) {
   math_t scalar = 1.0;
-  seqRoot(inout, inout, scalar, len, stream);
+  seqRoot(handle, inout, inout, scalar, len, stream);
 }
 
 template <typename math_t, typename IdxType = int>
-void setSmallValuesZero(math_t *out, const math_t *in, IdxType len,
-                        cudaStream_t stream, math_t thres = 1e-15) {
-  MLCommon::LinAlg::unaryOp(
+void setSmallValuesZero(raft::handle_t &handle, math_t *out, const math_t *in,
+                        IdxType len, cudaStream_t stream,
+                        math_t thres = 1e-15) {
+  raft::linalg::unaryOp(
     out, in, len,
     [=] __device__(math_t a) {
       if (a <= thres && -a <= thres) {
@@ -183,9 +190,9 @@ void setSmallValuesZero(math_t *out, const math_t *in, IdxType len,
  * @param thres: threshold
  */
 template <typename math_t, typename IdxType = int>
-void setSmallValuesZero(math_t *inout, IdxType len, cudaStream_t stream,
-                        math_t thres = 1e-15) {
-  setSmallValuesZero(inout, inout, len, stream, thres);
+void setSmallValuesZero(raft::handle_t &handle, math_t *inout, IdxType len,
+                        cudaStream_t stream, math_t thres = 1e-15) {
+  setSmallValuesZero(handle, inout, inout, len, stream, thres);
 }
 
 /**
@@ -202,13 +209,13 @@ void setSmallValuesZero(math_t *inout, IdxType len, cudaStream_t stream,
  * @{
  */
 template <typename math_t, typename IdxType = int>
-void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
-                cudaStream_t stream, bool setzero = false,
+void reciprocal(raft::handle_t &handle, math_t *in, math_t *out, math_t scalar,
+                int len, cudaStream_t stream, bool setzero = false,
                 math_t thres = 1e-15) {
   auto d_src = in;
   auto d_dest = out;
 
-  MLCommon::LinAlg::unaryOp(
+  raft::linalg::unaryOp(
     d_dest, d_src, len,
     [=] __device__(math_t a) {
       if (setzero) {
@@ -236,9 +243,10 @@ void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
  * @param thres: Threshold to avoid dividing by zero (|value| < thres -> result = 0)
  */
 template <typename math_t, typename IdxType = int>
-void reciprocal(math_t *inout, math_t scalar, IdxType len, cudaStream_t stream,
-                bool setzero = false, math_t thres = 1e-15) {
-  reciprocal(inout, inout, scalar, len, stream, setzero, thres);
+void reciprocal(raft::handle_t &handle, math_t *inout, math_t scalar,
+                IdxType len, cudaStream_t stream, bool setzero = false,
+                math_t thres = 1e-15) {
+  reciprocal(handle, inout, inout, scalar, len, stream, setzero, thres);
 }
 
 /**
@@ -250,9 +258,10 @@ void reciprocal(math_t *inout, math_t scalar, IdxType len, cudaStream_t stream,
  * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>
-void reciprocal(math_t *inout, IdxType len, cudaStream_t stream) {
+void reciprocal(raft::handle_t &handle, math_t *inout, IdxType len,
+                cudaStream_t stream) {
   math_t scalar = 1.0;
-  reciprocal(inout, scalar, len, stream);
+  reciprocal(handle, inout, scalar, len, stream);
 }
 
 /**
@@ -265,15 +274,16 @@ void reciprocal(math_t *inout, IdxType len, cudaStream_t stream) {
  * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>
-void reciprocal(math_t *in, math_t *out, IdxType len, cudaStream_t stream) {
+void reciprocal(raft::handle_t &handle, math_t *in, math_t *out, IdxType len,
+                cudaStream_t stream) {
   math_t scalar = 1.0;
-  reciprocal(in, out, scalar, len, stream);
+  reciprocal(handle, in, out, scalar, len, stream);
 }
 
 template <typename math_t>
-void setValue(math_t *out, const math_t *in, math_t scalar, int len,
-              cudaStream_t stream = 0) {
-  MLCommon::LinAlg::unaryOp(
+void setValue(raft::handle_t &handle, math_t *out, const math_t *in,
+              math_t scalar, int len, cudaStream_t stream = 0) {
+  raft::linalg::unaryOp(
     out, in, len, [scalar] __device__(math_t in) { return scalar; }, stream);
 }
 
@@ -288,16 +298,19 @@ void setValue(math_t *out, const math_t *in, math_t scalar, int len,
  * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>
-void ratio(math_t *src, math_t *dest, IdxType len,
-           std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
+void ratio(raft::handle_t &handle, math_t *src, math_t *dest, IdxType len,
+           cudaStream_t stream) {
   auto d_src = src;
   auto d_dest = dest;
 
-  device_buffer<math_t> d_sum(allocator, stream, 1);
+  std::shared_ptr<raft::mr::device::allocator> allocator =
+    handle.get_device_allocator();
+
+  raft::mr::device::buffer<math_t> d_sum(allocator, stream, 1);
   auto *d_sum_ptr = d_sum.data();
   auto no_op = [] __device__(math_t in) { return in; };
-  MLCommon::LinAlg::mapThenSumReduce(d_sum_ptr, len, no_op, stream, src);
-  MLCommon::LinAlg::unaryOp(
+  raft::linalg::mapThenSumReduce(handle, d_sum_ptr, len, no_op, stream, src);
+  raft::linalg::unaryOp(
     d_dest, d_src, len, [=] __device__(math_t a) { return a / (*d_sum_ptr); },
     stream);
 }
@@ -336,8 +349,8 @@ __global__ void argmaxKernel(const T *d_in, int D, int N, T *argmax) {
  * @param stream: cuda stream
  */
 template <typename math_t>
-void argmax(const math_t *in, int n_rows, int n_cols, math_t *out,
-            cudaStream_t stream) {
+void argmax(raft::handle_t &handle, const math_t *in, int n_rows, int n_cols,
+            math_t *out, cudaStream_t stream) {
   int D = n_rows;
   int N = n_cols;
   if (D <= 32) {
@@ -394,7 +407,8 @@ __global__ void signFlipKernel(T *d_in, int D, int N) {
  * @param stream cuda stream
  */
 template <typename math_t>
-void signFlip(math_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
+void signFlip(raft::handle_t &handle, math_t *inout, int n_rows, int n_cols,
+              cudaStream_t stream) {
   int D = n_rows;
   int N = n_cols;
   auto data = inout;
@@ -414,7 +428,7 @@ template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryMult(Type *data, const Type *vec, IdxType n_row,
                             IdxType n_col, bool rowMajor, bool bcastAlongRows,
                             cudaStream_t stream) {
-  LinAlg::matrixVectorOp(
+  raft::linalg::matrixVectorOp(
     data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
     [] __device__(Type a, Type b) { return a * b; }, stream);
 }
@@ -423,7 +437,7 @@ template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryMultSkipZero(Type *data, const Type *vec, IdxType n_row,
                                     IdxType n_col, bool rowMajor,
                                     bool bcastAlongRows, cudaStream_t stream) {
-  LinAlg::matrixVectorOp(
+  raft::linalg::matrixVectorOp(
     data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
     [] __device__(Type a, Type b) {
       if (b == Type(0))
@@ -438,7 +452,7 @@ template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryDiv(Type *data, const Type *vec, IdxType n_row,
                            IdxType n_col, bool rowMajor, bool bcastAlongRows,
                            cudaStream_t stream) {
-  LinAlg::matrixVectorOp(
+  raft::linalg::matrixVectorOp(
     data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
     [] __device__(Type a, Type b) { return a / b; }, stream);
 }
@@ -449,7 +463,7 @@ void matrixVectorBinaryDivSkipZero(Type *data, const Type *vec, IdxType n_row,
                                    bool bcastAlongRows, cudaStream_t stream,
                                    bool return_zero = false) {
   if (return_zero) {
-    LinAlg::matrixVectorOp(
+    raft::linalg::matrixVectorOp(
       data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
       [] __device__(Type a, Type b) {
         if (myAbs(b) < Type(1e-10))
@@ -459,7 +473,7 @@ void matrixVectorBinaryDivSkipZero(Type *data, const Type *vec, IdxType n_row,
       },
       stream);
   } else {
-    LinAlg::matrixVectorOp(
+    raft::linalg::matrixVectorOp(
       data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
       [] __device__(Type a, Type b) {
         if (myAbs(b) < Type(1e-10))
@@ -475,7 +489,7 @@ template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryAdd(Type *data, const Type *vec, IdxType n_row,
                            IdxType n_col, bool rowMajor, bool bcastAlongRows,
                            cudaStream_t stream) {
-  LinAlg::matrixVectorOp(
+  raft::linalg::matrixVectorOp(
     data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
     [] __device__(Type a, Type b) { return a + b; }, stream);
 }
@@ -484,10 +498,10 @@ template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinarySub(Type *data, const Type *vec, IdxType n_row,
                            IdxType n_col, bool rowMajor, bool bcastAlongRows,
                            cudaStream_t stream) {
-  LinAlg::matrixVectorOp(
+  raft::linalg::matrixVectorOp(
     data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
     [] __device__(Type a, Type b) { return a - b; }, stream);
 }
 
-};  // end namespace Matrix
-};  // end namespace MLCommon
+};  // end namespace matrix
+};  // end namespace raft

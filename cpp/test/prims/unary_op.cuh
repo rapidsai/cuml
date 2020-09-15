@@ -19,8 +19,8 @@
 #include <cuda_utils.cuh>
 #include <linalg/unary_op.cuh>
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename InType, typename OutType, typename IdxType>
 __global__ void naiveScaleKernel(OutType *out, const InType *in, InType scalar,
@@ -60,5 +60,5 @@ template <typename InType, typename IdxType = int, typename OutType = InType>
   return os;
 }
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

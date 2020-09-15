@@ -19,8 +19,8 @@
 #include <cuda_utils.cuh>
 #include <vectorized.cuh>
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename Type, int veclen_, typename Lambda, typename IdxType>
 __global__ void matrixVectorOpKernel(Type *out, const Type *matrix,
@@ -210,5 +210,5 @@ void matrixVectorOp(Type *out, const Type *matrix, const Type *vec1,
   }
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

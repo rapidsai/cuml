@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <common/cudart_utils.h>
 #include <matrix/math.cuh>
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace Matrix {
+namespace raft {
+namespace matrix {
 
 template <typename Type>
 __global__ void nativePowerKernel(Type *in, Type *out, int len) {
@@ -112,7 +112,7 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MathInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    random::Rng r(params.seed);
     int len = params.len;
 
     allocate(in_power, len);
@@ -122,33 +122,33 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     allocate(in_sign_flip, len);
     allocate(out_sign_flip_ref, len);
 
+    raft::handle_t handle;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocator.reset(new raft::mr::device::default_allocator);
 
     allocate(in_ratio, 4);
     T in_ratio_h[4] = {1.0, 2.0, 2.0, 3.0};
-    updateDevice(in_ratio, in_ratio_h, 4, stream);
+    update_device(in_ratio, in_ratio_h, 4, stream);
 
     allocate(out_ratio_ref, 4);
     T out_ratio_ref_h[4] = {0.125, 0.25, 0.25, 0.375};
-    updateDevice(out_ratio_ref, out_ratio_ref_h, 4, stream);
+    update_device(out_ratio_ref, out_ratio_ref_h, 4, stream);
 
-    r.uniform(in_power, len, T(-1.0), T(1.0), stream);
-    r.uniform(in_sqrt, len, T(0.0), T(1.0), stream);
+    r.uniform(handle, in_power, len, T(-1.0), T(1.0), stream);
+    r.uniform(handle, in_sqrt, len, T(0.0), T(1.0), stream);
     // r.uniform(in_ratio, len, T(0.0), T(1.0));
-    r.uniform(in_sign_flip, len, T(-100.0), T(100.0), stream);
+    r.uniform(handle, in_sign_flip, len, T(-100.0), T(100.0), stream);
 
     naivePower(in_power, out_power_ref, len, stream);
-    power(in_power, len, stream);
+    power(handle, in_power, len, stream);
 
     naiveSqrt(in_sqrt, out_sqrt_ref, len);
-    seqRoot(in_sqrt, len, stream);
+    seqRoot(handle, in_sqrt, len, stream);
 
-    ratio(in_ratio, in_ratio, 4, allocator, stream);
+    ratio(handle, in_ratio, in_ratio, 4, stream);
 
     naiveSignFlip(in_sign_flip, out_sign_flip_ref, params.n_row, params.n_col);
-    signFlip(in_sign_flip, params.n_row, params.n_col, stream);
+    signFlip(handle, in_sign_flip, params.n_row, params.n_col, stream);
 
     allocate(in_recip, 4);
     allocate(in_recip_ref, 4);
@@ -156,24 +156,24 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     // default threshold is 1e-15
     std::vector<T> in_recip_h = {0.1, 0.01, -0.01, 0.1e-16};
     std::vector<T> in_recip_ref_h = {10.0, 100.0, -100.0, 0.0};
-    updateDevice(in_recip, in_recip_h.data(), 4, stream);
-    updateDevice(in_recip_ref, in_recip_ref_h.data(), 4, stream);
+    update_device(in_recip, in_recip_h.data(), 4, stream);
+    update_device(in_recip_ref, in_recip_ref_h.data(), 4, stream);
     T recip_scalar = T(1.0);
 
     // this `reciprocal()` has to go first bc next one modifies its input
-    reciprocal(in_recip, out_recip, recip_scalar, 4, stream);
+    reciprocal(handle, in_recip, out_recip, recip_scalar, 4, stream);
 
-    reciprocal(in_recip, recip_scalar, 4, stream, true);
+    reciprocal(handle, in_recip, recip_scalar, 4, stream, true);
 
     std::vector<T> in_small_val_zero_h = {0.1, 1e-16, -1e-16, -0.1};
     std::vector<T> in_small_val_zero_ref_h = {0.1, 0.0, 0.0, -0.1};
     allocate(in_smallzero, 4);
     allocate(out_smallzero, 4);
     allocate(out_smallzero_ref, 4);
-    updateDevice(in_smallzero, in_small_val_zero_h.data(), 4, stream);
-    updateDevice(out_smallzero_ref, in_small_val_zero_ref_h.data(), 4, stream);
-    setSmallValuesZero(out_smallzero, in_smallzero, 4, stream);
-    setSmallValuesZero(in_smallzero, 4, stream);
+    update_device(in_smallzero, in_small_val_zero_h.data(), 4, stream);
+    update_device(out_smallzero_ref, in_small_val_zero_ref_h.data(), 4, stream);
+    setSmallValuesZero(handle, out_smallzero, in_smallzero, 4, stream);
+    setSmallValuesZero(handle, in_smallzero, 4, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
@@ -199,7 +199,6 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
   T *in_power, *out_power_ref, *in_sqrt, *out_sqrt_ref, *in_ratio,
     *out_ratio_ref, *in_sign_flip, *out_sign_flip_ref, *in_recip, *in_recip_ref,
     *out_recip, *in_smallzero, *out_smallzero, *out_smallzero_ref;
-  std::shared_ptr<deviceAllocator> allocator;
 };
 
 const std::vector<MathInputs<float>> inputsf = {
@@ -327,5 +326,5 @@ INSTANTIATE_TEST_CASE_P(MathTests, MathSetSmallZeroTestF,
 INSTANTIATE_TEST_CASE_P(MathTests, MathSetSmallZeroTestD,
                         ::testing::ValuesIn(inputsd));
 
-}  // end namespace Matrix
-}  // end namespace MLCommon
+}  // namespace matrix
+}  // namespace raft

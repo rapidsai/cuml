@@ -17,8 +17,8 @@
 #include <cuda_utils.cuh>
 #include <linalg/matrix_vector_op.cuh>
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename Type, typename IdxType = int>
 __global__ void naiveMatVecKernel(Type *out, const Type *mat, const Type *vec,
@@ -86,5 +86,5 @@ void naiveMatVec(Type *out, const Type *mat, const Type *vec1, const Type *vec2,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

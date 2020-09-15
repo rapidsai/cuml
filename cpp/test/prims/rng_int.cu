@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <common/cudart_utils.h>
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace Random {
+namespace raft {
+namespace random {
 
 enum RandomType { RNG_Uniform };
 
@@ -69,20 +69,23 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   void SetUp() override {
     params = ::testing::TestWithParam<RngInputs<T>>::GetParam();
     Rng r(params.seed, params.gtype);
+
+    raft::handle_t handle;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, params.len);
-    allocate(stats, 2, true);
+    raft::allocate(data, params.len);
+    raft::allocate(stats, 2, true);
     switch (params.type) {
       case RNG_Uniform:
-        r.uniformInt(data, params.len, params.start, params.end, stream);
+        r.uniformInt(handle, data, params.len, params.start, params.end,
+                     stream);
         break;
     };
     static const int threads = 128;
     meanKernel<T, threads>
       <<<ceildiv(params.len, threads), threads, 0, stream>>>(stats, data,
                                                              params.len);
-    updateHost<float>(h_stats, stats, 2, stream);
+    raft::update_host<float>(h_stats, stats, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
@@ -183,5 +186,5 @@ TEST_P(RngTestS64, Result) {
 }
 INSTANTIATE_TEST_CASE_P(RngTests, RngTestS64, ::testing::ValuesIn(inputs_s64));
 
-}  // end namespace Random
-}  // end namespace MLCommon
+}  // namespace random
+}  // namespace raft

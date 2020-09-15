@@ -18,10 +18,11 @@
 
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <linalg/eltwise.cuh>
 
-namespace MLCommon {
-namespace Stats {
+namespace raft {
+namespace stats {
 
 ///@todo: ColsPerBlk has been tested only for 32!
 template <typename Type, typename IdxType, int TPB, int ColsPerBlk = 32>
@@ -79,20 +80,21 @@ __global__ void meanKernelColMajor(Type *mu, const Type *data, IdxType D,
  * @param stream: cuda stream
  */
 template <typename Type, typename IdxType = int>
-void mean(Type *mu, const Type *data, IdxType D, IdxType N, bool sample,
-          bool rowMajor, cudaStream_t stream) {
+void mean(raft::handle_t &handle, Type *mu, const Type *data, IdxType D,
+          IdxType N, bool sample, bool rowMajor, cudaStream_t stream) {
   static const int TPB = 256;
   if (rowMajor) {
     static const int RowsPerThread = 4;
     static const int ColsPerBlk = 32;
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(ceildiv(N, (IdxType)RowsPerBlk), ceildiv(D, (IdxType)ColsPerBlk));
+    dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk),
+              raft::ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemsetAsync(mu, 0, sizeof(Type) * D, stream));
     meanKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
       <<<grid, TPB, 0, stream>>>(mu, data, D, N);
     CUDA_CHECK(cudaPeekAtLastError());
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
-    LinAlg::scalarMultiply(mu, mu, ratio, D, stream);
+    raft::linalg::scalarMultiply(mu, mu, ratio, D, stream);
   } else {
     meanKernelColMajor<Type, IdxType, TPB>
       <<<D, TPB, 0, stream>>>(mu, data, D, N);
@@ -100,5 +102,5 @@ void mean(Type *mu, const Type *data, IdxType D, IdxType N, bool sample,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-};  // end namespace Stats
-};  // end namespace MLCommon
+};  // namespace stats
+};  // namespace raft

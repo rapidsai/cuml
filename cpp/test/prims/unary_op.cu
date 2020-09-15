@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <common/cudart_utils.h>
 #include <linalg/unary_op.cuh>
 #include <random/rng.cuh>
 #include "test_utils.h"
 #include "unary_op.cuh"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 // Or else, we get the following compilation error
 // for an extended __device__ lambda cannot have private or protected access
@@ -50,13 +50,13 @@ class UnaryOpTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       UnaryOpInputs<InType, IdxType, OutType>>::GetParam();
-    Random::Rng r(params.seed);
+    random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
     auto len = params.len;
     allocate(in, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in, len, InType(-1.0), InType(1.0), stream);
+    r.uniform(handle, in, len, InType(-1.0), InType(1.0), stream);
   }
 
   void TearDown() override {
@@ -81,6 +81,7 @@ class UnaryOpTest
   InType *in;
   OutType *out_ref, *out;
   cudaStream_t stream;
+  raft::handle_t handle;
 };
 
 template <typename OutType, typename IdxType>
@@ -134,5 +135,5 @@ UNARY_OP_TEST(UnaryOpTestD_i64, inputsd_i64);
 typedef WriteOnlyUnaryOpTest<double, size_t> WriteOnlyUnaryOpTestD_i64;
 UNARY_OP_TEST(WriteOnlyUnaryOpTestD_i64, inputsd_i64);
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

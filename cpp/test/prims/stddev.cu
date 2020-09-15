@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <common/cudart_utils.h>
 #include <matrix/math.cuh>
 #include <random/rng.cuh>
 #include <stats/mean.cuh>
 #include <stats/stddev.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace Stats {
+namespace raft {
+namespace stats {
 
 template <typename T>
 struct StdDevInputs {
@@ -43,32 +43,35 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<StdDevInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
+
+    raft::handle_t handle;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(data, len);
     allocate(mean_act, cols);
     allocate(stddev_act, cols);
     allocate(vars_act, cols);
-    r.normal(data, len, params.mean, params.stddev, stream);
-    stdVarSGtest(data, stream);
+    r.normal(handle, data, len, params.mean, params.stddev, stream);
+    stdVarSGtest(data, handle, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void stdVarSGtest(T *data, cudaStream_t stream) {
+  void stdVarSGtest(T *data, raft::handle_t &handle, cudaStream_t stream) {
     int rows = params.rows, cols = params.cols;
 
-    mean(mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
-
-    stddev(stddev_act, data, mean_act, cols, rows, params.sample,
-           params.rowMajor, stream);
-
-    vars(vars_act, data, mean_act, cols, rows, params.sample, params.rowMajor,
+    mean(handle, mean_act, data, cols, rows, params.sample, params.rowMajor,
          stream);
 
-    Matrix::seqRoot(vars_act, T(1), cols, stream);
+    stddev(handle, stddev_act, data, mean_act, cols, rows, params.sample,
+           params.rowMajor, stream);
+
+    vars(handle, vars_act, data, mean_act, cols, rows, params.sample,
+         params.rowMajor, stream);
+
+    matrix::seqRoot(handle, vars_act, T(1), cols, stream);
   }
 
   void TearDown() override {
@@ -141,5 +144,5 @@ INSTANTIATE_TEST_CASE_P(StdDevTests, StdDevTestF, ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(StdDevTests, StdDevTestD, ::testing::ValuesIn(inputsd));
 
-}  // end namespace Stats
-}  // end namespace MLCommon
+}  // end namespace stats
+}  // end namespace raft

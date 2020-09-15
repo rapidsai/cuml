@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <common/cudart_utils.h>
 #include <linalg/eltwise.cuh>
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 //// Testing unary ops
 
@@ -63,15 +63,17 @@ class ScalarMultiplyTest
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<ScalarMultiplyInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    random::Rng r(params.seed);
     int len = params.len;
     T scalar = params.scalar;
+
+    raft::handle_t handle;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in, len, T(-1.0), T(1.0), stream);
+    r.uniform(handle, in, len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref, in, scalar, len, stream);
     scalarMultiply(out, in, scalar, len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -150,7 +152,9 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<EltwiseAddInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    random::Rng r(params.seed);
+
+    raft::handle_t handle;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.len;
@@ -158,8 +162,8 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
     allocate(in2, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in1, len, T(-1.0), T(1.0), stream);
-    r.uniform(in2, len, T(-1.0), T(1.0), stream);
+    r.uniform(handle, in1, len, T(-1.0), T(1.0), stream);
+    r.uniform(handle, in2, len, T(-1.0), T(1.0), stream);
     naiveAdd(out_ref, in1, in2, len, stream);
     eltwiseAdd(out, in1, in2, len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -201,5 +205,5 @@ INSTANTIATE_TEST_CASE_P(EltwiseAddTests, EltwiseAddTestF,
 INSTANTIATE_TEST_CASE_P(EltwiseAddTests, EltwiseAddTestD,
                         ::testing::ValuesIn(inputsd2));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

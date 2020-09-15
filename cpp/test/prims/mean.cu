@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <common/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <cuda_utils.cuh>
@@ -23,8 +23,8 @@
 #include <stats/mean.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace Stats {
+namespace raft {
+namespace stats {
 
 template <typename T>
 struct MeanInputs {
@@ -44,25 +44,27 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MeanInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    random::Rng r(params.seed);
 
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
 
     cudaStream_t stream;
+    raft::handle_t handle;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     allocate(data, len);
     allocate(mean_act, cols);
-    r.normal(data, len, params.mean, (T)1.0, stream);
+    r.normal(handle, data, len, params.mean, (T)1.0, stream);
 
-    meanSGtest(data, stream);
+    meanSGtest(data, handle, stream);
   }
 
-  void meanSGtest(T *data, cudaStream_t stream) {
+  void meanSGtest(T *data, raft::handle_t &handle, cudaStream_t stream) {
     int rows = params.rows, cols = params.cols;
 
-    mean(mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
+    mean(handle, mean_act, data, cols, rows, params.sample, params.rowMajor,
+         stream);
   }
 
   void TearDown() override {
@@ -130,5 +132,5 @@ INSTANTIATE_TEST_CASE_P(MeanTests, MeanTestF, ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(MeanTests, MeanTestD, ::testing::ValuesIn(inputsd));
 
-}  // end namespace Stats
-}  // end namespace MLCommon
+}  // end namespace stats
+}  // end namespace raft

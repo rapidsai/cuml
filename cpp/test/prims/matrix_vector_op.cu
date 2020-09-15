@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <common/cudart_utils.h>
 #include <random/rng.cuh>
-#include "matrix_vector_op.cuh"
 #include "test_utils.h"
+#include "matrix_vector_op.cuh"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename T, typename IdxType = int>
 struct MatVecOpInputs {
@@ -62,9 +62,11 @@ class MatVecOpTest
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>::GetParam();
-    Random::Rng r(params.seed);
+    random::Rng r(params.seed);
     IdxType N = params.rows, D = params.cols;
     IdxType len = N * D;
+
+    raft::handle_t handle;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in, len);
@@ -73,9 +75,9 @@ class MatVecOpTest
     IdxType vecLen = params.bcastAlongRows ? D : N;
     allocate(vec1, vecLen);
     allocate(vec2, vecLen);
-    r.uniform(in, len, (T)-1.0, (T)1.0, stream);
-    r.uniform(vec1, vecLen, (T)-1.0, (T)1.0, stream);
-    r.uniform(vec2, vecLen, (T)-1.0, (T)1.0, stream);
+    r.uniform(handle, in, len, (T)-1.0, (T)1.0, stream);
+    r.uniform(handle, vec1, vecLen, (T)-1.0, (T)1.0, stream);
+    r.uniform(handle, vec2, vecLen, (T)-1.0, (T)1.0, stream);
     if (params.useTwoVectors) {
       naiveMatVec(out_ref, in, vec1, vec2, D, N, params.rowMajor,
                   params.bcastAlongRows, (T)1.0);
@@ -175,5 +177,5 @@ TEST_P(MatVecOpTestD_i64, Result) {
 INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD_i64,
                         ::testing::ValuesIn(inputsd_i64));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

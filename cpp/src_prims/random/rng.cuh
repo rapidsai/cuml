@@ -18,18 +18,20 @@
 
 #include <common/cudart_utils.h>
 #include <stdint.h>
-#include <common/cub_wrappers.cuh>
-#include <common/scatter.cuh>
 #include <cstdio>
 #include <cstdlib>
+#include <common/cub_wrappers.cuh>
+#include <common/scatter.cuh>
 #include <cuda_utils.cuh>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
 #include <random>
 #include <type_traits>
 #include "rng_impl.cuh"
 
-namespace MLCommon {
-namespace Random {
+namespace raft {
+namespace random {
 
 /** all different generator types used */
 enum GeneratorType {
@@ -128,7 +130,7 @@ class Rng {
       offset(0),
       // simple heuristic to make sure all SMs will be occupied properly
       // and also not too many initialization calls will be made by each thread
-      nBlocks(4 * getMultiProcessorCount()),
+      nBlocks(4 * raft::getMultiProcessorCount()),
       gen() {
     seed(_s);
   }
@@ -159,7 +161,7 @@ class Rng {
   void affine_transform_params(IdxT n, IdxT &a, IdxT &b) {
     // always keep 'a' to be coprime to 'n'
     a = gen() % n;
-    while (gcd(a, n) != 1) {
+    while (raft::gcd(a, n) != 1) {
       ++a;
       if (a >= n) a = 0;
     }
@@ -179,24 +181,24 @@ class Rng {
    * @{
    */
   template <typename Type, typename LenType = int>
-  void uniform(Type *ptr, LenType len, Type start, Type end,
-               cudaStream_t stream) {
+  void uniform(raft::handle_t &handle, Type *ptr, LenType len, Type start,
+               Type end, cudaStream_t stream) {
     static_assert(std::is_floating_point<Type>::value,
                   "Type for 'uniform' can only be floating point!");
     custom_distribution(
-      ptr, len,
+      handle, ptr, len,
       [=] __device__(Type val, LenType idx) {
         return (val * (end - start)) + start;
       },
       stream);
   }
   template <typename IntType, typename LenType = int>
-  void uniformInt(IntType *ptr, LenType len, IntType start, IntType end,
-                  cudaStream_t stream) {
+  void uniformInt(raft::handle_t &handle, IntType *ptr, LenType len,
+                  IntType start, IntType end, cudaStream_t stream) {
     static_assert(std::is_integral<IntType>::value,
                   "Type for 'uniformInt' can only be integer!");
     custom_distribution(
-      ptr, len,
+      handle, ptr, len,
       [=] __device__(IntType val, LenType idx) {
         return (val % (end - start)) + start;
       },
@@ -216,24 +218,24 @@ class Rng {
    * @{
    */
   template <typename Type, typename LenType = int>
-  void normal(Type *ptr, LenType len, Type mu, Type sigma,
-              cudaStream_t stream) {
+  void normal(raft::handle_t &handle, Type *ptr, LenType len, Type mu,
+              Type sigma, cudaStream_t stream) {
     static_assert(std::is_floating_point<Type>::value,
                   "Type for 'normal' can only be floating point!");
     rand2Impl(
-      offset, ptr, len,
+      handle, offset, ptr, len,
       [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
         box_muller_transform<Type>(val1, val2, sigma, mu);
       },
       NumThreads, nBlocks, type, stream);
   }
   template <typename IntType, typename LenType = int>
-  void normalInt(IntType *ptr, LenType len, IntType mu, IntType sigma,
-                 cudaStream_t stream) {
+  void normalInt(raft::handle_t &handle, IntType *ptr, LenType len, IntType mu,
+                 IntType sigma, cudaStream_t stream) {
     static_assert(std::is_integral<IntType>::value,
                   "Type for 'normalInt' can only be integer!");
     rand2Impl<IntType, double>(
-      offset, ptr, len,
+      handle, offset, ptr, len,
       [=] __device__(double &val1, double &val2, LenType idx1, LenType idx2) {
         box_muller_transform<double>(val1, val2, sigma, mu);
       },
@@ -262,10 +264,11 @@ class Rng {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void normalTable(Type *ptr, LenType n_rows, LenType n_cols, const Type *mu,
-                   const Type *sigma_vec, Type sigma, cudaStream_t stream) {
+  void normalTable(raft::handle_t &handle, Type *ptr, LenType n_rows,
+                   LenType n_cols, const Type *mu, const Type *sigma_vec,
+                   Type sigma, cudaStream_t stream) {
     rand2Impl(
-      offset, ptr, n_rows * n_cols,
+      handle, offset, ptr, n_rows * n_cols,
       [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
         // yikes! use fast-int-div
         auto col1 = idx1 % n_cols;
@@ -289,7 +292,8 @@ class Rng {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void fill(Type *ptr, LenType len, Type val, cudaStream_t stream) {
+  void fill(raft::handle_t &handle, Type *ptr, LenType len, Type val,
+            cudaStream_t stream) {
     constFillKernel<Type><<<nBlocks, NumThreads, 0, stream>>>(ptr, len, val);
     CUDA_CHECK(cudaPeekAtLastError());
   }
@@ -307,10 +311,11 @@ class Rng {
    * @param[in]  stream stream where to launch the kernel
    */
   template <typename Type, typename OutType = bool, typename LenType = int>
-  void bernoulli(OutType *ptr, LenType len, Type prob, cudaStream_t stream) {
+  void bernoulli(raft::handle_t &handle, OutType *ptr, LenType len, Type prob,
+                 cudaStream_t stream) {
     custom_distribution<OutType, Type>(
-      ptr, len, [=] __device__(Type val, LenType idx) { return val > prob; },
-      stream);
+      handle, ptr, len,
+      [=] __device__(Type val, LenType idx) { return val > prob; }, stream);
   }
 
   /**
@@ -324,12 +329,12 @@ class Rng {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void scaled_bernoulli(Type *ptr, LenType len, Type prob, Type scale,
-                        cudaStream_t stream) {
+  void scaled_bernoulli(raft::handle_t &handle, Type *ptr, LenType len,
+                        Type prob, Type scale, cudaStream_t stream) {
     static_assert(std::is_floating_point<Type>::value,
                   "Type for 'scaled_bernoulli' can only be floating point!");
     custom_distribution(
-      ptr, len,
+      handle, ptr, len,
       [=] __device__(Type val, LenType idx) {
         return val > prob ? -scale : scale;
       },
@@ -348,9 +353,10 @@ class Rng {
    * @note https://en.wikipedia.org/wiki/Gumbel_distribution
    */
   template <typename Type, typename LenType = int>
-  void gumbel(Type *ptr, LenType len, Type mu, Type beta, cudaStream_t stream) {
+  void gumbel(raft::handle_t &handle, Type *ptr, LenType len, Type mu,
+              Type beta, cudaStream_t stream) {
     custom_distribution(
-      ptr, len,
+      handle, ptr, len,
       [=] __device__(Type val, LenType idx) {
         return mu - beta * myLog(-myLog(val));
       },
@@ -368,10 +374,10 @@ class Rng {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void lognormal(Type *ptr, LenType len, Type mu, Type sigma,
-                 cudaStream_t stream) {
+  void lognormal(raft::handle_t &handle, Type *ptr, LenType len, Type mu,
+                 Type sigma, cudaStream_t stream) {
     rand2Impl(
-      offset, ptr, len,
+      handle, offset, ptr, len,
       [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
         box_muller_transform<Type>(val1, val2, sigma, mu);
         val1 = myExp(val1);
@@ -391,10 +397,10 @@ class Rng {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void logistic(Type *ptr, LenType len, Type mu, Type scale,
-                cudaStream_t stream) {
+  void logistic(raft::handle_t &handle, Type *ptr, LenType len, Type mu,
+                Type scale, cudaStream_t stream) {
     custom_distribution(
-      ptr, len,
+      handle, ptr, len,
       [=] __device__(Type val, LenType idx) {
         constexpr Type one = (Type)1.0;
         return mu - scale * myLog(one / val - one);
@@ -412,9 +418,10 @@ class Rng {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void exponential(Type *ptr, LenType len, Type lambda, cudaStream_t stream) {
+  void exponential(raft::handle_t &handle, Type *ptr, LenType len, Type lambda,
+                   cudaStream_t stream) {
     custom_distribution(
-      ptr, len,
+      handle, ptr, len,
       [=] __device__(Type val, LenType idx) {
         constexpr Type one = (Type)1.0;
         return -myLog(one - val) / lambda;
@@ -432,9 +439,10 @@ class Rng {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void rayleigh(Type *ptr, LenType len, Type sigma, cudaStream_t stream) {
+  void rayleigh(raft::handle_t &handle, Type *ptr, LenType len, Type sigma,
+                cudaStream_t stream) {
     custom_distribution(
-      ptr, len,
+      handle, ptr, len,
       [=] __device__(Type val, LenType idx) {
         constexpr Type one = (Type)1.0;
         constexpr Type two = (Type)2.0;
@@ -454,10 +462,10 @@ class Rng {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void laplace(Type *ptr, LenType len, Type mu, Type scale,
-               cudaStream_t stream) {
+  void laplace(raft::handle_t &handle, Type *ptr, LenType len, Type mu,
+               Type scale, cudaStream_t stream) {
     custom_distribution(
-      ptr, len,
+      handle, ptr, len,
       [=] __device__(Type val, LenType idx) {
         constexpr Type one = (Type)1.0;
         constexpr Type two = (Type)2.0;
@@ -500,20 +508,24 @@ class Rng {
    * @param stream cuda stream
    */
   template <typename DataT, typename WeightsT, typename IdxT = int>
-  void sampleWithoutReplacement(DataT *out, IdxT *outIdx, const DataT *in,
+  void sampleWithoutReplacement(raft::handle_t &handle, DataT *out,
+                                IdxT *outIdx, const DataT *in,
                                 const WeightsT *wts, IdxT sampledLen, IdxT len,
-                                std::shared_ptr<deviceAllocator> allocator,
                                 cudaStream_t stream) {
     ASSERT(sampledLen <= len,
            "sampleWithoutReplacement: 'sampledLen' cant be more than 'len'.");
-    device_buffer<WeightsT> expWts(allocator, stream, len);
-    device_buffer<WeightsT> sortedWts(allocator, stream, len);
-    device_buffer<IdxT> inIdx(allocator, stream, len);
-    device_buffer<IdxT> outIdxBuff(allocator, stream, len);
+
+    std::shared_ptr<raft::mr::device::allocator> allocator =
+      handle.get_device_allocator();
+
+    raft::mr::device::buffer<WeightsT> expWts(allocator, stream, len);
+    raft::mr::device::buffer<WeightsT> sortedWts(allocator, stream, len);
+    raft::mr::device::buffer<IdxT> inIdx(allocator, stream, len);
+    raft::mr::device::buffer<IdxT> outIdxBuff(allocator, stream, len);
     auto *inIdxPtr = inIdx.data();
     // generate modified weights
     custom_distribution(
-      expWts.data(), len,
+      handle, expWts.data(), len,
       [wts, inIdxPtr] __device__(WeightsT val, IdxT idx) {
         inIdxPtr[idx] = idx;
         constexpr WeightsT one = (WeightsT)1.0;
@@ -527,7 +539,7 @@ class Rng {
     ///@todo: use a more efficient partitioning scheme instead of full sort
     // sort the array and pick the top sampledLen items
     IdxT *outIdxPtr = outIdxBuff.data();
-    device_buffer<char> workspace(allocator, stream);
+    raft::mr::device::buffer<char> workspace(allocator, stream);
     sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr,
               (int)len, stream);
     if (outIdx != nullptr) {
@@ -554,17 +566,17 @@ class Rng {
    */
   template <typename OutType, typename MathType = OutType,
             typename LenType = int, typename Lambda>
-  void custom_distribution(OutType *ptr, LenType len, Lambda randOp,
-                           cudaStream_t stream) {
+  void custom_distribution(raft::handle_t &handle, OutType *ptr, LenType len,
+                           Lambda randOp, cudaStream_t stream) {
     randImpl<OutType, MathType, LenType, Lambda>(
-      offset, ptr, len, randOp, NumThreads, nBlocks, type, stream);
+      handle, offset, ptr, len, randOp, NumThreads, nBlocks, type, stream);
   }
   template <typename OutType, typename MathType = OutType,
             typename LenType = int, typename Lambda>
-  void custom_distribution2(OutType *ptr, LenType len, Lambda randOp,
-                            cudaStream_t stream) {
+  void custom_distribution2(raft::handle_t &handle, OutType *ptr, LenType len,
+                            Lambda randOp, cudaStream_t stream) {
     rand2Impl<OutType, MathType, LenType, Lambda>(
-      offset, ptr, len, randOp, NumThreads, nBlocks, type, stream);
+      handle, offset, ptr, len, randOp, NumThreads, nBlocks, type, stream);
   }
   /** @} */
 
@@ -607,9 +619,9 @@ class Rng {
 
   template <typename OutType, typename MathType = OutType,
             typename LenType = int, typename Lambda>
-  void randImpl(uint64_t &offset, OutType *ptr, LenType len, Lambda randOp,
-                int nThreads, int nBlocks, GeneratorType type,
-                cudaStream_t stream) {
+  void randImpl(raft::handle_t &handle, uint64_t &offset, OutType *ptr,
+                LenType len, Lambda randOp, int nThreads, int nBlocks,
+                GeneratorType type, cudaStream_t stream) {
     if (len <= 0) return;
     uint64_t seed = gen();
     auto newOffset = _setupSeeds<false, MathType, LenType>(seed, offset, len,
@@ -636,9 +648,9 @@ class Rng {
 
   template <typename OutType, typename MathType = OutType,
             typename LenType = int, typename Lambda2>
-  void rand2Impl(uint64_t &offset, OutType *ptr, LenType len, Lambda2 rand2Op,
-                 int nThreads, int nBlocks, GeneratorType type,
-                 cudaStream_t stream) {
+  void rand2Impl(raft::handle_t &handle, uint64_t &offset, OutType *ptr,
+                 LenType len, Lambda2 rand2Op, int nThreads, int nBlocks,
+                 GeneratorType type, cudaStream_t stream) {
     if (len <= 0) return;
     auto seed = gen();
     auto newOffset = _setupSeeds<true, MathType, LenType>(seed, offset, len,
@@ -666,5 +678,5 @@ class Rng {
   }
 };
 
-};  // end namespace Random
-};  // end namespace MLCommon
+};  // end namespace random
+};  // end namespace raft
