@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import numpy as np
@@ -26,13 +23,15 @@ from libcpp cimport bool
 import cuml
 from cuml.common.array import CumlArray as cumlArray
 from cuml.common.base import _input_to_type
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
+from cuml.raft.common.handle import Handle
+
 from cuml.common.input_utils import input_to_cuml_array
 
 
 cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
     int cpp_kpss "ML::Stationarity::kpss_test" (
-        const cumlHandle& handle,
+        const handle_t& handle,
         const float* d_y,
         bool* results,
         int batch_size,
@@ -41,7 +40,7 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
         float pval_threshold)
 
     int cpp_kpss "ML::Stationarity::kpss_test" (
-        const cumlHandle& handle,
+        const handle_t& handle,
         const double* d_y,
         bool* results,
         int batch_size,
@@ -86,8 +85,8 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05, output_type="input",
         output_type = _input_to_type(y)
 
     if handle is None:
-        handle = cuml.common.handle.Handle()
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+        handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     results = cumlArray.empty(batch_size, dtype=np.bool)
     cdef uintptr_t d_results = results.ptr

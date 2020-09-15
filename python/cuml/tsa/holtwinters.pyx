@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import cudf
 import cupy as cp
@@ -27,7 +24,7 @@ from cuml.common import input_to_dev_array
 from cuml.common import get_dev_array_ptr
 from cuml.common import numba_utils
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 
 cdef extern from "cuml/tsa/holtwinters_params.h" namespace "ML":
     enum SeasonalType:
@@ -42,24 +39,24 @@ cdef extern from "cuml/tsa/holtwinters.h" namespace "ML::HoltWinters":
         int *leveltrend_coef_shift, int *season_coef_shift) except +
 
     cdef void fit(
-        cumlHandle &handle, int n, int batch_size,
+        handle_t &handle, int n, int batch_size,
         int frequency, int start_periods, SeasonalType seasonal,
         float epsilon,
         float *data, float *level_ptr, float *trend_ptr,
         float *season_ptr, float *SSE_error_ptr) except +
     cdef void fit(
-        cumlHandle &handle, int n, int batch_size,
+        handle_t &handle, int n, int batch_size,
         int frequency, int start_periods, SeasonalType seasonal,
         double epsilon,
         double *data, double *level_ptr, double *trend_ptr,
         double *season_ptr, double *SSE_error_ptr) except +
 
     cdef void forecast(
-        cumlHandle &handle, int n, int batch_size, int frequency,
+        handle_t &handle, int n, int batch_size, int frequency,
         int h, SeasonalType seasonal, float *level_ptr,
         float *trend_ptr, float *season_ptr, float *forecast_ptr) except +
     cdef void forecast(
-        cumlHandle &handle, int n, int batch_size, int frequency,
+        handle_t &handle, int n, int batch_size, int frequency,
         int h, SeasonalType seasonal, double *level_ptr,
         double *trend_ptr, double *season_ptr, double *forecast_ptr) except +
 
@@ -302,7 +299,7 @@ class ExponentialSmoothing(Base):
                     <int*> &season_coef_offset,
                     <int*> &error_len)
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t level_ptr, trend_ptr, season_ptr, SSE_ptr
 
         self.level = numba_utils.zeros(components_len, dtype=self.dtype)
@@ -370,7 +367,7 @@ class ExponentialSmoothing(Base):
 
         """
         cdef uintptr_t forecast_ptr, level_ptr, trend_ptr, season_ptr
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if type(h) != int or (type(index) != int and index is not None):
             raise TypeError("Input arguments must be of type int."

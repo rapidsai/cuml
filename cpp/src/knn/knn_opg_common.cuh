@@ -54,9 +54,9 @@
 
 #include <common/cumlHandle.hpp>
 
-#include <common/cuml_comms_int.hpp>
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <raft/comms/comms.hpp>
 
 #include <set>
 
@@ -69,7 +69,7 @@ namespace opg {
 namespace knn_common {
 
 template <typename T>
-void opg_knn(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
+void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
              std::vector<Matrix::Data<int64_t> *> *out_I,
              std::vector<Matrix::floatData_t *> *out_D,
              std::vector<Matrix::floatData_t *> &idx_data,
@@ -83,7 +83,7 @@ void opg_knn(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
              std::vector<int> *n_unique = nullptr, bool probas_only = false);
 
 template <typename T>
-void reduce(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
+void reduce(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
             std::vector<Matrix::Data<int64_t> *> *out_I,
             std::vector<Matrix::floatData_t *> *out_D, device_buffer<T> &res,
             device_buffer<int64_t> &res_I, device_buffer<float> &res_D,
@@ -96,15 +96,16 @@ void reduce(ML::cumlHandle &handle, std::vector<Matrix::Data<T> *> *out,
             std::vector<int> *n_unique = nullptr);
 
 void broadcast_query(float *query, size_t batch_input_elms, int part_rank,
-                     std::set<int> idxRanks, const cumlCommunicator &comm,
+                     std::set<int> idxRanks, const raft::comms::comms_t &comm,
                      cudaStream_t stream);
 
 template <typename T>
 void exchange_results(device_buffer<T> &res, device_buffer<int64_t> &res_I,
-                      device_buffer<float> &res_D, const cumlCommunicator &comm,
-                      int part_rank, std::set<int> idxRanks,
-                      cudaStream_t stream, size_t cur_batch_size, int k,
-                      int n_outputs, int local_parts_completed);
+                      device_buffer<float> &res_D,
+                      const raft::comms::comms_t &comm, int part_rank,
+                      std::set<int> idxRanks, cudaStream_t stream,
+                      size_t cur_batch_size, int k, int n_outputs,
+                      int local_parts_completed);
 
 void perform_local_knn(int64_t *res_I, float *res_D,
                        std::vector<Matrix::floatData_t *> &idx_data,
@@ -119,7 +120,7 @@ void perform_local_knn(int64_t *res_I, float *res_D,
 template <typename T>
 void perform_local_operation(T *out, int64_t *knn_indices, T *labels,
                              size_t cur_batch_size, int k, int n_outputs,
-                             ML::cumlHandle &h, bool probas_only = false,
+                             raft::handle_t &h, bool probas_only = false,
                              std::vector<float *> *probas = nullptr,
                              std::vector<int *> *uniq_labels = nullptr,
                              std::vector<int> *n_unique = nullptr);

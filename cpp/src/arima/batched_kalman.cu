@@ -25,7 +25,7 @@
 #include <cuml/tsa/batched_kalman.hpp>
 
 #include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <common/nvtx.hpp>
@@ -519,7 +519,7 @@ void _batched_kalman_loop_large(
 }
 
 /// Wrapper around functions that execute the Kalman loop (for performance)
-void batched_kalman_loop(cumlHandle& handle, const double* ys, int nobs,
+void batched_kalman_loop(raft::handle_t& handle, const double* ys, int nobs,
                          const MLCommon::LinAlg::Batched::Matrix<double>& T,
                          const MLCommon::LinAlg::Batched::Matrix<double>& Z,
                          const MLCommon::LinAlg::Batched::Matrix<double>& RQR,
@@ -600,7 +600,7 @@ void batched_kalman_loop(cumlHandle& handle, const double* ys, int nobs,
     // Note: not always used
     MLCommon::Sparse::Batched::CSR<double> T_sparse =
       MLCommon::Sparse::Batched::CSR<double>::from_dense(
-        T, T_mask, handle.getImpl().getcusolverSpHandle());
+        T, T_mask, handle.get_cusolver_sp_handle());
     _batched_kalman_loop_large(ys, nobs, T, T_sparse, Z, RQR, P0, alpha,
                                intercept, d_mu, rd, vs, Fs, sum_logFs, n_diff,
                                fc_steps, d_fc, conf_int, d_F_fc);
@@ -663,8 +663,8 @@ __global__ void confidence_intervals(const double* d_fc, const double* d_sigma2,
 }
 
 /// Internal Kalman filter implementation that assumes data exists on GPU.
-void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
-                            const ARIMAOrder& order,
+void _batched_kalman_filter(raft::handle_t& handle, const double* d_ys,
+                            int nobs, const ARIMAOrder& order,
                             const MLCommon::LinAlg::Batched::Matrix<double>& Zb,
                             const MLCommon::LinAlg::Batched::Matrix<double>& Tb,
                             const MLCommon::LinAlg::Batched::Matrix<double>& Rb,
@@ -674,9 +674,9 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                             const double* d_mu, int fc_steps, double* d_fc,
                             double level, double* d_lower, double* d_upper) {
   const size_t batch_size = Zb.batches();
-  auto stream = handle.getStream();
-  auto cublasHandle = handle.getImpl().getCublasHandle();
-  auto allocator = handle.getDeviceAllocator();
+  auto stream = handle.get_stream();
+  auto cublasHandle = handle.get_cublas_handle();
+  auto allocator = handle.get_device_allocator();
 
   auto counting = thrust::make_counting_iterator(0);
 
@@ -742,8 +742,8 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   // T* = T[d+s*D:, d+s*D:]
   // x* = alpha_0[d+s*D:]
   MLCommon::LinAlg::Batched::Matrix<double> alpha(
-    rd, 1, batch_size, handle.getImpl().getCublasHandle(),
-    handle.getDeviceAllocator(), stream, false);
+    rd, 1, batch_size, handle.get_cublas_handle(),
+    handle.get_device_allocator(), stream, false);
   if (intercept) {
     // Compute I-T*
     MLCommon::LinAlg::Batched::Matrix<double> ImT(
@@ -818,7 +818,7 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   }
 }
 
-void init_batched_kalman_matrices(cumlHandle& handle, const double* d_ar,
+void init_batched_kalman_matrices(raft::handle_t& handle, const double* d_ar,
                                   const double* d_ma, const double* d_sar,
                                   const double* d_sma, int nb,
                                   const ARIMAOrder& order, int rd,
@@ -826,7 +826,7 @@ void init_batched_kalman_matrices(cumlHandle& handle, const double* d_ar,
                                   std::vector<bool>& T_mask) {
   ML::PUSH_RANGE(__func__);
 
-  auto stream = handle.getStream();
+  auto stream = handle.get_stream();
 
   // Note: Z is unused yet but kept to avoid reintroducing it later when
   // adding support for exogeneous variables
@@ -965,7 +965,7 @@ void init_batched_kalman_matrices(cumlHandle& handle, const double* d_ar,
   ML::POP_RANGE();
 }
 
-void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
+void batched_kalman_filter(raft::handle_t& handle, const double* d_ys, int nobs,
                            const ARIMAParams<double>& params,
                            const ARIMAOrder& order, int batch_size,
                            double* d_loglike, double* d_vs, int fc_steps,
@@ -973,9 +973,9 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                            double* d_upper) {
   ML::PUSH_RANGE(__func__);
 
-  auto cublasHandle = handle.getImpl().getCublasHandle();
-  auto stream = handle.getStream();
-  auto allocator = handle.getDeviceAllocator();
+  auto cublasHandle = handle.get_cublas_handle();
+  auto stream = handle.get_stream();
+  auto allocator = handle.get_device_allocator();
 
   // see (3.18) in TSA by D&K
   int rd = order.rd();
@@ -1006,12 +1006,12 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   ML::POP_RANGE();
 }
 
-void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
+void batched_jones_transform(raft::handle_t& handle, const ARIMAOrder& order,
                              int batch_size, bool isInv, const double* h_params,
                              double* h_Tparams) {
   int N = order.complexity();
-  auto allocator = handle.getDeviceAllocator();
-  auto stream = handle.getStream();
+  auto allocator = handle.get_device_allocator();
+  auto stream = handle.get_stream();
   double* d_params =
     (double*)allocator->allocate(N * batch_size * sizeof(double), stream);
   double* d_Tparams =

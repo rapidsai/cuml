@@ -25,8 +25,8 @@
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 
-#include <linalg/cublas_wrappers.h>
 #include <linalg/transpose.h>
+#include <raft/linalg/cublas_wrappers.h>
 
 #include <test_utils.h>
 
@@ -62,13 +62,13 @@ template <typename T, typename IdxT>
 class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
  protected:
   void basicTest() {
-    cumlHandle handle;
+    raft::handle_t handle;
 
     params = ::testing::TestWithParam<DbscanInputs<T, IdxT>>::GetParam();
 
-    device_buffer<T> out(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<T> out(handle.get_device_allocator(), handle.get_stream(),
                          params.n_row * params.n_col);
-    device_buffer<IdxT> l(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<IdxT> l(handle.get_device_allocator(), handle.get_stream(),
                           params.n_row);
 
     make_blobs(handle, out.data(), l.data(), params.n_row, params.n_col,
@@ -78,22 +78,22 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
     allocate(labels, params.n_row);
     allocate(labels_ref, params.n_row);
 
-    MLCommon::copy(labels_ref, l.data(), params.n_row, handle.getStream());
+    MLCommon::copy(labels_ref, l.data(), params.n_row, handle.get_stream());
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     dbscanFit(handle, out.data(), params.n_row, params.n_col, params.eps,
               params.min_pts, labels, nullptr, params.max_bytes_per_batch);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     score = adjustedRandIndex(handle, labels_ref, labels, params.n_row);
 
     if (score < 1.0) {
       auto str =
-        arr2Str(labels_ref, params.n_row, "labels_ref", handle.getStream());
+        arr2Str(labels_ref, params.n_row, "labels_ref", handle.get_stream());
       CUML_LOG_DEBUG("y: %s", str.c_str());
-      str = arr2Str(labels, params.n_row, "labels", handle.getStream());
+      str = arr2Str(labels, params.n_row, "labels", handle.get_stream());
       CUML_LOG_DEBUG("y_hat: %s", str.c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }
@@ -184,7 +184,7 @@ template <typename T>
 class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
  protected:
   void basicTest() {
-    cumlHandle handle;
+    raft::handle_t handle;
 
     params = ::testing::TestWithParam<DBScan2DArrayInputs<T>>::GetParam();
 
@@ -193,29 +193,30 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     allocate(labels_ref, params.n_out);
     allocate(core_sample_indices_d, params.n_row);
 
-    MLCommon::copy(inputs, params.points, params.n_row * 2, handle.getStream());
-    MLCommon::copy(labels_ref, params.out, params.n_out, handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    MLCommon::copy(inputs, params.points, params.n_row * 2,
+                   handle.get_stream());
+    MLCommon::copy(labels_ref, params.out, params.n_out, handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     dbscanFit(handle, inputs, (int)params.n_row, 2, params.eps, params.min_pts,
               labels, core_sample_indices_d);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     score = adjustedRandIndex(handle, labels_ref, labels, (int)params.n_out);
 
     if (score < 1.0) {
       auto str =
-        arr2Str(labels_ref, params.n_out, "labels_ref", handle.getStream());
+        arr2Str(labels_ref, params.n_out, "labels_ref", handle.get_stream());
       CUML_LOG_DEBUG("y: %s", str.c_str());
-      str = arr2Str(labels, params.n_row, "labels", handle.getStream());
+      str = arr2Str(labels, params.n_row, "labels", handle.get_stream());
       CUML_LOG_DEBUG("y_hat: %s", str.c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }
 
     EXPECT_TRUE(devArrMatchHost(params.core_indices, core_sample_indices_d,
                                 params.n_row, Compare<int>(),
-                                handle.getStream()));
+                                handle.get_stream()));
   }
 
   void SetUp() override { basicTest(); }
