@@ -13,15 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-from cuml.common.import_utils import has_scipy
-
 import cupyx as cpx
 import numpy as np
 
+from cuml.common.import_utils import has_scipy
+from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.logger import warn
 from cuml.common.memory_utils import with_cupy_rmm
 
-from cuml.common.input_utils import input_to_cuml_array
 
 if has_scipy():
     import scipy.sparse
@@ -47,7 +46,7 @@ class SparseCumlArray:
         Any object that can be interpreted as a numpy or cupy data type.
         Specifies whether to convert the indices to a different dtype. By
         default, it is preferred to use 32-bit indexing.
-    convert_format : bool, optional (default: False)
+    convert_format : bool, optional (default: True)
         Specifies whether to convert any non-CSR inputs to CSR. If False,
         an exception is thrown.
 
@@ -73,7 +72,7 @@ class SparseCumlArray:
     def __init__(self, data=None,
                  convert_to_dtype=False,
                  convert_index=np.int32,
-                 convert_format=False):
+                 convert_format=True):
         if not cpx.scipy.sparse.isspmatrix(data) and \
                 not (has_scipy() and scipy.sparse.isspmatrix(data)):
             raise ValueError("A sparse matrix is expected as input. "
@@ -85,6 +84,10 @@ class SparseCumlArray:
 
         if not isinstance(data, tuple(check_classes)):
             if convert_format:
+                warn('Received sparse matrix in %s format but CSR is expected.'
+                     'Data will be converted to CSR, but this will require additional'
+                     'memory copies. If this conversion is not desired, set'
+                     'set_convert_format=False to raise an exception instead.')
                 data = data.tocsr()  # currently only CSR is supported
             else:
                 raise ValueError("Expected CSR matrix but received %s"
