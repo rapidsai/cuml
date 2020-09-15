@@ -32,7 +32,7 @@ namespace GLM {
 using namespace MLCommon;
 
 template <typename math_t>
-void preProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
+void preProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
                     int n_cols, math_t *labels, math_t *intercept,
                     math_t *mu_input, math_t *mu_labels, math_t *norm2_input,
                     bool fit_intercept, bool normalize, cudaStream_t stream) {
@@ -61,7 +61,7 @@ void preProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
 }
 
 template <typename math_t>
-void postProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
+void postProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
                      int n_cols, math_t *labels, math_t *coef,
                      math_t *intercept, math_t *mu_input, math_t *mu_labels,
                      math_t *norm2_input, bool fit_intercept, bool normalize,
@@ -71,8 +71,8 @@ void postProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
   ASSERT(n_rows > 1,
          "Parameter n_rows: number of rows cannot be less than two");
 
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
-  auto allocator = handle.getDeviceAllocator();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
+  auto allocator = handle.get_device_allocator();
   device_buffer<math_t> d_intercept(allocator, stream, 1);
 
   if (normalize) {
