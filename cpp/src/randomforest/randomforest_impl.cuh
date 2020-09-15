@@ -156,12 +156,13 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
 
   const cumlHandle_impl& handle = user_handle.getImpl();
   int n_sampled_rows = 0;
-  if(this->rf_params.bootstrap){
+  if (this->rf_params.bootstrap) {
     n_sampled_rows = this->rf_params.rows_sample * n_rows;
   } else {
-    if(this->rf_params.rows_sample != 1.0) {
-      CUML_LOG_WARN("If bootstrap sampling is disabled, rows_sample value is "
-                    "ignored and whole dataset is used for building each tree");
+    if (this->rf_params.rows_sample != 1.0) {
+      CUML_LOG_WARN(
+        "If bootstrap sampling is disabled, rows_sample value is ignored and "
+        "whole dataset is used for building each tree");
       this->rf_params.rows_sample = 1.0;
     }
     n_sampled_rows = n_rows;
@@ -435,12 +436,13 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
 
   const cumlHandle_impl& handle = user_handle.getImpl();
   int n_sampled_rows = 0;
-  if(this->rf_params.bootstrap){
+  if (this->rf_params.bootstrap) {
     n_sampled_rows = this->rf_params.rows_sample * n_rows;
   } else {
-    if(this->rf_params.rows_sample != 1.0) {
-      CUML_LOG_WARN("If bootstrap sampling is disabled, rows_sample value is "
-                    "ignored and whole dataset is used for building each tree");
+    if (this->rf_params.rows_sample != 1.0) {
+      CUML_LOG_WARN(
+        "If bootstrap sampling is disabled, rows_sample value is ignored and "
+        "whole dataset is used for building each tree");
     }
     n_sampled_rows = n_rows;
   }
