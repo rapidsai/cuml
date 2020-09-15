@@ -79,8 +79,11 @@ class SparseCumlArray:
             raise ValueError("A sparse matrix is expected as input. "
                              "Received %s" % type(data))
 
-        if not isinstance(data, (cpx.scipy.sparse.csr_matrix,
-                                 scipy.sparse.csr_matrix)):
+        check_classes = [cpx.scipy.sparse.csr_matrix]
+        if has_scipy():
+            check_classes.append(scipy.sparse.csr_matrix)
+
+        if not isinstance(data, tuple(check_classes)):
             if convert_format:
                 data = data.tocsr()  # currently only CSR is supported
             else:
