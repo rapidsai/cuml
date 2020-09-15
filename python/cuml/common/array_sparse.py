@@ -58,38 +58,40 @@ class SparseCumlArray:
         Shape of the array
     nnz : int
         Number of nonzeros in underlying arrays
-    has_sorted_indices : bool
-        Whether column indices and data are sorted by column
     """
 
     @with_cupy_rmm
-    def __init__(self, data=None, dtype=None):
+    def __init__(self, data=None, convert_to_dtype=False, convert_index=np.int32,
+                 convert_format=False):
         if not cpx.scipy.sparse.isspmatrix(data) and \
                 not (has_scipy() and scipy.sparse.isspmatrix(data)):
             raise ValueError("A sparse matrix is expected as input. "
                              "Received %s" % type(data))
 
-        data = data.tocsr()  # currently only CSR is supported
+        if not isinstance(data, (cpx.scipy.sparse.csr_matrix, scipy.sparse.csr_matrix)):
+            if convert_format:
+                data = data.tocsr()  # currently only CSR is supported
+            else:
+                raise ValueError("Expected CSR matrix but received %s" % type(data))
 
         # Note: Only 32-bit indexing is supported currently.
         # In CUDA11, Cusparse provides 64-bit function calls
         # but these are not yet used in RAFT/Cuml
         self.indptr, _, _, _ = input_to_cuml_array(data.indptr,
-                                                   check_dtype=False,
-                                                   convert_to_dtype=np.int32)
+                                                   check_dtype=convert_index,
+                                                   convert_to_dtype=convert_index)
 
         self.indices, _, _, _ = input_to_cuml_array(data.indices,
-                                                    check_dtype=False,
-                                                    convert_to_dtype=np.int32)
+                                                    check_dtype=convert_index,
+                                                    convert_to_dtype=convert_index)
 
         self.data, _, _, _ = input_to_cuml_array(data.data,
-                                                 check_dtype=False,
-                                                 convert_to_dtype=dtype)
+                                                 check_dtype=data.dtype,
+                                                 convert_to_dtype=convert_to_dtype)
 
         self.shape = data.shape
         self.dtype = self.data.dtype
         self.nnz = data.nnz
-        self.has_sorted_indices = data.has_sorted_indices
 
     @with_cupy_rmm
     def to_output(self, output_type='cupy',
@@ -127,11 +129,10 @@ class SparseCumlArray:
         if output_type == 'cupy':
             constructor = cpx.scipy.sparse.csr_matrix
 
-        elif output_type == 'scipy' and has_scipy():
-            if has_scipy():
+        elif output_type == 'scipy' and has_scipy(raise_if_unavailable=True):
                 constructor = scipy.sparse.csr_matrix
-            else:
-                raise ValueError("Scipy library is not available.")
+        else:
+            raise ValueError("Unsupported output_type: %s" % output_type)
 
         ret = constructor((data, indices, indptr),
                           dtype=output_dtype, shape=self.shape)
