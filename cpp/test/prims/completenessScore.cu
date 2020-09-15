@@ -73,7 +73,7 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
     MLCommon::updateDevice(truthClusterArray, &arr1[0], (int)nElements, stream);
     MLCommon::updateDevice(predClusterArray, &arr2[0], (int)nElements, stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new defaultDeviceAllocator);
+      new raft::mr::device::default_allocator);
 
     //calculating the golden output
     double truthMI, truthEntropy;

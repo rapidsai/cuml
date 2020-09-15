@@ -189,7 +189,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
                     params.bootstrap_features, params.split_criterion, false);
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
                       params.rows_sample, -1, params.n_streams, tree_params);
-    handle.reset(new cumlHandle(rf_params.n_streams));
+    handle.reset(new raft::handle_t(rf_params.n_streams));
 
     data_len = params.n_rows * params.n_cols;
     inference_data_len = params.n_inference_rows * params.n_cols;
@@ -204,7 +204,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     ref_predicted_labels.resize(params.n_inference_rows);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle->setStream(stream);
+    handle->set_stream(stream);
 
     forest = new typename ML::RandomForestMetaData<T, L>;
     null_trees_ptr(forest);
@@ -268,7 +268,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   int inference_data_len;
 
   cudaStream_t stream;
-  std::shared_ptr<cumlHandle> handle;
+  std::shared_ptr<raft::handle_t> handle;
   std::vector<float> treelite_predicted_labels;
   std::vector<float> ref_predicted_labels;
   std::vector<ML::RandomForestMetaData<T, L> *> all_forest_info;
@@ -308,14 +308,13 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
     // Generate noise.
     r.uniform(temp_label_d, this->params.n_rows, T(0.0), T(10.0), this->stream);
 
-    LinAlg::transpose<float>(
-      this->data_d, temp_data_d, this->params.n_rows, this->params.n_cols,
-      this->handle->getImpl().getCublasHandle(), this->stream);
+    LinAlg::transpose<float>(this->data_d, temp_data_d, this->params.n_rows,
+                             this->params.n_cols,
+                             this->handle->get_cublas_handle(), this->stream);
 
     LinAlg::gemv<float>(temp_data_d, this->params.n_cols, this->params.n_rows,
                         weight, temp_label_d, true, 1.f, 1.f,
-                        this->handle->getImpl().getCublasHandle(),
-                        this->stream);
+                        this->handle->get_cublas_handle(), this->stream);
 
     temp_label_h.resize(this->params.n_rows);
     updateHost(temp_label_h.data(), temp_label_d, this->params.n_rows,
@@ -395,14 +394,13 @@ class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
     r.uniform(this->labels_d, this->params.n_rows, T(0.0), T(10.0),
               this->stream);
 
-    LinAlg::transpose<float>(
-      this->data_d, temp_data_d, this->params.n_rows, this->params.n_cols,
-      this->handle->getImpl().getCublasHandle(), this->stream);
+    LinAlg::transpose<float>(this->data_d, temp_data_d, this->params.n_rows,
+                             this->params.n_cols,
+                             this->handle->get_cublas_handle(), this->stream);
 
     LinAlg::gemv<float>(temp_data_d, this->params.n_cols, this->params.n_rows,
                         weight, this->labels_d, true, 1.f, 1.f,
-                        this->handle->getImpl().getCublasHandle(),
-                        this->stream);
+                        this->handle->get_cublas_handle(), this->stream);
 
     this->labels_h.resize(this->params.n_rows);
     updateHost(this->labels_h.data(), this->labels_d, this->params.n_rows,

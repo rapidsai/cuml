@@ -472,7 +472,7 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
      */
     device_buffer<int> y_normalized(allocator, stream, n_index_rows);
     MLCommon::Label::make_monotonic(y_normalized.data(), y[i], n_index_rows,
-                                    stream);
+                                    stream, allocator);
     MLCommon::LinAlg::unaryOp<int>(
       y_normalized.data(), y_normalized.data(), n_index_rows,
       [] __device__(int input) { return input - 1; }, stream);

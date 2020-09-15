@@ -48,7 +48,7 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
   void SetUp() override {
     params = ::testing::TestWithParam<SWoRInputs<T>>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocator.reset(new defaultDeviceAllocator);
+    allocator.reset(new raft::mr::device::default_allocator);
     Rng r(params.seed, params.gtype);
     allocate(in, params.len);
     allocate(wts, params.len);

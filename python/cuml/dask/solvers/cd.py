@@ -17,7 +17,7 @@ from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
-from cuml.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import worker_state
 
 
 class CD(BaseEstimator,

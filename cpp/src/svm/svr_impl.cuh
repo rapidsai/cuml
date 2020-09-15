@@ -25,7 +25,7 @@
 #include <cublas_v2.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -43,7 +43,7 @@ namespace ML {
 namespace SVM {
 
 template <typename math_t>
-void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
+void svrFit(const raft::handle_t &handle, math_t *X, int n_rows, int n_cols,
             math_t *y, const svmParameter &param,
             MLCommon::Matrix::KernelParams &kernel_params,
             svmModel<math_t> &model, const math_t *sample_weight) {
@@ -55,12 +55,12 @@ void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
   // KernelCache could use multiple streams, not implemented currently
   // See Issue #948.
   //ML::detail::streamSyncer _(handle_impl.getImpl());
-  const cumlHandle_impl &handle_impl = handle.getImpl();
+  const raft::handle_t &handle_impl = handle;
 
-  cudaStream_t stream = handle_impl.getStream();
+  cudaStream_t stream = handle_impl.get_stream();
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel =
     MLCommon::Matrix::KernelFactory<math_t>::create(
-      kernel_params, handle_impl.getCublasHandle());
+      kernel_params, handle_impl.get_cublas_handle());
 
   SmoSolver<math_t> smo(handle_impl, param, kernel);
   smo.Solve(X, n_rows, n_cols, y, sample_weight, &(model.dual_coefs),
