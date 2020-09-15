@@ -173,9 +173,7 @@ struct forest_params_t {
   int num_nodes;
   // maximum depth; ignored for sparse forests
   int depth;
-  // ntrees is the number of trees in the FIL forest.
-  // when importing xgboost-style models, this will be the
-  // source number of trees divided by the number of classes.
+  // ntrees is the number of trees
   int num_trees;
   // num_cols is the number of columns in the data
   int num_cols;

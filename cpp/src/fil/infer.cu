@@ -179,8 +179,8 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, UNARY_BINARY> {
                                                void* shared_workspace, size_t)
     : tmp_storage(shared_workspace) {}
 
-  __device__ __forceinline__ void accumulate(vec<NITEMS, float> single_tree_prediction,
-                                             int tree) {
+  __device__ __forceinline__ void accumulate(
+    vec<NITEMS, float> single_tree_prediction, int tree) {
     acc += single_tree_prediction;
   }
 
@@ -205,7 +205,8 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, FEWER_THAN_THREADS> {
   int num_classes;
 
   static size_t smem_finalize_footprint(int num_classes) {
-    size_t phase1 = (FIL_TPB - FIL_TPB % num_classes) * sizeof(vec<NITEMS, float>);
+    size_t phase1 =
+      (FIL_TPB - FIL_TPB % num_classes) * sizeof(vec<NITEMS, float>);
     size_t phase2 =
       sizeof(typename BlockReduceHostMultiClass<NITEMS>::TempStorage);
     return std::max(phase1, phase2);
@@ -217,14 +218,14 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, FEWER_THAN_THREADS> {
                                                void* shared_workspace, size_t)
     : tmp_storage(shared_workspace), num_classes(num_classes_) {}
 
-  __device__ __forceinline__ void accumulate(vec<NITEMS, float> single_tree_prediction,
-                                             int tree) {
+  __device__ __forceinline__ void accumulate(
+    vec<NITEMS, float> single_tree_prediction, int tree) {
     acc += single_tree_prediction;
   }
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs) {
-    __syncthreads(); // free up input row
+    __syncthreads();  // free up input row
     // load margin into shared memory
     best_margin_label<NITEMS> best;
     vec<NITEMS, float>* per_thread = (vec<NITEMS, float>*)tmp_storage;
@@ -277,16 +278,16 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, MORE_THAN_THREADS> {
                                                void* shared_workspace,
                                                size_t data_row_size)
     : tmp_storage(shared_workspace),
-      per_class_margin((vec<NITEMS, float>*)((char*)shared_workspace + data_row_size)),
+      per_class_margin(
+        (vec<NITEMS, float>*)((char*)shared_workspace + data_row_size)),
       num_classes(num_classes_) {
-
     for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
       per_class_margin[c].fill(0.0f);
     //__syncthreads(); // done in the main loop
   }
 
-  __device__ __forceinline__ void accumulate(vec<NITEMS, float> single_tree_prediction,
-                                             int tree) {
+  __device__ __forceinline__ void accumulate(
+    vec<NITEMS, float> single_tree_prediction, int tree) {
     // since threads are assigned to consecutive classes, no need for atomics
     per_class_margin[tree % num_classes] += single_tree_prediction;
     //__syncthreads(); // done in the main loop
@@ -310,7 +311,7 @@ struct tree_aggregator_t<NITEMS, FLOAT_SCALAR, MORE_THAN_THREADS> {
     // find best class per block (for each of the NITEMS rows)
     typedef BlockReduceMultiClass<NITEMS> BlockReduceT;
     best = BlockReduceT(*(typename BlockReduceT::TempStorage*)tmp_storage)
-      .Reduce(best, best, blockDim.x);
+             .Reduce(best, best, blockDim.x);
     // write it out to global memory
     if (threadIdx.x == 0) {
       for (int i = 0; i < NITEMS; ++i) {
@@ -496,8 +497,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
   }
   int num_blocks = ceildiv(int(params.num_rows), num_items);
   int blockdim_x = FIL_TPB;
-  if (mcm == FEWER_THAN_THREADS)
-    blockdim_x -= blockdim_x % params.num_classes;
+  if (mcm == FEWER_THAN_THREADS) blockdim_x -= blockdim_x % params.num_classes;
   switch (num_items) {
     case 1:
       infer_k<1, leaf_payload_type, mcm>
