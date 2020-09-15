@@ -89,7 +89,7 @@ class SparseCumlArray:
                      'Data will be converted to CSR, but this will require '
                      'additional memory copies. If this conversion is not '
                      'desired, set set_convert_format=False to raise an '
-                     'exception instead.')
+                     'exception instead.' % type(data))
                 data = data.tocsr()  # currently only CSR is supported
             else:
                 raise ValueError("Expected CSR matrix but received %s"
