@@ -95,7 +95,7 @@ def has_scipy(raise_if_unavailable=False):
         import scipy   # NOQA
         return True
     except ImportError:
-        if raise_if_unavailable:
+        if not raise_if_unavailable:
             return False
         else:
             raise ImportError("Scipy is not available.")
