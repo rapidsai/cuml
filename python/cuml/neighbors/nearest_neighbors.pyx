@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import numpy as np
 import cupy as cp
@@ -37,7 +34,7 @@ from cuml.common import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
 
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -51,22 +48,11 @@ from libcpp.vector cimport vector
 from numba import cuda
 import rmm
 
-cimport cuml.common.handle
 cimport cuml.common.cuda
 
 
 if has_scipy():
     import scipy.sparse
-
-cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
-    cdef cppclass deviceAllocator:
-        pass
-
-    cdef cppclass cumlHandle:
-        cumlHandle() except +
-        void setStream(cuml.common.cuda._Stream s) except +
-        void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
-        cuml.common.cuda._Stream getStream() except +
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
@@ -85,7 +71,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         METRIC_Correlation
 
     void brute_force_knn(
-        cumlHandle &handle,
+        handle_t &handle,
         vector[float*] &inputs,
         vector[int] &sizes,
         int D,
@@ -102,7 +88,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     ) except +
 
 cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
-    void brute_force_knn(cumlHandle &handle,
+    void brute_force_knn(handle_t &handle,
                          const int *idxIndptr,
                          const int *idxIndices,
                          const float *idxData,
@@ -137,8 +123,8 @@ class NearestNeighbors(Base):
         Default number of neighbors to query
     verbose : int or boolean (default = False)
         Logging level
-    handle : cumlHandle
-        The cumlHandle resources to use
+    handle : handle_t
+        The handle_t resources to use
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.
     metric : string (default='euclidean').
@@ -268,7 +254,7 @@ class NearestNeighbors(Base):
         if cupyx.scipy.sparse.isspmatrix(X) or \
             (has_scipy() and scipy.sparse.isspmatrix(X)):
 
-            self._X_m = SparseCumlArray(X, dtype=cp.float32)
+            self._X_m = SparseCumlArray(X, convert_to_dtype=cp.float32, convert_format=False)
             self.n_rows = self._X_m.shape[0]
 
         else:
@@ -463,9 +449,6 @@ class NearestNeighbors(Base):
         cdef uintptr_t I_ptr = I_ndarr.ptr
         cdef uintptr_t D_ptr = D_ndarr.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-
         cdef vector[float*] *inputs = new vector[float*]()
         cdef vector[int] *sizes = new vector[int]()
 
@@ -473,6 +456,7 @@ class NearestNeighbors(Base):
         inputs.push_back(<float*>idx_ptr)
         sizes.push_back(<int>self._X_m.shape[0])
 
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t x_ctype_st = X_m.ptr
 
         brute_force_knn(
@@ -508,7 +492,8 @@ class NearestNeighbors(Base):
         if self.algo_params is not None and "batch_size_query" in self.algo_params:
             batch_size_query = self.algo_params['batch_size_query']
 
-        X_m = SparseCumlArray(X, dtype=cp.float32)
+        X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
+                              convert_format=False)
         metric, expanded = self._build_metric_type(self.metric)
 
         cdef uintptr_t idx_indptr = self._X_m.indptr.ptr
@@ -529,7 +514,7 @@ class NearestNeighbors(Base):
         cdef uintptr_t I_ptr = I_ndarr.ptr
         cdef uintptr_t D_ptr = D_ndarr.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         brute_force_knn(handle_[0],
                         <int*> idx_indptr,
@@ -653,8 +638,8 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     verbose : int or boolean (default = False)
         Logging level
 
-    handle : cumlHandle
-        The cumlHandle resources to use
+    handle : handle_t
+        The handle_t resources to use
 
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.

@@ -16,7 +16,7 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <linalg/cusolver_wrappers.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <test_utils.h>
 #include <matrix/matrix.cuh>
 #include <solver/sgd.cuh>
@@ -77,17 +77,16 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     MLCommon::Functions::penalty pen = MLCommon::Functions::penalty::NONE;
     int n_iter_no_change = 10;
 
-    sgdFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef,
-           &intercept, fit_intercept, params.batch_size, epochs, lr_type, lr,
-           power_t, loss, pen, alpha, l1_ratio, shuffle, tol, n_iter_no_change,
-           stream);
+    sgdFit(handle, data, params.n_row, params.n_col, labels, coef, &intercept,
+           fit_intercept, params.batch_size, epochs, lr_type, lr, power_t, loss,
+           pen, alpha, l1_ratio, shuffle, tol, n_iter_no_change, stream);
 
     fit_intercept = true;
     intercept2 = T(0);
-    sgdFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef2,
-           &intercept2, fit_intercept, params.batch_size, epochs,
-           ML::lr_type::CONSTANT, lr, power_t, loss, pen, alpha, l1_ratio,
-           shuffle, tol, n_iter_no_change, stream);
+    sgdFit(handle, data, params.n_row, params.n_col, labels, coef2, &intercept2,
+           fit_intercept, params.batch_size, epochs, ML::lr_type::CONSTANT, lr,
+           power_t, loss, pen, alpha, l1_ratio, shuffle, tol, n_iter_no_change,
+           stream);
   }
 
   void logisticRegressionTest() {
@@ -130,12 +129,12 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     MLCommon::Functions::penalty pen = MLCommon::Functions::penalty::NONE;
     int n_iter_no_change = 10;
 
-    sgdFit(handle.getImpl(), data_logreg, params.n_row2, params.n_col2,
-           labels_logreg, coef_class, &intercept_class, fit_intercept,
-           params.batch_size, epochs, lr_type, lr, power_t, loss, pen, alpha,
-           l1_ratio, shuffle, tol, n_iter_no_change, stream);
+    sgdFit(handle, data_logreg, params.n_row2, params.n_col2, labels_logreg,
+           coef_class, &intercept_class, fit_intercept, params.batch_size,
+           epochs, lr_type, lr, power_t, loss, pen, alpha, l1_ratio, shuffle,
+           tol, n_iter_no_change, stream);
 
-    sgdPredictBinaryClass(handle.getImpl(), data_logreg_test, params.n_row2,
+    sgdPredictBinaryClass(handle, data_logreg_test, params.n_row2,
                           params.n_col2, coef_class, intercept_class, pred_log,
                           loss, stream);
 
@@ -182,12 +181,12 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     MLCommon::Functions::penalty pen = MLCommon::Functions::penalty::L2;
     int n_iter_no_change = 10;
 
-    sgdFit(handle.getImpl(), data_svmreg, params.n_row2, params.n_col2,
-           labels_svmreg, coef_class, &intercept_class, fit_intercept,
-           params.batch_size, epochs, lr_type, lr, power_t, loss, pen, alpha,
-           l1_ratio, shuffle, tol, n_iter_no_change, stream);
+    sgdFit(handle, data_svmreg, params.n_row2, params.n_col2, labels_svmreg,
+           coef_class, &intercept_class, fit_intercept, params.batch_size,
+           epochs, lr_type, lr, power_t, loss, pen, alpha, l1_ratio, shuffle,
+           tol, n_iter_no_change, stream);
 
-    sgdPredictBinaryClass(handle.getImpl(), data_svmreg_test, params.n_row2,
+    sgdPredictBinaryClass(handle, data_svmreg_test, params.n_row2,
                           params.n_col2, coef_class, intercept_class, pred_svm,
                           loss, stream);
 
@@ -196,7 +195,7 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
 
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.setStream(stream);
+    handle.set_stream(stream);
     linearRegressionTest();
     logisticRegressionTest();
     svmTest();
@@ -231,7 +230,7 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
   T *pred_svm, *pred_svm_ref, *pred_log, *pred_log_ref;
   T intercept, intercept2;
   cudaStream_t stream;
-  cumlHandle handle;
+  raft::handle_t handle;
 };
 
 const std::vector<SgdInputs<float>> inputsf2 = {{0.01f, 4, 2, 4, 3, 2}};

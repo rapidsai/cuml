@@ -142,7 +142,8 @@ TEST_P(CSRSum, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
+  std::shared_ptr<deviceAllocator> alloc(
+    new raft::mr::device::default_allocator);
 
   int *ex_scan, *ind_ptr_a, *ind_ptr_b, *verify_indptr;
   float *in_vals_a, *in_vals_b, *verify;
@@ -283,7 +284,8 @@ TEST_P(WeakCCTest, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
+  std::shared_ptr<deviceAllocator> alloc(
+    new raft::mr::device::default_allocator);
   int *row_ind, *row_ind_ptr, *result, *verify;
 
   int row_ind_h1[3] = {0, 3, 6};

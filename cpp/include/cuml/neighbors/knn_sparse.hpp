@@ -25,7 +25,7 @@
 namespace ML {
 namespace Sparse {
 
-void brute_force_knn(cumlHandle &handle, const int *idxIndptr,
+void brute_force_knn(raft::handle_t &handle, const int *idxIndptr,
                      const int *idxIndices, const float *idxData, size_t idxNNZ,
                      int n_idx_rows, int n_idx_cols, const int *queryIndptr,
                      const int *queryIndices, const float *queryData,

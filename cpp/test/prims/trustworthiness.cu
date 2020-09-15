@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <cuda_utils.cuh>
 #include <distance/distance.cuh>
@@ -415,7 +416,7 @@ class TrustworthinessScoreTest : public ::testing::Test {
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    allocator.reset(new defaultDeviceAllocator);
+    allocator.reset(new raft::mr::device::default_allocator);
 
     float* d_X = (float*)allocator->allocate(X.size() * sizeof(float), stream);
     float* d_X_embedded =

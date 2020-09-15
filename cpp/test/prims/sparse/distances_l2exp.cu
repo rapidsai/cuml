@@ -16,6 +16,8 @@
 
 #include <common/cudart_utils.h>
 #include <cusparse_v2.h>
+#include <common/device_buffer.hpp>
+
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <sparse/distances.cuh>
@@ -79,7 +81,7 @@ class L2DistancesTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       L2DistancesInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
+    std::shared_ptr<deviceAllocator> alloc(new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));

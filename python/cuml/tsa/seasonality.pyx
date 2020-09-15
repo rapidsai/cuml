@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import numpy as np
@@ -26,7 +23,7 @@ from libcpp cimport bool
 import cuml
 from cuml.common.array import CumlArray as cumlArray
 from cuml.common.base import _input_to_type
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common.input_utils import input_to_host_array, input_to_cuml_array
 
 # TODO: #2234 and #2235

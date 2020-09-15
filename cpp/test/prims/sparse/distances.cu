@@ -79,7 +79,7 @@ class DistancesTest
   void SetUp() override {
     params =
       ::testing::TestWithParam<DistancesInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
+    std::shared_ptr<deviceAllocator> alloc(new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));

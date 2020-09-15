@@ -17,6 +17,8 @@
 #include <common/cudart_utils.h>
 #include <cusparse_v2.h>
 #include <gtest/gtest.h>
+#include <common/device_buffer.hpp>
+
 #include <raft/sparse/cusparse_wrappers.h>
 #include <test_utils.h>
 #include <cuml/common/logger.hpp>
@@ -94,7 +96,7 @@ class SparseKNNTest
   void SetUp() override {
     params =
       ::testing::TestWithParam<KNNInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
+    std::shared_ptr<deviceAllocator> alloc(new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));

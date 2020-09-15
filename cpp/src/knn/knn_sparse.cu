@@ -26,7 +26,7 @@
 namespace ML {
 namespace Sparse {
 
-void brute_force_knn(cumlHandle &handle, const int *idxIndptr,
+void brute_force_knn(raft::handle_t &handle, const int *idxIndptr,
                      const int *idxIndices, const float *idxData, size_t idxNNZ,
                      int n_idx_rows, int n_idx_cols, const int *queryIndptr,
                      const int *queryIndices, const float *queryData,
@@ -35,9 +35,9 @@ void brute_force_knn(cumlHandle &handle, const int *idxIndptr,
                      size_t batch_size_index,  // approx 1M
                      size_t batch_size_query, ML::MetricType metric,
                      float metricArg, bool expanded_form) {
-  std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
-  cusparseHandle_t cusparse_handle = handle.getImpl().getcusparseHandle();
-  cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.get_device_allocator();
+  cusparseHandle_t cusparse_handle = handle.get_cusparse_handle();
+  cudaStream_t stream = handle.get_stream();
 
   MLCommon::Sparse::Selection::brute_force_knn(
     idxIndptr, idxIndices, idxData, idxNNZ, n_idx_rows, n_idx_cols, queryIndptr,

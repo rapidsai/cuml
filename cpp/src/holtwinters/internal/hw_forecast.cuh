@@ -61,12 +61,12 @@ __global__ void holtwinters_level_forecast_kernel(Dtype *forecast, int h,
 }
 
 template <typename Dtype>
-void holtwinters_forecast_gpu(const ML::cumlHandle_impl &handle,
-                              Dtype *forecast, int h, int batch_size,
-                              int frequency, const Dtype *level_coef,
-                              const Dtype *trend_coef, const Dtype *season_coef,
+void holtwinters_forecast_gpu(const raft::handle_t &handle, Dtype *forecast,
+                              int h, int batch_size, int frequency,
+                              const Dtype *level_coef, const Dtype *trend_coef,
+                              const Dtype *season_coef,
                               ML::SeasonalType seasonal) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
 
   int total_blocks = GET_NUM_BLOCKS(batch_size);
   int threads_per_block = GET_THREADS_PER_BLOCK(batch_size);
