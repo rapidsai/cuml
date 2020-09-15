@@ -32,7 +32,8 @@ class SparseCumlArray:
     accept either a Scipy or Cupy sparse array and construct CumlArrays
     out of the underlying index and data arrays. Currently, this class
     only supports the CSR array format and input in any other sparse
-    format will be converted to CSR.
+    format will be converted to CSR by default. Set `convert_format=False`
+    to disable automatic conversion to CSR.
 
     Parameters
     ----------
@@ -85,9 +86,10 @@ class SparseCumlArray:
         if not isinstance(data, tuple(check_classes)):
             if convert_format:
                 warn('Received sparse matrix in %s format but CSR is expected.'
-                     'Data will be converted to CSR, but this will require additional'
-                     'memory copies. If this conversion is not desired, set'
-                     'set_convert_format=False to raise an exception instead.')
+                     'Data will be converted to CSR, but this will require '
+                     'additional memory copies. If this conversion is not '
+                     'desired, set set_convert_format=False to raise an '
+                     'exception instead.')
                 data = data.tocsr()  # currently only CSR is supported
             else:
                 raise ValueError("Expected CSR matrix but received %s"
@@ -153,7 +155,6 @@ class SparseCumlArray:
 
         if output_type == 'cupy':
             constructor = cpx.scipy.sparse.csr_matrix
-
         elif output_type == 'scipy' and has_scipy(raise_if_unavailable=True):
             constructor = scipy.sparse.csr_matrix
         else:
