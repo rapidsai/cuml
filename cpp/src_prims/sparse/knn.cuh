@@ -117,7 +117,7 @@ __global__ void iota_fill_kernel(value_idx *indices, value_idx nrows,
 
   value_idx i = index / ncols, j = index % ncols;
 
-  if (i < nrows && j < ncols) indices[nrows * j + i] = j;
+  if (i < nrows && j < ncols) indices[i * ncols + j] = j;
 }
 
 /**
@@ -140,16 +140,11 @@ void brute_force_knn(
   value_idx n_query_rows, value_idx n_query_cols, value_idx *output_indices,
   value_t *output_dists, int k, cusparseHandle_t cusparseHandle,
   std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
-  size_t batch_size_index = 2 << 20,  // approx 1M
-  size_t batch_size_query = 2 << 20,
+  size_t batch_size_index = 2 << 14,  // approx 1M
+  size_t batch_size_query = 2 << 14,
   ML::MetricType metric = ML::MetricType::METRIC_L2, float metricArg = 0,
   bool expanded_form = false) {
   using namespace raft::sparse;
-
-  // TODO: Pass this in
-  cublasHandle_t cublasHandle;
-  cublasCreate(&cublasHandle);
-
 
   bool ascending = true;
   if (metric == ML::MetricType::METRIC_INNER_PRODUCT) ascending = false;
@@ -295,7 +290,6 @@ void brute_force_knn(
       csc_idx_batch_indices.release(stream);
       csc_idx_batch_data.release(stream);
 
-
       // Build batch indices array
       device_buffer<value_idx> batch_indices(allocator, stream,
                                              batch_dists.size());
@@ -307,14 +301,9 @@ void brute_force_knn(
                          stream>>>(batch_indices.data(), batch_rows,
                                    batch_cols);
 
-//      std::cout << arr2Str(batch_dists.data(), batch_rows * batch_cols,
-//                           "batch_dists", stream) << std::endl;
-
-
       /**
        * Perform k-selection on batch & merge with other k-selections
        */
-
       CUML_LOG_DEBUG("Performing k-selection");
       size_t merge_buffer_offset = batch_rows * k;
       dists_merge_buffer_ptr = merge_buffer_dists.data() + merge_buffer_offset;
@@ -333,7 +322,7 @@ void brute_force_knn(
       // kernel to slice first (min) k cols and copy into batched merge buffer
       select_k(batch_dists.data(), batch_indices.data(), batch_rows, batch_cols,
                dists_merge_buffer_ptr, indices_merge_buffer_ptr, ascending,
-               n_neighbors, stream, 0);
+               n_neighbors, stream);
 
       // Perform necessary post-processing
       if ((metric == ML::MetricType::METRIC_L2 ||
@@ -404,8 +393,6 @@ void brute_force_knn(
 
     rows_processed += query_batcher.batch_rows();
   }
-
-  cublasDestroy(cublasHandle);
 }
 
 };  // END namespace Selection

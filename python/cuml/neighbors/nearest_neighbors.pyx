@@ -506,7 +506,7 @@ class NearestNeighbors(Base):
 
         batch_size_query = 10000
         if self.algo_params is not None and "batch_size_query" in self.algo_params:
-            batch_size_index = self.algo_params['batch_size_query']
+            batch_size_query = self.algo_params['batch_size_query']
 
         X_m = SparseCumlArray(X, dtype=cp.float32)
         metric, expanded = self._build_metric_type(self.metric)

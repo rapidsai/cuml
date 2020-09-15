@@ -97,7 +97,7 @@ struct ip_distances_t {
     csr_to_dense(config_.handle, config_.search_nrows, config_.index_nrows,
                  out_batch_indptr.data(), out_batch_indices.data(),
                  out_batch_data.data(), config_.search_nrows, out_distances,
-                 config_.stream);
+                 config_.stream, true);
 
 
   }
@@ -187,12 +187,12 @@ __global__ void compute_euclidean_kernel(value_t *C, const value_t *Q_sq_norms,
 
   // Cuda store row major.
   if (i < n_rows && j < n_cols) {
-	value_t val = R_sq_norms[j] + Q_sq_norms[i] - 2.0 * C[j * n_rows + i];
+	value_t val = Q_sq_norms[i] + R_sq_norms[j] - 2.0 * C[i * n_cols + j];
 
 	if(fabsf(val) < 0.0001)
 		val = 0.0;
 
-    C[j * n_rows + i] = val;
+    C[i * n_cols + j] = val;
   }
 }
 

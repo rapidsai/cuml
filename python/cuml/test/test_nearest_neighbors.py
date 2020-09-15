@@ -311,14 +311,14 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
 
 def test_sparse_nearest_neighbors_euclidean():
 
-    a = cp.sparse.random(50000, 15000, format='csr', density=0.01)
+    a = cp.sparse.random(50000, 400, format='csr', density=0.4)
 
     print("Created data")
 
     import time
     logger.set_level(logger.level_info)
-    nn = cuKNN(metric='euclidean', n_neighbors=500, verbose=logger.level_debug,
-               algo_params={"batch_size_index": 50000, "batch_size_query": 20000})
+    nn = cuKNN(metric='euclidean', n_neighbors=4, verbose=logger.level_debug,
+               algo_params={"batch_size_index": 20000, "batch_size_query": 20000})
     nn.fit(a)
 
     start = time.time()
@@ -326,7 +326,7 @@ def test_sparse_nearest_neighbors_euclidean():
 
     print("cuml Took: %f" % (time.time() - start))
 
-    sknn = skKNN(metric='euclidean', n_neighbors=500)
+    sknn = skKNN(metric='euclidean', n_neighbors=4, algorithm="brute", n_jobs=-1)
     sk_X = a.get()
     sknn.fit(sk_X)
 
