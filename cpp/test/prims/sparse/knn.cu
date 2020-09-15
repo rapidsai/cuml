@@ -96,7 +96,8 @@ class SparseKNNTest
   void SetUp() override {
     params =
       ::testing::TestWithParam<KNNInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<deviceAllocator> alloc(new raft::mr::device::default_allocator);
+    std::shared_ptr<deviceAllocator> alloc(
+      new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));
