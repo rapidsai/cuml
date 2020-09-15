@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -314,8 +311,7 @@ class TruncatedSVD(Base):
         y is currently ignored.
 
         """
-        self._set_output_type(X)
-        self._set_n_features_in(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])

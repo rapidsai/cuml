@@ -25,8 +25,8 @@
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 
-#include <linalg/cublas_wrappers.h>
 #include <linalg/transpose.h>
+#include <raft/linalg/cublas_wrappers.h>
 
 #include <test_utils.h>
 

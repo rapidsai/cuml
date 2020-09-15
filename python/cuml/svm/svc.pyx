@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -326,9 +323,7 @@ class SVC(SVMBase, ClassifierMixin):
         Fit the model with X and y.
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
-        self._set_target_dtype(y)
+        self._set_base_attributes(output_type=X, target_dtype=y, n_features=X)
 
         if self.probability:
             params = self.get_params()

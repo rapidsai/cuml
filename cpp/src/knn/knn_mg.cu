@@ -115,7 +115,7 @@ void broadcast_query(float *query, size_t batch_input_elms, int part_rank,
 
   try {
     comm.waitall(requests.size(), requests.data());
-  } catch (Exception &e) {
+  } catch (raft::exception &e) {
     std::cout << "FAILRE!" << std::endl;
   }
 }
@@ -181,7 +181,7 @@ void exchange_results(device_buffer<int64_t> &res_I,
 
   try {
     comm.waitall(requests.size(), requests.data());
-  } catch (Exception &e) {
+  } catch (raft::exception &e) {
     std::cout << "FAILURE!" << std::endl;
   }
 }

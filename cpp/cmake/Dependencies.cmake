@@ -38,8 +38,8 @@ else(DEFINED ENV{RAFT_PATH})
   set(RAFT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
 
   ExternalProject_Add(raft
-    GIT_REPOSITORY    https://github.com/divyegala/raft.git
-    GIT_TAG           016-imp-handle_get_alloc
+    GIT_REPOSITORY    https://github.com/rapidsai/raft.git
+    GIT_TAG           516106e3b515b25c863776fcc51fb12df6c0a186
     PREFIX            ${RAFT_DIR}
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
@@ -135,7 +135,7 @@ set(SPDLOG_DIR ${CMAKE_CURRENT_BINARY_DIR}/spdlog CACHE STRING
   "Path to spdlog install directory")
 ExternalProject_Add(spdlog
   GIT_REPOSITORY    https://github.com/gabime/spdlog.git
-  GIT_TAG           v1.x
+  GIT_TAG           v1.7.0
   PREFIX            ${SPDLOG_DIR}
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
@@ -269,4 +269,3 @@ add_dependencies(GTest::GTest spdlog)
 add_dependencies(benchmark GTest::GTest)
 add_dependencies(FAISS::FAISS benchmark)
 add_dependencies(FAISS::FAISS faiss)
-

@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import numpy as np
 import rmm
@@ -625,8 +622,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             input_to_cuml_array(preds, convert_to_dtype=dtype)
         preds_ptr = preds_m.ptr
 
-        cdef handle_t* handle_ =\
-            <handle_t*><uintptr_t>self.handle.getHandle()
         # shortcut for default accuracy metric of r^2
         if self.accuracy_metric == "r2":
             stats = r2_score(y_m, preds, handle=self.handle)
@@ -635,6 +630,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             del(preds_m)
             return stats
 
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest

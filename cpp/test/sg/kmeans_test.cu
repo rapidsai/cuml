@@ -87,6 +87,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
     T inertia = 0;
     int n_iter = 0;
+
     kmeans::fit_predict(handle, params, X.data(), n_samples, n_features,
                         d_sample_weight, d_centroids, d_labels, inertia,
                         n_iter);

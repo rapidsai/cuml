@@ -23,6 +23,8 @@ namespace ML {
 
 namespace kmeans {
 
+namespace impl {
+
 // Selects 'n_clusters' samples randomly from X
 template <typename DataT, typename IndexT>
 void initRandom(const raft::handle_t &handle, const KMeansParams &params,
@@ -459,8 +461,8 @@ void initScalableKMeansPlusPlus(
     KMeansParams default_params;
     default_params.n_clusters = params.n_clusters;
 
-    ML::kmeans::fit(handle, default_params, potentialCentroids, weight,
-                    centroidsRawData, inertia, n_iter, workspace);
+    ML::kmeans::impl::fit(handle, default_params, potentialCentroids, weight,
+                          centroidsRawData, inertia, n_iter, workspace);
 
   } else if (potentialCentroids.getSize(0) < n_clusters) {
     // supplement with random
@@ -780,5 +782,6 @@ void transform(const raft::handle_t &handle, const KMeansParams &params,
   }
 }
 
+};  // namespace impl
 };  // namespace kmeans
 };  // end namespace ML

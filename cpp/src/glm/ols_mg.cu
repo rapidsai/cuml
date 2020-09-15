@@ -101,9 +101,7 @@ void fit_impl(raft::handle_t &handle,
               Matrix::PartDescriptor &input_desc,
               std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
               bool fit_intercept, bool normalize, int algo, bool verbose) {
-  std::cout << "IN FIT";
   int rank = handle.get_comms().get_rank();
-  std::cout << "SHOULD BE HERE";
 
   // TODO: These streams should come from raft::handle_t
 

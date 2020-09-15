@@ -16,7 +16,7 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <linalg/cusolver_wrappers.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <cuda_utils.cuh>
 #include <iostream>
 #include <label/classlabels.cuh>

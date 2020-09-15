@@ -593,7 +593,7 @@ class TreeliteThrowSparse8FilTest : public TreeliteSparse8FilTest {
   // model import happens in check(), so this function is empty
   void SetUp() override {}
 
-  void check() { ASSERT_THROW(setup_helper(), MLCommon::Exception); }
+  void check() { ASSERT_THROW(setup_helper(), raft::exception); }
 };
 
 // rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,

@@ -204,7 +204,7 @@ class IncrementalPCA(PCA):
             Returns the instance itself.
         """
 
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X)
 
         self.n_samples_seen_ = 0
         self._mean_ = .0

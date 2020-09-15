@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -218,8 +215,7 @@ class LinearRegression(Base, RegressorMixin):
         Fit the model with X and y.
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         cdef uintptr_t X_ptr, y_ptr
         X_m, n_rows, self.n_cols, self.dtype = \

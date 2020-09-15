@@ -16,7 +16,7 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <test_utils.h>
 #include <cuda_utils.cuh>
 #include <cuml/common/logger.hpp>

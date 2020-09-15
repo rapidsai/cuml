@@ -15,10 +15,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import numpy as np
 import rmm
@@ -401,7 +398,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        self._set_target_dtype(y)
+        self._set_base_attributes(target_dtype=y)
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
