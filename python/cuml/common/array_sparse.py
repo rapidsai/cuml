@@ -40,8 +40,17 @@ class SparseCumlArray:
 
     data : scipy.sparse.spmatrix or cupyx.scipy.sparse.spmatrix
         A Scipy or Cupy sparse matrix
-    dtype : data-type, optional
+    convert_to_dtype : data-type or False, optional
         Any object that can be interpreted as a numpy or cupy data type.
+        Specifies whether to convert the data array to a different dtype.
+    convert_index : data-type or False (default: np.int32), optional
+        Any object that can be interpreted as a numpy or cupy data type.
+        Specifies whether to convert the indices to a different dtype. By
+        default, it is preferred to use 32-bit indexing.
+    convert_format : bool, optional (default: False)
+        Specifies whether to convert any non-CSR inputs to CSR. If False,
+        an exception is thrown.
+
 
     Attributes
     ----------
@@ -61,33 +70,43 @@ class SparseCumlArray:
     """
 
     @with_cupy_rmm
-    def __init__(self, data=None, convert_to_dtype=False, convert_index=np.int32,
+    def __init__(self, data=None,
+                 convert_to_dtype=False,
+                 convert_index=np.int32,
                  convert_format=False):
         if not cpx.scipy.sparse.isspmatrix(data) and \
                 not (has_scipy() and scipy.sparse.isspmatrix(data)):
             raise ValueError("A sparse matrix is expected as input. "
                              "Received %s" % type(data))
 
-        if not isinstance(data, (cpx.scipy.sparse.csr_matrix, scipy.sparse.csr_matrix)):
+        if not isinstance(data, (cpx.scipy.sparse.csr_matrix,
+                                 scipy.sparse.csr_matrix)):
             if convert_format:
                 data = data.tocsr()  # currently only CSR is supported
             else:
-                raise ValueError("Expected CSR matrix but received %s" % type(data))
+                raise ValueError("Expected CSR matrix but received %s"
+                                 % type(data))
+
+        if not convert_to_dtype:
+            convert_to_dtype = data.dtype
+
+        if not convert_index:
+            convert_index = data.indptr.dtype
 
         # Note: Only 32-bit indexing is supported currently.
         # In CUDA11, Cusparse provides 64-bit function calls
         # but these are not yet used in RAFT/Cuml
-        self.indptr, _, _, _ = input_to_cuml_array(data.indptr,
-                                                   check_dtype=convert_index,
-                                                   convert_to_dtype=convert_index)
+        self.indptr, _, _, _ = input_to_cuml_array(
+            data.indptr, check_dtype=convert_index,
+            convert_to_dtype=convert_index)
 
-        self.indices, _, _, _ = input_to_cuml_array(data.indices,
-                                                    check_dtype=convert_index,
-                                                    convert_to_dtype=convert_index)
+        self.indices, _, _, _ = input_to_cuml_array(
+            data.indices, check_dtype=convert_index,
+            convert_to_dtype=convert_index)
 
-        self.data, _, _, _ = input_to_cuml_array(data.data,
-                                                 check_dtype=data.dtype,
-                                                 convert_to_dtype=convert_to_dtype)
+        self.data, _, _, _ = input_to_cuml_array(
+            data.data, check_dtype=data.dtype,
+            convert_to_dtype=convert_to_dtype)
 
         self.shape = data.shape
         self.dtype = self.data.dtype
@@ -130,7 +149,7 @@ class SparseCumlArray:
             constructor = cpx.scipy.sparse.csr_matrix
 
         elif output_type == 'scipy' and has_scipy(raise_if_unavailable=True):
-                constructor = scipy.sparse.csr_matrix
+            constructor = scipy.sparse.csr_matrix
         else:
             raise ValueError("Unsupported output_type: %s" % output_type)
 
