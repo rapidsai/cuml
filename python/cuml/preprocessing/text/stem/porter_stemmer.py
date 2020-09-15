@@ -157,9 +157,9 @@ class PorterStemmer:
             SS   -> SS                         caress    ->  caress
             S    ->                            cats      ->  cat
         """
-
-        if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
+        can_replace_mask = build_can_replace_mask(
+            len_mask=len(word_str_ser), mask=can_replace_mask
+        )
 
         # this NLTK-only rule extends the original algorithm, so
         # that 'flies'->'fli' but 'dies'->'die' etc
@@ -227,8 +227,9 @@ class PorterStemmer:
         later. This E may be removed in step 4.
         """
 
-        if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
+        can_replace_mask = build_can_replace_mask(
+            len_mask=len(word_str_ser), mask=can_replace_mask
+        )
 
         # this NLTK-only block extends the original algorithm, so that
         # 'spied'->'spi' but 'died'->'die' etc
@@ -344,8 +345,9 @@ class PorterStemmer:
             (*v*) Y -> I                    happy        ->  happi
                                             sky          ->  sky
         """
-        if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
+        can_replace_mask = build_can_replace_mask(
+            len_mask=len(word_str_ser), mask=can_replace_mask
+        )
 
         def nltk_condition(stem):
             """
@@ -420,8 +422,9 @@ class PorterStemmer:
             (m>0) BILITI  ->  BLE       sensibiliti    ->  sensible
         """
 
-        if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
+        can_replace_mask = build_can_replace_mask(
+            len_mask=len(word_str_ser), mask=can_replace_mask
+        )
 
         if self.mode == "NLTK_EXTENSIONS":
             # Instead of applying the ALLI -> AL rule after '(a)bli' per
@@ -513,8 +516,9 @@ class PorterStemmer:
             (m>0) FUL   ->                  hopeful        ->  hope
             (m>0) NESS  ->                  goodness       ->  good
         """
-        if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
+        can_replace_mask = build_can_replace_mask(
+            len_mask=len(word_str_ser), mask=can_replace_mask
+        )
 
         return apply_rule_list(
             word_str_ser,
@@ -558,8 +562,9 @@ class PorterStemmer:
         The suffixes are now removed. All that remains is a little
         tidying up.
         """
-        if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
+        can_replace_mask = build_can_replace_mask(
+            len_mask=len(word_str_ser), mask=can_replace_mask
+        )
 
         def measure_gt_1(ser):
             return measure_gt_n(ser, 1)
@@ -608,9 +613,9 @@ class PorterStemmer:
             (m=1 and not *o) E ->           cease          ->  ceas
         """
 
-        if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
-
+        can_replace_mask = build_can_replace_mask(
+            len_mask=len(word_str_ser), mask=can_replace_mask
+        )
         # Note that Martin's test vocabulary and reference
         # implementations are inconsistent in how they handle the case
         # where two rules both refer to a suffix that matches the word
@@ -673,9 +678,9 @@ class PorterStemmer:
                                     roll           ->  roll
         """
 
-        if can_replace_mask is None:
-            can_replace_mask = cudf.Series(cp.ones(len(word_str_ser), np.bool))
-
+        can_replace_mask = build_can_replace_mask(
+            len_mask=len(word_str_ser), mask=can_replace_mask
+        )
         # word, [('ll', 'l', lambda stem: self._measure(word[:-1]) > 1)]
         # because here we are applying rule on word instead of stem
         # so, unlike nltk we don't use apply rules
@@ -799,3 +804,13 @@ def apply_rule_list(word_str_ser, rules, condition_flag):
         )
 
     return word_str_ser, condition_flag
+
+
+def build_can_replace_mask(len_mask, mask):
+    """
+      Creates a cudf series represeting can_replace_mask of length=len_mask
+      if mask is None else returns mask
+    """
+    if mask is None:
+        mask = cudf.Series(cp.ones(len_mask, dtype=cp.bool))
+    return mask
