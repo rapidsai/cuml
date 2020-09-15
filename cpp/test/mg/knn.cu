@@ -21,9 +21,9 @@
 #include "../prims/test_utils.h"
 #include "test_opg_utils.h"
 
-#include <raft/comms/mpi_comms.hpp>
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <raft/comms/mpi_comms.hpp>
 
 #include <common/cumlHandle.hpp>
 
@@ -58,8 +58,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
   }
 
   bool runTest(const KNNParams &params) {
-
-	std::cout << "Testing w/ handle: " << &handle << std::endl;
+    std::cout << "Testing w/ handle: " << &handle << std::endl;
 
     raft::comms::initialize_mpi_comms(&handle, MPI_COMM_WORLD);
     const auto &comm = handle.get_comms();

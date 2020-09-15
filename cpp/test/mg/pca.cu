@@ -132,7 +132,6 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
     Matrix::opg::deallocate(handle, inParts, desc, myRank, stream);
   }
 
-
  protected:
   PCAOpgParams params;
   raft::handle_t handle;

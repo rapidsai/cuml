@@ -16,16 +16,15 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
 #include <gtest/gtest.h>
 #include <mpi.h>
+#include <cuda_utils.cuh>
 
 #include <common/cumlHandle.hpp>
 
 namespace MLCommon {
 namespace Test {
 namespace opg {
-
 
 /**
  *
@@ -54,7 +53,6 @@ class MPIEnvironment : public ::testing::Environment {
 
   void TearDown() { MPI_Finalize(); }
 };
-
 
 };  // end namespace opg
 };  // end namespace Test
