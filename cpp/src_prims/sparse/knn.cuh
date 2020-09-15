@@ -55,20 +55,20 @@ struct csr_batcher_t {
       csr_indices_(csr_indices),
       csr_data_(csr_data),
       batch_csr_start_offset_(0),
-      batch_csr_stop_offset_(0) {
-  }
+      batch_csr_stop_offset_(0) {}
 
   void set_batch(int batch_num) {
     batch_start_ = batch_num * batch_size_;
-    batch_stop_ = batch_start_ + batch_size_-1; // zero-based indexing
+    batch_stop_ = batch_start_ + batch_size_ - 1;  // zero-based indexing
 
     if (batch_stop_ >= total_rows_)
-      batch_stop_ = total_rows_ - 1;	// zero-based indexing
+      batch_stop_ = total_rows_ - 1;  // zero-based indexing
 
     batch_rows_ = (batch_stop_ - batch_start_) + 1;
 
-    CUML_LOG_DEBUG("Setting batch. batch_start=%d, batch_stop=%d, batch_rows=%d",
-    		batch_start_, batch_stop_, batch_rows_);
+    CUML_LOG_DEBUG(
+      "Setting batch. batch_start=%d, batch_stop=%d, batch_rows=%d",
+      batch_start_, batch_stop_, batch_rows_);
   }
 
   value_idx get_batch_csr_indptr_nnz(value_idx *batch_indptr,
@@ -112,21 +112,19 @@ struct csr_batcher_t {
   value_idx batch_csr_stop_offset_;
 };
 
-template<typename value_idx>
-__global__ void iota_fill_warp_kernel(value_idx *indices,
-                                      value_idx ncols) {
+template <typename value_idx>
+__global__ void iota_fill_warp_kernel(value_idx *indices, value_idx ncols) {
   int row = blockIdx.x;
   int tid = threadIdx.x;
 
-  for(int i = tid; i < ncols; i += blockDim.x) {
+  for (int i = tid; i < ncols; i += blockDim.x) {
     indices[row * ncols + i] = i;
   }
 }
 
-template<typename value_idx>
+template <typename value_idx>
 void iota_fill(value_idx *indices, value_idx nrows, value_idx ncols,
                cudaStream_t stream) {
-
   int blockdim = block_dim(ncols);
 
   iota_fill_warp_kernel<<<nrows, blockdim, 0, stream>>>(indices, ncols);
@@ -169,7 +167,6 @@ void brute_force_knn(
   size_t rows_processed = 0;
 
   for (int i = 0; i < n_batches_query; i++) {
-
     /**
       * Compute index batch info
       */
@@ -208,7 +205,6 @@ void brute_force_knn(
       batch_size_index, n_idx_rows, idxIndptr, idxIndices, idxData);
 
     for (int j = 0; j < n_batches_idx; j++) {
-
       CUML_LOG_DEBUG("Beginning query batch %d", j);
       idx_batcher.set_batch(j);
 
@@ -233,7 +229,6 @@ void brute_force_knn(
 
       idx_batcher.get_batch_csr_indices_data(idx_batch_indices.data(),
                                              idx_batch_data.data(), stream);
-
 
       /**
        * Compute distances
@@ -326,7 +321,8 @@ void brute_force_knn(
           [p] __device__(value_t input) {
             int neg = input < 0 ? -1 : 1;
             return powf(fabs(input), p) * neg;
-          }, stream);
+          },
+          stream);
       }
 
       value_t *dists_merge_buffer_tmp_ptr = dists_merge_buffer_ptr;
@@ -334,7 +330,6 @@ void brute_force_knn(
 
       // Merge results of difference batches if necessary
       if (idx_batcher.batch_start() > 0) {
-
         device_buffer<value_idx> trans(allocator, stream, id_ranges.size());
         updateDevice(trans.data(), id_ranges.data(), id_ranges.size(), stream);
 
@@ -358,19 +353,22 @@ void brute_force_knn(
       CUML_LOG_DEBUG("Performing copy async");
 
       // copy merged output back into merge buffer partition for next iteration
-      copyAsync<value_idx>(merge_buffer_indices.data(), indices_merge_buffer_tmp_ptr,
-                batch_rows * k, stream);
+      copyAsync<value_idx>(merge_buffer_indices.data(),
+                           indices_merge_buffer_tmp_ptr, batch_rows * k,
+                           stream);
       copyAsync<value_t>(merge_buffer_dists.data(), dists_merge_buffer_tmp_ptr,
-                batch_rows * k, stream);
+                         batch_rows * k, stream);
 
       CUML_LOG_DEBUG("Done.");
     }
 
     // Copy final merged batch to output array
-    copyAsync<value_idx>(output_indices + (rows_processed * k), merge_buffer_indices.data(),
-              query_batcher.batch_rows() * k, stream);
-    copyAsync<value_t>(output_dists + (rows_processed * k), merge_buffer_dists.data(),
-              query_batcher.batch_rows() * k, stream);
+    copyAsync<value_idx>(output_indices + (rows_processed * k),
+                         merge_buffer_indices.data(),
+                         query_batcher.batch_rows() * k, stream);
+    copyAsync<value_t>(output_dists + (rows_processed * k),
+                       merge_buffer_dists.data(),
+                       query_batcher.batch_rows() * k, stream);
 
     rows_processed += query_batcher.batch_rows();
   }

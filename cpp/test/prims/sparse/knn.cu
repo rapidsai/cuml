@@ -19,8 +19,8 @@
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <test_utils.h>
-#include <sparse/knn.cuh>
 #include <cuml/common/logger.hpp>
+#include <sparse/knn.cuh>
 
 namespace MLCommon {
 namespace Sparse {
@@ -101,15 +101,14 @@ class SparseKNNTest
 
     k = 2;
 
-
     ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
     make_data();
 
-    brute_force_knn<value_idx, value_t>(
-      indptr, indices, data, 8, 4, 9, indptr, indices, data, 8, 4, 9,
-      out_indices, out_dists, k, cusparseHandle, alloc, stream, 2,
-      ML::MetricType::METRIC_L2);
+    brute_force_knn<value_idx, value_t>(indptr, indices, data, 8, 4, 9, indptr,
+                                        indices, data, 8, 4, 9, out_indices,
+                                        out_dists, k, cusparseHandle, alloc,
+                                        stream, 2, ML::MetricType::METRIC_L2);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }

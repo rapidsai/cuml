@@ -33,9 +33,8 @@ void brute_force_knn(cumlHandle &handle, const int *idxIndptr,
                      size_t queryNNZ, int n_query_rows, int n_query_cols,
                      int *output_indices, float *output_dists, int k,
                      size_t batch_size_index,  // approx 1M
-                     size_t batch_size_query,
-                     ML::MetricType metric, float metricArg,
-                     bool expanded_form) {
+                     size_t batch_size_query, ML::MetricType metric,
+                     float metricArg, bool expanded_form) {
   std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
   cusparseHandle_t cusparse_handle = handle.getImpl().getcusparseHandle();
   cudaStream_t stream = handle.getStream();

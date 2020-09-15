@@ -80,7 +80,6 @@ __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
 
   // Handle last remainder fraction of a warp of elements
   if (i < n_cols) {
-
     inKStart = inK + idx + i;
     inVStart = inV + idx + i;
     heap.addThreadQ(*inKStart, (*inVStart) + translation);

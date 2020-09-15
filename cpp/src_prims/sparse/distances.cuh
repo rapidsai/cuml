@@ -17,10 +17,10 @@
 #pragma once
 
 #include <common/cudart_utils.h>
+#include <sparse/utils.h>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <sparse/csr.cuh>
-#include <sparse/utils.h>
 
 #include <cusparse_v2.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -31,7 +31,6 @@ namespace Distance {
 
 template <typename value_idx, typename value_t>
 struct distances_config_t {
-
   // left side
   value_idx a_nrows;
   value_idx a_ncols;
@@ -47,7 +46,6 @@ struct distances_config_t {
   value_idx *b_indptr;
   value_idx *b_indices;
   value_t *b_data;
-
 
   cusparseHandle_t handle;
 
@@ -96,7 +94,6 @@ struct ip_distances_t {
     compute(out_batch_indptr.data(), out_batch_indices.data(),
             out_batch_data.data());
 
-
     /**
        * Convert output to dense
        */
@@ -104,23 +101,13 @@ struct ip_distances_t {
                  out_batch_indptr.data(), out_batch_indices.data(),
                  out_batch_data.data(), config_.a_nrows, out_distances,
                  config_.stream, true);
-
-
   }
 
-  value_idx *trans_indptr() {
-    return csc_indptr.data();
-  }
+  value_idx *trans_indptr() { return csc_indptr.data(); }
 
-  value_idx *trans_indices() {
-    return csc_indices.data();
-  }
+  value_idx *trans_indices() { return csc_indices.data(); }
 
-  value_t *trans_data() {
-    return csc_data.data();
-  }
-
-
+  value_t *trans_data() { return csc_data.data(); }
 
   ~ip_distances_t() {
     CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matA));
@@ -137,8 +124,7 @@ struct ip_distances_t {
   }
 
   value_idx get_nnz(value_idx *csr_out_indptr) {
-    value_idx m = config_.a_nrows, n = config_.b_nrows,
-              k = config_.a_ncols;
+    value_idx m = config_.a_nrows, n = config_.b_nrows, k = config_.a_ncols;
 
     transpose_b();
 
@@ -146,41 +132,36 @@ struct ip_distances_t {
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2_buffersizeext<value_t>(
       config_.handle, m, n, k, &alpha, NULL, matA, config_.a_nnz,
-      config_.a_indptr, config_.a_indices, matB,
-      config_.b_nnz, csc_indptr.data(), csc_indices.data(),
-      matD, 0, NULL, NULL, info, &workspace_size, config_.stream));
+      config_.a_indptr, config_.a_indices, matB, config_.b_nnz,
+      csc_indptr.data(), csc_indices.data(), matD, 0, NULL, NULL, info,
+      &workspace_size, config_.stream));
 
     workspace.resize(workspace_size, config_.stream);
 
     value_idx out_nnz = 0;
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2nnz(
-      config_.handle, m, n, k, matA, config_.a_nnz,
-      config_.a_indptr, config_.a_indices, matB,
-      config_.b_nnz, csc_indptr.data(), csc_indices.data(),
-      matD, 0, NULL, NULL, matC, csr_out_indptr, &out_nnz, info,
-      workspace.data(), config_.stream));
+      config_.handle, m, n, k, matA, config_.a_nnz, config_.a_indptr,
+      config_.a_indices, matB, config_.b_nnz, csc_indptr.data(),
+      csc_indices.data(), matD, 0, NULL, NULL, matC, csr_out_indptr, &out_nnz,
+      info, workspace.data(), config_.stream));
 
     return out_nnz;
   }
 
   void compute(const value_idx *csr_out_indptr, value_idx *csr_out_indices,
                value_t *csr_out_data) {
-    value_idx m = config_.a_nrows, n = config_.b_nrows,
-              k = config_.a_ncols;
+    value_idx m = config_.a_nrows, n = config_.b_nrows, k = config_.a_ncols;
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2<value_t>(
-      config_.handle, m, n, k, &alpha, matA, config_.a_nnz,
-      config_.a_data, config_.a_indptr,
-      config_.a_indices, matB, config_.b_nnz,
-      csc_data.data(), csc_indptr.data(),
-      csc_indices.data(), NULL, matD, 0, NULL, NULL, NULL, matC,
-      csr_out_data, csr_out_indptr, csr_out_indices, info, workspace.data(),
-      config_.stream));
+      config_.handle, m, n, k, &alpha, matA, config_.a_nnz, config_.a_data,
+      config_.a_indptr, config_.a_indices, matB, config_.b_nnz, csc_data.data(),
+      csc_indptr.data(), csc_indices.data(), NULL, matD, 0, NULL, NULL, NULL,
+      matC, csr_out_data, csr_out_indptr, csr_out_indices, info,
+      workspace.data(), config_.stream));
   }
 
   void transpose_b() {
-
     /**
      * Transpose index array into csc
      */
@@ -191,12 +172,10 @@ struct ip_distances_t {
     csc_indices.resize(config_.b_nnz, config_.stream);
     csc_data.resize(config_.b_nnz, config_.stream);
 
-    csr_transpose(config_.handle, config_.b_indptr,
-                  config_.b_indices, config_.b_data,
-                  csc_indptr.data(), csc_indices.data(),
-                  csc_data.data(), config_.b_nrows,
-                  config_.b_ncols, config_.b_nnz,
-                  config_.allocator, config_.stream);
+    csr_transpose(config_.handle, config_.b_indptr, config_.b_indices,
+                  config_.b_data, csc_indptr.data(), csc_indices.data(),
+                  csc_data.data(), config_.b_nrows, config_.b_ncols,
+                  config_.b_nnz, config_.allocator, config_.stream);
   }
 
   value_t alpha;
@@ -221,28 +200,28 @@ __global__ void compute_sq_norm_kernel(value_t *out, const value_idx *coo_rows,
   }
 }
 
-
 template <typename value_idx, typename value_t>
-__global__ void compute_euclidean_warp_kernel(value_t *C, const value_t *Q_sq_norms,
-                                         const value_t *R_sq_norms, value_idx n_cols) {
+__global__ void compute_euclidean_warp_kernel(value_t *C,
+                                              const value_t *Q_sq_norms,
+                                              const value_t *R_sq_norms,
+                                              value_idx n_cols) {
   value_idx i = blockIdx.x;
   value_idx tid = threadIdx.x;
 
   __shared__ value_t q_norm;
 
-  if(tid == 0) {
+  if (tid == 0) {
     q_norm = Q_sq_norms[i];
   }
 
   __syncthreads();
 
-  for(int j = tid; j < n_cols; j += blockDim.x) {
+  for (int j = tid; j < n_cols; j += blockDim.x) {
     value_t r_norm = R_sq_norms[j];
     value_t dot = C[i * n_cols + j];
 
     value_t val = q_norm + r_norm - 2.0 * dot;
-    if(fabsf(val) < 0.0001)
-      val = 0.0;
+    if (fabsf(val) < 0.0001) val = 0.0;
 
     C[i * n_cols + j] = val;
   }
@@ -250,15 +229,13 @@ __global__ void compute_euclidean_warp_kernel(value_t *C, const value_t *Q_sq_no
 
 template <typename value_idx, typename value_t>
 void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
-                       const value_t *R_sq_norms, value_idx n_rows, value_idx n_cols,
-                       cudaStream_t stream) {
-
+                       const value_t *R_sq_norms, value_idx n_rows,
+                       value_idx n_cols, cudaStream_t stream) {
   int blockdim = block_dim(n_cols);
 
   compute_euclidean_warp_kernel<<<n_rows, blockdim, 0, stream>>>(
     C, Q_sq_norms, R_sq_norms, n_cols);
 }
-
 
 template <typename value_idx, typename value_t, int tpb = 256>
 void compute_l2(value_t *out, const value_idx *Q_coo_rows,
@@ -267,7 +244,6 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 value_idx R_nnz, value_idx m, value_idx n,
                 cusparseHandle_t handle, std::shared_ptr<deviceAllocator> alloc,
                 cudaStream_t stream) {
-
   device_buffer<value_t> Q_sq_norms(alloc, stream, m);
   CUDA_CHECK(
     cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size() * sizeof(value_t)));
@@ -296,8 +272,7 @@ struct l2_distances_t {
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
-
-	  CUML_LOG_DEBUG("Computing inner products");
+    CUML_LOG_DEBUG("Computing inner products");
     ip_dists.compute(out_dists);
 
     value_idx *b_indices = ip_dists.trans_indices();
@@ -309,15 +284,14 @@ struct l2_distances_t {
     device_buffer<value_idx> search_coo_rows(config_.allocator, config_.stream,
                                              config_.a_nnz);
 
-    csr_to_coo(config_.a_indptr, config_.a_nrows,
-               search_coo_rows.data(), config_.a_nnz, config_.stream);
+    csr_to_coo(config_.a_indptr, config_.a_nrows, search_coo_rows.data(),
+               config_.a_nnz, config_.stream);
 
     CUML_LOG_DEBUG("Done.");
 
     CUML_LOG_DEBUG("Computing L2");
-    compute_l2(out_dists, search_coo_rows.data(), config_.a_data,
-               config_.a_nnz, b_indices,
-               b_data, config_.b_nnz, config_.a_nrows,
+    compute_l2(out_dists, search_coo_rows.data(), config_.a_data, config_.a_nnz,
+               b_indices, b_data, config_.b_nnz, config_.a_nrows,
                config_.b_nrows, config_.handle, config_.allocator,
                config_.stream);
     CUML_LOG_DEBUG("Done.");

@@ -19,24 +19,23 @@
 namespace MLCommon {
 namespace Sparse {
 
-template<typename value_idx>
+template <typename value_idx>
 inline int block_dim(value_idx ncols) {
-
   int blockdim;
-  if(ncols <= 32)
+  if (ncols <= 32)
     blockdim = 32;
-  else if(ncols <= 64)
+  else if (ncols <= 64)
     blockdim = 64;
-  else if(ncols <= 128)
+  else if (ncols <= 128)
     blockdim = 128;
-  else if(ncols <= 256)
+  else if (ncols <= 256)
     blockdim = 256;
-  else if(ncols <= 512)
+  else if (ncols <= 512)
     blockdim = 512;
   else
     blockdim = 1024;
 
   return blockdim;
 }
-};
-}; // end MLCommon
+};  // namespace Sparse
+};  // namespace MLCommon

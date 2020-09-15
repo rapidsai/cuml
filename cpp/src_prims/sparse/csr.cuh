@@ -260,64 +260,57 @@ class CSR {
 };
 
 template <typename value_t>
-__global__ void
-csr_to_dense_kernel( int n_rows, int n_cols, const value_t *csrVal,
-                      const int *csrRowPtr, const int *csrColInd, value_t *a)
-{
+__global__ void csr_to_dense_kernel(int n_rows, int n_cols,
+                                    const value_t *csrVal, const int *csrRowPtr,
+                                    const int *csrColInd, value_t *a) {
   int tid, ctaStart;
 
   tid = threadIdx.x;
   ctaStart = blockIdx.x;
 
-  for (int row = ctaStart ; row < n_rows; row += gridDim.x) {
+  for (int row = ctaStart; row < n_rows; row += gridDim.x) {
     int colStart = csrRowPtr[row];
-    int colEnd   = csrRowPtr[row+1];
-    int rowNnz   = colEnd - colStart;
+    int colEnd = csrRowPtr[row + 1];
+    int rowNnz = colEnd - colStart;
 
-    for ( int i = 0; i < rowNnz; i+= blockDim.x) {
+    for (int i = 0; i < rowNnz; i += blockDim.x) {
       int colIdx = colStart + tid + i;
-      if ( colIdx < colEnd ) {
+      if (colIdx < colEnd) {
         int col = csrColInd[colIdx];
-        a[ row * n_cols + col] = csrVal[colIdx] ;
+        a[row * n_cols + col] = csrVal[colIdx];
       }
     }
   }
 }
 
-
-
 template <typename value_t>
-__global__ void
-csr_to_dense_warp_per_row_kernel( int n_cols, const value_t *csrVal,
-                                  const int *csrRowPtr, const int *csrColInd, value_t *a)
-{
-
+__global__ void csr_to_dense_warp_per_row_kernel(int n_cols,
+                                                 const value_t *csrVal,
+                                                 const int *csrRowPtr,
+                                                 const int *csrColInd,
+                                                 value_t *a) {
   int row = blockIdx.x;
   int tid = threadIdx.x;
 
   int colStart = csrRowPtr[row];
-  int colEnd   = csrRowPtr[row+1];
-  int rowNnz   = colEnd - colStart;
+  int colEnd = csrRowPtr[row + 1];
+  int rowNnz = colEnd - colStart;
 
-  for ( int i = tid; i < rowNnz; i+= blockDim.x) {
+  for (int i = tid; i < rowNnz; i += blockDim.x) {
     int colIdx = colStart + i;
-    if ( colIdx < colEnd ) {
+    if (colIdx < colEnd) {
       int col = csrColInd[colIdx];
-      a[ row * n_cols + col] = csrVal[colIdx] ;
+      a[row * n_cols + col] = csrVal[colIdx];
     }
   }
 }
-
-
 
 template <typename value_idx, typename value_t>
 void csr_to_dense(cusparseHandle_t handle, value_idx nrows, value_idx ncols,
                   const value_idx *csr_indptr, const value_idx *csr_indices,
                   const value_t *csr_data, value_idx lda, value_t *out,
                   cudaStream_t stream, bool row_major = true) {
-
-  if(!row_major) {
-
+  if (!row_major) {
     /**
      * If we need col-major, use cusparse.
      */
@@ -326,16 +319,16 @@ void csr_to_dense(cusparseHandle_t handle, value_idx nrows, value_idx ncols,
     CUSPARSE_CHECK(cusparseSetMatIndexBase(out_mat, CUSPARSE_INDEX_BASE_ZERO));
     CUSPARSE_CHECK(cusparseSetMatType(out_mat, CUSPARSE_MATRIX_TYPE_GENERAL));
 
-    CUSPARSE_CHECK(
-      raft::sparse::cusparsecsr2dense(handle, nrows, ncols, out_mat, csr_data,
-                                      csr_indptr, csr_indices, out, lda, stream));
+    CUSPARSE_CHECK(raft::sparse::cusparsecsr2dense(
+      handle, nrows, ncols, out_mat, csr_data, csr_indptr, csr_indices, out,
+      lda, stream));
 
     CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(out_mat));
 
   } else {
-
     int blockdim = block_dim(ncols);
-    CUDA_CHECK(cudaMemsetAsync(out, 0, nrows*ncols*sizeof(value_t), stream));
+    CUDA_CHECK(
+      cudaMemsetAsync(out, 0, nrows * ncols * sizeof(value_t), stream));
     csr_to_dense_warp_per_row_kernel<<<nrows, blockdim, 0, stream>>>(
       ncols, csr_data, csr_indptr, csr_indices, out);
   }
@@ -419,9 +412,9 @@ void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
   copyAsync(indptr_out, indptr + start_row, (stop_row + 2) - start_row, stream);
 
   MLCommon::LinAlg::unaryOp<value_idx>(
-    indptr_out, indptr_out, (stop_row+2) - start_row,
-    [s_offset] __device__(value_idx input) { return input - s_offset; }, stream);
-
+    indptr_out, indptr_out, (stop_row + 2) - start_row,
+    [s_offset] __device__(value_idx input) { return input - s_offset; },
+    stream);
 }
 
 template <typename value_idx, typename value_t>
