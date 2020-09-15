@@ -85,11 +85,12 @@ class SparseCumlArray:
 
         if not isinstance(data, tuple(check_classes)):
             if convert_format:
-                debug('Received sparse matrix in %s format but CSR is expected.'
-                      'Data will be converted to CSR, but this will require '
-                      'additional memory copies. If this conversion is not '
-                      'desired, set set_convert_format=False to raise an '
-                      'exception instead.' % type(data))
+                debug('Received sparse matrix in %s format but CSR is '
+                      'expected. Data will be converted to CSR, but this '
+                      'will require additional memory copies. If this '
+                      'conversion is not desired, set '
+                      'set_convert_format=False to raise an exception '
+                      'instead.' % type(data))
                 data = data.tocsr()  # currently only CSR is supported
             else:
                 raise ValueError("Expected CSR matrix but received %s"
