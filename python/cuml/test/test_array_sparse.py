@@ -31,42 +31,34 @@ test_input_types = [
 @pytest.mark.parametrize('input_type', test_input_types)
 @pytest.mark.parametrize('sparse_format', ['csr', 'coo', 'csc'])
 @pytest.mark.parametrize('dtype', [cp.float32, cp.float64])
-def test_input(input_type, sparse_format, dtype):
+@pytest.mark.parametrize('convert_format', [True, False])
+def test_input(input_type, sparse_format, dtype, convert_format):
 
     rand_func = cupyx.scipy.sparse if input_type == 'cupy' else scipy.sparse
 
     X = rand_func.random(100, 100, format=sparse_format,
-                         density=0.5, dtype=dtype)
+                         density=0.5,
+                         dtype=dtype)
 
-    X_m = SparseCumlArray(X)
+    if convert_format or sparse_format == 'csr':
+        X_m = SparseCumlArray(X, convert_format=convert_format)
 
-    assert X.shape == X_m.shape
-    assert X.nnz == X_m.nnz
-    assert X.dtype == X_m.dtype
-    assert X_m.has_sorted_indices
+        assert X.shape == X_m.shape
+        assert X.nnz == X_m.nnz
+        assert X.dtype == X_m.dtype
 
-    # Just a sanity check
-    assert isinstance(X_m.indptr, CumlArray)
-    assert isinstance(X_m.indices, CumlArray)
-    assert isinstance(X_m.data, CumlArray)
+        # Just a sanity check
+        assert isinstance(X_m.indptr, CumlArray)
+        assert isinstance(X_m.indices, CumlArray)
+        assert isinstance(X_m.data, CumlArray)
 
-    assert X_m.indptr.dtype == cp.int32
-    assert X_m.indices.dtype == cp.int32
-    assert X_m.data.dtype == dtype
+        assert X_m.indptr.dtype == cp.int32
+        assert X_m.indices.dtype == cp.int32
+        assert X_m.data.dtype == dtype
 
-
-def test_has_unsorted_indices():
-
-    indptr = cp.array([0, 2, 4])
-    indices = cp.array([4, 3, 2, 1])
-    data = cp.array([0, 0, 0, 0], dtype='float32')
-
-    unsorted_array = \
-        cupyx.scipy.sparse.csr_matrix((data, indices, indptr))
-
-    X = SparseCumlArray(unsorted_array)
-
-    assert not X.has_sorted_indices
+    elif not convert_format:
+        with pytest.raises(ValueError):
+            SparseCumlArray(X, convert_format=convert_format)
 
 
 def test_nonsparse_input_fails():
@@ -78,19 +70,45 @@ def test_nonsparse_input_fails():
 
 
 @pytest.mark.parametrize('input_type', test_input_types)
-def test_different_dtype(input_type):
+def test_convert_to_dtype(input_type):
 
     rand_func = cupyx.scipy.sparse if input_type == 'cupy' else scipy.sparse
 
     X = rand_func.random(100, 100, format='csr', density=0.5, dtype=cp.float64)
 
-    X_m = SparseCumlArray(X, dtype=cp.float32)
+    X_m = SparseCumlArray(X, convert_to_dtype=cp.float32)
 
     assert X_m.dtype == cp.float32
 
     assert X_m.indptr.dtype == cp.int32
     assert X_m.indices.dtype == cp.int32
     assert X_m.data.dtype == cp.float32
+
+    X_m = SparseCumlArray(X)
+
+    assert X_m.dtype == X.dtype
+
+
+@pytest.mark.parametrize('input_type', test_input_types)
+def test_convert_index(input_type):
+
+    rand_func = cupyx.scipy.sparse if input_type == 'cupy' else scipy.sparse
+
+    X = rand_func.random(100, 100, format='csr', density=0.5, dtype=cp.float64)
+
+    # Will convert to 32-bit by default
+    X.indptr = X.indptr.astype(cp.int64)
+    X.indices = X.indices.astype(cp.int64)
+
+    X_m = SparseCumlArray(X)
+
+    assert X_m.indptr.dtype == cp.int32
+    assert X_m.indices.dtype == cp.int32
+
+    X_m = SparseCumlArray(X, convert_index=cp.int64)
+
+    assert X_m.indptr.dtype == cp.int64
+    assert X_m.indices.dtype == cp.int64
 
 
 @pytest.mark.parametrize('input_type', test_input_types)
