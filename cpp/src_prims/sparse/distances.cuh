@@ -20,6 +20,7 @@
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <sparse/csr.cuh>
+#include <sparse/utils.h>
 
 #include <cusparse_v2.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -30,21 +31,23 @@ namespace Distance {
 
 template <typename value_idx, typename value_t>
 struct distances_config_t {
+
   // left side
-  value_idx index_nrows;
-  value_idx index_ncols;
-  value_idx index_nnz;
-  value_idx *csc_index_indptr;
-  value_idx *csc_index_indices;
-  value_t *csc_index_data;
+  value_idx a_nrows;
+  value_idx a_ncols;
+  value_idx a_nnz;
+  value_idx *a_indptr;
+  value_idx *a_indices;
+  value_t *a_data;
 
   // right side
-  value_idx search_nrows;
-  value_idx search_ncols;
-  value_idx search_nnz;
-  value_idx *csr_search_indptr;
-  value_idx *csr_search_indices;
-  value_t *csr_search_data;
+  value_idx b_nrows;
+  value_idx b_ncols;
+  value_idx b_nnz;
+  value_idx *b_indptr;
+  value_idx *b_indices;
+  value_t *b_data;
+
 
   cusparseHandle_t handle;
 
@@ -60,6 +63,9 @@ struct ip_distances_t {
   explicit ip_distances_t(distances_config_t<value_idx, value_t> config)
     : config_(config),
       workspace(config.allocator, config.stream, 0),
+      csc_indptr(config.allocator, config.stream, 0),
+      csc_indices(config.allocator, config.stream, 0),
+      csc_data(config.allocator, config.stream, 0),
       alpha(1.0) {
     init_mat_descriptor(matA);
     init_mat_descriptor(matB);
@@ -77,7 +83,7 @@ struct ip_distances_t {
 	   * Compute pairwise distances and return dense matrix in column-major format
 	   */
     device_buffer<value_idx> out_batch_indptr(config_.allocator, config_.stream,
-                                              config_.search_nrows + 1);
+                                              config_.a_nrows + 1);
     device_buffer<value_idx> out_batch_indices(config_.allocator,
                                                config_.stream, 0);
     device_buffer<value_t> out_batch_data(config_.allocator, config_.stream, 0);
@@ -94,13 +100,27 @@ struct ip_distances_t {
     /**
        * Convert output to dense
        */
-    csr_to_dense(config_.handle, config_.search_nrows, config_.index_nrows,
+    csr_to_dense(config_.handle, config_.a_nrows, config_.b_nrows,
                  out_batch_indptr.data(), out_batch_indices.data(),
-                 out_batch_data.data(), config_.search_nrows, out_distances,
+                 out_batch_data.data(), config_.a_nrows, out_distances,
                  config_.stream, true);
 
 
   }
+
+  value_idx *trans_indptr() {
+    return csc_indptr.data();
+  }
+
+  value_idx *trans_indices() {
+    return csc_indices.data();
+  }
+
+  value_t *trans_data() {
+    return csc_data.data();
+  }
+
+
 
   ~ip_distances_t() {
     CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matA));
@@ -117,15 +137,17 @@ struct ip_distances_t {
   }
 
   value_idx get_nnz(value_idx *csr_out_indptr) {
-    value_idx m = config_.search_nrows, n = config_.index_nrows,
-              k = config_.search_ncols;
+    value_idx m = config_.a_nrows, n = config_.b_nrows,
+              k = config_.a_ncols;
+
+    transpose_b();
 
     size_t workspace_size;
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2_buffersizeext<value_t>(
-      config_.handle, m, n, k, &alpha, NULL, matA, config_.search_nnz,
-      config_.csr_search_indptr, config_.csr_search_indices, matB,
-      config_.index_nnz, config_.csc_index_indptr, config_.csc_index_indices,
+      config_.handle, m, n, k, &alpha, NULL, matA, config_.a_nnz,
+      config_.a_indptr, config_.a_indices, matB,
+      config_.b_nnz, csc_indptr.data(), csc_indices.data(),
       matD, 0, NULL, NULL, info, &workspace_size, config_.stream));
 
     workspace.resize(workspace_size, config_.stream);
@@ -133,9 +155,9 @@ struct ip_distances_t {
     value_idx out_nnz = 0;
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2nnz(
-      config_.handle, m, n, k, matA, config_.search_nnz,
-      config_.csr_search_indptr, config_.csr_search_indices, matB,
-      config_.index_nnz, config_.csc_index_indptr, config_.csc_index_indices,
+      config_.handle, m, n, k, matA, config_.a_nnz,
+      config_.a_indptr, config_.a_indices, matB,
+      config_.b_nnz, csc_indptr.data(), csc_indices.data(),
       matD, 0, NULL, NULL, matC, csr_out_indptr, &out_nnz, info,
       workspace.data(), config_.stream));
 
@@ -144,17 +166,37 @@ struct ip_distances_t {
 
   void compute(const value_idx *csr_out_indptr, value_idx *csr_out_indices,
                value_t *csr_out_data) {
-    value_idx m = config_.search_nrows, n = config_.index_nrows,
-              k = config_.search_ncols;
+    value_idx m = config_.a_nrows, n = config_.b_nrows,
+              k = config_.a_ncols;
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2<value_t>(
-      config_.handle, m, n, k, &alpha, matA, config_.search_nnz,
-      config_.csr_search_data, config_.csr_search_indptr,
-      config_.csr_search_indices, matB, config_.index_nnz,
-      config_.csc_index_data, config_.csc_index_indptr,
-      config_.csc_index_indices, NULL, matD, 0, NULL, NULL, NULL, matC,
+      config_.handle, m, n, k, &alpha, matA, config_.a_nnz,
+      config_.a_data, config_.a_indptr,
+      config_.a_indices, matB, config_.b_nnz,
+      csc_data.data(), csc_indptr.data(),
+      csc_indices.data(), NULL, matD, 0, NULL, NULL, NULL, matC,
       csr_out_data, csr_out_indptr, csr_out_indices, info, workspace.data(),
       config_.stream));
+  }
+
+  void transpose_b() {
+
+    /**
+     * Transpose index array into csc
+     */
+    CUML_LOG_DEBUG("Transposing index CSR. rows=%d, cols=%d, nnz=%d",
+                   config_.b_nrows, config_.b_ncols, config_.b_nnz);
+
+    csc_indptr.resize(config_.b_ncols + 1, config_.stream);
+    csc_indices.resize(config_.b_nnz, config_.stream);
+    csc_data.resize(config_.b_nnz, config_.stream);
+
+    csr_transpose(config_.handle, config_.b_indptr,
+                  config_.b_indices, config_.b_data,
+                  csc_indptr.data(), csc_indices.data(),
+                  csc_data.data(), config_.b_nrows,
+                  config_.b_ncols, config_.b_nnz,
+                  config_.allocator, config_.stream);
   }
 
   value_t alpha;
@@ -164,6 +206,9 @@ struct ip_distances_t {
   cusparseMatDescr_t matC;
   cusparseMatDescr_t matD;
   device_buffer<char> workspace;
+  device_buffer<value_idx> csc_indptr;
+  device_buffer<value_idx> csc_indices;
+  device_buffer<value_t> csc_data;
   distances_config_t<value_idx, value_t> config_;
 };
 
@@ -176,25 +221,44 @@ __global__ void compute_sq_norm_kernel(value_t *out, const value_idx *coo_rows,
   }
 }
 
+
 template <typename value_idx, typename value_t>
-__global__ void compute_euclidean_kernel(value_t *C, const value_t *Q_sq_norms,
-                                         const value_t *R_sq_norms,
-                                         value_idx n_rows, value_idx n_cols) {
-  value_idx index = blockIdx.x * blockDim.x + threadIdx.x;
+__global__ void compute_euclidean_warp_kernel(value_t *C, const value_t *Q_sq_norms,
+                                         const value_t *R_sq_norms, value_idx n_cols) {
+  value_idx i = blockIdx.x;
+  value_idx tid = threadIdx.x;
 
-  value_idx i = index / n_cols;
-  value_idx j = index % n_cols;
+  __shared__ value_t q_norm;
 
-  // Cuda store row major.
-  if (i < n_rows && j < n_cols) {
-	value_t val = Q_sq_norms[i] + R_sq_norms[j] - 2.0 * C[i * n_cols + j];
+  if(tid == 0) {
+    q_norm = Q_sq_norms[i];
+  }
 
-	if(fabsf(val) < 0.0001)
-		val = 0.0;
+  __syncthreads();
+
+  for(int j = tid; j < n_cols; j += blockDim.x) {
+    value_t r_norm = R_sq_norms[j];
+    value_t dot = C[i * n_cols + j];
+
+    value_t val = q_norm + r_norm - 2.0 * dot;
+    if(fabsf(val) < 0.0001)
+      val = 0.0;
 
     C[i * n_cols + j] = val;
   }
 }
+
+template <typename value_idx, typename value_t>
+void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
+                       const value_t *R_sq_norms, value_idx n_rows, value_idx n_cols,
+                       cudaStream_t stream) {
+
+  int blockdim = block_dim(n_cols);
+
+  compute_euclidean_warp_kernel<<<n_rows, blockdim, 0, stream>>>(
+    C, Q_sq_norms, R_sq_norms, n_cols);
+}
+
 
 template <typename value_idx, typename value_t, int tpb = 256>
 void compute_l2(value_t *out, const value_idx *Q_coo_rows,
@@ -217,9 +281,7 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
   compute_sq_norm_kernel<<<ceildiv(R_nnz, tpb), tpb, 0, stream>>>(
     R_sq_norms.data(), R_coo_rows, R_data, R_nnz);
 
-  compute_euclidean_kernel<<<ceildiv(m * n, tpb), tpb, 0, stream>>>(
-    out, Q_sq_norms.data(), R_sq_norms.data(), m, n);
-
+  compute_euclidean(out, Q_sq_norms.data(), R_sq_norms.data(), m, n, stream);
 }
 
 /**
@@ -238,22 +300,25 @@ struct l2_distances_t {
 	  CUML_LOG_DEBUG("Computing inner products");
     ip_dists.compute(out_dists);
 
+    value_idx *b_indices = ip_dists.trans_indices();
+    value_t *b_data = ip_dists.trans_data();
+
     CUDA_CHECK(cudaStreamSynchronize(config_.stream));
 
     CUML_LOG_DEBUG("Computing COO row index array");
     device_buffer<value_idx> search_coo_rows(config_.allocator, config_.stream,
-                                             config_.search_nnz);
+                                             config_.a_nnz);
 
-    csr_to_coo(config_.csr_search_indptr, config_.search_nrows,
-               search_coo_rows.data(), config_.search_nnz, config_.stream);
+    csr_to_coo(config_.a_indptr, config_.a_nrows,
+               search_coo_rows.data(), config_.a_nnz, config_.stream);
 
     CUML_LOG_DEBUG("Done.");
 
     CUML_LOG_DEBUG("Computing L2");
-    compute_l2(out_dists, search_coo_rows.data(), config_.csr_search_data,
-               config_.search_nnz, config_.csc_index_indices,
-               config_.csc_index_data, config_.index_nnz, config_.search_nrows,
-               config_.index_nrows, config_.handle, config_.allocator,
+    compute_l2(out_dists, search_coo_rows.data(), config_.a_data,
+               config_.a_nnz, b_indices,
+               b_data, config_.b_nnz, config_.a_nrows,
+               config_.b_nrows, config_.handle, config_.allocator,
                config_.stream);
     CUML_LOG_DEBUG("Done.");
   }
