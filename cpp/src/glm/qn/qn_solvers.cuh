@@ -235,9 +235,9 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
   op_project<T> project_neg(T(-1.0));
 
-  auto f_wrap = [&f, &l1_penalty, &pg_limit, &stream](
-                  SimpleVec<T> &x, SimpleVec<T> &grad, T *dev_scalar,
-                  cudaStream_t stream) {
+  auto f_wrap = [&f, &l1_penalty, &pg_limit](SimpleVec<T> &x,
+                                             SimpleVec<T> &grad, T *dev_scalar,
+                                             cudaStream_t stream) {
     T tmp = f(x, grad, dev_scalar, stream);
     SimpleVec<T> mask(x.data, pg_limit);
     return tmp + l1_penalty * nrm1(mask, dev_scalar, stream);
