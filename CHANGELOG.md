@@ -30,6 +30,7 @@
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
 - PR #2769: Remove outdated doxygen options for 1.8.20
 - PR #2787: Skip lightgbm test for version 3 and above temporarily
+- PR #2781: Use Python print to correctly redirect spdlogs when sys.stdout is changed
 - PR #2787: Skip lightgbm test for version 3 and above temporarily
 - PR #2813: Fix memory access in generation of non-row-major random blobs
 - PR #2810: Update Rf MNMG threshold to prevent sporadic test failure
