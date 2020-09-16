@@ -174,7 +174,6 @@ void pcaInverseTransform(const raft::handle_t &handle, math_t *trans_input,
     "Parameter n_components: number of components cannot be less than one");
 
   if (prms.whiten) {
-
     math_t sqrt_n_samples = sqrt(prms.n_rows - 1);
     math_t scalar = prms.n_rows - 1 > 0 ? math_t(1 / sqrt_n_samples) : 0;
 
@@ -198,8 +197,6 @@ void pcaInverseTransform(const raft::handle_t &handle, math_t *trans_input,
     math_t scalar = prms.n_rows - 1 > 0 ? math_t(1 / sqrt_n_samples) : 0;
     LinAlg::scalarMultiply(components, components, scalar,
                            prms.n_rows * prms.n_components, stream);
-
-
   }
 }
 
