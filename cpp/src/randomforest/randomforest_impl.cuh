@@ -433,8 +433,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
                          RandomForestMetaData<T, T>*& forest) {
   this->error_checking(input, labels, n_rows, n_cols, false);
 
-<<<<<<< HEAD
-  const cumlHandle_impl& handle = user_handle.getImpl();
+  const raft::handle_t& handle = user_handle;
   int n_sampled_rows = 0;
   if (this->rf_params.bootstrap) {
     n_sampled_rows = this->rf_params.rows_sample * n_rows;
@@ -446,10 +445,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     }
     n_sampled_rows = n_rows;
   }
-=======
-  const raft::handle_t& handle = user_handle;
-  int n_sampled_rows = this->rf_params.rows_sample * n_rows;
->>>>>>> branch-0.16
+
   int n_streams = this->rf_params.n_streams;
   ASSERT(
     n_streams <= handle.get_num_internal_streams(),
