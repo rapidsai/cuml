@@ -28,7 +28,7 @@ template <typename T>
 struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
   typedef GLMBase<T, LogisticLoss<T>> Super;
 
-  LogisticLoss(const cumlHandle_impl &handle, int D, bool has_bias)
+  LogisticLoss(const raft::handle_t &handle, int D, bool has_bias)
     : Super(handle, D, 1, has_bias) {}
 
   inline __device__ T log_sigmoid(T x) const {
