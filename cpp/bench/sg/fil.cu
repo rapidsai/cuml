@@ -33,8 +33,8 @@ struct Params {
   DatasetParams data;
   RegressionParams blobs;
   ModelHandle model;
-  bool predict_proba;
-  bool fit_model;
+  ML::fil::storage_type_t storage;
+  ML::fil::algo_t algo;
   RF_params rf;
 };
 
@@ -43,42 +43,62 @@ class FIL : public RegressionFixture<float> {
 
  public:
   FIL(const std::string& name, const Params& p)
-    : RegressionFixture<float>(name, p.data, p.blobs),
-      model(p.model),
-      predict_proba(p.predict_proba),
-      fit_model(p.fit_model),
-      rfParams(p.rf) {}
+  /*
+        fitting to linear combinations in "y" normally yields trees that check
+        values of all significant columns, as well as their linear
+        combinations in "X". During inference, the exact threshold
+        values do not affect speed. The distribution of column popularity does
+        not affect speed barring lots of uninformative columns in succession.
+        Hence, this method represents real datasets well enough for both
+        classification and regression.
+      */
+  : RegressionFixture<float>(name, p.data, p.blobs),
+    model(p.model),
+    p_rest(p) {}
+
+  static void regression_to_classification(float* y, int nrows, int nclasses,
+                                           cudaStream_t stream) {
+    MLCommon::LinAlg::unaryOp(
+      y, y, nrows,
+      [=] __device__(float a) {
+        return float(lroundf(fabsf(a) * 1000. * nclasses) % nclasses);
+      },
+      stream);
+  }
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
     if (!params.rowMajor) {
       state.SkipWithError("FIL only supports row-major inputs");
     }
-    if (predict_proba) {
-      // Dataset<D, L> allocates y assuming one output value per input row
-      state.SkipWithError("currently only supports scalar prediction");
+    if (params.nclasses > 1) {
+      // convert regression ranges into [0..nclasses-1]
+      regression_to_classification(data.y, params.nrows, params.nclasses,
+                                   stream);
     }
     // create model
     ML::RandomForestRegressorF rf_model;
     auto* mPtr = &rf_model;
     mPtr->trees = nullptr;
     size_t train_nrows = std::min(params.nrows, 1000);
-    fit(*handle, mPtr, data.X, train_nrows, params.ncols, data.y, rfParams);
+    fit(*handle, mPtr, data.X, train_nrows, params.ncols, data.y, p_rest.rf);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     ML::build_treelite_forest(&model, &rf_model, params.ncols,
-                              REGRESSION_MODEL);
+                              params.nclasses > 1 ? 2 : 1);
     ML::fil::treelite_params_t tl_params = {
-      .algo = ML::fil::algo_t::ALGO_AUTO,
-      .output_class = true,                // cuML RF forest
-      .threshold = 1.f / params.nclasses,  //Fixture::DatasetParams
-      .storage_type = ML::fil::storage_type_t::SPARSE};
+      .algo = p_rest.algo,
+      .output_class = params.nclasses > 1,  // cuML RF forest
+      .threshold = 1.f / params.nclasses,   //Fixture::DatasetParams
+      .storage_type = p_rest.storage};
     ML::fil::from_treelite(*handle, &forest, model, &tl_params);
 
     // only time prediction
     this->loopOnState(state, [this]() {
+      // Dataset<D, L> allocates y assuming one output value per input row,
+      // so not supporting predict_proba yet
       ML::fil::predict(*this->handle, this->forest, this->data.y, this->data.X,
-                       this->params.nrows, this->predict_proba);
+                       this->params.nrows, false);
     });
   }
 
@@ -94,26 +114,26 @@ class FIL : public RegressionFixture<float> {
  private:
   ML::fil::forest_t forest;
   ModelHandle model;
-  bool predict_proba;
-  bool fit_model;
-  RF_params rfParams;
+  Params p_rest;
 };
 
 struct FilBenchParams {
-  size_t nrows;
-  size_t ncols;
-  size_t nclasses;
-  bool predict_proba;
+  int nrows;
+  int ncols;
+  int nclasses;
+  int max_depth;
+  int ntrees;
+  ML::fil::storage_type_t storage;
+  ML::fil::algo_t algo;
 };
 
 std::vector<Params> getInputs() {
   std::vector<Params> out;
   Params p;
-  size_t ncols = 20;
   p.data.rowMajor = true;
   // see src_prims/random/make_regression.h
-  p.blobs = {.n_informative = (signed)ncols / 3,
-             .effective_rank = 2 * (signed)ncols / 3,
+  p.blobs = {.n_informative = -1,
+             .effective_rank = -1,
              .bias = 0.f,
              .tail_strength = 0.1,
              .noise = 0.01,
@@ -128,16 +148,24 @@ std::vector<Params> getInputs() {
   p.rf.tree_params.quantile_per_tree = false;
   p.rf.tree_params.split_algo = 1;
   p.rf.tree_params.split_criterion = ML::CRITERION::MSE;
-  p.rf.n_trees = 500;
   p.rf.n_streams = 8;
   p.rf.tree_params.max_features = 1.f;
-  p.rf.tree_params.max_depth = 8;
-  std::vector<FilBenchParams> var_params = {{10000ul, ncols, 2ul, false}};
+  using ML::fil::algo_t;
+  using ML::fil::storage_type_t;
+  std::vector<FilBenchParams> var_params = {
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG},
+    {(int)1e6, 20, 2, 5, 1000, storage_type_t::DENSE,
+     algo_t::BATCH_TREE_REORG}};
   for (auto& i : var_params) {
     p.data.nrows = i.nrows;
     p.data.ncols = i.ncols;
+    p.blobs.n_informative = i.ncols / 3;
+    p.blobs.effective_rank = i.ncols / 3;
     p.data.nclasses = i.nclasses;
-    p.predict_proba = i.predict_proba;
+    p.rf.tree_params.max_depth = i.max_depth;
+    p.rf.n_trees = i.ntrees;
+    p.storage = i.storage;
+    p.algo = i.algo;
     out.push_back(p);
   }
   return out;
