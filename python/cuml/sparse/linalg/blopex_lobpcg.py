@@ -101,6 +101,7 @@ def _b_orthonormalize(B, blockVectorV, blockVectorBV=None, retInvR=False):
             blockVectorBV = None
     except Exception as e:
         # raise ValueError('Cholesky has failed')
+        print("{} occured".format(e))
         blockVectorV = None
         blockVectorBV = None
         VBV = None
@@ -507,8 +508,9 @@ def lobpcg(A,
             try:
                 _lambda, eigBlockVector = _genEigh(gramA,
                                                    gramB)
-            except:
+            except Exception as e:
                 # try again after dropping the direction vectors P from RR
+                print('{} occured'.format(e))
                 restart = True
 
         if restart:
