@@ -68,30 +68,9 @@ class SparseKNNTest
     updateDevice(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
                  stream);
 
-    /**
-     * array([[0.        , 7.87400787, 7.87400787, 1.41421356],
-       [7.87400787, 0.        , 8.48528137, 7.87400787],
-       [7.87400787, 8.48528137, 0.        , 7.87400787],
-       [1.41421356, 7.87400787, 7.87400787, 0.        ]])
-
-     */
     allocate(out_dists, 4 * k);
     allocate(out_indices, 4 * k);
   }
-
-  /**
-   * void brute_force_knn(
-  const value_idx *idxIndptr, const value_idx *idxIndices,
-  const value_t *idxData, value_idx idxNNZ, value_idx n_idx_rows,
-  value_idx n_idx_cols, const value_idx *queryIndptr,
-  const value_idx *queryIndices, const value_t *queryData, size_t queryNNZ,
-  value_idx n_query_rows, value_idx n_query_cols, value_idx *output_indices,
-  value_t *output_dists, int k, cusparseHandle_t cusparseHandle,
-  std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
-  size_t batch_size = 2 << 20,  // approx 1M
-  ML::MetricType metric = ML::MetricType::METRIC_L2, float metricArg = 0,
-  bool expanded_form = false)
-   */
 
   void SetUp() override {
     params =
@@ -108,21 +87,25 @@ class SparseKNNTest
 
     make_data();
 
-    brute_force_knn<value_idx, value_t>(indptr, indices, data, 8, 4, 9, indptr,
-                                        indices, data, 8, 4, 9, out_indices,
-                                        out_dists, k, cusparseHandle, alloc,
-                                        stream, 2, ML::MetricType::METRIC_L2);
+    brute_force_knn<value_idx, value_t>(indptr, indices, data, 8, 4, 9,
+                                        indptr, indices, data, 8, 4, 9,
+                                        out_indices, out_dists, k,
+                                        cusparseHandle, alloc, stream,
+                                        2, ML::MetricType::METRIC_INNER_PRODUCT);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
     CUDA_CHECK(cudaStreamSynchronize(stream));
+
     CUDA_CHECK(cudaFree(indptr));
     CUDA_CHECK(cudaFree(indices));
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(out_indices));
     CUDA_CHECK(cudaFree(out_dists));
+
+    CUDA_CHECK(cudaStrr)
   }
 
   void compare() {

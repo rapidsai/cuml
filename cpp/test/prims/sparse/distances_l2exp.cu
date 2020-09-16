@@ -54,19 +54,6 @@ class L2DistancesTest
     updateDevice(indices, indices_h.data(), 8, stream);
     updateDevice(data, data_h.data(), 8, stream);
 
-    allocate(csc_indptr, 3);
-    allocate(csc_indices, 8);
-    allocate(csc_data, 8);
-
-    std::vector<value_idx> csc_indptr_h = {0, 4, 8};
-    std::vector<value_idx> csc_indices_h = {0, 1, 2, 3, 0, 1, 2, 3};
-    std::vector<value_t> csc_data_h = {1.0f, 1.0f, 1.0f, 1.0f,
-                                       2.0f, 2.0f, 2.0f, 2.0f};
-
-    updateDevice(csc_indptr, csc_indptr_h.data(), 3, stream);
-    updateDevice(csc_indices, csc_indices_h.data(), 8, stream);
-    updateDevice(csc_data, csc_data_h.data(), 8, stream);
-
     std::vector<value_t> out_dists_ref_h = {
       0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
       0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
@@ -93,9 +80,9 @@ class L2DistancesTest
     dist_config.b_nrows = 4;
     dist_config.b_ncols = 2;
     dist_config.b_nnz = 8;
-    dist_config.b_indptr = csc_indptr;
-    dist_config.b_indices = csc_indices;
-    dist_config.b_data = csc_data;
+    dist_config.b_indptr = indptr;
+    dist_config.b_indices = indices;
+    dist_config.b_data = data;
     dist_config.a_nrows = 4;
     dist_config.a_ncols = 2;
     dist_config.a_nnz = 8;
@@ -119,8 +106,6 @@ class L2DistancesTest
     CUDA_CHECK(cudaFree(indptr));
     CUDA_CHECK(cudaFree(indices));
     CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(csc_indptr));
-    CUDA_CHECK(cudaFree(csc_indices));
     CUDA_CHECK(cudaFree(out_dists));
     CUDA_CHECK(cudaFree(out_dists_ref));
   }
@@ -136,10 +121,6 @@ class L2DistancesTest
   // input data
   value_idx *indptr, *indices;
   value_t *data;
-
-  // transposed input
-  value_idx *csc_indptr, *csc_indices;
-  value_t *csc_data;
 
   // output data
   value_t *out_dists, *out_dists_ref;

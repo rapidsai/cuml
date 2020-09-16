@@ -35,7 +35,7 @@ template <typename value_idx, typename value_t>
 }
 
 template <typename value_idx, typename value_t>
-class DistancesTest
+class IPDistancesTest
   : public ::testing::TestWithParam<DistancesInputs<value_idx, value_t>> {
  protected:
   void make_data() {
@@ -51,19 +51,6 @@ class DistancesTest
     updateDevice(indptr, indptr_h.data(), 5, stream);
     updateDevice(indices, indices_h.data(), 8, stream);
     updateDevice(data, data_h.data(), 8, stream);
-
-    allocate(csc_indptr, 3);
-    allocate(csc_indices, 8);
-    allocate(csc_data, 8);
-
-    std::vector<value_idx> csc_indptr_h = {0, 4, 8};
-    std::vector<value_idx> csc_indices_h = {0, 1, 2, 3, 0, 1, 2, 3};
-    std::vector<value_t> csc_data_h = {1.0f, 1.0f, 1.0f, 1.0f,
-                                       2.0f, 2.0f, 2.0f, 2.0f};
-
-    updateDevice(csc_indptr, csc_indptr_h.data(), 3, stream);
-    updateDevice(csc_indices, csc_indices_h.data(), 8, stream);
-    updateDevice(csc_data, csc_data_h.data(), 8, stream);
 
     std::vector<value_t> out_dists_ref_h = {
       5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0,
@@ -91,9 +78,9 @@ class DistancesTest
     dist_config.b_nrows = 4;
     dist_config.b_ncols = 2;
     dist_config.b_nnz = 8;
-    dist_config.b_indptr = csc_indptr;
-    dist_config.b_indices = csc_indices;
-    dist_config.b_data = csc_data;
+    dist_config.b_indptr = indptr;
+    dist_config.b_indices = indices;
+    dist_config.b_data = data;
     dist_config.a_nrows = 4;
     dist_config.a_ncols = 2;
     dist_config.a_nnz = 8;
@@ -117,8 +104,6 @@ class DistancesTest
     CUDA_CHECK(cudaFree(indptr));
     CUDA_CHECK(cudaFree(indices));
     CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(csc_indptr));
-    CUDA_CHECK(cudaFree(csc_indices));
     CUDA_CHECK(cudaFree(out_dists));
     CUDA_CHECK(cudaFree(out_dists_ref));
   }
@@ -135,10 +120,6 @@ class DistancesTest
   value_idx *indptr, *indices;
   value_t *data;
 
-  // transposed input
-  value_idx *csc_indptr, *csc_indices;
-  value_t *csc_data;
-
   // output data
   value_t *out_dists, *out_dists_ref;
 
@@ -146,7 +127,7 @@ class DistancesTest
 };
 
 const std::vector<DistancesInputs<int, float>> inputs_i32_f = {{}};
-typedef DistancesTest<int, float> DistancesTestF;
+typedef IPDistancesTest<int, float> DistancesTestF;
 TEST_P(DistancesTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(DistancesTests, DistancesTestF,
                         ::testing::ValuesIn(inputs_i32_f));
