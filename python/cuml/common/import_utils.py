@@ -90,12 +90,15 @@ def check_min_cupy_version(version):
         return False
 
 
-def has_scipy():
+def has_scipy(raise_if_unavailable=False):
     try:
         import scipy   # NOQA
         return True
     except ImportError:
-        return False
+        if not raise_if_unavailable:
+            return False
+        else:
+            raise ImportError("Scipy is not available.")
 
 
 def has_sklearn():
