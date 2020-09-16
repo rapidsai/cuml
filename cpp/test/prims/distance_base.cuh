@@ -162,7 +162,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
  public:
   void SetUp() override {
     params = ::testing::TestWithParam<DistanceInputs<DataType>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int m = params.m;
     int n = params.n;
     int k = params.k;

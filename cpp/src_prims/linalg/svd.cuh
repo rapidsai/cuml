@@ -125,12 +125,12 @@ void svdEig(T *in, int n_rows, int n_cols, T *S, T *U, T *V, bool gen_left_vec,
   Matrix::colReverse(V, n_cols, n_cols, stream);
   Matrix::rowReverse(S, n_cols, 1, stream);
 
-  Matrix::seqRoot(S, S, alpha, n_cols, stream, true);
+  raft::matrix::seqRoot(S, S, alpha, n_cols, stream, true);
 
   if (gen_left_vec) {
     gemm(in, n_rows, n_cols, V, U, n_rows, n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
          alpha, beta, cublasH, stream);
-    Matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true,
+    raft::matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true,
                                           stream);
   }
 }

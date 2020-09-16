@@ -20,6 +20,8 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
+using namespace MLCommon;
+
 namespace raft {
 namespace linalg {
 
@@ -38,7 +40,7 @@ template <typename Type>
 void naiveScale(Type *out, const Type *in, Type scalar, int len,
                 cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, TPB);
+  int nblks = MLCommon::ceildiv(len, TPB);
   naiveScaleKernel<Type><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -63,17 +65,16 @@ class ScalarMultiplyTest
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<ScalarMultiplyInputs<T>>::GetParam();
-    random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.len;
     T scalar = params.scalar;
 
-    raft::handle_t handle;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(handle, in, len, T(-1.0), T(1.0), stream);
+    r.uniform(in, len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref, in, scalar, len, stream);
     scalarMultiply(out, in, scalar, len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -129,7 +130,7 @@ template <typename Type>
 void naiveAdd(Type *out, const Type *in1, const Type *in2, int len,
               cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, TPB);
+  int nblks = MLCommon::ceildiv(len, TPB);
   naiveAddKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -152,9 +153,8 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<EltwiseAddInputs<T>>::GetParam();
-    random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
 
-    raft::handle_t handle;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.len;
@@ -162,8 +162,8 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
     allocate(in2, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(handle, in1, len, T(-1.0), T(1.0), stream);
-    r.uniform(handle, in2, len, T(-1.0), T(1.0), stream);
+    r.uniform(in1, len, T(-1.0), T(1.0), stream);
+    r.uniform(in2, len, T(-1.0), T(1.0), stream);
     naiveAdd(out_ref, in1, in2, len, stream);
     eltwiseAdd(out, in1, in2, len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));

@@ -65,7 +65,7 @@ class BatchMakeSymmTest
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<BatchMakeSymmInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.batchSize * params.n * params.n;
     CUDA_CHECK(cudaStreamCreate(&stream));
 

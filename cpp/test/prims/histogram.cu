@@ -62,7 +62,7 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<HistInputs>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.nrows * params.ncols;
     allocate(in, len);

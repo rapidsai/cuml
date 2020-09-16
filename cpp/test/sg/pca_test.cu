@@ -51,7 +51,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
  protected:
   void basicTest() {
     params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
-    Random::Rng r(params.seed, MLCommon::Random::GenTaps);
+    raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len;
 
     allocate(data, len);
@@ -108,7 +108,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
 
   void advancedTest() {
     params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
-    Random::Rng r(params.seed, MLCommon::Random::GenTaps);
+    raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len2;
 
     paramsPCA prms;

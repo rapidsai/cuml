@@ -46,7 +46,7 @@ enum Filler : unsigned char {
  */
 template <typename T>
 void epsilonToZero(T *eig, T epsilon, int size, cudaStream_t stream) {
-  LinAlg::unaryOp(
+  raft::linalg::unaryOp(
     eig, eig, size,
     [epsilon] __device__(T in) {
       return (in < epsilon && in > -epsilon) ? T(0.0) : in;
@@ -68,7 +68,7 @@ void epsilonToZero(T *eig, T epsilon, int size, cudaStream_t stream) {
 template <typename T>
 void matVecAdd(T *out, const T *in_m, const T *in_v, T scalar, int rows,
                int cols, cudaStream_t stream) {
-  LinAlg::matrixVectorOp(
+  raft::linalg::matrixVectorOp(
     out, in_m, in_v, cols, rows, true, true,
     [=] __device__(T mat, T vec) { return mat + scalar * vec; }, stream);
 }

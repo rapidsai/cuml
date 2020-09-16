@@ -37,7 +37,7 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<RFInputs>::GetParam();
-    rng.reset(new Random::Rng(params.seed));
+    rng.reset(new raft::random::Rng(params.seed));
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.reset(new raft::handle_t(1));
     handle->set_stream(stream);
@@ -126,7 +126,7 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
   cudaStream_t stream;
   T *X_train, *X_test;
   int *y_train, *y_test, *y_pred;
-  std::shared_ptr<Random::Rng> rng;
+  std::shared_ptr<raft::random::Rng> rng;
 };
 
 const std::vector<RFInputs> inputs = {

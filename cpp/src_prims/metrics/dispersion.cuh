@@ -114,7 +114,7 @@ DataT dispersion(const DataT *centroids, const IdxT *clusterSizes,
     <<<grid, TPB, 0, stream>>>(mu, centroids, clusterSizes, dim, nClusters);
   CUDA_CHECK(cudaGetLastError());
   DataT ratio = DataT(1) / DataT(nPoints);
-  LinAlg::scalarMultiply(mu, mu, ratio, dim, stream);
+  raft::linalg::scalarMultiply(mu, mu, ratio, dim, stream);
   // finally, compute the dispersion
   constexpr int ItemsPerThread = 4;
   int nblks = ceildiv<int>(dim * nClusters, TPB * ItemsPerThread);

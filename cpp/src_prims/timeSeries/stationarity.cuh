@@ -204,11 +204,11 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
 
   // Compute mean
   device_buffer<DataT> y_means(allocator, stream, batch_size);
-  Stats::mean(y_means.data(), d_y, batch_size, n_obs, false, false, stream);
+  raft::stats::mean(y_means.data(), d_y, batch_size, n_obs, false, false, stream);
 
   // Center the data around its mean
   device_buffer<DataT> y_cent(allocator, stream, batch_size * n_obs);
-  LinAlg::matrixVectorOp(
+  raft::linalg::matrixVectorOp(
     y_cent.data(), d_y, y_means.data(), batch_size, n_obs, false, true,
     [] __device__(DataT a, DataT b) { return a - b; }, stream);
 

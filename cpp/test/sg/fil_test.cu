@@ -143,7 +143,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     allocate(is_leafs_d, num_nodes);
 
     // generate on-GPU random data
-    Random::Rng r(ps.seed);
+    raft::random::Rng r(ps.seed);
     if (ps.leaf_payload_type == fil::leaf_value_t::FLOAT_SCALAR) {
       r.uniform((float*)weights_d, num_nodes, -1.0f, 1.0f, stream);
     } else {
@@ -213,7 +213,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     allocate(mask_d, num_data);
 
     // generate random data
-    Random::Rng r(ps.seed);
+    raft::random::Rng r(ps.seed);
     r.uniform(data_d, num_data, -1.0f, 1.0f, stream);
     r.bernoulli(mask_d, num_data, ps.nan_prob, stream);
     int tpb = 256;

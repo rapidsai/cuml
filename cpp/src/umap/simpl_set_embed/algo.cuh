@@ -65,7 +65,7 @@ void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result,
   //      float(n_epochs) / n_samples[n_samples > 0]
   //  )
 
-  MLCommon::LinAlg::unaryOp<T>(
+  raft::linalg::unaryOp<T>(
     result, weights, weights_n,
     [=] __device__(T input) {
       T v = n_epochs * (input / weights_max);
@@ -129,7 +129,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   MLCommon::device_buffer<T> epoch_of_next_negative_sample(d_alloc, stream,
                                                            nnz);
   T nsr_inv = T(1.0) / params->negative_sample_rate;
-  MLCommon::LinAlg::unaryOp<T>(
+  raft::linalg::unaryOp<T>(
     epoch_of_next_negative_sample.data(), epochs_per_sample, nnz,
     [=] __device__(T input) { return input * nsr_inv; }, stream);
 
@@ -219,7 +219,7 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
    * Go through COO values and set everything that's less than
    * vals.max() / params->n_epochs to 0.0
    */
-  MLCommon::LinAlg::unaryOp<T>(
+  raft::linalg::unaryOp<T>(
     in->vals(), in->vals(), nnz,
     [=] __device__(T input) {
       if (input < (max / float(n_epochs)))

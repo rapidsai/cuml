@@ -415,7 +415,7 @@ void _transform(const raft::handle_t &handle, T *X, int n, int d,
 
   CUML_LOG_DEBUG("n_epochs=%d", n_epochs);
 
-  MLCommon::LinAlg::unaryOp<T>(
+  raft::linalg::unaryOp<T>(
     graph_coo.vals(), graph_coo.vals(), graph_coo.nnz,
     [=] __device__(T input) {
       if (input < (max / float(n_epochs)))

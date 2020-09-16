@@ -226,7 +226,7 @@ void stl_decomposition_gpu(const raft::handle_t &handle, const Dtype *ts, int n,
                                               batch_size * trend_len);
     MLCommon::copy(aligned_ts.data(), ts + ts_offset, batch_size * trend_len,
                    stream);
-    MLCommon::LinAlg::eltwiseDivide<Dtype>(season_d.data(), aligned_ts.data(),
+    raft::linalg::eltwiseDivide<Dtype>(season_d.data(), aligned_ts.data(),
                                            trend_d.data(),
                                            trend_len * batch_size, stream);
   }

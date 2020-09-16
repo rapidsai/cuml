@@ -76,7 +76,7 @@ class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<PowerInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.len;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));

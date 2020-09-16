@@ -20,6 +20,8 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
+using namespace MLCommon;
+
 namespace raft {
 namespace linalg {
 
@@ -36,7 +38,7 @@ template <typename Type, typename MapOp>
 void naiveMapReduce(Type *out, const Type *in, size_t len, MapOp map,
                     cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, (size_t)TPB);
+  int nblks = MLCommon::ceildiv(len, (size_t)TPB);
   naiveMapReduceKernel<Type, MapOp>
     <<<nblks, TPB, 0, stream>>>(out, in, len, map);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -58,11 +60,11 @@ template <typename T>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T>
-void mapReduceLaunch(raft::handle_t &handle, T *out_ref, T *out, const T *in,
+void mapReduceLaunch(T *out_ref, T *out, const T *in,
                      size_t len, cudaStream_t stream) {
   auto op = [] __device__(T in) { return in; };
   naiveMapReduce(out_ref, in, len, op, stream);
-  mapThenSumReduce(handle, out, len, op, 0, in);
+  mapThenSumReduce(out, len, op, 0, in);
 }
 
 template <typename T>
@@ -70,17 +72,16 @@ class MapReduceTest : public ::testing::TestWithParam<MapReduceInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MapReduceInputs<T>>::GetParam();
-    random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     auto len = params.len;
 
-    raft::handle_t handle;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(handle, in, len, T(-1.0), T(1.0), stream);
-    mapReduceLaunch(handle, out_ref, out, in, len, stream);
+    r.uniform(in, len, T(-1.0), T(1.0), stream);
+    mapReduceLaunch(out_ref, out, in, len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 

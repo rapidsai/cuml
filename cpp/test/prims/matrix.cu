@@ -41,7 +41,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MatrixInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.n_row * params.n_col;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));

@@ -21,6 +21,8 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
+using namespace MLCommon;
+
 namespace raft {
 namespace random {
 
@@ -70,22 +72,21 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     params = ::testing::TestWithParam<RngInputs<T>>::GetParam();
     Rng r(params.seed, params.gtype);
 
-    raft::handle_t handle;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, params.len);
-    raft::allocate(stats, 2, true);
+    MLCommon::allocate(data, params.len);
+    MLCommon::allocate(stats, 2, true);
     switch (params.type) {
       case RNG_Uniform:
-        r.uniformInt(handle, data, params.len, params.start, params.end,
+        r.uniformInt(data, params.len, params.start, params.end,
                      stream);
         break;
     };
     static const int threads = 128;
     meanKernel<T, threads>
-      <<<ceildiv(params.len, threads), threads, 0, stream>>>(stats, data,
+      <<<MLCommon::ceildiv(params.len, threads), threads, 0, stream>>>(stats, data,
                                                              params.len);
-    raft::update_host<float>(h_stats, stats, 2, stream);
+    MLCommon::updateHost<float>(h_stats, stats, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);

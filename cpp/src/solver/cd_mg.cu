@@ -103,7 +103,7 @@ void fit_impl(raft::handle_t &handle,
 
   if (normalize) {
     T scalar = T(1.0) + l2_alpha;
-    Matrix::setValue(squared.data(), squared.data(), scalar, input_desc.N,
+    raft::matrix::setValue(squared.data(), squared.data(), scalar, input_desc.N,
                      streams[0]);
   } else {
     Matrix::Data<T> squared_data{squared.data(), size_t(input_desc.N)};
@@ -189,7 +189,7 @@ void fit_impl(raft::handle_t &handle,
       if (l1_ratio > T(0.0))
         Functions::softThres(coef_loc, coef_loc, alpha, 1, streams[0]);
 
-      LinAlg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
+      raft::linalg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
                                      streams[0]);
 
       coef_prev = h_coef[ci];

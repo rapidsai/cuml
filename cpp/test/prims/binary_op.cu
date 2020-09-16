@@ -21,6 +21,8 @@
 #include "test_utils.h"
 #include "binary_op.cuh"
 
+using namespace MLCommon;
+
 namespace raft {
 namespace linalg {
 
@@ -42,9 +44,8 @@ class BinaryOpTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       BinaryOpInputs<InType, IdxType, OutType>>::GetParam();
-    random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
 
-    raft::handle_t handle;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     IdxType len = params.len;
@@ -52,8 +53,8 @@ class BinaryOpTest
     allocate(in2, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(handle, in1, len, InType(-1.0), InType(1.0), stream);
-    r.uniform(handle, in2, len, InType(-1.0), InType(1.0), stream);
+    r.uniform(in1, len, InType(-1.0), InType(1.0), stream);
+    r.uniform(in2, len, InType(-1.0), InType(1.0), stream);
     naiveAdd(out_ref, in1, in2, len);
     binaryOpLaunch(out, in1, in2, len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));

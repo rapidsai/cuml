@@ -54,7 +54,7 @@ static __global__ void _singular_profile_kernel(DataT* out, IdxT n,
 template <typename DataT, typename IdxT>
 static void _make_low_rank_matrix(DataT* out, IdxT n_rows, IdxT n_cols,
                                   IdxT effective_rank, DataT tail_strength,
-                                  Rng& r, cublasHandle_t cublas_handle,
+                                  raft::random::Rng& r, cublasHandle_t cublas_handle,
                                   cusolverDnHandle_t cusolver_handle,
                                   std::shared_ptr<deviceAllocator> allocator,
                                   cudaStream_t stream) {
@@ -173,10 +173,10 @@ void make_regression(DataT* out, DataT* values, IdxT n_rows, IdxT n_cols,
                      IdxT effective_rank = (IdxT)-1,
                      DataT tail_strength = (DataT)0.5, DataT noise = (DataT)0.0,
                      bool shuffle = true, uint64_t seed = 0ULL,
-                     GeneratorType type = GenPhilox) {
+                     raft::random::GeneratorType type = raft::random::GenPhilox) {
   n_informative = std::min(n_informative, n_cols);
   cublasSetPointerMode(cublas_handle, CUBLAS_POINTER_MODE_HOST);
-  Rng r(seed, type);
+  raft::random::Rng r(seed, type);
 
   if (effective_rank < 0) {
     // Randomly generate a well conditioned input set

@@ -600,7 +600,7 @@ Matrix<T> b_op_A(const Matrix<T>& A, F unary_op) {
 
   Matrix<T> C(m, n, batch_size, A.cublasHandle(), A.allocator(), A.stream());
 
-  LinAlg::unaryOp(C.raw_data(), A.raw_data(), m * n * batch_size, unary_op,
+  raft::linalg::unaryOp(C.raw_data(), A.raw_data(), m * n * batch_size, unary_op,
                   A.stream());
 
   return C;
@@ -629,7 +629,7 @@ Matrix<T> b_aA_op_B(const Matrix<T>& A, const Matrix<T>& B, F binary_op) {
 
   Matrix<T> C(m, n, batch_size, A.cublasHandle(), A.allocator(), A.stream());
 
-  LinAlg::binaryOp(C.raw_data(), A.raw_data(), B.raw_data(), m * n * batch_size,
+  raft::linalg::binaryOp(C.raw_data(), A.raw_data(), B.raw_data(), m * n * batch_size,
                    binary_op, A.stream());
 
   return C;

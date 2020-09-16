@@ -53,7 +53,7 @@ void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 
   gemv(U.data(), n_rows, n_cols, b, w, true, cublasH, stream);
 
-  Matrix::matrixVectorBinaryDivSkipZero(w, S.data(), 1, n_cols, false, true,
+  raft::matrix::matrixVectorBinaryDivSkipZero(w, S.data(), 1, n_cols, false, true,
                                         stream);
 
   gemv(V.data(), n_cols, n_cols, w, w, false, cublasH, stream);
@@ -78,7 +78,7 @@ void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 
   gemv(U.data(), n_rows, n_cols, b, w, true, cublasH, stream);
 
-  Matrix::matrixVectorBinaryDivSkipZero(w, S.data(), 1, n_cols, false, true,
+  raft::matrix::matrixVectorBinaryDivSkipZero(w, S.data(), 1, n_cols, false, true,
                                         stream);
 
   gemv(V.data(), n_cols, n_cols, w, w, false, cublasH, stream);

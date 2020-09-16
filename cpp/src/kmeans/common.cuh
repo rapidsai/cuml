@@ -696,7 +696,7 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
     // Outputs minDistanceBuf[m_trails x n_samples] where minDistance[i, :] contains updated minClusterDistance that includes candidate-i
     auto minDistBuf = std::move(
       Tensor<DataT, 2, IndexT>(distBuffer.data(), {n_trials, n_samples}));
-    MLCommon::LinAlg::matrixVectorOp(
+    raft::linalg::matrixVectorOp(
       minDistBuf.data(), pwd.data(), minClusterDistance.data(), pwd.getSize(1),
       pwd.getSize(0), true, true,
       [=] __device__(DataT mat, DataT vec) { return vec <= mat ? vec : mat; },
@@ -777,7 +777,7 @@ void checkWeights(const raft::handle_t &handle,
         n_samples);
 
     DataT scale = n_samples / wt_sum;
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       weight.data(), weight.data(), weight.numElements(),
       [=] __device__(const DataT &wt) { return wt * scale; }, stream);
   }

@@ -96,7 +96,7 @@ void postProcessData_impl(raft::handle_t &handle,
     Matrix::opg::matrixVectorBinaryMult(input_data, input_desc,
                                         norm2_input_data, false, true, comm,
                                         streams, n_streams);
-    Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, size_t(1),
+    raft::matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, size_t(1),
                                           input_desc.N, false, true, streams[0],
                                           true);
   }

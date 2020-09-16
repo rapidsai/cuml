@@ -63,8 +63,8 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<GatherInputs>::GetParam();
-    Random::Rng r(params.seed);
-    Random::Rng r_int(params.seed);
+    raft::random::Rng r(params.seed);
+    raft::random::Rng r_int(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     uint32_t nrows = params.nrows;

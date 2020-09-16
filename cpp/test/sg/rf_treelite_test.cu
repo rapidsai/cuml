@@ -217,10 +217,10 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     inference_data_h.resize(inference_data_len);
 
     // Random number generator.
-    Random::Rng r1(1234ULL);
+    raft::random::Rng r1(1234ULL);
     // Generate data_d is in column major order.
     r1.uniform(data_d, data_len, T(0.0), T(10.0), stream);
-    Random::Rng r2(4321ULL);
+    raft::random::Rng r2(4321ULL);
     // Generate inference_data_d which is in row major order.
     r2.uniform(inference_data_d, inference_data_len, T(0.0), T(10.0), stream);
 
@@ -301,7 +301,7 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
     allocate(temp_label_d, this->params.n_rows);
     allocate(temp_data_d, this->data_len);
 
-    Random::Rng r(1234ULL);
+    raft::random::Rng r(1234ULL);
 
     // Generate weight for each feature.
     r.uniform(weight, this->params.n_cols, T(0.0), T(1.0), this->stream);
@@ -386,7 +386,7 @@ class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
     allocate(weight, this->params.n_cols);
     allocate(temp_data_d, this->data_len);
 
-    Random::Rng r(1234ULL);
+    raft::random::Rng r(1234ULL);
 
     // Generate weight for each feature.
     r.uniform(weight, this->params.n_cols, T(0.0), T(1.0), this->stream);

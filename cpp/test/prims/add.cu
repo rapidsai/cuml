@@ -29,7 +29,7 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<AddInputs<InT, OutT>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.len;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in1, len);

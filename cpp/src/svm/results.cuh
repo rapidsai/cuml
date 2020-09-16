@@ -156,7 +156,7 @@ class Results {
   void CombineCoefs(const math_t *alpha, math_t *coef) {
     MLCommon::device_buffer<math_t> math_tmp(allocator, stream, n_train);
     // Calculate dual coefficients = alpha * y
-    MLCommon::LinAlg::binaryOp(
+    raft::linalg::binaryOp(
       coef, alpha, y, n_train,
       [] __device__(math_t a, math_t y) { return a * y; }, stream);
 
@@ -254,7 +254,7 @@ class Results {
     auto select = [] __device__(math_t a, math_t C) -> bool {
       return 0 < a && a < C;
     };
-    MLCommon::LinAlg::binaryOp(flag.data(), alpha, C, n, select, stream);
+    raft::linalg::binaryOp(flag.data(), alpha, C, n, select, stream);
     cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, val, flag.data(),
                                out, d_num_selected.data(), n, stream);
     int n_selected;

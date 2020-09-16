@@ -74,7 +74,7 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T>> {
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<NormInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols, len = rows * cols;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -139,7 +139,7 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T>> {
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<NormInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols, len = rows * cols;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));

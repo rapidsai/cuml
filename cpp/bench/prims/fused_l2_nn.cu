@@ -44,7 +44,7 @@ struct FusedL2NN : public Fixture {
     alloc(yn, params.n);
     alloc(out, params.m);
     alloc(workspace, params.m);
-    MLCommon::Random::Rng r(123456ULL);
+    raft::random::Rng r(123456ULL);
     r.uniform(x, params.m * params.k, T(-1.0), T(1.0), stream);
     r.uniform(y, params.n * params.k, T(-1.0), T(1.0), stream);
     MLCommon::LinAlg::rowNorm(xn, x, params.k, params.m,

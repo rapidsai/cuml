@@ -443,7 +443,7 @@ void _batched_kalman_loop_large(
     MLCommon::LinAlg::Batched::b_gemm(false, true, rd, rd, rd, 1.0, TP, m_tmp,
                                       0.0, P);
     // P = P + R*Q*R'
-    MLCommon::LinAlg::binaryOp(
+    raft::linalg::binaryOp(
       d_P, d_P, RQR.raw_data(), rd2 * nb,
       [=] __device__(double a, double b) { return a + b; }, stream);
   }
@@ -511,7 +511,7 @@ void _batched_kalman_loop_large(
       MLCommon::LinAlg::Batched::b_gemm(false, true, rd, rd, rd, 1.0, TP, T,
                                         0.0, P);
       // P = P + R*Q*R'
-      MLCommon::LinAlg::binaryOp(
+      raft::linalg::binaryOp(
         d_P, d_P, RQR.raw_data(), rd2 * nb,
         [=] __device__(double a, double b) { return a + b; }, stream);
     }

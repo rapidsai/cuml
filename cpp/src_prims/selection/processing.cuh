@@ -78,21 +78,21 @@ class CosineMetricProcessor : public MetricProcessor<math_t> {
                     LinAlg::NormType::L2Norm, row_major_, stream_,
                     [] __device__(math_t in) { return sqrtf(in); });
 
-    LinAlg::matrixVectorOp(
+    raft::linalg::matrixVectorOp(
       data, data, colsums_.data(), n_cols_, n_rows_, row_major_, false,
       [] __device__(math_t mat_in, math_t vec_in) { return mat_in / vec_in; },
       stream_);
   }
 
   void revert(math_t *data) {
-    LinAlg::matrixVectorOp(
+    raft::linalg::matrixVectorOp(
       data, data, colsums_.data(), n_cols_, n_rows_, row_major_, false,
       [] __device__(math_t mat_in, math_t vec_in) { return mat_in * vec_in; },
       stream_);
   }
 
   void postprocess(math_t *data) {
-    LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       data, data, k_ * n_rows_, [] __device__(math_t in) { return 1 - in; },
       stream_);
   }
@@ -118,12 +118,12 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
     LinAlg::reduce(means_.data(), data, cosine::n_cols_, cosine::n_rows_,
                    (math_t)0.0, cosine::row_major_, true, cosine::stream_);
 
-    LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       means_.data(), means_.data(), cosine::n_rows_,
       [=] __device__(math_t in) { return in * normalizer_const; },
       cosine::stream_);
 
-    Stats::meanCenter(data, data, means_.data(), cosine::n_cols_,
+    MLCommon::Stats::meanCenter(data, data, means_.data(), cosine::n_cols_,
                       cosine::n_rows_, cosine::row_major_, false,
                       cosine::stream_);
 
@@ -133,7 +133,7 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
   void revert(math_t *data) {
     CosineMetricProcessor<math_t>::revert(data);
 
-    Stats::meanAdd(data, data, means_.data(), cosine::n_cols_, cosine::n_rows_,
+    MLCommon::Stats::meanAdd(data, data, means_.data(), cosine::n_cols_, cosine::n_rows_,
                    cosine::row_major_, false, cosine::stream_);
   }
 

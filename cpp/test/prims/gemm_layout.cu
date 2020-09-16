@@ -65,7 +65,7 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
     cublasHandle_t handle;
     CUBLAS_CHECK(cublasCreate(&handle));
     CUDA_CHECK(cudaStreamCreate(&stream));
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
 
     // We compute Z = X * Y and compare against reference result
     // Dimensions of X : M x K

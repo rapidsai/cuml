@@ -281,7 +281,7 @@ class KernelCache {
    */
   void GetVecIndices(const int *ws_idx, int n_ws, int *vec_idx) {
     int n = n_rows;
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       vec_idx, ws_idx, n_ws,
       [n] __device__(math_t y) { return y < n ? y : y - n; }, stream);
   }

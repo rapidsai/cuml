@@ -143,7 +143,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
     //   newCentroids[n_clusters x n_features] - 2D array, newCentroids[i] has sum of all the samples assigned to cluster-i
     //   wtInCluster[n_clusters] - 1D array, wtInCluster[i] contains # of samples in cluster-i.
     // Note - when wtInCluster[i] is 0, newCentroid[i] is reset to 0
-    MLCommon::LinAlg::matrixVectorOp(
+    raft::linalg::matrixVectorOp(
       newCentroids.data(), newCentroids.data(), wtInCluster.data(),
       newCentroids.getSize(1), newCentroids.getSize(0), true, false,
       [=] __device__(DataT mat, DataT vec) {
@@ -174,7 +174,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
     // compute the squared norm between the newCentroids and the original
     // centroids, destructor releases the resource
     Tensor<DataT, 1> sqrdNorm({1}, handle.get_device_allocator(), stream);
-    MLCommon::LinAlg::mapThenSumReduce(
+    raft::linalg::mapThenSumReduce(
       sqrdNorm.data(), newCentroids.numElements(),
       [=] __device__(const DataT a, const DataT b) {
         DataT diff = a - b;
@@ -314,8 +314,8 @@ void initScalableKMeansPlusPlus(
   ML::Distance::DistanceType metric =
     static_cast<ML::Distance::DistanceType>(params.metric);
 
-  MLCommon::Random::Rng rng(params.seed,
-                            MLCommon::Random::GeneratorType::GenPhilox);
+  raft::random::Rng rng(params.seed,
+                            raft::random::GeneratorType::GenPhilox);
 
   // <<<< Step-1 >>> : C <- sample a point uniformly at random from X
   std::mt19937 gen(params.seed);

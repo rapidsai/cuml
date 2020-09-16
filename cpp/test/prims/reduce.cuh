@@ -52,7 +52,7 @@ void unaryAndGemv(Type *dots, const Type *data, int D, int N,
   //computes a MLCommon unary op on data (squares it), then computes Ax
   //(A input matrix and x column vector) to sum columns
   thrust::device_vector<Type> sq(D * N);
-  unaryOp(
+  raft::linalg::unaryOp(
     thrust::raw_pointer_cast(sq.data()), data, D * N,
     [] __device__(Type v) { return v * v; }, stream);
   cublasHandle_t handle;

@@ -114,7 +114,7 @@ struct SimpleMat {
     ASSERT(ord == x.ord, "SimpleMat::ax: Storage orders must match");
 
     auto scale = [a] __device__(const T x) { return a * x; };
-    MLCommon::LinAlg::unaryOp(data, x.data, len, scale, stream);
+    raft::linalg::unaryOp(data, x.data, len, scale, stream);
   }
 
   // this = a*x + y
@@ -124,7 +124,7 @@ struct SimpleMat {
     ASSERT(ord == y.ord, "SimpleMat::axpy: Storage orders must match");
 
     auto axpy = [a] __device__(const T x, const T y) { return a * x + y; };
-    MLCommon::LinAlg::binaryOp(data, x.data, y.data, len, axpy, stream);
+    raft::linalg::binaryOp(data, x.data, y.data, len, axpy, stream);
   }
 
   template <typename Lambda>
@@ -133,7 +133,7 @@ struct SimpleMat {
     ASSERT(ord == other.ord,
            "SimpleMat::assign_unary: Storage orders must match");
 
-    MLCommon::LinAlg::unaryOp(data, other.data, len, f, stream);
+    raft::linalg::unaryOp(data, other.data, len, f, stream);
   }
 
   template <typename Lambda>
@@ -145,7 +145,7 @@ struct SimpleMat {
     ASSERT(ord == other2.ord,
            "SimpleMat::assign_binary: Storage orders must match");
 
-    MLCommon::LinAlg::binaryOp(data, other1.data, other2.data, len, f, stream);
+    raft::linalg::binaryOp(data, other1.data, other2.data, len, f, stream);
   }
 
   template <typename Lambda>
@@ -167,7 +167,7 @@ struct SimpleMat {
   inline void fill(const T val, cudaStream_t stream) {
     // TODO this reads data unnecessary, though it's mostly used for testing
     auto f = [val] __device__(const T x) { return val; };
-    MLCommon::LinAlg::unaryOp(data, data, len, f, stream);
+    raft::linalg::unaryOp(data, data, len, f, stream);
   }
 
   inline void copy_async(const SimpleMat<T> &other, cudaStream_t stream) {
@@ -226,7 +226,7 @@ template <typename T>
 inline T dot(const SimpleVec<T> &u, const SimpleVec<T> &v, T *tmp_dev,
              cudaStream_t stream) {
   auto f = [] __device__(const T x, const T y) { return x * y; };
-  MLCommon::LinAlg::mapThenSumReduce(tmp_dev, u.len, f, stream, u.data, v.data);
+  raft::linalg::mapThenSumReduce(tmp_dev, u.len, f, stream, u.data, v.data);
   T tmp_host;
   MLCommon::updateHost(&tmp_host, tmp_dev, 1, stream);
   cudaStreamSynchronize(stream);

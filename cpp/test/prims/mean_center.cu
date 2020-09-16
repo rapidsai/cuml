@@ -45,7 +45,7 @@ class MeanCenterTest
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MeanCenterInputs<T, IdxType>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
 
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -59,10 +59,10 @@ class MeanCenterTest
     allocate(data, len);
     allocate(meanVec, vecLen);
     r.normal(data, len, params.mean, (T)1.0, stream);
-    mean(meanVec, data, cols, rows, params.sample, params.rowMajor, stream);
+    raft::stats::mean(meanVec, data, cols, rows, params.sample, params.rowMajor, stream);
     meanCenter(out, data, meanVec, cols, rows, params.rowMajor,
                params.bcastAlongRows, stream);
-    LinAlg::naiveMatVec(out_ref, data, meanVec, cols, rows, params.rowMajor,
+    raft::linalg::naiveMatVec(out_ref, data, meanVec, cols, rows, params.rowMajor,
                         params.bcastAlongRows, (T)-1.0);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }

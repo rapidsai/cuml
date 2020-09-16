@@ -24,7 +24,7 @@ namespace Functions {
 template <typename math_t>
 void softThres(math_t *out, const math_t *in, const math_t thres, const int len,
                cudaStream_t stream) {
-  LinAlg::unaryOp(
+  raft::linalg::unaryOp(
     out, in, len,
     [thres] __device__(math_t in) {
       if (in > math_t(0) && thres < myAbs(in))

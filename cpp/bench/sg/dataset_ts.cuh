@@ -59,8 +59,8 @@ struct TimeSeriesDataset {
   /** generate random time series (normal distribution) */
   void random(const raft::handle_t& handle, const TimeSeriesParams& p,
               DataT mu = 0, DataT sigma = 1) {
-    MLCommon::Random::Rng gpu_gen(p.seed, MLCommon::Random::GenPhilox);
-    gpu_gen.normal(X, p.batch_size * p.n_obs, mu, sigma, handle.get_stream());
+    raft::random::Rng gpu_gen(p.seed, raft::random::GenPhilox);
+    gpu_gen.normal(handle, X, p.batch_size * p.n_obs, mu, sigma, handle.get_stream());
   }
 };
 

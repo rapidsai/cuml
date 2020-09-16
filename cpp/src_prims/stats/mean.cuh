@@ -80,15 +80,15 @@ __global__ void meanKernelColMajor(Type *mu, const Type *data, IdxType D,
  * @param stream: cuda stream
  */
 template <typename Type, typename IdxType = int>
-void mean(raft::handle_t &handle, Type *mu, const Type *data, IdxType D,
+void mean(Type *mu, const Type *data, IdxType D,
           IdxType N, bool sample, bool rowMajor, cudaStream_t stream) {
   static const int TPB = 256;
   if (rowMajor) {
     static const int RowsPerThread = 4;
     static const int ColsPerBlk = 32;
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk),
-              raft::ceildiv(D, (IdxType)ColsPerBlk));
+    dim3 grid(MLCommon::ceildiv(N, (IdxType)RowsPerBlk),
+              MLCommon::ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemsetAsync(mu, 0, sizeof(Type) * D, stream));
     meanKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
       <<<grid, TPB, 0, stream>>>(mu, data, D, N);

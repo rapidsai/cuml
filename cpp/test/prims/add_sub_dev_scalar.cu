@@ -40,7 +40,7 @@ struct DevScalarInputs {
 template <typename T, typename IdxType = int>
 void unaryOpLaunch(T *out, const T *in, T scalar, IdxType len, bool add,
                    cudaStream_t stream) {
-  unaryOp(
+  raft::linalg::unaryOp(
     out, in, len,
     [scalar, add] __device__(T in) { return add ? in + scalar : in - scalar; },
     stream);
@@ -52,7 +52,7 @@ class DevScalarTest
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<DevScalarInputs<T, IdxType>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 

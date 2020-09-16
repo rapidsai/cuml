@@ -45,7 +45,7 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<CovInputs<T>>::GetParam();
     params.tolerance *= 2;
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     T var = params.var;
@@ -53,7 +53,7 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     allocate(mean_act, cols);
     allocate(cov_act, cols * cols);
     r.normal(data, len, params.mean, var, stream);
-    mean(mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
+    raft::stats::mean(mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
     cov(cov_act, data, mean_act, cols, rows, params.sample, params.rowMajor,
         params.stable, handle, stream);
 
@@ -68,7 +68,7 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     updateDevice(data_cm, data_h, 6, stream);
     updateDevice(cov_cm_ref, cov_cm_ref_h, 4, stream);
 
-    mean(mean_cm, data_cm, 2, 3, true, false, stream);
+    raft::stats::mean(mean_cm, data_cm, 2, 3, true, false, stream);
     cov(cov_cm, data_cm, mean_cm, 2, 3, true, false, true, handle, stream);
   }
 

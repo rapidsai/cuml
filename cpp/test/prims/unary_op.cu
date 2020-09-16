@@ -21,6 +21,8 @@
 #include "test_utils.h"
 #include "unary_op.cuh"
 
+using namespace MLCommon;
+
 namespace raft {
 namespace linalg {
 
@@ -50,13 +52,13 @@ class UnaryOpTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       UnaryOpInputs<InType, IdxType, OutType>>::GetParam();
-    random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
     auto len = params.len;
-    allocate(in, len);
-    allocate(out_ref, len);
-    allocate(out, len);
-    r.uniform(handle, in, len, InType(-1.0), InType(1.0), stream);
+    MLCommon::allocate(in, len);
+    MLCommon::allocate(out_ref, len);
+    MLCommon::allocate(out, len);
+    r.uniform(in, len, InType(-1.0), InType(1.0), stream);
   }
 
   void TearDown() override {
@@ -81,7 +83,6 @@ class UnaryOpTest
   InType *in;
   OutType *out_ref, *out;
   cudaStream_t stream;
-  raft::handle_t handle;
 };
 
 template <typename OutType, typename IdxType>

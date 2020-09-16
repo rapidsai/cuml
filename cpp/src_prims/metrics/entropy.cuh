@@ -121,7 +121,7 @@ double entropy(const T *clusterArray, const int size, const T lowerLabelRange,
                                          numUniqueClasses, stream);
 
   //calculating the aggregate entropy
-  MLCommon::LinAlg::mapThenSumReduce<double, entropyOp>(
+  raft::linalg::mapThenSumReduce<double, entropyOp>(
     d_entropy.data(), numUniqueClasses, entropyOp(), stream, prob.data(),
     prob.data());
 

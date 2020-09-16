@@ -132,7 +132,7 @@ class WarpTopKTest : public ::testing::TestWithParam<WarpTopKInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<WarpTopKInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(arr, params.rows * params.cols);

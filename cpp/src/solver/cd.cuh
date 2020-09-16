@@ -34,6 +34,7 @@
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
 #include "shuffle.h"
+#include <common/device_buffer.hpp>
 
 namespace ML {
 namespace Solver {
@@ -122,7 +123,7 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
 
   if (normalize) {
     math_t scalar = math_t(1.0) + l2_alpha;
-    Matrix::setValue(squared.data(), squared.data(), scalar, n_cols, stream);
+    raft::matrix::setValue(squared.data(), squared.data(), scalar, n_cols, stream);
   } else {
     LinAlg::colNorm(squared.data(), input, n_cols, n_rows, LinAlg::L2Norm,
                     false, stream);
@@ -156,7 +157,7 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
       if (l1_ratio > math_t(0.0))
         Functions::softThres(coef_loc, coef_loc, alpha, 1, stream);
 
-      LinAlg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
+      raft::linalg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
                                      stream);
 
       coef_prev = h_coef[ci];

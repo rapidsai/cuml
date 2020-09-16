@@ -58,7 +58,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
 
     myRank = comm.getRank();
     totalRanks = comm.getSize();
-    Random::Rng r(params.seed + myRank);
+    raft::random::Rng r(params.seed + myRank);
 
     CUBLAS_CHECK(cublasSetStream(cublasHandle, stream));
 

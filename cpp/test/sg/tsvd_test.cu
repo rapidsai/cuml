@@ -49,7 +49,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
  protected:
   void basicTest() {
     params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
-    Random::Rng r(params.seed, MLCommon::Random::GenTaps);
+    raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len;
 
     allocate(data, len);
@@ -85,7 +85,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
 
   void advancedTest() {
     params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
-    Random::Rng r(params.seed, MLCommon::Random::GenTaps);
+    raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len2;
 
     paramsTSVD prms;

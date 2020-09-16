@@ -45,7 +45,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<DispersionInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.clusters * params.dim;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocator.reset(new raft::mr::device::default_allocator);

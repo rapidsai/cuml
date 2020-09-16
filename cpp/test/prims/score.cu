@@ -118,7 +118,7 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
     ASSERT((params.changed_n <= params.n) && (params.changed_n >= 0),
            "Invalid params.");
 
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
     std::shared_ptr<deviceAllocator> d_allocator(
       new raft::mr::device::default_allocator);
@@ -276,7 +276,7 @@ class RegressionMetricsTest
     } else {
       params.predictions.resize(params.n);
       params.ref_predictions.resize(params.n);
-      Random::Rng r(params.seed);
+      raft::random::Rng r(params.seed);
       // randomly generate arrays
       r.uniform(d_predictions, params.n, params.predictions_range[0],
                 params.predictions_range[1], stream);

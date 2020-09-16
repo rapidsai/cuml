@@ -50,7 +50,7 @@ struct MatVecOp : public Fixture {
 
   void runBenchmark(::benchmark::State& state) override {
     loopOnState(state, [this]() {
-      MLCommon::LinAlg::matrixVectorOp(out, in, vec, params.cols, params.rows,
+      raft::linalg::matrixVectorOp(out, in, vec, params.cols, params.rows,
                                        params.rowMajor, params.bcastAlongRows,
                                        Sum<T>(), stream);
     });

@@ -240,7 +240,7 @@ void smooth_knn_dist(int n, const int64_t *knn_indices, const float *knn_dists,
 
   MLCommon::device_buffer<T> dist_means_dev(d_alloc, stream, n_neighbors);
 
-  MLCommon::Stats::mean(dist_means_dev.data(), knn_dists, 1, n_neighbors * n,
+  raft::stats::mean(dist_means_dev.data(), knn_dists, 1, n_neighbors * n,
                         false, false, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 

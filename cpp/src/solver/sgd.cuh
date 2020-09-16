@@ -187,7 +187,7 @@ void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
       if (lr_type != ML::lr_type::ADAPTIVE)
         learning_rate = calLearningRate(lr_type, eta0, power_t, alpha, t);
 
-      LinAlg::scalarMultiply(grads.data(), grads.data(), learning_rate, n_cols,
+      raft::linalg::scalarMultiply(grads.data(), grads.data(), learning_rate, n_cols,
                              stream);
       LinAlg::subtract(coef, coef, grads.data(), n_cols, stream);
 
@@ -318,7 +318,7 @@ void sgdPredictBinaryClass(const raft::handle_t &handle, const math_t *input,
 
   math_t scalar = math_t(1);
   if (loss == ML::loss_funct::SQRD_LOSS || loss == ML::loss_funct::LOG) {
-    LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       preds, preds, n_rows,
       [scalar] __device__(math_t in) {
         if (in >= math_t(0.5))
@@ -328,7 +328,7 @@ void sgdPredictBinaryClass(const raft::handle_t &handle, const math_t *input,
       },
       stream);
   } else if (loss == ML::loss_funct::HINGE) {
-    LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       preds, preds, n_rows,
       [scalar] __device__(math_t in) {
         if (in >= math_t(0.0))

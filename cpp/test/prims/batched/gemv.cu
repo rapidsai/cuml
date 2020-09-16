@@ -62,7 +62,7 @@ class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<BatchGemvInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.batchSize * params.m * params.n;
     int vecleny = params.batchSize * params.m;
     int veclenx = params.batchSize * params.n;

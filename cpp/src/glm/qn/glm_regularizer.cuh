@@ -43,7 +43,7 @@ struct Tikhonov {
     col_slice(W, Wweights, 0, G.n - has_bias);
     Gweights.ax(l2_penalty, Wweights, stream);
 
-    MLCommon::LinAlg::mapThenSumReduce(reg_val, Wweights.len, *this, stream,
+    raft::linalg::mapThenSumReduce(reg_val, Wweights.len, *this, stream,
                                        Wweights.data);
   }
 };

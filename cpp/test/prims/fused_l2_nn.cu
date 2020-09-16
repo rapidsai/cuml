@@ -88,7 +88,7 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
  public:
   void SetUp() override {
     params = ::testing::TestWithParam<Inputs<DataT>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int m = params.m;
     int n = params.n;
     int k = params.k;

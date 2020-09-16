@@ -54,7 +54,7 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<T>> {
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<ReduceInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     outlen = params.alongRows ? rows : cols;

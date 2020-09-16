@@ -25,11 +25,11 @@ namespace MLCommon {
 namespace LinAlg {
 
 template <typename T>
-class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
+class ternaryOpTest : public ::testing::TestWithParam<raft::linalg::BinaryOpInputs<T>> {
  public:
   void SetUp() override {
-    params = ::testing::TestWithParam<BinaryOpInputs<T>>::GetParam();
-    Random::Rng rng(params.seed);
+    params = ::testing::TestWithParam<raft::linalg::BinaryOpInputs<T>>::GetParam();
+    raft::random::Rng rng(params.seed);
 
     int len = params.len;
     cudaStream_t stream;
@@ -66,11 +66,11 @@ class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
   }
 
  protected:
-  BinaryOpInputs<T> params;
+  raft::linalg::BinaryOpInputs<T> params;
   T *in1, *in2, *in3, *out_add_ref, *out_mul_ref, *out_add, *out_mul;
 };
 
-const std::vector<BinaryOpInputs<float>> inputsf = {
+const std::vector<raft::linalg::BinaryOpInputs<float>> inputsf = {
   {0.000001f, 1024 * 1024, 1234ULL},
   {0.000001f, 1024 * 1024 + 2, 1234ULL},
   {0.000001f, 1024 * 1024 + 1, 1234ULL}};
@@ -84,7 +84,7 @@ TEST_P(ternaryOpTestF, Result) {
 INSTANTIATE_TEST_CASE_P(ternaryOpTests, ternaryOpTestF,
                         ::testing::ValuesIn(inputsf));
 
-const std::vector<BinaryOpInputs<double>> inputsd = {
+const std::vector<raft::linalg::BinaryOpInputs<double>> inputsd = {
   {0.00000001, 1024 * 1024, 1234ULL},
   {0.00000001, 1024 * 1024 + 2, 1234ULL},
   {0.00000001, 1024 * 1024 + 1, 1234ULL}};

@@ -62,7 +62,7 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<ReduceColsInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
     auto nrows = params.rows;
     auto ncols = params.cols;

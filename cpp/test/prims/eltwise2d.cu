@@ -79,7 +79,7 @@ class Eltwise2dTest : public ::testing::TestWithParam<Eltwise2dInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<Eltwise2dInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     auto w = params.w;

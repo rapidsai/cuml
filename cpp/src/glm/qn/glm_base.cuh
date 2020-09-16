@@ -46,7 +46,7 @@ inline void linearFwd(const raft::handle_t &handle, SimpleMat<T> &Z,
     // - Z <- b (broadcast): TODO reads Z unnecessarily atm
     // - Z <- W * X^T + Z    : TODO can be fused in CUTLASS?
     auto set_bias = [] __device__(const T z, const T b) { return b; };
-    MLCommon::LinAlg::matrixVectorOp(Z.data, Z.data, bias.data, Z.n, Z.m, false,
+    raft::linalg::matrixVectorOp(Z.data, Z.data, bias.data, Z.n, Z.m, false,
                                      false, set_bias, stream);
 
     Z.assign_gemm(handle, 1, weights, false, X, true, 1, stream);
@@ -74,7 +74,7 @@ inline void linearBwd(const raft::handle_t &handle, SimpleMat<T> &G,
 
     // TODO can this be fused somehow?
     Gweights.assign_gemm(handle, 1.0 / X.m, dZ, false, X, false, beta, stream);
-    MLCommon::Stats::mean(Gbias.data, dZ.data, dZ.m, dZ.n, false, true, stream);
+    raft::stats::mean(Gbias.data, dZ.data, dZ.m, dZ.n, false, true, stream);
   } else {
     G.assign_gemm(handle, 1.0 / X.m, dZ, false, X, false, beta, stream);
   }
@@ -120,13 +120,13 @@ struct GLMBase : GLMDims {
     // TODO would be nice to have a kernel that fuses these two steps
     // This would be easy, if mapThenSumReduce allowed outputing the result of
     // map (supporting inplace)
-    MLCommon::LinAlg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data,
+    raft::linalg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data,
                                        Z.data);
 
     auto f_dl = [=] __device__(const T y, const T z) {
       return loss->dlz(y, z);
     };
-    MLCommon::LinAlg::binaryOp(Z.data, y.data, Z.data, y.len, f_dl, stream);
+    raft::linalg::binaryOp(Z.data, y.data, Z.data, y.len, f_dl, stream);
   }
 
   inline void loss_grad(T *loss_val, Mat &G, const Mat &W,

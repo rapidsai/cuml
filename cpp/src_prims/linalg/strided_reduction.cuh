@@ -134,7 +134,7 @@ void stridedReduction(OutType *dots, const InType *data, IdxType D, IdxType N,
   ///@todo: this extra should go away once we have eliminated the need
   /// for atomics in stridedKernel (redesign for this is already underway)
   if (!inplace)
-    unaryOp(
+    raft::linalg::unaryOp(
       dots, dots, D, [init] __device__(OutType a) { return init; }, stream);
 
   // Arbitrary numbers for now, probably need to tune
@@ -160,7 +160,7 @@ void stridedReduction(OutType *dots, const InType *data, IdxType D, IdxType N,
   /// for atomics in stridedKernel (redesign for this is already underway)
   // Perform final op on output data
   if (!std::is_same<FinalLambda, Nop<OutType>>::value)
-    unaryOp(dots, dots, D, final_op, stream);
+    raft::linalg::unaryOp(dots, dots, D, final_op, stream);
 }
 
 };  // end namespace LinAlg

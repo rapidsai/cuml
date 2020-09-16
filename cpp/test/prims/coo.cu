@@ -137,7 +137,7 @@ TEST_P(COOSort, Result) {
   float *in_vals;
 
   params = ::testing::TestWithParam<COOInputs<float>>::GetParam();
-  Random::Rng r(params.seed);
+  raft::random::Rng r(params.seed);
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
   std::shared_ptr<deviceAllocator> alloc(
@@ -193,7 +193,7 @@ TEST_P(COORemoveZeros, Result) {
 
   COO<float> in(alloc, stream, params.nnz, 5, 5);
 
-  Random::Rng r(params.seed);
+  raft::random::Rng r(params.seed);
   r.uniform(in.vals(), params.nnz, float(-1.0), float(1.0), stream);
 
   updateHost(in_h_vals, in.vals(), params.nnz, stream);

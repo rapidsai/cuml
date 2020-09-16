@@ -62,7 +62,7 @@ inline size_t binomial(const raft::handle_t& h, size_t n, double p,
   gettimeofday(&tp, NULL);
   long long seed = tp.tv_sec * 1000 + tp.tv_usec;
 
-  auto rng = MLCommon::Random::Rng(random_state + seed);
+  auto rng = raft::random::Rng(random_state + seed);
 
   bool* rand_array = (bool*)alloc->allocate(n * sizeof(bool), h.get_stream());
   int* successes = (int*)alloc->allocate(sizeof(int), h.get_stream());

@@ -47,7 +47,7 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
     if (params.needShuffle) {
       params.needPerms = true;
     }
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int N = params.N;
     int D = params.D;
     int len = N * D;

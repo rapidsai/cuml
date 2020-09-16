@@ -26,8 +26,8 @@ template <typename InType, int VecLen, typename Lambda, typename OutType,
           typename IdxType>
 __global__ void unaryOpKernel(OutType *out, const InType *in, IdxType len,
                               Lambda op) {
-  typedef TxN_t<InType, VecLen> InVecType;
-  typedef TxN_t<OutType, VecLen> OutVecType;
+  typedef MLCommon::TxN_t<InType, VecLen> InVecType;
+  typedef MLCommon::TxN_t<OutType, VecLen> OutVecType;
   InVecType a;
   OutVecType b;
   IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * blockDim.x);
@@ -46,7 +46,7 @@ template <typename InType, int VecLen, typename Lambda, typename OutType,
 void unaryOpImpl(OutType *out, const InType *in, IdxType len, Lambda op,
                  cudaStream_t stream) {
   const IdxType nblks =
-    raft::ceildiv(VecLen ? len / VecLen : len, (IdxType)TPB);
+    MLCommon::ceildiv(VecLen ? len / VecLen : len, (IdxType)TPB);
   unaryOpKernel<InType, VecLen, Lambda, OutType, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, in, len, op);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -132,7 +132,7 @@ template <typename OutType, typename Lambda, typename IdxType = int,
 void writeOnlyUnaryOp(OutType *out, IdxType len, Lambda op,
                       cudaStream_t stream) {
   if (len <= 0) return;  // silently skip in case of 0 length input
-  auto nblks = raft::ceildiv<IdxType>(len, TPB);
+  auto nblks = MLCommon::ceildiv<IdxType>(len, TPB);
   writeOnlyUnaryOpKernel<OutType, Lambda, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, len, op);
   CUDA_CHECK(cudaGetLastError());

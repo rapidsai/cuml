@@ -25,11 +25,11 @@ namespace MLCommon {
 namespace LinAlg {
 
 template <typename T>
-class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
+class MultiplyTest : public ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>> {
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<UnaryOpInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    params = ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>>::GetParam();
+    raft::random::Rng r(params.seed);
     int len = params.len;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -50,11 +50,11 @@ class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
   }
 
  protected:
-  UnaryOpInputs<T> params;
+  raft::linalg::UnaryOpInputs<T> params;
   T *in, *out_ref, *out;
 };
 
-const std::vector<UnaryOpInputs<float>> inputsf = {
+const std::vector<raft::linalg::UnaryOpInputs<float>> inputsf = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 typedef MultiplyTest<float> MultiplyTestF;
 TEST_P(MultiplyTestF, Result) {
@@ -65,7 +65,7 @@ INSTANTIATE_TEST_CASE_P(MultiplyTests, MultiplyTestF,
                         ::testing::ValuesIn(inputsf));
 
 typedef MultiplyTest<double> MultiplyTestD;
-const std::vector<UnaryOpInputs<double>> inputsd = {
+const std::vector<raft::linalg::UnaryOpInputs<double>> inputsd = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 TEST_P(MultiplyTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,

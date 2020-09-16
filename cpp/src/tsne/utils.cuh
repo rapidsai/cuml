@@ -57,7 +57,7 @@ void random_vector(float *vector, const float minimum, const float maximum,
     gettimeofday(&tp, NULL);
     seed = tp.tv_sec * 1000 + tp.tv_usec;
   }
-  MLCommon::Random::Rng random(seed);
+  raft::random::Rng random(seed);
   random.uniform<float>(vector, size, minimum, maximum, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 }

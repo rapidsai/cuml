@@ -339,7 +339,7 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
 	*/
     float p = 0.5;  // standard l2
     if (m == faiss::MetricType::METRIC_Lp) p = 1.0 / metricArg;
-    MLCommon::LinAlg::unaryOp<float>(
+    raft::linalg::unaryOp<float>(
       res_D, res_D, n * k,
       [p] __device__(float input) { return powf(input, p); }, userStream);
   }
@@ -473,7 +473,7 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
     device_buffer<int> y_normalized(allocator, stream, n_index_rows);
     MLCommon::Label::make_monotonic(y_normalized.data(), y[i], n_index_rows,
                                     stream, allocator);
-    MLCommon::LinAlg::unaryOp<int>(
+    raft::linalg::unaryOp<int>(
       y_normalized.data(), y_normalized.data(), n_index_rows,
       [] __device__(int input) { return input - 1; }, stream);
     class_probs_kernel<float, precomp_lbls>

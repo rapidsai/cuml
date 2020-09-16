@@ -56,7 +56,7 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<SqrtInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.len;

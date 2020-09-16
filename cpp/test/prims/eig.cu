@@ -49,7 +49,7 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
       new raft::mr::device::default_allocator);
 
     params = ::testing::TestWithParam<EigInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.len;
 
     allocate(cov_matrix, len);

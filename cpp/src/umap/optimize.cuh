@@ -85,7 +85,7 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
   MLCommon::device_buffer<T> residuals(d_alloc, stream, n_rows);
 
   f<T, TPB_X>(input, n_rows, coef, residuals.data());
-  MLCommon::LinAlg::eltwiseSub(residuals.data(), residuals.data(), labels,
+  raft::linalg::eltwiseSub(residuals.data(), residuals.data(), labels,
                                n_rows, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
@@ -100,7 +100,7 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
       return -(pow(x, 2.0 * b)) / pow((1.0 + a * pow(x, 2.0 * b)), 2.0);
     });
 
-  MLCommon::LinAlg::eltwiseMultiply(a_deriv.data(), a_deriv.data(),
+  raft::linalg::eltwiseMultiply(a_deriv.data(), a_deriv.data(),
                                     residuals.data(), n_rows, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
@@ -119,15 +119,15 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
   /**
    * Multiply partial derivs by residuals
    */
-  MLCommon::LinAlg::eltwiseMultiply(b_deriv.data(), b_deriv.data(),
+  raft::linalg::eltwiseMultiply(b_deriv.data(), b_deriv.data(),
                                     residuals.data(), n_rows, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
    * Finally, take the mean
    */
-  MLCommon::Stats::mean(grads, a_deriv.data(), 1, n_rows, false, false, stream);
-  MLCommon::Stats::mean(grads + 1, b_deriv.data(), 1, n_rows, false, false,
+  raft::stats::mean(grads, a_deriv.data(), 1, n_rows, false, false, stream);
+  raft::stats::mean(grads + 1, b_deriv.data(), 1, n_rows, false, false,
                         stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
@@ -158,7 +158,7 @@ void optimize_params(T *input, int n_rows, const T *labels, T *coef,
 
     MLCommon::LinAlg::multiplyScalar(grads.data(), grads.data(), learning_rate,
                                      2, stream);
-    MLCommon::LinAlg::eltwiseSub(coef, coef, grads.data(), 2, stream);
+    raft::linalg::eltwiseSub(coef, coef, grads.data(), 2, stream);
 
     T *grads_h = (T *)malloc(2 * sizeof(T));
     MLCommon::updateHost(grads_h, grads.data(), 2, stream);

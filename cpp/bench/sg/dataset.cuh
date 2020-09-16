@@ -124,7 +124,7 @@ struct Dataset {
                              b.shuffle, D(b.center_box_min),
                              D(b.center_box_max), b.seed);
     if (!std::is_same<L, IdxT>::value) {
-      MLCommon::LinAlg::unaryOp(
+      raft::linalg::unaryOp(
         y, tmpY, p.nrows, [] __device__(IdxT z) { return (L)z; }, stream);
       allocator->deallocate(tmpY, p.nrows * sizeof(IdxT), stream);
     }

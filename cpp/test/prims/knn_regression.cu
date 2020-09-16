@@ -42,11 +42,11 @@ struct KNNRegressionInputs {
 
 void generate_data(float *out_samples, float *out_labels, int n_rows,
                    int n_cols, cudaStream_t stream) {
-  Random::Rng r(0ULL, MLCommon::Random::GenTaps);
+  raft::random::Rng r(0ULL, raft::random::GenTaps);
 
   r.uniform(out_samples, n_rows * n_cols, 0.0f, 1.0f, stream);
 
-  MLCommon::LinAlg::unaryOp<float>(
+  raft::linalg::unaryOp<float>(
     out_samples, out_samples, n_rows,
     [=] __device__(float input) { return 2 * input - 1; }, stream);
 
@@ -59,7 +59,7 @@ void generate_data(float *out_samples, float *out_labels, int n_rows,
   float max =
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + n_rows));
 
-  MLCommon::LinAlg::unaryOp<float>(
+  raft::linalg::unaryOp<float>(
     out_labels, out_labels, n_rows,
     [=] __device__(float input) { return input / max; }, stream);
 }

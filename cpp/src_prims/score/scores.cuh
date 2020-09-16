@@ -222,13 +222,13 @@ math_t r2_score(math_t *y, math_t *y_hat, int n, cudaStream_t stream) {
   math_t *y_bar;
   MLCommon::allocate(y_bar, 1);
 
-  MLCommon::Stats::mean(y_bar, y, 1, n, false, false, stream);
+  raft::stats::mean(y_bar, y, 1, n, false, false, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   math_t *sse_arr;
   MLCommon::allocate(sse_arr, n);
 
-  MLCommon::LinAlg::eltwiseSub(sse_arr, y, y_hat, n, stream);
+  raft::linalg::eltwiseSub(sse_arr, y, y_hat, n, stream);
   MLCommon::LinAlg::powerScalar(sse_arr, sse_arr, math_t(2.0), n, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
@@ -271,7 +271,7 @@ float accuracy_score(const math_t *predictions, const math_t *ref_predictions,
   math_t *diffs_array = (math_t *)d_alloc->allocate(n * sizeof(math_t), stream);
 
   //TODO could write a kernel instead
-  MLCommon::LinAlg::eltwiseSub(diffs_array, predictions, ref_predictions, n,
+  raft::linalg::eltwiseSub(diffs_array, predictions, ref_predictions, n,
                                stream);
   CUDA_CHECK(cudaGetLastError());
   correctly_predicted = thrust::count(thrust::cuda::par.on(stream), diffs_array,

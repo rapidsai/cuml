@@ -93,7 +93,7 @@ int countUnique(const T* arr, int size, T& minLabel, T& maxLabel,
                            [minLabel] __device__(T val, int row, int col) {
                              return int(val - minLabel);
                            });
-  LinAlg::mapThenSumReduce<int>(
+  raft::linalg::mapThenSumReduce<int>(
     nUniq.data(), totalLabels, [] __device__(const T& val) { return val != 0; },
     stream, labelCounts.data());
   int numUniques;
@@ -158,7 +158,7 @@ double computeAdjustedRandIndex(const T* firstClusterArray,
   CUDA_CHECK(cudaMemsetAsync(d_bCTwoSum.data(), 0, sizeof(MathT), stream));
   CUDA_CHECK(cudaMemsetAsync(d_nChooseTwoSum.data(), 0, sizeof(MathT), stream));
   //calculating the sum of NijC2
-  LinAlg::mapThenSumReduce<MathT, nCTwo<MathT>>(
+  raft::linalg::mapThenSumReduce<MathT, nCTwo<MathT>>(
     d_nChooseTwoSum.data(), nUniqClasses * nUniqClasses, nCTwo<MathT>(), stream,
     dContingencyMatrix.data(), dContingencyMatrix.data());
   //calculating the row-wise sums
@@ -170,11 +170,11 @@ double computeAdjustedRandIndex(const T* firstClusterArray,
                                nUniqClasses, nUniqClasses, 0, true, false,
                                stream);
   //calculating the sum of number of unordered pairs for every element in a
-  LinAlg::mapThenSumReduce<MathT, nCTwo<MathT>>(d_aCTwoSum.data(), nUniqClasses,
+  raft::linalg::mapThenSumReduce<MathT, nCTwo<MathT>>(d_aCTwoSum.data(), nUniqClasses,
                                                 nCTwo<MathT>(), stream,
                                                 a.data(), a.data());
   //calculating the sum of number of unordered pairs for every element of b
-  LinAlg::mapThenSumReduce<MathT, nCTwo<MathT>>(d_bCTwoSum.data(), nUniqClasses,
+  raft::linalg::mapThenSumReduce<MathT, nCTwo<MathT>>(d_bCTwoSum.data(), nUniqClasses,
                                                 nCTwo<MathT>(), stream,
                                                 b.data(), b.data());
   //updating in the host memory

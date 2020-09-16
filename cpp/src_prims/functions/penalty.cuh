@@ -39,7 +39,7 @@ template <typename math_t>
 void lasso(math_t *out, const math_t *coef, const int len, const math_t alpha,
            cudaStream_t stream) {
   LinAlg::rowNorm(out, coef, len, 1, LinAlg::NormType::L1Norm, true, stream);
-  LinAlg::scalarMultiply(out, out, alpha, 1, stream);
+  raft::linalg::scalarMultiply(out, out, alpha, 1, stream);
 }
 
 template <typename math_t>
@@ -52,13 +52,13 @@ template <typename math_t>
 void ridge(math_t *out, const math_t *coef, const int len, const math_t alpha,
            cudaStream_t stream) {
   LinAlg::rowNorm(out, coef, len, 1, LinAlg::NormType::L2Norm, true, stream);
-  LinAlg::scalarMultiply(out, out, alpha, 1, stream);
+  raft::linalg::scalarMultiply(out, out, alpha, 1, stream);
 }
 
 template <typename math_t>
 void ridgeGrad(math_t *grad, const math_t *coef, const int len,
                const math_t alpha, cudaStream_t stream) {
-  LinAlg::scalarMultiply(grad, coef, math_t(2) * alpha, len, stream);
+  raft::linalg::scalarMultiply(grad, coef, math_t(2) * alpha, len, stream);
 }
 
 template <typename math_t>

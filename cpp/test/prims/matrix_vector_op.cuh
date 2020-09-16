@@ -17,6 +17,8 @@
 #include <cuda_utils.cuh>
 #include <linalg/matrix_vector_op.cuh>
 
+using namespace MLCommon;
+
 namespace raft {
 namespace linalg {
 

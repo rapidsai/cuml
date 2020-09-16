@@ -83,7 +83,7 @@ void grow_deep_tree_classification(
 
   //RNG setup
   std::mt19937 mtg(treeid * 1000);
-  MLCommon::Random::Rng d_rng(treeid * 1000);
+  raft::random::Rng d_rng(treeid * 1000);
   std::uniform_int_distribution<unsigned int> dist(0, Ncols - 1);
   //Setup pointers
   unsigned int* d_histogram = tempmem->d_histogram->data();

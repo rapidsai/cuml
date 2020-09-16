@@ -49,15 +49,15 @@ void ridgeSolve(const raft::handle_t &handle, math_t *S, math_t *V, math_t *U,
   math_t beta = math_t(0);
   math_t thres = math_t(1e-10);
 
-  Matrix::setSmallValuesZero(S, n_cols, stream, thres);
+  raft::matrix::setSmallValuesZero(S, n_cols, stream, thres);
   allocate(S_nnz, n_cols, true);
   copy(S_nnz, S, n_cols, stream);
-  Matrix::power(S_nnz, n_cols, stream);
+  raft::matrix::power(S_nnz, n_cols, stream);
   LinAlg::addScalar(S_nnz, S_nnz, alpha[0], n_cols, stream);
-  Matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true,
+  raft::matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true,
                                         stream, true);
 
-  Matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false, true, stream);
+  raft::matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false, true, stream);
   LinAlg::gemm(U, n_rows, n_cols, b, S_nnz, n_cols, 1, CUBLAS_OP_T, CUBLAS_OP_N,
                alp, beta, cublasH, stream);
 

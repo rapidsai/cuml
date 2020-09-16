@@ -37,7 +37,7 @@ void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
                              const int n_nodes, RNG rng, DIST dist,
                              std::vector<unsigned int> &feature_selector,
                              std::shared_ptr<TemporaryMemory<T, L>> tempmem,
-                             MLCommon::Random::Rng &d_rng) {
+                             raft::random::Rng &d_rng) {
   if (h_colstart != nullptr) {
     if (Ncols != ncols_sampled) {
       std::shuffle(h_colids, h_colids + Ncols, rng);

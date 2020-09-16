@@ -20,6 +20,8 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
+using namespace MLCommon;
+
 namespace raft {
 namespace matrix {
 
@@ -134,21 +136,21 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     T out_ratio_ref_h[4] = {0.125, 0.25, 0.25, 0.375};
     update_device(out_ratio_ref, out_ratio_ref_h, 4, stream);
 
-    r.uniform(handle, in_power, len, T(-1.0), T(1.0), stream);
-    r.uniform(handle, in_sqrt, len, T(0.0), T(1.0), stream);
+    r.uniform(in_power, len, T(-1.0), T(1.0), stream);
+    r.uniform(in_sqrt, len, T(0.0), T(1.0), stream);
     // r.uniform(in_ratio, len, T(0.0), T(1.0));
-    r.uniform(handle, in_sign_flip, len, T(-100.0), T(100.0), stream);
+    r.uniform(in_sign_flip, len, T(-100.0), T(100.0), stream);
 
     naivePower(in_power, out_power_ref, len, stream);
-    power(handle, in_power, len, stream);
+    power(in_power, len, stream);
 
     naiveSqrt(in_sqrt, out_sqrt_ref, len);
-    seqRoot(handle, in_sqrt, len, stream);
+    seqRoot(in_sqrt, len, stream);
 
     ratio(handle, in_ratio, in_ratio, 4, stream);
 
     naiveSignFlip(in_sign_flip, out_sign_flip_ref, params.n_row, params.n_col);
-    signFlip(handle, in_sign_flip, params.n_row, params.n_col, stream);
+    signFlip(in_sign_flip, params.n_row, params.n_col, stream);
 
     allocate(in_recip, 4);
     allocate(in_recip_ref, 4);
@@ -161,9 +163,9 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     T recip_scalar = T(1.0);
 
     // this `reciprocal()` has to go first bc next one modifies its input
-    reciprocal(handle, in_recip, out_recip, recip_scalar, 4, stream);
+    reciprocal(in_recip, out_recip, recip_scalar, 4, stream);
 
-    reciprocal(handle, in_recip, recip_scalar, 4, stream, true);
+    reciprocal(in_recip, recip_scalar, 4, stream, true);
 
     std::vector<T> in_small_val_zero_h = {0.1, 1e-16, -1e-16, -0.1};
     std::vector<T> in_small_val_zero_ref_h = {0.1, 0.0, 0.0, -0.1};
@@ -172,8 +174,8 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     allocate(out_smallzero_ref, 4);
     update_device(in_smallzero, in_small_val_zero_h.data(), 4, stream);
     update_device(out_smallzero_ref, in_small_val_zero_ref_h.data(), 4, stream);
-    setSmallValuesZero(handle, out_smallzero, in_smallzero, 4, stream);
-    setSmallValuesZero(handle, in_smallzero, 4, stream);
+    setSmallValuesZero(out_smallzero, in_smallzero, 4, stream);
+    setSmallValuesZero(in_smallzero, 4, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 

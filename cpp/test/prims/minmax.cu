@@ -91,7 +91,7 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MinMaxInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.rows * params.cols;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(data, len);

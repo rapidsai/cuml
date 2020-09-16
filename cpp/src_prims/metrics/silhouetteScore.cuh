@@ -241,7 +241,7 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
   CUDA_CHECK(cudaMemsetAsync(averageDistanceBetweenSampleAndCluster.data(), 0,
                              nRows * nLabels * sizeof(DataT), stream));
 
-  LinAlg::matrixVectorOp<DataT, DivOp<DataT>>(
+  raft::linalg::matrixVectorOp<DataT, DivOp<DataT>>(
     averageDistanceBetweenSampleAndCluster.data(),
     sampleToClusterSumOfDistances.data(), binCountArray.data(),
     binCountArray.data(), nLabels, nRows, true, true, DivOp<DataT>(), stream);
@@ -253,7 +253,7 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
     Nop<DataT>(), MinOp<DataT>());
 
   //calculating the silhouette score per sample using the d_aArray and d_bArray
-  LinAlg::binaryOp<DataT, SilOp<DataT>>(perSampleSilScore, d_aArray.data(),
+  raft::linalg::binaryOp<DataT, SilOp<DataT>>(perSampleSilScore, d_aArray.data(),
                                         d_bArray.data(), nRows, SilOp<DataT>(),
                                         stream);
 
@@ -264,7 +264,7 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
 
   DataT avgSilhouetteScore;
 
-  MLCommon::LinAlg::mapThenSumReduce<double, Nop<DataT>>(
+  raft::linalg::mapThenSumReduce<double, Nop<DataT>>(
     d_avgSilhouetteScore.data(), nRows, Nop<DataT>(), stream, perSampleSilScore,
     perSampleSilScore);
 

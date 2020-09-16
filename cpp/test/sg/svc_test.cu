@@ -473,7 +473,7 @@ class SmoBlockSolverTest : public ::testing::Test {
 
     math_t *delta_alpha_calc;
     allocate(delta_alpha_calc, n_rows);
-    LinAlg::binaryOp(
+    raft::linalg::binaryOp(
       delta_alpha_calc, y_dev, alpha_dev, n_rows,
       [] __device__(math_t a, math_t b) { return a * b; }, stream);
     devArrMatch(delta_alpha_dev, delta_alpha_calc, n_rows,
@@ -728,7 +728,7 @@ class SmoSolverTest : public ::testing::Test {
     // check results won't work, because it expects that GetResults was called
     math_t *delta_alpha_calc;
     allocate(delta_alpha_calc, n_rows);
-    LinAlg::binaryOp(
+    raft::linalg::binaryOp(
       delta_alpha_calc, y_dev, alpha_dev, n_rows,
       [] __device__(math_t a, math_t b) { return a * b; }, stream);
     devArrMatch(delta_alpha_dev, delta_alpha_calc, n_rows,

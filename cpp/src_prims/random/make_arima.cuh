@@ -134,14 +134,14 @@ void make_arima(DataT* out, int batch_size, int n_obs, ML::ARIMAOrder order,
                 std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
                 DataT scale = (DataT)1.0, DataT noise_scale = (DataT)0.2,
                 DataT intercept_scale = (DataT)1.0, uint64_t seed = 0ULL,
-                GeneratorType type = GenPhilox) {
+                raft::random::GeneratorType type = raft::random::GenPhilox) {
   int d_sD = order.d + order.s * order.D;
   int n_phi = order.p + order.s * order.P;
   int n_theta = order.q + order.s * order.Q;
   auto counting = thrust::make_counting_iterator(0);
 
   // Create CPU/GPU random generators and distributions
-  Rng gpu_gen(seed, type);
+  raft::random::Rng gpu_gen(seed, type);
 
   // Generate parameters. We draw temporary random parameters and transform
   // them to create the final parameters.

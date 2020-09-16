@@ -83,7 +83,7 @@ void grow_deep_tree_regression(
   sparse_nodelist.push_back(0);
   //RNG setup
   std::mt19937 mtg(treeid * 1000);
-  MLCommon::Random::Rng d_rng(treeid * 1000);
+  raft::random::Rng d_rng(treeid * 1000);
   std::uniform_int_distribution<int> dist(0, Ncols - 1);
 
   //Setup pointers

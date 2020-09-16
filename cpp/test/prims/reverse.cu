@@ -37,7 +37,7 @@ class ReverseTest : public ::testing::TestWithParam<ReverseInputs<T>> {
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<ReverseInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.nrows * params.ncols;
     allocate(in, len);
     allocate(out, len);

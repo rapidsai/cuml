@@ -62,7 +62,7 @@ class RowWeightedMeanTest
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<WeightedMeanInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int rows = params.M, cols = params.N, len = rows * cols;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -127,7 +127,7 @@ class ColWeightedMeanTest
   : public ::testing::TestWithParam<WeightedMeanInputs<T>> {
   void SetUp() override {
     params = ::testing::TestWithParam<WeightedMeanInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int rows = params.M, cols = params.N, len = rows * cols;
 
     cudaStream_t stream;

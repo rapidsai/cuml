@@ -22,6 +22,8 @@
 #include <stats/stddev.cuh>
 #include "test_utils.h"
 
+using namespace MLCommon;
+
 namespace raft {
 namespace stats {
 
@@ -47,31 +49,30 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
 
-    raft::handle_t handle;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(data, len);
     allocate(mean_act, cols);
     allocate(stddev_act, cols);
     allocate(vars_act, cols);
-    r.normal(handle, data, len, params.mean, params.stddev, stream);
-    stdVarSGtest(data, handle, stream);
+    r.normal(data, len, params.mean, params.stddev, stream);
+    stdVarSGtest(data, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void stdVarSGtest(T *data, raft::handle_t &handle, cudaStream_t stream) {
+  void stdVarSGtest(T *data, cudaStream_t stream) {
     int rows = params.rows, cols = params.cols;
 
-    mean(handle, mean_act, data, cols, rows, params.sample, params.rowMajor,
+    mean(mean_act, data, cols, rows, params.sample, params.rowMajor,
          stream);
 
-    stddev(handle, stddev_act, data, mean_act, cols, rows, params.sample,
+    stddev(stddev_act, data, mean_act, cols, rows, params.sample,
            params.rowMajor, stream);
 
-    vars(handle, vars_act, data, mean_act, cols, rows, params.sample,
+    vars(vars_act, data, mean_act, cols, rows, params.sample,
          params.rowMajor, stream);
 
-    matrix::seqRoot(handle, vars_act, T(1), cols, stream);
+    raft::matrix::seqRoot(vars_act, T(1), cols, stream);
   }
 
   void TearDown() override {

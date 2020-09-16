@@ -77,8 +77,8 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<ReduceRowsInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
-    Random::Rng r_int(params.seed);
+    raft::random::Rng r(params.seed);
+    raft::random::Rng r_int(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     int nobs = params.nobs;
@@ -94,8 +94,8 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
 
     if (params.weighted) {
       allocate(weight, nobs);
-      MLCommon::Random::Rng r(params.seed,
-                              MLCommon::Random::GeneratorType::GenPhilox);
+      raft::random::Rng r(params.seed,
+                              raft::random::GeneratorType::GenPhilox);
       r.uniform(weight, nobs, T(1), params.max_weight, stream);
     } else {
       weight = nullptr;

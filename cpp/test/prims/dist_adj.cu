@@ -72,7 +72,7 @@ class DistanceAdjTest
  public:
   void SetUp() override {
     params = ::testing::TestWithParam<DistanceAdjInputs<DataType>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int m = params.m;
     int n = params.n;
     int k = params.k;

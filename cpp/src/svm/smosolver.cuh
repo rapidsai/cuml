@@ -256,12 +256,12 @@ class SmoSolver {
       thrust::fill(thrust::cuda::par.on(stream), c_ptr, c_ptr + n_train, C);
     } else {
       math_t C = this->C;
-      MLCommon::LinAlg::unaryOp(
+      raft::linalg::unaryOp(
         C_vec, sample_weight, n_rows,
         [C] __device__(math_t w) { return C * w; }, stream);
       if (n_train > n_rows) {
         // Set the same penalty parameter for the duplicate set of vectors
-        MLCommon::LinAlg::unaryOp(
+        raft::linalg::unaryOp(
           C_vec + n_rows, sample_weight, n_rows,
           [C] __device__(math_t w) { return C * w; }, stream);
       }
@@ -280,7 +280,7 @@ class SmoSolver {
    * @param [in] y device pointer of class labels size [n_rows]
    */
   void SvcInit(const math_t *y) {
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       f.data(), y, n_rows, [] __device__(math_t y) { return -y; }, stream);
   }
 
@@ -328,12 +328,12 @@ class SmoSolver {
 
     // f_i = epsilon - y_i, for i \in [0..n_rows-1]
     math_t epsilon = this->epsilon;
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       f, yr, n_rows, [epsilon] __device__(math_t y) { return epsilon - y; },
       stream);
 
     // f_i = epsilon - y_i, for i \in [n_rows..2*n_rows-1]
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       f + n_rows, yr, n_rows,
       [epsilon] __device__(math_t y) { return -epsilon - y; }, stream);
   }

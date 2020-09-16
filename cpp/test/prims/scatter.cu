@@ -51,7 +51,7 @@ class ScatterTest : public ::testing::TestWithParam<ScatterInputs> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<ScatterInputs>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.len;
     allocate(in, len);

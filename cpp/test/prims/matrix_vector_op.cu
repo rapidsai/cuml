@@ -20,6 +20,8 @@
 #include "test_utils.h"
 #include "matrix_vector_op.cuh"
 
+using namespace MLCommon;
+
 namespace raft {
 namespace linalg {
 
@@ -62,11 +64,10 @@ class MatVecOpTest
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>::GetParam();
-    random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     IdxType N = params.rows, D = params.cols;
     IdxType len = N * D;
 
-    raft::handle_t handle;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in, len);
@@ -75,9 +76,9 @@ class MatVecOpTest
     IdxType vecLen = params.bcastAlongRows ? D : N;
     allocate(vec1, vecLen);
     allocate(vec2, vecLen);
-    r.uniform(handle, in, len, (T)-1.0, (T)1.0, stream);
-    r.uniform(handle, vec1, vecLen, (T)-1.0, (T)1.0, stream);
-    r.uniform(handle, vec2, vecLen, (T)-1.0, (T)1.0, stream);
+    r.uniform(in, len, (T)-1.0, (T)1.0, stream);
+    r.uniform(vec1, vecLen, (T)-1.0, (T)1.0, stream);
+    r.uniform(vec2, vecLen, (T)-1.0, (T)1.0, stream);
     if (params.useTwoVectors) {
       naiveMatVec(out_ref, in, vec1, vec2, D, N, params.rowMajor,
                   params.bcastAlongRows, (T)1.0);

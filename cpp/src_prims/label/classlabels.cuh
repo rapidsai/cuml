@@ -98,7 +98,7 @@ void getOvrLabels(math_t *y, int n, math_t *y_unique, int n_classes,
   ASSERT(idx < n_classes,
          "Parameter idx should not be larger than the number "
          "of classes");
-  LinAlg::unaryOp(
+  raft::linalg::unaryOp(
     y_out, y, n,
     [idx, y_unique] __device__(math_t y) {
       return y == y_unique[idx] ? +1 : -1;

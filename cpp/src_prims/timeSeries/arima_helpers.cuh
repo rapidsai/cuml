@@ -228,7 +228,7 @@ void batched_jones_transform(const ML::ARIMAOrder& order, int batch_size,
 
   // Constrain sigma2 to be strictly positive
   constexpr DataT min_sigma2 = 1e-6;
-  LinAlg::unaryOp<DataT>(
+  raft::linalg::unaryOp<DataT>(
     Tparams.sigma2, params.sigma2, batch_size,
     [=] __device__(DataT input) { return max(input, min_sigma2); }, stream);
 }

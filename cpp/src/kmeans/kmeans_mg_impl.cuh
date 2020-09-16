@@ -118,8 +118,8 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
   ML::Distance::DistanceType metric =
     static_cast<ML::Distance::DistanceType>(params.metric);
 
-  MLCommon::Random::Rng rng(params.seed,
-                            MLCommon::Random::GeneratorType::GenPhilox);
+  raft::random::Rng rng(params.seed,
+                            raft::random::GeneratorType::GenPhilox);
 
   // <<<< Step-1 >>> : C <- sample a point uniformly at random from X
   //    1.1 - Select a rank r' at random from the available n_rank ranks with a
@@ -499,7 +499,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
           return static_cast<DataT>(1.0) / static_cast<DataT>(count);
       });
 
-    MLCommon::LinAlg::matrixVectorOp(
+    raft::linalg::matrixVectorOp(
       newCentroids.data(), newCentroids.data(),
       sampleCountInClusterInverse.data(), newCentroids.getSize(1),
       newCentroids.getSize(0), true, false,
@@ -526,7 +526,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
     // compute the squared norm between the newCentroids and the original
     // centroids, destructor releases the resource
     Tensor<DataT, 1> sqrdNorm({1}, handle.get_device_allocator(), stream);
-    MLCommon::LinAlg::mapThenSumReduce(
+    raft::linalg::mapThenSumReduce(
       sqrdNorm.data(), newCentroids.numElements(),
       [=] __device__(const DataT a, const DataT b) {
         DataT diff = a - b;

@@ -54,7 +54,7 @@ class coalescedReductionTest
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<coalescedReductionInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     cudaStream_t stream;

@@ -62,7 +62,7 @@ __global__ void stddevKernelColMajor(Type *std, const Type *data,
   }
   Type acc = BlockReduce(temp_storage).Sum(thread_data);
   if (threadIdx.x == 0) {
-    std[blockIdx.x] = raft::mySqrt(acc / N);
+    std[blockIdx.x] = MLCommon::mySqrt(acc / N);
   }
 }
 
@@ -104,7 +104,7 @@ __global__ void varsKernelColMajor(Type *var, const Type *data, const Type *mu,
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename IdxType = int>
-void stddev(raft::handle_t &handle, Type *std, const Type *data, const Type *mu,
+void stddev(Type *std, const Type *data, const Type *mu,
             IdxType D, IdxType N, bool sample, bool rowMajor,
             cudaStream_t stream) {
   static const int TPB = 256;
@@ -112,16 +112,16 @@ void stddev(raft::handle_t &handle, Type *std, const Type *data, const Type *mu,
     static const int RowsPerThread = 4;
     static const int ColsPerBlk = 32;
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk),
-              raft::ceildiv(D, (IdxType)ColsPerBlk));
+    dim3 grid(MLCommon::ceildiv(N, (IdxType)RowsPerBlk),
+              MLCommon::ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemset(std, 0, sizeof(Type) * D));
     stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
       <<<grid, TPB, 0, stream>>>(std, data, D, N);
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
-    linalg::binaryOp(
+    raft::linalg::binaryOp(
       std, std, mu, D,
       [ratio] __device__(Type a, Type b) {
-        return raft::mySqrt(a * ratio - b * b);
+        return MLCommon::mySqrt(a * ratio - b * b);
       },
       stream);
   } else {
@@ -150,7 +150,7 @@ void stddev(raft::handle_t &handle, Type *std, const Type *data, const Type *mu,
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename IdxType = int>
-void vars(raft::handle_t &handle, Type *var, const Type *data, const Type *mu,
+void vars(Type *var, const Type *data, const Type *mu,
           IdxType D, IdxType N, bool sample, bool rowMajor,
           cudaStream_t stream) {
   static const int TPB = 256;
@@ -158,12 +158,12 @@ void vars(raft::handle_t &handle, Type *var, const Type *data, const Type *mu,
     static const int RowsPerThread = 4;
     static const int ColsPerBlk = 32;
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(ceildiv(N, (IdxType)RowsPerBlk), ceildiv(D, (IdxType)ColsPerBlk));
+    dim3 grid(MLCommon::ceildiv(N, (IdxType)RowsPerBlk), MLCommon::ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemset(var, 0, sizeof(Type) * D));
     stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
       <<<grid, TPB, 0, stream>>>(var, data, D, N);
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
-    linalg::binaryOp(
+    raft::linalg::binaryOp(
       var, var, mu, D,
       [ratio] __device__(Type a, Type b) { return a * ratio - b * b; }, stream);
   } else {

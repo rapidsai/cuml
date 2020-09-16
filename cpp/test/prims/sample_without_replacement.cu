@@ -22,8 +22,10 @@
 #include <vector>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace Random {
+using namespace MLCommon;
+
+namespace raft {
+namespace random {
 
 // Terminology:
 // SWoR - Sample Without Replacement
@@ -48,7 +50,7 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
   void SetUp() override {
     params = ::testing::TestWithParam<SWoRInputs<T>>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocator.reset(new raft::mr::device::default_allocator);
+
     Rng r(params.seed, params.gtype);
     allocate(in, params.len);
     allocate(wts, params.len);
@@ -61,8 +63,8 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
       updateDevice(wts + params.largeWeightIndex, &params.largeWeight, 1,
                    stream);
     }
-    r.sampleWithoutReplacement(out, outIdx, in, wts, params.sampledLen,
-                               params.len, allocator, stream);
+    r.sampleWithoutReplacement(handle, out, outIdx, in, wts, params.sampledLen,
+                               params.len, stream);
     updateHost(&(h_outIdx[0]), outIdx, params.sampledLen, stream);
   }
 
@@ -81,7 +83,7 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
   int* outIdx;
   std::vector<int> h_outIdx;
   cudaStream_t stream;
-  std::shared_ptr<deviceAllocator> allocator;
+  raft::handle_t handle;
 };
 
 typedef SWoRTest<float> SWoRTestF;

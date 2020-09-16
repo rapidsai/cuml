@@ -39,7 +39,7 @@ void meanSquaredError(math_t* out, const math_t* A, const math_t* B, size_t len,
     math_t diff = a - b;
     return diff * diff * weight / len;
   };
-  mapThenSumReduce<math_t, decltype(sq_diff), TPB>(out, len, sq_diff, stream, A,
+  raft::linalg::mapThenSumReduce<math_t, decltype(sq_diff), TPB>(out, len, sq_diff, stream, A,
                                                    B);
 }
 
