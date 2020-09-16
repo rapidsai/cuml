@@ -32,7 +32,7 @@ from cuml.common import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
 
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -46,19 +46,7 @@ from libcpp.vector cimport vector
 from numba import cuda
 import rmm
 
-cimport cuml.common.handle
 cimport cuml.common.cuda
-
-
-cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
-    cdef cppclass deviceAllocator:
-        pass
-
-    cdef cppclass cumlHandle:
-        cumlHandle() except +
-        void setStream(cuml.common.cuda._Stream s) except +
-        void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
-        cuml.common.cuda._Stream getStream() except +
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
@@ -77,7 +65,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         METRIC_Correlation
 
     void brute_force_knn(
-        cumlHandle &handle,
+        handle_t &handle,
         vector[float*] &inputs,
         vector[int] &sizes,
         int D,
@@ -106,8 +94,8 @@ class NearestNeighbors(Base):
         Default number of neighbors to query
     verbose : int or boolean (default = False)
         Logging level
-    handle : cumlHandle
-        The cumlHandle resources to use
+    handle : handle_t
+        The handle_t resources to use
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.
     metric : string (default='euclidean').
@@ -394,7 +382,7 @@ class NearestNeighbors(Base):
         inputs.push_back(<float*>idx_ptr)
         sizes.push_back(<int>self._X_m.shape[0])
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef uintptr_t x_ctype_st = X_m.ptr
 
@@ -540,8 +528,8 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     verbose : int or boolean (default = False)
         Logging level
 
-    handle : cumlHandle
-        The cumlHandle resources to use
+    handle : handle_t
+        The handle_t resources to use
 
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.

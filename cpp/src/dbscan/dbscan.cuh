@@ -92,7 +92,7 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
 }
 
 template <typename T, typename Index_ = int>
-void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
+void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
                    Index_ n_cols, T eps, Index_ min_pts, Index_ *labels,
                    Index_ *core_sample_indices, size_t max_mbytes_per_batch,
                    cudaStream_t stream, int verbosity) {
@@ -117,7 +117,7 @@ void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
     handle, input, n_rows, n_cols, eps, min_pts, labels, core_sample_indices,
     algoVd, algoAdj, algoCcl, NULL, n_batches, stream);
 
-  MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream,
+  MLCommon::device_buffer<char> workspace(handle.get_device_allocator(), stream,
                                           workspaceSize);
   Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts, labels,
               core_sample_indices, algoVd, algoAdj, algoCcl, workspace.data(),

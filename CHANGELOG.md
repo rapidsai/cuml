@@ -11,16 +11,19 @@
 - PR #2739: Use cusparse_wrappers.h from RAFT
 - PR #2729: Replace `cupy.sparse` with `cupyx.scipy.sparse`
 - PR #2749: Correct docs for python version used in cuml_dev conda environment
+- PR #2747: Adopting raft::handle_t and raft::comms::comms_t in cuML
 - PR #2762: Fix broken links and provide minor edits to docs
 - PR #2723: Support and enable convert_dtype in estimator predict
 - PR #2758: Match sklearn's default n_components behavior for PCA
 - PR #2770: Fix doxygen version during cmake
 - PR #2766: Update default RandomForestRegressor score function to use r2
 - PR #2783: Add pytest that will fail when GPU IDs in Dask cluster are not unique
+- PR #2784: Add SparseCumlArray container for sparse index/data arrays
 - PR #2785: Add in cuML-specific dev conda dependencies
 - PR #2778: Add README for FIL
 - PR #2799: Reenable lightgbm test with lower (1%) proba accuracy
 - PR #2800: Align cuML's spdlog version with RMM's
+- PR #2824: Make data conversions warnings be debug level
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier

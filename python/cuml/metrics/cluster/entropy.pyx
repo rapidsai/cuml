@@ -22,13 +22,13 @@ import cupy as cp
 
 from libc.stdint cimport uintptr_t
 
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import with_cupy_rmm, input_to_cuml_array
-import cuml.common.handle
+from cuml.raft.common.handle import Handle
 cimport cuml.common.cuda
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    double entropy(const cumlHandle &handle,
+    double entropy(const handle_t &handle,
                    const int *y,
                    const int n,
                    const int lower_class_range,
@@ -77,8 +77,8 @@ def cython_entropy(clustering, base=None, handle=None):
     S : float
         The calculated entropy.
     """
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
+    handle = Handle() if handle is None else handle
+    cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     (clustering, n_rows,
      lower_class_range, upper_class_range) = _prepare_cluster_input(clustering)

@@ -36,12 +36,12 @@ namespace Spectral {
    * @param n_components the number of components to project the X into
    * @param out output array for embedding (size n*n_comonents)
    */
-void fit_embedding(const cumlHandle &handle, int *rows, int *cols, float *vals,
-                   int nnz, int n, int n_components, float *out) {
-  const auto &impl = handle.getImpl();
+void fit_embedding(const raft::handle_t &handle, int *rows, int *cols,
+                   float *vals, int nnz, int n, int n_components, float *out) {
+  const auto &impl = handle;
   MLCommon::Spectral::fit_embedding(
-    impl.getcusparseHandle(), rows, cols, vals, nnz, n, n_components, out,
-    handle.getDeviceAllocator(), handle.getStream());
+    impl.get_cusparse_handle(), rows, cols, vals, nnz, n, n_components, out,
+    handle.get_device_allocator(), handle.get_stream());
 }
 }  // namespace Spectral
 }  // namespace ML

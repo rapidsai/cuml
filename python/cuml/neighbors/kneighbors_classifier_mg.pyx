@@ -19,7 +19,7 @@
 import numpy as np
 
 from cuml.common.array import CumlArray
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common.opg_data_utils_mg import _build_part_inputs
@@ -38,7 +38,7 @@ cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
         "ML::KNN::opg":
 
     cdef void knn_classify(
-        cumlHandle &handle,
+        handle_t &handle,
         vector[intData_t*] *out,
         vector[int64Data_t*] *out_I,
         vector[floatData_t*] *out_D,
@@ -141,7 +141,7 @@ class KNeighborsClassifierMG(KNeighborsMG):
             out_result_local_parts.push_back(new intData_t(
                 <int*><uintptr_t>o_cai.ptr, n_rows * n_outputs))
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         knn_classify(
             handle_[0],
@@ -254,7 +254,7 @@ class KNeighborsClassifierMG(KNeighborsMG):
                 probas_local_parts.at(query_idx).push_back(<float*><uintptr_t>
                                                            p_cai.ptr)
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         knn_classify(
             handle_[0],
