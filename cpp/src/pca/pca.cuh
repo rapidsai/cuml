@@ -176,8 +176,6 @@ void pcaInverseTransform(const raft::handle_t &handle, math_t *trans_input,
   if (prms.whiten) {
     math_t sqrt_n_samples = sqrt(prms.n_rows - 1);
     math_t scalar = prms.n_rows - 1 > 0 ? math_t(1 / sqrt_n_samples) : 0;
-
-    std::cout << "scalar: " << scalar << std::endl;
     LinAlg::scalarMultiply(components, components, scalar,
                            prms.n_rows * prms.n_components, stream);
     Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
