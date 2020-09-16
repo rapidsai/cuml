@@ -274,7 +274,7 @@ void tsvdTransform(const raft::handle_t &handle, math_t *input,
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
   ASSERT(prms.n_rows > 0,
-         "Parameter n_rows: number of rows cannot be less than 1");
+         "Parameter n_rows: number of rows cannot be less than one");
   ASSERT(
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
@@ -304,7 +304,7 @@ void tsvdInverseTransform(const raft::handle_t &handle, math_t *trans_input,
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(prms.n_rows > 0,
-         "Parameter n_rows: number of rows cannot be less than 1");
+         "Parameter n_rows: number of rows cannot be less than one");
   ASSERT(
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
