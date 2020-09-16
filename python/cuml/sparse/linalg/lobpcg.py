@@ -18,13 +18,14 @@ import cupy as cp
 from cuml.sparse.linalg.robust_lobpcg import lobpcg as robust_lobpcg
 from cuml.sparse.linalg.blopex_lobpcg import lobpcg as blopex_lobpcg
 
+
 def lobpcg(A,
            X=None,
            B=None,
            M=None,
            k=None,
            maxiter=None,
-           method= 'blopex',
+           method='blopex',
            tol=None,
            largest=True,
            verbosityLevel=0,
@@ -34,7 +35,6 @@ def lobpcg(A,
            retLambdaHistory=False,
            retResidualNormsHistory=False
            ):
-
     """
     Find the k largest (or smallest) eigenvalues and the corresponding
     eigenvectors of a symmetric positive defined generalized
@@ -171,12 +171,21 @@ def lobpcg(A,
     ``(lambda, V, lambda history, residual norms history)``.
     In the following ``n`` denotes the matrix size and ``k`` the number
     of required eigenvalues (smallest or largest).
-    The LOBPCG code internally solves eigenproblems of the size ``3k`` on every  iteration by calling the "standard" dense eigensolver, so if ``k`` is not  small enough compared to ``n``, it does not make sense to call the LOBPCG code, but rather one should use the "standard" eigensolver.
+    The LOBPCG code internally solves eigenproblems of the size ``3k`` on every
+    iteration by calling the "standard" dense eigensolver, so if ``k`` is not
+    small enough compared to ``n``, it does not make sense to call the LOBPCG
+    code, but rather one should use the "standard" eigensolver.
     In the BLOPEX implementation, (i.e, method="blopex"),
-    if one calls the LOBPCG algorithm for ``5k > n``, it will most likely break internally, so the code tries to call the standard function instead.
-    It is not that ``n`` should be large for the LOBPCG to work, but rather the ratio ``n / k`` should be large. It you call LOBPCG with ``k=1`` and ``n=10``, it works though ``n`` is small. The method is intended for extremely large ``n / k``
+    if one calls the LOBPCG algorithm for ``5k > n``,
+    it will most likely break internally, so the code tries to call the
+    standard function instead.
+    It is not that ``n`` should be large for the LOBPCG to work, but rather the
+    ratio ``n / k`` should be large. If LOBPCG with ``k=1`` and ``n=10``,
+    it works though ``n`` is small.
+    The method is intended for extremely large ``n / k``
 
-    In the other 2 implementations, if ``3k > n``, it Raises an Error for the same reason as stated above.
+    In the other 2 implementations, if ``3k > n``, it Raises an Error for
+    the same reason as stated above.
 
     The convergence speed depends basically on two factors:
     1. How well relatively separated the seeking eigenvalues
@@ -188,15 +197,26 @@ def lobpcg(A,
     """
 
     if method == 'ortho':
-        return robust_lobpcg(A, k= k, B=B, X=X, niter=maxiter, iK=M, tol=tol, largest=largest, method='ortho',\
-            verbosityLevel = verbosityLevel, ortho_iparams = ortho_iparams, ortho_fparams = ortho_fparams,\
-            ortho_bparams= ortho_bparams, retLambdaHistory = retLambdaHistory, retResidualNormsHistory= retResidualNormsHistory)
+        return robust_lobpcg(A, k=k, B=B, X=X, niter=maxiter,
+                             iK=M, tol=tol, largest=largest, method='ortho',
+                             verbosityLevel=verbosityLevel,
+                             ortho_iparams=ortho_iparams,
+                             ortho_fparams=ortho_fparams,
+                             ortho_bparams=ortho_bparams,
+                             retLambdaHistory=retLambdaHistory,
+                             retResidualNormsHistory=retResidualNormsHistory)
     elif method == 'basic':
-        return robust_lobpcg(A, k= k, B=B, X=X, niter=maxiter, iK=M, tol=tol, largest=largest, method='basic',\
-                verbosityLevel = verbosityLevel, ortho_iparams = ortho_iparams, ortho_fparams = ortho_fparams,\
-                ortho_bparams= ortho_bparams, retLambdaHistory = retLambdaHistory, retResidualNormsHistory= retResidualNormsHistory)
+        return robust_lobpcg(A, k=k, B=B, X=X, niter=maxiter,
+                             iK=M, tol=tol, largest=largest, method='basic',
+                             verbosityLevel=verbosityLevel,
+                             ortho_iparams=ortho_iparams,
+                             ortho_fparams=ortho_fparams,
+                             ortho_bparams=ortho_bparams,
+                             retLambdaHistory=retLambdaHistory,
+                             retResidualNormsHistory=retResidualNormsHistory)
     elif method == 'blopex':
         X = cp.random.randn(A, k, dtype=A.dtype) if X is None else X
-        return blopex_lobpcg(A, X, B=B, M=M, tol=tol, maxiter=maxiter, largest=largest, verbosityLevel=verbosityLevel,\
-                retLambdaHistory=retLambdaHistory, retResidualNormsHistory=retResidualNormsHistory)
-
+        return blopex_lobpcg(A, X, B=B, M=M, tol=tol, maxiter=maxiter,
+                             largest=largest, verbosityLevel=verbosityLevel,
+                             retLambdaHistory=retLambdaHistory,
+                             retResidualNormsHistory=retResidualNormsHistory)

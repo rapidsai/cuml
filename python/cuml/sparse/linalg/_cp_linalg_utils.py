@@ -19,7 +19,8 @@ import cupy as cp
 import cupyx.scipy.sparse
 
 """
-A Set of utility methods that is called by the `robust_lobpcg.py` implementation.
+A Set of utility methods that is called by the
+`robust_lobpcg.py` implementation.
 """
 
 
@@ -51,9 +52,11 @@ def matmul(A, B):
         return A.multiply(B)
     return cp.matmul(A, B)
 
+
 def transpose(A):
     ndim = len(A.shape)
     return A.transpose(ndim - 1, ndim - 2)
+
 
 def qform(A, S):
     return matmul(transpose(S), matmul(A, S))
@@ -65,14 +68,14 @@ def basis(A):
 
 
 def symeig(A, largest=False):
-    stride=1
+    stride = 1
     if largest is None:
         largest = False
     assert len(A.shape) == 2, "only accepts 2D matrix!"
     E, Z = cp.linalg.eigh(A)
     idx = cp.argsort(E)
     if largest:
-        stride=-1
+        stride = -1
     idx = idx[::stride]
     E = E[idx]
     Z = Z[:, idx]

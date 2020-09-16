@@ -21,8 +21,9 @@ import cuml.sparse.linalg._cp_linalg_utils as _utils
 
 __all__ = ['lobpcg']
 
+
 def isNaN(num):
-    return num!=num
+    return num != num
 
 
 def lobpcg(A,
@@ -38,7 +39,7 @@ def lobpcg(A,
            ortho_iparams=None,
            ortho_fparams=None,
            ortho_bparams=None,
-           verbosityLevel = 0,
+           verbosityLevel=0,
            retLambdaHistory=False,
            retResidualNormsHistory=False
            ):
@@ -134,7 +135,7 @@ def lobpcg(A,
         # A and B must have the same shapes:
         assert A.shape == B.shape, (A.shape, B.shape)
 
-    #dtype = _utils.get_floating_dtype(A)
+    # dtype = _utils.get_floating_dtype(A)
     dtype = cp.float32 if A.dtype not in (cp.float32, cp.float64) else A.dtype
     if tol is None:
         feps = 2.23e-16 if dtype == cp.float64 else 1.2e-07
@@ -146,7 +147,7 @@ def lobpcg(A,
 
     if (m < 3 * n):
         raise ValueError(
-            'LPBPCG algorithm is not applicable when the number of A rows (={})'
+            'LPBPCG is not applicable when the number of A rows (={})'
             ' is smaller than 3 x the number of requested eigenpairs (={})'
             .format(m, n))
 
@@ -195,9 +196,11 @@ def lobpcg(A,
             A_ = bA[i]
             B_ = bB[i] if bB is not None else None
             X_ = cp.random.randn(m, n, dtype=dtype) if bX is None else bX[i]
-            assert len(X_.shape) == 2 and X_.shape == (m, n), (X_.shape, (m, n))
+            assert len(X_.shape) == 2 and X_.shape == (
+                m, n), (X_.shape, (m, n))
             iparams['batch_index'] = i
-            worker = LOBPCG(A_, B_, X_, iK, iparams, fparams, bparams, method, verbosityLevel)
+            worker = LOBPCG(A_, B_, X_, iK, iparams, fparams,
+                            bparams, method, verbosityLevel)
             worker.run()
             bE[i] = worker.E[:k]
             bXret[i] = worker.X[:, :k]
@@ -206,34 +209,39 @@ def lobpcg(A,
 
         if retLambdaHistory:
             if retResidualNormsHistory:
-                return bE.reshape(A.shape[:-2] + (k,)), bXret.reshape(A.shape[:-2] + (m, k)), bLambdaHistory, bResidualNormsHistory
+                return bE.reshape(A.shape[:-2] + (k,)),
+                bXret.reshape(A.shape[:-2] + (m, k)),
+                bLambdaHistory, bResidualNormsHistory
             else:
-                return bE.reshape(A.shape[:-2] + (k,)), bXret.reshape(A.shape[:-2] + (m, k)), bLambdaHistory
+                return bE.reshape(A.shape[:-2] + (k,)),
+                bXret.reshape(A.shape[:-2] + (m, k)), bLambdaHistory
         else:
             if retResidualNormsHistory:
-                return bE.reshape(A.shape[:-2] + (k,)), bXret.reshape(A.shape[:-2] + (m, k)), bResidualNormsHistory
+                return bE.reshape(A.shape[:-2] + (k,)),
+                bXret.reshape(A.shape[:-2] + (m, k)), bResidualNormsHistory
             else:
-                return bE.reshape(A.shape[:-2] + (k,)), bXret.reshape(A.shape[:-2] + (m, k))
+                return bE.reshape(A.shape[:-2] + (k,)),
+                bXret.reshape(A.shape[:-2] + (m, k))
 
     X = cp.random.randn(m, n, dtype=dtype) if X is None else X
     assert len(X.shape) == 2 and X.shape == (m, n), (X.shape, (m, n))
 
-    worker = LOBPCG(A, B, X, iK, iparams, fparams, bparams, method,verbosityLevel)
+    worker = LOBPCG(A, B, X, iK, iparams, fparams,
+                    bparams, method, verbosityLevel)
 
     worker.run()
 
     if retLambdaHistory:
         if retResidualNormsHistory:
-            return worker.E[:k], worker.X[:,:k], worker.lambdaHistory, worker.residualNormsHistory
+            return worker.E[:k], worker.X[:, :k],
+            worker.lambdaHistory, worker.residualNormsHistory
         else:
-            return worker.E[:k], worker.X[:,:k], worker.lambdaHistory
+            return worker.E[:k], worker.X[:, :k], worker.lambdaHistory
     else:
         if retResidualNormsHistory:
-            return worker.E[:k], worker.X[:,:k], worker.residualNormsHistory
+            return worker.E[:k], worker.X[:, :k], worker.residualNormsHistory
         else:
-            return worker.E[:k], worker.X[:,:k]
-
-
+            return worker.E[:k], worker.X[:, :k]
 
 
 class LOBPCG(object):
@@ -269,10 +277,10 @@ class LOBPCG(object):
         self.E = cp.zeros((n, ), dtype=X.dtype)
         self.R = cp.zeros((m, n), dtype=X.dtype)
         self.S = cp.zeros((m, 3 * n), dtype=X.dtype)
-        self.tvars = {}               # type: Dict[str, ndarray]
-        self.ivars = {'istep': 0}     # type: Dict[str, int]
-        self.fvars = {'_': 0.0}       # type: Dict[str, float]
-        self.bvars = {'_': False}     # type: Dict[str, bool]
+        self.tvars = {}
+        self.ivars = {'istep': 0}
+        self.fvars = {'_': 0.0}
+        self.bvars = {'_': False}
         self.lambdaHistory = []
         self.residualNormsHistory = []
 
@@ -301,8 +309,10 @@ class LOBPCG(object):
         if self.ivars['istep'] == 0:
             X_norm = float(cp.linalg.norm(self.X))
             iX_norm = X_norm ** -1
-            A_norm = float(cp.linalg.norm(_utils.matmul(self.A, self.X))) * iX_norm
-            B_norm = float(cp.linalg.norm(_utils.matmul(self.B, self.X))) * iX_norm
+            A_norm = float(cp.linalg.norm(
+                _utils.matmul(self.A, self.X))) * iX_norm
+            B_norm = float(cp.linalg.norm(
+                _utils.matmul(self.B, self.X))) * iX_norm
             self.fvars['X_norm'] = X_norm
             self.fvars['A_norm'] = A_norm
             self.fvars['B_norm'] = B_norm
@@ -334,13 +344,15 @@ class LOBPCG(object):
         convergence criterion, see discussion in Sec 4.3 of [DuerschEtal2018].
         Users may redefine this method for custom convergence criteria.
         """
-        # (...) -> int
+
         prev_count = self.ivars['converged_count']
         tol = self.fparams['tol']
         A_norm = self.fvars['A_norm']
         B_norm = self.fvars['B_norm']
         E, X, R = self.E, self.X, self.R
-        rerr = cp.linalg.norm(R, 2, (0, )) * (cp.linalg.norm(X, 2, (0, )) * (A_norm + E[:X.shape[-1]] * B_norm)) ** -1
+        rerr = cp.linalg.norm(R, 2, (0, ))\
+            * (cp.linalg.norm(X, 2, (0, ))
+               * (A_norm + E[:X.shape[-1]] * B_norm)) ** -1
         converged = rerr < tol
         count = 0
         for b in converged:
@@ -376,8 +388,6 @@ class LOBPCG(object):
             self.update()
             if(self.verbosityLevel > 0):
                 print(self.__str__())
-
-
 
     def _update_basic(self):
         """
@@ -453,7 +463,10 @@ class LOBPCG(object):
             # Update E, X, P
             self.X[:, nc:] = mm(S_, Z[:, :n - nc])
             self.E[nc:] = E_[:n - nc]
-            P = mm(S_, mm(Z[:, n - nc:], _utils.basis(_utils.transpose(Z[:n - nc, n - nc:]))))
+            P = mm(
+                S_,
+                mm(Z[:, n - nc:],
+                   _utils.basis(_utils.transpose(Z[:n - nc, n - nc:]))))
             np = P.shape[-1]
 
             # check convergence
@@ -507,12 +520,12 @@ class LOBPCG(object):
                      :math:`(n, n)`.
         """
         B = self.B
-        mm = cp.matmul
         SBS = _utils.qform(B, S)
         d_row = SBS.diagonal(0, -2, -1) ** -0.5
         d_col = d_row.reshape(d_row.shape[0], 1)
-        ch_inp= (SBS * d_row) * d_col
-        R = cp.linalg.cholesky((SBS * d_row) * d_col).transpose()#cupy linalg cholesky returns the lower triangular matrix. we transpose to get the upper one.
+        # cupy linalg cholesky returns the lower triangular matrix.
+        #  we transpose to get the upper one.
+        R = cp.linalg.cholesky((SBS * d_row) * d_col).transpose()
         Rinv = cp.linalg.inv(R)
         return Rinv * d_col
 
@@ -521,7 +534,7 @@ class LOBPCG(object):
                   drop,  # bool
                   tau    # float
                   ):
-        # type: (ndarray, bool, float) -> ndarray
+
         """Return B-orthonormal U.
         .. note:: When `drop` is `False` then `svqb` is based on the
                   Algorithm 4 from [DuerschPhD2015] that is a slight
@@ -624,7 +637,6 @@ class LOBPCG(object):
         BU = mm_B(self.B, U)
         VBU = mm(_utils.transpose(V), BU)
         i = j = 0
-        stats = ''
         for i in range(i_max):
             U = U - mm(V, VBU)
             drop = False
@@ -646,7 +658,7 @@ class LOBPCG(object):
                 U_norm = cp.linalg.norm(U)
                 BU_norm = cp.linalg.norm(BU)
                 R = UBU - cp.eye(UBU.shape[-1],
-                                    dtype=UBU.dtype)
+                                 dtype=UBU.dtype)
                 R_norm = cp.linalg.norm(R)
                 rerr = float(R_norm) * float(BU_norm * U_norm) ** -1
                 vkey = 'ortho_UBUmI_rerr[{}, {}]'.format(i, j)

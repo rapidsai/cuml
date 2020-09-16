@@ -31,9 +31,9 @@ References
 """
 
 import cupy as cp
-from cupy.linalg import (solve,cholesky, inv, eigh)
+from cupy.linalg import (solve, cholesky, inv, eigh)
 from cupyx.scipy.sparse import (spmatrix, issparse)
-import warnings
+# import warnings
 from warnings import warn
 
 __all__ = ['lobpcg']
@@ -68,6 +68,7 @@ def _as2d(ar):
         aux.shape = (ar.shape[0], 1)
         return aux
 
+
 def _applyConstraints(blockVectorV, YBY, blockVectorBY, blockVectorY):
     """Changes blockVectorV in place."""
     YBV = cp.dot(blockVectorBY.T.conj(), blockVectorV)
@@ -82,7 +83,7 @@ def _b_orthonormalize(B, blockVectorV, blockVectorBV=None, retInvR=False):
     blockVectorV = blockVectorV / normalization
     if blockVectorBV is None:
         if B is not None:
-            blockVectorBV = cp.matmul(B,blockVectorV)
+            blockVectorBV = cp.matmul(B, blockVectorV)
         else:
             blockVectorBV = blockVectorV  # Shared data!!!
     else:
@@ -90,15 +91,16 @@ def _b_orthonormalize(B, blockVectorV, blockVectorBV=None, retInvR=False):
     VBV = cp.matmul(blockVectorV.T.conj(), blockVectorBV)
     try:
         # VBV is a Cholesky factor from now on...
-        VBV = cp.transpose(cholesky(VBV)) #cupy cholesky module returns lower triangular matrix!!!
+        # cupy cholesky module returns lower triangular matrix!!!
+        VBV = cp.transpose(cholesky(VBV))
         VBV = inv(VBV)
         blockVectorV = cp.matmul(blockVectorV, VBV)
         if B is not None:
             blockVectorBV = cp.matmul(blockVectorBV, VBV)
         else:
             blockVectorBV = None
-    except:
-        #raise ValueError('Cholesky has failed')
+    except Exception as e:
+        # raise ValueError('Cholesky has failed')
         blockVectorV = None
         blockVectorBV = None
         VBV = None
@@ -121,30 +123,35 @@ def _get_indx(_lambda, num, largest):
 
 def _genEigh(A, B):
     """
-    Helper function for converting a generalized eigenvalue problem AX = lambdaBX to standard using cholesky.
-    This is because cupy does not have a functional api to solve generalized eigenvalue problem.
+    Helper function for converting a generalized eigenvalue problem
+    AX = lambdaBX to standard using cholesky.
+    This is because cupy does not have a functional api to solve
+    generalized eigenvalue problem.
     Factorizing B = R^TR. Let F = (R^T)^-1 A R^-1
-    Equivalent Standard form: Fy = lambda(y), where our required eigvec x = R^-1 y
+    Equivalent Standard form: Fy = lambda(y), where our required
+    eigvec x = R^-1 y
     """
-    R =  cp.transpose(cholesky(B)) #we transpose lower triangular matrix to get upper triangular matrix
+    # we transpose lower triangular matrix to get upper triangular matrix
+    R = cp.transpose(cholesky(B))
     RTi = inv(cp.transpose(R))
     Ri = inv(R)
-    F = cp.matmul(RTi, cp.matmul(A,Ri))
+    F = cp.matmul(RTi, cp.matmul(A, Ri))
     vals, vecs = eigh(F)
-    eigVec = cp.matmul(Ri,vecs)
+    eigVec = cp.matmul(Ri, vecs)
 
     return vals, eigVec
 
+
 def _bmat(list_obj):
     """
-    Helper function to create a block matrix in cupy from a list of smaller 2D matrices
-    using iterated vertical and horizontal stacking
+    Helper function to create a block matrix in cupy from a list
+    of smaller 2D matrices using iterated vertical and horizontal stacking
     """
 
     arr_rows = cp.array([])
-    for row in list_obj: #row & list_obj are a list of cupy arrays
+    for row in list_obj:  # row & list_obj are a list of cupy arrays
         arr_cols = cp.array([])
-        for col in row: #col is a cupy ndarray
+        for col in row:  # col is a cupy ndarray
             if col.ndim == 0:
                 col = cp.array([col])
             if(arr_cols.size == 0):
@@ -183,7 +190,7 @@ def lobpcg(A,
     Parameters
     ----------
     A : {cupy.ndarray}
-        The symmetric linear operator of the problem, Is treated as a 2D matrix.
+        The symmetric linear operator of the problem, Is treated as a 2D matrix
         Often called the "stiffness matrix".
     X : cupy.ndarray, float32 or float64
         Initial approximation to the ``k`` eigenvectors (non-sparse). If `A`
@@ -197,7 +204,7 @@ def lobpcg(A,
     Y : ndarray, float32 or float64, optional
         n-by-sizeY matrix of constraints (non-sparse), sizeY < n
         The iterations will be performed in the B-orthogonal complement
-        of the column-space of Y. Y must be full rank. Currently exposed to the user.
+        of the column-space of Y. Y must be full rank.
     tol : scalar, optional
         Solver tolerance (stopping criterion).
         The default is ``tol=n*sqrt(eps)``.
@@ -223,7 +230,7 @@ def lobpcg(A,
         The history of residual norms, if `retResidualNormsHistory` is True.
 
     """
-    #print('A: {}\nX:{}\nmaxiter:{}\n'.format(A,X,maxiter))
+
     blockVectorX = X
     blockVectorY = Y
     residualTolerance = tol
@@ -262,10 +269,9 @@ def lobpcg(A,
                 aux += "%d constraint\n\n" % sizeY
         print(aux)
 
-
     if (n - sizeY) < (5 * sizeX):
-        warn('The problem size is small compared to the block size!' \
-                ' Using the standard eigen solver instead of LOBPCG.')
+        warn('The problem size is small compared to the block size!'
+             ' Using the standard eigen solver instead of LOBPCG.')
 
         sizeX = min(sizeX, n)
 
@@ -281,7 +287,7 @@ def lobpcg(A,
             vals = vals[::-1]
             vecs = vecs[:, ::-1]
 
-        return vals[:sizeX], vecs[:,:sizeX]
+        return vals[:sizeX], vecs[:, :sizeX]
 
     if (residualTolerance is None) or (residualTolerance <= 0.0):
         residualTolerance = cp.sqrt(1e-15) * n
@@ -290,7 +296,7 @@ def lobpcg(A,
     if blockVectorY is not None:
 
         if B is not None:
-            blockVectorBY = cp.matmul(B,blockVectorY)
+            blockVectorBY = cp.matmul(B, blockVectorY)
         else:
             blockVectorBY = blockVectorY
 
@@ -305,7 +311,7 @@ def lobpcg(A,
 
     ##
     # Compute the initial Ritz vectors: solve the eigenproblem.
-    blockVectorAX = cp.matmul(A,blockVectorX)
+    blockVectorAX = cp.matmul(A, blockVectorX)
     gramXAX = cp.dot(blockVectorX.T.conj(), blockVectorAX)
 
     _lambda, eigBlockVector = eigh(gramXAX)
@@ -359,7 +365,7 @@ def lobpcg(A,
         ii = cp.where(residualNorms > residualTolerance, True, False)
         activeMask = activeMask & ii
         if verbosityLevel > 2:
-            print('the mask depending on var largest:',activeMask)
+            print('the mask depending on var largest:', activeMask)
 
         currentBlockSize = activeMask.sum()
         currentBlockSize = int(currentBlockSize)
@@ -376,7 +382,7 @@ def lobpcg(A,
             print('eigenvalue:', _lambda)
             print('residual norms:', residualNorms)
         if verbosityLevel > 10:
-            print('Eigen Block Vector:',eigBlockVector)
+            print('Eigen Block Vector:', eigBlockVector)
 
         activeBlockVectorR = _as2d(blockVectorR[:, activeMask])
 
@@ -388,7 +394,7 @@ def lobpcg(A,
 
         if M is not None:
             # Apply preconditioner T to the active residuals.
-            activeBlockVectorR = cp.matmul(M,activeBlockVectorR)
+            activeBlockVectorR = cp.matmul(M, activeBlockVectorR)
 
         ##
         # Apply constraints to the preconditioned residuals.
@@ -412,7 +418,7 @@ def lobpcg(A,
         aux = _b_orthonormalize(B, activeBlockVectorR)
         activeBlockVectorR, activeBlockVectorBR = aux
 
-        activeBlockVectorAR = cp.matmul(A,activeBlockVectorR)
+        activeBlockVectorAR = cp.matmul(A, activeBlockVectorR)
 
         if iterationNumber > 0:
             if B is not None:
@@ -474,7 +480,6 @@ def lobpcg(A,
             assert isinstance(currentBlockSize, (int))
             gramXBR = cp.zeros((sizeX, currentBlockSize), dtype=A.dtype)
 
-
         if not restart:
             gramXAP = cp.dot(blockVectorX.T.conj(), activeBlockVectorAP)
             gramRAP = cp.dot(activeBlockVectorR.T.conj(), activeBlockVectorAP)
@@ -489,21 +494,19 @@ def lobpcg(A,
                 gramPBP = ident
 
             gramA = _bmat([[gramXAX, gramXAR, gramXAP],
-                          [gramXAR.T.conj(), gramRAR, gramRAP],
-                          [gramXAP.T.conj(),
-                           gramRAP.T.conj(), gramPAP]])
+                           [gramXAR.T.conj(), gramRAR, gramRAP],
+                           [gramXAP.T.conj(),
+                            gramRAP.T.conj(), gramPAP]])
             gramB = _bmat([[gramXBX, gramXBR, gramXBP],
-                          [gramXBR.T.conj(), gramRBR, gramRBP],
-                          [gramXBP.T.conj(),
-                           gramRBP.T.conj(), gramPBP]])
-
-
+                           [gramXBR.T.conj(), gramRBR, gramRBP],
+                           [gramXBP.T.conj(),
+                            gramRBP.T.conj(), gramPBP]])
 
             _handle_gramA_gramB_verbosity(gramA, gramB, verbosityLevel)
 
             try:
                 _lambda, eigBlockVector = _genEigh(gramA,
-                                               gramB)
+                                                   gramB)
             except:
                 # try again after dropping the direction vectors P from RR
                 restart = True
@@ -516,15 +519,16 @@ def lobpcg(A,
 
             try:
                 _lambda, eigBlockVector = _genEigh(gramA,
-                                                gramB)
+                                                   gramB)
 
-            except:
-                raise ValueError('eigh has failed in lobpcg iterations')
+            except Exception as e:
+                raise ValueError('''eigh has failed in lobpcg iterations with
+                                 with exception {}\n'''.format(e))
 
         ii = _get_indx(_lambda, sizeX, largest)
         if verbosityLevel > 10:
-            print('indices',ii)
-            print('lambda',_lambda)
+            print('indices', ii)
+            print('lambda', _lambda)
 
         _lambda = _lambda[ii]
         eigBlockVector = eigBlockVector[:, ii]
@@ -534,7 +538,6 @@ def lobpcg(A,
         if verbosityLevel > 10:
             print('order-updated lambda:', _lambda)
 
-
         #         # Normalize eigenvectors!
         #         aux = cp.sum( eigBlockVector.conj() * eigBlockVector, 0 )
         #         eigVecNorms = cp.sqrt( aux )
@@ -542,7 +545,7 @@ def lobpcg(A,
         #         eigBlockVector, aux = _b_orthonormalize( B, eigBlockVector )
 
         if verbosityLevel > 10:
-            print('eigenblockvector so far:',eigBlockVector)
+            print('eigenblockvector so far:', eigBlockVector)
 
         # Compute Ritz vectors.
         if B is not None:
