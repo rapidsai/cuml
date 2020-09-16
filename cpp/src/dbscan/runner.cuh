@@ -57,11 +57,12 @@ __global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL) {
  * an array of labels drawn from a monotonically increasing set.
  */
 template <typename Index_ = int>
-void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
+void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream,
+                   std::shared_ptr<deviceAllocator> allocator) {
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   MLCommon::Label::make_monotonic(
     db_cluster, db_cluster, N, stream,
-    [MAX_LABEL] __device__(Index_ val) { return val == MAX_LABEL; });
+    [MAX_LABEL] __device__(Index_ val) { return val == MAX_LABEL; }, allocator);
 }
 
 /* @param N number of points
@@ -77,7 +78,7 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
  * @return in case the temp buffer is null, this returns the size needed.
  */
 template <typename Type_f, typename Index_ = int>
-size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
+size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
            Type_f eps, Index_ minPts, Index_* labels,
            Index_* core_sample_indices, int algoVd, int algoAdj, int algoCcl,
            void* workspace, Index_ nBatches, cudaStream_t stream) {
@@ -139,7 +140,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
   // Running VertexDeg
   MLCommon::Sparse::WeakCCState state(xa, fa, m);
-  MLCommon::device_buffer<Index_> adj_graph(handle.getDeviceAllocator(),
+  MLCommon::device_buffer<Index_> adj_graph(handle.get_device_allocator(),
                                             stream);
 
   for (int i = 0; i < nBatches; i++) {
@@ -202,7 +203,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   }
 
   ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
-  if (algoCcl == 2) final_relabel(labels, N, stream);
+  if (algoCcl == 2)
+    final_relabel(labels, N, stream, handle.get_device_allocator());
   size_t nblks = ceildiv<size_t>(N, TPB);
   relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -213,7 +215,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::PUSH_RANGE("Trace::Dbscan::CoreSampleIndices");
 
     // Create the execution policy
-    ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
+    ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
     auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
 
     // Get wrappers for the device ptrs

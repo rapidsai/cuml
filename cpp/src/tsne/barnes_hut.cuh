@@ -48,7 +48,7 @@ namespace TSNE {
  * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  */
 void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
-                const cumlHandle &handle, float *Y, const int n,
+                const raft::handle_t &handle, float *Y, const int n,
                 const float theta = 0.5f, const float epssq = 0.0025,
                 const float early_exaggeration = 12.0f,
                 const int exaggeration_iter = 250, const float min_gain = 0.01f,
@@ -57,8 +57,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const int max_iter = 1000, const float min_grad_norm = 1e-7,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
                 const long long random_state = -1) {
-  auto d_alloc = handle.getDeviceAllocator();
-  cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.get_device_allocator();
+  cudaStream_t stream = handle.get_stream();
 
   // Get device properites
   //---------------------------------------------------

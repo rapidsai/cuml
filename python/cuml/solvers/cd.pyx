@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -31,7 +28,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import get_cudf_column_ptr
 from cuml.common import get_dev_array_ptr
 from cuml.common import input_to_dev_array
@@ -41,7 +38,7 @@ from cuml.common.input_utils import input_to_cuml_array
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
-    cdef void cdFit(cumlHandle& handle,
+    cdef void cdFit(handle_t& handle,
                     float *input,
                     int n_rows,
                     int n_cols,
@@ -57,7 +54,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                     bool shuffle,
                     float tol) except +
 
-    cdef void cdFit(cumlHandle& handle,
+    cdef void cdFit(handle_t& handle,
                     double *input,
                     int n_rows,
                     int n_cols,
@@ -73,7 +70,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                     bool shuffle,
                     double tol) except +
 
-    cdef void cdPredict(cumlHandle& handle,
+    cdef void cdPredict(handle_t& handle,
                         const float *input,
                         int n_rows,
                         int n_cols,
@@ -82,7 +79,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                         float *preds,
                         int loss) except +
 
-    cdef void cdPredict(cumlHandle& handle,
+    cdef void cdPredict(handle_t& handle,
                         const double *input,
                         int n_rows,
                         int n_cols,
@@ -237,7 +234,7 @@ class CD(Base):
 
         cdef float c_intercept1
         cdef double c_intercept2
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             cdFit(handle_[0],
@@ -303,7 +300,7 @@ class CD(Base):
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             cdPredict(handle_[0],

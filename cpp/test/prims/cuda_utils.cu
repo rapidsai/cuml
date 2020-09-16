@@ -21,7 +21,7 @@ namespace MLCommon {
 
 TEST(Utils, Assert) {
   ASSERT_NO_THROW(ASSERT(1 == 1, "Should not assert!"));
-  ASSERT_THROW(ASSERT(1 != 1, "Should assert!"), Exception);
+  ASSERT_THROW(ASSERT(1 != 1, "Should assert!"), raft::exception);
 }
 
 TEST(Utils, CudaCheck) { ASSERT_NO_THROW(CUDA_CHECK(cudaFree(nullptr))); }

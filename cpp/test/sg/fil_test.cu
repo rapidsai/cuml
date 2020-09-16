@@ -103,7 +103,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // setup
     ps = testing::TestWithParam<FilTestParams>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.setStream(stream);
+    handle.set_stream(stream);
 
     generate_forest();
     generate_data();
@@ -361,7 +361,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   // parameters
   cudaStream_t stream;
-  cumlHandle handle;
+  raft::handle_t handle;
   FilTestParams ps;
 };
 
@@ -593,7 +593,7 @@ class TreeliteThrowSparse8FilTest : public TreeliteSparse8FilTest {
   // model import happens in check(), so this function is empty
   void SetUp() override {}
 
-  void check() { ASSERT_THROW(setup_helper(), MLCommon::Exception); }
+  void check() { ASSERT_THROW(setup_helper(), raft::exception); }
 };
 
 // rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,

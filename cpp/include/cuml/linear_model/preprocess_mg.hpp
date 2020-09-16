@@ -17,16 +17,16 @@
 #pragma once
 
 #include <common/cumlHandle.hpp>
-#include <common/cuml_comms_int.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>
+#include <raft/comms/comms.hpp>
 
 namespace ML {
 namespace GLM {
 namespace opg {
 
-void preProcessData(cumlHandle &handle,
+void preProcessData(raft::handle_t &handle,
                     std::vector<MLCommon::Matrix::Data<float> *> &input_data,
                     MLCommon::Matrix::PartDescriptor &input_desc,
                     std::vector<MLCommon::Matrix::Data<float> *> &labels,
@@ -34,7 +34,7 @@ void preProcessData(cumlHandle &handle,
                     bool fit_intercept, bool normalize, cudaStream_t *streams,
                     int n_streams, bool verbose);
 
-void preProcessData(cumlHandle &handle,
+void preProcessData(raft::handle_t &handle,
                     std::vector<MLCommon::Matrix::Data<double> *> &input_data,
                     MLCommon::Matrix::PartDescriptor &input_desc,
                     std::vector<MLCommon::Matrix::Data<double> *> &labels,
@@ -42,7 +42,7 @@ void preProcessData(cumlHandle &handle,
                     bool fit_intercept, bool normalize, cudaStream_t *streams,
                     int n_streams, bool verbose);
 
-void postProcessData(cumlHandle &handle,
+void postProcessData(raft::handle_t &handle,
                      std::vector<MLCommon::Matrix::Data<float> *> &input_data,
                      MLCommon::Matrix::PartDescriptor &input_desc,
                      std::vector<MLCommon::Matrix::Data<float> *> &labels,
@@ -51,7 +51,7 @@ void postProcessData(cumlHandle &handle,
                      bool normalize, cudaStream_t *streams, int n_streams,
                      bool verbose);
 
-void postProcessData(cumlHandle &handle,
+void postProcessData(raft::handle_t &handle,
                      std::vector<MLCommon::Matrix::Data<double> *> &input_data,
                      MLCommon::Matrix::PartDescriptor &input_desc,
                      std::vector<MLCommon::Matrix::Data<double> *> &labels,

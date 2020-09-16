@@ -14,19 +14,16 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from libc.stdint cimport uintptr_t
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
-import cuml.common.handle
+from cuml.raft.common.handle import Handle
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    double completenessScore(const cumlHandle & handle, const int *y,
+    double completenessScore(const handle_t & handle, const int *y,
                              const int *y_hat, const int n,
                              const int lower_class_range,
                              const int upper_class_range) except +
@@ -74,8 +71,8 @@ def completeness_score(labels_true, labels_pred, handle=None):
       The completeness of the predicted labeling given the ground truth.
       Score between 0.0 and 1.0. 1.0 stands for perfectly complete labeling.
     """
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
+    handle = Handle() if handle is None else handle
+    cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     (y_true, y_pred, n_rows,
      lower_class_range, upper_class_range) = prepare_cluster_metric_inputs(
