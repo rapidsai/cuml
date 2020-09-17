@@ -235,10 +235,12 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
 
 template <int NITEMS, leaf_value_t leaf_payload_type, class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params) {
+
+  for(int row0 = 0; row0 < params.num_rows; row0 += NITEMS * 128 / params.blocks_per_row) {
   // cache the row for all threads to reuse
   extern __shared__ char smem[];
   float* sdata = (float*)smem;
-  size_t rid = blockIdx.x * NITEMS;
+  size_t rid = row0 + blockIdx.x / params.blocks_per_row * NITEMS;
   for (int j = 0; j < NITEMS; ++j) {
     for (int i = threadIdx.x; i < params.num_cols; i += blockDim.x) {
       size_t row = rid + j;
@@ -253,11 +255,14 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   __syncthreads();  // for both row cache init and acc init
 
   // one block works on NITEMS rows and the whole forest
-  for (int j = threadIdx.x; j < forest.num_trees(); j += blockDim.x) {
+  for (int j = threadIdx.x + blockIdx.x % params.blocks_per_row; j < forest.num_trees(); j += blockDim.x * params.blocks_per_row) {
     acc.accumulate(infer_one_tree<NITEMS, leaf_output_t<leaf_payload_type>::T>(
       forest[j], sdata, params.num_cols));
   }
   acc.finalize(params.preds, params.num_rows, params.num_outputs);
+  // e.g. could do atomicAdd() to number of blocks that did the row
+  // once all blocks are done, deterministic reduce
+  }
 }
 
 template <int NITEMS, leaf_value_t leaf_payload_type>
@@ -325,7 +330,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
              ? " (accounting for shared class vote histogram)"
              : "");
   }
-  int num_blocks = ceildiv(int(params.num_rows), num_items);
+  int num_blocks = 128;//ceildiv(int(params.num_rows), num_items);
   switch (num_items) {
     case 1:
       infer_k<1, leaf_payload_type>
@@ -351,6 +356,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
 
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
+  params.blocks_per_row = 1;
   switch (params.leaf_payload_type) {
     case FLOAT_SCALAR:
       infer_k_launcher<FLOAT_SCALAR, storage_type>(forest, params, stream);
