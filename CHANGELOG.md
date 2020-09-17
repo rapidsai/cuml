@@ -25,6 +25,7 @@
 - PR #2799: Reenable lightgbm test with lower (1%) proba accuracy
 - PR #2800: Align cuML's spdlog version with RMM's
 - PR #2824: Make data conversions warnings be debug level
+- PR #2792: Project flash (new build process) script changes
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
