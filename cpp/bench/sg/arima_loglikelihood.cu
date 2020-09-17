@@ -53,7 +53,7 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
     int N = order.complexity();
     raft::random::Rng gpu_gen(this->params.seed,
                                   raft::random::GenPhilox);
-    gpu_gen.uniform(handle, param, N * this->params.batch_size, -1.0, 1.0, stream);
+    gpu_gen.uniform(param, N * this->params.batch_size, -1.0, 1.0, stream);
     // Set sigma2 parameters to 1.0
     DataT* x = param;  // copy the object attribute for thrust
     thrust::for_each(thrust::cuda::par.on(stream), counting,
