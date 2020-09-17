@@ -24,6 +24,62 @@ namespace ML {
 
 using namespace ML::Internals;
 
+
+template<typename T>
+struct umap_inputs_t {
+  T *y;
+  int n;
+  int d;
+
+  umap_inputs_t(T *y_, int n_, int d_): y(y_), n(n_), d(d_) {}
+
+  virtual bool alloc_knn_graph();
+};
+
+template<typename T>
+struct umap_dense_inputs_t : public umap_inputs_t<T> {
+  T *X;
+
+  umap_dense_inputs_t(T *x_, T *y_, int n_, int d_): umap_inputs_t<T>(y_, n_, d_), X(x_) {}
+
+  bool alloc_knn_graph() {
+    return true;
+  }
+};
+
+template<typename value_idx, typename T>
+struct umap_sparse_inputs_t : public umap_inputs_t<T> {
+  value_idx *indptr;
+  value_idx *indices;
+  T *data;
+
+  size_t nnz;
+
+  umap_sparse_inputs_t(value_idx *indptr_, value_idx *indices_, T *data_, T *y_, size_t nnz_, int n_, int d_):
+    umap_inputs_t<T>(y_, n_, d_), indptr(indptr_), indices(indices_), data(data_), nnz(nnz_) {}
+
+  bool alloc_knn_graph() {
+    return true;
+  }
+};
+
+template<typename T>
+struct umap_precomputed_knn_inputs_t : public umap_dense_inputs_t<T> {
+
+  umap_precomputed_knn_inputs_t<T>(int64_t *knn_indices_, T *knn_dists_, T *X_, T *y_,
+                                   int n_, int d_): umap_dense_inputs_t<T>(X_, y_, n_, d_),
+                                                    knn_indices(knn_indices_), knn_dists(knn_dists_) {}
+
+  int64_t *knn_indices;
+  T *knn_dists;
+
+  bool alloc_knn_graph() {
+    return false;
+  }
+};
+
+
+
 class UMAPParams {
  public:
   enum MetricType { EUCLIDEAN, CATEGORICAL };

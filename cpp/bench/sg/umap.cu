@@ -111,7 +111,7 @@ class UmapSupervised : public UmapBase {
 
  protected:
   void coreBenchmarkMethod() {
-    fit(*this->handle, this->data.X, yFloat, this->params.nrows,
+    UMAP::fit(*this->handle, this->data.X, yFloat, this->params.nrows,
         this->params.ncols, nullptr, nullptr, &uParams, embeddings);
   }
 };
@@ -124,7 +124,7 @@ class UmapUnsupervised : public UmapBase {
 
  protected:
   void coreBenchmarkMethod() {
-    fit(*this->handle, this->data.X, this->params.nrows, this->params.ncols,
+    UMAP::fit(*this->handle, this->data.X, nullptr, this->params.nrows, this->params.ncols,
         nullptr, nullptr, &uParams, embeddings);
   }
 };
@@ -136,7 +136,7 @@ class UmapTransform : public UmapBase {
 
  protected:
   void coreBenchmarkMethod() {
-    transform(*this->handle, this->data.X, this->params.nrows,
+    UMAP::transform(*this->handle, this->data.X, this->params.nrows,
               this->params.ncols, nullptr, nullptr, this->data.X,
               this->params.nrows, embeddings, this->params.nrows, &uParams,
               transformed);
@@ -145,7 +145,7 @@ class UmapTransform : public UmapBase {
     UmapBase::allocateBuffers(state);
     auto& handle = *this->handle;
     alloc(transformed, this->params.nrows * uParams.n_components);
-    fit(handle, this->data.X, yFloat, this->params.nrows, this->params.ncols,
+    UMAP::fit(handle, this->data.X, yFloat, this->params.nrows, this->params.ncols,
         nullptr, nullptr, &uParams, embeddings);
   }
   void deallocateBuffers(const ::benchmark::State& state) {

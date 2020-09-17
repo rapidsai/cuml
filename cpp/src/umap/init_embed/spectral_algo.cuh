@@ -41,7 +41,7 @@ using namespace ML;
    * Performs a spectral layout initialization
    */
 template <typename T>
-void launcher(const raft::handle_t &handle, const T *X, int n, int d,
+void launcher(const raft::handle_t &handle, int n, int d,
               const int64_t *knn_indices, const T *knn_dists,
               MLCommon::Sparse::COO<float> *coo, UMAPParams *params,
               T *embedding) {

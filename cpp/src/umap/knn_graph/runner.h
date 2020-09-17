@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "algo.cuh"
+#include "algo.h"
 
 #pragma once
 
@@ -43,9 +43,10 @@ using namespace ML;
   * @param stream: cuda stream to use
   * @param algo: Algorithm to use. Currently only brute force is supported
  */
-template <typename T = float>
-void run(T *X, int n, T *query, int q_n, int d, int64_t *knn_indices,
-         T *knn_dists, int n_neighbors, UMAPParams *params,
+template <typename T = float, typename umap_inputs>
+void run(umap_inputs &inputsA, umap_inputs &inputsB,
+         int64_t *knn_indices, T *knn_dists, int n_neighbors,
+         UMAPParams *params,
          std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream,
          int algo = 0) {
   switch (algo) {
@@ -53,10 +54,12 @@ void run(T *X, int n, T *query, int q_n, int d, int64_t *knn_indices,
       * Initial algo uses FAISS indices
       */
     case 0:
-      Algo::launcher(X, n, query, q_n, d, knn_indices, knn_dists, n_neighbors,
+      Algo::launcher(inputsA, inputsB, &knn_indices, &knn_dists, n_neighbors,
                      params, d_alloc, stream);
       break;
   }
 }
+
+
 }  // namespace kNNGraph
 };  // namespace UMAPAlgo
