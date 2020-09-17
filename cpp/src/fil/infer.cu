@@ -329,7 +329,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
              ? " (accounting for shared class vote histogram)"
              : "");
   }
-  int num_blocks = ceildiv(int(params.num_rows), num_items);
+  int num_blocks = ceildiv(int(params.num_rows), num_items) * params.blocks_per_row;
   switch (num_items) {
     case 1:
       infer_k<1, leaf_payload_type>
