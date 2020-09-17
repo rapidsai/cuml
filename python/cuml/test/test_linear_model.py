@@ -85,8 +85,8 @@ def test_linear_regression_model(datatype, algorithm, nrows, column_info):
 
     if algorithm == "svd" and nrows > 46340:
         pytest.skip("svd solver is not supported for the data that has more"
-                    "than 46340 samples (rows) if you are using CUDA version"
-                    "10.1")
+                    "than 46340 rows or columns if you are using CUDA version"
+                    "10.x")
 
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
@@ -169,8 +169,8 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 
     if algorithm == "svd" and nrows > 46340:
         pytest.skip("svd solver is not supported for the data that has more"
-                    "than 46340 samples (rows) if you are using CUDA version"
-                    "10.1")
+                    "than 46340 rows or columns if you are using CUDA version"
+                    "10.x")
 
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
