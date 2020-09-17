@@ -250,10 +250,17 @@ struct forest {
 struct dense_forest : forest {
   void transform_trees(const dense_node_t* nodes) {
     // populate node information
-    for (int i = 0, gid = 0; i < num_trees_; ++i) {
-      for (int j = 0, nid = 0; j <= depth_; ++j) {
-        for (int k = 0; k < 1 << j; ++k, ++nid, ++gid) {
-          h_nodes_[nid * num_trees_ + i] = dense_node(nodes[gid]);
+    /* For each tree, the nodes are still stored in the breadth-first,
+       left-to-right order. However, instead of storing the nodes of the same
+       tree adjacently, it uses a different layout. In this layout, the roots
+       of all trees (node 0) are stored first, followed by left children of
+       the roots of all trees (node 1), followed by the right children of the
+       roots of all trees (node 2), and so on.
+    */
+    for (int t = 0, globalid = 0; t < num_trees_; ++t) {
+      for (int d = 0, nodeid = 0; d <= depth_; ++d) {
+        for (int b = 0; b < 1 << d; ++b, ++nodeid, ++globalid) {
+          h_nodes_[nodeid * num_trees_ + t] = dense_node(nodes[globalid]);
         }
       }
     }
