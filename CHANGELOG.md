@@ -36,6 +36,7 @@
 - PR #2810: Update Rf MNMG threshold to prevent sporadic test failure
 - PR #2808: Relax Doxygen version required in CMake to coincide with integration repo
 - PR #2818: Fix parsing of singlegpu option in build command
+- PR #2832: Updating stress tests that fail with OOM
 - PR #2831: Removing repeated capture and parameter in lambda function
 
 # cuML 0.15.0 (Date TBD)
