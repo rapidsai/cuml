@@ -104,8 +104,10 @@ class SparseKNNTest
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(out_indices));
     CUDA_CHECK(cudaFree(out_dists));
+    CUDA_CHECK(cudaFree(out_indices_ref));
+    CUDA_CHECK(cudaFree(out_dists_ref));
 
-    CUDA_CHECK(cudaStrr)
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void compare() {

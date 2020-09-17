@@ -48,8 +48,7 @@ template <typename K, typename IndexType, bool select_min, int warp_q,
           int thread_q, int tpb>
 __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
                                 size_t n_cols, K *outK, IndexType *outV,
-                                K initK, IndexType initV, int k,
-                                IndexType translation = 0) {
+                                K initK, IndexType initV, int k) {
   constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
   __shared__ K smemK[kNumWarps * warp_q];
@@ -61,7 +60,6 @@ __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
 
   // Grid is exactly sized to rows available
   int row = blockIdx.x;
-
   int i = threadIdx.x;
 
   int idx = row * n_cols;
@@ -75,14 +73,14 @@ __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
     inKStart = inK + idx + i;
     inVStart = inV + idx + i;
 
-    heap.add(*inKStart, (*inVStart) + translation);
+    heap.add(*inKStart, *inVStart);
   }
 
   // Handle last remainder fraction of a warp of elements
   if (i < n_cols) {
     inKStart = inK + idx + i;
     inVStart = inV + idx + i;
-    heap.addThreadQ(*inKStart, (*inVStart) + translation);
+    heap.addThreadQ(*inKStart, *inVStart);
   }
 
   heap.reduce();
@@ -97,8 +95,7 @@ template <typename value_idx = int, typename value_t = float, int warp_q,
           int thread_q>
 inline void select_k_impl(value_t *inK, value_idx *inV, size_t n_rows,
                           size_t n_cols, value_t *outK, value_idx *outV,
-                          bool select_min, int k, cudaStream_t stream,
-                          value_idx translation = 0) {
+                          bool select_min, int k, cudaStream_t stream) {
   auto grid = dim3(n_rows);
 
   constexpr int n_threads = (warp_q <= 1024) ? 128 : 64;
@@ -110,54 +107,56 @@ inline void select_k_impl(value_t *inK, value_idx *inV, size_t n_rows,
   if (select_min) {
     select_k_kernel<value_t, value_idx, false, warp_q, thread_q, n_threads>
       <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV, kInit,
-                                   vInit, k, translation);
+                                   vInit, k);
   } else {
     select_k_kernel<value_t, value_idx, true, warp_q, thread_q, n_threads>
       <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV, kInit,
-                                   vInit, k, translation);
+                                   vInit, k);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
 /**
- * @brief Merge knn distances and index matrix, which have been partitioned
- * by row, into a single matrix with only the k-nearest neighbors.
+ * @brief Select the k-nearest neighbors from dense
+ * distance and index matrices.
  *
- * @param inK partitioned knn distance matrix
- * @param inV partitioned knn index matrix
- * @param outK merged knn distance matrix
- * @param outV merged knn index matrix
- * @param n_samples number of samples per partition
- * @param n_parts number of partitions
- * @param k number of neighbors per partition (also number of merged neighbors)
- * @param stream CUDA stream to use
- * @param translations mapping of index offsets for each partition
+ * @param[in] inK partitioned knn distance matrix
+ * @param[in] inV partitioned knn index matrix
+ * @param[in] n_rows number of rows in distance and index matrices
+ * @param[in] n_cols number of columns in distance and index matrices
+ * @param[out] outK merged knn distance matrix
+ * @param[out] outV merged knn index matrix
+ * @param[in] select_min whether to select the min or the max distances
+ * @param[in] k number of neighbors per partition (also number of merged neighbors)
+ * @param[in] stream CUDA stream to use
  */
 template <typename value_idx = int, typename value_t = float>
-inline void select_k(value_t *inK, value_idx *inV, size_t n_rows, size_t n_cols,
-                     value_t *outK, value_idx *outV, bool select_min, int k,
-                     cudaStream_t stream, value_idx translation = 0) {
+inline void select_k(value_t *inK, value_idx *inV,
+                     size_t n_rows, size_t n_cols,
+                     value_t *outK, value_idx *outV,
+                     bool select_min, int k,
+                     cudaStream_t stream) {
   if (k == 1)
     select_k_impl<value_idx, value_t, 1, 1>(
-      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, translation);
+      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else if (k <= 32)
     select_k_impl<value_idx, value_t, 32, 2>(
-      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, translation);
+      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else if (k <= 64)
     select_k_impl<value_idx, value_t, 64, 3>(
-      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, translation);
+      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else if (k <= 128)
     select_k_impl<value_idx, value_t, 128, 3>(
-      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, translation);
+      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else if (k <= 256)
     select_k_impl<value_idx, value_t, 256, 4>(
-      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, translation);
+      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else if (k <= 512)
     select_k_impl<value_idx, value_t, 512, 8>(
-      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, translation);
+      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else if (k <= 1024)
     select_k_impl<value_idx, value_t, 1024, 8>(
-      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, translation);
+      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
 }
 
 };  // END namespace Selection

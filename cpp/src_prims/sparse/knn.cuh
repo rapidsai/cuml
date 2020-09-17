@@ -135,13 +135,28 @@ void iota_fill(value_idx *indices, value_idx nrows, value_idx ncols,
 /**
    * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
    * using some distance implementation
-   * @param allocator the device memory allocator to use for temporary scratch memory
-   * @param userStream the main cuda stream to use
-   * @param translations translation ids for indices when index rows represent
-   *        non-contiguous partitions
-   * @param metric corresponds to the FAISS::metricType enum (default is euclidean)
-   * @param metricArg metric argument to use. Corresponds to the p arg for lp norm
-   * @param expanded_form whether or not lp variants should be reduced w/ lp-root
+   * @param[in] idxIndptr csr indptr of the index matrix (size n_idx_rows + 1)
+   * @param[in] idxIndices csr column indices array of the index matrix (size n_idx_nnz)
+   * @param[in] idxData csr data array of the index matrix (size idxNNZ)
+   * @param[in] idxNNA number of non-zeros for sparse index matrix
+   * @param[in] n_idx_rows number of data samples in index matrix
+   * @param[in] queryIndptr csr indptr of the query matrix (size n_query_rows + 1)
+   * @param[in] queryIndices csr indices array of the query matrix (size queryNNZ)
+   * @param[in] queryData csr data array of the query matrix (size queryNNZ)
+   * @param[in] queryNNZ number of non-zeros for sparse query matrix
+   * @param[in] n_query_rows number of data samples in query matrix
+   * @param[in] n_query_cols number of features in query matrix
+   * @param[out] output_indices dense matrix for output indices (size n_query_rows * k)
+   * @param[out] output_dists dense matrix for output distances (size n_query_rows * k)
+   * @param[in] k the number of neighbors to query
+   * @param[in] cusparseHandle the initialized cusparseHandle instance to use
+   * @param[in] allocator device allocator instance to use
+   * @param[in] stream CUDA stream to order operations with respect to
+   * @param[in] batch_size_index maximum number of rows to use from index matrix per batch
+   * @param[in] batch_size_query maximum number of rows to use from query matrix per batch
+   * @param[in] metric distance metric/measure to use
+   * @param[in] metricArg potential argument for metric (currently unused)
+   * @param[in] expanded_form whether or not Lp variants should be reduced by the pth-root
    */
 template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
 void brute_force_knn(
@@ -180,6 +195,7 @@ void brute_force_knn(
       */
     CUML_LOG_DEBUG("Slicing query CSR for batch. rows=%d out of %d",
                    query_batcher.batch_rows(), n_query_rows);
+
     device_buffer<value_idx> query_batch_indptr(allocator, stream,
                                                 query_batcher.batch_rows() + 1);
 
@@ -263,11 +279,11 @@ void brute_force_knn(
       device_buffer<value_t> batch_dists(allocator, stream, dense_size);
 
       if (metric == ML::MetricType::METRIC_INNER_PRODUCT) {
-        Distance::ip_distances_t<value_idx, value_t> compute_dists(dist_config);
-        compute_dists.compute(batch_dists.data());
+        Distance::ip_distances_t<value_idx, value_t> dists(dist_config);
+        dists.compute(batch_dists.data());
       } else if (metric == ML::MetricType::METRIC_L2) {
-        Distance::l2_distances_t<value_idx, value_t> compute_dists(dist_config);
-        compute_dists.compute(batch_dists.data());
+        Distance::l2_distances_t<value_idx, value_t> dists(dist_config);
+        dists.compute(batch_dists.data());
       } else {
         throw "MetricType not supported";
       }
@@ -314,8 +330,8 @@ void brute_force_knn(
            metric == ML::MetricType::METRIC_Lp) &&
           !expanded_form) {
         /**
-    	* post-processing
-    	*/
+          * post-processing
+          */
         value_t p = 0.5;  // standard l2
         if (metric == ML::MetricType::METRIC_Lp) p = 1.0 / metricArg;
         MLCommon::LinAlg::unaryOp<value_t>(

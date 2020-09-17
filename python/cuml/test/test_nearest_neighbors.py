@@ -309,8 +309,8 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
         assert isspmatrix_csr(sparse_cu)
 
 
-@pytest.mark.parametrize('nrows', [10, 100])
-@pytest.mark.parametrize('ncols', [10, 100])
+@pytest.mark.parametrize('nrows', [10, 50])
+@pytest.mark.parametrize('ncols', [10, 50])
 @pytest.mark.parametrize('density', [0.4, 0.8])
 @pytest.mark.parametrize('n_neighbors', [2, 4])
 @pytest.mark.parametrize('batch_size_index', [10, 20000])
@@ -322,7 +322,7 @@ def test_sparse_nearest_neighbors_euclidean(nrows, ncols,
                                             batch_size_query):
 
     a = cp.sparse.random(nrows, ncols, format='csr', density=density,
-                         random_state=0)
+                         random_state=32)
 
     logger.set_level(logger.level_info)
     nn = cuKNN(metric='euclidean', n_neighbors=n_neighbors,

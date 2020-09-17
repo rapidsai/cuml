@@ -23,6 +23,8 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <sparse/csr.cuh>
 
+#include <cuml/neighbors/knn.hpp>
+
 #include <cusparse_v2.h>
 #include <raft/sparse/cusparse_wrappers.h>
 
@@ -54,11 +56,26 @@ struct distances_config_t {
   cudaStream_t stream;
 };
 
+
+
+
+template<typename value_t>
+struct distances_t {
+
+ public:
+    virtual void compute(value_t *out);
+};
+
 /**
  * Simple inner product distance with sparse matrix multiply
  */
 template <typename value_idx = int, typename value_t = float>
-struct ip_distances_t {
+struct ip_distances_t : public distances_t<value_t> {
+
+  /**
+   * Computes simple sparse inner product distances as sum(x_y * y_k)
+   * @param[in] config specifies inputs, outputs, and sizes
+   */
   explicit ip_distances_t(distances_config_t<value_idx, value_t> config)
     : config_(config),
       workspace(config.allocator, config.stream, 0),
@@ -77,6 +94,10 @@ struct ip_distances_t {
       cusparseSetPointerMode(config.handle, CUSPARSE_POINTER_MODE_HOST));
   }
 
+  /**
+   * Performs pairwise distance computation and computes output distances
+   * @param out_distances dense output matrix (size a_nrows * b_nrows)
+   */
   void compute(value_t *out_distances) {
     /**
 	   * Compute pairwise distances and return dense matrix in column-major format
@@ -246,10 +267,9 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 cusparseHandle_t handle, std::shared_ptr<deviceAllocator> alloc,
                 cudaStream_t stream) {
   device_buffer<value_t> Q_sq_norms(alloc, stream, m);
+  device_buffer<value_t> R_sq_norms(alloc, stream, n);
   CUDA_CHECK(
     cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size() * sizeof(value_t)));
-
-  device_buffer<value_t> R_sq_norms(alloc, stream, n);
   CUDA_CHECK(
     cudaMemsetAsync(R_sq_norms.data(), 0, R_sq_norms.size() * sizeof(value_t)));
 
@@ -266,7 +286,7 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
  * The expanded form is more efficient for sparse data.
  */
 template <typename value_idx = int, typename value_t = float>
-struct l2_distances_t {
+struct l2_distances_t : public distances_t<value_t>{
   explicit l2_distances_t(distances_config_t<value_idx, value_t> config)
     : config_(config),
       workspace(config.allocator, config.stream, 0),
@@ -279,12 +299,9 @@ struct l2_distances_t {
     value_idx *b_indices = ip_dists.trans_indices();
     value_t *b_data = ip_dists.trans_data();
 
-    CUDA_CHECK(cudaStreamSynchronize(config_.stream));
-
     CUML_LOG_DEBUG("Computing COO row index array");
     device_buffer<value_idx> search_coo_rows(config_.allocator, config_.stream,
                                              config_.a_nnz);
-
     csr_to_coo(config_.a_indptr, config_.a_nrows, search_coo_rows.data(),
                config_.a_nnz, config_.stream);
 
