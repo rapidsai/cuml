@@ -33,7 +33,7 @@ enum LoglikeMethod { CSS, MLE };
  * @param[in]  n_obs      Number of observations
  * @param[in]  order      ARIMA order
  */
-void batched_diff(cumlHandle& handle, double* d_y_diff, const double* d_y,
+void batched_diff(raft::handle_t& handle, double* d_y_diff, const double* d_y,
                   int batch_size, int n_obs, const ARIMAOrder& order);
 
 /**
@@ -64,7 +64,7 @@ void batched_diff(cumlHandle& handle, double* d_y_diff, const double* d_y,
  * @param[out] d_lower      Lower limit of the prediction interval
  * @param[out] d_upper      Upper limit of the prediction interval
  */
-void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
+void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
                      int n_obs, const ARIMAOrder& order, const double* d_params,
                      double* loglike, double* d_vs, bool trans = true,
                      bool host_loglike = true, LoglikeMethod method = MLE,
@@ -102,7 +102,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[out] d_lower      Lower limit of the prediction interval
  * @param[out] d_upper      Upper limit of the prediction interval
  */
-void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
+void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
                      int n_obs, const ARIMAOrder& order,
                      const ARIMAParams<double>& params, double* loglike,
                      double* d_vs, bool trans = true, bool host_loglike = true,
@@ -127,10 +127,11 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  truncate     For CSS, start the sum-of-squares after a given
  *                          number of observations
  */
-void batched_loglike_grad(cumlHandle& handle, const double* d_y, int batch_size,
-                          int n_obs, const ARIMAOrder& order, const double* d_x,
-                          double* d_grad, double h, bool trans = true,
-                          LoglikeMethod method = MLE, int truncate = 0);
+void batched_loglike_grad(raft::handle_t& handle, const double* d_y,
+                          int batch_size, int n_obs, const ARIMAOrder& order,
+                          const double* d_x, double* d_grad, double h,
+                          bool trans = true, LoglikeMethod method = MLE,
+                          int truncate = 0);
 
 /**
  * Batched in-sample and out-of-sample prediction of a time-series given all
@@ -153,8 +154,8 @@ void batched_loglike_grad(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[out] d_lower     Lower limit of the prediction interval
  * @param[out] d_upper     Upper limit of the prediction interval
  */
-void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
-             int start, int end, const ARIMAOrder& order,
+void predict(raft::handle_t& handle, const double* d_y, int batch_size,
+             int n_obs, int start, int end, const ARIMAOrder& order,
              const ARIMAParams<double>& params, double* d_y_p,
              bool pre_diff = true, double level = 0, double* d_lower = nullptr,
              double* d_upper = nullptr);
@@ -175,7 +176,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
  * @param[in]  ic_type     Type of information criterion wanted.
  *                         0: AIC, 1: AICc, 2: BIC
  */
-void information_criterion(cumlHandle& handle, const double* d_y,
+void information_criterion(raft::handle_t& handle, const double* d_y,
                            int batch_size, int n_obs, const ARIMAOrder& order,
                            const ARIMAParams<double>& params, double* ic,
                            int ic_type);
@@ -192,7 +193,7 @@ void information_criterion(cumlHandle& handle, const double* d_y,
  *                         (all series must be identical)
  * @param[in]  order       ARIMA hyper-parameters
  */
-void estimate_x0(cumlHandle& handle, ARIMAParams<double>& params,
+void estimate_x0(raft::handle_t& handle, ARIMAParams<double>& params,
                  const double* d_y, int batch_size, int n_obs,
                  const ARIMAOrder& order);
 

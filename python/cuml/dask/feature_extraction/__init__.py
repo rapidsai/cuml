@@ -1,4 +1,5 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,16 +14,4 @@
 # limitations under the License.
 #
 
-from cuml.nccl import nccl
-
-
-def test_nccl_init():
-    n = nccl()
-    uid = n.get_unique_id()
-
-    n.init(1, uid, 0)
-
-    assert 0 == n.user_rank()
-    assert 0 == n.cu_device()
-
-    n.destroy()
+from cuml.dask.feature_extraction import text

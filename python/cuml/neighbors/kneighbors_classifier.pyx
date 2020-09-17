@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
@@ -33,7 +30,7 @@ import cudf
 
 from cython.operator cimport dereference as deref
 
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from libcpp.vector cimport vector
 
 from cuml.common import with_cupy_rmm
@@ -50,14 +47,13 @@ from libc.stdlib cimport calloc, malloc, free
 from numba import cuda
 import rmm
 
-cimport cuml.common.handle
 cimport cuml.common.cuda
 
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
     void knn_classify(
-        cumlHandle &handle,
+        handle_t &handle,
         int* out,
         int64_t *knn_indices,
         vector[int*] &y,
@@ -67,7 +63,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     ) except +
 
     void knn_class_proba(
-        cumlHandle &handle,
+        handle_t &handle,
         vector[float*] &out,
         int64_t *knn_indices,
         vector[int*] &y,
@@ -89,8 +85,8 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         Default number of neighbors to query
     verbose : int or boolean (default = False)
         Logging level
-    handle : cumlHandle
-        The cumlHandle resources to use
+    handle : handle_t
+        The handle_t resources to use
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.
     metric : string (default='euclidean').
@@ -153,7 +149,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         Fit a GPU index for k-nearest neighbors classifier model.
 
         """
-        self._set_target_dtype(y)
+        self._set_base_attributes(output_type=X, target_dtype=y)
 
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self._y, _, _, _ = \
@@ -207,7 +203,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
         cdef uintptr_t classes_ptr = classes.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         knn_classify(
             handle_[0],
@@ -270,7 +266,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
             y_ptr = col.ptr
             y_vec.push_back(<int*>y_ptr)
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         knn_class_proba(
             handle_[0],

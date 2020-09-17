@@ -224,7 +224,7 @@ class MultinomialNB(Base):
         Fit Naive Bayes classifier according to X, y
 
         """
-        self._set_n_features_in(X)
+        self._set_base_attributes(output_type=X)
         return self.partial_fit(X, y, sample_weight)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)

@@ -14,20 +14,17 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from libc.stdint cimport uintptr_t
 
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
-import cuml.common.handle
+from cuml.raft.common.handle import Handle
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    double mutualInfoScore(const cumlHandle &handle,
+    double mutualInfoScore(const handle_t &handle,
                            const int *y,
                            const int *y_hat,
                            const int n,
@@ -72,8 +69,8 @@ def mutual_info_score(labels_true, labels_pred, handle=None):
     float
       Mutual information, a non-negative value
     """
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
+    handle = Handle() if handle is None else handle
+    cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     (y_true, y_pred, n_rows,
      lower_class_range, upper_class_range) = prepare_cluster_metric_inputs(

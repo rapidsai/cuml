@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuml/common/cuml_allocator.hpp>
-#include "buffer_base.hpp"
+#include <raft/mr/device/buffer.hpp>
 
 namespace MLCommon {
 
@@ -26,10 +26,10 @@ namespace MLCommon {
  * deallocation so this can be used for temporary memory 
  * @code{.cpp}
  * template<typename T>
- * void foo( const cumlHandle_impl& h, ..., cudaStream_t stream )
+ * void foo( const raft::handle_t& h, ..., cudaStream_t stream )
  * {
  *     ...
- *     device_buffer<T> temp( h.getDeviceAllocator(), stream, 0 )
+ *     device_buffer<T> temp( h.get_device_allocator(), stream, 0 )
  *     
  *     temp.resize(n, stream);
  *     kernelA<<<grid,block,0,stream>>>(...,temp.data(),...);
@@ -39,6 +39,6 @@ namespace MLCommon {
  * @endcode
  */
 template <typename T>
-using device_buffer = buffer_base<T, deviceAllocator>;
+using device_buffer = raft::mr::device::buffer<T>;
 
 }  // namespace MLCommon

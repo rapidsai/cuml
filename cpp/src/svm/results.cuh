@@ -59,10 +59,10 @@ class Results {
    * @param n_cols number of features
    * @param C penalty parameter
    */
-  Results(const cumlHandle_impl &handle, const math_t *x, const math_t *y,
+  Results(const raft::handle_t &handle, const math_t *x, const math_t *y,
           int n_rows, int n_cols, const math_t *C, SvmType svmType)
-    : allocator(handle.getDeviceAllocator()),
-      stream(handle.getStream()),
+    : allocator(handle.get_device_allocator()),
+      stream(handle.get_stream()),
       handle(handle),
       n_rows(n_rows),
       n_cols(n_cols),
@@ -71,14 +71,14 @@ class Results {
       C(C),
       svmType(svmType),
       n_train(svmType == EPSILON_SVR ? n_rows * 2 : n_rows),
-      cub_storage(handle.getDeviceAllocator(), stream),
-      d_num_selected(handle.getDeviceAllocator(), stream, 1),
-      d_val_reduced(handle.getDeviceAllocator(), stream, 1),
-      f_idx(handle.getDeviceAllocator(), stream, n_train),
-      idx_selected(handle.getDeviceAllocator(), stream, n_train),
-      val_selected(handle.getDeviceAllocator(), stream, n_train),
-      val_tmp(handle.getDeviceAllocator(), stream, n_train),
-      flag(handle.getDeviceAllocator(), stream, n_train) {
+      cub_storage(handle.get_device_allocator(), stream),
+      d_num_selected(handle.get_device_allocator(), stream, 1),
+      d_val_reduced(handle.get_device_allocator(), stream, 1),
+      f_idx(handle.get_device_allocator(), stream, n_train),
+      idx_selected(handle.get_device_allocator(), stream, n_train),
+      val_selected(handle.get_device_allocator(), stream, n_train),
+      val_tmp(handle.get_device_allocator(), stream, n_train),
+      flag(handle.get_device_allocator(), stream, n_train) {
     InitCubBuffers();
     MLCommon::LinAlg::range(f_idx.data(), n_train, stream);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -176,7 +176,7 @@ class Results {
    */
   void GetDualCoefs(const math_t *val_tmp, math_t **dual_coefs,
                     int *n_support) {
-    auto allocator = handle.getDeviceAllocator();
+    auto allocator = handle.get_device_allocator();
     // Return only the non-zero coefficients
     auto select_op = [] __device__(math_t a) { return 0 != a; };
     *n_support =
@@ -266,7 +266,7 @@ class Results {
   std::shared_ptr<deviceAllocator> allocator;
 
  private:
-  const cumlHandle_impl &handle;
+  const raft::handle_t &handle;
   cudaStream_t stream;
 
   int n_rows;       //!< number of rows in the training vector matrix

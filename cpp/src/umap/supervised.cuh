@@ -232,10 +232,10 @@ void perform_categorical_intersection(T *y, COO<T> *rgraph_coo,
 }
 
 template <int TPB_X, typename T>
-void perform_general_intersection(const cumlHandle &handle, T *y,
+void perform_general_intersection(const raft::handle_t &handle, T *y,
                                   COO<T> *rgraph_coo, COO<T> *final_coo,
                                   UMAPParams *params, cudaStream_t stream) {
-  auto d_alloc = handle.getDeviceAllocator();
+  auto d_alloc = handle.get_device_allocator();
 
   /**
    * Calculate kNN for Y

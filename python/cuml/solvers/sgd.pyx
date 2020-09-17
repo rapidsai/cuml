@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -32,12 +29,12 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, with_cupy_rmm
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
-    cdef void sgdFit(cumlHandle& handle,
+    cdef void sgdFit(handle_t& handle,
                      float *input,
                      int n_rows,
                      int n_cols,
@@ -58,7 +55,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                      float tol,
                      int n_iter_no_change) except +
 
-    cdef void sgdFit(cumlHandle& handle,
+    cdef void sgdFit(handle_t& handle,
                      double *input,
                      int n_rows,
                      int n_cols,
@@ -79,7 +76,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                      double tol,
                      int n_iter_no_change) except +
 
-    cdef void sgdPredict(cumlHandle& handle,
+    cdef void sgdPredict(handle_t& handle,
                          const float *input,
                          int n_rows,
                          int n_cols,
@@ -88,7 +85,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                          float *preds,
                          int loss) except +
 
-    cdef void sgdPredict(cumlHandle& handle,
+    cdef void sgdPredict(handle_t& handle,
                          const double *input,
                          int n_rows,
                          int n_cols,
@@ -97,7 +94,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                          double *preds,
                          int loss) except +
 
-    cdef void sgdPredictBinaryClass(cumlHandle& handle,
+    cdef void sgdPredictBinaryClass(handle_t& handle,
                                     const float *input,
                                     int n_rows,
                                     int n_cols,
@@ -106,7 +103,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                                     float *preds,
                                     int loss) except +
 
-    cdef void sgdPredictBinaryClass(cumlHandle& handle,
+    cdef void sgdPredictBinaryClass(handle_t& handle,
                                     const double *input,
                                     int n_rows,
                                     int n_cols,
@@ -302,8 +299,7 @@ class SGD(Base):
         Fit the model with X and y.
 
         """
-        self._set_output_type(X)
-        self._set_target_dtype(y)
+        self._set_base_attributes(output_type=X, target_dtype=y)
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -329,7 +325,7 @@ class SGD(Base):
 
         cdef float c_intercept1
         cdef double c_intercept2
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             sgdFit(handle_[0],
@@ -408,7 +404,7 @@ class SGD(Base):
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             sgdPredict(handle_[0],
@@ -457,7 +453,7 @@ class SGD(Base):
         cdef uintptr_t coef_ptr = self._coef_.ptr
         preds = CumlArray.zeros(n_rows, dtype=dtype)
         cdef uintptr_t preds_ptr = preds.ptr
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if dtype.type == np.float32:
             sgdPredictBinaryClass(handle_[0],

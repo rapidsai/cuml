@@ -47,7 +47,7 @@ namespace SVM {
  * @param [in] sample_weight optional sample weights, size [n_rows]
  */
 template <typename math_t>
-void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
+void svcFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
             math_t *labels, const svmParameter &param,
             MLCommon::Matrix::KernelParams &kernel_params,
             svmModel<math_t> &model, const math_t *sample_weight = nullptr);
@@ -82,8 +82,8 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  *     return the decision function value (false)
  */
 template <typename math_t>
-void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
-                MLCommon::Matrix::KernelParams &kernel_params,
+void svcPredict(const raft::handle_t &handle, math_t *input, int n_rows,
+                int n_cols, MLCommon::Matrix::KernelParams &kernel_params,
                 const svmModel<math_t> &model, math_t *preds,
                 math_t buffer_size, bool predict_class = true);
 
@@ -94,7 +94,7 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  * @param [inout] m SVM model parameters
  */
 template <typename math_t>
-void svmFreeBuffers(const cumlHandle &handle, svmModel<math_t> &m);
+void svmFreeBuffers(const raft::handle_t &handle, svmModel<math_t> &m);
 
 /**
  * @brief C-Support Vector Classification
@@ -134,7 +134,7 @@ class SVC {
    * @param nochange_steps number of steps with no change wrt convergence
    * @param verbosity verbosity level for logging messages during execution
    */
-  SVC(cumlHandle &handle, math_t C = 1, math_t tol = 1.0e-3,
+  SVC(raft::handle_t &handle, math_t C = 1, math_t tol = 1.0e-3,
       MLCommon::Matrix::KernelParams kernel_params =
         MLCommon::Matrix::KernelParams{MLCommon::Matrix::LINEAR, 3, 1, 0},
       math_t cache_size = 200, int max_iter = -1, int nochange_steps = 1000,
@@ -180,7 +180,7 @@ class SVC {
   void decisionFunction(math_t *input, int n_rows, int n_cols, math_t *preds);
 
  private:
-  const cumlHandle &handle;
+  const raft::handle_t &handle;
 };
 
 };  // end namespace SVM

@@ -14,21 +14,16 @@
 # limitations under the License.
 #
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
-
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 
-    float r2_score_py(const cumlHandle& handle,
+    float r2_score_py(const handle_t& handle,
                       float *y,
                       float *y_hat,
                       int n) except +
 
-    double r2_score_py(const cumlHandle& handle,
+    double r2_score_py(const handle_t& handle,
                        double *y,
                        double *y_hat,
                        int n) except +
