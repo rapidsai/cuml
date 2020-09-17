@@ -138,6 +138,9 @@ void print_tree_summary(const TreeMetaDataNode<T, L> *tree);
 template <class T, class L>
 void print_tree(const TreeMetaDataNode<T, L> *tree);
 
+template <class T, class L>
+std::string dump_tree_as_json(const TreeMetaDataNode<T, L> *tree);
+
 // ----------------------------- Classification ----------------------------------- //
 
 typedef TreeMetaDataNode<float, int> TreeClassifierF;
