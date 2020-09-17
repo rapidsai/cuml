@@ -228,10 +228,9 @@ fi
 if completeBuild || hasArg cuml || hasArg pydocs; then
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPU_PYTHON_FLAG} --library-dir=${LIBCUML_BUILD_DIR}
-        python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU_PYTHON_FLAG}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${SINGLEGPU_PYTHON_FLAG} install --single-version-externally-managed --record=record.txt --library-dir=${LIBCUML_BUILD_DIR}
     else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU_PYTHON_FLAG}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU_PYTHON_FLAG}
     fi
 
     if hasArg pydocs; then

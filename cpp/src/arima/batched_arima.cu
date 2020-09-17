@@ -40,20 +40,20 @@
 
 namespace ML {
 
-void batched_diff(cumlHandle& handle, double* d_y_diff, const double* d_y,
+void batched_diff(raft::handle_t& handle, double* d_y_diff, const double* d_y,
                   int batch_size, int n_obs, const ARIMAOrder& order) {
-  const auto stream = handle.getStream();
+  const auto stream = handle.get_stream();
   MLCommon::TimeSeries::prepare_data(d_y_diff, d_y, batch_size, n_obs, order.d,
                                      order.D, order.s, stream);
 }
 
-void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
-             int start, int end, const ARIMAOrder& order,
+void predict(raft::handle_t& handle, const double* d_y, int batch_size,
+             int n_obs, int start, int end, const ARIMAOrder& order,
              const ARIMAParams<double>& params, double* d_y_p, bool pre_diff,
              double level, double* d_lower, double* d_upper) {
   ML::PUSH_RANGE(__func__);
-  auto allocator = handle.getDeviceAllocator();
-  const auto stream = handle.getStream();
+  auto allocator = handle.get_device_allocator();
+  const auto stream = handle.get_stream();
 
   bool diff = order.need_diff() && pre_diff && level == 0;
 
@@ -239,13 +239,13 @@ __global__ void sum_of_squares_kernel(const DataT* d_y, const DataT* d_mu,
  * @param[out] d_loglike  Evaluated log-likelihood (device)
  * @param[in]  truncate   Number of observations to skip in the sum
  */
-void conditional_sum_of_squares(cumlHandle& handle, const double* d_y,
+void conditional_sum_of_squares(raft::handle_t& handle, const double* d_y,
                                 int batch_size, int n_obs,
                                 const ARIMAOrder& order,
                                 const ARIMAParams<double>& Tparams,
                                 double* d_loglike, int truncate) {
   ML::PUSH_RANGE(__func__);
-  auto stream = handle.getStream();
+  auto stream = handle.get_stream();
 
   int n_phi = order.n_phi();
   int n_theta = order.n_theta();
@@ -267,7 +267,7 @@ void conditional_sum_of_squares(cumlHandle& handle, const double* d_y,
   ML::POP_RANGE();
 }
 
-void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
+void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
                      int n_obs, const ARIMAOrder& order,
                      const ARIMAParams<double>& params, double* loglike,
                      double* d_vs, bool trans, bool host_loglike,
@@ -276,8 +276,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      double* d_upper) {
   ML::PUSH_RANGE(__func__);
 
-  auto allocator = handle.getDeviceAllocator();
-  auto stream = handle.getStream();
+  auto allocator = handle.get_device_allocator();
+  auto stream = handle.get_stream();
   ARIMAParams<double> Tparams;
 
   ASSERT(method == MLE || fc_steps == 0,
@@ -325,7 +325,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
   ML::POP_RANGE();
 }
 
-void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
+void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
                      int n_obs, const ARIMAOrder& order, const double* d_params,
                      double* loglike, double* d_vs, bool trans,
                      bool host_loglike, LoglikeMethod method, int truncate,
@@ -334,8 +334,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
   ML::PUSH_RANGE(__func__);
 
   // unpack parameters
-  auto allocator = handle.getDeviceAllocator();
-  auto stream = handle.getStream();
+  auto allocator = handle.get_device_allocator();
+  auto stream = handle.get_stream();
   ARIMAParams<double> params;
   params.allocate(order, batch_size, allocator, stream, false);
   params.unpack(order, batch_size, d_params, stream);
@@ -349,13 +349,13 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
   ML::POP_RANGE();
 }
 
-void batched_loglike_grad(cumlHandle& handle, const double* d_y, int batch_size,
-                          int n_obs, const ARIMAOrder& order, const double* d_x,
-                          double* d_grad, double h, bool trans,
-                          LoglikeMethod method, int truncate) {
+void batched_loglike_grad(raft::handle_t& handle, const double* d_y,
+                          int batch_size, int n_obs, const ARIMAOrder& order,
+                          const double* d_x, double* d_grad, double h,
+                          bool trans, LoglikeMethod method, int truncate) {
   ML::PUSH_RANGE(__func__);
-  auto allocator = handle.getDeviceAllocator();
-  auto stream = handle.getStream();
+  auto allocator = handle.get_device_allocator();
+  auto stream = handle.get_stream();
   auto counting = thrust::make_counting_iterator(0);
   int N = order.complexity();
 
@@ -402,13 +402,13 @@ void batched_loglike_grad(cumlHandle& handle, const double* d_y, int batch_size,
   ML::POP_RANGE();
 }
 
-void information_criterion(cumlHandle& handle, const double* d_y,
+void information_criterion(raft::handle_t& handle, const double* d_y,
                            int batch_size, int n_obs, const ARIMAOrder& order,
                            const ARIMAParams<double>& params, double* d_ic,
                            int ic_type) {
   ML::PUSH_RANGE(__func__);
-  auto allocator = handle.getDeviceAllocator();
-  auto stream = handle.getStream();
+  auto allocator = handle.get_device_allocator();
+  auto stream = handle.get_stream();
 
   MLCommon::device_buffer<double> v_buffer(allocator, stream,
                                            n_obs * batch_size);
@@ -469,15 +469,15 @@ DI bool test_invparams(const double* params, int pq) {
  * ARMA model (with or without seasonality)
  * @note: in this function the non-seasonal case has s=1, not s=0!
  */
-void _arma_least_squares(cumlHandle& handle, double* d_ar, double* d_ma,
+void _arma_least_squares(raft::handle_t& handle, double* d_ar, double* d_ma,
                          double* d_sigma2,
                          const MLCommon::LinAlg::Batched::Matrix<double>& bm_y,
                          int p, int q, int s, bool estimate_sigma2, int k = 0,
                          double* d_mu = nullptr) {
-  const auto& handle_impl = handle.getImpl();
-  auto stream = handle_impl.getStream();
-  auto cublas_handle = handle_impl.getCublasHandle();
-  auto allocator = handle_impl.getDeviceAllocator();
+  const auto& handle_impl = handle;
+  auto stream = handle_impl.get_stream();
+  auto cublas_handle = handle_impl.get_cublas_handle();
+  auto allocator = handle_impl.get_device_allocator();
   auto counting = thrust::make_counting_iterator(0);
 
   int batch_size = bm_y.batches();
@@ -643,7 +643,7 @@ void _arma_least_squares(cumlHandle& handle, double* d_ar, double* d_ma,
  * Auxiliary function of estimate_x0: compute the starting parameters for
  * the series pre-processed by estimate_x0
  */
-void _start_params(cumlHandle& handle, ARIMAParams<double>& params,
+void _start_params(raft::handle_t& handle, ARIMAParams<double>& params,
                    const MLCommon::LinAlg::Batched::Matrix<double>& bm_y,
                    const ARIMAOrder& order) {
   // Estimate an ARMA fit without seasonality
@@ -658,14 +658,14 @@ void _start_params(cumlHandle& handle, ARIMAParams<double>& params,
                         order.p + order.q + order.k == 0);
 }
 
-void estimate_x0(cumlHandle& handle, ARIMAParams<double>& params,
+void estimate_x0(raft::handle_t& handle, ARIMAParams<double>& params,
                  const double* d_y, int batch_size, int n_obs,
                  const ARIMAOrder& order) {
   ML::PUSH_RANGE(__func__);
-  const auto& handle_impl = handle.getImpl();
-  auto stream = handle_impl.getStream();
-  auto cublas_handle = handle_impl.getCublasHandle();
-  auto allocator = handle_impl.getDeviceAllocator();
+  const auto& handle_impl = handle;
+  auto stream = handle_impl.get_stream();
+  auto cublas_handle = handle_impl.get_cublas_handle();
+  auto allocator = handle_impl.get_device_allocator();
 
   // Difference if necessary, copy otherwise
   MLCommon::LinAlg::Batched::Matrix<double> bm_yd(

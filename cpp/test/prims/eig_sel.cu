@@ -47,7 +47,8 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
   void SetUp() override {
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
+    std::shared_ptr<deviceAllocator> allocator(
+      new raft::mr::device::default_allocator);
     params = ::testing::TestWithParam<EigSelInputs<T>>::GetParam();
     int len = params.len;
 

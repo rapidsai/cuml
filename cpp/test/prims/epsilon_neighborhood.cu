@@ -46,7 +46,7 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
     batchSize = param.n_row / param.n_batches;
     allocate(adj, param.n_row * batchSize);
     allocate(vd, batchSize + 1, true);
-    allocator.reset(new defaultDeviceAllocator);
+    allocator.reset(new raft::mr::device::default_allocator);
     Random::make_blobs<T, IdxT>(data, labels, param.n_row, param.n_col,
                                 param.n_centers, allocator, stream, true,
                                 nullptr, nullptr, T(0.01), false);

@@ -14,15 +14,12 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import numpy as np
 
 from cuml.common.array import CumlArray
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common.opg_data_utils_mg import _build_part_inputs

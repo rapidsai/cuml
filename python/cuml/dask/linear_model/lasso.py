@@ -14,11 +14,6 @@
 # limitations under the License.
 #
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
-
 from cuml.dask.solvers import CD
 from cuml.dask.common.base import BaseEstimator
 

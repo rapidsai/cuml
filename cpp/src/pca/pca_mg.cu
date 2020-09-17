@@ -16,7 +16,6 @@
 
 #include <linalg/transpose.h>
 #include <common/cumlHandle.hpp>
-#include <common/cuml_comms_int.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -29,6 +28,7 @@
 #include <opg/stats/cov.hpp>
 #include <opg/stats/mean.hpp>
 #include <opg/stats/mean_center.hpp>
+#include <raft/comms/comms.hpp>
 #include <stats/mean_center.cuh>
 #include "pca.cuh"
 
@@ -39,20 +39,20 @@ namespace PCA {
 namespace opg {
 
 template <typename T>
-void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
+void fit_impl(raft::handle_t &handle,
+              std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc, T *components,
               T *explained_var, T *explained_var_ratio, T *singular_vals, T *mu,
               T *noise_vars, paramsPCAMG prms, cudaStream_t *streams,
               int n_streams, bool verbose) {
-  const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
-  cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
-  const std::shared_ptr<deviceAllocator> allocator =
-    handle.getImpl().getDeviceAllocator();
+  const auto &comm = handle.get_comms();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
+  const auto allocator = handle.get_device_allocator();
 
   Matrix::Data<T> mu_data{mu, size_t(prms.n_cols)};
 
   Stats::opg::mean(mu_data, input_data, input_desc, comm, allocator, streams,
-                   n_streams, handle.getImpl().getCublasHandle());
+                   n_streams, handle.get_cublas_handle());
 
   device_buffer<T> cov_data(allocator, streams[0], prms.n_cols * prms.n_cols);
   size_t cov_data_size = cov_data.size();
@@ -61,9 +61,8 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
   Stats::opg::cov(cov, input_data, input_desc, mu_data, true, comm, allocator,
                   streams, n_streams, cublas_handle);
 
-  ML::truncCompExpVars<T, mg_solver>(handle.getImpl(), cov.ptr, components,
-                                     explained_var, explained_var_ratio, prms,
-                                     streams[0]);
+  ML::truncCompExpVars<T, mg_solver>(handle, cov.ptr, components, explained_var,
+                                     explained_var_ratio, prms, streams[0]);
 
   T scalar = (prms.n_rows - 1);
   Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components,
@@ -88,13 +87,14 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
  * @input param verbose
  */
 template <typename T>
-void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
+void fit_impl(raft::handle_t &handle,
+              std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc, T *components,
               T *explained_var, T *explained_var_ratio, T *singular_vals, T *mu,
               T *noise_vars, paramsPCAMG prms, bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.get_comms().get_rank();
 
-  // TODO: These streams should come from cumlHandle
+  // TODO: These streams should come from raft::handle_t
   // Reference issue https://github.com/rapidsai/cuml/issues/2470
   int n_streams = input_desc.blocksOwnedBy(rank).size();
   cudaStream_t streams[n_streams];
@@ -111,15 +111,15 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
       CUDA_CHECK(cudaStreamSynchronize(streams[i]));
     }
   } else if (prms.algorithm == mg_solver::QR) {
-    const ML::cumlHandle_impl &h = handle.getImpl();
-    cudaStream_t stream = h.getStream();
-    const std::shared_ptr<deviceAllocator> allocator = h.getDeviceAllocator();
-    const cumlCommunicator &comm = h.getCommunicator();
+    const raft::handle_t &h = handle;
+    cudaStream_t stream = h.get_stream();
+    const auto allocator = h.get_device_allocator();
+    const auto &comm = h.get_comms();
 
     // Center the data
     Matrix::Data<T> mu_data{mu, size_t(prms.n_cols)};
     Stats::opg::mean(mu_data, input_data, input_desc, comm, allocator, streams,
-                     n_streams, handle.getImpl().getCublasHandle());
+                     n_streams, handle.get_cublas_handle());
     Stats::opg::mean_center(input_data, input_desc, mu_data, comm, streams,
                             n_streams);
     for (int i = 0; i < n_streams; i++) {
@@ -184,14 +184,14 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
 }
 
 template <typename T>
-void transform_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input,
+void transform_impl(raft::handle_t &handle,
+                    std::vector<Matrix::Data<T> *> &input,
                     const Matrix::PartDescriptor input_desc, T *components,
                     std::vector<Matrix::Data<T> *> &trans_input,
                     T *singular_vals, T *mu, const paramsPCAMG prms,
                     cudaStream_t *streams, int n_streams, bool verbose) {
-  cublasHandle_t cublas_h = handle.getImpl().getCublasHandle();
-  const std::shared_ptr<deviceAllocator> allocator =
-    handle.getImpl().getDeviceAllocator();
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
+  const auto allocator = handle.get_device_allocator();
   std::vector<Matrix::RankSizePair *> local_blocks = input_desc.partsToRanks;
 
   if (prms.whiten) {
@@ -248,14 +248,14 @@ void transform_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input,
  * @input param verbose
  */
 template <typename T>
-void transform_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
+void transform_impl(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
                     size_t n_parts, Matrix::Data<T> **input, T *components,
                     Matrix::Data<T> **trans_input, T *singular_vals, T *mu,
                     paramsPCAMG prms, bool verbose) {
   // We want to update the API of this function, and other functions with
   // regards to https://github.com/rapidsai/cuml/issues/2471
 
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.get_comms().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
@@ -264,7 +264,7 @@ void transform_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
                                     rank);
   std::vector<Matrix::Data<T> *> trans_data(trans_input, trans_input + n_parts);
 
-  // TODO: These streams should come from cumlHandle
+  // TODO: These streams should come from raft::handle_t
   int n_streams = n_parts;
   cudaStream_t streams[n_streams];
   for (int i = 0; i < n_streams; i++) {
@@ -285,13 +285,12 @@ void transform_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
 
 template <typename T>
 void inverse_transform_impl(
-  cumlHandle &handle, std::vector<Matrix::Data<T> *> &trans_input,
+  raft::handle_t &handle, std::vector<Matrix::Data<T> *> &trans_input,
   Matrix::PartDescriptor trans_input_desc, T *components,
   std::vector<Matrix::Data<T> *> &input, T *singular_vals, T *mu,
   paramsPCAMG prms, cudaStream_t *streams, int n_streams, bool verbose) {
-  cublasHandle_t cublas_h = handle.getImpl().getCublasHandle();
-  const std::shared_ptr<deviceAllocator> allocator =
-    handle.getImpl().getDeviceAllocator();
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
+  const auto allocator = handle.get_device_allocator();
   std::vector<Matrix::RankSizePair *> local_blocks =
     trans_input_desc.partsToRanks;
 
@@ -346,12 +345,12 @@ void inverse_transform_impl(
  * @input param verbose
  */
 template <typename T>
-void inverse_transform_impl(cumlHandle &handle,
+void inverse_transform_impl(raft::handle_t &handle,
                             Matrix::RankSizePair **rank_sizes, size_t n_parts,
                             Matrix::Data<T> **trans_input, T *components,
                             Matrix::Data<T> **input, T *singular_vals, T *mu,
                             paramsPCAMG prms, bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.get_comms().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
@@ -361,7 +360,7 @@ void inverse_transform_impl(cumlHandle &handle,
 
   std::vector<Matrix::Data<T> *> input_data(input, input + n_parts);
 
-  // TODO: These streams should come from cumlHandle
+  // TODO: These streams should come from raft::handle_t
   int n_streams = n_parts;
   cudaStream_t streams[n_streams];
   for (int i = 0; i < n_streams; i++) {
@@ -397,13 +396,13 @@ void inverse_transform_impl(cumlHandle &handle,
  * @input param verbose
  */
 template <typename T>
-void fit_transform_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
-                        size_t n_parts, Matrix::Data<T> **input,
-                        Matrix::Data<T> **trans_input, T *components,
-                        T *explained_var, T *explained_var_ratio,
+void fit_transform_impl(raft::handle_t &handle,
+                        Matrix::RankSizePair **rank_sizes, size_t n_parts,
+                        Matrix::Data<T> **input, Matrix::Data<T> **trans_input,
+                        T *components, T *explained_var, T *explained_var_ratio,
                         T *singular_vals, T *mu, T *noise_vars,
                         paramsPCAMG prms, bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.get_comms().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
@@ -412,7 +411,7 @@ void fit_transform_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
                                     rank);
   std::vector<Matrix::Data<T> *> trans_data(trans_input, trans_input + n_parts);
 
-  // TODO: These streams should come from cumlHandle
+  // TODO: These streams should come from raft::handle_t
   int n_streams = n_parts;
   cudaStream_t streams[n_streams];
   for (int i = 0; i < n_streams; i++) {
@@ -438,7 +437,7 @@ void fit_transform_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
   }
 }
 
-void fit(cumlHandle &handle, std::vector<Matrix::Data<float> *> &input_data,
+void fit(raft::handle_t &handle, std::vector<Matrix::Data<float> *> &input_data,
          Matrix::PartDescriptor &input_desc, float *components,
          float *explained_var, float *explained_var_ratio, float *singular_vals,
          float *mu, float *noise_vars, paramsPCAMG prms, bool verbose) {
@@ -446,7 +445,8 @@ void fit(cumlHandle &handle, std::vector<Matrix::Data<float> *> &input_data,
            explained_var_ratio, singular_vals, mu, noise_vars, prms, verbose);
 }
 
-void fit(cumlHandle &handle, std::vector<Matrix::Data<double> *> &input_data,
+void fit(raft::handle_t &handle,
+         std::vector<Matrix::Data<double> *> &input_data,
          Matrix::PartDescriptor &input_desc, double *components,
          double *explained_var, double *explained_var_ratio,
          double *singular_vals, double *mu, double *noise_vars,
@@ -455,7 +455,7 @@ void fit(cumlHandle &handle, std::vector<Matrix::Data<double> *> &input_data,
            explained_var_ratio, singular_vals, mu, noise_vars, prms, verbose);
 }
 
-void fit_transform(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
+void fit_transform(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
                    size_t n_parts, Matrix::floatData_t **input,
                    Matrix::floatData_t **trans_input, float *components,
                    float *explained_var, float *explained_var_ratio,
@@ -466,7 +466,7 @@ void fit_transform(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
                      singular_vals, mu, noise_vars, prms, verbose);
 }
 
-void fit_transform(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
+void fit_transform(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
                    size_t n_parts, Matrix::doubleData_t **input,
                    Matrix::doubleData_t **trans_input, double *components,
                    double *explained_var, double *explained_var_ratio,
@@ -477,7 +477,7 @@ void fit_transform(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
                      singular_vals, mu, noise_vars, prms, verbose);
 }
 
-void transform(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
+void transform(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
                size_t n_parts, Matrix::Data<float> **input, float *components,
                Matrix::Data<float> **trans_input, float *singular_vals,
                float *mu, paramsPCAMG prms, bool verbose) {
@@ -485,7 +485,7 @@ void transform(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
                  singular_vals, mu, prms, verbose);
 }
 
-void transform(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
+void transform(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
                size_t n_parts, Matrix::Data<double> **input, double *components,
                Matrix::Data<double> **trans_input, double *singular_vals,
                double *mu, paramsPCAMG prms, bool verbose) {
@@ -493,20 +493,20 @@ void transform(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
                  singular_vals, mu, prms, verbose);
 }
 
-void inverse_transform(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
-                       size_t n_parts, Matrix::Data<float> **trans_input,
-                       float *components, Matrix::Data<float> **input,
-                       float *singular_vals, float *mu, paramsPCAMG prms,
-                       bool verbose) {
+void inverse_transform(raft::handle_t &handle,
+                       Matrix::RankSizePair **rank_sizes, size_t n_parts,
+                       Matrix::Data<float> **trans_input, float *components,
+                       Matrix::Data<float> **input, float *singular_vals,
+                       float *mu, paramsPCAMG prms, bool verbose) {
   inverse_transform_impl(handle, rank_sizes, n_parts, trans_input, components,
                          input, singular_vals, mu, prms, verbose);
 }
 
-void inverse_transform(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
-                       size_t n_parts, Matrix::Data<double> **trans_input,
-                       double *components, Matrix::Data<double> **input,
-                       double *singular_vals, double *mu, paramsPCAMG prms,
-                       bool verbose) {
+void inverse_transform(raft::handle_t &handle,
+                       Matrix::RankSizePair **rank_sizes, size_t n_parts,
+                       Matrix::Data<double> **trans_input, double *components,
+                       Matrix::Data<double> **input, double *singular_vals,
+                       double *mu, paramsPCAMG prms, bool verbose) {
   inverse_transform_impl(handle, rank_sizes, n_parts, trans_input, components,
                          input, singular_vals, mu, prms, verbose);
 }
