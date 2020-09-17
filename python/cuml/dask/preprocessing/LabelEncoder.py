@@ -148,7 +148,7 @@ class LabelEncoder(BaseEstimator,
 
         Returns
         -------
-        encoded : cuPy backed Dask Array
+        encoded : dask_cudf.Series
             The ordinally encoded input series
 
         Raises
@@ -181,7 +181,7 @@ class LabelEncoder(BaseEstimator,
 
         Returns
         -------
-        X_tr : CuPy backed Dask Array
+        X_tr : dask_cudf.Series
             Distributed object containing the inverse transformed array.
         """
         if self._get_internal_model() is not None:
