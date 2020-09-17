@@ -51,7 +51,7 @@ class LabelEncoder(BaseEstimator,
         print(encoded.compute())
 
         # We can assign this to a new column
-        ddf = ddf.assign(encoded=encoded)
+        ddf = ddf.assign(encoded=encoded.values)
         print(ddf.compute())
 
         # We can also encode more data
@@ -160,7 +160,7 @@ class LabelEncoder(BaseEstimator,
             return self._transform(y,
                                    delayed=delayed,
                                    output_dtype='int64',
-                                   output_collection_type='series')
+                                   output_collection_type='cudf')
         else:
             msg = ("This LabelEncoder instance is not fitted yet. Call 'fit' "
                    "with appropriate arguments before using this estimator.")

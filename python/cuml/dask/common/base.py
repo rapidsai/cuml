@@ -284,11 +284,6 @@ class DelayedParallelFunc(object):
         #  `to_delayed_output()` function
         # TODO: Add eager path back in
 
-        if output_collection_type == 'series':
-            # This returns cudf.Series as with LabelEncoder
-            preds = [pred.values for pred in preds]
-            output_collection_type = 'cupy'
-
         if output_collection_type == 'cupy':
 
             # todo: add parameter for option of not checking directly
@@ -308,12 +303,15 @@ class DelayedParallelFunc(object):
                                                 )
                 return output if delayed else output.persist()
 
-        else:
+        elif output_collection_type == 'cudf':
             if output_futures:
                 return self.client.compute(preds)
             else:
                 output = dask.dataframe.from_delayed(preds)
                 return output if delayed else output.persist()
+        else:
+            raise ValueError("Expected cupy or cudf but found %s" %
+                             (output_collection_type))
 
 
 class DelayedPredictionProbaMixin(DelayedParallelFunc):

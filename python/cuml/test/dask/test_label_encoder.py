@@ -34,8 +34,11 @@ def test_labelencoder_fit_transform(length, cardinality, client):
     tmp = cudf.Series(np.random.choice(cardinality, (length,)))
     df = dask_cudf.from_cudf(tmp, npartitions=len(client.has_what()))
     encoded = cuml.dask.preprocessing.LabelEncoder().fit_transform(df)
-    df_arr = _arr_to_similarity_mat(df.compute().to_array())
-    encoded_arr = _arr_to_similarity_mat(cp.asnumpy(encoded.compute()))
+
+    df_arr = df.compute().to_array()
+    df_arr = _arr_to_similarity_mat(df_arr)
+    encoder_arr = cp.asnumpy(encoded.compute().to_array())
+    encoded_arr = _arr_to_similarity_mat(encoder_arr)
     assert ((encoded_arr == encoded_arr.T) == (df_arr == df_arr.T)).all()
 
 
@@ -51,8 +54,10 @@ def test_labelencoder_transform(length, cardinality, client):
 
     encoded = le.transform(df)
 
-    df_arr = _arr_to_similarity_mat(df.compute().to_array())
-    encoded_arr = _arr_to_similarity_mat(cp.asnumpy(encoded.compute()))
+    df_arr = df.compute().to_array()
+    df_arr = _arr_to_similarity_mat(df_arr)
+    encoder_arr = cp.asnumpy(encoded.compute().to_array())
+    encoded_arr = _arr_to_similarity_mat(encoder_arr)
     assert (
         (encoded_arr == encoded_arr.T) == (df_arr == df_arr.T)
     ).all()
