@@ -46,7 +46,7 @@ struct vec {
 
 template <int NITEMS, typename output_type, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
-  tree_type tree, float* sdata, int cols) {
+  tree_type tree, const float* sdata, int cols) {
   int curr[NITEMS];
   int mask = (1 << NITEMS) - 1;  // all active
   for (int j = 0; j < NITEMS; ++j) curr[j] = 0;
@@ -75,9 +75,8 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
 }
 
 template <typename output_type, typename tree_type>
-__device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
-                                                              float* sdata,
-                                                              int cols) {
+__device__ __forceinline__ vec<1, output_type> infer_one_tree(
+  tree_type tree, const float* sdata, int cols) {
   int curr = 0;
   for (;;) {
     auto n = tree[curr];
@@ -182,7 +181,7 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
     for (int c = threadIdx.x; c < num_classes; c += FIL_TPB * NITEMS)
 #pragma unroll
       for (int item = 0; item < NITEMS; ++item) votes[c * NITEMS + item] = 0;
-    //__syncthreads(); // happening outside already
+    __syncthreads();  // for both row cache init and acc init
   }
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, int> single_tree_prediction) {
@@ -237,25 +236,16 @@ template <int NITEMS, leaf_value_t leaf_payload_type, class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params) {
   // cache the row for all threads to reuse
   extern __shared__ char smem[];
-  float* sdata = (float*)smem;
-  size_t rid = blockIdx.x * NITEMS;
-  for (int j = 0; j < NITEMS; ++j) {
-    for (int i = threadIdx.x; i < params.num_cols; i += blockDim.x) {
-      size_t row = rid + j;
-      sdata[j * params.num_cols + i] =
-        row < params.num_rows ? params.data[row * params.num_cols + i] : 0.0f;
-    }
-  }
+  size_t row = blockIdx.x * NITEMS;
+  const float* data = params.data + row * params.num_cols;
 
   tree_aggregator_t<NITEMS, leaf_payload_type> acc(
-    params.num_classes, sdata, params.num_cols * NITEMS * sizeof(float));
-
-  __syncthreads();  // for both row cache init and acc init
+    params.num_classes, smem, params.num_cols * NITEMS * sizeof(float));
 
   // one block works on NITEMS rows and the whole forest
   for (int j = threadIdx.x; j < forest.num_trees(); j += blockDim.x) {
     acc.accumulate(infer_one_tree<NITEMS, leaf_output_t<leaf_payload_type>::T>(
-      forest[j], sdata, params.num_cols));
+      forest[j], data, params.num_cols));
   }
   acc.finalize(params.preds, params.num_rows, params.num_outputs);
 }
