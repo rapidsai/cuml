@@ -237,12 +237,10 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
 
 template <int NITEMS, leaf_value_t leaf_payload_type, class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params) {
-
-  for(int row0 = 0; row0 < params.num_rows; row0 += NITEMS * FIL_NBLOCKS / params.blocks_per_row) {
   // cache the row for all threads to reuse
   extern __shared__ char smem[];
   float* sdata = (float*)smem;
-  size_t rid = row0 + blockIdx.x / params.blocks_per_row * NITEMS;
+  size_t rid = blockIdx.x / params.blocks_per_row * NITEMS;
   for (int j = 0; j < NITEMS; ++j) {
     for (int i = threadIdx.x; i < params.num_cols; i += blockDim.x) {
       size_t row = rid + j;
@@ -264,7 +262,6 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   acc.finalize(params.preds, params.num_rows, params.num_outputs);
   // e.g. could do atomicAdd() to number of blocks that did the row
   // once all blocks are done, deterministic reduce
-  }
 }
 
 template <int NITEMS, leaf_value_t leaf_payload_type>
@@ -332,7 +329,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
              ? " (accounting for shared class vote histogram)"
              : "");
   }
-  int num_blocks = FIL_NBLOCKS;//ceildiv(int(params.num_rows), num_items);
+  int num_blocks = ceildiv(int(params.num_rows), num_items);
   switch (num_items) {
     case 1:
       infer_k<1, leaf_payload_type>
