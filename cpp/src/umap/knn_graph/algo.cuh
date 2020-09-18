@@ -35,15 +35,15 @@ namespace Algo {
  */
 
 template<typename value_idx = int64_t, typename T, typename umap_inputs>
-void launcher(umap_inputs &inputsA, umap_inputs &inputsB,
+void launcher(const umap_inputs &inputsA, const umap_inputs &inputsB,
               ML::knn_graph<value_idx, T> &out, int n_neighbors,
-              ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
+              const ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream);
 
 template<>
-void launcher(ML::umap_dense_inputs_t<float> &inputsA, ML::umap_dense_inputs_t<float> &inputsB,
+void launcher(const ML::umap_dense_inputs_t<float> &inputsA, const ML::umap_dense_inputs_t<float> &inputsB,
               ML::knn_graph<int64_t, float> &out, int n_neighbors,
-              ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
+              const ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
   std::vector<float *> ptrs(1);
   std::vector<int> sizes(1);
@@ -57,10 +57,10 @@ void launcher(ML::umap_dense_inputs_t<float> &inputsA, ML::umap_dense_inputs_t<f
 
 
 template<>
-void launcher(ML::umap_sparse_inputs_t<int, float> &inputsA,
-              ML::umap_sparse_inputs_t<int, float> &inputsB,
+void launcher(const ML::umap_sparse_inputs_t<int, float> &inputsA,
+              const ML::umap_sparse_inputs_t<int, float> &inputsB,
               ML::knn_graph<int64_t, float> &out,  int n_neighbors,
-              ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
+              const ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
 
   // TODO: Use handle as input here and remove manual creation
@@ -77,10 +77,10 @@ void launcher(ML::umap_sparse_inputs_t<int, float> &inputsA,
 }
 
 template<>
-void launcher(ML::umap_precomputed_knn_inputs_t<float> &inputsA,
-              ML::umap_precomputed_knn_inputs_t<float> &inputsB,
+void launcher(const ML::umap_precomputed_knn_inputs_t<float> &inputsA,
+              const ML::umap_precomputed_knn_inputs_t<float> &inputsB,
               ML::knn_graph<int64_t, float> &out, int n_neighbors,
-              ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
+              const ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
 
   std::cout << MLCommon::arr2Str(inputsA.knn_indices,

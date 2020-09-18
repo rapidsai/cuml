@@ -44,9 +44,9 @@ using namespace ML;
   * @param[in] algo: Algorithm to use. Currently only brute force is supported
  */
 template <typename value_idx = int64_t, typename T = float, typename umap_inputs>
-void run(umap_inputs &inputsA, umap_inputs &inputsB,
+void run(const umap_inputs &inputsA, const umap_inputs &inputsB,
          knn_graph<value_idx, T> &out, int n_neighbors,
-         UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
+         const UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
          cudaStream_t stream, int algo = 0) {
   switch (algo) {
     /**
