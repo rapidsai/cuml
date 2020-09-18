@@ -257,10 +257,13 @@ struct dense_forest : forest {
        the roots of all trees (node 1), followed by the right children of the
        roots of all trees (node 2), and so on.
     */
-    for (int t = 0, globalid = 0; t < num_trees_; ++t) {
-      for (int d = 0, nodeid = 0; d <= depth_; ++d) {
-        for (int b = 0; b < 1 << d; ++b, ++nodeid, ++globalid) {
-          h_nodes_[nodeid * num_trees_ + t] = dense_node(nodes[globalid]);
+    int global_node_id = 0;
+    for (int tree = 0; tree < num_trees_; ++tree) {
+      int tree_node = 0;
+      for (int level = 0; level <= depth_; ++level) {          // FYI only
+        for (int branch = 0; branch < 1 << level; ++branch) {  // FYI only
+          h_nodes_[tree_node++ * num_trees_ + tree] =
+            dense_node(nodes[global_node_id++]);
         }
       }
     }
