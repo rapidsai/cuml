@@ -18,8 +18,8 @@
 #include <cusparse_v2.h>
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <sparse/distances.cuh>
 #include <test_utils.h>
+#include <sparse/distances.cuh>
 
 namespace MLCommon {
 namespace Sparse {
