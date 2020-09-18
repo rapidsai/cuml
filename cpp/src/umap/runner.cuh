@@ -121,14 +121,21 @@ void _fit(const raft::handle_t &handle,
     knn_dists = knn_dists_b->data();
   }
 
+  CUML_LOG_DEBUG("Calling knn graph run");
+
   kNNGraph::run(inputs, inputs, knn_indices, knn_dists, k, params, d_alloc, stream);
   ML::POP_RANGE();
+
+  CUML_LOG_DEBUG("Done. Calling fuzzy simplicial set");
+
+  std::cout << knn_indices << std::endl;
 
   ML::PUSH_RANGE("umap::simplicial_set");
   COO<T> rgraph_coo(d_alloc, stream);
   FuzzySimplSet::run<TPB_X, T>(inputs.n, knn_indices, knn_dists, k, &rgraph_coo,
                                params, d_alloc, stream);
 
+  CUML_LOG_DEBUG("Done. Calling remove zeros");
   /**
    * Remove zeros from simplicial set
    */

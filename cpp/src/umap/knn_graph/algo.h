@@ -20,6 +20,8 @@
 #include <selection/knn.cuh>
 #include <sparse/knn.cuh>
 
+#include <common/cudart_utils.h>
+
 #include <raft/sparse/cusparse_wrappers.h>
 
 #pragma once
@@ -89,6 +91,11 @@ inline void launcher(umap_precomputed_knn_inputs_t<float> &inputsA,
               int64_t **knn_indices, float **knn_dists, int n_neighbors,
               UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
               cudaStream_t stream) {
+
+  std::cout << MLCommon::arr2Str(inputsA.knn_indices,
+                                 25, "knn_indices", stream) << std::endl;
+
+  std::cout << inputsA.knn_indices << std::endl;
 
   *knn_indices = inputsA.knn_indices;
   *knn_dists = inputsA.knn_dists;

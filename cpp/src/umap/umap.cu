@@ -62,6 +62,9 @@ void fit(const raft::handle_t &handle,
          UMAPParams *params, float *embeddings) {
 
   if(knn_indices != nullptr && knn_dists != nullptr) {
+
+    CUML_LOG_DEBUG("Calling UMAP::fit() with precomputed KNN");
+
     umap_precomputed_knn_inputs_t<float> inputs(knn_indices, knn_dists, X, y, n, d);
     if(y != nullptr) {
       UMAPAlgo::_fit_supervised<float, umap_precomputed_knn_inputs_t<float>, TPB_X>(handle, inputs, params, embeddings);
