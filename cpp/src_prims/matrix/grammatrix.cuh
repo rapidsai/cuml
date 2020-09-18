@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <distance/distance.cuh>
 #include <linalg/gemm.cuh>
 
@@ -123,9 +123,9 @@ class GramMatrixBase {
               math_t *out, cudaStream_t stream, int ld1, int ld2, int ld_out) {
     math_t alpha = 1.0;
     math_t beta = 0.0;
-    CUBLAS_CHECK(LinAlg::cublasgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T, n1,
-                                    n2, n_cols, &alpha, x1, ld1, x2, ld2, &beta,
-                                    out, ld_out, stream));
+    CUBLAS_CHECK(raft::linalg::cublasgemm(
+      cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T, n1, n2, n_cols, &alpha, x1, ld1,
+      x2, ld2, &beta, out, ld_out, stream));
   }
 
   /** Calculates the Gram matrix using Euclidean distance.

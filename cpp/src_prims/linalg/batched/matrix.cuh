@@ -35,8 +35,8 @@
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 
+#include <raft/linalg/cublas_wrappers.h>
 #include "../binary_op.cuh"
-#include "../cublas_wrappers.h"
 #include "../unary_op.cuh"
 
 namespace MLCommon {
@@ -356,11 +356,11 @@ class Matrix {
     Matrix<T> Ainv(n, n, m_batch_size, m_cublasHandle, m_allocator, m_stream,
                    false);
 
-    CUBLAS_CHECK(LinAlg::cublasgetrfBatched(m_cublasHandle, n, Acopy.data(), n,
-                                            P, info, m_batch_size, m_stream));
-    CUBLAS_CHECK(LinAlg::cublasgetriBatched(m_cublasHandle, n, Acopy.data(), n,
-                                            P, Ainv.data(), n, info,
-                                            m_batch_size, m_stream));
+    CUBLAS_CHECK(raft::linalg::cublasgetrfBatched(
+      m_cublasHandle, n, Acopy.data(), n, P, info, m_batch_size, m_stream));
+    CUBLAS_CHECK(raft::linalg::cublasgetriBatched(
+      m_cublasHandle, n, Acopy.data(), n, P, Ainv.data(), n, info, m_batch_size,
+      m_stream));
 
     m_allocator->deallocate(P, sizeof(int) * n * m_batch_size, m_stream);
     m_allocator->deallocate(info, sizeof(int) * m_batch_size, m_stream);
@@ -517,7 +517,7 @@ void b_gemm(bool aT, bool bT, int m, int n, int k, T alpha, const Matrix<T>& A,
   cublasOperation_t opB = bT ? CUBLAS_OP_T : CUBLAS_OP_N;
 
   // Call cuBLAS
-  CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched(
+  CUBLAS_CHECK(raft::linalg::cublasgemmStridedBatched(
     A.cublasHandle(), opA, opB, m, n, k, &alpha, A.raw_data(), A.shape().first,
     A.shape().first * A.shape().second, B.raw_data(), B.shape().first,
     B.shape().first * B.shape().second, &beta, C.raw_data(), C.shape().first,
@@ -580,7 +580,7 @@ void b_gels(const Matrix<T>& A, Matrix<T>& C) {
   Matrix<T> Acopy(A);
 
   int info;
-  CUBLAS_CHECK(LinAlg::cublasgelsBatched(
+  CUBLAS_CHECK(raft::linalg::cublasgelsBatched(
     A.cublasHandle(), CUBLAS_OP_N, m, n, nrhs, Acopy.data(), m, C.data(), m,
     &info, nullptr, A.batches(), A.stream()));
 }

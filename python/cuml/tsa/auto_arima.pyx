@@ -29,7 +29,8 @@ import cuml
 from cuml.common import logger
 from cuml.common.array import CumlArray as cumlArray
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
+from cuml.raft.common.handle import Handle
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
@@ -42,54 +43,54 @@ from cuml.tsa.stationarity import kpss_test
 
 
 cdef extern from "cuml/tsa/auto_arima.h" namespace "ML":
-    int divide_by_mask_build_index(const cumlHandle& handle, const bool* mask,
+    int divide_by_mask_build_index(const handle_t& handle, const bool* mask,
                                    int* index, int batch_size)
 
-    void divide_by_mask_execute(const cumlHandle& handle, const float* d_in,
+    void divide_by_mask_execute(const handle_t& handle, const float* d_in,
                                 const bool* mask, const int* index,
                                 float* d_out0, float* d_out1, int batch_size,
                                 int n_obs)
-    void divide_by_mask_execute(const cumlHandle& handle, const double* d_in,
+    void divide_by_mask_execute(const handle_t& handle, const double* d_in,
                                 const bool* mask, const int* index,
                                 double* d_out0, double* d_out1,
                                 int batch_size, int n_obs)
-    void divide_by_mask_execute(const cumlHandle& handle, const int* d_in,
+    void divide_by_mask_execute(const handle_t& handle, const int* d_in,
                                 const bool* mask, const int* index,
                                 int* d_out0, int* d_out1, int batch_size,
                                 int n_obs)
 
-    void divide_by_min_build_index(const cumlHandle& handle,
+    void divide_by_min_build_index(const handle_t& handle,
                                    const float* d_matrix, int* d_batch,
                                    int* d_index, int* h_size,
                                    int batch_size, int n_sub)
-    void divide_by_min_build_index(const cumlHandle& handle,
+    void divide_by_min_build_index(const handle_t& handle,
                                    const double* d_matrix, int* d_batch,
                                    int* d_index, int* h_size,
                                    int batch_size, int n_sub)
 
-    void divide_by_min_execute(const cumlHandle& handle, const float* d_in,
+    void divide_by_min_execute(const handle_t& handle, const float* d_in,
                                const int* d_batch, const int* d_index,
                                float** hd_out, int batch_size, int n_sub,
                                int n_obs)
-    void divide_by_min_execute(const cumlHandle& handle, const double* d_in,
+    void divide_by_min_execute(const handle_t& handle, const double* d_in,
                                const int* d_batch, const int* d_index,
                                double** hd_out, int batch_size, int n_sub,
                                int n_obs)
-    void divide_by_min_execute(const cumlHandle& handle, const int* d_in,
+    void divide_by_min_execute(const handle_t& handle, const int* d_in,
                                const int* d_batch, const int* d_index,
                                int** hd_out, int batch_size, int n_sub,
                                int n_obs)
 
     void cpp_build_division_map "ML::build_division_map" (
-        const cumlHandle& handle, const int* const* hd_id, const int* h_size,
+        const handle_t& handle, const int* const* hd_id, const int* h_size,
         int* d_id_to_pos, int* d_id_to_model, int batch_size, int n_sub)
 
     void cpp_merge_series "ML::merge_series" (
-        const cumlHandle& handle, const float* const* hd_in,
+        const handle_t& handle, const float* const* hd_in,
         const int* d_id_to_pos, const int* d_id_to_sub, float* d_out,
         int batch_size, int n_sub, int n_obs)
     void cpp_merge_series "ML::merge_series" (
-        const cumlHandle& handle, const double* const* hd_in,
+        const handle_t& handle, const double* const* hd_in,
         const int* d_id_to_pos, const int* d_id_to_sub, double* d_out,
         int batch_size, int n_sub, int n_obs)
 
@@ -542,8 +543,8 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
     batch_size = original.shape[1] if len(original.shape) > 1 else 1
 
     if handle is None:
-        handle = cuml.common.handle.Handle()
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+        handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     index = cumlArray.empty(batch_size, np.int32)
     cdef uintptr_t d_index = index.ptr
@@ -657,8 +658,8 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
     batch_size = original.shape[1] if len(original.shape) > 1 else 1
 
     if handle is None:
-        handle = cuml.common.handle.Handle()
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+        handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     batch_buffer = cumlArray.empty(batch_size, np.int32)
     index_buffer = cumlArray.empty(batch_size, np.int32)
@@ -764,8 +765,8 @@ def _build_division_map(id_tracker, batch_size, handle=None):
         Position of each member in the respective sub-batch
     """
     if handle is None:
-        handle = cuml.common.handle.Handle()
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+        handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     n_sub = len(id_tracker)
 
@@ -822,8 +823,8 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
     n_sub = len(data_in)
 
     if handle is None:
-        handle = cuml.common.handle.Handle()
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+        handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     cdef vector[uintptr_t] in_ptr
     in_ptr.resize(n_sub)

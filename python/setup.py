@@ -139,19 +139,17 @@ if not libcuml_path:
 
 class cuml_build(_build):
 
-    user_options = [
-        ("singlegpu", None, "Specifies whether to include multi-gpu or not")
-    ] + _build.user_options
-
-    boolean_options = ["singlegpu"] + _build.boolean_options
-
     def initialize_options(self):
 
         self.singlegpu = False
-
         super().initialize_options()
 
     def finalize_options(self):
+
+        # distutils plain build command override cannot be done just setting
+        # user_options and boolean options like build_ext below. Distribution
+        # object has all the args used by the user, we can check that.
+        self.singlegpu = '--singlegpu' in self.distribution.script_args
 
         libs = ['cuda', 'cuml++', 'rmm']
 
@@ -160,8 +158,6 @@ class cuml_build(_build):
             '../cpp/include',
             '../cpp/src_prims',
             raft_include_dir,
-            '../cpp/comms/std/src',
-            '../cpp/comms/std/include',
             cuda_include_dir,
             numpy.get_include(),
             os.path.dirname(sysconfig.get_path("include"))
@@ -173,7 +169,6 @@ class cuml_build(_build):
             python_exc_list = ["*.dask", "*.dask.*"]
         else:
             libs.append('cumlprims')
-            libs.append('cumlcomms')
             libs.append('nccl')
 
             sys_include = os.path.dirname(sysconfig.get_path("include"))
@@ -230,8 +225,8 @@ class cuml_build_ext(cython_build_ext, object):
         if (self.singlegpu):
             cython_exc_list = glob.glob('cuml/*/*_mg.pyx')
             cython_exc_list = cython_exc_list + glob.glob('cuml/*/*_mg.pxd')
-            cython_exc_list.append('cuml/nccl/nccl.pyx')
-            cython_exc_list.append('cuml/dask/common/comms_utils.pyx')
+            cython_exc_list.append('cuml/raft/dask/common/nccl.pyx')
+            cython_exc_list.append('cuml/raft/dask/common/comms_utils.pyx')
 
             print('--singlegpu: excluding the following Cython components:')
             pprint(cython_exc_list)

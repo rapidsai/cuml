@@ -25,9 +25,6 @@
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 
-#include <common/cuml_comms_iface.hpp>
-#include <common/cuml_comms_int.hpp>
-
 #include <common/cumlHandle.hpp>
 
 #include <cuda_utils.cuh>
@@ -61,13 +58,13 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
   }
 
   bool runTest(const KNNParams &params) {
-    ML::cumlHandle *handle = new ML::cumlHandle();
+    raft::handle_t *handle = new raft::handle_t();
     ML::initialize_mpi_comms(*handle, MPI_COMM_WORLD);
-    const ML::cumlHandle_impl &h = handle->getImpl();
-    const cumlCommunicator &comm = h.getCommunicator();
-    const std::shared_ptr<deviceAllocator> allocator = h.getDeviceAllocator();
+    const raft::handle_t &h = handle;
+    const auto &comm = h.get_comms();
+    const auto allocator = h.get_device_allocator();
 
-    cudaStream_t stream = h.getStream();
+    cudaStream_t stream = h.get_stream();
 
     int my_rank = comm.getRank();
     int size = comm.getSize();

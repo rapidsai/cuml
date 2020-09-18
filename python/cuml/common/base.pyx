@@ -18,7 +18,7 @@
 
 import cuml
 import cuml.common.cuda
-import cuml.common.handle
+import cuml.raft.common.handle
 import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 import inspect
@@ -168,7 +168,8 @@ class Base:
         Constructor. All children must call init method of this base class.
 
         """
-        self.handle = cuml.common.handle.Handle() if handle is None else handle
+        self.handle = cuml.raft.common.handle.Handle() if handle is None \
+            else handle
 
         # Internally, self.verbose follows the spdlog/c++ standard of
         # 0 is most logging, and logging decreases from there.

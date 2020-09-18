@@ -50,7 +50,7 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
     ML::ARIMAOrder order = {params.p, params.d, params.q, params.P,
                             params.D, params.Q, params.s, params.k};
 
-    allocator.reset(new defaultDeviceAllocator);
+    allocator.reset(new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     allocate(data, params.batch_size * params.n_obs);

@@ -189,7 +189,7 @@ template <typename T>
 struct Softmax : GLMBase<T, Softmax<T>> {
   typedef GLMBase<T, Softmax<T>> Super;
 
-  Softmax(const cumlHandle_impl &handle, int D, int C, bool has_bias)
+  Softmax(const raft::handle_t &handle, int D, int C, bool has_bias)
     : Super(handle, D, C, has_bias) {}
 
   inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z, const SimpleVec<T> &y,

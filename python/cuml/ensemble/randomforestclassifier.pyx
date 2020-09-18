@@ -28,7 +28,7 @@ from cuml.common.array import CumlArray
 from cuml.common.base import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from cuml.common.handle import Handle
+from cuml.raft.common.handle import Handle
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -46,8 +46,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
-from cuml.common.handle cimport cumlHandle
-cimport cuml.common.handle
+from cuml.raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
@@ -55,7 +54,7 @@ cimport cython
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   RandomForestMetaData[float, int]*,
                   float*,
                   int,
@@ -65,7 +64,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   RF_params,
                   int) except +
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   RandomForestMetaData[double, int]*,
                   double*,
                   int,
@@ -75,7 +74,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   RF_params,
                   int) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       RandomForestMetaData[float, int] *,
                       float*,
                       int,
@@ -83,7 +82,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       int*,
                       bool) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       RandomForestMetaData[double, int]*,
                       double*,
                       int,
@@ -91,7 +90,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       int*,
                       bool) except +
 
-    cdef void predictGetAll(cumlHandle& handle,
+    cdef void predictGetAll(handle_t& handle,
                             RandomForestMetaData[float, int] *,
                             float*,
                             int,
@@ -99,7 +98,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                             int*,
                             bool) except +
 
-    cdef void predictGetAll(cumlHandle& handle,
+    cdef void predictGetAll(handle_t& handle,
                             RandomForestMetaData[double, int]*,
                             double*,
                             int,
@@ -107,14 +106,14 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                             int*,
                             bool) except +
 
-    cdef RF_metrics score(cumlHandle& handle,
+    cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[float, int]*,
                           int*,
                           int,
                           int*,
                           bool) except +
 
-    cdef RF_metrics score(cumlHandle& handle,
+    cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[double, int]*,
                           int*,
                           int,
@@ -408,8 +407,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         X_ptr = X_m.ptr
         y_ptr = y_m.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
@@ -487,8 +486,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         preds = CumlArray.zeros(n_rows, dtype=np.int32)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
@@ -640,8 +639,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         preds = CumlArray.zeros(n_rows * self.n_estimators, dtype=np.int32)
         preds_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
 
@@ -832,8 +831,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             input_to_cuml_array(preds, convert_to_dtype=np.int32)
         preds_ptr = preds_m.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
@@ -916,3 +915,17 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             print_rf_detailed(rf_forest64)
         else:
             print_rf_detailed(rf_forest)
+
+    def dump_as_json(self):
+        """
+        Dump (export) the Random Forest model as a JSON string
+        """
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
+
+        cdef RandomForestMetaData[double, int] *rf_forest64 = \
+            <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
+
+        if self.dtype == np.float64:
+            return dump_rf_as_json(rf_forest64)
+        return dump_rf_as_json(rf_forest)

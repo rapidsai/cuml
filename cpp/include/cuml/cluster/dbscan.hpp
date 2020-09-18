@@ -43,20 +43,20 @@ namespace ML {
  * @{
  */
 
-void dbscanFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
-               float eps, int min_pts, int *labels,
+void dbscanFit(const raft::handle_t &handle, float *input, int n_rows,
+               int n_cols, float eps, int min_pts, int *labels,
                int *core_sample_indices = nullptr,
                size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
-void dbscanFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
-               double eps, int min_pts, int *labels,
+void dbscanFit(const raft::handle_t &handle, double *input, int n_rows,
+               int n_cols, double eps, int min_pts, int *labels,
                int *core_sample_indices = nullptr,
                size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
 
-void dbscanFit(const cumlHandle &handle, float *input, int64_t n_rows,
+void dbscanFit(const raft::handle_t &handle, float *input, int64_t n_rows,
                int64_t n_cols, float eps, int min_pts, int64_t *labels,
                int64_t *core_sample_indices = nullptr,
                size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
-void dbscanFit(const cumlHandle &handle, double *input, int64_t n_rows,
+void dbscanFit(const raft::handle_t &handle, double *input, int64_t n_rows,
                int64_t n_cols, double eps, int min_pts, int64_t *labels,
                int64_t *core_sample_indices = nullptr,
                size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
