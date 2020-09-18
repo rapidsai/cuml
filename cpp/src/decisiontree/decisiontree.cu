@@ -86,6 +86,12 @@ void print_tree(const TreeMetaDataNode<T, L> *tree) {
   print_node<T, L>("", tree->sparsetree, 0, false);
 }
 
+template <class T, class L>
+std::string dump_tree_as_json(const TreeMetaDataNode<T, L> *tree) {
+  std::ostringstream oss;
+  return dump_node_as_json("", tree->sparsetree, 0);
+}
+
 void decisionTreeClassifierFit(const raft::handle_t &handle,
                                TreeClassifierF *&tree, float *data,
                                const int ncols, const int nrows, int *labels,
@@ -187,6 +193,14 @@ template void print_tree<float, int>(const TreeClassifierF *tree);
 template void print_tree<double, int>(const TreeClassifierD *tree);
 template void print_tree<float, float>(const TreeRegressorF *tree);
 template void print_tree<double, double>(const TreeRegressorD *tree);
+
+template std::string dump_tree_as_json<float, int>(const TreeClassifierF *tree);
+template std::string dump_tree_as_json<double, int>(
+  const TreeClassifierD *tree);
+template std::string dump_tree_as_json<float, float>(
+  const TreeRegressorF *tree);
+template std::string dump_tree_as_json<double, double>(
+  const TreeRegressorD *tree);
 
 }  // End namespace DecisionTree
 }  //End namespace ML

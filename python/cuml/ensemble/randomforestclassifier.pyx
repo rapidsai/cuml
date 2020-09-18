@@ -915,3 +915,17 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             print_rf_detailed(rf_forest64)
         else:
             print_rf_detailed(rf_forest)
+
+    def dump_as_json(self):
+        """
+        Dump (export) the Random Forest model as a JSON string
+        """
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
+
+        cdef RandomForestMetaData[double, int] *rf_forest64 = \
+            <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
+
+        if self.dtype == np.float64:
+            return dump_rf_as_json(rf_forest64)
+        return dump_rf_as_json(rf_forest)
