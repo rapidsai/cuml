@@ -188,9 +188,16 @@ def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
 
     def create_mod():
         nrows, ncols, n_info = data_size
+        if "LogisticRegression" in keys and nrows == 500000:
+            nrows, ncols, n_info = (nrows // 20, ncols // 20, n_info // 20)
+
         X_train, y_train, X_test = make_dataset(datatype, nrows,
                                                 ncols, n_info)
-        model = regression_models[keys](fit_intercept=fit_intercept)
+        if "MBSGD" in keys:
+            model = regression_models[keys](fit_intercept=fit_intercept,
+                                            batch_size=nrows/100)
+        else:
+            model = regression_models[keys](fit_intercept=fit_intercept)
         model.fit(X_train, y_train)
         result["regressor"] = model.predict(X_test)
         return model, X_test
@@ -210,6 +217,9 @@ def test_solver_pickle(tmpdir, datatype, keys, data_size):
 
     def create_mod():
         nrows, ncols, n_info = data_size
+        if "QN" in keys and nrows == 500000:
+            nrows, ncols, n_info = (nrows // 20, ncols // 20, n_info // 20)
+
         X_train, y_train, X_test = make_dataset(datatype, nrows,
                                                 ncols, n_info)
         model = solver_models[keys]()
