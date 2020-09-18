@@ -38,7 +38,8 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.base import _input_to_type
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
+from cuml.raft.common.handle import Handle
 import cuml.common.logger as logger
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
@@ -49,7 +50,7 @@ from cuml.common.input_utils import sparse_scipy_to_cp
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
 
-    cdef void pcaFit(cumlHandle& handle,
+    cdef void pcaFit(handle_t& handle,
                      float *input,
                      float *components,
                      float *explained_var,
@@ -59,7 +60,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                      float *noise_vars,
                      const paramsPCA &prms) except +
 
-    cdef void pcaFit(cumlHandle& handle,
+    cdef void pcaFit(handle_t& handle,
                      double *input,
                      double *components,
                      double *explained_var,
@@ -69,7 +70,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                      double *noise_vars,
                      const paramsPCA &prms) except +
 
-    cdef void pcaInverseTransform(cumlHandle& handle,
+    cdef void pcaInverseTransform(handle_t& handle,
                                   float *trans_input,
                                   float *components,
                                   float *singular_vals,
@@ -77,7 +78,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                                   float *input,
                                   const paramsPCA &prms) except +
 
-    cdef void pcaInverseTransform(cumlHandle& handle,
+    cdef void pcaInverseTransform(handle_t& handle,
                                   double *trans_input,
                                   double *components,
                                   double *singular_vals,
@@ -85,7 +86,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                                   double *input,
                                   const paramsPCA &prms) except +
 
-    cdef void pcaTransform(cumlHandle& handle,
+    cdef void pcaTransform(handle_t& handle,
                            float *input,
                            float *components,
                            float *trans_input,
@@ -93,7 +94,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                            float *mu,
                            const paramsPCA &prms) except +
 
-    cdef void pcaTransform(cumlHandle& handle,
+    cdef void pcaTransform(handle_t& handle,
                            double *input,
                            double *components,
                            double *trans_input,
@@ -468,7 +469,7 @@ class PCA(Base):
         cdef uintptr_t noise_vars_ptr = \
             self._noise_variance_.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if self.dtype == np.float32:
             pcaFit(handle_[0],
                    <float*> input_ptr,
@@ -606,7 +607,7 @@ class PCA(Base):
         cdef uintptr_t singular_vals_ptr = self._singular_values_.ptr
         cdef uintptr_t _mean_ptr = self._mean_.ptr
 
-        cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* h_ = <handle_t*><size_t>self.handle.getHandle()
         if dtype.type == np.float32:
             pcaInverseTransform(h_[0],
                                 <float*> _trans_input_ptr,
@@ -713,7 +714,7 @@ class PCA(Base):
             self._singular_values_.ptr
         cdef uintptr_t _mean_ptr = self._mean_.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if dtype.type == np.float32:
             pcaTransform(handle_[0],
                          <float*> input_ptr,
@@ -751,4 +752,4 @@ class PCA(Base):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.handle = cuml.common.handle.Handle()
+        self.handle = Handle()

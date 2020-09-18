@@ -26,7 +26,7 @@ from cython.operator cimport dereference as deref
 
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.decomposition.utils cimport *
@@ -35,7 +35,7 @@ from cuml.solvers import CD
 
 cdef extern from "cuml/solvers/cd_mg.hpp" namespace "ML::CD::opg":
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   vector[floatData_t *] input_data,
                   PartDescriptor &input_desc,
                   vector[floatData_t *] labels,
@@ -50,7 +50,7 @@ cdef extern from "cuml/solvers/cd_mg.hpp" namespace "ML::CD::opg":
                   float tol,
                   bool verbose) except +
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   vector[doubleData_t *] input_data,
                   PartDescriptor &input_desc,
                   vector[doubleData_t *] labels,
@@ -78,7 +78,7 @@ class CDMG(MGFitMixin, CD):
 
         cdef float float_intercept
         cdef double double_intercept
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             fit(handle_[0],

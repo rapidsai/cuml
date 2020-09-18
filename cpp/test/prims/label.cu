@@ -57,7 +57,9 @@ TEST_F(MakeMonotonicTest, Result) {
   updateDevice(data, data_h, m, stream);
   updateDevice(expected, expected_h, m, stream);
 
-  make_monotonic(actual, data, m, stream);
+  std::shared_ptr<deviceAllocator> allocator(
+    new raft::mr::device::default_allocator);
+  make_monotonic(actual, data, m, stream, allocator);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -74,7 +76,8 @@ TEST_F(MakeMonotonicTest, Result) {
 TEST(LabelTest, ClassLabels) {
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
-  std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
+  std::shared_ptr<deviceAllocator> allocator(
+    new raft::mr::device::default_allocator);
 
   int n_rows = 6;
   float *y_d;

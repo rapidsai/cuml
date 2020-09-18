@@ -43,7 +43,8 @@ typedef COOTest<float> SortedCOOToCSR;
 TEST_P(SortedCOOToCSR, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
-  std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
+  std::shared_ptr<deviceAllocator> alloc(
+    new raft::mr::device::default_allocator);
 
   int nnz = 8;
 
@@ -78,7 +79,8 @@ TEST_P(COOSymmetrize, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
+  std::shared_ptr<deviceAllocator> alloc(
+    new raft::mr::device::default_allocator);
 
   int nnz = 8;
 
@@ -138,7 +140,8 @@ TEST_P(COOSort, Result) {
   Random::Rng r(params.seed);
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
-  std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
+  std::shared_ptr<deviceAllocator> alloc(
+    new raft::mr::device::default_allocator);
 
   allocate(in_vals, params.nnz);
   r.uniform(in_vals, params.nnz, float(-1.0), float(1.0), stream);
@@ -182,7 +185,8 @@ typedef COOTest<float> COORemoveZeros;
 TEST_P(COORemoveZeros, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
-  std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
+  std::shared_ptr<deviceAllocator> alloc(
+    new raft::mr::device::default_allocator);
   params = ::testing::TestWithParam<COOInputs<float>>::GetParam();
 
   float *in_h_vals = new float[params.nnz];

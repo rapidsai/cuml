@@ -63,11 +63,11 @@ namespace Cache {
 * // We assume that our ML algo repeatedly calls calc, and the set of keys have
 * // an overlap. We will use the cache to avoid repeated calculations.
 *
-* // Assume we have cumlHandle_impl& h, and cudaStream_t stream
-* Cache<float> cache(h.getDeviceAllocator(), stream, m);
+* // Assume we have raft::handle_t& h, and cudaStream_t stream
+* Cache<float> cache(h.get_device_allocator(), stream, m);
 *
 * // A buffer that we will reuse to store the cache indices.
-* device_buffer<int> cache_idx(h.getDeviceAllocator(), stream, n);
+* device_buffer<int> cache_idx(h.get_device_allocator(), stream, n);
 *
 * void cached_calc(int *key, int n, int m, float *out, stream) {
 *   int n_cached = 0;

@@ -32,7 +32,7 @@
 
 namespace ML {
 
-void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
+void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
                      bool rowMajorQuery, MetricType metric, float metric_arg,
@@ -40,20 +40,20 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
 
-  std::vector<cudaStream_t> int_streams = handle.getImpl().getInternalStreams();
+  std::vector<cudaStream_t> int_streams = handle.get_internal_streams();
 
   MLCommon::Selection::brute_force_knn(
     input, sizes, D, search_items, n, res_I, res_D, k,
-    handle.getImpl().getDeviceAllocator(), handle.getImpl().getStream(),
-    int_streams.data(), handle.getImpl().getNumInternalStreams(), rowMajorIndex,
-    rowMajorQuery, nullptr, metric, metric_arg, expanded);
+    handle.get_device_allocator(), handle.get_stream(), int_streams.data(),
+    handle.get_num_internal_streams(), rowMajorIndex, rowMajorQuery, nullptr,
+    metric, metric_arg, expanded);
 }
 
-void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
+void knn_classify(raft::handle_t &handle, int *out, int64_t *knn_indices,
                   std::vector<int *> &y, size_t n_index_rows,
                   size_t n_query_rows, int k) {
-  auto d_alloc = handle.getDeviceAllocator();
-  cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.get_device_allocator();
+  cudaStream_t stream = handle.get_stream();
 
   std::vector<int *> uniq_labels(y.size());
   std::vector<int> n_unique(y.size());
@@ -68,18 +68,18 @@ void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
                                     d_alloc, stream);
 }
 
-void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
+void knn_regress(raft::handle_t &handle, float *out, int64_t *knn_indices,
                  std::vector<float *> &y, size_t n_index_rows,
                  size_t n_query_rows, int k) {
   MLCommon::Selection::knn_regress(out, knn_indices, y, n_index_rows,
-                                   n_query_rows, k, handle.getStream());
+                                   n_query_rows, k, handle.get_stream());
 }
 
-void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
+void knn_class_proba(raft::handle_t &handle, std::vector<float *> &out,
                      int64_t *knn_indices, std::vector<int *> &y,
                      size_t n_index_rows, size_t n_query_rows, int k) {
-  auto d_alloc = handle.getDeviceAllocator();
-  cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.get_device_allocator();
+  cudaStream_t stream = handle.get_stream();
 
   std::vector<int *> uniq_labels(y.size());
   std::vector<int> n_unique(y.size());
@@ -120,11 +120,10 @@ extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
                                   float metric_arg, bool expanded) {
   cumlError_t status;
 
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
 
-  std::vector<cudaStream_t> int_streams =
-    handle_ptr->getImpl().getInternalStreams();
+  std::vector<cudaStream_t> int_streams = handle_ptr->get_internal_streams();
 
   std::vector<float *> input_vec(n_params);
   std::vector<int> sizes_vec(n_params);
@@ -137,11 +136,10 @@ extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
     try {
       MLCommon::Selection::brute_force_knn(
         input_vec, sizes_vec, D, search_items, n, res_I, res_D, k,
-        handle_ptr->getImpl().getDeviceAllocator(),
-        handle_ptr->getImpl().getStream(), int_streams.data(),
-        handle_ptr->getImpl().getNumInternalStreams(), rowMajorIndex,
-        rowMajorQuery, nullptr, (ML::MetricType)metric_type, metric_arg,
-        expanded);
+        handle_ptr->get_device_allocator(), handle_ptr->get_stream(),
+        int_streams.data(), handle_ptr->get_num_internal_streams(),
+        rowMajorIndex, rowMajorQuery, nullptr, (ML::MetricType)metric_type,
+        metric_arg, expanded);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }

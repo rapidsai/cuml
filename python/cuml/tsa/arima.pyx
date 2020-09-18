@@ -28,7 +28,7 @@ from typing import List, Tuple, Dict, Mapping, Optional, Union
 from cuml.common.array import CumlArray as cumlArray
 from cuml.common.base import Base
 from cuml.common.cuda import nvtx_range_wrap
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 import cuml.common.logger as logger
 from cuml.common import has_scipy
@@ -49,40 +49,40 @@ cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
 cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
     ctypedef enum LoglikeMethod: CSS, MLE
 
-    void batched_diff(cumlHandle& handle, double* d_y_diff, const double* d_y,
+    void batched_diff(handle_t& handle, double* d_y_diff, const double* d_y,
                       int batch_size, int n_obs, const ARIMAOrder& order)
 
     void batched_loglike(
-        cumlHandle& handle, const double* y, int batch_size, int nobs,
+        handle_t& handle, const double* y, int batch_size, int nobs,
         const ARIMAOrder& order, const double* params, double* loglike,
         double* d_vs, bool trans, bool host_loglike, LoglikeMethod method,
         int truncate)
 
     void batched_loglike_grad(
-        cumlHandle& handle, const double* d_y, int batch_size, int nobs,
+        handle_t& handle, const double* d_y, int batch_size, int nobs,
         const ARIMAOrder& order, const double* d_x, double* d_grad, double h,
         bool trans, LoglikeMethod method, int truncate)
 
     void cpp_predict "predict" (
-        cumlHandle& handle, const double* d_y, int batch_size, int nobs,
+        handle_t& handle, const double* d_y, int batch_size, int nobs,
         int start, int end, const ARIMAOrder& order,
         const ARIMAParams[double]& params, double* d_y_p, bool pre_diff,
         double level, double* d_lower, double* d_upper)
 
     void information_criterion(
-        cumlHandle& handle, const double* d_y, int batch_size, int nobs,
+        handle_t& handle, const double* d_y, int batch_size, int nobs,
         const ARIMAOrder& order, const ARIMAParams[double]& params,
         double* ic, int ic_type)
 
     void estimate_x0(
-        cumlHandle& handle, ARIMAParams[double]& params, const double* d_y,
+        handle_t& handle, ARIMAParams[double]& params, const double* d_y,
         int batch_size, int nobs, const ARIMAOrder& order)
 
 
 cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML":
 
     void batched_jones_transform(
-        cumlHandle& handle, const ARIMAOrder& order, int batchSize,
+        handle_t& handle, const ARIMAOrder& order, int batchSize,
         bool isInv, const double* h_params, double* h_Tparams)
 
 
@@ -273,7 +273,7 @@ class ARIMA(Base):
             (self.n_obs - d - s * D, self.batch_size), self.dtype)
         cdef uintptr_t d_y_ptr = self._d_y.ptr
         cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         batched_diff(handle_[0], <double*> d_y_diff_ptr, <double*> d_y_ptr,
                      <int> self.batch_size, <int> self.n_obs, self.order)
 
@@ -299,7 +299,7 @@ class ARIMA(Base):
     def _ic(self, ic_type: str):
         """Wrapper around C++ information_criterion
         """
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef ARIMAOrder order_kf = \
             self.order_diff if self.simple_differencing else self.order
@@ -479,7 +479,7 @@ class ARIMA(Base):
         if end is None:
             end = self.n_obs
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
         cdef uintptr_t d_ar_ptr = <uintptr_t> NULL
@@ -589,7 +589,7 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
 
         cdef uintptr_t d_y_ptr = self._d_y.ptr
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         # Create mu, ar and ma arrays
         cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
@@ -779,7 +779,7 @@ class ARIMA(Base):
         cdef uintptr_t d_y_kf_ptr = \
             self._d_y_diff.ptr if diff else self._d_y.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         n_obs_kf = (self.n_obs_diff if diff else self.n_obs)
         d_vs = cumlArray.empty((n_obs_kf, self.batch_size), dtype=np.float64,
@@ -840,7 +840,7 @@ class ARIMA(Base):
         cdef uintptr_t d_y_kf_ptr = \
             self._d_y_diff.ptr if diff else self._d_y.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         batched_loglike_grad(handle_[0], <double*> d_y_kf_ptr,
                              <int> self.batch_size,
@@ -946,7 +946,7 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
         N = self.complexity
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         Tx = np.zeros(self.batch_size * N)
 
         cdef uintptr_t x_ptr = x.ctypes.data
