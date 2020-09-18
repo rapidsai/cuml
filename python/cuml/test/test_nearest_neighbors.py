@@ -158,8 +158,6 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
         # should be okay.
         assert len(diff[diff > 1e-2]) / X_search.shape[0] < 0.06
     else:
-
-        # Allow a max relative diff of 10% and absolute diff of 1%
         np.testing.assert_allclose(D_cuml_arr, D_sk, atol=1e-3,
                                    rtol=1e-3)
     assert I_cuml_arr.all() == I_sk.all()
