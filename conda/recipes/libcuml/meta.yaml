@@ -36,6 +36,7 @@ requirements:
     - ucx-py {{ minor_version }}
     - libcumlprims {{ minor_version }}
     - liblapack
+    - lapack
     - treelite=0.92
     - faiss-proc=*=cuda
     - gtest=1.10.0

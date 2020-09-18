@@ -24,12 +24,8 @@
 #include <linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
-#include <common/cuml_comms_int.hpp>
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
-
-#include <common/cuml_comms_iface.hpp>
-#include <common/cuml_comms_int.hpp>
 
 #include <common/cumlHandle.hpp>
 
@@ -63,13 +59,13 @@ template <typename T>
 class KNNTestHelper {
  public:
   void generate_data(const KNNParams &params) {
-    this->handle = new ML::cumlHandle();
+    this->handle = new raft::handle_t();
     ML::initialize_mpi_comms(*handle, MPI_COMM_WORLD);
-    const ML::cumlHandle_impl &h = handle->getImpl();
-    const cumlCommunicator &comm = h.getCommunicator();
-    this->allocator = h.getDeviceAllocator();
+    const raft::handle_t &h = handle;
+    const auto &comm = h.get_comms();
+    this->allocator = h.get_device_allocator();
 
-    this->stream = h.getStream();
+    this->stream = h.get_stream();
 
     int my_rank = comm.getRank();
     int size = comm.getSize();
@@ -243,7 +239,7 @@ class KNNTestHelper {
     delete handle;
   }
 
-  ML::cumlHandle *handle;
+  raft::handle_t *handle;
   std::vector<Matrix::Data<T> *> out_parts;
   std::vector<Matrix::Data<int64_t> *> out_i_parts;
   std::vector<Matrix::floatData_t *> out_d_parts;

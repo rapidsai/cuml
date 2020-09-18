@@ -59,7 +59,7 @@ enum MetricType {
  * @param[in] expanded should lp-based distances be returned in their expanded
  * 					 form (e.g., without raising to the 1/p power).
    */
-void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
+void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k,
                      bool rowMajorIndex = false, bool rowMajorQuery = false,
@@ -80,7 +80,7 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
  * @param[in] n_query_rows number of samples in knn_indices
  * @param[in] k number of nearest neighbors in knn_indices
  */
-void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
+void knn_classify(raft::handle_t &handle, int *out, int64_t *knn_indices,
                   std::vector<int *> &y, size_t n_index_rows,
                   size_t n_query_rows, int k);
 
@@ -98,7 +98,7 @@ void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
  * @param[in] n_query_rows number of samples in knn_indices and out
  * @param[in] k number of nearest neighbors in knn_indices
  */
-void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
+void knn_regress(raft::handle_t &handle, float *out, int64_t *knn_indices,
                  std::vector<float *> &y, size_t n_index_rows,
                  size_t n_query_rows, int k);
 
@@ -116,7 +116,7 @@ void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
  * @param[in] n_query_rows number of rows in knn_indices and out
  * @param[in] k number of nearest neighbors in knn_indices
  */
-void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
+void knn_class_proba(raft::handle_t &handle, std::vector<float *> &out,
                      int64_t *knn_indices, std::vector<int *> &y,
                      size_t n_index_rows, size_t n_query_rows, int k);
 };  // namespace ML

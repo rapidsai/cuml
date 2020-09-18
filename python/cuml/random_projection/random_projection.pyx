@@ -24,12 +24,12 @@ from libcpp cimport bool
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.common.handle cimport *
+from cuml.raft.common.handle cimport *
 from cuml.common import input_to_cuml_array
 
 cdef extern from * nogil:
     ctypedef void* _Stream "cudaStream_t"
-    ctypedef void* _DevAlloc "std::shared_ptr<MLCommon::deviceAllocator>"
+    ctypedef void* _DevAlloc "std::shared_ptr<raft::mr::device::allocator>"
 
 cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
@@ -54,11 +54,11 @@ cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
         size_t sparse_data_size # sparse CSC random matrix number of non-zero elements # noqa E501
 
     # Function used to fit the model
-    cdef void RPROJfit[T](const cumlHandle& handle, rand_mat[T] *random_matrix,
+    cdef void RPROJfit[T](const handle_t& handle, rand_mat[T] *random_matrix,
                           paramsRPROJ* params) except +
 
     # Function used to apply data transformation
-    cdef void RPROJtransform[T](const cumlHandle& handle, T *input,
+    cdef void RPROJtransform[T](const handle_t& handle, T *input,
                                 rand_mat[T] *random_matrix, T *output,
                                 paramsRPROJ* params) except +
 
@@ -159,9 +159,9 @@ cdef class BaseRandomProjection():
     def __init__(self, n_components='auto', eps=0.1,
                  dense_output=True, random_state=None):
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        cdef _DevAlloc alloc = <_DevAlloc>handle_.getDeviceAllocator()
-        cdef _Stream stream = handle_.getStream()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef _DevAlloc alloc = <_DevAlloc>handle_.get_device_allocator()
+        cdef _Stream stream = handle_.get_stream()
         self.rand_matS = new rand_mat[float](alloc, stream)
         self.rand_matD = new rand_mat[double](alloc, stream)
 
@@ -197,7 +197,7 @@ cdef class BaseRandomProjection():
         _, n_samples, n_features, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         self.params.n_samples = n_samples
         self.params.n_features = n_features
 
@@ -253,7 +253,7 @@ cdef class BaseRandomProjection():
             raise ValueError("n_features must be same as on fitting: %d" %
                              self.params.n_features)
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if dtype == np.float32:
             RPROJtransform[float](handle_[0],

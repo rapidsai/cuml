@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <common/cumlHandle.hpp>
-#include <common/cuml_comms_int.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -27,6 +27,7 @@
 #include <opg/matrix/math.hpp>
 #include <opg/stats/mean.hpp>
 #include <opg/stats/mean_center.hpp>
+#include <raft/comms/comms.hpp>
 
 using namespace MLCommon;
 
@@ -35,18 +36,17 @@ namespace GLM {
 namespace opg {
 
 template <typename T>
-void preProcessData_impl(cumlHandle &handle,
+void preProcessData_impl(raft::handle_t &handle,
                          std::vector<Matrix::Data<T> *> &input_data,
                          Matrix::PartDescriptor &input_desc,
                          std::vector<Matrix::Data<T> *> &labels, T *mu_input,
                          T *mu_labels, T *norm2_input, bool fit_intercept,
                          bool normalize, cudaStream_t *streams, int n_streams,
                          bool verbose) {
-  const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
-  cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
-  cusolverDnHandle_t cusolver_handle = handle.getImpl().getcusolverDnHandle();
-  const std::shared_ptr<deviceAllocator> allocator =
-    handle.getImpl().getDeviceAllocator();
+  const auto &comm = handle.get_comms();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
+  cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
+  const auto allocator = handle.get_device_allocator();
 
   if (fit_intercept) {
     Matrix::Data<T> mu_input_data{mu_input, size_t(input_desc.N)};
@@ -77,18 +77,17 @@ void preProcessData_impl(cumlHandle &handle,
 }
 
 template <typename T>
-void postProcessData_impl(cumlHandle &handle,
+void postProcessData_impl(raft::handle_t &handle,
                           std::vector<Matrix::Data<T> *> &input_data,
                           Matrix::PartDescriptor &input_desc,
                           std::vector<Matrix::Data<T> *> &labels, T *coef,
                           T *intercept, T *mu_input, T *mu_labels,
                           T *norm2_input, bool fit_intercept, bool normalize,
                           cudaStream_t *streams, int n_streams, bool verbose) {
-  const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
-  cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
-  cusolverDnHandle_t cusolver_handle = handle.getImpl().getcusolverDnHandle();
-  const std::shared_ptr<deviceAllocator> allocator =
-    handle.getImpl().getDeviceAllocator();
+  const auto &comm = handle.get_comms();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
+  cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
+  const auto allocator = handle.get_device_allocator();
 
   device_buffer<T> d_intercept(allocator, streams[0], 1);
 
@@ -120,7 +119,7 @@ void postProcessData_impl(cumlHandle &handle,
                        n_streams);
 }
 
-void preProcessData(cumlHandle &handle,
+void preProcessData(raft::handle_t &handle,
                     std::vector<Matrix::Data<float> *> &input_data,
                     Matrix::PartDescriptor &input_desc,
                     std::vector<Matrix::Data<float> *> &labels, float *mu_input,
@@ -132,7 +131,7 @@ void preProcessData(cumlHandle &handle,
                       n_streams, verbose);
 }
 
-void preProcessData(cumlHandle &handle,
+void preProcessData(raft::handle_t &handle,
                     std::vector<Matrix::Data<double> *> &input_data,
                     Matrix::PartDescriptor &input_desc,
                     std::vector<Matrix::Data<double> *> &labels,
@@ -144,7 +143,7 @@ void preProcessData(cumlHandle &handle,
                       n_streams, verbose);
 }
 
-void postProcessData(cumlHandle &handle,
+void postProcessData(raft::handle_t &handle,
                      std::vector<Matrix::Data<float> *> &input_data,
                      Matrix::PartDescriptor &input_desc,
                      std::vector<Matrix::Data<float> *> &labels, float *coef,
@@ -156,7 +155,7 @@ void postProcessData(cumlHandle &handle,
                        normalize, streams, n_streams, verbose);
 }
 
-void postProcessData(cumlHandle &handle,
+void postProcessData(raft::handle_t &handle,
                      std::vector<Matrix::Data<double> *> &input_data,
                      Matrix::PartDescriptor &input_desc,
                      std::vector<Matrix::Data<double> *> &labels, double *coef,

@@ -23,7 +23,7 @@ import pandas as pd
 
 from collections import namedtuple
 from cuml.common import CumlArray
-from cuml.common.logger import warn
+from cuml.common.logger import debug
 from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.memory_utils import _check_array_contiguity
 from numba import cuda
@@ -215,8 +215,8 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
 
         if force_contiguous or hasattr(X, "__array_interface__"):
             if not _check_array_contiguity(X):
-                warn("Non contiguous array or view detected, a \
-                     contiguous copy of the data will be done. ")
+                debug("Non contiguous array or view detected, a \
+                      contiguous copy of the data will be done. ")
                 X = cp.array(X, order=order, copy=True)
 
         X_m = CumlArray(data=X)
@@ -269,9 +269,9 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
             raise ValueError("Expected " + order_to_str(order) +
                              " major order, but got the opposite.")
         else:
-            warn("Expected " + order_to_str(order) + " major order, "
-                 "but got the opposite. Converting data, this will "
-                 "result in additional memory utilization.")
+            debug("Expected " + order_to_str(order) + " major order, "
+                  "but got the opposite. Converting data, this will "
+                  "result in additional memory utilization.")
             X_m = cp.array(X_m, copy=False, order=order)
             X_m = CumlArray(data=X_m)
 

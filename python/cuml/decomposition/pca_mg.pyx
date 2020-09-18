@@ -33,7 +33,7 @@ from cuml.common.array import CumlArray
 import cuml.common.opg_data_utils_mg as opg
 
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport paramsSolver
 from cuml.common import input_to_dev_array, zeros
 from cuml.common.opg_data_utils_mg cimport *
@@ -65,7 +65,7 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML":
 
 cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg":
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   vector[floatData_t *] input_data,
                   PartDescriptor &input_desc,
                   float *components,
@@ -77,7 +77,7 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg":
                   paramsPCAMG &prms,
                   bool verbose) except +
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   vector[doubleData_t *] input_data,
                   PartDescriptor &input_desc,
                   double *components,
@@ -136,7 +136,7 @@ class PCAMG(BaseDecompositionMG, PCA):
         cdef uintptr_t singular_vals_ptr = self._singular_values_.ptr
         cdef uintptr_t mean_ptr = self._mean_.ptr
         cdef uintptr_t noise_vars_ptr = self._noise_variance_.ptr
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef paramsPCAMG *params = <paramsPCAMG*><size_t>arg_params
 

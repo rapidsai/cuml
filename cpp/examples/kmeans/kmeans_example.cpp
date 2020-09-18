@@ -23,13 +23,7 @@
 
 #include <cuda_runtime.h>
 
-#ifdef HAVE_CUB
-#include <cuml/common/cubAllocatorAdapter.hpp>
-#endif  //HAVE_CUB
-
-#ifdef HAVE_RMM
-#include <cuml/common/rmmAllocatorAdapter.hpp>
-#endif  // HAVE_RMM
+#include <raft/mr/device/allocator.hpp>
 
 #include <cuml/cluster/kmeans.hpp>
 #include <cuml/cuml.hpp>
@@ -92,17 +86,6 @@ int main(int argc, char *argv[]) {
                 << "(" << cudaGetErrorString(cudaStatus) << ")" << std::endl;
       return 1;
     }
-#ifdef HAVE_RMM
-    rmmOptions_t rmmOptions;
-    rmmOptions.allocation_mode = PoolAllocation;
-    rmmOptions.initial_pool_size = 0;
-    rmmOptions.enable_logging = false;
-    rmmError_t rmmStatus = rmmInitialize(&rmmOptions);
-    if (RMM_SUCCESS != rmmStatus) {
-      std::cerr << "WARN: Could not initialize RMM: "
-                << rmmGetErrorString(rmmStatus) << std::endl;
-    }
-#endif  // HAVE_RMM
   }
 
   std::vector<double> h_srcdata;
@@ -143,22 +126,16 @@ int main(int argc, char *argv[]) {
     std::cout << "Run KMeans with k=" << params.n_clusters
               << ", max_iterations=" << params.max_iter << std::endl;
 
-    ML::cumlHandle cumlHandle;
-#ifdef HAVE_RMM
+    raft::handle_t handle;
+
     std::shared_ptr<ML::deviceAllocator> allocator(
-      new ML::rmmAllocatorAdapter());
-#elif defined(HAVE_CUB)
-    std::shared_ptr<ML::deviceAllocator> allocator(
-      new ML::cachingDeviceAllocator());
-#else
-    std::shared_ptr<ML::deviceAllocator> allocator(
-      new ML::defaultDeviceAllocator());
-#endif  // HAVE_RMM
-    cumlHandle.setDeviceAllocator(allocator);
+      new raft::mr::device::default_allocator());
+
+    handle.set_device_allocator(allocator);
 
     cudaStream_t stream;
     CUDA_RT_CALL(cudaStreamCreate(&stream));
-    cumlHandle.setStream(stream);
+    handle.set_stream(stream);
 
     // srcdata size n_samples * n_features
     double *d_srcdata = nullptr;
@@ -178,9 +155,8 @@ int main(int argc, char *argv[]) {
 
     double inertia = 0;
     int n_iter = 0;
-    ML::kmeans::fit_predict(cumlHandle, params, d_srcdata, n_samples,
-                            n_features, 0, d_pred_centroids, d_pred_labels,
-                            inertia, n_iter);
+    ML::kmeans::fit_predict(handle, params, d_srcdata, n_samples, n_features, 0,
+                            d_pred_centroids, d_pred_labels, inertia, n_iter);
 
     std::vector<int> h_pred_labels(n_samples);
     CUDA_RT_CALL(cudaMemcpyAsync(h_pred_labels.data(), d_pred_labels,
