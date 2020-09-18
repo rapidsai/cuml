@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "algo.h"
+#include "algo.cuh"
 
 #pragma once
 
@@ -29,32 +29,31 @@ using namespace ML;
   *        the input algorithm using the specified knn algorithm. 
   *        Only algorithm supported at the moment is brute force
   *        knn primitive. 
+  * @tparam value_idx: Type of knn indices matrix. Usually an integral type.
   * @tparam T: Type of input, query, and dist matrices. Usually float
-  * @param X: Matrix to query (size n x d) in row-major format
-  * @param n: Number of rows in X
-  * @param query: Search matrix in row-major format
-  * @param q_n: Number of rows in query matrix
-  * @param d: Number of columns in X and query matrices
-  * @param knn_indices: Return indices matrix (size n*k)
-  * @param knn_dists: Return dists matrix (size n*k)
-  * @param n_neighbors: Number of closest neighbors, k, to query
-  * @param params: Instance of UMAPParam settings
-  * @param d_alloc: device allocator
-  * @param stream: cuda stream to use
-  * @param algo: Algorithm to use. Currently only brute force is supported
+  * @param[in] X: Matrix to query (size n x d) in row-major format
+  * @param[in] n: Number of rows in X
+  * @param[in] query: Search matrix in row-major format
+  * @param[in] q_n: Number of rows in query matrix
+  * @param[in] d: Number of columns in X and query matrices
+  * @param[out] knn_graph : output knn_indices and knn_dists (size n*k)
+  * @param[in] n_neighbors: Number of closest neighbors, k, to query
+  * @param[in] params: Instance of UMAPParam settings
+  * @param[in] d_alloc: device allocator
+  * @param[in] stream: cuda stream to use
+  * @param[in] algo: Algorithm to use. Currently only brute force is supported
  */
-template <typename T = float, typename umap_inputs>
+template <typename value_idx = int64_t, typename T = float, typename umap_inputs>
 void run(umap_inputs &inputsA, umap_inputs &inputsB,
-         int64_t *knn_indices, T *knn_dists, int n_neighbors,
-         UMAPParams *params,
-         std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream,
-         int algo = 0) {
+         knn_graph<value_idx, T> &out, int n_neighbors,
+         UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
+         cudaStream_t stream, int algo = 0) {
   switch (algo) {
     /**
       * Initial algo uses FAISS indices
       */
     case 0:
-      Algo::launcher(inputsA, inputsB, &knn_indices, &knn_dists, n_neighbors,
+      Algo::launcher(inputsA, inputsB, out, n_neighbors,
                      params, d_alloc, stream);
       break;
   }

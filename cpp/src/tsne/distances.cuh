@@ -98,6 +98,8 @@ void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
                            MLCommon::Sparse::COO<float> *COO_Matrix,
                            cudaStream_t stream, const raft::handle_t &handle) {
   // Perform (P + P.T) / P_sum * early_exaggeration
+
+  std::cout << "P_sum: " << P_sum << std::endl;
   const float div = exaggeration / (2.0f * P_sum);
   MLCommon::LinAlg::scalarMultiply(P, P, div, n * k, stream);
 

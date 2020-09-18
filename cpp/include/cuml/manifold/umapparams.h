@@ -24,6 +24,18 @@ namespace ML {
 
 using namespace ML::Internals;
 
+template<typename value_idx, typename value_t>
+struct knn_graph {
+
+  knn_graph(value_idx n_rows_, int n_neighbors_): n_rows(n_rows_), n_neighbors(n_neighbors_){}
+
+  value_idx *knn_indices;
+  value_t *knn_dists;
+
+  value_idx n_rows;
+  int n_neighbors;
+};
+
 
 template<typename T>
 struct umap_inputs_t {

@@ -27,33 +27,23 @@
 #pragma once
 
 namespace UMAPAlgo {
-
 namespace kNNGraph {
-
 namespace Algo {
-
-using namespace ML;
 
 /**
  * Initial implementation calls out to FAISS to do its work.
  */
 
-/**
- * void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
-                     float *search_items, IntType n, int64_t *res_I, float *res_D,
-                     IntType k, cudaStream_t s)
- */
-
-
-template<typename T, typename umap_inputs>
+template<typename value_idx = int64_t, typename T, typename umap_inputs>
 void launcher(umap_inputs &inputsA, umap_inputs &inputsB,
-              int64_t **knn_indices, T **knn_dists, int n_neighbors,
-              UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
+              ML::knn_graph<value_idx, T> &out, int n_neighbors,
+              ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream);
 
-void launcher(umap_dense_inputs_t<float> &inputsA, umap_dense_inputs_t<float> &inputsB,
-              int64_t **knn_indices, float **knn_dists, int n_neighbors,
-              UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
+template<>
+void launcher(ML::umap_dense_inputs_t<float> &inputsA, ML::umap_dense_inputs_t<float> &inputsB,
+              ML::knn_graph<int64_t, float> &out, int n_neighbors,
+              ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
   std::vector<float *> ptrs(1);
   std::vector<int> sizes(1);
@@ -61,15 +51,16 @@ void launcher(umap_dense_inputs_t<float> &inputsA, umap_dense_inputs_t<float> &i
   sizes[0] = inputsA.n;
 
   MLCommon::Selection::brute_force_knn(ptrs, sizes, inputsA.d, inputsB.X, inputsB.n,
-                                       *knn_indices, *knn_dists, n_neighbors,
+                                       out.knn_indices, out.knn_dists, n_neighbors,
                                        d_alloc, stream);
 }
 
+
 template<>
-void launcher(umap_sparse_inputs_t<int, float> &inputsA,
-              umap_sparse_inputs_t<int, float> &inputsB,
-              int64_t **knn_indices, float **knn_dists, int n_neighbors,
-              UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
+void launcher(ML::umap_sparse_inputs_t<int, float> &inputsA,
+              ML::umap_sparse_inputs_t<int, float> &inputsB,
+              ML::knn_graph<int64_t, float> &out,  int n_neighbors,
+              ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
 
   // TODO: Use handle as input here and remove manual creation
@@ -86,10 +77,10 @@ void launcher(umap_sparse_inputs_t<int, float> &inputsA,
 }
 
 template<>
-inline void launcher(umap_precomputed_knn_inputs_t<float> &inputsA,
-              umap_precomputed_knn_inputs_t<float> &inputsB,
-              int64_t **knn_indices, float **knn_dists, int n_neighbors,
-              UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
+void launcher(ML::umap_precomputed_knn_inputs_t<float> &inputsA,
+              ML::umap_precomputed_knn_inputs_t<float> &inputsB,
+              ML::knn_graph<int64_t, float> &out, int n_neighbors,
+              ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
 
   std::cout << MLCommon::arr2Str(inputsA.knn_indices,
@@ -97,9 +88,10 @@ inline void launcher(umap_precomputed_knn_inputs_t<float> &inputsA,
 
   std::cout << inputsA.knn_indices << std::endl;
 
-  *knn_indices = inputsA.knn_indices;
-  *knn_dists = inputsA.knn_dists;
+  out.knn_indices = inputsA.knn_indices;
+  out.knn_dists = inputsA.knn_dists;
 }
+
 
 }  // namespace Algo
 }  // namespace kNNGraph
