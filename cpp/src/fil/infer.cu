@@ -256,7 +256,6 @@ size_t get_smem_footprint(predict_params params) {
     tree_aggregator_t<NITEMS, leaf_payload_type>::smem_finalize_footprint(
       params.num_classes);
   size_t accumulate_footprint =
-    sizeof(float) * params.num_cols * NITEMS +
     tree_aggregator_t<NITEMS, leaf_payload_type>::smem_accumulate_footprint(
       params.num_classes);
 
