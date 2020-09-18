@@ -58,7 +58,6 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
   }
 
   bool runTest(const KNNParams &params) {
-    std::cout << "Testing w/ handle: " << &handle << std::endl;
 
     raft::comms::initialize_mpi_comms(&handle, MPI_COMM_WORLD);
     const auto &comm = handle.get_comms();
@@ -166,8 +165,6 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    std::cout << "Ready to call KNN" << std::endl;
-
     /**
          * Execute brute_force_knn()
          */
@@ -175,8 +172,6 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
                     query_parts, query_desc, params.k, params.batch_size, true);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    std::cout << "Finished!" << std::endl;
 
     std::cout << MLCommon::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I",
                                    stream)
