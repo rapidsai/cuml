@@ -56,14 +56,10 @@ struct distances_config_t {
   cudaStream_t stream;
 };
 
-
-
-
-template<typename value_t>
+template <typename value_t>
 struct distances_t {
-
  public:
-    virtual void compute(value_t *out);
+  virtual void compute(value_t *out);
 };
 
 /**
@@ -71,7 +67,6 @@ struct distances_t {
  */
 template <typename value_idx = int, typename value_t = float>
 struct ip_distances_t : public distances_t<value_t> {
-
   /**
    * Computes simple sparse inner product distances as sum(x_y * y_k)
    * @param[in] config specifies inputs, outputs, and sizes
@@ -286,7 +281,7 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
  * The expanded form is more efficient for sparse data.
  */
 template <typename value_idx = int, typename value_t = float>
-struct l2_distances_t : public distances_t<value_t>{
+struct l2_distances_t : public distances_t<value_t> {
   explicit l2_distances_t(distances_config_t<value_idx, value_t> config)
     : config_(config),
       workspace(config.allocator, config.stream, 0),
