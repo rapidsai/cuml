@@ -137,15 +137,21 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
-  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::BoundingBoxKernel, cudaFuncCachePreferShared));
-  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::TreeBuildingKernel, cudaFuncCachePreferL1));
+  CUDA_CHECK(
+    cudaFuncSetCacheConfig(TSNE::BoundingBoxKernel, cudaFuncCachePreferShared));
+  CUDA_CHECK(
+    cudaFuncSetCacheConfig(TSNE::TreeBuildingKernel, cudaFuncCachePreferL1));
   CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::ClearKernel1, cudaFuncCachePreferL1));
   CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::ClearKernel2, cudaFuncCachePreferL1));
-  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::SummarizationKernel, cudaFuncCachePreferL1));
+  CUDA_CHECK(
+    cudaFuncSetCacheConfig(TSNE::SummarizationKernel, cudaFuncCachePreferL1));
   CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::SortKernel, cudaFuncCachePreferL1));
-  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::RepulsionKernel, cudaFuncCachePreferL1));
-  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::attractive_kernel_bh, cudaFuncCachePreferL1));
-  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::IntegrationKernel, cudaFuncCachePreferL1));
+  CUDA_CHECK(
+    cudaFuncSetCacheConfig(TSNE::RepulsionKernel, cudaFuncCachePreferL1));
+  CUDA_CHECK(
+    cudaFuncSetCacheConfig(TSNE::attractive_kernel_bh, cudaFuncCachePreferL1));
+  CUDA_CHECK(
+    cudaFuncSetCacheConfig(TSNE::IntegrationKernel, cudaFuncCachePreferL1));
   // Do gradient updates
   //---------------------------------------------------
   CUML_LOG_DEBUG("Start gradient updates!");
