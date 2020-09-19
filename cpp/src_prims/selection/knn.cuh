@@ -255,7 +255,7 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     input.size());
   for (int i = 0; i < input.size(); i++) {
     metric_processors[i] = create_processor<float>(
-      metric, n, D, k, rowMajorQuery, userStream, allocator);
+      metric, sizes[i], D, k, rowMajorQuery, userStream, allocator);
     metric_processors[i]->preprocess(input[i]);
   }
 
