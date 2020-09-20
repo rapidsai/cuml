@@ -18,6 +18,7 @@
 
 #include <linalg/transpose.h>
 #include <raft/linalg/cublas_wrappers.h>
+#include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <linalg/add.cuh>
 #include <linalg/binary_op.cuh>
@@ -30,7 +31,6 @@
 #include <stats/sum.cuh>
 #include "penalty.cuh"
 #include "sigmoid.cuh"
-#include <common/device_buffer.hpp>
 
 namespace MLCommon {
 namespace Functions {
@@ -61,8 +61,8 @@ void logisticRegLossGrads(math_t *input, int n_rows, int n_cols,
                cublas_handle, stream);
   LinAlg::subtract(labels_pred.data(), labels_pred.data(), labels, n_rows,
                    stream);
-  raft::matrix::matrixVectorBinaryMult(input, labels_pred.data(), n_rows, n_cols,
-                                 false, false, stream);
+  raft::matrix::matrixVectorBinaryMult(input, labels_pred.data(), n_rows,
+                                       n_cols, false, false, stream);
 
   raft::stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 

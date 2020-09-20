@@ -130,8 +130,8 @@ void svdEig(T *in, int n_rows, int n_cols, T *S, T *U, T *V, bool gen_left_vec,
   if (gen_left_vec) {
     gemm(in, n_rows, n_cols, V, U, n_rows, n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
          alpha, beta, cublasH, stream);
-    raft::matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true,
-                                          stream);
+    raft::matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false,
+                                                true, stream);
   }
 }
 

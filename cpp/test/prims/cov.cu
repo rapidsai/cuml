@@ -53,7 +53,8 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     allocate(mean_act, cols);
     allocate(cov_act, cols * cols);
     r.normal(data, len, params.mean, var, stream);
-    raft::stats::mean(mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
+    raft::stats::mean(mean_act, data, cols, rows, params.sample,
+                      params.rowMajor, stream);
     cov(cov_act, data, mean_act, cols, rows, params.sample, params.rowMajor,
         params.stable, handle, stream);
 

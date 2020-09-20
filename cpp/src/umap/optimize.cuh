@@ -85,8 +85,8 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
   MLCommon::device_buffer<T> residuals(d_alloc, stream, n_rows);
 
   f<T, TPB_X>(input, n_rows, coef, residuals.data());
-  raft::linalg::eltwiseSub(residuals.data(), residuals.data(), labels,
-                               n_rows, stream);
+  raft::linalg::eltwiseSub(residuals.data(), residuals.data(), labels, n_rows,
+                           stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
@@ -101,7 +101,7 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
     });
 
   raft::linalg::eltwiseMultiply(a_deriv.data(), a_deriv.data(),
-                                    residuals.data(), n_rows, stream);
+                                residuals.data(), n_rows, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
@@ -120,15 +120,14 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
    * Multiply partial derivs by residuals
    */
   raft::linalg::eltwiseMultiply(b_deriv.data(), b_deriv.data(),
-                                    residuals.data(), n_rows, stream);
+                                residuals.data(), n_rows, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
    * Finally, take the mean
    */
   raft::stats::mean(grads, a_deriv.data(), 1, n_rows, false, false, stream);
-  raft::stats::mean(grads + 1, b_deriv.data(), 1, n_rows, false, false,
-                        stream);
+  raft::stats::mean(grads + 1, b_deriv.data(), 1, n_rows, false, false, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }

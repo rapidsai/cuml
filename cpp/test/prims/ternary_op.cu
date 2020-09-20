@@ -25,10 +25,12 @@ namespace MLCommon {
 namespace LinAlg {
 
 template <typename T>
-class ternaryOpTest : public ::testing::TestWithParam<raft::linalg::BinaryOpInputs<T>> {
+class ternaryOpTest
+  : public ::testing::TestWithParam<raft::linalg::BinaryOpInputs<T>> {
  public:
   void SetUp() override {
-    params = ::testing::TestWithParam<raft::linalg::BinaryOpInputs<T>>::GetParam();
+    params =
+      ::testing::TestWithParam<raft::linalg::BinaryOpInputs<T>>::GetParam();
     raft::random::Rng rng(params.seed);
 
     int len = params.len;

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <common/cudart_utils.h>
+#include <gtest/gtest.h>
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
 #include <random/rng.cuh>
@@ -78,14 +78,13 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     MLCommon::allocate(stats, 2, true);
     switch (params.type) {
       case RNG_Uniform:
-        r.uniformInt(data, params.len, params.start, params.end,
-                     stream);
+        r.uniformInt(data, params.len, params.start, params.end, stream);
         break;
     };
     static const int threads = 128;
     meanKernel<T, threads>
-      <<<MLCommon::ceildiv(params.len, threads), threads, 0, stream>>>(stats, data,
-                                                             params.len);
+      <<<MLCommon::ceildiv(params.len, threads), threads, 0, stream>>>(
+        stats, data, params.len);
     MLCommon::updateHost<float>(h_stats, stats, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;

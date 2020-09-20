@@ -18,8 +18,8 @@
 
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
-#include <raft/handle.hpp>
 #include <linalg/binary_op.cuh>
+#include <raft/handle.hpp>
 
 namespace raft {
 namespace stats {
@@ -104,9 +104,8 @@ __global__ void varsKernelColMajor(Type *var, const Type *data, const Type *mu,
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename IdxType = int>
-void stddev(Type *std, const Type *data, const Type *mu,
-            IdxType D, IdxType N, bool sample, bool rowMajor,
-            cudaStream_t stream) {
+void stddev(Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
+            bool sample, bool rowMajor, cudaStream_t stream) {
   static const int TPB = 256;
   if (rowMajor) {
     static const int RowsPerThread = 4;
@@ -150,15 +149,15 @@ void stddev(Type *std, const Type *data, const Type *mu,
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename IdxType = int>
-void vars(Type *var, const Type *data, const Type *mu,
-          IdxType D, IdxType N, bool sample, bool rowMajor,
-          cudaStream_t stream) {
+void vars(Type *var, const Type *data, const Type *mu, IdxType D, IdxType N,
+          bool sample, bool rowMajor, cudaStream_t stream) {
   static const int TPB = 256;
   if (rowMajor) {
     static const int RowsPerThread = 4;
     static const int ColsPerBlk = 32;
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(MLCommon::ceildiv(N, (IdxType)RowsPerBlk), MLCommon::ceildiv(D, (IdxType)ColsPerBlk));
+    dim3 grid(MLCommon::ceildiv(N, (IdxType)RowsPerBlk),
+              MLCommon::ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemset(var, 0, sizeof(Type) * D));
     stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
       <<<grid, TPB, 0, stream>>>(var, data, D, N);

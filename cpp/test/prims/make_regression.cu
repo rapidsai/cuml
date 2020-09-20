@@ -112,7 +112,8 @@ typedef MakeRegressionTest<float> MakeRegressionTestF;
 const std::vector<MakeRegressionInputs<float>> inputsf_t = {
   {0.01f, 256, 32, 16, 1, -1, 0.f, true, raft::random::GenPhilox, 1234ULL},
   {0.01f, 1000, 100, 47, 4, 65, 4.2f, true, raft::random::GenPhilox, 1234ULL},
-  {0.01f, 20000, 500, 450, 13, -1, -3.f, false, raft::random::GenPhilox, 1234ULL}};
+  {0.01f, 20000, 500, 450, 13, -1, -3.f, false, raft::random::GenPhilox,
+   1234ULL}};
 
 TEST_P(MakeRegressionTestF, Result) {
   ASSERT_TRUE(
@@ -129,7 +130,8 @@ typedef MakeRegressionTest<double> MakeRegressionTestD;
 const std::vector<MakeRegressionInputs<double>> inputsd_t = {
   {0.01, 256, 32, 16, 1, -1, 0.0, true, raft::random::GenPhilox, 1234ULL},
   {0.01, 1000, 100, 47, 4, 65, 4.2, true, raft::random::GenPhilox, 1234ULL},
-  {0.01, 20000, 500, 450, 13, -1, -3.0, false, raft::random::GenPhilox, 1234ULL}};
+  {0.01, 20000, 500, 450, 13, -1, -3.0, false, raft::random::GenPhilox,
+   1234ULL}};
 
 TEST_P(MakeRegressionTestD, Result) {
   ASSERT_TRUE(

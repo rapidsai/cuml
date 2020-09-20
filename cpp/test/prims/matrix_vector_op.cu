@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <common/cudart_utils.h>
+#include <gtest/gtest.h>
 #include <random/rng.cuh>
-#include "test_utils.h"
 #include "matrix_vector_op.cuh"
+#include "test_utils.h"
 
 using namespace MLCommon;
 

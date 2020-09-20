@@ -187,8 +187,8 @@ void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
       if (lr_type != ML::lr_type::ADAPTIVE)
         learning_rate = calLearningRate(lr_type, eta0, power_t, alpha, t);
 
-      raft::linalg::scalarMultiply(grads.data(), grads.data(), learning_rate, n_cols,
-                             stream);
+      raft::linalg::scalarMultiply(grads.data(), grads.data(), learning_rate,
+                                   n_cols, stream);
       LinAlg::subtract(coef, coef, grads.data(), n_cols, stream);
 
       j = j + cbs;

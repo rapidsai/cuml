@@ -51,7 +51,7 @@ struct MapThenReduce : public Fixture {
   void runBenchmark(::benchmark::State& state) override {
     loopOnState(state, [this]() {
       raft::linalg::mapThenSumReduce(out, params.len, Identity<T>(), stream,
-                                         in);
+                                     in);
     });
   }
 

@@ -77,7 +77,7 @@ void normalize_distances(const int n, float *distances, const int n_neighbors,
   // Divide distances inplace by max
   const float div = 1.0f / maxNorm;  // Mult faster than div
   raft::linalg::scalarMultiply(distances, distances, div, n * n_neighbors,
-                                   stream);
+                               stream);
 }
 
 /**

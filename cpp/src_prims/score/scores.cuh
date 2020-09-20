@@ -272,7 +272,7 @@ float accuracy_score(const math_t *predictions, const math_t *ref_predictions,
 
   //TODO could write a kernel instead
   raft::linalg::eltwiseSub(diffs_array, predictions, ref_predictions, n,
-                               stream);
+                           stream);
   CUDA_CHECK(cudaGetLastError());
   correctly_predicted = thrust::count(thrust::cuda::par.on(stream), diffs_array,
                                       diffs_array + n, 0);

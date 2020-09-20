@@ -69,7 +69,7 @@ void fit_impl(raft::handle_t &handle,
 
   T scalar = T(1);
   raft::matrix::seqRoot(explained_var_all.data(), singular_vals, scalar,
-                  prms.n_components, streams[0]);
+                        prms.n_components, streams[0]);
 }
 
 /**
@@ -345,7 +345,7 @@ void fit_transform_impl(raft::handle_t &handle,
   T scalar = T(1) / total_vars_h;
 
   raft::linalg::scalarMultiply(explained_var_ratio, explained_var, scalar,
-                         prms.n_components, streams[0]);
+                               prms.n_components, streams[0]);
 
   for (int i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamSynchronize(streams[i]));

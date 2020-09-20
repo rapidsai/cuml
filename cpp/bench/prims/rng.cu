@@ -100,7 +100,7 @@ struct RngBench : public Fixture {
 
 template <typename T>
 static std::vector<Params<T>> getInputs() {
-  using namespace MLCommon::Random;
+  using namespace raft::random;
   return {
     {1024 * 1024, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},
     {32 * 1024 * 1024, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},

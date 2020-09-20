@@ -25,10 +25,12 @@ namespace MLCommon {
 namespace LinAlg {
 
 template <typename T>
-class MultiplyTest : public ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>> {
+class MultiplyTest
+  : public ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>> {
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>>::GetParam();
+    params =
+      ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
     cudaStream_t stream;
@@ -38,7 +40,7 @@ class MultiplyTest : public ::testing::TestWithParam<raft::linalg::UnaryOpInputs
     allocate(out_ref, len);
     allocate(out, len);
     r.uniform(in, len, T(-1.0), T(1.0), stream);
-    naiveScale(out_ref, in, params.scalar, len, stream);
+    raft::linalg::naiveScale(out_ref, in, params.scalar, len, stream);
     multiplyScalar(out, in, params.scalar, len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }

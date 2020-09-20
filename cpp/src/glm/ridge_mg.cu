@@ -61,11 +61,11 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
   copy(S_nnz, S, UDesc.N, streams[0]);
   raft::matrix::power(S_nnz, UDesc.N, streams[0]);
   LinAlg::addScalar(S_nnz, S_nnz, alpha[0], UDesc.N, streams[0]);
-  raft::matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, size_t(1), UDesc.N, false,
-                                        true, streams[0], true);
+  raft::matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, size_t(1), UDesc.N,
+                                              false, true, streams[0], true);
 
   raft::matrix::matrixVectorBinaryMult(V, S, UDesc.N, UDesc.N, false, true,
-                                 streams[0]);
+                                       streams[0]);
 
   Matrix::Data<T> S_nnz_data;
   S_nnz_data.totalSize = UDesc.N;

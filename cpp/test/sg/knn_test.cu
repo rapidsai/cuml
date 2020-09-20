@@ -31,7 +31,7 @@
 namespace ML {
 
 using namespace MLCommon;
-using namespace MLCommon::Random;
+using namespace raft::random;
 using namespace std;
 
 struct KNNInputs {

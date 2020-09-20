@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <common/cudart_utils.h>
+#include <gtest/gtest.h>
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
 #include <random/rng.cuh>
@@ -144,7 +144,8 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
         auto var = params.end * params.end;
         auto mu = params.start;
         meanvar[0] = MLCommon::myExp(mu + var * T(0.5));
-        meanvar[1] = (MLCommon::myExp(var) - T(1.0)) * MLCommon::myExp(T(2.0) * mu + var);
+        meanvar[1] =
+          (MLCommon::myExp(var) - T(1.0)) * MLCommon::myExp(T(2.0) * mu + var);
         break;
       }
       case RNG_Uniform:
@@ -388,20 +389,20 @@ TEST(Rng, MeanError) {
   MLCommon::allocate(mean_result, num_experiments);
   MLCommon::allocate(std_result, num_experiments);
 
-  for (auto rtype : {GenPhilox,
-                     GenKiss99 /*, raft::random::GenTaps */}) {
+  for (auto rtype : {GenPhilox, GenKiss99 /*, raft::random::GenTaps */}) {
     Rng r(seed, rtype);
     r.normal(data, len, 3.3f, 0.23f, stream);
     // r.uniform(data, len, -1.0, 2.0);
-    raft::stats::mean(mean_result, data, num_samples, num_experiments,
-                      false, false, stream);
+    raft::stats::mean(mean_result, data, num_samples, num_experiments, false,
+                      false, stream);
     raft::stats::stddev(std_result, data, mean_result, num_samples,
                         num_experiments, false, false, stream);
     std::vector<float> h_mean_result(num_experiments);
     std::vector<float> h_std_result(num_experiments);
     MLCommon::updateHost(h_mean_result.data(), mean_result, num_experiments,
-                      stream);
-    MLCommon::updateHost(h_std_result.data(), std_result, num_experiments, stream);
+                         stream);
+    MLCommon::updateHost(h_std_result.data(), std_result, num_experiments,
+                         stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     auto d_mean = quick_mean(h_mean_result);
 
@@ -530,7 +531,8 @@ class RngNormalTableTest
                   params.sigma, stream);
     static const int threads = 128;
     meanKernel<T, threads>
-      <<<MLCommon::ceildiv(len, threads), threads, 0, stream>>>(stats, data, len);
+      <<<MLCommon::ceildiv(len, threads), threads, 0, stream>>>(stats, data,
+                                                                len);
     MLCommon::updateHost<T>(h_stats, stats, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= len;

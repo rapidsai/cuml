@@ -97,8 +97,8 @@ void postProcessData_impl(raft::handle_t &handle,
                                         norm2_input_data, false, true, comm,
                                         streams, n_streams);
     raft::matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, size_t(1),
-                                          input_desc.N, false, true, streams[0],
-                                          true);
+                                                input_desc.N, false, true,
+                                                streams[0], true);
   }
 
   LinAlg::gemm(mu_input, 1, input_desc.N, coef, d_intercept.data(), 1, 1,

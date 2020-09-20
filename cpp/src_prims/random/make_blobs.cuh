@@ -47,8 +47,8 @@ void generate_labels(IdxT* labels, IdxT n_rows, IdxT n_clusters, bool shuffle,
       *ptr = idx;
     }
   };
-  LinAlg::writeOnlyUnaryOp<IdxT, decltype(op), IdxT>(labels, n_rows, op,
-                                                     stream);
+  raft::linalg::writeOnlyUnaryOp<IdxT, decltype(op), IdxT>(labels, n_rows, op,
+                                                           stream);
 }
 
 template <typename DataT, typename IdxT>
@@ -95,7 +95,8 @@ void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
                  cluster_std_scalar, n_rows, n_cols, n_clusters);
     get_mu_sigma(mu2, sigma2, idx2, labels, row_major, centers, cluster_std,
                  cluster_std_scalar, n_rows, n_cols, n_clusters);
-    box_muller_transform<DataT>(val1, val2, sigma1, mu1, sigma2, mu2);
+    raft::random::box_muller_transform<DataT>(val1, val2, sigma1, mu1, sigma2,
+                                              mu2);
   };
   rng.custom_distribution2<DataT, DataT, IdxT>(out, n_rows * n_cols, op,
                                                stream);

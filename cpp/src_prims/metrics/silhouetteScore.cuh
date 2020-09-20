@@ -253,9 +253,9 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
     Nop<DataT>(), MinOp<DataT>());
 
   //calculating the silhouette score per sample using the d_aArray and d_bArray
-  raft::linalg::binaryOp<DataT, SilOp<DataT>>(perSampleSilScore, d_aArray.data(),
-                                        d_bArray.data(), nRows, SilOp<DataT>(),
-                                        stream);
+  raft::linalg::binaryOp<DataT, SilOp<DataT>>(perSampleSilScore,
+                                              d_aArray.data(), d_bArray.data(),
+                                              nRows, SilOp<DataT>(), stream);
 
   //calculating the sum of all the silhouette score
   device_buffer<DataT> d_avgSilhouetteScore(allocator, stream, 1);

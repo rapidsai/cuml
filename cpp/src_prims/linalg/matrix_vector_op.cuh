@@ -63,7 +63,8 @@ void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec,
                         IdxType D, IdxType N, bool rowMajor,
                         bool bcastAlongRows, Lambda op, cudaStream_t stream) {
   IdxType len = N * D;
-  IdxType nblks = MLCommon::ceildiv(veclen_ ? len / veclen_ : veclen_, (IdxType)TPB);
+  IdxType nblks =
+    MLCommon::ceildiv(veclen_ ? len / veclen_ : veclen_, (IdxType)TPB);
   matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, matrix, vec, D, N, rowMajor,
                                 bcastAlongRows, op);

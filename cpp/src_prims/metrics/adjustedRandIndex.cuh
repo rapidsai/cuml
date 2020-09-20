@@ -170,13 +170,13 @@ double computeAdjustedRandIndex(const T* firstClusterArray,
                                nUniqClasses, nUniqClasses, 0, true, false,
                                stream);
   //calculating the sum of number of unordered pairs for every element in a
-  raft::linalg::mapThenSumReduce<MathT, nCTwo<MathT>>(d_aCTwoSum.data(), nUniqClasses,
-                                                nCTwo<MathT>(), stream,
-                                                a.data(), a.data());
+  raft::linalg::mapThenSumReduce<MathT, nCTwo<MathT>>(
+    d_aCTwoSum.data(), nUniqClasses, nCTwo<MathT>(), stream, a.data(),
+    a.data());
   //calculating the sum of number of unordered pairs for every element of b
-  raft::linalg::mapThenSumReduce<MathT, nCTwo<MathT>>(d_bCTwoSum.data(), nUniqClasses,
-                                                nCTwo<MathT>(), stream,
-                                                b.data(), b.data());
+  raft::linalg::mapThenSumReduce<MathT, nCTwo<MathT>>(
+    d_bCTwoSum.data(), nUniqClasses, nCTwo<MathT>(), stream, b.data(),
+    b.data());
   //updating in the host memory
   updateHost(&h_nChooseTwoSum, d_nChooseTwoSum.data(), 1, stream);
   updateHost(&h_aCTwoSum, d_aCTwoSum.data(), 1, stream);

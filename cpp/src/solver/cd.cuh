@@ -19,6 +19,7 @@
 #include <common/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/solvers/params.hpp>
 #include <functions/linearReg.cuh>
@@ -34,7 +35,6 @@
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
 #include "shuffle.h"
-#include <common/device_buffer.hpp>
 
 namespace ML {
 namespace Solver {
@@ -123,7 +123,8 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
 
   if (normalize) {
     math_t scalar = math_t(1.0) + l2_alpha;
-    raft::matrix::setValue(squared.data(), squared.data(), scalar, n_cols, stream);
+    raft::matrix::setValue(squared.data(), squared.data(), scalar, n_cols,
+                           stream);
   } else {
     LinAlg::colNorm(squared.data(), input, n_cols, n_rows, LinAlg::L2Norm,
                     false, stream);
@@ -158,7 +159,7 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
         Functions::softThres(coef_loc, coef_loc, alpha, 1, stream);
 
       raft::linalg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
-                                     stream);
+                                           stream);
 
       coef_prev = h_coef[ci];
       updateHost(&(h_coef[ci]), coef_loc, 1, stream);

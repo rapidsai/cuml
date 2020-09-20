@@ -254,5 +254,5 @@ TEST_P(SWoRTestD, Result) {
 }
 INSTANTIATE_TEST_CASE_P(SWoRTests, SWoRTestD, ::testing::ValuesIn(inputsd));
 
-}  // end namespace Random
-}  // end namespace MLCommon
+}  // namespace random
+}  // namespace raft

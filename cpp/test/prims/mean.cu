@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <common/cudart_utils.h>
+#include <gtest/gtest.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <cuda_utils.cuh>
@@ -64,8 +64,7 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
   void meanSGtest(T *data, cudaStream_t stream) {
     int rows = params.rows, cols = params.cols;
 
-    mean(mean_act, data, cols, rows, params.sample, params.rowMajor,
-         stream);
+    mean(mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
   }
 
   void TearDown() override {

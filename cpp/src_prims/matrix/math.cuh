@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
 #include <linalg/binary_op.cuh>
 #include <linalg/map_then_reduce.cuh>
 #include <linalg/matrix_vector_op.cuh>
 #include <linalg/unary_op.cuh>
+#include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
@@ -41,8 +41,8 @@ namespace matrix {
  * @param stream cuda stream
  */
 template <typename math_t>
-void power(math_t *in, math_t *out, math_t scalar,
-           int len, cudaStream_t stream) {
+void power(math_t *in, math_t *out, math_t scalar, int len,
+           cudaStream_t stream) {
   auto d_src = in;
   auto d_dest = out;
 
@@ -59,8 +59,7 @@ void power(math_t *in, math_t *out, math_t scalar,
  * @param stream cuda stream
  */
 template <typename math_t>
-void power(math_t *inout, math_t scalar, int len,
-           cudaStream_t stream) {
+void power(math_t *inout, math_t scalar, int len, cudaStream_t stream) {
   power(inout, inout, scalar, len, stream);
 }
 
@@ -71,8 +70,7 @@ void power(math_t *inout, math_t scalar, int len,
  * @param stream cuda stream
  */
 template <typename math_t>
-void power(math_t *inout, int len,
-           cudaStream_t stream) {
+void power(math_t *inout, int len, cudaStream_t stream) {
   math_t scalar = 1.0;
   power(inout, scalar, len, stream);
 }
@@ -86,8 +84,7 @@ void power(math_t *inout, int len,
  * @{
  */
 template <typename math_t>
-void power(math_t *in, math_t *out, int len,
-           cudaStream_t stream) {
+void power(math_t *in, math_t *out, int len, cudaStream_t stream) {
   math_t scalar = 1.0;
   power(in, out, scalar, len, stream);
 }
@@ -104,8 +101,8 @@ void power(math_t *in, math_t *out, int len,
  * @param set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t, typename IdxType = int>
-void seqRoot(math_t *in, math_t *out, math_t scalar,
-             IdxType len, cudaStream_t stream, bool set_neg_zero = false) {
+void seqRoot(math_t *in, math_t *out, math_t scalar, IdxType len,
+             cudaStream_t stream, bool set_neg_zero = false) {
   auto d_src = in;
   auto d_dest = out;
 
@@ -136,8 +133,8 @@ void seqRoot(math_t *in, math_t *out, math_t scalar,
  * @param set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t, typename IdxType = int>
-void seqRoot(math_t *inout, math_t scalar, IdxType len,
-             cudaStream_t stream, bool set_neg_zero = false) {
+void seqRoot(math_t *inout, math_t scalar, IdxType len, cudaStream_t stream,
+             bool set_neg_zero = false) {
   seqRoot(inout, inout, scalar, len, stream, set_neg_zero);
 }
 
@@ -151,23 +148,20 @@ void seqRoot(math_t *inout, math_t scalar, IdxType len,
  * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>
-void seqRoot(math_t *in, math_t *out, IdxType len,
-             cudaStream_t stream) {
+void seqRoot(math_t *in, math_t *out, IdxType len, cudaStream_t stream) {
   math_t scalar = 1.0;
   seqRoot(in, out, scalar, len, stream);
 }
 
 template <typename math_t, typename IdxType = int>
-void seqRoot(math_t *inout, IdxType len,
-             cudaStream_t stream) {
+void seqRoot(math_t *inout, IdxType len, cudaStream_t stream) {
   math_t scalar = 1.0;
   seqRoot(inout, inout, scalar, len, stream);
 }
 
 template <typename math_t, typename IdxType = int>
-void setSmallValuesZero(math_t *out, const math_t *in,
-                        IdxType len, cudaStream_t stream,
-                        math_t thres = 1e-15) {
+void setSmallValuesZero(math_t *out, const math_t *in, IdxType len,
+                        cudaStream_t stream, math_t thres = 1e-15) {
   raft::linalg::unaryOp(
     out, in, len,
     [=] __device__(math_t a) {
@@ -190,8 +184,8 @@ void setSmallValuesZero(math_t *out, const math_t *in,
  * @param thres: threshold
  */
 template <typename math_t, typename IdxType = int>
-void setSmallValuesZero(math_t *inout, IdxType len,
-                        cudaStream_t stream, math_t thres = 1e-15) {
+void setSmallValuesZero(math_t *inout, IdxType len, cudaStream_t stream,
+                        math_t thres = 1e-15) {
   setSmallValuesZero(inout, inout, len, stream, thres);
 }
 
@@ -209,8 +203,8 @@ void setSmallValuesZero(math_t *inout, IdxType len,
  * @{
  */
 template <typename math_t, typename IdxType = int>
-void reciprocal(math_t *in, math_t *out, math_t scalar,
-                int len, cudaStream_t stream, bool setzero = false,
+void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
+                cudaStream_t stream, bool setzero = false,
                 math_t thres = 1e-15) {
   auto d_src = in;
   auto d_dest = out;
@@ -243,9 +237,8 @@ void reciprocal(math_t *in, math_t *out, math_t scalar,
  * @param thres: Threshold to avoid dividing by zero (|value| < thres -> result = 0)
  */
 template <typename math_t, typename IdxType = int>
-void reciprocal(math_t *inout, math_t scalar,
-                IdxType len, cudaStream_t stream, bool setzero = false,
-                math_t thres = 1e-15) {
+void reciprocal(math_t *inout, math_t scalar, IdxType len, cudaStream_t stream,
+                bool setzero = false, math_t thres = 1e-15) {
   reciprocal(inout, inout, scalar, len, stream, setzero, thres);
 }
 
@@ -258,8 +251,7 @@ void reciprocal(math_t *inout, math_t scalar,
  * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>
-void reciprocal(math_t *inout, IdxType len,
-                cudaStream_t stream) {
+void reciprocal(math_t *inout, IdxType len, cudaStream_t stream) {
   math_t scalar = 1.0;
   reciprocal(inout, scalar, len, stream);
 }
@@ -274,15 +266,14 @@ void reciprocal(math_t *inout, IdxType len,
  * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>
-void reciprocal(math_t *in, math_t *out, IdxType len,
-                cudaStream_t stream) {
+void reciprocal(math_t *in, math_t *out, IdxType len, cudaStream_t stream) {
   math_t scalar = 1.0;
   reciprocal(in, out, scalar, len, stream);
 }
 
 template <typename math_t>
-void setValue(math_t *out, const math_t *in,
-              math_t scalar, int len, cudaStream_t stream = 0) {
+void setValue(math_t *out, const math_t *in, math_t scalar, int len,
+              cudaStream_t stream = 0) {
   raft::linalg::unaryOp(
     out, in, len, [scalar] __device__(math_t in) { return scalar; }, stream);
 }
@@ -349,8 +340,8 @@ __global__ void argmaxKernel(const T *d_in, int D, int N, T *argmax) {
  * @param stream: cuda stream
  */
 template <typename math_t>
-void argmax(const math_t *in, int n_rows, int n_cols,
-            math_t *out, cudaStream_t stream) {
+void argmax(const math_t *in, int n_rows, int n_cols, math_t *out,
+            cudaStream_t stream) {
   int D = n_rows;
   int N = n_cols;
   if (D <= 32) {
@@ -407,8 +398,7 @@ __global__ void signFlipKernel(T *d_in, int D, int N) {
  * @param stream cuda stream
  */
 template <typename math_t>
-void signFlip(math_t *inout, int n_rows, int n_cols,
-              cudaStream_t stream) {
+void signFlip(math_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
   int D = n_rows;
   int N = n_cols;
   auto data = inout;

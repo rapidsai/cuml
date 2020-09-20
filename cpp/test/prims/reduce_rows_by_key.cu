@@ -94,8 +94,7 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
 
     if (params.weighted) {
       allocate(weight, nobs);
-      raft::random::Rng r(params.seed,
-                              raft::random::GeneratorType::GenPhilox);
+      raft::random::Rng r(params.seed, raft::random::GeneratorType::GenPhilox);
       r.uniform(weight, nobs, T(1), params.max_weight, stream);
     } else {
       weight = nullptr;

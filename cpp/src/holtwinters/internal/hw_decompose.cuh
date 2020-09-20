@@ -227,8 +227,8 @@ void stl_decomposition_gpu(const raft::handle_t &handle, const Dtype *ts, int n,
     MLCommon::copy(aligned_ts.data(), ts + ts_offset, batch_size * trend_len,
                    stream);
     raft::linalg::eltwiseDivide<Dtype>(season_d.data(), aligned_ts.data(),
-                                           trend_d.data(),
-                                           trend_len * batch_size, stream);
+                                       trend_d.data(), trend_len * batch_size,
+                                       stream);
   }
 
   season_mean(handle, season_d.data(), trend_len, batch_size, start_season,

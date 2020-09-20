@@ -104,7 +104,7 @@ void fit_impl(raft::handle_t &handle,
   if (normalize) {
     T scalar = T(1.0) + l2_alpha;
     raft::matrix::setValue(squared.data(), squared.data(), scalar, input_desc.N,
-                     streams[0]);
+                           streams[0]);
   } else {
     Matrix::Data<T> squared_data{squared.data(), size_t(input_desc.N)};
     LinAlg::opg::colNorm2NoSeq(squared_data, input_data, input_desc, comm,
@@ -190,7 +190,7 @@ void fit_impl(raft::handle_t &handle,
         Functions::softThres(coef_loc, coef_loc, alpha, 1, streams[0]);
 
       raft::linalg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
-                                     streams[0]);
+                                           streams[0]);
 
       coef_prev = h_coef[ci];
       updateHost(&(h_coef[ci]), coef_loc, 1, streams[0]);

@@ -314,8 +314,7 @@ void initScalableKMeansPlusPlus(
   ML::Distance::DistanceType metric =
     static_cast<ML::Distance::DistanceType>(params.metric);
 
-  raft::random::Rng rng(params.seed,
-                            raft::random::GeneratorType::GenPhilox);
+  raft::random::Rng rng(params.seed, raft::random::GeneratorType::GenPhilox);
 
   // <<<< Step-1 >>> : C <- sample a point uniformly at random from X
   std::mt19937 gen(params.seed);

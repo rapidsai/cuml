@@ -18,7 +18,9 @@
 
 #include <linalg/transpose.h>
 #include <raft/linalg/cublas_wrappers.h>
+#include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
+#include <cuml/common/cuml_allocator.hpp>
 #include <linalg/add.cuh>
 #include <linalg/eltwise.cuh>
 #include <linalg/gemm.cuh>
@@ -87,7 +89,7 @@ void hingeLossGrads(math_t *input, int n_rows, int n_cols, const math_t *labels,
                CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle, stream);
 
   raft::linalg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels,
-                          n_rows, stream);
+                                n_rows, stream);
   hingeLossGradMult(input, labels, labels_pred.data(), n_rows, n_cols, stream);
   raft::stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 
@@ -120,7 +122,7 @@ void hingeLoss(math_t *input, int n_rows, int n_cols, const math_t *labels,
                CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle, stream);
 
   raft::linalg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels,
-                          n_rows, stream);
+                                n_rows, stream);
 
   hingeLossSubtract(labels_pred.data(), labels_pred.data(), math_t(1), n_rows,
                     stream);

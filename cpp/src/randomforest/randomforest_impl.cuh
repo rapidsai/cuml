@@ -71,7 +71,7 @@ void rf<T, L>::prepare_fit_per_tree(
   if (rf_params.seed > -1) rs = rf_params.seed + tree_id;
 
   raft::random::Rng rng(rs * 1000 | 0xFF00AA,
-                            raft::random::GeneratorType::GenKiss99);
+                        raft::random::GeneratorType::GenKiss99);
   if (rf_params.bootstrap) {
     rng.uniformInt<unsigned>(selected_rows, n_sampled_rows, 0, n_rows, stream);
 

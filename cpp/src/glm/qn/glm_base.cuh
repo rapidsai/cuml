@@ -47,7 +47,7 @@ inline void linearFwd(const raft::handle_t &handle, SimpleMat<T> &Z,
     // - Z <- W * X^T + Z    : TODO can be fused in CUTLASS?
     auto set_bias = [] __device__(const T z, const T b) { return b; };
     raft::linalg::matrixVectorOp(Z.data, Z.data, bias.data, Z.n, Z.m, false,
-                                     false, set_bias, stream);
+                                 false, set_bias, stream);
 
     Z.assign_gemm(handle, 1, weights, false, X, true, 1, stream);
   } else {
@@ -121,7 +121,7 @@ struct GLMBase : GLMDims {
     // This would be easy, if mapThenSumReduce allowed outputing the result of
     // map (supporting inplace)
     raft::linalg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data,
-                                       Z.data);
+                                   Z.data);
 
     auto f_dl = [=] __device__(const T y, const T z) {
       return loss->dlz(y, z);

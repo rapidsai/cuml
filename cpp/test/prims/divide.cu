@@ -43,10 +43,12 @@ void naiveDivide(Type *out, const Type *in, Type scalar, int len,
 }
 
 template <typename T>
-class DivideTest : public ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>> {
+class DivideTest
+  : public ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>> {
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>>::GetParam();
+    params =
+      ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
     cudaStream_t stream;

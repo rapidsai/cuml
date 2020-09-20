@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <common/cudart_utils.h>
+#include <gtest/gtest.h>
 #include <linalg/binary_op.cuh>
 #include <random/rng.cuh>
-#include "test_utils.h"
 #include "binary_op.cuh"
+#include "test_utils.h"
 
 using namespace MLCommon;
 

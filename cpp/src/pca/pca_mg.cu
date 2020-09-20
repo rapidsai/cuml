@@ -66,7 +66,7 @@ void fit_impl(raft::handle_t &handle,
 
   T scalar = (prms.n_rows - 1);
   raft::matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components,
-                  streams[0], true);
+                        streams[0], true);
 
   Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams,
                        n_streams);
@@ -150,10 +150,10 @@ void fit_impl(raft::handle_t &handle,
     device_buffer<T> explained_var_ratio_all(allocator, stream, prms.n_cols);
 
     T scalar = 1.0 / (prms.n_rows - 1);
-    raft::matrix::power(sVector.data(), explained_var_all.data(), scalar, prms.n_cols,
-                  stream);
-    raft::matrix::ratio(handle, explained_var_all.data(), explained_var_ratio_all.data(),
-                  prms.n_cols, stream);
+    raft::matrix::power(sVector.data(), explained_var_all.data(), scalar,
+                        prms.n_cols, stream);
+    raft::matrix::ratio(handle, explained_var_all.data(),
+                        explained_var_ratio_all.data(), prms.n_cols, stream);
 
     Matrix::truncZeroOrigin(sVector.data(), prms.n_cols, singular_vals,
                             prms.n_components, 1, stream);
@@ -197,17 +197,18 @@ void transform_impl(raft::handle_t &handle,
   if (prms.whiten) {
     T scalar = T(sqrt(prms.n_rows - 1));
     raft::linalg::scalarMultiply(components, components, scalar,
-                           prms.n_cols * prms.n_components, streams[0]);
+                                 prms.n_cols * prms.n_components, streams[0]);
     raft::matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-                                          prms.n_cols, prms.n_components, true,
-                                          true, streams[0]);
+                                                prms.n_cols, prms.n_components,
+                                                true, true, streams[0]);
   }
 
   for (int i = 0; i < input.size(); i++) {
     int si = i % n_streams;
 
-    MLCommon::Stats::meanCenter(input[i]->ptr, input[i]->ptr, mu, size_t(prms.n_cols),
-                      local_blocks[i]->size, false, true, streams[si]);
+    MLCommon::Stats::meanCenter(input[i]->ptr, input[i]->ptr, mu,
+                                size_t(prms.n_cols), local_blocks[i]->size,
+                                false, true, streams[si]);
 
     T alpha = T(1);
     T beta = T(0);
@@ -216,17 +217,18 @@ void transform_impl(raft::handle_t &handle,
                  int(prms.n_components), CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta,
                  cublas_h, streams[si]);
 
-    MLCommon::Stats::meanAdd(input[i]->ptr, input[i]->ptr, mu, size_t(prms.n_cols),
-                   local_blocks[i]->size, false, true, streams[si]);
+    MLCommon::Stats::meanAdd(input[i]->ptr, input[i]->ptr, mu,
+                             size_t(prms.n_cols), local_blocks[i]->size, false,
+                             true, streams[si]);
   }
 
   if (prms.whiten) {
     raft::matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
-                                           prms.n_cols, prms.n_components, true,
-                                           true, streams[0]);
+                                                 prms.n_cols, prms.n_components,
+                                                 true, true, streams[0]);
     T scalar = T(1 / sqrt(prms.n_rows - 1));
     raft::linalg::scalarMultiply(components, components, scalar,
-                           prms.n_cols * prms.n_components, streams[0]);
+                                 prms.n_cols * prms.n_components, streams[0]);
   }
 
   for (int i = 0; i < n_streams; i++) {
@@ -297,10 +299,10 @@ void inverse_transform_impl(
   if (prms.whiten) {
     T scalar = T(1 / sqrt(prms.n_rows - 1));
     raft::linalg::scalarMultiply(components, components, scalar,
-                           prms.n_rows * prms.n_components, streams[0]);
+                                 prms.n_rows * prms.n_components, streams[0]);
     raft::matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
-                                           prms.n_rows, prms.n_components, true,
-                                           true, streams[0]);
+                                                 prms.n_rows, prms.n_components,
+                                                 true, true, streams[0]);
   }
 
   for (int i = 0; i < local_blocks.size(); i++) {
@@ -313,17 +315,18 @@ void inverse_transform_impl(
                  local_blocks[i]->size, prms.n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
                  alpha, beta, cublas_h, streams[si]);
 
-    MLCommon::Stats::meanAdd(input[i]->ptr, input[i]->ptr, mu, size_t(prms.n_cols),
-                   local_blocks[i]->size, false, true, streams[si]);
+    MLCommon::Stats::meanAdd(input[i]->ptr, input[i]->ptr, mu,
+                             size_t(prms.n_cols), local_blocks[i]->size, false,
+                             true, streams[si]);
   }
 
   if (prms.whiten) {
     raft::matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-                                          prms.n_rows, prms.n_components, true,
-                                          true, streams[0]);
+                                                prms.n_rows, prms.n_components,
+                                                true, true, streams[0]);
     T scalar = T(sqrt(prms.n_rows - 1));
     raft::linalg::scalarMultiply(components, components, scalar,
-                           prms.n_rows * prms.n_components, streams[0]);
+                                 prms.n_rows * prms.n_components, streams[0]);
   }
 
   for (int i = 0; i < n_streams; i++) {

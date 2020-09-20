@@ -44,7 +44,7 @@ struct Tikhonov {
     Gweights.ax(l2_penalty, Wweights, stream);
 
     raft::linalg::mapThenSumReduce(reg_val, Wweights.len, *this, stream,
-                                       Wweights.data);
+                                   Wweights.data);
   }
 };
 

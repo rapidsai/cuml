@@ -148,8 +148,7 @@ __global__ void optimize_batch_kernel_reg(
   /**
    * Negative sampling stage
    */
-  raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)row,
-                                                0);
+  raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)row, 0);
   for (int p = 0; p < n_neg_samples; p++) {
     int r;
     gen.next(r);
@@ -285,8 +284,7 @@ __global__ void optimize_batch_kernel(
   /**
    * Negative sampling stage
    */
-  raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)row,
-                                                0);
+  raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)row, 0);
   for (int p = 0; p < n_neg_samples; p++) {
     int r;
     gen.next(r);
