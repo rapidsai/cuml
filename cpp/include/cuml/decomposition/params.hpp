@@ -19,19 +19,12 @@
 namespace ML {
 
 /**
- * @defgroup pcaSolver: enumeration for pca solvers.
- * @param AUTO: Fastest solver will be used based on input shape and n_components.
- * @param FULL: All the eigenvectors and singular values (or eigenvalues) will be generated.
- * @param ARPACK: tsvd using power method. Lanczos will be included in the future.
- * @param RANDOMIZED: randomized svd
  * @param COV_EIG_DQ: covariance of input will be used along with eigen decomposition using divide and conquer method for symmetric matrices
  * @param COV_EIG_JACOBI: covariance of input will be used along with eigen decomposition using jacobi method for symmetric matrices
- * @{
  */
 enum class solver : int {
   COV_EIG_DQ,
   COV_EIG_JACOBI,
-  RANDOMIZED,
 };
 
 class params {
@@ -48,7 +41,6 @@ class paramsSolver : public params {
   //math_t tol = 0.0;
   float tol = 0.0;
   int n_iterations = 15;
-  int random_state;
   int verbose = 0;
 };
 
@@ -72,7 +64,6 @@ class paramsTSVDTemplate : public paramsSolver {
  * @param tol: Tolerance for singular values computed by svd_solver == ‘arpack’ or svd_solver == ‘COV_EIG_JACOBI’
  * @param iterated_power: Number of iterations for the power method computed by svd_solver == ‘randomized’ or
  *                        jacobi method by svd_solver == 'COV_EIG_JACOBI'.
- * @param random_state: RandomState instance or None, optional (default None)
  * @param verbose: 0: no error message printing, 1: print error messages
  * @param max_sweeps: number of sweeps jacobi method uses. The more the better accuracy.
  */
