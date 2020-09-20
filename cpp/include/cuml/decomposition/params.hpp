@@ -50,7 +50,6 @@ class paramsTSVDTemplate : public paramsSolver {
   int n_components = 1;
   int max_sweeps = 15;
   enum_solver algorithm = enum_solver::COV_EIG_DQ;
-  bool trans_input = false;
 };
 
 /**
