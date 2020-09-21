@@ -67,7 +67,7 @@ class paramsTSVDTemplate : public paramsSolver {
 template <typename enum_solver = solver>
 class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
  public:
-  bool copy = true;
+  bool copy = true;  // TODO unused, see #2830 and #2833
   bool whiten = false;
 };
 
