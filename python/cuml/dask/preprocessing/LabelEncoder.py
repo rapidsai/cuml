@@ -159,7 +159,7 @@ class LabelEncoder(BaseEstimator,
         if self._get_internal_model() is not None:
             return self._transform(y,
                                    delayed=delayed,
-                                   output_dtype='int64',
+                                   output_dtype='int32',
                                    output_collection_type='cudf')
         else:
             msg = ("This LabelEncoder instance is not fitted yet. Call 'fit' "
