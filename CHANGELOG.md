@@ -41,6 +41,7 @@
 - PR #2832: Updating stress tests that fail with OOM
 - PR #2831: Removing repeated capture and parameter in lambda function
 - PR #2842: KNN index preprocessors were using incorrect n_samples
+- PR #2848: Fix typo in Python docstring for UMAP
 
 # cuML 0.15.0 (Date TBD)
 
