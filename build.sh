@@ -71,7 +71,6 @@ BUILD_STATIC_FAISS=OFF
 #         CONDA_PREFIX, but there is no fallback from there!
 INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=""}
-BUILD_ABI=${BUILD_ABI:=ON}
 
 function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
@@ -171,7 +170,6 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
     cd ${LIBCUML_BUILD_DIR}
 
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
-          -DCMAKE_CXX11_ABI=${BUILD_ABI} \
           -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so.0 \
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
