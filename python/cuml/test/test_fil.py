@@ -123,7 +123,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
 
     xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
     fm = ForestInference.load(model_path,
-                              algo='auto',
+                              branch_algo='auto',
                               output_class=True,
                               threshold=0.50)
     fil_preds = np.asarray(fm.predict(X_validation))
@@ -177,7 +177,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 
     xgb_mse = mean_squared_error(y_validation, xgb_preds)
     fm = ForestInference.load(model_path,
-                              algo='auto',
+                              branch_algo='auto',
                               output_class=False)
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
@@ -234,10 +234,10 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 
     skl_acc = accuracy_score(y_validation, skl_preds > 0.5)
 
-    algo = 'NAIVE' if storage_type else 'BATCH_TREE_REORG'
+    branch_algo = 'NAIVE' if storage_type else 'BATCH_TREE_REORG'
 
     fm = ForestInference.load_from_sklearn(skl_model,
-                                           algo=algo,
+                                           branch_algo=branch_algo,
                                            output_class=True,
                                            threshold=0.50,
                                            storage_type=storage_type)
@@ -299,10 +299,10 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
 
     skl_mse = mean_squared_error(y_validation, skl_preds)
 
-    algo = 'NAIVE' if storage_type else 'BATCH_TREE_REORG'
+    branch_algo = 'NAIVE' if storage_type else 'BATCH_TREE_REORG'
 
     fm = ForestInference.load_from_sklearn(skl_model,
-                                           algo=algo,
+                                           branch_algo=branch_algo,
                                            output_class=False,
                                            storage_type=storage_type)
     fil_preds = np.asarray(fm.predict(X_validation))
@@ -330,14 +330,14 @@ def small_classifier_and_preds(tmpdir_factory):
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.parametrize('algo', ['AUTO', 'NAIVE', 'TREE_REORG',
+@pytest.mark.parametrize('branch_algo', ['AUTO', 'NAIVE', 'TREE_REORG',
                                   'BATCH_TREE_REORG',
                                   'auto', 'naive', 'tree_reorg',
                                   'batch_tree_reorg'])
-def test_output_algos(algo, small_classifier_and_preds):
+def test_output_algos(branch_algo, small_classifier_and_preds):
     model_path, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
-                              algo=algo,
+                              branch_algo=branch_algo,
                               output_class=True,
                               threshold=0.50)
 
@@ -370,7 +370,7 @@ def test_output_storage_type(storage_type, small_classifier_and_preds):
 def test_thresholding(output_class, small_classifier_and_preds):
     model_path, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
-                              algo='TREE_REORG',
+                              branch_algo='TREE_REORG',
                               output_class=output_class,
                               threshold=0.50)
     fil_preds = np.asarray(fm.predict(X))
@@ -384,7 +384,7 @@ def test_thresholding(output_class, small_classifier_and_preds):
 def test_output_args(small_classifier_and_preds):
     model_path, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
-                              algo='TREE_REORG',
+                              branch_algo='TREE_REORG',
                               output_class=False,
                               threshold=0.50)
     X = np.asarray(X)
@@ -410,7 +410,7 @@ def test_lightgbm(tmp_path):
                                   'lgb.model'))
     bst.save_model(model_path)
     fm = ForestInference.load(model_path,
-                              algo='TREE_REORG',
+                              branch_algo='TREE_REORG',
                               output_class=True,
                               model_type="lightgbm")
 
@@ -426,7 +426,7 @@ def test_lightgbm(tmp_path):
 
     lcls.booster_.save_model(model_path)
     fm = ForestInference.load(model_path,
-                              algo='TREE_REORG',
+                              branch_algo='TREE_REORG',
                               output_class=True,
                               model_type="lightgbm")
 
