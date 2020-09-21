@@ -23,8 +23,8 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <sparse/csr.cuh>
 
-#include <cuml/neighbors/knn.hpp>
 #include <cuml/distance/distance_type.h>
+#include <cuml/neighbors/knn.hpp>
 
 #include <cusparse_v2.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -60,9 +60,7 @@ struct distances_config_t {
 template <typename value_t>
 class distances_t {
  public:
-  virtual void compute(value_t *out) {
-    CUML_LOG_DEBUG("INside base");
-  }
+  virtual void compute(value_t *out) { CUML_LOG_DEBUG("INside base"); }
   virtual ~distances_t() = default;
 };
 
@@ -71,7 +69,6 @@ class distances_t {
  */
 template <typename value_idx = int, typename value_t = float>
 class ip_distances_t : public distances_t<value_t> {
-
  public:
   /**
    * Computes simple sparse inner product distances as sum(x_y * y_k)
@@ -117,7 +114,7 @@ class ip_distances_t : public distances_t<value_t> {
     out_batch_data.resize(out_batch_nnz, config_.stream);
 
     compute_gemm(out_batch_indptr.data(), out_batch_indices.data(),
-            out_batch_data.data());
+                 out_batch_data.data());
 
     /**
      * Convert output to dense
@@ -178,7 +175,7 @@ class ip_distances_t : public distances_t<value_t> {
   }
 
   void compute_gemm(const value_idx *csr_out_indptr, value_idx *csr_out_indices,
-               value_t *csr_out_data) {
+                    value_t *csr_out_data) {
     value_idx m = config_.a_nrows, n = config_.b_nrows, k = config_.a_ncols;
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2<value_t>(
@@ -293,7 +290,6 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
  */
 template <typename value_idx = int, typename value_t = float>
 class l2_distances_t : public distances_t<value_t> {
-
  public:
   explicit l2_distances_t(distances_config_t<value_idx, value_t> config)
     : config_(config),
@@ -331,7 +327,6 @@ class l2_distances_t : public distances_t<value_t> {
   ip_distances_t<value_idx, value_t> ip_dists;
 };
 
-
 /**
  * Compute pairwise distances between A and B, using the provided
  * input configuration and distance function.
@@ -350,10 +345,9 @@ template <typename value_idx = int, typename value_t = float>
 void pairwiseDistance(value_t *out,
                       distances_config_t<value_idx, value_t> input_config,
                       ML::Distance::DistanceType metric) {
-
   CUML_LOG_DEBUG("Running sparse pairwise distances with metric=%d", metric);
 
-  switch(metric) {
+  switch (metric) {
     case ML::Distance::DistanceType::EucExpandedL2:
       // EucExpandedL2
       l2_distances_t<value_idx, value_t>(input_config).compute(out);

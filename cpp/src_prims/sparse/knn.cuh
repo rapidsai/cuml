@@ -159,25 +159,26 @@ void iota_fill(value_idx *indices, value_idx nrows, value_idx ncols,
    * @param[in] expanded_form whether or not Lp variants should be reduced by the pth-root
    */
 template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
-void brute_force_knn(
-  const value_idx *idxIndptr, const value_idx *idxIndices,
-  const value_t *idxData, size_t idxNNZ, int n_idx_rows,
-  int n_idx_cols, const value_idx *queryIndptr,
-  const value_idx *queryIndices, const value_t *queryData, size_t queryNNZ,
-  int n_query_rows, int n_query_cols, value_idx *output_indices,
-  value_t *output_dists, int k, cusparseHandle_t cusparseHandle,
-  std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
-  size_t batch_size_index = 2 << 14,  // approx 1M
-  size_t batch_size_query = 2 << 14,
-  ML::MetricType metric = ML::MetricType::METRIC_L2, float metricArg = 0,
-  bool expanded_form = false) {
+void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
+                     const value_t *idxData, size_t idxNNZ, int n_idx_rows,
+                     int n_idx_cols, const value_idx *queryIndptr,
+                     const value_idx *queryIndices, const value_t *queryData,
+                     size_t queryNNZ, int n_query_rows, int n_query_cols,
+                     value_idx *output_indices, value_t *output_dists, int k,
+                     cusparseHandle_t cusparseHandle,
+                     std::shared_ptr<deviceAllocator> allocator,
+                     cudaStream_t stream,
+                     size_t batch_size_index = 2 << 14,  // approx 1M
+                     size_t batch_size_query = 2 << 14,
+                     ML::MetricType metric = ML::MetricType::METRIC_L2,
+                     float metricArg = 0, bool expanded_form = false) {
   using namespace raft::sparse;
 
   bool ascending = true;
   if (metric == ML::MetricType::METRIC_INNER_PRODUCT) ascending = false;
 
   ML::Distance::DistanceType pw_metric;
-  switch(metric) {
+  switch (metric) {
     case ML::MetricType::METRIC_INNER_PRODUCT:
       pw_metric = ML::Distance::DistanceType::InnerProduct;
       break;
@@ -289,7 +290,6 @@ void brute_force_knn(
       value_idx dense_size =
         idx_batcher.batch_rows() * query_batcher.batch_rows();
       device_buffer<value_t> batch_dists(allocator, stream, dense_size);
-
 
       Distance::pairwiseDistance(batch_dists.data(), dist_config, pw_metric);
 
