@@ -144,10 +144,9 @@ class SparseDistanceTest
 const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
   {
     2,
-    {0, 2, 4, 6, 8},              // indptr
+    {0, 2, 4, 6, 8},
     {0, 1, 0, 1, 0, 1, 0, 1},     // indices
-    {1.0f, 3.0f, 1.0f, 5.0f,      // data
-      50.0f, 28.0f, 16.0f, 2.0f},
+    {1.0f, 3.0f, 1.0f, 5.0f, 50.0f, 28.0f, 16.0f, 2.0f},
     {                             // dense output
       0.0, 4.0, 3026.0, 226.0, 4.0, 0.0, 2930.0, 234.0,
       3026.0, 2930.0, 0.0, 1832.0, 226.0, 234.0, 1832.0, 0.0,
@@ -158,8 +157,7 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
     2,
     {0, 2, 4, 6, 8},
     {0, 1, 0, 1, 0, 1, 0, 1},
-    {1.0f, 2.0f, 1.0f, 2.0f,
-      1.0f, 2.0f, 1.0f, 2.0f},
+    {1.0f, 2.0f, 1.0f, 2.0f, 1.0f, 2.0f, 1.0f, 2.0f},
     { 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0,
       5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0 },
     ML::Distance::DistanceType::InnerProduct

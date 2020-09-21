@@ -29,7 +29,25 @@ namespace Sparse {
 namespace Selection {
 
 template <typename value_idx, typename value_t>
-struct KNNInputs {};
+struct KNNInputs {
+
+  value_idx n_cols;
+
+  std::vector<value_idx> indptr_h;
+  std::vector<value_idx> indices_h;
+  std::vector<value_t> data_h;
+
+  std::vector<value_t> out_dists_ref_h;
+  std::vector<value_idx> out_indices_ref_h;
+
+  int k;
+
+  int batch_size_index = 2;
+  int batch_size_query = 2;
+
+  ML::MetricType metric = ML::MetricType::METRIC_L2;
+
+};
 
 template <typename value_idx, typename value_t>
 ::std::ostream &operator<<(::std::ostream &os,
@@ -42,23 +60,20 @@ class SparseKNNTest
   : public ::testing::TestWithParam<KNNInputs<value_idx, value_t>> {
  protected:
   void make_data() {
-    std::vector<value_idx> indptr_h = {0, 2, 4, 6, 8};
-    std::vector<value_idx> indices_h = {0, 4, 0, 3, 0, 2, 0, 8};
-    std::vector<value_t> data_h = {0.0f, 1.0f, 5.0f, 6.0f,
-                                   5.0f, 6.0f, 0.0f, 1.0f};
+    std::vector<value_idx> indptr_h = params.indptr_h;
+    std::vector<value_idx> indices_h = params.indices_h;
+    std::vector<value_t> data_h = params.data_h;
 
-    allocate(indptr, 5);
-    allocate(indices, 8);
-    allocate(data, 8);
+    allocate(indptr, indptr_h.size());
+    allocate(indices, indices_h.size());
+    allocate(data, data_h.size());
 
     updateDevice(indptr, indptr_h.data(), indptr_h.size(), stream);
     updateDevice(indices, indices_h.data(), indices_h.size(), stream);
     updateDevice(data, data_h.data(), data_h.size(), stream);
 
-    std::vector<value_t> out_dists_ref_h = {1,  0,  0, 61, 25, 0,
-                                            61, 25, 0, 1,  0,  0};
-    std::vector<value_idx> out_indices_ref_h = {0, 3, 1, 1, 2, 3,
-                                                2, 1, 3, 3, 2, 0};
+    std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
+    std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
 
     allocate(out_indices_ref, out_indices_ref_h.size());
     allocate(out_dists_ref, out_dists_ref_h.size());
@@ -68,8 +83,8 @@ class SparseKNNTest
     updateDevice(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
                  stream);
 
-    allocate(out_dists, 4 * k);
-    allocate(out_indices, 4 * k);
+    allocate(out_dists, n_rows * k);
+    allocate(out_indices, n_rows * k);
   }
 
   void SetUp() override {
@@ -81,20 +96,23 @@ class SparseKNNTest
 
     CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));
 
-    k = 2;
-
     ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
+
+    n_rows = params.indptr_h.size()-1;
+    nnz = params.indices_h.size();
+    k = params.k;
 
     make_data();
 
     brute_force_knn<value_idx, value_t>(
-      indptr, indices, data, 8, 4, 9, indptr, indices, data, 8, 4, 9,
-      out_indices, out_dists, k, cusparseHandle, alloc, stream, 2, 2,
-      ML::MetricType::METRIC_L2);
+      indptr, indices, data, nnz, n_rows, params.n_cols,
+      indptr, indices, data, nnz, n_rows, params.n_cols,
+      out_indices, out_dists, k, cusparseHandle, alloc, stream,
+      params.batch_size_index, params.batch_size_query,
+      params.metric);
 
-
-    std::cout << arr2Str(out_dists, 4 * k, "out_dists", stream) << std::endl;
-    std::cout << arr2Str(out_indices, 4 * k, "out_indices", stream) << std::endl;
+    std::cout << arr2Str(out_dists, n_rows * k, "out_dists", stream) << std::endl;
+    std::cout << arr2Str(out_indices, n_rows * k, "out_indices", stream) << std::endl;
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -115,14 +133,16 @@ class SparseKNNTest
 
   void compare() {
     ASSERT_TRUE(
-      devArrMatch(out_dists_ref, out_dists, 4 * k, Compare<value_t>()));
+      devArrMatch(out_dists_ref, out_dists, n_rows * k, Compare<value_t>()));
     ASSERT_TRUE(
-      devArrMatch(out_indices_ref, out_indices, 4 * k, Compare<value_idx>()));
+      devArrMatch(out_indices_ref, out_indices, n_rows * k, Compare<value_idx>()));
   }
 
  protected:
   cudaStream_t stream;
   cusparseHandle_t cusparseHandle;
+
+  int n_rows, nnz, k;
 
   // input data
   value_idx *indptr, *indices;
@@ -132,15 +152,23 @@ class SparseKNNTest
   value_idx *out_indices;
   value_t *out_dists;
 
-  int k;
-
   value_idx *out_indices_ref;
   value_t *out_dists_ref;
 
   KNNInputs<value_idx, value_t> params;
 };
 
-const std::vector<KNNInputs<int, float>> inputs_i32_f = {{}};
+const std::vector<KNNInputs<int, float>> inputs_i32_f = {
+  {
+    9, // ncols
+    {0, 2, 4, 6, 8}, // indptr
+    {0, 4, 0, 3, 0, 2, 0, 8}, // indices
+    {0.0f, 1.0f, 5.0f, 6.0f, 5.0f, 6.0f, 0.0f, 1.0f}, // data
+    {0,  1.41421,  0, 7.87401, 0, 7.87401, 0, 1.41421}, // dists
+    {0, 3, 1, 0, 2, 0, 3, 0}, // inds
+    2, 2, ML::MetricType::METRIC_L2
+  }
+};
 typedef SparseKNNTest<int, float> KNNTestF;
 TEST_P(KNNTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(SparseKNNTest, KNNTestF,
