@@ -244,7 +244,7 @@ struct forest {
   float threshold_ = 0.5;
   float global_bias_ = 0;
   leaf_value_t leaf_payload_type_ = leaf_value_t::FLOAT_SCALAR;
-  int num_classes_ = 0;
+  int num_classes_ = 1;
 };
 
 struct dense_forest : forest {
@@ -376,9 +376,7 @@ void check_params(const forest_params_t* params, bool dense) {
   }
   switch (params->leaf_payload_type) {
     case leaf_value_t::FLOAT_SCALAR:
-      /* params->num_classes is ignored in this case, since the user might call
-         predict_proba() on regression. Hence, no point checking the range of
-         an ignored variable */
+      ASSERT(params->num_classes >= 1, "num_classes must be positive");
       break;
     case leaf_value_t::INT_CLASS_LABEL:
       ASSERT(params->num_classes >= 2,
@@ -636,11 +634,11 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
       "are supported for multi-class models");
 
   } else {
+    params->num_classes = tl_params->output_class ? 2 : 1;
     ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
            "only sigmoid and identity values of pred_transform "
            "are supported for binary classification and regression models");
     params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
-    params->num_classes = 0;  // ignored
   }
 
   params->num_cols = model.num_feature;
