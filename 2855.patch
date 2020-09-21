@@ -1,0 +1,198 @@
+From 1dcd3d2202499b1ea5bfe0600a9aa9da9d6e4e7e Mon Sep 17 00:00:00 2001
+From: Dante Gama Dessavre <dante.gamadessavre@gmail.com>
+Date: Mon, 21 Sep 2020 13:34:35 -0500
+Subject: [PATCH 1/2] FIX Updates for RMM being header only
+
+---
+ build.sh                     |  2 --
+ cpp/CMakeLists.txt           | 26 +++-----------------------
+ cpp/cmake/Dependencies.cmake | 21 +++++++++++----------
+ python/setup.py              |  2 +-
+ 4 files changed, 15 insertions(+), 36 deletions(-)
+
+diff --git a/build.sh b/build.sh
+index f961c1f9e6..ec6499b7e6 100755
+--- a/build.sh
++++ b/build.sh
+@@ -71,7 +71,6 @@ BUILD_STATIC_FAISS=OFF
+ #         CONDA_PREFIX, but there is no fallback from there!
+ INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
+ PARALLEL_LEVEL=${PARALLEL_LEVEL:=""}
+-BUILD_ABI=${BUILD_ABI:=ON}
+ 
+ function hasArg {
+     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
+@@ -171,7 +170,6 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
+     cd ${LIBCUML_BUILD_DIR}
+ 
+     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+-          -DCMAKE_CXX11_ABI=${BUILD_ABI} \
+           -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so.0 \
+           ${GPU_ARCH} \
+           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+diff --git a/cpp/CMakeLists.txt b/cpp/CMakeLists.txt
+index a7d5de5184..95bf56b145 100644
+--- a/cpp/CMakeLists.txt
++++ b/cpp/CMakeLists.txt
+@@ -68,9 +68,6 @@ option(BUILD_STATIC_FAISS "Build the FAISS library for nearest neighbors search
+ 
+ option(BUILD_GTEST "Build the GTEST library for running libcuml++ and prims test executables" OFF)
+ 
+-
+-option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
+-
+ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
+ 
+ option(DISABLE_OPENMP "Disable OpenMP" OFF)
+@@ -189,11 +186,6 @@ GENERATE_FIND_MODULE(
+   LIBRARY_NAME nccl)
+ endif(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
+ 
+-GENERATE_FIND_MODULE(
+-  NAME         RMM
+-  HEADER_NAME  rmm/device_buffer.hpp
+-  LIBRARY_NAME rmm)
+-
+ if(BUILD_CUML_STD_COMMS)
+   GENERATE_FIND_MODULE(
+     NAME         UCX
+@@ -323,17 +315,6 @@ list(GET GPU_ARCHS -1 ptx)
+ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
+ set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
+ 
+-if(CMAKE_COMPILER_IS_GNUCXX)
+-  if(NOT CMAKE_CXX11_ABI)
+-    message(STATUS "Disabling the GLIBCXX11 ABI")
+-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -D_GLIBCXX_USE_CXX11_ABI=0")
+-  elseif(CMAKE_CXX11_ABI)
+-    message(STATUS "Enabling the GLIBCXX11 ABI")
+-  endif(NOT CMAKE_CXX11_ABI)
+-endif(CMAKE_COMPILER_IS_GNUCXX)
+-
+ set(CMAKE_CUDA_FLAGS
+   "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
+ 
+@@ -373,13 +354,12 @@ set(CUML_PRIVATE_LINK_LIBRARIES
+   FAISS::FAISS
+   treelite::treelite
+   treelite::treelite_runtime
+-  RMM::RMM
+   )
+-  
++
+ if(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
+ 	list(APPEND CUML_INCLUDE_DIRECTORIES
+ 		${NCCL_INCLUDE_DIRS})
+-	
++
+ 	list(APPEND CUML_PRIVATE_LINK_LIBRARIES
+ 		NCCL::NCCL)
+ endif(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
+@@ -387,7 +367,7 @@ endif(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
+ if(BUILD_CUML_MPI_COMMS)
+ 	list(APPEND CUML_INCLUDE_DIRECTORIES
+         ${MPI_CXX_INCLUDE_PATH})
+-        
++
+     list(APPEND CUML_PRIVATE_LINK_LIBRARIES
+          ${MPI_CXX_LIBRARIES})
+ endif(BUILD_CUML_MPI_COMMS)
+diff --git a/cpp/cmake/Dependencies.cmake b/cpp/cmake/Dependencies.cmake
+index 2302cdab2e..3571463589 100644
+--- a/cpp/cmake/Dependencies.cmake
++++ b/cpp/cmake/Dependencies.cmake
+@@ -80,12 +80,13 @@ endif(ENABLE_CUMLPRIMS_MG)
+ ##############################################################################
+ # - RMM ----------------------------------------------------------------------
+ 
+-# find package module uses RMM_INSTALL_DIR for Hints, checking RMM_ROOT env variable
+-# to match other RAPIDS repos.
+-set(RMM_INSTALL_DIR ENV{RMM_ROOT})
++find_path(RMM_INCLUDE_DIRS "rmm"
++    HINTS
++    "$ENV{RMM_ROOT}/include"
++    "$ENV{CONDA_PREFIX}/include/rmm"
++    "$ENV{CONDA_PREFIX}/include")
+ 
+-find_package(RMM
+-             REQUIRED)
++message(STATUS "RMM: RMM_INCLUDE_DIRS set to ${RMM_INCLUDE_DIRS}")
+ 
+ ##############################################################################
+ # - NCCL ---------------------------------------------------------------------
+@@ -206,20 +207,20 @@ if(BUILD_GTEST)
+ 	  BUILD_BYPRODUCTS  ${GTEST_DIR}/lib/libgtest.a
+ 	                    ${GTEST_DIR}/lib/libgtest_main.a
+ 	  UPDATE_COMMAND    "")
+-	
++
+ 	add_library(GTest::GTest STATIC IMPORTED)
+ 	add_library(GTest::Main STATIC IMPORTED)
+-	
++
+ 	set_property(TARGET GTest::GTest PROPERTY
+ 	  IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest.a)
+ 	set_property(TARGET GTest::Main PROPERTY
+ 	  IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest_main.a)
+-	
++
+ 	set(GTEST_INCLUDE_DIRS "${GTEST_DIR}")
+-	
++
+ 	add_dependencies(GTest::GTest googletest)
+ 	add_dependencies(GTest::Main googletest)
+-	
++
+ else()
+ 	find_package(GTest REQUIRED)
+ endif(BUILD_GTEST)
+diff --git a/python/setup.py b/python/setup.py
+index c75963913a..c4a34f3478 100644
+--- a/python/setup.py
++++ b/python/setup.py
+@@ -151,7 +151,7 @@ def finalize_options(self):
+         # object has all the args used by the user, we can check that.
+         self.singlegpu = '--singlegpu' in self.distribution.script_args
+ 
+-        libs = ['cuda', 'cuml++', 'rmm']
++        libs = ['cuda', 'cuml++']
+ 
+         include_dirs = [
+             '../cpp/src',
+
+From e24ed7852ed16f98677ebc40d1c1838574ff6ef6 Mon Sep 17 00:00:00 2001
+From: Dante Gama Dessavre <dante.gamadessavre@gmail.com>
+Date: Mon, 21 Sep 2020 13:37:10 -0500
+Subject: [PATCH 2/2] DOC Added entry to changelog
+
+---
+ CHANGELOG.md  | 1 +
+ cpp/README.md | 1 -
+ 2 files changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 960c787776..ef0d19c155 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -43,6 +43,7 @@
+ - PR #2831: Removing repeated capture and parameter in lambda function
+ - PR #2842: KNN index preprocessors were using incorrect n_samples
+ - PR #2848: Fix typo in Python docstring for UMAP
++- PR #2855: Updates for RMM being header only
+ 
+ # cuML 0.15.0 (Date TBD)
+ 
+diff --git a/cpp/README.md b/cpp/README.md
+index 0e6617cdb2..4059088ac3 100644
+--- a/cpp/README.md
++++ b/cpp/README.md
+@@ -44,7 +44,6 @@ Current cmake offers the following configuration options:
+ | BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
+ | BUILD_CUML_BENCH | [ON, OFF] | ON | Enable/disable building oc cuML C++ benchark.  |
+ | BUILD_STATIC_FAISS | [ON, OFF] | OFF | Enable/disable building and static linking of FAISS into cuML. When this option is disabled, build will search for an installed version of FAISS. |
+-| CMAKE_CXX11_ABI | [ON, OFF]  | ON  | Enable/disable the GLIBCXX11 ABI  |
+ | DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
+ | GPU_ARCHS |  List of GPU architectures, semicolon-separated | Empty  | List of GPU architectures that all artifacts are compiled for. Passing ALL means compiling for all currently supported GPU architectures: 60;70;75. If you don't pass this flag, then the build system will try to look for the GPU card installed on the system and compile only for that.  |
+ 
