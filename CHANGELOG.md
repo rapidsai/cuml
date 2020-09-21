@@ -43,6 +43,7 @@
 - PR #2831: Removing repeated capture and parameter in lambda function
 - PR #2842: KNN index preprocessors were using incorrect n_samples
 - PR #2848: Fix typo in Python docstring for UMAP
+- PR #2855: Updates for RMM being header only
 
 # cuML 0.15.0 (Date TBD)
 
