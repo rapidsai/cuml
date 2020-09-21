@@ -541,10 +541,11 @@ class ForestInference(Base):
              - True - create a sparse forest;
                requires branch_algo='NAIVE' or branch_algo='AUTO'
              - 'sparse8' - (experimental) create a sparse forest
-                      with 8-byte nodes; requires branch_algo='NAIVE' or branch_algo='AUTO';
-                      can fail if 8-byte nodes are not enough
-                      to store the forest, e.g. if there are
-                      too many nodes in a tree or too many features
+               with 8-byte nodes; requires branch_algo='NAIVE' or
+               branch_algo='AUTO';
+               can fail if 8-byte nodes are not enough
+               to store the forest, e.g. if there are
+               too many nodes in a tree or too many features
 
         Returns
         ----------
