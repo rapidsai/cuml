@@ -21,12 +21,16 @@ import numpy as np
 import pytest
 import umap
 
+import scipy.sparse
+
 from cuml.manifold.umap import UMAP as cuUMAP
 from cuml.test.utils import array_equal, unit_param, \
     quality_param, stress_param
 from sklearn.neighbors import NearestNeighbors
 
 import joblib
+
+from cuml.common import logger
 
 from sklearn import datasets
 from sklearn.cluster import KMeans
@@ -138,8 +142,9 @@ def test_umap_transform_on_iris(target_metric):
     assert trust >= 0.85
 
 
+@pytest.mark.parametrize('sparse', [True, False])
 @pytest.mark.parametrize('target_metric', ["categorical", "euclidean"])
-def test_umap_transform_on_digits(target_metric):
+def test_umap_transform_on_digits(target_metric, sparse):
 
     digits = datasets.load_digits()
 
@@ -147,16 +152,31 @@ def test_umap_transform_on_digits(target_metric):
         [True, False], 1797, replace=True, p=[0.75, 0.25])
     data = digits.data[digits_selection]
 
+    if sparse:
+        data = scipy.sparse.csr_matrix(data)
+
     fitter = cuUMAP(n_neighbors=15,
+                    verbose=logger.level_debug,
                     init="random",
                     n_epochs=0,
                     min_dist=0.01,
                     random_state=42,
                     target_metric=target_metric)
     fitter.fit(data, convert_dtype=True)
+
     new_data = digits.data[~digits_selection]
+
+    if sparse:
+        new_data = scipy.sparse.csr_matrix(new_data)
+
     embedding = fitter.transform(new_data, convert_dtype=True)
-    trust = trustworthiness(new_data, embedding, 15)
+
+    print("Embedding: %s" % type(embedding))
+
+    if sparse:
+        embedding = embedding.get()
+
+    trust = trustworthiness(digits.data[~digits_selection], embedding, 15)
     assert trust >= 0.96
 
 

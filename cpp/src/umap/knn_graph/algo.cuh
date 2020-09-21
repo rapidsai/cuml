@@ -63,7 +63,8 @@ void launcher(const ML::umap_dense_inputs_t<float> &inputsA, const ML::umap_dens
               ML::knn_graph<int, float> &out, int n_neighbors,
               const ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
-  throw raft::exception("Dense KNN doesn't yet support integer indices");
+
+  throw raft::exception("Dense KNN doesn't yet support 32-bit integer indices");
 }
 
 
@@ -82,7 +83,7 @@ void launcher(const ML::umap_sparse_inputs_t<int, float> &inputsA,
     inputsA.indptr, inputsA.indices, inputsA.data, inputsA.nnz, inputsA.n,
     inputsA.d, inputsB.indptr, inputsB.indices, inputsB.data, inputsB.nnz,
     inputsB.n, inputsB.d, out.knn_indices, out.knn_dists, n_neighbors, cusparseHandle,
-    d_alloc, stream, ML::MetricType::METRIC_L2);
+    d_alloc, stream, 2 << 14, 2 << 14, ML::MetricType::METRIC_L2);
 
   CUSPARSE_CHECK(cusparseDestroy(cusparseHandle));
 }
@@ -96,7 +97,7 @@ void launcher(const ML::umap_sparse_inputs_t<int64_t, float> &inputsA,
               const ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
 
-  throw raft::exception("Sparse KNN doesn't support 64-bit indices");
+  throw raft::exception("Sparse KNN doesn't support 64-bit integer indices");
 }
 
 

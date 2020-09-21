@@ -46,13 +46,13 @@ void transform(const raft::handle_t &handle, float *X, int n, int d,
 }
 
 // Sparse transform
-void transform(const raft::handle_t &handle, int *indptr, int *indices, float *data,
+void transform_sparse(const raft::handle_t &handle, int *indptr, int *indices, float *data,
                size_t nnz, int n, int d, int *orig_x_indptr, int *orig_x_indices, float *orig_x_data,
                size_t orig_nnz, int orig_n, float *embedding, int embedding_n,
                UMAPParams *params, float *transformed) {
 
   umap_sparse_inputs_t<knn_indices_sparse_t, float> inputs(indptr, indices, data, nullptr, nnz, n, d);
-  umap_sparse_inputs_t<knn_indices_sparse_t, float> orig_x_inputs(indptr, indices, data, nullptr, orig_nnz, orig_n, d);
+  umap_sparse_inputs_t<knn_indices_sparse_t, float> orig_x_inputs(orig_x_indptr, orig_x_indices, orig_x_data, nullptr, orig_nnz, orig_n, d);
 
   UMAPAlgo::_transform<knn_indices_sparse_t, float, umap_sparse_inputs_t<int, float>, TPB_X>(handle, inputs,
                                      orig_x_inputs, embedding, embedding_n,
@@ -91,7 +91,7 @@ void fit(const raft::handle_t &handle,
 
 
 // Sparse fit
-void fit(const raft::handle_t &handle,
+void fit_sparse(const raft::handle_t &handle,
          int *indptr,  // input matrix
          int *indices,
          float *data,

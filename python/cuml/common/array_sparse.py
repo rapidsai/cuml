@@ -135,6 +135,7 @@ class SparseCumlArray:
 
             - 'cupy' - to cupy array
             - 'scipy' - to scipy (host) array
+            - 'numpy' - to scipy (host) array
 
         output_format : string, optional { 'coo', 'csc' }
             Optionally convert the output to the specified format.
@@ -148,7 +149,7 @@ class SparseCumlArray:
         if output_type not in ['cupy', 'scipy']:
             raise ValueError("Unsupported output_type: %s" % output_dtype)
 
-        cuml_arr_output_type = 'numpy' if output_type == 'scipy' else 'cupy'
+        cuml_arr_output_type = 'numpy' if output_type in ('scipy', 'numpy') else 'cupy'
 
         data = self.data.to_output(cuml_arr_output_type, output_dtype)
         indices = self.indices.to_output(cuml_arr_output_type)
