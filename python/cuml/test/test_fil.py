@@ -331,9 +331,9 @@ def small_classifier_and_preds(tmpdir_factory):
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize('branch_algo', ['AUTO', 'NAIVE', 'TREE_REORG',
-                                  'BATCH_TREE_REORG',
-                                  'auto', 'naive', 'tree_reorg',
-                                  'batch_tree_reorg'])
+                                         'BATCH_TREE_REORG',
+                                         'auto', 'naive', 'tree_reorg',
+                                         'batch_tree_reorg'])
 def test_output_algos(branch_algo, small_classifier_and_preds):
     model_path, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,

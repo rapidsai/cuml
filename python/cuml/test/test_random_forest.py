@@ -447,7 +447,7 @@ def test_rf_classification_proba(small_clf, datatype,
 @pytest.mark.parametrize('fil_sparse_format', ['not_supported', True,
                                                'auto', False])
 @pytest.mark.parametrize('branch_algo', ['auto', 'naive', 'tree_reorg',
-                                  'batch_tree_reorg'])
+                                         'batch_tree_reorg'])
 def test_rf_classification_sparse(small_clf, datatype,
                                   fil_sparse_format, branch_algo):
     use_handle = True
@@ -515,8 +515,9 @@ def test_rf_classification_sparse(small_clf, datatype,
 @pytest.mark.parametrize('fil_sparse_format', ['not_supported', True,
                                                'auto', False])
 @pytest.mark.parametrize('branch_algo', ['auto', 'naive', 'tree_reorg',
-                                  'batch_tree_reorg'])
-def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, branch_algo):
+                                         'batch_tree_reorg'])
+def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format,
+                              branch_algo):
     use_handle = True
     num_treees = 50
 
