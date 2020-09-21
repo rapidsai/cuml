@@ -34,7 +34,7 @@ struct Params {
   RegressionParams blobs;
   ModelHandle model;
   ML::fil::storage_type_t storage;
-  ML::fil::algo_t algo;
+  ML::fil::branch_algo_t branch_algo;
   RF_params rf;
 };
 
@@ -87,7 +87,7 @@ class FIL : public RegressionFixture<float> {
     ML::build_treelite_forest(&model, &rf_model, params.ncols,
                               params.nclasses > 1 ? 2 : 1);
     ML::fil::treelite_params_t tl_params = {
-      .algo = p_rest.algo,
+      .branch_algo = p_rest.branch_algo,
       .output_class = params.nclasses > 1,  // cuML RF forest
       .threshold = 1.f / params.nclasses,   //Fixture::DatasetParams
       .storage_type = p_rest.storage};
@@ -124,7 +124,7 @@ struct FilBenchParams {
   int max_depth;
   int ntrees;
   ML::fil::storage_type_t storage;
-  ML::fil::algo_t algo;
+  ML::fil::branch_algo_t branch_algo;
 };
 
 std::vector<Params> getInputs() {
@@ -150,12 +150,13 @@ std::vector<Params> getInputs() {
   p.rf.tree_params.split_criterion = ML::CRITERION::MSE;
   p.rf.n_streams = 8;
   p.rf.tree_params.max_features = 1.f;
-  using ML::fil::algo_t;
+  using ML::fil::branch_algo_t;
   using ML::fil::storage_type_t;
   std::vector<FilBenchParams> var_params = {
-    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG},
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE,
+     branch_algo_t::BATCH_TREE_REORG},
     {(int)1e6, 20, 2, 5, 1000, storage_type_t::DENSE,
-     algo_t::BATCH_TREE_REORG}};
+     branch_algo_t::BATCH_TREE_REORG}};
   for (auto& i : var_params) {
     p.data.nrows = i.nrows;
     p.data.ncols = i.ncols;
@@ -165,7 +166,7 @@ std::vector<Params> getInputs() {
     p.rf.tree_params.max_depth = i.max_depth;
     p.rf.n_trees = i.ntrees;
     p.storage = i.storage;
-    p.algo = i.algo;
+    p.branch_algo = i.branch_algo;
     out.push_back(p);
   }
   return out;

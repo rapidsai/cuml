@@ -191,15 +191,15 @@ typedef sparse_storage<sparse_node8> sparse_storage8;
 struct predict_params {
   // Model parameters.
   int num_cols;
-  algo_t algo;
+  branch_algo_t branch_algo;
   int max_items;  // only set and used by infer()
   // number of outputs for the forest per each data row
   int num_outputs;
   // for class probabilities, this is the number of classes considered
   // ignored otherwise
   int num_classes;
-  // leaf_payload_type determines what the leaves store (predict)
-  leaf_value_t leaf_payload_type;
+  // leaf_algo determines what the leaves store (predict)
+  leaf_algo_t leaf_algo;
 
   // Data parameters.
   float* preds;
