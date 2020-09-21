@@ -27,6 +27,7 @@
 - PR #2800: Align cuML's spdlog version with RMM's
 - PR #2824: Make data conversions warnings be debug level
 - PR #2849: make num_classes significant in FLOAT_SCALAR case
+- PR #2851: rename FIL leaf_algo_t and branch_algo_t
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
