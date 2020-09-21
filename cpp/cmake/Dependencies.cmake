@@ -87,6 +87,19 @@ set(RMM_INSTALL_DIR ENV{RMM_ROOT})
 find_package(RMM
              REQUIRED)
 
+##############################################################################
+# - NCCL ---------------------------------------------------------------------
+
+if(BUILD_CUML_MPI_COMMS OR BUILD_CUML_STD_COMMS)
+  find_package(NCCL REQUIRED)
+endif(BUILD_CUML_MPI_COMMS OR BUILD_CUML_STD_COMMS)
+
+##############################################################################
+# - MPI ---------------------------------------------------------------------
+
+if(BUILD_CUML_MPI_COMMS)
+  find_package(MPI REQUIRED)
+endif(BUILD_CUML_MPI_COMMS)
 
 ##############################################################################
 # - cub - (header only) ------------------------------------------------------
