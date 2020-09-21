@@ -39,14 +39,14 @@ using namespace ML;
  * @param stream cuda stream
  * @param algorithm algo type to choose
  */
-template <int TPB_X, typename T>
-void run(int n, const int64_t *knn_indices, const T *knn_dists, int n_neighbors,
+template <int TPB_X, typename value_idx, typename T>
+void run(int n, const value_idx *knn_indices, const T *knn_dists, int n_neighbors,
          MLCommon::Sparse::COO<T> *coo, UMAPParams *params,
          std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream,
          int algorithm = 0) {
   switch (algorithm) {
     case 0:
-      Naive::launcher<TPB_X, T>(n, knn_indices, knn_dists, n_neighbors, coo,
+      Naive::launcher<TPB_X, value_idx, T>(n, knn_indices, knn_dists, n_neighbors, coo,
                                 params, alloc, stream);
       break;
   }

@@ -161,10 +161,10 @@ void iota_fill(value_idx *indices, value_idx nrows, value_idx ncols,
 template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
 void brute_force_knn(
   const value_idx *idxIndptr, const value_idx *idxIndices,
-  const value_t *idxData, size_t idxNNZ, value_idx n_idx_rows,
-  value_idx n_idx_cols, const value_idx *queryIndptr,
+  const value_t *idxData, size_t idxNNZ, int n_idx_rows,
+  int n_idx_cols, const value_idx *queryIndptr,
   const value_idx *queryIndices, const value_t *queryData, size_t queryNNZ,
-  value_idx n_query_rows, value_idx n_query_cols, value_idx *output_indices,
+  int n_query_rows, int n_query_cols, value_idx *output_indices,
   value_t *output_dists, int k, cusparseHandle_t cusparseHandle,
   std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
   size_t batch_size_index = 2 << 14,  // approx 1M

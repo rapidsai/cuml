@@ -23,66 +23,74 @@
 namespace ML {
 namespace UMAP {
 
-static const int TPB_X = 256;
+static const int TPB_X = 32;
 
+
+
+// Dense transform
 void transform(const raft::handle_t &handle, float *X, int n, int d,
-               int64_t *knn_indices, float *knn_dists, float *orig_X,
+               knn_indices_dense_t *knn_indices, float *knn_dists, float *orig_X,
                int orig_n, float *embedding, int embedding_n,
                UMAPParams *params, float *transformed) {
 
   if(knn_indices != nullptr && knn_dists != nullptr) {
-    umap_precomputed_knn_inputs_t<float> inputs(knn_indices, knn_dists, X, nullptr, n, d);
-    UMAPAlgo::_transform<float, umap_precomputed_knn_inputs_t<float>, TPB_X>(
+    umap_precomputed_knn_inputs_t<knn_indices_dense_t, float> inputs(knn_indices, knn_dists, X, nullptr, n, d);
+    UMAPAlgo::_transform<knn_indices_dense_t, float, umap_precomputed_knn_inputs_t<knn_indices_dense_t , float>, TPB_X>(
       handle, inputs, inputs, embedding, embedding_n, params, transformed);
   } else {
     umap_dense_inputs_t<float> inputs(X, nullptr, n, d);
     umap_dense_inputs_t<float> orig_inputs(orig_X, nullptr, orig_n, d);
-    UMAPAlgo::_transform<float, umap_dense_inputs_t<float>, TPB_X>(
+    UMAPAlgo::_transform<knn_indices_dense_t, float, umap_dense_inputs_t<float>, TPB_X>(
       handle, inputs, orig_inputs, embedding, embedding_n, params, transformed);
   }
 }
 
+// Sparse transform
 void transform(const raft::handle_t &handle, int *indptr, int *indices, float *data,
                size_t nnz, int n, int d, int *orig_x_indptr, int *orig_x_indices, float *orig_x_data,
                size_t orig_nnz, int orig_n, float *embedding, int embedding_n,
                UMAPParams *params, float *transformed) {
 
-  umap_sparse_inputs_t<int, float> inputs(indptr, indices, data, nullptr, nnz, n, d);
-  umap_sparse_inputs_t<int, float> orig_x_inputs(indptr, indices, data, nullptr, orig_nnz, orig_n, d);
+  umap_sparse_inputs_t<knn_indices_sparse_t, float> inputs(indptr, indices, data, nullptr, nnz, n, d);
+  umap_sparse_inputs_t<knn_indices_sparse_t, float> orig_x_inputs(indptr, indices, data, nullptr, orig_nnz, orig_n, d);
 
-  UMAPAlgo::_transform<float, umap_sparse_inputs_t<int, float>, TPB_X>(handle, inputs,
+  UMAPAlgo::_transform<knn_indices_sparse_t, float, umap_sparse_inputs_t<int, float>, TPB_X>(handle, inputs,
                                      orig_x_inputs, embedding, embedding_n,
                                      params, transformed);
 }
 
+
+// Dense fit
 void fit(const raft::handle_t &handle,
          float *X,  // input matrix
          float *y,  // labels
-         int n, int d, int64_t *knn_indices, float *knn_dists,
+         int n, int d, knn_indices_dense_t *knn_indices, float *knn_dists,
          UMAPParams *params, float *embeddings) {
 
   if(knn_indices != nullptr && knn_dists != nullptr) {
 
     CUML_LOG_DEBUG("Calling UMAP::fit() with precomputed KNN");
 
-    umap_precomputed_knn_inputs_t<float> inputs(knn_indices, knn_dists, X, y, n, d);
+    umap_precomputed_knn_inputs_t<knn_indices_dense_t, float> inputs(knn_indices, knn_dists, X, y, n, d);
     if(y != nullptr) {
-      UMAPAlgo::_fit_supervised<float, umap_precomputed_knn_inputs_t<float>, TPB_X>(handle, inputs, params, embeddings);
+      UMAPAlgo::_fit_supervised<knn_indices_dense_t, float, umap_precomputed_knn_inputs_t<knn_indices_dense_t, float>, TPB_X>(handle, inputs, params, embeddings);
     } else {
-      UMAPAlgo::_fit<float, umap_precomputed_knn_inputs_t<float>, TPB_X>(handle, inputs, params, embeddings);
+      UMAPAlgo::_fit<knn_indices_dense_t, float, umap_precomputed_knn_inputs_t<knn_indices_dense_t, float>, TPB_X>(handle, inputs, params, embeddings);
     }
 
   } else {
     umap_dense_inputs_t<float>inputs(X, y, n, d);
     if(y != nullptr) {
-      UMAPAlgo::_fit_supervised<float, umap_dense_inputs_t<float>, TPB_X>(handle, inputs, params, embeddings);
+      UMAPAlgo::_fit_supervised<knn_indices_dense_t, float, umap_dense_inputs_t<float>, TPB_X>(handle, inputs, params, embeddings);
     } else {
-      UMAPAlgo::_fit<float, umap_dense_inputs_t<float>, TPB_X>(handle, inputs, params, embeddings);
+      UMAPAlgo::_fit<knn_indices_dense_t, float, umap_dense_inputs_t<float>, TPB_X>(handle, inputs, params, embeddings);
     }
   }
 
 }
 
+
+// Sparse fit
 void fit(const raft::handle_t &handle,
          int *indptr,  // input matrix
          int *indices,
@@ -96,9 +104,9 @@ void fit(const raft::handle_t &handle,
 
   umap_sparse_inputs_t<int, float> inputs(indptr, indices, data, y, nnz, n, d);
   if(y != nullptr) {
-    UMAPAlgo::_fit_supervised<float, umap_sparse_inputs_t<int, float>, TPB_X>(handle, inputs, params, embeddings);
+    UMAPAlgo::_fit_supervised<knn_indices_sparse_t, float, umap_sparse_inputs_t<int, float>, TPB_X>(handle, inputs, params, embeddings);
   } else {
-    UMAPAlgo::_fit<float, umap_sparse_inputs_t<int, float>, TPB_X>(handle, inputs, params, embeddings);
+    UMAPAlgo::_fit<knn_indices_sparse_t, float, umap_sparse_inputs_t<int, float>, TPB_X>(handle, inputs, params, embeddings);
   }
 }
 

@@ -24,6 +24,13 @@ namespace ML {
 
 using namespace ML::Internals;
 
+
+// Dense input uses int64_t until FAISS is updated
+typedef int64_t knn_indices_dense_t;
+
+typedef int knn_indices_sparse_t;
+
+
 template<typename value_idx, typename value_t>
 struct knn_graph {
 
@@ -75,14 +82,14 @@ struct umap_sparse_inputs_t : public umap_inputs_t<T> {
   }
 };
 
-template<typename T>
+template<typename value_idx, typename T>
 struct umap_precomputed_knn_inputs_t : public umap_dense_inputs_t<T> {
 
-  umap_precomputed_knn_inputs_t<T>(int64_t *knn_indices_, T *knn_dists_, T *X_, T *y_,
+  umap_precomputed_knn_inputs_t<value_idx, T>(value_idx *knn_indices_, T *knn_dists_, T *X_, T *y_,
                                    int n_, int d_): umap_dense_inputs_t<T>(X_, y_, n_, d_),
                                                     knn_indices(knn_indices_), knn_dists(knn_dists_) {}
 
-  int64_t *knn_indices;
+  value_idx *knn_indices;
   T *knn_dists;
 
   bool alloc_knn_graph() {
