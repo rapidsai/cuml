@@ -19,6 +19,7 @@
 - PR #2758: Match sklearn's default n_components behavior for PCA
 - PR #2770: Fix doxygen version during cmake
 - PR #2766: Update default RandomForestRegressor score function to use r2
+- PR #2775: Enablinbg mg gtests w/ raft mpi comms
 - PR #2783: Add pytest that will fail when GPU IDs in Dask cluster are not unique
 - PR #2784: Add SparseCumlArray container for sparse index/data arrays
 - PR #2785: Add in cuML-specific dev conda dependencies
