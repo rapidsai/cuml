@@ -34,7 +34,7 @@ from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
-from cuml.internals import cuml_ignore_base_wrapper
+from cuml.internals import autowrap_ignore
 from cuml.common.array_descriptor import CumlArrayDescriptor
 
 from collections import defaultdict
@@ -204,7 +204,7 @@ class DBSCAN(Base):
         self.labels_ = None  # accessed via estimator.labels_
 
         # accessed via estimator._core_sample_indices_ when
-        # self.calc_core_sample_indices == True
+        # `self.calc_core_sample_indices == True`
         self.core_sample_indices_ = None
 
         # C++ API expects this to be numeric.
@@ -330,7 +330,6 @@ class DBSCAN(Base):
                                        'type': 'dense',
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
-    # @cuml_ignore_base_wrapper
     def fit_predict(self, X, out_dtype="int32") -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.

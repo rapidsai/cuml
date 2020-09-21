@@ -523,7 +523,7 @@ class PCA(Base):
         return self.fit(X).transform(X)
 
     def _sparse_inverse_transform(self, X, return_sparse=False,
-                                  sparse_tol=1e-10, out_type=None):
+                                  sparse_tol=1e-10, out_type=None) -> CumlArray:
 
         # NOTE: All intermediate calculations are done using cupy.ndarray and
         # then converted to CumlArray at the end to minimize conversions
@@ -661,9 +661,9 @@ class PCA(Base):
                 self.components_ *= self.singular_values_
                 self.components_ *= (1 / cp.sqrt(self.n_rows - 1))
 
-            self.components_ = CumlArray(self.components_)
+            # self.components_ = CumlArray(self.components_)
 
-        return CumlArray(X_transformed)
+        return X_transformed
 
         # if self._get_output_type(X) == 'cupy':
         #     return X_transformed

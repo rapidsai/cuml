@@ -373,7 +373,7 @@ class MultinomialNB(Base):
             model. The columns correspond to the classes in sorted order, as \
             they appear in the attribute `classes_`.',  # noqa
                                        'shape': '(n_rows, 1)'})
-    def predict_log_proba(self, X):
+    def predict_log_proba(self, X) -> CumlArray:
         """
         Return log-probability estimates for the test vector X.
 
@@ -417,7 +417,7 @@ class MultinomialNB(Base):
         if log_prob_x.ndim < 2:
             log_prob_x = log_prob_x.reshape((1, log_prob_x.shape[0]))
         result = jll - log_prob_x.T
-        return CumlArray(result).to_output(out_type)
+        return result
 
     @generate_docstring(X='dense_sparse',
                         return_values={'name': 'C',

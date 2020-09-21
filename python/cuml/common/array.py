@@ -14,20 +14,19 @@
 # limitations under the License.
 #
 
-import cupy as cp
-import numpy as np
 import operator
 
-from rmm import DeviceBuffer
-from cudf.core import Buffer, Series, DataFrame
-from cuml.common.memory_utils import with_cupy_rmm
-from cuml.common.memory_utils import _get_size_from_shape
-from cuml.common.memory_utils import _order_to_strides
-from cuml.common.memory_utils import _strides_to_order
+import cuml.internals
+import cupy as cp
+import numpy as np
+from cudf.core import Buffer, DataFrame, Series
+from cuml.common.memory_utils import (_get_size_from_shape, _order_to_strides,
+                                      _strides_to_order, with_cupy_rmm)
 from numba import cuda
+from rmm import DeviceBuffer
 
 
-class CumlArray(Buffer):
+class CumlArray(Buffer, cuml.internals.ToOutputMixin):
 
     """
     Array represents an abstracted array allocation. It can be instantiated by
