@@ -23,6 +23,7 @@ build:
     - CUDAHOSTCXX
     - PARALLEL_LEVEL
     - VERSION_SUFFIX
+    - SINGLE_GPU #[aarch64]
 
 requirements:
   build:
@@ -34,14 +35,15 @@ requirements:
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ minor_version }}
-    - libcumlprims {{ minor_version }}
-    - lapack
+    - libcumlprims {{ minor_version }} # [not aarch64]
+    - lapack # [not aarch64]
+    - liblapack # [aarch64]
     - treelite=0.92
     - faiss-proc=*=cuda
     - gtest=1.10.0
     - libfaiss
   run:
-    - libcumlprims {{ minor_version }}
+    - libcumlprims {{ minor_version }} # [not aarch64]
     - cudf {{ minor_version }}
     - nccl>=2.5
     - ucx-py {{ minor_version }}

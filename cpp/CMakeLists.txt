@@ -299,17 +299,39 @@ else()
   set(CUB_IS_PART_OF_CTK OFF)
 endif()
 
+
 if("${GPU_ARCHS}" STREQUAL "ALL")
-  set(GPU_ARCHS "60")
-  if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
-    set(GPU_ARCHS "${GPU_ARCHS};70")
+
+  # Check for aarch64 vs workstation architectures
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+    message(STATUS "CMAKE Detected aarch64 CPU architecture, selecting appropriate gencodes")
+    # This is being build for Linux4Tegra or SBSA ARM64 CUDA
+    set(GPU_ARCHS "62") # Default minimum CUDA GenCode for cuML embedded
+    if(CUDA_VERSION_MAJOR GREATER_EQUAL 9)
+      set(GPU_ARCHS "${GPU_ARCHS};72")
+    endif()
+    if(CUDA_VERSION_MAJOR GREATER_EQUAL 11)
+      # This is probably for SBSA CUDA, or a next gen Jetson
+      set(GPU_ARCHS "${GPU_ARCHS};75;80")
+    endif()
+
+  else()
+    message(STATUS "CMAKE selecting appropriate gencodes for x86 or ppc64 CPU architectures")
+    # System architecture was not aarch64,
+    # this is datacenter or workstation class hardware
+    set(GPU_ARCHS "60") # Default minimum supported CUDA gencode for cuML
+    if(CUDA_VERSION_MAJOR GREATER_EQUAL 9)
+      set(GPU_ARCHS "${GPU_ARCHS};70")
+    endif()
+    if(CUDA_VERSION_MAJOR GREATER_EQUAL 10)
+      set(GPU_ARCHS "${GPU_ARCHS};75")
+    endif()
+    if(CUDA_VERSION_MAJOR GREATER_EQUAL 11)
+      set(GPU_ARCHS "${GPU_ARCHS};80")
+    endif()
+
   endif()
-  if((CUDA_VERSION_MAJOR EQUAL 10) OR (CUDA_VERSION_MAJOR GREATER 10))
-    set(GPU_ARCHS "${GPU_ARCHS};75")
-  endif()
-  if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
-    set(GPU_ARCHS "${GPU_ARCHS};80")
-  endif()
+
 endif()
 
 message("-- Building for GPU_ARCHS = ${GPU_ARCHS}")
