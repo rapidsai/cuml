@@ -20,6 +20,7 @@
 - PR #2758: Match sklearn's default n_components behavior for PCA
 - PR #2770: Fix doxygen version during cmake
 - PR #2766: Update default RandomForestRegressor score function to use r2
+- PR #2775: Enablinbg mg gtests w/ raft mpi comms
 - PR #2783: Add pytest that will fail when GPU IDs in Dask cluster are not unique
 - PR #2784: Add SparseCumlArray container for sparse index/data arrays
 - PR #2785: Add in cuML-specific dev conda dependencies
@@ -38,8 +39,11 @@
 - PR #2810: Update Rf MNMG threshold to prevent sporadic test failure
 - PR #2808: Relax Doxygen version required in CMake to coincide with integration repo
 - PR #2818: Fix parsing of singlegpu option in build command
+- PR #2829: Fixing description for labels in docs and removing row number constraint from PCA xform/inverse_xform
 - PR #2832: Updating stress tests that fail with OOM
 - PR #2831: Removing repeated capture and parameter in lambda function
+- PR #2842: KNN index preprocessors were using incorrect n_samples
+- PR #2848: Fix typo in Python docstring for UMAP
 
 # cuML 0.15.0 (Date TBD)
 
