@@ -42,6 +42,7 @@ requirements:
     - faiss-proc=*=cuda
     - gtest=1.10.0
     - libfaiss
+    - doxygen
   run:
     - libcumlprims {{ minor_version }} # [not aarch64]
     - cudf {{ minor_version }}
