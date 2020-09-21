@@ -93,8 +93,11 @@ class IPDistancesTest
 
     allocate(out_dists, 16);
 
-    Distance::ip_distances_t<value_idx, value_t> compute_dists(dist_config);
-    compute_dists.compute(out_dists);
+    ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
+
+    pairwiseDistance(out_dists, dist_config, ML::Distance::DistanceType::InnerProduct);
+
+    std::cout << arr2Str(out_dists, 16, "out_dists", stream) << std::endl;
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }

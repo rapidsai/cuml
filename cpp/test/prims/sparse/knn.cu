@@ -89,8 +89,12 @@ class SparseKNNTest
 
     brute_force_knn<value_idx, value_t>(
       indptr, indices, data, 8, 4, 9, indptr, indices, data, 8, 4, 9,
-      out_indices, out_dists, k, cusparseHandle, alloc, stream, 2,
-      ML::MetricType::METRIC_INNER_PRODUCT);
+      out_indices, out_dists, k, cusparseHandle, alloc, stream, 2, 2,
+      ML::MetricType::METRIC_L2);
+
+
+    std::cout << arr2Str(out_dists, 4 * k, "out_dists", stream) << std::endl;
+    std::cout << arr2Str(out_indices, 4 * k, "out_indices", stream) << std::endl;
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
