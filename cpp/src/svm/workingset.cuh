@@ -64,32 +64,32 @@ class WorkingSet {
    * @param n_ws number of elements in the working set (default 1024)
    * @param svmType classification or regression
    */
-  WorkingSet(const cumlHandle_impl &handle, cudaStream_t stream, int n_rows = 0,
+  WorkingSet(const raft::handle_t &handle, cudaStream_t stream, int n_rows = 0,
              int n_ws = 0, SvmType svmType = C_SVC)
     : handle(handle),
       stream(stream),
       svmType(svmType),
       n_rows(n_rows),
-      available(handle.getDeviceAllocator(), stream),
-      available_sorted(handle.getDeviceAllocator(), stream),
-      cub_storage(handle.getDeviceAllocator(), stream),
-      f_idx(handle.getDeviceAllocator(), stream),
-      f_idx_sorted(handle.getDeviceAllocator(), stream),
-      f_sorted(handle.getDeviceAllocator(), stream),
-      idx_tmp(handle.getDeviceAllocator(), stream),
-      idx(handle.getDeviceAllocator(), stream),
-      ws_idx_sorted(handle.getDeviceAllocator(), stream),
-      ws_idx_selected(handle.getDeviceAllocator(), stream),
-      ws_idx_save(handle.getDeviceAllocator(), stream),
-      ws_priority(handle.getDeviceAllocator(), stream),
-      ws_priority_sorted(handle.getDeviceAllocator(), stream) {
+      available(handle.get_device_allocator(), stream),
+      available_sorted(handle.get_device_allocator(), stream),
+      cub_storage(handle.get_device_allocator(), stream),
+      f_idx(handle.get_device_allocator(), stream),
+      f_idx_sorted(handle.get_device_allocator(), stream),
+      f_sorted(handle.get_device_allocator(), stream),
+      idx_tmp(handle.get_device_allocator(), stream),
+      idx(handle.get_device_allocator(), stream),
+      ws_idx_sorted(handle.get_device_allocator(), stream),
+      ws_idx_selected(handle.get_device_allocator(), stream),
+      ws_idx_save(handle.get_device_allocator(), stream),
+      ws_priority(handle.get_device_allocator(), stream),
+      ws_priority_sorted(handle.get_device_allocator(), stream) {
     n_train = (svmType == EPSILON_SVR) ? n_rows * 2 : n_rows;
     SetSize(n_train, n_ws);
   }
 
   ~WorkingSet() {
-    handle.getDeviceAllocator()->deallocate(d_num_selected, 1 * sizeof(int),
-                                            stream);
+    handle.get_device_allocator()->deallocate(d_num_selected, 1 * sizeof(int),
+                                              stream);
   }
 
   /**
@@ -287,7 +287,7 @@ class WorkingSet {
   }
 
  private:
-  const cumlHandle_impl &handle;
+  const raft::handle_t &handle;
   cudaStream_t stream;
 
   bool firstcall = true;
@@ -340,7 +340,7 @@ class WorkingSet {
       ws_priority_sorted.resize(n_ws, stream);
 
       d_num_selected =
-        (int *)handle.getDeviceAllocator()->allocate(1 * sizeof(int), stream);
+        (int *)handle.get_device_allocator()->allocate(1 * sizeof(int), stream);
 
       // Determine temporary device storage requirements for cub
       size_t cub_bytes2 = 0;

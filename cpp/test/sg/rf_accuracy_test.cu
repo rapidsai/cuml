@@ -39,9 +39,9 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     params = ::testing::TestWithParam<RFInputs>::GetParam();
     rng.reset(new Random::Rng(params.seed));
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.reset(new cumlHandle(1));
-    handle->setStream(stream);
-    auto allocator = handle->getDeviceAllocator();
+    handle.reset(new raft::handle_t(1));
+    handle->set_stream(stream);
+    auto allocator = handle->get_device_allocator();
     setRFParams();
     X_train = (T *)allocator->allocate(params.n_rows_train * sizeof(T), stream);
     y_train =
@@ -56,7 +56,7 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
 
   void TearDown() override {
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    auto allocator = handle->getDeviceAllocator();
+    auto allocator = handle->get_device_allocator();
     allocator->deallocate(X_train, params.n_rows_train * sizeof(T), stream);
     allocator->deallocate(y_train, params.n_rows_train * sizeof(int), stream);
     allocator->deallocate(X_test, params.n_rows_test * sizeof(T), stream);
@@ -122,7 +122,7 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
 
   RFInputs params;
   RF_params rfp;
-  std::shared_ptr<cumlHandle> handle;
+  std::shared_ptr<raft::handle_t> handle;
   cudaStream_t stream;
   T *X_train, *X_test;
   int *y_train, *y_test, *y_pred;

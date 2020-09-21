@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -32,7 +29,7 @@ import cuml
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.internals import autowrap_ignore
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -41,7 +38,7 @@ from collections import defaultdict
 
 cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
 
-    cdef void dbscanFit(cumlHandle& handle,
+    cdef void dbscanFit(handle_t& handle,
                         float *input,
                         int n_rows,
                         int n_cols,
@@ -52,7 +49,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         size_t max_mbytes_per_batch,
                         int verbosity) except +
 
-    cdef void dbscanFit(cumlHandle& handle,
+    cdef void dbscanFit(handle_t& handle,
                         double *input,
                         int n_rows,
                         int n_cols,
@@ -63,7 +60,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         size_t max_mbytes_per_batch,
                         int verbosity) except +
 
-    cdef void dbscanFit(cumlHandle& handle,
+    cdef void dbscanFit(handle_t& handle,
                         float *input,
                         int64_t n_rows,
                         int64_t n_cols,
@@ -74,7 +71,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         size_t max_mbytes_per_batch,
                         int verbosity) except +
 
-    cdef void dbscanFit(cumlHandle& handle,
+    cdef void dbscanFit(handle_t& handle,
                         double *input,
                         int64_t n_rows,
                         int64_t n_cols,
@@ -238,7 +235,7 @@ class DBSCAN(Base):
 
         cdef uintptr_t input_ptr = X_m.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
         cdef uintptr_t labels_ptr = self.labels_.ptr

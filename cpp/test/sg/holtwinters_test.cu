@@ -77,8 +77,8 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
     allocate(data, batch_size * n);
     updateDevice(data, dataset_h, batch_size * n, stream);
 
-    cumlHandle handle;
-    handle.setStream(stream);
+    raft::handle_t handle;
+    handle.set_stream(stream);
 
     ML::HoltWinters::fit(handle, n, batch_size, frequency, start_periods,
                          seasonal, epsilon, data, level_ptr, trend_ptr,

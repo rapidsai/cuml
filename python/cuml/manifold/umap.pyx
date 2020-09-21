@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import cudf
 import cuml
@@ -36,7 +33,7 @@ from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
     coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
 
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.memory_utils import with_cupy_rmm, using_output_type
@@ -54,7 +51,6 @@ from libc.stdlib cimport calloc, malloc, free
 
 from libcpp.memory cimport shared_ptr
 
-cimport cuml.common.handle
 cimport cuml.common.cuda
 
 
@@ -97,7 +93,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
 
 
 cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
-    void fit(cumlHandle & handle,
+    void fit(handle_t & handle,
              float * X,
              int n,
              int d,
@@ -106,7 +102,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              UMAPParams * params,
              float * embeddings) except +
 
-    void fit(cumlHandle & handle,
+    void fit(handle_t & handle,
              float * X,
              float * y,
              int n,
@@ -116,7 +112,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              UMAPParams * params,
              float * embeddings) except +
 
-    void transform(cumlHandle & handle,
+    void transform(handle_t & handle,
                    float * X,
                    int n,
                    int d,
@@ -557,8 +553,8 @@ class UMAP(Base):
         if self.hash_input:
             self.input_hash = joblib.hash(self.X_m.to_output('numpy'))
 
-        cdef cumlHandle * handle_ = \
-            <cumlHandle*> <size_t> self.handle.getHandle()
+        cdef handle_t * handle_ = \
+            <handle_t*> <size_t> self.handle.getHandle()
 
         cdef uintptr_t x_raw = self.X_m.ptr
         cdef uintptr_t embed_raw = self.embedding_.ptr
@@ -618,8 +614,7 @@ class UMAP(Base):
         and calling fit().transform(). Calling fit_transform(X) will
         train the embeddings on X and return the embeddings. Calling
         fit(X).transform(X) will train the embeddings on X and then
-        run a second optimization
-        return the embedding after it is trained while calling
+        run a second optimization.
 
         Parameters
         ----------
@@ -730,8 +725,8 @@ class UMAP(Base):
         cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
         cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
 
-        cdef cumlHandle * handle_ = \
-            <cumlHandle*> <size_t> self.handle.getHandle()
+        cdef handle_t * handle_ = \
+            <handle_t*> <size_t> self.handle.getHandle()
 
         cdef uintptr_t orig_x_raw = self.X_m.ptr
         cdef uintptr_t embed_ptr = self.embedding_.ptr

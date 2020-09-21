@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import inspect
 import typing
@@ -26,7 +23,7 @@ from functools import wraps
 
 import cuml
 import cuml.common.cuda
-import cuml.common.handle
+import cuml.raft.common.handle
 import cuml.common.logger as logger
 import cuml.internals
 import rmm
@@ -177,7 +174,8 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         Constructor. All children must call init method of this base class.
 
         """
-        self.handle = cuml.common.handle.Handle() if handle is None else handle
+        self.handle = cuml.raft.common.handle.Handle() if handle is None \
+            else handle
 
         # Internally, self.verbose follows the spdlog/c++ standard of
         # 0 is most logging, and logging decreases from there.

@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import cudf
 import cupy as cp
@@ -29,7 +26,7 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import with_cupy_rmm
 from cuml.metrics import accuracy_score
@@ -37,7 +34,7 @@ from cuml.metrics import accuracy_score
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
-    void qnFit(cumlHandle& cuml_handle,
+    void qnFit(handle_t& cuml_handle,
                float *X,
                float *y,
                int N,
@@ -57,7 +54,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                bool X_col_major,
                int loss_type) except +
 
-    void qnFit(cumlHandle& cuml_handle,
+    void qnFit(handle_t& cuml_handle,
                double *X,
                double *y,
                int N,
@@ -77,7 +74,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                bool X_col_major,
                int loss_type) except +
 
-    void qnDecisionFunction(cumlHandle& cuml_handle,
+    void qnDecisionFunction(handle_t& cuml_handle,
                             float *X,
                             int N,
                             int D,
@@ -88,7 +85,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                             int loss_type,
                             float *scores) except +
 
-    void qnDecisionFunction(cumlHandle& cuml_handle,
+    void qnDecisionFunction(handle_t& cuml_handle,
                             double *X,
                             int N,
                             int D,
@@ -99,7 +96,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                             int loss_type,
                             double *scores) except +
 
-    void qnPredict(cumlHandle& cuml_handle,
+    void qnPredict(handle_t& cuml_handle,
                    float *X,
                    int N,
                    int D,
@@ -110,7 +107,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                    int loss_type,
                    float *preds) except +
 
-    void qnPredict(cumlHandle& cuml_handle,
+    void qnPredict(handle_t& cuml_handle,
                    double *X,
                    int N,
                    int D,
@@ -317,7 +314,7 @@ class QN(Base):
 
         cdef float objective32
         cdef double objective64
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef int num_iters
 
@@ -412,7 +409,7 @@ class QN(Base):
         cdef uintptr_t coef_ptr = self.coef_.ptr
         cdef uintptr_t scores_ptr = scores.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             qnDecisionFunction(handle_[0],
@@ -470,7 +467,7 @@ class QN(Base):
         cdef uintptr_t coef_ptr = self.coef_.ptr
         cdef uintptr_t pred_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             qnPredict(handle_[0],

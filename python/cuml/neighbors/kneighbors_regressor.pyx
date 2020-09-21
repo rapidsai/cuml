@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
@@ -35,7 +32,7 @@ from cython.operator cimport dereference as deref
 
 from libcpp.vector cimport vector
 
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -49,24 +46,13 @@ from libc.stdlib cimport calloc, malloc, free
 from numba import cuda
 import rmm
 
-cimport cuml.common.handle
 cimport cuml.common.cuda
 
-
-cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
-    cdef cppclass deviceAllocator:
-        pass
-
-    cdef cppclass cumlHandle:
-        cumlHandle() except +
-        void setStream(cuml.common.cuda._Stream s) except +
-        void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
-        cuml.common.cuda._Stream getStream() except +
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
     void knn_regress(
-        cumlHandle &handle,
+        handle_t &handle,
         float *out,
         int64_t *knn_indices,
         vector[float *] &y,
@@ -92,8 +78,8 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
         Default number of neighbors to query
     verbose : int or boolean (default = False)
         Logging level
-    handle : cumlHandle
-        The cumlHandle resources to use
+    handle : handle_t
+        The handle_t resources to use
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.
     metric : string (default='euclidean').
@@ -210,7 +196,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
             y_ptr = col.ptr
             y_vec.push_back(<float*>y_ptr)
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         knn_regress(
             handle_[0],
