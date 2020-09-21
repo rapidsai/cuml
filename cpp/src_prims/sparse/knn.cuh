@@ -22,7 +22,7 @@
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>
 #include <sparse/csr.cuh>
-#include <sparse/distances.cuh>
+#include <sparse/distance.cuh>
 #include <sparse/selection.cuh>
 
 #include <common/cudart_utils.h>

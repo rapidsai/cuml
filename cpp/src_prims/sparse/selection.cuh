@@ -22,7 +22,7 @@
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>
 #include <sparse/csr.cuh>
-#include <sparse/distances.cuh>
+#include <sparse/distance.cuh>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>

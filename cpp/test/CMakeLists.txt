@@ -205,8 +205,7 @@ if(BUILD_PRIMS_TESTS)
     prims/seive.cu
     prims/sigmoid.cu
     prims/silhouetteScore.cu
-          prims/sparse/dist_euc_exp.cu
-          prims/sparse/dist_ip.cu
+          prims/sparse/distance.cu
     prims/sparse/knn.cu
     prims/sqrt.cu
     prims/stddev.cu
