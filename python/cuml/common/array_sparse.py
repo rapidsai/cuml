@@ -149,7 +149,8 @@ class SparseCumlArray:
         if output_type not in ['cupy', 'scipy']:
             raise ValueError("Unsupported output_type: %s" % output_dtype)
 
-        cuml_arr_output_type = 'numpy' if output_type in ('scipy', 'numpy') else 'cupy'
+        cuml_arr_output_type = 'numpy' \
+            if output_type in ('scipy', 'numpy') else 'cupy'
 
         data = self.data.to_output(cuml_arr_output_type, output_dtype)
         indices = self.indices.to_output(cuml_arr_output_type)
