@@ -20,8 +20,8 @@
 
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <test_utils.h>
 #include <sparse/distances.cuh>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Sparse {
@@ -95,8 +95,10 @@ class L2DistancesTest
 
     allocate(out_dists, 16);
 
-    Distance::l2_distances_t<value_idx, value_t> compute_dists(dist_config);
-    compute_dists.compute(out_dists);
+    ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
+
+
+    pairwiseDistance(out_dists, dist_config, ML::Distance::DistanceType::EucExpandedL2);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }

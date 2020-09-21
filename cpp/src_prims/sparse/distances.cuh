@@ -24,6 +24,7 @@
 #include <sparse/csr.cuh>
 
 #include <cuml/neighbors/knn.hpp>
+#include <cuml/distance/distance_type.h>
 
 #include <cusparse_v2.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -56,22 +57,22 @@ struct distances_config_t {
   cudaStream_t stream;
 };
 
-
-
-
-template<typename value_t>
-struct distances_t {
-
+template <typename value_t>
+class distances_t {
  public:
-    virtual void compute(value_t *out);
+  virtual void compute(value_t *out) {
+    CUML_LOG_DEBUG("INside base");
+  }
+  virtual ~distances_t() = default;
 };
 
 /**
  * Simple inner product distance with sparse matrix multiply
  */
 template <typename value_idx = int, typename value_t = float>
-struct ip_distances_t : public distances_t<value_t> {
+class ip_distances_t : public distances_t<value_t> {
 
+ public:
   /**
    * Computes simple sparse inner product distances as sum(x_y * y_k)
    * @param[in] config specifies inputs, outputs, and sizes
@@ -102,6 +103,8 @@ struct ip_distances_t : public distances_t<value_t> {
     /**
 	   * Compute pairwise distances and return dense matrix in column-major format
 	   */
+
+    CUML_LOG_DEBUG("Compute() inside inner-product d");
     device_buffer<value_idx> out_batch_indptr(config_.allocator, config_.stream,
                                               config_.a_nrows + 1);
     device_buffer<value_idx> out_batch_indices(config_.allocator,
@@ -113,12 +116,15 @@ struct ip_distances_t : public distances_t<value_t> {
     out_batch_indices.resize(out_batch_nnz, config_.stream);
     out_batch_data.resize(out_batch_nnz, config_.stream);
 
-    compute(out_batch_indptr.data(), out_batch_indices.data(),
+    compute_gemm(out_batch_indptr.data(), out_batch_indices.data(),
             out_batch_data.data());
 
     /**
-       * Convert output to dense
-       */
+     * Convert output to dense
+     * TODO: This is wasteful of memory and adds additional latency.
+     * It would be nice if there was a gemm that could do
+     * (sparse, sparse)->dense natively.
+     */
     csr_to_dense(config_.handle, config_.a_nrows, config_.b_nrows,
                  out_batch_indptr.data(), out_batch_indices.data(),
                  out_batch_data.data(), config_.a_nrows, out_distances,
@@ -171,7 +177,7 @@ struct ip_distances_t : public distances_t<value_t> {
     return out_nnz;
   }
 
-  void compute(const value_idx *csr_out_indptr, value_idx *csr_out_indices,
+  void compute_gemm(const value_idx *csr_out_indptr, value_idx *csr_out_indices,
                value_t *csr_out_data) {
     value_idx m = config_.a_nrows, n = config_.b_nrows, k = config_.a_ncols;
 
@@ -286,7 +292,9 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
  * The expanded form is more efficient for sparse data.
  */
 template <typename value_idx = int, typename value_t = float>
-struct l2_distances_t : public distances_t<value_t>{
+class l2_distances_t : public distances_t<value_t> {
+
+ public:
   explicit l2_distances_t(distances_config_t<value_idx, value_t> config)
     : config_(config),
       workspace(config.allocator, config.stream, 0),
@@ -315,11 +323,49 @@ struct l2_distances_t : public distances_t<value_t>{
     CUML_LOG_DEBUG("Done.");
   }
 
+  ~l2_distances_t() = default;
+
  private:
   distances_config_t<value_idx, value_t> config_;
   device_buffer<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
+
+
+/**
+ * Compute pairwise distances between A and B, using the provided
+ * input configuration and distance function.
+ *
+ * @tparam value_idx index type
+ * @tparam value_t value type
+ * @param[out] out dense output array (size A.nrows * B.nrows)
+ * @param[in] input_config input argument configuration
+ * @param[in] metric distance metric to use
+ */
+template class ip_distances_t<int, float>;
+template class l2_distances_t<int, float>;
+template class distances_config_t<int, float>;
+
+template <typename value_idx = int, typename value_t = float>
+void pairwiseDistance(value_t *out,
+                      distances_config_t<value_idx, value_t> input_config,
+                      ML::Distance::DistanceType metric) {
+
+  CUML_LOG_DEBUG("Running sparse pairwise distances with metric=%d", metric);
+
+  switch(metric) {
+    case ML::Distance::DistanceType::EucExpandedL2:
+      // EucExpandedL2
+      l2_distances_t<value_idx, value_t>(input_config).compute(out);
+      break;
+    case ML::Distance::DistanceType::InnerProduct:
+      // InnerProduct
+      ip_distances_t<value_idx, value_t>(input_config).compute(out);
+      break;
+    default:
+      THROW("Unsupported metric: %d", metric);
+  }
+}
 
 };  // END namespace Distance
 };  // END namespace Sparse

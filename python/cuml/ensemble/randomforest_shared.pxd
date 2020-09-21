@@ -23,6 +23,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 from libcpp.vector cimport vector
+from libcpp.string cimport string
 
 from cuml.raft.common.handle import Handle
 from cuml import ForestInference
@@ -94,8 +95,13 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                           int) except +
 
     cdef void delete_rf_metadata[T, L](RandomForestMetaData[T, L]*) except +
+
+    #
+    # Text representation of random forest
+    #
     cdef void print_rf_summary[T, L](RandomForestMetaData[T, L]*) except +
     cdef void print_rf_detailed[T, L](RandomForestMetaData[T, L]*) except +
+    cdef string dump_rf_as_json[T, L](RandomForestMetaData[T, L]*) except +
 
     cdef RF_params set_rf_class_obj(int,
                                     int,

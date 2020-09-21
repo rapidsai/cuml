@@ -18,7 +18,7 @@
 #include <cuml/manifold/tsne.h>
 #include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
-#include "distances.cuh"
+#include "dist_ip.cuh"
 #include "exact_kernels.cuh"
 #include "utils.cuh"
 

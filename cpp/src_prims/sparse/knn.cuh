@@ -176,6 +176,18 @@ void brute_force_knn(
   bool ascending = true;
   if (metric == ML::MetricType::METRIC_INNER_PRODUCT) ascending = false;
 
+  ML::Distance::DistanceType pw_metric;
+  switch(metric) {
+    case ML::MetricType::METRIC_INNER_PRODUCT:
+      pw_metric = ML::Distance::DistanceType::InnerProduct;
+      break;
+    case ML::MetricType::METRIC_L2:
+      pw_metric = ML::Distance::DistanceType::EucExpandedL2;
+      break;
+    default:
+      THROW("MetricType not supported: %d", metric);
+  }
+
   CUML_LOG_DEBUG("n_query_rows=%d, n_idx_rows=%d", n_query_rows, n_idx_rows);
   int n_batches_query = ceildiv((size_t)n_query_rows, batch_size_query);
   csr_batcher_t<value_idx, value_t> query_batcher(
@@ -278,15 +290,8 @@ void brute_force_knn(
         idx_batcher.batch_rows() * query_batcher.batch_rows();
       device_buffer<value_t> batch_dists(allocator, stream, dense_size);
 
-      if (metric == ML::MetricType::METRIC_INNER_PRODUCT) {
-        Distance::ip_distances_t<value_idx, value_t> dists(dist_config);
-        dists.compute(batch_dists.data());
-      } else if (metric == ML::MetricType::METRIC_L2) {
-        Distance::l2_distances_t<value_idx, value_t> dists(dist_config);
-        dists.compute(batch_dists.data());
-      } else {
-        throw "MetricType not supported";
-      }
+
+      Distance::pairwiseDistance(batch_dists.data(), dist_config, pw_metric);
 
       idx_batch_indptr.release(stream);
       idx_batch_indices.release(stream);
