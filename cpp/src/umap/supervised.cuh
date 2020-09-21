@@ -111,12 +111,11 @@ void categorical_simplicial_set_intersection(COO<value_t> *graph_coo,
 }
 
 template <typename value_t, int TPB_X>
-__global__ void sset_intersection_kernel(int *row_ind1, int *cols1, value_t *vals1,
-                                         int nnz1, int *row_ind2, int *cols2, value_t *vals2, int nnz2, int *result_ind,
-                                         int *result_cols,
-  value_t *result_vals,
-                                         int nnz, value_t left_min, value_t right_min,
-                                         int m, float mix_weight = 0.5) {
+__global__ void sset_intersection_kernel(
+  int *row_ind1, int *cols1, value_t *vals1, int nnz1, int *row_ind2,
+  int *cols2, value_t *vals2, int nnz2, int *result_ind, int *result_cols,
+  value_t *result_vals, int nnz, value_t left_min, value_t right_min, int m,
+  float mix_weight = 0.5) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
   if (row < m) {
@@ -234,8 +233,9 @@ void perform_categorical_intersection(T *y, COO<T> *rgraph_coo,
 
 template <int TPB_X, typename value_idx, typename value_t>
 void perform_general_intersection(const raft::handle_t &handle, value_t *y,
-                                  COO<value_t> *rgraph_coo, COO<value_t> *final_coo,
-                                  UMAPParams *params, cudaStream_t stream) {
+                                  COO<value_t> *rgraph_coo,
+                                  COO<value_t> *final_coo, UMAPParams *params,
+                                  cudaStream_t stream) {
   auto d_alloc = handle.get_device_allocator();
 
   /**
@@ -245,13 +245,15 @@ void perform_general_intersection(const raft::handle_t &handle, value_t *y,
   MLCommon::device_buffer<value_idx> y_knn_indices(d_alloc, stream, knn_dims);
   MLCommon::device_buffer<value_t> y_knn_dists(d_alloc, stream, knn_dims);
 
-  knn_graph<value_idx, value_t> knn_graph(rgraph_coo->n_rows, params->target_n_neighbors);
+  knn_graph<value_idx, value_t> knn_graph(rgraph_coo->n_rows,
+                                          params->target_n_neighbors);
   knn_graph.knn_indices = y_knn_indices.data();
   knn_graph.knn_dists = y_knn_dists.data();
 
   umap_dense_inputs_t<value_t> y_inputs(y, nullptr, rgraph_coo->n_rows, 1);
-  kNNGraph::run<value_idx, value_t, umap_dense_inputs_t<value_t>>(y_inputs, y_inputs, knn_graph,
-                params->target_n_neighbors, params, d_alloc, stream);
+  kNNGraph::run<value_idx, value_t, umap_dense_inputs_t<value_t>>(
+    y_inputs, y_inputs, knn_graph, params->target_n_neighbors, params, d_alloc,
+    stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
@@ -272,9 +274,9 @@ void perform_general_intersection(const raft::handle_t &handle, value_t *y,
    */
   COO<value_t> ygraph_coo(d_alloc, stream);
 
-  FuzzySimplSet::run<TPB_X, value_idx, value_t>(rgraph_coo->n_rows, y_knn_indices.data(),
-                               y_knn_dists.data(), params->target_n_neighbors,
-                               &ygraph_coo, params, d_alloc, stream);
+  FuzzySimplSet::run<TPB_X, value_idx, value_t>(
+    rgraph_coo->n_rows, y_knn_indices.data(), y_knn_dists.data(),
+    params->target_n_neighbors, &ygraph_coo, params, d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {

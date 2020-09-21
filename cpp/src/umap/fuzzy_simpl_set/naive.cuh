@@ -190,10 +190,11 @@ __global__ void smooth_knn_dist_kernel(
 template <int TPB_X, typename value_idx, typename value_t>
 __global__ void compute_membership_strength_kernel(
   const value_idx *knn_indices,
-  const float *knn_dists,          // nn outputs
-  const value_t *sigmas, const value_t *rhos,  // continuous dists to nearest neighbors
-  value_t *vals, int *rows, int *cols,   // result coo
-  int n, int n_neighbors) {        // model params
+  const float *knn_dists,  // nn outputs
+  const value_t *sigmas,
+  const value_t *rhos,                  // continuous dists to nearest neighbors
+  value_t *vals, int *rows, int *cols,  // result coo
+  int n, int n_neighbors) {             // model params
 
   // row-based matrix is best
   int idx = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -230,7 +231,9 @@ __global__ void compute_membership_strength_kernel(
  * Sets up and runs the knn dist smoothing
  */
 template <int TPB_X, typename value_idx, typename value_t>
-void smooth_knn_dist(int n, const value_idx *knn_indices, const float *knn_dists, value_t *rhos, value_t *sigmas, UMAPParams *params, int n_neighbors,
+void smooth_knn_dist(int n, const value_idx *knn_indices,
+                     const float *knn_dists, value_t *rhos, value_t *sigmas,
+                     UMAPParams *params, int n_neighbors,
                      float local_connectivity,
                      std::shared_ptr<deviceAllocator> d_alloc,
                      cudaStream_t stream) {
@@ -285,9 +288,9 @@ void launcher(int n, const value_idx *knn_indices, const float *knn_dists,
   CUDA_CHECK(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(value_t), stream));
   CUDA_CHECK(cudaMemsetAsync(rhos.data(), 0, n * sizeof(value_t), stream));
 
-  smooth_knn_dist<TPB_X, value_idx, value_t>(n, knn_indices, knn_dists, rhos.data(),
-                            sigmas.data(), params, n_neighbors,
-                            params->local_connectivity, d_alloc, stream);
+  smooth_knn_dist<TPB_X, value_idx, value_t>(
+    n, knn_indices, knn_dists, rhos.data(), sigmas.data(), params, n_neighbors,
+    params->local_connectivity, d_alloc, stream);
 
   MLCommon::Sparse::COO<value_t> in(d_alloc, stream, n * n_neighbors, n, n);
 
@@ -328,10 +331,11 @@ void launcher(int n, const value_idx *knn_indices, const float *knn_dists,
   float set_op_mix_ratio = params->set_op_mix_ratio;
   MLCommon::Sparse::coo_symmetrize<TPB_X, value_t>(
     &in, out,
-    [set_op_mix_ratio] __device__(int row, int col, value_t result, value_t transpose) {
+    [set_op_mix_ratio] __device__(int row, int col, value_t result,
+                                  value_t transpose) {
       value_t prod_matrix = result * transpose;
       value_t res = set_op_mix_ratio * (result + transpose - prod_matrix) +
-              (1.0 - set_op_mix_ratio) * prod_matrix;
+                    (1.0 - set_op_mix_ratio) * prod_matrix;
       return res;
     },
     d_alloc, stream);

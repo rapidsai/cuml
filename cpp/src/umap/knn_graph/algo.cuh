@@ -22,8 +22,8 @@
 
 #include <common/cudart_utils.h>
 
-#include <raft/error.hpp>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/error.hpp>
 
 #pragma once
 
@@ -35,46 +35,50 @@ namespace Algo {
  * Initial implementation calls out to FAISS to do its work.
  */
 
-template<typename value_idx = int64_t, typename value_t = float, typename umap_inputs>
+template <typename value_idx = int64_t, typename value_t = float,
+          typename umap_inputs>
 void launcher(const umap_inputs &inputsA, const umap_inputs &inputsB,
               ML::knn_graph<value_idx, value_t> &out, int n_neighbors,
-              const ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
+              const ML::UMAPParams *params,
+              std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream);
 
 // Instantiation for dense inputs, int64_t indices
-template<>
-void launcher(const ML::umap_dense_inputs_t<float> &inputsA, const ML::umap_dense_inputs_t<float> &inputsB,
+template <>
+void launcher(const ML::umap_dense_inputs_t<float> &inputsA,
+              const ML::umap_dense_inputs_t<float> &inputsB,
               ML::knn_graph<int64_t, float> &out, int n_neighbors,
-              const ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
+              const ML::UMAPParams *params,
+              std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
   std::vector<float *> ptrs(1);
   std::vector<int> sizes(1);
   ptrs[0] = inputsA.X;
   sizes[0] = inputsA.n;
 
-  MLCommon::Selection::brute_force_knn(ptrs, sizes, inputsA.d, inputsB.X, inputsB.n,
-                                       out.knn_indices, out.knn_dists, n_neighbors,
-                                       d_alloc, stream);
+  MLCommon::Selection::brute_force_knn(
+    ptrs, sizes, inputsA.d, inputsB.X, inputsB.n, out.knn_indices,
+    out.knn_dists, n_neighbors, d_alloc, stream);
 }
 
 // Instantiation for dense inputs, int indices
-template<>
-void launcher(const ML::umap_dense_inputs_t<float> &inputsA, const ML::umap_dense_inputs_t<float> &inputsB,
+template <>
+void launcher(const ML::umap_dense_inputs_t<float> &inputsA,
+              const ML::umap_dense_inputs_t<float> &inputsB,
               ML::knn_graph<int, float> &out, int n_neighbors,
-              const ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
+              const ML::UMAPParams *params,
+              std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
-
   throw raft::exception("Dense KNN doesn't yet support 32-bit integer indices");
 }
 
-
-template<>
+template <>
 void launcher(const ML::umap_sparse_inputs_t<int, float> &inputsA,
               const ML::umap_sparse_inputs_t<int, float> &inputsB,
-              ML::knn_graph<int, float> &out,  int n_neighbors,
-              const ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
+              ML::knn_graph<int, float> &out, int n_neighbors,
+              const ML::UMAPParams *params,
+              std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
-
   // TODO: Use handle as input here and remove manual creation
   cusparseHandle_t cusparseHandle;
   CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));
@@ -82,49 +86,45 @@ void launcher(const ML::umap_sparse_inputs_t<int, float> &inputsA,
   MLCommon::Sparse::Selection::brute_force_knn(
     inputsA.indptr, inputsA.indices, inputsA.data, inputsA.nnz, inputsA.n,
     inputsA.d, inputsB.indptr, inputsB.indices, inputsB.data, inputsB.nnz,
-    inputsB.n, inputsB.d, out.knn_indices, out.knn_dists, n_neighbors, cusparseHandle,
-    d_alloc, stream, 2 << 14, 2 << 14, ML::MetricType::METRIC_L2);
+    inputsB.n, inputsB.d, out.knn_indices, out.knn_dists, n_neighbors,
+    cusparseHandle, d_alloc, stream, 2 << 14, 2 << 14,
+    ML::MetricType::METRIC_L2);
 
   CUSPARSE_CHECK(cusparseDestroy(cusparseHandle));
 }
 
-
-
-template<>
+template <>
 void launcher(const ML::umap_sparse_inputs_t<int64_t, float> &inputsA,
               const ML::umap_sparse_inputs_t<int64_t, float> &inputsB,
-              ML::knn_graph<int64_t, float> &out,  int n_neighbors,
-              const ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
+              ML::knn_graph<int64_t, float> &out, int n_neighbors,
+              const ML::UMAPParams *params,
+              std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
-
   throw raft::exception("Sparse KNN doesn't support 64-bit integer indices");
 }
 
-
-
-template<>
+template <>
 void launcher(const ML::umap_precomputed_knn_inputs_t<int64_t, float> &inputsA,
               const ML::umap_precomputed_knn_inputs_t<int64_t, float> &inputsB,
               ML::knn_graph<int64_t, float> &out, int n_neighbors,
-              const ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
+              const ML::UMAPParams *params,
+              std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
-
   out.knn_indices = inputsA.knn_indices;
   out.knn_dists = inputsA.knn_dists;
 }
 
 // Instantiation for precomputed inputs, int indices
-template<>
+template <>
 void launcher(const ML::umap_precomputed_knn_inputs_t<int, float> &inputsA,
               const ML::umap_precomputed_knn_inputs_t<int, float> &inputsB,
               ML::knn_graph<int, float> &out, int n_neighbors,
-              const ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
+              const ML::UMAPParams *params,
+              std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
-
   out.knn_indices = inputsA.knn_indices;
   out.knn_dists = inputsA.knn_dists;
 }
-
 
 }  // namespace Algo
 }  // namespace kNNGraph

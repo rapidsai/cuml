@@ -50,8 +50,6 @@ namespace SimplSetEmbedImpl = SimplSetEmbed::Algo;
 using namespace ML;
 using namespace MLCommon::Sparse;
 
-
-
 template <int TPB_X, typename T>
 __global__ void init_transform(int *indices, T *weights, int n,
                                const T *embeddings, int embeddings_n,
@@ -81,12 +79,8 @@ void find_ab(UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
   Optimize::find_params_ab(params, d_alloc, stream);
 }
 
-
-
 template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
-void _fit(const raft::handle_t &handle,
-          umap_inputs &inputs,
-          UMAPParams *params,
+void _fit(const raft::handle_t &handle, umap_inputs &inputs, UMAPParams *params,
           value_t *embeddings) {
   ML::PUSH_RANGE("umap::unsupervised::fit");
   cudaStream_t stream = handle.get_stream();
@@ -108,13 +102,13 @@ void _fit(const raft::handle_t &handle,
    * If not given precomputed knn graph, compute it
    */
   if (inputs.alloc_knn_graph()) {
-
     /**
      * Allocate workspace for kNN graph
      */
     knn_indices_b =
       new MLCommon::device_buffer<value_idx>(d_alloc, stream, inputs.n * k);
-    knn_dists_b = new MLCommon::device_buffer<value_t>(d_alloc, stream, inputs.n * k);
+    knn_dists_b =
+      new MLCommon::device_buffer<value_t>(d_alloc, stream, inputs.n * k);
 
     knn_graph.knn_indices = knn_indices_b->data();
     knn_graph.knn_dists = knn_dists_b->data();
@@ -122,16 +116,17 @@ void _fit(const raft::handle_t &handle,
 
   CUML_LOG_DEBUG("Calling knn graph run");
 
-  kNNGraph::run<value_idx, value_t, umap_inputs>(inputs, inputs, knn_graph, k, params, d_alloc, stream);
+  kNNGraph::run<value_idx, value_t, umap_inputs>(inputs, inputs, knn_graph, k,
+                                                 params, d_alloc, stream);
   ML::POP_RANGE();
 
   CUML_LOG_DEBUG("Done. Calling fuzzy simplicial set");
 
   ML::PUSH_RANGE("umap::simplicial_set");
   COO<value_t> rgraph_coo(d_alloc, stream);
-  FuzzySimplSet::run<TPB_X, value_idx, value_t>(inputs.n, knn_graph.knn_indices,
-                                          knn_graph.knn_dists, k, &rgraph_coo,
-                                          params, d_alloc, stream);
+  FuzzySimplSet::run<TPB_X, value_idx, value_t>(
+    inputs.n, knn_graph.knn_indices, knn_graph.knn_dists, k, &rgraph_coo,
+    params, d_alloc, stream);
 
   CUML_LOG_DEBUG("Done. Calling remove zeros");
   /**
@@ -139,7 +134,7 @@ void _fit(const raft::handle_t &handle,
    */
   COO<value_t> cgraph_coo(d_alloc, stream);
   MLCommon::Sparse::coo_remove_zeros<TPB_X, value_t>(&rgraph_coo, &cgraph_coo,
-                                               d_alloc, stream);
+                                                     d_alloc, stream);
   ML::POP_RANGE();
 
   /**
@@ -147,8 +142,8 @@ void _fit(const raft::handle_t &handle,
    */
   ML::PUSH_RANGE("umap::embedding");
   InitEmbed::run(handle, inputs.n, inputs.d, knn_graph.knn_indices,
-                 knn_graph.knn_dists, &cgraph_coo, params,
-                 embeddings, stream, params->init);
+                 knn_graph.knn_dists, &cgraph_coo, params, embeddings, stream,
+                 params->init);
 
   if (knn_indices_b) delete knn_indices_b;
   if (knn_dists_b) delete knn_dists_b;
@@ -161,18 +156,17 @@ void _fit(const raft::handle_t &handle,
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
    */
-  SimplSetEmbed::run<TPB_X, value_t>(inputs.n, inputs.d, &cgraph_coo, params, embeddings,
-                               d_alloc, stream);
+  SimplSetEmbed::run<TPB_X, value_t>(inputs.n, inputs.d, &cgraph_coo, params,
+                                     embeddings, d_alloc, stream);
   ML::POP_RANGE();
 
   if (params->callback) params->callback->on_train_end(embeddings);
   ML::POP_RANGE();
 }
 
-
 template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
-void _fit_supervised(const raft::handle_t &handle,
-          umap_inputs &inputs, UMAPParams *params, value_t *embeddings) {
+void _fit_supervised(const raft::handle_t &handle, umap_inputs &inputs,
+                     UMAPParams *params, value_t *embeddings) {
   ML::PUSH_RANGE("umap::supervised::fit");
   auto d_alloc = handle.get_device_allocator();
   cudaStream_t stream = handle.get_stream();
@@ -194,20 +188,20 @@ void _fit_supervised(const raft::handle_t &handle,
    * If not given precomputed knn graph, compute it
    */
   if (inputs.alloc_knn_graph()) {
-
     /**
      * Allocate workspace for kNN graph
      */
     knn_indices_b =
       new MLCommon::device_buffer<value_idx>(d_alloc, stream, inputs.n * k);
-    knn_dists_b = new MLCommon::device_buffer<value_t>(d_alloc, stream, inputs.n * k);
+    knn_dists_b =
+      new MLCommon::device_buffer<value_t>(d_alloc, stream, inputs.n * k);
 
     knn_graph.knn_indices = knn_indices_b->data();
     knn_graph.knn_dists = knn_dists_b->data();
-
   }
 
-  kNNGraph::run<value_idx, value_t, umap_inputs>(inputs, inputs, knn_graph, k, params, d_alloc, stream);
+  kNNGraph::run<value_idx, value_t, umap_inputs>(inputs, inputs, knn_graph, k,
+                                                 params, d_alloc, stream);
 
   ML::POP_RANGE();
 
@@ -222,12 +216,13 @@ void _fit_supervised(const raft::handle_t &handle,
    * Run Fuzzy simplicial set
    */
   //int nnz = n*k*2;
-  FuzzySimplSet::run<TPB_X, value_idx, value_t>(inputs.n, knn_graph.knn_indices, knn_graph.knn_dists, params->n_neighbors,
-                               &tmp_coo, params, d_alloc, stream);
+  FuzzySimplSet::run<TPB_X, value_idx, value_t>(
+    inputs.n, knn_graph.knn_indices, knn_graph.knn_dists, params->n_neighbors,
+    &tmp_coo, params, d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  MLCommon::Sparse::coo_remove_zeros<TPB_X, value_t>(&tmp_coo, &rgraph_coo, d_alloc,
-                                               stream);
+  MLCommon::Sparse::coo_remove_zeros<TPB_X, value_t>(&tmp_coo, &rgraph_coo,
+                                                     d_alloc, stream);
 
   COO<value_t> final_coo(d_alloc, stream);
 
@@ -256,15 +251,16 @@ void _fit_supervised(const raft::handle_t &handle,
 
   COO<value_t> ocoo(d_alloc, stream);
   MLCommon::Sparse::coo_remove_zeros<TPB_X, value_t>(&final_coo, &ocoo, d_alloc,
-                                               stream);
+                                                     stream);
   ML::POP_RANGE();
 
   /**
    * Initialize embeddings
    */
   ML::PUSH_RANGE("umap::supervised::fit");
-  InitEmbed::run(handle, inputs.n, inputs.d, knn_graph.knn_indices, knn_graph.knn_dists, &ocoo, params,
-                 embeddings, stream, params->init);
+  InitEmbed::run(handle, inputs.n, inputs.d, knn_graph.knn_indices,
+                 knn_graph.knn_dists, &ocoo, params, embeddings, stream,
+                 params->init);
 
   if (knn_indices_b) delete knn_indices_b;
   if (knn_dists_b) delete knn_dists_b;
@@ -278,7 +274,7 @@ void _fit_supervised(const raft::handle_t &handle,
    * Run simplicial set embedding to approximate low-dimensional representation
    */
   SimplSetEmbed::run<TPB_X, value_t>(inputs.n, inputs.d, &ocoo, params,
-                               embeddings, d_alloc, stream);
+                                     embeddings, d_alloc, stream);
   ML::POP_RANGE();
 
   if (params->callback) params->callback->on_train_end(embeddings);
@@ -291,8 +287,7 @@ void _fit_supervised(const raft::handle_t &handle,
 	 *
 	 */
 template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
-void _transform(const raft::handle_t &handle,
-                umap_inputs &inputs,
+void _transform(const raft::handle_t &handle, umap_inputs &inputs,
                 umap_inputs &orig_x_inputs, value_t *embedding, int embedding_n,
                 UMAPParams *params, value_t *transformed) {
   ML::PUSH_RANGE("umap::transform");
@@ -317,23 +312,21 @@ void _transform(const raft::handle_t &handle,
    * If not given precomputed knn graph, compute it
    */
 
-
   if (inputs.alloc_knn_graph()) {
-
-
     /**
      * Allocate workspace for kNN graph
      */
     knn_indices_b =
       new MLCommon::device_buffer<value_idx>(d_alloc, stream, inputs.n * k);
-    knn_dists_b = new MLCommon::device_buffer<value_t>(d_alloc, stream, inputs.n * k);
+    knn_dists_b =
+      new MLCommon::device_buffer<value_t>(d_alloc, stream, inputs.n * k);
 
     knn_graph.knn_indices = knn_indices_b->data();
     knn_graph.knn_dists = knn_dists_b->data();
-
   }
 
-  kNNGraph::run<value_idx, value_t, umap_inputs>(orig_x_inputs, inputs, knn_graph, k, params, d_alloc, stream);
+  kNNGraph::run<value_idx, value_t, umap_inputs>(
+    orig_x_inputs, inputs, knn_graph, k, params, d_alloc, stream);
 
   ML::POP_RANGE();
 
@@ -348,15 +341,18 @@ void _transform(const raft::handle_t &handle,
    */
   MLCommon::device_buffer<value_t> sigmas(d_alloc, stream, inputs.n);
   MLCommon::device_buffer<value_t> rhos(d_alloc, stream, inputs.n);
-  CUDA_CHECK(cudaMemsetAsync(sigmas.data(), 0, inputs.n * sizeof(value_t), stream));
-  CUDA_CHECK(cudaMemsetAsync(rhos.data(), 0, inputs.n * sizeof(value_t), stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(sigmas.data(), 0, inputs.n * sizeof(value_t), stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(rhos.data(), 0, inputs.n * sizeof(value_t), stream));
 
   dim3 grid_n(MLCommon::ceildiv(inputs.n, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   FuzzySimplSetImpl::smooth_knn_dist<TPB_X, value_idx, value_t>(
-    inputs.n, knn_graph.knn_indices, knn_graph.knn_dists, rhos.data(), sigmas.data(), params,
-    params->n_neighbors, adjusted_local_connectivity, d_alloc, stream);
+    inputs.n, knn_graph.knn_indices, knn_graph.knn_dists, rhos.data(),
+    sigmas.data(), params, params->n_neighbors, adjusted_local_connectivity,
+    d_alloc, stream);
   ML::POP_RANGE();
 
   /**
@@ -376,8 +372,8 @@ void _transform(const raft::handle_t &handle,
   COO<value_t> graph_coo(d_alloc, stream, nnz, inputs.n, inputs.n);
 
   FuzzySimplSetImpl::compute_membership_strength_kernel<TPB_X>
-    <<<grid_nnz, blk, 0, stream>>>(knn_graph.knn_indices, knn_graph.knn_dists, sigmas.data(),
-                                   rhos.data(), graph_coo.vals(),
+    <<<grid_nnz, blk, 0, stream>>>(knn_graph.knn_indices, knn_graph.knn_dists,
+                                   sigmas.data(), rhos.data(), graph_coo.vals(),
                                    graph_coo.rows(), graph_coo.cols(),
                                    graph_coo.n_rows, params->n_neighbors);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -393,8 +389,8 @@ void _transform(const raft::handle_t &handle,
   MLCommon::Sparse::coo_row_count<TPB_X>(&graph_coo, ia.data(), stream);
 
   MLCommon::device_buffer<value_t> vals_normed(d_alloc, stream, graph_coo.nnz);
-  CUDA_CHECK(
-    cudaMemsetAsync(vals_normed.data(), 0, graph_coo.nnz * sizeof(value_t), stream));
+  CUDA_CHECK(cudaMemsetAsync(vals_normed.data(), 0,
+                             graph_coo.nnz * sizeof(value_t), stream));
 
   CUML_LOG_DEBUG("Performing L1 normalization");
 
@@ -415,7 +411,8 @@ void _transform(const raft::handle_t &handle,
    * Go through COO values and set everything that's less than
    * vals.max() / params->n_epochs to 0.0
    */
-  thrust::device_ptr<value_t> d_ptr = thrust::device_pointer_cast(graph_coo.vals());
+  thrust::device_ptr<value_t> d_ptr =
+    thrust::device_pointer_cast(graph_coo.vals());
   value_t max =
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
 
@@ -447,8 +444,8 @@ void _transform(const raft::handle_t &handle,
    * Remove zeros
    */
   MLCommon::Sparse::COO<value_t> comp_coo(d_alloc, stream);
-  MLCommon::Sparse::coo_remove_zeros<TPB_X, value_t>(&graph_coo, &comp_coo, d_alloc,
-                                               stream);
+  MLCommon::Sparse::coo_remove_zeros<TPB_X, value_t>(&graph_coo, &comp_coo,
+                                                     d_alloc, stream);
 
   ML::PUSH_RANGE("umap::optimization");
   CUML_LOG_DEBUG("Computing # of epochs for training each sample");
@@ -469,9 +466,9 @@ void _transform(const raft::handle_t &handle,
     4.0;  // TODO: This value should be passed into "optimize layout" directly to avoid side-effects.
 
   SimplSetEmbedImpl::optimize_layout<TPB_X, value_t>(
-    transformed, inputs.n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
-    comp_coo.nnz, epochs_per_sample.data(), inputs.n, params->repulsion_strength,
-    params, n_epochs, d_alloc, stream);
+    transformed, inputs.n, embedding, embedding_n, comp_coo.rows(),
+    comp_coo.cols(), comp_coo.nnz, epochs_per_sample.data(), inputs.n,
+    params->repulsion_strength, params, n_epochs, d_alloc, stream);
   ML::POP_RANGE();
 
   if (params->callback) params->callback->on_train_end(transformed);

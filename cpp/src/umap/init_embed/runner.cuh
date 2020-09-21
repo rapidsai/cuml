@@ -44,8 +44,8 @@ void run(const raft::handle_t &handle, int n, int d,
       break;
 
     case 1:
-      SpectralInit::launcher(handle, n, d, knn_indices, knn_dists, coo,
-                             params, embedding);
+      SpectralInit::launcher(handle, n, d, knn_indices, knn_dists, coo, params,
+                             embedding);
       break;
   }
 }
