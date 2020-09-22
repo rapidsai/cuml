@@ -299,6 +299,7 @@ class RootCumlArrayReturnConverter(CumlArrayReturnConverter):
             output_dtype=global_output_type_data.root_cm.target_dtype)
 
 
+
 # class RootOutputTypeContextManager(OutputTypeContextManager):
 #     def __init__(self, func, args):
 #         super().__init__(func, args, self)
@@ -513,7 +514,7 @@ def autowrap_return_self(func):
 #     return func
 
 
-class NoReturnDecorator(object):
+class ReturnAnyDecorator(object):
     def __call__(self, func):
         @wraps(func)
         def inner(*args, **kwds):
@@ -524,6 +525,24 @@ class NoReturnDecorator(object):
 
     def _recreate_cm(self):
         return InternalAPIContextManager(None, None)
+
+
+class BaseReturnArrayDecorator(ReturnAnyDecorator):
+    def __init__(self,
+                 input_arg: str = None,
+                 skip_output_type=False,
+                 skip_target_dtype=True) -> None:
+
+        super().__init__()
+
+    def __call__(self, func):
+        @wraps(func)
+        def inner(*args, **kwds):
+
+            with self._recreate_cm():
+                return func(*args, **kwds)
+
+        return inner
 
 
 class ReturnArrayDecorator(object):
@@ -548,6 +567,8 @@ class BaseReturnArrayDecorator(ReturnArrayDecorator):
                  input_arg: str = None,
                  skip_output_type=False,
                  skip_target_dtype=True) -> None:
+
+        super().__init__()
 
         self.input_arg = input_arg
         self.skip_output_type = skip_output_type
@@ -578,10 +599,13 @@ class BaseReturnArrayDecorator(ReturnArrayDecorator):
 
         if (root_cm.prev_output_type == "input"):
             if (base_obj is not None and base_obj._mirror_input):
-                return InternalAPIBaseWithReturnContextManager(None, None, base_obj)
+                return InternalAPIBaseWithReturnContextManager(
+                    None, None, base_obj)
 
         return super()._recreate_cm()
 
 
+wrap_api_return_any = ReturnAnyDecorator
+wrap_api_base_return_any = ReturnAnyDecorator
 api_return_array = ReturnArrayDecorator
 api_base_return_array = BaseReturnArrayDecorator

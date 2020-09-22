@@ -21,6 +21,7 @@ import warnings
 import cupy as cp
 import cupy.prof
 import cupyx
+import cuml.internals
 from cuml.common import CumlArray, with_cupy_rmm
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
@@ -231,6 +232,7 @@ class MultinomialNB(Base):
         return self.partial_fit(X, y, sample_weight)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
+    @cuml.internals.wrap_api_base_return_any()
     def _partial_fit(self, X, y, sample_weight=None, _classes=None):
         self._set_output_type(X)
 
@@ -335,7 +337,7 @@ class MultinomialNB(Base):
                                        'description': 'Predicted values',
                                        'shape': '(n_rows, 1)'})
     @cp.prof.TimeRangeDecorator(message="predict()", color_id=1)
-    def predict(self, X):
+    def predict(self, X) -> CumlArray:
         """
         Perform classification on an array of test vectors X.
 
@@ -364,7 +366,8 @@ class MultinomialNB(Base):
         indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
         y_hat = invert_labels(indices, classes=self.classes_)
-        return CumlArray(data=y_hat).to_output(out_type)
+        return y_hat
+        # return CumlArray(data=y_hat).to_output(out_type)
 
     @generate_docstring(X='dense_sparse',
                         return_values={'name': 'C',
