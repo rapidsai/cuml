@@ -25,7 +25,6 @@ namespace MLCommon {
 namespace Sparse {
 namespace Selection {
 
-
 template <typename value_idx, typename value_t>
 struct SparseSelectionInputs {
   value_idx n_rows;
@@ -42,8 +41,8 @@ struct SparseSelectionInputs {
 };
 
 template <typename value_idx, typename value_t>
-::std::ostream &operator<<(::std::ostream &os,
-                           const SparseSelectionInputs<value_idx, value_t> &dims) {
+::std::ostream &operator<<(
+  ::std::ostream &os, const SparseSelectionInputs<value_idx, value_t> &dims) {
   return os;
 }
 
@@ -76,8 +75,8 @@ class SparseSelectionTest
   }
 
   void SetUp() override {
-    params =
-      ::testing::TestWithParam<SparseSelectionInputs<value_idx, value_t>>::GetParam();
+    params = ::testing::TestWithParam<
+      SparseSelectionInputs<value_idx, value_t>>::GetParam();
     std::shared_ptr<deviceAllocator> alloc(
       new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -90,8 +89,8 @@ class SparseSelectionTest
 
     make_data();
 
-    select_k(dists, inds, n_rows, n_cols,
-      out_dists, out_indices, params.select_min, k, stream);
+    select_k(dists, inds, n_rows, n_cols, out_dists, out_indices,
+             params.select_min, k, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -136,23 +135,15 @@ class SparseSelectionTest
 };
 
 const std::vector<SparseSelectionInputs<int, float>> inputs_i32_f = {
-  { 5, 5,
-    {5.0, 4.0, 3.0, 2.0, 1.0,
-     1.0, 2.0, 3.0, 4.0, 5.0,
-     2.0, 3.0, 5.0, 1.0, 4.0,
-     5.0, 3.0, 2.0, 4.0, 1.0,
-     1.0, 3.0, 2.0, 5.0, 4.0 },
-    {1.0, 2.0, 3.0, 4.0, 5.0,
-     1.0, 2.0, 3.0, 4.0, 5.0,
-     1.0, 2.0, 3.0, 4.0, 5.0,
-     1.0, 2.0, 3.0, 4.0, 5.0,
-     1.0, 2.0, 3.0, 4.0, 5.0},
-    {4, 3, 2, 1, 0,
-      0, 1, 2, 3, 4,
-      3, 0, 1, 4, 2,
-      4, 2, 1, 3, 0,
-      0, 2, 1, 4, 3},
-    5, true}};
+  {5,
+   5,
+   {5.0, 4.0, 3.0, 2.0, 1.0, 1.0, 2.0, 3.0, 4.0, 5.0, 2.0, 3.0, 5.0,
+    1.0, 4.0, 5.0, 3.0, 2.0, 4.0, 1.0, 1.0, 3.0, 2.0, 5.0, 4.0},
+   {1.0, 2.0, 3.0, 4.0, 5.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.0, 2.0, 3.0,
+    4.0, 5.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.0, 2.0, 3.0, 4.0, 5.0},
+   {4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 3, 0, 1, 4, 2, 4, 2, 1, 3, 0, 0, 2, 1, 4, 3},
+   5,
+   true}};
 typedef SparseSelectionTest<int, float> SparseSelectionTestF;
 TEST_P(SparseSelectionTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(SparseSelectionTest, SparseSelectionTestF,

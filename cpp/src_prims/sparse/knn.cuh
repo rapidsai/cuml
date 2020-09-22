@@ -114,7 +114,6 @@ struct csr_batcher_t {
   value_idx batch_csr_stop_offset_;
 };
 
-
 /**
    * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
    * using some distance implementation

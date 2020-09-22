@@ -87,8 +87,7 @@ class SparseKNNTest
 
   void SetUp() override {
     params =
-      ::testing::TestWithParam<
-        SparseKNNInputs<value_idx, value_t>>::GetParam();
+      ::testing::TestWithParam<SparseKNNInputs<value_idx, value_t>>::GetParam();
     std::shared_ptr<deviceAllocator> alloc(
       new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -132,8 +131,8 @@ class SparseKNNTest
   }
 
   void compare() {
-    ASSERT_TRUE(
-      devArrMatch(out_dists_ref, out_dists, n_rows * k, CompareApprox<value_t>(1e-4)));
+    ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists, n_rows * k,
+                            CompareApprox<value_t>(1e-4)));
     ASSERT_TRUE(devArrMatch(out_indices_ref, out_indices, n_rows * k,
                             Compare<value_idx>()));
   }

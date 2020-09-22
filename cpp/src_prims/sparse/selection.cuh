@@ -62,7 +62,6 @@ void iota_fill(value_idx *indices, value_idx nrows, value_idx ncols,
   iota_fill_warp_kernel<<<nrows, blockdim, 0, stream>>>(indices, ncols);
 }
 
-
 template <typename K, typename IndexType, bool select_min, int warp_q,
           int thread_q, int tpb>
 __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
