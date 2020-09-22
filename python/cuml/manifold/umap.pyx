@@ -510,12 +510,10 @@ class UMAP(Base):
                    (knn_dists_m, knn_dists_m.ptr)
         return (None, None), (None, None)
 
-
     @staticmethod
     def _is_x_sparse(X):
-        return cupyx.scipy.sparse.isspmatrix(X) or \
-               (has_scipy() and scipy.sparse.isspmatrix(X))
-
+        is_scipy_sparse = (has_scipy() and scipy.sparse.isspmatrix(X))
+        return cupyx.scipy.sparse.isspmatrix(X) or is_scipy_sparse
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         skip_parameters_heading=True)
@@ -742,12 +740,12 @@ class UMAP(Base):
         if self._is_x_sparse(X):
 
             X_m = SparseCumlArray(X, convert_to_dtype=cupy.float32,
-                                        convert_format=False)
+                                  convert_format=False)
         else:
-
             X_m, n_rows, n_cols, dtype = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
-                                    convert_to_dtype=(np.float32 if convert_dtype
+                                    convert_to_dtype=(np.float32
+                                                      if convert_dtype
                                                       else None))
         n_rows = X_m.shape[0]
         n_cols = X_m.shape[1]

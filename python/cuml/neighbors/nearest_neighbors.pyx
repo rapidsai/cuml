@@ -237,7 +237,6 @@ class NearestNeighbors(Base):
         self.p = p
         self.algorithm = algorithm
 
-
     @generate_docstring()
     def fit(self, X, convert_dtype=True):
         """
@@ -251,10 +250,11 @@ class NearestNeighbors(Base):
 
         self.n_dims = X.shape[1]
 
-        if cupyx.scipy.sparse.isspmatrix(X) or \
-            (has_scipy() and scipy.sparse.isspmatrix(X)):
+        is_scipy_sparse = (has_scipy() and scipy.sparse.isspmatrix(X))
+        if cupyx.scipy.sparse.isspmatrix(X) or is_scipy_sparse:
 
-            self._X_m = SparseCumlArray(X, convert_to_dtype=cp.float32, convert_format=False)
+            self._X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
+                                        convert_format=False)
             self.n_rows = self._X_m.shape[0]
 
         else:
@@ -402,9 +402,11 @@ class NearestNeighbors(Base):
                              "indices (%d)" % self.n_dims)
 
         if isinstance(self._X_m, CumlArray):
-            D_ndarr, I_ndarr = self._kneighbors_dense(X, n_neighbors, convert_dtype)
+            D_ndarr, I_ndarr = self._kneighbors_dense(X, n_neighbors,
+                                                      convert_dtype)
         elif isinstance(self._X_m, SparseCumlArray):
-            D_ndarr, I_ndarr = self._kneighbors_sparse(X, n_neighbors, convert_dtype)
+            D_ndarr, I_ndarr = self._kneighbors_sparse(X, n_neighbors,
+                                                       convert_dtype)
 
         self.handle.sync()
 
@@ -485,11 +487,13 @@ class NearestNeighbors(Base):
         # TODO: Verify both X and self._X_m are sparse
 
         batch_size_index = 10000
-        if self.algo_params is not None and "batch_size_index" in self.algo_params:
+        if self.algo_params is not None and \
+                "batch_size_index" in self.algo_params:
             batch_size_index = self.algo_params['batch_size_index']
 
         batch_size_query = 10000
-        if self.algo_params is not None and "batch_size_query" in self.algo_params:
+        if self.algo_params is not None and \
+                "batch_size_query" in self.algo_params:
             batch_size_query = self.algo_params['batch_size_query']
 
         X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
@@ -532,7 +536,7 @@ class NearestNeighbors(Base):
                         <int*>I_ptr,
                         <float*>D_ptr,
                         n_neighbors,
-                        <size_t>batch_size_index, # TODO: Make this an option
+                        <size_t>batch_size_index,
                         <size_t>batch_size_query,
                         <MetricType> metric,
                         <float>self.p,
