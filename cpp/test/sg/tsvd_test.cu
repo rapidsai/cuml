@@ -96,10 +96,8 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
       prms.algorithm = solver::COV_EIG_DQ;
     else if (params.algo == 1)
       prms.algorithm = solver::COV_EIG_JACOBI;
-    else if (params.algo == 2) {
-      prms.algorithm = solver::RANDOMIZED;
+    else
       prms.n_components = params.n_col2 - 15;
-    }
 
     allocate(data2, len);
     r.uniform(data2, len, T(-1.0), T(1.0), stream);
