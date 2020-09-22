@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -29,9 +26,11 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.base import RegressorMixin
+from cuml.common.doc_utils import generate_docstring
 from cuml.metrics import r2_score
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
@@ -75,7 +74,7 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
 
 cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
-    cdef void svcFit[math_t](const cumlHandle &handle, math_t *input,
+    cdef void svcFit[math_t](const handle_t &handle, math_t *input,
                              int n_rows, int n_cols, math_t *labels,
                              const svmParameter &param,
                              KernelParams &kernel_params,
@@ -83,16 +82,16 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                              const math_t *sample_weight) except+
 
     cdef void svcPredict[math_t](
-        const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
+        const handle_t &handle, math_t *input, int n_rows, int n_cols,
         KernelParams &kernel_params, const svmModel[math_t] &model,
         math_t *preds, math_t buffer_size, bool predict_class) except +
 
-    cdef void svmFreeBuffers[math_t](const cumlHandle &handle,
+    cdef void svmFreeBuffers[math_t](const handle_t &handle,
                                      svmModel[math_t] &m) except +
 
 cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM":
 
-    cdef void svrFit[math_t](const cumlHandle &handle, math_t *X,
+    cdef void svrFit[math_t](const handle_t &handle, math_t *X,
                              int n_rows, int n_cols, math_t *y,
                              const svmParameter &param,
                              KernelParams &kernel_params,
@@ -105,24 +104,6 @@ class SVR(SVMBase, RegressorMixin):
     SVR (Epsilon Support Vector Regression)
 
     Construct an SVC classifier for training and predictions.
-
-    Examples
-    ---------
-    .. code-block:: python
-
-            import numpy as np
-            from cuml.svm import SVR
-            X = np.array([[1], [2], [3], [4], [5]], dtype=np.float32)
-            y = np.array([1.1, 4, 5, 3.9, 1.], dtype = np.float32)
-            reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
-            reg.fit(X, y)
-            print("Predicted values:", reg.predict(X))
-
-    Output:
-
-    .. code-block:: none
-
-            Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
 
     Parameters
     ----------
@@ -138,8 +119,10 @@ class SVR(SVMBase, RegressorMixin):
     gamma : float or string (default = 'scale')
         Coefficient for rbf, poly, and sigmoid kernels. You can specify the
         numeric value, or use one of the following options:
-        - 'auto': gamma will be set to 1 / n_features
-        - 'scale': gamma will be se to 1 / (n_features * X.var())
+
+        - 'auto': gamma will be set to ``1 / n_features``
+        - 'scale': gamma will be se to ``1 / (n_features * X.var())``
+
     coef0 : float (default = 0.0)
         Independent term in kernel function, only signifficant for poly and
         sigmoid
@@ -186,25 +169,48 @@ class SVR(SVMBase, RegressorMixin):
     coef_ : float, shape [1, n_cols]
         Only available for linear kernels. It is the normal of the
         hyperplane.
-        coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
-
+        ``coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]``
 
     Notes
     -----
+
     For additional docs, see `Scikit-learn's SVR
     <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVR.html>`_.
 
     The solver uses the SMO method to fit the regressor. We use the Optimized
-    Hierarchical Decomposition [1] variant of the SMO algorithm, similar to [2]
+    Hierarchical Decomposition [1]_ variant of the SMO algorithm, similar to
+    [2]_
 
     References
     ----------
-    [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical Decomposition
-         Algorithm for Support VectorMachine Training, IEEE Transactions on
-         Parallel and Distributed Systems, vol 28, no 12, 3330, (2017)
-    [2] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
-    *      of Machine Learning Research, 19, 1-5 (2018)
-        https://github.com/Xtra-Computing/thundersvm
+
+    .. [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical
+           Decomposition Algorithm for Support VectorMachine Training, IEEE
+           Transactions on Parallel and Distributed Systems, vol 28, no 12,
+           3330, (2017)
+
+    .. [2] `Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs,
+           Journal of Machine Learning Research, 19, 1-5 (2018)
+           <https://github.com/Xtra-Computing/thundersvm>`_
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import numpy as np
+        from cuml.svm import SVR
+        X = np.array([[1], [2], [3], [4], [5]], dtype=np.float32)
+        y = np.array([1.1, 4, 5, 3.9, 1.], dtype = np.float32)
+        reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
+        reg.fit(X, y)
+        print("Predicted values:", reg.predict(X))
+
+    Output:
+
+    .. code-block:: python
+
+        Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
 
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
@@ -216,29 +222,13 @@ class SVR(SVMBase, RegressorMixin):
                                   verbose, epsilon)
         self.svmType = EPSILON_SVR
 
+    @generate_docstring()
     def fit(self, X, y, sample_weight=None, convert_dtype=True):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
         cdef uintptr_t X_ptr, y_ptr
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
@@ -268,7 +258,7 @@ class SVR(SVMBase, RegressorMixin):
         cdef svmParameter param = self._get_svm_params()
         cdef svmModel[float] *model_f
         cdef svmModel[double] *model_d
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             model_f = new svmModel[float]()
@@ -294,21 +284,14 @@ class SVR(SVMBase, RegressorMixin):
 
         return self
 
-    def predict(self, X):
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the values for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        y : cuDF Series
-           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        return super(SVR, self).predict(X, False)
+        return super(SVR, self).predict(X, False, convert_dtype)

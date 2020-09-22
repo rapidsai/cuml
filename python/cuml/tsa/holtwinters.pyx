@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import cudf
 import cupy as cp
@@ -27,7 +24,7 @@ from cuml.common import input_to_dev_array
 from cuml.common import get_dev_array_ptr
 from cuml.common import numba_utils
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 
 cdef extern from "cuml/tsa/holtwinters_params.h" namespace "ML":
     enum SeasonalType:
@@ -42,24 +39,24 @@ cdef extern from "cuml/tsa/holtwinters.h" namespace "ML::HoltWinters":
         int *leveltrend_coef_shift, int *season_coef_shift) except +
 
     cdef void fit(
-        cumlHandle &handle, int n, int batch_size,
+        handle_t &handle, int n, int batch_size,
         int frequency, int start_periods, SeasonalType seasonal,
         float epsilon,
         float *data, float *level_ptr, float *trend_ptr,
         float *season_ptr, float *SSE_error_ptr) except +
     cdef void fit(
-        cumlHandle &handle, int n, int batch_size,
+        handle_t &handle, int n, int batch_size,
         int frequency, int start_periods, SeasonalType seasonal,
         double epsilon,
         double *data, double *level_ptr, double *trend_ptr,
         double *season_ptr, double *SSE_error_ptr) except +
 
     cdef void forecast(
-        cumlHandle &handle, int n, int batch_size, int frequency,
+        handle_t &handle, int n, int batch_size, int frequency,
         int h, SeasonalType seasonal, float *level_ptr,
         float *trend_ptr, float *season_ptr, float *forecast_ptr) except +
     cdef void forecast(
-        cumlHandle &handle, int n, int batch_size, int frequency,
+        handle_t &handle, int n, int batch_size, int frequency,
         int h, SeasonalType seasonal, double *level_ptr,
         double *trend_ptr, double *season_ptr, double *forecast_ptr) except +
 
@@ -72,68 +69,67 @@ class ExponentialSmoothing(Base):
     data with exponentially decreasing impact. This is done by analyzing
     three components of the data: level, trend, and seasonality.
 
-    Known Limitations
-    -----------------
-    This version of ExponentialSmoothing currently provides only a limited
-    number of features when compared to the
-    statsmodels.holtwinters.ExponentialSmoothing model. Noticeably, it lacks:
+    Notes
+    -----
+    *Known Limitations:* This version of ExponentialSmoothing currently
+    provides only a limited number of features when compared to the
+    `statsmodels.holtwinters.ExponentialSmoothing` model. Noticeably, it lacks:
 
-        * predict : no support for in-sample prediction.
-                       https://github.com/rapidsai/cuml/issues/875
+    * predict : no support for in-sample prediction.
+        * https://github.com/rapidsai/cuml/issues/875
 
-        * hessian : no support for returning Hessian matrix.
-                       https://github.com/rapidsai/cuml/issues/880
+    * hessian : no support for returning Hessian matrix.
+        * https://github.com/rapidsai/cuml/issues/880
 
-        * information : no support for returning Fisher matrix.
-                           https://github.com/rapidsai/cuml/issues/880
+    * information : no support for returning Fisher matrix.
+        * https://github.com/rapidsai/cuml/issues/880
 
-        * loglike : no support for returning Log-likelihood.
-                       https://github.com/rapidsai/cuml/issues/880
+    * loglike : no support for returning Log-likelihood.
+        * https://github.com/rapidsai/cuml/issues/880
 
     Additionally, be warned that there may exist floating point instability
     issues in this model. Small values in endog may lead to faulty results.
     See https://github.com/rapidsai/cuml/issues/888 for more information.
 
-    Known Differences
-    -----------------
-    This version of ExponentialSmoothing differs from statsmodels in some
-    other minor ways:
+    *Known Differences:* This version of ExponentialSmoothing differs from
+    statsmodels in some other minor ways:
 
     * Cannot pass trend component or damped trend component
     * this version can take additional parameters `eps`,
-                    `start_periods`, `ts_num`, and `handle`
+      `start_periods`, `ts_num`, and `handle`
     * Score returns SSE rather than gradient logL
-                 https://github.com/rapidsai/cuml/issues/876
+      https://github.com/rapidsai/cuml/issues/876
     * This version provides get_level(), get_trend(), get_season()
 
     Examples
     --------
-    .. code-block:: python
-
-            from cuml import ExponentialSmoothing
-            import cudf
-            import numpy as np
-            data = cudf.Series([1, 2, 3, 4, 5, 6,
-                               7, 8, 9, 10, 11, 12,
-                               2, 3, 4, 5, 6, 7,
-                               8, 9, 10, 11, 12, 13,
-                               3, 4, 5, 6, 7, 8, 9,
-                               10, 11, 12, 13, 14],
-                               dtype=np.float64)
-            cu_hw = ExponentialSmoothing(data, seasonal_periods=12)
-            cu_hw.fit()
-            cu_pred = cu_hw.forecast(4)
-            print('Forecasted points:', cu_pred)
-    Output
-
 
     .. code-block:: python
 
-            Forecasted points :
-            0    4.000143766093652
-            1    5.000000163513641
-            2    6.000000000174092
-            3    7.000000000000178
+        from cuml import ExponentialSmoothing
+        import cudf
+        import numpy as np
+        data = cudf.Series([1, 2, 3, 4, 5, 6,
+                            7, 8, 9, 10, 11, 12,
+                            2, 3, 4, 5, 6, 7,
+                            8, 9, 10, 11, 12, 13,
+                            3, 4, 5, 6, 7, 8, 9,
+                            10, 11, 12, 13, 14],
+                            dtype=np.float64)
+        cu_hw = ExponentialSmoothing(data, seasonal_periods=12)
+        cu_hw.fit()
+        cu_pred = cu_hw.forecast(4)
+        print('Forecasted points:', cu_pred)
+
+    Output:
+
+    .. code-block:: python
+
+        Forecasted points :
+        0    4.000143766093652
+        1    5.000000163513641
+        2    6.000000000174092
+        3    7.000000000000178
 
     Parameters
     ----------
@@ -144,7 +140,8 @@ class ExponentialSmoothing(Base):
         Note: cuDF.DataFrame types assumes data is in columns,
         while all other datatypes assume data is in rows.
         The endogenous dataset to be operated on.
-    seasonal : 'additive', 'add', 'multiplicative', 'mul' (default = 'additive')  # noqa
+    seasonal : 'additive', 'add', 'multiplicative', 'mul' \
+        (default = 'additive')
         Whether the seasonal trend should be calculated
         additively or multiplicatively.
     seasonal_periods : int (default=2)
@@ -302,7 +299,7 @@ class ExponentialSmoothing(Base):
                     <int*> &season_coef_offset,
                     <int*> &error_len)
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t level_ptr, trend_ptr, season_ptr, SSE_ptr
 
         self.level = numba_utils.zeros(components_len, dtype=self.dtype)
@@ -370,7 +367,7 @@ class ExponentialSmoothing(Base):
 
         """
         cdef uintptr_t forecast_ptr, level_ptr, trend_ptr, season_ptr
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if type(h) != int or (type(index) != int and index is not None):
             raise TypeError("Input arguments must be of type int."
@@ -435,8 +432,8 @@ class ExponentialSmoothing(Base):
         """
         Returns the score of the model.
 
-        **Note: Currently returns the SSE, rather than the gradient of the
-                LogLikelihood. https://github.com/rapidsai/cuml/issues/876
+        .. note:: Currently returns the SSE, rather than the gradient of the
+            LogLikelihood. https://github.com/rapidsai/cuml/issues/876
 
         Parameters
         ----------

@@ -350,7 +350,7 @@ def test_output_algos(algo, small_classifier_and_preds):
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize('storage_type',
-                         [False, True, 'auto'])
+                         [False, True, 'auto', 'dense', 'sparse', 'sparse8'])
 def test_output_storage_type(storage_type, small_classifier_and_preds):
     model_path, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
@@ -433,4 +433,4 @@ def test_lightgbm(tmp_path):
     fil_proba = np.asarray(fm.predict_proba(X))
     fil_proba = np.reshape(fil_proba, np.shape(gbm_proba))
 
-    assert np.allclose(gbm_proba, fil_proba, 1e-3)
+    assert np.allclose(gbm_proba, fil_proba, 1e-2)

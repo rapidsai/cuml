@@ -14,11 +14,6 @@
 # limitations under the License.
 #
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
-
 from cuml.dask.solvers import CD
 from cuml.dask.common.base import BaseEstimator
 
@@ -82,7 +77,7 @@ class ElasticNet(BaseEstimator):
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
 
     For additional docs, see `scikitlearn's ElasticNet

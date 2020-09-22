@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include <raft/sparse/cusparse_wrappers.h>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <selection/knn.cuh>
 #include "coo.cuh"
-#include "cusparse_wrappers.h"
 
 #include <raft/spectral/partition.hpp>
 
@@ -36,15 +36,16 @@ void coo2csr(cusparseHandle_t handle, const int *srcRows, const int *srcCols,
                              cudaMemcpyDeviceToDevice, stream));
   CUDA_CHECK(cudaMemcpyAsync(dstCols, srcCols, sizeof(int) * nnz,
                              cudaMemcpyDeviceToDevice, stream));
-  auto buffSize = Sparse::cusparsecoosort_bufferSizeExt(
+  auto buffSize = raft::sparse::cusparsecoosort_bufferSizeExt(
     handle, m, m, nnz, srcRows, srcCols, stream);
   device_buffer<char> pBuffer(d_alloc, stream, buffSize);
   device_buffer<int> P(d_alloc, stream, nnz);
   CUSPARSE_CHECK(cusparseCreateIdentityPermutation(handle, nnz, P.data()));
-  Sparse::cusparsecoosortByRow(handle, m, m, nnz, dstRows.data(), dstCols,
-                               P.data(), pBuffer.data(), stream);
-  Sparse::cusparsegthr(handle, nnz, srcVals, dstVals, P.data(), stream);
-  Sparse::cusparsecoo2csr(handle, dstRows.data(), nnz, m, dst_offsets, stream);
+  raft::sparse::cusparsecoosortByRow(handle, m, m, nnz, dstRows.data(), dstCols,
+                                     P.data(), pBuffer.data(), stream);
+  raft::sparse::cusparsegthr(handle, nnz, srcVals, dstVals, P.data(), stream);
+  raft::sparse::cusparsecoo2csr(handle, dstRows.data(), nnz, m, dst_offsets,
+                                stream);
   CUDA_CHECK(cudaDeviceSynchronize());
 }
 

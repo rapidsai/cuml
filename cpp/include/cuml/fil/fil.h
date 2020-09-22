@@ -79,8 +79,14 @@ enum storage_type_t {
   AUTO,
   /** import the forest as dense */
   DENSE,
-  /** import the forest as sparse */
-  SPARSE
+  /** import the forest as sparse (currently always with 16-byte nodes) */
+  SPARSE,
+  /** (experimental) import the forest as sparse with 8-byte nodes; can fail if
+      8-byte nodes are not enough to store the forest, e.g. there are too many
+      nodes in a tree or too many features; note that the number of bits used to
+      store the child or feature index can change in the future; this can affect
+      whether a particular forest can be imported as SPARSE8 */
+  SPARSE8,
 };
 
 /** val_t is the payload within a FIL leaf */
@@ -98,19 +104,26 @@ struct dense_node_t {
   int bits;
 };
 
-/** sparse_node_extra_data is what's missing from a dense node to store
+/** sparse_node16_extra_data is what's missing from a dense node to store
     a sparse node, that is, extra indexing information due to compressing
     a sparse tree. */
-struct sparse_node_extra_data {
+struct sparse_node16_extra_data {
   int left_idx;
   int dummy;  // make alignment explicit and reserve for future use
 };
 
-/** sparse_node_t is a node in a sparsely-stored forest */
-struct sparse_node_t : dense_node_t, sparse_node_extra_data {
-  sparse_node_t() = default;
-  sparse_node_t(dense_node_t dn, sparse_node_extra_data ed)
-    : dense_node_t(dn), sparse_node_extra_data(ed) {}
+/** sparse_node16_t is a 16-byte node in a sparsely-stored forest */
+struct sparse_node16_t : dense_node_t, sparse_node16_extra_data {
+  sparse_node16_t() = default;
+  sparse_node16_t(dense_node_t dn, sparse_node16_extra_data ed)
+    : dense_node_t(dn), sparse_node16_extra_data(ed) {}
+};
+
+/** sparse_node8_t is a node of reduced size (8 bytes)
+    in a sparsely-stored forest */
+struct sparse_node8_t : dense_node_t {
+  sparse_node8_t() = default;
+  sparse_node8_t(dense_node_t dn) : dense_node_t(dn) {}
 };
 
 /** leaf_value_t describes what the leaves in a FIL forest store (predict) */
@@ -133,22 +146,21 @@ struct leaf_output_t<leaf_value_t::INT_CLASS_LABEL> {
   typedef int T;
 };
 
-/** dense_node_init initializes node from paramters */
-void dense_node_init(dense_node_t* n, val_t output, float thresh, int fid,
-                     bool def_left, bool is_leaf);
+/** node_init initializes node from paramters */
+void node_init(dense_node_t* n, val_t output, float thresh, int fid,
+               bool def_left, bool is_leaf);
+void node_init(sparse_node16_t* node, val_t output, float thresh, int fid,
+               bool def_left, bool is_leaf, int left_index);
+void node_init(sparse_node8_t* node, val_t output, float thresh, int fid,
+               bool def_left, bool is_leaf, int left_index);
 
-/** dense_node_decode extracts individual members from node */
-void dense_node_decode(const dense_node_t* node, val_t* output, float* thresh,
-                       int* fid, bool* def_left, bool* is_leaf);
-
-/** sparse_node_init initializes node from parameters */
-void sparse_node_init(sparse_node_t* node, val_t output, float thresh, int fid,
-                      bool def_left, bool is_leaf, int left_index);
-
-/** sparse_node_decode extracts individual members from node */
-void sparse_node_decode(const sparse_node_t* node, val_t* output, float* thresh,
-                        int* fid, bool* def_left, bool* is_leaf,
-                        int* left_index);
+/** node_decode extracts individual members from node */
+void node_decode(const dense_node_t* node, val_t* output, float* thresh,
+                 int* fid, bool* def_left, bool* is_leaf);
+void node_decode(const sparse_node16_t* node, val_t* output, float* thresh,
+                 int* fid, bool* def_left, bool* is_leaf, int* left_index);
+void node_decode(const sparse_node8_t* node, val_t* output, float* thresh,
+                 int* fid, bool* def_left, bool* is_leaf, int* left_index);
 
 struct forest;
 
@@ -207,18 +219,30 @@ struct treelite_params_t {
       (2**(params->depth + 1) - 1) * params->ntrees
  *  @param params pointer to parameters used to initialize the forest
  */
-void init_dense(const cumlHandle& h, forest_t* pf, const dense_node_t* nodes,
-                const forest_params_t* params);
+void init_dense(const raft::handle_t& h, forest_t* pf,
+                const dense_node_t* nodes, const forest_params_t* params);
 
-/** init_sparse uses params, trees and nodes to initialize the sparse forest stored in pf
+/** init_sparse uses params, trees and nodes to initialize the sparse forest
+ *  with 16-byte nodes stored in pf
  *  @param h cuML handle used by this function
  *  @param pf pointer to where to store the newly created forest
  *  @param trees indices of tree roots in the nodes arrray, of length params->ntrees
  *  @param nodes nodes for the forest, of length params->num_nodes
  *  @param params pointer to parameters used to initialize the forest
  */
-void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
-                 const sparse_node_t* nodes, const forest_params_t* params);
+void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
+                 const sparse_node16_t* nodes, const forest_params_t* params);
+
+/** init_sparse uses params, trees and nodes to initialize the sparse forest
+ *  with 8-byte nodes stored in pf
+ *  @param h cuML handle used by this function
+ *  @param pf pointer to where to store the newly created forest
+ *  @param trees indices of tree roots in the nodes arrray, of length params->ntrees
+ *  @param nodes nodes for the forest, of length params->num_nodes
+ *  @param params pointer to parameters used to initialize the forest
+ */
+void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
+                 const sparse_node8_t* nodes, const forest_params_t* params);
 
 /** from_treelite uses a treelite model to initialize the forest
  * @param handle cuML handle used by this function
@@ -226,14 +250,14 @@ void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
  * @param model treelite model used to initialize the forest
  * @param tl_params additional parameters for the forest
  */
-void from_treelite(const cumlHandle& handle, forest_t* pforest,
+void from_treelite(const raft::handle_t& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params);
 
 /** free deletes forest and all resources held by it; after this, forest is no longer usable
  *  @param h cuML handle used by this function
  *  @param f the forest to free; not usable after the call to this function
  */
-void free(const cumlHandle& h, forest_t f);
+void free(const raft::handle_t& h, forest_t f);
 
 /** predict predicts on data (with n rows) using forest and writes results into preds;
  *  the number of columns is stored in forest, and both preds and data point to GPU memory
@@ -247,8 +271,8 @@ void free(const cumlHandle& h, forest_t f);
  *  @param predict_proba for classifier models, this forces to output both class probabilities
  *      instead of binary class prediction. format matches scikit-learn API
  */
-void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
-             size_t num_rows, bool predict_proba = false);
+void predict(const raft::handle_t& h, forest_t f, float* preds,
+             const float* data, size_t num_rows, bool predict_proba = false);
 
 }  // namespace fil
 }  // namespace ML

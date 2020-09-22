@@ -6,7 +6,6 @@
 
 # PR_TARGET_BRANCH is set by the CI enviroment
 
-# Checkout master for comparison
 git checkout --quiet $PR_TARGET_BRANCH
 
 # Switch back to tip of PR branch

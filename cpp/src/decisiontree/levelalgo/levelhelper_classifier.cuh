@@ -302,7 +302,7 @@ void leaf_eval_classification(
 
   int non_leaf_counter = 0;
   // decide if the "next" layer of nodes are to be forcefully marked as leaves
-  bool condition_global = curr_depth >= max_depth - 1;
+  bool condition_global = curr_depth >= max_depth;
   if (max_leaves != -1)
     condition_global = condition_global || (tree_leaf_cnt >= max_leaves);
 

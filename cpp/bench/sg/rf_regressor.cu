@@ -102,7 +102,7 @@ std::vector<RegParams> getInputs() {
     p.data.ncols = di.ncols;
     p.regression.n_informative = di.n_informative;
     p.rf.tree_params.max_features = 1.f;
-    for (auto max_depth : std::vector<int>({8, 12, 16})) {
+    for (auto max_depth : std::vector<int>({7, 11, 15})) {
       p.rf.tree_params.max_depth = max_depth;
       out.push_back(p);
     }

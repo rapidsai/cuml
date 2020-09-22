@@ -99,17 +99,19 @@ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
 class BaseFilTest : public testing::TestWithParam<FilTestParams> {
  protected:
-  void SetUp() override {
+  void setup_helper() {
     // setup
     ps = testing::TestWithParam<FilTestParams>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.setStream(stream);
+    handle.set_stream(stream);
 
     generate_forest();
     generate_data();
     predict_on_cpu();
     predict_on_gpu();
   }
+
+  void SetUp() override { setup_helper(); }
 
   void TearDown() override {
     CUDA_CHECK(cudaFree(preds_d));
@@ -189,8 +191,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           // merely that we copied floats into weights_h earlier
           std::memcpy(&w.f, &weights_h[i], sizeof w.f);
       }
-      fil::dense_node_init(&nodes[i], w, thresholds_h[i], fids_h[i],
-                           def_lefts_h[i], is_leafs_h[i]);
+      fil::node_init(&nodes[i], w, thresholds_h[i], fids_h[i], def_lefts_h[i],
+                     is_leafs_h[i]);
     }
 
     // clean up
@@ -330,8 +332,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     int fid = 0;
     bool def_left = false, is_leaf = false;
     for (;;) {
-      fil::dense_node_decode(&root[curr], &output, &threshold, &fid, &def_left,
-                             &is_leaf);
+      fil::node_decode(&root[curr], &output, &threshold, &fid, &def_left,
+                       &is_leaf);
       if (is_leaf) break;
       float val = data[fid];
       bool cond = isnan(val) ? !def_left : val >= threshold;
@@ -359,7 +361,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   // parameters
   cudaStream_t stream;
-  cumlHandle handle;
+  raft::handle_t handle;
   FilTestParams ps;
 };
 
@@ -382,7 +384,8 @@ class PredictDenseFilTest : public BaseFilTest {
   }
 };
 
-class PredictSparseFilTest : public BaseFilTest {
+template <typename fil_node_t>
+class BasePredictSparseFilTest : public BaseFilTest {
  protected:
   void dense2sparse_node(const fil::dense_node_t* dense_root, int i_dense,
                          int i_sparse_root, int i_sparse) {
@@ -390,21 +393,21 @@ class PredictSparseFilTest : public BaseFilTest {
     fil::val_t output;
     int feature;
     bool def_left, is_leaf;
-    dense_node_decode(&dense_root[i_dense], &output, &threshold, &feature,
-                      &def_left, &is_leaf);
+    fil::node_decode(&dense_root[i_dense], &output, &threshold, &feature,
+                     &def_left, &is_leaf);
     if (is_leaf) {
       // leaf sparse node
-      sparse_node_init(&sparse_nodes[i_sparse], output, threshold, feature,
-                       def_left, is_leaf, 0);
+      node_init(&sparse_nodes[i_sparse], output, threshold, feature, def_left,
+                is_leaf, 0);
       return;
     }
     // inner sparse node
     // reserve space for children
     int left_index = sparse_nodes.size();
-    sparse_nodes.push_back(fil::sparse_node_t());
-    sparse_nodes.push_back(fil::sparse_node_t());
-    sparse_node_init(&sparse_nodes[i_sparse], output, threshold, feature,
-                     def_left, is_leaf, left_index - i_sparse_root);
+    sparse_nodes.push_back(fil_node_t());
+    sparse_nodes.push_back(fil_node_t());
+    node_init(&sparse_nodes[i_sparse], output, threshold, feature, def_left,
+              is_leaf, left_index - i_sparse_root);
     dense2sparse_node(dense_root, 2 * i_dense + 1, i_sparse_root, left_index);
     dense2sparse_node(dense_root, 2 * i_dense + 2, i_sparse_root,
                       left_index + 1);
@@ -412,7 +415,7 @@ class PredictSparseFilTest : public BaseFilTest {
 
   void dense2sparse_tree(const fil::dense_node_t* dense_root) {
     int i_sparse_root = sparse_nodes.size();
-    sparse_nodes.push_back(fil::sparse_node_t());
+    sparse_nodes.push_back(fil_node_t());
     dense2sparse_node(dense_root, 0, i_sparse_root, i_sparse_root);
     trees.push_back(i_sparse_root);
   }
@@ -440,9 +443,12 @@ class PredictSparseFilTest : public BaseFilTest {
     fil::init_sparse(handle, pforest, trees.data(), sparse_nodes.data(),
                      &fil_params);
   }
-  std::vector<fil::sparse_node_t> sparse_nodes;
+  std::vector<fil_node_t> sparse_nodes;
   std::vector<int> trees;
 };
+
+typedef BasePredictSparseFilTest<fil::sparse_node16_t> PredictSparse16FilTest;
+typedef BasePredictSparseFilTest<fil::sparse_node8_t> PredictSparse8FilTest;
 
 class TreeliteFilTest : public BaseFilTest {
  protected:
@@ -457,8 +463,8 @@ class TreeliteFilTest : public BaseFilTest {
     float threshold;
     fil::val_t output;
     bool is_leaf, default_left;
-    fil::dense_node_decode(&nodes[node], &output, &threshold, &feature,
-                           &default_left, &is_leaf);
+    fil::node_decode(&nodes[node], &output, &threshold, &feature, &default_left,
+                     &is_leaf);
     if (is_leaf) {
       switch (ps.leaf_payload_type) {
         case fil::leaf_value_t::FLOAT_SCALAR:
@@ -560,10 +566,17 @@ class TreeliteDenseFilTest : public TreeliteFilTest {
   }
 };
 
-class TreeliteSparseFilTest : public TreeliteFilTest {
+class TreeliteSparse16FilTest : public TreeliteFilTest {
  protected:
   void init_forest(fil::forest_t* pforest) override {
     init_forest_impl(pforest, fil::storage_type_t::SPARSE);
+  }
+};
+
+class TreeliteSparse8FilTest : public TreeliteFilTest {
+ protected:
+  void init_forest(fil::forest_t* pforest) override {
+    init_forest_impl(pforest, fil::storage_type_t::SPARSE8);
   }
 };
 
@@ -572,6 +585,15 @@ class TreeliteAutoFilTest : public TreeliteFilTest {
   void init_forest(fil::forest_t* pforest) override {
     init_forest_impl(pforest, fil::storage_type_t::AUTO);
   }
+};
+
+// test for failures; currently only supported for sparse8 nodes
+class TreeliteThrowSparse8FilTest : public TreeliteSparse8FilTest {
+ protected:
+  // model import happens in check(), so this function is empty
+  void SetUp() override {}
+
+  void check() { ASSERT_THROW(setup_helper(), raft::exception); }
 };
 
 // rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,
@@ -712,9 +734,14 @@ std::vector<FilTestParams> predict_sparse_inputs = {
    42, 2e-3f, tl::Operator(0), fil::leaf_value_t::INT_CLASS_LABEL, 3},
 };
 
-TEST_P(PredictSparseFilTest, Predict) { compare(); }
+TEST_P(PredictSparse16FilTest, Predict) { compare(); }
 
-INSTANTIATE_TEST_CASE_P(FilTests, PredictSparseFilTest,
+INSTANTIATE_TEST_CASE_P(FilTests, PredictSparse16FilTest,
+                        testing::ValuesIn(predict_sparse_inputs));
+
+TEST_P(PredictSparse8FilTest, Predict) { compare(); }
+
+INSTANTIATE_TEST_CASE_P(FilTests, PredictSparse8FilTest,
                         testing::ValuesIn(predict_sparse_inputs));
 
 // rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,
@@ -889,9 +916,14 @@ std::vector<FilTestParams> import_sparse_inputs = {
    42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::INT_CLASS_LABEL, 3},
 };
 
-TEST_P(TreeliteSparseFilTest, Import) { compare(); }
+TEST_P(TreeliteSparse16FilTest, Import) { compare(); }
 
-INSTANTIATE_TEST_CASE_P(FilTests, TreeliteSparseFilTest,
+INSTANTIATE_TEST_CASE_P(FilTests, TreeliteSparse16FilTest,
+                        testing::ValuesIn(import_sparse_inputs));
+
+TEST_P(TreeliteSparse8FilTest, Import) { compare(); }
+
+INSTANTIATE_TEST_CASE_P(FilTests, TreeliteSparse8FilTest,
                         testing::ValuesIn(import_sparse_inputs));
 
 // rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,
@@ -923,5 +955,23 @@ TEST_P(TreeliteAutoFilTest, Import) { compare(); }
 
 INSTANTIATE_TEST_CASE_P(FilTests, TreeliteAutoFilTest,
                         testing::ValuesIn(import_auto_inputs));
+
+// rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,
+// global_bias, algo, seed, tolerance, branch comparison operator,
+// FIL implementation, number of classes
+// adjust test parameters if the sparse8 format changes
+std::vector<FilTestParams> import_throw_sparse8_inputs = {
+  // to many features
+  {100, 20000, 0.05, 10, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
+   42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::FLOAT_SCALAR, 0},
+  // too many tree nodes
+  {20000, 50, 0.05, 16, 5, 0, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE, 42,
+   2e-3f, tl::Operator::kLT, fil::leaf_value_t::FLOAT_SCALAR, 0},
+};
+
+TEST_P(TreeliteThrowSparse8FilTest, Import) { check(); }
+
+INSTANTIATE_TEST_CASE_P(FilTests, TreeliteThrowSparse8FilTest,
+                        testing::ValuesIn(import_throw_sparse8_inputs));
 
 }  // namespace ML

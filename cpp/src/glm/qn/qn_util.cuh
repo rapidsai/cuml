@@ -179,7 +179,7 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, int *n_vec,
     // "L-BFGS-B Fortran subroutines for large-scale bound constrained
     // optimization" Ciyou Zhu, Richard H. Byrd, Peihuang Lu and Jorge Nocedal
     // (1994).
-    CUML_LOG_INFO("L-BFGS WARNING: skipping update step ys=%f, yy=%f", ys, yy);
+    CUML_LOG_DEBUG("L-BFGS WARNING: skipping update step ys=%f, yy=%f", ys, yy);
     return end;
   }
   (*n_vec)++;

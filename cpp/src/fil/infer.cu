@@ -365,8 +365,12 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream) {
 
 template void infer<dense_storage>(dense_storage forest, predict_params params,
                                    cudaStream_t stream);
-template void infer<sparse_storage>(sparse_storage forest,
-                                    predict_params params, cudaStream_t stream);
+template void infer<sparse_storage16>(sparse_storage16 forest,
+                                      predict_params params,
+                                      cudaStream_t stream);
+template void infer<sparse_storage8>(sparse_storage8 forest,
+                                     predict_params params,
+                                     cudaStream_t stream);
 
 }  // namespace fil
 }  // namespace ML

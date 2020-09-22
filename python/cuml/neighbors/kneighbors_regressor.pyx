@@ -14,16 +14,14 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.common.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.common.base import RegressorMixin
+from cuml.common.doc_utils import generate_docstring
 
 import numpy as np
 
@@ -33,7 +31,7 @@ from cython.operator cimport dereference as deref
 
 from libcpp.vector cimport vector
 
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -47,24 +45,13 @@ from libc.stdlib cimport calloc, malloc, free
 from numba import cuda
 import rmm
 
-cimport cuml.common.handle
 cimport cuml.common.cuda
 
-
-cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
-    cdef cppclass deviceAllocator:
-        pass
-
-    cdef cppclass cumlHandle:
-        cumlHandle() except +
-        void setStream(cuml.common.cuda._Stream s) except +
-        void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
-        cuml.common.cuda._Stream getStream() except +
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
     void knn_regress(
-        cumlHandle &handle,
+        handle_t &handle,
         float *out,
         int64_t *knn_indices,
         vector[float *] &y,
@@ -90,8 +77,8 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
         Default number of neighbors to query
     verbose : int or boolean (default = False)
         Logging level
-    handle : cumlHandle
-        The cumlHandle resources to use
+    handle : handle_t
+        The handle_t resources to use
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.
     metric : string (default='euclidean').
@@ -101,7 +88,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
         supported.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
       from cuml.neighbors import KNeighborsRegressor
@@ -152,26 +139,13 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
             raise ValueError("Only uniform weighting strategy "
                              "is supported currently.")
 
+    @generate_docstring(convert_dtype_cast='np.float32')
     def fit(self, X, y, convert_dtype=True):
         """
         Fit a GPU index for k-nearest neighbors regression model.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, n_outputs)
-            Dense matrix (floats or doubles) of shape (n_samples, n_outputs).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
         """
+        self._set_target_dtype(y)
         super(KNeighborsRegressor, self).fit(X, convert_dtype=convert_dtype)
         self._y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.float32,
@@ -180,24 +154,20 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
                                                   else None))
         return self
 
+    @generate_docstring(convert_dtype_cast='np.float32',
+                        return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, n_features)'})
     def predict(self, X, convert_dtype=True):
         """
         Use the trained k-nearest neighbors regression model to
         predict the labels for X
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
         """
 
         out_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype() if convert_dtype else None
 
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
@@ -223,7 +193,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
             y_ptr = col.ptr
             y_vec.push_back(<float*>y_ptr)
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         knn_regress(
             handle_[0],
@@ -237,7 +207,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
 
         self.handle.sync()
 
-        return results.to_output(out_type)
+        return results.to_output(out_type, output_dtype=out_dtype)
 
     def get_param_names(self):
         return super(KNeighborsRegressor, self).get_param_names() \

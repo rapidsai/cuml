@@ -104,7 +104,7 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
     CUBLAS_CHECK(cublasCreate(&handle));
     CUDA_CHECK(cudaStreamCreate(&stream));
     CUSOLVER_CHECK(cusolverSpCreate(&cusolverSpHandle));
-    auto allocator = std::make_shared<MLCommon::defaultDeviceAllocator>();
+    auto allocator = std::make_shared<raft::mr::device::default_allocator>();
 
     // Created batched dense matrices
     LinAlg::Batched::Matrix<T> AbM(params.m, params.n, params.batch_size,

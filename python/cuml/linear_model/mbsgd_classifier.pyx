@@ -14,11 +14,9 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 from cuml.common.base import Base, ClassifierMixin
+from cuml.common.doc_utils import generate_docstring
 from cuml.solvers import SGD
 
 
@@ -26,9 +24,19 @@ class MBSGDClassifier(Base, ClassifierMixin):
     """
     Linear models (linear SVM, logistic regression, or linear regression)
     fitted by minimizing a regularized empirical loss with mini-batch SGD.
+    The MBSGD Classifier implementation is experimental and and it uses a
+    different algorithm than sklearn's SGDClassifier. In order to improve
+    the results obtained from cuML's MBSGDClassifier:
+    * Reduce the batch size
+    * Increase the eta0
+    * Increase the number of iterations
+    Since cuML is analyzing the data in batches using a small eta0 might
+    not let the model learn as much as scikit learn does. Furthermore,
+    decreasing the batch size might seen an increase in the time required
+    to fit the model.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         import numpy as np
@@ -88,6 +96,12 @@ class MBSGDClassifier(Base, ClassifierMixin):
 
     alpha: float (default = 0.0001)
         The constant value which decides the degree of regularization
+    l1_ratio: float (default=0.15)
+        The l1_ratio is used only when `penalty = elasticnet`. The value for
+        l1_ratio should be `0 <= l1_ratio <= 1`. When `l1_ratio = 0` then the
+        `penalty = 'l2'` and if `l1_ratio = 1` then `penalty = 'l1'`
+    batch_size: int (default = 32)
+        It sets the number of samples that will be included in each batch.
     fit_intercept : boolean (default = True)
        If True, the model tries to correct for the global mean of y.
        If False, the model expects that you have centered the data.
@@ -148,65 +162,31 @@ class MBSGDClassifier(Base, ClassifierMixin):
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
-        self.cu_mbsgd_classifier = SGD(**self.get_params())
+        self.solver_model = SGD(**self.get_params())
 
+    @generate_docstring()
     def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
-
-        self.cu_mbsgd_classifier._estimator_type = self._estimator_type
-
-        self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
-        self._coef_ = self.cu_mbsgd_classifier._coef_
-        self._classes_ = self.cu_mbsgd_classifier._classes_
-        self.intercept_ = self.cu_mbsgd_classifier.intercept_
-
+        self._set_base_attributes(n_features=X)
+        self.solver_model._estimator_type = self._estimator_type
+        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y : (same as the input datatype)
-            Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
         preds = \
-            self.cu_mbsgd_classifier.predictClass(X,
-                                                  convert_dtype=convert_dtype)
+            self.solver_model.predictClass(X,
+                                           convert_dtype=convert_dtype)
 
         return preds
 

@@ -38,13 +38,13 @@ TemporaryMemory<T, L>::TemporaryMemory(
 
 template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(
-  const ML::cumlHandle_impl& handle, cudaStream_t stream_in, int N, int Ncols,
+  const raft::handle_t& handle, cudaStream_t stream_in, int N, int Ncols,
   int n_unique, const ML::DecisionTree::DecisionTreeParams& tree_params) {
   stream = stream_in;
   max_shared_mem = MLCommon::getSharedMemPerBlock();
   num_sms = MLCommon::getMultiProcessorCount();
-  device_allocator = handle.getDeviceAllocator();
-  host_allocator = handle.getHostAllocator();
+  device_allocator = handle.get_device_allocator();
+  host_allocator = handle.get_host_allocator();
   LevelMemAllocator(N, Ncols, n_unique, tree_params);
 }
 
@@ -75,7 +75,7 @@ void TemporaryMemory<T, L>::LevelMemAllocator(
   int nrows, int ncols, int n_unique,
   const ML::DecisionTree::DecisionTreeParams& tree_params) {
   int nbins = tree_params.n_bins;
-  int depth = tree_params.max_depth;
+  int depth = (tree_params.max_depth < 0) ? -1 : (tree_params.max_depth + 1);
   if (depth > swap_depth || (depth == -1)) {
     max_nodes_per_level = pow(2, swap_depth);
   } else {
@@ -83,6 +83,7 @@ void TemporaryMemory<T, L>::LevelMemAllocator(
   }
   size_t maxnodes = max_nodes_per_level;
   size_t ncols_sampled = (size_t)(ncols * tree_params.max_features);
+  ncols_sampled = ncols_sampled > 0 ? ncols_sampled : 1;
   if (depth < 64) {
     gather_max_nodes = std::min((size_t)(nrows + 1),
                                 (size_t)(pow((size_t)2, (size_t)depth) + 1));

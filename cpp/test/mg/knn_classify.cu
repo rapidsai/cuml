@@ -56,7 +56,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNParams> {
     /**
      * Execute knn_classify()
      */
-    knn_classify(*(knn_th.handle), &(knn_th.out_parts), &(knn_th.out_i_parts),
+    knn_classify(knn_th.handle, &(knn_th.out_parts), &(knn_th.out_i_parts),
                  &(knn_th.out_d_parts), nullptr, knn_th.index_parts,
                  *(knn_th.idx_desc), knn_th.query_parts, *(knn_th.query_desc),
                  knn_th.y, uniq_labels, n_unique, false, false, false, params.k,

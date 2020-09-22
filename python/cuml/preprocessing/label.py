@@ -14,6 +14,7 @@
 #
 
 import cupy as cp
+import cupyx
 
 from cuml.prims.label import make_monotonic, check_labels, \
     invert_labels
@@ -50,10 +51,10 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
 
     val = rmm_cupy_ary(cp.full, row_ind.shape[0], pos_label, dtype=y.dtype)
 
-    sp = cp.sparse.coo_matrix((val, (row_ind, col_ind)),
-                              shape=(col_ind.shape[0],
-                                     classes.shape[0]),
-                              dtype=cp.float32)
+    sp = cupyx.scipy.sparse.coo_matrix((val, (row_ind, col_ind)),
+                                       shape=(col_ind.shape[0],
+                                              classes.shape[0]),
+                                       dtype=cp.float32)
 
     cp.cuda.Stream.null.synchronize()
 
@@ -81,6 +82,7 @@ class LabelBinarizer(Base):
     .. code-block:: python
 
         import cupy as cp
+        import cupyx
         from cuml.preprocessing import LabelBinarizer
 
         labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1],
@@ -241,7 +243,7 @@ class LabelBinarizer(Base):
                     as scipy_sparse_isspmatrix
 
         # If we are already given multi-class, just return it.
-        if cp.sparse.isspmatrix(y):
+        if cupyx.scipy.sparse.isspmatrix(y):
             y_mapped = y.tocsr().indices.astype(self._classes_.dtype)
         elif scipy_sparse_isspmatrix(y):
             y = y.tocsr()

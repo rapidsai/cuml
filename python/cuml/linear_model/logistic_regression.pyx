@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import cupy as cp
 import pprint
@@ -25,6 +22,7 @@ import pprint
 from cuml.solvers import QN
 from cuml.common.base import Base, ClassifierMixin
 from cuml.common.array import CumlArray
+from cuml.common.doc_utils import generate_docstring
 import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array, with_cupy_rmm
 
@@ -59,7 +57,7 @@ class LogisticRegression(Base, ClassifierMixin):
     Note that, just like in Scikit-learn, the bias will not be regularized.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         import cudf
@@ -78,9 +76,9 @@ class LogisticRegression(Base, ClassifierMixin):
         reg.fit(X,y)
 
         print("Coefficients:")
-        print(reg.coef_.to_output('cupy'))
+        print(reg.coef_)
         print("Intercept:")
-        print(reg.intercept_.to_output('cupy'))
+        print(reg.intercept_)
 
         X_new = cudf.DataFrame()
         X_new['col1'] = np.array([1,5], dtype = np.float32)
@@ -144,7 +142,7 @@ class LogisticRegression(Base, ClassifierMixin):
         Note: this includes the intercept as the last column if fit_intercept
         is True
     intercept_: device array (n_classes, 1)
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
     ------
@@ -226,7 +224,7 @@ class LogisticRegression(Base, ClassifierMixin):
 
         loss = "sigmoid"
 
-        self.qn = QN(
+        self.solver_model = QN(
             loss=loss,
             fit_intercept=self.fit_intercept,
             l1_strength=l1_strength,
@@ -245,31 +243,15 @@ class LogisticRegression(Base, ClassifierMixin):
         else:
             self.verb_prefix = ""
 
+    @generate_docstring()
     @with_cupy_rmm
     def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
-        self.qn._set_target_dtype(y)
-        self._set_output_type(X)
-        self._set_n_features_in(X)
+        self.solver_model._set_base_attributes(target_dtype=y)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         # Converting y to device array here to use `unique` function
         # since calling input_to_dev_array again in QN has no cost
@@ -287,24 +269,18 @@ class LogisticRegression(Base, ClassifierMixin):
         if logger.should_log_for(logger.level_debug):
             logger.debug(self.verb_prefix + "Setting loss to " + str(loss))
 
-        self.qn.loss = loss
+        self.solver_model.loss = loss
 
         if logger.should_log_for(logger.level_debug):
             logger.debug(self.verb_prefix + "Calling QN fit " + str(loss))
 
-        self.qn.fit(X, y_m, convert_dtype=convert_dtype)
+        self.solver_model.fit(X, y_m, convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
         if logger.should_log_for(logger.level_debug):
             logger.debug(
                 self.verb_prefix + "Setting coefficients " + str(loss)
             )
-
-        if self.fit_intercept:
-            self._coef_ = self.qn._coef_[0:-1]
-            self._intercept_ = self.qn._coef_[-1]
-        else:
-            self._coef_ = self.qn._coef_
 
         if logger.should_log_for(logger.level_trace):
             logger.trace(self.verb_prefix + "Coefficients: " +
@@ -318,74 +294,41 @@ class LogisticRegression(Base, ClassifierMixin):
 
         return self
 
+    @generate_docstring(return_values={'name': 'score',
+                                       'type': 'dense',
+                                       'description': 'Confidence score',
+                                       'shape': '(n_samples, n_classes)'})
     def decision_function(self, X, convert_dtype=False):
         """
         Gives confidence score for X
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y: array-like (device)
-           Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
-        return self.qn._decision_function(X, convert_dtype=convert_dtype) \
-            .to_output(output_type=self._get_output_type(X))
+        return self.solver_model._decision_function(
+            X,
+            convert_dtype=convert_dtype
+        ).to_output(output_type=self._get_output_type(X))
 
-    def predict(self, X, convert_dtype=False):
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the y for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y : (same as the input datatype)
-            Dense vector (ints, floats, or doubles) of shape (n_samples, 1).
         """
-        return self.qn.predict(X, convert_dtype=convert_dtype)
+        return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted class \
+                                                       probabilities',
+                                       'shape': '(n_samples, n_classes)'})
     @with_cupy_rmm
-    def predict_proba(self, X, convert_dtype=False):
+    def predict_proba(self, X, convert_dtype=True):
         """
         Predicts the class probabilities for each class in X
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y: array-like (device)
-           Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
         return self._predict_proba_impl(
             X,
@@ -393,26 +336,15 @@ class LogisticRegression(Base, ClassifierMixin):
             log_proba=False
         )
 
-    def predict_log_proba(self, X, convert_dtype=False):
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Logaright of predicted \
+                                                       class probabilities',
+                                       'shape': '(n_samples, n_classes)'})
+    def predict_log_proba(self, X, convert_dtype=True):
         """
         Predicts the log class probabilities for each class in X
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y: array-like (device)
-           Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
         return self._predict_proba_impl(
             X,
@@ -428,9 +360,11 @@ class LogisticRegression(Base, ClassifierMixin):
         # qn solver due to https://github.com/rapidsai/cuml/issues/2404
         X_m, _, _, self.dtype = input_to_cuml_array(
             X,
-            check_dtype=self.qn.dtype,
-            convert_to_dtype=(self.qn.dtype if convert_dtype else None),
-            check_cols=self.qn.n_cols,
+            check_dtype=self.solver_model.dtype,
+            convert_to_dtype=(
+                self.solver_model.dtype if convert_dtype else None
+            ),
+            check_cols=self.solver_model.n_cols,
         )
 
         scores = cp.asarray(
@@ -467,27 +401,9 @@ class LogisticRegression(Base, ClassifierMixin):
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        if "coef_" in state:
-            del state["coef_"]
-        if "intercept_" in state:
-            del state["intercept_"]
         return state
 
     def __setstate__(self, state):
         super(LogisticRegression, self).__init__(handle=None,
                                                  verbose=state["verbose"])
-
-        if "qn" in state:
-            qn = state["qn"]
-            if qn.coef_ is not None:
-                if qn.fit_intercept:
-                    state["coef_"] = qn.coef_[0:-1]
-                    state["intercept_"] = qn.coef_[-1]
-                else:
-                    state["coef_"] = qn.coef_
-                    n_classes = qn.coef_.shape[1]
-                    state["intercept_"] = CumlArray.zeros(
-                        n_classes, dtype=qn.coef_.dtype
-                    )
-
         self.__dict__.update(state)

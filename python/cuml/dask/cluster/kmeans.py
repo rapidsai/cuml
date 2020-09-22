@@ -23,8 +23,8 @@ from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.input_utils import concatenate
 from cuml.dask.common.input_utils import DistributedDataHandler
 
-from cuml.dask.common.comms import CommsContext
-from cuml.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import Comms
+from cuml.raft.dask.common.comms import worker_state
 
 from cuml.dask.common.utils import wait_and_raise_from_futures
 
@@ -60,7 +60,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     random_state : int (default = 1)
         If you want results to be the same when you restart Python,
         select a state.
-    init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
+    init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray} \
            (default = 'scalable-k-means++')
         'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
         kmeans++ intialization.
@@ -126,7 +126,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
 
-        comms = CommsContext(comms_p2p=False)
+        comms = Comms(comms_p2p=False)
         comms.init(workers=data.workers)
 
         kmeans_fit = [self.client.submit(KMeans._func_fit,

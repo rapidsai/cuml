@@ -20,6 +20,18 @@
 #include <stdint.h>
 #include <cuml/common/utils.hpp>
 
+#ifndef ENABLE_MEMCPY_ASYNC
+// enable memcpy_async interface by default for newer GPUs
+#if __CUDA_ARCH__ >= 800
+#define ENABLE_MEMCPY_ASYNC 1
+#endif
+#else  // ENABLE_MEMCPY_ASYNC
+// disable memcpy_async for all older GPUs
+#if __CUDA_ARCH__ < 800
+#define ENABLE_MEMCPY_ASYNC 0
+#endif
+#endif  // ENABLE_MEMCPY_ASYNC
+
 namespace MLCommon {
 
 /** helper macro for device inlined functions */
@@ -100,7 +112,7 @@ DI int laneId() {
  * @param b second input
  */
 template <typename T>
-HDI void swap(T &a, T &b) {
+HDI void swapVals(T &a, T &b) {
   T tmp = a;
   a = b;
   b = tmp;

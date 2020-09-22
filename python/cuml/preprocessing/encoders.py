@@ -14,12 +14,14 @@
 #
 import numpy as np
 import cupy as cp
+import cupyx
 from cuml.common.exceptions import NotFittedError
 
 from cuml import Base
 from cuml.preprocessing import LabelEncoder
 from cudf import DataFrame, Series
 from cudf.core import GenericIndex
+import cuml.common.logger as logger
 
 from cuml.common import with_cupy_rmm
 import warnings
@@ -37,13 +39,14 @@ class OneHotEncoder(Base):
     By default, the encoder derives the categories based on the unique values
     in each feature. Alternatively, you can also specify the `categories`
     manually.
-    Note: a one-hot encoding of y labels should use a LabelBinarizer
-    instead.
+
+    .. note:: a one-hot encoding of y labels should use a LabelBinarizer
+        instead.
 
     Parameters
     ----------
     categories : 'auto' an cupy.ndarray or a cudf.DataFrame, default='auto'
-        Categories (unique values) per feature:
+                 Categories (unique values) per feature:
 
         - 'auto' : Determine categories automatically from the training data.
 
@@ -280,45 +283,77 @@ class OneHotEncoder(Base):
         X = self._check_input(X)
 
         cols, rows = list(), list()
+        col_idx = None
         j = 0
-        for feature in X.columns:
-            encoder = self._encoders[feature]
-            col_idx = encoder.transform(X[feature])
-            idx_to_keep = cp.asarray(col_idx.notnull().to_gpu_array())
-            col_idx = cp.asarray(col_idx.dropna().to_gpu_array(),
-                                 dtype=cp.int32)
 
-            # increase indices to take previous features into account
-            col_idx += j
+        try:
+            for feature in X.columns:
+                encoder = self._encoders[feature]
+                col_idx = encoder.transform(X[feature])
+                idx_to_keep = cp.asarray(col_idx.notnull().to_gpu_array())
+                col_idx = cp.asarray(col_idx.dropna().to_gpu_array())
 
-            # Filter out rows with null values
-            row_idx = cp.arange(len(X))[idx_to_keep]
+                # Simple test to auto upscale col_idx type as needed
+                # First, determine the maximum value we will add assuming
+                # monotonically increasing up to len(encoder.classes_)
+                # Ensure we dont go negative by clamping to 0
+                max_value = int(max(len(encoder.classes_) - 1, 0) + j)
 
-            if self.drop_idx_ is not None:
-                drop_idx = self.drop_idx_[feature] + j
-                mask = cp.ones(col_idx.shape, dtype=cp.bool)
-                mask[col_idx == drop_idx] = False
-                col_idx = col_idx[mask]
-                row_idx = row_idx[mask]
-                # account for dropped category in indices
-                col_idx[col_idx > drop_idx] -= 1
-                # account for dropped category in current cats number
-                j -= 1
-            j += len(encoder.classes_)
+                # If we exceed the max value, upconvert
+                if (max_value > np.iinfo(col_idx.dtype).max):
+                    col_idx = col_idx.astype(np.min_scalar_type(max_value))
+                    logger.debug("Upconverting column: '{}', to dtype: '{}', \
+                            to support up to {} classes".format(
+                        feature, np.min_scalar_type(max_value), max_value))
+
+                # increase indices to take previous features into account
+                col_idx += j
+
+                # Filter out rows with null values
+                row_idx = cp.arange(len(X))[idx_to_keep]
+
+                if self.drop_idx_ is not None:
+                    drop_idx = self.drop_idx_[feature] + j
+                    mask = cp.ones(col_idx.shape, dtype=cp.bool)
+                    mask[col_idx == drop_idx] = False
+                    col_idx = col_idx[mask]
+                    row_idx = row_idx[mask]
+                    # account for dropped category in indices
+                    col_idx[col_idx > drop_idx] -= 1
+                    # account for dropped category in current cats number
+                    j -= 1
+
+                j += len(encoder.classes_)
+                cols.append(col_idx)
+                rows.append(row_idx)
+
+            cols = cp.concatenate(cols)
+            rows = cp.concatenate(rows)
+            val = cp.ones(rows.shape[0], dtype=self.dtype)
+            ohe = cupyx.scipy.sparse.coo_matrix((val, (rows, cols)),
+                                                shape=(len(X), j),
+                                                dtype=self.dtype)
+
+            if not self.sparse:
+                ohe = ohe.toarray()
+
+            return ohe
+
+        except TypeError as e:
+            # Append to cols to include the column that threw the error
             cols.append(col_idx)
-            rows.append(row_idx)
 
-        cols = cp.concatenate(cols)
-        rows = cp.concatenate(rows)
-        val = cp.ones(rows.shape[0], dtype=self.dtype)
-        ohe = cp.sparse.coo_matrix((val, (rows, cols)),
-                                   shape=(len(X), j),
-                                   dtype=self.dtype)
+            # Build a string showing what the types are
+            input_types_str = ", ".join([str(x.dtype) for x in cols])
 
-        if not self.sparse:
-            ohe = ohe.toarray()
-
-        return ohe
+            raise TypeError(
+                "A TypeError occurred while calculating column "
+                "category indices, most likely due to integer overflow. This "
+                "can occur when columns have a large difference in the number "
+                "of categories, resulting in different category code dtypes "
+                "for different columns."
+                "Calculated column code dtypes: {}.\n"
+                "Internal Error: {}".format(input_types_str, repr(e)))
 
     @with_cupy_rmm
     def inverse_transform(self, X):
@@ -341,10 +376,10 @@ class OneHotEncoder(Base):
             Inverse transformed array.
         """
         self._check_is_fitted()
-        if cp.sparse.issparse(X):
-            # cupy.sparse 7.x does not support argmax, when we upgrade cupy to
-            # 8.x, we should add a condition in the
-            # if close: `and not cp.sparse.issparsecsc(X)`
+        if cupyx.scipy.sparse.issparse(X):
+            # cupyx.scipy.sparse 7.x does not support argmax,
+            # when we upgrade cupy to 8.x, we should add a condition in the
+            # if close: `and not cupyx.scipy.sparse.issparsecsc(X)`
             # and change the following line by `X = X.tocsc()`
             X = X.toarray()
         result = DataFrame(columns=self._encoders.keys())

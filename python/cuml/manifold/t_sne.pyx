@@ -14,11 +14,10 @@
 # limitations under the License.
 #
 
-# cython: profile = False
 # distutils: language = c++
 # distutils: extra_compile_args = -Ofast
-# cython: embedsignature = True, language_level = 3
-# cython: boundscheck = False, wraparound = False
+# cython: boundscheck = False
+# cython: wraparound = False
 
 import cudf
 import cuml
@@ -29,10 +28,11 @@ import pandas as pd
 import warnings
 
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 import cuml.common.logger as logger
 
 from cuml.common.array import CumlArray
+from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
 import rmm
 
@@ -40,12 +40,11 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libcpp.memory cimport shared_ptr
 
-cimport cuml.common.handle
 cimport cuml.common.cuda
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit(
-        const cumlHandle &handle,
+        const handle_t &handle,
         const float *X,
         float *Y,
         const int n,
@@ -150,38 +149,38 @@ class TSNE(Base):
 
     References
     -----------
-    *   van der Maaten, L.J.P.
-        t-Distributed Stochastic Neighbor Embedding
-        https://lvdmaaten.github.io/tsne/
+    .. [1] `van der Maaten, L.J.P.
+       t-Distributed Stochastic Neighbor Embedding
+       <https://lvdmaaten.github.io/tsne/>`_
 
-    *   van der Maaten, L.J.P.; Hinton, G.E.
-        Visualizing High-Dimensional Data
-        Using t-SNE. Journal of Machine Learning Research 9:2579-2605, 2008.
+    .. [2] van der Maaten, L.J.P.; Hinton, G.E.
+       Visualizing High-Dimensional Data
+       Using t-SNE. Journal of Machine Learning Research 9:2579-2605, 2008.
 
-    *   George C. Linderman, Manas Rachh, Jeremy G. Hoskins,
+    .. [3] George C. Linderman, Manas Rachh, Jeremy G. Hoskins,
         Stefan Steinerberger, Yuval Kluger Efficient Algorithms for
         t-distributed Stochastic Neighborhood Embedding
 
-    Tips
-    -----
-    Maaten and Linderman showcased how TSNE can be very sensitive to both the
-    starting conditions (ie random initialization), and how parallel versions
-    of TSNE can generate vastly different results. It has been suggested that
-    you run TSNE a few times to settle on the best configuration. Notice
-    specifying random_state and fixing it across runs can help, but TSNE does
-    not guarantee similar results each time.
+    .. tip::
+        Maaten and Linderman showcased how TSNE can be very sensitive to both
+        the starting conditions (ie random initialization), and how parallel
+        versions of TSNE can generate vastly different results. It has been
+        suggested that you run TSNE a few times to settle on the best
+        configuration. Notice specifying random_state and fixing it across runs
+        can help, but TSNE does not guarantee similar results each time.
 
-    As suggested, PCA (upcoming with change #1098) can also help to alleviate
-    this issue.
+        As suggested, PCA (upcoming with change #1098) can also help to
+        alleviate this issue.
 
-    Reference Implementation
-    -------------------------
-    The CUDA implementation is derived from the excellent CannyLabs open source
-    implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs
-    code is licensed according to the conditions in cuml/cpp/src/tsne/
-    cannylabs_tsne_license.txt. A full description of their approach is
-    available in their article t-SNE-CUDA: GPU-Accelerated t-SNE and its
-    Applications to Modern Data (https://arxiv.org/abs/1807.11824).
+    .. note::
+        The CUDA implementation is derived from the excellent CannyLabs open
+        source implementation here: https://github.com/CannyLab/tsne-cuda/. The
+        CannyLabs code is licensed according to the conditions in
+        cuml/cpp/src/tsne/ cannylabs_tsne_license.txt. A full description of
+        their approach is available in their article t-SNE-CUDA:
+        GPU-Accelerated t-SNE and its Applications to Modern Data
+        (https://arxiv.org/abs/1807.11824).
+
     """
     def __init__(self,
                  int n_components=2,
@@ -298,22 +297,15 @@ class TSNE(Base):
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
 
+    @generate_docstring(convert_dtype_cast='np.float32')
     def fit(self, X, convert_dtype=True):
-        """Fit X into an embedded space.
-
-        Parameters
-        -----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            X contains a sample per row.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
         """
-        self._set_n_features_in(X)
+        Fit X into an embedded space.
+
+        """
+        self._set_base_attributes(n_features=X)
         cdef int n, p
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if handle_ == NULL:
             raise ValueError("cuML Handle is Null! Terminating TSNE.")
 
@@ -407,23 +399,18 @@ class TSNE(Base):
             del self._embedding_
             self._embedding_ = None
 
+    @generate_docstring(convert_dtype_cast='np.float32',
+                        return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Embedding of the \
+                                                       training data in \
+                                                       low-dimensional space.',
+                                       'shape': '(n_samples, n_components)'})
     def fit_transform(self, X, convert_dtype=True):
-        """Fit X into an embedded space and return that transformed output.
+        """
+        Fit X into an embedded space and return that transformed output.
 
-        Parameters
-        -----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            X contains a sample per row.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit_transform method will automatically
-            convert the inputs to np.float32.
 
-        Returns
-        --------
-        X_new : array, shape (n_samples, n_components)
-                Embedding of the training data in low-dimensional space.
         """
         self.fit(X, convert_dtype=convert_dtype)
         out_type = self._get_output_type(X)

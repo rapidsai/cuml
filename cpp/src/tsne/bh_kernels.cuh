@@ -45,13 +45,11 @@ namespace TSNE {
 __global__ void InitializationKernel(/*int *restrict errd, */
                                      unsigned *restrict limiter,
                                      int *restrict maxdepthd,
-                                     float *restrict radiusd,
-                                     int *restrict flag_unstable_computation) {
+                                     float *restrict radiusd) {
   // errd[0] = 0;
   maxdepthd[0] = 1;
   limiter[0] = 0;
   radiusd[0] = 0.0f;
-  flag_unstable_computation[0] = 0;
 }
 
 /**
@@ -636,49 +634,27 @@ __global__ __launch_bounds__(
 }
 
 /**
- * Find the norm(Y)
- */
-__global__ void get_norm(const float *restrict Y1, const float *restrict Y2,
-                         float *restrict norm, const int N) {
-  const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
-  if (i >= N) return;
-  norm[i] = Y1[i] * Y1[i] + Y2[i] * Y2[i];
-}
-
-/**
  * Fast attractive kernel. Uses COO matrix.
  */
 __global__ void attractive_kernel_bh(
   const float *restrict VAL, const int *restrict COL, const int *restrict ROW,
-  const float *restrict Y1, const float *restrict Y2,
-  const float *restrict norm, float *restrict attract1,
-  float *restrict attract2, const int NNZ,
-  int *restrict flag_unstable_computation) {
+  const float *restrict Y1, const float *restrict Y2, float *restrict attract1,
+  float *restrict attract2, const int NNZ) {
   const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
   const int i = ROW[index];
   const int j = COL[index];
 
+  const float y1d = Y1[i] - Y1[j];
+  const float y2d = Y2[i] - Y2[j];
+  float squared_euclidean_dist = y1d * y1d + y2d * y2d;
+  // As a sum of squares, SED is mathematically >= 0. There might be a source of
+  // NaNs upstream though, so until we find and fix them, enforce that trait.
+  if (!(squared_euclidean_dist >= 0)) squared_euclidean_dist = 0.0f;
+  const float PQ = __fdividef(VAL[index], squared_euclidean_dist + 1.0f);
+
   // TODO: Calculate Kullback-Leibler divergence
   // TODO: Convert attractive forces to CSR format
-  // Try single precision compute first
-  float denominator = __fmaf_rn(-2.0f, (Y1[i] * Y1[j]), norm[i] + 1.0f) +
-                      __fmaf_rn(-2.0f, (Y2[i] * Y2[j]), norm[j]);
-
-  if (__builtin_expect(denominator == 0, false)) {
-    double _Y1 = static_cast<double>(Y1[i]) * static_cast<double>(Y1[j]);
-    double _Y2 = static_cast<double>(Y2[i]) * static_cast<double>(Y2[j]);
-    double dbl_denominator =
-      __fma_rn(-2.0f, _Y1, norm[i] + 1.0f) + __fma_rn(-2.0f, _Y2, norm[j]);
-
-    if (__builtin_expect(dbl_denominator == 0, false)) {
-      dbl_denominator = 1.0f;
-      flag_unstable_computation[0] = 1;
-    }
-
-    denominator = dbl_denominator;
-  }
-  const float PQ = __fdividef(VAL[index], denominator);
 
   // Apply forces
   atomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));

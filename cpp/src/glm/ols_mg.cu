@@ -15,7 +15,6 @@
  */
 
 #include <common/cumlHandle.hpp>
-#include <common/cuml_comms_int.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -27,6 +26,7 @@
 #include <matrix/matrix.cuh>
 #include <opg/linalg/lstsq.hpp>
 #include <opg/stats/mean.hpp>
+#include <raft/comms/comms.hpp>
 
 using namespace MLCommon;
 
@@ -35,16 +35,16 @@ namespace OLS {
 namespace opg {
 
 template <typename T>
-void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
+void fit_impl(raft::handle_t &handle,
+              std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc,
               std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
               bool fit_intercept, bool normalize, int algo,
               cudaStream_t *streams, int n_streams, bool verbose) {
-  const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
-  cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
-  cusolverDnHandle_t cusolver_handle = handle.getImpl().getcusolverDnHandle();
-  const std::shared_ptr<deviceAllocator> allocator =
-    handle.getImpl().getDeviceAllocator();
+  const auto &comm = handle.get_comms();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
+  cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
+  const auto allocator = handle.get_device_allocator();
 
   device_buffer<T> mu_input(allocator, streams[0]);
   device_buffer<T> norm2_input(allocator, streams[0]);
@@ -96,13 +96,14 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
  * @input param verbose
  */
 template <typename T>
-void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
+void fit_impl(raft::handle_t &handle,
+              std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc,
               std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
               bool fit_intercept, bool normalize, int algo, bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.get_comms().get_rank();
 
-  // TODO: These streams should come from cumlHandle
+  // TODO: These streams should come from raft::handle_t
 
   int n_streams = input_desc.blocksOwnedBy(rank).size();
   cudaStream_t streams[n_streams];
@@ -123,7 +124,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
 }
 
 template <typename T>
-void predict_impl(cumlHandle &handle,
+void predict_impl(raft::handle_t &handle,
                   std::vector<Matrix::Data<T> *> &input_data,
                   Matrix::PartDescriptor &input_desc, T *coef, T intercept,
                   std::vector<Matrix::Data<T> *> &preds, cudaStream_t *streams,
@@ -136,7 +137,7 @@ void predict_impl(cumlHandle &handle,
     int si = i % n_streams;
     LinAlg::gemm(input_data[i]->ptr, local_blocks[i]->size, input_desc.N, coef,
                  preds[i]->ptr, local_blocks[i]->size, size_t(1), CUBLAS_OP_N,
-                 CUBLAS_OP_N, alpha, beta, handle.getImpl().getCublasHandle(),
+                 CUBLAS_OP_N, alpha, beta, handle.get_cublas_handle(),
                  streams[si]);
 
     LinAlg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
@@ -145,11 +146,11 @@ void predict_impl(cumlHandle &handle,
 }
 
 template <typename T>
-void predict_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
+void predict_impl(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
                   size_t n_parts, Matrix::Data<T> **input, size_t n_rows,
                   size_t n_cols, T *coef, T intercept, Matrix::Data<T> **preds,
                   bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.get_comms().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
@@ -157,7 +158,7 @@ void predict_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
   Matrix::PartDescriptor input_desc(n_rows, n_cols, ranksAndSizes, rank);
   std::vector<Matrix::Data<T> *> preds_data(preds, preds + n_parts);
 
-  // TODO: These streams should come from cumlHandle
+  // TODO: These streams should come from raft::handle_t
   int n_streams = n_parts;
   cudaStream_t streams[n_streams];
   for (int i = 0; i < n_streams; i++) {
@@ -176,7 +177,7 @@ void predict_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
   }
 }
 
-void fit(cumlHandle &handle, std::vector<Matrix::Data<float> *> &input_data,
+void fit(raft::handle_t &handle, std::vector<Matrix::Data<float> *> &input_data,
          Matrix::PartDescriptor &input_desc,
          std::vector<Matrix::Data<float> *> &labels, float *coef,
          float *intercept, bool fit_intercept, bool normalize, int algo,
@@ -185,7 +186,8 @@ void fit(cumlHandle &handle, std::vector<Matrix::Data<float> *> &input_data,
            fit_intercept, normalize, algo, verbose);
 }
 
-void fit(cumlHandle &handle, std::vector<Matrix::Data<double> *> &input_data,
+void fit(raft::handle_t &handle,
+         std::vector<Matrix::Data<double> *> &input_data,
          Matrix::PartDescriptor &input_desc,
          std::vector<Matrix::Data<double> *> &labels, double *coef,
          double *intercept, bool fit_intercept, bool normalize, int algo,
@@ -194,7 +196,7 @@ void fit(cumlHandle &handle, std::vector<Matrix::Data<double> *> &input_data,
            fit_intercept, normalize, algo, verbose);
 }
 
-void predict(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
+void predict(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
              size_t n_parts, Matrix::Data<float> **input, size_t n_rows,
              size_t n_cols, float *coef, float intercept,
              Matrix::Data<float> **preds, bool verbose) {
@@ -202,7 +204,7 @@ void predict(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
                intercept, preds, verbose);
 }
 
-void predict(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
+void predict(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
              size_t n_parts, Matrix::Data<double> **input, size_t n_rows,
              size_t n_cols, double *coef, double intercept,
              Matrix::Data<double> **preds, bool verbose) {

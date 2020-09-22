@@ -168,7 +168,7 @@ inline void divide_by_mask_execute(const DataT* d_in, const bool* d_mask,
  */
 struct which_col : thrust::unary_function<int, int> {
   MLCommon::FastIntDiv divisor;
-  __host__ __device__ which_col(int col_length) : divisor(col_length) {}
+  __host__ which_col(int col_length) : divisor(col_length) {}
   __host__ __device__ int operator()(int idx) const { return idx / divisor; }
 };
 

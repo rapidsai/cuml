@@ -19,7 +19,7 @@ ARGS=$*
 REPODIR=$(cd $(dirname $0); pwd)
 
 VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
-VALIDFLAGS="-v -g -n --allgpuarch --buildfaiss --singlegpu --nvtx --show_depr_warn -h --help "
+VALIDFLAGS="-v -g -n --allgpuarch --buildfaiss --buildgtest --singlegpu --nvtx --show_depr_warn -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
@@ -39,6 +39,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -n               - no install step
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into libcuml
+   --buildgtest     - build googletest library
    --singlegpu      - Build libcuml and cuml without multigpu components
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
@@ -70,7 +71,6 @@ BUILD_STATIC_FAISS=OFF
 #         CONDA_PREFIX, but there is no fallback from there!
 INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=""}
-BUILD_ABI=${BUILD_ABI:=ON}
 
 function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
@@ -124,6 +124,9 @@ fi
 if hasArg --buildfaiss; then
     BUILD_STATIC_FAISS=ON
 fi
+if hasArg --buildgtest; then
+    BUILD_GTEST=ON
+fi
 if hasArg --nvtx; then
     NVTX=ON
 fi
@@ -167,7 +170,6 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
     cd ${LIBCUML_BUILD_DIR}
 
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
-          -DCMAKE_CXX11_ABI=${BUILD_ABI} \
           -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so.0 \
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
@@ -222,10 +224,9 @@ fi
 if completeBuild || hasArg cuml || hasArg pydocs; then
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPU_PYTHON_FLAG}
-        python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU_PYTHON_FLAG}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${SINGLEGPU_PYTHON_FLAG} install --single-version-externally-managed --record=record.txt
     else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU_PYTHON_FLAG}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU_PYTHON_FLAG}
     fi
 
     if hasArg pydocs; then

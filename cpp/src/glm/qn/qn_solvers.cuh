@@ -235,9 +235,9 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
   op_project<T> project_neg(T(-1.0));
 
-  auto f_wrap = [&f, &l1_penalty, &pg_limit, &stream](
-                  SimpleVec<T> &x, SimpleVec<T> &grad, T *dev_scalar,
-                  cudaStream_t stream) {
+  auto f_wrap = [&f, &l1_penalty, &pg_limit](SimpleVec<T> &x,
+                                             SimpleVec<T> &grad, T *dev_scalar,
+                                             cudaStream_t stream) {
     T tmp = f(x, grad, dev_scalar, stream);
     SimpleVec<T> mask(x.data, pg_limit);
     return tmp + l1_penalty * nrm1(mask, dev_scalar, stream);
@@ -334,14 +334,14 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
  * Chooses the right algorithm, depending on presence of l1 term
  */
 template <typename T, typename LossFunction>
-inline int qn_minimize(const cumlHandle_impl &handle, SimpleVec<T> &x, T *fx,
+inline int qn_minimize(const raft::handle_t &handle, SimpleVec<T> &x, T *fx,
                        int *num_iters, LossFunction &loss, const T l1,
                        const LBFGSParam<T> &opt_param, cudaStream_t stream,
                        const int verbosity = 0) {
   // TODO should the worksapce allocation happen outside?
   OPT_RETCODE ret;
   if (l1 == 0.0) {
-    MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream,
+    MLCommon::device_buffer<T> tmp(handle.get_device_allocator(), stream,
                                    lbfgs_workspace_size(opt_param, x.len));
     SimpleVec<T> workspace(tmp.data(), tmp.size());
 
@@ -362,7 +362,7 @@ inline int qn_minimize(const cumlHandle_impl &handle, SimpleVec<T> &x, T *fx,
     // handling the term l1norm(x) * l1_pen explicitely, i.e.
     // it needs to evaluate f(x) and its gradient separately
 
-    MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream,
+    MLCommon::device_buffer<T> tmp(handle.get_device_allocator(), stream,
                                    owlqn_workspace_size(opt_param, x.len));
     SimpleVec<T> workspace(tmp.data(), tmp.size());
 
