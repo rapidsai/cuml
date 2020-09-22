@@ -151,3 +151,12 @@ def assert_allclose(actual, desired, rtol=1e-05, atol=1e-05,
         assert diff_ratio <= ratio_tol
     else:
         return np_assert_allclose(actual, desired, rtol=rtol, atol=atol)
+
+
+def check_cupy8(func):
+    def inner(*args, **kwargs):
+        if cp.__version__[0] == '8':
+            func(*args, **kwargs)
+        else:
+            pytest.skip("Could not import required module CuPy 8.0+")
+    return inner

@@ -13,4 +13,4 @@
 # limitations under the License.
 #
 
-from .adapters import check_array, get_input_type, to_output_type
+from .adapters import check_array, get_input_type, to_output_type, check_cupy8
