@@ -187,5 +187,5 @@ def test_masked_encode(client):
 
     ddf = ddf[ddf.filter_col == 1]
 
-    assert(ddf.encoded_filter == \
+    assert(ddf.encoded_filter ==
            ddf_filter.filter_encoded).compute().all()
