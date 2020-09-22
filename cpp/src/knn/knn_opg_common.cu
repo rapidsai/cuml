@@ -284,14 +284,12 @@ void reduce(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
   size_t batch_offset = total_n_processed * k;
 
   T *outputs = nullptr;
-  T *merged_outputs = nullptr;
   int64_t *indices = nullptr;
   float *distances = nullptr;
 
   device_buffer<int64_t> *indices_b;
   device_buffer<float> *distances_b;
   std::vector<float *> probas_with_offsets;
-  device_buffer<T> *merged_outputs_b;
 
   if (probas_only) {
     indices_b = new device_buffer<int64_t>(alloc, stream, cur_batch_size * k);
@@ -299,27 +297,26 @@ void reduce(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
     indices = indices_b->data();
     distances = distances_b->data();
 
-    auto &probas_part = probas->at(local_parts_completed);
-    for (float *ptr : probas_part) {
-      probas_with_offsets.push_back(ptr + batch_offset);
+    std::vector<float *> &probas_part = probas->at(local_parts_completed);
+    for (int i = 0; i < n_outputs; i++) {
+      float* ptr = probas_part[i];
+      int n_unique_classes = n_unique->at(i);
+      probas_with_offsets.push_back(ptr + (total_n_processed * n_unique_classes));
     }
   } else {
-    outputs = out->at(local_parts_completed)->ptr + (n_outputs * batch_offset);
+    outputs = out->at(local_parts_completed)->ptr + (n_outputs * total_n_processed);
     indices = out_I->at(local_parts_completed)->ptr + batch_offset;
     distances = out_D->at(local_parts_completed)->ptr + batch_offset;
-    merged_outputs_b =
-      new device_buffer<T>(alloc, stream, n_outputs * cur_batch_size * k);
-    merged_outputs = merged_outputs_b->data();
   }
 
   MLCommon::Selection::knn_merge_parts(res_D.data(), res_I.data(), distances,
                                        indices, cur_batch_size, idxRanks.size(),
                                        k, stream, trans.data());
 
-  if (!probas_only) {
-    merge_outputs(merged_outputs, indices, res.data(), res_I.data(),
-                  cur_batch_size, k, n_outputs, index_desc, alloc, stream);
-  }
+  device_buffer<T> merged_outputs_b(alloc, stream, n_outputs * cur_batch_size * k);
+  T* merged_outputs = merged_outputs_b.data();
+  merge_outputs(merged_outputs, indices, res.data(), res_I.data(),
+                cur_batch_size, k, n_outputs, index_desc, alloc, stream);
 
   perform_local_operation<T>(outputs, indices, merged_outputs, cur_batch_size,
                              k, n_outputs, handle, probas_only,
@@ -328,8 +325,6 @@ void reduce(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
   if (probas_only) {
     delete indices_b;
     delete distances_b;
-  } else {
-    delete merged_outputs_b;
   }
 }
 
