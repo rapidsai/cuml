@@ -81,14 +81,14 @@ void normalize_distances(const int n, float *distances, const int n_neighbors,
 }
 
 /**
- * @brief Performs P + P.T.
+ * @brief Performs P + P.value_t.
  * @param[in] P: The perplexity matrix (n, k)
  * @param[in] indices: The input sorted indices from KNN.
  * @param[in] n: The number of rows in the data X.
  * @param[in] k: The number of nearest neighbors you want.
  * @param[in] P_sum: The sum of P.
  * @param[in] exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
- * @param[out] COO_Matrix: The final P + P.T output COO matrix.
+ * @param[out] COO_Matrix: The final P + P.value_t output COO matrix.
  * @param[in] stream: The GPU stream.
  * @param[in] handle: The GPU handle.
  */
@@ -97,11 +97,11 @@ void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
                            const float P_sum, const float exaggeration,
                            MLCommon::Sparse::COO<float> *COO_Matrix,
                            cudaStream_t stream, const raft::handle_t &handle) {
-  // Perform (P + P.T) / P_sum * early_exaggeration
+  // Perform (P + P.value_t) / P_sum * early_exaggeration
   const float div = exaggeration / (2.0f * P_sum);
   MLCommon::LinAlg::scalarMultiply(P, P, div, n * k, stream);
 
-  // Symmetrize to form P + P.T
+  // Symmetrize to form P + P.value_t
   MLCommon::Sparse::from_knn_symmetrize_matrix(
     indices, P, n, k, COO_Matrix, stream, handle.get_device_allocator());
 }

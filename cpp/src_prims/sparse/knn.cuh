@@ -114,23 +114,6 @@ struct csr_batcher_t {
   value_idx batch_csr_stop_offset_;
 };
 
-template <typename value_idx>
-__global__ void iota_fill_warp_kernel(value_idx *indices, value_idx ncols) {
-  int row = blockIdx.x;
-  int tid = threadIdx.x;
-
-  for (int i = tid; i < ncols; i += blockDim.x) {
-    indices[row * ncols + i] = i;
-  }
-}
-
-template <typename value_idx>
-void iota_fill(value_idx *indices, value_idx nrows, value_idx ncols,
-               cudaStream_t stream) {
-  int blockdim = block_dim(ncols);
-
-  iota_fill_warp_kernel<<<nrows, blockdim, 0, stream>>>(indices, ncols);
-}
 
 /**
    * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors

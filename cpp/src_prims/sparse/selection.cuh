@@ -44,6 +44,25 @@ namespace MLCommon {
 namespace Sparse {
 namespace Selection {
 
+template <typename value_idx>
+__global__ void iota_fill_warp_kernel(value_idx *indices, value_idx ncols) {
+  int row = blockIdx.x;
+  int tid = threadIdx.x;
+
+  for (int i = tid; i < ncols; i += blockDim.x) {
+    indices[row * ncols + i] = i;
+  }
+}
+
+template <typename value_idx>
+void iota_fill(value_idx *indices, value_idx nrows, value_idx ncols,
+               cudaStream_t stream) {
+  int blockdim = block_dim(ncols);
+
+  iota_fill_warp_kernel<<<nrows, blockdim, 0, stream>>>(indices, ncols);
+}
+
+
 template <typename K, typename IndexType, bool select_min, int warp_q,
           int thread_q, int tpb>
 __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,

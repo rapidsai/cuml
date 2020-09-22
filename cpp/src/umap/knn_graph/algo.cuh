@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/manifold/common.hpp>
 #include <cuml/manifold/umapparams.h>
 #include <iostream>
 #include <linalg/unary_op.cuh>
@@ -45,8 +46,8 @@ void launcher(const umap_inputs &inputsA, const umap_inputs &inputsB,
 
 // Instantiation for dense inputs, int64_t indices
 template <>
-void launcher(const ML::umap_dense_inputs_t<float> &inputsA,
-              const ML::umap_dense_inputs_t<float> &inputsB,
+void launcher(const ML::manifold_dense_inputs_t<float> &inputsA,
+              const ML::manifold_dense_inputs_t<float> &inputsB,
               ML::knn_graph<int64_t, float> &out, int n_neighbors,
               const ML::UMAPParams *params,
               std::shared_ptr<ML::deviceAllocator> d_alloc,
@@ -63,8 +64,8 @@ void launcher(const ML::umap_dense_inputs_t<float> &inputsA,
 
 // Instantiation for dense inputs, int indices
 template <>
-void launcher(const ML::umap_dense_inputs_t<float> &inputsA,
-              const ML::umap_dense_inputs_t<float> &inputsB,
+void launcher(const ML::manifold_dense_inputs_t<float> &inputsA,
+              const ML::manifold_dense_inputs_t<float> &inputsB,
               ML::knn_graph<int, float> &out, int n_neighbors,
               const ML::UMAPParams *params,
               std::shared_ptr<ML::deviceAllocator> d_alloc,
@@ -73,8 +74,8 @@ void launcher(const ML::umap_dense_inputs_t<float> &inputsA,
 }
 
 template <>
-void launcher(const ML::umap_sparse_inputs_t<int, float> &inputsA,
-              const ML::umap_sparse_inputs_t<int, float> &inputsB,
+void launcher(const ML::manifold_sparse_inputs_t<int, float> &inputsA,
+              const ML::manifold_sparse_inputs_t<int, float> &inputsB,
               ML::knn_graph<int, float> &out, int n_neighbors,
               const ML::UMAPParams *params,
               std::shared_ptr<ML::deviceAllocator> d_alloc,
@@ -94,8 +95,8 @@ void launcher(const ML::umap_sparse_inputs_t<int, float> &inputsA,
 }
 
 template <>
-void launcher(const ML::umap_sparse_inputs_t<int64_t, float> &inputsA,
-              const ML::umap_sparse_inputs_t<int64_t, float> &inputsB,
+void launcher(const ML::manifold_sparse_inputs_t<int64_t, float> &inputsA,
+              const ML::manifold_sparse_inputs_t<int64_t, float> &inputsB,
               ML::knn_graph<int64_t, float> &out, int n_neighbors,
               const ML::UMAPParams *params,
               std::shared_ptr<ML::deviceAllocator> d_alloc,
@@ -104,26 +105,26 @@ void launcher(const ML::umap_sparse_inputs_t<int64_t, float> &inputsA,
 }
 
 template <>
-void launcher(const ML::umap_precomputed_knn_inputs_t<int64_t, float> &inputsA,
-              const ML::umap_precomputed_knn_inputs_t<int64_t, float> &inputsB,
+void launcher(const ML::manifold_precomputed_knn_inputs_t<int64_t, float> &inputsA,
+              const ML::manifold_precomputed_knn_inputs_t<int64_t, float> &inputsB,
               ML::knn_graph<int64_t, float> &out, int n_neighbors,
               const ML::UMAPParams *params,
               std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
-  out.knn_indices = inputsA.knn_indices;
-  out.knn_dists = inputsA.knn_dists;
+  out.knn_indices = inputsA.knn_graph.knn_indices;
+  out.knn_dists = inputsA.knn_graph.knn_dists;
 }
 
 // Instantiation for precomputed inputs, int indices
 template <>
-void launcher(const ML::umap_precomputed_knn_inputs_t<int, float> &inputsA,
-              const ML::umap_precomputed_knn_inputs_t<int, float> &inputsB,
+void launcher(const ML::manifold_precomputed_knn_inputs_t<int, float> &inputsA,
+              const ML::manifold_precomputed_knn_inputs_t<int, float> &inputsB,
               ML::knn_graph<int, float> &out, int n_neighbors,
               const ML::UMAPParams *params,
               std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
-  out.knn_indices = inputsA.knn_indices;
-  out.knn_dists = inputsA.knn_dists;
+  out.knn_indices = inputsA.knn_graph.knn_indices;
+  out.knn_dists = inputsA.knn_graph.knn_dists;
 }
 
 }  // namespace Algo

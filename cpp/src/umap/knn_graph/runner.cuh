@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/manifold/common.hpp>
 #include <umap/knn_graph/algo.cuh>
 
 #pragma once
@@ -28,7 +29,7 @@ using namespace ML;
   * @brief This function performs a k-nearest neighbors against
   *        the input algorithm using the specified knn algorithm. 
   *        Only algorithm supported at the moment is brute force
-  *        knn primitive. 
+  *        knn primitive.
   * @tparam value_idx: Type of knn indices matrix. Usually an integral type.
   * @tparam value_t: Type of input, query, and dist matrices. Usually float
   * @param[in] X: Matrix to query (size n x d) in row-major format

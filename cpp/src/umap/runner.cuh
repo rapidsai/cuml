@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuml/manifold/common.hpp>
 #include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
 #include "optimize.cuh"

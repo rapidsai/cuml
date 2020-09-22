@@ -250,8 +250,8 @@ void perform_general_intersection(const raft::handle_t &handle, value_t *y,
   knn_graph.knn_indices = y_knn_indices.data();
   knn_graph.knn_dists = y_knn_dists.data();
 
-  umap_dense_inputs_t<value_t> y_inputs(y, nullptr, rgraph_coo->n_rows, 1);
-  kNNGraph::run<value_idx, value_t, umap_dense_inputs_t<value_t>>(
+  manifold_dense_inputs_t<value_t> y_inputs(y, nullptr, rgraph_coo->n_rows, 1);
+  kNNGraph::run<value_idx, value_t, manifold_dense_inputs_t<value_t>>(
     y_inputs, y_inputs, knn_graph, params->target_n_neighbors, params, d_alloc,
     stream);
   CUDA_CHECK(cudaPeekAtLastError());
