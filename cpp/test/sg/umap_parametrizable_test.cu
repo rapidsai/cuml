@@ -19,18 +19,18 @@
 #include <vector>
 
 #include <cuml/manifold/umapparams.h>
-#include <cuml/manifold/umap.hpp>
 #include <datasets/digits.h>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
+#include <cuml/manifold/umap.hpp>
 #include <cuml/neighbors/knn.hpp>
-#include <selection/knn.cuh>
 #include <distance/distance.cuh>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <metrics/trustworthiness.cuh>
+#include <selection/knn.cuh>
 
 using namespace ML;
 using namespace ML::Metrics;
@@ -159,9 +159,8 @@ class UMAPParametrizableTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     if (test_params.supervised) {
-      ML::UMAP::fit(handle, X, y, n_samples, n_features,
-                                 knn_indices, knn_dists, &umap_params,
-                                 model_embedding);
+      ML::UMAP::fit(handle, X, y, n_samples, n_features, knn_indices, knn_dists,
+                    &umap_params, model_embedding);
     } else {
       ML::UMAP::fit(handle, X, nullptr, n_samples, n_features, knn_indices,
                     knn_dists, &umap_params, model_embedding);
@@ -175,9 +174,9 @@ class UMAPParametrizableTest : public ::testing::Test {
 
       CUDA_CHECK(cudaStreamSynchronize(stream));
 
-      ML::UMAP::transform(
-        handle, X, n_samples, umap_params.n_components, knn_indices, knn_dists,
-        X, n_samples, model_embedding, n_samples, &umap_params, embedding_ptr);
+      ML::UMAP::transform(handle, X, n_samples, umap_params.n_components,
+                          knn_indices, knn_dists, X, n_samples, model_embedding,
+                          n_samples, &umap_params, embedding_ptr);
 
       CUDA_CHECK(cudaStreamSynchronize(stream));
 

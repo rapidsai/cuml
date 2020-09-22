@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/manifold/common.hpp>
 #include <cuml/manifold/umapparams.h>
+#include <cuml/manifold/common.hpp>
 #include <iostream>
 #include <linalg/unary_op.cuh>
 #include <selection/knn.cuh>
@@ -105,12 +105,12 @@ void launcher(const ML::manifold_sparse_inputs_t<int64_t, float> &inputsA,
 }
 
 template <>
-void launcher(const ML::manifold_precomputed_knn_inputs_t<int64_t, float> &inputsA,
-              const ML::manifold_precomputed_knn_inputs_t<int64_t, float> &inputsB,
-              ML::knn_graph<int64_t, float> &out, int n_neighbors,
-              const ML::UMAPParams *params,
-              std::shared_ptr<ML::deviceAllocator> d_alloc,
-              cudaStream_t stream) {
+void launcher(
+  const ML::manifold_precomputed_knn_inputs_t<int64_t, float> &inputsA,
+  const ML::manifold_precomputed_knn_inputs_t<int64_t, float> &inputsB,
+  ML::knn_graph<int64_t, float> &out, int n_neighbors,
+  const ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
+  cudaStream_t stream) {
   out.knn_indices = inputsA.knn_graph.knn_indices;
   out.knn_dists = inputsA.knn_graph.knn_dists;
 }

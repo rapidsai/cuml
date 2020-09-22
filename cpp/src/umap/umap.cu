@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/manifold/common.hpp>
 #include <cuml/manifold/umapparams.h>
+#include <cuml/manifold/common.hpp>
 #include <cuml/manifold/umap.hpp>
 #include "runner.cuh"
 
@@ -42,9 +42,8 @@ void transform(const raft::handle_t &handle, float *X, int n, int d,
     manifold_dense_inputs_t<float> inputs(X, nullptr, n, d);
     manifold_dense_inputs_t<float> orig_inputs(orig_X, nullptr, orig_n, d);
     UMAPAlgo::_transform<knn_indices_dense_t, float,
-                         manifold_dense_inputs_t<float>,
-                         TPB_X>(handle, inputs, orig_inputs, embedding,
-                                embedding_n, params, transformed);
+                         manifold_dense_inputs_t<float>, TPB_X>(
+      handle, inputs, orig_inputs, embedding, embedding_n, params, transformed);
   }
 }
 
@@ -81,9 +80,10 @@ void fit(const raft::handle_t &handle,
         manifold_precomputed_knn_inputs_t<knn_indices_dense_t, float>, TPB_X>(
         handle, inputs, params, embeddings);
     } else {
-      UMAPAlgo::_fit<knn_indices_dense_t, float,
-        manifold_precomputed_knn_inputs_t<knn_indices_dense_t, float>,
-                     TPB_X>(handle, inputs, params, embeddings);
+      UMAPAlgo::_fit<
+        knn_indices_dense_t, float,
+        manifold_precomputed_knn_inputs_t<knn_indices_dense_t, float>, TPB_X>(
+        handle, inputs, params, embeddings);
     }
 
   } else {
@@ -106,15 +106,16 @@ void fit_sparse(const raft::handle_t &handle,
                 int n,  // rows
                 int d,  // cols
                 UMAPParams *params, float *embeddings) {
-  manifold_sparse_inputs_t<int, float> inputs(indptr, indices, data, y, nnz, n, d);
+  manifold_sparse_inputs_t<int, float> inputs(indptr, indices, data, y, nnz, n,
+                                              d);
   if (y != nullptr) {
     UMAPAlgo::_fit_supervised<knn_indices_sparse_t, float,
                               manifold_sparse_inputs_t<int, float>, TPB_X>(
       handle, inputs, params, embeddings);
   } else {
     UMAPAlgo::_fit<knn_indices_sparse_t, float,
-                   manifold_sparse_inputs_t<int, float>, TPB_X>(handle, inputs,
-                                                            params, embeddings);
+                   manifold_sparse_inputs_t<int, float>, TPB_X>(
+      handle, inputs, params, embeddings);
   }
 }
 

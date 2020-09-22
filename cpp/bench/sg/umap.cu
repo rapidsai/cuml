@@ -112,7 +112,7 @@ class UmapSupervised : public UmapBase {
  protected:
   void coreBenchmarkMethod() {
     UMAP::fit(*this->handle, this->data.X, yFloat, this->params.nrows,
-        this->params.ncols, nullptr, nullptr, &uParams, embeddings);
+              this->params.ncols, nullptr, nullptr, &uParams, embeddings);
   }
 };
 ML_BENCH_REGISTER(Params, UmapSupervised, "blobs", getInputs());
@@ -124,8 +124,8 @@ class UmapUnsupervised : public UmapBase {
 
  protected:
   void coreBenchmarkMethod() {
-    UMAP::fit(*this->handle, this->data.X, nullptr, this->params.nrows, this->params.ncols,
-        nullptr, nullptr, &uParams, embeddings);
+    UMAP::fit(*this->handle, this->data.X, nullptr, this->params.nrows,
+              this->params.ncols, nullptr, nullptr, &uParams, embeddings);
   }
 };
 ML_BENCH_REGISTER(Params, UmapUnsupervised, "blobs", getInputs());
@@ -137,16 +137,16 @@ class UmapTransform : public UmapBase {
  protected:
   void coreBenchmarkMethod() {
     UMAP::transform(*this->handle, this->data.X, this->params.nrows,
-              this->params.ncols, nullptr, nullptr, this->data.X,
-              this->params.nrows, embeddings, this->params.nrows, &uParams,
-              transformed);
+                    this->params.ncols, nullptr, nullptr, this->data.X,
+                    this->params.nrows, embeddings, this->params.nrows,
+                    &uParams, transformed);
   }
   void allocateBuffers(const ::benchmark::State& state) {
     UmapBase::allocateBuffers(state);
     auto& handle = *this->handle;
     alloc(transformed, this->params.nrows * uParams.n_components);
-    UMAP::fit(handle, this->data.X, yFloat, this->params.nrows, this->params.ncols,
-        nullptr, nullptr, &uParams, embeddings);
+    UMAP::fit(handle, this->data.X, yFloat, this->params.nrows,
+              this->params.ncols, nullptr, nullptr, &uParams, embeddings);
   }
   void deallocateBuffers(const ::benchmark::State& state) {
     dealloc(transformed, this->params.nrows * uParams.n_components);
