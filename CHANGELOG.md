@@ -5,6 +5,8 @@
 - PR #2698: Distributed TF-IDF transformer
 - PR #2152: add FIL C++ benchmark
 - PR #2638: Improve cython build with custom `build_ext`
+- PR #2659: Add initial max inner product sparse knn
+- PR #2836: Refactor UMAP to accept sparse inputs
 
 ## Improvements
 - PR #2739: Use cusparse_wrappers.h from RAFT
@@ -79,7 +81,6 @@
 - PR #2661: CUDA-11 support for single-gpu code
 - PR #2322: Sparse FIL forests with 8-byte nodes
 - PR #2675: Update conda recipes to support CUDA 11
-- PR #2659: Add initial max inner product sparse knn
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage
