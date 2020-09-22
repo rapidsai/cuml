@@ -67,7 +67,9 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
             raise ValueError('Expected one label, but found y'
                              'with shape = %d' % (y.shape))
 
-    classes, y_indices = cp.unique(y.values if y_cudf else y, return_inverse=True)
+    classes, y_indices = cp.unique(y.values if y_cudf
+                                   else y,
+                                   return_inverse=True)
 
     n_classes = classes.shape[0]
     class_counts = cp.bincount(y_indices)
