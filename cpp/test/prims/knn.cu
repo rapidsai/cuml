@@ -36,7 +36,7 @@ template <typename T>
 class KNNTest : public ::testing::Test {
  protected:
   void basicTest() {
-    auto alloc = std::make_shared<defaultDeviceAllocator>();
+    auto alloc = std::make_shared<raft::mr::device::default_allocator>();
 
     // Allocate input
     allocate(d_train_inputs, n * d);

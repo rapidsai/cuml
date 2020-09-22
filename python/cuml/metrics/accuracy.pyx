@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import numpy as np
 
@@ -25,14 +22,14 @@ from libc.stdint cimport uintptr_t
 
 import cudf
 
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_dev_array
-import cuml.common.handle
+from cuml.raft.common.handle import Handle
 cimport cuml.common.cuda
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 
-    float accuracy_score_py(cumlHandle &handle,
+    float accuracy_score_py(handle_t &handle,
                             int *predictions,
                             int *ref_predictions,
                             int n) except +
@@ -55,10 +52,10 @@ def accuracy_score(ground_truth, predictions, handle=None, convert_dtype=True):
         float
           The accuracy of the model used for prediction
     """
-    handle = cuml.common.handle.Handle() \
+    handle = Handle() \
         if handle is None else handle
-    cdef cumlHandle* handle_ =\
-        <cumlHandle*><size_t>handle.getHandle()
+    cdef handle_t* handle_ =\
+        <handle_t*><size_t>handle.getHandle()
 
     cdef uintptr_t preds_ptr, ground_truth_ptr
     preds_m, preds_ptr, n_rows, _, _ = \

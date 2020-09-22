@@ -13,10 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 
 import ctypes
@@ -35,7 +32,7 @@ from cuml.common.array import CumlArray
 import cuml.common.opg_data_utils_mg as opg
 
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_dev_array, zeros
 from cuml.common import input_to_cuml_array

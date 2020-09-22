@@ -63,16 +63,12 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
     elif isinstance(y, cudf.DataFrame):
         y_cudf = True
         # ensuring it has just one column
-        if y.shape[1] == 1:
-            pass
-        else:
+        if y.shape[1] != 1:
             raise ValueError('Expected one label, but found y'
                              'with shape = %d' % (y.shape))
 
-    if y_cudf:
-        classes, y_indices = cp.unique(y.values, return_inverse=True)
-    else:
-        classes, y_indices = cp.unique(y, return_inverse=True)
+    classes, y_indices = cp.unique(y.values if y_cudf else y, return_inverse=True)
+
     n_classes = classes.shape[0]
     class_counts = cp.bincount(y_indices)
     if n_train < n_classes:
@@ -277,7 +273,7 @@ def train_test_split(X,
 
         # Alternatively, if our labels are stored separately
         labels = df['y']
-        df = df.drop(['y'])
+        df = df.drop(['y'], axis=1)
 
         # we can also do
         X_train, X_test, y_train, y_test = train_test_split(df, labels,
@@ -308,7 +304,7 @@ def train_test_split(X,
         if isinstance(X, cudf.DataFrame):
             name = y
             y = X[name]
-            X = X.drop(name)
+            X = X.drop(name, axis=1)
         else:
             raise TypeError("X needs to be a cuDF Dataframe when y is a \
                              string")

@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -34,7 +31,7 @@ import cuml
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 
@@ -43,19 +40,19 @@ from cython.operator cimport dereference as deref
 
 cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
 
-    cdef void tsvdFit(cumlHandle& handle,
+    cdef void tsvdFit(handle_t& handle,
                       float *input,
                       float *components,
                       float *singular_vals,
                       const paramsTSVD &prms) except +
 
-    cdef void tsvdFit(cumlHandle& handle,
+    cdef void tsvdFit(handle_t& handle,
                       double *input,
                       double *components,
                       double *singular_vals,
                       const paramsTSVD &prms) except +
 
-    cdef void tsvdFitTransform(cumlHandle& handle,
+    cdef void tsvdFitTransform(handle_t& handle,
                                float *input,
                                float *trans_input,
                                float *components,
@@ -64,7 +61,7 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
                                float *singular_vals,
                                const paramsTSVD &prms) except +
 
-    cdef void tsvdFitTransform(cumlHandle& handle,
+    cdef void tsvdFitTransform(handle_t& handle,
                                double *input,
                                double *trans_input,
                                double *components,
@@ -73,25 +70,25 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
                                double *singular_vals,
                                const paramsTSVD &prms) except +
 
-    cdef void tsvdInverseTransform(cumlHandle& handle,
+    cdef void tsvdInverseTransform(handle_t& handle,
                                    float *trans_input,
                                    float *components,
                                    float *input,
                                    const paramsTSVD &prms) except +
 
-    cdef void tsvdInverseTransform(cumlHandle& handle,
+    cdef void tsvdInverseTransform(handle_t& handle,
                                    double *trans_input,
                                    double *components,
                                    double *input,
                                    const paramsTSVD &prms) except +
 
-    cdef void tsvdTransform(cumlHandle& handle,
+    cdef void tsvdTransform(handle_t& handle,
                             float *input,
                             float *components,
                             float *trans_input,
                             const paramsTSVD &prms) except +
 
-    cdef void tsvdTransform(cumlHandle& handle,
+    cdef void tsvdTransform(handle_t& handle,
                             double *input,
                             double *components,
                             double *trans_input,
@@ -343,7 +340,7 @@ class TruncatedSVD(Base):
         if self.n_components> self.n_cols:
             raise ValueError(' n_components must be < n_features')
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if self.dtype == np.float32:
             tsvdFitTransform(handle_[0],
                              <float*> input_ptr,
@@ -398,7 +395,7 @@ class TruncatedSVD(Base):
         cdef uintptr_t input_ptr = input_data.ptr
         cdef uintptr_t components_ptr = self._components_.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if dtype.type == np.float32:
             tsvdInverseTransform(handle_[0],
@@ -448,7 +445,7 @@ class TruncatedSVD(Base):
         cdef uintptr_t trans_input_ptr = t_input_data.ptr
         cdef uintptr_t components_ptr = self._components_.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if dtype.type == np.float32:
             tsvdTransform(handle_[0],

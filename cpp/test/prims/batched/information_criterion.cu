@@ -70,7 +70,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
 
     // Create stream and allocator
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocator = std::make_shared<MLCommon::defaultDeviceAllocator>();
+    allocator = std::make_shared<raft::mr::device::default_allocator>();
 
     // Create arrays
     std::vector<T> loglike_h = std::vector<T>(params.batch_size);
@@ -106,7 +106,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
   }
 
  protected:
-  std::shared_ptr<MLCommon::defaultDeviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::default_allocator> allocator;
   BatchedICInputs<T> params;
   T *res_d;
   std::vector<T> res_h;
