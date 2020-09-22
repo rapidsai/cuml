@@ -473,7 +473,8 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
     device_buffer<int> y_normalized(allocator, stream, n_index_rows);
     device_buffer<int> y_tmp(allocator, stream, n_index_rows + n_unique_labels);
     updateDevice(y_tmp.data(), y[i], n_index_rows, stream);
-    updateDevice(y_tmp.data() + n_index_rows, uniq_labels[i], n_unique_labels, stream);
+    updateDevice(y_tmp.data() + n_index_rows, uniq_labels[i], n_unique_labels,
+                 stream);
     MLCommon::Label::make_monotonic(y_normalized.data(), y_tmp.data(),
                                     y_tmp.size(), stream, allocator);
     MLCommon::LinAlg::unaryOp<int>(

@@ -107,7 +107,8 @@ def check_probabilities(l_probas, d_probas):
 @pytest.mark.parametrize("n_neighbors", [1, 3, 8])
 @pytest.mark.parametrize("n_parts", [2, 4, 12])
 @pytest.mark.parametrize("batch_size", [128, 1024])
-def test_predict_and_score(dataset, datatype, n_neighbors, n_parts, batch_size, client):
+def test_predict_and_score(dataset, datatype, n_neighbors,
+                           n_parts, batch_size, client):
     X_train, X_test, y_train, y_test = dataset
     np_y_test = y_test
 
@@ -161,7 +162,8 @@ def test_predict_and_score(dataset, datatype, n_neighbors, n_parts, batch_size, 
 @pytest.mark.parametrize("n_neighbors", [1, 3, 8])
 @pytest.mark.parametrize("n_parts", [2, 4, 12])
 @pytest.mark.parametrize("batch_size", [128, 1024])
-def test_predict_proba(dataset, datatype, n_neighbors, n_parts, batch_size, client):
+def test_predict_proba(dataset, datatype, n_neighbors,
+                       n_parts, batch_size, client):
     X_train, X_test, y_train, y_test = dataset
 
     l_model = lKNNClf(n_neighbors=n_neighbors)

@@ -101,7 +101,8 @@ def exact_match(output1, output2):
 @pytest.mark.parametrize("n_neighbors", [1, 3, 8])
 @pytest.mark.parametrize("n_parts", [2, 4, 12])
 @pytest.mark.parametrize("batch_size", [128, 1024])
-def test_predict_and_score(dataset, datatype, n_neighbors, n_parts, batch_size, client):
+def test_predict_and_score(dataset, datatype, n_neighbors,
+                           n_parts, batch_size, client):
     X_train, X_test, y_train, y_test = dataset
     np_y_test = y_test
 
@@ -146,6 +147,6 @@ def test_predict_and_score(dataset, datatype, n_neighbors, n_parts, batch_size, 
         assert distributed_score == handmade_local_score
     else:
         y_pred = distributed_out[0]
-        handmade_distributed_score = r2_score(np_y_test, y_pred)
-        handmade_distributed_score = round(float(handmade_distributed_score), 3)
+        handmade_distributed_score = float(r2_score(np_y_test, y_pred))
+        handmade_distributed_score = round(handmade_distributed_score, 3)
         assert handmade_distributed_score == handmade_local_score

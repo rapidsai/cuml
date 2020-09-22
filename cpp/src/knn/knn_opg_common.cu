@@ -299,12 +299,14 @@ void reduce(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
 
     std::vector<float *> &probas_part = probas->at(local_parts_completed);
     for (int i = 0; i < n_outputs; i++) {
-      float* ptr = probas_part[i];
+      float *ptr = probas_part[i];
       int n_unique_classes = n_unique->at(i);
-      probas_with_offsets.push_back(ptr + (total_n_processed * n_unique_classes));
+      probas_with_offsets.push_back(ptr +
+                                    (total_n_processed * n_unique_classes));
     }
   } else {
-    outputs = out->at(local_parts_completed)->ptr + (n_outputs * total_n_processed);
+    outputs =
+      out->at(local_parts_completed)->ptr + (n_outputs * total_n_processed);
     indices = out_I->at(local_parts_completed)->ptr + batch_offset;
     distances = out_D->at(local_parts_completed)->ptr + batch_offset;
   }
@@ -313,8 +315,9 @@ void reduce(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
                                        indices, cur_batch_size, idxRanks.size(),
                                        k, stream, trans.data());
 
-  device_buffer<T> merged_outputs_b(alloc, stream, n_outputs * cur_batch_size * k);
-  T* merged_outputs = merged_outputs_b.data();
+  device_buffer<T> merged_outputs_b(alloc, stream,
+                                    n_outputs * cur_batch_size * k);
+  T *merged_outputs = merged_outputs_b.data();
   merge_outputs(merged_outputs, indices, res.data(), res_I.data(),
                 cur_batch_size, k, n_outputs, index_desc, alloc, stream);
 
