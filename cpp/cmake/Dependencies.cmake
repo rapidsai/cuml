@@ -80,13 +80,27 @@ endif(ENABLE_CUMLPRIMS_MG)
 ##############################################################################
 # - RMM ----------------------------------------------------------------------
 
-# find package module uses RMM_INSTALL_DIR for Hints, checking RMM_ROOT env variable
-# to match other RAPIDS repos.
-set(RMM_INSTALL_DIR ENV{RMM_ROOT})
+find_path(RMM_INCLUDE_DIRS "rmm"
+    HINTS
+    "$ENV{RMM_ROOT}/include"
+    "$ENV{CONDA_PREFIX}/include/rmm"
+    "$ENV{CONDA_PREFIX}/include")
 
-find_package(RMM
-             REQUIRED)
+message(STATUS "RMM: RMM_INCLUDE_DIRS set to ${RMM_INCLUDE_DIRS}")
 
+##############################################################################
+# - NCCL ---------------------------------------------------------------------
+
+if(BUILD_CUML_MPI_COMMS OR BUILD_CUML_STD_COMMS)
+  find_package(NCCL REQUIRED)
+endif(BUILD_CUML_MPI_COMMS OR BUILD_CUML_STD_COMMS)
+
+##############################################################################
+# - MPI ---------------------------------------------------------------------
+
+if(BUILD_CUML_MPI_COMMS)
+  find_package(MPI REQUIRED)
+endif(BUILD_CUML_MPI_COMMS)
 
 ##############################################################################
 # - cub - (header only) ------------------------------------------------------
@@ -193,20 +207,20 @@ if(BUILD_GTEST)
 	  BUILD_BYPRODUCTS  ${GTEST_DIR}/lib/libgtest.a
 	                    ${GTEST_DIR}/lib/libgtest_main.a
 	  UPDATE_COMMAND    "")
-	
+
 	add_library(GTest::GTest STATIC IMPORTED)
 	add_library(GTest::Main STATIC IMPORTED)
-	
+
 	set_property(TARGET GTest::GTest PROPERTY
 	  IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest.a)
 	set_property(TARGET GTest::Main PROPERTY
 	  IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest_main.a)
-	
+
 	set(GTEST_INCLUDE_DIRS "${GTEST_DIR}")
-	
+
 	add_dependencies(GTest::GTest googletest)
 	add_dependencies(GTest::Main googletest)
-	
+
 else()
 	find_package(GTest REQUIRED)
 endif(BUILD_GTEST)
