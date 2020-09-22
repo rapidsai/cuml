@@ -40,7 +40,7 @@ class KNNRegressTest : public ::testing::TestWithParam<KNNParams> {
     /**
      * Execute knn_regress()
      */
-    knn_regress(*(knn_th.handle), &(knn_th.out_parts), &(knn_th.out_i_parts),
+    knn_regress(knn_th.handle, &(knn_th.out_parts), &(knn_th.out_i_parts),
                 &(knn_th.out_d_parts), knn_th.index_parts, *(knn_th.idx_desc),
                 knn_th.query_parts, *(knn_th.query_desc), knn_th.y, false,
                 false, params.k, params.n_outputs, params.batch_size, true);
