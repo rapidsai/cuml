@@ -39,6 +39,7 @@
 - PR #2818: Fix parsing of singlegpu option in build command
 - PR #2832: Updating stress tests that fail with OOM
 - PR #2831: Removing repeated capture and parameter in lambda function
+- PR #2844: Fix for OPG KNN Classifier & Regressor
 
 # cuML 0.15.0 (Date TBD)
 
