@@ -169,3 +169,23 @@ def test_empty_input(empty, ord_label, client):
     transformed = le.fit_transform(empty).compute()
     assert(le._fitted is True)
     assert(len(transformed) == 0)
+
+
+def test_masked_encode(client):
+    n_workers = len(client.has_what())
+    df = cudf.DataFrame({"filter_col": [1, 1, 2, 3, 1, 1, 1, 1, 6, 5],
+                         "cat_col": ['a', 'b', 'c', 'd', 'a',
+                                     'a', 'a', 'c', 'b', 'c']})
+    ddf = dask_cudf.from_cudf(df, npartitions=n_workers)
+
+    ddf_filter = ddf[ddf["filter_col"] == 1]
+    filter_encoded = LabelEncoder().fit_transform(ddf_filter["cat_col"])
+    ddf_filter = ddf_filter.assign(filter_encoded=filter_encoded.values)
+
+    encoded_filter = LabelEncoder().fit_transform(ddf["cat_col"])
+    ddf = ddf.assign(encoded_filter=encoded_filter.values)
+
+    ddf = ddf[ddf.filter_col == 1]
+
+    assert(ddf.encoded_filter == \
+           ddf_filter.filter_encoded).compute().all()
