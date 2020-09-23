@@ -137,6 +137,7 @@
 - PR #2535: Fix issue with incorrect docker image being used in local build script
 - PR #2542: Fix small memory leak in TSNE
 - PR #2552: Fixed the length argument of updateDevice calls in RF test
+- PR #2560: Update RF MNMG example to use float32
 - PR #2565: Fix cell allocation code to avoid loops in quad-tree. Prevent NaNs causing infinite descent
 - PR #2563: Update scipy call for arima gradient test
 - PR #2569: Fix for cuDF update
