@@ -350,5 +350,5 @@ def test_sparse_nearest_neighbors_euclidean(nrows, ncols,
 
     skD, skI = sknn.kneighbors(sk_X)
 
-    cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
     cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)
+    cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)

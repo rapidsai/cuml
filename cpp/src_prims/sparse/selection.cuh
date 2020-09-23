@@ -119,8 +119,8 @@ inline void select_k_impl(value_t *inK, value_idx *inV, size_t n_rows,
   constexpr int n_threads = (warp_q <= 1024) ? 128 : 64;
   auto block = dim3(n_threads);
 
-  auto kInit = select_min ? faiss::gpu::Limits<float>::getMax()
-                          : faiss::gpu::Limits<float>::getMin();
+  auto kInit = select_min ? faiss::gpu::Limits<value_t>::getMax()
+                          : faiss::gpu::Limits<value_t>::getMin();
   auto vInit = -1;
   if (select_min) {
     select_k_kernel<value_t, value_idx, false, warp_q, thread_q, n_threads>
