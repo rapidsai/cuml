@@ -157,7 +157,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
   const raft::handle_t& handle = user_handle;
   int n_sampled_rows = 0;
   if (this->rf_params.bootstrap) {
-    n_sampled_rows = this->rf_params.rows_sample * n_rows;
+    n_sampled_rows = std::round(this->rf_params.rows_sample * n_rows);
   } else {
     if (this->rf_params.rows_sample != 1.0) {
       CUML_LOG_WARN(
