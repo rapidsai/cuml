@@ -56,10 +56,10 @@ struct FilTestParams {
   float tolerance;
   // treelite parameters, only used for treelite tests
   tl::Operator op;
-  fil::leaf_algo_t leaf_payload_type;
-  // num_classes must be 1 or 2 when FLOAT_SAME_CLASS == leaf_payload_type
+  fil::leaf_algo_t leaf_algo;
+  // num_classes must be 1 or 2 when FLOAT_SAME_CLASS == leaf_algo
   // (1 if it's regression)
-  // num_classes must be >1 when CATEGORICAL_LEAF == leaf_payload_type
+  // num_classes must be >1 when CATEGORICAL_LEAF == leaf_algo
   // it's used in treelite ModelBuilder initialization
   int num_classes;
 
@@ -84,7 +84,7 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
      << ", threshold = " << ps.threshold << ", algo = " << ps.algo
      << ", seed = " << ps.seed << ", tolerance = " << ps.tolerance
      << ", op = " << tl::OpName(ps.op) << ", global_bias = " << ps.global_bias
-     << ", leaf_payload_type = " << ps.leaf_payload_type
+     << ", leaf_algo = " << ps.leaf_algo
      << ", num_classes = " << ps.num_classes;
   return os;
 }
@@ -144,7 +144,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // generate on-GPU random data
     Random::Rng r(ps.seed);
-    if (ps.leaf_payload_type == fil::leaf_algo_t::FLOAT_SAME_CLASS) {
+    if (ps.leaf_algo == fil::leaf_algo_t::FLOAT_SAME_CLASS) {
       r.uniform((float*)weights_d, num_nodes, -1.0f, 1.0f, stream);
     } else {
       // [0..num_classes)
@@ -182,7 +182,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     nodes.resize(num_nodes);
     for (size_t i = 0; i < num_nodes; ++i) {
       fil::val_t w;
-      switch (ps.leaf_payload_type) {
+      switch (ps.leaf_algo) {
         case fil::leaf_algo_t::CATEGORICAL_LEAF:
           w.idx = weights_h[i];
           break;
@@ -252,7 +252,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     std::vector<float> want_preds_h(ps.num_preds_outputs());
     std::vector<float> want_proba_h(ps.num_proba_outputs());
     int num_nodes = tree_num_nodes();
-    switch (ps.leaf_payload_type) {
+    switch (ps.leaf_algo) {
       case fil::leaf_algo_t::FLOAT_SAME_CLASS:
         for (int i = 0; i < ps.num_rows; ++i) {
           float pred = 0.0f;
@@ -316,7 +316,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   void compare() {
     ASSERT_TRUE(devArrMatch(want_proba_d, proba_d, ps.num_proba_outputs(),
                             CompareApprox<float>(ps.tolerance), stream));
-    float tolerance = ps.leaf_payload_type == fil::leaf_algo_t::FLOAT_SAME_CLASS
+    float tolerance = ps.leaf_algo == fil::leaf_algo_t::FLOAT_SAME_CLASS
                         ? ps.tolerance
                         : std::numeric_limits<float>::epsilon();
     // in multi-class prediction, floats represent the most likely class
@@ -377,7 +377,7 @@ class PredictDenseFilTest : public BaseFilTest {
     fil_ps.output = ps.output;
     fil_ps.threshold = ps.threshold;
     fil_ps.global_bias = ps.global_bias;
-    fil_ps.leaf_payload_type = ps.leaf_payload_type;
+    fil_ps.leaf_algo = ps.leaf_algo;
     fil_ps.num_classes = ps.num_classes;
 
     fil::init_dense(handle, pforest, nodes.data(), &fil_ps);
@@ -435,7 +435,7 @@ class BasePredictSparseFilTest : public BaseFilTest {
     fil_params.output = ps.output;
     fil_params.threshold = ps.threshold;
     fil_params.global_bias = ps.global_bias;
-    fil_params.leaf_payload_type = ps.leaf_payload_type;
+    fil_params.leaf_algo = ps.leaf_algo;
     fil_params.num_classes = ps.num_classes;
 
     dense2sparse();
@@ -466,7 +466,7 @@ class TreeliteFilTest : public BaseFilTest {
     fil::node_decode(&nodes[node], &output, &threshold, &feature, &default_left,
                      &is_leaf);
     if (is_leaf) {
-      switch (ps.leaf_payload_type) {
+      switch (ps.leaf_algo) {
         case fil::leaf_algo_t::FLOAT_SAME_CLASS:
           // default is fil::FLOAT_SAME_CLASS
           builder->SetLeafNode(key, output.f);
@@ -512,16 +512,14 @@ class TreeliteFilTest : public BaseFilTest {
                         fil::storage_type_t storage_type) {
     bool random_forest_flag = (ps.output & fil::output_t::AVG) != 0;
     int treelite_num_classes =
-      ps.leaf_payload_type == fil::leaf_algo_t::FLOAT_SAME_CLASS
-        ? 1
-        : ps.num_classes;
+      ps.leaf_algo == fil::leaf_algo_t::FLOAT_SAME_CLASS ? 1 : ps.num_classes;
     std::unique_ptr<tlf::ModelBuilder> model_builder(new tlf::ModelBuilder(
       ps.num_cols, treelite_num_classes, random_forest_flag));
 
     // prediction transform
     if ((ps.output & fil::output_t::SIGMOID) != 0) {
       model_builder->SetModelParam("pred_transform", "sigmoid");
-    } else if (ps.leaf_payload_type == fil::leaf_algo_t::CATEGORICAL_LEAF &&
+    } else if (ps.leaf_algo == fil::leaf_algo_t::CATEGORICAL_LEAF &&
                ps.num_classes >= 2) {
       model_builder->SetModelParam("pred_transform", "max_index");
       ps.output = fil::output_t::CLASS;

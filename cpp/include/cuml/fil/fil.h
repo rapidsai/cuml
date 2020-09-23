@@ -135,7 +135,7 @@ enum leaf_algo_t {
   // to be extended
 };
 
-template <leaf_algo_t leaf_payload_type>
+template <leaf_algo_t leaf_algo>
 struct leaf_output_t {};
 template <>
 struct leaf_output_t<leaf_algo_t::FLOAT_SAME_CLASS> {
@@ -177,14 +177,14 @@ struct forest_params_t {
   int num_trees;
   // num_cols is the number of columns in the data
   int num_cols;
-  // leaf_payload_type determines what the leaves store (predict)
-  leaf_algo_t leaf_payload_type;
+  // leaf_algo determines what the leaves store (predict)
+  leaf_algo_t leaf_algo;
   // algo is the inference algorithm;
   // sparse forests do not distinguish between NAIVE and TREE_REORG
   algo_t algo;
   // output is the desired output type
   output_t output;
-  // threshold is used to for classification if leaf_payload_type == FLOAT_SAME_CLASS && (output & OUTPUT_CLASS) != 0 && !predict_proba,
+  // threshold is used to for classification if leaf_algo == FLOAT_SAME_CLASS && (output & OUTPUT_CLASS) != 0 && !predict_proba,
   // and is ignored otherwise
   float threshold;
   // global_bias is added to the sum of tree predictions

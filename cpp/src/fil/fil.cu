@@ -141,7 +141,7 @@ struct forest {
     output_ = params->output;
     threshold_ = params->threshold;
     global_bias_ = params->global_bias;
-    leaf_payload_type_ = params->leaf_payload_type;
+    leaf_algo_ = params->leaf_algo;
     num_classes_ = params->num_classes;
     init_max_shm();
   }
@@ -159,7 +159,7 @@ struct forest {
     params.num_rows = num_rows;
     params.max_shm = max_shm_;
     params.num_classes = num_classes_;
-    params.leaf_payload_type = leaf_payload_type_;
+    params.leaf_algo = leaf_algo_;
 
     /**
     The binary classification / regression (FLOAT_SAME_CLASS) predict_proba() works as follows
@@ -194,7 +194,7 @@ struct forest {
     output_t ot = output_;
     bool complement_proba = false, do_transform = global_bias_ != 0.0f;
 
-    if (leaf_payload_type_ == leaf_algo_t::FLOAT_SAME_CLASS) {
+    if (leaf_algo_ == leaf_algo_t::FLOAT_SAME_CLASS) {
       if (predict_proba) {
         params.num_outputs = 2;
         ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
@@ -204,7 +204,7 @@ struct forest {
         params.num_outputs = 1;
         if (ot != output_t::RAW) do_transform = true;
       }
-    } else if (leaf_payload_type_ == leaf_algo_t::CATEGORICAL_LEAF) {
+    } else if (leaf_algo_ == leaf_algo_t::CATEGORICAL_LEAF) {
       if (predict_proba) {
         params.num_outputs = num_classes_;
         ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
@@ -243,7 +243,7 @@ struct forest {
   output_t output_ = output_t::RAW;
   float threshold_ = 0.5;
   float global_bias_ = 0;
-  leaf_algo_t leaf_payload_type_ = leaf_algo_t::FLOAT_SAME_CLASS;
+  leaf_algo_t leaf_algo_ = leaf_algo_t::FLOAT_SAME_CLASS;
   int num_classes_ = 1;
 };
 
@@ -374,7 +374,7 @@ void check_params(const forest_params_t* params, bool dense) {
       ASSERT(false,
              "algo should be ALGO_AUTO, NAIVE, TREE_REORG or BATCH_TREE_REORG");
   }
-  switch (params->leaf_payload_type) {
+  switch (params->leaf_algo) {
     case leaf_algo_t::FLOAT_SAME_CLASS:
       if ((params->output & output_t::CLASS) != 0) {
         ASSERT(params->num_classes == 2,
@@ -389,12 +389,10 @@ void check_params(const forest_params_t* params, bool dense) {
     case leaf_algo_t::CATEGORICAL_LEAF:
       ASSERT(params->num_classes >= 2,
              "num_classes >= 2 is required for "
-             "leaf_payload_type == CATEGORICAL_LEAF");
+             "leaf_algo == CATEGORICAL_LEAF");
       break;
     default:
-      ASSERT(
-        false,
-        "leaf_payload_type should be FLOAT_SAME_CLASS or CATEGORICAL_LEAF");
+      ASSERT(false, "leaf_algo should be FLOAT_SAME_CLASS or CATEGORICAL_LEAF");
   }
   // output_t::RAW == 0, and doesn't have a separate flag
   output_t all_set =
@@ -504,7 +502,7 @@ template <typename fil_node_t>
 void tl2fil_leaf_payload(fil_node_t* fil_node, const tl::Tree& tl_tree,
                          int tl_node_id, const forest_params_t& forest_params) {
   auto vec = tl_tree.LeafVector(tl_node_id);
-  switch (forest_params.leaf_payload_type) {
+  switch (forest_params.leaf_algo) {
     case leaf_algo_t::CATEGORICAL_LEAF:
       ASSERT(vec.size() == forest_params.num_classes,
              "inconsistent number of classes in treelite leaves");
@@ -516,7 +514,7 @@ void tl2fil_leaf_payload(fil_node_t* fil_node, const tl::Tree& tl_tree,
              "some but not all treelite leaves have leaf_vector()");
       break;
     default:
-      ASSERT(false, "internal error: invalid leaf_payload_type");
+      ASSERT(false, "internal error: invalid leaf_algo");
   };
 }
 
@@ -632,7 +630,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     ASSERT(leaf_vec_size == model.num_output_group,
            "treelite model inconsistent");
     params->num_classes = leaf_vec_size;
-    params->leaf_payload_type = leaf_algo_t::CATEGORICAL_LEAF;
+    params->leaf_algo = leaf_algo_t::CATEGORICAL_LEAF;
 
     ASSERT(tl_params->output_class,
            "output_class==true is required for multi-class models");
@@ -647,7 +645,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
            "only sigmoid and identity values of pred_transform "
            "are supported for binary classification and regression models");
-    params->leaf_payload_type = leaf_algo_t::FLOAT_SAME_CLASS;
+    params->leaf_algo = leaf_algo_t::FLOAT_SAME_CLASS;
   }
 
   params->num_cols = model.num_feature;
