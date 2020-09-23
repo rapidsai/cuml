@@ -21,7 +21,7 @@ from scipy.special import boxcox
 
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ....thirdparty_adapters import check_array, get_input_type, \
-                                    to_output_type, check_cupy8
+                                    to_output_type
 from ..utils.extmath import row_norms
 from ..utils.extmath import _incremental_mean_and_var
 from ..utils.validation import (check_is_fitted, check_random_state,
@@ -34,6 +34,7 @@ from ..utils.sparsefuncs import (inplace_column_scale,
 from ....thirdparty_adapters.sparsefuncs_fast import \
     (inplace_csr_row_normalize_l1, inplace_csr_row_normalize_l2,
      csr_polynomial_expansion)
+from ....common.import_utils import check_cupy8
 
 
 BOUNDS_THRESHOLD = 1e-7
@@ -836,7 +837,7 @@ class StandardScaler(TransformerMixin, BaseEstimator):
         return {'allow_nan': True}
 
 
-@check_cupy8
+@check_cupy8()
 class MaxAbsScaler(TransformerMixin, BaseEstimator):
     """Scale each feature by its maximum absolute value.
 
@@ -1014,7 +1015,7 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
         return {'allow_nan': True}
 
 
-@check_cupy8
+@check_cupy8()
 @_deprecate_positional_args
 def maxabs_scale(X, *, axis=0, copy=True):
     """Scale each feature to the [-1, 1] range without breaking the sparsity.
@@ -1347,7 +1348,7 @@ def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
     return to_output_type(X, output_type)
 
 
-@check_cupy8
+@check_cupy8()
 class PolynomialFeatures(TransformerMixin, BaseEstimator):
     """Generate polynomial and interaction features.
 
@@ -1623,7 +1624,7 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
         return XP
 
 
-@check_cupy8
+@check_cupy8()
 @_deprecate_positional_args
 def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
     """Scale input vectors individually to unit norm (vector length).
@@ -1718,7 +1719,7 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
         return X
 
 
-@check_cupy8
+@check_cupy8()
 class Normalizer(TransformerMixin, BaseEstimator):
     """Normalize samples individually to unit norm.
 

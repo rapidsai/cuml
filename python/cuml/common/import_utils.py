@@ -18,6 +18,7 @@
 import numba
 
 from distutils.version import LooseVersion
+from functools import wraps
 
 
 def has_dask():
@@ -115,3 +116,20 @@ def dummy_function_always_false(*args, **kwargs):
 
 class DummyClass(object):
     pass
+
+
+def check_cupy8(conf=None):
+    def check_cupy8_dec(func):
+        @wraps(func)
+        def inner(*args, **kwargs):
+            if check_min_cupy_version('8.0'):
+                return func(*args, **kwargs)
+            else:
+                err_msg = 'Could not import required module CuPy 8.0+'
+                if conf == 'pytest':
+                    import pytest
+                    pytest.skip(err_msg)
+                else:
+                    raise ImportError(err_msg)
+        return inner
+    return check_cupy8_dec

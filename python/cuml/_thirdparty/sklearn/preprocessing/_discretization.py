@@ -19,7 +19,8 @@ from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
 from ....thirdparty_adapters import check_array, get_input_type, \
-                                    to_output_type, check_cupy8
+                                    to_output_type
+from ....common.import_utils import check_cupy8
 
 
 def digitize(x, bins):
@@ -36,7 +37,7 @@ def digitize(x, bins):
     return out
 
 
-@check_cupy8
+@check_cupy8()
 class KBinsDiscretizer(TransformerMixin, BaseEstimator):
     """
     Bin continuous data into intervals.
