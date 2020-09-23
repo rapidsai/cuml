@@ -116,8 +116,6 @@ class UMAPParametrizableTest : public ::testing::Test {
     int& n_samples = test_params.n_samples;
     int& n_features = test_params.n_features;
 
-    umap_params.verbosity = 5;
-
     device_buffer<int64_t>* knn_indices_b;
     device_buffer<float>* knn_dists_b;
     int64_t* knn_indices = nullptr;

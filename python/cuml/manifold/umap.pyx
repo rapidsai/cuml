@@ -42,6 +42,7 @@ from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.import_utils import has_scipy
 from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
+from cuml.common.sparse_utils import is_sparse
 
 import rmm
 
@@ -510,10 +511,6 @@ class UMAP(Base):
                    (knn_dists_m, knn_dists_m.ptr)
         return (None, None), (None, None)
 
-    @staticmethod
-    def _is_x_sparse(X):
-        is_scipy_sparse = (has_scipy() and scipy.sparse.isspmatrix(X))
-        return cupyx.scipy.sparse.isspmatrix(X) or is_scipy_sparse
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         skip_parameters_heading=True)
@@ -553,7 +550,7 @@ class UMAP(Base):
             semi-supervised mode with categorical target_metric for now.")
 
         # Handle sparse inputs
-        if self._is_x_sparse(X):
+        if is_sparse(X):
 
             self._X_m = SparseCumlArray(X, convert_to_dtype=cupy.float32,
                                         convert_format=False)

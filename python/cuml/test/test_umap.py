@@ -171,8 +171,6 @@ def test_umap_transform_on_digits(target_metric, sparse):
 
     embedding = fitter.transform(new_data, convert_dtype=True)
 
-    print("Embedding: %s" % type(embedding))
-
     if sparse:
         embedding = embedding.get()
 
