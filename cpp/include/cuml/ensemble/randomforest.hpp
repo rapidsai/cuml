@@ -63,7 +63,7 @@ struct RF_params {
    * round(rows_sample * n_samples) number of samples with replacement. More on
    * bootstrapping:
    *     https://en.wikipedia.org/wiki/Bootstrap_aggregating
-   * If boostrapping is set to false, whole sample set is used to build each
+   * If boostrapping is set to false, whole dataset is used to build each
    * tree.
    */
   bool bootstrap;
