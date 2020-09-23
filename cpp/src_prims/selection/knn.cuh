@@ -255,7 +255,7 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     input.size());
   for (int i = 0; i < input.size(); i++) {
     metric_processors[i] = create_processor<float>(
-      metric, n, D, k, rowMajorQuery, userStream, allocator);
+      metric, sizes[i], D, k, rowMajorQuery, userStream, allocator);
     metric_processors[i]->preprocess(input[i]);
   }
 
@@ -472,7 +472,7 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
      */
     device_buffer<int> y_normalized(allocator, stream, n_index_rows);
     MLCommon::Label::make_monotonic(y_normalized.data(), y[i], n_index_rows,
-                                    stream);
+                                    stream, allocator);
     MLCommon::LinAlg::unaryOp<int>(
       y_normalized.data(), y_normalized.data(), n_index_rows,
       [] __device__(int input) { return input - 1; }, stream);

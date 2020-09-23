@@ -48,7 +48,7 @@ class LinRegLossTest : public ::testing::TestWithParam<LinRegLossInputs<T>> {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    allocator.reset(new defaultDeviceAllocator);
+    allocator.reset(new raft::mr::device::default_allocator);
 
     allocate(in, len);
     allocate(out, 1);

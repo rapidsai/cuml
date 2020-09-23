@@ -38,7 +38,7 @@
 #include <cuml/cuml.hpp>
 
 #include <common/cudart_utils.h>
-#include <linalg/cusolver_wrappers.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <common/device_buffer.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <matrix/matrix.cuh>

@@ -80,15 +80,15 @@ void find_ab(UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
 }
 
 template <typename T, int TPB_X>
-void _fit(const cumlHandle &handle,
+void _fit(const raft::handle_t &handle,
           T *X,   // input matrix
           int n,  // rows
           int d,  // cols
           int64_t *knn_indices, T *knn_dists, UMAPParams *params,
           T *embeddings) {
   ML::PUSH_RANGE("umap::unsupervised::fit");
-  cudaStream_t stream = handle.getStream();
-  auto d_alloc = handle.getDeviceAllocator();
+  cudaStream_t stream = handle.get_stream();
+  auto d_alloc = handle.get_device_allocator();
 
   int k = params->n_neighbors;
 
@@ -160,14 +160,14 @@ void _fit(const cumlHandle &handle,
 }
 
 template <typename T, int TPB_X>
-void _fit(const cumlHandle &handle,
+void _fit(const raft::handle_t &handle,
           T *X,  // input matrix
           T *y,  // labels
           int n, int d, int64_t *knn_indices, T *knn_dists, UMAPParams *params,
           T *embeddings) {
   ML::PUSH_RANGE("umap::supervised::fit");
-  std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
-  cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.get_device_allocator();
+  cudaStream_t stream = handle.get_stream();
 
   int k = params->n_neighbors;
 
@@ -280,13 +280,13 @@ void _fit(const cumlHandle &handle,
 	 *
 	 */
 template <typename T, int TPB_X>
-void _transform(const cumlHandle &handle, T *X, int n, int d,
+void _transform(const raft::handle_t &handle, T *X, int n, int d,
                 int64_t *knn_indices, float *knn_dists, T *orig_X, int orig_n,
                 T *embedding, int embedding_n, UMAPParams *params,
                 T *transformed) {
   ML::PUSH_RANGE("umap::transform");
-  std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
-  cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.get_device_allocator();
+  cudaStream_t stream = handle.get_stream();
 
   ML::Logger::get().setLevel(params->verbosity);
 

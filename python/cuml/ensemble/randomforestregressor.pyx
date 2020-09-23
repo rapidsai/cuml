@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import numpy as np
 import rmm
@@ -31,7 +28,7 @@ from cuml.common.array import CumlArray
 from cuml.common.base import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from cuml.common.handle import Handle
+from cuml.raft.common.handle import Handle
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -49,8 +46,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
-from cuml.common.handle cimport cumlHandle
-cimport cuml.common.handle
+from cuml.raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
@@ -58,7 +54,7 @@ cimport cython
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   RandomForestMetaData[float, float]*,
                   float*,
                   int,
@@ -67,7 +63,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   RF_params,
                   int) except +
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   RandomForestMetaData[double, double]*,
                   double*,
                   int,
@@ -76,7 +72,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   RF_params,
                   int) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       RandomForestMetaData[float, float] *,
                       float*,
                       int,
@@ -84,7 +80,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       float*,
                       int) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       RandomForestMetaData[double, double]*,
                       double*,
                       int,
@@ -92,14 +88,14 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       double*,
                       int) except +
 
-    cdef RF_metrics score(cumlHandle& handle,
+    cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[float, float]*,
                           float*,
                           int,
                           float*,
                           int) except +
 
-    cdef RF_metrics score(cumlHandle& handle,
+    cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[double, double]*,
                           double*,
                           int,
@@ -142,7 +138,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
         cuml_model = curfc(max_features=1.0, n_bins=8,
                             split_algo=0, min_rows_per_node=2,
-                            n_estimators=40, accuracy_metric='mse')
+                            n_estimators=40, accuracy_metric='r2')
         cuml_model.fit(X,y)
         cuml_score = cuml_model.score(X,y)
         print("MSE score of cuml : ", cuml_score)
@@ -203,8 +199,11 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         If float the min_rows_per_sample*n_rows
     min_impurity_decrease : float (default = 0.0)
         The minimum decrease in impurity required for node to be split
-    accuracy_metric : string (default = 'mse')
+    accuracy_metric : string (default = 'r2')
         Decides the metric used to evaluate the performance of the model.
+        In the 0.16 release, the default scoring metric was changed
+        from mean squared error to r-squared.
+        for r-squared : 'r2'
         for median of abs error : 'median_ae'
         for mean of abs error : 'mean_ae'
         for mean square error' : 'mse'
@@ -222,7 +221,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     """
 
     def __init__(self, split_criterion=2,
-                 accuracy_metric='mse',
+                 accuracy_metric='r2',
                  **kwargs):
         self.RF_type = REGRESSION
         super(RandomForestRegressor, self).__init__(
@@ -385,8 +384,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         X_ptr = X_m.ptr
         y_ptr = y_m.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
@@ -455,8 +454,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         preds = CumlArray.zeros(n_rows, dtype=dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
@@ -561,6 +560,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
               fil_sparse_format='auto', predict_model="GPU"):
         """
         Calculates the accuracy metric score of the model for X.
+        In the 0.16 release, the default scoring metric was changed
+        from mean squared error to r-squared.
 
         Parameters
         ----------
@@ -599,6 +600,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         median_abs_error : float or
         mean_abs_error : float
         """
+        from cuml.metrics.regression import r2_score
+
         cdef uintptr_t y_ptr
         _, n_rows, _, dtype = \
             input_to_cuml_array(X,
@@ -619,8 +622,16 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             input_to_cuml_array(preds, convert_to_dtype=dtype)
         preds_ptr = preds_m.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        # shortcut for default accuracy metric of r^2
+        if self.accuracy_metric == "r2":
+            stats = r2_score(y_m, preds, handle=self.handle)
+            self.handle.sync()
+            del(y_m)
+            del(preds_m)
+            return stats
+
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
@@ -707,3 +718,17 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             print_rf_detailed(rf_forest64)
         else:
             print_rf_detailed(rf_forest)
+
+    def dump_as_json(self):
+        """
+        Dump (export) the Random Forest model as a JSON string
+        """
+        cdef RandomForestMetaData[float, float] *rf_forest = \
+            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
+
+        cdef RandomForestMetaData[double, double] *rf_forest64 = \
+            <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
+
+        if self.dtype == np.float64:
+            return dump_rf_as_json(rf_forest64)
+        return dump_rf_as_json(rf_forest)

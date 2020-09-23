@@ -1,3 +1,4 @@
+#
 # Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,20 +14,4 @@
 # limitations under the License.
 #
 
-import pickle
-import pytest
-
-from cuml.common.handle import Handle
-
-
-@pytest.mark.parametrize('n_streams', [0, 1, 10])
-def test_pickle(n_streams):
-    a = Handle(n_streams=n_streams)
-    ap = pickle.dumps(a)
-    b = pickle.loads(ap)
-
-    assert isinstance(b, Handle)
-    assert b.getNumInternalStreams() == n_streams
-
-    # Add any additional asserts as parameters are added here
-    # If Handle gets a dict, add a proper comparison here.
+from cuml.dask.feature_extraction.text.tfidf_transformer import TfidfTransformer

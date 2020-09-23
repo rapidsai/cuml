@@ -48,7 +48,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     Random::Rng r(params.seed);
     int len = params.clusters * params.dim;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocator.reset(new defaultDeviceAllocator);
+    allocator.reset(new raft::mr::device::default_allocator);
     allocate(data, len);
     allocate(counts, params.clusters);
     allocate(exp_mean, params.dim);

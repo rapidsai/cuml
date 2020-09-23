@@ -37,16 +37,16 @@ using namespace ML;
 class TSNETest : public ::testing::Test {
  protected:
   void basicTest() {
-    cumlHandle handle;
+    raft::handle_t handle;
 
     // Allocate memory
-    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<float> X_d(handle.get_device_allocator(), handle.get_stream(),
                              n * p);
     MLCommon::updateDevice(X_d.data(), digits.data(), n * p,
-                           handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+                           handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    device_buffer<float> Y_d(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<float> Y_d(handle.get_device_allocator(), handle.get_stream(),
                              n * 2);
 
     // Test Barnes Hut
@@ -59,8 +59,8 @@ class TSNETest : public ::testing::Test {
     assert(embeddings_h != NULL);
 
     MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
-                         handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+                         handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     // Transpose the data
     int k = 0;
@@ -72,15 +72,15 @@ class TSNETest : public ::testing::Test {
 
     // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
     MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2,
-                           handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+                           handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     // Test trustworthiness
     score_bh =
       trustworthiness_score<float,
                             ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
-        X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
-        handle.getStream());
+        X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
+        handle.get_stream());
 
     // Test Exact TSNE
     TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, 2, 90, 0.5, 0.0025, 50, 100,
@@ -88,8 +88,8 @@ class TSNETest : public ::testing::Test {
              CUML_LEVEL_INFO, false, false);
 
     MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
-                         handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+                         handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     // Move embeddings to host.
     // This can be used for printing if needed.
@@ -101,15 +101,15 @@ class TSNETest : public ::testing::Test {
 
     // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
     MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2,
-                           handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+                           handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     // Test trustworthiness
     score_exact =
       trustworthiness_score<float,
                             ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
-        X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
-        handle.getStream());
+        X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
+        handle.get_stream());
 
     // Free space
     free(embeddings_h);

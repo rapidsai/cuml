@@ -219,8 +219,8 @@ struct treelite_params_t {
       (2**(params->depth + 1) - 1) * params->ntrees
  *  @param params pointer to parameters used to initialize the forest
  */
-void init_dense(const cumlHandle& h, forest_t* pf, const dense_node_t* nodes,
-                const forest_params_t* params);
+void init_dense(const raft::handle_t& h, forest_t* pf,
+                const dense_node_t* nodes, const forest_params_t* params);
 
 /** init_sparse uses params, trees and nodes to initialize the sparse forest
  *  with 16-byte nodes stored in pf
@@ -230,7 +230,7 @@ void init_dense(const cumlHandle& h, forest_t* pf, const dense_node_t* nodes,
  *  @param nodes nodes for the forest, of length params->num_nodes
  *  @param params pointer to parameters used to initialize the forest
  */
-void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
+void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
                  const sparse_node16_t* nodes, const forest_params_t* params);
 
 /** init_sparse uses params, trees and nodes to initialize the sparse forest
@@ -241,7 +241,7 @@ void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
  *  @param nodes nodes for the forest, of length params->num_nodes
  *  @param params pointer to parameters used to initialize the forest
  */
-void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
+void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
                  const sparse_node8_t* nodes, const forest_params_t* params);
 
 /** from_treelite uses a treelite model to initialize the forest
@@ -250,14 +250,14 @@ void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
  * @param model treelite model used to initialize the forest
  * @param tl_params additional parameters for the forest
  */
-void from_treelite(const cumlHandle& handle, forest_t* pforest,
+void from_treelite(const raft::handle_t& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params);
 
 /** free deletes forest and all resources held by it; after this, forest is no longer usable
  *  @param h cuML handle used by this function
  *  @param f the forest to free; not usable after the call to this function
  */
-void free(const cumlHandle& h, forest_t f);
+void free(const raft::handle_t& h, forest_t f);
 
 /** predict predicts on data (with n rows) using forest and writes results into preds;
  *  the number of columns is stored in forest, and both preds and data point to GPU memory
@@ -271,8 +271,8 @@ void free(const cumlHandle& h, forest_t f);
  *  @param predict_proba for classifier models, this forces to output both class probabilities
  *      instead of binary class prediction. format matches scikit-learn API
  */
-void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
-             size_t num_rows, bool predict_proba = false);
+void predict(const raft::handle_t& h, forest_t f, float* preds,
+             const float* data, size_t num_rows, bool predict_proba = false);
 
 }  // namespace fil
 }  // namespace ML

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <cuda_utils.cuh>
 #include <metrics/trustworthiness.cuh>
@@ -409,9 +410,9 @@ class TrustworthinessScoreTest : public ::testing::Test {
       -0.1128775,  -0.0078648,  -0.02323332, 0.04292452,  0.39291084,
       -0.94897962, -0.63863206, -0.16546988, 0.23698957,  -0.30633628};
 
-    ML::cumlHandle h;
-    cudaStream_t stream = h.getStream();
-    auto d_alloc = h.getDeviceAllocator();
+    raft::handle_t h;
+    cudaStream_t stream = h.get_stream();
+    auto d_alloc = h.get_device_allocator();
 
     float* d_X = (float*)d_alloc->allocate(X.size() * sizeof(float), stream);
     float* d_X_embedded =

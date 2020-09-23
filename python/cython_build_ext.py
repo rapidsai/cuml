@@ -1,3 +1,19 @@
+#
+# Copyright (c) 2020, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import sys
 
 # TODO: It should be possible to support Cython-less distribution following
@@ -19,28 +35,91 @@ import setuptools.command.build_ext
 
 
 class cython_build_ext(_build_ext, object):
+    """
+    This class follows the design of `Cython.Distutils.build_ext.new_build_ext`
+    to allow for parallel `cythonize()` but adds options for the various
+    arguments that can be passed to `cythonize()` including separate options
+    for `compiler_directives`. This build extension can be directly used in
+    place of `new_build_ext` for any Cython project that needs to set global
+    parameters in the build phase. See the documentation for more information
+    on the `cythonize()` arguments.
+
+    Parameters
+    ----------
+    language_level : {"2", "3", "3str"}, default="2"
+        Globally set the Python language level to be used for module
+        compilation. Default is compatibility with Python 2. To enable Python 3
+        source code semantics, set this to 3 (or 3str)
+    binding : bool, default=True
+        Controls whether free functions behave more like Python’s CFunctions
+        (e.g. len()) or, when set to True, more like Python’s functions. When
+        enabled, functions will bind to an instance when looked up as a class
+        attribute (hence the name) and will emulate the attributes of Python
+        functions, including introspections like argument names and
+        annotations.
+
+        Changed in version 3.0.0: Default changed from False to True
+    profile : bool, default=False
+        Write hooks for Python profilers into the compiled C code.
+    embedsignature : bool, default=False
+        If set to True, Cython will embed a textual copy of the call signature
+        in the docstring of all Python visible functions and classes. Tools
+        like IPython and epydoc can thus display the signature, which cannot
+        otherwise be retrieved after compilation.
+    cython_exclude : list of str
+        When passing glob patterns as module_list, you can exclude certain
+        module names explicitly by passing them into the exclude option.
+    gdb_debug : bool, default=False
+        Passes the `gdb_debug` argument to `cythonize()`. Setting up debugging
+        for Cython can be difficult. See the debugging docs here
+        https://cython.readthedocs.io/en/latest/src/userguide/debugging.html
+    """
     user_options = [
         ('language-level=', None,
          'Sets the python language syntax to use "2", "3", "3str".'),
-        ("binding", None, "Sets the binding Cython binding directive"),
-        ("profile", None, "Sets the profile Cython binding directive"),
-        ("embedsignature", None, "Sets the binding Cython binding directive"),
-        ("cython-exclude=", None, "Sets the binding Cython binding directive")
+        ("binding", None,
+         "Sets the binding Cython compiler directive. See the Cython docs for "
+         "more info."),
+        ("profile", None,
+         "Sets the profile Cython compiler directive. See the Cython docs for "
+         "more info."),
+        ("embedsignature", None,
+         "Sets the `embedsignature` Cython compiler directive. See the Cython "
+         "docs for more info."),
+        ("cython-exclude=", None,
+         "Sets the exclude argument for `cythonize()`. See the Cython docs for"
+         " more info."),
+        ("gdb-debug=", None,
+         "Passes the `gdb_debug` argument to `cythonize()`. See the Cython "
+         "docs for more info.")
     ] + _build_ext.user_options
 
-    boolean_options = ["binding", "profile", "embedsignature"
-                       ] + _build_ext.boolean_options
+    boolean_options = [
+        "binding",
+        "profile",
+        "embedsignature",
+        "gdb-debug",
+    ] + _build_ext.boolean_options
 
     def initialize_options(self):
+        """
+        Set the default values for the `user_options` to None to allow us to
+        detect if they were set by the user
+        """
 
         self.language_level = None
         self.binding = None
         self.profile = None
         self.embedsignature = None
         self.cython_exclude = None
+        self.gdb_debug = None
         super().initialize_options()
 
     def finalize_options(self):
+        """
+        Determines any user defined options and finalizes the Cython
+        configuration before compilation
+        """
 
         # Ensure the base build class options get set so we can use parallel
         self.set_undefined_options(
@@ -87,6 +166,10 @@ class cython_build_ext(_build_ext, object):
                     self.cython_exclude = list(self.cython_exclude)
 
                 cythonize_kwargs.update({"exclude": self.cython_exclude})
+
+            if (self.gdb_debug is not None):
+
+                cythonize_kwargs.update({"gdb_debug": self.gdb_debug})
 
             # Handle nthreads separately to mimic what Cython does
             nthreads = getattr(self, 'parallel', None)  # -j option in Py3.5+
