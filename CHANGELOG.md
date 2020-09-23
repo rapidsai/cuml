@@ -43,6 +43,7 @@
 - PR #2829: Fixing description for labels in docs and removing row number constraint from PCA xform/inverse_xform
 - PR #2832: Updating stress tests that fail with OOM
 - PR #2831: Removing repeated capture and parameter in lambda function
+- PR #2847: Workaround for TSNE lockup, change caching preference.
 - PR #2842: KNN index preprocessors were using incorrect n_samples
 - PR #2848: Fix typo in Python docstring for UMAP
 - PR #2855: Updates for RMM being header only
