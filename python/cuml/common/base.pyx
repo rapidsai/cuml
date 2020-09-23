@@ -23,6 +23,8 @@ import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 import inspect
 
+from cuml.common.import_utils import has_scipy
+
 from cudf.core import Series as cuSeries
 from cudf.core import DataFrame as cuDataFrame
 from cuml.common.array import CumlArray
@@ -32,6 +34,11 @@ from numba.cuda import devicearray as numbaArray
 from numpy import ndarray as numpyArray
 from pandas import DataFrame as pdDataFrame
 from pandas import Series as pdSeries
+
+from cupyx.scipy.sparse import csr_matrix as cpCSR
+
+if has_scipy():
+    from scipy.sparse import csr_matrix as spCSR
 
 from numba import cuda
 
@@ -424,8 +431,12 @@ _input_type_to_str = {
     cuSeries: 'cudf',
     cuDataFrame: 'cudf',
     pdSeries: 'numpy',
-    pdDataFrame: 'numpy'
+    pdDataFrame: 'numpy',
+    cpCSR: 'cupy'
 }
+
+if has_scipy():
+    _input_type_to_str[spCSR] = 'numpy'
 
 
 def _input_to_type(input):

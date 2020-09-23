@@ -727,14 +727,14 @@ class UMAP(Base):
         if len(X.shape) != 2:
             raise ValueError("X should be two dimensional")
 
-        if self._is_x_sparse(X) and not self._sparse_fit:
+        if is_sparse(X) and not self._sparse_fit:
             raise ValueError("A model trained on dense data currently "
                              "requires dense input to transform()")
-        elif not self._is_x_sparse(X) and self._sparse_fit:
+        elif not is_sparse(X) and self._sparse_fit:
             raise ValueError("A model trained on sparse data currently "
                              "requires sparse input to transform()")
 
-        if self._is_x_sparse(X):
+        if is_sparse(X):
 
             X_m = SparseCumlArray(X, convert_to_dtype=cupy.float32,
                                   convert_format=False)
