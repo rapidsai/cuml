@@ -116,7 +116,7 @@ using BlockReduceHost =
                             cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, 600>;
 
 template <int NITEMS,
-          leaf_value_t leaf_payload_type>  // = FLOAT_SCALAR
+          leaf_algo_t leaf_payload_type>  // = FLOAT_SAME_CLASS
 struct tree_aggregator_t {
   vec<NITEMS, float> acc;
   void* tmp_storage;
@@ -161,7 +161,7 @@ struct tree_aggregator_t {
 };
 
 template <int NITEMS>
-struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
+struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   // could switch to unsigned short to save shared memory
   // provided atomicAdd(short*) simulated with appropriate shifts
   int* votes;
@@ -233,7 +233,7 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
   }
 };
 
-template <int NITEMS, leaf_value_t leaf_payload_type, class storage_type>
+template <int NITEMS, leaf_algo_t leaf_payload_type, class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params) {
   // cache the row for all threads to reuse
   extern __shared__ char smem[];
@@ -260,7 +260,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   acc.finalize(params.preds, params.num_rows, params.num_outputs);
 }
 
-template <int NITEMS, leaf_value_t leaf_payload_type>
+template <int NITEMS, leaf_algo_t leaf_payload_type>
 size_t get_smem_footprint(predict_params params) {
   size_t finalize_footprint =
     tree_aggregator_t<NITEMS, leaf_payload_type>::smem_finalize_footprint(
@@ -273,7 +273,7 @@ size_t get_smem_footprint(predict_params params) {
   return std::max(accumulate_footprint, finalize_footprint);
 }
 
-template <leaf_value_t leaf_payload_type, typename storage_type>
+template <leaf_algo_t leaf_payload_type, typename storage_type>
 void infer_k_launcher(storage_type forest, predict_params params,
                       cudaStream_t stream) {
   const int MAX_BATCH_ITEMS = 4;
@@ -321,7 +321,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
     }
     ASSERT(false, "p.num_cols == %d: too many features, only %d allowed%s",
            given_num_cols, params.num_cols,
-           leaf_payload_type == INT_CLASS_LABEL
+           leaf_payload_type == CATEGORICAL_LEAF
              ? " (accounting for shared class vote histogram)"
              : "");
   }
@@ -352,11 +352,11 @@ void infer_k_launcher(storage_type forest, predict_params params,
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
   switch (params.leaf_payload_type) {
-    case FLOAT_SCALAR:
-      infer_k_launcher<FLOAT_SCALAR, storage_type>(forest, params, stream);
+    case FLOAT_SAME_CLASS:
+      infer_k_launcher<FLOAT_SAME_CLASS, storage_type>(forest, params, stream);
       break;
-    case INT_CLASS_LABEL:
-      infer_k_launcher<INT_CLASS_LABEL, storage_type>(forest, params, stream);
+    case CATEGORICAL_LEAF:
+      infer_k_launcher<CATEGORICAL_LEAF, storage_type>(forest, params, stream);
       break;
     default:
       ASSERT(false, "internal error: invalid leaf_payload_type");

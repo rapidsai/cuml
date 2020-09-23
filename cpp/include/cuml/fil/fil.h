@@ -126,23 +126,23 @@ struct sparse_node8_t : dense_node_t {
   sparse_node8_t(dense_node_t dn) : dense_node_t(dn) {}
 };
 
-/** leaf_value_t describes what the leaves in a FIL forest store (predict) */
-enum leaf_value_t {
+/** leaf_algo_t describes what the leaves in a FIL forest store (predict) */
+enum leaf_algo_t {
   /** storing a class probability or regression summand */
-  FLOAT_SCALAR = 0,
+  FLOAT_SAME_CLASS = 0,
   /** storing a class label */
-  INT_CLASS_LABEL = 1
+  CATEGORICAL_LEAF = 1
   // to be extended
 };
 
-template <leaf_value_t leaf_payload_type>
+template <leaf_algo_t leaf_payload_type>
 struct leaf_output_t {};
 template <>
-struct leaf_output_t<leaf_value_t::FLOAT_SCALAR> {
+struct leaf_output_t<leaf_algo_t::FLOAT_SAME_CLASS> {
   typedef float T;
 };
 template <>
-struct leaf_output_t<leaf_value_t::INT_CLASS_LABEL> {
+struct leaf_output_t<leaf_algo_t::CATEGORICAL_LEAF> {
   typedef int T;
 };
 
@@ -178,19 +178,19 @@ struct forest_params_t {
   // num_cols is the number of columns in the data
   int num_cols;
   // leaf_payload_type determines what the leaves store (predict)
-  leaf_value_t leaf_payload_type;
+  leaf_algo_t leaf_payload_type;
   // algo is the inference algorithm;
   // sparse forests do not distinguish between NAIVE and TREE_REORG
   algo_t algo;
   // output is the desired output type
   output_t output;
-  // threshold is used to for classification if leaf_payload_type == FLOAT_SCALAR && (output & OUTPUT_CLASS) != 0 && !predict_proba,
+  // threshold is used to for classification if leaf_payload_type == FLOAT_SAME_CLASS && (output & OUTPUT_CLASS) != 0 && !predict_proba,
   // and is ignored otherwise
   float threshold;
   // global_bias is added to the sum of tree predictions
   // (after averaging, if it is used, but before any further transformations)
   float global_bias;
-  // only used for INT_CLASS_LABEL inference. since we're storing the
+  // only used for CATEGORICAL_LEAF inference. since we're storing the
   // labels in leaves instead of the whole vector, this keeps track
   // of the number of classes
   int num_classes;
