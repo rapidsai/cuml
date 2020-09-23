@@ -260,35 +260,11 @@ class CSR {
 };
 
 template <typename value_t>
-__global__ void csr_to_dense_kernel(int n_rows, int n_cols,
-                                    const value_t *csrVal, const int *csrRowPtr,
-                                    const int *csrColInd, value_t *a) {
-  int tid, ctaStart;
-
-  tid = threadIdx.x;
-  ctaStart = blockIdx.x;
-
-  for (int row = ctaStart; row < n_rows; row += gridDim.x) {
-    int colStart = csrRowPtr[row];
-    int colEnd = csrRowPtr[row + 1];
-    int rowNnz = colEnd - colStart;
-
-    for (int i = 0; i < rowNnz; i += blockDim.x) {
-      int colIdx = colStart + tid + i;
-      if (colIdx < colEnd) {
-        int col = csrColInd[colIdx];
-        a[row * n_cols + col] = csrVal[colIdx];
-      }
-    }
-  }
-}
-
-template <typename value_t>
-__global__ void csr_to_dense_warp_per_row_kernel(int n_cols,
-                                                 const value_t *csrVal,
-                                                 const int *csrRowPtr,
-                                                 const int *csrColInd,
-                                                 value_t *a) {
+__global__ void csr_to_dense_block_per_row_kernel(int n_cols,
+                                                  const value_t *csrVal,
+                                                  const int *csrRowPtr,
+                                                  const int *csrColInd,
+                                                  value_t *a) {
   int row = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -305,6 +281,24 @@ __global__ void csr_to_dense_warp_per_row_kernel(int n_cols,
   }
 }
 
+/**
+ * Convert CSR arrays to a dense matrix in either row-
+ * or column-major format. A custom kernel is used when
+ * row-major output is desired since cusparse does not
+ * output row-major.
+ * @tparam value_idx : data type of the CSR index arrays
+ * @tparam value_t : data type of the CSR value array
+ * @param[in] handle : cusparse handle for conversion
+ * @param[in] nrows : number of rows in CSR
+ * @param[in] ncols : number of columns in CSR
+ * @param[in] csr_indptr : CSR row index pointer array
+ * @param[in] csr_indices : CSR column indices array
+ * @param[in] csr_data : CSR data array
+ * @param[in] lda : Leading dimension (used for col-major only)
+ * @param[out] out : Dense output array of size nrows * ncols
+ * @param[in] stream : Cuda stream for ordering events
+ * @param[in] row_major : Is row-major output desired?
+ */
 template <typename value_idx, typename value_t>
 void csr_to_dense(cusparseHandle_t handle, value_idx nrows, value_idx ncols,
                   const value_idx *csr_indptr, const value_idx *csr_indices,
@@ -329,11 +323,28 @@ void csr_to_dense(cusparseHandle_t handle, value_idx nrows, value_idx ncols,
     int blockdim = block_dim(ncols);
     CUDA_CHECK(
       cudaMemsetAsync(out, 0, nrows * ncols * sizeof(value_t), stream));
-    csr_to_dense_warp_per_row_kernel<<<nrows, blockdim, 0, stream>>>(
+    csr_to_dense_block_per_row_kernel<<<nrows, blockdim, 0, stream>>>(
       ncols, csr_data, csr_indptr, csr_indices, out);
   }
 }
 
+/**
+ * Transpose a set of CSR arrays into a set of CSC arrays.
+ * @tparam value_idx : data type of the CSR index arrays
+ * @tparam value_t : data type of the CSR data array
+ * @param[in] handle : used for invoking cusparse
+ * @param[in] csr_indptr : CSR row index array
+ * @param[in] csr_indices : CSR column indices array
+ * @param[in] csr_data : CSR data array
+ * @param[out] csc_indptr : CSC row index array
+ * @param[out] csc_indices : CSC column indices array
+ * @param[out] csc_data : CSC data array
+ * @param[in] csr_nrows : Number of rows in CSR
+ * @param[in] csr_ncols : Number of columns in CSR
+ * @param[in] nnz : Number of nonzeros of CSR
+ * @param[in] allocator : Allocator for intermediate memory
+ * @param[in] stream : Cuda stream for ordering events
+ */
 template <typename value_idx, typename value_t>
 void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,
                    const value_idx *csr_indices, const value_t *csr_data,
@@ -361,8 +372,64 @@ void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,
     convert_csc_workspace.data(), stream));
 }
 
+/**
+ * Slice consecutive rows from a CSR array and populate newly sliced indptr array
+ * @tparam value_idx
+ * @param[in] start_row : beginning row to slice
+ * @param[in] stop_row : ending row to slice
+ * @param[in] indptr : indptr of input CSR to slice
+ * @param[out] indptr_out : output sliced indptr to populate
+ * @param[in] start_offset : beginning column offset of input indptr
+ * @param[in] stop_offset : ending column offset of input indptr
+ * @param[in] stream : cuda stream for ordering events
+ */
+template <typename value_idx>
+void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
+                          const value_idx *indptr, value_idx *indptr_out,
+                          value_idx *start_offset, value_idx *stop_offset,
+                          cudaStream_t stream) {
+  updateHost(start_offset, indptr + start_row, 1, stream);
+  updateHost(stop_offset, indptr + stop_row + 1, 1, stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  value_idx s_offset = *start_offset;
+
+  // 0-based indexing so we need to add 1 to stop row. Because we want n_rows+1, we add another 1 to stop row.
+  copyAsync(indptr_out, indptr + start_row, (stop_row + 2) - start_row, stream);
+
+  MLCommon::LinAlg::unaryOp<value_idx>(
+    indptr_out, indptr_out, (stop_row + 2) - start_row,
+    [s_offset] __device__(value_idx input) { return input - s_offset; },
+    stream);
+}
+
+/**
+ * Slice rows from a CSR, populate column and data arrays
+ * @tparam[in] value_idx : data type of CSR index arrays
+ * @tparam[in] value_t : data type of CSR data array
+ * @param[in] start_offset : beginning column offset to slice
+ * @param[in] stop_offset : ending column offset to slice
+ * @param[in] indices : column indices array from input CSR
+ * @param[in] data : data array from input CSR
+ * @param[out] indices_out : output column indices array
+ * @param[out] data_out : output data array
+ * @param[in] stream : cuda stream for ordering events
+ */
+template <typename value_idx, typename value_t>
+void csr_row_slice_populate(value_idx start_offset, value_idx stop_offset,
+                            const value_idx *indices, const value_t *data,
+                            value_idx *indices_out, value_t *data_out,
+                            cudaStream_t stream) {
+  copy(indices_out, indices + start_offset, stop_offset - start_offset, stream);
+  copy(data_out, data + start_offset, stop_offset - start_offset, stream);
+}
+
 template <int TPB_X, typename T>
 __global__ void csr_row_normalize_l1_kernel(
+  // @TODO: This can be done much more parallel by
+  // having threads in a warp compute the sum in parallel
+  // over each row and then divide the values in parallel.
   const int *ia,           // csr row ex_scan (sorted by row)
   const T *vals, int nnz,  // array of values and number of non-zeros
   int m,                   // num rows in csr
@@ -396,36 +463,6 @@ __global__ void csr_row_normalize_l1_kernel(
   }
 }
 
-template <typename value_idx>
-void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
-                          const value_idx *indptr, value_idx *indptr_out,
-                          value_idx *start_offset, value_idx *stop_offset,
-                          cudaStream_t stream) {
-  updateHost(start_offset, indptr + start_row, 1, stream);
-  updateHost(stop_offset, indptr + stop_row + 1, 1, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  value_idx s_offset = *start_offset;
-
-  // 0-based indexing so we need to add 1 to stop row. Because we want n_rows+1, we add another 1 to stop row.
-  copyAsync(indptr_out, indptr + start_row, (stop_row + 2) - start_row, stream);
-
-  MLCommon::LinAlg::unaryOp<value_idx>(
-    indptr_out, indptr_out, (stop_row + 2) - start_row,
-    [s_offset] __device__(value_idx input) { return input - s_offset; },
-    stream);
-}
-
-template <typename value_idx, typename value_t>
-void csr_row_slice_populate(value_idx start_offset, value_idx stop_offset,
-                            const value_idx *indices, const value_t *data,
-                            value_idx *indices_out, value_t *data_out,
-                            cudaStream_t stream) {
-  copy(indices_out, indices + start_offset, stop_offset - start_offset, stream);
-  copy(data_out, data + start_offset, stop_offset - start_offset, stream);
-}
-
 /**
  * @brief Perform L1 normalization on the rows of a given CSR-formatted sparse matrix
  *
@@ -454,6 +491,9 @@ void csr_row_normalize_l1(const int *ia,  // csr row ex_scan (sorted by row)
 
 template <int TPB_X = 32, typename T>
 __global__ void csr_row_normalize_max_kernel(
+  // @TODO: This can be done much more parallel by
+  // having threads in a warp compute the sum in parallel
+  // over each row and then divide the values in parallel.
   const int *ia,           // csr row ind array (sorted by row)
   const T *vals, int nnz,  // array of values and number of non-zeros
   int m,                   // num total rows in csr
@@ -547,6 +587,7 @@ __global__ void csr_to_coo_kernel(const value_idx *row_ind, value_idx m,
 template <typename value_idx = int, int TPB_X = 32>
 void csr_to_coo(const value_idx *row_ind, value_idx m, value_idx *coo_rows,
                 value_idx nnz, cudaStream_t stream) {
+  // @TODO: Use cusparse for this.
   dim3 grid(MLCommon::ceildiv(m, (value_idx)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
