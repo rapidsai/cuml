@@ -18,7 +18,11 @@ enum DistanceType : unsigned short {
   /** same as above, but inside the epilogue, perform square root operation */
   EucUnexpandedL2Sqrt = 5,
   /** simple inner product */
-  InnerProduct = 6
+  InnerProduct = 6,
+  /** ChebyChev (Linf) distance **/
+  ChebyChev = 7,
+  /** Canberra distance **/
+  Canberra = 8
 };
 
 };  // end namespace Distance

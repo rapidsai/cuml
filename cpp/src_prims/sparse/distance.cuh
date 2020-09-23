@@ -26,6 +26,8 @@
 #include <cuml/distance/distance_type.h>
 #include <cuml/neighbors/knn.hpp>
 
+#include <nvfunctional>
+
 #include <cusparse_v2.h>
 #include <raft/sparse/cusparse_wrappers.h>
 
@@ -327,6 +329,242 @@ class l2_distances_t : public distances_t<value_t> {
   ip_distances_t<value_idx, value_t> ip_dists;
 };
 
+template <typename value_t>
+__device__ void swap(value_t *shared_mem, int idx1, int idx2) {
+  value_t temp = shared_mem[idx2];
+  shared_mem[idx2] = shared_mem[idx1];
+  shared_mem[idx1] = temp;
+}
+
+template <typename value_idx, typename value_t>
+__device__ void bitonic_sort_by_key(value_t *keys, value_idx *vals,
+                                    int n_elements, int tid) {
+  for (unsigned int k = 2; k <= n_elements; k *= 2) {
+    for (unsigned int j = k / 2; j > 0; j /= 2) {
+      unsigned int x = tid ^ j;
+      if (x > tid) {
+        if ((tid & k) == 0) {
+          if (keys[tid] > keys[x]) {
+            swap(keys, tid, x);
+            swap(vals, tid, x);
+          }
+        } else {
+          if (keys[tid] < keys[x]) {
+            swap(keys, tid, x);
+            swap(vals, tid, x);
+          }
+        }
+      }
+
+      __syncthreads();
+    }
+  }
+}
+
+/**
+ * Assuming the nnz cols of A and B (About 5k each) can both fit into shared memory for now
+ * just to test the algorithm.
+ *
+ * This has several advantages over using the cusparse csrgemm:
+ * - The output is dense by default
+ * - The input B doesn't need to be transposed
+ * - This enables several minkowski-class metrics, as well as a matrix multiply from this
+ * - The k-select could be done right in this kernel so that intermediate results never need to be written to global memory.
+ */
+template <typename value_idx, typename value_t, int buffer_size,
+          typename accumulator_f, typename reduction_f>
+__global__ void row_distance_block_reduce_kernel(value_t *out, value_idx *indptrA,
+                                   value_idx *indicesA, value_t *dataA,
+                                   size_t nnzA, value_idx *indptrB,
+                                   value_idx *indicesB, value_t *dataB,
+                                   size_t nnzB, size_t m, size_t n,
+                                   reduction_f func_reducer,
+                                   accumulator_f func_accumulator) {
+  value_idx out_row = blockIdx.x / n;
+  value_idx out_col = blockIdx.x % n;
+  value_idx tid = threadIdx.x;
+
+  if (out_row > m || out_col > n) return;
+
+  __shared__ value_idx cols_buffer[buffer_size];
+  __shared__ value_t vals_buffer[buffer_size];
+
+  __shared__ value_idx start_offset_a;
+  __shared__ value_idx stop_offset_a;
+  __shared__ value_idx start_offset_b;
+  __shared__ value_idx stop_offset_b;
+
+  __shared__ value_idx col_nnz_a;
+  __shared__ value_idx col_nnz_b;
+
+  //  __shared__ value_idx n_loaded_a;
+  //  __shared__ value_idx n_loaded_b;
+
+  if (tid == 0) {
+    start_offset_a = indptrA[out_row];
+    stop_offset_a = indptrA[out_row + 1];
+    start_offset_b = indptrB[out_row];
+    stop_offset_b = indptrB[out_row + 1];
+
+    col_nnz_a = stop_offset_a - start_offset_a;
+    col_nnz_b = stop_offset_b - start_offset_b;
+  }
+  __syncthreads();
+
+  // Load A into buffer
+  for (int i = tid; i < col_nnz_a; i += blockDim.x) {
+    cols_buffer[i] = start_offset_a + i;
+    vals_buffer[i] = start_offset_a + i;
+  }
+
+  // Load B into buffer
+  for (int i = tid; i < col_nnz_b; i += blockDim.x) {
+    cols_buffer[i + col_nnz_a] = start_offset_b + i;
+    vals_buffer[i + col_nnz_a] = start_offset_b + i;
+  }
+
+  __syncthreads();
+
+  if (tid == 0 && out_row == 0 && out_col == 0) {
+    printf("row=%d, col=%d, [\n", out_row, out_col);
+    for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
+      printf("%f, ", vals_buffer[i]);
+      printf("]\n");
+    }
+  }
+
+  // Sort
+  bitonic_sort_by_key(vals_buffer, cols_buffer, col_nnz_a + col_nnz_b, tid);
+
+  if (tid == 0 && out_row == 0 && out_col == 0) {
+    printf("[");
+    for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
+      printf("%f, ", vals_buffer[i]);
+      printf("]\n");
+    }
+  }
+
+  // Reduce duplicates
+  for (int i = tid; i < (col_nnz_a + col_nnz_b) - 1; i += blockDim.x) {
+    if (cols_buffer[i] == cols_buffer[i + 1]) {
+      vals_buffer[i] = func_reducer(vals_buffer[i], vals_buffer[i + 1]);
+      vals_buffer[i + 1] = 0;
+    }
+  }
+  __syncthreads();
+
+  if (tid == 0 && out_row == 0 && out_col == 0) {
+    printf("[");
+    for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
+      printf("%f, ", vals_buffer[i]);
+      printf("]\n");
+    }
+  }
+
+  // Tree-reduce
+  for (unsigned int i = (col_nnz_b + col_nnz_a) / 2; i > 0; i >>= 1) {
+    if (tid < i) {
+      func_accumulator(vals_buffer[tid], vals_buffer[tid + i]);
+    }
+    __syncthreads();
+  }
+
+  if (tid == 0 && out_row == 0 && out_col == 0) {
+    printf("tree reduction [");
+    for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
+      printf("%f, ", vals_buffer[i]);
+      printf("]\n");
+    }
+  }
+
+  if (tid == 0) out[out_row * n + out_col] = vals_buffer[0];
+}
+
+template <typename value_idx = int, typename value_t = float,
+          int max_buffer_size = 5000, int threads_per_block = 1024,
+          typename reduce_f = auto(value_t, value_t)->value_t,
+          typename accum_f = auto(value_t, value_t)->value_t>
+void distance_block_reduce(value_t *out_dists,
+                    distances_config_t<value_idx, value_t> config_,
+                    reduce_f reduce_func, accum_f accum_func) {
+  row_distance_block_reduce_kernel<value_idx, value_t, max_buffer_size>
+    <<<config_.a_nrows * config_.b_nrows, threads_per_block, 0,
+       config_.stream>>>(
+      out_dists, config_.a_indptr, config_.a_indices, config_.a_data,
+      config_.a_nnz, config_.b_indptr, config_.b_indices, config_.b_data,
+      config_.b_nnz, config_.a_nrows, config_.b_nrows, reduce_func, accum_func);
+};
+
+template <typename value_idx = int, typename value_t = float>
+class l1_distances_t : public distances_t<value_t> {
+ public:
+  l1_distances_t(distances_config_t<value_idx, value_t> config)
+    : config_(config) {}
+
+  void compute(value_t *out_dists) {
+    distance_block_reduce<value_idx, value_t>(
+      out_dists, config_,
+      [] __device__(value_t a, value_t b) { return fabsf(a - b); },
+      [] __device__(value_t a, value_t b) { return a + b; });
+  }
+
+ private:
+  distances_config_t<value_idx, value_t> config_;
+};
+
+template <typename value_idx = int, typename value_t = float>
+class l2_unexpanded_distances_t : public distances_t<value_t> {
+ public:
+  l2_unexpanded_distances_t(distances_config_t<value_idx, value_t> config)
+    : config_(config) {}
+
+  void compute(value_t *out_dists) {
+    distance_block_reduce<value_idx, value_t>(
+      out_dists, config_,
+      [] __device__(value_t a, value_t b) { return (a - b) * (a - b); },
+      [] __device__(value_t a, value_t b) { return a + b; });
+  }
+
+ private:
+  distances_config_t<value_idx, value_t> config_;
+};
+
+template <typename value_idx = int, typename value_t = float>
+class chebychev_distances_t : public distances_t<value_t> {
+ public:
+  explicit chebychev_distances_t(distances_config_t<value_idx, value_t> config)
+    : config_(config) {}
+
+  void compute(value_t *out_dists) {
+    distance_block_reduce<value_idx, value_t>(
+      out_dists, config_,
+      [] __device__(value_t a, value_t b) { return fabsf(a - b); },
+      [] __device__(value_t a, value_t b) { return fmaxf(a, b); });
+  }
+
+ private:
+  distances_config_t<value_idx, value_t> config_;
+};
+
+template <typename value_idx = int, typename value_t = float>
+class canberra_distances_t : public distances_t<value_t> {
+ public:
+  explicit canberra_distances_t(distances_config_t<value_idx, value_t> config)
+    : config_(config) {}
+
+  void compute(value_t *out_dists) {
+    distance_block_reduce<value_idx, value_t>(
+      out_dists, config_,
+      [] __device__(value_t a, value_t b) {
+        return fabsf(a - b) / (fabsf(a) + fabsf(b));
+      },
+      [] __device__(value_t a, value_t b) { return a + b; });
+  }
+
+ private:
+  distances_config_t<value_idx, value_t> config_;
+};
+
 /**
  * Compute pairwise distances between A and B, using the provided
  * input configuration and distance function.
@@ -355,6 +593,15 @@ void pairwiseDistance(value_t *out,
     case ML::Distance::DistanceType::InnerProduct:
       // InnerProduct
       ip_distances_t<value_idx, value_t>(input_config).compute(out);
+      break;
+    case ML::Distance::DistanceType::EucUnexpandedL1:
+      l1_distances_t<value_idx, value_t>(input_config).compute(out);
+      break;
+    case ML::Distance::DistanceType::ChebyChev:
+      chebychev_distances_t<value_idx, value_t>(input_config).compute(out);
+      break;
+    case ML::Distance::DistanceType::Canberra:
+      canberra_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     default:
       THROW("Unsupported metric: %d", metric);
