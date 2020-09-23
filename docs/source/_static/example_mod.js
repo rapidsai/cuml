@@ -1,3 +1,5 @@
+// This contains code with copyright by the scikit-learn project, subject to the license in /thirdparty/LICENSES/LICENSE.scikit_learn
+
 $(document).ready(function () {
    /* Add a [>>>] button on the top-right corner of code samples to hide
     * the >>> and ... prompts and the output and thus make the code
