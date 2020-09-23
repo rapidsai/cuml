@@ -1,4 +1,5 @@
-# This contains code with copyright by the scikit-learn project, subject to the license in /thirdparty/LICENSES/LICENSE.scikit_learn
+# This contains code with copyright by the scikit-learn project, subject to the
+# license in /thirdparty/LICENSES/LICENSE.scikit_learn
 
 import inspect
 import os
