@@ -377,11 +377,13 @@ void check_params(const forest_params_t* params, bool dense) {
   switch (params->leaf_payload_type) {
     case leaf_value_t::FLOAT_SCALAR:
       if ((params->output & output_t::CLASS) != 0) {
-        ASSERT(params->num_classes == 2, "only supporting binary"
-          " classification using FLOAT_SCALAR");
+        ASSERT(params->num_classes == 2,
+               "only supporting binary"
+               " classification using FLOAT_SCALAR");
       } else {
-        ASSERT(params->num_classes == 1, "num_classes must be 1 for "
-          "regression");
+        ASSERT(params->num_classes == 1,
+               "num_classes must be 1 for "
+               "regression");
       }
       break;
     case leaf_value_t::INT_CLASS_LABEL:

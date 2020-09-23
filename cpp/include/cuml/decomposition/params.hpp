@@ -19,19 +19,12 @@
 namespace ML {
 
 /**
- * @defgroup pcaSolver: enumeration for pca solvers.
- * @param AUTO: Fastest solver will be used based on input shape and n_components.
- * @param FULL: All the eigenvectors and singular values (or eigenvalues) will be generated.
- * @param ARPACK: tsvd using power method. Lanczos will be included in the future.
- * @param RANDOMIZED: randomized svd
  * @param COV_EIG_DQ: covariance of input will be used along with eigen decomposition using divide and conquer method for symmetric matrices
  * @param COV_EIG_JACOBI: covariance of input will be used along with eigen decomposition using jacobi method for symmetric matrices
- * @{
  */
 enum class solver : int {
   COV_EIG_DQ,
   COV_EIG_JACOBI,
-  RANDOMIZED,
 };
 
 class params {
@@ -48,7 +41,6 @@ class paramsSolver : public params {
   //math_t tol = 0.0;
   float tol = 0.0;
   int n_iterations = 15;
-  int random_state;
   int verbose = 0;
 };
 
@@ -56,9 +48,7 @@ template <typename enum_solver = solver>
 class paramsTSVDTemplate : public paramsSolver {
  public:
   int n_components = 1;
-  int max_sweeps = 15;
   enum_solver algorithm = enum_solver::COV_EIG_DQ;
-  bool trans_input = false;
 };
 
 /**
@@ -68,19 +58,16 @@ class paramsTSVDTemplate : public paramsSolver {
  *              use fit_transform(X) instead.
  * @param whiten: When True (False by default) the components_ vectors are multiplied by the square root of n_samples and
  *                then divided by the singular values to ensure uncorrelated outputs with unit component-wise variances.
- * @param svd_solver: the solver to be used in PCA.
+ * @param algorithm: the solver to be used in PCA.
  * @param tol: Tolerance for singular values computed by svd_solver == ‘arpack’ or svd_solver == ‘COV_EIG_JACOBI’
- * @param iterated_power: Number of iterations for the power method computed by svd_solver == ‘randomized’ or
- *                        jacobi method by svd_solver == 'COV_EIG_JACOBI'.
- * @param random_state: RandomState instance or None, optional (default None)
+ * @param n_iterations: Number of iterations for the power method computed by jacobi method (svd_solver == 'COV_EIG_JACOBI').
  * @param verbose: 0: no error message printing, 1: print error messages
- * @param max_sweeps: number of sweeps jacobi method uses. The more the better accuracy.
  */
 
 template <typename enum_solver = solver>
 class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
  public:
-  bool copy = true;
+  bool copy = true;  // TODO unused, see #2830 and #2833
   bool whiten = false;
 };
 
