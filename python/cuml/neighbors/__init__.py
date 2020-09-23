@@ -21,7 +21,8 @@ from cuml.neighbors.nearest_neighbors import kneighbors_graph
 from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
 from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
 
-VALID_METRICS = {"brute": set([
+VALID_METRICS = {
+    "brute": set([
         "l2", "euclidean",
         "l1", "cityblock", "manhattan", "taxicab",
         "braycurtis", "canberra",
@@ -30,4 +31,5 @@ VALID_METRICS = {"brute": set([
         "jensenshannon",
         "cosine", "correlation",
         "inner_product", "sqeuclidean"
-    ])}
+    ]),
+    "sparse": set(["euclidean", "l2", "inner_product"])}

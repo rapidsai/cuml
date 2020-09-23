@@ -432,7 +432,7 @@ class NearestNeighbors(Base):
                     I_ndarr.drop(I_ndarr.columns[0], axis=1)
                     D_ndarr.drop(D_ndarr.columns[0], axis=1)
 
-        return (I_ndarr, D_ndarr) if return_distance else I_ndarr
+        return (D_ndarr, I_ndarr) if return_distance else I_ndarr
 
     def _kneighbors_dense(self, X, n_neighbors, convert_dtype=None):
 

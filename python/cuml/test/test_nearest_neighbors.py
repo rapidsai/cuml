@@ -47,9 +47,10 @@ def predict(neigh_ind, _y, n_neighbors):
     return ypred.ravel(), count.ravel() * 1.0 / n_neighbors
 
 
-def valid_metrics():
-    cuml_metrics = cuml.neighbors.VALID_METRICS["brute"]
-    sklearn_metrics = sklearn.neighbors.VALID_METRICS["brute"]
+def valid_metrics(algo="brute", cuml_algo=None):
+    cuml_algo = algo if cuml_algo is None else cuml_algo
+    cuml_metrics = cuml.neighbors.VALID_METRICS[cuml_algo]
+    sklearn_metrics = sklearn.neighbors.VALID_METRICS[algo]
     return [value for value in cuml_metrics if value in sklearn_metrics]
 
 
@@ -319,23 +320,25 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
         assert isspmatrix_csr(sparse_cu)
 
 
-@pytest.mark.parametrize('nrows', [10, 50])
-@pytest.mark.parametrize('ncols', [10, 50])
-@pytest.mark.parametrize('density', [0.4, 0.8])
+@pytest.mark.parametrize("metric", valid_metrics(cuml_algo="sparse"))
+@pytest.mark.parametrize('nrows', [10, 35])
+@pytest.mark.parametrize('ncols', [10, 35])
+@pytest.mark.parametrize('density', [0.8, 0.9])
 @pytest.mark.parametrize('n_neighbors', [2, 4])
 @pytest.mark.parametrize('batch_size_index', [10, 20000])
 @pytest.mark.parametrize('batch_size_query', [10, 20000])
-def test_sparse_nearest_neighbors_euclidean(nrows, ncols,
-                                            density,
-                                            n_neighbors,
-                                            batch_size_index,
-                                            batch_size_query):
+def test_nearest_neighbors_sparse(nrows, ncols,
+                                  density,
+                                  metric,
+                                  n_neighbors,
+                                  batch_size_index,
+                                  batch_size_query):
 
     a = cp.sparse.random(nrows, ncols, format='csr', density=density,
                          random_state=32)
 
     logger.set_level(logger.level_info)
-    nn = cuKNN(metric='euclidean', n_neighbors=n_neighbors,
+    nn = cuKNN(metric=metric, n_neighbors=n_neighbors, algorithm="brute",
                verbose=logger.level_debug,
                algo_params={"batch_size_index": batch_size_index,
                             "batch_size_query": batch_size_query})
@@ -343,7 +346,7 @@ def test_sparse_nearest_neighbors_euclidean(nrows, ncols,
 
     cuD, cuI = nn.kneighbors(a)
 
-    sknn = skKNN(metric='euclidean', n_neighbors=n_neighbors,
+    sknn = skKNN(metric=metric, n_neighbors=n_neighbors,
                  algorithm="brute", n_jobs=-1)
     sk_X = a.get()
     sknn.fit(sk_X)
