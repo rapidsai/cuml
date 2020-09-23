@@ -92,7 +92,7 @@ class CSRRowSliceTest
 
     make_data();
 
-    ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
+    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
 
     int csr_start_offset;
     int csr_stop_offset;

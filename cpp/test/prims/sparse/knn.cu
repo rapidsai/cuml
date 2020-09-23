@@ -94,7 +94,7 @@ class SparseKNNTest
 
     CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));
 
-    ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
+    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
 
     n_rows = params.indptr_h.size() - 1;
     nnz = params.indices_h.size();
@@ -107,11 +107,6 @@ class SparseKNNTest
       nnz, n_rows, params.n_cols, out_indices, out_dists, k, cusparseHandle,
       alloc, stream, params.batch_size_index, params.batch_size_query,
       params.metric);
-
-    std::cout << arr2Str(out_dists, n_rows * k, "out_dists", stream)
-              << std::endl;
-    std::cout << arr2Str(out_indices, n_rows * k, "out_indices", stream)
-              << std::endl;
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }

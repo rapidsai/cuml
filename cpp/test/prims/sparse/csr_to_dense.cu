@@ -80,16 +80,13 @@ class CSRToDenseTest
 
     make_data();
 
-    ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
+    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
 
     csr_to_dense(handle, params.nrows, params.ncols, indptr, indices, data,
                  params.nrows, out, stream, true);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUSPARSE_CHECK(cusparseDestroy(handle));
-
-    std::cout << arr2Str(out, params.out_ref_h.size(), "out", stream)
-              << std::endl;
   }
 
   void TearDown() override {

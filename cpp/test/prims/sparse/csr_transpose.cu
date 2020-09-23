@@ -94,7 +94,7 @@ class CSRTransposeTest
 
     make_data();
 
-    ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
+    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
 
     csr_transpose(handle, indptr, indices, data, out_indptr, out_indices,
                   out_data, params.nrows, params.ncols, params.nnz, alloc,

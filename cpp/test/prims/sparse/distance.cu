@@ -103,11 +103,9 @@ class SparseDistanceTest
 
     allocate(out_dists, out_size);
 
-    ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
+    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
 
     pairwiseDistance(out_dists, dist_config, params.metric);
-
-    std::cout << arr2Str(out_dists, out_size, "out_dists", stream) << std::endl;
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
