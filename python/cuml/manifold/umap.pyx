@@ -511,7 +511,6 @@ class UMAP(Base):
                    (knn_dists_m, knn_dists_m.ptr)
         return (None, None), (None, None)
 
-
     @generate_docstring(convert_dtype_cast='np.float32',
                         skip_parameters_heading=True)
     @with_cupy_rmm

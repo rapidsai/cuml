@@ -137,12 +137,14 @@ class NearestNeighbors(Base):
         is equivalent to manhattan distance (l1), and euclidean distance (l2)
         for p = 2. For arbitrary p, minkowski distance (lp) is used.
     algo_params : dict, optional (default=None)
-        Named arguments for controlling the behavior of different nearest neighbors
-        algorithms.
+        Named arguments for controlling the behavior of different nearest
+        neighbors algorithms.
 
         When algorithm='brute' and inputs are sparse:
-            - batch_size_index : (int) number of rows in each batch of index array
-            - batch_size_query : (int) number of rows in each batch of query array
+            - batch_size_index : (int) number of rows in each batch of
+                                 index array
+            - batch_size_query : (int) number of rows in each batch of
+                                 query array
     metric_expanded : bool
         Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
         by using the expanded form and not computing the n-th roots.
