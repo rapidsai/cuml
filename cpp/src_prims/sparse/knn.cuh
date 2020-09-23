@@ -167,6 +167,15 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
     case ML::MetricType::METRIC_L2:
       pw_metric = ML::Distance::DistanceType::EucExpandedL2;
       break;
+    case ML::MetricType::METRIC_Canberra:
+      pw_metric = ML::Distance::DistanceType::Canberra;
+      break;
+    case ML::MetricType::METRIC_Linf:
+      pw_metric = ML::Distance::DistanceType::ChebyChev;
+      break;
+    case ML::MetricType::METRIC_L1:
+      pw_metric = ML::Distance::DistanceType::EucUnexpandedL1;
+      break;
     default:
       THROW("MetricType not supported: %d", metric);
   }

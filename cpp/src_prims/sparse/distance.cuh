@@ -331,27 +331,29 @@ class l2_distances_t : public distances_t<value_t> {
 
 template <typename value_t>
 __device__ void swap(value_t *shared_mem, int idx1, int idx2) {
-  value_t temp = shared_mem[idx2];
-  shared_mem[idx2] = shared_mem[idx1];
-  shared_mem[idx1] = temp;
+  if(idx1 != idx2) {
+    value_t temp = shared_mem[idx1];
+    shared_mem[idx1] = shared_mem[idx2];
+    shared_mem[idx2] = temp;
+  }
 }
 
 template <typename value_idx, typename value_t>
 __device__ void bitonic_sort_by_key(value_t *keys, value_idx *vals,
-                                    int n_elements, int tid) {
-  for (unsigned int k = 2; k <= n_elements; k *= 2) {
-    for (unsigned int j = k / 2; j > 0; j /= 2) {
+                                    int n_elements, int tid, int row, int col, bool verbose) {
+  for (unsigned int k = 2; k <= n_elements; k <<= 1) {
+    for (unsigned int j = k >> 1; j > 0; j >>= 1) {
       unsigned int x = tid ^ j;
       if (x > tid) {
         if ((tid & k) == 0) {
-          if (keys[tid] > keys[x]) {
-            swap(keys, tid, x);
+          if (vals[tid] > vals[x]) {
             swap(vals, tid, x);
+            swap(keys, tid, x);
           }
         } else {
-          if (keys[tid] < keys[x]) {
-            swap(keys, tid, x);
+          if (vals[tid] < vals[x]) {
             swap(vals, tid, x);
+            swap(keys, tid, x);
           }
         }
       }
@@ -361,6 +363,71 @@ __device__ void bitonic_sort_by_key(value_t *keys, value_idx *vals,
   }
 }
 
+template<typename value_idx, typename value_t>
+__device__ void bitonic_sort_by_key_2(value_t *keys, value_idx *vals,
+                                      int n_elements, int tid, int row, int col, bool verbose) {
+  for(int size = 2; size <= n_elements; size <<=1) {
+    for(int stride = size >> 1; stride > 0; stride >>= 1) {
+      if(tid < n_elements) {
+
+        if(verbose)
+          printf("tid=%d, size=%d, stride=%d, l=%d, r=%d\n", tid, size, stride, tid, tid+stride);
+
+        if ((tid & size) == 0) {
+          if (vals[tid] > vals[tid+stride]) {
+            swap(vals, tid, tid+stride);
+            swap(keys, tid, tid+stride);
+          }
+        } else {
+          if (vals[tid] < vals[tid+stride]) {
+            swap(vals, tid, tid+stride);
+            swap(keys, tid, tid+stride);
+          }
+        }
+      }
+
+      __syncthreads();
+    }
+  }
+}
+
+
+template<typename value_idx, typename value_t>
+__device__ void bitonic_sort_by_key_3(value_t *keys, value_idx *vals,
+                                      int n_elements, int tid, int row, int col, bool verbose) {
+  for(int split = 2; split < n_elements; split <<=1) {
+    for(int away = split; away >= 1; away >>= 1) {
+      if(tid < n_elements) {
+
+        int i_mask = ((1<<30) - 1) - away;
+        int j_mask = away;
+        int is_inc_mask = split << 1;
+
+        int i = tid & i_mask;
+        int j = tid | j_mask;
+
+        int is_inc = (tid & is_inc_mask) == 0;
+
+        bool need_swap = false;
+
+        need_swap |= (is_inc && (vals[i] > vals[j]));
+        need_swap |= (!is_inc && (vals[i] < vals[j]));
+
+        if(need_swap) {
+
+
+//          if(verbose)
+            printf("row=%d, col=%d, tid=%d, split=%d, away=%d, i=%d, j=%d, vals[i]=%d, vals[j]=%d\n", row, col, tid, split, away, i, j, vals[i], vals[j]);
+
+          swap(vals, i, j);
+          swap(keys, i, j);
+        }
+      }
+
+      __syncthreads();
+    }
+  }
+}
 /**
  * Assuming the nnz cols of A and B (About 5k each) can both fit into shared memory for now
  * just to test the algorithm.
@@ -373,13 +440,11 @@ __device__ void bitonic_sort_by_key(value_t *keys, value_idx *vals,
  */
 template <typename value_idx, typename value_t, int buffer_size,
           typename accumulator_f, typename reduction_f>
-__global__ void row_distance_block_reduce_kernel(value_t *out, value_idx *indptrA,
-                                   value_idx *indicesA, value_t *dataA,
-                                   size_t nnzA, value_idx *indptrB,
-                                   value_idx *indicesB, value_t *dataB,
-                                   size_t nnzB, size_t m, size_t n,
-                                   reduction_f func_reducer,
-                                   accumulator_f func_accumulator) {
+__global__ void row_distance_block_reduce_kernel(
+  value_t *out, value_idx *indptrA, value_idx *indicesA, value_t *dataA,
+  size_t nnzA, value_idx *indptrB, value_idx *indicesB, value_t *dataB,
+  size_t nnzB, size_t m, size_t n, reduction_f func_reducer,
+  accumulator_f func_accumulator) {
   value_idx out_row = blockIdx.x / n;
   value_idx out_col = blockIdx.x % n;
   value_idx tid = threadIdx.x;
@@ -389,27 +454,24 @@ __global__ void row_distance_block_reduce_kernel(value_t *out, value_idx *indptr
   __shared__ value_idx cols_buffer[buffer_size];
   __shared__ value_t vals_buffer[buffer_size];
 
-  __shared__ value_idx start_offset_a;
-  __shared__ value_idx stop_offset_a;
-  __shared__ value_idx start_offset_b;
-  __shared__ value_idx stop_offset_b;
+  value_idx start_offset_a;
+  value_idx stop_offset_a;
+  value_idx start_offset_b;
+  value_idx stop_offset_b;
 
-  __shared__ value_idx col_nnz_a;
-  __shared__ value_idx col_nnz_b;
+  value_idx col_nnz_a;
+  value_idx col_nnz_b;
 
   //  __shared__ value_idx n_loaded_a;
   //  __shared__ value_idx n_loaded_b;
 
-  if (tid == 0) {
-    start_offset_a = indptrA[out_row];
-    stop_offset_a = indptrA[out_row + 1];
-    start_offset_b = indptrB[out_row];
-    stop_offset_b = indptrB[out_row + 1];
+  start_offset_a = indptrA[out_row];
+  stop_offset_a = indptrA[out_row + 1];
+  start_offset_b = indptrB[out_col];
+  stop_offset_b = indptrB[out_col + 1];
 
-    col_nnz_a = stop_offset_a - start_offset_a;
-    col_nnz_b = stop_offset_b - start_offset_b;
-  }
-  __syncthreads();
+  col_nnz_a = stop_offset_a - start_offset_a;
+  col_nnz_b = stop_offset_b - start_offset_b;
 
   // Load A into buffer
   for (int i = tid; i < col_nnz_a; i += blockDim.x) {
@@ -426,68 +488,104 @@ __global__ void row_distance_block_reduce_kernel(value_t *out, value_idx *indptr
   __syncthreads();
 
   if (tid == 0 && out_row == 0 && out_col == 0) {
-    printf("row=%d, col=%d, [\n", out_row, out_col);
+    printf("unsorted: row=%d, col=%d, [\n", out_row, out_col);
     for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
-      printf("%f, ", vals_buffer[i]);
-      printf("]\n");
+      printf("%d, ", cols_buffer[i]);
     }
+    printf("]\n");
   }
+  __syncthreads();
 
   // Sort
-  bitonic_sort_by_key(vals_buffer, cols_buffer, col_nnz_a + col_nnz_b, tid);
+  bitonic_sort_by_key_3(vals_buffer, cols_buffer, col_nnz_a + col_nnz_b, tid, out_row, out_col, out_row == 0 && out_col == 0 && tid == 0);
+
+  __syncthreads();
 
   if (tid == 0 && out_row == 0 && out_col == 0) {
-    printf("[");
+    printf("sorted bufsize=%d [", col_nnz_a + col_nnz_b);
     for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
-      printf("%f, ", vals_buffer[i]);
-      printf("]\n");
+      printf("%d, ", cols_buffer[i]);
     }
+    printf("]\n");
   }
 
   // Reduce duplicates
-  for (int i = tid; i < (col_nnz_a + col_nnz_b) - 1; i += blockDim.x) {
-    if (cols_buffer[i] == cols_buffer[i + 1]) {
-      vals_buffer[i] = func_reducer(vals_buffer[i], vals_buffer[i + 1]);
-      vals_buffer[i + 1] = 0;
+  for (int i = tid; i < (col_nnz_a + col_nnz_b) - 2; i += blockDim.x) {
+
+    value_idx one = cols_buffer[i];
+    value_idx two = cols_buffer[i+1];
+    value_idx three = cols_buffer[i+2];
+
+    if (two == three) {
+      vals_buffer[i+1] = func_reducer(vals_buffer[i+1], vals_buffer[i+2]);
+      vals_buffer[i + 2] = 0;
+    } else if(one != two && two != three) {
+      vals_buffer[i+1] = func_reducer(vals_buffer[i+1], 0);
     }
   }
+  __syncthreads();
+
+  if(tid == 0) {
+    if(cols_buffer[0] == cols_buffer[1]) {
+      vals_buffer[0] = func_reducer(vals_buffer[0], vals_buffer[1]);
+      vals_buffer[1] = 0;
+    } else if(cols_buffer[0] != cols_buffer[1]) {
+      vals_buffer[0] = func_reducer(vals_buffer[0], 0);
+    }
+  }
+
   __syncthreads();
 
   if (tid == 0 && out_row == 0 && out_col == 0) {
     printf("[");
     for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
       printf("%f, ", vals_buffer[i]);
-      printf("]\n");
     }
+    printf("]\n");
   }
+
+  if (tid == 0 && out_row == 0 && out_col == 0) {
+    printf("[");
+    for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
+      printf("%d, ", cols_buffer[i]);
+    }
+    printf("]\n");
+  }
+
 
   // Tree-reduce
   for (unsigned int i = (col_nnz_b + col_nnz_a) / 2; i > 0; i >>= 1) {
     if (tid < i) {
-      func_accumulator(vals_buffer[tid], vals_buffer[tid + i]);
+      vals_buffer[tid] += vals_buffer[tid + i];
     }
     __syncthreads();
   }
-
+////
   if (tid == 0 && out_row == 0 && out_col == 0) {
-    printf("tree reduction [");
+    printf("tree reduction row=%d, col=%d[", out_row, out_col);
     for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
       printf("%f, ", vals_buffer[i]);
-      printf("]\n");
     }
+    printf("]\n");
   }
 
   if (tid == 0) out[out_row * n + out_col] = vals_buffer[0];
+
+//  if(tid < (col_nnz_a + col_nnz_b))
+//    atomicAdd(out + (our_row * n + out_col), vals_buffer[tid]);
 }
 
 template <typename value_idx = int, typename value_t = float,
-          int max_buffer_size = 5000, int threads_per_block = 1024,
+          int max_buffer_size = 512, int threads_per_block = 32,   // TODO: These should be conditional based on the data
           typename reduce_f = auto(value_t, value_t)->value_t,
           typename accum_f = auto(value_t, value_t)->value_t>
 void distance_block_reduce(value_t *out_dists,
-                    distances_config_t<value_idx, value_t> config_,
-                    reduce_f reduce_func, accum_f accum_func) {
-  row_distance_block_reduce_kernel<value_idx, value_t, max_buffer_size>
+                           distances_config_t<value_idx, value_t> config_,
+                           reduce_f reduce_func, accum_f accum_func) {
+
+  constexpr int buffer_size = max_buffer_size * 2 * sizeof(value_t);
+
+  row_distance_block_reduce_kernel<value_idx, value_t, buffer_size>
     <<<config_.a_nrows * config_.b_nrows, threads_per_block, 0,
        config_.stream>>>(
       out_dists, config_.a_indptr, config_.a_indices, config_.a_data,
