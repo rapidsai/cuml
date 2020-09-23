@@ -202,6 +202,8 @@ if(BUILD_PRIMS_TESTS)
     prims/seive.cu
     prims/sigmoid.cu
     prims/silhouetteScore.cu
+    prims/sparse/csr_row_slice.cu
+          prims/sparse/csr_transpose.cu
     prims/sparse/distance.cu
     prims/sparse/knn.cu
     prims/sparse/selection.cu
