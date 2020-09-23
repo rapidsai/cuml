@@ -65,8 +65,7 @@ class CSRToDenseTest
 
     allocate(out_ref, out_ref_h.size());
 
-    updateDevice(out_ref, out_ref_h.data(), out_ref_h.size(),
-                 stream);
+    updateDevice(out_ref, out_ref_h.data(), out_ref_h.size(), stream);
 
     allocate(out, out_ref_h.size());
   }
@@ -83,14 +82,14 @@ class CSRToDenseTest
 
     ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
-    csr_to_dense(handle, params.nrows, params.ncols,
-                 indptr, indices, data, params.nrows, out,
-                 stream, true);
+    csr_to_dense(handle, params.nrows, params.ncols, indptr, indices, data,
+                 params.nrows, out, stream, true);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUSPARSE_CHECK(cusparseDestroy(handle));
 
-    std::cout << arr2Str(out, params.out_ref_h.size(), "out", stream) << std::endl;
+    std::cout << arr2Str(out, params.out_ref_h.size(), "out", stream)
+              << std::endl;
   }
 
   void TearDown() override {
@@ -103,9 +102,8 @@ class CSRToDenseTest
   }
 
   void compare() {
-    ASSERT_TRUE(devArrMatch(out, out_ref,
-                            params.out_ref_h.size(),
-                            Compare<value_t>()));
+    ASSERT_TRUE(
+      devArrMatch(out, out_ref, params.out_ref_h.size(), Compare<value_t>()));
   }
 
  protected:
@@ -126,19 +124,13 @@ class CSRToDenseTest
 };
 
 const std::vector<CSRToDenseInputs<int, float>> inputs_i32_f = {
-  {
-    4,
-    4,
-    {0, 2, 4, 6, 8},
-    {0, 1, 2, 3, 0, 1, 2, 3},  // indices
-    {1.0f, 3.0f, 1.0f, 5.0f, 50.0f, 28.0f, 16.0f, 2.0f},
-    {
-      1.0f, 3.0f, 0.0f, 0.0f,
-      0.0f, 0.0f, 1.0f, 5.0f,
-      50.0f, 28.0f, 0.0f, 0.0f,
-      0.0f, 0.0f, 16.0f, 2.0f
-    }
-  },
+  {4,
+   4,
+   {0, 2, 4, 6, 8},
+   {0, 1, 2, 3, 0, 1, 2, 3},  // indices
+   {1.0f, 3.0f, 1.0f, 5.0f, 50.0f, 28.0f, 16.0f, 2.0f},
+   {1.0f, 3.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 5.0f, 50.0f, 28.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 16.0f, 2.0f}},
 };
 typedef CSRToDenseTest<int, float> CSRToDenseTestF;
 TEST_P(CSRToDenseTestF, Result) { compare(); }
