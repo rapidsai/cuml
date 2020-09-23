@@ -30,6 +30,7 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common import parts_to_ranks
 
 from dask_cudf.core import DataFrame as dcDataFrame
+from dask_cudf.core import Series as dcSeries
 from functools import wraps
 
 from distributed.client import Future
@@ -268,12 +269,12 @@ class DelayedParallelFunc(object):
                                      traverse=False)
 
         func = dask.delayed(func, pure=False, nout=1)
-
         if isinstance(X, dcDataFrame):
-
             preds = [func(model_delayed, part, **kwargs) for part in X_d]
             dtype = first(X.dtypes) if output_dtype is None else output_dtype
-
+        elif isinstance(X, dcSeries):
+            preds = [func(model_delayed, part, **kwargs) for part in X_d]
+            dtype = X.dtype if output_dtype is None else output_dtype
         else:
             preds = [func(model_delayed, part[0])
                      for part in X_d]
@@ -286,7 +287,6 @@ class DelayedParallelFunc(object):
         if output_collection_type == 'cupy':
 
             # todo: add parameter for option of not checking directly
-
             shape = (np.nan,) * n_dims
             preds_arr = [
                 dask.array.from_delayed(pred,
@@ -301,14 +301,17 @@ class DelayedParallelFunc(object):
                 output = dask.array.concatenate(preds_arr, axis=0,
                                                 allow_unknown_chunksizes=True
                                                 )
-
                 return output if delayed else output.persist()
-        else:
+
+        elif output_collection_type == 'cudf':
             if output_futures:
                 return self.client.compute(preds)
             else:
                 output = dask.dataframe.from_delayed(preds)
                 return output if delayed else output.persist()
+        else:
+            raise ValueError("Expected cupy or cudf but found %s" %
+                             (output_collection_type))
 
 
 class DelayedPredictionProbaMixin(DelayedParallelFunc):
