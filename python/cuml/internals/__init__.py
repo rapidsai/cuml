@@ -21,7 +21,7 @@ from cuml.internals.func_wrappers import (autowrap_ignore,
                                           cuml_internal_func,
                                           cuml_internal_func_check_type,
                                           set_api_output_type,
-                                          set_api_target_dtype,
+                                          set_api_output_dtype,
                                           api_base_return_array)
 from cuml.internals.internals import GraphBasedDimRedCallback
 from cuml.internals.to_output_mixin import ToOutputMixin

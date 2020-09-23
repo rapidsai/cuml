@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
+from __future__ import annotations
 
 import math
 import warnings
@@ -31,6 +31,7 @@ from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.kernel_utils import cuda_kernel_factory
 from cuml.metrics import accuracy_score
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
+
 
 
 def count_features_coo_kernel(float_dtype, int_dtype):
@@ -223,7 +224,7 @@ class MultinomialNB(Base):
 
     @generate_docstring(X='dense_sparse')
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
-    def fit(self, X, y, sample_weight=None):
+    def fit(self, X, y, sample_weight=None) -> MultinomialNB:
         """
         Fit Naive Bayes classifier according to X, y
 
@@ -291,7 +292,7 @@ class MultinomialNB(Base):
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self._class_prior_)
 
-    def partial_fit(self, X, y, classes=None, sample_weight=None):
+    def partial_fit(self, X, y, classes=None, sample_weight=None) -> MultinomialNB:
         """
         Incremental fit on a batch of samples.
 

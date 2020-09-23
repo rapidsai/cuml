@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+
 from cuml.common.base import Base
 from cuml.common.handle import Handle
 import cuml.common.cuda as cuda

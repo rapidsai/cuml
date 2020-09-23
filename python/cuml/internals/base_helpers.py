@@ -17,6 +17,7 @@
 import typing
 from dataclasses import dataclass
 
+import cuml
 import cuml.internals
 import cuml.common
 
@@ -46,6 +47,31 @@ class BaseMetaClass(type):
 
         newClassDict = {}
 
+        def get_base_return_type(attr):
+
+            if (not hasattr(attr, "__annotations__") or "return" not in attr.__annotations__):
+                return None
+
+            try:
+                type_hints = typing.get_type_hints(attr)
+
+                if ("return" in type_hints):
+
+                    if (issubclass(type_hints["return"], cuml.common.CumlArray)):
+                        return "array"
+                    elif (issubclass(type_hints["return"], cuml.Base)):
+                        return "base"
+            except NameError:
+                if (attr.__annotations__["return"] == classname):
+                    return "base"
+            except Exception as ex:
+                return None
+
+            return None
+
+
+
+
         for attributeName, attribute in classDict.items():
             if callable(attribute) and not attributeName.startswith("_"):
 
@@ -54,11 +80,12 @@ class BaseMetaClass(type):
                       and attribute.__dict__["__cuml_do_not_wrap"]):
                     pass
                 else:
-                    type_hints = typing.get_type_hints(attribute)
+                    return_type = get_base_return_type(attribute)
 
-                    if ("return" in type_hints
-                            and type_hints["return"] == cuml.common.CumlArray):
+                    if (return_type == "array"):
                         attribute = cuml.internals.api_base_return_array()(attribute)
+                    elif (return_type == "base"):
+                        attribute = cuml.internals.wrap_api_base_return_any()(attribute)
                     else:
                         # replace it with a wrapped version
                         attribute = cuml.internals.cuml_internal_func(attribute)

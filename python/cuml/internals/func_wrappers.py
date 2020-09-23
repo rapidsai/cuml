@@ -15,10 +15,12 @@
 #
 
 import contextlib
+import inspect
 import threading
 import typing
 from dataclasses import dataclass
 from functools import wraps
+from collections import deque
 
 import cuml
 import cuml.common
@@ -52,13 +54,13 @@ global_output_type_data.root_cm = None
 def set_api_output_type(output_type: str):
     assert (global_output_type_data.root_cm is not None)
 
-    global_output_type_data.root_cm.target_type = output_type
+    global_output_type_data.root_cm.output_type = output_type
 
 
-def set_api_target_dtype(target_dtype):
+def set_api_output_dtype(output_dtype):
     assert (global_output_type_data.root_cm is not None)
 
-    global_output_type_data.root_cm.target_dtype = target_dtype
+    global_output_type_data.root_cm.output_dtype = output_dtype
 
 
 def cuml_internal_func(func):
@@ -145,12 +147,19 @@ class InternalAPIContext(contextlib.ExitStack):
         self.prev_output_type = self.enter_context(
             cuml.using_output_type("mirror"))
 
-        self.target_type = self.prev_output_type if self.prev_output_type == "input" else None
-        self.target_dtype = None
+        self.output_type = None if self.prev_output_type == "input" else self.prev_output_type
+        self.output_dtype = None
 
         self._count = 0
 
         global_output_type_data.root_cm = self
+
+    def pop_all(self):
+        """Preserve the context stack by transferring it to a new instance."""
+        new_stack = contextlib.ExitStack()
+        new_stack._exit_callbacks = self._exit_callbacks
+        self._exit_callbacks = deque()
+        return new_stack
 
     def __enter__(self) -> int:
 
@@ -165,21 +174,21 @@ class InternalAPIContext(contextlib.ExitStack):
         return
 
     @contextlib.contextmanager
-    def push_target_types(self):
+    def push_output_types(self):
         try:
-            old_target_type = self.target_type
-            old_target_dtype = self.target_dtype
+            old_output_type = self.output_type
+            old_output_dtype = self.output_dtype
 
-            self.target_type = None
-            self.old_target_dtype = None
+            self.output_type = None
+            self.output_dtype = None
 
             yield
 
         finally:
-            self.target_type = (old_target_type if old_target_type is not None
-                                else self.target_type)
-            self.target_dtype = (old_target_dtype if old_target_dtype
-                                 is not None else self.target_dtype)
+            self.output_type = (old_output_type if old_output_type is not None
+                                else self.output_type)
+            self.output_dtype = (old_output_dtype if old_output_dtype
+                                 is not None else self.output_dtype)
 
 
 class InternalAPIContextManager(contextlib.ExitStack):
@@ -229,31 +238,27 @@ class InternalAPIWithReturnContextManager(InternalAPIContextManager):
         # root here
         super().__init__(func, args)
 
-        # self.target_type = None
-        # self.target_dtype = None
+        # self.output_type = None
+        # self.output_dtype = None
 
-        self.old_target_type = None
-        self.old_target_dtype = None
+        self.old_output_type = None
+        self.old_output_dtype = None
 
     def __enter__(self):
 
         # Call super to ensure we get any root callbacks
         super().__enter__()
 
-        # self.old_target_type = None
-        # self.old_target_dtype = None
+        # self.old_output_type = None
+        # self.old_output_dtype = None
 
-        self.enter_context(self.root_cm.push_target_types())
+        self.enter_context(self.root_cm.push_output_types())
 
         # Now return an object based on if we are root or not
         if (self.is_root):
             return RootCumlArrayReturnConverter()
         else:
             return CumlArrayReturnConverter()
-
-    # def __exit__(self, *exc_details) -> Optional[bool]:
-
-    #     return
 
 
 class InternalAPIBaseWithReturnContextManager(
@@ -268,15 +273,17 @@ class InternalAPIBaseWithReturnContextManager(
 
     def __exit__(self, *exc_details):
 
+        super().__exit__(*exc_details)
+
         root_cm = get_internal_context()
 
-        target_type = (root_cm.target_type if root_cm.target_type is not None
+        output_type = (root_cm.output_type if root_cm.output_type is not None
                        else root_cm.prev_output_type)
 
-        if (target_type == "input"):
-            target_type = self.base_obj.output_type
+        if (output_type == "input"):
+            output_type = self.base_obj.output_type
 
-            set_api_output_type(target_type)
+            set_api_output_type(output_type)
 
 
 class CumlArrayReturnConverter(object):
@@ -295,8 +302,8 @@ class RootCumlArrayReturnConverter(CumlArrayReturnConverter):
         ret_val = super().process_return(ret_val)
 
         return ret_val.to_output(
-            output_type=global_output_type_data.root_cm.target_type,
-            output_dtype=global_output_type_data.root_cm.target_dtype)
+            output_type=global_output_type_data.root_cm.output_type,
+            output_dtype=global_output_type_data.root_cm.output_dtype)
 
 
 
@@ -313,41 +320,41 @@ class RootCumlArrayReturnConverter(CumlArrayReturnConverter):
 #         self.prev_output_type = self.enter_context(
 #             cuml.using_output_type("mirror"))
 
-#         self.target_type = None
-#         self.target_dtype = None
+#         self.output_type = None
+#         self.output_dtype = None
 
 #         global_output_type_data.root_cm = self
 
 #     @contextlib.contextmanager
 #     def internal_func_ret_base(self):
 #         try:
-#             old_target_type = self.target_type
-#             old_target_dtype = self.target_dtype
+#             old_output_type = self.output_type
+#             old_output_dtype = self.output_dtype
 
 #             yield
 
 #         finally:
-#             self.target_type = (old_target_type if old_target_type is not None
-#                                 else self.target_type)
-#             self.target_dtype = (old_target_dtype if old_target_dtype
-#                                  is not None else self.target_dtype)
+#             self.output_type = (old_output_type if old_output_type is not None
+#                                 else self.output_type)
+#             self.output_dtype = (old_output_dtype if old_output_dtype
+#                                  is not None else self.output_dtype)
 
 #     def process_return(self, ret_val):
 
 #         if isinstance(ret_val, cuml.common.CumlArray):
 
-#             target_type = (self.target_type if self.target_type is not None
+#             output_type = (self.output_type if self.output_type is not None
 #                            else self.prev_output_type)
 
-#             if (target_type == "input"):
+#             if (output_type == "input"):
 
 #                 # If we are on the Base object, get output_type
 #                 if (len(self._args) > 0
 #                         and isinstance(self._args[0], cuml.Base)):
-#                     target_type = self._args[0].output_type
+#                     output_type = self._args[0].output_type
 
-#             return ret_val.to_output(output_type=target_type,
-#                                      output_dtype=self.target_dtype)
+#             return ret_val.to_output(output_type=output_type,
+#                                      output_dtype=self.output_dtype)
 #         else:
 #             return ret_val
 
@@ -393,11 +400,11 @@ def get_internal_context() -> InternalAPIContext:
 #     def __init__(self,
 #                  input_arg: str = None,
 #                  skip_output_type=False,
-#                  skip_target_dtype=True) -> None:
+#                  skip_output_dtype=True) -> None:
 
 #         self.input_arg = input_arg
 #         self.skip_output_type = skip_output_type
-#         self.skip_target_dtype = skip_target_dtype
+#         self.skip_output_dtype = skip_output_dtype
 
 #     def _recreate_cm(self):
 #         """Return a recreated instance of self.
@@ -464,7 +471,7 @@ def autowrap_return_self(func):
 
 # def autowrap_return_cumlarray(input_arg: str = None,
 #                               skip_output_type=False,
-#                               skip_target_dtype=True):
+#                               skip_output_dtype=True):
 #     def inner(func):
 #         @wraps(func)
 #         def wrapped(*args, **kwargs):
@@ -483,13 +490,13 @@ def autowrap_return_self(func):
 
 #                 # Defaults
 #                 output_type = None
-#                 target_dtype = None
+#                 output_dtype = None
 
 #                 if (not skip_output_type):
 #                     output_type = func_self._get_output_type(input_arg_val)
 
-#                 if (not skip_target_dtype):
-#                     target_dtype = func_self._get_target_dtype()
+#                 if (not skip_output_dtype):
+#                     output_dtype = func_self._get_output_dtype()
 
 #                 ret_val = func(*args, **kwargs)
 
@@ -527,22 +534,82 @@ class ReturnAnyDecorator(object):
         return InternalAPIContextManager(None, None)
 
 
-class BaseReturnArrayDecorator(ReturnAnyDecorator):
+class BaseReturnAnyDecorator(ReturnAnyDecorator):
     def __init__(self,
                  input_arg: str = None,
                  skip_output_type=False,
-                 skip_target_dtype=True) -> None:
+                 skip_output_dtype=True,
+                 skip_n_features_in=False) -> None:
 
         super().__init__()
 
+        self.input_arg = input_arg
+        self.skip_output_type = skip_output_type
+        self.skip_output_dtype = skip_output_dtype
+        self.skip_n_features_in = skip_n_features_in
+        self.skip_autowrap = not (self.skip_output_type or self.skip_output_dtype or skip_n_features_in)
+
     def __call__(self, func):
+
+        # Determine the arg/kwarg to use in the autowrap
+        arg_to_use = self.input_arg
+        arg_to_use_name = None
+
+        argspec = inspect.getfullargspec(func)
+
+        has_self = "self" in argspec.args and argspec.args.index("self") == 0
+
+        # Only do this if we need to and its not set by the developer
+        if (not self.skip_autowrap and has_self):
+
+            self_offset = (1 if has_self else 0)
+
+            # if input_arg is None, then set to first non self argument
+            if (arg_to_use is None):
+
+                assert len(argspec.args) > self_offset, "Cannot use default wrapper. Must contain at least 1 argument besides `self`"
+
+                arg_to_use = argspec.args[self_offset]
+
+            # Now convert that to an index
+            if (isinstance(arg_to_use, str)):
+                arg_to_use_name = arg_to_use
+                arg_to_use = argspec.args.index(arg_to_use)
+
+            assert arg_to_use != -1
+        else:
+            self.skip_autowrap = True
+
         @wraps(func)
-        def inner(*args, **kwds):
+        def inner_skip_autowrap(*args, **kwargs):
 
             with self._recreate_cm():
-                return func(*args, **kwds)
+                return func(*args, **kwargs)
 
-        return inner
+        @wraps(func)
+        def inner(*args, **kwargs):
+
+            # Eventually remove this. Assert for debugging
+            assert len(args) > arg_to_use and arg_to_use_name not in kwargs.keys()
+
+            arg_value = kwargs[arg_to_use] if isinstance(arg_to_use, str) else args[arg_to_use]
+
+            self_val = args[0]
+
+            if (not self.skip_output_type):
+                self_val._set_output_type(arg_value)
+
+            if (not self.skip_output_dtype):
+                self_val._set_target_dtype(arg_value)
+
+            if (not self.skip_n_features_in):
+                self_val._set_n_features_in(arg_value)
+
+            with self._recreate_cm():
+                return func(*args, **kwargs)
+
+        # Return the function depending on whether or not we do any automatic wrapping
+        return inner_skip_autowrap if self.skip_autowrap else inner
 
 
 class ReturnArrayDecorator(object):
@@ -566,13 +633,13 @@ class BaseReturnArrayDecorator(ReturnArrayDecorator):
     def __init__(self,
                  input_arg: str = None,
                  skip_output_type=False,
-                 skip_target_dtype=True) -> None:
+                 skip_output_dtype=True) -> None:
 
         super().__init__()
 
         self.input_arg = input_arg
         self.skip_output_type = skip_output_type
-        self.skip_target_dtype = skip_target_dtype
+        self.skip_output_dtype = skip_output_dtype
 
     def __call__(self, func):
         @wraps(func)
@@ -606,6 +673,6 @@ class BaseReturnArrayDecorator(ReturnArrayDecorator):
 
 
 wrap_api_return_any = ReturnAnyDecorator
-wrap_api_base_return_any = ReturnAnyDecorator
+wrap_api_base_return_any = BaseReturnAnyDecorator
 api_return_array = ReturnArrayDecorator
 api_base_return_array = BaseReturnArrayDecorator
