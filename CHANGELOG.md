@@ -29,6 +29,7 @@
 - PR #2824: Make data conversions warnings be debug level
 - PR #2849: make num_classes significant in FLOAT_SCALAR case
 - PR #2850: Clean up unused params in paramsPCA
+- PR #2863: in FIL, rename leaf_value_t enums to more descriptive
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
