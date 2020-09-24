@@ -23,6 +23,7 @@ build:
     - CUDAHOSTCXX
     - PARALLEL_LEVEL
     - VERSION_SUFFIX
+    - PROJECT_FLASH
 
 requirements:
   build:
