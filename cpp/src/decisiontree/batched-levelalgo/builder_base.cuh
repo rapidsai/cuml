@@ -154,12 +154,7 @@ struct Builder {
     nHistBins = 2 * max_batch * params.n_bins * n_col_blks * nclasses;
     // x2 for mean and mean-of-square
     nPredCounts = max_batch * params.n_bins * n_col_blks;
-    // x3 just to be safe since we can't strictly adhere to max_leaves
-    if (params.max_leaves == -1) {
-      maxNodes = pow(2, (params.max_depth + 1)) - 1;
-    } else {
-      maxNodes = params.max_leaves * 3;
-    }
+    maxNodes = pow(2, (params.max_depth + 1)) - 1;
 
     if (isRegression() && params.split_criterion == CRITERION::MAE) {
       dim3 grid(params.n_blks_for_rows, n_col_blks, max_batch);
