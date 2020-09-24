@@ -43,49 +43,49 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
     int len = params.n_row * params.n_col;
     int len2 = params.n_row_2 * params.n_col;
 
-    allocate(data, len);
-    allocate(labels, params.n_row);
-    allocate(coef, params.n_col);
-    allocate(coef2, params.n_col);
-    allocate(coef3, params.n_col);
-    allocate(coef_ref, params.n_col);
-    allocate(coef2_ref, params.n_col);
-    allocate(coef3_ref, params.n_col);
-    allocate(pred_data, len2);
-    allocate(pred, params.n_row_2);
-    allocate(pred_ref, params.n_row_2);
-    allocate(pred2, params.n_row_2);
-    allocate(pred2_ref, params.n_row_2);
-    allocate(pred3, params.n_row_2);
-    allocate(pred3_ref, params.n_row_2);
+    raft::allocate(data, len);
+    raft::allocate(labels, params.n_row);
+    raft::allocate(coef, params.n_col);
+    raft::allocate(coef2, params.n_col);
+    raft::allocate(coef3, params.n_col);
+    raft::allocate(coef_ref, params.n_col);
+    raft::allocate(coef2_ref, params.n_col);
+    raft::allocate(coef3_ref, params.n_col);
+    raft::allocate(pred_data, len2);
+    raft::allocate(pred, params.n_row_2);
+    raft::allocate(pred_ref, params.n_row_2);
+    raft::allocate(pred2, params.n_row_2);
+    raft::allocate(pred2_ref, params.n_row_2);
+    raft::allocate(pred3, params.n_row_2);
+    raft::allocate(pred3_ref, params.n_row_2);
     T alpha = params.alpha;
 
     T data_h[len] = {0.0, 0.0, 1.0, 0.0, 0.0, 1.0};
-    updateDevice(data, data_h, len, stream);
+      raft::update_device(data, data_h, len, stream);
 
     T labels_h[params.n_row] = {0.0, 0.1, 1.0};
-    updateDevice(labels, labels_h, params.n_row, stream);
+      raft::update_device(labels, labels_h, params.n_row, stream);
 
     T coef_ref_h[params.n_col] = {0.39999998, 0.4};
-    updateDevice(coef_ref, coef_ref_h, params.n_col, stream);
+      raft::update_device(coef_ref, coef_ref_h, params.n_col, stream);
 
     T coef2_ref_h[params.n_col] = {0.3454546, 0.34545454};
-    updateDevice(coef2_ref, coef2_ref_h, params.n_col, stream);
+      raft::update_device(coef2_ref, coef2_ref_h, params.n_col, stream);
 
     T coef3_ref_h[params.n_col] = {0.3799999, 0.38000008};
-    updateDevice(coef3_ref, coef3_ref_h, params.n_col, stream);
+      raft::update_device(coef3_ref, coef3_ref_h, params.n_col, stream);
 
     T pred_data_h[len2] = {0.5, 2.0, 0.2, 1.0};
-    updateDevice(pred_data, pred_data_h, len2, stream);
+      raft::update_device(pred_data, pred_data_h, len2, stream);
 
     T pred_ref_h[params.n_row_2] = {0.28, 1.1999999};
-    updateDevice(pred_ref, pred_ref_h, params.n_row_2, stream);
+      raft::update_device(pred_ref, pred_ref_h, params.n_row_2, stream);
 
     T pred2_ref_h[params.n_row_2] = {0.37818184, 1.1727273};
-    updateDevice(pred2_ref, pred2_ref_h, params.n_row_2, stream);
+      raft::update_device(pred2_ref, pred2_ref_h, params.n_row_2, stream);
 
     T pred3_ref_h[params.n_row_2] = {0.37933332, 1.2533332};
-    updateDevice(pred3_ref, pred3_ref_h, params.n_row_2, stream);
+      raft::update_device(pred3_ref, pred3_ref_h, params.n_row_2, stream);
 
     intercept = T(0);
 
@@ -95,8 +95,8 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
     ridgePredict(handle, pred_data, params.n_row_2, params.n_col, coef,
                  intercept, pred, stream);
 
-    updateDevice(data, data_h, len, stream);
-    updateDevice(labels, labels_h, params.n_row, stream);
+      raft::update_device(data, data_h, len, stream);
+      raft::update_device(labels, labels_h, params.n_row, stream);
 
     intercept2 = T(0);
     ridgeFit(handle, data, params.n_row, params.n_col, labels, &alpha, 1, coef2,
@@ -105,8 +105,8 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
     ridgePredict(handle, pred_data, params.n_row_2, params.n_col, coef2,
                  intercept2, pred2, stream);
 
-    updateDevice(data, data_h, len, stream);
-    updateDevice(labels, labels_h, params.n_row, stream);
+      raft::update_device(data, data_h, len, stream);
+      raft::update_device(labels, labels_h, params.n_row, stream);
 
     intercept3 = T(0);
     ridgeFit(handle, data, params.n_row, params.n_col, labels, &alpha, 1, coef3,
@@ -120,22 +120,22 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
     params = ::testing::TestWithParam<RidgeInputs<T>>::GetParam();
     int len = params.n_row * params.n_col;
 
-    allocate(data_sc, len);
-    allocate(labels_sc, len);
-    allocate(coef_sc, 1);
-    allocate(coef_sc_ref, 1);
+    raft::allocate(data_sc, len);
+    raft::allocate(labels_sc, len);
+    raft::allocate(coef_sc, 1);
+    raft::allocate(coef_sc_ref, 1);
 
     std::vector<T> data_h = {1.0, 1.0, 2.0, 2.0, 1.0, 2.0};
     data_h.resize(len);
-    updateDevice(data_sc, data_h.data(), len, stream);
+      raft::update_device(data_sc, data_h.data(), len, stream);
 
     std::vector<T> labels_h = {6.0, 8.0, 9.0, 11.0, -1.0, 2.0};
     labels_h.resize(len);
-    updateDevice(labels_sc, labels_h.data(), len, stream);
+      raft::update_device(labels_sc, labels_h.data(), len, stream);
 
     std::vector<T> coef_sc_ref_h = {1.8};
     coef_sc_ref_h.resize(1);
-    updateDevice(coef_sc_ref, coef_sc_ref_h.data(), 1, stream);
+      raft::update_device(coef_sc_ref, coef_sc_ref_h.data(), 1, stream);
 
     T intercept_sc = T(0);
     T alpha_sc = T(1.0);

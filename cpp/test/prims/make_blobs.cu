@@ -20,6 +20,7 @@
 #include <cuda_utils.cuh>
 #include <random/make_blobs.cuh>
 #include "test_utils.h"
+#include <raft/device_atomics.cuh>
 
 namespace MLCommon {
 namespace Random {
@@ -35,10 +36,10 @@ __global__ void meanKernel(T* out, int* lens, const T* data, const int* labels,
     T val = data[tid];
     int label = labels[rowid];
     int idx = row_major ? label * ncols + colid : colid * nclusters + label;
-    myAtomicAdd(out + idx * 2, val);
-    myAtomicAdd(out + idx * 2 + 1, val * val);
+    atomicAdd(out + idx * 2, val);
+    atomicAdd(out + idx * 2 + 1, val * val);
     if (colid == 0) {
-      myAtomicAdd(lens + label, 1);
+      atomicAdd(lens + label, 1);
     }
   }
 }
@@ -80,12 +81,12 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     int len = params.rows * params.cols;
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::random::Rng r(params.seed, params.gtype);
-    allocate(data, len);
-    allocate(labels, params.rows);
-    allocate(stats, 2 * params.n_clusters * params.cols, true);
-    allocate(mean_var, 2 * params.n_clusters * params.cols, true);
-    allocate(mu_vec, params.cols * params.n_clusters);
-    allocate(lens, params.n_clusters, true);
+    raft::allocate(data, len);
+    raft::allocate(labels, params.rows);
+    raft::allocate(stats, 2 * params.n_clusters * params.cols, true);
+    raft::allocate(mean_var, 2 * params.n_clusters * params.cols, true);
+    raft::allocate(mu_vec, params.cols * params.n_clusters);
+    raft::allocate(lens, params.n_clusters, true);
     r.uniform(mu_vec, params.cols * params.n_clusters, T(-10.0), T(10.0),
               stream);
     T* sigma_vec = nullptr;
@@ -94,11 +95,11 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
                params.std, params.shuffle, T(-10.0), T(10.0), params.seed,
                params.gtype);
     static const int threads = 128;
-    meanKernel<T><<<ceildiv(len, threads), threads, 0, stream>>>(
+    meanKernel<T><<<raft::ceildiv(len, threads), threads, 0, stream>>>(
       stats, lens, data, labels, params.rows, params.cols, params.n_clusters,
       params.row_major);
     int len1 = params.n_clusters * params.cols;
-    compute_mean_var<T><<<ceildiv(len1, threads), threads, 0, stream>>>(
+    compute_mean_var<T><<<raft::ceildiv(len1, threads), threads, 0, stream>>>(
       mean_var, stats, lens, params.n_clusters, params.cols, params.row_major);
   }
 

@@ -21,6 +21,7 @@
 #include <thrust/reduce.h>
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
+#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Metrics {
@@ -53,7 +54,7 @@ void computeCMatWAtomics(const T *groundTruth, const T *predictedLabel,
   CUDA_CHECK(cudaFuncSetCacheConfig(devConstructContingencyMatrix<T, OutT>,
                                     cudaFuncCachePreferL1));
   static const int block = 128;
-  auto grid = ceildiv(nSamples, block);
+  auto grid = raft::ceildiv(nSamples, block);
   devConstructContingencyMatrix<T, OutT><<<grid, block, 0, stream>>>(
     groundTruth, predictedLabel, nSamples, outMat, outIdxOffset, outDimN);
   CUDA_CHECK(cudaGetLastError());
@@ -91,7 +92,7 @@ void computeCMatWSmemAtomics(const T *groundTruth, const T *predictedLabel,
                              int nSamples, OutT *outMat, int outIdxOffset,
                              int outDimN, cudaStream_t stream) {
   static const int block = 128;
-  auto grid = ceildiv(nSamples, block);
+  auto grid = raft::ceildiv(nSamples, block);
   size_t smemSizePerBlock = outDimN * outDimN * sizeof(OutT);
   devConstructContingencyMatrixSmem<T, OutT>
     <<<grid, block, smemSizePerBlock, stream>>>(
@@ -105,12 +106,12 @@ void contingencyMatrixWSort(const T *groundTruth, const T *predictedLabel,
                             void *workspace, size_t workspaceSize,
                             cudaStream_t stream) {
   T *outKeys = reinterpret_cast<T *>(workspace);
-  auto alignedBufferSz = alignTo<size_t>(nSamples * sizeof(T), 256);
+  auto alignedBufferSz = raft::alignTo<size_t>(nSamples * sizeof(T), 256);
   T *outValue = reinterpret_cast<T *>((size_t)workspace + alignedBufferSz);
   void *pWorkspaceCub =
     reinterpret_cast<void *>((size_t)workspace + 2 * alignedBufferSz);
   auto bitsToSort = log2<int>(maxLabel);
-  if (!isPo2(maxLabel)) ++bitsToSort;
+  if (!raft::isPo2(maxLabel)) ++bitsToSort;
   // we dont really need perfect sorting, should get by with some sort of
   // binning-reordering operation
   ///@todo: future work - explore "efficient" custom binning kernels vs cub sort
@@ -131,7 +132,7 @@ ContingencyMatrixImplType getImplVersion(OutT outDimN) {
   CUDA_CHECK(cudaGetDevice(&currDevice));
   CUDA_CHECK(
     cudaDeviceGetAttribute(&l2CacheSize, cudaDevAttrL2CacheSize, currDevice));
-  auto maxSmemPerBlock = getSharedMemPerBlock();
+  auto maxSmemPerBlock = raft::getSharedMemPerBlock();
   ContingencyMatrixImplType implVersion = IMPL_NONE;
   // keeping 8 block per SM to get good utilization
   // can go higher but reduced L1 size degrades perf
@@ -199,7 +200,7 @@ size_t getContingencyMatrixWorkspaceSize(
     CUDA_CHECK(cub::DeviceRadixSort::SortPairs(pWorkspaceCub, tmpStorageBytes,
                                                pTmpKey, pTmpValue, pTmpKeyOut,
                                                pTmpValueOut, nSamples));
-    auto tmpStagingMemorySize = alignTo<size_t>(nSamples * sizeof(T), 256);
+    auto tmpStagingMemorySize = raft::alignTo<size_t>(nSamples * sizeof(T), 256);
     tmpStagingMemorySize *= 2;
     workspaceSize = tmpStagingMemorySize + tmpStorageBytes;
   }

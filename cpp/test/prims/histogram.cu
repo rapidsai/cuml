@@ -44,7 +44,7 @@ __global__ void naiveHistKernel(int* bins, int nbins, int* in, int nrows) {
 void naiveHist(int* bins, int nbins, int* in, int nrows, int ncols,
                cudaStream_t stream) {
   const int TPB = 128;
-  int nblksx = ceildiv(nrows, TPB);
+  int nblksx = raft::ceildiv(nrows, TPB);
   dim3 blks(nblksx, ncols);
   naiveHistKernel<<<blks, TPB, 0, stream>>>(bins, nbins, in, nrows);
   CUDA_CHECK(cudaGetLastError());
@@ -65,14 +65,14 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
     raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.nrows * params.ncols;
-    allocate(in, len);
+    raft::allocate(in, len);
     if (params.isNormal) {
       r.normalInt(in, len, params.start, params.end, stream);
     } else {
       r.uniformInt(in, len, params.start, params.end, stream);
     }
-    allocate(bins, params.nbins * params.ncols);
-    allocate(ref_bins, params.nbins * params.ncols);
+    raft::allocate(bins, params.nbins * params.ncols);
+    raft::allocate(ref_bins, params.nbins * params.ncols);
     CUDA_CHECK(cudaMemsetAsync(
       ref_bins, 0, sizeof(int) * params.nbins * params.ncols, stream));
     naiveHist(ref_bins, params.nbins, in, params.nrows, params.ncols, stream);

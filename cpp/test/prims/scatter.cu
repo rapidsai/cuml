@@ -37,7 +37,7 @@ __global__ void naiveScatterKernel(DataT *out, const DataT *in, const IdxT *idx,
 template <typename DataT, typename IdxT>
 void naiveScatter(DataT *out, const DataT *in, const IdxT *idx, IdxT len,
                   cudaStream_t stream) {
-  int nblks = ceildiv<int>(len, 128);
+  int nblks = raft::ceildiv<int>(len, 128);
   naiveScatterKernel<DataT, IdxT><<<nblks, 128, 0, stream>>>(out, in, idx, len);
 }
 
@@ -54,10 +54,10 @@ class ScatterTest : public ::testing::TestWithParam<ScatterInputs> {
     raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.len;
-    allocate(in, len);
-    allocate(ref_out, len);
-    allocate(out, len);
-    allocate(idx, len);
+    raft::allocate(in, len);
+    raft::allocate(ref_out, len);
+    raft::allocate(out, len);
+    raft::allocate(idx, len);
     r.uniform(in, len, DataT(-1.0), DataT(1.0), stream);
     {
       std::vector<int> h_idx(len, 0);
@@ -67,11 +67,11 @@ class ScatterTest : public ::testing::TestWithParam<ScatterInputs> {
       std::random_device rd;
       std::mt19937 g(rd());
       std::shuffle(h_idx.begin(), h_idx.end(), g);
-      updateDevice(idx, &(h_idx[0]), len, stream);
+        raft::update_device(idx, &(h_idx[0]), len, stream);
       CUDA_CHECK(cudaStreamSynchronize(stream));
     }
     naiveScatter(ref_out, in, idx, len, stream);
-    scatter(out, in, idx, len, stream);
+    raft::scatter(out, in, idx, len, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 

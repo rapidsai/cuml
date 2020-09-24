@@ -114,7 +114,7 @@ void prepare_data(DataT* d_out, const DataT* d_in, int batch_size, int n_obs,
   }
   // If no difference and the pointers are different, copy in to out
   else if (d + D == 0 && d_in != d_out) {
-    MLCommon::copy(d_out, d_in, n_obs * batch_size, stream);
+    raft::copy(d_out, d_in, n_obs * batch_size, stream);
   }
   // Other cases: no difference and the pointers are the same, nothing to do
 }
@@ -182,12 +182,12 @@ void finalize_forecast(DataT* d_fc, const DataT* d_in, int num_steps,
   constexpr int TPB = 64;  // One thread per series -> avoid big blocks
   if (d + D == 1) {
     _undiff_kernel<false>
-      <<<MLCommon::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
+      <<<raft::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
         d_fc, d_in, num_steps, batch_size, in_ld, n_in, d ? 1 : s);
     CUDA_CHECK(cudaPeekAtLastError());
   } else if (d + D == 2) {
     _undiff_kernel<true>
-      <<<MLCommon::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
+      <<<raft::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
         d_fc, d_in, num_steps, batch_size, in_ld, n_in, d ? 1 : s,
         d == 2 ? 1 : s);
     CUDA_CHECK(cudaPeekAtLastError());

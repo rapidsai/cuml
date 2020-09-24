@@ -20,6 +20,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <selection/knn.cuh>
 #include "coo.cuh"
+#include <common/cudart_utils.h>
 
 #include <raft/spectral/partition.hpp>
 
@@ -117,7 +118,7 @@ void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
                             no_op_cluster_solver_t{}, labels.data(),
                             eigVals.data(), eigVecs.data());
 
-  MLCommon::copy<T>(out, eigVecs.data() + n, n * n_components, stream);
+  raft::copy<T>(out, eigVecs.data() + n, n * n_components, stream);
 
   CUDA_CHECK(cudaGetLastError());
 }

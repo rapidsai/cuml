@@ -52,12 +52,12 @@ TEST_P(CSRToCOO, Result) {
   int *ex_scan_h = new int[4]{0, 4, 8, 9};
   int *verify_h = new int[10]{0, 0, 0, 0, 1, 1, 1, 1, 2, 3};
 
-  allocate(verify, 10);
-  allocate(ex_scan, 4);
-  allocate(result, 10, true);
+  raft::allocate(verify, 10);
+  raft::allocate(ex_scan, 4);
+  raft::allocate(result, 10, true);
 
-  updateDevice(ex_scan, ex_scan_h, 4, stream);
-  updateDevice(verify, verify_h, 10, stream);
+        raft::update_device(ex_scan, ex_scan_h, 4, stream);
+        raft::update_device(verify, verify_h, 10, stream);
 
   csr_to_coo<32>(ex_scan, 4, result, 10, stream);
 
@@ -86,14 +86,14 @@ TEST_P(CSRRowNormalizeMax, Result) {
 
   float verify_h[10] = {1.0, 0.2, 0.0, 0.0, 1.0, 0.1, 0.0, 0.0, 1, 0.0};
 
-  allocate(in_vals, 10);
-  allocate(verify, 10);
-  allocate(ex_scan, 4);
-  allocate(result, 10, true);
+  raft::allocate(in_vals, 10);
+  raft::allocate(verify, 10);
+  raft::allocate(ex_scan, 4);
+  raft::allocate(result, 10, true);
 
-  updateDevice(ex_scan, *&ex_scan_h, 4, stream);
-  updateDevice(in_vals, *&in_vals_h, 10, stream);
-  updateDevice(verify, *&verify_h, 10, stream);
+        raft::update_device(ex_scan, *&ex_scan_h, 4, stream);
+        raft::update_device(in_vals, *&in_vals_h, 10, stream);
+        raft::update_device(verify, *&verify_h, 10, stream);
 
   csr_row_normalize_max<32, float>(ex_scan, in_vals, 10, 4, result, stream);
 
@@ -117,14 +117,14 @@ TEST_P(CSRRowNormalizeL1, Result) {
 
   float verify_h[10] = {0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 1, 0.0};
 
-  allocate(in_vals, 10);
-  allocate(verify, 10);
-  allocate(ex_scan, 4);
-  allocate(result, 10, true);
+  raft::allocate(in_vals, 10);
+  raft::allocate(verify, 10);
+  raft::allocate(ex_scan, 4);
+  raft::allocate(result, 10, true);
 
-  updateDevice(ex_scan, *&ex_scan_h, 4, 0);
-  updateDevice(in_vals, *&in_vals_h, 10, 0);
-  updateDevice(verify, *&verify_h, 10, 0);
+        raft::update_device(ex_scan, *&ex_scan_h, 4, 0);
+        raft::update_device(in_vals, *&in_vals_h, 10, 0);
+        raft::update_device(verify, *&verify_h, 10, 0);
 
   csr_row_normalize_l1<32, float>(ex_scan, in_vals, 10, 4, result, 0);
   cudaDeviceSynchronize();
@@ -159,25 +159,25 @@ TEST_P(CSRSum, Result) {
                         1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
   int verify_indptr_h[14] = {1, 2, 3, 4, 5, 1, 2, 3, 5, 0, 0, 1, 1, 0};
 
-  allocate(in_vals_a, 10);
-  allocate(in_vals_b, 10);
-  allocate(verify, 14);
-  allocate(ex_scan, 4);
-  allocate(verify_indptr, 14);
+  raft::allocate(in_vals_a, 10);
+  raft::allocate(in_vals_b, 10);
+  raft::allocate(verify, 14);
+  raft::allocate(ex_scan, 4);
+  raft::allocate(verify_indptr, 14);
 
-  allocate(ind_ptr_a, 10);
-  allocate(ind_ptr_b, 10);
+  raft::allocate(ind_ptr_a, 10);
+  raft::allocate(ind_ptr_b, 10);
 
-  updateDevice(ex_scan, *&ex_scan_h, 4, stream);
-  updateDevice(in_vals_a, *&in_vals_h, 10, stream);
-  updateDevice(in_vals_b, *&in_vals_h, 10, stream);
-  updateDevice(verify, *&verify_h, 14, stream);
-  updateDevice(verify_indptr, *&verify_indptr_h, 14, stream);
-  updateDevice(ind_ptr_a, *&indptr_a_h, 10, stream);
-  updateDevice(ind_ptr_b, *&indptr_b_h, 10, stream);
+        raft::update_device(ex_scan, *&ex_scan_h, 4, stream);
+        raft::update_device(in_vals_a, *&in_vals_h, 10, stream);
+        raft::update_device(in_vals_b, *&in_vals_h, 10, stream);
+        raft::update_device(verify, *&verify_h, 14, stream);
+        raft::update_device(verify_indptr, *&verify_indptr_h, 14, stream);
+        raft::update_device(ind_ptr_a, *&indptr_a_h, 10, stream);
+        raft::update_device(ind_ptr_b, *&indptr_b_h, 10, stream);
 
   int *result_ind;
-  allocate(result_ind, 4);
+  raft::allocate(result_ind, 4);
 
   int nnz = csr_add_calc_inds<float, 32>(ex_scan, ind_ptr_a, in_vals_a, 10,
                                          ex_scan, ind_ptr_b, in_vals_b, 10, 4,
@@ -185,8 +185,8 @@ TEST_P(CSRSum, Result) {
 
   int *result_indptr;
   float *result_val;
-  allocate(result_indptr, nnz);
-  allocate(result_val, nnz);
+  raft::allocate(result_indptr, nnz);
+  raft::allocate(result_val, nnz);
 
   csr_add_finalize<float, 32>(ex_scan, ind_ptr_a, in_vals_a, 10, ex_scan,
                               ind_ptr_b, in_vals_b, 10, 4, result_ind,
@@ -222,12 +222,12 @@ TEST_P(CSRRowOpTest, Result) {
 
   float verify_h[10] = {0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 2.0, 3.0};
 
-  allocate(verify, 10);
-  allocate(ex_scan, 4);
-  allocate(result, 10, true);
+  raft::allocate(verify, 10);
+  raft::allocate(ex_scan, 4);
+  raft::allocate(result, 10, true);
 
-  updateDevice(ex_scan, *&ex_scan_h, 4, stream);
-  updateDevice(verify, *&verify_h, 10, stream);
+        raft::update_device(ex_scan, *&ex_scan_h, 4, stream);
+        raft::update_device(verify, *&verify_h, 10, stream);
 
   csr_row_op<int, 32>(
     ex_scan, 4, 10,
@@ -258,14 +258,14 @@ TEST_P(AdjGraphTest, Result) {
 
   int verify_h[9] = {0, 1, 2, 0, 1, 2, 0, 1, 2};
 
-  allocate(row_ind, 3);
-  allocate(adj, 18);
-  allocate(result, 9, true);
-  allocate(verify, 9);
+  raft::allocate(row_ind, 3);
+  raft::allocate(adj, 18);
+  raft::allocate(result, 9, true);
+  raft::allocate(verify, 9);
 
-  updateDevice(row_ind, *&row_ind_h, 3, stream);
-  updateDevice(adj, *&adj_h, 18, stream);
-  updateDevice(verify, *&verify_h, 9, stream);
+        raft::update_device(row_ind, *&row_ind_h, 3, stream);
+        raft::update_device(adj, *&adj_h, 18, stream);
+        raft::update_device(verify, *&verify_h, 9, stream);
 
   csr_adj_graph_batched<int, 32>(row_ind, 6, 9, 3, adj, result, stream);
 
@@ -296,10 +296,10 @@ TEST_P(WeakCCTest, Result) {
   int row_ind_ptr_h2[5] = {3, 4, 3, 4, 5};
   int verify_h2[6] = {1, 1, 1, 5, 5, 5};
 
-  allocate(row_ind, 3);
-  allocate(row_ind_ptr, 9);
-  allocate(result, 9, true);
-  allocate(verify, 9);
+  raft::allocate(row_ind, 3);
+  raft::allocate(row_ind_ptr, 9);
+  raft::allocate(result, 9, true);
+  raft::allocate(verify, 9);
 
   device_buffer<bool> xa(alloc, stream, 6);
   device_buffer<bool> fa(alloc, stream, 6);
@@ -309,9 +309,9 @@ TEST_P(WeakCCTest, Result) {
   /**
      * Run batch #1
      */
-  updateDevice(row_ind, *&row_ind_h1, 3, stream);
-  updateDevice(row_ind_ptr, *&row_ind_ptr_h1, 9, stream);
-  updateDevice(verify, *&verify_h1, 6, stream);
+        raft::update_device(row_ind, *&row_ind_h1, 3, stream);
+        raft::update_device(row_ind_ptr, *&row_ind_ptr_h1, 9, stream);
+        raft::update_device(verify, *&verify_h1, 6, stream);
 
   weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 9, 6, 0, 3, &state,
                            stream);
@@ -322,9 +322,9 @@ TEST_P(WeakCCTest, Result) {
   /**
      * Run batch #2
      */
-  updateDevice(row_ind, *&row_ind_h2, 3, stream);
-  updateDevice(row_ind_ptr, *&row_ind_ptr_h2, 5, stream);
-  updateDevice(verify, *&verify_h2, 6, stream);
+        raft::update_device(row_ind, *&row_ind_h2, 3, stream);
+        raft::update_device(row_ind_ptr, *&row_ind_ptr_h2, 5, stream);
+        raft::update_device(verify, *&verify_h2, 6, stream);
 
   weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 5, 6, 4, 3, &state,
                            stream);

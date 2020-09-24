@@ -103,10 +103,10 @@ DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1,
                              Type sigma2, Type mu2) {
   constexpr Type twoPi = Type(2.0) * Type(3.141592654);
   constexpr Type minus2 = -Type(2.0);
-  Type R = MLCommon::mySqrt(minus2 * MLCommon::myLog(val1));
+  Type R = raft::mySqrt(minus2 * raft::myLog(val1));
   Type theta = twoPi * val2;
   Type s, c;
-  MLCommon::mySinCos(theta, s, c);
+  raft::mySinCos(theta, s, c);
   val1 = R * c * sigma1 + mu1;
   val2 = R * s * sigma2 + mu2;
 }
@@ -130,7 +130,7 @@ class Rng {
       offset(0),
       // simple heuristic to make sure all SMs will be occupied properly
       // and also not too many initialization calls will be made by each thread
-      nBlocks(4 * MLCommon::getMultiProcessorCount()),
+      nBlocks(4 * getMultiProcessorCount()),
       gen() {
     seed(_s);
   }
@@ -161,7 +161,7 @@ class Rng {
   void affine_transform_params(IdxT n, IdxT &a, IdxT &b) {
     // always keep 'a' to be coprime to 'n'
     a = gen() % n;
-    while (MLCommon::gcd(a, n) != 1) {
+    while (gcd(a, n) != 1) {
       ++a;
       if (a >= n) a = 0;
     }
@@ -354,7 +354,7 @@ class Rng {
     custom_distribution(
       ptr, len,
       [=] __device__(Type val, LenType idx) {
-        return mu - beta * MLCommon::myLog(-MLCommon::myLog(val));
+        return mu - beta * raft::myLog(-raft::myLog(val));
       },
       stream);
   }
@@ -376,8 +376,8 @@ class Rng {
       offset, ptr, len,
       [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
         box_muller_transform<Type>(val1, val2, sigma, mu);
-        val1 = MLCommon::myExp(val1);
-        val2 = MLCommon::myExp(val2);
+        val1 = raft::myExp(val1);
+        val2 = raft::myExp(val2);
       },
       NumThreads, nBlocks, type, stream);
   }
@@ -399,7 +399,7 @@ class Rng {
       ptr, len,
       [=] __device__(Type val, LenType idx) {
         constexpr Type one = (Type)1.0;
-        return mu - scale * MLCommon::myLog(one / val - one);
+        return mu - scale * raft::myLog(one / val - one);
       },
       stream);
   }
@@ -419,7 +419,7 @@ class Rng {
       ptr, len,
       [=] __device__(Type val, LenType idx) {
         constexpr Type one = (Type)1.0;
-        return -MLCommon::myLog(one - val) / lambda;
+        return -raft::myLog(one - val) / lambda;
       },
       stream);
   }
@@ -440,7 +440,7 @@ class Rng {
       [=] __device__(Type val, LenType idx) {
         constexpr Type one = (Type)1.0;
         constexpr Type two = (Type)2.0;
-        return MLCommon::mySqrt(-two * MLCommon::myLog(one - val)) * sigma;
+        return raft::mySqrt(-two * raft::myLog(one - val)) * sigma;
       },
       stream);
   }
@@ -466,9 +466,9 @@ class Rng {
         constexpr Type oneHalf = (Type)0.5;
         Type out;
         if (val <= oneHalf) {
-          out = mu + scale * MLCommon::myLog(two * val);
+          out = mu + scale * raft::myLog(two * val);
         } else {
-          out = mu - scale * MLCommon::myLog(two * (one - val));
+          out = mu - scale * raft::myLog(two * (one - val));
         }
         return out;
       },
@@ -523,7 +523,7 @@ class Rng {
       [wts, inIdxPtr] __device__(WeightsT val, IdxT idx) {
         inIdxPtr[idx] = idx;
         constexpr WeightsT one = (WeightsT)1.0;
-        auto exp = -MLCommon::myLog(one - val);
+        auto exp = -raft::myLog(one - val);
         if (wts != nullptr) {
           return exp / wts[idx];
         }
@@ -534,13 +534,13 @@ class Rng {
     // sort the array and pick the top sampledLen items
     IdxT *outIdxPtr = outIdxBuff.data();
     raft::mr::device::buffer<char> workspace(allocator, stream);
-    MLCommon::sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr,
+    sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr,
                         outIdxPtr, (int)len, stream);
     if (outIdx != nullptr) {
       CUDA_CHECK(cudaMemcpyAsync(outIdx, outIdxPtr, sizeof(IdxT) * sampledLen,
                                  cudaMemcpyDeviceToDevice, stream));
     }
-    MLCommon::scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
+    scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
   }
 
   /**
@@ -594,7 +594,7 @@ class Rng {
   uint64_t _setupSeeds(uint64_t &seed, uint64_t &offset, LenType len,
                        int nThreads, int nBlocks) {
     LenType itemsPerThread =
-      MLCommon::ceildiv(len, LenType(nBlocks * nThreads));
+      raft::ceildiv(len, LenType(nBlocks * nThreads));
     if (IsNormal && itemsPerThread % 2 == 1) {
       ++itemsPerThread;
     }

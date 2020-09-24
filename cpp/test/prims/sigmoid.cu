@@ -44,15 +44,15 @@ class SigmoidTest : public ::testing::TestWithParam<SigmoidInputs<T>> {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    allocate(data, len);
+    raft::allocate(data, len);
     T data_h[params.len] = {2.1, -4.5, -0.34, 10.0};
-    updateDevice(data, data_h, len, stream);
+      raft::update_device(data, data_h, len, stream);
 
-    allocate(result, len);
-    allocate(result_ref, len);
+    raft::allocate(result, len);
+    raft::allocate(result_ref, len);
     T result_ref_h[params.len] = {0.89090318, 0.01098694, 0.41580948,
                                   0.9999546};
-    updateDevice(result_ref, result_ref_h, len, stream);
+      raft::update_device(result_ref, result_ref_h, len, stream);
 
     sigmoid(result, data, len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));

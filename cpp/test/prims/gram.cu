@@ -37,10 +37,10 @@ class GramMatrixTest : public ::testing::Test {
     CUBLAS_CHECK(cublasCreate(&cublas_handle));
     allocator = std::make_shared<raft::mr::device::default_allocator>();
     host_allocator = std::make_shared<raft::mr::host::default_allocator>();
-    allocate(x_dev, n1 * n_cols);
-    updateDevice(x_dev, x_host, n1 * n_cols, stream);
+    raft::allocate(x_dev, n1 * n_cols);
+      raft::update_device(x_dev, x_host, n1 * n_cols, stream);
 
-    allocate(gram_dev, n1 * n1);
+    raft::allocate(gram_dev, n1 * n1);
   }
 
   void TearDown() override {
@@ -53,9 +53,9 @@ class GramMatrixTest : public ::testing::Test {
   void naiveRBFKernel(float *x1_dev, int n1, int n_cols, float *x2_dev, int n2,
                       float gamma) {
     host_buffer<float> x1_host(host_allocator, stream, n1 * n_cols);
-    updateHost(x1_host.data(), x1_dev, n1 * n_cols, stream);
+      raft::update_host(x1_host.data(), x1_dev, n1 * n_cols, stream);
     host_buffer<float> x2_host(host_allocator, stream, n2 * n_cols);
-    updateHost(x2_host.data(), x2_dev, n2 * n_cols, stream);
+      raft::update_host(x2_host.data(), x2_dev, n2 * n_cols, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     for (int i = 0; i < n1; i++) {
       for (int j = 0; j < n2; j++) {
@@ -164,9 +164,9 @@ TEST_F(GramMatrixTest, RBF_Rectangular) {
   }
 
   device_buffer<float> x1_dev(allocator, stream, n1 * n_cols);
-  updateDevice(x1_dev.data(), x1, n1 * n_cols, stream);
+        raft::update_device(x1_dev.data(), x1, n1 * n_cols, stream);
   device_buffer<float> x2_dev(allocator, stream, n2 * n_cols);
-  updateDevice(x2_dev.data(), x2, n2 * n_cols, stream);
+        raft::update_device(x2_dev.data(), x2, n2 * n_cols, stream);
 
   kernel(x1_dev.data(), n1, n_cols, x2_dev.data(), n2, gram_dev, stream);
   ASSERT_TRUE(

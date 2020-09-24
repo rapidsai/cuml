@@ -16,6 +16,7 @@
 
 #include "common.cuh"
 #include "sg_impl.cuh"
+#include <common/cudart_utils.h>
 
 namespace ML {
 namespace kmeans {
@@ -154,8 +155,8 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
     int cIdx = dis(gen);
     auto centroidsView = X.template view<2>({1, n_features}, {cIdx, 0});
 
-    MLCommon::copy(initialCentroid.data(), centroidsView.data(),
-                   centroidsView.numElements(), stream);
+    raft::copy(initialCentroid.data(), centroidsView.data(),
+               centroidsView.numElements(), stream);
 
     h_isSampleCentroid[cIdx] = 1;
   }
@@ -168,8 +169,8 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
   Tensor<int, 1> isSampleCentroid({n_samples}, handle.get_device_allocator(),
                                   stream);
 
-  MLCommon::copy(isSampleCentroid.data(), h_isSampleCentroid.data(),
-                 isSampleCentroid.numElements(), stream);
+  raft::copy(isSampleCentroid.data(), h_isSampleCentroid.data(),
+             isSampleCentroid.numElements(), stream);
 
   MLCommon::device_buffer<DataT> centroidsBuf(handle.get_device_allocator(),
                                               stream);
@@ -177,8 +178,8 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
   // reset buffer to store the chosen centroid
   centroidsBuf.reserve(n_clusters * n_features, stream);
   centroidsBuf.resize(initialCentroid.numElements(), stream);
-  MLCommon::copy(centroidsBuf.begin(), initialCentroid.data(),
-                 initialCentroid.numElements(), stream);
+  raft::copy(centroidsBuf.begin(), initialCentroid.data(),
+             initialCentroid.numElements(), stream);
 
   auto potentialCentroids = std::move(Tensor<DataT, 2, IndexT>(
     centroidsBuf.data(),
@@ -221,7 +222,7 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
                  raft::comms::op_t::SUM, stream);
 
   DataT psi = 0;
-  MLCommon::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
+  raft::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
 
   // <<< End of Step-2 >>>
 
@@ -252,7 +253,7 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
       [] __device__(const DataT &a, const DataT &b) { return a + b; }, stream);
     comm.allreduce(clusterCost.data(), clusterCost.data(), clusterCost.size(),
                    raft::comms::op_t::SUM, stream);
-    MLCommon::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
+    raft::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
     ASSERT(comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
            "An error occurred in the distributed operation. This can result "
            "from a failed rank");
@@ -363,15 +364,15 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
     initRandom(handle, rand_params, X, centroidsRawData);
 
     // copy centroids generated during kmeans|| iteration to the buffer
-    MLCommon::copy(centroidsRawData.data() + n_random_clusters * n_features,
-                   potentialCentroids.data(), potentialCentroids.numElements(),
-                   stream);
+    raft::copy(centroidsRawData.data() + n_random_clusters * n_features,
+               potentialCentroids.data(), potentialCentroids.numElements(),
+               stream);
 
   } else {
     // found the required n_clusters
     centroidsRawData.resize(n_clusters * n_features, stream);
-    MLCommon::copy(centroidsRawData.data(), potentialCentroids.data(),
-                   potentialCentroids.numElements(), stream);
+    raft::copy(centroidsRawData.data(), potentialCentroids.data(),
+               potentialCentroids.numElements(), stream);
   }
 }
 
@@ -534,11 +535,11 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
       stream, centroids.data(), newCentroids.data());
 
     DataT sqrdNormError = 0;
-    MLCommon::copy(&sqrdNormError, sqrdNorm.data(), sqrdNorm.numElements(),
-                   stream);
+    raft::copy(&sqrdNormError, sqrdNorm.data(), sqrdNorm.numElements(),
+               stream);
 
-    MLCommon::copy(centroidsRawData.data(), newCentroids.data(),
-                   newCentroids.numElements(), stream);
+    raft::copy(centroidsRawData.data(), newCentroids.data(),
+               newCentroids.numElements(), stream);
 
     bool done = false;
     if (params.inertia_check) {
@@ -563,7 +564,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
                      raft::comms::op_t::SUM, stream);
 
       DataT curClusteringCost = 0;
-      MLCommon::copy(&curClusteringCost, &clusterCostD->value, 1, stream);
+      raft::copy(&curClusteringCost, &clusterCostD->value, 1, stream);
 
       ASSERT(comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
              "An error occurred in the distributed operation. This can result "
@@ -639,7 +640,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
            "the requested initialization method)");
 
     centroidsRawData.resize(params.n_clusters * n_features, stream);
-    MLCommon::copy(centroidsRawData.begin(), centroids,
+    raft::copy(centroidsRawData.begin(), centroids,
                    params.n_clusters * n_features, stream);
 
   } else {
@@ -648,7 +649,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 
   fit(handle, params, data, centroidsRawData, inertia, n_iter, workspace);
 
-  MLCommon::copy(centroids, centroidsRawData.data(),
+  raft::copy(centroids, centroidsRawData.data(),
                  params.n_clusters * n_features, stream);
 
   LOG(handle,

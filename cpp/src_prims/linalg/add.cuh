@@ -90,7 +90,7 @@ void addDevScalar(math_t *outDev, const math_t *inDev,
                   cudaStream_t stream) {
   // TODO: block dimension has not been tuned
   dim3 block(256);
-  dim3 grid(ceildiv(len, (IdxType)block.x));
+  dim3 grid(raft::ceildiv(len, (IdxType)block.x));
   add_dev_scalar_kernel<math_t>
     <<<grid, block, 0, stream>>>(outDev, inDev, singleScalarDev, len);
   CUDA_CHECK(cudaPeekAtLastError());

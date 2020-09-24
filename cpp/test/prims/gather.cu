@@ -73,25 +73,25 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     uint32_t len = nrows * ncols;
 
     // input matrix setup
-    allocate(d_in, nrows * ncols);
+    raft::allocate(d_in, nrows * ncols);
     h_in = (MatrixT *)malloc(sizeof(MatrixT) * nrows * ncols);
     r.uniform(d_in, len, MatrixT(-1.0), MatrixT(1.0), stream);
-    updateHost(h_in, d_in, len, stream);
+      raft::update_host(h_in, d_in, len, stream);
 
     // map setup
-    allocate(d_map, map_length);
+    raft::allocate(d_map, map_length);
     h_map = (MapT *)malloc(sizeof(MapT) * map_length);
     r_int.uniformInt(d_map, map_length, (MapT)0, nrows, stream);
-    updateHost(h_map, d_map, map_length, stream);
+      raft::update_host(h_map, d_map, map_length, stream);
 
     // expected and actual output matrix setup
     h_out = (MatrixT *)malloc(sizeof(MatrixT) * map_length * ncols);
-    allocate(d_out_exp, map_length * ncols);
-    allocate(d_out_act, map_length * ncols);
+    raft::allocate(d_out_exp, map_length * ncols);
+    raft::allocate(d_out_act, map_length * ncols);
 
     // launch gather on the host and copy the results to device
     naiveGather(h_in, ncols, nrows, h_map, map_length, h_out);
-    updateDevice(d_out_exp, h_out, map_length * ncols, stream);
+      raft::update_device(d_out_exp, h_out, map_length * ncols, stream);
 
     // launch device version of the kernel
     gatherLaunch(d_in, ncols, nrows, d_map, map_length, d_out_act, stream);

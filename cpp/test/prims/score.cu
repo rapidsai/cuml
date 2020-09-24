@@ -40,13 +40,13 @@ TEST(ScoreTestHighScore, Result) {
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
   float *d_y;
-  MLCommon::allocate(d_y, 5);
+  raft::allocate(d_y, 5);
 
   float *d_y_hat;
-  MLCommon::allocate(d_y_hat, 5);
+  raft::allocate(d_y_hat, 5);
 
-  MLCommon::updateDevice(d_y_hat, y_hat, 5, stream);
-  MLCommon::updateDevice(d_y, y, 5, stream);
+        raft::update_device(d_y_hat, y_hat, 5, stream);
+        raft::update_device(d_y, y, 5, stream);
 
   float result = MLCommon::Score::r2_score(d_y, d_y_hat, 5, stream);
   ASSERT_TRUE(result == 0.98f);
@@ -61,13 +61,13 @@ TEST(ScoreTestLowScore, Result) {
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
   float *d_y;
-  MLCommon::allocate(d_y, 5);
+  raft::allocate(d_y, 5);
 
   float *d_y_hat;
-  MLCommon::allocate(d_y_hat, 5);
+  raft::allocate(d_y_hat, 5);
 
-  MLCommon::updateDevice(d_y_hat, y_hat, 5, stream);
-  MLCommon::updateDevice(d_y, y, 5, stream);
+        raft::update_device(d_y_hat, y_hat, 5, stream);
+        raft::update_device(d_y, y, 5, stream);
 
   float result = MLCommon::Score::r2_score(d_y, d_y_hat, 5, stream);
 
@@ -123,16 +123,16 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
     std::shared_ptr<deviceAllocator> d_allocator(
       new raft::mr::device::default_allocator);
 
-    allocate(predictions, params.n);
-    allocate(ref_predictions, params.n);
+    raft::allocate(predictions, params.n);
+    raft::allocate(ref_predictions, params.n);
     r.normal(ref_predictions, params.n, (T)0.0, (T)1.0, stream);
-    copyAsync(predictions, ref_predictions, params.n, stream);
+      raft::copy_async(predictions, ref_predictions, params.n, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     //Modify params.changed_n unique predictions to a different value. New value is irrelevant.
     if (params.changed_n > 0) {
       int threads = 64;
-      int blocks = ceildiv(params.changed_n, threads);
+      int blocks = raft::ceildiv(params.changed_n, threads);
       //@todo Could also generate params.changed_n unique random positions in [0, n) range, instead of changing the first ones.
       change_vals<T><<<blocks, threads, 0, stream>>>(
         predictions, ref_predictions, params.changed_n);
@@ -266,13 +266,13 @@ class RegressionMetricsTest
     std::shared_ptr<deviceAllocator> d_allocator(
       new raft::mr::device::default_allocator);
 
-    allocate(d_predictions, params.n);
-    allocate(d_ref_predictions, params.n);
+    raft::allocate(d_predictions, params.n);
+    raft::allocate(d_ref_predictions, params.n);
 
     if (params.hardcoded_preds) {
-      updateDevice(d_predictions, params.predictions.data(), params.n, stream);
-      updateDevice(d_ref_predictions, params.ref_predictions.data(), params.n,
-                   stream);
+        raft::update_device(d_predictions, params.predictions.data(), params.n, stream);
+        raft::update_device(d_ref_predictions, params.ref_predictions.data(), params.n,
+                            stream);
     } else {
       params.predictions.resize(params.n);
       params.ref_predictions.resize(params.n);
@@ -283,9 +283,9 @@ class RegressionMetricsTest
       r.uniform(d_ref_predictions, params.n, params.ref_predictions_range[0],
                 params.ref_predictions_range[1], stream);
       // copy to host to compute reference regression metrics
-      updateHost(params.predictions.data(), d_predictions, params.n, stream);
-      updateHost(params.ref_predictions.data(), d_ref_predictions, params.n,
-                 stream);
+        raft::update_host(params.predictions.data(), d_predictions, params.n, stream);
+        raft::update_host(params.ref_predictions.data(), d_ref_predictions, params.n,
+                          stream);
       CUDA_CHECK(cudaStreamSynchronize(stream));
     }
 

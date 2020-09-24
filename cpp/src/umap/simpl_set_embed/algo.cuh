@@ -134,9 +134,9 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
     [=] __device__(T input) { return input * nsr_inv; }, stream);
 
   MLCommon::device_buffer<T> epoch_of_next_sample(d_alloc, stream, nnz);
-  MLCommon::copy(epoch_of_next_sample.data(), epochs_per_sample, nnz, stream);
+  raft::copy(epoch_of_next_sample.data(), epochs_per_sample, nnz, stream);
 
-  dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   uint64_t seed = params->random_state;
 
@@ -157,7 +157,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
     MLCommon::device_buffer<double> embedding_updates_buf(
       d_alloc, stream, n_vertices * params->n_components);
     double *embedding_updates = embedding_updates_buf.data();
-    dim3 grid2(MLCommon::ceildiv(n_vertices * params->n_components, TPB_X));
+    dim3 grid2(raft::ceildiv(n_vertices * params->n_components, TPB_X));
 
     for (int n = 0; n < n_epochs; n++) {
       CUDA_CHECK(cudaMemsetAsync(
@@ -241,8 +241,8 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
 
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
     std::stringstream ss;
-    ss << MLCommon::arr2Str(epochs_per_sample.data(), out.nnz,
-                            "epochs_per_sample", stream);
+    ss << raft::arr2Str(epochs_per_sample.data(), out.nnz,
+                        "epochs_per_sample", stream);
     CUML_LOG_DEBUG(ss.str().c_str());
   }
 

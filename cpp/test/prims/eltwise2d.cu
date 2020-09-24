@@ -48,7 +48,7 @@ void naiveEltwise2DAdd(int rows, int cols, const Type *aPtr, const Type *bPtr,
                        const Type *cPtr, Type *dPtr, Type alpha, Type beta,
                        cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(rows * cols, TPB);
+  int nblks = raft::ceildiv(rows * cols, TPB);
   naiveEltwise2DAddKernel<Type><<<nblks, TPB, 0, stream>>>(
     rows, cols, aPtr, bPtr, cPtr, dPtr, alpha, beta);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -85,10 +85,10 @@ class Eltwise2dTest : public ::testing::TestWithParam<Eltwise2dInputs<T>> {
     auto w = params.w;
     auto h = params.h;
     auto len = w * h;
-    allocate(in1, h);
-    allocate(in2, w);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in1, h);
+    raft::allocate(in2, w);
+    raft::allocate(out_ref, len);
+    raft::allocate(out, len);
     r.uniform(in1, h, T(-1.0), T(1.0), stream);
     r.uniform(in2, w, T(-1.0), T(1.0), stream);
 

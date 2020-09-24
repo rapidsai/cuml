@@ -40,7 +40,7 @@ template <typename Type>
 void naiveScale(Type *out, const Type *in, Type scalar, int len,
                 cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = MLCommon::ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   naiveScaleKernel<Type><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -130,7 +130,7 @@ template <typename Type>
 void naiveAdd(Type *out, const Type *in1, const Type *in2, int len,
               cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = MLCommon::ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   naiveAddKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }

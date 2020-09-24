@@ -49,9 +49,9 @@ class stridedReductionTest
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
 
-    allocate(data, len);
-    allocate(dots_exp, cols);  //expected dot products (from test)
-    allocate(dots_act, cols);  //actual dot products (from prim)
+    raft::allocate(data, len);
+    raft::allocate(dots_exp, cols);  //expected dot products (from test)
+    raft::allocate(dots_act, cols);  //actual dot products (from prim)
     r.uniform(data, len, T(-1.0), T(1.0),
               stream);  //initialize matrix to random
 

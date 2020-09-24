@@ -228,7 +228,7 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
   //kernel that populates the d_aArray
   //kernel configuration
   dim3 numThreadsPerBlock(32, 1, 1);
-  dim3 numBlocks(ceildiv<int>(nRows, numThreadsPerBlock.x), 1, 1);
+  dim3 numBlocks(raft::ceildiv<int>(nRows, numThreadsPerBlock.x), 1, 1);
 
   //calling the kernel
   populateAKernel<<<numBlocks, numThreadsPerBlock, 0, stream>>>(
@@ -247,10 +247,10 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
     binCountArray.data(), nLabels, nRows, true, true, DivOp<DataT>(), stream);
 
   //calculating row-wise minimum
-  LinAlg::reduce<DataT, DataT, int, Nop<DataT>, MinOp<DataT>>(
+  LinAlg::reduce<DataT, DataT, int, raft::Nop<DataT>, MinOp<DataT>>(
     d_bArray.data(), averageDistanceBetweenSampleAndCluster.data(), nLabels,
     nRows, std::numeric_limits<DataT>::max(), true, true, stream, false,
-    Nop<DataT>(), MinOp<DataT>());
+    raft::Nop<DataT>(), MinOp<DataT>());
 
   //calculating the silhouette score per sample using the d_aArray and d_bArray
   raft::linalg::binaryOp<DataT, SilOp<DataT>>(perSampleSilScore,
@@ -264,11 +264,11 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
 
   DataT avgSilhouetteScore;
 
-  raft::linalg::mapThenSumReduce<double, Nop<DataT>>(
-    d_avgSilhouetteScore.data(), nRows, Nop<DataT>(), stream, perSampleSilScore,
+  raft::linalg::mapThenSumReduce<double, raft::Nop<DataT>>(
+    d_avgSilhouetteScore.data(), nRows, raft::Nop<DataT>(), stream, perSampleSilScore,
     perSampleSilScore);
 
-  updateHost(&avgSilhouetteScore, d_avgSilhouetteScore.data(), 1, stream);
+        raft::update_host(&avgSilhouetteScore, d_avgSilhouetteScore.data(), 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

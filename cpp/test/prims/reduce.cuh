@@ -40,7 +40,7 @@ template <typename Type>
 void naiveCoalescedReduction(Type *dots, const Type *data, int D, int N,
                              cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(N, TPB);
+  int nblks = raft::ceildiv(N, TPB);
   naiveCoalescedReductionKernel<Type>
     <<<nblks, TPB, 0, stream>>>(dots, data, D, N);
   CUDA_CHECK(cudaPeekAtLastError());

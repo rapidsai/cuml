@@ -59,25 +59,25 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
     int max_sweeps = 100;
 
     T mu = 0.0, sigma = 1.0;
-    allocate(A, m * n);
+    raft::allocate(A, m * n);
     if (params.tolerance > 1) {  // Sanity check
       ASSERT(m == 3, "This test only supports mxn=3x2!");
       ASSERT(m * n == 6, "This test only supports mxn=3x2!");
       T data_h[] = {1.0, 4.0, 2.0, 2.0, 5.0, 1.0};
-      updateDevice(A, data_h, m * n, stream);
+        raft::update_device(A, data_h, m * n, stream);
 
       T left_eig_vectors_ref_h[] = {-0.308219, -0.906133, -0.289695};
       T right_eig_vectors_ref_h[] = {-0.638636, -0.769509};
       T sing_vals_ref_h[] = {7.065283};
 
-      allocate(left_eig_vectors_ref, m * 1);
-      allocate(right_eig_vectors_ref, n * 1);
-      allocate(sing_vals_ref, 1);
+      raft::allocate(left_eig_vectors_ref, m * 1);
+      raft::allocate(right_eig_vectors_ref, n * 1);
+      raft::allocate(sing_vals_ref, 1);
 
-      updateDevice(left_eig_vectors_ref, left_eig_vectors_ref_h, m * 1, stream);
-      updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, n * 1,
-                   stream);
-      updateDevice(sing_vals_ref, sing_vals_ref_h, 1, stream);
+        raft::update_device(left_eig_vectors_ref, left_eig_vectors_ref_h, m * 1, stream);
+        raft::update_device(right_eig_vectors_ref, right_eig_vectors_ref_h, n * 1,
+                            stream);
+        raft::update_device(sing_vals_ref, sing_vals_ref_h, 1, stream);
 
     } else {  // Other normal tests
       r.normal(A, m * n, mu, sigma, stream);
@@ -85,27 +85,27 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
     A_backup_cpu = (T *)malloc(
       sizeof(T) * m *
       n);  // Backup A matrix as svdJacobi will destroy the content of A
-    updateHost(A_backup_cpu, A, m * n, stream);
+      raft::update_host(A_backup_cpu, A, m * n, stream);
 
     // RSVD tests
     if (params.k == 0) {  // Test with PC and upsampling ratio
       params.k = max((int)(min(m, n) * params.PC_perc), 1);
       params.p = max((int)(min(m, n) * params.UpS_perc), 1);
-      allocate(U, m * params.k, true);
-      allocate(S, params.k, true);
-      allocate(V, n * params.k, true);
+      raft::allocate(U, m * params.k, true);
+      raft::allocate(S, params.k, true);
+      raft::allocate(V, n * params.k, true);
       rsvdPerc(A, m, n, S, U, V, params.PC_perc, params.UpS_perc,
                params.use_bbt, true, true, false, eig_svd_tol, max_sweeps,
                cusolverH, cublasH, stream, allocator);
     } else {  // Test with directly given fixed rank
-      allocate(U, m * params.k, true);
-      allocate(S, params.k, true);
-      allocate(V, n * params.k, true);
+      raft::allocate(U, m * params.k, true);
+      raft::allocate(S, params.k, true);
+      raft::allocate(V, n * params.k, true);
       rsvdFixedRank(A, m, n, S, U, V, params.k, params.p, params.use_bbt, true,
                     true, true, eig_svd_tol, max_sweeps, cusolverH, cublasH,
                     stream, allocator);
     }
-    updateDevice(A, A_backup_cpu, m * n, stream);
+      raft::update_device(A, A_backup_cpu, m * n, stream);
 
     free(A_backup_cpu);
   }

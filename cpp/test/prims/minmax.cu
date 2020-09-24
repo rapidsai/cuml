@@ -58,8 +58,8 @@ __global__ void naiveMinMaxKernel(const T* data, int nrows, int ncols,
   if (col < ncols) {
     T val = data[tid];
     if (!isnan(val)) {
-      myAtomicMin(&globalmin[col], val);
-      myAtomicMax(&globalmax[col], val);
+      raft::myAtomicMin(&globalmin[col], val);
+      raft::myAtomicMax(&globalmax[col], val);
     }
   }
 }
@@ -68,12 +68,12 @@ template <typename T>
 void naiveMinMax(const T* data, int nrows, int ncols, T* globalmin,
                  T* globalmax, cudaStream_t stream) {
   const int TPB = 128;
-  int nblks = ceildiv(ncols, TPB);
+  int nblks = raft::ceildiv(ncols, TPB);
   T init_val = std::numeric_limits<T>::max();
   naiveMinMaxInitKernel<<<nblks, TPB, 0, stream>>>(ncols, globalmin, globalmax,
                                                    init_val);
   CUDA_CHECK(cudaGetLastError());
-  nblks = ceildiv(nrows * ncols, TPB);
+  nblks = raft::ceildiv(nrows * ncols, TPB);
   naiveMinMaxKernel<<<nblks, TPB, 0, stream>>>(data, nrows, ncols, globalmin,
                                                globalmax);
   CUDA_CHECK(cudaGetLastError());
@@ -94,15 +94,15 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
     raft::random::Rng r(params.seed);
     int len = params.rows * params.cols;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, len);
-    allocate(mask, len);
-    allocate(minmax_act, 2 * params.cols);
-    allocate(minmax_ref, 2 * params.cols);
+    raft::allocate(data, len);
+    raft::allocate(mask, len);
+    raft::allocate(minmax_act, 2 * params.cols);
+    raft::allocate(minmax_ref, 2 * params.cols);
     r.normal(data, len, (T)0.0, (T)1.0, stream);
     T nan_prob = 0.01;
     r.bernoulli(mask, len, nan_prob, stream);
     const int TPB = 256;
-    nanKernel<<<ceildiv(len, TPB), TPB, 0, stream>>>(
+    nanKernel<<<raft::ceildiv(len, TPB), TPB, 0, stream>>>(
       data, mask, len, std::numeric_limits<T>::quiet_NaN());
     CUDA_CHECK(cudaPeekAtLastError());
     naiveMinMax(data, params.rows, params.cols, minmax_ref,

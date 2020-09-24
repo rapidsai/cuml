@@ -158,7 +158,7 @@ void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
 
       if (cbs == 0) break;
 
-      updateDevice(indices.data(), &rand_indices[j], cbs, stream);
+        raft::update_device(indices.data(), &rand_indices[j], cbs, stream);
       Matrix::copyRows(input, n_rows, n_cols, input_batch.data(),
                        indices.data(), cbs, stream);
       Matrix::copyRows(labels, n_rows, 1, labels_batch.data(), indices.data(),
@@ -210,7 +210,7 @@ void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
                              cublas_handle, allocator, stream);
       }
 
-      updateHost(&curr_loss_value, loss_value.data(), 1, stream);
+        raft::update_host(&curr_loss_value, loss_value.data(), 1, stream);
       CUDA_CHECK(cudaStreamSynchronize(stream));
 
       if (i > 0) {

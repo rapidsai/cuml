@@ -317,7 +317,7 @@ __global__ void argmaxKernel(const T *d_in, int D, int N, T *argmax) {
   // compute maxIndex=argMax  index for column
   using KVP = cub::KeyValuePair<int, T>;
   int rowStart = blockIdx.x * D;
-  KVP thread_data(-1, -MLCommon::myInf<T>());
+  KVP thread_data(-1, -raft::myInf<T>());
 
   for (int i = threadIdx.x; i < D; i += TPB) {
     int idx = rowStart + i;
@@ -456,7 +456,7 @@ void matrixVectorBinaryDivSkipZero(Type *data, const Type *vec, IdxType n_row,
     raft::linalg::matrixVectorOp(
       data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
       [] __device__(Type a, Type b) {
-        if (MLCommon::myAbs(b) < Type(1e-10))
+        if (raft::myAbs(b) < Type(1e-10))
           return Type(0);
         else
           return a / b;
@@ -466,7 +466,7 @@ void matrixVectorBinaryDivSkipZero(Type *data, const Type *vec, IdxType n_row,
     raft::linalg::matrixVectorOp(
       data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
       [] __device__(Type a, Type b) {
-        if (MLCommon::myAbs(b) < Type(1e-10))
+        if (raft::myAbs(b) < Type(1e-10))
           return a;
         else
           return a / b;

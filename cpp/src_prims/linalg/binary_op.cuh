@@ -26,8 +26,8 @@ template <typename InType, int VecLen, typename Lambda, typename IdxType,
           typename OutType>
 __global__ void binaryOpKernel(OutType *out, const InType *in1,
                                const InType *in2, IdxType len, Lambda op) {
-  typedef MLCommon::TxN_t<InType, VecLen> InVecType;
-  typedef MLCommon::TxN_t<OutType, VecLen> OutVecType;
+  typedef TxN_t<InType, VecLen> InVecType;
+  typedef TxN_t<OutType, VecLen> OutVecType;
   InVecType a, b;
   OutVecType c;
   IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * blockDim.x);
@@ -47,7 +47,7 @@ template <typename InType, int VecLen, typename Lambda, typename IdxType,
 void binaryOpImpl(OutType *out, const InType *in1, const InType *in2,
                   IdxType len, Lambda op, cudaStream_t stream) {
   const IdxType nblks =
-    MLCommon::ceildiv(VecLen ? len / VecLen : len, (IdxType)TPB);
+    raft::ceildiv(VecLen ? len / VecLen : len, (IdxType)TPB);
   binaryOpKernel<InType, VecLen, Lambda, IdxType, OutType>
     <<<nblks, TPB, 0, stream>>>(out, in1, in2, len, op);
   CUDA_CHECK(cudaPeekAtLastError());

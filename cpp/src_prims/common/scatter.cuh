@@ -19,7 +19,7 @@
 #include <cuda_utils.cuh>
 #include <vectorized.cuh>
 
-namespace MLCommon {
+namespace raft {
 
 template <typename DataT, int VecLen, typename Lambda, typename IdxT>
 __global__ void scatterKernel(DataT *out, const DataT *in, const IdxT *idx,
@@ -43,32 +43,32 @@ __global__ void scatterKernel(DataT *out, const DataT *in, const IdxT *idx,
 template <typename DataT, int VecLen, typename Lambda, typename IdxT, int TPB>
 void scatterImpl(DataT *out, const DataT *in, const IdxT *idx, IdxT len,
                  Lambda op, cudaStream_t stream) {
-  const IdxT nblks = ceildiv(VecLen ? len / VecLen : len, (IdxT)TPB);
+  const IdxT nblks = raft::ceildiv(VecLen ? len / VecLen : len, (IdxT)TPB);
   scatterKernel<DataT, VecLen, Lambda, IdxT>
     <<<nblks, TPB, 0, stream>>>(out, in, idx, len, op);
   CUDA_CHECK(cudaGetLastError());
 }
 
 /**
- * @brief Performs scatter operation based on the input indexing array
- * @tparam DataT data type whose array gets scattered
- * @tparam IdxT indexing type
- * @tparam TPB threads-per-block in the final kernel launched
- * @tparam Lambda the device-lambda performing a unary operation on the loaded
- * data before it gets scattered
- * @param out the output array
- * @param in the input array
- * @param idx the indexing array
- * @param len number of elements in the input array
- * @param stream cuda stream where to launch work
- * @param op the device-lambda with signature `DataT func(DataT, IdxT);`. This
- * will be applied to every element before scattering it to the right location.
- * The second param in this method will be the destination index.
- */
-template <typename DataT, typename IdxT, typename Lambda = Nop<DataT, IdxT>,
+     * @brief Performs scatter operation based on the input indexing array
+     * @tparam DataT data type whose array gets scattered
+     * @tparam IdxT indexing type
+     * @tparam TPB threads-per-block in the final kernel launched
+     * @tparam Lambda the device-lambda performing a unary operation on the loaded
+     * data before it gets scattered
+     * @param out the output array
+     * @param in the input array
+     * @param idx the indexing array
+     * @param len number of elements in the input array
+     * @param stream cuda stream where to launch work
+     * @param op the device-lambda with signature `DataT func(DataT, IdxT);`. This
+     * will be applied to every element before scattering it to the right location.
+     * The second param in this method will be the destination index.
+     */
+template <typename DataT, typename IdxT, typename Lambda = raft::Nop<DataT, IdxT>,
           int TPB = 256>
 void scatter(DataT *out, const DataT *in, const IdxT *idx, IdxT len,
-             cudaStream_t stream, Lambda op = Nop<DataT, IdxT>()) {
+             cudaStream_t stream, Lambda op = raft::Nop<DataT, IdxT>()) {
   if (len <= 0) return;
   constexpr size_t DataSize = sizeof(DataT);
   constexpr size_t IdxSize = sizeof(IdxT);
@@ -94,4 +94,4 @@ void scatter(DataT *out, const DataT *in, const IdxT *idx, IdxT len,
   }
 }
 
-}  // end namespace MLCommon
+} // namespace raft

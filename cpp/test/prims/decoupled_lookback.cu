@@ -35,7 +35,7 @@ void dlbTest(int len, int *out) {
   int nblks = len;
   size_t workspaceSize = DecoupledLookBack<int>::computeWorkspaceSize(nblks);
   char *workspace;
-  allocate(workspace, workspaceSize);
+  raft::allocate(workspace, workspaceSize);
   CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
   dlbTestKernel<TPB><<<nblks, TPB>>>(workspace, len, out);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -55,7 +55,7 @@ class DlbTest : public ::testing::TestWithParam<DlbInputs> {
   void SetUp() override {
     params = ::testing::TestWithParam<DlbInputs>::GetParam();
     int len = params.len;
-    allocate(out, len);
+    raft::allocate(out, len);
     dlbTest(len, out);
   }
 
@@ -71,7 +71,7 @@ template <typename T, typename L>
                                              L eq_compare,
                                              cudaStream_t stream = 0) {
   std::vector<T> act_h(size);
-  updateHost<T>(&(act_h[0]), actual, size, stream);
+    raft::update_host<T>(&(act_h[0]), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
     auto act = act_h[i];

@@ -54,10 +54,10 @@ class MeanCenterTest
     auto len = rows * cols;
     IdxType vecLen = params.bcastAlongRows ? cols : rows;
 
-    allocate(out, len);
-    allocate(out_ref, len);
-    allocate(data, len);
-    allocate(meanVec, vecLen);
+    raft::allocate(out, len);
+    raft::allocate(out_ref, len);
+    raft::allocate(data, len);
+    raft::allocate(meanVec, vecLen);
     r.normal(data, len, params.mean, (T)1.0, stream);
     raft::stats::mean(meanVec, data, cols, rows, params.sample, params.rowMajor,
                       stream);

@@ -32,6 +32,7 @@
 #include <opg/linalg/norm.hpp>
 #include <raft/comms/comms.hpp>
 #include "shuffle.h"
+#include <common/cudart_utils.h>
 
 using namespace MLCommon;
 
@@ -121,7 +122,7 @@ void fit_impl(raft::handle_t &handle,
 
   T *rs = residual.data();
   for (int i = 0; i < partsToRanks.size(); i++) {
-    copy(rs, labels[i]->ptr, partsToRanks[i]->size, streams[0]);
+    raft::copy(rs, labels[i]->ptr, partsToRanks[i]->size, streams[0]);
 
     Matrix::Data<T> *rs_data = new Matrix::Data<T>();
     rs_data->ptr = rs;
@@ -193,7 +194,7 @@ void fit_impl(raft::handle_t &handle,
                                            streams[0]);
 
       coef_prev = h_coef[ci];
-      updateHost(&(h_coef[ci]), coef_loc, 1, streams[0]);
+        raft::update_host(&(h_coef[ci]), coef_loc, 1, streams[0]);
       CUDA_CHECK(cudaStreamSynchronize(streams[0]));
 
       T diff = abs(coef_prev - h_coef[ci]);

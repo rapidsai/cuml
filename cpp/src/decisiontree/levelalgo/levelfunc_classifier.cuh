@@ -105,7 +105,7 @@ void grow_deep_tree_classification(
       d_colstart, 0, tempmem->max_nodes_per_level * sizeof(unsigned int),
       tempmem->stream));
     memset(h_colstart, 0, tempmem->max_nodes_per_level * sizeof(unsigned int));
-    MLCommon::updateDevice(d_colids, h_colids, Ncols, tempmem->stream);
+      raft::update_device(d_colids, h_colids, Ncols, tempmem->stream);
   }
   std::vector<unsigned int> feature_selector(h_colids, h_colids + Ncols);
 
@@ -155,8 +155,8 @@ void grow_deep_tree_classification(
       n_unique_labels, tree_params.max_leaves, h_new_node_flags, sparsetree,
       sparsesize, h_parent_hist, n_nodes_nextitr, sparse_nodelist, leaf_cnt);
 
-    MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
-                           tempmem->stream);
+      raft::update_device(d_new_node_flags, h_new_node_flags, n_nodes,
+                          tempmem->stream);
     make_level_split(data, nrows, Ncols, ncols_sampled, tree_params.n_bins,
                      n_nodes, tree_params.split_algo, d_split_colidx,
                      d_split_binidx, d_new_node_flags, flagsptr, tempmem);
@@ -190,8 +190,8 @@ void grow_deep_tree_classification(
   int* d_counter = tempmem->d_counter->data();
   memcpy(h_nodelist, sparse_nodelist.data(),
          sizeof(int) * sparse_nodelist.size());
-  MLCommon::updateDevice(d_nodelist, h_nodelist, sparse_nodelist.size(),
-                         tempmem->stream);
+        raft::update_device(d_nodelist, h_nodelist, sparse_nodelist.size(),
+                            tempmem->stream);
   //Resize to remove trailing nodes from previous algorithm
   sparsetree.resize(sparsetree.size() - lastsize);
   convert_scatter_to_gather(flagsptr, sample_cnt, n_nodes, nrows, d_nodecount,
@@ -220,8 +220,8 @@ void grow_deep_tree_classification(
         tree_params.split_algo, sparsetree.size() + lastsize,
         tree_params.min_impurity_decrease, tempmem, d_sparsenodes, d_nodelist);
     }
-    MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
-                         tempmem->stream);
+      raft::update_host(h_sparsenodes, d_sparsenodes, lastsize,
+                        tempmem->stream);
     //Update nodelist and split nodes
 
     make_split_gather(data, d_nodestart, d_samplelist, n_nodes, nrows,
@@ -246,8 +246,8 @@ void grow_deep_tree_classification(
         labels, d_nodestart, d_samplelist, n_unique_labels, d_sparsenodes,
         d_nodelist, n_nodes, tempmem);
     }
-    MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
-                         tempmem->stream);
+      raft::update_host(h_sparsenodes, d_sparsenodes, lastsize,
+                        tempmem->stream);
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     sparsetree.insert(sparsetree.end(), h_sparsenodes,
                       h_sparsenodes + lastsize);

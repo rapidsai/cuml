@@ -31,6 +31,7 @@
 #include <raft/comms/comms.hpp>
 #include <stats/mean_center.cuh>
 #include "pca.cuh"
+#include <common/cudart_utils.h>
 
 using namespace MLCommon;
 

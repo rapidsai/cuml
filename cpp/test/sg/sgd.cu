@@ -44,24 +44,24 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     params = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
     int len = params.n_row * params.n_col;
 
-    allocate(data, len);
-    allocate(labels, params.n_row);
-    allocate(coef, params.n_col, true);
-    allocate(coef2, params.n_col, true);
-    allocate(coef_ref, params.n_col);
-    allocate(coef2_ref, params.n_col);
+    raft::allocate(data, len);
+    raft::allocate(labels, params.n_row);
+    raft::allocate(coef, params.n_col, true);
+    raft::allocate(coef2, params.n_col, true);
+    raft::allocate(coef_ref, params.n_col);
+    raft::allocate(coef2_ref, params.n_col);
 
     T data_h[len] = {1.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 3.0};
-    updateDevice(data, data_h, len, stream);
+      raft::update_device(data, data_h, len, stream);
 
     T labels_h[params.n_row] = {6.0, 8.0, 9.0, 11.0};
-    updateDevice(labels, labels_h, params.n_row, stream);
+      raft::update_device(labels, labels_h, params.n_row, stream);
 
     T coef_ref_h[params.n_col] = {2.087, 2.5454557};
-    updateDevice(coef_ref, coef_ref_h, params.n_col, stream);
+      raft::update_device(coef_ref, coef_ref_h, params.n_col, stream);
 
     T coef2_ref_h[params.n_col] = {1.000001, 1.9999998};
-    updateDevice(coef2_ref, coef2_ref_h, params.n_col, stream);
+      raft::update_device(coef2_ref, coef2_ref_h, params.n_col, stream);
 
     bool fit_intercept = false;
     intercept = T(0);
@@ -94,26 +94,26 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     int len = params.n_row2 * params.n_col2;
 
     T *coef_class;
-    allocate(data_logreg, len);
-    allocate(data_logreg_test, len);
-    allocate(labels_logreg, params.n_row2);
-    allocate(coef_class, params.n_col2, true);
-    allocate(pred_log, params.n_row2);
-    allocate(pred_log_ref, params.n_row2);
+    raft::allocate(data_logreg, len);
+    raft::allocate(data_logreg_test, len);
+    raft::allocate(labels_logreg, params.n_row2);
+    raft::allocate(coef_class, params.n_col2, true);
+    raft::allocate(pred_log, params.n_row2);
+    raft::allocate(pred_log_ref, params.n_row2);
 
     T data_h[len] = {0.1,  -2.1, 5.4,  5.4,   -1.5,  -2.15,
                      2.65, 2.65, 3.25, -0.15, -7.35, -7.35};
-    updateDevice(data_logreg, data_h, len, stream);
+      raft::update_device(data_logreg, data_h, len, stream);
 
     T data_test_h[len] = {0.3,   1.1,   2.1,  -10.1, 0.5,  2.5,
                           -3.55, -20.5, -1.3, 3.0,   -5.0, 15.0};
-    updateDevice(data_logreg_test, data_test_h, len, stream);
+      raft::update_device(data_logreg_test, data_test_h, len, stream);
 
     T labels_logreg_h[params.n_row2] = {0.0, 1.0, 1.0, 0.0};
-    updateDevice(labels_logreg, labels_logreg_h, params.n_row2, stream);
+      raft::update_device(labels_logreg, labels_logreg_h, params.n_row2, stream);
 
     T pred_log_ref_h[params.n_row2] = {1.0, 0.0, 1.0, 1.0};
-    updateDevice(pred_log_ref, pred_log_ref_h, params.n_row2, stream);
+      raft::update_device(pred_log_ref, pred_log_ref_h, params.n_row2, stream);
 
     bool fit_intercept = true;
     T intercept_class = T(0);
@@ -146,26 +146,26 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     int len = params.n_row2 * params.n_col2;
 
     T *coef_class;
-    allocate(data_svmreg, len);
-    allocate(data_svmreg_test, len);
-    allocate(labels_svmreg, params.n_row2);
-    allocate(coef_class, params.n_col2, true);
-    allocate(pred_svm, params.n_row2);
-    allocate(pred_svm_ref, params.n_row2);
+    raft::allocate(data_svmreg, len);
+    raft::allocate(data_svmreg_test, len);
+    raft::allocate(labels_svmreg, params.n_row2);
+    raft::allocate(coef_class, params.n_col2, true);
+    raft::allocate(pred_svm, params.n_row2);
+    raft::allocate(pred_svm_ref, params.n_row2);
 
     T data_h[len] = {0.1,  -2.1, 5.4,  5.4,   -1.5,  -2.15,
                      2.65, 2.65, 3.25, -0.15, -7.35, -7.35};
-    updateDevice(data_svmreg, data_h, len, stream);
+      raft::update_device(data_svmreg, data_h, len, stream);
 
     T data_test_h[len] = {0.3,   1.1,   2.1,  -10.1, 0.5,  2.5,
                           -3.55, -20.5, -1.3, 3.0,   -5.0, 15.0};
-    updateDevice(data_svmreg_test, data_test_h, len, stream);
+      raft::update_device(data_svmreg_test, data_test_h, len, stream);
 
     T labels_svmreg_h[params.n_row2] = {0.0, 1.0, 1.0, 0.0};
-    updateDevice(labels_svmreg, labels_svmreg_h, params.n_row2, stream);
+      raft::update_device(labels_svmreg, labels_svmreg_h, params.n_row2, stream);
 
     T pred_svm_ref_h[params.n_row2] = {1.0, 0.0, 1.0, 1.0};
-    updateDevice(pred_svm_ref, pred_svm_ref_h, params.n_row2, stream);
+      raft::update_device(pred_svm_ref, pred_svm_ref_h, params.n_row2, stream);
 
     bool fit_intercept = true;
     T intercept_class = T(0);

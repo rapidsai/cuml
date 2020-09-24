@@ -49,14 +49,14 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     int len = params.clusters * params.dim;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocator.reset(new raft::mr::device::default_allocator);
-    allocate(data, len);
-    allocate(counts, params.clusters);
-    allocate(exp_mean, params.dim);
-    allocate(act_mean, params.dim);
+    raft::allocate(data, len);
+    raft::allocate(counts, params.clusters);
+    raft::allocate(exp_mean, params.dim);
+    raft::allocate(act_mean, params.dim);
     r.uniform(data, len, (T)-1.0, (T)1.0, stream);
     r.uniformInt(counts, params.clusters, 1, 100, stream);
     std::vector<int> h_counts(params.clusters, 0);
-    updateHost(&(h_counts[0]), counts, params.clusters, stream);
+      raft::update_host(&(h_counts[0]), counts, params.clusters, stream);
     npoints = 0;
     for (const auto &val : h_counts) {
       npoints += val;
@@ -65,7 +65,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
                            params.dim, allocator, stream);
     expectedVal = T(0);
     std::vector<T> h_data(len, T(0));
-    updateHost(&(h_data[0]), data, len, stream);
+      raft::update_host(&(h_data[0]), data, len, stream);
     std::vector<T> mean(params.dim, T(0));
     for (int i = 0; i < params.clusters; ++i) {
       for (int j = 0; j < params.dim; ++j) {
@@ -75,7 +75,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     for (int i = 0; i < params.dim; ++i) {
       mean[i] /= T(npoints);
     }
-    updateDevice(exp_mean, &(mean[0]), params.dim, stream);
+      raft::update_device(exp_mean, &(mean[0]), params.dim, stream);
     for (int i = 0; i < params.clusters; ++i) {
       for (int j = 0; j < params.dim; ++j) {
         auto diff = h_data[i * params.dim + j] - mean[j];

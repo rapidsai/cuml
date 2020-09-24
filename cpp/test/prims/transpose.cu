@@ -48,16 +48,16 @@ class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
 
     int len = params.len;
 
-    allocate(data, len);
+    raft::allocate(data, len);
     ASSERT(params.len == 9, "This test works only with len=9!");
     T data_h[] = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0};
-    updateDevice(data, data_h, len, stream);
+      raft::update_device(data, data_h, len, stream);
 
-    allocate(data_trans_ref, len);
+    raft::allocate(data_trans_ref, len);
     T data_ref_h[] = {1.0, 4.0, 7.0, 2.0, 5.0, 8.0, 3.0, 6.0, 9.0};
-    updateDevice(data_trans_ref, data_ref_h, len, stream);
+      raft::update_device(data_trans_ref, data_ref_h, len, stream);
 
-    allocate(data_trans, len);
+    raft::allocate(data_trans, len);
 
     transpose(data, data_trans, params.n_row, params.n_col, handle, stream);
     transpose(data, params.n_row, stream);

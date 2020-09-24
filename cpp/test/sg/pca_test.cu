@@ -54,39 +54,39 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len;
 
-    allocate(data, len);
-    allocate(data_back, len);
-    allocate(trans_data, len);
-    allocate(trans_data_ref, len);
+    raft::allocate(data, len);
+    raft::allocate(data_back, len);
+    raft::allocate(trans_data, len);
+    raft::allocate(trans_data_ref, len);
 
     std::vector<T> data_h = {1.0, 2.0, 5.0, 4.0, 2.0, 1.0};
     data_h.resize(len);
-    updateDevice(data, data_h.data(), len, stream);
+      raft::update_device(data, data_h.data(), len, stream);
 
     std::vector<T> trans_data_ref_h = {-2.3231, -0.3517, 2.6748,
                                        -0.3979, 0.6571,  -0.2592};
     trans_data_ref_h.resize(len);
-    updateDevice(trans_data_ref, trans_data_ref_h.data(), len, stream);
+      raft::update_device(trans_data_ref, trans_data_ref_h.data(), len, stream);
 
     int len_comp = params.n_col * params.n_col;
-    allocate(components, len_comp);
-    allocate(explained_vars, params.n_col);
-    allocate(explained_var_ratio, params.n_col);
-    allocate(singular_vals, params.n_col);
-    allocate(mean, params.n_col);
-    allocate(noise_vars, 1);
+    raft::allocate(components, len_comp);
+    raft::allocate(explained_vars, params.n_col);
+    raft::allocate(explained_var_ratio, params.n_col);
+    raft::allocate(singular_vals, params.n_col);
+    raft::allocate(mean, params.n_col);
+    raft::allocate(noise_vars, 1);
 
     std::vector<T> components_ref_h = {0.8163, 0.5776, -0.5776, 0.8163};
     components_ref_h.resize(len_comp);
     std::vector<T> explained_vars_ref_h = {6.338, 0.3287};
     explained_vars_ref_h.resize(params.n_col);
 
-    allocate(components_ref, len_comp);
-    allocate(explained_vars_ref, params.n_col);
+    raft::allocate(components_ref, len_comp);
+    raft::allocate(explained_vars_ref, params.n_col);
 
-    updateDevice(components_ref, components_ref_h.data(), len_comp, stream);
-    updateDevice(explained_vars_ref, explained_vars_ref_h.data(), params.n_col,
-                 stream);
+      raft::update_device(components_ref, components_ref_h.data(), len_comp, stream);
+      raft::update_device(explained_vars_ref, explained_vars_ref_h.data(), params.n_col,
+                          stream);
 
     paramsPCA prms;
     prms.n_cols = params.n_col;
@@ -121,23 +121,23 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     else if (params.algo == 1)
       prms.algorithm = solver::COV_EIG_JACOBI;
 
-    allocate(data2, len);
+    raft::allocate(data2, len);
     r.uniform(data2, len, T(-1.0), T(1.0), stream);
-    allocate(data2_trans, prms.n_rows * prms.n_components);
+    raft::allocate(data2_trans, prms.n_rows * prms.n_components);
 
     int len_comp = params.n_col2 * prms.n_components;
-    allocate(components2, len_comp);
-    allocate(explained_vars2, prms.n_components);
-    allocate(explained_var_ratio2, prms.n_components);
-    allocate(singular_vals2, prms.n_components);
-    allocate(mean2, prms.n_cols);
-    allocate(noise_vars2, 1);
+    raft::allocate(components2, len_comp);
+    raft::allocate(explained_vars2, prms.n_components);
+    raft::allocate(explained_var_ratio2, prms.n_components);
+    raft::allocate(singular_vals2, prms.n_components);
+    raft::allocate(mean2, prms.n_cols);
+    raft::allocate(noise_vars2, 1);
 
     pcaFitTransform(handle, data2, data2_trans, components2, explained_vars2,
                     explained_var_ratio2, singular_vals2, mean2, noise_vars2,
                     prms, stream);
 
-    allocate(data2_back, len);
+    raft::allocate(data2_back, len);
     pcaInverseTransform(handle, data2_trans, components2, singular_vals2, mean2,
                         data2_back, prms, stream);
   }

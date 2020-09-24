@@ -36,7 +36,7 @@ __global__ void nativePowerKernel(Type *in, Type *out, int len) {
 template <typename Type>
 void naivePower(Type *in, Type *out, int len, cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   nativePowerKernel<Type><<<nblks, TPB, 0, stream>>>(in, out, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -52,7 +52,7 @@ __global__ void nativeSqrtKernel(Type *in, Type *out, int len) {
 template <typename Type>
 void naiveSqrt(Type *in, Type *out, int len) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   nativeSqrtKernel<Type><<<nblks, TPB>>>(in, out, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }

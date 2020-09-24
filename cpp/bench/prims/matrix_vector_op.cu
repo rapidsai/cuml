@@ -52,7 +52,7 @@ struct MatVecOp : public Fixture {
     loopOnState(state, [this]() {
       raft::linalg::matrixVectorOp(out, in, vec, params.cols, params.rows,
                                    params.rowMajor, params.bcastAlongRows,
-                                   Sum<T>(), stream);
+                                   raft::Sum<T>(), stream);
     });
   }
 

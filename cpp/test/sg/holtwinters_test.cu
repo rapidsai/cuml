@@ -68,14 +68,14 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
       &leveltrend_coef_offset,  // = (n-wlen-1)*batch_size (last row)
       &season_coef_offset);  // = (n-wlen-frequency)*batch_size(last freq rows)
 
-    allocate(level_ptr, components_len, stream);
-    allocate(trend_ptr, components_len, stream);
-    allocate(season_ptr, components_len, stream);
-    allocate(SSE_error_ptr, batch_size, stream);
-    allocate(forecast_ptr, batch_size * h, stream);
+    raft::allocate(level_ptr, components_len, stream);
+    raft::allocate(trend_ptr, components_len, stream);
+    raft::allocate(season_ptr, components_len, stream);
+    raft::allocate(SSE_error_ptr, batch_size, stream);
+    raft::allocate(forecast_ptr, batch_size * h, stream);
 
-    allocate(data, batch_size * n);
-    updateDevice(data, dataset_h, batch_size * n, stream);
+    raft::allocate(data, batch_size * n);
+      raft::update_device(data, dataset_h, batch_size * n, stream);
 
     raft::handle_t handle;
     handle.set_stream(stream);
@@ -168,8 +168,8 @@ T calculate_MAE(T *test, T *forecast, int batch_size, int h) {
 typedef HoltWintersTest<float> HoltWintersTestF;
 TEST_P(HoltWintersTestF, Fit) {
   std::vector<float> forecast_h(batch_size * h);
-  updateHost(forecast_h.data(), forecast_ptr, batch_size * h, stream);
-  myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
+        raft::update_host(forecast_h.data(), forecast_ptr, batch_size * h, stream);
+        raft::print_host_vector("forecast", forecast_h.data(), batch_size * h, std::cout);
   float mae = calculate_MAE<float>(test, forecast_h.data(), batch_size, h);
   CUML_LOG_DEBUG("MAE: %f", mae);
   ASSERT_TRUE(mae < mae_tolerance);
@@ -178,8 +178,8 @@ TEST_P(HoltWintersTestF, Fit) {
 typedef HoltWintersTest<double> HoltWintersTestD;
 TEST_P(HoltWintersTestD, Fit) {
   std::vector<double> forecast_h(batch_size * h);
-  updateHost(forecast_h.data(), forecast_ptr, batch_size * h, stream);
-  myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
+        raft::update_host(forecast_h.data(), forecast_ptr, batch_size * h, stream);
+        raft::print_host_vector("forecast", forecast_h.data(), batch_size * h, std::cout);
   double mae = calculate_MAE<double>(test, forecast_h.data(), batch_size, h);
   CUML_LOG_DEBUG("MAE: %f", mae);
   ASSERT_TRUE(mae < mae_tolerance);

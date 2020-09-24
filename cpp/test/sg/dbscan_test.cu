@@ -75,10 +75,10 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                params.n_centers, true, nullptr, nullptr, params.cluster_std,
                true, -10.0f, 10.0f, params.seed);
 
-    allocate(labels, params.n_row);
-    allocate(labels_ref, params.n_row);
+    raft::allocate(labels, params.n_row);
+    raft::allocate(labels_ref, params.n_row);
 
-    MLCommon::copy(labels_ref, l.data(), params.n_row, handle.get_stream());
+    raft::copy(labels_ref, l.data(), params.n_row, handle.get_stream());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -91,9 +91,9 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 
     if (score < 1.0) {
       auto str =
-        arr2Str(labels_ref, params.n_row, "labels_ref", handle.get_stream());
+        raft::arr2Str(labels_ref, params.n_row, "labels_ref", handle.get_stream());
       CUML_LOG_DEBUG("y: %s", str.c_str());
-      str = arr2Str(labels, params.n_row, "labels", handle.get_stream());
+      str = raft::arr2Str(labels, params.n_row, "labels", handle.get_stream());
       CUML_LOG_DEBUG("y_hat: %s", str.c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }
@@ -188,14 +188,14 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
 
     params = ::testing::TestWithParam<DBScan2DArrayInputs<T>>::GetParam();
 
-    allocate(inputs, params.n_row * 2);
-    allocate(labels, params.n_row);
-    allocate(labels_ref, params.n_out);
-    allocate(core_sample_indices_d, params.n_row);
+    raft::allocate(inputs, params.n_row * 2);
+    raft::allocate(labels, params.n_row);
+    raft::allocate(labels_ref, params.n_out);
+    raft::allocate(core_sample_indices_d, params.n_row);
 
-    MLCommon::copy(inputs, params.points, params.n_row * 2,
-                   handle.get_stream());
-    MLCommon::copy(labels_ref, params.out, params.n_out, handle.get_stream());
+    raft::copy(inputs, params.points, params.n_row * 2,
+               handle.get_stream());
+    raft::copy(labels_ref, params.out, params.n_out, handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     dbscanFit(handle, inputs, (int)params.n_row, 2, params.eps, params.min_pts,
@@ -207,9 +207,9 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
 
     if (score < 1.0) {
       auto str =
-        arr2Str(labels_ref, params.n_out, "labels_ref", handle.get_stream());
+        raft::arr2Str(labels_ref, params.n_out, "labels_ref", handle.get_stream());
       CUML_LOG_DEBUG("y: %s", str.c_str());
-      str = arr2Str(labels, params.n_row, "labels", handle.get_stream());
+      str = raft::arr2Str(labels, params.n_row, "labels", handle.get_stream());
       CUML_LOG_DEBUG("y_hat: %s", str.c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }

@@ -54,12 +54,12 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     if (params.needPerms)
-      allocate(outPerms, N);
+      raft::allocate(outPerms, N);
     else
       outPerms = nullptr;
     if (params.needShuffle) {
-      allocate(in, len);
-      allocate(out, len);
+      raft::allocate(in, len);
+      raft::allocate(out, len);
       r.uniform(in, len, T(-1.0), T(1.0), stream);
     } else {
       in = out = nullptr;
@@ -90,7 +90,7 @@ template <typename T, typename L>
                                             bool doSort = true,
                                             cudaStream_t stream = 0) {
   std::vector<T> act_h(size);
-  updateHost<T>(&(act_h[0]), actual, size, stream);
+    raft::update_host<T>(&(act_h[0]), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   if (doSort) std::sort(act_h.begin(), act_h.end());
   for (size_t i(0); i < size; ++i) {
@@ -110,10 +110,10 @@ template <typename T, typename L>
                                               bool rowMajor, L eq_compare,
                                               cudaStream_t stream = 0) {
   std::vector<int> h_perms(N);
-  updateHost<int>(&(h_perms[0]), perms, N, stream);
+    raft::update_host<int>(&(h_perms[0]), perms, N, stream);
   std::vector<T> h_out(N * D), h_in(N * D);
-  updateHost<T>(&(h_out[0]), out, N * D, stream);
-  updateHost<T>(&(h_in[0]), in, N * D, stream);
+    raft::update_host<T>(&(h_out[0]), out, N * D, stream);
+    raft::update_host<T>(&(h_in[0]), in, N * D, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (int i = 0; i < N; ++i) {
     for (int j = 0; j < D; ++j) {

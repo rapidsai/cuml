@@ -193,8 +193,8 @@ struct Dataset {
     }
     myfile.close();
     auto stream = handle.get_stream();
-    MLCommon::copy(X, &(_X[0]), p.nrows * p.ncols, stream);
-    MLCommon::copy(y, &(_y[0]), p.nrows, stream);
+    raft::copy(X, &(_X[0]), p.nrows * p.ncols, stream);
+    raft::copy(y, &(_y[0]), p.nrows, stream);
   }
 
  private:

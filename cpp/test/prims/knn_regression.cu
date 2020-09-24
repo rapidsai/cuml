@@ -52,7 +52,7 @@ void generate_data(float *out_samples, float *out_labels, int n_rows,
 
   MLCommon::LinAlg::reduce(
     out_labels, out_samples, n_cols, n_rows, 0.0f, true, true, stream, false,
-    [=] __device__(float in, int n) { return in * in; }, Sum<float>(),
+    [=] __device__(float in, int n) { return in * in; }, raft::Sum<float>(),
     [=] __device__(float in) { return sqrt(in); });
 
   thrust::device_ptr<float> d_ptr = thrust::device_pointer_cast(out_labels);
@@ -80,13 +80,13 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
 
     params = ::testing::TestWithParam<KNNRegressionInputs>::GetParam();
 
-    allocate(train_samples, params.rows * params.cols);
-    allocate(train_labels, params.rows);
+    raft::allocate(train_samples, params.rows * params.cols);
+    raft::allocate(train_labels, params.rows);
 
-    allocate(pred_labels, params.rows);
+    raft::allocate(pred_labels, params.rows);
 
-    allocate(knn_indices, params.rows * params.k);
-    allocate(knn_dists, params.rows * params.k);
+    raft::allocate(knn_indices, params.rows * params.k);
+    raft::allocate(knn_dists, params.rows * params.k);
 
     generate_data(train_samples, train_labels, params.rows, params.cols,
                   stream);

@@ -30,6 +30,7 @@
 #include <cuml/fil/fil.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include "common.cuh"
+#include <common/cudart_utils.h>
 
 namespace ML {
 namespace fil {
@@ -224,7 +225,7 @@ struct forest {
     if (do_transform) {
       size_t num_values_to_transform =
         (size_t)num_rows * (size_t)params.num_outputs;
-      transform_k<<<ceildiv(num_values_to_transform, (size_t)FIL_TPB), FIL_TPB,
+      transform_k<<<raft::ceildiv(num_values_to_transform, (size_t)FIL_TPB), FIL_TPB,
                     0, stream>>>(preds, num_values_to_transform, ot,
                                  num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
                                  threshold_, global_bias_, complement_proba);

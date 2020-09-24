@@ -170,11 +170,11 @@ class CSR {
       m_col_index(other.m_allocator, other.m_stream, other.m_nnz),
       m_row_index(other.m_allocator, other.m_stream, other.m_shape.first + 1) {
     // Copy the raw data
-    copy(m_values.data(), other.m_values.data(), m_nnz * m_batch_size,
-         m_stream);
-    copy(m_col_index.data(), other.m_col_index.data(), m_nnz, m_stream);
-    copy(m_row_index.data(), other.m_row_index.data(), m_shape.first + 1,
-         m_stream);
+    raft::copy(m_values.data(), other.m_values.data(), m_nnz * m_batch_size,
+               m_stream);
+    raft::copy(m_col_index.data(), other.m_col_index.data(), m_nnz, m_stream);
+    raft::copy(m_row_index.data(), other.m_row_index.data(), m_shape.first + 1,
+               m_stream);
   }
 
   //! Copy assignment operator
@@ -188,11 +188,11 @@ class CSR {
     m_row_index.resize(m_shape.first + 1, m_stream);
 
     // Copy the raw data
-    copy(m_values.data(), other.m_values.data(), m_nnz * m_batch_size,
-         m_stream);
-    copy(m_col_index.data(), other.m_col_index.data(), m_nnz, m_stream);
-    copy(m_row_index.data(), other.m_row_index.data(), m_shape.first + 1,
-         m_stream);
+    raft::copy(m_values.data(), other.m_values.data(), m_nnz * m_batch_size,
+               m_stream);
+    raft::copy(m_col_index.data(), other.m_col_index.data(), m_nnz, m_stream);
+    raft::copy(m_row_index.data(), other.m_row_index.data(), m_shape.first + 1,
+               m_stream);
 
     return *this;
   }
@@ -235,13 +235,13 @@ class CSR {
                         dense.allocator(), dense.stream());
 
     // Copy the host index arrays to the device
-    MLCommon::copy(out.get_col_index(), h_col_index.data(), nnz, out.stream());
-    MLCommon::copy(out.get_row_index(), h_row_index.data(), shape.first + 1,
-                   out.stream());
+    raft::copy(out.get_col_index(), h_col_index.data(), nnz, out.stream());
+    raft::copy(out.get_row_index(), h_row_index.data(), shape.first + 1,
+               out.stream());
 
     // Copy the data from the dense matrix to its sparse representation
     constexpr int TPB = 256;
-    dense_to_csr_kernel<<<MLCommon::ceildiv<int>(out.batches(), TPB), TPB, 0,
+    dense_to_csr_kernel<<<raft::ceildiv<int>(out.batches(), TPB), TPB, 0,
                           out.stream()>>>(
       dense.raw_data(), out.get_col_index(), out.get_row_index(),
       out.get_values(), out.batches(), shape.first, shape.second, nnz);
@@ -262,7 +262,7 @@ class CSR {
 
     // Copy the data from the sparse to the dense representation
     constexpr int TPB = 256;
-    csr_to_dense_kernel<<<MLCommon::ceildiv<int>(m_batch_size, TPB), TPB, 0,
+    csr_to_dense_kernel<<<raft::ceildiv<int>(m_batch_size, TPB), TPB, 0,
                           m_stream>>>(
       dense.raw_data(), m_col_index.data(), m_row_index.data(), m_values.data(),
       m_batch_size, m_shape.first, m_shape.second, m_nnz);
@@ -402,7 +402,7 @@ void b_spmv(T alpha, const CSR<T>& A, const LinAlg::Batched::Matrix<T>& x,
 
   // Execute the kernel
   constexpr int TPB = 256;
-  batched_spmv_kernel<<<MLCommon::ceildiv<int>(A.batches(), TPB), TPB, 0,
+  batched_spmv_kernel<<<raft::ceildiv<int>(A.batches(), TPB), TPB, 0,
                         A.stream()>>>(
     alpha, A.get_col_index(), A.get_row_index(), A.get_values(), x.raw_data(),
     beta, y.raw_data(), m, n, A.batches());
@@ -563,7 +563,7 @@ void b_spmm(T alpha, const CSR<T>& A, const LinAlg::Batched::Matrix<T>& B,
     constexpr int TPB = 256;
     int threads_per_bid =
       nb <= 1024 ? 8 : (nb <= 2048 ? 4 : (nb <= 4096 ? 2 : 1));
-    batched_spmm_kernel<<<MLCommon::ceildiv<int>(nb * threads_per_bid, TPB),
+    batched_spmm_kernel<<<raft::ceildiv<int>(nb * threads_per_bid, TPB),
                           TPB, 0, A.stream()>>>(
       alpha, A.get_col_index(), A.get_row_index(), A.get_values(), B.raw_data(),
       beta, C.raw_data(), m, k, n, nb, threads_per_bid);

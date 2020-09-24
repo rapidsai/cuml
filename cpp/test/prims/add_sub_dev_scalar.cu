@@ -58,11 +58,11 @@ class DevScalarTest
 
     auto len = params.len;
 
-    allocate(in, len);
-    allocate(out_ref, len);
-    allocate(out, len);
-    allocate(scalar, (size_t)1);
-    updateDevice(scalar, &params.scalar, 1, stream);
+    raft::allocate(in, len);
+    raft::allocate(out_ref, len);
+    raft::allocate(out, len);
+    raft::allocate(scalar, (size_t)1);
+      raft::update_device(scalar, &params.scalar, 1, stream);
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     unaryOpLaunch(out_ref, in, params.scalar, len, params.add, stream);
     if (params.add) {

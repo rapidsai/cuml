@@ -51,10 +51,10 @@ __global__ void naiveRowNormKernel(Type *dots, const Type *data, int D, int N,
       if (type == L2Norm) {
         acc += data[rowStart * D + i] * data[rowStart * D + i];
       } else {
-        acc += myAbs(data[rowStart * D + i]);
+        acc += raft::myAbs(data[rowStart * D + i]);
       }
     }
-    dots[rowStart] = do_sqrt ? mySqrt(acc) : acc;
+    dots[rowStart] = do_sqrt ? raft::mySqrt(acc) : acc;
   }
 }
 
@@ -62,7 +62,7 @@ template <typename Type>
 void naiveRowNorm(Type *dots, const Type *data, int D, int N, NormType type,
                   bool do_sqrt, cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(N, TPB);
+  int nblks = raft::ceildiv(N, TPB);
   naiveRowNormKernel<Type>
     <<<nblks, TPB, 0, stream>>>(dots, data, D, N, type, do_sqrt);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -78,14 +78,14 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T>> {
     int rows = params.rows, cols = params.cols, len = rows * cols;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, len);
-    allocate(dots_exp, rows);
-    allocate(dots_act, rows);
+    raft::allocate(data, len);
+    raft::allocate(dots_exp, rows);
+    raft::allocate(dots_act, rows);
     r.uniform(data, len, T(-1.0), T(1.0), stream);
     naiveRowNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt,
                  stream);
     if (params.do_sqrt) {
-      auto fin_op = [] __device__(T in) { return mySqrt(in); };
+      auto fin_op = [] __device__(T in) { return raft::mySqrt(in); };
       rowNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream,
               fin_op);
     } else {
@@ -117,17 +117,17 @@ __global__ void naiveColNormKernel(Type *dots, const Type *data, int D, int N,
   Type acc = 0;
   for (int i = 0; i < N; i++) {
     Type v = data[colID + i * D];
-    acc += type == L2Norm ? v * v : myAbs(v);
+    acc += type == L2Norm ? v * v : raft::myAbs(v);
   }
 
-  dots[colID] = do_sqrt ? mySqrt(acc) : acc;
+  dots[colID] = do_sqrt ? raft::mySqrt(acc) : acc;
 }
 
 template <typename Type>
 void naiveColNorm(Type *dots, const Type *data, int D, int N, NormType type,
                   bool do_sqrt, cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(D, TPB);
+  int nblks = raft::ceildiv(D, TPB);
   naiveColNormKernel<Type>
     <<<nblks, TPB, 0, stream>>>(dots, data, D, N, type, do_sqrt);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -143,15 +143,15 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T>> {
     int rows = params.rows, cols = params.cols, len = rows * cols;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, len);
+    raft::allocate(data, len);
     r.uniform(data, len, T(-1.0), T(1.0), stream);
-    allocate(dots_exp, cols);
-    allocate(dots_act, cols);
+    raft::allocate(dots_exp, cols);
+    raft::allocate(dots_act, cols);
 
     naiveColNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt,
                  stream);
     if (params.do_sqrt) {
-      auto fin_op = [] __device__(T in) { return mySqrt(in); };
+      auto fin_op = [] __device__(T in) { return raft::mySqrt(in); };
       colNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream,
               fin_op);
     } else {

@@ -131,7 +131,7 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
     LinAlg::addScalar(squared.data(), squared.data(), l2_alpha, n_cols, stream);
   }
 
-  copy(residual.data(), labels, n_rows, stream);
+  raft::copy(residual.data(), labels, n_rows, stream);
 
   for (int i = 0; i < epochs; i++) {
     if (i > 0 && shuffle) {
@@ -162,7 +162,7 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
                                            stream);
 
       coef_prev = h_coef[ci];
-      updateHost(&(h_coef[ci]), coef_loc, 1, stream);
+        raft::update_host(&(h_coef[ci]), coef_loc, 1, stream);
       CUDA_CHECK(cudaStreamSynchronize(stream));
 
       math_t diff = abs(coef_prev - h_coef[ci]);

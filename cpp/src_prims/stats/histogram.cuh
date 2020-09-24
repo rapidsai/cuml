@@ -75,8 +75,8 @@ dim3 computeGridDim(IdxT nrows, IdxT ncols, const void* kernel) {
   int occupancy;
   CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&occupancy, kernel,
                                                            ThreadsPerBlock, 0));
-  const auto maxBlks = occupancy * getMultiProcessorCount();
-  int nblksx = ceildiv<int>(VecLen ? nrows / VecLen : nrows, ThreadsPerBlock);
+  const auto maxBlks = occupancy * raft::getMultiProcessorCount();
+  int nblksx = raft::ceildiv<int>(VecLen ? nrows / VecLen : nrows, ThreadsPerBlock);
   // for cases when there aren't a lot of blocks for computing one histogram
   nblksx = std::min(nblksx, maxBlks);
   return dim3(nblksx, ncols);
@@ -91,8 +91,8 @@ DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner,
   IdxT tid = threadIdx.x + bdim * blockIdx.x;
   tid *= VecLen;
   IdxT stride = bdim * gridDim.x * VecLen;
-  int nCeil = alignTo<int>(nrows, stride);
-  typedef TxN_t<DataT, VecLen> VecType;
+  int nCeil = raft::alignTo<int>(nrows, stride);
+  typedef raft::TxN_t<DataT, VecLen> VecType;
   VecType a;
   for (auto i = tid; i < nCeil; i += stride) {
     if (i < nrows) {
@@ -118,7 +118,7 @@ __global__ void gmemHistKernel(int* bins, const DataT* data, IdxT nrows,
     auto amask = __activemask();
     auto mask = __match_any_sync(amask, binId);
     auto leader = __ffs(mask) - 1;
-    if (laneId() == leader) {
+    if (raft::laneId() == leader) {
       atomicAdd(bins + binOffset + binId, __popc(mask));
     }
 #endif  // __CUDA_ARCH__
@@ -154,7 +154,7 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
       auto amask = __activemask();
       auto mask = __match_any_sync(amask, binId);
       auto leader = __ffs(mask) - 1;
-      if (laneId() == leader) {
+      if (raft::laneId() == leader) {
         atomicAdd(sbins + binId, __popc(mask));
       }
     } else {
@@ -236,7 +236,7 @@ __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT nrows,
                                    IdxT nbins, BinnerOp binner) {
   extern __shared__ unsigned sbins[];
   typedef BitsInfo<BIN_BITS> Bits;
-  auto nwords = ceildiv<int>(nbins, Bits::WORD_BINS);
+  auto nwords = raft::ceildiv<int>(nbins, Bits::WORD_BINS);
   for (auto j = threadIdx.x; j < nwords; j += blockDim.x) {
     sbins[j] = 0;
   }
@@ -267,7 +267,7 @@ void smemBitsHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
     (const void*)
       smemBitsHistKernel<DataT, BinnerOp, IdxT, Bits::BIN_BITS, VecLen>);
   size_t smemSize =
-    ceildiv<size_t>(nbins, Bits::WORD_BITS / Bits::BIN_BITS) * sizeof(int);
+    raft::ceildiv<size_t>(nbins, Bits::WORD_BITS / Bits::BIN_BITS) * sizeof(int);
   smemBitsHistKernel<DataT, BinnerOp, IdxT, Bits::BIN_BITS, VecLen>
     <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins,
                                                   binner);
@@ -361,7 +361,7 @@ inline int computeHashTableSize() {
   // we shouldn't have this much of shared memory available anytime soon!
   static const unsigned maxBinsEverPossible = 256 * 1024;
   static Seive primes(maxBinsEverPossible);
-  unsigned smem = getSharedMemPerBlock();
+  unsigned smem = raft::getSharedMemPerBlock();
   // divide-by-2 because hash table entry stores 2 elements: idx and count
   auto binsPossible = smem / sizeof(unsigned) / 2;
   for (; binsPossible > 1; --binsPossible) {
@@ -457,14 +457,14 @@ void histogramImpl(HistType type, int* bins, IdxT nbins, const DataT* data,
 
 template <typename IdxT>
 HistType selectBestHistAlgo(IdxT nbins) {
-  size_t smem = getSharedMemPerBlock();
+  size_t smem = raft::getSharedMemPerBlock();
   size_t requiredSize = nbins * sizeof(unsigned);
   if (requiredSize <= smem) {
     return HistTypeSmem;
   }
   for (int bits = 16; bits >= 1; bits >>= 1) {
-    auto nBytesForBins = ceildiv<size_t>(bits * nbins, 8);
-    requiredSize = alignTo<size_t>(nBytesForBins, sizeof(unsigned));
+    auto nBytesForBins = raft::ceildiv<size_t>(bits * nbins, 8);
+    requiredSize = raft::alignTo<size_t>(nBytesForBins, sizeof(unsigned));
     if (requiredSize <= smem) {
       return static_cast<HistType>(bits);
     }

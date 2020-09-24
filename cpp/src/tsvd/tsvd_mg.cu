@@ -30,6 +30,7 @@
 #include <raft/comms/comms.hpp>
 #include <stats/mean_center.cuh>
 #include "tsvd.cuh"
+#include <common/cudart_utils.h>
 
 using namespace MLCommon;
 
@@ -340,7 +341,7 @@ void fit_transform_impl(raft::handle_t &handle,
              streams[0]);
 
   T total_vars_h;
-  updateHost(&total_vars_h, total_vars.data(), 1, streams[0]);
+        raft::update_host(&total_vars_h, total_vars.data(), 1, streams[0]);
   CUDA_CHECK(cudaStreamSynchronize(streams[0]));
   T scalar = T(1) / total_vars_h;
 

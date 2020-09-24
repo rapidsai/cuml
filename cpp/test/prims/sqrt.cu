@@ -27,14 +27,14 @@ template <typename Type>
 __global__ void naiveSqrtElemKernel(Type *out, const Type *in1, int len) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) {
-    out[idx] = mySqrt(in1[idx]);
+    out[idx] = raft::mySqrt(in1[idx]);
   }
 }
 
 template <typename Type>
 void naiveSqrtElem(Type *out, const Type *in1, int len) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   naiveSqrtElemKernel<Type><<<nblks, TPB>>>(out, in1, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -60,9 +60,9 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.len;
-    allocate(in1, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in1, len);
+    raft::allocate(out_ref, len);
+    raft::allocate(out, len);
     r.uniform(in1, len, T(1.0), T(2.0), stream);
 
     naiveSqrtElem(out_ref, in1, len);

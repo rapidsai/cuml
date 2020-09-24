@@ -62,7 +62,7 @@ __global__ void stddevKernelColMajor(Type *std, const Type *data,
   }
   Type acc = BlockReduce(temp_storage).Sum(thread_data);
   if (threadIdx.x == 0) {
-    std[blockIdx.x] = MLCommon::mySqrt(acc / N);
+    std[blockIdx.x] = raft::mySqrt(acc / N);
   }
 }
 
@@ -111,8 +111,8 @@ void stddev(Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
     static const int RowsPerThread = 4;
     static const int ColsPerBlk = 32;
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(MLCommon::ceildiv(N, (IdxType)RowsPerBlk),
-              MLCommon::ceildiv(D, (IdxType)ColsPerBlk));
+    dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk),
+              raft::ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemset(std, 0, sizeof(Type) * D));
     stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
       <<<grid, TPB, 0, stream>>>(std, data, D, N);
@@ -120,7 +120,7 @@ void stddev(Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
     raft::linalg::binaryOp(
       std, std, mu, D,
       [ratio] __device__(Type a, Type b) {
-        return MLCommon::mySqrt(a * ratio - b * b);
+        return raft::mySqrt(a * ratio - b * b);
       },
       stream);
   } else {
@@ -156,8 +156,8 @@ void vars(Type *var, const Type *data, const Type *mu, IdxType D, IdxType N,
     static const int RowsPerThread = 4;
     static const int ColsPerBlk = 32;
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(MLCommon::ceildiv(N, (IdxType)RowsPerBlk),
-              MLCommon::ceildiv(D, (IdxType)ColsPerBlk));
+    dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk),
+              raft::ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemset(var, 0, sizeof(Type) * D));
     stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
       <<<grid, TPB, 0, stream>>>(var, data, D, N);

@@ -36,7 +36,7 @@ template <typename Type>
 void naiveSubtractElem(Type *out, const Type *in1, const Type *in2, int len,
                        cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   naiveSubtractElemKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -54,7 +54,7 @@ template <typename Type>
 void naiveSubtractScalar(Type *out, const Type *in1, const Type in2, int len,
                          cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   naiveSubtractScalarKernel<Type>
     <<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -81,10 +81,10 @@ class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
     int len = params.len;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in1, len);
-    allocate(in2, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in1, len);
+    raft::allocate(in2, len);
+    raft::allocate(out_ref, len);
+    raft::allocate(out, len);
     r.uniform(in1, len, T(-1.0), T(1.0), stream);
     r.uniform(in2, len, T(-1.0), T(1.0), stream);
 

@@ -51,7 +51,7 @@ __global__ void naiveBatchGemvKernel(Type *y, const Type *A, const Type *x,
 template <typename Type>
 void naiveBatchGemv(Type *y, const Type *A, const Type *x, int m, int n,
                     int batchSize, cudaStream_t stream) {
-  static int TPB = ceildiv(n, WarpSize) * WarpSize;
+  static int TPB = raft::ceildiv(n, raft::WarpSize) * raft::WarpSize;
   dim3 nblks(m, batchSize);
   naiveBatchGemvKernel<Type><<<nblks, TPB, 0, stream>>>(y, A, x, m, n);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -68,10 +68,10 @@ class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
     int veclenx = params.batchSize * params.n;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    allocate(A, len);
-    allocate(x, veclenx);
-    allocate(out_ref, vecleny);
-    allocate(out, vecleny);
+    raft::allocate(A, len);
+    raft::allocate(x, veclenx);
+    raft::allocate(out_ref, vecleny);
+    raft::allocate(out, vecleny);
     r.uniform(A, len, T(-1.0), T(1.0), stream);
     r.uniform(x, veclenx, T(-1.0), T(1.0), stream);
     CUDA_CHECK(cudaMemsetAsync(out_ref, 0, sizeof(T) * vecleny, stream));

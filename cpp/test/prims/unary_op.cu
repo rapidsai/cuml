@@ -55,9 +55,9 @@ class UnaryOpTest
     raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
     auto len = params.len;
-    MLCommon::allocate(in, len);
-    MLCommon::allocate(out_ref, len);
-    MLCommon::allocate(out, len);
+    allocate(in, len);
+    allocate(out_ref, len);
+    allocate(out, len);
     r.uniform(in, len, InType(-1.0), InType(1.0), stream);
   }
 

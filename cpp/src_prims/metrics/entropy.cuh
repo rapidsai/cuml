@@ -127,7 +127,7 @@ double entropy(const T *clusterArray, const int size, const T lowerLabelRange,
 
   //updating in the host memory
   double h_entropy;
-  MLCommon::updateHost(&h_entropy, d_entropy.data(), 1, stream);
+        raft::update_host(&h_entropy, d_entropy.data(), 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

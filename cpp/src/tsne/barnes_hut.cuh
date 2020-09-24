@@ -62,7 +62,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Get device properites
   //---------------------------------------------------
-  const int blocks = MLCommon::getMultiProcessorCount();
+  const int blocks = raft::getMultiProcessorCount();
 
   int nnodes = n * 2;
   if (nnodes < 1024 * blocks) nnodes = 1024 * blocks;
@@ -241,7 +241,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     // TODO: Calculate Kullback-Leibler divergence
     // For general embedding dimensions
     TSNE::
-      attractive_kernel_bh<<<MLCommon::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
+      attractive_kernel_bh<<<raft::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
         VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, attr_forces.data(),
         attr_forces.data() + n, NNZ);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -261,8 +261,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   PRINT_TIMES;
 
   // Copy final YY into true output Y
-  MLCommon::copy(Y, YY.data(), n, stream);
-  MLCommon::copy(Y + n, YY.data() + nnodes + 1, n, stream);
+  raft::copy(Y, YY.data(), n, stream);
+  raft::copy(Y + n, YY.data() + nnodes + 1, n, stream);
 }
 
 }  // namespace TSNE

@@ -56,7 +56,7 @@ void gridSyncTest(int* out, int* out1, const GridSyncInputs& params) {
   size_t workspaceSize =
     GridSync::computeWorkspaceSize(params.gridDim, params.type, true);
   char* workspace;
-  allocate(workspace, workspaceSize);
+  raft::allocate(workspace, workspaceSize);
   CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
   gridSyncTestKernel<<<params.gridDim, params.blockDim>>>(workspace, out,
                                                           params.type);
@@ -79,8 +79,8 @@ class GridSyncTest : public ::testing::TestWithParam<GridSyncInputs> {
   void SetUp() override {
     params = ::testing::TestWithParam<GridSyncInputs>::GetParam();
     size_t len = computeOutLen();
-    allocate(out, len);
-    allocate(out1, len);
+    raft::allocate(out, len);
+    raft::allocate(out1, len);
     gridSyncTest(out, out1, params);
   }
 

@@ -53,7 +53,7 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
     allocator.reset(new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    allocate(data, params.batch_size * params.n_obs);
+    raft::allocate(data, params.batch_size * params.n_obs);
 
     // Create the time series dataset
     make_arima(data, params.batch_size, params.n_obs, order, allocator, stream,

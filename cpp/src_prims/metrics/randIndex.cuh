@@ -130,8 +130,8 @@ double computeRandIndex(T* firstClusterArray, T* secondClusterArray,
   //kernel configuration
   static const int BLOCK_DIM_Y = 16, BLOCK_DIM_X = 16;
   dim3 numThreadsPerBlock(BLOCK_DIM_X, BLOCK_DIM_Y);
-  dim3 numBlocks(ceildiv<int>(size, numThreadsPerBlock.x),
-                 ceildiv<int>(size, numThreadsPerBlock.y));
+  dim3 numBlocks(raft::ceildiv<int>(size, numThreadsPerBlock.x),
+                 raft::ceildiv<int>(size, numThreadsPerBlock.y));
 
   //calling the kernel
   computeTheNumerator<T, BLOCK_DIM_X, BLOCK_DIM_Y>
@@ -141,7 +141,7 @@ double computeRandIndex(T* firstClusterArray, T* secondClusterArray,
 
   //synchronizing and updating the calculated values of a and b from device to host
   uint64_t ab_host[2] = {0};
-  MLCommon::updateHost(ab_host, arr_buf.data(), 2, stream);
+        raft::update_host(ab_host, arr_buf.data(), 2, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   //error handling

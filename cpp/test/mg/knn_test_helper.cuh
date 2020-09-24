@@ -21,6 +21,8 @@
 #include "../prims/test_utils.h"
 #include "test_opg_utils.h"
 
+#include <raft/comms/mpi_comms.hpp>
+
 #include <linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
@@ -59,19 +61,17 @@ template <typename T>
 class KNNTestHelper {
  public:
   void generate_data(const KNNParams &params) {
-    this->handle = new raft::handle_t();
-    ML::initialize_mpi_comms(*handle, MPI_COMM_WORLD);
-    const raft::handle_t &h = handle;
-    const auto &comm = h.get_comms();
-    this->allocator = h.get_device_allocator();
+    raft::comms::initialize_mpi_comms(&handle, MPI_COMM_WORLD);
+    const auto &comm = handle.get_comms();
+    this->allocator = handle.get_device_allocator();
 
-    this->stream = h.get_stream();
+    this->stream = handle.get_stream();
 
-    int my_rank = comm.getRank();
-    int size = comm.getSize();
+    int my_rank = comm.get_rank();
+    int size = comm.get_size();
 
-    this->index_parts_per_rank = MLCommon::ceildiv(params.n_index_parts, size);
-    this->query_parts_per_rank = MLCommon::ceildiv(params.n_query_parts, size);
+    this->index_parts_per_rank = raft::ceildiv(params.n_index_parts, size);
+    this->query_parts_per_rank = raft::ceildiv(params.n_query_parts, size);
 
     for (int cur_rank = 0; cur_rank < size; cur_rank++) {
       int ippr = this->index_parts_per_rank;
@@ -96,11 +96,11 @@ class KNNTestHelper {
 
     this->idx_desc = new Matrix::PartDescriptor(
       params.min_rows * params.n_index_parts, params.n_cols,
-      this->idxPartsToRanks, comm.getRank());
+      this->idxPartsToRanks, comm.get_rank());
 
     this->query_desc = new Matrix::PartDescriptor(
       params.min_rows * params.n_query_parts, params.n_cols,
-      this->queryPartsToRanks, comm.getRank());
+      this->queryPartsToRanks, comm.get_rank());
 
     if (my_rank == size - 1) {
       this->index_parts_per_rank =
@@ -235,11 +235,9 @@ class KNNTestHelper {
     for (Matrix::RankSizePair *rsp : this->idxPartsToRanks) {
       delete rsp;
     }
-
-    delete handle;
   }
 
-  raft::handle_t *handle;
+  raft::handle_t handle;
   std::vector<Matrix::Data<T> *> out_parts;
   std::vector<Matrix::Data<int64_t> *> out_i_parts;
   std::vector<Matrix::floatData_t *> out_d_parts;

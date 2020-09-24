@@ -33,7 +33,7 @@ struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
 
   inline __device__ T log_sigmoid(T x) const {
     // To avoid floating point overflow in the exp function
-    T temp = MLCommon::myLog(1 + MLCommon::myExp(x < 0 ? x : -x));
+    T temp = raft::myLog(1 + raft::myExp(x < 0 ? x : -x));
     return x < 0 ? x - temp : -temp;
   }
 
@@ -44,7 +44,7 @@ struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
 
   inline __device__ T dlz(const T y, const T z) const {
     // To avoid fp overflow with exp(z) when abs(z) is large
-    T ez = MLCommon::myExp(z < 0 ? z : -z);
+    T ez = raft::myExp(z < 0 ? z : -z);
     T numerator = z < 0 ? ez : T(1.0);
     return numerator / (T(1.0) + ez) - y;
   }

@@ -415,7 +415,7 @@ void _batched_kalman_loop_large(
 
     // 5. L = T - K * Z
     // L = T (L is m_tmp)
-    MLCommon::copy(m_tmp.raw_data(), T.raw_data(), nb * rd2, stream);
+    raft::copy(m_tmp.raw_data(), T.raw_data(), nb * rd2, stream);
     // L = L - K * Z
     thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
                      [=] __device__(int bid) {
@@ -471,7 +471,7 @@ void _batched_kalman_loop_large(
     // alpha = T*alpha + c
     // alpha = T*alpha
     MLCommon::Sparse::Batched::b_spmv(1.0, T_sparse, alpha, 0.0, v_tmp);
-    MLCommon::copy(d_alpha, v_tmp.raw_data(), rd * nb, stream);
+    raft::copy(d_alpha, v_tmp.raw_data(), rd * nb, stream);
     // alpha += c
     if (intercept) {
       thrust::for_each(
@@ -535,7 +535,7 @@ void batched_kalman_loop(raft::handle_t& handle, const double* ys, int nobs,
   int rd = order.rd();
   int n_diff = order.n_diff();
   dim3 numThreadsPerBlock(32, 1);
-  dim3 numBlocks(MLCommon::ceildiv<int>(batch_size, numThreadsPerBlock.x), 1);
+  dim3 numBlocks(raft::ceildiv<int>(batch_size, numThreadsPerBlock.x), 1);
   if (rd <= 8) {
     switch (rd) {
       case 1:
@@ -768,7 +768,7 @@ void _batched_kalman_filter(raft::handle_t& handle, const double* d_ys,
       thrust::for_each(thrust::cuda::par.on(stream), counting,
                        counting + batch_size, [=] __device__(int bid) {
                          if (abs(d_ImT[bid]) < 1e-3)
-                           d_ImT[bid] = MLCommon::signPrim(d_ImT[bid]) * 1e-3;
+                           d_ImT[bid] = raft::signPrim(d_ImT[bid]) * 1e-3;
                        });
     }
 
@@ -1020,7 +1020,7 @@ void batched_jones_transform(raft::handle_t& handle, const ARIMAOrder& order,
   params.allocate(order, batch_size, allocator, stream, false);
   Tparams.allocate(order, batch_size, allocator, stream, true);
 
-  MLCommon::updateDevice(d_params, h_params, N * batch_size, stream);
+    raft::update_device(d_params, h_params, N * batch_size, stream);
 
   params.unpack(order, batch_size, d_params, stream);
 
@@ -1030,7 +1030,7 @@ void batched_jones_transform(raft::handle_t& handle, const ARIMAOrder& order,
 
   Tparams.pack(order, batch_size, d_Tparams, stream);
 
-  MLCommon::updateHost(h_Tparams, d_Tparams, N * batch_size, stream);
+    raft::update_host(h_Tparams, d_Tparams, N * batch_size, stream);
 
   allocator->deallocate(d_params, N * batch_size * sizeof(double), stream);
   allocator->deallocate(d_Tparams, N * batch_size * sizeof(double), stream);

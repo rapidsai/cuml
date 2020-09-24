@@ -27,9 +27,9 @@ void softThres(math_t *out, const math_t *in, const math_t thres, const int len,
   raft::linalg::unaryOp(
     out, in, len,
     [thres] __device__(math_t in) {
-      if (in > math_t(0) && thres < myAbs(in))
+      if (in > math_t(0) && thres < raft::myAbs(in))
         return in - thres;
-      else if (in < math_t(0) && thres < myAbs(in))
+      else if (in < math_t(0) && thres < raft::myAbs(in))
         return in + thres;
       else
         return math_t(0);

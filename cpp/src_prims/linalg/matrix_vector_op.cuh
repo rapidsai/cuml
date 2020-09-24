@@ -27,7 +27,7 @@ __global__ void matrixVectorOpKernel(Type *out, const Type *matrix,
                                      const Type *vector, IdxType D, IdxType N,
                                      bool rowMajor, bool bcastAlongRows,
                                      Lambda op) {
-  typedef MLCommon::TxN_t<Type, veclen_> VecType;
+  typedef TxN_t<Type, veclen_> VecType;
   IdxType len = N * D;
   IdxType idx = threadIdx.x;
   idx += (IdxType)blockIdx.x * (IdxType)blockDim.x;
@@ -64,7 +64,7 @@ void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec,
                         bool bcastAlongRows, Lambda op, cudaStream_t stream) {
   IdxType len = N * D;
   IdxType nblks =
-    MLCommon::ceildiv(veclen_ ? len / veclen_ : veclen_, (IdxType)TPB);
+    raft::ceildiv(veclen_ ? len / veclen_ : veclen_, (IdxType)TPB);
   matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, matrix, vec, D, N, rowMajor,
                                 bcastAlongRows, op);
@@ -122,7 +122,7 @@ __global__ void matrixVectorOpKernel(Type *out, const Type *matrix,
                                      const Type *vector1, const Type *vector2,
                                      IdxType D, IdxType N, bool rowMajor,
                                      bool bcastAlongRows, Lambda op) {
-  typedef MLCommon::TxN_t<Type, veclen_> VecType;
+  typedef TxN_t<Type, veclen_> VecType;
   IdxType len = N * D;
   IdxType idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * VecType::Ratio;
   if (idx >= len) return;
@@ -159,7 +159,7 @@ template <typename Type, int veclen_, typename Lambda, typename IdxType,
 void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec1,
                         const Type *vec2, IdxType D, IdxType N, bool rowMajor,
                         bool bcastAlongRows, Lambda op, cudaStream_t stream) {
-  IdxType nblks = MLCommon::ceildiv(N * D, (IdxType)TPB);
+  IdxType nblks = raft::ceildiv(N * D, (IdxType)TPB);
   matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, matrix, vec1, vec2, D, N, rowMajor,
                                 bcastAlongRows, op);

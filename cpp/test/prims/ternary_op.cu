@@ -36,13 +36,13 @@ class ternaryOpTest
     int len = params.len;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in1, len);
-    allocate(in2, len);
-    allocate(in3, len);
-    allocate(out_add_ref, len);
-    allocate(out_mul_ref, len);
-    allocate(out_add, len);
-    allocate(out_mul, len);
+    raft::allocate(in1, len);
+    raft::allocate(in2, len);
+    raft::allocate(in3, len);
+    raft::allocate(out_add_ref, len);
+    raft::allocate(out_mul_ref, len);
+    raft::allocate(out_add, len);
+    raft::allocate(out_mul, len);
 
     rng.fill(out_add_ref, len, T(6.0), stream);
     rng.fill(out_mul_ref, len, T(6.0), stream);

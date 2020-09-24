@@ -45,9 +45,9 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
     int len = params.n_row * params.n_col;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in1, len);
-    allocate(in2, len);
-    allocate(in1_revr, len);
+    raft::allocate(in1, len);
+    raft::allocate(in2, len);
+    raft::allocate(in1_revr, len);
     r.uniform(in1, len, T(-1.0), T(1.0), stream);
 
     copy(in1, in2, params.n_row, params.n_col, stream);
@@ -55,7 +55,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
     // colReverse(in1_revr, params.n_row, params.n_col);
 
     T *outTrunc;
-    allocate(outTrunc, 6);
+    raft::allocate(outTrunc, 6);
     truncZeroOrigin(in1, params.n_row, outTrunc, 3, 2, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }

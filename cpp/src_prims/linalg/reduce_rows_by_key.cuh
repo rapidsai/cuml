@@ -44,7 +44,7 @@ void convert_array(IteratorT1 dst, IteratorT2 src, int n, cudaStream_t st) {
   dim3 grid, block;
   block.x = 256;
 
-  grid.x = ceildiv(n, (int)block.x);
+  grid.x = raft::ceildiv(n, (int)block.x);
   grid.x = std::min(grid.x, MAX_BLOCKS);
 
   convert_array_kernel<<<grid, block, 0, st>>>(dst, src, n);
@@ -161,7 +161,7 @@ void sum_rows_by_key_small_nkeys(const DataIteratorT d_A, int lda,
   block.x = SUM_ROWS_SMALL_K_DIMX;
   block.y = 1;  // Necessary
 
-  grid.x = ceildiv(nrows, (int)block.x);
+  grid.x = raft::ceildiv(nrows, (int)block.x);
   grid.x = std::min(grid.x, 32u);
   grid.y = ncols;
   grid.y = std::min(grid.y, MAX_BLOCKS);
@@ -230,7 +230,7 @@ void sum_rows_by_key_large_nkeys_colmajor(const DataIteratorT d_A, int lda,
   block.x = SUM_ROWS_SMALL_K_DIMX;
   block.y = 1;  // Necessary
 
-  grid.x = ceildiv(nrows, (int)block.x);
+  grid.x = raft::ceildiv(nrows, (int)block.x);
   grid.x = std::min(grid.x, 32u);
   grid.y = ncols;
   grid.y = std::min(grid.y, MAX_BLOCKS);
@@ -306,7 +306,7 @@ void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A, int lda,
   dim3 grid, block;
   block.x = 256;  //Adjust me!
   block.y = 1;    //Don't adjust me!
-  grid.x = ceildiv(ncols, (int)block.x);
+  grid.x = raft::ceildiv(ncols, (int)block.x);
   grid.y = nkeys;
   grid.z = std::max(40960000 / nkeys / ncols, (int)1);  //Adjust me!
   grid.z = std::min(grid.z, (unsigned int)nrows);

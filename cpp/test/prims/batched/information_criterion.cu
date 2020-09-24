@@ -87,7 +87,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
       loglike_h[i] = std::log(udis(gen));
 
     // Copy the data to the device
-    updateDevice(loglike_d, loglike_h.data(), params.batch_size, stream);
+      raft::update_device(loglike_d, loglike_h.data(), params.batch_size, stream);
 
     // Compute the tested results
     information_criterion(res_d, loglike_d, params.ic_type, params.n_params,

@@ -268,10 +268,14 @@ def generate_docstring(X='dense',
                 pass
 
             # X and y are the most common
-            elif par in ['X', 'y'] and par not in skip_parameters:
+            elif par == 'X' and par not in skip_parameters:
                 func.__doc__ += \
                     _parameters_docstrings[X].format(name=par,
                                                      shape=X_shape)
+            elif par == 'y' and par not in skip_parameters:
+                func.__doc__ += \
+                    _parameters_docstrings[y].format(name=par,
+                                                     shape=y_shape)
 
             # convert_dtype requires some magic to distinguish
             # whether we use the fit version or the version

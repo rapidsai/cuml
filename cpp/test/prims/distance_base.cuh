@@ -41,7 +41,7 @@ __global__ void naiveDistanceKernel(DataType *dist, const DataType *x,
   }
   if (type == ML::Distance::DistanceType::EucExpandedL2Sqrt ||
       type == ML::Distance::DistanceType::EucUnexpandedL2Sqrt)
-    acc = mySqrt(acc);
+    acc = raft::mySqrt(acc);
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
 }
@@ -97,7 +97,7 @@ __global__ void naiveCosineDistanceKernel(DataType *dist, const DataType *x,
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
 
   // Use 1.0 - (cosine similarity) to calc the distance
-  dist[outidx] = (DataType)1.0 - acc_ab / (mySqrt(acc_a) * mySqrt(acc_b));
+  dist[outidx] = (DataType)1.0 - acc_ab / (raft::mySqrt(acc_a) * raft::mySqrt(acc_b));
 }
 
 template <typename DataType>
@@ -105,7 +105,7 @@ void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
                    int n, int k, ML::Distance::DistanceType type,
                    bool isRowMajor) {
   static const dim3 TPB(16, 32, 1);
-  dim3 nblks(ceildiv(m, (int)TPB.x), ceildiv(n, (int)TPB.y), 1);
+  dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
 
   switch (type) {
     case ML::Distance::DistanceType::EucUnexpandedL1:
@@ -169,11 +169,11 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     bool isRowMajor = params.isRowMajor;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(x, m * k);
-    allocate(y, n * k);
-    allocate(dist_ref, m * n);
-    allocate(dist, m * n);
-    allocate(dist2, m * n);
+    raft::allocate(x, m * k);
+    raft::allocate(y, n * k);
+    raft::allocate(dist_ref, m * n);
+    raft::allocate(dist, m * n);
+    raft::allocate(dist2, m * n);
     r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
     r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
     naiveDistance(dist_ref, x, y, m, n, k, distanceType, isRowMajor);
@@ -182,7 +182,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
       getWorkspaceSize<distanceType, DataType, DataType, DataType>(x, y, m, n,
                                                                    k);
     if (worksize != 0) {
-      allocate(workspace, worksize);
+      raft::allocate(workspace, worksize);
     }
 
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;

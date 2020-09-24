@@ -53,7 +53,7 @@ template <typename Type>
 void naiveBatchMakeSymm(Type *y, const Type *x, int batchSize, int n,
                         cudaStream_t stream) {
   dim3 blk(16, 16);
-  int nblks = ceildiv<int>(n, blk.x);
+  int nblks = raft::ceildiv<int>(n, blk.x);
   dim3 grid(nblks, nblks, batchSize);
   naiveBatchMakeSymmKernel<Type><<<grid, blk, 0, stream>>>(y, x, n);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -69,9 +69,9 @@ class BatchMakeSymmTest
     int len = params.batchSize * params.n * params.n;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    allocate(x, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(x, len);
+    raft::allocate(out_ref, len);
+    raft::allocate(out, len);
     r.uniform(x, len, T(-1.0), T(1.0), stream);
     naiveBatchMakeSymm(out_ref, x, params.batchSize, params.n, stream);
     make_symm<T, int>(out, x, params.batchSize, params.n, stream);

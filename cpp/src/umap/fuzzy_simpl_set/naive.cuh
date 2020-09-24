@@ -235,7 +235,7 @@ void smooth_knn_dist(int n, const int64_t *knn_indices, const float *knn_dists,
                      float local_connectivity,
                      std::shared_ptr<deviceAllocator> d_alloc,
                      cudaStream_t stream) {
-  dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(n, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   MLCommon::device_buffer<T> dist_means_dev(d_alloc, stream, n_neighbors);
@@ -245,7 +245,7 @@ void smooth_knn_dist(int n, const int64_t *knn_indices, const float *knn_dists,
   CUDA_CHECK(cudaPeekAtLastError());
 
   T mean_dist = 0.0;
-  MLCommon::updateHost(&mean_dist, dist_means_dev.data(), 1, stream);
+        raft::update_host(&mean_dist, dist_means_dev.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   /**
@@ -295,9 +295,9 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
   // check for logging in order to avoid the potentially costly `arr2Str` call!
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
     CUML_LOG_DEBUG("Smooth kNN Distances");
-    auto str = MLCommon::arr2Str(sigmas.data(), 25, "sigmas", stream);
+    auto str = raft::arr2Str(sigmas.data(), 25, "sigmas", stream);
     CUML_LOG_DEBUG("%s", str.c_str());
-    str = MLCommon::arr2Str(rhos.data(), 25, "rhos", stream);
+    str = raft::arr2Str(rhos.data(), 25, "rhos", stream);
     CUML_LOG_DEBUG("%s", str.c_str());
   }
 
@@ -307,7 +307,7 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
    * Compute graph of membership strengths
    */
 
-  dim3 grid_elm(MLCommon::ceildiv(n * n_neighbors, TPB_X), 1, 1);
+  dim3 grid_elm(raft::ceildiv(n * n_neighbors, TPB_X), 1, 1);
   dim3 blk_elm(TPB_X, 1, 1);
 
   compute_membership_strength_kernel<TPB_X><<<grid_elm, blk_elm, 0, stream>>>(

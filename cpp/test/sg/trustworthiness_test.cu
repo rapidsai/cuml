@@ -418,8 +418,8 @@ class TrustworthinessScoreTest : public ::testing::Test {
     float* d_X_embedded =
       (float*)d_alloc->allocate(X_embedded.size() * sizeof(float), stream);
 
-    updateDevice(d_X, X.data(), X.size(), stream);
-    updateDevice(d_X_embedded, X_embedded.data(), X_embedded.size(), stream);
+      raft::update_device(d_X, X.data(), X.size(), stream);
+      raft::update_device(d_X_embedded, X_embedded.data(), X_embedded.size(), stream);
 
     // euclidean test
     score =

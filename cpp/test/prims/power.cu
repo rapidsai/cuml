@@ -28,7 +28,7 @@ __global__ void naivePowerElemKernel(Type *out, const Type *in1,
                                      const Type *in2, int len) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) {
-    out[idx] = myPow(in1[idx], in2[idx]);
+    out[idx] = raft::myPow(in1[idx], in2[idx]);
   }
 }
 
@@ -36,7 +36,7 @@ template <typename Type>
 void naivePowerElem(Type *out, const Type *in1, const Type *in2, int len,
                     cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   naivePowerElemKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -46,7 +46,7 @@ __global__ void naivePowerScalarKernel(Type *out, const Type *in1,
                                        const Type in2, int len) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) {
-    out[idx] = myPow(in1[idx], in2);
+    out[idx] = raft::myPow(in1[idx], in2);
   }
 }
 
@@ -54,7 +54,7 @@ template <typename Type>
 void naivePowerScalar(Type *out, const Type *in1, const Type in2, int len,
                       cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   naivePowerScalarKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -80,10 +80,10 @@ class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
     int len = params.len;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in1, len);
-    allocate(in2, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in1, len);
+    raft::allocate(in2, len);
+    raft::allocate(out_ref, len);
+    raft::allocate(out, len);
     r.uniform(in1, len, T(1.0), T(2.0), stream);
     r.uniform(in2, len, T(1.0), T(2.0), stream);
 

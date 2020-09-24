@@ -59,9 +59,9 @@ class coalescedReductionTest
     int len = rows * cols;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, len);
-    allocate(dots_exp, rows);
-    allocate(dots_act, rows);
+    raft::allocate(data, len);
+    raft::allocate(dots_exp, rows);
+    raft::allocate(dots_act, rows);
     r.uniform(data, len, T(-1.0), T(1.0), stream);
     naiveCoalescedReduction(dots_exp, data, cols, rows, stream);
 

@@ -19,6 +19,7 @@
 #include <cuml/manifold/umapparams.h>
 #include <common/fast_int_div.cuh>
 #include <cuda_utils.cuh>
+#include <common/cudart_utils.h>
 
 namespace UMAPAlgo {
 namespace SimplSetEmbed {
@@ -354,7 +355,7 @@ void call_optimize_batch_kernel(
   } else {
     requiredSize *= sizeof(double);
   }
-  bool use_shared_mem = requiredSize < MLCommon::getSharedMemPerBlock();
+  bool use_shared_mem = requiredSize < raft::getSharedMemPerBlock();
   T nsr_inv = T(1.0) / params->negative_sample_rate;
   if (embedding_updates) {
     if (params->n_components == 2) {

@@ -811,7 +811,7 @@ __global__ void best_split_gather_regression_mae_kernel(
     dataid = get_samplelist(samplelist, dataid, nodestart, tid, count);
     local_label = get_label(labels, local_label, dataid, count);
     T value = (mean_parent / count) - local_label;
-    atomicAdd(&mae_parent, MLCommon::myAbs(value));
+    atomicAdd(&mae_parent, raft::myAbs(value));
   }
   //Loop over cols
   for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
@@ -853,12 +853,12 @@ __global__ void best_split_gather_regression_mae_kernel(
         if (local_data <= question(binid)) {
           T value =
             (shmean_left[binid] / (count - shcount_right[binid])) - local_label;
-          atomicAdd(&shmae_left[binid], MLCommon::myAbs(value));
+          atomicAdd(&shmae_left[binid], raft::myAbs(value));
         } else {
           T value =
             ((mean_parent - shmean_left[binid]) / shcount_right[binid]) -
             local_label;
-          atomicAdd(&shmae_right[binid], MLCommon::myAbs(value));
+          atomicAdd(&shmae_right[binid], raft::myAbs(value));
         }
       }
     }
@@ -947,7 +947,7 @@ __global__ void best_split_gather_regression_mae_minmax_kernel(
     dataid = get_samplelist(samplelist, dataid, nodestart, tid, count);
     local_label = get_label(labels, local_label, dataid, count);
     T value = (mean_parent / count) - local_label;
-    atomicAdd(&mae_parent, MLCommon::myAbs(value));
+    atomicAdd(&mae_parent, raft::myAbs(value));
   }
 
   //Loop over cols
@@ -1007,12 +1007,12 @@ __global__ void best_split_gather_regression_mae_minmax_kernel(
         if (local_data <= threadmin + delta * (binid + 1)) {
           T value =
             (shmean_left[binid] / (count - shcount_right[binid])) - local_label;
-          atomicAdd(&shmae_left[binid], MLCommon::myAbs(value));
+          atomicAdd(&shmae_left[binid], raft::myAbs(value));
         } else {
           T value =
             ((mean_parent - shmean_left[binid]) / shcount_right[binid]) -
             local_label;
-          atomicAdd(&shmae_right[binid], MLCommon::myAbs(value));
+          atomicAdd(&shmae_right[binid], raft::myAbs(value));
         }
       }
     }

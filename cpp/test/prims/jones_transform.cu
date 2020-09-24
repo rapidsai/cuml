@@ -92,13 +92,13 @@ template
 
     //allocating and initializing device memory
     CUDA_CHECK(cudaStreamCreate(&stream));
-    MLCommon::allocate(d_golden_ar_trans, nElements, true);
-    MLCommon::allocate(d_computed_ar_trans, nElements, true);
-    MLCommon::allocate(d_params, nElements, true);
+    raft::allocate(d_golden_ar_trans, nElements, true);
+    raft::allocate(d_computed_ar_trans, nElements, true);
+    raft::allocate(d_params, nElements, true);
 
-    MLCommon::updateDevice(d_params, &arr1[0], (size_t)nElements, stream);
-    MLCommon::updateDevice(d_golden_ar_trans, newParams, (size_t)nElements,
-                           stream);
+      raft::update_device(d_params, &arr1[0], (size_t) nElements, stream);
+      raft::update_device(d_golden_ar_trans, newParams, (size_t) nElements,
+                          stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
       new raft::mr::device::default_allocator);
 
@@ -142,11 +142,11 @@ template
     }
 
     //allocating and initializing device memory
-    MLCommon::allocate(d_golden_ma_trans, nElements, true);
-    MLCommon::allocate(d_computed_ma_trans, nElements, true);
+    raft::allocate(d_golden_ma_trans, nElements, true);
+    raft::allocate(d_computed_ma_trans, nElements, true);
 
-    MLCommon::updateDevice(d_golden_ma_trans, newParams, (size_t)nElements,
-                           stream);
+      raft::update_device(d_golden_ma_trans, newParams, (size_t) nElements,
+                          stream);
 
     //calling the ma_param_transform CUDA implementation
     MLCommon::TimeSeries::jones_transform(d_params, params.batchSize,
@@ -156,7 +156,7 @@ template
     //>>>>>>>>>>>>>>>>> AR inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     //allocating and initializing device memory
-    MLCommon::allocate(d_computed_ar_invtrans, nElements, true);
+    raft::allocate(d_computed_ar_invtrans, nElements, true);
 
     //calling the ar_param_inverse_transform CUDA implementation
     MLCommon::TimeSeries::jones_transform(d_computed_ar_trans, params.batchSize,
@@ -165,7 +165,7 @@ template
 
     //>>>>>>>>>>>>>>>>> MA inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    MLCommon::allocate(d_computed_ma_invtrans, nElements, true);
+    raft::allocate(d_computed_ma_invtrans, nElements, true);
 
     //calling the ma_param_inverse_transform CUDA implementation
     MLCommon::TimeSeries::jones_transform(d_computed_ma_trans, params.batchSize,

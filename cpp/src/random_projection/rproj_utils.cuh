@@ -71,14 +71,14 @@ inline size_t binomial(const raft::handle_t& h, size_t n, double p,
 
   cudaMemsetAsync(successes, 0, sizeof(int), h.get_stream());
 
-  dim3 grid_n(MLCommon::ceildiv(n, (size_t)TPB_X), 1, 1);
+  dim3 grid_n(raft::ceildiv(n, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   sum_bools<<<grid_n, blk, 0, h.get_stream()>>>(rand_array, n, successes);
   CUDA_CHECK(cudaPeekAtLastError());
 
   int ret = 0;
-  MLCommon::updateHost(&ret, successes, 1, h.get_stream());
+    raft::update_host(&ret, successes, 1, h.get_stream());
   cudaStreamSynchronize(h.get_stream());
   CUDA_CHECK(cudaPeekAtLastError());
 

@@ -117,9 +117,9 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
                                             allocator, stream);
 
     // Copy the data to the device
-    updateDevice(AbM.raw_data(), A.data(), A.size(), stream);
-    updateDevice(BxbM.raw_data(), Bx.data(), Bx.size(), stream);
-    updateDevice(res_bM->raw_data(), res_h.data(), res_h.size(), stream);
+      raft::update_device(AbM.raw_data(), A.data(), A.size(), stream);
+      raft::update_device(BxbM.raw_data(), Bx.data(), Bx.size(), stream);
+      raft::update_device(res_bM->raw_data(), res_h.data(), res_h.size(), stream);
 
     // Create sparse matrix A from the dense A and the mask
     CSR<T> AbS = CSR<T>::from_dense(AbM, mask, cusolverSpHandle);

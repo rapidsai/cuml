@@ -94,7 +94,7 @@ __global__ void make_arima_kernel(DataT* d_diff, const DataT* d_res,
     obs +=
       (threadIdx.x < min(i, n_theta)) ? theta * b_res[i - threadIdx.x - 1] : 0;
 
-    obs = MLCommon::blockReduce(obs, temp_smem);
+    obs = raft::blockReduce(obs, temp_smem);
 
     if (threadIdx.x == 0) {
       // Intercept and residual
@@ -215,7 +215,7 @@ void make_arima(DataT* out, int batch_size, int n_obs, ML::ARIMAOrder order,
                  noise_scale, stream);
 
   // Call the main kernel to generate the differenced series
-  int n_warps = std::max(ceildiv<int>(std::max(n_phi, n_theta), 32), 1);
+  int n_warps = std::max(raft::ceildiv<int>(std::max(n_phi, n_theta), 32), 1);
   size_t shared_mem_size = (2 * (n_obs - d_sD) + n_warps) * sizeof(double);
   make_arima_kernel<<<batch_size, 32 * n_warps, shared_mem_size, stream>>>(
     d_diff, residuals.data(), params.mu, params.ar, params.ma, params.sar,

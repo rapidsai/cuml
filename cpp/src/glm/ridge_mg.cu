@@ -28,6 +28,7 @@
 #include <opg/linalg/svd.hpp>
 #include <opg/stats/mean.hpp>
 #include <raft/comms/comms.hpp>
+#include <common/cudart_utils.h>
 
 using namespace MLCommon;
 
@@ -57,8 +58,8 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
 
   // TO-DO: Update to use `device_buffer` here
   // Tracking issue: https://github.com/rapidsai/cuml/issues/2524
-  allocate(S_nnz, UDesc.N, true);
-  copy(S_nnz, S, UDesc.N, streams[0]);
+  raft::allocate(S_nnz, UDesc.N, true);
+  raft::copy(S_nnz, S, UDesc.N, streams[0]);
   raft::matrix::power(S_nnz, UDesc.N, streams[0]);
   LinAlg::addScalar(S_nnz, S_nnz, alpha[0], UDesc.N, streams[0]);
   raft::matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, size_t(1), UDesc.N,

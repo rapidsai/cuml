@@ -66,7 +66,7 @@ void elasticnet(math_t *out, const math_t *coef, const int len,
                 const math_t alpha, const math_t l1_ratio,
                 cudaStream_t stream) {
   math_t *out_lasso = NULL;
-  allocate(out_lasso, 1);
+  raft::allocate(out_lasso, 1);
 
   ridge(out, coef, len, alpha * (math_t(1) - l1_ratio), stream);
   lasso(out_lasso, coef, len, alpha * l1_ratio, stream);
@@ -83,7 +83,7 @@ void elasticnetGrad(math_t *grad, const math_t *coef, const int len,
                     const math_t alpha, const math_t l1_ratio,
                     cudaStream_t stream) {
   math_t *grad_lasso = NULL;
-  allocate(grad_lasso, len);
+  raft::allocate(grad_lasso, len);
 
   ridgeGrad(grad, coef, len, alpha * (math_t(1) - l1_ratio), stream);
   lassoGrad(grad_lasso, coef, len, alpha * l1_ratio, stream);

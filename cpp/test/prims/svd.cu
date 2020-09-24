@@ -52,19 +52,19 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
     int len = params.len;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, len);
+    raft::allocate(data, len);
 
     ASSERT(params.n_row == 3, "This test only supports nrows=3!");
     ASSERT(params.len == 6, "This test only supports len=6!");
     T data_h[] = {1.0, 4.0, 2.0, 2.0, 5.0, 1.0};
-    updateDevice(data, data_h, len, stream);
+      raft::update_device(data, data_h, len, stream);
 
     int left_evl = params.n_row * params.n_col;
     int right_evl = params.n_col * params.n_col;
 
-    allocate(left_eig_vectors_qr, left_evl);
-    allocate(right_eig_vectors_trans_qr, right_evl);
-    allocate(sing_vals_qr, params.n_col);
+    raft::allocate(left_eig_vectors_qr, left_evl);
+    raft::allocate(right_eig_vectors_trans_qr, right_evl);
+    raft::allocate(sing_vals_qr, params.n_col);
 
     // allocate(left_eig_vectors_jacobi, left_evl);
     // allocate(right_eig_vectors_trans_jacobi, right_evl);
@@ -77,15 +77,15 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
 
     T sing_vals_ref_h[] = {7.065283, 1.040081};
 
-    allocate(left_eig_vectors_ref, left_evl);
-    allocate(right_eig_vectors_ref, right_evl);
-    allocate(sing_vals_ref, params.n_col);
+    raft::allocate(left_eig_vectors_ref, left_evl);
+    raft::allocate(right_eig_vectors_ref, right_evl);
+    raft::allocate(sing_vals_ref, params.n_col);
 
-    updateDevice(left_eig_vectors_ref, left_eig_vectors_ref_h, left_evl,
-                 stream);
-    updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, right_evl,
-                 stream);
-    updateDevice(sing_vals_ref, sing_vals_ref_h, params.n_col, stream);
+      raft::update_device(left_eig_vectors_ref, left_eig_vectors_ref_h, left_evl,
+                          stream);
+      raft::update_device(right_eig_vectors_ref, right_eig_vectors_ref_h, right_evl,
+                          stream);
+      raft::update_device(sing_vals_ref, sing_vals_ref_h, params.n_col, stream);
 
     svdQR(data, params.n_row, params.n_col, sing_vals_qr, left_eig_vectors_qr,
           right_eig_vectors_trans_qr, true, true, true, cusolverH, cublasH,

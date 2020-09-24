@@ -100,7 +100,7 @@ DataT dispersion(const DataT *centroids, const IdxT *clusterSizes,
   static const int RowsPerThread = 4;
   static const int ColsPerBlk = 32;
   static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-  dim3 grid(ceildiv(nPoints, (IdxT)RowsPerBlk), ceildiv(dim, (IdxT)ColsPerBlk));
+  dim3 grid(raft::ceildiv(nPoints, (IdxT)RowsPerBlk), raft::ceildiv(dim, (IdxT)ColsPerBlk));
   device_buffer<DataT> mean(allocator, stream);
   device_buffer<DataT> result(allocator, stream, 1);
   DataT *mu = globalCentroid;
@@ -117,12 +117,12 @@ DataT dispersion(const DataT *centroids, const IdxT *clusterSizes,
   raft::linalg::scalarMultiply(mu, mu, ratio, dim, stream);
   // finally, compute the dispersion
   constexpr int ItemsPerThread = 4;
-  int nblks = ceildiv<int>(dim * nClusters, TPB * ItemsPerThread);
+  int nblks = raft::ceildiv<int>(dim * nClusters, TPB * ItemsPerThread);
   dispersionKernel<DataT, IdxT, TPB><<<nblks, TPB, 0, stream>>>(
     result.data(), centroids, clusterSizes, mu, dim, nClusters);
   CUDA_CHECK(cudaGetLastError());
   DataT h_result;
-  updateHost(&h_result, result.data(), 1, stream);
+        raft::update_host(&h_result, result.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   return sqrt(h_result);
 }

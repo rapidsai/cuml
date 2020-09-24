@@ -49,9 +49,9 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     T var = params.var;
-    allocate(data, len);
-    allocate(mean_act, cols);
-    allocate(cov_act, cols * cols);
+    raft::allocate(data, len);
+    raft::allocate(mean_act, cols);
+    raft::allocate(cov_act, cols * cols);
     r.normal(data, len, params.mean, var, stream);
     raft::stats::mean(mean_act, data, cols, rows, params.sample,
                       params.rowMajor, stream);
@@ -61,13 +61,13 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     T data_h[6] = {1.0, 2.0, 5.0, 4.0, 2.0, 1.0};
     T cov_cm_ref_h[4] = {4.3333, -2.8333, -2.8333, 2.333};
 
-    allocate(data_cm, 6);
-    allocate(cov_cm, 4);
-    allocate(cov_cm_ref, 4);
-    allocate(mean_cm, 2);
+    raft::allocate(data_cm, 6);
+    raft::allocate(cov_cm, 4);
+    raft::allocate(cov_cm_ref, 4);
+    raft::allocate(mean_cm, 2);
 
-    updateDevice(data_cm, data_h, 6, stream);
-    updateDevice(cov_cm_ref, cov_cm_ref_h, 4, stream);
+      raft::update_device(data_cm, data_h, 6, stream);
+      raft::update_device(cov_cm_ref, cov_cm_ref_h, 4, stream);
 
     raft::stats::mean(mean_cm, data_cm, 2, 3, true, false, stream);
     cov(cov_cm, data_cm, mean_cm, 2, 3, true, false, true, handle, stream);

@@ -41,11 +41,11 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
   void SetUp() override {
     param = ::testing::TestWithParam<EpsInputs<T, IdxT>>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, param.n_row * param.n_col);
-    allocate(labels, param.n_row);
+    raft::allocate(data, param.n_row * param.n_col);
+    raft::allocate(labels, param.n_row);
     batchSize = param.n_row / param.n_batches;
-    allocate(adj, param.n_row * batchSize);
-    allocate(vd, batchSize + 1, true);
+    raft::allocate(adj, param.n_row * batchSize);
+    raft::allocate(vd, batchSize + 1, true);
     allocator.reset(new raft::mr::device::default_allocator);
     Random::make_blobs<T, IdxT>(data, labels, param.n_row, param.n_col,
                                 param.n_centers, allocator, stream, true,

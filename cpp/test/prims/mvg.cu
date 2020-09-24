@@ -121,8 +121,8 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     }
 
     // porting inputs to gpu
-    updateDevice(P_d, P, dim * dim, stream);
-    updateDevice(x_d, x, dim, stream);
+      raft::update_device(P_d, P, dim * dim, stream);
+      raft::update_device(x_d, x, dim, stream);
 
     // initilizing the mvg
     mvg = new MultiVarGaussian<T>(dim, method);
@@ -139,15 +139,15 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     //@todo can be swapped with a API that calculates mean
     CUDA_CHECK(cudaMemset(Rand_mean, 0, dim * sizeof(T)));
     dim3 block = (64);
-    dim3 grid = (ceildiv(nPoints * dim, (int)block.x));
+    dim3 grid = (raft::ceildiv(nPoints * dim, (int)block.x));
     En_KF_accumulate<<<grid, block>>>(nPoints, dim, X_d, Rand_mean);
     CUDA_CHECK(cudaPeekAtLastError());
-    grid = (ceildiv(dim, (int)block.x));
+    grid = (raft::ceildiv(dim, (int)block.x));
     En_KF_normalize<<<grid, block>>>(nPoints, dim, Rand_mean);
     CUDA_CHECK(cudaPeekAtLastError());
 
     // storing the error wrt random point mean in X_d
-    grid = (ceildiv(dim * nPoints, (int)block.x));
+    grid = (raft::ceildiv(dim * nPoints, (int)block.x));
     En_KF_dif<<<grid, block>>>(nPoints, dim, X_d, Rand_mean, X_d);
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -160,7 +160,7 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
                                           dim, &beta, Rand_cov, dim, stream));
 
     // restoring cov provided into P_d
-    updateDevice(P_d, P, dim * dim, stream);
+      raft::update_device(P_d, P, dim * dim, stream);
   }
 
   void TearDown() override {

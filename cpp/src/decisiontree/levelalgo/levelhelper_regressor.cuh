@@ -32,7 +32,7 @@ void initial_metric_regression(const T *labels, unsigned int *sample_cnt,
   CUDA_CHECK(cudaMemsetAsync(tempmem->d_count->data(), 0, sizeof(unsigned int),
                              tempmem->stream));
   int threads = 128;
-  int blocks = MLCommon::ceildiv(nrows, threads);
+  int blocks = raft::ceildiv(nrows, threads);
 
   pred_kernel_level<<<blocks, threads, 0, tempmem->stream>>>(
     labels, sample_cnt, nrows, tempmem->d_predout->data(),
@@ -42,12 +42,12 @@ void initial_metric_regression(const T *labels, unsigned int *sample_cnt,
     labels, sample_cnt, nrows, tempmem->d_predout->data(),
     tempmem->d_count->data(), tempmem->d_mseout->data());
   CUDA_CHECK(cudaGetLastError());
-  MLCommon::updateHost(tempmem->h_count->data(), tempmem->d_count->data(), 1,
-                       tempmem->stream);
-  MLCommon::updateHost(tempmem->h_predout->data(), tempmem->d_predout->data(),
-                       1, tempmem->stream);
-  MLCommon::updateHost(tempmem->h_mseout->data(), tempmem->d_mseout->data(), 1,
-                       tempmem->stream);
+    raft::update_host(tempmem->h_count->data(), tempmem->d_count->data(), 1,
+                      tempmem->stream);
+    raft::update_host(tempmem->h_predout->data(), tempmem->d_predout->data(),
+                      1, tempmem->stream);
+    raft::update_host(tempmem->h_mseout->data(), tempmem->d_mseout->data(), 1,
+                      tempmem->stream);
   CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   count = tempmem->h_count->data()[0];
   mean = tempmem->h_predout->data()[0] / count;
@@ -75,7 +75,7 @@ void get_mse_regression_fused(const T *data, const T *labels,
   size_t shmempred = nbins * (sizeof(unsigned int) + sizeof(T)) * n_nodes;
 
   int threads = 256;
-  int blocks = MLCommon::ceildiv(nrows, threads);
+  int blocks = raft::ceildiv(nrows, threads);
   unsigned int *d_colstart = nullptr;
   if (tempmem->d_colstart != nullptr) d_colstart = tempmem->d_colstart->data();
 
@@ -137,7 +137,7 @@ void get_mse_regression(const T *data, const T *labels, unsigned int *flags,
   size_t shmemmse = shmempred + 2 * nbins * n_nodes * sizeof(T);
 
   int threads = 256;
-  int blocks = MLCommon::ceildiv(nrows, threads);
+  int blocks = raft::ceildiv(nrows, threads);
   unsigned int *d_colstart = nullptr;
   if (tempmem->d_colstart != nullptr) d_colstart = tempmem->d_colstart->data();
 
@@ -259,8 +259,8 @@ void get_best_split_regression(
     }
 
     //Here parent mean and count are already updated
-    MLCommon::updateDevice(d_parentmetric, h_parentmetric, n_nodes,
-                           tempmem->stream);
+      raft::update_device(d_parentmetric, h_parentmetric, n_nodes,
+                          tempmem->stream);
     CUDA_CHECK(
       cudaMemsetAsync(d_outgain, 0, n_nodes * sizeof(float), tempmem->stream));
     CUDA_CHECK(cudaMemsetAsync(d_split_binidx, 0, n_nodes * sizeof(int),
@@ -276,17 +276,17 @@ void get_best_split_regression(
         d_childmetric);
     CUDA_CHECK(cudaGetLastError());
 
-    MLCommon::updateHost(h_childmetric, d_childmetric, 2 * n_nodes,
-                         tempmem->stream);
-    MLCommon::updateHost(h_outgain, d_outgain, n_nodes, tempmem->stream);
-    MLCommon::updateHost(h_childmean, d_childmean, 2 * n_nodes,
-                         tempmem->stream);
-    MLCommon::updateHost(h_childcount, d_childcount, 2 * n_nodes,
-                         tempmem->stream);
-    MLCommon::updateHost(split_binidx, d_split_binidx, n_nodes,
-                         tempmem->stream);
-    MLCommon::updateHost(split_colidx, d_split_colidx, n_nodes,
-                         tempmem->stream);
+      raft::update_host(h_childmetric, d_childmetric, 2 * n_nodes,
+                        tempmem->stream);
+      raft::update_host(h_outgain, d_outgain, n_nodes, tempmem->stream);
+      raft::update_host(h_childmean, d_childmean, 2 * n_nodes,
+                        tempmem->stream);
+      raft::update_host(h_childcount, d_childcount, 2 * n_nodes,
+                        tempmem->stream);
+      raft::update_host(split_binidx, d_split_binidx, n_nodes,
+                        tempmem->stream);
+      raft::update_host(split_colidx, d_split_colidx, n_nodes,
+                        tempmem->stream);
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
@@ -316,9 +316,9 @@ void get_best_split_regression(
     }
 
   } else {
-    MLCommon::updateHost(mseout, d_mseout, 2 * predcount, tempmem->stream);
-    MLCommon::updateHost(predout, d_predout, predcount, tempmem->stream);
-    MLCommon::updateHost(count, d_count, predcount, tempmem->stream);
+      raft::update_host(mseout, d_mseout, 2 * predcount, tempmem->stream);
+      raft::update_host(predout, d_predout, predcount, tempmem->stream);
+      raft::update_host(count, d_count, predcount, tempmem->stream);
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
       T bestmetric_left = 0;
@@ -396,10 +396,10 @@ void get_best_split_regression(
       sparsetree.push_back(leftnode);
       sparsetree.push_back(rightnode);
     }
-    MLCommon::updateDevice(d_split_binidx, split_binidx, n_nodes,
-                           tempmem->stream);
-    MLCommon::updateDevice(d_split_colidx, split_colidx, n_nodes,
-                           tempmem->stream);
+      raft::update_device(d_split_binidx, split_binidx, n_nodes,
+                          tempmem->stream);
+      raft::update_device(d_split_colidx, split_colidx, n_nodes,
+                          tempmem->stream);
   }
 }
 
@@ -456,10 +456,10 @@ void init_parent_value(std::vector<T> &sparse_meanstate,
     h_predout[i] = sparse_meanstate[sparsesize + sparse_nodeid];
     h_count[i] = sparse_countstate[sparsesize + sparse_nodeid];
   }
-  MLCommon::updateDevice(tempmem->d_parent_pred->data(), h_predout, n_nodes,
-                         tempmem->stream);
-  MLCommon::updateDevice(tempmem->d_parent_count->data(), h_count, n_nodes,
-                         tempmem->stream);
+    raft::update_device(tempmem->d_parent_pred->data(), h_predout, n_nodes,
+                        tempmem->stream);
+    raft::update_device(tempmem->d_parent_count->data(), h_count, n_nodes,
+                        tempmem->stream);
 }
 
 template <typename T>

@@ -32,7 +32,7 @@
 #endif
 #endif  // ENABLE_MEMCPY_ASYNC
 
-namespace MLCommon {
+namespace raft {
 
 /** helper macro for device inlined functions */
 #define DI inline __device__
@@ -649,4 +649,4 @@ inline cudaStream_t select_stream(cudaStream_t user_stream,
   return n_int_streams > 0 ? int_streams[idx % n_int_streams] : user_stream;
 }
 
-}  // namespace MLCommon
+}  // namespace raft

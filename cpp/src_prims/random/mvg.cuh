@@ -132,11 +132,11 @@ class MultiVarGaussian {
     // malloc workspace_decomp
     size_t granuality = 256, offset = 0;
     workspace_decomp = (T *)offset;
-    offset += alignTo(sizeof(T) * Lwork, granuality);
+    offset += raft::alignTo(sizeof(T) * Lwork, granuality);
     eig = (T *)offset;
-    offset += alignTo(sizeof(T) * dim, granuality);
+    offset += raft::alignTo(sizeof(T) * dim, granuality);
     info = (int *)offset;
-    offset += alignTo(sizeof(int), granuality);
+    offset += raft::alignTo(sizeof(int), granuality);
     return offset;
   }
 
@@ -190,7 +190,7 @@ class MultiVarGaussian {
         cusolverHandle, jobz, uplo, dim, P, dim, eig, workspace_decomp, Lwork,
         info, cudaStream));
     }
-    updateHost(&info_h, info, 1, cudaStream);
+      raft::update_host(&info_h, info, 1, cudaStream);
     CUDA_CHECK(cudaStreamSynchronize(cudaStream));
     ASSERT(info_h == 0, "mvg: error in syevj/syevd/potrf, info=%d | expected=0",
            info_h);
@@ -202,7 +202,7 @@ class MultiVarGaussian {
     if (method == chol_decomp) {
       // upper part (0) being filled with 0.0
       dim3 block(32, 32);
-      dim3 grid(ceildiv(dim, (int)block.x), ceildiv(dim, (int)block.y));
+      dim3 grid(raft::ceildiv(dim, (int)block.x), raft::ceildiv(dim, (int)block.y));
       fill_uplo<T><<<grid, block, 0, cudaStream>>>(dim, UPPER, (T)0.0, P);
       CUDA_CHECK(cudaPeekAtLastError());
 
@@ -213,15 +213,15 @@ class MultiVarGaussian {
     } else {
       epsilonToZero(eig, epsilon, dim, cudaStream);
       dim3 block(64);
-      dim3 grid(ceildiv(dim, (int)block.x));
+      dim3 grid(raft::ceildiv(dim, (int)block.x));
       CUDA_CHECK(cudaMemsetAsync(info, 0, sizeof(int), cudaStream));
-      grid.x = ceildiv(dim * dim, (int)block.x);
+      grid.x = raft::ceildiv(dim * dim, (int)block.x);
       combined_dot_product<T>
         <<<grid, block, 0, cudaStream>>>(dim, dim, eig, P, info);
       CUDA_CHECK(cudaPeekAtLastError());
 
       // checking if any eigen vals were negative
-      updateHost(&info_h, info, 1, cudaStream);
+        raft::update_host(&info_h, info, 1, cudaStream);
       CUDA_CHECK(cudaStreamSynchronize(cudaStream));
       ASSERT(info_h == 0, "mvg: Cov matrix has %dth Eigenval negative", info_h);
 

@@ -74,8 +74,8 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
 
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    MLCommon::allocate(data, params.len);
-    MLCommon::allocate(stats, 2, true);
+    allocate(data, params.len);
+    allocate(stats, 2, true);
     switch (params.type) {
       case RNG_Uniform:
         r.uniformInt(data, params.len, params.start, params.end, stream);
@@ -83,9 +83,9 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     };
     static const int threads = 128;
     meanKernel<T, threads>
-      <<<MLCommon::ceildiv(params.len, threads), threads, 0, stream>>>(
+      <<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
         stats, data, params.len);
-    MLCommon::updateHost<float>(h_stats, stats, 2, stream);
+      update_host<float>(h_stats, stats, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);

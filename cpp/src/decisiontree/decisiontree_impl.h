@@ -50,6 +50,11 @@ void print_node(const std::string &prefix,
                 bool isLeft);
 
 template <class T, class L>
+std::string dump_node_as_json(
+  const std::string &prefix,
+  const std::vector<SparseTreeNode<T, L>> &sparsetree, int idx);
+
+template <class T, class L>
 void build_treelite_tree(TreeBuilderHandle tree_builder,
                          DecisionTree::TreeMetaDataNode<T, L> *tree_ptr,
                          int num_output_group);

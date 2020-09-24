@@ -23,10 +23,10 @@
 
 namespace ML {
 namespace GLM {
-using MLCommon::ceildiv;
-using MLCommon::myExp;
-using MLCommon::myLog;
-using MLCommon::myMax;
+using raft::ceildiv;
+using raft::myExp;
+using raft::myLog;
+using raft::myMax;
 
 // Input: matrix Z (dims: CxN)
 // Computes softmax cross entropy loss across columns, i.e. normalization

@@ -168,9 +168,9 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
                   allocator, stream);
 
     // Copy the data to the device
-    if (use_A) updateDevice(AbM.raw_data(), A.data(), A.size(), stream);
-    if (use_B) updateDevice(BbM.raw_data(), B.data(), B.size(), stream);
-    if (use_Z) updateDevice(ZbM.raw_data(), Z.data(), Z.size(), stream);
+    if (use_A) raft::update_device(AbM.raw_data(), A.data(), A.size(), stream);
+    if (use_B) raft::update_device(BbM.raw_data(), B.data(), B.size(), stream);
+    if (use_Z) raft::update_device(ZbM.raw_data(), Z.data(), Z.size(), stream);
 
     // Create fake batched matrices to be overwritten by results
     res_bM = new Matrix<T>(1, 1, 1, handle, allocator, stream);
@@ -219,7 +219,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
 
         // Check that H is in Hessenberg form
         std::vector<T> H = std::vector<T>(n * n * params.batch_size);
-        updateHost(H.data(), HbM.raw_data(), H.size(), stream);
+          raft::update_host(H.data(), HbM.raw_data(), H.size(), stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int j = 0; j < n - 2; j++) {
@@ -231,8 +231,8 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
 
         // Check that U is unitary (UU'=I)
         std::vector<T> UUt = std::vector<T>(n * n * params.batch_size);
-        updateHost(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(),
-                   UUt.size(), stream);
+          raft::update_host(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(),
+                            UUt.size(), stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int i = 0; i < n; i++) {
@@ -258,7 +258,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
 
         // Check that S is in Schur form
         std::vector<T> S = std::vector<T>(n * n * params.batch_size);
-        updateHost(S.data(), SbM.raw_data(), S.size(), stream);
+          raft::update_host(S.data(), SbM.raw_data(), S.size(), stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int j = 0; j < n - 2; j++) {
@@ -278,8 +278,8 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
 
         // Check that U is unitary (UU'=I)
         std::vector<T> UUt = std::vector<T>(n * n * params.batch_size);
-        updateHost(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(),
-                   UUt.size(), stream);
+          raft::update_host(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(),
+                            UUt.size(), stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int i = 0; i < n; i++) {

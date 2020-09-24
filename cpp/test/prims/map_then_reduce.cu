@@ -38,7 +38,7 @@ template <typename Type, typename MapOp>
 void naiveMapReduce(Type *out, const Type *in, size_t len, MapOp map,
                     cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = MLCommon::ceildiv(len, (size_t)TPB);
+  int nblks = raft::ceildiv(len, (size_t)TPB);
   naiveMapReduceKernel<Type, MapOp>
     <<<nblks, TPB, 0, stream>>>(out, in, len, map);
   CUDA_CHECK(cudaPeekAtLastError());

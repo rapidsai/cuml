@@ -64,14 +64,14 @@ class WorkingSetTest : public ::testing::Test {
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
-    allocate(f_dev, 10);
-    allocate(y_dev, 10);
-    allocate(C_dev, 10);
-    allocate(alpha_dev, 10);
+    raft::allocate(f_dev, 10);
+    raft::allocate(y_dev, 10);
+    raft::allocate(C_dev, 10);
+    raft::allocate(alpha_dev, 10);
     init_C(C, C_dev, 10, stream);
-    updateDevice(f_dev, f_host, 10, stream);
-    updateDevice(y_dev, y_host, 10, stream);
-    updateDevice(alpha_dev, alpha_host, 10, stream);
+      raft::update_device(f_dev, f_host, 10, stream);
+      raft::update_device(y_dev, y_host, 10, stream);
+      raft::update_device(alpha_dev, alpha_host, 10, stream);
   }
 
   void TearDown() override {
@@ -145,11 +145,11 @@ class KernelCacheTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
     cublas_handle = handle.get_cublas_handle();
-    allocate(x_dev, n_rows * n_cols);
-    updateDevice(x_dev, x_host, n_rows * n_cols, stream);
+    raft::allocate(x_dev, n_rows * n_cols);
+      raft::update_device(x_dev, x_host, n_rows * n_cols, stream);
 
-    allocate(ws_idx_dev, 2 * n_ws);
-    updateDevice(ws_idx_dev, ws_idx_host, n_ws, stream);
+    raft::allocate(ws_idx_dev, 2 * n_ws);
+      raft::update_device(ws_idx_dev, ws_idx_host, n_ws, stream);
   }
 
   void TearDown() override {
@@ -194,9 +194,9 @@ class KernelCacheTest : public ::testing::Test {
   void check(const math_t *tile_dev, int n_ws, int n_rows, const int *ws_idx,
              const int *kColIdx) {
     host_buffer<int> ws_idx_h(handle.get_host_allocator(), stream, n_ws);
-    updateHost(ws_idx_h.data(), ws_idx, n_ws, stream);
+      raft::update_host(ws_idx_h.data(), ws_idx, n_ws, stream);
     host_buffer<int> kidx_h(handle.get_host_allocator(), stream, n_ws);
-    updateHost(kidx_h.data(), kColIdx, n_ws, stream);
+      raft::update_host(kidx_h.data(), kColIdx, n_ws, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     // Note: kernel cache can permute the working set, so we have to look
     // up which rows we compare
@@ -282,7 +282,7 @@ TYPED_TEST_P(KernelCacheTest, SvrEvalTest) {
 
   this->n_ws = 6;
   int ws_idx_svr[6] = {0, 5, 1, 4, 3, 7};
-  updateDevice(this->ws_idx_dev, ws_idx_svr, 6, this->stream);
+            raft::update_device(this->ws_idx_dev, ws_idx_svr, 6, this->stream);
 
   Matrix::GramMatrixBase<TypeParam> *kernel =
     Matrix::KernelFactory<TypeParam>::create(param,
@@ -317,13 +317,13 @@ class GetResultsTest : public ::testing::Test {
   void TestResults() {
     auto allocator = handle.get_device_allocator();
     device_buffer<math_t> x_dev(allocator, stream, n_rows * n_cols);
-    updateDevice(x_dev.data(), x_host, n_rows * n_cols, stream);
+      raft::update_device(x_dev.data(), x_host, n_rows * n_cols, stream);
     device_buffer<math_t> f_dev(allocator, stream, n_rows);
-    updateDevice(f_dev.data(), f_host, n_rows, stream);
+      raft::update_device(f_dev.data(), f_host, n_rows, stream);
     device_buffer<math_t> y_dev(allocator, stream, n_rows);
-    updateDevice(y_dev.data(), y_host, n_rows, stream);
+      raft::update_device(y_dev.data(), y_host, n_rows, stream);
     device_buffer<math_t> alpha_dev(allocator, stream, n_rows);
-    updateDevice(alpha_dev.data(), alpha_host, n_rows, stream);
+      raft::update_device(alpha_dev.data(), alpha_host, n_rows, stream);
     device_buffer<math_t> C_dev(allocator, stream, n_rows);
     init_C(C, C_dev.data(), n_rows, stream);
     Results<math_t> res(handle, x_dev.data(), y_dev.data(), n_rows, n_cols,
@@ -355,7 +355,7 @@ class GetResultsTest : public ::testing::Test {
 
     // Modify the test by setting all SVs bound, then b is calculated differently
     math_t alpha_host2[10] = {0, 0, 1.5, 1.5, 1.5, 0, 1.5, 1.5, 1.5, 1.5};
-    updateDevice(alpha_dev.data(), alpha_host2, n_rows, stream);
+      raft::update_device(alpha_dev.data(), alpha_host2, n_rows, stream);
     res.Get(alpha_dev.data(), f_dev.data(), &dual_coefs, &n_coefs, &idx,
             &x_support, &b);
     EXPECT_FLOAT_EQ(b, -5.5f);
@@ -403,11 +403,11 @@ class SmoUpdateTest : public ::testing::Test {
   void SetUp() override {
     stream = handle.get_stream();
     cublasHandle_t cublas_handle = handle.get_cublas_handle();
-    allocate(f_dev, n_rows, true);
-    allocate(kernel_dev, n_rows * n_ws);
-    updateDevice(kernel_dev, kernel_host, n_ws * n_rows, stream);
-    allocate(delta_alpha_dev, n_ws);
-    updateDevice(delta_alpha_dev, delta_alpha_host, n_ws, stream);
+    raft::allocate(f_dev, n_rows, true);
+    raft::allocate(kernel_dev, n_rows * n_ws);
+      raft::update_device(kernel_dev, kernel_host, n_ws * n_rows, stream);
+    raft::allocate(delta_alpha_dev, n_ws);
+      raft::update_device(delta_alpha_dev, delta_alpha_host, n_ws, stream);
   }
   void RunTest() {
     svmParameter param = getDefaultSvmParameter();
@@ -444,20 +444,20 @@ class SmoBlockSolverTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
     cublas_handle = handle.get_cublas_handle();
-    allocate(ws_idx_dev, n_ws);
-    allocate(y_dev, n_rows);
-    allocate(C_dev, n_rows);
-    allocate(f_dev, n_rows);
-    allocate(alpha_dev, n_rows, true);
-    allocate(delta_alpha_dev, n_ws, true);
-    allocate(kernel_dev, n_ws * n_rows);
-    allocate(return_buff_dev, 2);
+    raft::allocate(ws_idx_dev, n_ws);
+    raft::allocate(y_dev, n_rows);
+    raft::allocate(C_dev, n_rows);
+    raft::allocate(f_dev, n_rows);
+    raft::allocate(alpha_dev, n_rows, true);
+    raft::allocate(delta_alpha_dev, n_ws, true);
+    raft::allocate(kernel_dev, n_ws * n_rows);
+    raft::allocate(return_buff_dev, 2);
 
     init_C(C, C_dev, n_rows, stream);
-    updateDevice(ws_idx_dev, ws_idx_host, n_ws, stream);
-    updateDevice(y_dev, y_host, n_rows, stream);
-    updateDevice(f_dev, f_host, n_rows, stream);
-    updateDevice(kernel_dev, kernel_host, n_ws * n_rows, stream);
+      raft::update_device(ws_idx_dev, ws_idx_host, n_ws, stream);
+      raft::update_device(y_dev, y_host, n_rows, stream);
+      raft::update_device(f_dev, f_host, n_rows, stream);
+      raft::update_device(kernel_dev, kernel_host, n_ws * n_rows, stream);
   }
 
  public:  // because of the device lambda
@@ -472,7 +472,7 @@ class SmoBlockSolverTest : public ::testing::Test {
                     CompareApprox<math_t>(1e-6));
 
     math_t *delta_alpha_calc;
-    allocate(delta_alpha_calc, n_rows);
+    raft::allocate(delta_alpha_calc, n_rows);
     raft::linalg::binaryOp(
       delta_alpha_calc, y_dev, alpha_dev, n_rows,
       [] __device__(math_t a, math_t b) { return a * b; }, stream);
@@ -605,7 +605,7 @@ void checkResults(svmModel<math_t> model, smoOutput<math_t> expected,
                                 CompareApprox<math_t>(1e-3f)));
   }
   math_t *dual_coefs_host = new math_t[model.n_support];
-  updateHost(dual_coefs_host, model.dual_coefs, model.n_support, stream);
+    raft::update_host(dual_coefs_host, model.dual_coefs, model.n_support, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   math_t ay = 0;
   for (int i = 0; i < model.n_support; i++) {
@@ -626,8 +626,8 @@ void checkResults(svmModel<math_t> model, smoOutput<math_t> expected,
   }
 
   math_t *x_support_host = new math_t[model.n_support * model.n_cols];
-  updateHost(x_support_host, model.x_support, model.n_support * model.n_cols,
-             stream);
+    raft::update_host(x_support_host, model.x_support, model.n_support * model.n_cols,
+                      stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   if (w_exp) {
@@ -661,26 +661,26 @@ class SmoSolverTest : public ::testing::Test {
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
-    allocate(x_dev, n_rows * n_cols);
-    allocate(ws_idx_dev, n_ws);
-    allocate(y_dev, n_rows);
-    allocate(C_dev, n_rows);
-    allocate(y_pred, n_rows);
-    allocate(f_dev, n_rows);
-    allocate(alpha_dev, n_rows, true);
-    allocate(delta_alpha_dev, n_ws, true);
-    allocate(kernel_dev, n_ws * n_rows);
-    allocate(return_buff_dev, 2);
-    allocate(sample_weights_dev, n_rows);
+    raft::allocate(x_dev, n_rows * n_cols);
+    raft::allocate(ws_idx_dev, n_ws);
+    raft::allocate(y_dev, n_rows);
+    raft::allocate(C_dev, n_rows);
+    raft::allocate(y_pred, n_rows);
+    raft::allocate(f_dev, n_rows);
+    raft::allocate(alpha_dev, n_rows, true);
+    raft::allocate(delta_alpha_dev, n_ws, true);
+    raft::allocate(kernel_dev, n_ws * n_rows);
+    raft::allocate(return_buff_dev, 2);
+    raft::allocate(sample_weights_dev, n_rows);
     LinAlg::range(sample_weights_dev, 1, n_rows + 1, stream);
     cublas_handle = handle.get_cublas_handle();
 
-    updateDevice(x_dev, x_host, n_rows * n_cols, stream);
-    updateDevice(ws_idx_dev, ws_idx_host, n_ws, stream);
-    updateDevice(y_dev, y_host, n_rows, stream);
+      raft::update_device(x_dev, x_host, n_rows * n_cols, stream);
+      raft::update_device(ws_idx_dev, ws_idx_host, n_ws, stream);
+      raft::update_device(y_dev, y_host, n_rows, stream);
     init_C(C, C_dev, n_rows, stream);
-    updateDevice(f_dev, f_host, n_rows, stream);
-    updateDevice(kernel_dev, kernel_host, n_ws * n_rows, stream);
+      raft::update_device(f_dev, f_host, n_rows, stream);
+      raft::update_device(kernel_dev, kernel_host, n_ws * n_rows, stream);
     CUDA_CHECK(
       cudaMemsetAsync(delta_alpha_dev, 0, n_ws * sizeof(math_t), stream));
 
@@ -720,14 +720,14 @@ class SmoSolverTest : public ::testing::Test {
     CUDA_CHECK(cudaPeekAtLastError());
 
     math_t return_buff[2];
-    updateHost(return_buff, return_buff_dev, 2, stream);
+      raft::update_host(return_buff, return_buff_dev, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     EXPECT_FLOAT_EQ(return_buff[0], 2.0f) << return_buff[0];
     EXPECT_LT(return_buff[1], 100) << return_buff[1];
 
     // check results won't work, because it expects that GetResults was called
     math_t *delta_alpha_calc;
-    allocate(delta_alpha_calc, n_rows);
+    raft::allocate(delta_alpha_calc, n_rows);
     raft::linalg::binaryOp(
       delta_alpha_calc, y_dev, alpha_dev, n_rows,
       [] __device__(math_t a, math_t b) { return a * b; }, stream);
@@ -740,7 +740,7 @@ class SmoSolverTest : public ::testing::Test {
     devArrMatch(alpha_expected, alpha_dev, n_rows, CompareApprox<math_t>(1e-6));
 
     math_t host_alpha[6];
-    updateHost(host_alpha, alpha_dev, n_rows, stream);
+      raft::update_host(host_alpha, alpha_dev, n_rows, stream);
 
     math_t w[] = {0, 0};
     math_t ay = 0;
@@ -769,9 +769,9 @@ class SmoSolverTest : public ::testing::Test {
     // ws_idx is defined as {0, 1, 2, 3}
     int kColIdx[4] = {0, 1, 0, 1};
     device_buffer<int> kColIdx_dev(handle.get_device_allocator(), stream, 4);
-    updateDevice(f_dev, f, 4, stream);
-    updateDevice(kernel_dev, kernel, 4, stream);
-    updateDevice(kColIdx_dev.data(), kColIdx, 4, stream);
+      raft::update_device(f_dev, f, 4, stream);
+      raft::update_device(kernel_dev, kernel, 4, stream);
+      raft::update_device(kColIdx_dev.data(), kColIdx, 4, stream);
     SmoBlockSolve<math_t, 1024><<<1, n_ws, 0, stream>>>(
       y_dev, 2 * n_rows, alpha_dev, n_ws, delta_alpha_dev, f_dev, kernel_dev,
       ws_idx_dev, C_dev, 1e-3, return_buff_dev, 10, EPSILON_SVR,
@@ -779,7 +779,7 @@ class SmoSolverTest : public ::testing::Test {
     CUDA_CHECK(cudaPeekAtLastError());
 
     math_t return_buff[2];
-    updateHost(return_buff, return_buff_dev, 2, stream);
+      raft::update_host(return_buff, return_buff_dev, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     EXPECT_LT(return_buff[1], 10) << return_buff[1];
 
@@ -1005,12 +1005,12 @@ void make_blobs(const raft::handle_t &handle, math_t *x, math_t *y, int n_rows,
                       stream);
   } else {
     device_buffer<math_t> x2(allocator, stream, n_rows * n_cols);
-    cast<<<MLCommon::ceildiv(n_rows * n_cols, TPB), TPB, 0, stream>>>(
+    cast<<<raft::ceildiv(n_rows * n_cols, TPB), TPB, 0, stream>>>(
       x2.data(), n_rows * n_cols, x_float.data());
     LinAlg::transpose(x2.data(), x, n_cols, n_rows, cublas_h, stream);
     CUDA_CHECK(cudaPeekAtLastError());
   }
-  cast<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(y, n_rows,
+  cast<<<raft::ceildiv(n_rows, TPB), TPB, 0, stream>>>(y, n_rows,
                                                            y_int.data());
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -1163,17 +1163,17 @@ class SvrTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
     allocator = handle.get_device_allocator();
-    allocate(x_dev, n_rows * n_cols);
-    allocate(y_dev, n_rows);
-    allocate(C_dev, 2 * n_rows);
-    allocate(y_pred, n_rows);
+    raft::allocate(x_dev, n_rows * n_cols);
+    raft::allocate(y_dev, n_rows);
+    raft::allocate(C_dev, 2 * n_rows);
+    raft::allocate(y_pred, n_rows);
 
-    allocate(yc, n_train);
-    allocate(f, n_train);
-    allocate(alpha, n_train);
+    raft::allocate(yc, n_train);
+    raft::allocate(f, n_train);
+    raft::allocate(alpha, n_train);
 
-    updateDevice(x_dev, x_host, n_rows * n_cols, stream);
-    updateDevice(y_dev, y_host, n_rows, stream);
+      raft::update_device(x_dev, x_host, n_rows * n_cols, stream);
+      raft::update_device(y_dev, y_host, n_rows, stream);
 
     model.n_support = 0;
     model.dual_coefs = nullptr;
@@ -1213,9 +1213,9 @@ class SvrTest : public ::testing::Test {
     ws = new WorkingSet<math_t>(handle, stream, n_rows, 20, EPSILON_SVR);
     EXPECT_EQ(ws->GetSize(), 2 * n_rows);
 
-    updateDevice(alpha, alpha_host, n_train, stream);
-    updateDevice(f, f_exp, n_train, stream);
-    updateDevice(yc, yc_exp, n_train, stream);
+      raft::update_device(alpha, alpha_host, n_train, stream);
+      raft::update_device(f, f_exp, n_train, stream);
+      raft::update_device(yc, yc_exp, n_train, stream);
 
     ws->Select(f, alpha, yc, C_dev);
     int exp_idx[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13};
@@ -1234,12 +1234,12 @@ class SvrTest : public ::testing::Test {
   }
 
   void TestSvrResults() {
-    updateDevice(yc, yc_exp, n_train, stream);
+      raft::update_device(yc, yc_exp, n_train, stream);
     init_C((math_t)0.001, C_dev, n_rows * 2, stream);
     Results<math_t> res(handle, x_dev, yc, n_rows, n_cols, C_dev, EPSILON_SVR);
     model.n_cols = n_cols;
-    updateDevice(alpha, alpha_host, n_train, stream);
-    updateDevice(f, f_exp, n_train, stream);
+      raft::update_device(alpha, alpha_host, n_train, stream);
+      raft::update_device(f, f_exp, n_train, stream);
 
     res.Get(alpha, f, &model.dual_coefs, &model.n_support, &model.support_idx,
             &model.x_support, &model.b);
@@ -1330,16 +1330,16 @@ class SvrTest : public ::testing::Test {
       auto exp = d.second;
       SCOPED_TRACE(p);
       device_buffer<math_t> x_dev(allocator, stream, p.n_rows * p.n_cols);
-      updateDevice(x_dev.data(), p.x.data(), p.n_rows * p.n_cols, stream);
+        raft::update_device(x_dev.data(), p.x.data(), p.n_rows * p.n_cols, stream);
       device_buffer<math_t> y_dev(allocator, stream, p.n_rows);
-      updateDevice(y_dev.data(), p.y.data(), p.n_rows, stream);
+        raft::update_device(y_dev.data(), p.y.data(), p.n_rows, stream);
       MLCommon::device_buffer<math_t> sample_weights_dev(allocator, stream);
       math_t *sample_weights = nullptr;
       if (!p.sample_weighs.empty()) {
         sample_weights_dev.resize(p.n_rows, stream);
         sample_weights = sample_weights_dev.data();
-        updateDevice(sample_weights_dev.data(), p.sample_weighs.data(),
-                     p.n_rows, stream);
+          raft::update_device(sample_weights_dev.data(), p.sample_weighs.data(),
+                              p.n_rows, stream);
       }
       svrFit(handle, x_dev.data(), p.n_rows, p.n_cols, y_dev.data(), p.param,
              p.kernel, model, sample_weights);

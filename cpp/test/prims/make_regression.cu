@@ -54,11 +54,11 @@ class MakeRegressionTest
     CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    allocate(data, params.n_samples * params.n_features);
-    allocate(values_ret, params.n_samples * params.n_targets);
-    allocate(values_prod, params.n_samples * params.n_targets);
-    allocate(values_cm, params.n_samples * params.n_targets);
-    allocate(coef, params.n_features * params.n_targets);
+    raft::allocate(data, params.n_samples * params.n_features);
+    raft::allocate(values_ret, params.n_samples * params.n_targets);
+    raft::allocate(values_prod, params.n_samples * params.n_targets);
+    raft::allocate(values_cm, params.n_samples * params.n_targets);
+    raft::allocate(coef, params.n_features * params.n_targets);
 
     // Create the regression problem
     make_regression(data, values_ret, params.n_samples, params.n_features,

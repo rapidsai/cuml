@@ -21,6 +21,7 @@
 #include <cuml/cuml.hpp>
 
 #include <random/rng.cuh>
+#include <common/cudart_utils.h>
 
 namespace ML {
 namespace Bench {

@@ -28,9 +28,9 @@ void naiveReduceColsByKey(const T *in, const uint32_t *keys, T *out_ref,
                           uint32_t nrows, uint32_t ncols, uint32_t nkeys,
                           cudaStream_t stream) {
   std::vector<uint32_t> h_keys(ncols, 0u);
-  copy(&(h_keys[0]), keys, ncols, stream);
+  raft::copy(&(h_keys[0]), keys, ncols, stream);
   std::vector<T> h_in(nrows * ncols);
-  copy(&(h_in[0]), in, nrows * ncols, stream);
+  raft::copy(&(h_in[0]), in, nrows * ncols, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   std::vector<T> out(nrows * nkeys, T(0));
   for (uint32_t i = 0; i < nrows; ++i) {
@@ -38,7 +38,7 @@ void naiveReduceColsByKey(const T *in, const uint32_t *keys, T *out_ref,
       out[i * nkeys + h_keys[j]] += h_in[i * ncols + j];
     }
   }
-  copy(out_ref, &(out[0]), nrows * nkeys, stream);
+  raft::copy(out_ref, &(out[0]), nrows * nkeys, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
@@ -67,10 +67,10 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
     auto nrows = params.rows;
     auto ncols = params.cols;
     auto nkeys = params.nkeys;
-    allocate(in, nrows * ncols);
-    allocate(keys, ncols);
-    allocate(out_ref, nrows * nkeys);
-    allocate(out, nrows * nkeys);
+    raft::allocate(in, nrows * ncols);
+    raft::allocate(keys, ncols);
+    raft::allocate(out_ref, nrows * nkeys);
+    raft::allocate(out, nrows * nkeys);
     r.uniform(in, nrows * ncols, T(-1.0), T(1.0), stream);
     r.uniformInt(keys, ncols, 0u, params.nkeys, stream);
     naiveReduceColsByKey(in, keys, out_ref, nrows, ncols, nkeys, stream);

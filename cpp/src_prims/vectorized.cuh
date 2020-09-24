@@ -19,11 +19,10 @@
 #include <cuda_fp16.h>
 #include "cuda_utils.cuh"
 
-namespace MLCommon {
+namespace raft {
 
 template <typename math_, int VecLen>
 struct IOType {};
-
 template <>
 struct IOType<bool, 1> {
   static_assert(sizeof(bool) == sizeof(int8_t),
@@ -46,7 +45,6 @@ template <>
 struct IOType<bool, 16> {
   typedef int4 Type;
 };
-
 template <>
 struct IOType<int8_t, 1> {
   typedef int8_t Type;
@@ -67,7 +65,6 @@ template <>
 struct IOType<int8_t, 16> {
   typedef int4 Type;
 };
-
 template <>
 struct IOType<uint8_t, 1> {
   typedef uint8_t Type;
@@ -88,7 +85,6 @@ template <>
 struct IOType<uint8_t, 16> {
   typedef uint4 Type;
 };
-
 template <>
 struct IOType<int16_t, 1> {
   typedef int16_t Type;
@@ -105,7 +101,6 @@ template <>
 struct IOType<int16_t, 8> {
   typedef int4 Type;
 };
-
 template <>
 struct IOType<uint16_t, 1> {
   typedef uint16_t Type;
@@ -122,7 +117,6 @@ template <>
 struct IOType<uint16_t, 8> {
   typedef uint4 Type;
 };
-
 template <>
 struct IOType<__half, 1> {
   typedef __half Type;
@@ -139,7 +133,6 @@ template <>
 struct IOType<__half, 8> {
   typedef uint4 Type;
 };
-
 template <>
 struct IOType<__half2, 1> {
   typedef __half2 Type;
@@ -152,7 +145,6 @@ template <>
 struct IOType<__half2, 4> {
   typedef uint4 Type;
 };
-
 template <>
 struct IOType<int32_t, 1> {
   typedef int32_t Type;
@@ -165,7 +157,6 @@ template <>
 struct IOType<int32_t, 4> {
   typedef uint4 Type;
 };
-
 template <>
 struct IOType<uint32_t, 1> {
   typedef uint32_t Type;
@@ -178,7 +169,6 @@ template <>
 struct IOType<uint32_t, 4> {
   typedef uint4 Type;
 };
-
 template <>
 struct IOType<float, 1> {
   typedef float Type;
@@ -191,7 +181,6 @@ template <>
 struct IOType<float, 4> {
   typedef float4 Type;
 };
-
 template <>
 struct IOType<int64_t, 1> {
   typedef int64_t Type;
@@ -200,7 +189,6 @@ template <>
 struct IOType<int64_t, 2> {
   typedef uint4 Type;
 };
-
 template <>
 struct IOType<uint64_t, 1> {
   typedef uint64_t Type;
@@ -209,7 +197,6 @@ template <>
 struct IOType<uint64_t, 2> {
   typedef uint4 Type;
 };
-
 template <>
 struct IOType<unsigned long long, 1> {
   typedef unsigned long long Type;
@@ -218,7 +205,6 @@ template <>
 struct IOType<unsigned long long, 2> {
   typedef uint4 Type;
 };
-
 template <>
 struct IOType<double, 1> {
   typedef double Type;
@@ -228,58 +214,43 @@ struct IOType<double, 2> {
   typedef double2 Type;
 };
 
-// template <int Size> struct Cases {};
-
-// template <> struct Cases<1> {
-//     static const int arr[5] = {1, 2, 4, 8, 16};
-// };
-// template <> struct Cases<2> {
-//     static const int arr[4] = {1, 2, 4, 8};
-// };
-// template <> struct Cases<4> {
-//     static const int arr[3] = {1, 2, 4};
-// };
-// template <> struct Cases<8> {
-//     static const int arr[2] = {1, 2};
-// };
-
 /**
- * @struct TxN_t
- *
- * @brief Internal data structure that is used to define a facade for vectorized
- * loads/stores across the most common POD types. The goal of his file is to
- * provide with CUDA programmers, an easy way to have compiler issue vectorized
- * load or store instructions to memory (either global or shared). Vectorized
- * accesses to memory are important as they'll utilize its resources
- * efficiently,
- * when compared to their non-vectorized counterparts. Obviously, for whatever
- * reasons if one is unable to issue such vectorized operations, one can always
- * fallback to using POD types.
- *
- * Example demonstrating the use of load operations, performing math on such
- * loaded data and finally storing it back.
- * @code{.cu}
- * TxN_t<uint8_t,8> mydata1, mydata2;
- * int idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * mydata1.Ratio;
- * mydata1.load(ptr1, idx);
- * mydata2.load(ptr2, idx);
- * #pragma unroll
- * for(int i=0;i<mydata1.Ratio;++i) {
- *     mydata1.val.data[i] += mydata2.val.data[i];
- * }
- * mydata1.store(ptr1, idx);
- * @endcode
- *
- * By doing as above, the interesting thing is that the code effectively remains
- * almost the same, in case one wants to upgrade to TxN_t<uint16_t,16> type.
- * Only change required is to replace variable declaration appropriately.
- *
- * Obviously, it's caller's responsibility to take care of pointer alignment!
- *
- * @tparam math_ the data-type in which the compute/math needs to happen
- * @tparam veclen_ the number of 'math_' types to be loaded/stored per
- * instruction
- */
+     * @struct TxN_t
+     *
+     * @brief Internal data structure that is used to define a facade for vectorized
+     * loads/stores across the most common POD types. The goal of his file is to
+     * provide with CUDA programmers, an easy way to have compiler issue vectorized
+     * load or store instructions to memory (either global or shared). Vectorized
+     * accesses to memory are important as they'll utilize its resources
+     * efficiently,
+     * when compared to their non-vectorized counterparts. Obviously, for whatever
+     * reasons if one is unable to issue such vectorized operations, one can always
+     * fallback to using POD types.
+     *
+     * Example demonstrating the use of load operations, performing math on such
+     * loaded data and finally storing it back.
+     * @code{.cu}
+     * TxN_t<uint8_t,8> mydata1, mydata2;
+     * int idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * mydata1.Ratio;
+     * mydata1.load(ptr1, idx);
+     * mydata2.load(ptr2, idx);
+     * #pragma unroll
+     * for(int i=0;i<mydata1.Ratio;++i) {
+     *     mydata1.val.data[i] += mydata2.val.data[i];
+     * }
+     * mydata1.store(ptr1, idx);
+     * @endcode
+     *
+     * By doing as above, the interesting thing is that the code effectively remains
+     * almost the same, in case one wants to upgrade to TxN_t<uint16_t,16> type.
+     * Only change required is to replace variable declaration appropriately.
+     *
+     * Obviously, it's caller's responsibility to take care of pointer alignment!
+     *
+     * @tparam math_ the data-type in which the compute/math needs to happen
+     * @tparam veclen_ the number of 'math_' types to be loaded/stored per
+     * instruction
+     */
 template <typename math_, int veclen_>
 struct TxN_t {
   /** underlying math data type */
@@ -365,5 +336,24 @@ struct TxN_t<math_, 0> {
   template <typename idx_t = int>
   DI void store(math_t *ptr, idx_t idx) {}
 };
+
+} // namespace raft
+
+namespace MLCommon {
+
+// template <int Size> struct Cases {};
+
+// template <> struct Cases<1> {
+//     static const int arr[5] = {1, 2, 4, 8, 16};
+// };
+// template <> struct Cases<2> {
+//     static const int arr[4] = {1, 2, 4, 8};
+// };
+// template <> struct Cases<4> {
+//     static const int arr[3] = {1, 2, 4};
+// };
+// template <> struct Cases<8> {
+//     static const int arr[2] = {1, 2};
+// };
 
 };  // namespace MLCommon

@@ -97,7 +97,7 @@ int countUnique(const T* arr, int size, T& minLabel, T& maxLabel,
     nUniq.data(), totalLabels, [] __device__(const T& val) { return val != 0; },
     stream, labelCounts.data());
   int numUniques;
-  updateHost(&numUniques, nUniq.data(), 1, stream);
+        raft::update_host(&numUniques, nUniq.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   return numUniques;
 }
@@ -178,9 +178,9 @@ double computeAdjustedRandIndex(const T* firstClusterArray,
     d_bCTwoSum.data(), nUniqClasses, nCTwo<MathT>(), stream, b.data(),
     b.data());
   //updating in the host memory
-  updateHost(&h_nChooseTwoSum, d_nChooseTwoSum.data(), 1, stream);
-  updateHost(&h_aCTwoSum, d_aCTwoSum.data(), 1, stream);
-  updateHost(&h_bCTwoSum, d_bCTwoSum.data(), 1, stream);
+        raft::update_host(&h_nChooseTwoSum, d_nChooseTwoSum.data(), 1, stream);
+        raft::update_host(&h_aCTwoSum, d_aCTwoSum.data(), 1, stream);
+        raft::update_host(&h_bCTwoSum, d_bCTwoSum.data(), 1, stream);
   //calculating the ARI
   auto nChooseTwo = double(size) * double(size - 1) / 2.0;
   auto expectedIndex =

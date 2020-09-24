@@ -36,9 +36,9 @@ class MultiplyTest
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    allocate(in, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in, len);
+    raft::allocate(out_ref, len);
+    raft::allocate(out, len);
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     raft::linalg::naiveScale(out_ref, in, params.scalar, len, stream);
     multiplyScalar(out, in, params.scalar, len, stream);

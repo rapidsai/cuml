@@ -198,7 +198,7 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
                        cudaStream_t stream, DataT pval_threshold) {
   constexpr int TPB = 256;
   dim3 block = choose_block_dims<TPB>(batch_size);
-  dim3 grid(ceildiv<IdxT>(n_obs, block.x), ceildiv<IdxT>(batch_size, block.y));
+  dim3 grid(raft::ceildiv<IdxT>(n_obs, block.x), raft::ceildiv<IdxT>(batch_size, block.y));
 
   DataT n_obs_f = static_cast<DataT>(n_obs);
 
@@ -217,7 +217,7 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
   device_buffer<DataT> s2A(allocator, stream, batch_size);
   LinAlg::reduce(s2A.data(), y_cent.data(), batch_size, n_obs,
                  static_cast<DataT>(0.0), false, false, stream, false,
-                 L2Op<DataT>(), Sum<DataT>());
+                 raft::L2Op<DataT>(), raft::Sum<DataT>());
 
   // From Kwiatkowski et al. referencing Schwert (1989)
   DataT lags_f = ceil(12.0 * pow(n_obs_f / 100.0, 0.25));
@@ -249,11 +249,11 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
   device_buffer<DataT> eta(allocator, stream, batch_size);
   LinAlg::reduce(eta.data(), accumulator.data(), batch_size, n_obs,
                  static_cast<DataT>(0.0), false, false, stream, false,
-                 L2Op<DataT>(), Sum<DataT>());
+                 raft::L2Op<DataT>(), raft::Sum<DataT>());
 
   /* The following kernel will decide whether each series is stationary based on
    * s^2 and eta */
-  kpss_stationarity_check_kernel<<<ceildiv<int>(batch_size, TPB), TPB, 0,
+  kpss_stationarity_check_kernel<<<raft::ceildiv<int>(batch_size, TPB), TPB, 0,
                                    stream>>>(results, s2A.data(), s2B.data(),
                                              eta.data(), batch_size, n_obs_f,
                                              pval_threshold);

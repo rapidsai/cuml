@@ -66,12 +66,12 @@ void getUniqueLabels(math_t *y, size_t n, math_t **y_unique, int *n_unique,
   cub::DeviceRadixSort::SortKeys(cub_storage.data(), bytes, y, y2.data(), n);
   cub::DeviceSelect::Unique(cub_storage.data(), bytes, y2.data(), y3.data(),
                             d_num_selected.data(), n);
-  updateHost(n_unique, d_num_selected.data(), 1, stream);
+        raft::update_host(n_unique, d_num_selected.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Copy unique classes to output
   *y_unique = (math_t *)allocator->allocate(*n_unique * sizeof(math_t), stream);
-  copy(*y_unique, y3.data(), *n_unique, stream);
+  raft::copy(*y_unique, y3.data(), *n_unique, stream);
 }
 
 /**
@@ -151,7 +151,7 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
                     std::shared_ptr<deviceAllocator> allocator) {
   static const size_t TPB_X = 256;
 
-  dim3 blocks(ceildiv(N, TPB_X));
+  dim3 blocks(raft::ceildiv(N, TPB_X));
   dim3 threads(TPB_X);
 
   Type *map_ids;

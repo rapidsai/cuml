@@ -45,14 +45,14 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
 
     params = ::testing::TestWithParam<KNNClassifyInputs>::GetParam();
 
-    allocate(train_samples, params.rows * params.cols);
-    allocate(train_labels, params.rows);
+    raft::allocate(train_samples, params.rows * params.cols);
+    raft::allocate(train_labels, params.rows);
 
-    allocate(pred_labels, params.rows);
-    allocate(unique_labels, params.n_labels, true);
+    raft::allocate(pred_labels, params.rows);
+    raft::allocate(unique_labels, params.n_labels, true);
 
-    allocate(knn_indices, params.rows * params.k);
-    allocate(knn_dists, params.rows * params.k);
+    raft::allocate(knn_indices, params.rows * params.k);
+    raft::allocate(knn_dists, params.rows * params.k);
 
     MLCommon::Random::make_blobs<float, int>(
       train_samples, train_labels, params.rows, params.cols, params.n_labels,

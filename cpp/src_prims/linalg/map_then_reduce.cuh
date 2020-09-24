@@ -53,7 +53,7 @@ template <typename Type, typename MapOp, int TPB, typename... Args>
 void mapThenSumReduceImpl(Type *out, size_t len, MapOp map, cudaStream_t stream,
                           const Type *in, Args... args) {
   CUDA_CHECK(cudaMemsetAsync(out, 0, sizeof(Type), stream));
-  const int nblks = MLCommon::ceildiv(len, (size_t)TPB);
+  const int nblks = raft::ceildiv(len, (size_t)TPB);
   mapThenSumReduceKernel<Type, MapOp, TPB, Args...>
     <<<nblks, TPB, 0, stream>>>(out, len, map, in, args...);
   CUDA_CHECK(cudaPeekAtLastError());

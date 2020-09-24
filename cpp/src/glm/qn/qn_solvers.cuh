@@ -49,21 +49,21 @@
 namespace ML {
 namespace GLM {
 
-using MLCommon::alignTo;
+using raft::alignTo;
 
 // TODO better way to deal with alignment? Smaller aligne possible?
 constexpr size_t qn_align = 256;
 
 template <typename T>
 inline size_t lbfgs_workspace_size(const LBFGSParam<T> &param, const int n) {
-  size_t mat_size = alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
-  size_t vec_size = alignTo<size_t>(sizeof(T) * n, qn_align);
+  size_t mat_size = raft::alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
+  size_t vec_size = raft::alignTo<size_t>(sizeof(T) * n, qn_align);
   return 2 * mat_size + 4 * vec_size + qn_align;
 }
 
 template <typename T>
 inline size_t owlqn_workspace_size(const LBFGSParam<T> &param, const int n) {
-  size_t vec_size = alignTo<size_t>(sizeof(T) * n, qn_align);
+  size_t vec_size = raft::alignTo<size_t>(sizeof(T) * n, qn_align);
   return lbfgs_workspace_size(param, n) + vec_size;
 }
 
@@ -80,8 +80,8 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
   ASSERT(workspace.len >= workspace_size, "LBFGS: workspace insufficient");
 
   // SETUP WORKSPACE
-  size_t mat_size = alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
-  size_t vec_size = alignTo<size_t>(sizeof(T) * n, qn_align);
+  size_t mat_size = raft::alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
+  size_t vec_size = raft::alignTo<size_t>(sizeof(T) * n, qn_align);
   T *p_ws = workspace.data;
   SimpleMat<T> S(p_ws, n, param.m);
   p_ws += mat_size;
@@ -206,8 +206,8 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
          "OWL-QN: Invalid pseudo grad limit parameter");
 
   // SETUP WORKSPACE
-  size_t mat_size = alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
-  size_t vec_size = alignTo<size_t>(sizeof(T) * n, qn_align);
+  size_t mat_size = raft::alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
+  size_t vec_size = raft::alignTo<size_t>(sizeof(T) * n, qn_align);
   T *p_ws = workspace.data;
   SimpleMat<T> S(p_ws, n, param.m);
   p_ws += mat_size;
@@ -235,9 +235,9 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
   op_project<T> project_neg(T(-1.0));
 
-  auto f_wrap = [&f, &l1_penalty, &pg_limit, &stream](
-                  SimpleVec<T> &x, SimpleVec<T> &grad, T *dev_scalar,
-                  cudaStream_t stream) {
+  auto f_wrap = [&f, &l1_penalty, &pg_limit](SimpleVec<T> &x,
+                                             SimpleVec<T> &grad, T *dev_scalar,
+                                             cudaStream_t stream) {
     T tmp = f(x, grad, dev_scalar, stream);
     SimpleVec<T> mask(x.data, pg_limit);
     return tmp + l1_penalty * nrm1(mask, dev_scalar, stream);

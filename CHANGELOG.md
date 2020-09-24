@@ -1,7 +1,9 @@
 # cuML 0.16.0 (Date TBD)
 
 ## New Features
+- PR #2677: Ability to export RF trees as JSON
 - PR #2698: Distributed TF-IDF transformer
+- PR #2152: add FIL C++ benchmark
 - PR #2638: Improve cython build with custom `build_ext`
 
 ## Improvements
@@ -17,21 +19,31 @@
 - PR #2758: Match sklearn's default n_components behavior for PCA
 - PR #2770: Fix doxygen version during cmake
 - PR #2766: Update default RandomForestRegressor score function to use r2
+- PR #2775: Enablinbg mg gtests w/ raft mpi comms
 - PR #2783: Add pytest that will fail when GPU IDs in Dask cluster are not unique
+- PR #2784: Add SparseCumlArray container for sparse index/data arrays
 - PR #2785: Add in cuML-specific dev conda dependencies
 - PR #2778: Add README for FIL
 - PR #2799: Reenable lightgbm test with lower (1%) proba accuracy
 - PR #2800: Align cuML's spdlog version with RMM's
+- PR #2824: Make data conversions warnings be debug level
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
 - PR #2769: Remove outdated doxygen options for 1.8.20
 - PR #2787: Skip lightgbm test for version 3 and above temporarily
+- PR #2781: Use Python print to correctly redirect spdlogs when sys.stdout is changed
 - PR #2787: Skip lightgbm test for version 3 and above temporarily
 - PR #2813: Fix memory access in generation of non-row-major random blobs
 - PR #2810: Update Rf MNMG threshold to prevent sporadic test failure
 - PR #2808: Relax Doxygen version required in CMake to coincide with integration repo
 - PR #2818: Fix parsing of singlegpu option in build command
+- PR #2829: Fixing description for labels in docs and removing row number constraint from PCA xform/inverse_xform
+- PR #2832: Updating stress tests that fail with OOM
+- PR #2831: Removing repeated capture and parameter in lambda function
+- PR #2842: KNN index preprocessors were using incorrect n_samples
+- PR #2848: Fix typo in Python docstring for UMAP
+- PR #2855: Updates for RMM being header only
 
 # cuML 0.15.0 (Date TBD)
 
@@ -172,7 +184,7 @@
 - PR #2540: Update default value for n_epochs in UMAP to match documentation & sklearn API
 - PR #2535: Fix issue with incorrect docker image being used in local build script
 - PR #2542: Fix small memory leak in TSNE
-- PR #2552: Fixed the length argument of updateDevice calls in RF test
+- PR #2552: Fixed the length argument of update_device calls in RF test
 - PR #2565: Fix cell allocation code to avoid loops in quad-tree. Prevent NaNs causing infinite descent
 - PR #2563: Update scipy call for arima gradient test
 - PR #2569: Fix for cuDF update
@@ -977,7 +989,7 @@
 - PR #508: Fix for an error with default argument in LinAlg::meanSquaredError
 - PR #519: README.md Updates and adding BUILD.md back
 - PR #526: Fix the issue of wrong results when fit and transform of PCA are called separately
-- PR #531: Fixing missing arguments in updateDevice() for RF
+- PR #531: Fixing missing arguments in update_device() for RF
 - PR #543: Exposing dbscan batch size through cython API and fixing broken batching
 - PR #551: Made use of ZLIB_LIBRARIES consistent between ml_test and ml_mg_test
 - PR #557: Modified CI script to run cuML tests before building mlprims and removed lapack flag

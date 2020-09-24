@@ -44,9 +44,9 @@ TEST_F(MakeMonotonicTest, Result) {
 
   float *data, *actual, *expected;
 
-  allocate(data, m, true);
-  allocate(actual, m, true);
-  allocate(expected, m, true);
+  raft::allocate(data, m, true);
+  raft::allocate(actual, m, true);
+  raft::allocate(expected, m, true);
 
   float *data_h =
     new float[m]{1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 8.0, 7.0, 8.0, 8.0, 25.0, 80.0};
@@ -54,8 +54,8 @@ TEST_F(MakeMonotonicTest, Result) {
   float *expected_h =
     new float[m]{1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 5.0, 4.0, 5.0, 5.0, 6.0, 7.0};
 
-  updateDevice(data, data_h, m, stream);
-  updateDevice(expected, expected_h, m, stream);
+        raft::update_device(data, data_h, m, stream);
+        raft::update_device(expected, expected_h, m, stream);
 
   std::shared_ptr<deviceAllocator> allocator(
     new raft::mr::device::default_allocator);
@@ -81,10 +81,10 @@ TEST(LabelTest, ClassLabels) {
 
   int n_rows = 6;
   float *y_d;
-  allocate(y_d, n_rows);
+  raft::allocate(y_d, n_rows);
 
   float y_h[] = {2, -1, 1, 2, 1, 1};
-  updateDevice(y_d, y_h, n_rows, stream);
+        raft::update_device(y_d, y_h, n_rows, stream);
 
   int n_classes;
   float *y_unique_d;
@@ -97,7 +97,7 @@ TEST(LabelTest, ClassLabels) {
                               Compare<float>(), stream));
 
   float *y_relabeled_d;
-  allocate(y_relabeled_d, n_rows);
+  raft::allocate(y_relabeled_d, n_rows);
 
   getOvrLabels(y_d, n_rows, y_unique_d, n_classes, y_relabeled_d, 2, stream);
 

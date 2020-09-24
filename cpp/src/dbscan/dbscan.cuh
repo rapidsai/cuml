@@ -61,11 +61,11 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
   }
 
   Index_ nBatches =
-    (Index_)ceildiv<size_t>(estimated_memory, max_mbytes_per_batch * 1000000);
+    (Index_)raft::ceildiv<size_t>(estimated_memory, max_mbytes_per_batch * 1000000);
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   // to avoid overflow, we need: batch_size <= MAX_LABEL / n_rows (floor div)
-  // -> num_batches >= ceildiv(n_rows / (MAX_LABEL / n_rows))
-  Index_ nBatchesPrec = ceildiv(n_rows, MAX_LABEL / n_rows);
+  // -> num_batches >= raft::ceildiv(n_rows / (MAX_LABEL / n_rows))
+  Index_ nBatchesPrec = raft::ceildiv(n_rows, MAX_LABEL / n_rows);
   // at some point, if nBatchesPrec is larger than nBatches
   // (or larger by a given factor) and we know that there are clear
   // performance benefits of using a smaller number of batches,
@@ -75,7 +75,7 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
   // actually improve performance, even when using >16.10^9 points per batch.
   // Much larger batches than 16.10^9 do not currently fit on GPU architectures
   if (sizeof(Index_) > sizeof(int) &&
-      (size_t)n_rows * ceildiv<Index_>(n_rows, nBatches) <
+      (size_t)n_rows * raft::ceildiv<Index_>(n_rows, nBatches) <
         std::numeric_limits<int>::max()) {
     CUML_LOG_WARN(
       "You are using an index type of size (%d bytes) but a smaller index "

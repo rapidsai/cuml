@@ -39,8 +39,8 @@ class ReverseTest : public ::testing::TestWithParam<ReverseInputs<T>> {
     params = ::testing::TestWithParam<ReverseInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.nrows * params.ncols;
-    allocate(in, len);
-    allocate(out, len);
+    raft::allocate(in, len);
+    raft::allocate(out, len);
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     // applying reverse twice should yield the same output!
     // this will in turn also verify the inplace mode of reverse method

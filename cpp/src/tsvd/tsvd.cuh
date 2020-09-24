@@ -249,7 +249,7 @@ void tsvdFitTransform(const raft::handle_t &handle, math_t *input,
   Stats::sum(total_vars.data(), vars.data(), 1, prms.n_cols, false, stream);
 
   math_t total_vars_h;
-  updateHost(&total_vars_h, total_vars.data(), 1, stream);
+        raft::update_host(&total_vars_h, total_vars.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   math_t scalar = math_t(1) / total_vars_h;
 
@@ -274,8 +274,8 @@ void tsvdTransform(const raft::handle_t &handle, math_t *input,
 
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
-  ASSERT(prms.n_rows > 1,
-         "Parameter n_rows: number of rows cannot be less than two");
+  ASSERT(prms.n_rows > 0,
+         "Parameter n_rows: number of rows cannot be less than one");
   ASSERT(
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
@@ -304,7 +304,7 @@ void tsvdInverseTransform(const raft::handle_t &handle, math_t *trans_input,
 
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than one");
-  ASSERT(prms.n_rows > 1,
+  ASSERT(prms.n_rows > 0,
          "Parameter n_rows: number of rows cannot be less than one");
   ASSERT(
     prms.n_components > 0,

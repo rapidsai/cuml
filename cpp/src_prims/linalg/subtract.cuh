@@ -93,7 +93,7 @@ void subtractDevScalar(math_t *outDev, const math_t *inDev,
                        cudaStream_t stream) {
   // Just for the note - there is no way to express such operation with cuBLAS in effective way
   // https://stackoverflow.com/questions/14051064/add-scalar-to-vector-in-blas-cublas-cuda
-  const IdxType nblks = ceildiv(len, (IdxType)TPB);
+  const IdxType nblks = raft::ceildiv(len, (IdxType)TPB);
   subtract_dev_scalar_kernel<math_t>
     <<<nblks, TPB, 0, stream>>>(outDev, inDev, singleScalarDev, len);
   CUDA_CHECK(cudaPeekAtLastError());

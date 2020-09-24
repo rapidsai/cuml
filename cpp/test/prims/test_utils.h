@@ -79,8 +79,8 @@ template <typename T, typename L>
                                        cudaStream_t stream = 0) {
   std::shared_ptr<T> exp_h(new T[size]);
   std::shared_ptr<T> act_h(new T[size]);
-  updateHost<T>(exp_h.get(), expected, size, stream);
-  updateHost<T>(act_h.get(), actual, size, stream);
+        raft::update_host<T>(exp_h.get(), expected, size, stream);
+        raft::update_host<T>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
     auto exp = exp_h.get()[i];
@@ -97,7 +97,7 @@ template <typename T, typename L>
 ::testing::AssertionResult devArrMatch(T expected, const T *actual, size_t size,
                                        L eq_compare, cudaStream_t stream = 0) {
   std::shared_ptr<T> act_h(new T[size]);
-  updateHost<T>(act_h.get(), actual, size, stream);
+    raft::update_host<T>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
     auto act = act_h.get()[i];
@@ -116,8 +116,8 @@ template <typename T, typename L>
   size_t size = rows * cols;
   std::shared_ptr<T> exp_h(new T[size]);
   std::shared_ptr<T> act_h(new T[size]);
-  updateHost<T>(exp_h.get(), expected, size, stream);
-  updateHost<T>(act_h.get(), actual, size, stream);
+    raft::update_host<T>(exp_h.get(), expected, size, stream);
+    raft::update_host<T>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
@@ -140,7 +140,7 @@ template <typename T, typename L>
                                        cudaStream_t stream = 0) {
   size_t size = rows * cols;
   std::shared_ptr<T> act_h(new T[size]);
-  updateHost<T>(act_h.get(), actual, size, stream);
+    raft::update_host<T>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
@@ -174,7 +174,7 @@ template <typename T, typename L>
                                            L eq_compare,
                                            cudaStream_t stream = 0) {
   std::shared_ptr<T> act_h(new T[size]);
-  updateHost<T>(act_h.get(), actual_d, size, stream);
+        raft::update_host<T>(act_h.get(), actual_d, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   bool ok = true;
   auto fail = ::testing::AssertionFailure();
@@ -206,7 +206,7 @@ template <typename T, typename L>
                                          cudaStream_t stream = 0) {
   size_t size = rows * cols;
   std::shared_ptr<T> act_h(new T[size]);
-  updateHost<T>(act_h.get(), actual, size, stream);
+        raft::update_host<T>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {

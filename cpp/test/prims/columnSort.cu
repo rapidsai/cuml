@@ -57,12 +57,12 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
     int len = params.n_row * params.n_col;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(keyIn, len);
-    allocate(valueOut, len);
-    allocate(goldenValOut, len);
+    raft::allocate(keyIn, len);
+    raft::allocate(valueOut, len);
+    raft::allocate(goldenValOut, len);
     if (params.testKeys) {
-      allocate(keySorted, len);
-      allocate(keySortGolden, len);
+      raft::allocate(keySorted, len);
+      raft::allocate(keySortGolden, len);
     }
 
     std::vector<T> vals(len);
@@ -88,18 +88,18 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
       }
     }
 
-    updateDevice(keyIn, &vals[0], len, stream);
-    updateDevice(goldenValOut, &cValGolden[0], len, stream);
+      raft::update_device(keyIn, &vals[0], len, stream);
+      raft::update_device(goldenValOut, &cValGolden[0], len, stream);
 
     if (params.testKeys)
-      updateDevice(keySortGolden, &cKeyGolden[0], len, stream);
+        raft::update_device(keySortGolden, &cKeyGolden[0], len, stream);
 
     bool needWorkspace = false;
     size_t workspaceSize = 0;
     sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col,
                       needWorkspace, NULL, workspaceSize, stream, keySorted);
     if (needWorkspace) {
-      allocate(workspacePtr, workspaceSize);
+      raft::allocate(workspacePtr, workspaceSize);
       sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col,
                         needWorkspace, workspacePtr, workspaceSize, stream,
                         keySorted);

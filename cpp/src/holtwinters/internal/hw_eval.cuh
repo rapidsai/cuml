@@ -172,7 +172,7 @@ void holtwinters_eval_gpu(const raft::handle_t &handle, const Dtype *ts, int n,
   size_t sm_needed = sizeof(Dtype) * threads_per_block * frequency;
   bool is_additive = seasonal == ML::SeasonalType::ADDITIVE;
 
-  if (sm_needed > MLCommon::getSharedMemPerBlock()) {
+  if (sm_needed > raft::getSharedMemPerBlock()) {
     MLCommon::device_buffer<Dtype> pseason(dev_allocator, stream,
                                            batch_size * frequency);
     holtwinters_eval_gpu_global_kernel<Dtype>

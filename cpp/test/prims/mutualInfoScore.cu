@@ -109,12 +109,12 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
 
     //allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    MLCommon::allocate(firstClusterArray, nElements, true);
-    MLCommon::allocate(secondClusterArray, nElements, true);
+    raft::allocate(firstClusterArray, nElements, true);
+    raft::allocate(secondClusterArray, nElements, true);
 
-    MLCommon::updateDevice(firstClusterArray, &arr1[0], (int)nElements, stream);
-    MLCommon::updateDevice(secondClusterArray, &arr2[0], (int)nElements,
-                           stream);
+      raft::update_device(firstClusterArray, &arr1[0], (int) nElements, stream);
+      raft::update_device(secondClusterArray, &arr2[0], (int) nElements,
+                          stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
       new raft::mr::device::default_allocator);
 

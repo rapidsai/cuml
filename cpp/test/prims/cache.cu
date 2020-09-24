@@ -31,18 +31,18 @@ class CacheTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocator = std::shared_ptr<deviceAllocator>(
       new raft::mr::device::default_allocator());
-    allocate(x_dev, n_rows * n_cols);
-    updateDevice(x_dev, x_host, n_rows * n_cols, stream);
-    allocate(tile_dev, n_rows * n_cols);
+    raft::allocate(x_dev, n_rows * n_cols);
+      raft::update_device(x_dev, x_host, n_rows * n_cols, stream);
+    raft::allocate(tile_dev, n_rows * n_cols);
 
-    allocate(keys_dev, n);
-    allocate(is_cached, n);
-    allocate(cache_idx_dev, n);
-    updateDevice(keys_dev, keys_host, n, stream);
-    allocate(zeroone_dev, n);
-    allocate(int_array_dev, 12);
-    updateDevice(zeroone_dev, zeroone_host, n, stream);
-    allocate(argfirst_dev, n_rows);
+    raft::allocate(keys_dev, n);
+    raft::allocate(is_cached, n);
+    raft::allocate(cache_idx_dev, n);
+      raft::update_device(keys_dev, keys_host, n, stream);
+    raft::allocate(zeroone_dev, n);
+    raft::allocate(int_array_dev, 12);
+      raft::update_device(zeroone_dev, zeroone_host, n, stream);
+    raft::allocate(argfirst_dev, n_rows);
   }
 
   void TearDown() override {
@@ -90,7 +90,7 @@ __global__ void test_argfirst(const int *array, int n, int *res) {
 
 TEST_F(CacheTest, TestArgFirst) {
   int argfirst_host[10] = {0, 1, 1, 1, 2, 2, 4, 4, 6, 7};
-  updateDevice(argfirst_dev, argfirst_host, 10, stream);
+        raft::update_device(argfirst_dev, argfirst_host, 10, stream);
 
   test_argfirst<<<1, 10>>>(argfirst_dev, 10, int_array_dev);
   int idx_exp[10] = {0, 1, 4, 6, 6, 8, 8, 9, 10, 10};
@@ -114,7 +114,7 @@ TEST_F(CacheTest, TestNthOccurrence) {
 
 template <int nthreads, int associativity>
 __global__ void test_rank_set_entries(const int *array, int n, int *res) {
-  const int items_per_thread = ceildiv(associativity, nthreads);
+  const int items_per_thread = raft::ceildiv(associativity, nthreads);
   __shared__ int rank[items_per_thread * nthreads];
 
   rank_set_entries<nthreads, associativity>(array, n, rank);
@@ -131,7 +131,7 @@ __global__ void test_rank_set_entries(const int *array, int n, int *res) {
 TEST_F(CacheTest, TestRankEntries) {
   // Three cache sets, with 4 elements each
   int val[12] = {12, 11, 10, 9, 8, 6, 7, 5, 4, 1, 2, 3};
-  updateDevice(int_array_dev, val, 12, stream);
+        raft::update_device(int_array_dev, val, 12, stream);
 
   const int nthreads = 4;
   test_rank_set_entries<nthreads, 4>
@@ -145,7 +145,7 @@ TEST_F(CacheTest, TestRankEntries) {
 
   // do the same with less than 4 threads
   const int nthreads3 = 3;
-  updateDevice(int_array_dev, val, 12, stream);
+        raft::update_device(int_array_dev, val, 12, stream);
   test_rank_set_entries<nthreads3, 4>
     <<<3, nthreads3>>>(int_array_dev, 12, int_array_dev);
   EXPECT_TRUE(devArrMatchHost(idx_exp, int_array_dev, 12, Compare<int>()));
@@ -185,7 +185,7 @@ TEST_F(CacheTest, TestAssignCacheIdx) {
 
   // Now the elements that have been assigned a cache slot are considered cached
   // A subsequent cache lookup should give us their cache indices.
-  updateDevice(keys_dev, keys_host, n, stream);
+        raft::update_device(keys_dev, keys_host, n, stream);
   cache.GetCacheIdxPartitioned(keys_dev, n, cache_idx_dev, &n_cached, stream);
   ASSERT_EQ(n_cached, 4);
 
@@ -222,7 +222,7 @@ TEST_F(CacheTest, TestEvict) {
   EXPECT_TRUE(devArrMatchHost(keys_exp, keys_dev, 5, Compare<int>()));
 
   int idx_host[10] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
-  updateDevice(keys_dev, idx_host, 10, stream);
+        raft::update_device(keys_dev, idx_host, 10, stream);
   cache.GetCacheIdxPartitioned(keys_dev, 10, cache_idx_dev, &n_cached, stream);
   EXPECT_EQ(n_cached, 3);
   int cache_idx_exp2[3] = {1, 4, 0};
@@ -256,9 +256,9 @@ TEST_F(CacheTest, TestStoreCollect) {
   cache.GetVecs(cache_idx_dev, n_cached, tile_dev, stream);
 
   int cache_idx_host[10];
-  updateHost(cache_idx_host, cache_idx_dev, n_cached, stream);
+        raft::update_host(cache_idx_host, cache_idx_dev, n_cached, stream);
   int keys_host[10];
-  updateHost(keys_host, keys_dev, n_cached, stream);
+        raft::update_host(keys_host, keys_dev, n_cached, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (int i = 0; i < n_cached; i++) {
     EXPECT_TRUE(devArrMatch(x_dev + keys_host[i] * n_cols,
@@ -282,8 +282,8 @@ TEST_F(CacheTest, TestStoreCollect) {
 
     cache.GetVecs(cache_idx_dev, 10, tile_dev, stream);
 
-    updateHost(cache_idx_host, cache_idx_dev, 10, stream);
-    updateHost(keys_host, keys_dev, 10, stream);
+      raft::update_host(cache_idx_host, cache_idx_dev, 10, stream);
+      raft::update_host(keys_host, keys_dev, 10, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     for (int i = 0; i < 10; i++) {
       if (cache_idx_host[i] >= 0) {

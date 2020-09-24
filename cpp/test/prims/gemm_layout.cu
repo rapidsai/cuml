@@ -87,7 +87,7 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
     r.uniform(X, xElems, T(-10.0), T(10.0), stream);
     r.uniform(Y, yElems, T(-10.0), T(10.0), stream);
 
-    dim3 blocks(ceildiv<int>(params.M, 128), ceildiv<int>(params.N, 4), 1);
+    dim3 blocks(raft::ceildiv<int>(params.M, 128), raft::ceildiv<int>(params.N, 4), 1);
     dim3 threads(128, 4, 1);
 
     naiveGemm<<<blocks, threads>>>(refZ, X, Y, params.M, params.N, params.K,
