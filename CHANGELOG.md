@@ -5,6 +5,7 @@
 - PR #2698: Distributed TF-IDF transformer
 - PR #2152: add FIL C++ benchmark
 - PR #2638: Improve cython build with custom `build_ext`
+- PR #2866: support xgboost-style models (Gradient Boosted Decision Trees) in FIL C/C++
 
 ## Improvements
 - PR #2796: Remove tokens of length 1 by default for text vectorizers
