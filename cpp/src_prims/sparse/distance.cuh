@@ -413,7 +413,7 @@ __device__ void bitonic_sort_by_key_3(value_t *keys, value_idx *vals,
         need_swap |= (is_inc && (vals[i] > vals[j]));
         need_swap |= (!is_inc && (vals[i] < vals[j]));
 
-        if(need_swap) {
+        if(need_swap && i == tid) {
 
 
 //          if(verbose)
@@ -428,6 +428,25 @@ __device__ void bitonic_sort_by_key_3(value_t *keys, value_idx *vals,
     }
   }
 }
+
+template<typename value_idx, typename value_t>
+__device__ void even_odd_merge_sort(value_t *keys, value_idx *vals,
+                                      int n_elements, int tid, int row, int col, bool verbose) {
+  for(int i = 0; i < n_elements; i++) {
+
+    bool is_even = i % 2 == 0; // TODO: use fastmath here
+    if(tid < n_elements >> 1) {
+      int idx = is_even ? tid << 1 : (tid<<1)+1;
+      if(vals[idx+1] < vals[idx] && idx+1 < n_elements) {
+        swap(keys, idx, idx+1);
+        swap(vals, idx, idx+1);
+      }
+    }
+
+    __syncthreads();
+  }
+}
+
 /**
  * Assuming the nnz cols of A and B (About 5k each) can both fit into shared memory for now
  * just to test the algorithm.
@@ -475,19 +494,19 @@ __global__ void row_distance_block_reduce_kernel(
 
   // Load A into buffer
   for (int i = tid; i < col_nnz_a; i += blockDim.x) {
-    cols_buffer[i] = start_offset_a + i;
-    vals_buffer[i] = start_offset_a + i;
+    cols_buffer[i] = indicesA[start_offset_a + i];
+    vals_buffer[i] = dataA[start_offset_a + i];
   }
 
   // Load B into buffer
   for (int i = tid; i < col_nnz_b; i += blockDim.x) {
-    cols_buffer[i + col_nnz_a] = start_offset_b + i;
-    vals_buffer[i + col_nnz_a] = start_offset_b + i;
+    cols_buffer[i + col_nnz_a] = indicesB[start_offset_b + i];
+    vals_buffer[i + col_nnz_a] = dataB[start_offset_b + i];
   }
 
   __syncthreads();
 
-  if (tid == 0 && out_row == 0 && out_col == 0) {
+  if (tid == 0 && out_row == 0 && out_col == 1) {
     printf("unsorted: row=%d, col=%d, [\n", out_row, out_col);
     for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
       printf("%d, ", cols_buffer[i]);
@@ -497,11 +516,11 @@ __global__ void row_distance_block_reduce_kernel(
   __syncthreads();
 
   // Sort
-  bitonic_sort_by_key_3(vals_buffer, cols_buffer, col_nnz_a + col_nnz_b, tid, out_row, out_col, out_row == 0 && out_col == 0 && tid == 0);
+  even_odd_merge_sort(vals_buffer, cols_buffer, col_nnz_a + col_nnz_b, tid, out_row, out_col, out_row == 0 && out_col == 1 && tid == 0);
 
   __syncthreads();
 
-  if (tid == 0 && out_row == 0 && out_col == 0) {
+  if (tid == 0 && out_row == 0 && out_col == 1) {
     printf("sorted bufsize=%d [", col_nnz_a + col_nnz_b);
     for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
       printf("%d, ", cols_buffer[i]);
@@ -536,16 +555,16 @@ __global__ void row_distance_block_reduce_kernel(
 
   __syncthreads();
 
-  if (tid == 0 && out_row == 0 && out_col == 0) {
-    printf("[");
+  if (tid == 0 && out_row == 0 && out_col == 1) {
+    printf("vals_buffer after reduce dupes[");
     for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
       printf("%f, ", vals_buffer[i]);
     }
     printf("]\n");
   }
 
-  if (tid == 0 && out_row == 0 && out_col == 0) {
-    printf("[");
+  if (tid == 0 && out_row == 0 && out_col == 1) {
+    printf("cols_buffer after reduce dupes [");
     for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
       printf("%d, ", cols_buffer[i]);
     }
@@ -554,14 +573,14 @@ __global__ void row_distance_block_reduce_kernel(
 
 
   // Tree-reduce
-  for (unsigned int i = (col_nnz_b + col_nnz_a) / 2; i > 0; i >>= 1) {
+  for (unsigned int i = (col_nnz_b + col_nnz_a) >> 1; i > 0; i >>= 1) {
     if (tid < i) {
-      vals_buffer[tid] += vals_buffer[tid + i];
+      vals_buffer[tid] = func_accumulator(vals_buffer[tid], vals_buffer[tid + i]);
     }
     __syncthreads();
   }
 ////
-  if (tid == 0 && out_row == 0 && out_col == 0) {
+  if (tid == 0 && out_row == 0 && out_col == 1) {
     printf("tree reduction row=%d, col=%d[", out_row, out_col);
     for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
       printf("%f, ", vals_buffer[i]);
