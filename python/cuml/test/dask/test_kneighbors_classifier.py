@@ -69,7 +69,7 @@ def dataset(request):
         if len(new_x) >= request.param['n_samples']:
             break
     X = X[new_x]
-    noise = np.random.normal(0, 0.5, X.shape)
+    noise = np.random.normal(0, 1.2, X.shape)
     X += noise
     y = np.array(new_y)
 
@@ -86,7 +86,9 @@ def exact_match(output1, output2):
     assert i1.shape == i2.shape
     assert d1.shape == d2.shape
 
-    # Distances should strictly match
+    # Distances should match
+    d1 = np.round(d1, 4)
+    d2 = np.round(d2, 4)
     assert np.array_equal(d1, d2)
 
     # Indices should strictly match
