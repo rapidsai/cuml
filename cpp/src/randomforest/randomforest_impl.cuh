@@ -73,29 +73,13 @@ void rf<T, L>::prepare_fit_per_tree(
   MLCommon::Random::Rng rng(rs * 1000 | 0xFF00AA,
                             MLCommon::Random::GeneratorType::GenKiss99);
   if (rf_params.bootstrap) {
+    // Use bootstrapped sample set
     rng.uniformInt<unsigned>(selected_rows, n_sampled_rows, 0, n_rows, stream);
 
-  } else {  // Sampling w/o replacement
-    MLCommon::device_buffer<unsigned int>* inkeys =
-      new MLCommon::device_buffer<unsigned int>(device_allocator, stream,
-                                                n_rows);
-    MLCommon::device_buffer<unsigned int>* outkeys =
-      new MLCommon::device_buffer<unsigned int>(device_allocator, stream,
-                                                n_rows);
-    thrust::sequence(thrust::cuda::par.on(stream), inkeys->data(),
-                     inkeys->data() + n_rows);
-    int* perms = nullptr;
-    MLCommon::Random::permute(perms, outkeys->data(), inkeys->data(), 1, n_rows,
-                              false, stream);
-    // outkeys has more rows than selected_rows; doing the shuffling before the
-    // resize to differentiate the per-tree rows sample.
-    CUDA_CHECK(cudaMemcpyAsync(selected_rows, outkeys->data(),
-                               n_sampled_rows * sizeof(unsigned int),
-                               cudaMemcpyDeviceToDevice, stream));
-    inkeys->release(stream);
-    outkeys->release(stream);
-    delete inkeys;
-    delete outkeys;
+  } else {
+    // Use all the samples from the dataset
+    thrust::sequence(thrust::cuda::par.on(stream), selected_rows,
+                     selected_rows + n_sampled_rows);
   }
 }
 
@@ -171,7 +155,18 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
   this->error_checking(input, labels, n_rows, n_cols, false);
 
   const raft::handle_t& handle = user_handle;
-  int n_sampled_rows = this->rf_params.rows_sample * n_rows;
+  int n_sampled_rows = 0;
+  if (this->rf_params.bootstrap) {
+    n_sampled_rows = std::round(this->rf_params.rows_sample * n_rows);
+  } else {
+    if (this->rf_params.rows_sample != 1.0) {
+      CUML_LOG_WARN(
+        "If bootstrap sampling is disabled, rows_sample value is ignored and "
+        "whole dataset is used for building each tree");
+      this->rf_params.rows_sample = 1.0;
+    }
+    n_sampled_rows = n_rows;
+  }
   int n_streams = this->rf_params.n_streams;
   ASSERT(
     n_streams <= handle.get_num_internal_streams(),
@@ -439,7 +434,18 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
   this->error_checking(input, labels, n_rows, n_cols, false);
 
   const raft::handle_t& handle = user_handle;
-  int n_sampled_rows = this->rf_params.rows_sample * n_rows;
+  int n_sampled_rows = 0;
+  if (this->rf_params.bootstrap) {
+    n_sampled_rows = this->rf_params.rows_sample * n_rows;
+  } else {
+    if (this->rf_params.rows_sample != 1.0) {
+      CUML_LOG_WARN(
+        "If bootstrap sampling is disabled, rows_sample value is ignored and "
+        "whole dataset is used for building each tree");
+    }
+    n_sampled_rows = n_rows;
+  }
+
   int n_streams = this->rf_params.n_streams;
   ASSERT(
     n_streams <= handle.get_num_internal_streams(),
