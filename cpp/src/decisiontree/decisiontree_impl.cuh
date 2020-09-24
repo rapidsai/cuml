@@ -253,7 +253,7 @@ void DecisionTreeBase<T, L>::plant(
     grow_tree(tempmem->device_allocator, tempmem->host_allocator, data, ncols,
               nrows, labels, quantiles, (int *)rowids, (int *)colids,
               n_sampled_rows, unique_labels, tree_params, tempmem->stream,
-              sparsetree, tree_params.max_leaves, tree_params.max_depth);
+              sparsetree, this->leaf_counter, this->depth_counter);
   } else {
     grow_deep_tree(data, labels, rowids, n_sampled_rows, ncols,
                    tree_params.max_features, dinfo.NLocalrows, sparsetree,
