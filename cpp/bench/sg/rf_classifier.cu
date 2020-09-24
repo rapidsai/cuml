@@ -105,7 +105,7 @@ std::vector<Params> getInputs() {
     p.data.ncols = rc.ncols;
     p.data.nclasses = rc.nclasses;
     p.rf.tree_params.max_features = 1.f / std::sqrt(float(rc.ncols));
-    for (auto max_depth : std::vector<int>({8, 10})) {
+    for (auto max_depth : std::vector<int>({7, 9})) {
       p.rf.tree_params.max_depth = max_depth;
       out.push_back(p);
     }

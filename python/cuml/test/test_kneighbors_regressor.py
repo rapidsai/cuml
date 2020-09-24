@@ -104,6 +104,23 @@ def test_score(nrows, ncols, n_neighbors, n_clusters, datatype):
     assert knn_cu.score(X, y) >= 0.9999
 
 
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_score_dtype(dtype):
+    # Using make_blobs here to check averages and neighborhoods
+    X, y = make_blobs(n_samples=1000, centers=2,
+                      cluster_std=0.01,
+                      n_features=50, random_state=0)
+
+    X = X.astype(dtype)
+    y = y.astype(dtype)
+
+    knn_cu = cuKNN(n_neighbors=5)
+    knn_cu.fit(X, y)
+    pred = knn_cu.predict(X)
+    assert pred.dtype == dtype
+    assert knn_cu.score(X, y) >= 0.9999
+
+
 @pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
 @pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
 def test_predict_multioutput(input_type, output_type):

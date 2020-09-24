@@ -29,6 +29,9 @@ log
 dask-worker-space/
 tmp/
 
+## files pickled in notebook when ran during python docstring generation
+docs/source/*.model
+
 ## eclipse
 .project
 .cproject

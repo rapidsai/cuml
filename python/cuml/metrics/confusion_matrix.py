@@ -14,13 +14,9 @@
 # limitations under the License.
 #
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
-
 import numpy as np
 import cupy as cp
+import cupyx
 
 from cuml.common import input_to_cuml_array
 from cuml.common.memory_utils import with_cupy_rmm
@@ -97,9 +93,9 @@ def confusion_matrix(y_true, y_pred,
     y_true = y_true[ind]
     sample_weight = sample_weight[ind]
 
-    cm = cp.sparse.coo_matrix((sample_weight, (y_true, y_pred)),
-                              shape=(n_labels, n_labels),
-                              dtype=np.float64).toarray()
+    cm = cupyx.scipy.sparse.coo_matrix((sample_weight, (y_true, y_pred)),
+                                       shape=(n_labels, n_labels),
+                                       dtype=np.float64).toarray()
 
     with np.errstate(all='ignore'):
         if normalize == 'true':

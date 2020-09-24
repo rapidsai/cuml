@@ -80,7 +80,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     else
       prms.algorithm = solver::COV_EIG_JACOBI;
 
-    tsvdFit(handle.getImpl(), data, components, singular_vals, prms, stream);
+    tsvdFit(handle, data, components, singular_vals, prms, stream);
   }
 
   void advancedTest() {
@@ -96,10 +96,8 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
       prms.algorithm = solver::COV_EIG_DQ;
     else if (params.algo == 1)
       prms.algorithm = solver::COV_EIG_JACOBI;
-    else if (params.algo == 2) {
-      prms.algorithm = solver::RANDOMIZED;
+    else
       prms.n_components = params.n_col2 - 15;
-    }
 
     allocate(data2, len);
     r.uniform(data2, len, T(-1.0), T(1.0), stream);
@@ -111,18 +109,17 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     allocate(explained_var_ratio2, prms.n_components);
     allocate(singular_vals2, prms.n_components);
 
-    tsvdFitTransform(handle.getImpl(), data2, data2_trans, components2,
-                     explained_vars2, explained_var_ratio2, singular_vals2,
-                     prms, stream);
+    tsvdFitTransform(handle, data2, data2_trans, components2, explained_vars2,
+                     explained_var_ratio2, singular_vals2, prms, stream);
 
     allocate(data2_back, len);
-    tsvdInverseTransform(handle.getImpl(), data2_trans, components2, data2_back,
-                         prms, stream);
+    tsvdInverseTransform(handle, data2_trans, components2, data2_back, prms,
+                         stream);
   }
 
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.setStream(stream);
+    handle.set_stream(stream);
     basicTest();
     advancedTest();
   }
@@ -147,7 +144,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
   T *data, *components, *singular_vals, *components_ref, *explained_vars_ref;
   T *data2, *data2_trans, *data2_back, *components2, *explained_vars2,
     *explained_var_ratio2, *singular_vals2;
-  cumlHandle handle;
+  raft::handle_t handle;
   cudaStream_t stream;
 };
 

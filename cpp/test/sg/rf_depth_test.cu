@@ -105,8 +105,8 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
     forest = new typename ML::RandomForestMetaData<T, int>;
     null_trees_ptr(forest);
 
-    cumlHandle handle(rf_params.n_streams);
-    handle.setStream(stream);
+    raft::handle_t handle(rf_params.n_streams);
+    handle.set_stream(stream);
 
     fit(handle, forest, data, params.n_rows, params.n_cols, labels,
         labels_map.size(), rf_params);
@@ -195,8 +195,8 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
     forest = new typename ML::RandomForestMetaData<T, T>;
     null_trees_ptr(forest);
 
-    cumlHandle handle(rf_params.n_streams);
-    handle.setStream(stream);
+    raft::handle_t handle(rf_params.n_streams);
+    handle.set_stream(stream);
 
     fit(handle, forest, data, params.n_rows, params.n_cols, labels, rf_params);
 
@@ -227,9 +227,7 @@ int MaxDepthOfDecisionTree(const DecisionTree::TreeMetaDataNode<T, L>* tree) {
   const auto& node_array = tree->sparsetree;
   std::queue<std::pair<int, int>> q;  // (node ID, depth)
   // Traverse the tree breadth-first
-  int initial_depth = 1;
-  // Currently, cuML starts counting depth by 1.
-  // See https://github.com/rapidsai/cuml/issues/2518#issuecomment-660070910.
+  int initial_depth = 0;
   q.emplace(0, initial_depth);
   int max_depth = initial_depth;
   while (!q.empty()) {
@@ -267,10 +265,10 @@ TEST_P(RfClassifierDepthTestD, Fit) {
 }
 
 INSTANTIATE_TEST_CASE_P(RfClassifierDepthTests, RfClassifierDepthTestF,
-                        ::testing::Range(1, 20));
+                        ::testing::Range(0, 19));
 
 INSTANTIATE_TEST_CASE_P(RfClassifierDepthTests, RfClassifierDepthTestD,
-                        ::testing::Range(1, 20));
+                        ::testing::Range(0, 19));
 
 typedef RfRegressorDepthTest<float> RfRegressorDepthTestF;
 TEST_P(RfRegressorDepthTestF, Fit) {
@@ -293,9 +291,9 @@ TEST_P(RfRegressorDepthTestD, Fit) {
 }
 
 INSTANTIATE_TEST_CASE_P(RfRegressorDepthTests, RfRegressorDepthTestF,
-                        ::testing::Range(1, 20));
+                        ::testing::Range(0, 19));
 
 INSTANTIATE_TEST_CASE_P(RfRegressorDepthTests, RfRegressorDepthTestD,
-                        ::testing::Range(1, 20));
+                        ::testing::Range(0, 19));
 
 }  // end namespace ML

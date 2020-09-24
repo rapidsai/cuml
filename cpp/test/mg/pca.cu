@@ -16,7 +16,7 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <test_utils.h>
 #include <cuda_utils.cuh>
 #include <cuml/common/logger.hpp>
@@ -25,6 +25,10 @@
 #include <opg/linalg/gemm.hpp>
 #include <opg/matrix/matrix_utils.hpp>
 #include "test_opg_utils.h"
+
+#include <common/cumlHandle.hpp>
+
+#include <raft/comms/mpi_comms.hpp>
 
 namespace MLCommon {
 namespace Test {
@@ -46,18 +50,16 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
  public:
   void SetUp() {
     params = GetParam();
-    handle = new ML::cumlHandle();
-    ML::initialize_mpi_comms(*handle, MPI_COMM_WORLD);
+    raft::comms::initialize_mpi_comms(&handle, MPI_COMM_WORLD);
 
     // Prepare resource
-    const ML::cumlHandle_impl& h = handle->getImpl();
-    const cumlCommunicator& comm = h.getCommunicator();
-    stream = h.getStream();
-    const std::shared_ptr<deviceAllocator> allocator = h.getDeviceAllocator();
-    cublasHandle_t cublasHandle = h.getCublasHandle();
+    const raft::comms::comms_t& comm = handle.get_comms();
+    stream = handle.get_stream();
+    const auto allocator = handle.get_device_allocator();
+    cublasHandle_t cublasHandle = handle.get_cublas_handle();
 
-    myRank = comm.getRank();
-    totalRanks = comm.getSize();
+    myRank = comm.get_rank();
+    totalRanks = comm.get_size();
     Random::Rng r(params.seed + myRank);
 
     CUBLAS_CHECK(cublasSetStream(cublasHandle, stream));
@@ -75,12 +77,12 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
       totalPartsToRanks.push_back(rspt);
     }
     Matrix::PartDescriptor desc(params.M, params.N, totalPartsToRanks,
-                                comm.getRank(), params.layout);
+                                comm.get_rank(), params.layout);
     std::vector<Matrix::Data<T>*> inParts;
-    Matrix::opg::allocate(h, inParts, desc, myRank, stream);
-    Matrix::opg::randomize(h, r, inParts, desc, myRank, stream, T(10.0),
+    Matrix::opg::allocate(handle, inParts, desc, myRank, stream);
+    Matrix::opg::randomize(handle, r, inParts, desc, myRank, stream, T(10.0),
                            T(20.0));
-    h.waitOnUserStream();
+    handle.wait_on_user_stream();
 
     prmsPCA.n_rows = params.M;
     prmsPCA.n_cols = params.N;
@@ -104,7 +106,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
 
     device_buffer<T> noise_vars(allocator, stream, prmsPCA.n_components);
 
-    ML::PCA::opg::fit(*handle, inParts, desc, components.data(),
+    ML::PCA::opg::fit(handle, inParts, desc, components.data(),
                       explained_var.data(), explained_var_ratio.data(),
                       singular_vals.data(), mu.data(), noise_vars.data(),
                       prmsPCA, false);
@@ -127,14 +129,12 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
                                      "Components", stream)
                      .c_str());
 
-    Matrix::opg::deallocate(h, inParts, desc, myRank, stream);
+    Matrix::opg::deallocate(handle, inParts, desc, myRank, stream);
   }
-
-  void TearDown() { delete handle; }
 
  protected:
   PCAOpgParams params;
-  ML::cumlHandle* handle;
+  raft::handle_t handle;
   cudaStream_t stream;
   int myRank;
   int totalRanks;

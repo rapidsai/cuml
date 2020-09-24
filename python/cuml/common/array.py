@@ -16,6 +16,7 @@
 
 import cupy as cp
 import numpy as np
+import operator
 
 from rmm import DeviceBuffer
 from cudf.core import Buffer, Series, DataFrame
@@ -167,6 +168,15 @@ class CumlArray(Buffer):
 
     def __len__(self):
         return self.shape[0]
+
+    def _operator_overload(self, other, fn):
+        return CumlArray(fn(self.to_output('cupy'), other))
+
+    def __add__(self, other):
+        return self._operator_overload(other, operator.add)
+
+    def __sub__(self, other):
+        return self._operator_overload(other, operator.sub)
 
     @property
     def __cuda_array_interface__(self):
@@ -337,12 +347,12 @@ class CumlArray(Buffer):
 
 
 def _check_low_level_type(data):
-    if not (
+    if isinstance(data, CumlArray):
+        return False
+    elif not (
         hasattr(data, "__array_interface__")
         or hasattr(data, "__cuda_array_interface__")
-    ):
-        return True
-    elif isinstance(data, (DeviceBuffer, Buffer)):
+    ) or isinstance(data, (DeviceBuffer, Buffer)):
         return True
     else:
         return False

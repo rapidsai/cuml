@@ -168,6 +168,9 @@ void print_tree_summary(const TreeMetaDataNode<T, L> *tree);
 template <class T, class L>
 void print_tree(const TreeMetaDataNode<T, L> *tree);
 
+template <class T, class L>
+std::string dump_tree_as_json(const TreeMetaDataNode<T, L> *tree);
+
 // ----------------------------- Classification ----------------------------------- //
 
 typedef TreeMetaDataNode<float, int> TreeClassifierF;
@@ -176,7 +179,7 @@ typedef TreeMetaDataNode<double, int> TreeClassifierD;
 /**
  * @defgroup DecisionTreeClassifierFit Fit functions
  * @brief Build (i.e., fit, train) Decision Tree classifier for input data.
- * @param[in] handle: cumlHandle
+ * @param[in] handle: raft::handle_t
  * @param[in, out] tree: CPU pointer to TreeMetaDataNode. User allocated.
  * @param[in] data: train data (nrows samples, ncols features) in column major format,
  *    excluding labels. Device pointer.
@@ -196,13 +199,13 @@ typedef TreeMetaDataNode<double, int> TreeClassifierD;
  * @param[in] tree_params: Decision Tree training hyper parameter struct.
  * @{
  */
-void decisionTreeClassifierFit(const ML::cumlHandle &handle,
+void decisionTreeClassifierFit(const raft::handle_t &handle,
                                TreeClassifierF *&tree, float *data,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
                                DecisionTree::DecisionTreeParams tree_params);
-void decisionTreeClassifierFit(const ML::cumlHandle &handle,
+void decisionTreeClassifierFit(const raft::handle_t &handle,
                                TreeClassifierD *&tree, double *data,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
@@ -214,7 +217,7 @@ void decisionTreeClassifierFit(const ML::cumlHandle &handle,
  * @defgroup DecisionTreeClassifierPredict Predict functions
  * @brief Predict target feature for input data; n-ary classification for
  *   single feature supported. Inference of trees is CPU only for now.
- * @param[in] handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] handle: raft::handle_t (currently unused; API placeholder)
  * @param[in] tree: CPU pointer to TreeMetaDataNode.
  * @param[in] rows: test data (n_rows samples, n_cols features) in row major format.
  *    Current impl. expects a CPU pointer. TODO future API change.
@@ -228,12 +231,12 @@ void decisionTreeClassifierFit(const ML::cumlHandle &handle,
  *                       the caller itself might have set.
  * @{
  */
-void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
+void decisionTreeClassifierPredict(const raft::handle_t &handle,
                                    const TreeClassifierF *tree,
                                    const float *rows, const int n_rows,
                                    const int n_cols, int *predictions,
                                    int verbosity = -1);
-void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
+void decisionTreeClassifierPredict(const raft::handle_t &handle,
                                    const TreeClassifierD *tree,
                                    const double *rows, const int n_rows,
                                    const int n_cols, int *predictions,
@@ -248,7 +251,7 @@ typedef TreeMetaDataNode<double, double> TreeRegressorD;
 /**
  * @defgroup DecisionTreeRegressorFit Fit functions
  * @brief Build (i.e., fit, train) Decision Tree regressor for input data.
- * @param[in] handle: cumlHandle
+ * @param[in] handle: raft::handle_t
  * @param[in, out] tree: CPU pointer to TreeMetaDataNode. User allocated.
  * @param[in] data: train data (nrows samples, ncols features) in column major format,
  *   excluding labels. Device pointer.
@@ -264,12 +267,12 @@ typedef TreeMetaDataNode<double, double> TreeRegressorD;
  * @param[in] tree_params: Decision Tree training hyper parameter struct.
  * @{
  */
-void decisionTreeRegressorFit(const ML::cumlHandle &handle,
+void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorF *&tree, float *data,
                               const int ncols, const int nrows, float *labels,
                               unsigned int *rowids, const int n_sampled_rows,
                               DecisionTree::DecisionTreeParams tree_params);
-void decisionTreeRegressorFit(const ML::cumlHandle &handle,
+void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorD *&tree, double *data,
                               const int ncols, const int nrows, double *labels,
                               unsigned int *rowids, const int n_sampled_rows,
@@ -280,7 +283,7 @@ void decisionTreeRegressorFit(const ML::cumlHandle &handle,
  * @defgroup DecisionTreeRegressorPredict Predict functions
  * @brief Predict target feature for input data; regression for single feature supported.
  *   Inference of trees is CPU only for now.
- * @param[in] handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] handle: raft::handle_t (currently unused; API placeholder)
  * @param[in] tree: CPU pointer to TreeMetaDataNode.
  * @param[in] rows: test data (n_rows samples, n_cols features) in row major format.
  *   Current impl. expects a CPU pointer. TODO future API change.
@@ -294,11 +297,11 @@ void decisionTreeRegressorFit(const ML::cumlHandle &handle,
  *                       the caller itself might have set.
  * @{
  */
-void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
+void decisionTreeRegressorPredict(const raft::handle_t &handle,
                                   const TreeRegressorF *tree, const float *rows,
                                   const int n_rows, const int n_cols,
                                   float *predictions, int verbosity = -1);
-void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
+void decisionTreeRegressorPredict(const raft::handle_t &handle,
                                   const TreeRegressorD *tree,
                                   const double *rows, const int n_rows,
                                   const int n_cols, double *predictions,

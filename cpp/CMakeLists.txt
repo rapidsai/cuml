@@ -66,7 +66,7 @@ option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)"
 
 option(BUILD_STATIC_FAISS "Build the FAISS library for nearest neighbors search on GPU" OFF)
 
-option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
+option(BUILD_GTEST "Build the GTEST library for running libcuml++ and prims test executables" OFF)
 
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 
@@ -185,11 +185,6 @@ GENERATE_FIND_MODULE(
   HEADER_NAME  nccl.h
   LIBRARY_NAME nccl)
 endif(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
-
-GENERATE_FIND_MODULE(
-  NAME         RMM
-  HEADER_NAME  rmm/device_buffer.hpp
-  LIBRARY_NAME rmm)
 
 if(BUILD_CUML_STD_COMMS)
   GENERATE_FIND_MODULE(
@@ -320,17 +315,6 @@ list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
 set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
 
-if(CMAKE_COMPILER_IS_GNUCXX)
-  if(NOT CMAKE_CXX11_ABI)
-    message(STATUS "Disabling the GLIBCXX11 ABI")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -D_GLIBCXX_USE_CXX11_ABI=0")
-  elseif(CMAKE_CXX11_ABI)
-    message(STATUS "Enabling the GLIBCXX11 ABI")
-  endif(NOT CMAKE_CXX11_ABI)
-endif(CMAKE_COMPILER_IS_GNUCXX)
-
 set(CMAKE_CUDA_FLAGS
   "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
 
@@ -370,9 +354,23 @@ set(CUML_PRIVATE_LINK_LIBRARIES
   FAISS::FAISS
   treelite::treelite
   treelite::treelite_runtime
-  RMM::RMM
   )
 
+if(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
+	list(APPEND CUML_INCLUDE_DIRECTORIES
+		${NCCL_INCLUDE_DIRS})
+
+	list(APPEND CUML_PRIVATE_LINK_LIBRARIES
+		NCCL::NCCL)
+endif(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
+
+if(BUILD_CUML_MPI_COMMS)
+	list(APPEND CUML_INCLUDE_DIRECTORIES
+        ${MPI_CXX_INCLUDE_PATH})
+
+    list(APPEND CUML_PRIVATE_LINK_LIBRARIES
+         ${MPI_CXX_LIBRARIES})
+endif(BUILD_CUML_MPI_COMMS)
 
 if(ENABLE_CUMLPRIMS_MG)
   list(APPEND CUML_INCLUDE_DIRECTORIES
@@ -394,10 +392,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/arima/batched_kalman.cu
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
-    src/common/cuML_comms_impl.cpp
     src/common/logger.cpp
     src/common/nvtx.cu
-    src/comms/cuML_comms_test.cpp
     src/datasets/make_arima.cu
     src/datasets/make_blobs.cu
     src/datasets/make_regression.cu
@@ -496,17 +492,6 @@ endif(BUILD_CUML_C_LIBRARY)
 if(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
   add_subdirectory(test ${PROJECT_BINARY_DIR}/test)
 endif(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
-
-##############################################################################
-# - build comms ------------------------------------------------------------------------------
-
-if(BUILD_CUML_STD_COMMS)
-  add_subdirectory(comms/std)
-endif(BUILD_CUML_STD_COMMS)
-
-if(BUILD_CUML_MPI_COMMS)
-  add_subdirectory(comms/mpi)
-endif(BUILD_CUML_MPI_COMMS)
 
 ##############################################################################
 # - build examples ------------------------------------------------------------------------------

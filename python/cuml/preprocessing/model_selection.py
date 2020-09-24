@@ -15,6 +15,7 @@
 
 import cudf
 import cupy as cp
+import cupyx
 import numpy as np
 import warnings
 
@@ -190,7 +191,8 @@ def train_test_split(X,
                      stratify=None):
     """
     Partitions device data into four collated objects, mimicking
-    Scikit-learn's `train_test_split`.
+    Scikit-learn's `train_test_split
+    <https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html>`_.
 
     Parameters
     ----------
@@ -238,7 +240,7 @@ def train_test_split(X,
 
         # Alternatively, if our labels are stored separately
         labels = df['y']
-        df = df.drop(['y'])
+        df = df.drop(['y'], axis=1)
 
         # we can also do
         X_train, X_test, y_train, y_test = train_test_split(df, labels,
@@ -269,7 +271,7 @@ def train_test_split(X,
         if isinstance(X, cudf.DataFrame):
             name = y
             y = X[name]
-            X = X.drop(name)
+            X = X.drop(name, axis=1)
         else:
             raise TypeError("X needs to be a cuDF Dataframe when y is a \
                              string")
@@ -326,13 +328,17 @@ def train_test_split(X,
 
     if seed is not None:
         if random_state is None:
-            warnings.warn("Parameter 'seed' is deprecated, please use \
-                          'random_state' instead.")
+            warnings.warn("Parameter 'seed' is deprecated and will be"
+                          " removed in 0.17. Please use 'random_state'"
+                          " instead. Setting 'random_state' as the"
+                          " curent 'seed' value",
+                          DeprecationWarning)
             random_state = seed
         else:
-            warnings.warn("Both 'seed' and 'random_state' parameters were \
-                          set, using 'random_state' since 'seed' is \
-                          deprecated. ")
+            warnings.warn("Both 'seed' and 'random_state' parameters were"
+                          " set. Using 'random_state' since 'seed' is"
+                          " deprecated and will be removed in 0.17.",
+                          DeprecationWarning)
 
     # Determining sizes of splits
     if isinstance(train_size, float):
@@ -405,7 +411,7 @@ def train_test_split(X,
                                     cp.dtype(y.dtype))
 
     if hasattr(X, "__cuda_array_interface__") or \
-            isinstance(X, cp.sparse.csr_matrix):
+            isinstance(X, cupyx.scipy.sparse.csr_matrix):
         X_train = cp.array(X[0:train_size], order=x_order)
         if y is not None:
             y_train = cp.array(y[0:train_size], order=y_order)
@@ -415,7 +421,7 @@ def train_test_split(X,
             y_train = y.iloc[0:train_size]
 
     if hasattr(X, "__cuda_array_interface__") or \
-            isinstance(X, cp.sparse.csr_matrix):
+            isinstance(X, cupyx.scipy.sparse.csr_matrix):
         X_test = cp.array(X[-1 * test_size:], order=x_order)
         if y is not None:
             y_test = cp.array(y[-1 * test_size:], order=y_order)

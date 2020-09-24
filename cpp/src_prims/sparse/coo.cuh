@@ -17,7 +17,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include "csr.cuh"
 
-#include "cusparse_wrappers.h"
+#include <raft/sparse/cusparse_wrappers.h>
 
 #include <common/device_buffer.hpp>
 
@@ -287,8 +287,8 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
 
   device_buffer<T> vals_sorted(d_alloc, stream, nnz);
 
-  CUSPARSE_CHECK(
-    cusparsegthr<T>(handle, nnz, vals, vals_sorted.data(), d_P.data(), stream));
+  CUSPARSE_CHECK(raft::sparse::cusparsegthr<T>(
+    handle, nnz, vals, vals_sorted.data(), d_P.data(), stream));
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

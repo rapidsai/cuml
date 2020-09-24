@@ -14,14 +14,11 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import numpy as np
-import pandas as pd
 import cupy as cp
+import cupyx
 import cudf
 import ctypes
 import cuml
@@ -29,11 +26,13 @@ import warnings
 
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.doc_utils import insert_into_docstring
 from cuml.common import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
 
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -47,19 +46,7 @@ from libcpp.vector cimport vector
 from numba import cuda
 import rmm
 
-cimport cuml.common.handle
 cimport cuml.common.cuda
-
-
-cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
-    cdef cppclass deviceAllocator:
-        pass
-
-    cdef cppclass cumlHandle:
-        cumlHandle() except +
-        void setStream(cuml.common.cuda._Stream s) except +
-        void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
-        cuml.common.cuda._Stream getStream() except +
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
@@ -78,7 +65,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         METRIC_Correlation
 
     void brute_force_knn(
-        cumlHandle &handle,
+        handle_t &handle,
         vector[float*] &inputs,
         vector[int] &sizes,
         int D,
@@ -107,8 +94,8 @@ class NearestNeighbors(Base):
         Default number of neighbors to query
     verbose : int or boolean (default = False)
         Logging level
-    handle : cumlHandle
-        The cumlHandle resources to use
+    handle : handle_t
+        The handle_t resources to use
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.
     metric : string (default='euclidean').
@@ -184,7 +171,7 @@ class NearestNeighbors(Base):
     -----
 
     For an additional example see `the NearestNeighbors notebook
-    <https://github.com/rapidsai/cuml/blob/branch-0.14/notebooks/nearest_neighbors_demo.ipynb>`_.
+    <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/nearest_neighbors_demo.ipynb>`_.
 
     For additional docs, see `scikit-learn's NearestNeighbors
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
@@ -219,23 +206,13 @@ class NearestNeighbors(Base):
         self.p = p
         self.algorithm = algorithm
 
+    @generate_docstring()
     def fit(self, X, convert_dtype=True):
         """
         Fit GPU index for performing nearest neighbor queries.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
@@ -289,6 +266,10 @@ class NearestNeighbors(Base):
 
         return m, expanded
 
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
+                           return_values=[('dense', '(n_samples, n_features)'),
+                                          ('dense',
+                                           '(n_samples, n_features)')])
     def kneighbors(self, X=None, n_neighbors=None, return_distance=True,
                    convert_dtype=True):
         """
@@ -296,10 +277,7 @@ class NearestNeighbors(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        X : {}
 
         n_neighbors : Integer
             Number of neighbors to search. If not provided, the n_neighbors
@@ -314,11 +292,11 @@ class NearestNeighbors(Base):
 
         Returns
         -------
-        distances: cuDF DataFrame, pandas DataFrame, numpy or cupy ndarray
+        distances : {}
             The distances of the k-nearest neighbors for each column vector
             in X
 
-        indices: cuDF DataFrame, pandas DataFrame, numpy or cupy ndarray
+        indices : {}
             The indices of the k-nearest neighbors for each column vector in X
         """
 
@@ -404,7 +382,7 @@ class NearestNeighbors(Base):
         inputs.push_back(<float*>idx_ptr)
         sizes.push_back(<int>self._X_m.shape[0])
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef uintptr_t x_ctype_st = X_m.ptr
 
@@ -452,6 +430,7 @@ class NearestNeighbors(Base):
 
         return (D_output, I_output) if return_distance else I_output
 
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
     def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):
         """
         Find the k nearest neighbors of column vectors in X and return as
@@ -459,10 +438,7 @@ class NearestNeighbors(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        X : {}
 
         n_neighbors : Integer
             Number of neighbors to search. If not provided, the n_neighbors
@@ -516,9 +492,10 @@ class NearestNeighbors(Base):
         n_nonzero = n_samples * n_neighbors
         rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
 
-        sparse_csr = cp.sparse.csr_matrix((distances, cp.ravel(indices),
-                                          rowptr), shape=(n_samples,
-                                          n_samples_fit))
+        sparse_csr = cupyx.scipy.sparse.csr_matrix((distances,
+                                                   cp.ravel(indices),
+                                                   rowptr), shape=(n_samples,
+                                                   n_samples_fit))
 
         if self._get_output_type(X) is 'numpy':
             return sparse_csr.get()
@@ -551,8 +528,8 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     verbose : int or boolean (default = False)
         Logging level
 
-    handle : cumlHandle
-        The cumlHandle resources to use
+    handle : handle_t
+        The handle_t resources to use
 
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.

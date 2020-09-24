@@ -14,6 +14,9 @@
 #
 
 import cupy as cp
+import cupyx
+
+from cuml.common.array_sparse import SparseCumlArray
 
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 
@@ -31,7 +34,7 @@ def test_register_naive_bayes_serialization():
 
     mnb = MultinomialNB()
 
-    X = cp.sparse.random(1, 5)
+    X = cupyx.scipy.sparse.random(1, 5)
     y = cp.array([0])
 
     mnb.fit(X, y)
@@ -44,5 +47,20 @@ def test_register_naive_bayes_serialization():
     assert stype['serializer'] == 'cuda'
 
     stype, sbytes = serialize(mnb, serializers=['dask'])
+
+    assert stype['serializer'] == 'dask'
+
+
+def test_sparse_cumlarray_serialization():
+
+    X = cupyx.scipy.sparse.random(10, 5, format='csr', density=0.9)
+
+    X_m = SparseCumlArray(X)
+
+    stype, sbytes = serialize(X_m, serializers=['cuda'])
+
+    assert stype['serializer'] == 'cuda'
+
+    stype, sbytes = serialize(X_m, serializers=['dask'])
 
     assert stype['serializer'] == 'dask'

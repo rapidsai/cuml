@@ -71,7 +71,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
 }
 
 void validity_check(const DecisionTreeParams params) {
-  ASSERT((params.max_depth > 0), "Invalid max depth %d", params.max_depth);
+  ASSERT((params.max_depth >= 0), "Invalid max depth %d", params.max_depth);
   ASSERT((params.max_leaves == -1) || (params.max_leaves > 0),
          "Invalid max leaves %d", params.max_leaves);
   ASSERT((params.max_features > 0) && (params.max_features <= 1.0),
@@ -123,7 +123,13 @@ void print_tree(const TreeMetaDataNode<T, L> *tree) {
   print_node<T, L>("", tree->sparsetree, 0, false);
 }
 
-void decisionTreeClassifierFit(const ML::cumlHandle &handle,
+template <class T, class L>
+std::string dump_tree_as_json(const TreeMetaDataNode<T, L> *tree) {
+  std::ostringstream oss;
+  return dump_node_as_json("", tree->sparsetree, 0);
+}
+
+void decisionTreeClassifierFit(const raft::handle_t &handle,
                                TreeClassifierF *&tree, float *data,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
@@ -135,7 +141,7 @@ void decisionTreeClassifierFit(const ML::cumlHandle &handle,
                      unique_labels, tree, tree_params);
 }
 
-void decisionTreeClassifierFit(const ML::cumlHandle &handle,
+void decisionTreeClassifierFit(const raft::handle_t &handle,
                                TreeClassifierD *&tree, double *data,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
@@ -147,7 +153,7 @@ void decisionTreeClassifierFit(const ML::cumlHandle &handle,
                      unique_labels, tree, tree_params);
 }
 
-void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
+void decisionTreeClassifierPredict(const raft::handle_t &handle,
                                    const TreeClassifierF *tree,
                                    const float *rows, const int n_rows,
                                    const int n_cols, int *predictions,
@@ -158,7 +164,7 @@ void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
                          verbosity);
 }
 
-void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
+void decisionTreeClassifierPredict(const raft::handle_t &handle,
                                    const TreeClassifierD *tree,
                                    const double *rows, const int n_rows,
                                    const int n_cols, int *predictions,
@@ -171,7 +177,7 @@ void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
 
 // ----------------------------- Regression ----------------------------------- //
 
-void decisionTreeRegressorFit(const ML::cumlHandle &handle,
+void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorF *&tree, float *data,
                               const int ncols, const int nrows, float *labels,
                               unsigned int *rowids, const int n_sampled_rows,
@@ -182,7 +188,7 @@ void decisionTreeRegressorFit(const ML::cumlHandle &handle,
                     tree, tree_params);
 }
 
-void decisionTreeRegressorFit(const ML::cumlHandle &handle,
+void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorD *&tree, double *data,
                               const int ncols, const int nrows, double *labels,
                               unsigned int *rowids, const int n_sampled_rows,
@@ -193,7 +199,7 @@ void decisionTreeRegressorFit(const ML::cumlHandle &handle,
                     tree, tree_params);
 }
 
-void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
+void decisionTreeRegressorPredict(const raft::handle_t &handle,
                                   const TreeRegressorF *tree, const float *rows,
                                   const int n_rows, const int n_cols,
                                   float *predictions, int verbosity) {
@@ -203,7 +209,7 @@ void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
                         verbosity);
 }
 
-void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
+void decisionTreeRegressorPredict(const raft::handle_t &handle,
                                   const TreeRegressorD *tree,
                                   const double *rows, const int n_rows,
                                   const int n_cols, double *predictions,
@@ -224,6 +230,14 @@ template void print_tree<float, int>(const TreeClassifierF *tree);
 template void print_tree<double, int>(const TreeClassifierD *tree);
 template void print_tree<float, float>(const TreeRegressorF *tree);
 template void print_tree<double, double>(const TreeRegressorD *tree);
+
+template std::string dump_tree_as_json<float, int>(const TreeClassifierF *tree);
+template std::string dump_tree_as_json<double, int>(
+  const TreeClassifierD *tree);
+template std::string dump_tree_as_json<float, float>(
+  const TreeRegressorF *tree);
+template std::string dump_tree_as_json<double, double>(
+  const TreeRegressorD *tree);
 
 }  // End namespace DecisionTree
 }  //End namespace ML

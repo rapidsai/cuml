@@ -17,6 +17,7 @@ import cudf
 import numpy as np
 import pytest
 import random
+import json
 
 from numba import cuda
 
@@ -157,7 +158,7 @@ def test_rf_classification(small_clf, datatype, split_algo,
     # random forest classification model
     cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
-                       min_rows_per_node=2, seed=123, n_streams=1,
+                       min_rows_per_node=2, random_state=123, n_streams=1,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16)
     cuml_model.fit(X_train, y_train)
@@ -204,7 +205,7 @@ def test_rf_regression(special_reg, datatype, split_algo, max_features,
     # Initialize and fit using cuML's random forest regression model
     cuml_model = curfr(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=2,
-                       min_rows_per_node=2, seed=123, n_streams=1,
+                       min_rows_per_node=2, random_state=123, n_streams=1,
                        n_estimators=50, handle=handle, max_leaves=-1,
                        max_depth=16, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
@@ -241,7 +242,7 @@ def test_rf_classification_seed(small_clf, datatype):
         seed = random.randint(100, 1e5)
         # Initialize, fit and predict using cuML's
         # random forest classification model
-        cu_class = curfc(seed=seed, n_streams=1)
+        cu_class = curfc(random_state=seed, n_streams=1)
         cu_class.fit(X_train, y_train)
 
         # predict using FIL
@@ -256,7 +257,7 @@ def test_rf_classification_seed(small_clf, datatype):
 
         # Initialize, fit and predict using cuML's
         # random forest classification model
-        cu_class2 = curfc(seed=seed, n_streams=1)
+        cu_class2 = curfc(random_state=seed, n_streams=1)
         cu_class2.fit(X_train, y_train)
 
         # predict using FIL
@@ -383,7 +384,7 @@ def rf_classification(datatype, array_type, max_features, rows_sample,
     # random forest classification model
     cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_criterion=0,
-                       min_rows_per_node=2, seed=123,
+                       min_rows_per_node=2, random_state=123,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16)
     if array_type == 'dataframe':
@@ -463,7 +464,7 @@ def test_rf_classification_sparse(small_clf, datatype,
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(n_bins=16, split_criterion=0,
-                       min_rows_per_node=2, seed=123, n_streams=1,
+                       min_rows_per_node=2, random_state=123, n_streams=1,
                        n_estimators=num_treees, handle=handle, max_leaves=-1,
                        max_depth=40)
     cuml_model.fit(X_train, y_train)
@@ -530,7 +531,7 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
 
     # Initialize and fit using cuML's random forest regression model
     cuml_model = curfr(n_bins=16, split_criterion=2,
-                       min_rows_per_node=2, seed=123, n_streams=1,
+                       min_rows_per_node=2, random_state=123, n_streams=1,
                        n_estimators=num_treees, handle=handle, max_leaves=-1,
                        max_depth=40, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
@@ -715,7 +716,7 @@ def test_rf_printing(capfd, n_estimators, detailed_printing):
     # Initialize cuML Random Forest classification model
     cuml_model = curfc(handle=handle, max_features=1.0, rows_sample=1.0,
                        n_bins=16, split_algo=0, split_criterion=0,
-                       min_rows_per_node=2, seed=23707, n_streams=1,
+                       min_rows_per_node=2, random_state=23707, n_streams=1,
                        n_estimators=n_estimators, max_leaves=-1,
                        max_depth=16)
 
@@ -743,6 +744,88 @@ def test_rf_printing(capfd, n_estimators, detailed_printing):
     assert n_estimators == tree_count
 
 
+@pytest.mark.parametrize('max_depth', [1, 2, 3, 5, 10, 15, 20])
+@pytest.mark.parametrize('n_estimators', [5, 10, 20])
+@pytest.mark.parametrize('estimator_type', ['regression', 'classification'])
+def test_dump_json(estimator_type, max_depth, n_estimators):
+    X, y = make_classification(n_samples=350, n_features=20,
+                               n_clusters_per_class=1, n_informative=10,
+                               random_state=123, n_classes=2)
+    X = X.astype(np.float32)
+    if estimator_type == 'classification':
+        cuml_model = curfc(max_features=1.0, rows_sample=1.0,
+                           n_bins=16, split_algo=0, split_criterion=0,
+                           min_rows_per_node=2, seed=23707, n_streams=1,
+                           n_estimators=n_estimators, max_leaves=-1,
+                           max_depth=max_depth)
+        y = y.astype(np.int32)
+    elif estimator_type == 'regression':
+        cuml_model = curfr(max_features=1.0, rows_sample=1.0,
+                           n_bins=16, split_algo=0,
+                           min_rows_per_node=2, seed=23707, n_streams=1,
+                           n_estimators=n_estimators, max_leaves=-1,
+                           max_depth=max_depth)
+        y = y.astype(np.float32)
+    else:
+        assert False
+
+    # Train model on the data
+    cuml_model.fit(X, y)
+
+    json_out = cuml_model.dump_as_json()
+    json_obj = json.loads(json_out)
+
+    # Test 1: Output is non-zero
+    assert '' != json_out
+
+    # Test 2: JSON object contains correct number of trees
+    assert isinstance(json_obj, list)
+    assert len(json_obj) == n_estimators
+
+    # Test 3: Traverse JSON trees and get the same predictions as cuML RF
+    def predict_with_json_tree(tree, x):
+        if 'children' not in tree:
+            assert 'leaf_value' in tree
+            return tree['leaf_value']
+        assert 'split_feature' in tree
+        assert 'split_threshold' in tree
+        assert 'yes' in tree
+        assert 'no' in tree
+        if x[tree['split_feature']] <= tree['split_threshold']:
+            return predict_with_json_tree(tree['children'][0], x)
+        return predict_with_json_tree(tree['children'][1], x)
+
+    def predict_with_json_rf_classifier(rf, x):
+        # Returns the class with the highest vote. If there is a tie, return
+        # the list of all classes with the highest vote.
+        vote = []
+        for tree in rf:
+            vote.append(predict_with_json_tree(tree, x))
+        vote = np.bincount(vote)
+        max_vote = np.max(vote)
+        majority_vote = np.nonzero(np.equal(vote, max_vote))[0]
+        return majority_vote
+
+    def predict_with_json_rf_regressor(rf, x):
+        pred = 0.
+        for tree in rf:
+            pred += predict_with_json_tree(tree, x)
+        return pred / len(rf)
+
+    if estimator_type == 'classification':
+        expected_pred = cuml_model.predict(X).astype(np.int32)
+        for idx, row in enumerate(X):
+            majority_vote = predict_with_json_rf_classifier(json_obj, row)
+            assert expected_pred[idx] in majority_vote
+    elif estimator_type == 'regression':
+        expected_pred = cuml_model.predict(X).astype(np.float32)
+        pred = []
+        for idx, row in enumerate(X):
+            pred.append(predict_with_json_rf_regressor(json_obj, row))
+        pred = np.array(pred, dtype=np.float32)
+        np.testing.assert_almost_equal(pred, expected_pred, decimal=6)
+
+
 @pytest.mark.memleak
 @pytest.mark.parametrize('estimator_type', ['classification'])
 def test_rf_host_memory_leak(large_clf, estimator_type):
@@ -762,12 +845,12 @@ def test_rf_host_memory_leak(large_clf, estimator_type):
     if estimator_type == 'classification':
         base_model = curfc(max_depth=10,
                            n_estimators=100,
-                           seed=123)
+                           random_state=123)
         y = y.astype(np.int32)
     else:
         base_model = curfr(max_depth=10,
                            n_estimators=100,
-                           seed=123)
+                           random_state=123)
         y = y.astype(np.float32)
 
     # Pre-fit once - this is our baseline and memory usage
@@ -808,12 +891,12 @@ def test_concat_memory_leak(large_clf, estimator_type):
     if estimator_type == 'classification':
         base_models = [curfc(max_depth=10,
                              n_estimators=100,
-                             seed=123) for i in range(n_models)]
+                             random_state=123) for i in range(n_models)]
         y = y.astype(np.int32)
     elif estimator_type == 'regression':
         base_models = [curfr(max_depth=10,
                              n_estimators=100,
-                             seed=123) for i in range(n_models)]
+                             random_state=123) for i in range(n_models)]
         y = y.astype(np.float32)
     else:
         assert False
