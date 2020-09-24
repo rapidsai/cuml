@@ -97,9 +97,11 @@ class FIL : public RegressionFixture<float> {
     this->loopOnState(state, [this]() {
       // Dataset<D, L> allocates y assuming one output value per input row,
       // so not supporting predict_proba yet
+      int nrows = this->params.nrows / 10;
       for (int i = 0; i < 10; i++) {
-        ML::fil::predict(*this->handle, this->forest, this->data.y,
-                         this->data.X, this->params.nrows, false);
+        ML::fil::predict(*this->handle, this->forest, this->data.y + nrows * i,
+                         this->data.X + nrows * this->params.ncols * i, nrows,
+                         false);
       }
     });
   }
@@ -159,7 +161,7 @@ std::vector<Params> getInputs() {
     {(int)1e6, 20, 2, 5, 1000, storage_type_t::DENSE,
      algo_t::BATCH_TREE_REORG}};
   for (auto& i : var_params) {
-    p.data.nrows = i.nrows;
+    p.data.nrows = i.nrows * 10;
     p.data.ncols = i.ncols;
     p.blobs.n_informative = i.ncols / 3;
     p.blobs.effective_rank = i.ncols / 3;
