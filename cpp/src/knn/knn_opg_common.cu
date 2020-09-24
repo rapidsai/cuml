@@ -67,10 +67,22 @@ namespace opg {
 
 namespace knn_common {
 
+/**
+ * This function copies the labels associated to the locally merged indices
+ * from the index partitions to a merged array of labels
+ * @param[out] out merged labels
+ * @param[in] knn_indices merged indices
+ * @param[in] parts unmerged labels in partitions
+ * @param[in] offsets array splitting the partitions making it possible
+ * to identify the origin partition of an nearest neighbor index
+ * @param[in] cur_batch_size current batch size
+ * @param[in] n_parts number of partitions
+ * @param[in] n_labels number of labels to write (batch_size * n_outputs)
+ */
 template <typename T, int TPB_X>
-__global__ void copy_outputs_kernel(T *out, int64_t *knn_indices, T **parts,
-                                    int64_t *offsets, size_t cur_batch_size,
-                                    int n_parts, int n_labels) {
+__global__ void copy_label_outputs_from_index_parts_kernel(
+  T *out, int64_t *knn_indices, T **parts, int64_t *offsets,
+  size_t cur_batch_size, int n_parts, int n_labels) {
   int64_t i = (blockIdx.x * TPB_X) + threadIdx.x;
   if (i >= n_labels) return;
   int64_t nn_idx = knn_indices[i];
@@ -83,11 +95,13 @@ __global__ void copy_outputs_kernel(T *out, int64_t *knn_indices, T **parts,
 }
 
 template <typename T>
-void copy_outputs(T *out, int64_t *knn_indices,
-                  std::vector<std::vector<T *>> &y, size_t cur_batch_size,
-                  int k, int n_outputs, int n_features, int my_rank,
-                  Matrix::PartDescriptor &index_desc,
-                  std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream) {
+void copy_label_outputs_from_index_parts(T *out, int64_t *knn_indices,
+                                         std::vector<std::vector<T *>> &y,
+                                         size_t cur_batch_size, int k,
+                                         int n_outputs, int my_rank,
+                                         Matrix::PartDescriptor &index_desc,
+                                         std::shared_ptr<deviceAllocator> alloc,
+                                         cudaStream_t stream) {
   const int TPB_X = 256;
   int n_labels = cur_batch_size * k;
   dim3 grid(MLCommon::ceildiv(n_labels, TPB_X));
@@ -115,19 +129,38 @@ void copy_outputs(T *out, int64_t *knn_indices,
     }
     updateDevice(parts_d.data(), parts_h.data(), n_parts, stream);
 
-    copy_outputs_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
-      out + (o * n_labels), knn_indices, parts_d.data(), offsets_d.data(),
-      cur_batch_size, n_parts, n_labels);
+    copy_label_outputs_from_index_parts_kernel<T, TPB_X>
+      <<<grid, blk, 0, stream>>>(out + (o * n_labels), knn_indices,
+                                 parts_d.data(), offsets_d.data(),
+                                 cur_batch_size, n_parts, n_labels);
   }
 }
 
+/**
+ * This function copies the labels associated to the merged indices
+ * from the unmerged to a merged (n_ranks times smaller) array of labels
+ * @param[out] outputs merged labels
+ * @param[in] knn_indices merged indices
+ * @param[in] unmerged_outputs unmerged labels
+ * @param[in] unmerged_knn_indices unmerged indices
+ * @param[in] offsets array splitting the partitions making it possible
+ * to identify the origin partition of an nearest neighbor index
+ * @param[in] parts_to_ranks get rank index from index partition index,
+ * informative to find positions as the unmerged arrays are built
+ * so that ranks are in order (unlike partitions)
+ * @param[in] nearest_neighbors number of nearest neighbors to look for in query
+ * @param[in] n_outputs number of targets
+ * @param[in] n_labels number of labels to write (batch_size * n_outputs)
+ * @param[in] n_parts number of index partitions
+ * @param[in] n_ranks number of index ranks
+ */
 template <typename T, int TPB_X>
-__global__ void merge_outputs_kernel(T *outputs, int64_t *knn_indices,
-                                     T *unmerged_outputs,
-                                     int64_t *unmerged_knn_indices,
-                                     int64_t *offsets, int *parts_to_ranks,
-                                     int nearest_neighbors, int n_outputs,
-                                     int n_labels, int n_parts, int n_ranks) {
+__global__ void merge_labels_kernel(T *outputs, int64_t *knn_indices,
+                                    T *unmerged_outputs,
+                                    int64_t *unmerged_knn_indices,
+                                    int64_t *offsets, int *parts_to_ranks,
+                                    int nearest_neighbors, int n_outputs,
+                                    int n_labels, int n_parts, int n_ranks) {
   int64_t i = (blockIdx.x * TPB_X) + threadIdx.x;
   if (i >= n_labels) return;
   int64_t nn_idx = knn_indices[i];
@@ -150,12 +183,11 @@ __global__ void merge_outputs_kernel(T *outputs, int64_t *knn_indices,
 }
 
 template <typename T>
-void merge_outputs(T *output, int64_t *knn_indices, T *unmerged_outputs,
-                   int64_t *unmerged_knn_indices, int cur_batch_size,
-                   int nearest_neighbors, int n_outputs,
-                   Matrix::PartDescriptor &index_desc,
-                   std::shared_ptr<deviceAllocator> alloc,
-                   cudaStream_t stream) {
+void merge_labels(T *output, int64_t *knn_indices, T *unmerged_outputs,
+                  int64_t *unmerged_knn_indices, int cur_batch_size,
+                  int nearest_neighbors, int n_outputs,
+                  Matrix::PartDescriptor &index_desc,
+                  std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream) {
   const int TPB_X = 256;
   int n_labels = cur_batch_size * nearest_neighbors;
   dim3 grid(MLCommon::ceildiv(n_labels, TPB_X));
@@ -188,7 +220,7 @@ void merge_outputs(T *output, int64_t *knn_indices, T *unmerged_outputs,
   updateDevice(parts_to_ranks_d.data(), parts_to_ranks_h.data(),
                parts_to_ranks_h.size(), stream);
 
-  merge_outputs_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
+  merge_labels_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
     output, knn_indices, unmerged_outputs, unmerged_knn_indices,
     offsets_d.data(), parts_to_ranks_d.data(), nearest_neighbors, n_outputs,
     n_labels, idxPartsToRanks.size(), idxRanks.size());
@@ -319,8 +351,8 @@ void reduce(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
   device_buffer<T> merged_outputs_b(alloc, stream,
                                     n_outputs * cur_batch_size * k);
   T *merged_outputs = merged_outputs_b.data();
-  merge_outputs(merged_outputs, indices, res.data(), res_I.data(),
-                cur_batch_size, k, n_outputs, index_desc, alloc, stream);
+  merge_labels(merged_outputs, indices, res.data(), res_I.data(),
+               cur_batch_size, k, n_outputs, index_desc, alloc, stream);
 
   perform_local_operation<T>(outputs, indices, merged_outputs, cur_batch_size,
                              k, n_outputs, handle, probas_only,
@@ -448,6 +480,8 @@ void exchange_results(device_buffer<T> &res, device_buffer<int64_t> &res_I,
       for (int rank : idxRanks) {
         if (rank == my_rank) {
           size_t batch_offset = batch_elms * i;
+
+          // Indices and distances are stored in rank order
           MLCommon::copyAsync(res_I.data() + batch_offset, res_I.data(),
                               batch_elms, stream);
           MLCommon::copyAsync(res_D.data() + batch_offset, res_D.data(),
@@ -458,6 +492,7 @@ void exchange_results(device_buffer<T> &res, device_buffer<int64_t> &res_I,
                               stream);
 
           for (int o = 0; o < n_outputs; ++o) {
+            // Outputs are stored in target order and then in rank order
             MLCommon::copyAsync(
               res.data() + (o * idxRanks.size() * batch_elms) + batch_offset,
               tmp_res.data() + (o * batch_elms), batch_elms, stream);
@@ -475,6 +510,7 @@ void exchange_results(device_buffer<T> &res, device_buffer<int64_t> &res_I,
       if (rank != my_rank) {
         size_t batch_offset = batch_elms * num_received;
 
+        // Indices and distances are stored in rank order
         comm.irecv(res_I.data() + batch_offset, batch_elms, rank, 0,
                    requests.data() + request_idx);
         ++request_idx;
@@ -483,12 +519,17 @@ void exchange_results(device_buffer<T> &res, device_buffer<int64_t> &res_I,
         ++request_idx;
 
         for (size_t o = 0; o < n_outputs; o++) {
+          // Outputs are stored in target order and then in rank order
           T *r = res.data() + (o * idxRanks.size() * batch_elms) + batch_offset;
           comm.irecv(r, batch_elms, rank, 0, requests.data() + request_idx);
           ++request_idx;
         }
         ++num_received;
       } else if (part_rank_is_idx) {
+        /**
+         * Prevents overwriting data when the owner of currently
+         * processed query partition has itself some index partition(s)
+         */
         ++num_received;
       }
     }
@@ -553,13 +594,12 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
       if (cur_batch == total_batches - 1)
         cur_batch_size = part_n_rows - (cur_batch * batch_size);
 
-      if (my_rank == part_rank && verbose)
-        CUML_LOG_DEBUG("Root Rank is %d", my_rank);
+      if (my_rank == part_rank) CUML_LOG_DEBUG("Root Rank is %d", my_rank);
 
       /**
        * Root broadcasts batch to all other ranks
        */
-      if (verbose) CUML_LOG_DEBUG("Rank %d: Performing Broadcast", my_rank);
+      CUML_LOG_DEBUG("Rank %d: Performing Broadcast", my_rank);
 
       int my_rank = comm.get_rank();
       device_buffer<float> part_data(allocator, stream, 0);
@@ -611,7 +651,7 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
         /**
          * All index ranks perform local KNN
          */
-        if (verbose) CUML_LOG_DEBUG("Rank %d: Performing Local KNN", my_rank);
+        CUML_LOG_DEBUG("Rank %d: Performing Local KNN", my_rank);
 
         size_t batch_knn_elms = k * cur_batch_size;
 
@@ -633,9 +673,10 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
                           handle.get_device_allocator(), cur_batch_size, k,
                           cur_query_ptr, rowMajorIndex, rowMajorQuery);
 
-        copy_outputs(res.data(), res_I.data(), y, (size_t)cur_batch_size,
-                     (int)k, (int)n_outputs, (int)idx_desc.N, my_rank, idx_desc,
-                     handle.get_device_allocator(), stream);
+        copy_label_outputs_from_index_parts(
+          res.data(), res_I.data(), y, (size_t)cur_batch_size, (int)k,
+          (int)n_outputs, my_rank, idx_desc, handle.get_device_allocator(),
+          stream);
 
         // Synchronize before sending
         CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -645,9 +686,13 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
       if (part_rank == my_rank || my_rank_is_idx) {
         /**
          * Ranks exchange results.
-         * Partition owner receives. All other ranks send.
+         * Each rank having index partition(s) sends
+         * its local results (my_rank_is_idx)
+         * Additionally the owner of currently processed query partition
+         * receives and performs a reduce even if it has
+         * no index partition (part_rank == my_rank)
          */
-        if (verbose) CUML_LOG_DEBUG("Rank %d: Exchanging results", my_rank);
+        CUML_LOG_DEBUG("Rank %d: Exchanging results", my_rank);
         exchange_results(res, res_I, res_D, comm, part_rank, idxRanks, stream,
                          handle.get_device_allocator(), cur_batch_size, k,
                          n_outputs, local_parts_completed);
@@ -657,7 +702,7 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
        * Root rank performs local reduce
        */
       if (part_rank == my_rank) {
-        if (verbose) CUML_LOG_DEBUG("Rank %d: Performing Reduce", my_rank);
+        CUML_LOG_DEBUG("Rank %d: Performing Reduce", my_rank);
 
         reduce(handle, out, out_I, out_D, res, res_I, res_D, idx_desc,
                cur_batch_size, k, n_outputs, local_parts_completed,
@@ -666,7 +711,7 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
         CUDA_CHECK(cudaStreamSynchronize(stream));
         CUDA_CHECK(cudaPeekAtLastError());
 
-        if (verbose) CUML_LOG_DEBUG("Rank %d: Finished Reduce", my_rank);
+        CUML_LOG_DEBUG("Rank %d: Finished Reduce", my_rank);
       }
 
       total_n_processed += cur_batch_size;
