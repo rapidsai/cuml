@@ -3,6 +3,7 @@
 ## New Features
 - PR #2677: Ability to export RF trees as JSON
 - PR #2698: Distributed TF-IDF transformer
+- PR #2476: Porter Stemmer
 - PR #2789: Dask LabelEncoder
 - PR #2152: add FIL C++ benchmark
 - PR #2638: Improve cython build with custom `build_ext`
