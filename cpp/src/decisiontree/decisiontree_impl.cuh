@@ -240,10 +240,12 @@ void DecisionTreeBase<T, L>::plant(
 
   total_temp_mem = tempmem->totalmem;
   MLCommon::TimerCPU timer;
-  if (tree_params.max_features == 1.0 &&
+  if (tree_params.use_experimental_backend == true &&
+      tree_params.max_depth > 0 && tree_params.max_depth < 14 &&
+      tree_params.max_features == 1.0 &&
       tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE &&
       tree_params.quantile_per_tree == false) {
-    CUML_LOG_WARN("Using the batched level algo");
+    CUML_LOG_WARN("Using experimental backed for growing trees\n");
     T *quantiles = tempmem->d_quantile->data();
     int *colids = (int *)tempmem->device_allocator->allocate(
       sizeof(int) * ncols, tempmem->stream);

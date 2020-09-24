@@ -49,8 +49,9 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      float cfg_min_impurity_decrease,
                      bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
                      bool cfg_quantile_per_tree, bool cfg_shuffle_features,
-                     int cfg_max_batch_size, int cfg_n_blks_for_cols,
-                     int cfg_n_blks_for_rows, int cfg_batched_depth) {
+                     bool cfg_use_experimental_backend, int cfg_max_batch_size,
+                     int cfg_n_blks_for_cols, int cfg_n_blks_for_rows,
+                     int cfg_batched_depth) {
   params.max_depth = cfg_max_depth;
   params.max_leaves = cfg_max_leaves;
   params.max_features = cfg_max_features;
@@ -61,6 +62,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
   params.split_criterion = cfg_split_criterion;
   params.quantile_per_tree = cfg_quantile_per_tree;
   params.shuffle_features = cfg_shuffle_features;
+  params.use_experimental_backend = cfg_use_experimental_backend;
   params.min_impurity_decrease = cfg_min_impurity_decrease;
   params.max_batch_size = cfg_max_batch_size;
   params.n_blks_for_cols = cfg_n_blks_for_cols;
@@ -97,6 +99,8 @@ void print(const DecisionTreeParams params) {
   CUML_LOG_DEBUG("quantile_per_tree: %d", params.quantile_per_tree);
   CUML_LOG_DEBUG("shuffle_features: %d", params.shuffle_features);
   CUML_LOG_DEBUG("min_impurity_decrease: %f", params.min_impurity_decrease);
+  CUML_LOG_DEBUG("use_experimental_backend: %s",
+                 params.use_experimental_backend ? "True" : "False");
   CUML_LOG_DEBUG("max_batch_size: %d", params.max_batch_size);
   CUML_LOG_DEBUG("n_blks_for_cols: %d", params.n_blks_for_cols);
   CUML_LOG_DEBUG("n_blks_for_rows: %d", params.n_blks_for_rows);
