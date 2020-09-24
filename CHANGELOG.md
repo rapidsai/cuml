@@ -30,6 +30,7 @@
 - PR #2824: Make data conversions warnings be debug level
 - PR #2792: Project flash (new build process) script changes
 - PR #2850: Clean up unused params in paramsPCA
+- PR #2871: Add timing function to utils
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
