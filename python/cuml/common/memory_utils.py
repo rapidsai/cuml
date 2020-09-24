@@ -414,9 +414,11 @@ def using_output_type(output_type):
             prev_output_type = cuml.global_output_type
             try:
                 cuml.global_output_type = output_type
+                # print("Set cuml.global_output_type: {}. Prev: {}".format(cuml.global_output_type, prev_output_type))
                 yield prev_output_type
             finally:
                 cuml.global_output_type = prev_output_type
+                # print("Restored cuml.global_output_type: {}. Prev: {}".format(cuml.global_output_type, output_type))
         else:
             raise ValueError('Parameter output_type must be one of "series" ' +
                              '"dataframe", cupy", "numpy", "numba" or "input')

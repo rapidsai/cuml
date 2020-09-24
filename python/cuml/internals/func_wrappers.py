@@ -16,6 +16,7 @@
 
 import contextlib
 import inspect
+from inspect import FullArgSpec
 import threading
 import typing
 from dataclasses import dataclass
@@ -273,9 +274,10 @@ class InternalAPIBaseWithReturnContextManager(
 
     def __exit__(self, *exc_details):
 
-        super().__exit__(*exc_details)
-
+        # Get a copy of the root_cm before calling exit
         root_cm = get_internal_context()
+
+        super().__exit__(*exc_details)
 
         output_type = (root_cm.output_type if root_cm.output_type is not None
                        else root_cm.prev_output_type)
@@ -296,15 +298,17 @@ class CumlArrayReturnConverter(object):
 
 
 class RootCumlArrayReturnConverter(CumlArrayReturnConverter):
+    def __init__(self) -> None:
+        # Save the context because this will need to function after the global root_cm is set to None
+        self._root_cm = get_internal_context()
+
     def process_return(self, ret_val):
 
         # This ensures we are a CumlArray
         ret_val = super().process_return(ret_val)
 
-        return ret_val.to_output(
-            output_type=global_output_type_data.root_cm.output_type,
-            output_dtype=global_output_type_data.root_cm.output_dtype)
-
+        return ret_val.to_output(output_type=self._root_cm.output_type,
+                                 output_dtype=self._root_cm.output_dtype)
 
 
 # class RootOutputTypeContextManager(OutputTypeContextManager):
@@ -393,38 +397,6 @@ def get_internal_context() -> InternalAPIContext:
 #         return cm.process_return(ret_val)
 
 #     return wrapped
-
-# class cuml_internal_func_decorator(object):
-#     "A base class or mixin that enables context managers to work as decorators."
-
-#     def __init__(self,
-#                  input_arg: str = None,
-#                  skip_output_type=False,
-#                  skip_output_dtype=True) -> None:
-
-#         self.input_arg = input_arg
-#         self.skip_output_type = skip_output_type
-#         self.skip_output_dtype = skip_output_dtype
-
-#     def _recreate_cm(self):
-#         """Return a recreated instance of self.
-
-#         Allows an otherwise one-shot context manager like
-#         _GeneratorContextManager to support use as
-#         a decorator via implicit recreation.
-
-#         This is a private interface just for _GeneratorContextManager.
-#         See issue #11647 for details.
-#         """
-#         return self
-
-#     def __call__(self, func):
-#         @wraps(func)
-#         def inner(*args, **kwds):
-#             with self._recreate_cm():
-#                 return func(*args, **kwds)
-
-#         return inner
 
 
 def cuml_internal_func_check_type(func):
@@ -521,6 +493,61 @@ def autowrap_return_self(func):
 #     return func
 
 
+class BaseDecoratorMixin(object):
+    def __init__(self,
+                 input_arg: str = None):
+        super().__init__()
+
+        self.input_arg = input_arg
+
+    def prep_arg_to_use(self, func):
+
+        sig = inspect.signature(func, follow_wrapped=True)
+        sig_args = list(sig.parameters.keys())
+
+        has_self = "self" in sig.parameters and sig_args.index("self") == 0
+
+        if (not has_self):
+            raise Exception("No self found!")
+
+        arg_to_use = self.input_arg
+        arg_to_use_name = None
+
+        self_offset = (1 if has_self else 0)
+
+        # if input_arg is None, then set to first non self argument
+        if (arg_to_use is None):
+
+            assert len(sig.parameters) > self_offset, "Cannot use default wrapper. Must contain at least 1 argument besides `self`"
+
+            arg_to_use = sig_args[self_offset]
+
+        # Now convert that to an index
+        if (isinstance(arg_to_use, str)):
+            arg_to_use_name = arg_to_use
+            arg_to_use = sig_args.index(arg_to_use)
+
+        assert arg_to_use != -1
+
+        self.arg_to_use = arg_to_use
+        self.arg_to_use_name = arg_to_use_name
+
+        return arg_to_use, arg_to_use_name
+
+    def get_arg_value(self, *args, **kwargs):
+
+        # TODO: Eventually remove this. Assert for debugging
+        assert len(
+            args) > self.arg_to_use and self.arg_to_use_name not in kwargs.keys()
+
+        arg_val = kwargs[self.arg_to_use] if isinstance(
+            self.arg_to_use, str) else args[self.arg_to_use]
+
+        self_val = args[0]
+
+        return self_val, arg_val
+
+
 class ReturnAnyDecorator(object):
     def __call__(self, func):
         @wraps(func)
@@ -534,20 +561,20 @@ class ReturnAnyDecorator(object):
         return InternalAPIContextManager(None, None)
 
 
-class BaseReturnAnyDecorator(ReturnAnyDecorator):
+class BaseReturnAnyDecorator(ReturnAnyDecorator, BaseDecoratorMixin):
     def __init__(self,
                  input_arg: str = None,
                  skip_output_type=False,
                  skip_output_dtype=True,
                  skip_n_features_in=False) -> None:
 
-        super().__init__()
-
-        self.input_arg = input_arg
+        super().__init__(input_arg)
+        
         self.skip_output_type = skip_output_type
         self.skip_output_dtype = skip_output_dtype
         self.skip_n_features_in = skip_n_features_in
-        self.skip_autowrap = not (self.skip_output_type or self.skip_output_dtype or skip_n_features_in)
+        self.skip_autowrap = not (self.skip_output_type or
+                                  self.skip_output_dtype or skip_n_features_in)
 
     def __call__(self, func):
 
@@ -590,9 +617,11 @@ class BaseReturnAnyDecorator(ReturnAnyDecorator):
         def inner(*args, **kwargs):
 
             # Eventually remove this. Assert for debugging
-            assert len(args) > arg_to_use and arg_to_use_name not in kwargs.keys()
+            assert len(
+                args) > arg_to_use and arg_to_use_name not in kwargs.keys()
 
-            arg_value = kwargs[arg_to_use] if isinstance(arg_to_use, str) else args[arg_to_use]
+            arg_value = kwargs[arg_to_use] if isinstance(
+                arg_to_use, str) else args[arg_to_use]
 
             self_val = args[0]
 
@@ -629,36 +658,66 @@ class ReturnArrayDecorator(object):
         return InternalAPIWithReturnContextManager(None, None)
 
 
-class BaseReturnArrayDecorator(ReturnArrayDecorator):
+class BaseReturnArrayDecorator(ReturnArrayDecorator, BaseDecoratorMixin):
     def __init__(self,
                  input_arg: str = None,
                  skip_output_type=False,
                  skip_output_dtype=True) -> None:
 
-        super().__init__()
+        super().__init__(input_arg)
 
-        self.input_arg = input_arg
         self.skip_output_type = skip_output_type
         self.skip_output_dtype = skip_output_dtype
 
     def __call__(self, func):
-        @wraps(func)
-        def inner(*args, **kwargs):
-            with self._recreate_cm(args[0]) as cm:
 
-                ret_val = func(*args, **kwargs)
+        try:
+            self.prep_arg_to_use(func)
 
-            return cm.process_return(ret_val)
+            @wraps(func)
+            def inner(*args, **kwargs):
+                with self._recreate_cm(args[0]) as cm:
 
-        @wraps(func)
-        def inner_mirror_input(*args, **kwargs):
-            with self._recreate_cm(args[0]) as cm:
+                    self_val, arg_val = self.get_arg_value(*args, **kwargs)
 
-                ret_val = func(*args, **kwargs)
+                    if (not self.skip_output_type):
+                        set_api_output_type(self_val._get_output_type(arg_val))
 
-            return cm.process_return(ret_val)
+                    if (not self.skip_output_dtype):
+                        set_api_output_dtype(self_val._get_target_dtype())
 
-        return inner
+                    ret_val = func(*args, **kwargs)
+
+                return cm.process_return(ret_val)
+
+            return inner
+
+        except Exception as ex:
+            
+            # TODO: Do we print? Assert?
+            return super().__call__(func)
+
+    def _recreate_cm(self, base_obj=None):
+
+        root_cm = get_internal_context()
+
+        if (root_cm.prev_output_type == "input"):
+            if (base_obj is not None and base_obj._mirror_input):
+                return InternalAPIBaseWithReturnContextManager(
+                    None, None, base_obj)
+
+        return super()._recreate_cm()
+
+class BaseReturnGenericArrayDecorator(BaseReturnArrayDecorator):
+    def __init__(self,
+                 input_arg: str = None,
+                 skip_output_type=False,
+                 skip_output_dtype=True) -> None:
+
+        super().__init__(input_arg)
+
+        self.skip_output_type = skip_output_type
+        self.skip_output_dtype = skip_output_dtype
 
     def _recreate_cm(self, base_obj=None):
 
@@ -676,3 +735,4 @@ wrap_api_return_any = ReturnAnyDecorator
 wrap_api_base_return_any = BaseReturnAnyDecorator
 api_return_array = ReturnArrayDecorator
 api_base_return_array = BaseReturnArrayDecorator
+api_base_return_genericarray = BaseReturnArrayDecorator

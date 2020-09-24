@@ -33,7 +33,6 @@ from cuml.metrics import accuracy_score
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
-
 def count_features_coo_kernel(float_dtype, int_dtype):
     """
     A simple reduction kernel that takes in a sparse (COO) array
@@ -61,8 +60,7 @@ def count_features_coo_kernel(float_dtype, int_dtype):
       atomicAdd(out + ((col * n_classes) + label), val);
     }'''
 
-    return cuda_kernel_factory(kernel_str,
-                               (float_dtype, int_dtype),
+    return cuda_kernel_factory(kernel_str, (float_dtype, int_dtype),
                                "count_features_coo")
 
 
@@ -76,8 +74,7 @@ def count_classes_kernel(float_dtype, int_dtype):
       atomicAdd(out + label, 1);
     }'''
 
-    return cuda_kernel_factory(kernel_str,
-                               (float_dtype, int_dtype),
+    return cuda_kernel_factory(kernel_str, (float_dtype, int_dtype),
                                "count_classes")
 
 
@@ -109,13 +106,11 @@ def count_features_dense_kernel(float_dtype, int_dtype):
       atomicAdd(out + ((col * n_classes) + label), val);
     }'''
 
-    return cuda_kernel_factory(kernel_str,
-                               (float_dtype, int_dtype,),
+    return cuda_kernel_factory(kernel_str, (float_dtype, int_dtype),
                                "count_features_dense")
 
 
 class MultinomialNB(Base):
-
     """
     Naive Bayes classifier for multinomial models
 
@@ -234,7 +229,11 @@ class MultinomialNB(Base):
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     @cuml.internals.wrap_api_base_return_any()
-    def _partial_fit(self, X, y, sample_weight=None, _classes=None):
+    def _partial_fit(self,
+                     X,
+                     y,
+                     sample_weight=None,
+                     _classes=None) -> MultinomialNB:
         self._set_output_type(X)
 
         if has_scipy():
@@ -270,8 +269,7 @@ class MultinomialNB(Base):
 
             self._n_classes_ = self.classes_.shape[0]
             self._n_features_ = X.shape[1]
-            self._init_counters(self._n_classes_, self._n_features_,
-                                X.dtype)
+            self._init_counters(self._n_classes_, self._n_features_, X.dtype)
         else:
             check_labels(Y, self.classes_)
 
@@ -292,7 +290,11 @@ class MultinomialNB(Base):
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self._class_prior_)
 
-    def partial_fit(self, X, y, classes=None, sample_weight=None) -> MultinomialNB:
+    def partial_fit(self,
+                    X,
+                    y,
+                    classes=None,
+                    sample_weight=None) -> MultinomialNB:
         """
         Incremental fit on a batch of samples.
 
@@ -329,21 +331,25 @@ class MultinomialNB(Base):
 
         self : object
         """
-        return self._partial_fit(X, y, sample_weight=sample_weight,
+        return self._partial_fit(X,
+                                 y,
+                                 sample_weight=sample_weight,
                                  _classes=classes)
 
     @generate_docstring(X='dense_sparse',
-                        return_values={'name': 'y_hat',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_rows, 1)'})
+                        return_values={
+                            'name': 'y_hat',
+                            'type': 'dense',
+                            'description': 'Predicted values',
+                            'shape': '(n_rows, 1)'
+                        })
     @cp.prof.TimeRangeDecorator(message="predict()", color_id=1)
     def predict(self, X) -> CumlArray:
         """
         Perform classification on an array of test vectors X.
 
         """
-        out_type = self._get_output_type(X)
+        # out_type = self._get_output_type(X)
 
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
@@ -370,19 +376,23 @@ class MultinomialNB(Base):
         return y_hat
         # return CumlArray(data=y_hat).to_output(out_type)
 
-    @generate_docstring(X='dense_sparse',
-                        return_values={'name': 'C',
-                                       'type': 'dense',
-            'description': 'Returns the log-probability of the samples for each class in the \
-            model. The columns correspond to the classes in sorted order, as \
-            they appear in the attribute `classes_`.',  # noqa
-                                       'shape': '(n_rows, 1)'})
+    @generate_docstring(
+        X='dense_sparse',
+        return_values={
+            'name': 'C',
+            'type': 'dense',
+            'description': (
+                'Returns the log-probability of the samples for each class in '
+                'the model. The columns correspond to the classes in sorted '
+                'order, as they appear in the attribute `classes_`.'),
+            'shape': '(n_rows, 1)'
+        })
     def predict_log_proba(self, X) -> CumlArray:
         """
         Return log-probability estimates for the test vector X.
 
         """
-        out_type = self._get_output_type(X)
+        # out_type = self._get_output_type(X)
 
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
@@ -423,28 +433,37 @@ class MultinomialNB(Base):
         result = jll - log_prob_x.T
         return result
 
-    @generate_docstring(X='dense_sparse',
-                        return_values={'name': 'C',
-                                       'type': 'dense',
-            'description': 'Returns the probability of the samples for each class in the \
-            model. The columns correspond to the classes in sorted order, as \
-            they appear in the attribute `classes_`.',  # noqa
-                                       'shape': '(n_rows, 1)'})
-    def predict_proba(self, X):
+    @generate_docstring(
+        X='dense_sparse',
+        return_values={
+            'name': 'C',
+            'type': 'dense',
+            'description': (
+                'Returns the probability of the samples for each class in the '
+                'model. The columns correspond to the classes in sorted order,'
+                ' as they appear in the attribute `classes_`.'),
+            'shape': '(n_rows, 1)'
+        })
+    def predict_proba(self, X) -> CumlArray:
         """
         Return probability estimates for the test vector X.
 
         """
-        out_type = self._get_output_type(X)
+        # out_type = self._get_output_type(X)
         result = cp.exp(self.predict_log_proba(X))
-        return CumlArray(result).to_output(out_type)
+        return result
 
-    @generate_docstring(X='dense_sparse',
-                        return_values={'name': 'score',
-                                       'type': 'float',
-                                       'description': 'Mean accuracy of \
-                                       self.predict(X) with respect to y.'})
-    def score(self, X, y, sample_weight=None):
+    @generate_docstring(
+        X='dense_sparse',
+        return_values={
+            'name':
+                'score',
+            'type':
+                'float',
+            'description':
+                'Mean accuracy of self.predict(X) with respect to y.'
+        })
+    def score(self, X, y, sample_weight=None) -> float:
         """
         Return the mean accuracy on the given test data and labels.
 
@@ -460,10 +479,11 @@ class MultinomialNB(Base):
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
         self.class_count_ = cp.zeros(n_effective_classes,
-                                            order="F", dtype=dtype)
-        self.feature_count_ = cp.zeros((n_effective_classes,
-                                               n_features),
-                                              order="F", dtype=dtype)
+                                     order="F",
+                                     dtype=dtype)
+        self.feature_count_ = cp.zeros((n_effective_classes, n_features),
+                                       order="F",
+                                       dtype=dtype)
 
     def _count(self, X, Y):
         """
@@ -483,7 +503,8 @@ class MultinomialNB(Base):
             warnings.warn("Y dtype does not match classes_ dtype. Y will be "
                           "converted, which will increase memory consumption")
 
-        counts = cp.zeros((self._n_classes_, self._n_features_), order="F",
+        counts = cp.zeros((self._n_classes_, self._n_features_),
+                          order="F",
                           dtype=X.dtype)
 
         class_c = cp.zeros(self._n_classes_, order="F", dtype=X.dtype)
@@ -496,9 +517,9 @@ class MultinomialNB(Base):
         if cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocoo()
 
-            count_features_coo = count_features_coo_kernel(X.dtype,
-                                                           labels_dtype)
-            count_features_coo((math.ceil(X.nnz / 32),), (32,),
+            count_features_coo = count_features_coo_kernel(
+                X.dtype, labels_dtype)
+            count_features_coo((math.ceil(X.nnz / 32), ), (32, ),
                                (counts,
                                 X.row,
                                 X.col,
@@ -507,27 +528,27 @@ class MultinomialNB(Base):
                                 n_rows,
                                 n_cols,
                                 Y,
-                                self._n_classes_, False))
+                                self._n_classes_,
+                                False))
 
         else:
 
-            count_features_dense = count_features_dense_kernel(X.dtype,
-                                                               labels_dtype)
-            count_features_dense((math.ceil(n_rows / 32),
-                                  math.ceil(n_cols / 32), 1),
-                                 (32, 32, 1),
-                                 (counts,
-                                  X,
-                                  n_rows,
-                                  n_cols,
-                                  Y,
-                                  self._n_classes_,
-                                  False,
-                                  X.flags["C_CONTIGUOUS"]))
+            count_features_dense = count_features_dense_kernel(
+                X.dtype, labels_dtype)
+            count_features_dense(
+                (math.ceil(n_rows / 32), math.ceil(n_cols / 32), 1),
+                (32, 32, 1),
+                (counts,
+                 X,
+                 n_rows,
+                 n_cols,
+                 Y,
+                 self._n_classes_,
+                 False,
+                 X.flags["C_CONTIGUOUS"]))
 
         count_classes = count_classes_kernel(X.dtype, labels_dtype)
-        count_classes((math.ceil(n_rows / 32),), (32,),
-                      (class_c, n_rows, Y))
+        count_classes((math.ceil(n_rows / 32), ), (32, ), (class_c, n_rows, Y))
 
         self.feature_count_ = self.feature_count_ + counts
         self.class_count_ = self.class_count_ + class_c
