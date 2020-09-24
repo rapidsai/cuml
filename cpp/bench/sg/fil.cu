@@ -97,8 +97,10 @@ class FIL : public RegressionFixture<float> {
     this->loopOnState(state, [this]() {
       // Dataset<D, L> allocates y assuming one output value per input row,
       // so not supporting predict_proba yet
-      ML::fil::predict(*this->handle, this->forest, this->data.y, this->data.X,
-                       this->params.nrows, false);
+      for (int i = 0; i < 10; i++) {
+        ML::fil::predict(*this->handle, this->forest, this->data.y,
+                         this->data.X, this->params.nrows, false);
+      }
     });
   }
 
