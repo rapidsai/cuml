@@ -66,8 +66,6 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
     X, y = make_blobs(n_samples=nrows, centers=n_clusters,
                       n_features=ncols, random_state=0)
 
-    X = X.astype(np.float32)
-
     if datatype == "dataframe":
         X = cudf.DataFrame(X)
 
@@ -88,17 +86,17 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
 
 
 @pytest.mark.parametrize("nlist", [4, 8])
-def test_ivfflat_pred(nlist):
+@pytest.mark.parametrize("nrows", [500, 1000, 10000])
+@pytest.mark.parametrize("ncols", [128, 512])
+@pytest.mark.parametrize("n_neighbors", [8, 20])
+def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
     algo_params = {
         'nlist': nlist,
         'nprobe': nlist * 0.25
     }
 
-    n_neighbors = 10
-    X, y = make_blobs(n_samples=10000, centers=5,
-                      n_features=256, random_state=0)
-
-    X = X.astype(np.float32)
+    X, y = make_blobs(n_samples=nrows, centers=5,
+                      n_features=ncols, random_state=0)
 
     knn_cu = cuKNN(algorithm="ivfflat", algo_params=algo_params)
     knn_cu.fit(X)
@@ -114,7 +112,11 @@ def test_ivfflat_pred(nlist):
 @pytest.mark.parametrize("M", [16, 32])
 @pytest.mark.parametrize("n_bits", [2, 3, 4])
 @pytest.mark.parametrize("usePrecomputedTables", [False, True])
-def test_ivfpq_pred(nlist, M, n_bits, usePrecomputedTables):
+@pytest.mark.parametrize("nrows", [500, 1000, 10000])
+@pytest.mark.parametrize("ncols", [128, 512])
+@pytest.mark.parametrize("n_neighbors", [8, 20])
+def test_ivfpq_pred(nrows, ncols, n_neighbors,
+                    nlist, M, n_bits, usePrecomputedTables):
     algo_params = {
         'nlist': nlist,
         'nprobe': nlist * 0.25,
@@ -123,11 +125,8 @@ def test_ivfpq_pred(nlist, M, n_bits, usePrecomputedTables):
         'usePrecomputedTables': usePrecomputedTables
     }
 
-    n_neighbors = 10
-    X, y = make_blobs(n_samples=10000, centers=5,
-                      n_features=256, random_state=0)
-
-    X = X.astype(np.float32)
+    X, y = make_blobs(n_samples=nrows, centers=5,
+                      n_features=ncols, random_state=0)
 
     knn_cu = cuKNN(algorithm="ivfpq", algo_params=algo_params)
     knn_cu.fit(X)
@@ -142,7 +141,10 @@ def test_ivfpq_pred(nlist, M, n_bits, usePrecomputedTables):
 @pytest.mark.parametrize("nlist", [4, 8])
 @pytest.mark.parametrize("qtype", ['QT_4bit', 'QT_8bit', 'QT_fp16'])
 @pytest.mark.parametrize("encodeResidual", [False, True])
-def test_ivfsq_pred(nlist, qtype, encodeResidual):
+@pytest.mark.parametrize("nrows", [500, 1000, 10000])
+@pytest.mark.parametrize("ncols", [128, 512])
+@pytest.mark.parametrize("n_neighbors", [8, 20])
+def test_ivfsq_pred(nrows, ncols, n_neighbors, nlist, qtype, encodeResidual):
     algo_params = {
         'nlist': nlist,
         'nprobe': nlist * 0.25,
@@ -150,11 +152,8 @@ def test_ivfsq_pred(nlist, qtype, encodeResidual):
         'encodeResidual': encodeResidual
     }
 
-    n_neighbors = 10
-    X, y = make_blobs(n_samples=10000, centers=5,
-                      n_features=256, random_state=0)
-
-    X = X.astype(np.float32)
+    X, y = make_blobs(n_samples=nrows, centers=5,
+                      n_features=ncols, random_state=0)
 
     knn_cu = cuKNN(algorithm="ivfsq", algo_params=algo_params)
     knn_cu.fit(X)

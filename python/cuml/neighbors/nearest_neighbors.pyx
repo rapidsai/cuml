@@ -167,16 +167,16 @@ class NearestNeighbors(Base):
     algo_params : dict, optional (default = None) Used to configure the
         nearest neighbor algorithm to be used.
         If set to None, parameters will be generated automatically.
-        In ivfflat mode, set parameters:
+        Parameters for algorithm 'ivfflat':
             - nlist : (int) number of cells to partition dataset into
             - nprobe : (int) at query time, number of cells used for search
-        In ivfpq mode, please set parameters:
+        Parameters for algorithm 'ivfpq':
             - nlist : (int) number of cells to partition dataset into
             - nprobe : (int) at query time, number of cells used for search
             - M : (int) number of subquantizers
             - n_bits : (int) bits allocated per subquantizer
             - usePrecomputedTables : (bool) wether to use precomputed tables
-        In ivfsq mode, please set parameters:
+        Parameters for algorithm 'ivfsq':
             - nlist : (int) number of cells to partition dataset into
             - nprobe : (int) at query time, number of cells used for search
             - qtype : (string) quantizer type (among QT_8bit, QT_4bit,
@@ -282,25 +282,19 @@ class NearestNeighbors(Base):
 
     @staticmethod
     def _check_algo_params(algo, params):
-        if params is None:
-            return
-
         def check_param_list(params, param_list):
             for param in param_list:
                 if not hasattr(params, param):
                     ValueError('algo_params misconfigured : {} \
                                 parameter unset'.format(param))
-
-        automated = 'automated' in params and params['automated']
-        if not automated:
-            if algo == 'ivfflat':
-                check_param_list(params, ['nlist', 'nprobe'])
-            elif algo == "ivfpq":
-                check_param_list(params, ['nlist', 'nprobe', 'M', 'n_bits',
-                                          'usePrecomputedTables'])
-            elif algo == "ivfsq":
-                check_param_list(params, ['nlist', 'nprobe', 'qtype',
-                                          'encodeResidual'])
+        if algo == 'ivfflat':
+            check_param_list(params, ['nlist', 'nprobe'])
+        elif algo == "ivfpq":
+            check_param_list(params, ['nlist', 'nprobe', 'M', 'n_bits',
+                                      'usePrecomputedTables'])
+        elif algo == "ivfsq":
+            check_param_list(params, ['nlist', 'nprobe', 'qtype',
+                                      'encodeResidual'])
 
     @staticmethod
     def _build_ivfflat_algo_params(params, automated):
@@ -348,11 +342,11 @@ class NearestNeighbors(Base):
 
     @staticmethod
     def _build_algo_params(algo, params):
-        NearestNeighbors._check_algo_params(algo, params)
-        if params is None:
-            params = dict({'automated': True})
+        automated = params is None or params == 'auto'
+        if not automated:
+            NearestNeighbors._check_algo_params(algo, params)
 
-        automated = 'automated' in params and params['automated']
+        automated = params is None or params == 'auto'
         cdef knnIndexParam* algo_params = <knnIndexParam*> 0
         if algo == 'ivfflat':
             algo_params = <knnIndexParam*><uintptr_t> \
@@ -384,10 +378,9 @@ class NearestNeighbors(Base):
             raise ValueError("data should be two dimensional")
 
         self.n_dims = X.shape[1]
-        order = 'F' if self.algorithm == 'brute' else 'C'
 
         self._X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order=order, check_dtype=np.float32,
+            input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                 convert_to_dtype=(np.float32
                                                   if convert_dtype
                                                   else None))
@@ -551,10 +544,8 @@ class NearestNeighbors(Base):
             raise ValueError("Dimensions of X need to match dimensions of "
                              "indices (%d)" % self.n_dims)
 
-        order = 'F' if self.algorithm == 'brute' else 'C'
-
         X_m, N, _, dtype = \
-            input_to_cuml_array(X, order=order, check_dtype=np.float32,
+            input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                 convert_to_dtype=(np.float32 if convert_dtype
                                                   else False))
 
@@ -592,8 +583,8 @@ class NearestNeighbors(Base):
                 <int64_t*>I_ptr,
                 <float*>D_ptr,
                 <int>n_neighbors,
-                False,
-                False,
+                True,
+                True,
                 <MetricType>metric,
                 # minkowski order is currently the only metric argument.
                 <float>self.p,
