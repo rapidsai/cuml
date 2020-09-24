@@ -88,11 +88,11 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
       }
     }
 
-      raft::update_device(keyIn, &vals[0], len, stream);
-      raft::update_device(goldenValOut, &cValGolden[0], len, stream);
+    raft::update_device(keyIn, &vals[0], len, stream);
+    raft::update_device(goldenValOut, &cValGolden[0], len, stream);
 
     if (params.testKeys)
-        raft::update_device(keySortGolden, &cKeyGolden[0], len, stream);
+      raft::update_device(keySortGolden, &cKeyGolden[0], len, stream);
 
     bool needWorkspace = false;
     size_t workspaceSize = 0;
@@ -135,11 +135,11 @@ const std::vector<columnSort<float>> inputsf1 = {{0.000001f, 503, 2000, false},
 typedef ColumnSort<float> ColumnSortF;
 TEST_P(ColumnSortF, Result) {
   ASSERT_TRUE(devArrMatch(valueOut, goldenValOut, params.n_row * params.n_col,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
   if (params.testKeys) {
     ASSERT_TRUE(devArrMatch(keySorted, keySortGolden,
                             params.n_row * params.n_col,
-                            CompareApprox<float>(params.tolerance)));
+                            raft::CompareApprox<float>(params.tolerance)));
   }
 }
 

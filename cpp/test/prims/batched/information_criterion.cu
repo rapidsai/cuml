@@ -24,6 +24,7 @@
 #include <common/cudart_utils.h>
 #include <metrics/batched/information_criterion.cuh>
 #include "../test_utils.h"
+#include <test_utils.h>
 
 namespace MLCommon {
 namespace Metrics {
@@ -87,7 +88,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
       loglike_h[i] = std::log(udis(gen));
 
     // Copy the data to the device
-      raft::update_device(loglike_d, loglike_h.data(), params.batch_size, stream);
+    raft::update_device(loglike_d, loglike_h.data(), params.batch_size, stream);
 
     // Compute the tested results
     information_criterion(res_d, loglike_d, params.ic_type, params.n_params,
@@ -125,11 +126,13 @@ using BatchedICTestD = BatchedICTest<double>;
 using BatchedICTestF = BatchedICTest<float>;
 TEST_P(BatchedICTestD, Result) {
   ASSERT_TRUE(devArrMatchHost(res_h.data(), res_d, params.batch_size,
-                              CompareApprox<double>(params.tolerance), stream));
+                              raft::CompareApprox<double>(params.tolerance),
+                              stream));
 }
 TEST_P(BatchedICTestF, Result) {
   ASSERT_TRUE(devArrMatchHost(res_h.data(), res_d, params.batch_size,
-                              CompareApprox<float>(params.tolerance), stream));
+                              raft::CompareApprox<float>(params.tolerance),
+                              stream));
 }
 
 INSTANTIATE_TEST_CASE_P(BatchedICTests, BatchedICTestD,

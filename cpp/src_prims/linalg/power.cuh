@@ -38,8 +38,8 @@ template <typename math_t, typename IdxType = int>
 void powerScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
                  cudaStream_t stream) {
   raft::linalg::unaryOp(
-    out, in, len, [scalar] __device__(math_t in) { return raft::myPow(in, scalar); },
-    stream);
+    out, in, len,
+    [scalar] __device__(math_t in) { return raft::myPow(in, scalar); }, stream);
 }
 /** @} */
 

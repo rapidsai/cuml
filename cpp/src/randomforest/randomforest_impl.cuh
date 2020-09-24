@@ -269,7 +269,7 @@ void rfClassifier<T>::predict(const raft::handle_t& user_handle, const T* input,
   cudaStream_t stream = user_handle.get_stream();
 
   std::vector<T> h_input(n_rows * n_cols);
-        raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
+  raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   int row_size = n_cols;
@@ -307,7 +307,7 @@ void rfClassifier<T>::predict(const raft::handle_t& user_handle, const T* input,
     h_predictions[row_id] = majority_prediction;
   }
 
-        raft::update_device(predictions, h_predictions.data(), n_rows, stream);
+  raft::update_device(predictions, h_predictions.data(), n_rows, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
@@ -333,7 +333,7 @@ void rfClassifier<T>::predictGetAll(const raft::handle_t& user_handle,
 
   std::vector<T> h_input(n_rows * n_cols);
   cudaStream_t stream = user_handle.get_stream();
-        raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
+  raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   int row_size = n_cols;
@@ -358,8 +358,8 @@ void rfClassifier<T>::predictGetAll(const raft::handle_t& user_handle,
     }
   }
 
-        raft::update_device(predictions, h_predictions.data(), n_rows * num_trees,
-                            stream);
+  raft::update_device(predictions, h_predictions.data(), n_rows * num_trees,
+                      stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
@@ -535,7 +535,7 @@ void rfRegressor<T>::predict(const raft::handle_t& user_handle, const T* input,
   cudaStream_t stream = user_handle.get_stream();
 
   std::vector<T> h_input(n_rows * n_cols);
-        raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
+  raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   int row_size = n_cols;
@@ -562,7 +562,7 @@ void rfRegressor<T>::predict(const raft::handle_t& user_handle, const T* input,
     h_predictions[row_id] = sum_predictions / this->rf_params.n_trees;
   }
 
-        raft::update_device(predictions, h_predictions.data(), n_rows, stream);
+  raft::update_device(predictions, h_predictions.data(), n_rows, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 

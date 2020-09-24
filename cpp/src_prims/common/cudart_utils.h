@@ -50,7 +50,7 @@ std::string arr2Str(const T* arr, int size, std::string name,
   std::stringstream ss;
 
   T* arr_h = (T*)malloc(size * sizeof(T));
-        update_host(arr_h, arr, size, stream);
+  update_host(arr_h, arr, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   ss << name << " = [ ";
@@ -126,5 +126,4 @@ IntType gcd(IntType a, IntType b) {
   return a;
 }
 
-} // namespace raft
-
+}  // namespace raft

@@ -117,7 +117,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
 typedef KNNClassifyTest KNNClassifyTestF;
 TEST_P(KNNClassifyTestF, Fit) {
   ASSERT_TRUE(
-    devArrMatch(train_labels, pred_labels, params.rows, Compare<int>()));
+    devArrMatch(train_labels, pred_labels, params.rows, raft::Compare<int>()));
 }
 
 const std::vector<KNNClassifyInputs> inputsf = {

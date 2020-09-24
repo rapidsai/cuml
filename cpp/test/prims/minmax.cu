@@ -152,14 +152,14 @@ const std::vector<MinMaxInputs<double>> inputsd = {
 
 typedef MinMaxTest<float> MinMaxTestF;
 TEST_P(MinMaxTestF, Result) {
-  ASSERT_TRUE(devArrMatch(minmax_ref, minmax_act, 2 * params.cols,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(minmax_ref, minmax_act, 2 * params.cols,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef MinMaxTest<double> MinMaxTestD;
 TEST_P(MinMaxTestD, Result) {
-  ASSERT_TRUE(devArrMatch(minmax_ref, minmax_act, 2 * params.cols,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(minmax_ref, minmax_act, 2 * params.cols,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(MinMaxTests, MinMaxTestF, ::testing::ValuesIn(inputsf));

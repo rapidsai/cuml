@@ -121,8 +121,8 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     static const int threads = 128;
     meanKernel<T, threads>
       <<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(stats, data,
-                                                             params.len);
-      update_host<T>(h_stats, stats, 2, stream);
+                                                                   params.len);
+    update_host<T>(h_stats, stats, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
@@ -399,10 +399,8 @@ TEST(Rng, MeanError) {
                         num_experiments, false, false, stream);
     std::vector<float> h_mean_result(num_experiments);
     std::vector<float> h_std_result(num_experiments);
-      update_host(h_mean_result.data(), mean_result, num_experiments,
-                            stream);
-      update_host(h_std_result.data(), std_result, num_experiments,
-                            stream);
+    update_host(h_mean_result.data(), mean_result, num_experiments, stream);
+    update_host(h_std_result.data(), std_result, num_experiments, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     auto d_mean = quick_mean(h_mean_result);
 
@@ -444,7 +442,7 @@ class ScaledBernoulliTest : public ::testing::Test {
 
   void rangeCheck() {
     T* h_data = new T[len];
-      update_host(h_data, data, len, stream);
+    update_host(h_data, data, len, stream);
     ASSERT_TRUE(std::none_of(h_data, h_data + len, [](const T& a) {
       return a < -scale || a > scale;
     }));
@@ -476,7 +474,7 @@ class BernoulliTest : public ::testing::Test {
   void trueFalseCheck() {
     // both true and false values must be present
     bool* h_data = new bool[len];
-      update_host(h_data, data, len, stream);
+    update_host(h_data, data, len, stream);
     ASSERT_TRUE(std::any_of(h_data, h_data + len, [](bool a) { return a; }));
     ASSERT_TRUE(std::any_of(h_data, h_data + len, [](bool a) { return !a; }));
     delete[] h_data;
@@ -531,9 +529,8 @@ class RngNormalTableTest
                   params.sigma, stream);
     static const int threads = 128;
     meanKernel<T, threads>
-      <<<raft::ceildiv(len, threads), threads, 0, stream>>>(stats, data,
-                                                                len);
-      update_host<T>(h_stats, stats, 2, stream);
+      <<<raft::ceildiv(len, threads), threads, 0, stream>>>(stats, data, len);
+    update_host<T>(h_stats, stats, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= len;
     h_stats[1] = (h_stats[1] / len) - (h_stats[0] * h_stats[0]);

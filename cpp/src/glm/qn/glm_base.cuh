@@ -168,7 +168,7 @@ struct GLMWithData : GLMDims {
     objective->loss_grad(dev_scalar, G, W, X, y, Z, stream);
     lossVal.reset(dev_scalar, 1);
     T loss_host;
-      raft::update_host(&loss_host, lossVal.data, 1, stream);
+    raft::update_host(&loss_host, lossVal.data, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     return loss_host;
   }

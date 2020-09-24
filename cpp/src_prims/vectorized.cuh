@@ -337,7 +337,7 @@ struct TxN_t<math_, 0> {
   DI void store(math_t *ptr, idx_t idx) {}
 };
 
-} // namespace raft
+}  // namespace raft
 
 namespace MLCommon {
 

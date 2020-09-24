@@ -240,10 +240,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     START_TIMER;
     // TODO: Calculate Kullback-Leibler divergence
     // For general embedding dimensions
-    TSNE::
-      attractive_kernel_bh<<<raft::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
-        VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, attr_forces.data(),
-        attr_forces.data() + n, NNZ);
+    TSNE::attractive_kernel_bh<<<raft::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
+      VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, attr_forces.data(),
+      attr_forces.data() + n, NNZ);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
 

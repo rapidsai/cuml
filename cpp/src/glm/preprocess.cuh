@@ -88,7 +88,7 @@ void postProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
 
   LinAlg::subtract(d_intercept.data(), mu_labels, d_intercept.data(), 1,
                    stream);
-    raft::update_host(intercept, d_intercept.data(), 1, stream);
+  raft::update_host(intercept, d_intercept.data(), 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

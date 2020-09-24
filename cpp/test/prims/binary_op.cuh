@@ -18,6 +18,7 @@
 
 #include <cuda_utils.cuh>
 #include <linalg/binary_op.cuh>
+#include "test_utils.h"
 
 using namespace MLCommon;
 

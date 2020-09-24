@@ -71,7 +71,7 @@ template <typename T, typename L>
                                              L eq_compare,
                                              cudaStream_t stream = 0) {
   std::vector<T> act_h(size);
-    raft::update_host<T>(&(act_h[0]), actual, size, stream);
+  raft::update_host<T>(&(act_h[0]), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
     auto act = act_h[i];
@@ -86,7 +86,7 @@ template <typename T, typename L>
 
 const std::vector<DlbInputs> inputs = {{4}, {16}, {64}, {256}, {2048}};
 TEST_P(DlbTest, Result) {
-  ASSERT_TRUE(devArrMatchCustom(out, params.len, Compare<int>()));
+  ASSERT_TRUE(devArrMatchCustom(out, params.len, raft::Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(DlbTests, DlbTest, ::testing::ValuesIn(inputs));
 

@@ -70,8 +70,8 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     raft::allocate(truthClusterArray, nElements, true);
     raft::allocate(predClusterArray, nElements, true);
 
-      raft::update_device(truthClusterArray, &arr1[0], (int) nElements, stream);
-      raft::update_device(predClusterArray, &arr2[0], (int) nElements, stream);
+    raft::update_device(truthClusterArray, &arr1[0], (int)nElements, stream);
+    raft::update_device(predClusterArray, &arr2[0], (int)nElements, stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
       new raft::mr::device::default_allocator);
 

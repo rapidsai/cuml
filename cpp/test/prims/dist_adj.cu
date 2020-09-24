@@ -135,7 +135,7 @@ typedef DistanceAdjTest<float> DistanceAdjTestF;
 TEST_P(DistanceAdjTestF, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n, Compare<bool>()));
+  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n, raft::Compare<bool>()));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestF,
                         ::testing::ValuesIn(inputsf));
@@ -154,7 +154,7 @@ typedef DistanceAdjTest<double> DistanceAdjTestD;
 TEST_P(DistanceAdjTestD, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n, Compare<bool>()));
+  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n, raft::Compare<bool>()));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestD,
                         ::testing::ValuesIn(inputsd));

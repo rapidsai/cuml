@@ -24,8 +24,8 @@
 #include <cuml/tsa/batched_arima.hpp>
 #include <random/rng.cuh>
 
-#include "benchmark.cuh"
 #include <common/cudart_utils.h>
+#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {

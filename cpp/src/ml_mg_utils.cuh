@@ -52,7 +52,7 @@ void chunk_to_device(const OutType *ptr, T n, int D, int *devices,
 
     float *ptr_d;
     raft::allocate(ptr_d, length * D);
-      raft::update_device(ptr_d, ptr + (chunk_size * i), length * D, stream);
+    raft::update_device(ptr_d, ptr + (chunk_size * i), length * D, stream);
 
     output[i] = ptr_d;
     sizes[i] = length;

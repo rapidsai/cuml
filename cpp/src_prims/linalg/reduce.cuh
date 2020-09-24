@@ -58,7 +58,8 @@ template <typename InType, typename OutType = InType, typename IdxType = int,
           typename FinalLambda = raft::Nop<OutType>>
 void reduce(OutType *dots, const InType *data, int D, int N, OutType init,
             bool rowMajor, bool alongRows, cudaStream_t stream,
-            bool inplace = false, MainLambda main_op = raft::Nop<InType, IdxType>(),
+            bool inplace = false,
+            MainLambda main_op = raft::Nop<InType, IdxType>(),
             ReduceLambda reduce_op = raft::Sum<OutType>(),
             FinalLambda final_op = raft::Nop<OutType>()) {
   if (rowMajor && alongRows) {

@@ -97,8 +97,8 @@ const std::vector<ReduceColsInputs<float>> inputsf = {
   {0.0001f, 128, 32, 6, 1234ULL}, {0.0005f, 121, 63, 10, 1234ULL}};
 typedef ReduceColsTest<float> ReduceColsTestF;
 TEST_P(ReduceColsTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.nkeys,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.rows * params.nkeys,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceColsTests, ReduceColsTestF,
                         ::testing::ValuesIn(inputsf));
@@ -107,8 +107,8 @@ const std::vector<ReduceColsInputs<double>> inputsd2 = {
   {0.0000001, 128, 32, 6, 1234ULL}, {0.0000001, 121, 63, 10, 1234ULL}};
 typedef ReduceColsTest<double> ReduceColsTestD;
 TEST_P(ReduceColsTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.nkeys,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.rows * params.nkeys,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceColsTests, ReduceColsTestD,
                         ::testing::ValuesIn(inputsd2));

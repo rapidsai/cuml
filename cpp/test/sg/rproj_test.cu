@@ -54,7 +54,7 @@ class RPROJTest : public ::testing::Test {
       i = dist(rng);
     }
     raft::allocate(d_input, h_input.size());
-      raft::update_device(d_input, h_input.data(), h_input.size(), NULL);
+    raft::update_device(d_input, h_input.data(), h_input.size(), NULL);
     //d_input = transpose(d_input, N, M);
     // From row major to column major (this operation is only useful for non-random datasets)
   }
@@ -157,7 +157,7 @@ class RPROJTest : public ::testing::Test {
     CUDA_CHECK(cudaPeekAtLastError());
 
     T* h_pdist = new T[N * N];
-      raft::update_host(h_pdist, d_pdist, N * N, NULL);
+    raft::update_host(h_pdist, d_pdist, N * N, NULL);
     CUDA_CHECK(cudaFree(d_pdist));
 
     T* d_pdist1;
@@ -168,7 +168,7 @@ class RPROJTest : public ::testing::Test {
     CUDA_CHECK(cudaPeekAtLastError());
 
     T* h_pdist1 = new T[N * N];
-      raft::update_host(h_pdist1, d_pdist1, N * N, NULL);
+    raft::update_host(h_pdist1, d_pdist1, N * N, NULL);
     CUDA_CHECK(cudaFree(d_pdist1));
 
     T* d_pdist2;
@@ -179,7 +179,7 @@ class RPROJTest : public ::testing::Test {
     CUDA_CHECK(cudaPeekAtLastError());
 
     T* h_pdist2 = new T[N * N];
-      raft::update_host(h_pdist2, d_pdist2, N * N, NULL);
+    raft::update_host(h_pdist2, d_pdist2, N * N, NULL);
     CUDA_CHECK(cudaFree(d_pdist2));
 
     for (size_t i = 0; i < N; i++) {

@@ -65,8 +65,8 @@ void scatterImpl(DataT *out, const DataT *in, const IdxT *idx, IdxT len,
      * will be applied to every element before scattering it to the right location.
      * The second param in this method will be the destination index.
      */
-template <typename DataT, typename IdxT, typename Lambda = raft::Nop<DataT, IdxT>,
-          int TPB = 256>
+template <typename DataT, typename IdxT,
+          typename Lambda = raft::Nop<DataT, IdxT>, int TPB = 256>
 void scatter(DataT *out, const DataT *in, const IdxT *idx, IdxT len,
              cudaStream_t stream, Lambda op = raft::Nop<DataT, IdxT>()) {
   if (len <= 0) return;
@@ -94,4 +94,4 @@ void scatter(DataT *out, const DataT *in, const IdxT *idx, IdxT len,
   }
 }
 
-} // namespace raft
+}  // namespace raft

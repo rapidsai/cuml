@@ -150,8 +150,8 @@ struct CompareApproxAbsKVP {
   CompareApproxAbsKVP(T eps_) : eps(eps_) {}
   bool operator()(const KVP &a, const KVP &b) const {
     if (a.key != b.key) return false;
-    T diff = abs(abs(a.value) - abs(b.value));
-    T m = std::max(abs(a.value), abs(b.value));
+    T diff = raft::abs(raft::abs(a.value) - raft::abs(b.value));
+    T m = std::max(raft::abs(a.value), raft::abs(b.value));
     T ratio = m >= eps ? diff / m : diff;
     return (ratio <= eps);
   }
@@ -178,8 +178,8 @@ template <typename K, typename V, typename L>
   typedef typename cub::KeyValuePair<K, V> KVP;
   std::shared_ptr<KVP> exp_h(new KVP[size]);
   std::shared_ptr<KVP> act_h(new KVP[size]);
-    raft::update_host<KVP>(exp_h.get(), expected, size, stream);
-    raft::update_host<KVP>(act_h.get(), actual, size, stream);
+  raft::update_host<KVP>(exp_h.get(), expected, size, stream);
+  raft::update_host<KVP>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
     auto exp = exp_h.get()[i];

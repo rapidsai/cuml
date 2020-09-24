@@ -47,7 +47,7 @@ void sortTest(TypeK *key) {
   CUDA_CHECK(cudaMalloc((void **)&dkey, sizeof(TypeK) * TPB * N));
   sortTestKernel<TypeV, TypeK, N, TPB, Greater><<<1, TPB>>>(dkey);
   CUDA_CHECK(cudaPeekAtLastError());
-    raft::update_host<TypeK>(key, dkey, TPB * N, 0);
+  raft::update_host<TypeK>(key, dkey, TPB * N, 0);
   CUDA_CHECK(cudaFree(dkey));
 }
 
@@ -78,7 +78,7 @@ template <typename TypeV, typename TypeK, bool Greater>
   for (int rIndex = 0; rIndex < rows; rIndex++) {
     // input data
     TypeV *h_arr = new TypeV[N];
-      raft::update_host(h_arr, d_arr + rIndex * N, N, 0);
+    raft::update_host(h_arr, d_arr + rIndex * N, N, 0);
     KVPair<TypeV, TypeK> *topk = new KVPair<TypeV, TypeK>[N];
     for (int j = 0; j < N; j++) {
       topk[j].val = h_arr[j];
@@ -86,9 +86,9 @@ template <typename TypeV, typename TypeK, bool Greater>
     }
     // result reference
     TypeV *h_outv = new TypeV[k];
-      raft::update_host(h_outv, d_outv + rIndex * k, k, 0);
+    raft::update_host(h_outv, d_outv + rIndex * k, k, 0);
     TypeK *h_outk = new TypeK[k];
-      raft::update_host(h_outk, d_outk + rIndex * k, k, 0);
+    raft::update_host(h_outk, d_outk + rIndex * k, k, 0);
     // calculate the result
     partSortKVPair<TypeV, TypeK, Greater>(topk, N, k);
 

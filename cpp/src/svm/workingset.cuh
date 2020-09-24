@@ -158,8 +158,7 @@ class WorkingSet {
 
     if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
-        raft::print_device_vector("idx_sorted", f_idx_sorted.data(), n_train,
-                                  ss);
+      raft::print_device_vector("idx_sorted", f_idx_sorted.data(), n_train, ss);
       CUML_LOG_DEBUG(ss.str().c_str());
     }
     // Select n_ws/2 elements from the upper set with the smallest f value
@@ -379,7 +378,7 @@ class WorkingSet {
     }
     if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
-        raft::print_device_vector("avail", available, n_train, ss);
+      raft::print_device_vector("avail", available, n_train, ss);
       CUML_LOG_DEBUG(ss.str().c_str());
     }
 
@@ -393,8 +392,8 @@ class WorkingSet {
                  av_sorted_ptr);
     if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
-        raft::print_device_vector("avail_sorted", available_sorted.data(),
-                                  n_train, ss);
+      raft::print_device_vector("avail_sorted", available_sorted.data(),
+                                n_train, ss);
       CUML_LOG_DEBUG(ss.str().c_str());
     }
 
@@ -403,7 +402,7 @@ class WorkingSet {
                                f_idx_sorted.data(), available_sorted.data(),
                                idx_tmp.data(), d_num_selected, n_train);
     int n_selected;
-      raft::update_host(&n_selected, d_num_selected, 1, stream);
+    raft::update_host(&n_selected, d_num_selected, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // Copy to output
@@ -413,12 +412,12 @@ class WorkingSet {
                  stream);
     } else {
       raft::copy(idx.data() + n_already_selected,
-                     idx_tmp.data() + n_selected - n_copy, n_copy, stream);
+                 idx_tmp.data() + n_selected - n_copy, n_copy, stream);
     }
     if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
-        raft::print_device_vector("selected", idx.data(),
-                                      n_already_selected + n_copy, ss);
+      raft::print_device_vector("selected", idx.data(),
+                                n_already_selected + n_copy, ss);
       CUML_LOG_DEBUG(ss.str().c_str());
     }
     return n_copy;
@@ -448,11 +447,11 @@ class WorkingSet {
     cub::DeviceSelect::If(cub_storage.data(), cub_bytes, ws_idx_sorted.data(),
                           ws_idx_selected.data(), d_num_selected, n_ws, op);
     int n_selected;
-      raft::update_host(&n_selected, d_num_selected, 1, stream);
+    raft::update_host(&n_selected, d_num_selected, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     int n_copy = n_selected < n_needed ? n_selected : n_needed;
-    raft::copy(idx.data() + n_already_selected, ws_idx_selected.data(),
-               n_copy, stream);
+    raft::copy(idx.data() + n_already_selected, ws_idx_selected.data(), n_copy,
+               stream);
     return n_copy;
   }
 };

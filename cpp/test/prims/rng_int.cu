@@ -83,9 +83,9 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     };
     static const int threads = 128;
     meanKernel<T, threads>
-      <<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
-        stats, data, params.len);
-      update_host<float>(h_stats, stats, 2, stream);
+      <<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(stats, data,
+                                                                   params.len);
+    update_host<float>(h_stats, stats, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);

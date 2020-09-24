@@ -67,7 +67,7 @@ class ScatterTest : public ::testing::TestWithParam<ScatterInputs> {
       std::random_device rd;
       std::mt19937 g(rd());
       std::shuffle(h_idx.begin(), h_idx.end(), g);
-        raft::update_device(idx, &(h_idx[0]), len, stream);
+      raft::update_device(idx, &(h_idx[0]), len, stream);
       CUDA_CHECK(cudaStreamSynchronize(stream));
     }
     naiveScatter(ref_out, in, idx, len, stream);
@@ -95,14 +95,16 @@ const std::vector<ScatterInputs> inputs = {
 
 typedef ScatterTest<float> ScatterTestF;
 TEST_P(ScatterTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out, ref_out, params.len, Compare<float>()));
+  ASSERT_TRUE(
+    raft::devArrMatch(out, ref_out, params.len, raft::Compare<float>()));
 }
 INSTANTIATE_TEST_CASE_P(ScatterTests, ScatterTestF,
                         ::testing::ValuesIn(inputs));
 
 typedef ScatterTest<double> ScatterTestD;
 TEST_P(ScatterTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out, ref_out, params.len, Compare<double>()));
+  ASSERT_TRUE(
+    raft::devArrMatch(out, ref_out, params.len, raft::Compare<double>()));
 }
 INSTANTIATE_TEST_CASE_P(ScatterTests, ScatterTestD,
                         ::testing::ValuesIn(inputs));

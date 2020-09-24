@@ -75,7 +75,7 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
     raft::allocate(forecast_ptr, batch_size * h, stream);
 
     raft::allocate(data, batch_size * n);
-      raft::update_device(data, dataset_h, batch_size * n, stream);
+    raft::update_device(data, dataset_h, batch_size * n, stream);
 
     raft::handle_t handle;
     handle.set_stream(stream);
@@ -153,7 +153,7 @@ T calculate_MAE(T *test, T *forecast, int batch_size, int h) {
   normalise(forecast, batch_size * h);
   std::vector<T> ae(batch_size * h);
   for (int i = 0; i < batch_size * h; i++) {
-    ae[i] = abs(test[i] - forecast[i]);
+    ae[i] = raft::abs(test[i] - forecast[i]);
   }
   std::sort(ae.begin(), ae.end());
   T mae;
@@ -168,8 +168,9 @@ T calculate_MAE(T *test, T *forecast, int batch_size, int h) {
 typedef HoltWintersTest<float> HoltWintersTestF;
 TEST_P(HoltWintersTestF, Fit) {
   std::vector<float> forecast_h(batch_size * h);
-        raft::update_host(forecast_h.data(), forecast_ptr, batch_size * h, stream);
-        raft::print_host_vector("forecast", forecast_h.data(), batch_size * h, std::cout);
+  raft::update_host(forecast_h.data(), forecast_ptr, batch_size * h, stream);
+  raft::print_host_vector("forecast", forecast_h.data(), batch_size * h,
+                          std::cout);
   float mae = calculate_MAE<float>(test, forecast_h.data(), batch_size, h);
   CUML_LOG_DEBUG("MAE: %f", mae);
   ASSERT_TRUE(mae < mae_tolerance);
@@ -178,8 +179,9 @@ TEST_P(HoltWintersTestF, Fit) {
 typedef HoltWintersTest<double> HoltWintersTestD;
 TEST_P(HoltWintersTestD, Fit) {
   std::vector<double> forecast_h(batch_size * h);
-        raft::update_host(forecast_h.data(), forecast_ptr, batch_size * h, stream);
-        raft::print_host_vector("forecast", forecast_h.data(), batch_size * h, std::cout);
+  raft::update_host(forecast_h.data(), forecast_ptr, batch_size * h, stream);
+  raft::print_host_vector("forecast", forecast_h.data(), batch_size * h,
+                          std::cout);
   double mae = calculate_MAE<double>(test, forecast_h.data(), batch_size, h);
   CUML_LOG_DEBUG("MAE: %f", mae);
   ASSERT_TRUE(mae < mae_tolerance);

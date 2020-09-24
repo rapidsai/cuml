@@ -160,7 +160,7 @@ void optimize_params(T *input, int n_rows, const T *labels, T *coef,
     raft::linalg::eltwiseSub(coef, coef, grads.data(), 2, stream);
 
     T *grads_h = (T *)malloc(2 * sizeof(T));
-      raft::update_host(grads_h, grads.data(), 2, stream);
+    raft::update_host(grads_h, grads.data(), 2, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -196,10 +196,10 @@ void find_params_ab(UMAPParams *params,
   }
 
   MLCommon::device_buffer<float> X_d(d_alloc, stream, 300);
-    raft::update_device(X_d.data(), X, 300, stream);
+  raft::update_device(X_d.data(), X, 300, stream);
 
   MLCommon::device_buffer<float> y_d(d_alloc, stream, 300);
-    raft::update_device(y_d.data(), y, 300, stream);
+  raft::update_device(y_d.data(), y, 300, stream);
   float *coeffs_h = (float *)malloc(2 * sizeof(float));
   coeffs_h[0] = 1.0;
   coeffs_h[1] = 1.0;
@@ -207,13 +207,13 @@ void find_params_ab(UMAPParams *params,
   MLCommon::device_buffer<float> coeffs(d_alloc, stream, 2);
   CUDA_CHECK(cudaMemsetAsync(coeffs.data(), 0, 2 * sizeof(float), stream));
 
-    raft::update_device(coeffs.data(), coeffs_h, 2, stream);
+  raft::update_device(coeffs.data(), coeffs_h, 2, stream);
 
   optimize_params<float, 256>(X_d.data(), 300, y_d.data(), coeffs.data(),
                               params, d_alloc, stream);
 
-    raft::update_host(&(params->a), coeffs.data(), 1, stream);
-    raft::update_host(&(params->b), coeffs.data() + 1, 1, stream);
+  raft::update_host(&(params->a), coeffs.data(), 1, stream);
+  raft::update_host(&(params->b), coeffs.data() + 1, 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

@@ -45,8 +45,8 @@ TEST(ScoreTestHighScore, Result) {
   float *d_y_hat;
   raft::allocate(d_y_hat, 5);
 
-        raft::update_device(d_y_hat, y_hat, 5, stream);
-        raft::update_device(d_y, y, 5, stream);
+  raft::update_device(d_y_hat, y_hat, 5, stream);
+  raft::update_device(d_y, y, 5, stream);
 
   float result = MLCommon::Score::r2_score(d_y, d_y_hat, 5, stream);
   ASSERT_TRUE(result == 0.98f);
@@ -66,8 +66,8 @@ TEST(ScoreTestLowScore, Result) {
   float *d_y_hat;
   raft::allocate(d_y_hat, 5);
 
-        raft::update_device(d_y_hat, y_hat, 5, stream);
-        raft::update_device(d_y, y, 5, stream);
+  raft::update_device(d_y_hat, y_hat, 5, stream);
+  raft::update_device(d_y, y, 5, stream);
 
   float result = MLCommon::Score::r2_score(d_y, d_y_hat, 5, stream);
 
@@ -126,7 +126,7 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
     raft::allocate(predictions, params.n);
     raft::allocate(ref_predictions, params.n);
     r.normal(ref_predictions, params.n, (T)0.0, (T)1.0, stream);
-      raft::copy_async(predictions, ref_predictions, params.n, stream);
+    raft::copy_async(predictions, ref_predictions, params.n, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     //Modify params.changed_n unique predictions to a different value. New value is irrelevant.
@@ -235,7 +235,7 @@ void host_regression_computations(std::vector<T> &predictions,
   std::vector<double> abs_diffs(n);
 
   for (int i = 0; i < n; i++) {
-    double abs_diff = abs(predictions[i] - ref_predictions[i]);
+    double abs_diff = raft::abs(predictions[i] - ref_predictions[i]);
     abs_difference_sum += abs_diff;
     mse_sum += pow(predictions[i] - ref_predictions[i], 2);
     abs_diffs[i] = abs_diff;
@@ -270,9 +270,10 @@ class RegressionMetricsTest
     raft::allocate(d_ref_predictions, params.n);
 
     if (params.hardcoded_preds) {
-        raft::update_device(d_predictions, params.predictions.data(), params.n, stream);
-        raft::update_device(d_ref_predictions, params.ref_predictions.data(), params.n,
-                            stream);
+      raft::update_device(d_predictions, params.predictions.data(), params.n,
+                          stream);
+      raft::update_device(d_ref_predictions, params.ref_predictions.data(),
+                          params.n, stream);
     } else {
       params.predictions.resize(params.n);
       params.ref_predictions.resize(params.n);
@@ -283,9 +284,10 @@ class RegressionMetricsTest
       r.uniform(d_ref_predictions, params.n, params.ref_predictions_range[0],
                 params.ref_predictions_range[1], stream);
       // copy to host to compute reference regression metrics
-        raft::update_host(params.predictions.data(), d_predictions, params.n, stream);
-        raft::update_host(params.ref_predictions.data(), d_ref_predictions, params.n,
-                          stream);
+      raft::update_host(params.predictions.data(), d_predictions, params.n,
+                        stream);
+      raft::update_host(params.ref_predictions.data(), d_ref_predictions,
+                        params.n, stream);
       CUDA_CHECK(cudaStreamSynchronize(stream));
     }
 
@@ -485,7 +487,7 @@ typedef RegressionMetricsTest<float> RegressionMetricsTestF;
 TEST_P(RegressionMetricsTestF, Result) {
   for (int i = 0; i < 3; i++) {
     ASSERT_TRUE(match(computed_regression_metrics[i], ref_regression_metrics[i],
-                      CompareApprox<float>(params.tolerance)));
+                      raft::CompareApprox<float>(params.tolerance)));
   }
 }
 
@@ -493,7 +495,7 @@ typedef RegressionMetricsTest<double> RegressionMetricsTestD;
 TEST_P(RegressionMetricsTestD, Result) {
   for (int i = 0; i < 3; i++) {
     ASSERT_TRUE(match(computed_regression_metrics[i], ref_regression_metrics[i],
-                      CompareApprox<double>(params.tolerance)));
+                      raft::CompareApprox<double>(params.tolerance)));
   }
 }
 

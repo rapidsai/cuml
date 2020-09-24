@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <linalg/transpose.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
@@ -31,7 +32,6 @@
 #include <raft/comms/comms.hpp>
 #include <stats/mean_center.cuh>
 #include "pca.cuh"
-#include <common/cudart_utils.h>
 
 using namespace MLCommon;
 

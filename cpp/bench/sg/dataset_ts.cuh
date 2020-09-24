@@ -20,8 +20,8 @@
 #include <cuda_utils.cuh>
 #include <cuml/cuml.hpp>
 
-#include <random/rng.cuh>
 #include <common/cudart_utils.h>
+#include <random/rng.cuh>
 
 namespace ML {
 namespace Bench {

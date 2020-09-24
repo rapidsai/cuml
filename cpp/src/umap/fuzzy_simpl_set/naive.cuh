@@ -245,7 +245,7 @@ void smooth_knn_dist(int n, const int64_t *knn_indices, const float *knn_dists,
   CUDA_CHECK(cudaPeekAtLastError());
 
   T mean_dist = 0.0;
-        raft::update_host(&mean_dist, dist_means_dev.data(), 1, stream);
+  raft::update_host(&mean_dist, dist_means_dev.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   /**

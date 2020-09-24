@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
@@ -32,7 +33,6 @@
 #include <opg/linalg/norm.hpp>
 #include <raft/comms/comms.hpp>
 #include "shuffle.h"
-#include <common/cudart_utils.h>
 
 using namespace MLCommon;
 
@@ -194,7 +194,7 @@ void fit_impl(raft::handle_t &handle,
                                            streams[0]);
 
       coef_prev = h_coef[ci];
-        raft::update_host(&(h_coef[ci]), coef_loc, 1, streams[0]);
+      raft::update_host(&(h_coef[ci]), coef_loc, 1, streams[0]);
       CUDA_CHECK(cudaStreamSynchronize(streams[0]));
 
       T diff = abs(coef_prev - h_coef[ci]);

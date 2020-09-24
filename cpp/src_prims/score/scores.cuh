@@ -168,7 +168,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
     CUDA_CHECK(cudaPeekAtLastError());
 
     t_tmp = 0.0;
-      raft::update_device(d_t, &t_tmp, 1, stream);
+    raft::update_device(d_t, &t_tmp, 1, stream);
 
     int work = curBatchSize * n_neighbors;
     int n_blocks = raft::ceildiv(work, N_THREADS);
@@ -177,7 +177,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
       n_neighbors, curBatchSize * n_neighbors, d_t);
     CUDA_CHECK(cudaPeekAtLastError());
 
-      raft::update_host(&t_tmp, d_t, 1, stream);
+    raft::update_host(&t_tmp, d_t, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     if (bAllocWorkspace) {
@@ -342,7 +342,7 @@ void regression_metrics(const T *predictions, const T *ref_predictions, int n,
   reg_metrics_kernel<T><<<block_cnt, thread_cnt, 0, stream>>>(
     predictions, ref_predictions, n, abs_diffs_array, tmp_sums);
   CUDA_CHECK(cudaGetLastError());
-        raft::update_host(&mean_errors[0], tmp_sums, 2, stream);
+  raft::update_host(&mean_errors[0], tmp_sums, 2, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   mean_abs_error = mean_errors[0] / n;
@@ -359,7 +359,7 @@ void regression_metrics(const T *predictions, const T *ref_predictions, int n,
     (void *)temp_storage, temp_storage_bytes, abs_diffs_array, sorted_abs_diffs,
     n, 0, 8 * sizeof(double), stream));
 
-        raft::update_host(h_sorted_abs_diffs.data(), sorted_abs_diffs, n, stream);
+  raft::update_host(h_sorted_abs_diffs.data(), sorted_abs_diffs, n, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   int middle = n / 2;

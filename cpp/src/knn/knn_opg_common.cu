@@ -58,8 +58,8 @@
 
 #include <set>
 
-#include <cuda_utils.cuh>
 #include <common/cudart_utils.h>
+#include <cuda_utils.cuh>
 
 namespace ML {
 namespace KNN {
@@ -104,7 +104,7 @@ void copy_outputs(T *out, int64_t *knn_indices,
   }
   size_t n_parts = offsets_h.size();
   device_buffer<int64_t> offsets_d(alloc, stream, n_parts);
-    raft::update_device(offsets_d.data(), offsets_h.data(), n_parts, stream);
+  raft::update_device(offsets_d.data(), offsets_h.data(), n_parts, stream);
 
   std::vector<T *> parts_h(n_parts);
   device_buffer<T *> parts_d(alloc, stream, n_parts);
@@ -112,7 +112,7 @@ void copy_outputs(T *out, int64_t *knn_indices,
     for (int p = 0; p < n_parts; p++) {
       parts_h[p] = y[p][o];
     }
-      raft::update_device(parts_d.data(), parts_h.data(), n_parts, stream);
+    raft::update_device(parts_d.data(), parts_h.data(), n_parts, stream);
 
     copy_outputs_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
       out + (o * n_labels), knn_indices, parts_d.data(), offsets_d.data(),
@@ -477,9 +477,10 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
         if (!rowMajorQuery && total_batches > 1) {
           tmp_batch_buf.resize(batch_input_elms, stream);
           for (int col_data = 0; col_data < query_desc.N; col_data++) {
-            raft::copy(tmp_batch_buf.data() + (col_data * cur_batch_size),
-                 data->ptr + ((col_data * part_n_rows) + total_n_processed),
-                       cur_batch_size, stream);
+            raft::copy(
+              tmp_batch_buf.data() + (col_data * cur_batch_size),
+              data->ptr + ((col_data * part_n_rows) + total_n_processed),
+              cur_batch_size, stream);
           }
           cur_query_ptr = tmp_batch_buf.data();
 

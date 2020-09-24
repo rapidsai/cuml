@@ -225,7 +225,7 @@ class Results {
       cub::DeviceReduce::Sum(cub_storage.data(), cub_bytes, val_selected.data(),
                              d_val_reduced.data(), n_free, stream);
       math_t sum;
-        raft::update_host(&sum, d_val_reduced.data(), 1, stream);
+      raft::update_host(&sum, d_val_reduced.data(), 1, stream);
       return -sum / n_free;
     } else {
       // All support vectors are bound. Let's define
@@ -258,7 +258,7 @@ class Results {
     cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, val, flag.data(),
                                out, d_num_selected.data(), n, stream);
     int n_selected;
-      raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
+    raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     return n_selected;
   }
@@ -325,13 +325,13 @@ class Results {
   template <typename select_op, typename valType>
   int SelectByCoef(const math_t *coef, int n, const valType *val, select_op op,
                    valType *out) {
-    set_flag<<<raft::ceildiv(n, TPB), TPB, 0, stream>>>(flag.data(), coef,
-                                                            n, op);
+    set_flag<<<raft::ceildiv(n, TPB), TPB, 0, stream>>>(flag.data(), coef, n,
+                                                        op);
     CUDA_CHECK(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, val, flag.data(),
                                out, d_num_selected.data(), n, stream);
     int n_selected;
-      raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
+    raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     return n_selected;
   }
@@ -352,7 +352,7 @@ class Results {
                                val_selected.data(), d_num_selected.data(),
                                n_train, stream);
     int n_selected;
-      raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
+    raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     math_t res = 0;
     ASSERT(n_selected > 0,
@@ -365,7 +365,7 @@ class Results {
       cub::DeviceReduce::Max(cub_storage.data(), cub_bytes, val_selected.data(),
                              d_val_reduced.data(), n_selected, stream);
     }
-      raft::update_host(&res, d_val_reduced.data(), 1, stream);
+    raft::update_host(&res, d_val_reduced.data(), 1, stream);
     return res;
   }
 };  // namespace SVM

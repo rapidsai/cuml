@@ -80,13 +80,13 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     // Populate data (assume Col major)
     std::vector<T> data_h = {30.0, 1.0, 2.0, 0.0, 10.0, 20.0, 10.0, 40.0};
     data_h.resize(data_len);
-      raft::update_device(data, data_h.data(), data_len, stream);
+    raft::update_device(data, data_h.data(), data_len, stream);
 
     // Populate labels
     labels_h = {0, 1, 0, 4};
     labels_h.resize(params.n_rows);
     preprocess_labels(params.n_rows, labels_h, labels_map);
-      raft::update_device(labels, labels_h.data(), params.n_rows, stream);
+    raft::update_device(labels, labels_h.data(), params.n_rows, stream);
 
     forest = new typename ML::RandomForestMetaData<T, int>;
     null_trees_ptr(forest);
@@ -104,8 +104,8 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     inference_data_h = {30.0, 10.0, 1.0, 20.0, 2.0, 10.0, 0.0, 40.0};
     inference_data_h.resize(inference_data_len);
     raft::allocate(inference_data_d, inference_data_len);
-      raft::update_device(inference_data_d, inference_data_h.data(), inference_data_len,
-                          stream);
+    raft::update_device(inference_data_d, inference_data_h.data(),
+                        inference_data_len, stream);
 
     predict(handle, forest, inference_data_d, params.n_inference_rows,
             params.n_cols, predicted_labels);
@@ -181,12 +181,12 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     // Populate data (assume Col major)
     std::vector<T> data_h = {0.0, 0.0, 0.0, 0.0, 10.0, 20.0, 30.0, 40.0};
     data_h.resize(data_len);
-      raft::update_device(data, data_h.data(), data_len, stream);
+    raft::update_device(data, data_h.data(), data_len, stream);
 
     // Populate labels
     labels_h = {1.0, 2.0, 3.0, 4.0};
     labels_h.resize(params.n_rows);
-      raft::update_device(labels, labels_h.data(), params.n_rows, stream);
+    raft::update_device(labels, labels_h.data(), params.n_rows, stream);
 
     forest = new typename ML::RandomForestMetaData<T, T>;
     null_trees_ptr(forest);
@@ -203,8 +203,8 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     inference_data_h = {0.0, 10.0, 0.0, 20.0, 0.0, 30.0, 0.0, 40.0};
     inference_data_h.resize(inference_data_len);
     raft::allocate(inference_data_d, inference_data_len);
-      raft::update_device(inference_data_d, inference_data_h.data(), inference_data_len,
-                          stream);
+    raft::update_device(inference_data_d, inference_data_h.data(),
+                        inference_data_len, stream);
 
     predict(handle, forest, inference_data_d, params.n_inference_rows,
             params.n_cols, predicted_labels);

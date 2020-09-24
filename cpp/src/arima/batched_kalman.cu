@@ -1020,7 +1020,7 @@ void batched_jones_transform(raft::handle_t& handle, const ARIMAOrder& order,
   params.allocate(order, batch_size, allocator, stream, false);
   Tparams.allocate(order, batch_size, allocator, stream, true);
 
-    raft::update_device(d_params, h_params, N * batch_size, stream);
+  raft::update_device(d_params, h_params, N * batch_size, stream);
 
   params.unpack(order, batch_size, d_params, stream);
 
@@ -1030,7 +1030,7 @@ void batched_jones_transform(raft::handle_t& handle, const ARIMAOrder& order,
 
   Tparams.pack(order, batch_size, d_Tparams, stream);
 
-    raft::update_host(h_Tparams, d_Tparams, N * batch_size, stream);
+  raft::update_host(h_Tparams, d_Tparams, N * batch_size, stream);
 
   allocator->deallocate(d_params, N * batch_size * sizeof(double), stream);
   allocator->deallocate(d_Tparams, N * batch_size * sizeof(double), stream);

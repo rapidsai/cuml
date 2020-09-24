@@ -73,7 +73,8 @@ __global__ void symmKernel(DataT* out, const DataT* in, IdxT batchSize, IdxT n,
  * @param stream cuda stream
  * @param op custom epilogue functor
  */
-template <typename DataT, typename IdxT, typename EpilogueOp = raft::Nop<DataT, IdxT>>
+template <typename DataT, typename IdxT,
+          typename EpilogueOp = raft::Nop<DataT, IdxT>>
 void make_symm(DataT* out, const DataT* in, IdxT batchSize, IdxT n,
                cudaStream_t stream, EpilogueOp op = raft::Nop<DataT, IdxT>()) {
   dim3 blk(TileDim, BlockRows);

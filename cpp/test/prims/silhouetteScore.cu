@@ -67,8 +67,8 @@ class silhouetteScoreTest
     raft::allocate(d_labels, nElements, true);
     raft::allocate(sampleSilScore, nElements);
 
-      raft::update_device(d_X, &h_X[0], (int) nElements, stream);
-      raft::update_device(d_labels, &h_labels[0], (int) nElements, stream);
+    raft::update_device(d_X, &h_X[0], (int)nElements, stream);
+    raft::update_device(d_labels, &h_labels[0], (int)nElements, stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
       new raft::mr::device::default_allocator);
 
@@ -85,8 +85,8 @@ class silhouetteScoreTest
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-      raft::update_host(h_distanceMatrix, d_distanceMatrix.data(),
-                            nRows * nRows, stream);
+    raft::update_host(h_distanceMatrix, d_distanceMatrix.data(), nRows * nRows,
+                      stream);
 
     //finding the bincount array
 

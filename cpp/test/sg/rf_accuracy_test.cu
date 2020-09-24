@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <cuda_utils.cuh>
 #include <cuml/ensemble/randomforest.hpp>
 #include <random/rng.cuh>
-#include <common/cudart_utils.h>
 
 namespace ML {
 

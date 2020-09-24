@@ -347,7 +347,7 @@ class KernelCache {
     cub::DeviceSelect::Unique(d_temp_storage.data(), d_temp_storage_size,
                               ws_cache_idx.data(), unique_idx,
                               d_num_selected_out.data(), n_ws, stream);
-      raft::update_host(n_unique, d_num_selected_out.data(), 1, stream);
+    raft::update_host(n_unique, d_num_selected_out.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 };

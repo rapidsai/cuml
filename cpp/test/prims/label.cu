@@ -54,8 +54,8 @@ TEST_F(MakeMonotonicTest, Result) {
   float *expected_h =
     new float[m]{1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 5.0, 4.0, 5.0, 5.0, 6.0, 7.0};
 
-        raft::update_device(data, data_h, m, stream);
-        raft::update_device(expected, expected_h, m, stream);
+  raft::update_device(data, data_h, m, stream);
+  raft::update_device(expected, expected_h, m, stream);
 
   std::shared_ptr<deviceAllocator> allocator(
     new raft::mr::device::default_allocator);
@@ -63,7 +63,7 @@ TEST_F(MakeMonotonicTest, Result) {
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  ASSERT_TRUE(devArrMatch(actual, expected, m, Compare<bool>(), stream));
+  ASSERT_TRUE(devArrMatch(actual, expected, m, raft::Compare<bool>(), stream));
 
   CUDA_CHECK(cudaStreamDestroy(stream));
   CUDA_CHECK(cudaFree(data));
@@ -84,7 +84,7 @@ TEST(LabelTest, ClassLabels) {
   raft::allocate(y_d, n_rows);
 
   float y_h[] = {2, -1, 1, 2, 1, 1};
-        raft::update_device(y_d, y_h, n_rows, stream);
+  raft::update_device(y_d, y_h, n_rows, stream);
 
   int n_classes;
   float *y_unique_d;
@@ -94,7 +94,7 @@ TEST(LabelTest, ClassLabels) {
 
   float y_unique_exp[] = {-1, 1, 2};
   EXPECT_TRUE(devArrMatchHost(y_unique_exp, y_unique_d, n_classes,
-                              Compare<float>(), stream));
+                              raft::Compare<float>(), stream));
 
   float *y_relabeled_d;
   raft::allocate(y_relabeled_d, n_rows);
@@ -103,7 +103,7 @@ TEST(LabelTest, ClassLabels) {
 
   float y_relabeled_exp[] = {1, -1, -1, 1, -1, -1};
   EXPECT_TRUE(devArrMatchHost(y_relabeled_exp, y_relabeled_d, n_rows,
-                              Compare<float>(), stream));
+                              raft::Compare<float>(), stream));
 
   CUDA_CHECK(cudaStreamDestroy(stream));
   CUDA_CHECK(cudaFree(y_d));

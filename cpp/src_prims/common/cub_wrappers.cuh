@@ -46,4 +46,4 @@ void sortPairs(MLCommon::device_buffer<char> &workspace, const KeyT *inKeys,
                                   stream);
 }
 
-} // namespace raft
+}  // namespace raft

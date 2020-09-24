@@ -96,9 +96,9 @@ template
     raft::allocate(d_computed_ar_trans, nElements, true);
     raft::allocate(d_params, nElements, true);
 
-      raft::update_device(d_params, &arr1[0], (size_t) nElements, stream);
-      raft::update_device(d_golden_ar_trans, newParams, (size_t) nElements,
-                          stream);
+    raft::update_device(d_params, &arr1[0], (size_t)nElements, stream);
+    raft::update_device(d_golden_ar_trans, newParams, (size_t)nElements,
+                        stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
       new raft::mr::device::default_allocator);
 
@@ -145,8 +145,8 @@ template
     raft::allocate(d_golden_ma_trans, nElements, true);
     raft::allocate(d_computed_ma_trans, nElements, true);
 
-      raft::update_device(d_golden_ma_trans, newParams, (size_t) nElements,
-                          stream);
+    raft::update_device(d_golden_ma_trans, newParams, (size_t)nElements,
+                        stream);
 
     //calling the ma_param_transform CUDA implementation
     MLCommon::TimeSeries::jones_transform(d_params, params.batchSize,
@@ -210,20 +210,22 @@ const std::vector<JonesTransParam> inputs = {
 //writing the test suite
 typedef JonesTransTest<double> JonesTransTestClass;
 TEST_P(JonesTransTestClass, Result) {
-  ASSERT_TRUE(devArrMatch(d_computed_ar_trans, d_golden_ar_trans, nElements,
-                          CompareApprox<double>(params.tolerance)));
-  ASSERT_TRUE(devArrMatch(d_computed_ma_trans, d_golden_ma_trans, nElements,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(d_computed_ar_trans, d_golden_ar_trans,
+                                nElements,
+                                raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(d_computed_ma_trans, d_golden_ma_trans,
+                                nElements,
+                                raft::CompareApprox<double>(params.tolerance)));
   /*
   Test verifying the inversion property:
   initially generated random coefficients -> ar_param_transform() / ma_param_transform() -> 
   transformed coefficients -> ar_param_inverse_transform()/ma_param_inverse_transform() -> 
   initially generated random coefficients
   */
-  ASSERT_TRUE(devArrMatch(d_computed_ma_invtrans, d_params, nElements,
-                          CompareApprox<double>(params.tolerance)));
-  ASSERT_TRUE(devArrMatch(d_computed_ar_invtrans, d_params, nElements,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(d_computed_ma_invtrans, d_params, nElements,
+                                raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(d_computed_ar_invtrans, d_params, nElements,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(JonesTrans, JonesTransTestClass,
                         ::testing::ValuesIn(inputs));

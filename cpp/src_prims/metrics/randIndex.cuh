@@ -141,7 +141,7 @@ double computeRandIndex(T* firstClusterArray, T* secondClusterArray,
 
   //synchronizing and updating the calculated values of a and b from device to host
   uint64_t ab_host[2] = {0};
-        raft::update_host(ab_host, arr_buf.data(), 2, stream);
+  raft::update_host(ab_host, arr_buf.data(), 2, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   //error handling

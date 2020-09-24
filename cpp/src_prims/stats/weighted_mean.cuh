@@ -40,7 +40,7 @@ void rowWeightedMean(Type *mu, const Type *data, const Type *weights, int D,
   //sum the weights & copy back to CPU
   Type WS = 0;
   LinAlg::coalescedReduction(mu, weights, D, 1, (Type)0, stream, false);
-        raft::update_host(&WS, mu, 1, stream);
+  raft::update_host(&WS, mu, 1, stream);
 
   LinAlg::coalescedReduction(
     mu, data, D, N, (Type)0, stream, false,
@@ -66,7 +66,7 @@ void colWeightedMean(Type *mu, const Type *data, const Type *weights, int D,
   //sum the weights & copy back to CPU
   Type WS = 0;
   LinAlg::stridedReduction(mu, weights, 1, N, (Type)0, stream, false);
-        raft::update_host(&WS, mu, 1, stream);
+  raft::update_host(&WS, mu, 1, stream);
 
   LinAlg::stridedReduction(
     mu, data, D, N, (Type)0, stream, false,

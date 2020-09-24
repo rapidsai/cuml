@@ -21,11 +21,11 @@
 #include <cuml/neighbors/knn.hpp>
 #include "optimize.cuh"
 
+#include <common/cudart_utils.h>
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
 #include "knn_graph/runner.cuh"
 #include "simpl_set_embed/runner.cuh"
-#include <common/cudart_utils.h>
 
 #include <thrust/count.h>
 #include <thrust/device_ptr.h>
@@ -253,11 +253,11 @@ void perform_general_intersection(const raft::handle_t &handle, T *y,
     CUML_LOG_DEBUG("Target kNN Graph");
     std::stringstream ss1, ss2;
     ss1 << raft::arr2Str(y_knn_indices.data(),
-                             rgraph_coo->n_rows * params->target_n_neighbors,
+                         rgraph_coo->n_rows * params->target_n_neighbors,
                          "knn_indices", stream);
     CUML_LOG_DEBUG("%s", ss1.str().c_str());
     ss2 << raft::arr2Str(y_knn_dists.data(),
-                             rgraph_coo->n_rows * params->target_n_neighbors,
+                         rgraph_coo->n_rows * params->target_n_neighbors,
                          "knn_dists", stream);
     CUML_LOG_DEBUG("%s", ss2.str().c_str());
   }

@@ -41,17 +41,16 @@ void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
   if (h_colstart != nullptr) {
     if (Ncols != ncols_sampled) {
       std::shuffle(h_colids, h_colids + Ncols, rng);
-        raft::update_device(d_colids, h_colids, Ncols, tempmem->stream);
+      raft::update_device(d_colids, h_colids, Ncols, tempmem->stream);
       if (n_nodes < 256 * tempmem->num_sms) {
         for (int i = 0; i < n_nodes; i++) {
           h_colstart[i] = dist(rng);
         }
-          raft::update_device(d_colstart, h_colstart, n_nodes,
-                              tempmem->stream);
+        raft::update_device(d_colstart, h_colstart, n_nodes, tempmem->stream);
       } else {
         d_rng.uniformInt<unsigned>(d_colstart, n_nodes, 0, Ncols,
                                    tempmem->stream);
-          raft::update_host(h_colstart, d_colstart, n_nodes, tempmem->stream);
+        raft::update_host(h_colstart, d_colstart, n_nodes, tempmem->stream);
       }
     }
   } else {
@@ -61,8 +60,8 @@ void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
       memcpy(&h_colids[i * ncols_sampled], temp.data(),
              ncols_sampled * sizeof(unsigned int));
     }
-      raft::update_device(d_colids, h_colids, ncols_sampled * n_nodes,
-                          tempmem->stream);
+    raft::update_device(d_colids, h_colids, ncols_sampled * n_nodes,
+                        tempmem->stream);
   }
 }
 
@@ -99,7 +98,7 @@ void get_minmax(const T *data, const unsigned int *flags,
     <<<nblocks, threads, 0, stream>>>(d_minmax, ncols_sampled * n_nodes);
 
   CUDA_CHECK(cudaGetLastError());
-        raft::update_host(h_minmax, d_minmax, 2 * n_nodes * ncols_sampled, stream);
+  raft::update_host(h_minmax, d_minmax, 2 * n_nodes * ncols_sampled, stream);
 }
 // This function does setup for flags. and count.
 void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
@@ -206,7 +205,7 @@ void convert_scatter_to_gather(const unsigned int *flagsptr,
                                 tempmem->stream);
   CUDA_CHECK(cudaGetLastError());
   unsigned int *h_nodestart = (unsigned int *)(tempmem->h_split_binidx->data());
-    raft::update_host(h_nodestart, nodestart + n_nodes, 1, tempmem->stream);
+  raft::update_host(h_nodestart, nodestart + n_nodes, 1, tempmem->stream);
   CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   CUDA_CHECK(cudaMemsetAsync(nodecount, 0, n_nodes * sizeof(unsigned int),
                              tempmem->stream));
@@ -223,13 +222,13 @@ void print_convertor(unsigned int *d_nodecount, unsigned int *d_nodestart,
   unsigned int *nodecount = (unsigned int *)(tempmem->h_split_colidx->data());
   unsigned int *nodestart = (unsigned int *)(tempmem->h_split_binidx->data());
   unsigned int *samplelist = (unsigned int *)(tempmem->h_parent_metric->data());
-    raft::update_host(nodecount, d_nodecount, n_nodes + 1, tempmem->stream);
-    raft::update_host(nodestart, d_nodestart, n_nodes + 1, tempmem->stream);
+  raft::update_host(nodecount, d_nodecount, n_nodes + 1, tempmem->stream);
+  raft::update_host(nodestart, d_nodestart, n_nodes + 1, tempmem->stream);
   CUDA_CHECK(cudaDeviceSynchronize());
   ML::PatternSetter _("%v");
   CUML_LOG_DEBUG("Full sample list size %u", nodestart[n_nodes]);
-    raft::update_host(samplelist, d_samplelist, nodestart[n_nodes],
-                      tempmem->stream);
+  raft::update_host(samplelist, d_samplelist, nodestart[n_nodes],
+                    tempmem->stream);
   CUDA_CHECK(cudaDeviceSynchronize());
 
   {
@@ -270,7 +269,7 @@ void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
     "Node format --> (colid, quesval, best_metric, prediction, left_child) ");
   int *h_nodelist = (int *)(tempmem->h_outgain->data());
   if (nodelist != nullptr) {
-      raft::update_host(h_nodelist, nodelist, n_nodes, tempmem->stream);
+    raft::update_host(h_nodelist, nodelist, n_nodes, tempmem->stream);
     CUDA_CHECK(cudaDeviceSynchronize());
   }
   for (int i = 0; i < n_nodes; i++) {
@@ -309,7 +308,7 @@ void make_split_gather(const T *data, unsigned int *nodestart,
   CUDA_CHECK(cudaGetLastError());
   void *d_temp_storage = (void *)(tempmem->temp_cub_buffer->data());
   int *h_counter = tempmem->h_counter->data();
-    raft::update_host(h_counter, counter, 1, tempmem->stream);
+  raft::update_host(h_counter, counter, 1, tempmem->stream);
   CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   cub::DeviceScan::ExclusiveSum(d_temp_storage, tempmem->temp_cub_bytes,
                                 nodecount, nodestart, h_counter[0] + 1,

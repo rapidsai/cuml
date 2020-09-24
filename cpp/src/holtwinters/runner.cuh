@@ -232,14 +232,14 @@ void HoltWintersFitHelper(const raft::handle_t &handle, int n, int batch_size,
   MLCommon::device_buffer<Dtype> dataset_d(dev_allocator, stream,
                                            batch_size * n);
   MLCommon::device_buffer<Dtype> alpha_d(dev_allocator, stream, batch_size);
-        raft::update_device(alpha_d.data(), alpha_h.data(), batch_size, stream);
+  raft::update_device(alpha_d.data(), alpha_h.data(), batch_size, stream);
   MLCommon::device_buffer<Dtype> level_seed_d(dev_allocator, stream,
                                               leveltrend_seed_len);
 
   if (optim_beta) {
     beta_d =
       (Dtype *)dev_allocator->allocate(sizeof(Dtype) * batch_size, stream);
-      raft::update_device(beta_d, beta_h.data(), batch_size, stream);
+    raft::update_device(beta_d, beta_h.data(), batch_size, stream);
     trend_seed_d = (Dtype *)dev_allocator->allocate(
       sizeof(Dtype) * leveltrend_seed_len, stream);
   }
@@ -247,7 +247,7 @@ void HoltWintersFitHelper(const raft::handle_t &handle, int n, int batch_size,
   if (optim_gamma) {
     gamma_d =
       (Dtype *)dev_allocator->allocate(sizeof(Dtype) * batch_size, stream);
-      raft::update_device(gamma_d, gamma_h.data(), batch_size, stream);
+    raft::update_device(gamma_d, gamma_h.data(), batch_size, stream);
     start_season_d =
       (Dtype *)dev_allocator->allocate(sizeof(Dtype) * season_seed_len, stream);
   }

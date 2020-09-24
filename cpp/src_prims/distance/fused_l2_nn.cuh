@@ -331,7 +331,8 @@ void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
                    ReduceOpT redOp, bool sqrt, bool initOutBuffer,
                    cudaStream_t stream) {
   typedef typename LinAlg::Policy4x4<DataT, VecLen>::Policy Policy;
-  dim3 grid(raft::ceildiv<int>(m, Policy::Mblk), raft::ceildiv<int>(n, Policy::Nblk));
+  dim3 grid(raft::ceildiv<int>(m, Policy::Mblk),
+            raft::ceildiv<int>(n, Policy::Nblk));
   dim3 blk(Policy::Nthreads);
   auto nblks = raft::ceildiv<int>(m, Policy::Nthreads);
   auto maxVal = std::numeric_limits<DataT>::max();

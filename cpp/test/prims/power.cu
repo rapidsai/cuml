@@ -118,20 +118,20 @@ const std::vector<PowerInputs<double>> inputsd2 = {
 
 typedef PowerTest<float> PowerTestF;
 TEST_P(PowerTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
+                                raft::CompareApprox<float>(params.tolerance)));
 
-  ASSERT_TRUE(devArrMatch(out_ref, in1, params.len,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, in1, params.len,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef PowerTest<double> PowerTestD;
 TEST_P(PowerTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
+                                raft::CompareApprox<double>(params.tolerance)));
 
-  ASSERT_TRUE(devArrMatch(out_ref, in1, params.len,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, in1, params.len,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(PowerTests, PowerTestF, ::testing::ValuesIn(inputsf2));

@@ -136,7 +136,7 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
 typedef KNNRegressionTest KNNRegressionTestF;
 TEST_P(KNNRegressionTestF, Fit) {
   ASSERT_TRUE(devArrMatch(train_labels, pred_labels, params.rows,
-                          CompareApprox<float>(0.3)));
+                          raft::CompareApprox<float>(0.3)));
 }
 
 const std::vector<KNNRegressionInputs> inputsf = {

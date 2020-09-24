@@ -60,8 +60,8 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
     max_mbytes_per_batch = DEFAULT_MAX_MEM_MBYTES;
   }
 
-  Index_ nBatches =
-    (Index_)raft::ceildiv<size_t>(estimated_memory, max_mbytes_per_batch * 1000000);
+  Index_ nBatches = (Index_)raft::ceildiv<size_t>(
+    estimated_memory, max_mbytes_per_batch * 1000000);
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   // to avoid overflow, we need: batch_size <= MAX_LABEL / n_rows (floor div)
   // -> num_batches >= raft::ceildiv(n_rows / (MAX_LABEL / n_rows))

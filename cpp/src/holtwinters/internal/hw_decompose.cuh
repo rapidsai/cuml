@@ -148,7 +148,7 @@ void batched_ls(const raft::handle_t &handle, const Dtype *data, int trend_len,
     A_h[i] = (Dtype)1.;
     A_h[trend_len + i] = (Dtype)(i + 1);
   }
-    raft::update_device(A_d.data(), A_h.data(), 2 * trend_len, stream);
+  raft::update_device(A_d.data(), A_h.data(), 2 * trend_len, stream);
 
   CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf_bufferSize<Dtype>(
     cusolver_h, trend_len, 2, A_d.data(), 2, &geqrf_buffer));
@@ -202,7 +202,7 @@ void stl_decomposition_gpu(const raft::handle_t &handle, const Dtype *ts, int n,
   }
 
   MLCommon::device_buffer<Dtype> filter_d(dev_allocator, stream, filter_size);
-    raft::update_device(filter_d.data(), filter_h.data(), filter_size, stream);
+  raft::update_device(filter_d.data(), filter_h.data(), filter_size, stream);
 
   // Set Trend
   MLCommon::device_buffer<Dtype> trend_d(dev_allocator, stream,

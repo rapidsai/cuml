@@ -80,8 +80,8 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
     raft::allocate(firstClusterArray, size, true);
     raft::allocate(secondClusterArray, size, true);
 
-      raft::update_device(firstClusterArray, &arr1[0], (int) size, stream);
-      raft::update_device(secondClusterArray, &arr2[0], (int) size, stream);
+    raft::update_device(firstClusterArray, &arr1[0], (int)size, stream);
+    raft::update_device(secondClusterArray, &arr2[0], (int)size, stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
       new raft::mr::device::default_allocator);
 

@@ -183,8 +183,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
       stream, centroids.data(), newCentroids.data());
 
     DataT sqrdNormError = 0;
-    raft::copy(&sqrdNormError, sqrdNorm.data(), sqrdNorm.numElements(),
-               stream);
+    raft::copy(&sqrdNormError, sqrdNorm.data(), sqrdNorm.numElements(), stream);
 
     raft::copy(centroidsRawData.data(), newCentroids.data(),
                newCentroids.numElements(), stream);
@@ -586,7 +585,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &km_params,
 
       centroidsRawData.resize(params.n_clusters * n_features, stream);
       raft::copy(centroidsRawData.begin(), centroids,
-                     params.n_clusters * n_features, stream);
+                 params.n_clusters * n_features, stream);
 
     } else {
       THROW("unknown initialization method to select initial centers");
@@ -599,7 +598,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &km_params,
       inertia = _inertia;
       n_iter = _n_iter;
       raft::copy(centroids, centroidsRawData.data(),
-                     params.n_clusters * n_features, stream);
+                 params.n_clusters * n_features, stream);
     }
 
     LOG(handle, "KMeans.fit after iteration-%d/%d: inertia - %f, n_iter - %d",

@@ -66,8 +66,8 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     raft::allocate(cov_cm_ref, 4);
     raft::allocate(mean_cm, 2);
 
-      raft::update_device(data_cm, data_h, 6, stream);
-      raft::update_device(cov_cm_ref, cov_cm_ref_h, 4, stream);
+    raft::update_device(data_cm, data_h, 6, stream);
+    raft::update_device(cov_cm_ref, cov_cm_ref_h, 4, stream);
 
     raft::stats::mean(mean_cm, data_cm, 2, 3, true, false, stream);
     cov(cov_cm, data_cm, mean_cm, 2, 3, true, false, true, handle, stream);
@@ -133,28 +133,28 @@ const std::vector<CovInputs<double>> inputsd = {
 
 typedef CovTest<float> CovTestF;
 TEST_P(CovTestF, Result) {
-  ASSERT_TRUE(diagonalMatch(params.var * params.var, cov_act, params.cols,
-                            params.cols,
-                            CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::diagonalMatch(
+    params.var * params.var, cov_act, params.cols, params.cols,
+    raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef CovTest<double> CovTestD;
 TEST_P(CovTestD, Result) {
-  ASSERT_TRUE(diagonalMatch(params.var * params.var, cov_act, params.cols,
-                            params.cols,
-                            CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::diagonalMatch(
+    params.var * params.var, cov_act, params.cols, params.cols,
+    raft::CompareApprox<double>(params.tolerance)));
 }
 
 typedef CovTest<float> CovTestSmallF;
 TEST_P(CovTestSmallF, Result) {
-  ASSERT_TRUE(devArrMatch(cov_cm_ref, cov_cm, 2, 2,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(cov_cm_ref, cov_cm, 2, 2,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef CovTest<double> CovTestSmallD;
 TEST_P(CovTestSmallD, Result) {
-  ASSERT_TRUE(devArrMatch(cov_cm_ref, cov_cm, 2, 2,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(cov_cm_ref, cov_cm, 2, 2,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(CovTests, CovTestF, ::testing::ValuesIn(inputsf));

@@ -186,7 +186,7 @@ const std::vector<WeightedMeanInputs<double>> inputsd = {
 using RowWeightedMeanTestF = RowWeightedMeanTest<float>;
 TEST_P(RowWeightedMeanTestF, Result) {
   ASSERT_TRUE(devArrMatch(dexp.data().get(), dact.data().get(), params.M,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(RowWeightedMeanTest, RowWeightedMeanTestF,
                         ::testing::ValuesIn(inputsf));
@@ -194,7 +194,7 @@ INSTANTIATE_TEST_CASE_P(RowWeightedMeanTest, RowWeightedMeanTestF,
 using RowWeightedMeanTestD = RowWeightedMeanTest<double>;
 TEST_P(RowWeightedMeanTestD, Result) {
   ASSERT_TRUE(devArrMatch(dexp.data().get(), dact.data().get(), params.M,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(RowWeightedMeanTest, RowWeightedMeanTestD,
                         ::testing::ValuesIn(inputsd));
@@ -202,7 +202,7 @@ INSTANTIATE_TEST_CASE_P(RowWeightedMeanTest, RowWeightedMeanTestD,
 using ColWeightedMeanTestF = ColWeightedMeanTest<float>;
 TEST_P(ColWeightedMeanTestF, Result) {
   ASSERT_TRUE(devArrMatch(dexp.data().get(), dact.data().get(), params.N,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ColWeightedMeanTest, ColWeightedMeanTestF,
                         ::testing::ValuesIn(inputsf));
@@ -210,7 +210,7 @@ INSTANTIATE_TEST_CASE_P(ColWeightedMeanTest, ColWeightedMeanTestF,
 using ColWeightedMeanTestD = ColWeightedMeanTest<double>;
 TEST_P(ColWeightedMeanTestD, Result) {
   ASSERT_TRUE(devArrMatch(dexp.data().get(), dact.data().get(), params.N,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ColWeightedMeanTest, ColWeightedMeanTestD,
                         ::testing::ValuesIn(inputsd));

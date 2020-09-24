@@ -159,7 +159,7 @@ float perplexity_search(const float *restrict distances, float *restrict P,
 
   cudaStreamSynchronize(stream);
   float sum;
-            raft::update_host(&sum, P_sum, 1, stream);
+  raft::update_host(&sum, P_sum, 1, stream);
   d_alloc->deallocate(P_sum, sizeof(float), stream);
 
   return sum;
@@ -336,8 +336,7 @@ float repulsive_forces(const float *restrict Y, float *restrict repel,
   CUDA_CHECK(cudaMemsetAsync(repel, 0, sizeof(float) * n * dim, stream));
 
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
-  const dim3 numBlocks(raft::ceildiv(n, TPB_X),
-                       raft::ceildiv(n, TPB_Y));
+  const dim3 numBlocks(raft::ceildiv(n, TPB_X), raft::ceildiv(n, TPB_Y));
 
   // For general embedding dimensions
   if (dim != 2) {

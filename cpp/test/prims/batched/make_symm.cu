@@ -19,6 +19,7 @@
 #include <linalg/batched/make_symm.cuh>
 #include <random/rng.cuh>
 #include "../test_utils.h"
+#include <test_utils.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -100,8 +101,8 @@ const std::vector<BatchMakeSymmInputs<float>> inputsf = {
 typedef BatchMakeSymmTest<float> BatchMakeSymmTestF;
 TEST_P(BatchMakeSymmTestF, Result) {
   int len = params.batchSize * params.n * params.n;
-  ASSERT_TRUE(
-    devArrMatch(out_ref, out, len, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(out_ref, out, len,
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchMakeSymmTests, BatchMakeSymmTestF,
                         ::testing::ValuesIn(inputsf));
@@ -114,8 +115,8 @@ const std::vector<BatchMakeSymmInputs<double>> inputsd = {
 };
 TEST_P(BatchMakeSymmTestD, Result) {
   int len = params.batchSize * params.n * params.n;
-  ASSERT_TRUE(
-    devArrMatch(out_ref, out, len, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(out_ref, out, len,
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchMakeSymmTests, BatchMakeSymmTestD,
                         ::testing::ValuesIn(inputsd));

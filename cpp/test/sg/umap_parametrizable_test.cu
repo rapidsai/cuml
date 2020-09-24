@@ -18,6 +18,7 @@
 #include <iostream>
 #include <vector>
 
+#include <common/cudart_utils.h>
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
 #include <common/device_buffer.hpp>
@@ -30,7 +31,6 @@
 #include <linalg/reduce_rows_by_key.cuh>
 #include <metrics/trustworthiness.cuh>
 #include <umap/runner.cuh>
-#include <common/cudart_utils.h>
 
 using namespace ML;
 using namespace ML::Metrics;
@@ -58,9 +58,9 @@ bool has_nan(T* data, size_t len, std::shared_ptr<deviceAllocator> alloc,
   dim3 grid(raft::ceildiv(len, (size_t)blk.x));
   bool h_answer = false;
   device_buffer<bool> d_answer(alloc, stream, 1);
-    raft::update_device(d_answer.data(), &h_answer, 1, stream);
+  raft::update_device(d_answer.data(), &h_answer, 1, stream);
   has_nan_kernel<<<grid, blk, 0, stream>>>(data, len, d_answer.data());
-    raft::update_host(&h_answer, d_answer.data(), 1, stream);
+  raft::update_host(&h_answer, d_answer.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   return h_answer;
 }
@@ -82,10 +82,10 @@ bool are_equal(T* embedding1, T* embedding2, size_t len,
   dim3 grid(raft::ceildiv(len, (size_t)blk.x));
   double h_answer = 0.;
   device_buffer<double> d_answer(alloc, stream, 1);
-    raft::update_device(d_answer.data(), &h_answer, 1, stream);
+  raft::update_device(d_answer.data(), &h_answer, 1, stream);
   are_equal_kernel<<<grid, blk, 0, stream>>>(embedding1, embedding2, len,
                                              d_answer.data());
-    raft::update_host(&h_answer, d_answer.data(), 1, stream);
+  raft::update_host(&h_answer, d_answer.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   double tolerance = 1.0;

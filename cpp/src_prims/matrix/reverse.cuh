@@ -85,7 +85,8 @@ template <typename math_t, int veclen_, typename Lambda, int TPB>
 void reverseImpl(math_t *out, const math_t *in, int nrows, int ncols,
                  bool rowMajor, bool alongRows, Lambda op,
                  cudaStream_t stream) {
-  int len = alongRows ? raft::ceildiv(nrows, 2) * ncols : nrows * raft::ceildiv(ncols, 2);
+  int len = alongRows ? raft::ceildiv(nrows, 2) * ncols
+                      : nrows * raft::ceildiv(ncols, 2);
   const int nblks = raft::ceildiv(veclen_ ? len / veclen_ : len, TPB);
   reverseKernel<math_t, veclen_, Lambda><<<nblks, TPB, 0, stream>>>(
     out, in, nrows, ncols, rowMajor, alongRows, len, op);
@@ -109,7 +110,8 @@ void reverseImpl(math_t *out, const math_t *in, int nrows, int ncols,
  */
 template <typename math_t, typename Lambda = raft::Nop<math_t>, int TPB = 256>
 void reverse(math_t *out, const math_t *in, int nrows, int ncols, bool rowMajor,
-             bool alongRows, cudaStream_t stream, Lambda op = raft::Nop<math_t>()) {
+             bool alongRows, cudaStream_t stream,
+             Lambda op = raft::Nop<math_t>()) {
   size_t bytes = (rowMajor ? ncols : nrows) * sizeof(math_t);
   if (16 / sizeof(math_t) && bytes % 16 == 0) {
     reverseImpl<math_t, 16 / sizeof(math_t), Lambda, TPB>(

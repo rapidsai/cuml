@@ -77,7 +77,7 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
     //allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::allocate(clusterArray, nElements, true);
-      raft::update_device(clusterArray, &arr1[0], (int) nElements, stream);
+    raft::update_device(clusterArray, &arr1[0], (int)nElements, stream);
 
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
       new raft::mr::device::default_allocator);

@@ -56,12 +56,13 @@ TEST_P(CSRToCOO, Result) {
   raft::allocate(ex_scan, 4);
   raft::allocate(result, 10, true);
 
-        raft::update_device(ex_scan, ex_scan_h, 4, stream);
-        raft::update_device(verify, verify_h, 10, stream);
+  raft::update_device(ex_scan, ex_scan_h, 4, stream);
+  raft::update_device(verify, verify_h, 10, stream);
 
   csr_to_coo<32>(ex_scan, 4, result, 10, stream);
 
-  ASSERT_TRUE(devArrMatch<int>(verify, result, 10, Compare<float>(), stream));
+  ASSERT_TRUE(
+    raft::devArrMatch<int>(verify, result, 10, raft::Compare<float>(), stream));
 
   delete[] ex_scan_h;
   delete[] verify_h;
@@ -91,13 +92,14 @@ TEST_P(CSRRowNormalizeMax, Result) {
   raft::allocate(ex_scan, 4);
   raft::allocate(result, 10, true);
 
-        raft::update_device(ex_scan, *&ex_scan_h, 4, stream);
-        raft::update_device(in_vals, *&in_vals_h, 10, stream);
-        raft::update_device(verify, *&verify_h, 10, stream);
+  raft::update_device(ex_scan, *&ex_scan_h, 4, stream);
+  raft::update_device(in_vals, *&in_vals_h, 10, stream);
+  raft::update_device(verify, *&verify_h, 10, stream);
 
   csr_row_normalize_max<32, float>(ex_scan, in_vals, 10, 4, result, stream);
 
-  ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
+  ASSERT_TRUE(
+    raft::devArrMatch<float>(verify, result, 10, raft::Compare<float>()));
 
   cudaStreamDestroy(stream);
 
@@ -122,14 +124,15 @@ TEST_P(CSRRowNormalizeL1, Result) {
   raft::allocate(ex_scan, 4);
   raft::allocate(result, 10, true);
 
-        raft::update_device(ex_scan, *&ex_scan_h, 4, 0);
-        raft::update_device(in_vals, *&in_vals_h, 10, 0);
-        raft::update_device(verify, *&verify_h, 10, 0);
+  raft::update_device(ex_scan, *&ex_scan_h, 4, 0);
+  raft::update_device(in_vals, *&in_vals_h, 10, 0);
+  raft::update_device(verify, *&verify_h, 10, 0);
 
   csr_row_normalize_l1<32, float>(ex_scan, in_vals, 10, 4, result, 0);
   cudaDeviceSynchronize();
 
-  ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
+  ASSERT_TRUE(
+    raft::devArrMatch<float>(verify, result, 10, raft::Compare<float>()));
 
   CUDA_CHECK(cudaFree(ex_scan));
   CUDA_CHECK(cudaFree(in_vals));
@@ -168,13 +171,13 @@ TEST_P(CSRSum, Result) {
   raft::allocate(ind_ptr_a, 10);
   raft::allocate(ind_ptr_b, 10);
 
-        raft::update_device(ex_scan, *&ex_scan_h, 4, stream);
-        raft::update_device(in_vals_a, *&in_vals_h, 10, stream);
-        raft::update_device(in_vals_b, *&in_vals_h, 10, stream);
-        raft::update_device(verify, *&verify_h, 14, stream);
-        raft::update_device(verify_indptr, *&verify_indptr_h, 14, stream);
-        raft::update_device(ind_ptr_a, *&indptr_a_h, 10, stream);
-        raft::update_device(ind_ptr_b, *&indptr_b_h, 10, stream);
+  raft::update_device(ex_scan, *&ex_scan_h, 4, stream);
+  raft::update_device(in_vals_a, *&in_vals_h, 10, stream);
+  raft::update_device(in_vals_b, *&in_vals_h, 10, stream);
+  raft::update_device(verify, *&verify_h, 14, stream);
+  raft::update_device(verify_indptr, *&verify_indptr_h, 14, stream);
+  raft::update_device(ind_ptr_a, *&indptr_a_h, 10, stream);
+  raft::update_device(ind_ptr_b, *&indptr_b_h, 10, stream);
 
   int *result_ind;
   raft::allocate(result_ind, 4);
@@ -194,9 +197,10 @@ TEST_P(CSRSum, Result) {
 
   ASSERT_TRUE(nnz == 14);
 
-  ASSERT_TRUE(devArrMatch<float>(verify, result_val, nnz, Compare<float>()));
   ASSERT_TRUE(
-    devArrMatch<int>(verify_indptr, result_indptr, nnz, Compare<int>()));
+    raft::devArrMatch<float>(verify, result_val, nnz, raft::Compare<float>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(verify_indptr, result_indptr, nnz,
+                                     raft::Compare<int>()));
 
   cudaStreamDestroy(stream);
 
@@ -226,8 +230,8 @@ TEST_P(CSRRowOpTest, Result) {
   raft::allocate(ex_scan, 4);
   raft::allocate(result, 10, true);
 
-        raft::update_device(ex_scan, *&ex_scan_h, 4, stream);
-        raft::update_device(verify, *&verify_h, 10, stream);
+  raft::update_device(ex_scan, *&ex_scan_h, 4, stream);
+  raft::update_device(verify, *&verify_h, 10, stream);
 
   csr_row_op<int, 32>(
     ex_scan, 4, 10,
@@ -236,7 +240,8 @@ TEST_P(CSRRowOpTest, Result) {
     },
     stream);
 
-  ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
+  ASSERT_TRUE(
+    raft::devArrMatch<float>(verify, result, 10, raft::Compare<float>()));
 
   cudaStreamDestroy(stream);
 
@@ -263,13 +268,13 @@ TEST_P(AdjGraphTest, Result) {
   raft::allocate(result, 9, true);
   raft::allocate(verify, 9);
 
-        raft::update_device(row_ind, *&row_ind_h, 3, stream);
-        raft::update_device(adj, *&adj_h, 18, stream);
-        raft::update_device(verify, *&verify_h, 9, stream);
+  raft::update_device(row_ind, *&row_ind_h, 3, stream);
+  raft::update_device(adj, *&adj_h, 18, stream);
+  raft::update_device(verify, *&verify_h, 9, stream);
 
   csr_adj_graph_batched<int, 32>(row_ind, 6, 9, 3, adj, result, stream);
 
-  ASSERT_TRUE(devArrMatch<int>(verify, result, 9, Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(verify, result, 9, raft::Compare<int>()));
 
   cudaStreamDestroy(stream);
 
@@ -309,27 +314,27 @@ TEST_P(WeakCCTest, Result) {
   /**
      * Run batch #1
      */
-        raft::update_device(row_ind, *&row_ind_h1, 3, stream);
-        raft::update_device(row_ind_ptr, *&row_ind_ptr_h1, 9, stream);
-        raft::update_device(verify, *&verify_h1, 6, stream);
+  raft::update_device(row_ind, *&row_ind_h1, 3, stream);
+  raft::update_device(row_ind_ptr, *&row_ind_ptr_h1, 9, stream);
+  raft::update_device(verify, *&verify_h1, 6, stream);
 
   weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 9, 6, 0, 3, &state,
                            stream);
 
   cudaStreamSynchronize(stream);
-  ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(verify, result, 6, raft::Compare<int>()));
 
   /**
      * Run batch #2
      */
-        raft::update_device(row_ind, *&row_ind_h2, 3, stream);
-        raft::update_device(row_ind_ptr, *&row_ind_ptr_h2, 5, stream);
-        raft::update_device(verify, *&verify_h2, 6, stream);
+  raft::update_device(row_ind, *&row_ind_h2, 3, stream);
+  raft::update_device(row_ind_ptr, *&row_ind_ptr_h2, 5, stream);
+  raft::update_device(verify, *&verify_h2, 6, stream);
 
   weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 5, 6, 4, 3, &state,
                            stream);
 
-  ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(verify, result, 6, raft::Compare<int>()));
 
   cudaStreamSynchronize(stream);
 

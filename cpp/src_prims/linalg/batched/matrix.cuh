@@ -149,10 +149,10 @@ class Matrix {
 
     // Fill array of pointers to each batch matrix.
     constexpr int TPB = 256;
-    fill_strided_pointers_kernel<<<raft::ceildiv<int>(m_batch_size, TPB), TPB, 0,
-                                   m_stream>>>(m_dense.data(), m_batches.data(),
-                                               m_batch_size, m_shape.first,
-                                               m_shape.second);
+    fill_strided_pointers_kernel<<<raft::ceildiv<int>(m_batch_size, TPB), TPB,
+                                   0, m_stream>>>(
+      m_dense.data(), m_batches.data(), m_batch_size, m_shape.first,
+      m_shape.second);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
@@ -198,7 +198,7 @@ class Matrix {
 
     // Copy the raw data
     raft::copy(m_dense.data(), other.m_dense.data(),
-         m_batch_size * m_shape.first * m_shape.second, m_stream);
+               m_batch_size * m_shape.first * m_shape.second, m_stream);
   }
 
   //! Copy assignment operator
@@ -212,7 +212,7 @@ class Matrix {
 
     // Copy the raw data
     raft::copy(m_dense.data(), other.m_dense.data(),
-         m_batch_size * m_shape.first * m_shape.second, m_stream);
+               m_batch_size * m_shape.first * m_shape.second, m_stream);
 
     return *this;
   }
@@ -297,7 +297,7 @@ class Matrix {
   void print(std::string name) const {
     size_t len = m_shape.first * m_shape.second * m_batch_size;
     std::vector<T> A(len);
-      raft::update_host(A.data(), m_dense.data(), len, m_stream);
+    raft::update_host(A.data(), m_dense.data(), len, m_stream);
     std::cout << name << "=\n";
     for (int i = 0; i < m_shape.first; i++) {
       for (int j = 0; j < m_shape.second; j++) {

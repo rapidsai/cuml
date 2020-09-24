@@ -98,14 +98,14 @@ const std::vector<coalescedReductionInputs<double>> inputsd = {
 
 typedef coalescedReductionTest<float> coalescedReductionTestF;
 TEST_P(coalescedReductionTestF, Result) {
-  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.rows,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef coalescedReductionTest<double> coalescedReductionTestD;
 TEST_P(coalescedReductionTestD, Result) {
-  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.rows,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(coalescedReductionTests, coalescedReductionTestF,

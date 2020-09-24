@@ -86,8 +86,8 @@ TEST_P(EpsNeighTestFI, Result) {
     epsUnexpL2SqNeighborhood<float, int>(
       adj, vd, data, data + (i * batchSize * param.n_col), param.n_row,
       batchSize, param.n_col, param.eps * param.eps, stream);
-    ASSERT_TRUE(devArrMatch(param.n_row / param.n_centers, vd, batchSize,
-                            Compare<int>(), stream));
+    ASSERT_TRUE(raft::devArrMatch(param.n_row / param.n_centers, vd, batchSize,
+                                  raft::Compare<int>(), stream));
   }
 }
 INSTANTIATE_TEST_CASE_P(EpsNeighTests, EpsNeighTestFI,

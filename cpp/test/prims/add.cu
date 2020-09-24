@@ -52,8 +52,8 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
   }
 
   void compare() {
-    ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                            CompareApprox<OutT>(params.tolerance)));
+    ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
+                                  raft::CompareApprox<OutT>(params.tolerance)));
   }
 
  protected:

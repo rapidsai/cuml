@@ -147,7 +147,7 @@ class SmoSolver {
 
       CUDA_CHECK(cudaPeekAtLastError());
 
-        raft::update_host(host_return_buff, return_buff.data(), 2, stream);
+      raft::update_host(host_return_buff, return_buff.data(), 2, stream);
 
       UpdateF(f.data(), n_rows, delta_alpha.data(), cache.GetUniqueSize(),
               cacheTile);

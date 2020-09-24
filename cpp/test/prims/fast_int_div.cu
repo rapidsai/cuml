@@ -81,12 +81,12 @@ TEST(FastIntDiv, GpuTest) {
     for (int i = 0; i < len; ++i) {
       h_in[i] = rand();
     }
-      raft::update_device(in, h_in, len, 0);
+    raft::update_device(in, h_in, len, 0);
     int nblks = raft::ceildiv(len, TPB);
     fastIntDivTestKernel<<<nblks, TPB, 0, 0>>>(computed, correct, in, fid,
                                                divisor, len);
     CUDA_CHECK(cudaStreamSynchronize(0));
-    ASSERT_TRUE(devArrMatch(correct, computed, len * 2, Compare<int>()))
+    ASSERT_TRUE(devArrMatch(correct, computed, len * 2, raft::Compare<int>()))
       << " divisor=" << divisor;
   }
 }

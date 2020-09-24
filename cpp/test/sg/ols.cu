@@ -62,39 +62,39 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
 
     std::vector<T> data_h = {1.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 3.0};
     data_h.resize(len);
-      raft::update_device(data, data_h.data(), len, stream);
+    raft::update_device(data, data_h.data(), len, stream);
 
     std::vector<T> labels_h = {6.0, 8.0, 9.0, 11.0};
     labels_h.resize(params.n_row);
-      raft::update_device(labels, labels_h.data(), params.n_row, stream);
+    raft::update_device(labels, labels_h.data(), params.n_row, stream);
 
     std::vector<T> coef_ref_h = {2.090908, 2.5454557};
     coef_ref_h.resize(params.n_col);
-      raft::update_device(coef_ref, coef_ref_h.data(), params.n_col, stream);
+    raft::update_device(coef_ref, coef_ref_h.data(), params.n_col, stream);
 
     std::vector<T> coef2_ref_h = {1.000001, 1.9999998};
     coef2_ref_h.resize(params.n_col);
-      raft::update_device(coef2_ref, coef2_ref_h.data(), params.n_col, stream);
+    raft::update_device(coef2_ref, coef2_ref_h.data(), params.n_col, stream);
 
     std::vector<T> coef3_ref_h = {0.99999, 2.00000};
     coef3_ref_h.resize(params.n_col);
-      raft::update_device(coef3_ref, coef3_ref_h.data(), params.n_col, stream);
+    raft::update_device(coef3_ref, coef3_ref_h.data(), params.n_col, stream);
 
     std::vector<T> pred_data_h = {3.0, 2.0, 5.0, 5.0};
     pred_data_h.resize(len2);
-      raft::update_device(pred_data, pred_data_h.data(), len2, stream);
+    raft::update_device(pred_data, pred_data_h.data(), len2, stream);
 
     std::vector<T> pred_ref_h = {19.0, 16.9090};
     pred_ref_h.resize(params.n_row_2);
-      raft::update_device(pred_ref, pred_ref_h.data(), params.n_row_2, stream);
+    raft::update_device(pred_ref, pred_ref_h.data(), params.n_row_2, stream);
 
     std::vector<T> pred2_ref_h = {16.0, 15.0};
     pred2_ref_h.resize(params.n_row_2);
-      raft::update_device(pred2_ref, pred2_ref_h.data(), params.n_row_2, stream);
+    raft::update_device(pred2_ref, pred2_ref_h.data(), params.n_row_2, stream);
 
     std::vector<T> pred3_ref_h = {16.0, 15.0};
     pred3_ref_h.resize(params.n_row_2);
-      raft::update_device(pred3_ref, pred3_ref_h.data(), params.n_row_2, stream);
+    raft::update_device(pred3_ref, pred3_ref_h.data(), params.n_row_2, stream);
 
     intercept = T(0);
 
@@ -104,8 +104,8 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
     olsPredict(handle, pred_data, params.n_row_2, params.n_col, coef, intercept,
                pred, stream);
 
-      raft::update_device(data, data_h.data(), len, stream);
-      raft::update_device(labels, labels_h.data(), params.n_row, stream);
+    raft::update_device(data, data_h.data(), len, stream);
+    raft::update_device(labels, labels_h.data(), params.n_row, stream);
 
     intercept2 = T(0);
     olsFit(handle, data, params.n_row, params.n_col, labels, coef2, &intercept2,
@@ -114,8 +114,8 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
     olsPredict(handle, pred_data, params.n_row_2, params.n_col, coef2,
                intercept2, pred2, stream);
 
-      raft::update_device(data, data_h.data(), len, stream);
-      raft::update_device(labels, labels_h.data(), params.n_row, stream);
+    raft::update_device(data, data_h.data(), len, stream);
+    raft::update_device(labels, labels_h.data(), params.n_row, stream);
 
     intercept3 = T(0);
     olsFit(handle, data, params.n_row, params.n_col, labels, coef3, &intercept3,
@@ -136,15 +136,15 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
 
     std::vector<T> data_h = {1.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 3.0};
     data_h.resize(len);
-      raft::update_device(data_sc, data_h.data(), len, stream);
+    raft::update_device(data_sc, data_h.data(), len, stream);
 
     std::vector<T> labels_h = {6.0, 8.0, 9.0, 11.0, -1.0, 2.0, -3.6, 3.3};
     labels_h.resize(len);
-      raft::update_device(labels_sc, labels_h.data(), len, stream);
+    raft::update_device(labels_sc, labels_h.data(), len, stream);
 
     std::vector<T> coef_sc_ref_h = {-0.29285714};
     coef_sc_ref_h.resize(1);
-      raft::update_device(coef_sc_ref, coef_sc_ref_h.data(), 1, stream);
+    raft::update_device(coef_sc_ref, coef_sc_ref_h.data(), 1, stream);
 
     T intercept_sc = T(0);
 
@@ -203,49 +203,49 @@ const std::vector<OlsInputs<double>> inputsd2 = {
 typedef OlsTest<float> OlsTestF;
 TEST_P(OlsTestF, Fit) {
   ASSERT_TRUE(devArrMatch(coef_ref, coef, params.n_col,
-                          CompareApproxAbs<float>(params.tol)));
+                          raft::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(coef2_ref, coef2, params.n_col,
-                          CompareApproxAbs<float>(params.tol)));
+                          raft::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(coef3_ref, coef3, params.n_col,
-                          CompareApproxAbs<float>(params.tol)));
+                          raft::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(pred_ref, pred, params.n_row_2,
-                          CompareApproxAbs<float>(params.tol)));
+                          raft::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(pred2_ref, pred2, params.n_row_2,
-                          CompareApproxAbs<float>(params.tol)));
+                          raft::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(pred3_ref, pred3, params.n_row_2,
-                          CompareApproxAbs<float>(params.tol)));
+                          raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(
-    devArrMatch(coef_sc_ref, coef_sc, 1, CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(devArrMatch(coef_sc_ref, coef_sc, 1,
+                          raft::CompareApproxAbs<float>(params.tol)));
 }
 
 typedef OlsTest<double> OlsTestD;
 TEST_P(OlsTestD, Fit) {
-  ASSERT_TRUE(devArrMatch(coef_ref, coef, params.n_col,
-                          CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(coef_ref, coef, params.n_col,
+                                raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(devArrMatch(coef2_ref, coef2, params.n_col,
-                          CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(coef2_ref, coef2, params.n_col,
+                                raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(devArrMatch(coef3_ref, coef3, params.n_col,
-                          CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(coef3_ref, coef3, params.n_col,
+                                raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(devArrMatch(pred_ref, pred, params.n_row_2,
-                          CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(pred_ref, pred, params.n_row_2,
+                                raft::CompareApproxAbs<double>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(pred2_ref, pred2, params.n_row_2,
-                          CompareApproxAbs<double>(params.tol)));
+                          raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(devArrMatch(pred3_ref, pred3, params.n_row_2,
-                          CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(pred3_ref, pred3, params.n_row_2,
+                                raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(
-    devArrMatch(coef_sc_ref, coef_sc, 1, CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(devArrMatch(coef_sc_ref, coef_sc, 1,
+                          raft::CompareApproxAbs<double>(params.tol)));
 }
 
 INSTANTIATE_TEST_CASE_P(OlsTests, OlsTestF, ::testing::ValuesIn(inputsf2));

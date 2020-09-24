@@ -198,7 +198,8 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
                        cudaStream_t stream, DataT pval_threshold) {
   constexpr int TPB = 256;
   dim3 block = choose_block_dims<TPB>(batch_size);
-  dim3 grid(raft::ceildiv<IdxT>(n_obs, block.x), raft::ceildiv<IdxT>(batch_size, block.y));
+  dim3 grid(raft::ceildiv<IdxT>(n_obs, block.x),
+            raft::ceildiv<IdxT>(batch_size, block.y));
 
   DataT n_obs_f = static_cast<DataT>(n_obs);
 

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include "common.cuh"
 #include "sg_impl.cuh"
-#include <common/cudart_utils.h>
 
 namespace ML {
 namespace kmeans {
@@ -535,8 +535,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
       stream, centroids.data(), newCentroids.data());
 
     DataT sqrdNormError = 0;
-    raft::copy(&sqrdNormError, sqrdNorm.data(), sqrdNorm.numElements(),
-               stream);
+    raft::copy(&sqrdNormError, sqrdNorm.data(), sqrdNorm.numElements(), stream);
 
     raft::copy(centroidsRawData.data(), newCentroids.data(),
                newCentroids.numElements(), stream);
@@ -641,7 +640,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 
     centroidsRawData.resize(params.n_clusters * n_features, stream);
     raft::copy(centroidsRawData.begin(), centroids,
-                   params.n_clusters * n_features, stream);
+               params.n_clusters * n_features, stream);
 
   } else {
     THROW("unknown initialization method to select initial centers");
@@ -649,8 +648,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 
   fit(handle, params, data, centroidsRawData, inertia, n_iter, workspace);
 
-  raft::copy(centroids, centroidsRawData.data(),
-                 params.n_clusters * n_features, stream);
+  raft::copy(centroids, centroidsRawData.data(), params.n_clusters * n_features,
+             stream);
 
   LOG(handle,
       "KMeans.fit: async call returned (fit could still be running on the "

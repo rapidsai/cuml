@@ -79,9 +79,9 @@ const std::vector<raft::linalg::BinaryOpInputs<float>> inputsf = {
 typedef ternaryOpTest<float> ternaryOpTestF;
 TEST_P(ternaryOpTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_add_ref, out_add, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
   ASSERT_TRUE(devArrMatch(out_mul_ref, out_mul, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ternaryOpTests, ternaryOpTestF,
                         ::testing::ValuesIn(inputsf));
@@ -93,9 +93,9 @@ const std::vector<raft::linalg::BinaryOpInputs<double>> inputsd = {
 typedef ternaryOpTest<double> ternaryOpTestD;
 TEST_P(ternaryOpTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_add_ref, out_add, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
   ASSERT_TRUE(devArrMatch(out_mul_ref, out_mul, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ternaryOpTests, ternaryOpTestD,
                         ::testing::ValuesIn(inputsd));

@@ -19,6 +19,7 @@
 #include <linalg/batched/gemv.cuh>
 #include <random/rng.cuh>
 #include "../test_utils.h"
+#include <test_utils.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -106,8 +107,8 @@ const std::vector<BatchGemvInputs<float>> inputsf = {
 typedef BatchGemvTest<float> BatchGemvTestF;
 TEST_P(BatchGemvTestF, Result) {
   int vecleny = params.batchSize * params.m;
-  ASSERT_TRUE(
-    devArrMatch(out_ref, out, vecleny, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(out_ref, out, vecleny,
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchGemvTests, BatchGemvTestF,
                         ::testing::ValuesIn(inputsf));
@@ -123,7 +124,7 @@ const std::vector<BatchGemvInputs<double>> inputsd = {
 TEST_P(BatchGemvTestD, Result) {
   int vecleny = params.batchSize * params.m;
   ASSERT_TRUE(devArrMatch(out_ref, out, vecleny,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchGemvTests, BatchGemvTestD,
                         ::testing::ValuesIn(inputsd));

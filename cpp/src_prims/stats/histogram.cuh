@@ -76,7 +76,8 @@ dim3 computeGridDim(IdxT nrows, IdxT ncols, const void* kernel) {
   CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&occupancy, kernel,
                                                            ThreadsPerBlock, 0));
   const auto maxBlks = occupancy * raft::getMultiProcessorCount();
-  int nblksx = raft::ceildiv<int>(VecLen ? nrows / VecLen : nrows, ThreadsPerBlock);
+  int nblksx =
+    raft::ceildiv<int>(VecLen ? nrows / VecLen : nrows, ThreadsPerBlock);
   // for cases when there aren't a lot of blocks for computing one histogram
   nblksx = std::min(nblksx, maxBlks);
   return dim3(nblksx, ncols);
@@ -267,7 +268,8 @@ void smemBitsHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
     (const void*)
       smemBitsHistKernel<DataT, BinnerOp, IdxT, Bits::BIN_BITS, VecLen>);
   size_t smemSize =
-    raft::ceildiv<size_t>(nbins, Bits::WORD_BITS / Bits::BIN_BITS) * sizeof(int);
+    raft::ceildiv<size_t>(nbins, Bits::WORD_BITS / Bits::BIN_BITS) *
+    sizeof(int);
   smemBitsHistKernel<DataT, BinnerOp, IdxT, Bits::BIN_BITS, VecLen>
     <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins,
                                                   binner);

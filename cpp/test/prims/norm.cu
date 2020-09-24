@@ -214,14 +214,14 @@ const std::vector<NormInputs<double>> inputsd = {
 
 typedef RowNormTest<float> RowNormTestF;
 TEST_P(RowNormTestF, Result) {
-  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.rows,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef RowNormTest<double> RowNormTestD;
 TEST_P(RowNormTestD, Result) {
-  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.rows,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(RowNormTests, RowNormTestF,
@@ -270,14 +270,14 @@ const std::vector<NormInputs<double>> inputscd = {
 
 typedef ColNormTest<float> ColNormTestF;
 TEST_P(ColNormTestF, Result) {
-  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.cols,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.cols,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef ColNormTest<double> ColNormTestD;
 TEST_P(ColNormTestD, Result) {
-  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.cols,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.cols,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(ColNormTests, ColNormTestF,

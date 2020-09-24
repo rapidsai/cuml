@@ -87,7 +87,8 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
     r.uniform(X, xElems, T(-10.0), T(10.0), stream);
     r.uniform(Y, yElems, T(-10.0), T(10.0), stream);
 
-    dim3 blocks(raft::ceildiv<int>(params.M, 128), raft::ceildiv<int>(params.N, 4), 1);
+    dim3 blocks(raft::ceildiv<int>(params.M, 128),
+                raft::ceildiv<int>(params.N, 4), 1);
     dim3 threads(128, 4, 1);
 
     naiveGemm<<<blocks, threads>>>(refZ, X, Y, params.M, params.N, params.K,
@@ -136,14 +137,14 @@ const std::vector<GemmLayoutInputs<double>> inputsd = {
 
 typedef GemmLayoutTest<float> GemmLayoutTestF;
 TEST_P(GemmLayoutTestF, Result) {
-  ASSERT_TRUE(
-    devArrMatch(refZ, Z, params.M * params.N, CompareApprox<float>(1e-4)));
+  ASSERT_TRUE(raft::devArrMatch(refZ, Z, params.M * params.N,
+                                raft::CompareApprox<float>(1e-4)));
 }
 
 typedef GemmLayoutTest<double> GemmLayoutTestD;
 TEST_P(GemmLayoutTestD, Result) {
-  ASSERT_TRUE(
-    devArrMatch(refZ, Z, params.M * params.N, CompareApprox<float>(1e-6)));
+  ASSERT_TRUE(raft::devArrMatch(refZ, Z, params.M * params.N,
+                                raft::CompareApprox<float>(1e-6)));
 }
 
 INSTANTIATE_TEST_CASE_P(GemmLayoutTests, GemmLayoutTestF,

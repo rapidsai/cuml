@@ -182,8 +182,8 @@ class Cache {
    */
   void GetVecs(const int *idx, int n, math_t *out, cudaStream_t stream) {
     if (n > 0) {
-      get_vecs<<<raft::ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(cache.data(), n_vec,
-                                                            idx, n, out);
+      get_vecs<<<raft::ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(
+        cache.data(), n_vec, idx, n, out);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
@@ -279,7 +279,7 @@ class Cache {
                                   ws_tmp.data(), is_cached.data(), cache_idx,
                                   d_num_selected_out.data(), n, stream);
 
-      raft::update_host(n_cached, d_num_selected_out.data(), 1, stream);
+    raft::update_host(n_cached, d_num_selected_out.data(), 1, stream);
 
     // Similarily re-group the input indices
     raft::copy(ws_tmp.data(), keys, n, stream);

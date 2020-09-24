@@ -52,15 +52,15 @@ class KNNTest : public ::testing::Test {
     // make testdata on host
     std::vector<T> h_train_inputs = {1.0, 50.0, 51.0};
     h_train_inputs.resize(n);
-      raft::update_device(d_train_inputs, h_train_inputs.data(), n * d, 0);
+    raft::update_device(d_train_inputs, h_train_inputs.data(), n * d, 0);
 
     std::vector<T> h_res_D = {0.0, 49.0, 50.0, 0.0, 1.0, 49.0, 0.0, 1.0, 50.0};
     h_res_D.resize(n * n);
-      raft::update_device(d_ref_D, h_res_D.data(), n * n, 0);
+    raft::update_device(d_ref_D, h_res_D.data(), n * n, 0);
 
     std::vector<long> h_res_I = {0, 1, 2, 1, 2, 0, 2, 1, 0};
     h_res_I.resize(n * n);
-      raft::update_device<long>(d_ref_I, h_res_I.data(), n * n, 0);
+    raft::update_device<long>(d_ref_I, h_res_I.data(), n * n, 0);
 
     std::vector<float *> input_vec = {d_train_inputs};
     std::vector<int> sizes_vec = {n};
@@ -99,9 +99,10 @@ class KNNTest : public ::testing::Test {
 
 typedef KNNTest<float> KNNTestF;
 TEST_F(KNNTestF, Fit) {
+  ASSERT_TRUE(raft::devArrMatch(d_ref_D, d_pred_D, n * n,
+                                raft::CompareApprox<float>(1e-3)));
   ASSERT_TRUE(
-    devArrMatch(d_ref_D, d_pred_D, n * n, CompareApprox<float>(1e-3)));
-  ASSERT_TRUE(devArrMatch(d_ref_I, d_pred_I, n * n, Compare<long>()));
+    raft::devArrMatch(d_ref_I, d_pred_I, n * n, raft::Compare<long>()));
 }
 
 };  // end namespace Selection

@@ -265,10 +265,11 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
   DataT avgSilhouetteScore;
 
   raft::linalg::mapThenSumReduce<double, raft::Nop<DataT>>(
-    d_avgSilhouetteScore.data(), nRows, raft::Nop<DataT>(), stream, perSampleSilScore,
-    perSampleSilScore);
+    d_avgSilhouetteScore.data(), nRows, raft::Nop<DataT>(), stream,
+    perSampleSilScore, perSampleSilScore);
 
-        raft::update_host(&avgSilhouetteScore, d_avgSilhouetteScore.data(), 1, stream);
+  raft::update_host(&avgSilhouetteScore, d_avgSilhouetteScore.data(), 1,
+                    stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

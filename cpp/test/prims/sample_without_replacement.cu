@@ -60,12 +60,12 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
     r.uniform(in, params.len, T(-1.0), T(1.0), stream);
     r.uniform(wts, params.len, T(1.0), T(2.0), stream);
     if (params.largeWeightIndex >= 0) {
-        update_device(wts + params.largeWeightIndex, &params.largeWeight, 1,
-                      stream);
+      update_device(wts + params.largeWeightIndex, &params.largeWeight, 1,
+                    stream);
     }
     r.sampleWithoutReplacement(handle, out, outIdx, in, wts, params.sampledLen,
                                params.len, stream);
-      update_host(&(h_outIdx[0]), outIdx, params.sampledLen, stream);
+    update_host(&(h_outIdx[0]), outIdx, params.sampledLen, stream);
   }
 
   void TearDown() override {

@@ -127,8 +127,8 @@ class AdjustedRandIndexTest
         (index - expectedIndex) / (maxIndex - expectedIndex);
     else
       truthAdjustedRandIndex = 0;
-      raft::update_device(firstClusterArray, &arr1[0], nElements, stream);
-      raft::update_device(secondClusterArray, &arr2[0], nElements, stream);
+    raft::update_device(firstClusterArray, &arr1[0], nElements, stream);
+    raft::update_device(secondClusterArray, &arr2[0], nElements, stream);
   }
 
   void SetupZeroArray() {

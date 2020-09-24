@@ -49,7 +49,7 @@ struct QuasiNewtonTest : ::testing::Test {
     stream = cuml_handle.get_stream();
     Xdev.reset(new SimpleMatOwning<double>(handle.get_device_allocator(), N, D,
                                            stream, ROW_MAJOR));
-      raft::update_device(Xdev->data, &X[0][0], Xdev->len, stream);
+    raft::update_device(Xdev->data, &X[0][0], Xdev->len, stream);
 
     ydev.reset(
       new SimpleVecOwning<double>(handle.get_device_allocator(), N, stream));
@@ -91,12 +91,12 @@ template <typename T, class Comp>
     }
 
   SimpleVecOwning<T> w_ref(handle.get_device_allocator(), dims.n_param, stream);
-    raft::update_device(w_ref.data, &w_ref_cm[0], C * D, stream);
+  raft::update_device(w_ref.data, &w_ref_cm[0], C * D, stream);
   if (fit_intercept) {
-      raft::update_device(&w_ref.data[C * D], host_bias, C, stream);
+    raft::update_device(&w_ref.data[C * D], host_bias, C, stream);
   }
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  return devArrMatch(w_ref.data, w, w_ref.len, comp);
+  return raft::devArrMatch(w_ref.data, w, w_ref.len, comp);
 }
 
 template <typename T, class LossFunction>
@@ -142,10 +142,10 @@ T run_api(const raft::handle_t &cuml_handle, int loss_type, int C,
 }
 
 TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
-  CompareApprox<double> compApprox(tol);
+  raft::CompareApprox<double> compApprox(tol);
   // Test case generated in python and solved with sklearn
   double y[N] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 0};
-        raft::update_device(ydev->data, &y[0], ydev->len, stream);
+  raft::update_device(ydev->data, &y[0], ydev->len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   double alpha = 0.01 * N;
@@ -222,9 +222,9 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   // The data seems to small for the objective to be strongly convex
   // leaving out exact param checks
 
-  CompareApprox<double> compApprox(tol);
+  raft::CompareApprox<double> compApprox(tol);
   double y[N] = {2, 2, 0, 3, 3, 0, 0, 0, 1, 0};
-        raft::update_device(ydev->data, &y[0], ydev->len, stream);
+  raft::update_device(ydev->data, &y[0], ydev->len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   double fx, l1, l2;
@@ -285,12 +285,12 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
 }
 
 TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
-  CompareApprox<double> compApprox(tol);
+  raft::CompareApprox<double> compApprox(tol);
   double y[N] = {0.2675836026202781,  -0.0678277759663704, -0.6334027174275105,
                  -0.1018336189077367, 0.0933815935886932,  -1.1058853496996381,
                  -0.1658298189619160, -0.2954290675648911, 0.7966520536712608,
                  -1.0767450516284769};
-        raft::update_device(ydev->data, &y[0], ydev->len, stream);
+  raft::update_device(ydev->data, &y[0], ydev->len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   double fx, l1, l2;
@@ -360,18 +360,18 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
 }
 
 TEST_F(QuasiNewtonTest, predict) {
-  CompareApprox<double> compApprox(1e-8);
+  raft::CompareApprox<double> compApprox(1e-8);
   std::vector<double> w_host(D);
   w_host[0] = 1;
   std::vector<double> preds_host(N);
   SimpleVecOwning<double> w(allocator, D, stream);
   SimpleVecOwning<double> preds(allocator, N, stream);
 
-        raft::update_device(w.data, &w_host[0], w.len, stream);
+  raft::update_device(w.data, &w_host[0], w.len, stream);
 
   qnPredict(handle, Xdev->data, N, D, 2, false, w.data, false, 0, preds.data,
             stream);
-        raft::update_host(&preds_host[0], preds.data, preds.len, stream);
+  raft::update_host(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   for (int it = 0; it < N; it++) {
@@ -381,7 +381,7 @@ TEST_F(QuasiNewtonTest, predict) {
 
   qnPredict(handle, Xdev->data, N, D, 1, false, w.data, false, 1, preds.data,
             stream);
-        raft::update_host(&preds_host[0], preds.data, preds.len, stream);
+  raft::update_host(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   for (int it = 0; it < N; it++) {
@@ -390,7 +390,7 @@ TEST_F(QuasiNewtonTest, predict) {
 }
 
 TEST_F(QuasiNewtonTest, predict_softmax) {
-  CompareApprox<double> compApprox(1e-8);
+  raft::CompareApprox<double> compApprox(1e-8);
   int C = 4;
   std::vector<double> w_host(C * D);
   w_host[0] = 1;
@@ -400,11 +400,11 @@ TEST_F(QuasiNewtonTest, predict_softmax) {
   SimpleVecOwning<double> w(allocator, w_host.size(), stream);
   SimpleVecOwning<double> preds(allocator, N, stream);
 
-        raft::update_device(w.data, &w_host[0], w.len, stream);
+  raft::update_device(w.data, &w_host[0], w.len, stream);
 
   qnPredict(handle, Xdev->data, N, D, C, false, w.data, false, 2, preds.data,
             stream);
-        raft::update_host(&preds_host[0], preds.data, preds.len, stream);
+  raft::update_host(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   for (int it = 0; it < N; it++) {

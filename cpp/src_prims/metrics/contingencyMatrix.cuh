@@ -16,12 +16,12 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <math.h>
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
-#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Metrics {
@@ -200,7 +200,8 @@ size_t getContingencyMatrixWorkspaceSize(
     CUDA_CHECK(cub::DeviceRadixSort::SortPairs(pWorkspaceCub, tmpStorageBytes,
                                                pTmpKey, pTmpValue, pTmpKeyOut,
                                                pTmpValueOut, nSamples));
-    auto tmpStagingMemorySize = raft::alignTo<size_t>(nSamples * sizeof(T), 256);
+    auto tmpStagingMemorySize =
+      raft::alignTo<size_t>(nSamples * sizeof(T), 256);
     tmpStagingMemorySize *= 2;
     workspaceSize = tmpStagingMemorySize + tmpStorageBytes;
   }

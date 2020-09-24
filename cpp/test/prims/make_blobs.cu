@@ -113,9 +113,9 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
 
   void check() {
     int len = params.n_clusters * params.cols;
-    auto compare = CompareApprox<T>(num_sigma * params.tolerance);
-    ASSERT_TRUE(devArrMatch(mu_vec, mean_var, len, compare));
-    ASSERT_TRUE(devArrMatch(params.std, mean_var + len, len, compare));
+    auto compare = raft::CompareApprox<T>(num_sigma * params.tolerance);
+    ASSERT_TRUE(raft::devArrMatch(mu_vec, mean_var, len, compare));
+    ASSERT_TRUE(raft::devArrMatch(params.std, mean_var + len, len, compare));
   }
 
  protected:

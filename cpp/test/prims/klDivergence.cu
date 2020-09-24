@@ -59,9 +59,9 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
     raft::allocate(d_modelPDF, nElements, true);
     raft::allocate(d_candidatePDF, nElements, true);
 
-      raft::update_device(d_modelPDF, &h_modelPDF[0], (int) nElements, stream);
-      raft::update_device(d_candidatePDF, &h_candidatePDF[0], (int) nElements,
-                          stream);
+    raft::update_device(d_modelPDF, &h_modelPDF[0], (int)nElements, stream);
+    raft::update_device(d_candidatePDF, &h_candidatePDF[0], (int)nElements,
+                        stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
       new raft::mr::device::default_allocator);
 

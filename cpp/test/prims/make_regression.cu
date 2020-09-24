@@ -118,10 +118,10 @@ const std::vector<MakeRegressionInputs<float>> inputsf_t = {
 TEST_P(MakeRegressionTestF, Result) {
   ASSERT_TRUE(
     match(params.n_targets * (params.n_features - params.n_informative),
-          zero_count, Compare<int>()));
-  ASSERT_TRUE(devArrMatch(values_ret, values_prod, params.n_samples,
-                          params.n_targets,
-                          CompareApprox<float>(params.tolerance), stream));
+          zero_count, raft::Compare<int>()));
+  ASSERT_TRUE(
+    devArrMatch(values_ret, values_prod, params.n_samples, params.n_targets,
+                raft::CompareApprox<float>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_CASE_P(MakeRegressionTests, MakeRegressionTestF,
                         ::testing::ValuesIn(inputsf_t));
@@ -136,10 +136,10 @@ const std::vector<MakeRegressionInputs<double>> inputsd_t = {
 TEST_P(MakeRegressionTestD, Result) {
   ASSERT_TRUE(
     match(params.n_targets * (params.n_features - params.n_informative),
-          zero_count, Compare<int>()));
-  ASSERT_TRUE(devArrMatch(values_ret, values_prod, params.n_samples,
-                          params.n_targets,
-                          CompareApprox<double>(params.tolerance), stream));
+          zero_count, raft::Compare<int>()));
+  ASSERT_TRUE(
+    devArrMatch(values_ret, values_prod, params.n_samples, params.n_targets,
+                raft::CompareApprox<double>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_CASE_P(MakeRegressionTests, MakeRegressionTestD,
                         ::testing::ValuesIn(inputsd_t));

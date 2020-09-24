@@ -61,12 +61,12 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
 
     std::vector<T> data_h = {1.0, 2.0, 5.0, 4.0, 2.0, 1.0};
     data_h.resize(len);
-      raft::update_device(data, data_h.data(), len, stream);
+    raft::update_device(data, data_h.data(), len, stream);
 
     std::vector<T> trans_data_ref_h = {-2.3231, -0.3517, 2.6748,
                                        -0.3979, 0.6571,  -0.2592};
     trans_data_ref_h.resize(len);
-      raft::update_device(trans_data_ref, trans_data_ref_h.data(), len, stream);
+    raft::update_device(trans_data_ref, trans_data_ref_h.data(), len, stream);
 
     int len_comp = params.n_col * params.n_col;
     raft::allocate(components, len_comp);
@@ -84,9 +84,10 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     raft::allocate(components_ref, len_comp);
     raft::allocate(explained_vars_ref, params.n_col);
 
-      raft::update_device(components_ref, components_ref_h.data(), len_comp, stream);
-      raft::update_device(explained_vars_ref, explained_vars_ref_h.data(), params.n_col,
-                          stream);
+    raft::update_device(components_ref, components_ref_h.data(), len_comp,
+                        stream);
+    raft::update_device(explained_vars_ref, explained_vars_ref_h.data(),
+                        params.n_col, stream);
 
     paramsPCA prms;
     prms.n_cols = params.n_col;
@@ -197,53 +198,53 @@ const std::vector<PcaInputs<double>> inputsd2 = {
 typedef PcaTest<float> PcaTestValF;
 TEST_P(PcaTestValF, Result) {
   ASSERT_TRUE(devArrMatch(explained_vars, explained_vars_ref, params.n_col,
-                          CompareApproxAbs<float>(params.tolerance)));
+                          raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef PcaTest<double> PcaTestValD;
 TEST_P(PcaTestValD, Result) {
   ASSERT_TRUE(devArrMatch(explained_vars, explained_vars_ref, params.n_col,
-                          CompareApproxAbs<double>(params.tolerance)));
+                          raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 typedef PcaTest<float> PcaTestLeftVecF;
 TEST_P(PcaTestLeftVecF, Result) {
   ASSERT_TRUE(devArrMatch(components, components_ref,
                           (params.n_col * params.n_col),
-                          CompareApproxAbs<float>(params.tolerance)));
+                          raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef PcaTest<double> PcaTestLeftVecD;
 TEST_P(PcaTestLeftVecD, Result) {
   ASSERT_TRUE(devArrMatch(components, components_ref,
                           (params.n_col * params.n_col),
-                          CompareApproxAbs<double>(params.tolerance)));
+                          raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 typedef PcaTest<float> PcaTestTransDataF;
 TEST_P(PcaTestTransDataF, Result) {
   ASSERT_TRUE(devArrMatch(trans_data, trans_data_ref,
                           (params.n_row * params.n_col),
-                          CompareApproxAbs<float>(params.tolerance)));
+                          raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef PcaTest<double> PcaTestTransDataD;
 TEST_P(PcaTestTransDataD, Result) {
   ASSERT_TRUE(devArrMatch(trans_data, trans_data_ref,
                           (params.n_row * params.n_col),
-                          CompareApproxAbs<double>(params.tolerance)));
+                          raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 typedef PcaTest<float> PcaTestDataVecSmallF;
 TEST_P(PcaTestDataVecSmallF, Result) {
   ASSERT_TRUE(devArrMatch(data, data_back, (params.n_col * params.n_col),
-                          CompareApproxAbs<float>(params.tolerance)));
+                          raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef PcaTest<double> PcaTestDataVecSmallD;
 TEST_P(PcaTestDataVecSmallD, Result) {
   ASSERT_TRUE(devArrMatch(data, data_back, (params.n_col * params.n_col),
-                          CompareApproxAbs<double>(params.tolerance)));
+                          raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 // FIXME: These tests are disabled due to driver 418+ making them fail:
@@ -251,13 +252,14 @@ TEST_P(PcaTestDataVecSmallD, Result) {
 typedef PcaTest<float> PcaTestDataVecF;
 TEST_P(PcaTestDataVecF, Result) {
   ASSERT_TRUE(devArrMatch(data2, data2_back, (params.n_col2 * params.n_col2),
-                          CompareApproxAbs<float>(params.tolerance)));
+                          raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef PcaTest<double> PcaTestDataVecD;
 TEST_P(PcaTestDataVecD, Result) {
-  ASSERT_TRUE(devArrMatch(data2, data2_back, (params.n_col2 * params.n_col2),
-                          CompareApproxAbs<double>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(data2, data2_back, (params.n_col2 * params.n_col2),
+                      raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestValF, ::testing::ValuesIn(inputsf2));

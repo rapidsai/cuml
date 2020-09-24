@@ -241,8 +241,8 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
 
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
     std::stringstream ss;
-    ss << raft::arr2Str(epochs_per_sample.data(), out.nnz,
-                        "epochs_per_sample", stream);
+    ss << raft::arr2Str(epochs_per_sample.data(), out.nnz, "epochs_per_sample",
+                        stream);
     CUML_LOG_DEBUG(ss.str().c_str());
   }
 

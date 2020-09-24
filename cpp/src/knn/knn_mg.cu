@@ -25,8 +25,8 @@
 
 #include <set>
 
-#include <cuda_utils.cuh>
 #include <common/cudart_utils.h>
+#include <cuda_utils.cuh>
 
 namespace ML {
 namespace KNN {
@@ -265,9 +265,10 @@ void brute_force_knn(raft::handle_t &handle,
         if (!rowMajorQuery && total_batches > 1) {
           tmp_batch_buf.resize(batch_input_elms, stream);
           for (int col_data = 0; col_data < query_desc.N; col_data++) {
-            raft::copy(tmp_batch_buf.data() + (col_data * cur_batch_size),
-                 data->ptr + ((col_data * part_n_rows) + total_n_processed),
-                       cur_batch_size, stream);
+            raft::copy(
+              tmp_batch_buf.data() + (col_data * cur_batch_size),
+              data->ptr + ((col_data * part_n_rows) + total_n_processed),
+              cur_batch_size, stream);
           }
           cur_query_ptr = tmp_batch_buf.data();
 

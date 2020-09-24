@@ -48,8 +48,8 @@
 
 #include <cuml/cluster/kmeans_mg.hpp>
 
-#include <fstream>
 #include <common/cudart_utils.h>
+#include <fstream>
 
 namespace ML {
 
@@ -726,18 +726,18 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
         minClusterIndexAndDistance.data(), costPerCandidate.getSize(0));
 
       int bestCandidateIdx = -1;
-      raft::copy(&bestCandidateIdx, &minClusterIndexAndDistance.data()->key,
-                 1, stream);
+      raft::copy(&bestCandidateIdx, &minClusterIndexAndDistance.data()->key, 1,
+                 stream);
       /// <<< End of Step-3 >>>
 
       /// <<< Step-4 >>>: C = C U {x}
       // Update minimum cluster distance corresponding to the chosen centroid candidate
       raft::copy(minClusterDistance.data(),
-                     minDistBuf.data() + bestCandidateIdx * n_samples,
-                 n_samples, stream);
+                 minDistBuf.data() + bestCandidateIdx * n_samples, n_samples,
+                 stream);
 
       raft::copy(centroidsRawData.data() + n_clusters_picked * n_features,
-                     centroidCandidates.data() + bestCandidateIdx * n_features,
+                 centroidCandidates.data() + bestCandidateIdx * n_features,
                  n_features, stream);
 
       ++n_clusters_picked;

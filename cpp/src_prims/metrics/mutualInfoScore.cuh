@@ -158,7 +158,7 @@ double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
       d_MI.data());
 
   //updating in the host memory
-        raft::update_host(&h_MI, d_MI.data(), 1, stream);
+  raft::update_host(&h_MI, d_MI.data(), 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

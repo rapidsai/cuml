@@ -129,13 +129,13 @@ const std::vector<ReduceInputs<double>> inputsd = {
 typedef ReduceTest<float> ReduceTestF;
 TEST_P(ReduceTestF, Result) {
   ASSERT_TRUE(devArrMatch(dots_exp, dots_act, outlen,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef ReduceTest<double> ReduceTestD;
 TEST_P(ReduceTestD, Result) {
   ASSERT_TRUE(devArrMatch(dots_exp, dots_act, outlen,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(ReduceTests, ReduceTestF, ::testing::ValuesIn(inputsf));

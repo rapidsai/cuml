@@ -75,7 +75,7 @@ const std::vector<ReverseInputs<float>> inputsf = {
 typedef ReverseTest<float> ReverseTestF;
 TEST_P(ReverseTestF, Result) {
   ASSERT_TRUE(devArrMatch(in, out, params.nrows, params.ncols,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReverseTests, ReverseTestF,
                         ::testing::ValuesIn(inputsf));
@@ -93,7 +93,7 @@ const std::vector<ReverseInputs<double>> inputsd = {
   {0.000001, 41, 41, true, true, 1234ULL}};
 TEST_P(ReverseTestD, Result) {
   ASSERT_TRUE(devArrMatch(in, out, params.nrows, params.ncols,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReverseTests, ReverseTestD,
                         ::testing::ValuesIn(inputsd));

@@ -57,7 +57,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     std::vector<T> data_h = {1.0, 2.0, 4.0, 2.0, 4.0, 5.0,
                              5.0, 4.0, 2.0, 1.0, 6.0, 4.0};
     data_h.resize(len);
-      raft::update_device(data, data_h.data(), len, stream);
+    raft::update_device(data, data_h.data(), len, stream);
 
     int len_comp = params.n_col * params.n_col;
     raft::allocate(components, len_comp);
@@ -69,7 +69,8 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     components_ref_h.resize(len_comp);
 
     raft::allocate(components_ref, len_comp);
-      raft::update_device(components_ref, components_ref_h.data(), len_comp, stream);
+    raft::update_device(components_ref, components_ref_h.data(), len_comp,
+                        stream);
 
     paramsTSVD prms;
     prms.n_cols = params.n_col;
@@ -164,28 +165,30 @@ const std::vector<TsvdInputs<double>> inputsd2 = {
 
 typedef TsvdTest<float> TsvdTestLeftVecF;
 TEST_P(TsvdTestLeftVecF, Result) {
-  ASSERT_TRUE(devArrMatch(components, components_ref,
-                          (params.n_col * params.n_col),
-                          CompareApproxAbs<float>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(components, components_ref, (params.n_col * params.n_col),
+                      raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef TsvdTest<double> TsvdTestLeftVecD;
 TEST_P(TsvdTestLeftVecD, Result) {
-  ASSERT_TRUE(devArrMatch(components, components_ref,
-                          (params.n_col * params.n_col),
-                          CompareApproxAbs<double>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(components, components_ref, (params.n_col * params.n_col),
+                      raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 typedef TsvdTest<float> TsvdTestDataVecF;
 TEST_P(TsvdTestDataVecF, Result) {
-  ASSERT_TRUE(devArrMatch(data2, data2_back, (params.n_col2 * params.n_col2),
-                          CompareApproxAbs<float>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(data2, data2_back, (params.n_col2 * params.n_col2),
+                      raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef TsvdTest<double> TsvdTestDataVecD;
 TEST_P(TsvdTestDataVecD, Result) {
-  ASSERT_TRUE(devArrMatch(data2, data2_back, (params.n_col2 * params.n_col2),
-                          CompareApproxAbs<double>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(data2, data2_back, (params.n_col2 * params.n_col2),
+                      raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(TsvdTests, TsvdTestLeftVecF,

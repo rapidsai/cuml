@@ -100,12 +100,12 @@ void sparse_random_matrix(const raft::handle_t& h,
 
     size_t len = offset;
     random_matrix->indices.resize(len, stream);
-      raft::update_device(random_matrix->indices.data(), indices, len, stream);
+    raft::update_device(random_matrix->indices.data(), indices, len, stream);
     alloc->deallocate(indices, indices_alloc, stream);
 
     len = indptr_idx + 1;
     random_matrix->indptr.resize(len, stream);
-      raft::update_device(random_matrix->indptr.data(), indptr, len, stream);
+    raft::update_device(random_matrix->indptr.data(), indptr, len, stream);
     alloc->deallocate(indptr, indptr_alloc, stream);
 
     len = offset;

@@ -190,7 +190,7 @@ class MultiVarGaussian {
         cusolverHandle, jobz, uplo, dim, P, dim, eig, workspace_decomp, Lwork,
         info, cudaStream));
     }
-      raft::update_host(&info_h, info, 1, cudaStream);
+    raft::update_host(&info_h, info, 1, cudaStream);
     CUDA_CHECK(cudaStreamSynchronize(cudaStream));
     ASSERT(info_h == 0, "mvg: error in syevj/syevd/potrf, info=%d | expected=0",
            info_h);
@@ -202,7 +202,8 @@ class MultiVarGaussian {
     if (method == chol_decomp) {
       // upper part (0) being filled with 0.0
       dim3 block(32, 32);
-      dim3 grid(raft::ceildiv(dim, (int)block.x), raft::ceildiv(dim, (int)block.y));
+      dim3 grid(raft::ceildiv(dim, (int)block.x),
+                raft::ceildiv(dim, (int)block.y));
       fill_uplo<T><<<grid, block, 0, cudaStream>>>(dim, UPPER, (T)0.0, P);
       CUDA_CHECK(cudaPeekAtLastError());
 
@@ -221,7 +222,7 @@ class MultiVarGaussian {
       CUDA_CHECK(cudaPeekAtLastError());
 
       // checking if any eigen vals were negative
-        raft::update_host(&info_h, info, 1, cudaStream);
+      raft::update_host(&info_h, info, 1, cudaStream);
       CUDA_CHECK(cudaStreamSynchronize(cudaStream));
       ASSERT(info_h == 0, "mvg: Cov matrix has %dth Eigenval negative", info_h);
 

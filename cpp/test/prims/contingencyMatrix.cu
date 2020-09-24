@@ -75,8 +75,8 @@ class ContingencyMatrixTest
     raft::allocate(dY, numElements);
     raft::allocate(dYHat, numElements);
 
-      raft::update_device(dYHat, &y_hat[0], numElements, stream);
-      raft::update_device(dY, &y[0], numElements, stream);
+    raft::update_device(dYHat, &y_hat[0], numElements, stream);
+    raft::update_device(dY, &y[0], numElements, stream);
 
     if (params.calcCardinality) {
       MLCommon::Metrics::getInputClassCardinality(dY, numElements, stream,
@@ -102,8 +102,8 @@ class ContingencyMatrixTest
       hGoldenOutput[row * numUniqueClasses + column] += 1;
     }
 
-      raft::update_device(dGoldenOutput, hGoldenOutput,
-                              numUniqueClasses * numUniqueClasses, stream);
+    raft::update_device(dGoldenOutput, hGoldenOutput,
+                        numUniqueClasses * numUniqueClasses, stream);
 
     workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
       numElements, dY, stream, minLabel, maxLabel);
@@ -126,8 +126,9 @@ class ContingencyMatrixTest
     MLCommon::Metrics::contingencyMatrix(
       dY, dYHat, numElements, dComputedOutput, stream, (void *)pWorkspace,
       workspaceSz, minLabel, maxLabel);
-    ASSERT_TRUE(devArrMatch(dComputedOutput, dGoldenOutput,
-                            numUniqueClasses * numUniqueClasses, Compare<T>()));
+    ASSERT_TRUE(raft::devArrMatch(dComputedOutput, dGoldenOutput,
+                                  numUniqueClasses * numUniqueClasses,
+                                  raft::Compare<T>()));
   }
 
   ContingencyMatrixParam params;

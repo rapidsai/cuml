@@ -118,20 +118,20 @@ const std::vector<SubtractInputs<double>> inputsd2 = {
 
 typedef SubtractTest<float> SubtractTestF;
 TEST_P(SubtractTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
+                                raft::CompareApprox<float>(params.tolerance)));
 
-  ASSERT_TRUE(devArrMatch(out_ref, in1, params.len,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, in1, params.len,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef SubtractTest<double> SubtractTestD;
 TEST_P(SubtractTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
+                                raft::CompareApprox<double>(params.tolerance)));
 
-  ASSERT_TRUE(devArrMatch(out_ref, in1, params.len,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, in1, params.len,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(SubtractTests, SubtractTestF,

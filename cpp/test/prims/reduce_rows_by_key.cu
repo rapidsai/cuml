@@ -139,8 +139,8 @@ const std::vector<ReduceRowsInputs<float>> inputsf2 = {
   {0.000001f, 128, 32, 6, 1234ULL, true, 2.0}};
 typedef ReduceRowTest<float> ReduceRowTestF;
 TEST_P(ReduceRowTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.cols * params.nkeys,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.cols * params.nkeys,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestF,
                         ::testing::ValuesIn(inputsf2));
@@ -153,8 +153,8 @@ const std::vector<ReduceRowsInputs<double>> inputsd2 = {
   {0.00000001, 128, 32, 6, 1234ULL, true, 8.0}};
 typedef ReduceRowTest<double> ReduceRowTestD;
 TEST_P(ReduceRowTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.cols * params.nkeys,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.cols * params.nkeys,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestD,
                         ::testing::ValuesIn(inputsd2));
@@ -167,8 +167,8 @@ const std::vector<ReduceRowsInputs<float>> inputsf_small_nkey = {
   {0.000001f, 128, 32, 3, 1234ULL, true, 8.0}};
 typedef ReduceRowTest<float> ReduceRowTestSmallnKey;
 TEST_P(ReduceRowTestSmallnKey, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.cols * params.nkeys,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.cols * params.nkeys,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestSmallnKey,
                         ::testing::ValuesIn(inputsf_small_nkey));
@@ -181,8 +181,8 @@ const std::vector<ReduceRowsInputs<double>> inputsd_big_space = {
   {0.00000001, 512, 1024, 40, 1234ULL, true, 16.0}};
 typedef ReduceRowTest<double> ReduceRowTestBigSpace;
 TEST_P(ReduceRowTestBigSpace, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.cols * params.nkeys,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.cols * params.nkeys,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestBigSpace,
                         ::testing::ValuesIn(inputsd_big_space));
@@ -195,8 +195,8 @@ const std::vector<ReduceRowsInputs<float>> inputsf_many_obs = {
   {0.00001f, 100000, 37, 32, 1234ULL, true, 16.0}};
 typedef ReduceRowTest<float> ReduceRowTestManyObs;
 TEST_P(ReduceRowTestManyObs, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.cols * params.nkeys,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.cols * params.nkeys,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestManyObs,
                         ::testing::ValuesIn(inputsf_many_obs));
@@ -209,8 +209,8 @@ const std::vector<ReduceRowsInputs<float>> inputsf_many_cluster = {
   {0.00001f, 100000, 37, 2048, 1234ULL, true, 16.0}};
 typedef ReduceRowTest<float> ReduceRowTestManyClusters;
 TEST_P(ReduceRowTestManyClusters, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.cols * params.nkeys,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.cols * params.nkeys,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestManyClusters,
                         ::testing::ValuesIn(inputsf_many_cluster));

@@ -174,11 +174,14 @@ class CSR {
       cudaStream_t stream;
       CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
 
-      out << raft::arr2Str(c.row_ind_arr.data(), c.n_rows + 1, "row_ind", stream)
+      out << raft::arr2Str(c.row_ind_arr.data(), c.n_rows + 1, "row_ind",
+                           stream)
           << std::endl;
-      out << raft::arr2Str(c.row_ind_ptr_arr.data(), c.nnz, "row_ind_ptr_arr", stream)
+      out << raft::arr2Str(c.row_ind_ptr_arr.data(), c.nnz, "row_ind_ptr_arr",
+                           stream)
           << std::endl;
-      out << raft::arr2Str(c.vals_arr.data(), c.nnz, "vals_arr", stream) << std::endl;
+      out << raft::arr2Str(c.vals_arr.data(), c.nnz, "vals_arr", stream)
+          << std::endl;
       out << "nnz=" << c.nnz << std::endl;
       out << "n_rows=" << c.n_rows << std::endl;
       out << "n_cols=" << c.n_cols << std::endl;
@@ -553,7 +556,7 @@ size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
                                b_val, nnz2, m, row_counts.data());
 
   int cnnz = 0;
-        raft::update_host(&cnnz, row_counts.data() + m, 1, stream);
+  raft::update_host(&cnnz, row_counts.data() + m, 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // create csr compressed row index from row counts
@@ -821,13 +824,13 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     //** swapping F1 and F2
-      raft::update_host(host_fa, state->fa, N, stream);
-      raft::update_host(host_xa, state->xa, N, stream);
-      raft::update_device(state->fa, host_xa, N, stream);
-      raft::update_device(state->xa, host_fa, N, stream);
+    raft::update_host(host_fa, state->fa, N, stream);
+    raft::update_host(host_xa, state->xa, N, stream);
+    raft::update_device(state->fa, host_xa, N, stream);
+    raft::update_device(state->xa, host_fa, N, stream);
 
     //** Updating m *
-      raft::update_host(&host_m, state->m, 1, stream);
+    raft::update_host(&host_m, state->m, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     n_iters++;

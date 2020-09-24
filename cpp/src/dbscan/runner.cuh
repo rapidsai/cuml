@@ -100,7 +100,8 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   size_t corePtsSize = raft::alignTo<size_t>(sizeof(bool) * N, align);
   size_t xaSize = raft::alignTo<size_t>(sizeof(bool) * N, align);
   size_t mSize = raft::alignTo<size_t>(sizeof(bool), align);
-  size_t vdSize = raft::alignTo<size_t>(sizeof(Index_) * (batchSize + 1), align);
+  size_t vdSize =
+    raft::alignTo<size_t>(sizeof(Index_) * (batchSize + 1), align);
   size_t exScanSize = raft::alignTo<size_t>(sizeof(Index_) * batchSize, align);
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
@@ -158,7 +159,7 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
     CUML_LOG_DEBUG("--> Computing vertex degrees");
     VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
                                    startVertexId, nPoints, stream);
-      raft::update_host(&curradjlen, vd + nPoints, 1, stream);
+    raft::update_host(&curradjlen, vd + nPoints, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     ML::POP_RANGE();
 

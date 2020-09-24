@@ -112,9 +112,8 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
     raft::allocate(firstClusterArray, nElements, true);
     raft::allocate(secondClusterArray, nElements, true);
 
-      raft::update_device(firstClusterArray, &arr1[0], (int) nElements, stream);
-      raft::update_device(secondClusterArray, &arr2[0], (int) nElements,
-                          stream);
+    raft::update_device(firstClusterArray, &arr1[0], (int)nElements, stream);
+    raft::update_device(secondClusterArray, &arr2[0], (int)nElements, stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
       new raft::mr::device::default_allocator);
 

@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cuml/manifold/umapparams.h>
 #include <common/fast_int_div.cuh>
 #include <cuda_utils.cuh>
-#include <common/cudart_utils.h>
 
 namespace UMAPAlgo {
 namespace SimplSetEmbed {

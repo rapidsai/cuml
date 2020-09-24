@@ -253,8 +253,8 @@ const std::vector<HistInputs> inputs = {
   {oneM + 2, 21, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
 };
 TEST_P(HistTest, Result) {
-  ASSERT_TRUE(
-    devArrMatch(ref_bins, bins, params.nbins * params.ncols, Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch(ref_bins, bins, params.nbins * params.ncols,
+                                raft::Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(HistTests, HistTest, ::testing::ValuesIn(inputs));
 

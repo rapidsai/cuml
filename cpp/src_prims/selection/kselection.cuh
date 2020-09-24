@@ -89,7 +89,8 @@ struct KVPair {
    * @param mask mask of participating threads (Volta+)
    * @return the shuffled value
    */
-  DI Pair shfl(int srcLane, int width = raft::WarpSize, uint32_t mask = 0xffffffffu) {
+  DI Pair shfl(int srcLane, int width = raft::WarpSize,
+               uint32_t mask = 0xffffffffu) {
     Pair ret = *this;
     ret.val = raft::shfl(ret.val, srcLane, width, mask);
     ret.key = raft::shfl(ret.key, srcLane, width, mask);
@@ -302,7 +303,7 @@ __global__ void warpTopKkernel(TypeV *outV, TypeK *outK, const TypeV *arr,
       auto idx = rowId * cols + colId;
       other.val = colId < cols ? arr[idx] : iV;
       other.key = colId;
-        raft::warpFence();
+      raft::warpFence();
       topk.topkUpdate(other);
     }
     int lid = raft::laneId();

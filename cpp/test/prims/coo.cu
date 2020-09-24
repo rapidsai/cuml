@@ -57,12 +57,12 @@ TEST_P(SortedCOOToCSR, Result) {
   raft::allocate(exp, 4, true);
   raft::allocate(out, 4, true);
 
-        raft::update_device(in, in_h, nnz, stream);
-        raft::update_device(exp, exp_h, 4, stream);
+  raft::update_device(in, in_h, nnz, stream);
+  raft::update_device(exp, exp_h, 4, stream);
 
   sorted_coo_to_csr<int>(in, nnz, out, 4, alloc, stream);
 
-  ASSERT_TRUE(devArrMatch<int>(out, exp, 4, Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out, exp, 4, raft::Compare<int>()));
 
   cudaStreamDestroy(stream);
 
@@ -96,9 +96,9 @@ TEST_P(COOSymmetrize, Result) {
                                          0.5, 0.5, 0.5, 0, 1.5, 0.5, 0.5, 0.0};
 
   COO<float> in(alloc, stream, nnz, 4, 4);
-        raft::update_device(in.rows(), *&in_rows_h, nnz, stream);
-        raft::update_device(in.cols(), *&in_cols_h, nnz, stream);
-        raft::update_device(in.vals(), *&in_vals_h, nnz, stream);
+  raft::update_device(in.rows(), *&in_rows_h, nnz, stream);
+  raft::update_device(in.cols(), *&in_cols_h, nnz, stream);
+  raft::update_device(in.vals(), *&in_vals_h, nnz, stream);
 
   COO<float> out(alloc, stream);
 
@@ -113,12 +113,12 @@ TEST_P(COOSymmetrize, Result) {
   std::cout << out << std::endl;
 
   ASSERT_TRUE(out.nnz == nnz * 2);
-  ASSERT_TRUE(
-    devArrMatch<int>(out.rows(), exp_rows_h, out.nnz, Compare<int>()));
-  ASSERT_TRUE(
-    devArrMatch<int>(out.cols(), exp_cols_h, out.nnz, Compare<int>()));
-  ASSERT_TRUE(
-    devArrMatch<float>(out.vals(), exp_vals_h, out.nnz, Compare<float>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out.rows(), exp_rows_h, out.nnz,
+                                     raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out.cols(), exp_cols_h, out.nnz,
+                                     raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<float>(out.vals(), exp_vals_h, out.nnz,
+                                       raft::Compare<float>()));
 
   cudaStreamDestroy(stream);
 
@@ -160,15 +160,16 @@ TEST_P(COOSort, Result) {
   raft::allocate(in_cols, params.nnz);
   raft::allocate(verify, params.nnz);
 
-        raft::update_device(in_rows, in_rows_h, params.nnz, stream);
+  raft::update_device(in_rows, in_rows_h, params.nnz, stream);
 
-        raft::update_device(in_cols, in_cols_h, params.nnz, stream);
-        raft::update_device(verify, verify_h, params.nnz, stream);
+  raft::update_device(in_cols, in_cols_h, params.nnz, stream);
+  raft::update_device(verify, verify_h, params.nnz, stream);
 
   coo_sort(params.m, params.n, params.nnz, in_rows, in_cols, in_vals, alloc,
            stream);
 
-  ASSERT_TRUE(devArrMatch<int>(verify, in_rows, params.nnz, Compare<int>()));
+  ASSERT_TRUE(
+    raft::devArrMatch<int>(verify, in_rows, params.nnz, raft::Compare<int>()));
 
   delete[] in_rows_h;
   delete[] in_cols_h;
@@ -196,7 +197,7 @@ TEST_P(COORemoveZeros, Result) {
   raft::random::Rng r(params.seed);
   r.uniform(in.vals(), params.nnz, float(-1.0), float(1.0), stream);
 
-        raft::update_host(in_h_vals, in.vals(), params.nnz, stream);
+  raft::update_host(in_h_vals, in.vals(), params.nnz, stream);
 
   in_h_vals[0] = 0;
   in_h_vals[2] = 0;
@@ -210,9 +211,9 @@ TEST_P(COORemoveZeros, Result) {
     in_h_cols[i] = i;
   }
 
-        raft::update_device(in.rows(), in_h_rows, params.nnz, stream);
-        raft::update_device(in.cols(), in_h_cols, params.nnz, stream);
-        raft::update_device(in.vals(), in_h_vals, params.nnz, stream);
+  raft::update_device(in.rows(), in_h_rows, params.nnz, stream);
+  raft::update_device(in.cols(), in_h_cols, params.nnz, stream);
+  raft::update_device(in.vals(), in_h_vals, params.nnz, stream);
 
   coo_sort<float>(&in, alloc, stream);
 
@@ -226,16 +227,18 @@ TEST_P(COORemoveZeros, Result) {
   COO<float> out_ref(alloc, stream, 2, 5, 5);
   COO<float> out(alloc, stream);
 
-        raft::update_device(out_ref.rows(), *&out_rows_ref_h, 2, stream);
-        raft::update_device(out_ref.cols(), *&out_cols_ref_h, 2, stream);
-        raft::update_device(out_ref.vals(), out_vals_ref_h, 2, stream);
+  raft::update_device(out_ref.rows(), *&out_rows_ref_h, 2, stream);
+  raft::update_device(out_ref.cols(), *&out_cols_ref_h, 2, stream);
+  raft::update_device(out_ref.vals(), out_vals_ref_h, 2, stream);
 
   coo_remove_zeros<32, float>(&in, &out, alloc, stream);
 
-  ASSERT_TRUE(devArrMatch<int>(out_ref.rows(), out.rows(), 2, Compare<int>()));
-  ASSERT_TRUE(devArrMatch<int>(out_ref.cols(), out.cols(), 2, Compare<int>()));
-  ASSERT_TRUE(
-    devArrMatch<float>(out_ref.vals(), out.vals(), 2, Compare<float>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out_ref.rows(), out.rows(), 2,
+                                     raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out_ref.cols(), out.cols(), 2,
+                                     raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<float>(out_ref.vals(), out.vals(), 2,
+                                       raft::Compare<float>()));
 
   CUDA_CHECK(cudaStreamDestroy(stream));
   free(out_vals_ref_h);
@@ -256,13 +259,13 @@ TEST_P(COORowCount, Result) {
   raft::allocate(verify, 5, true);
   raft::allocate(results, 5, true);
 
-        raft::update_device(in_rows, *&in_rows_h, 5, 0);
-        raft::update_device(verify, *&verify_h, 5, 0);
+  raft::update_device(in_rows, *&in_rows_h, 5, 0);
+  raft::update_device(verify, *&verify_h, 5, 0);
 
   coo_row_count<32>(in_rows, 5, results, 0);
   cudaDeviceSynchronize();
 
-  ASSERT_TRUE(devArrMatch<int>(verify, results, 5, Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(verify, results, 5, raft::Compare<int>()));
 
   CUDA_CHECK(cudaFree(in_rows));
   CUDA_CHECK(cudaFree(verify));
@@ -285,14 +288,14 @@ TEST_P(COORowCountNonzero, Result) {
   raft::allocate(results, 5, true);
   raft::allocate(in_vals, 5, true);
 
-        raft::update_device(in_rows, *&in_rows_h, 5, 0);
-        raft::update_device(verify, *&verify_h, 5, 0);
-        raft::update_device(in_vals, *&in_vals_h, 5, 0);
+  raft::update_device(in_rows, *&in_rows_h, 5, 0);
+  raft::update_device(verify, *&verify_h, 5, 0);
+  raft::update_device(in_vals, *&in_vals_h, 5, 0);
 
   coo_row_count_nz<32, float>(in_rows, in_vals, 5, results, stream);
   cudaDeviceSynchronize();
 
-  ASSERT_TRUE(devArrMatch<int>(verify, results, 5, Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(verify, results, 5, raft::Compare<int>()));
 
   CUDA_CHECK(cudaFree(in_rows));
   CUDA_CHECK(cudaFree(verify));

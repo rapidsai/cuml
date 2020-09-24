@@ -121,8 +121,8 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     }
 
     // porting inputs to gpu
-      raft::update_device(P_d, P, dim * dim, stream);
-      raft::update_device(x_d, x, dim, stream);
+    raft::update_device(P_d, P, dim * dim, stream);
+    raft::update_device(x_d, x, dim, stream);
 
     // initilizing the mvg
     mvg = new MultiVarGaussian<T>(dim, method);
@@ -160,7 +160,7 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
                                           dim, &beta, Rand_cov, dim, stream));
 
     // restoring cov provided into P_d
-      raft::update_device(P_d, P, dim * dim, stream);
+    raft::update_device(P_d, P, dim * dim, stream);
   }
 
   void TearDown() override {
@@ -229,22 +229,23 @@ const std::vector<MVGInputs<double>> inputsd = {
 typedef MVGTest<float> MVGTestF;
 typedef MVGTest<double> MVGTestD;
 TEST_P(MVGTestF, MeanIsCorrectF) {
-  EXPECT_TRUE(devArrMatch(x_d, Rand_mean, dim, CompareApprox<float>(tolerance)))
+  EXPECT_TRUE(raft::devArrMatch(x_d, Rand_mean, dim,
+                                raft::CompareApprox<float>(tolerance)))
     << " in MeanIsCorrect";
 }
 TEST_P(MVGTestF, CovIsCorrectF) {
-  EXPECT_TRUE(
-    devArrMatch(P_d, Rand_cov, dim, dim, CompareApprox<float>(tolerance)))
+  EXPECT_TRUE(raft::devArrMatch(P_d, Rand_cov, dim, dim,
+                                raft::CompareApprox<float>(tolerance)))
     << " in CovIsCorrect";
 }
 TEST_P(MVGTestD, MeanIsCorrectD) {
-  EXPECT_TRUE(
-    devArrMatch(x_d, Rand_mean, dim, CompareApprox<double>(tolerance)))
+  EXPECT_TRUE(raft::devArrMatch(x_d, Rand_mean, dim,
+                                raft::CompareApprox<double>(tolerance)))
     << " in MeanIsCorrect";
 }
 TEST_P(MVGTestD, CovIsCorrectD) {
-  EXPECT_TRUE(
-    devArrMatch(P_d, Rand_cov, dim, dim, CompareApprox<double>(tolerance)))
+  EXPECT_TRUE(raft::devArrMatch(P_d, Rand_cov, dim, dim,
+                                raft::CompareApprox<double>(tolerance)))
     << " in CovIsCorrect";
 }
 

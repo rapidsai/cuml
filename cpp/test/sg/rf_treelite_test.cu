@@ -160,8 +160,8 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     predicted_labels_h.resize(params.n_inference_rows);
     ref_predicted_labels.resize(params.n_inference_rows);
 
-      raft::update_host(predicted_labels_h.data(), predicted_labels_d,
-                        params.n_inference_rows, stream);
+    raft::update_host(predicted_labels_h.data(), predicted_labels_d,
+                      params.n_inference_rows, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     for (int i = 0; i < params.n_inference_rows; i++) {
@@ -174,9 +174,9 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
       }
     }
 
-    EXPECT_TRUE(devArrMatchHost(
+    EXPECT_TRUE(raft::devArrMatchHost(
       ref_predicted_labels.data(), treelite_predicted_labels.data(),
-      params.n_inference_rows, Compare<float>(), stream));
+      params.n_inference_rows, raft::Compare<float>(), stream));
   }
 
   void SetUp() override {
@@ -224,9 +224,9 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     // Generate inference_data_d which is in row major order.
     r2.uniform(inference_data_d, inference_data_len, T(0.0), T(10.0), stream);
 
-      raft::update_host(data_h.data(), data_d, data_len, stream);
-      raft::update_host(inference_data_h.data(), inference_data_d, inference_data_len,
-                        stream);
+    raft::update_host(data_h.data(), data_d, data_len, stream);
+    raft::update_host(inference_data_h.data(), inference_data_d,
+                      inference_data_len, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -317,8 +317,8 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
                         this->handle->get_cublas_handle(), this->stream);
 
     temp_label_h.resize(this->params.n_rows);
-      raft::update_host(temp_label_h.data(), temp_label_d, this->params.n_rows,
-                        this->stream);
+    raft::update_host(temp_label_h.data(), temp_label_d, this->params.n_rows,
+                      this->stream);
 
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
 
@@ -334,8 +334,8 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
       this->labels_h.push_back(value);
     }
 
-      raft::update_device(this->labels_d, this->labels_h.data(), this->params.n_rows,
-                          this->stream);
+    raft::update_device(this->labels_d, this->labels_h.data(),
+                        this->params.n_rows, this->stream);
 
     preprocess_labels(this->params.n_rows, this->labels_h, labels_map);
 
@@ -403,8 +403,8 @@ class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
                         this->handle->get_cublas_handle(), this->stream);
 
     this->labels_h.resize(this->params.n_rows);
-      raft::update_host(this->labels_h.data(), this->labels_d, this->params.n_rows,
-                        this->stream);
+    raft::update_host(this->labels_h.data(), this->labels_d,
+                      this->params.n_rows, this->stream);
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
 
     for (int i = 0; i < 3; i++) {

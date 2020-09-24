@@ -175,9 +175,12 @@ class COO {
       cudaStream_t stream;
       CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
 
-      out << raft::arr2Str(c.rows_arr.data(), c.nnz, "rows", stream) << std::endl;
-      out << raft::arr2Str(c.cols_arr.data(), c.nnz, "cols", stream) << std::endl;
-      out << raft::arr2Str(c.vals_arr.data(), c.nnz, "vals", stream) << std::endl;
+      out << raft::arr2Str(c.rows_arr.data(), c.nnz, "rows", stream)
+          << std::endl;
+      out << raft::arr2Str(c.cols_arr.data(), c.nnz, "cols", stream)
+          << std::endl;
+      out << raft::arr2Str(c.vals_arr.data(), c.nnz, "vals", stream)
+          << std::endl;
       out << "nnz=" << c.nnz << std::endl;
       out << "n_rows=" << c.n_rows << std::endl;
       out << "n_cols=" << c.n_cols << std::endl;

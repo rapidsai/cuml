@@ -95,7 +95,7 @@ class BatchedBlockReduceTest
         ref[i] += j * NThreads + i;
       }
     }
-      raft::update_device(refOut, ref, NThreads, stream);
+    raft::update_device(refOut, ref, NThreads, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     delete[] ref;
   }
@@ -115,7 +115,7 @@ const std::vector<BatchedBlockReduceInputs> inputs = {
 };
 
 TEST_P(BBTest8, Result) {
-  ASSERT_TRUE(devArrMatch(refOut, out, 8, Compare<int>()));
+  ASSERT_TRUE(devArrMatch(refOut, out, 8, raft::Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(BatchedBlockReduceTests, BBTest8,
                         ::testing::ValuesIn(inputs));

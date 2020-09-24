@@ -161,7 +161,8 @@ void gemvImplAx(DataT* y, const DataT* A, const DataT* x, const DataT* z,
  * @param stream cuda stream
  * @param op epilogue operation
  */
-template <typename DataT, typename IdxT, typename EpilogueOp = raft::Nop<DataT, IdxT>>
+template <typename DataT, typename IdxT,
+          typename EpilogueOp = raft::Nop<DataT, IdxT>>
 void gemv(DataT* y, const DataT* A, const DataT* x, const DataT* z, DataT alpha,
           DataT beta, IdxT m, IdxT n, IdxT batchSize, cudaStream_t stream,
           EpilogueOp op = raft::Nop<DataT, IdxT>()) {

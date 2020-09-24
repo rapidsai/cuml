@@ -99,7 +99,8 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     if (score < 1.0) {
       std::stringstream ss;
       ss << "Expected: "
-         << raft::arr2Str(d_labels_ref, 25, "d_labels_ref", handle.get_stream());
+         << raft::arr2Str(d_labels_ref, 25, "d_labels_ref",
+                          handle.get_stream());
       CUML_LOG_DEBUG(ss.str().c_str());
       ss.str(std::string());
       ss << "Actual: "

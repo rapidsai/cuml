@@ -90,8 +90,8 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
     score = adjustedRandIndex(handle, labels_ref, labels, params.n_row);
 
     if (score < 1.0) {
-      auto str =
-        raft::arr2Str(labels_ref, params.n_row, "labels_ref", handle.get_stream());
+      auto str = raft::arr2Str(labels_ref, params.n_row, "labels_ref",
+                               handle.get_stream());
       CUML_LOG_DEBUG("y: %s", str.c_str());
       str = raft::arr2Str(labels, params.n_row, "labels", handle.get_stream());
       CUML_LOG_DEBUG("y_hat: %s", str.c_str());
@@ -193,8 +193,7 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     raft::allocate(labels_ref, params.n_out);
     raft::allocate(core_sample_indices_d, params.n_row);
 
-    raft::copy(inputs, params.points, params.n_row * 2,
-               handle.get_stream());
+    raft::copy(inputs, params.points, params.n_row * 2, handle.get_stream());
     raft::copy(labels_ref, params.out, params.n_out, handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -206,17 +205,17 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     score = adjustedRandIndex(handle, labels_ref, labels, (int)params.n_out);
 
     if (score < 1.0) {
-      auto str =
-        raft::arr2Str(labels_ref, params.n_out, "labels_ref", handle.get_stream());
+      auto str = raft::arr2Str(labels_ref, params.n_out, "labels_ref",
+                               handle.get_stream());
       CUML_LOG_DEBUG("y: %s", str.c_str());
       str = raft::arr2Str(labels, params.n_row, "labels", handle.get_stream());
       CUML_LOG_DEBUG("y_hat: %s", str.c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }
 
-    EXPECT_TRUE(devArrMatchHost(params.core_indices, core_sample_indices_d,
-                                params.n_row, Compare<int>(),
-                                handle.get_stream()));
+    EXPECT_TRUE(raft::devArrMatchHost(
+      params.core_indices, core_sample_indices_d, params.n_row,
+      raft::Compare<int>(), handle.get_stream()));
   }
 
   void SetUp() override { basicTest(); }

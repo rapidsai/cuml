@@ -316,7 +316,7 @@ void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
 
   if (host_loglike) {
     /* Tranfer log-likelihood device -> host */
-      raft::update_host(loglike, d_loglike, batch_size, stream);
+    raft::update_host(loglike, d_loglike, batch_size, stream);
   }
 
   if (trans) {
@@ -570,7 +570,7 @@ void _arma_least_squares(raft::handle_t& handle, double* d_ar, double* d_ma,
     n_obs - r, 1, batch_size, cublas_handle, allocator, stream, false);
   if (estimate_sigma2) {
     raft::copy(bm_final_residual.raw_data(), bm_arma_fit.raw_data(),
-                   (n_obs - r) * batch_size, stream);
+               (n_obs - r) * batch_size, stream);
   }
 
   // ARMA fit

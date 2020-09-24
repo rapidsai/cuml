@@ -534,8 +534,8 @@ class Rng {
     // sort the array and pick the top sampledLen items
     IdxT *outIdxPtr = outIdxBuff.data();
     raft::mr::device::buffer<char> workspace(allocator, stream);
-    sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr,
-                        outIdxPtr, (int)len, stream);
+    sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr,
+              (int)len, stream);
     if (outIdx != nullptr) {
       CUDA_CHECK(cudaMemcpyAsync(outIdx, outIdxPtr, sizeof(IdxT) * sampledLen,
                                  cudaMemcpyDeviceToDevice, stream));
@@ -593,8 +593,7 @@ class Rng {
   template <bool IsNormal, typename Type, typename LenType>
   uint64_t _setupSeeds(uint64_t &seed, uint64_t &offset, LenType len,
                        int nThreads, int nBlocks) {
-    LenType itemsPerThread =
-      raft::ceildiv(len, LenType(nBlocks * nThreads));
+    LenType itemsPerThread = raft::ceildiv(len, LenType(nBlocks * nThreads));
     if (IsNormal && itemsPerThread % 2 == 1) {
       ++itemsPerThread;
     }

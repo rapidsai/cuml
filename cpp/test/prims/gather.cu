@@ -76,13 +76,13 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     raft::allocate(d_in, nrows * ncols);
     h_in = (MatrixT *)malloc(sizeof(MatrixT) * nrows * ncols);
     r.uniform(d_in, len, MatrixT(-1.0), MatrixT(1.0), stream);
-      raft::update_host(h_in, d_in, len, stream);
+    raft::update_host(h_in, d_in, len, stream);
 
     // map setup
     raft::allocate(d_map, map_length);
     h_map = (MapT *)malloc(sizeof(MapT) * map_length);
     r_int.uniformInt(d_map, map_length, (MapT)0, nrows, stream);
-      raft::update_host(h_map, d_map, map_length, stream);
+    raft::update_host(h_map, d_map, map_length, stream);
 
     // expected and actual output matrix setup
     h_out = (MatrixT *)malloc(sizeof(MatrixT) * map_length * ncols);
@@ -91,7 +91,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
 
     // launch gather on the host and copy the results to device
     naiveGather(h_in, ncols, nrows, h_map, map_length, h_out);
-      raft::update_device(d_out_exp, h_out, map_length * ncols, stream);
+    raft::update_device(d_out_exp, h_out, map_length * ncols, stream);
 
     // launch device version of the kernel
     gatherLaunch(d_in, ncols, nrows, d_map, map_length, d_out_act, stream);
@@ -128,13 +128,15 @@ const std::vector<GatherInputs> inputs = {
 typedef GatherTest<float, uint32_t> GatherTestF;
 TEST_P(GatherTestF, Result) {
   ASSERT_TRUE(devArrMatch(d_out_exp, d_out_act,
-                          params.map_length * params.ncols, Compare<float>()));
+                          params.map_length * params.ncols,
+                          raft::Compare<float>()));
 }
 
 typedef GatherTest<double, uint32_t> GatherTestD;
 TEST_P(GatherTestD, Result) {
   ASSERT_TRUE(devArrMatch(d_out_exp, d_out_act,
-                          params.map_length * params.ncols, Compare<double>()));
+                          params.map_length * params.ncols,
+                          raft::Compare<double>()));
 }
 
 INSTANTIATE_TEST_CASE_P(GatherTests, GatherTestF, ::testing::ValuesIn(inputs));

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
@@ -28,7 +29,6 @@
 #include <opg/linalg/svd.hpp>
 #include <opg/stats/mean.hpp>
 #include <raft/comms/comms.hpp>
-#include <common/cudart_utils.h>
 
 using namespace MLCommon;
 

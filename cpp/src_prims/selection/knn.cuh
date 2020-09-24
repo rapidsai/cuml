@@ -263,7 +263,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   CUDA_CHECK(cudaGetDevice(&device));
 
   device_buffer<int64_t> trans(allocator, userStream, id_ranges->size());
-        raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
+  raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(),
+                      userStream);
 
   device_buffer<float> all_D(allocator, userStream, 0);
   device_buffer<int64_t> all_I(allocator, userStream, 0);

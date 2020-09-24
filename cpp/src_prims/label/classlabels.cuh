@@ -66,7 +66,7 @@ void getUniqueLabels(math_t *y, size_t n, math_t **y_unique, int *n_unique,
   cub::DeviceRadixSort::SortKeys(cub_storage.data(), bytes, y, y2.data(), n);
   cub::DeviceSelect::Unique(cub_storage.data(), bytes, y2.data(), y3.data(),
                             d_num_selected.data(), n);
-        raft::update_host(n_unique, d_num_selected.data(), 1, stream);
+  raft::update_host(n_unique, d_num_selected.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Copy unique classes to output
