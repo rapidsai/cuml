@@ -16,6 +16,7 @@
 
 /** @file fil.cu implements forest inference */
 
+#include <stdlib.h>
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
@@ -190,31 +191,66 @@ struct forest {
     AVG is set: ignored
     SIGMOID is set: ignored
     CLASS is set: ignored
+    
+    The multi-class classification / regression (TREE_PER_CLASS) predict_proba() is disabled
+    
+    The multi-class classification / regression (TREE_PER_CLASS) predict() works as follows
+      (always 1 output):
+    RAW (no values set): output the label of the class with highest margin,
+      equal margins resolved in favor of smaller label integer
+    AVG is set: ignored
+    SIGMOID is set: ignored
+    CLASS is set: ignored
     */
     output_t ot = output_;
     bool complement_proba = false, do_transform = global_bias_ != 0.0f;
 
-    if (leaf_algo_ == leaf_algo_t::FLOAT_SAME_CLASS) {
-      if (predict_proba) {
-        params.num_outputs = 2;
-        ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
-        complement_proba = true;
-        do_transform = true;
-      } else {
-        params.num_outputs = 1;
-        if (ot != output_t::RAW) do_transform = true;
-      }
-    } else if (leaf_algo_ == leaf_algo_t::CATEGORICAL_LEAF) {
-      if (predict_proba) {
-        params.num_outputs = num_classes_;
-        ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
-        if (ot != output_t::RAW) do_transform = true;
-      } else {
-        params.num_outputs = 1;
-        // moot since choosing best class and all transforms are monotonic
-        // also, would break current code
-        do_transform = false;
-      }
+    switch (leaf_algo_) {
+      case leaf_algo_t::FLOAT_SAME_CLASS:
+        ASSERT(num_classes_ <= 2,
+               "use leaf_algo_t::TREE_PER_CLASS for "
+               "num_classes > 2");
+        if (predict_proba) {
+          params.num_outputs = 2;
+          ot =
+            output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
+          complement_proba = true;
+          do_transform = true;
+        } else {
+          params.num_outputs = 1;
+          if (ot != output_t::RAW) do_transform = true;
+        }
+        break;
+      case leaf_algo_t::TREE_PER_CLASS:
+        if (predict_proba) {
+          ASSERT(
+            false,
+            "predict_proba not supported for multi-class Gradient Boosted "
+            "Decision Trees (encountered in xgboost, scikit-learn, lightgbm)");
+        } else {
+          params.num_outputs = 1;
+          // moot since choosing best class and all transforms are monotonic
+          // also, would break current code
+          do_transform = false;
+        }
+        break;
+      case leaf_algo_t::CATEGORICAL_LEAF:
+        if (predict_proba) {
+          params.num_outputs = num_classes_;
+          ot =
+            output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
+          if (ot != output_t::RAW) do_transform = true;
+        } else {
+          params.num_outputs = 1;
+          // moot since choosing best class and all transforms are monotonic
+          // also, would break current code
+          do_transform = false;
+        }
+        break;
+      default:
+        ASSERT(false,
+               "forest_params_t::leaf_algo must be FLOAT_SAME_CLASS, "
+               "TREE_PER_CLASS or CATEGORICAL_LEAF");
     }
 
     // Predict using the forest.
@@ -641,11 +677,25 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
       "are supported for multi-class models");
 
   } else {
-    params->num_classes = tl_params->output_class ? 2 : 1;
-    ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
-           "only sigmoid and identity values of pred_transform "
-           "are supported for binary classification and regression models");
-    params->leaf_algo = leaf_algo_t::FLOAT_SAME_CLASS;
+    if (model.num_output_group > 1) {
+      params->num_classes = model.num_output_group;
+      ASSERT(tl_params->output_class,
+             "output_class==true is required for multi-class models");
+      ASSERT(pred_transform == "sigmoid" || pred_transform == "identity" ||
+               pred_transform == "max_index" ||
+               pred_transform == "multiclass_ova",
+             "only sigmoid, identity, max_index and multiclass_ova values of "
+             "pred_transform are supported for xgboost-style multi-class "
+             "classification models.");
+      // this function should not know how many threads per block will be used
+      params->leaf_algo = leaf_algo_t::TREE_PER_CLASS;
+    } else {
+      params->num_classes = tl_params->output_class ? 2 : 1;
+      ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
+             "only sigmoid and identity values of pred_transform "
+             "are supported for binary classification and regression models.");
+      params->leaf_algo = leaf_algo_t::FLOAT_SAME_CLASS;
+    }
   }
 
   params->num_cols = model.num_feature;
@@ -653,7 +703,13 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
   params->global_bias = param.global_bias;
   params->output = output_t::RAW;
-  if (tl_params->output_class) {
+  /** output_t::CLASS denotes using a threshold in FIL, when
+      predict_proba == false. For all multiclass models, the best class is
+      selected using argmax instead. This happens when either
+      leaf_algo == CATEGORICAL_LEAF or num_classes > 2.
+  **/
+  if (tl_params->output_class && params->leaf_algo != CATEGORICAL_LEAF &&
+      params->num_classes <= 2) {
     params->output = output_t(params->output | output_t::CLASS);
   }
   // "random forest" in treelite means tree output averaging
