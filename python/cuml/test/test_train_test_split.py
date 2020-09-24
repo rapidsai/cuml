@@ -355,8 +355,8 @@ def test_stratified_random_seed(seed_type):
 @pytest.mark.parametrize('test_size', [0.2, 0.4, None])
 @pytest.mark.parametrize('train_size', [0.6, 0.8, None])
 def test_stratify_retain_index(test_size, train_size):
-    X = cudf.DataFrame({"x": range(20)})
-    y = cudf.Series(([0] * (20 // 2)) + ([1] * (20 // 2)))
+    X = cudf.DataFrame({"x": range(10)})
+    y = cudf.Series(([0] * (10 // 2)) + ([1] * (10 // 2)))
 
     X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                         train_size=train_size,
