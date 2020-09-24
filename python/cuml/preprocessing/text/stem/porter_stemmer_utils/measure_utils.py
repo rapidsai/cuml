@@ -13,9 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.preprocessing.model_selection import train_test_split
-from cuml.preprocessing.LabelEncoder import LabelEncoder
-from cuml.preprocessing.label import LabelBinarizer, label_binarize
-from cuml.preprocessing.encoders import OneHotEncoder
-from cuml.preprocessing.TargetEncoder import TargetEncoder
-from cuml.preprocessing import text
+
+
+def has_positive_measure(word_ser):
+    measure_ser = word_ser.str.porter_stemmer_measure()
+    return measure_ser > 0
+
+
+def measure_gt_n(word_ser, n):
+    measure_ser = word_ser.str.porter_stemmer_measure()
+    return measure_ser > n
+
+
+def measure_eq_n(word_ser, n):
+    measure_ser = word_ser.str.porter_stemmer_measure()
+    return measure_ser == n

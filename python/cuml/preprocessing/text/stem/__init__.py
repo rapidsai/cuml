@@ -13,9 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.preprocessing.model_selection import train_test_split
-from cuml.preprocessing.LabelEncoder import LabelEncoder
-from cuml.preprocessing.label import LabelBinarizer, label_binarize
-from cuml.preprocessing.encoders import OneHotEncoder
-from cuml.preprocessing.TargetEncoder import TargetEncoder
-from cuml.preprocessing import text
+
+from cuml.preprocessing.text.stem.porter_stemmer import PorterStemmer
+import cuml.preprocessing.text.stem.porter_stemmer_utils
