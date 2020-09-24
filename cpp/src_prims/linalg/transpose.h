@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <raft/linalg/cublas_wrappers.h>
 #include <thrust/device_vector.h>
-#include "cublas_wrappers.h"
 
 namespace MLCommon {
 namespace LinAlg {
@@ -39,9 +39,9 @@ void transpose(math_t *in, math_t *out, int n_rows, int n_cols,
 
   const math_t alpha = 1.0;
   const math_t beta = 0.0;
-  CUBLAS_CHECK(cublasgeam(cublas_h, CUBLAS_OP_T, CUBLAS_OP_N, out_n_rows,
-                          out_n_cols, &alpha, in, n_rows, &beta, out,
-                          out_n_rows, out, out_n_rows, stream));
+  CUBLAS_CHECK(raft::linalg::cublasgeam(
+    cublas_h, CUBLAS_OP_T, CUBLAS_OP_N, out_n_rows, out_n_cols, &alpha, in,
+    n_rows, &beta, out, out_n_rows, out, out_n_rows, stream));
 }
 
 /**

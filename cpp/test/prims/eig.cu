@@ -45,7 +45,8 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
   void SetUp() override {
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
+    std::shared_ptr<deviceAllocator> allocator(
+      new raft::mr::device::default_allocator);
 
     params = ::testing::TestWithParam<EigInputs<T>>::GetParam();
     Random::Rng r(params.seed);

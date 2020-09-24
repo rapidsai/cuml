@@ -19,7 +19,7 @@
 #include <vector>
 
 #include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
@@ -56,7 +56,7 @@ struct SimpleMat {
 
   void print(std::ostream &oss) const { oss << (*this) << std::endl; }
 
-  inline void assign_gemm(const cumlHandle_impl &handle, const T alpha,
+  inline void assign_gemm(const raft::handle_t &handle, const T alpha,
                           const SimpleMat<T> &A, const bool transA,
                           const SimpleMat<T> &B, const bool transB,
                           const T beta, cudaStream_t stream) {
@@ -79,18 +79,17 @@ struct SimpleMat {
     ASSERT(kA == kB, "GEMM invalid dims: k");
 
     if (ord == COL_MAJOR && A.ord == COL_MAJOR &&
-        B.ord == COL_MAJOR) {  // base case
-      MLCommon::LinAlg::cublasgemm(
-        handle.getCublasHandle(),            // handle
-        transA ? CUBLAS_OP_T : CUBLAS_OP_N,  // transA
-        transB ? CUBLAS_OP_T : CUBLAS_OP_N,  // transB
-        this->m, this->n, kA,                // dimensions m,n,k
-        &alpha, A.data,
-        A.m,          // lda
-        B.data, B.m,  // ldb
-        &beta, this->data,
-        this->m,  // ldc,
-        stream);
+        B.ord == COL_MAJOR) {                                       // base case
+      raft::linalg::cublasgemm(handle.get_cublas_handle(),          // handle
+                               transA ? CUBLAS_OP_T : CUBLAS_OP_N,  // transA
+                               transB ? CUBLAS_OP_T : CUBLAS_OP_N,  // transB
+                               this->m, this->n, kA,  // dimensions m,n,k
+                               &alpha, A.data,
+                               A.m,          // lda
+                               B.data, B.m,  // ldb
+                               &beta, this->data,
+                               this->m,  // ldc,
+                               stream);
       return;
     }
     if (A.ord == ROW_MAJOR) {
@@ -188,7 +187,7 @@ struct SimpleVec : SimpleMat<T> {
 
   SimpleVec(T *data, const int n) : Super(data, n, 1, COL_MAJOR) {}
   // this = alpha * A * x + beta * this
-  void assign_gemv(const cumlHandle_impl &handle, const T alpha,
+  void assign_gemv(const raft::handle_t &handle, const T alpha,
                    const SimpleMat<T> &A, bool transA, const SimpleVec<T> &x,
                    const T beta, cudaStream_t stream) {
     Super::assign_gemm(handle, alpha, A, transA, x, false, beta, stream);

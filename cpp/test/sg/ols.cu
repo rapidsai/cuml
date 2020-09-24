@@ -98,30 +98,30 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
 
     intercept = T(0);
 
-    olsFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef,
-           &intercept, false, false, stream, params.algo);
+    olsFit(handle, data, params.n_row, params.n_col, labels, coef, &intercept,
+           false, false, stream, params.algo);
 
-    olsPredict(handle.getImpl(), pred_data, params.n_row_2, params.n_col, coef,
-               intercept, pred, stream);
+    olsPredict(handle, pred_data, params.n_row_2, params.n_col, coef, intercept,
+               pred, stream);
 
     updateDevice(data, data_h.data(), len, stream);
     updateDevice(labels, labels_h.data(), params.n_row, stream);
 
     intercept2 = T(0);
-    olsFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef2,
-           &intercept2, true, false, stream, params.algo);
+    olsFit(handle, data, params.n_row, params.n_col, labels, coef2, &intercept2,
+           true, false, stream, params.algo);
 
-    olsPredict(handle.getImpl(), pred_data, params.n_row_2, params.n_col, coef2,
+    olsPredict(handle, pred_data, params.n_row_2, params.n_col, coef2,
                intercept2, pred2, stream);
 
     updateDevice(data, data_h.data(), len, stream);
     updateDevice(labels, labels_h.data(), params.n_row, stream);
 
     intercept3 = T(0);
-    olsFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef3,
-           &intercept3, true, true, stream, params.algo);
+    olsFit(handle, data, params.n_row, params.n_col, labels, coef3, &intercept3,
+           true, true, stream, params.algo);
 
-    olsPredict(handle.getImpl(), pred_data, params.n_row_2, params.n_col, coef3,
+    olsPredict(handle, pred_data, params.n_row_2, params.n_col, coef3,
                intercept3, pred3, stream);
   }
 
@@ -148,13 +148,13 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
 
     T intercept_sc = T(0);
 
-    olsFit(handle.getImpl(), data_sc, len, 1, labels_sc, coef_sc, &intercept_sc,
-           true, false, stream, params.algo);
+    olsFit(handle, data_sc, len, 1, labels_sc, coef_sc, &intercept_sc, true,
+           false, stream, params.algo);
   }
 
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.setStream(stream);
+    handle.set_stream(stream);
     basicTest();
     basicTest2();
   }
@@ -190,7 +190,7 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
   T *coef3, *coef3_ref, *pred3, *pred3_ref;
   T *data_sc, *labels_sc, *coef_sc, *coef_sc_ref;
   T intercept, intercept2, intercept3;
-  cumlHandle handle;
+  raft::handle_t handle;
   cudaStream_t stream;
 };
 

@@ -29,7 +29,8 @@ class CacheTest : public ::testing::Test {
  protected:
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocator = std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator());
+    allocator = std::shared_ptr<deviceAllocator>(
+      new raft::mr::device::default_allocator());
     allocate(x_dev, n_rows * n_cols);
     updateDevice(x_dev, x_host, n_rows * n_cols, stream);
     allocate(tile_dev, n_rows * n_cols);

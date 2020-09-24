@@ -109,7 +109,7 @@ def match_test(output1, output2):
 
 
 @pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
-@pytest.mark.parametrize("n_neighbors", [1, 3, 8])
+@pytest.mark.parametrize("n_neighbors", [1, 3, 6])
 @pytest.mark.parametrize("n_parts", [None, 2, 3, 5])
 @pytest.mark.parametrize("batch_size", [128, 512, 1024])
 def test_predict(dataset, datatype, n_neighbors, n_parts, batch_size, client):
