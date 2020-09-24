@@ -20,7 +20,6 @@
 #include <cuda_utils.cuh>
 #include <random/make_blobs.cuh>
 #include "test_utils.h"
-#include <raft/device_atomics.cuh>
 
 namespace MLCommon {
 namespace Random {

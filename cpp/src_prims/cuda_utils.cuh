@@ -119,26 +119,7 @@ HDI void swapVals(T &a, T &b) {
 }
 
 /** Device function to have atomic add support for older archs */
-#if __CUDA_ARCH__ < 600
-template <typename Type>
-DI void myAtomicAdd(Type *address, Type val) {
-  atomicAdd(address, val);
-}
-// Ref:
-// http://on-demand.gputechconf.com/gtc/2013/presentations/S3101-Atomic-Memory-Operations.pdf
-template <>
-DI void myAtomicAdd(double *address, double val) {
-  unsigned long long int *address_as_ull = (unsigned long long int *)address;
-  unsigned long long int old = *address_as_ull, assumed;
-  do {
-    assumed = old;
-    old = atomicCAS(address_as_ull, assumed,
-                    __double_as_longlong(val + __longlong_as_double(assumed)));
-  } while (assumed != old);
-}
-#else
 #define myAtomicAdd(a, b) atomicAdd(a, b)
-#endif  // __CUDA_ARCH__
 
 template <typename T, typename ReduceLambda>
 DI void myAtomicReduce(T *address, T val, ReduceLambda op);

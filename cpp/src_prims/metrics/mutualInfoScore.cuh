@@ -32,7 +32,6 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <linalg/reduce.cuh>
 #include "contingencyMatrix.cuh"
-#include <raft/device_atomics.cuh>
 
 namespace MLCommon {
 
