@@ -3,6 +3,8 @@
 ## New Features
 - PR #2677: Ability to export RF trees as JSON
 - PR #2698: Distributed TF-IDF transformer
+- PR #2476: Porter Stemmer
+- PR #2789: Dask LabelEncoder
 - PR #2152: add FIL C++ benchmark
 - PR #2638: Improve cython build with custom `build_ext`
 
@@ -28,6 +30,8 @@
 - PR #2800: Align cuML's spdlog version with RMM's
 - PR #2824: Make data conversions warnings be debug level
 - PR #2541: Improve Documentation Examples and Source Linking
+- PR #2792: Project flash (new build process) script changes
+- PR #2850: Clean up unused params in paramsPCA
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
@@ -39,9 +43,11 @@
 - PR #2810: Update Rf MNMG threshold to prevent sporadic test failure
 - PR #2808: Relax Doxygen version required in CMake to coincide with integration repo
 - PR #2818: Fix parsing of singlegpu option in build command
+- PR #2827: Force use of whole dataset when sample bootstrapping is disabled
 - PR #2829: Fixing description for labels in docs and removing row number constraint from PCA xform/inverse_xform
 - PR #2832: Updating stress tests that fail with OOM
 - PR #2831: Removing repeated capture and parameter in lambda function
+- PR #2847: Workaround for TSNE lockup, change caching preference.
 - PR #2842: KNN index preprocessors were using incorrect n_samples
 - PR #2848: Fix typo in Python docstring for UMAP
 - PR #2855: Updates for RMM being header only
