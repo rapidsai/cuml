@@ -119,6 +119,13 @@ class DummyClass(object):
 
 
 def check_cupy8(conf=None):
+    """Decorator checking availability of CuPy 8.0+
+
+    Parameters:
+    conf: string (optional, default None): If set to 'pytest' will skip tests.
+    Will otherwise raise an error in case CuPy 8.0+ is unavailable.
+
+    """
     def check_cupy8_dec(func):
         @wraps(func)
         def inner(*args, **kwargs):
