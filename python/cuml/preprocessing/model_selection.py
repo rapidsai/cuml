@@ -240,7 +240,7 @@ def train_test_split(X,
 
         # Alternatively, if our labels are stored separately
         labels = df['y']
-        df = df.drop(['y'])
+        df = df.drop(['y'], axis=1)
 
         # we can also do
         X_train, X_test, y_train, y_test = train_test_split(df, labels,
@@ -271,7 +271,7 @@ def train_test_split(X,
         if isinstance(X, cudf.DataFrame):
             name = y
             y = X[name]
-            X = X.drop(name)
+            X = X.drop(name, axis=1)
         else:
             raise TypeError("X needs to be a cuDF Dataframe when y is a \
                              string")

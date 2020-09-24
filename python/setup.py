@@ -151,7 +151,7 @@ class cuml_build(_build):
         # object has all the args used by the user, we can check that.
         self.singlegpu = '--singlegpu' in self.distribution.script_args
 
-        libs = ['cuda', 'cuml++', 'rmm']
+        libs = ['cuda', 'cuml++']
 
         include_dirs = [
             '../cpp/src',
