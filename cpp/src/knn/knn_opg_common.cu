@@ -54,6 +54,7 @@
 
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/logger.hpp>
 #include <raft/comms/comms.hpp>
 
 #include <set>
@@ -395,7 +396,7 @@ void broadcast_query(float *query, size_t batch_input_elms, int part_rank,
   try {
     comm.waitall(requests.size(), requests.data());
   } catch (raft::exception &e) {
-    std::cout << "FAILURE!" << std::endl;
+    CUML_LOG_DEBUG("FAILURE!");
   }
 }
 
@@ -447,23 +448,19 @@ void exchange_results(device_buffer<T> &res, device_buffer<int64_t> &res_I,
       for (int rank : idxRanks) {
         if (rank == my_rank) {
           size_t batch_offset = batch_elms * i;
-          cudaMemcpyAsync(res_I.data() + batch_offset, res_I.data(),
-                          batch_elms * sizeof(int64_t),
-                          cudaMemcpyDeviceToDevice, stream);
-          cudaMemcpyAsync(res_D.data() + batch_offset, res_D.data(),
-                          batch_elms * sizeof(float), cudaMemcpyDeviceToDevice,
-                          stream);
+          MLCommon::copyAsync(res_I.data() + batch_offset, res_I.data(),
+                              batch_elms, stream);
+          MLCommon::copyAsync(res_D.data() + batch_offset, res_D.data(),
+                              batch_elms, stream);
 
           device_buffer<T> tmp_res(alloc, stream, n_outputs * batch_elms);
-          cudaMemcpyAsync(tmp_res.data(), res.data(),
-                          tmp_res.size() * sizeof(T), cudaMemcpyDeviceToDevice,
-                          stream);
+          MLCommon::copyAsync(tmp_res.data(), res.data(), tmp_res.size(),
+                              stream);
 
           for (int o = 0; o < n_outputs; ++o) {
-            cudaMemcpyAsync(
+            MLCommon::copyAsync(
               res.data() + (o * idxRanks.size() * batch_elms) + batch_offset,
-              tmp_res.data() + (o * batch_elms), batch_elms * sizeof(T),
-              cudaMemcpyDeviceToDevice, stream);
+              tmp_res.data() + (o * batch_elms), batch_elms, stream);
           }
           CUDA_CHECK(cudaStreamSynchronize(stream));
           break;
@@ -500,7 +497,7 @@ void exchange_results(device_buffer<T> &res, device_buffer<int64_t> &res_I,
   try {
     comm.waitall(requests.size(), requests.data());
   } catch (raft::exception &e) {
-    std::cout << "FAILURE!" << std::endl;
+    CUML_LOG_DEBUG("FAILURE!");
   }
 }
 
@@ -556,17 +553,13 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
       if (cur_batch == total_batches - 1)
         cur_batch_size = part_n_rows - (cur_batch * batch_size);
 
-      if (my_rank == part_rank && verbose) {
-        std::cout << "Root Rank is " << my_rank << std::endl;
-      }
+      if (my_rank == part_rank && verbose)
+        CUML_LOG_DEBUG("Root Rank is %d", my_rank);
 
       /**
        * Root broadcasts batch to all other ranks
        */
-      if (verbose) {
-        std::cout << "Rank " << my_rank << ": Performing Broadcast"
-                  << std::endl;
-      }
+      if (verbose) CUML_LOG_DEBUG("Rank %d: Performing Broadcast", my_rank);
 
       int my_rank = comm.get_rank();
       device_buffer<float> part_data(allocator, stream, 0);
@@ -618,9 +611,7 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
         /**
          * All index ranks perform local KNN
          */
-        if (verbose)
-          std::cout << "Rank " << my_rank << ": Performing Local KNN"
-                    << std::endl;
+        if (verbose) CUML_LOG_DEBUG("Rank %d: Performing Local KNN", my_rank);
 
         size_t batch_knn_elms = k * cur_batch_size;
 
@@ -656,9 +647,7 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
          * Ranks exchange results.
          * Partition owner receives. All other ranks send.
          */
-        if (verbose)
-          std::cout << "Rank " << my_rank << ": Exchanging results"
-                    << std::endl;
+        if (verbose) CUML_LOG_DEBUG("Rank %d: Exchanging results", my_rank);
         exchange_results(res, res_I, res_D, comm, part_rank, idxRanks, stream,
                          handle.get_device_allocator(), cur_batch_size, k,
                          n_outputs, local_parts_completed);
@@ -668,8 +657,7 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
        * Root rank performs local reduce
        */
       if (part_rank == my_rank) {
-        if (verbose)
-          std::cout << "Rank " << my_rank << ": Performing Reduce" << std::endl;
+        if (verbose) CUML_LOG_DEBUG("Rank %d: Performing Reduce", my_rank);
 
         reduce(handle, out, out_I, out_D, res, res_I, res_D, idx_desc,
                cur_batch_size, k, n_outputs, local_parts_completed,
@@ -678,8 +666,7 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
         CUDA_CHECK(cudaStreamSynchronize(stream));
         CUDA_CHECK(cudaPeekAtLastError());
 
-        if (verbose)
-          std::cout << "Rank " << my_rank << ": Finished Reduce" << std::endl;
+        if (verbose) CUML_LOG_DEBUG("Rank %d: Finished Reduce", my_rank);
       }
 
       total_n_processed += cur_batch_size;
