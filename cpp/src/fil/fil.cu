@@ -260,8 +260,9 @@ struct dense_forest : forest {
     int global_node = 0;
     for (int tree = 0; tree < num_trees_; ++tree) {
       int tree_node = 0;
-      // the counters `level` and `branch` are not used, they are only here
-      // to highlight the node ordering within each tree
+      // the counters `level` and `branch` are not used for computing node
+      // indices, they are only here to highlight the node ordering within
+      // each tree
       for (int level = 0; level <= depth_; ++level) {
         for (int branch = 0; branch < 1 << level; ++branch) {
           h_nodes_[tree_node * num_trees_ + tree] =
