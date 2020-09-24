@@ -348,7 +348,6 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
       for (int item = 0; item < NITEMS; ++item) votes[c * NITEMS + item] = 0;
     //__syncthreads(); // happening outside already
   }
-
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, int> single_tree_prediction, int tree) {
 #pragma unroll
@@ -387,7 +386,6 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
       out[row] = best_class;
     }
   }
-
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs) {
     if (num_outputs > 1) {
