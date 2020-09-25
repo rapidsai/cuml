@@ -52,6 +52,7 @@
 - PR #2847: Workaround for TSNE lockup, change caching preference.
 - PR #2842: KNN index preprocessors were using incorrect n_samples
 - PR #2848: Fix typo in Python docstring for UMAP
+- PR #2856: Fix LabelEncoder for filtered input 
 - PR #2855: Updates for RMM being header only
 
 # cuML 0.15.0 (Date TBD)

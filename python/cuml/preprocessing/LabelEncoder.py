@@ -188,7 +188,7 @@ class LabelEncoder(Base):
 
         encoded = y.cat.set_categories(self.classes_)._column.codes
 
-        encoded = cudf.Series(encoded)
+        encoded = cudf.Series(encoded, index=y.index)
 
         if encoded.has_nulls and self.handle_unknown == 'error':
             raise KeyError("Attempted to encode unseen key")
@@ -208,7 +208,7 @@ class LabelEncoder(Base):
         self.classes_ = y._column.categories
 
         self._fitted = True
-        return cudf.Series(y._column.codes)
+        return cudf.Series(y._column.codes, index=y.index)
 
     @with_cupy_rmm
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
