@@ -360,14 +360,14 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         dtype depending on the dtype of the target.
         """
 
-        from cuml.internals import set_api_target_dtype
+        from cuml.internals import set_api_output_dtype
 
         try:
             out_dtype = self.target_dtype
         except AttributeError:
             out_dtype = None
 
-        set_api_target_dtype(out_dtype)
+        set_api_output_dtype(out_dtype)
 
         return out_dtype
 

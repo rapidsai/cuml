@@ -80,7 +80,7 @@ class BaseMetaClass(type):
                     elif (issubclass(ret_type, cuml.Base)):
                         return "base"
                     else:
-                        print("Other")
+                        return None
             except NameError:
                 if (attr.__annotations__["return"] == classname):
                     return "base"
@@ -93,24 +93,24 @@ class BaseMetaClass(type):
             if callable(attribute):
 
                 # Skip items marked with autowrap_ignore
-                if ("__cuml_do_not_wrap" in attribute.__dict__
-                        and attribute.__dict__["__cuml_do_not_wrap"]):
+                if ("__cuml_is_wrapped" in attribute.__dict__
+                        and attribute.__dict__["__cuml_is_wrapped"]):
                     pass
                 else:
                     return_type = get_base_return_type(attribute)
 
                     if (return_type == "generic"):
-                        attribute = cuml.internals.api_base_return_genericarray()(
+                        attribute = cuml.internals.api_base_return_generic()(
                             attribute)
                     elif (return_type == "array"):
                         attribute = cuml.internals.api_base_return_array()(
                             attribute)
                     elif (return_type == "base"):
-                        attribute = cuml.internals.wrap_api_base_return_any()(
+                        attribute = cuml.internals.api_base_return_any()(
                             attribute)
                     elif (not attributeName.startswith("_")):
                         # Only replace public functions with return any
-                        attribute = cuml.internals.wrap_api_return_any()(
+                        attribute = cuml.internals.api_return_any()(
                             attribute)
 
                 # # Check if we have an __cuml_internals object

@@ -311,56 +311,254 @@ class RootCumlArrayReturnConverter(CumlArrayReturnConverter):
                                  output_dtype=self._root_cm.output_dtype)
 
 
-# class RootOutputTypeContextManager(OutputTypeContextManager):
-#     def __init__(self, func, args):
-#         super().__init__(func, args, self)
+class ProcessEnter(object):
+    def __init__(self, context: "InternalAPIContextBase"):
+        super().__init__()
 
-#         def cleanup():
-#             global_output_type_data.root_cm = None
+        self._context = context
 
-#         self.callback(cleanup)
+        self._process_enter_cbs: typing.Deque[typing.Callable] = deque()
 
-#         self.enter_context(cupy_using_allocator(rmm.rmm_cupy_allocator))
-#         self.prev_output_type = self.enter_context(
-#             cuml.using_output_type("mirror"))
+    def process_enter(self):
 
-#         self.output_type = None
-#         self.output_dtype = None
+        for cb in self._process_enter_cbs:
+            cb()
 
-#         global_output_type_data.root_cm = self
 
-#     @contextlib.contextmanager
-#     def internal_func_ret_base(self):
-#         try:
-#             old_output_type = self.output_type
-#             old_output_dtype = self.output_dtype
+class ProcessReturn(object):
+    def __init__(self, context: "InternalAPIContextBase"):
+        super().__init__()
 
-#             yield
+        self._context = context
 
-#         finally:
-#             self.output_type = (old_output_type if old_output_type is not None
-#                                 else self.output_type)
-#             self.output_dtype = (old_output_dtype if old_output_dtype
-#                                  is not None else self.output_dtype)
+        self._process_return_cbs: typing.Deque[typing.Callable[
+            [typing.Any], typing.Any]] = deque()
 
-#     def process_return(self, ret_val):
+    def process_return(self, ret_val):
 
-#         if isinstance(ret_val, cuml.common.CumlArray):
+        for cb in self._process_return_cbs:
+            ret_val = cb(ret_val)
 
-#             output_type = (self.output_type if self.output_type is not None
-#                            else self.prev_output_type)
+        return ret_val
 
-#             if (output_type == "input"):
 
-#                 # If we are on the Base object, get output_type
-#                 if (len(self._args) > 0
-#                         and isinstance(self._args[0], cuml.Base)):
-#                     output_type = self._args[0].output_type
+EnterT = typing.TypeVar("EnterT", bound=ProcessEnter)
+ProcessT = typing.TypeVar("ProcessT", bound=ProcessReturn)
 
-#             return ret_val.to_output(output_type=output_type,
-#                                      output_dtype=self.output_dtype)
-#         else:
-#             return ret_val
+
+class InternalAPIContextBase(contextlib.ExitStack,
+                             typing.Generic[EnterT, ProcessT]):
+
+    ProcessEnter_Type: typing.Type[EnterT] = None
+    ProcessReturn_Type: typing.Type[ProcessT] = None
+
+    def __init__(self, func=None, args=None):
+        super().__init__()
+
+        self._func = func
+        self._args = args
+
+        self.root_cm = get_internal_context()
+
+        self._enter_obj: ProcessEnter = self.ProcessEnter_Type(self)
+        self._process_obj: ProcessReturn = None
+
+    def __enter__(self):
+
+        # Enter the root context to know if we are the root cm
+        self.is_root = self.enter_context(self.root_cm) == 1
+
+        # If we are the first, push any callbacks from the root into this CM
+        # If we are not the first, this will have no effect
+        self.push(self.root_cm.pop_all())
+
+        self._enter_obj.process_enter()
+
+        # Now create the process functions since we know if we are root or not
+        self._process_obj = self.ProcessReturn_Type(self)
+
+        return super().__enter__()
+
+    def process_return(self, ret_val):
+
+        return self._process_obj.process_return(ret_val)
+
+    def __class_getitem__(cls: typing.Type["InternalAPIContextBase"], params):
+
+        param_names = [
+            param.__name__ if hasattr(param, '__name__') else str(param)
+            for param in params
+        ]
+
+        type_name = f'{cls.__name__}[{", ".join(param_names)}]'
+
+        ns = {
+            "ProcessEnter_Type": params[0],
+            "ProcessReturn_Type": params[1],
+        }
+
+        return type(type_name, (cls, ), ns)
+
+
+class ProcessEnterBaseMixin(ProcessEnter):
+    def __init__(self, context: "InternalAPIContextBase"):
+        super().__init__(context)
+
+        self.base_obj: cuml.Base = self._context._args[0]
+
+
+class ProcessEnterReturnAny(ProcessEnterBaseMixin):
+    def __init__(self, context: "InternalAPIContextBase"):
+        super().__init__(context)
+
+
+class ProcessEnterReturnArray(ProcessEnter):
+    def __init__(self, context: "InternalAPIContextBase"):
+        super().__init__(context)
+
+        self._process_enter_cbs.append(self.push_output_types)
+
+    def push_output_types(self):
+
+        self._context.enter_context(self._context.root_cm.push_output_types())
+
+
+class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
+                                  ProcessEnterBaseMixin):
+    def __init__(self, context: "InternalAPIContextBase"):
+        super().__init__(context)
+
+        if (self._context.root_cm.prev_output_type == "input"):
+            self._process_enter_cbs.append(self.base_output_type_callback)
+
+    def base_output_type_callback(self):
+
+        root_cm = self._context.root_cm
+
+        def set_output_type():
+            output_type = (root_cm.output_type if root_cm.output_type
+                           is not None else root_cm.prev_output_type)
+
+            if (output_type == "input"):
+                output_type = self.base_obj.output_type
+
+                set_api_output_type(output_type)
+
+            assert (output_type != "mirror")
+
+        self._context.callback(set_output_type)
+
+
+class ProcessEnterBaseSetOutputTypes(ProcessEnterBaseMixin):
+    def __init__(self, context: "InternalAPIContextBase"):
+        super().__init__(context)
+
+    def set_output_types(self):
+        pass
+
+
+class ProcessReturnAny(ProcessReturn):
+    pass
+
+
+class ProcessReturnArray(ProcessReturn):
+    def __init__(self, context: "InternalAPIContextBase"):
+        super().__init__(context)
+
+        self._process_return_cbs.append(self.convert_to_cumlarray)
+
+        if (self._context.is_root):
+            self._process_return_cbs.append(self.convert_to_outputtype)
+
+    def convert_to_cumlarray(self, ret_val):
+        if (not isinstance(ret_val, cuml.common.CumlArray)):
+            ret_val, _, _, _ = cuml.common.input_to_cuml_array(ret_val, order="K")
+
+        return ret_val
+
+    def convert_to_outputtype(self, ret_val):
+        return ret_val.to_output(
+            output_type=self._context.root_cm.output_type,
+            output_dtype=self._context.root_cm.output_dtype)
+
+
+class ProcessReturnGeneric(ProcessReturnArray):
+    def __init__(self, context: "InternalAPIContextBase"):
+        super().__init__(context)
+
+        # Clear the existing callbacks to allow processing one at a time
+        self._single_array_cbs = self._process_return_cbs
+
+        # Make a new queue
+        self._process_return_cbs = deque()
+
+        type_hints = typing.get_type_hints(self._context._func)
+        gen_type = type_hints["return"]
+
+        assert (isinstance(gen_type, typing._GenericAlias))
+
+        # Add the right processing function based on the generic type
+        if (gen_type.__origin__ is tuple):
+            self._process_return_cbs.append(self.process_tuple)
+        elif (gen_type.__origin__ is dict):
+            self._process_return_cbs.append(self.process_dict)
+        elif (gen_type.__origin__ is list):
+            self._process_return_cbs.append(self.process_list)
+        else:
+            raise NotImplementedError("Unsupported origin type: {}".format(
+                gen_type.__origin__))
+
+    def process_single(self, ret_val):
+        for cb in self._single_array_cbs:
+            ret_val = cb(ret_val)
+
+        return ret_val
+
+    def process_tuple(self, ret_val: tuple):
+
+        # Convert to a list
+        out_val = list(ret_val)
+
+        for idx, item in enumerate(out_val):
+
+            # TODO: this really needs to check for all types of arrays
+            if (isinstance(item, cuml.common.CumlArray)):
+                out_val[idx] = self.process_single(item)
+
+        return tuple(out_val)
+
+    def process_dict(self, ret_val):
+
+        return ret_val
+
+    def process_list(self, ret_val):
+
+        return ret_val
+
+
+class ReturnAnyCM(InternalAPIContextBase[ProcessEnterReturnAny,
+                                         ProcessReturnAny]):
+    pass
+
+
+class ReturnArrayCM(InternalAPIContextBase[ProcessEnterReturnArray,
+                                           ProcessReturnArray]):
+    pass
+
+
+class BaseReturnAnyCM(InternalAPIContextBase[ProcessEnterReturnAny,
+                                             ProcessReturnAny]):
+    pass
+
+
+class BaseReturnArrayCM(InternalAPIContextBase[ProcessEnterBaseReturnArray,
+                                               ProcessReturnArray]):
+    pass
+
+
+class BaseReturnGenericCM(InternalAPIContextBase[ProcessEnterBaseReturnArray,
+                                                 ProcessReturnGeneric]):
+    pass
 
 
 def get_internal_context() -> InternalAPIContext:
@@ -368,35 +566,6 @@ def get_internal_context() -> InternalAPIContext:
         return InternalAPIContext()
 
     return global_output_type_data.root_cm
-
-
-# def get_internal_cm(func: typing.Callable, args) -> OutputTypeContextManager:
-
-#     internal_context = get_internal_context()
-
-#     return internal_context.create_cm(func, args)
-
-#     # if (global_output_type_data.root_cm is None):
-#     #     return RootOutputTypeContextManager(func, args)
-#     # elif (func.__dict__.get("__cuml_return_array", False)):
-#     #     return OutputTypeContextManager(func,
-#     #                                     args,
-#     #                                     global_output_type_data.root_cm)
-#     # else:
-#     #     return InternalAPIContextManager(func,
-#     #                                      args,
-#     #                                      global_output_type_data.root_cm)
-
-# def cuml_internal_func(func):
-#     @wraps(func)
-#     def wrapped(*args, **kwargs):
-#         with get_internal_cm(func, args) as cm:
-
-#             ret_val = func(*args, **kwargs)
-
-#         return cm.process_return(ret_val)
-
-#     return wrapped
 
 
 def cuml_internal_func_check_type(func):
@@ -441,66 +610,33 @@ def autowrap_return_self(func):
     return func
 
 
-# def autowrap_return_cumlarray(input_arg: str = None,
-#                               skip_output_type=False,
-#                               skip_output_dtype=True):
-#     def inner(func):
-#         @wraps(func)
-#         def wrapped(*args, **kwargs):
+class DecoratorMetaClass(type):
+    def __new__(meta, classname, bases, classDict):
 
-#             with get_internal_cm(func, args) as cm:
+        if ("__call__" in classDict):
 
-#                 input_arg_val = None
+            func = classDict["__call__"]
 
-#                 if (input_arg is not None):
-#                     input_arg_val = kwargs[input_arg]
-#                 else:
-#                     # By default, use the first parameter after self
-#                     input_arg_val = args[1]
+            @wraps(func)
+            def wrap_call(*args, **kwargs):
+                ret_val = func(*args, **kwargs)
 
-#                 func_self: cuml.Base = args[0]
+                ret_val.__dict__["__cuml_is_wrapped"] = True
 
-#                 # Defaults
-#                 output_type = None
-#                 output_dtype = None
+                return ret_val
 
-#                 if (not skip_output_type):
-#                     output_type = func_self._get_output_type(input_arg_val)
+            classDict["__call__"] = wrap_call
 
-#                 if (not skip_output_dtype):
-#                     output_dtype = func_self._get_output_dtype()
-
-#                 ret_val = func(*args, **kwargs)
-
-#                 if (not isinstance(ret_val, cuml.common.CumlArray)):
-#                     ret_val, _, _, _ = cuml.common.input_to_cuml_array(ret_val, order="K")
-
-#             return typing.cast(OutputTypeContextManager,
-#                                cm).process_return(ret_val)
-
-#         return wrapped
-
-#     return inner
-
-# def autowrap_return_cumlarray(func):
-
-#     func_dict: BaseFunctionMetadata = typing.cast(
-#         dict, func.__dict__).setdefault(BaseFunctionMetadata.func_dict_str,
-#                                         BaseFunctionMetadata())
-
-#     func_dict.returns_cumlarray = True
-
-#     return func
+        return type.__new__(meta, classname, bases, classDict)
 
 
 class BaseDecoratorMixin(object):
-    def __init__(self,
-                 input_arg: str = None):
+    def __init__(self, input_arg: str = None):
         super().__init__()
 
         self.input_arg = input_arg
 
-    def prep_arg_to_use(self, func):
+    def prep_arg_to_use(self, func) -> bool:
 
         sig = inspect.signature(func, follow_wrapped=True)
         sig_args = list(sig.parameters.keys())
@@ -518,7 +654,8 @@ class BaseDecoratorMixin(object):
         # if input_arg is None, then set to first non self argument
         if (arg_to_use is None):
 
-            assert len(sig.parameters) > self_offset, "Cannot use default wrapper. Must contain at least 1 argument besides `self`"
+            if (len(sig.parameters) <= self_offset):
+                return False
 
             arg_to_use = sig_args[self_offset]
 
@@ -532,120 +669,97 @@ class BaseDecoratorMixin(object):
         self.arg_to_use = arg_to_use
         self.arg_to_use_name = arg_to_use_name
 
-        return arg_to_use, arg_to_use_name
+        return True
 
     def get_arg_value(self, *args, **kwargs):
 
-        # TODO: Eventually remove this. Assert for debugging
-        assert len(
-            args) > self.arg_to_use and self.arg_to_use_name not in kwargs.keys()
-
-        arg_val = kwargs[self.arg_to_use] if isinstance(
-            self.arg_to_use, str) else args[self.arg_to_use]
-
         self_val = args[0]
 
-        return self_val, arg_val
+        # Check if its set to a string
+        if (isinstance(self.arg_to_use, str)):
+            return self_val, kwargs[self.arg_to_use]
+
+        # If all arguments are set by name, then this can happen
+        if (self.arg_to_use >= len(args)):
+            # Check for the name in kwargs
+            if (self.arg_to_use_name in kwargs):
+                return self_val, kwargs[self.arg_to_use_name]
+
+            raise IndexError("Specified argument idx: {}, and argument name: {}, were not found in args or kwargs".format(self.arg_to_use, self.arg_to_use_name))
+
+        # Otherwise return the index
+        return self_val, args[self.arg_to_use]
 
 
-class ReturnAnyDecorator(object):
+class ReturnAnyDecorator(object, metaclass=DecoratorMetaClass):
     def __call__(self, func):
         @wraps(func)
-        def inner(*args, **kwds):
-            with self._recreate_cm():
-                return func(*args, **kwds)
+        def inner(*args, **kwargs):
+            with self._recreate_cm(func, args):
+                return func(*args, **kwargs)
 
         return inner
 
-    def _recreate_cm(self):
-        return InternalAPIContextManager(None, None)
+    def _recreate_cm(self, func, args):
+        return ReturnAnyCM(func, args)
 
 
 class BaseReturnAnyDecorator(ReturnAnyDecorator, BaseDecoratorMixin):
     def __init__(self,
                  input_arg: str = None,
-                 skip_output_type=False,
-                 skip_output_dtype=True,
-                 skip_n_features_in=False) -> None:
+                 skip_set_output_type=False,
+                 skip_set_output_dtype=True,
+                 skip_set_n_features_in=False) -> None:
 
         super().__init__(input_arg)
-        
-        self.skip_output_type = skip_output_type
-        self.skip_output_dtype = skip_output_dtype
-        self.skip_n_features_in = skip_n_features_in
-        self.skip_autowrap = not (self.skip_output_type or
-                                  self.skip_output_dtype or skip_n_features_in)
+
+        self.skip_set_output_type = skip_set_output_type
+        self.skip_set_output_dtype = skip_set_output_dtype
+        self.skip_set_n_features_in = skip_set_n_features_in
+        self.do_autowrap = not (self.skip_set_output_type
+                            and self.skip_set_output_dtype
+                            and self.skip_set_n_features_in)
 
     def __call__(self, func):
 
-        # Determine the arg/kwarg to use in the autowrap
-        arg_to_use = self.input_arg
-        arg_to_use_name = None
+        if (self.do_autowrap):
+            self.do_autowrap = self.prep_arg_to_use(func)
 
-        argspec = inspect.getfullargspec(func)
+        @wraps(func)
+        def inner(*args, **kwargs):
 
-        has_self = "self" in argspec.args and argspec.args.index("self") == 0
+            self_val, arg_val = self.get_arg_value(*args, **kwargs)
 
-        # Only do this if we need to and its not set by the developer
-        if (not self.skip_autowrap and has_self):
+            if (not self.skip_set_output_type):
+                self_val._set_output_type(arg_val)
 
-            self_offset = (1 if has_self else 0)
+            if (not self.skip_set_output_dtype):
+                self_val._set_target_dtype(arg_val)
 
-            # if input_arg is None, then set to first non self argument
-            if (arg_to_use is None):
+            if (not self.skip_set_n_features_in):
+                self_val._set_n_features_in(arg_val)
 
-                assert len(argspec.args) > self_offset, "Cannot use default wrapper. Must contain at least 1 argument besides `self`"
-
-                arg_to_use = argspec.args[self_offset]
-
-            # Now convert that to an index
-            if (isinstance(arg_to_use, str)):
-                arg_to_use_name = arg_to_use
-                arg_to_use = argspec.args.index(arg_to_use)
-
-            assert arg_to_use != -1
-        else:
-            self.skip_autowrap = True
+            with self._recreate_cm(func, args):
+                return func(*args, **kwargs)
 
         @wraps(func)
         def inner_skip_autowrap(*args, **kwargs):
 
-            with self._recreate_cm():
-                return func(*args, **kwargs)
-
-        @wraps(func)
-        def inner(*args, **kwargs):
-
-            # Eventually remove this. Assert for debugging
-            assert len(
-                args) > arg_to_use and arg_to_use_name not in kwargs.keys()
-
-            arg_value = kwargs[arg_to_use] if isinstance(
-                arg_to_use, str) else args[arg_to_use]
-
-            self_val = args[0]
-
-            if (not self.skip_output_type):
-                self_val._set_output_type(arg_value)
-
-            if (not self.skip_output_dtype):
-                self_val._set_target_dtype(arg_value)
-
-            if (not self.skip_n_features_in):
-                self_val._set_n_features_in(arg_value)
-
-            with self._recreate_cm():
+            with self._recreate_cm(func, args):
                 return func(*args, **kwargs)
 
         # Return the function depending on whether or not we do any automatic wrapping
-        return inner_skip_autowrap if self.skip_autowrap else inner
+        return inner if self.do_autowrap else inner_skip_autowrap
+    
+    def _recreate_cm(self, func, args):
+        return BaseReturnAnyCM(func, args)
 
 
-class ReturnArrayDecorator(object):
+class ReturnArrayDecorator(object, metaclass=DecoratorMetaClass):
     def __call__(self, func):
         @wraps(func)
         def inner(*args, **kwargs):
-            with self._recreate_cm() as cm:
+            with self._recreate_cm(func, args) as cm:
 
                 ret_val = func(*args, **kwargs)
 
@@ -653,86 +767,124 @@ class ReturnArrayDecorator(object):
 
         return inner
 
-    def _recreate_cm(self):
+    def _recreate_cm(self, func, args):
 
-        return InternalAPIWithReturnContextManager(None, None)
+        return ReturnArrayCM(func, args)
 
 
 class BaseReturnArrayDecorator(ReturnArrayDecorator, BaseDecoratorMixin):
     def __init__(self,
                  input_arg: str = None,
-                 skip_output_type=False,
-                 skip_output_dtype=True) -> None:
+                 skip_get_output_type=False,
+                 skip_get_output_dtype=True,
+                 skip_set_output_type=True,
+                 skip_set_output_dtype=True,
+                 skip_set_n_features_in=True) -> None:
 
         super().__init__(input_arg)
 
-        self.skip_output_type = skip_output_type
-        self.skip_output_dtype = skip_output_dtype
+        self.skip_get_output_type = skip_get_output_type
+        self.skip_get_output_dtype = skip_get_output_dtype
+        self.skip_set_output_type = skip_set_output_type
+        self.skip_set_output_dtype = skip_set_output_dtype
+        self.skip_set_n_features_in = skip_set_n_features_in
+        self.do_autowrap = not (self.skip_get_output_type
+                            and self.skip_get_output_dtype
+                            and self.skip_set_output_type
+                            and self.skip_set_output_dtype
+                            and self.skip_set_n_features_in)
+        self.has_setters = not (self.skip_set_output_type
+                            and self.skip_set_output_dtype and
+                            self.skip_set_n_features_in)
 
     def __call__(self, func):
 
         try:
-            self.prep_arg_to_use(func)
+            if (self.do_autowrap):
+                self.do_autowrap = self.prep_arg_to_use(func)
 
             @wraps(func)
             def inner(*args, **kwargs):
-                with self._recreate_cm(args[0]) as cm:
+                with self._recreate_cm(func, args) as cm:
 
                     self_val, arg_val = self.get_arg_value(*args, **kwargs)
 
-                    if (not self.skip_output_type):
+                    # Must do the setters first
+                    if (not self.skip_set_output_type):
+                        self_val._set_output_type(arg_val)
+
+                    if (not self.skip_set_output_dtype):
+                        self_val._set_target_dtype(arg_val)
+
+                    if (not self.skip_set_output_dtype):
+                        self_val._set_n_features_in(arg_val)
+
+                    # Now execute the getters
+                    if (not self.skip_get_output_type):
                         set_api_output_type(self_val._get_output_type(arg_val))
 
-                    if (not self.skip_output_dtype):
+                    if (not self.skip_get_output_dtype):
                         set_api_output_dtype(self_val._get_target_dtype())
 
                     ret_val = func(*args, **kwargs)
 
                 return cm.process_return(ret_val)
 
-            return inner
+            @wraps(func)
+            def inner_no_setters(*args, **kwargs):
+                with self._recreate_cm(func, args) as cm:
+
+                    self_val, arg_val = self.get_arg_value(*args, **kwargs)
+
+                    # Now execute the getters
+                    if (not self.skip_get_output_type):
+                        set_api_output_type(self_val._get_output_type(arg_val))
+
+                    if (not self.skip_get_output_dtype):
+                        set_api_output_dtype(self_val._get_target_dtype())
+
+                    ret_val = func(*args, **kwargs)
+
+                return cm.process_return(ret_val)
+
+            @wraps(func)
+            def inner_skip_autowrap(*args, **kwargs):
+                with self._recreate_cm(func, args) as cm:
+
+                    ret_val = func(*args, **kwargs)
+
+                return cm.process_return(ret_val)
+
+            # Return the function depending on whether or not we do any automatic wrapping
+            if (not self.do_autowrap):
+                return inner_skip_autowrap
+
+            return inner if self.has_setters else inner_no_setters
 
         except Exception as ex:
-            
+
             # TODO: Do we print? Assert?
             return super().__call__(func)
 
-    def _recreate_cm(self, base_obj=None):
+    def _recreate_cm(self, func, args):
 
-        root_cm = get_internal_context()
-
-        if (root_cm.prev_output_type == "input"):
-            if (base_obj is not None and base_obj._mirror_input):
-                return InternalAPIBaseWithReturnContextManager(
-                    None, None, base_obj)
-
-        return super()._recreate_cm()
-
-class BaseReturnGenericArrayDecorator(BaseReturnArrayDecorator):
-    def __init__(self,
-                 input_arg: str = None,
-                 skip_output_type=False,
-                 skip_output_dtype=True) -> None:
-
-        super().__init__(input_arg)
-
-        self.skip_output_type = skip_output_type
-        self.skip_output_dtype = skip_output_dtype
-
-    def _recreate_cm(self, base_obj=None):
-
-        root_cm = get_internal_context()
-
-        if (root_cm.prev_output_type == "input"):
-            if (base_obj is not None and base_obj._mirror_input):
-                return InternalAPIBaseWithReturnContextManager(
-                    None, None, base_obj)
-
-        return super()._recreate_cm()
+        # TODO: Should we return just ReturnArrayCM if `do_autowrap` == False?
+        return BaseReturnArrayCM(func, args)
 
 
-wrap_api_return_any = ReturnAnyDecorator
-wrap_api_base_return_any = BaseReturnAnyDecorator
+class BaseReturnGenericDecorator(BaseReturnArrayDecorator):
+    def _recreate_cm(self, func, args):
+
+        return BaseReturnGenericCM(func, args)
+
+
+api_return_any = ReturnAnyDecorator
+api_base_return_any = BaseReturnAnyDecorator
 api_return_array = ReturnArrayDecorator
 api_base_return_array = BaseReturnArrayDecorator
-api_base_return_genericarray = BaseReturnArrayDecorator
+api_base_return_generic = BaseReturnGenericDecorator
+
+api_base_return_any_skipall = BaseReturnAnyDecorator(
+    skip_set_output_type=True, skip_set_n_features_in=True)
+api_base_return_array_skipall = BaseReturnArrayDecorator(
+    skip_get_output_type=True)

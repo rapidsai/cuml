@@ -19,7 +19,7 @@ import cupyx
 import scipy
 import numbers
 
-from cuml.common import with_cupy_rmm
+import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.array import CumlArray
 
@@ -189,8 +189,7 @@ class IncrementalPCA(PCA):
         self._cupy_attributes = True
         self._sparse_model = True
 
-    @with_cupy_rmm
-    def fit(self, X, y=None):
+    def fit(self, X, y=None) -> "IncrementalPCA":
         """Fit the model with X, using minibatches of size batch_size.
         Parameters
         ----------
@@ -204,7 +203,7 @@ class IncrementalPCA(PCA):
             Returns the instance itself.
         """
 
-        self._set_base_attributes(output_type=X)
+        # self._set_base_attributes(output_type=X)
 
         self.n_samples_seen_ = 0
         self.mean_ = .0
@@ -241,8 +240,8 @@ class IncrementalPCA(PCA):
 
         return self
 
-    @with_cupy_rmm
-    def partial_fit(self, X, y=None, check_input=True):
+    @cuml.internals.api_base_return_any_skipall
+    def partial_fit(self, X, y=None, check_input=True) -> "IncrementalPCA":
         """Incremental fit with X. All of X is processed as a single batch.
         Parameters
         ----------
@@ -356,8 +355,7 @@ class IncrementalPCA(PCA):
 
         return self
 
-    @with_cupy_rmm
-    def transform(self, X, convert_dtype=False):
+    def transform(self, X, convert_dtype=False) -> CumlArray:
         """Apply dimensionality reduction to X.
         X is projected on the first principal components previously extracted
         from a training set, using minibatches of size batch_size if X is
@@ -379,7 +377,7 @@ class IncrementalPCA(PCA):
         """
 
         if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
-            out_type = self._get_output_type(X)
+            # out_type = self._get_output_type(X)
 
             X = _validate_sparse_input(X)
 

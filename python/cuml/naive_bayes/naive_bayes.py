@@ -228,13 +228,12 @@ class MultinomialNB(Base):
         return self.partial_fit(X, y, sample_weight)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
-    @cuml.internals.wrap_api_base_return_any()
     def _partial_fit(self,
                      X,
                      y,
                      sample_weight=None,
                      _classes=None) -> MultinomialNB:
-        self._set_output_type(X)
+        # self._set_output_type(X)
 
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix

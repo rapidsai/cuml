@@ -24,6 +24,7 @@ import cuml.common.logger as logger
 
 from cuml import ForestInference
 from cuml.common.array import CumlArray
+import cuml.internals
 
 from cuml.common.base import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
@@ -371,6 +372,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                                  fil_sparse_format=fil_sparse_format)
 
     @generate_docstring()
+    @cuml.internals.api_base_return_any_skipall
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Regression on the input data
@@ -441,8 +443,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         del y_m
         return self
 
-    def _predict_model_on_cpu(self, X, convert_dtype):
-        out_type = self._get_output_type(X)
+    def _predict_model_on_cpu(self, X, convert_dtype) -> CumlArray:
+        # out_type = self._get_output_type(X)
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
@@ -491,9 +493,10 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
+    @cuml.internals.api_base_return_array_skipall
     def predict(self, X, predict_model="GPU",
                 algo='auto', convert_dtype=True,
-                fil_sparse_format='auto'):
+                fil_sparse_format='auto') -> CumlArray:
         """
         Predicts the labels for X.
 

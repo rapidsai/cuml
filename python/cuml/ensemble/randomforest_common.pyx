@@ -18,6 +18,7 @@ import ctypes
 import cupy as cp
 import math
 import warnings
+import typing
 
 import numpy as np
 from cuml import ForestInference
@@ -25,6 +26,7 @@ from cuml.fil.fil import TreeliteModel
 from cuml.raft.common.handle import Handle
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
+import cuml.internals
 
 from cython.operator cimport dereference as deref
 
@@ -148,7 +150,7 @@ class BaseRandomForestModel(Base):
         self.treelite_handle = None
         self.treelite_serialized_model = None
 
-    def _get_max_feat_val(self):
+    def _get_max_feat_val(self) -> float:
         if type(self.max_features) == int:
             return self.max_features/self.n_cols
         elif type(self.max_features) == float:
@@ -227,10 +229,10 @@ class BaseRandomForestModel(Base):
         self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
 
-    @with_cupy_rmm
-    def _dataset_setup_for_fit(self, X, y, convert_dtype):
-        self._set_output_type(X)
-        self._set_n_features_in(X)
+    @cuml.internals.api_base_return_generic(skip_set_output_type=False, skip_set_n_features_in=False, skip_get_output_type=True)
+    def _dataset_setup_for_fit(self, X, y, convert_dtype) -> typing.Tuple[CumlArray, CumlArray, float]:
+        # self._set_output_type(X)
+        # self._set_n_features_in(X)
         # Reset the old tree data for new fit call
         self._reset_forest_data()
 
@@ -310,8 +312,8 @@ class BaseRandomForestModel(Base):
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
                               fil_sparse_format, threshold=0.5,
-                              output_class=False, predict_proba=False):
-        out_type = self._get_output_type(X)
+                              output_class=False, predict_proba=False) -> CumlArray:
+        # out_type = self._get_output_type(X)
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
                                 check_cols=self.n_cols)
@@ -339,8 +341,7 @@ class BaseRandomForestModel(Base):
                                                  algo=algo,
                                                  storage_type=storage_type)
 
-        preds = tl_to_fil_model.predict(X, output_type=out_type,
-                                        predict_proba=predict_proba)
+        preds = tl_to_fil_model.predict(X, predict_proba=predict_proba)
         return preds
 
     def _get_params(self, deep):

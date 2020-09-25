@@ -34,6 +34,7 @@ from libc.stdint cimport uintptr_t
 
 from cython.operator cimport dereference as deref
 
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.base import _input_to_type
@@ -43,7 +44,6 @@ from cuml.raft.common.handle import Handle
 import cuml.common.logger as logger
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array, using_output_type
-from cuml.common import with_cupy_rmm
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.prims.stats import cov
 from cuml.common.input_utils import sparse_scipy_to_cp
@@ -145,13 +145,13 @@ class PCA(Base):
         pca_float.fit(gdf_float)
 
         print(f'components: {pca_float.components_}')
-        print(f'explained variance: {pca_float._explained_variance_}')
-        exp_var = pca_float._explained_variance_ratio_
+        print(f'explained variance: {pca_float.explained_variance_}')
+        exp_var = pca_float.explained_variance_ratio_
         print(f'explained variance ratio: {exp_var}')
 
-        print(f'singular values: {pca_float._singular_values_}')
-        print(f'mean: {pca_float._mean_}')
-        print(f'noise variance: {pca_float._noise_variance_}')
+        print(f'singular values: {pca_float.singular_values_}')
+        print(f'mean: {pca_float.mean_}')
+        print(f'noise variance: {pca_float.noise_variance_}')
 
         trans_gdf_float = pca_float.transform(gdf_float)
         print(f'Inverse: {trans_gdf_float}')
@@ -435,12 +435,12 @@ class PCA(Base):
         return self
 
     @generate_docstring(X='dense_sparse')
-    def fit(self, X, y=None):
+    def fit(self, X, y=None) -> "PCA":
         """
         Fit the model with X. y is currently ignored.
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
+        # self._set_base_attributes(output_type=X, n_features=X)
 
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_fit(X)
@@ -512,7 +512,8 @@ class PCA(Base):
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    def fit_transform(self, X, y=None):
+    @cuml.internals.api_base_return_array_skipall
+    def fit_transform(self, X, y=None) -> CumlArray:
         """
         Fit the model with X and apply the dimensionality reduction on X.
 
@@ -520,8 +521,9 @@ class PCA(Base):
 
         return self.fit(X).transform(X)
 
+    @cuml.internals.api_base_return_array_skipall
     def _sparse_inverse_transform(self, X, return_sparse=False,
-                                  sparse_tol=1e-10, out_type=None) -> CumlArray:
+                                  sparse_tol=1e-10) -> CumlArray:
 
         # NOTE: All intermediate calculations are done using cupy.ndarray and
         # then converted to CumlArray at the end to minimize conversions
@@ -550,20 +552,21 @@ class PCA(Base):
 
             return X_inv
 
-        if out_type == 'cupy':
-            return X_inv
-        else:
-            X_inv, _, _, _ = input_to_cuml_array(X_inv, order='K')
-            return X_inv.to_output(out_type)
+        return X_inv
+
+        # if out_type == 'cupy':
+        #     return X_inv
+        # else:
+        #     X_inv, _, _, _ = input_to_cuml_array(X_inv, order='K')
+        #     return X_inv.to_output(out_type)
 
     @generate_docstring(X='dense_sparse',
                         return_values={'name': 'X_inv',
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_features)'})
-    @with_cupy_rmm
     def inverse_transform(self, X, convert_dtype=False,
-                          return_sparse=False, sparse_tol=1e-10):
+                          return_sparse=False, sparse_tol=1e-10) -> CumlArray:
         """
         Transform data back to its original space.
 
@@ -571,19 +574,17 @@ class PCA(Base):
 
         """
 
-        out_type = self._get_output_type(X)
+        # out_type = self._get_output_type(X)
 
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
-                                                  sparse_tol=sparse_tol,
-                                                  out_type=out_type)
+                                                  sparse_tol=sparse_tol)
         elif scipy.sparse.issparse(X):
             X = sparse_scipy_to_cp(X)
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
-                                                  sparse_tol=sparse_tol,
-                                                  out_type=out_type)
+                                                  sparse_tol=sparse_tol)
         elif self._sparse_model:
             X, _, _, _ = \
                 input_to_cuml_array(X, order='K',
@@ -591,8 +592,7 @@ class PCA(Base):
             X = X.to_output(output_type='cupy')
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
-                                                  sparse_tol=sparse_tol,
-                                                  out_type=out_type)
+                                                  sparse_tol=sparse_tol)
 
         X_m, n_rows, _, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -639,9 +639,11 @@ class PCA(Base):
         # following transfers start
         self.handle.sync()
 
-        return input_data.to_output(out_type)
+        return input_data
 
-    def _sparse_transform(self, X, out_type=None) -> CumlArray:
+    
+    @cuml.internals.api_base_return_array_skipall
+    def _sparse_transform(self, X) -> CumlArray:
 
         # NOTE: All intermediate calculations are done using cupy.ndarray and
         # then converted to CumlArray at the end to minimize conversions
@@ -650,7 +652,7 @@ class PCA(Base):
 
             if self.whiten:
                 self.components_ *= cp.sqrt(self.n_rows - 1)
-                self.components_ /= self._singular_values_
+                self.components_ /= self.singular_values_
 
             X = X - self.mean_
             X_transformed = X.dot(self.components_.T)
@@ -675,8 +677,7 @@ class PCA(Base):
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    @with_cupy_rmm
-    def transform(self, X, convert_dtype=False):
+    def transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Apply dimensionality reduction to X.
 
@@ -685,19 +686,19 @@ class PCA(Base):
 
         """
 
-        out_type = self._get_output_type(X)
+        # out_type = self._get_output_type(X)
 
         if cupyx.scipy.sparse.issparse(X):
-            return self._sparse_transform(X, out_type=out_type)
+            return self._sparse_transform(X)
         elif scipy.sparse.issparse(X):
             X = sparse_scipy_to_cp(X)
-            return self._sparse_transform(X, out_type=out_type)
+            return self._sparse_transform(X)
         elif self._sparse_model:
             X, _, _, _ = \
                 input_to_cuml_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64])
             X = X.to_output(output_type='cupy')
-            return self._sparse_transform(X, out_type=out_type)
+            return self._sparse_transform(X)
 
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -746,7 +747,7 @@ class PCA(Base):
         # following transfers start
         self.handle.sync()
 
-        return t_input_data.to_output(out_type)
+        return t_input_data
 
     def get_param_names(self):
         return ["copy", "iterated_power", "n_components", "svd_solver", "tol",

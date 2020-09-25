@@ -20,6 +20,7 @@ import cuml
 import numpy as np
 
 from cuml.common.array import CumlArray as cumlArray
+import cuml.internals
 from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
 from cuml.tsa.arima cimport ARIMAOrder
@@ -63,7 +64,7 @@ inp_to_dtype = {
     np.float64: np.float64
 }
 
-
+@cuml.internals.api_return_array()
 def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                seasonal_order=(0, 0, 0, 0), intercept=False,
                random_state=None, dtype='double', output_type='cupy',
@@ -142,4 +143,6 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                        <double> noise_scale, <double> intercept_scale,
                        <uint64_t> random_state)
 
-    return out.to_output(output_type)
+    cuml.internals.set_api_output_type(output_type)
+
+    return out

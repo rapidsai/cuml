@@ -512,7 +512,7 @@ class KMeans(Base):
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False, sample_weight=None):
+    def predict(self, X, convert_dtype=False, sample_weight=None) -> CumlArray:
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -527,13 +527,13 @@ class KMeans(Base):
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    def transform(self, X, convert_dtype=False):
+    def transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Transform X to a cluster-distance space.
 
         """
 
-        out_type = self._get_output_type(X)
+        # out_type = self._get_output_type(X)
 
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C', check_dtype=self.dtype,
@@ -584,7 +584,7 @@ class KMeans(Base):
         self.handle.sync()
 
         del(X_m)
-        return preds.to_output(out_type)
+        return preds
 
     @generate_docstring(return_values={'name': 'score',
                                        'type': 'float',
@@ -605,7 +605,7 @@ class KMeans(Base):
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    def fit_transform(self, X, convert_dtype=False):
+    def fit_transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Compute clustering and transform X to cluster-distance space.
 

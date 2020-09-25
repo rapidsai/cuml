@@ -250,15 +250,12 @@ class TruncatedSVD(Base):
         self.c_algorithm = self._get_algorithm_c_name(self.algorithm)
 
         # internal array attributes
-        # self._components_ = None  # accessed via estimator.components_
-        # self._explained_variance_ = None
-        # accessed via estimator.explained_variance_
+        self.components_ = None
+        self.explained_variance_ = None
 
-        # self._explained_variance_ratio_ = None
-        # accessed via estimator.explained_variance_ratio_
+        self.explained_variance_ratio_ = None
 
-        # self._singular_values_ = None
-        # accessed via estimator.singular_values_
+        self.singular_values_ = None
 
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
@@ -295,7 +292,7 @@ class TruncatedSVD(Base):
                                                  dtype=self.dtype)
 
     @generate_docstring()
-    def fit(self, X, y=None):
+    def fit(self, X, y=None) -> "TruncatedSVD":
         """
         Fit LSI model on training cudf DataFrame X. y is currently ignored.
 
@@ -309,7 +306,7 @@ class TruncatedSVD(Base):
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    def fit_transform(self, X, y=None):
+    def fit_transform(self, X, y=None) -> CumlArray:
         """
         Fit LSI model to X and perform dimensionality reduction on X.
         y is currently ignored.
@@ -368,14 +365,14 @@ class TruncatedSVD(Base):
         # following transfers start
         self.handle.sync()
 
-        out_type = self._get_output_type(X)
-        return _trans_input_.to_output(out_type)
+        # out_type = self._get_output_type(X)
+        return _trans_input_
 
     @generate_docstring(return_values={'name': 'X_original',
                                        'type': 'dense',
                                        'description': 'X in original space',
                                        'shape': '(n_samples, n_features)'})
-    def inverse_transform(self, X, convert_dtype=False):
+    def inverse_transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Transform X back to its original space.
         Returns X_original whose transform would be X.
@@ -418,14 +415,14 @@ class TruncatedSVD(Base):
         # following transfers start
         self.handle.sync()
 
-        out_type = self._get_output_type(X)
-        return input_data.to_output(out_type)
+        # out_type = self._get_output_type(X)
+        return input_data
 
     @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    def transform(self, X, convert_dtype=False):
+    def transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Perform dimensionality reduction on X.
 
@@ -468,8 +465,8 @@ class TruncatedSVD(Base):
         # following transfers start
         self.handle.sync()
 
-        out_type = self._get_output_type(X)
-        return t_input_data.to_output(out_type)
+        # out_type = self._get_output_type(X)
+        return t_input_data
 
     def get_param_names(self):
         return ["algorithm", "n_components", "n_iter", "random_state", "tol"]
