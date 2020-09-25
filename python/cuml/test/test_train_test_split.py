@@ -343,10 +343,31 @@ def test_stratified_random_seed(seed_type):
     assert y_test.equals(y_test2)
 
     # Ensure that data is shuffled
-    assert not X_train.head().equals(X.head())
+    assert not (X.head().index.values == X_train.head().index.values).all()
 
     def monotonic_inc(x):
         dx = cp.diff(x.values, axis=0)
         return cp.all(dx == 1)
 
     assert not monotonic_inc(X_train)
+
+
+@pytest.mark.parametrize('test_size', [0.2, 0.4, None])
+@pytest.mark.parametrize('train_size', [0.6, 0.8, None])
+def test_stratify_retain_index(test_size, train_size):
+    X = cudf.DataFrame({"x": range(10)})
+    y = cudf.Series(([0] * (10 // 2)) + ([1] * (10 // 2)))
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        train_size=train_size,
+                                                        test_size=test_size,
+                                                        shuffle=True,
+                                                        stratify=True)
+    assert (X_train["x"] == X_train.index).all()
+    assert (X_test["x"] == X_test.index).all()
+
+    if train_size is not None:
+        assert X_train.shape[0] == (int)(X.shape[0] * train_size)
+
+    elif test_size is not None:
+        assert X_test.shape[0] == (int)(X.shape[0] * test_size)
