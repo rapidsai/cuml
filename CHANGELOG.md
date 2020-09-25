@@ -29,6 +29,7 @@
 - PR #2799: Reenable lightgbm test with lower (1%) proba accuracy
 - PR #2800: Align cuML's spdlog version with RMM's
 - PR #2824: Make data conversions warnings be debug level
+- PR #2541: Improve Documentation Examples and Source Linking
 - PR #2837: Make the FIL node reorder loop more obvious
 - PR #2849: make num_classes significant in FLOAT_SCALAR case
 - PR #2792: Project flash (new build process) script changes

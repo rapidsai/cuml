@@ -70,7 +70,7 @@ Feature and Label Encoding (Single-GPU)
  .. autoclass:: cuml.preprocessing.OneHotEncoder
     :members:
 
- .. autoclass:: cuml.preprocessing.TargetEncoder
+ .. autoclass:: cuml.preprocessing.TargetEncoder.TargetEncoder
     :members:
 
 
