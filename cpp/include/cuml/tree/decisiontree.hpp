@@ -87,11 +87,6 @@ struct DecisionTreeParams {
    */
   int n_blks_for_rows;
   /**
-   * Depth beyond which to switch-over to the batched-level algo.
-   * A value of -1 means batched-levelalgo is disabled.
-   */
-  int batched_depth;
-  /**
   * If set to true, experimental decision tree training implementation would be
   * used.
   */
@@ -126,7 +121,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      bool cfg_shuffle_features = false,
                      bool cfg_use_experimental_backend = false,
                      int cfg_max_batch_size = 128, int cfg_n_blks_for_cols = 10,
-                     int cfg_n_blks_for_rows = 4, int cfg_batched_depth = -1);
+                     int cfg_n_blks_for_rows = 4);
 
 /**
  * @brief Check validity of all decision tree hyper-parameters.

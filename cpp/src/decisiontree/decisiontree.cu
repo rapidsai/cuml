@@ -40,8 +40,6 @@ namespace DecisionTree {
  *            for the batched-level-algo
  * @param[in] cfg_n_blks_for_rows: number of threadblks assigned for a row in
  *            the batched-level-algo
- * @param[in] cfg_batched_depth: from what depth to switch to batched-level-algo
- *            pass a -1 to disable batched-level-algo altogether.
  */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
@@ -50,8 +48,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
                      bool cfg_quantile_per_tree, bool cfg_shuffle_features,
                      bool cfg_use_experimental_backend, int cfg_max_batch_size,
-                     int cfg_n_blks_for_cols, int cfg_n_blks_for_rows,
-                     int cfg_batched_depth) {
+                     int cfg_n_blks_for_cols, int cfg_n_blks_for_rows) {
   params.max_depth = cfg_max_depth;
   params.max_leaves = cfg_max_leaves;
   params.max_features = cfg_max_features;
@@ -67,7 +64,6 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
   params.max_batch_size = cfg_max_batch_size;
   params.n_blks_for_cols = cfg_n_blks_for_cols;
   params.n_blks_for_rows = cfg_n_blks_for_rows;
-  params.batched_depth = cfg_batched_depth;
 }
 
 void validity_check(const DecisionTreeParams params) {
@@ -104,7 +100,6 @@ void print(const DecisionTreeParams params) {
   CUML_LOG_DEBUG("max_batch_size: %d", params.max_batch_size);
   CUML_LOG_DEBUG("n_blks_for_cols: %d", params.n_blks_for_cols);
   CUML_LOG_DEBUG("n_blks_for_rows: %d", params.n_blks_for_rows);
-  CUML_LOG_DEBUG("batched_depth: %d", params.batched_depth);
 }
 
 template <class T, class L>
