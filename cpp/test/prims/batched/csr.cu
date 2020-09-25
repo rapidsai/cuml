@@ -22,10 +22,10 @@
 
 #include <common/cudart_utils.h>
 #include <linalg_naive.h>
+#include <test_utils.h>
 #include <linalg/batched/matrix.cuh>
 #include <sparse/batched/csr.cuh>
 #include "../test_utils.h"
-#include <test_utils.h>
 
 namespace MLCommon {
 namespace Sparse {

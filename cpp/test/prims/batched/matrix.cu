@@ -24,11 +24,11 @@
 #include <cuml/cuml.hpp>
 
 #include <common/cudart_utils.h>
+#include <test_utils.h>
 #include <linalg/batched/matrix.cuh>
 #include "../add.cuh"
 #include "../linalg_naive.h"
 #include "../test_utils.h"
-#include <test_utils.h>
 
 namespace MLCommon {
 namespace LinAlg {
