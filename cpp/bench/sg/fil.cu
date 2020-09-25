@@ -36,6 +36,7 @@ struct Params {
   ML::fil::storage_type_t storage;
   ML::fil::algo_t algo;
   RF_params rf;
+  int predict_times;
 };
 
 class FIL : public RegressionFixture<float> {
@@ -97,7 +98,7 @@ class FIL : public RegressionFixture<float> {
     this->loopOnState(state, [this]() {
       // Dataset<D, L> allocates y assuming one output value per input row,
       // so not supporting predict_proba yet
-      for (int i = 0; i < 10; i++) {
+      for (int i = 0; i < p_rest.predict_times; i++) {
         ML::fil::predict(*this->handle, this->forest, this->data.y,
                          this->data.X, this->params.nrows, false);
       }
@@ -168,6 +169,7 @@ std::vector<Params> getInputs() {
     p.rf.n_trees = i.ntrees;
     p.storage = i.storage;
     p.algo = i.algo;
+    p.predict_times = 10;
     out.push_back(p);
   }
   return out;

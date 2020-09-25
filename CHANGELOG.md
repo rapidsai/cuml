@@ -32,7 +32,7 @@
 - PR #2849: make num_classes significant in FLOAT_SCALAR case
 - PR #2792: Project flash (new build process) script changes
 - PR #2850: Clean up unused params in paramsPCA
-- PR #2867: improve FIL benchmark stability
+- PR #2867: improve stability of FIL benchmark measurements
 
 ## Bug Fixes
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
