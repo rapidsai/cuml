@@ -16,4 +16,3 @@
 
 add_subdirectory(kmeans)
 add_subdirectory(dbscan)
-add_subdirectory(decisiontree)
