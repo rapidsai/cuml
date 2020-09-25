@@ -248,12 +248,33 @@ struct forest {
 };
 
 struct dense_forest : forest {
+  int cc(int node, int cond) { return clustered_child(node, cond); }
+  int bfni(int cni) { return breadth_first_node_id(cni); }
+  int cl(int n) { return clustered_level(n); }
+  int chp(int n) { return clustered_horiz_pos(n); }
+  int clc(int n, int cond) { return clustered_child(n, cond); }
+
   void transform_trees(const dense_node_t* nodes) {
-    // populate node information
-    for (int i = 0, gid = 0; i < num_trees_; ++i) {
-      for (int j = 0, nid = 0; j <= depth_; ++j) {
-        for (int k = 0; k < 1 << j; ++k, ++nid, ++gid) {
-          h_nodes_[nid * num_trees_ + i] = dense_node(nodes[gid]);
+    /* Populate node information:
+       For each tree, the nodes are still stored in the breadth-first,
+       left-to-right order. However, instead of storing the nodes of the same
+       tree adjacently, it uses a different layout. In this layout, the roots
+       of all trees (node 0) are stored first, followed by left children of
+       the roots of all trees (node 1), followed by the right children of the
+       roots of all trees (node 2), and so on.
+    */
+    for (int tree = 0; tree < num_trees_; ++tree) {
+      int tree_node = 0;
+      // the counters `level` and `branch` are not used for computing node
+      // indices, they are only here to highlight the node ordering within
+      // each tree
+      for (int level = 0; level <= depth_; ++level) {
+        for (int branch = 0; branch < 1 << level; ++branch) {
+          int dense_node_id =
+            breadth_first_node_id(tree_node) + tree * tree_num_nodes(depth_);
+          h_nodes_[tree_node * num_trees_ + tree] =
+            dense_node(nodes[dense_node_id]);
+          ++tree_node;
         }
       }
     }
@@ -262,7 +283,7 @@ struct dense_forest : forest {
   void init(const raft::handle_t& h, const dense_node_t* nodes,
             const forest_params_t* params) {
     init_common(params);
-    if (algo_ == algo_t::NAIVE) algo_ = algo_t::BATCH_TREE_REORG;
+    algo_ = algo_t::BATCH_TREE_REORG;
 
     int num_nodes = forest_num_nodes(num_trees_, depth_);
     nodes_ = (dense_node*)h.get_device_allocator()->allocate(

@@ -76,6 +76,88 @@ __host__ __device__ __forceinline__ int base_node::output<int>() const {
   return val.idx;
 }
 
+#define cl_depth 0
+#define arity (2 << cl_depth)
+#define cl_stride tree_num_nodes(cl_depth)
+
+// node is memory offset in breadth-first layout
+__host__ __device__ __forceinline__ int level(int node) {
+#ifdef __CUDA_ARCH__
+  return 31 - __clz(node + 1);
+#else
+  int l = 31;
+  while (!((1 << l) & (node + 1))) l--;
+  return l;
+#endif
+}
+__host__ __device__ __forceinline__ int cl_level(int cl_id) {
+  int l = 0, a = 1;
+  while (a < cl_id + 1) {
+    a *= arity;
+    l++;
+  }
+  return l;
+}
+
+// node is memory offset in clustered layout
+__host__ __device__ __forceinline__ int cl_id(int node) {
+  return node / cl_stride;
+}
+// node is memory offset in clustered layout
+__host__ __device__ __forceinline__ int within_cl_id(int node) {
+  return node % cl_stride;
+}
+// node is memory offset in clustered layout
+__host__ __device__ __forceinline__ int cl_offset(int node) {
+  return node - within_cl_id(node);
+}
+
+// node is memory offset in clustered layout
+__host__ __device__ __forceinline__ bool is_last_level_within_cl(int node) {
+  return level(within_cl_id(node)) == cl_depth;
+}
+
+// node is memory offset in breadth-first layout
+__host__ __device__ __forceinline__ int horiz_pos(int node) {
+  return node - tree_num_nodes(level(node) - 1);
+}
+__host__ __device__ __forceinline__ int cl_horiz_pos(int cl_id) {
+  int a = 1, num_cls = 0;
+  while (a < cl_id + 1) {
+    num_cls += a;
+    a *= arity;
+  }
+  return cl_id - num_cls;
+}
+// node_id is memory offset in breadth-first layout
+__host__ __device__ __forceinline__ int node_id(int level, int horiz_pos) {
+  return tree_num_nodes(level - 1) + horiz_pos;
+}
+
+// node is memory offset in clustered layout
+__host__ __device__ __forceinline__ int clustered_horiz_pos(int node) {
+  return horiz_pos(within_cl_id(node)) +
+         cl_horiz_pos(cl_id(node)) * (1 << level(within_cl_id(node)));
+}
+
+// node is memory offset in clustered layout
+// clustered_level is the level on paper
+__host__ __device__ __forceinline__ int clustered_level(int node) {
+  return cl_level(cl_id(node)) * (cl_depth + 1) + level(within_cl_id(node));
+}
+
+__host__ __device__ __forceinline__ int breadth_first_node_id(
+  int clustered_node_id) {
+  return node_id(clustered_level(clustered_node_id),
+                 clustered_horiz_pos(clustered_node_id));
+}
+
+__host__ __device__ __forceinline__ int clustered_child(int node, int cond) {
+  if (is_last_level_within_cl(node))
+    return cl_stride * ((cl_id(node) * arity + 1) +
+                        horiz_pos(within_cl_id(node)) * 2 + cond);
+  return cl_offset(node) + 2 * within_cl_id(node) + 1 + cond;
+}
 /** dense_node is a single node of a dense forest */
 struct alignas(8) dense_node : base_node {
   dense_node() = default;
@@ -84,6 +166,9 @@ struct alignas(8) dense_node : base_node {
     : base_node(output, thresh, fid, def_left, is_leaf) {}
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return 2 * curr + 1; }
+  __host__ __device__ int child(int curr, int cond) const {
+    return clustered_child(curr, cond);
+  }
 };
 
 /** dense_tree represents a dense tree */
@@ -103,8 +188,8 @@ struct dense_storage {
                                     int tree_stride, int node_pitch)
     : nodes_(nodes),
       num_trees_(num_trees),
-      tree_stride_(tree_stride),
-      node_pitch_(node_pitch) {}
+      tree_stride_(node_pitch),
+      node_pitch_(tree_stride) {}
   __host__ __device__ int num_trees() const { return num_trees_; }
   __host__ __device__ dense_tree operator[](int i) const {
     return dense_tree(nodes_ + i * tree_stride_, node_pitch_);
@@ -126,6 +211,9 @@ struct alignas(16) sparse_node16 : base_node, sparse_node16_extra_data {
   __host__ __device__ int left_index() const { return left_idx; }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_idx; }
+  __host__ __device__ int child(int curr, int cond) const {
+    return left(curr) + cond;
+  }
 };
 
 /** sparse_node8 is a node of reduced size (8 bytes) in a sparse forest */
@@ -158,6 +246,9 @@ struct alignas(8) sparse_node8 : base_node {
   }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_index(); }
+  __host__ __device__ int child(int curr, int cond) const {
+    return left(curr) + cond;
+  }
 };
 
 /** sparse_tree is a sparse tree */

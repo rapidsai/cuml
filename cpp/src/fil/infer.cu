@@ -60,7 +60,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
       }
       float val = sdata[j * cols + n.fid()];
       bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
-      curr[j] = n.left(curr[j]) + cond;
+      curr[j] = n.child(curr[j], cond);
     }
   } while (mask != 0);
   vec<NITEMS, output_type> out;
@@ -84,7 +84,7 @@ __device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
     if (n.is_leaf()) break;
     float val = sdata[n.fid()];
     bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
-    curr = n.left(curr) + cond;
+    curr = n.child(curr, cond);
   }
   vec<1, output_type> out;
   out[0] = tree[curr].base_node::output<output_type>();
