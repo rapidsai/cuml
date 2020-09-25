@@ -90,7 +90,7 @@ def exact_match(output1, output2):
     # Distances should match
     d1 = np.round(d1, 4)
     d2 = np.round(d2, 4)
-    assert np.array_equal(d1, d2)
+    assert np.mean(d1 == d2) > 0.98
 
     # Indices should strictly match
     assert np.array_equal(i1, i2)
