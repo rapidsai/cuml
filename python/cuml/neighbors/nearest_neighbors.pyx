@@ -29,6 +29,7 @@ from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.common import input_to_cuml_array
+from cuml.neighbors.ann cimport *
 
 from cython.operator cimport dereference as deref
 
@@ -66,34 +67,6 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
     cdef cppclass knnIndex:
         pass
-
-    cdef cppclass knnIndexParam:
-        bool automated
-
-    ctypedef enum QuantizerType:
-        QT_8bit,
-        QT_4bit,
-        QT_8bit_uniform,
-        QT_4bit_uniform,
-        QT_fp16,
-        QT_8bit_direct,
-        QT_6bit
-
-    cdef cppclass IVFParam(knnIndexParam):
-        int nlist
-        int nprobe
-
-    cdef cppclass IVFFlatParam(IVFParam):
-        pass
-
-    cdef cppclass IVFPQParam(IVFParam):
-        int M
-        int n_bits
-        bool usePrecomputedTables
-
-    cdef cppclass IVFSQParam(IVFParam):
-        QuantizerType qtype
-        bool encodeResidual
 
     void brute_force_knn(
         handle_t &handle,
@@ -280,92 +253,6 @@ class NearestNeighbors(Base):
         self.algo_params = algo_params
         self.knn_index = <uintptr_t> 0
 
-    @staticmethod
-    def _check_algo_params(algo, params):
-        def check_param_list(params, param_list):
-            for param in param_list:
-                if not hasattr(params, param):
-                    ValueError('algo_params misconfigured : {} \
-                                parameter unset'.format(param))
-        if algo == 'ivfflat':
-            check_param_list(params, ['nlist', 'nprobe'])
-        elif algo == "ivfpq":
-            check_param_list(params, ['nlist', 'nprobe', 'M', 'n_bits',
-                                      'usePrecomputedTables'])
-        elif algo == "ivfsq":
-            check_param_list(params, ['nlist', 'nprobe', 'qtype',
-                                      'encodeResidual'])
-
-    @staticmethod
-    def _build_ivfflat_algo_params(params, automated):
-        cdef IVFFlatParam* algo_params = new IVFFlatParam()
-        if automated:
-            return <uintptr_t>algo_params
-        algo_params.nlist = <int> params['nlist']
-        algo_params.nprobe = <int> params['nprobe']
-        return <uintptr_t>algo_params
-
-    @staticmethod
-    def _build_ivfpq_algo_params(params, automated):
-        cdef IVFPQParam* algo_params = new IVFPQParam()
-        if automated:
-            return <uintptr_t>algo_params
-        algo_params.nlist = <int> params['nlist']
-        algo_params.nprobe = <int> params['nprobe']
-        algo_params.M = <int> params['M']
-        algo_params.n_bits = <int> params['n_bits']
-        algo_params.usePrecomputedTables = \
-            <bool> params['usePrecomputedTables']
-        return <uintptr_t>algo_params
-
-    @staticmethod
-    def _build_ivfsq_algo_params(params, automated):
-        cdef IVFSQParam* algo_params = new IVFSQParam()
-        if automated:
-            return <uintptr_t>algo_params
-
-        quantizer_type = {
-            'QT_8bit': <int> QuantizerType.QT_8bit,
-            'QT_4bit': <int> QuantizerType.QT_4bit,
-            'QT_8bit_uniform': <int> QuantizerType.QT_8bit_uniform,
-            'QT_4bit_uniform': <int> QuantizerType.QT_4bit_uniform,
-            'QT_fp16': <int> QuantizerType.QT_fp16,
-            'QT_8bit_direct': <int> QuantizerType.QT_8bit_direct,
-            'QT_6bit': <int> QuantizerType.QT_6bit,
-        }
-
-        algo_params.nlist = <int> params['nlist']
-        algo_params.nprobe = <int> params['nprobe']
-        algo_params.qtype = <QuantizerType> quantizer_type[params['qtype']]
-        algo_params.encodeResidual = <bool> params['encodeResidual']
-        return <uintptr_t>algo_params
-
-    @staticmethod
-    def _build_algo_params(algo, params):
-        automated = params is None or params == 'auto'
-        if not automated:
-            NearestNeighbors._check_algo_params(algo, params)
-
-        automated = params is None or params == 'auto'
-        cdef knnIndexParam* algo_params = <knnIndexParam*> 0
-        if algo == 'ivfflat':
-            algo_params = <knnIndexParam*><uintptr_t> \
-                NearestNeighbors._build_ivfflat_algo_params(params, automated)
-        if algo == 'ivfpq':
-            algo_params = <knnIndexParam*><uintptr_t> \
-                NearestNeighbors._build_ivfpq_algo_params(params, automated)
-        elif algo == 'ivfsq':
-            algo_params = <knnIndexParam*><uintptr_t> \
-                NearestNeighbors._build_ivfsq_algo_params(params, automated)
-
-        algo_params.automated = <bool>automated
-        return <uintptr_t>algo_params
-
-    @staticmethod
-    def _destroy_algo_params(ptr):
-        cdef knnIndexParam* algo_params = <knnIndexParam*> <uintptr_t> ptr
-        del algo_params
-
     @generate_docstring()
     def fit(self, X, convert_dtype=True):
         """
@@ -395,8 +282,7 @@ class NearestNeighbors(Base):
             knn_index = new knnIndex()
             self.knn_index = <uintptr_t> knn_index
             algo_params = <knnIndexParam*><uintptr_t> \
-                NearestNeighbors._build_algo_params(self.algorithm,
-                                                    self.algo_params)
+                build_algo_params(self.algorithm, self.algo_params)
             metric, expanded = self._build_metric_type(self.metric)
 
             approx_knn_build_index(handle_[0],
@@ -409,7 +295,7 @@ class NearestNeighbors(Base):
                                    <int>n_rows)
             self.handle.sync()
 
-            NearestNeighbors._destroy_algo_params(<uintptr_t>algo_params)
+            destroy_algo_params(<uintptr_t>algo_params)
 
         return self
 
