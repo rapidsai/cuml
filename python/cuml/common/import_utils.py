@@ -129,7 +129,8 @@ def check_cupy8(conf=None):
     def check_cupy8_dec(func):
         @wraps(func)
         def inner(*args, **kwargs):
-            if check_min_cupy_version('8.0'):
+            import cupy as cp
+            if LooseVersion(str(cp.__version__)) >= LooseVersion('8.0'):
                 return func(*args, **kwargs)
             else:
                 err_msg = 'Could not import required module CuPy 8.0+'
