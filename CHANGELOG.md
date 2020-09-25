@@ -30,6 +30,7 @@
 - PR #2800: Align cuML's spdlog version with RMM's
 - PR #2824: Make data conversions warnings be debug level
 - PR #2835: Rng prims, utils, and dependencies in RAFT
+- PR #2849: make num_classes significant in FLOAT_SCALAR case
 - PR #2792: Project flash (new build process) script changes
 - PR #2850: Clean up unused params in paramsPCA
 
