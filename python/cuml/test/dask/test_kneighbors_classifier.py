@@ -91,11 +91,13 @@ def exact_match(output1, output2):
     d2 = np.round(d2, 4)
     assert np.mean(d1 == d2) > 0.98
 
-    # Indices should strictly match
-    assert np.array_equal(i1, i2)
+    # Indices should match
+    correct_queries = (i1 == i2).all(axis=1)
+    assert np.mean(correct_queries) > 0.95
 
-    # Labels should strictly match
-    assert np.array_equal(l1, l2)
+    # Labels should match
+    correct_queries = (l1 == l2).all(axis=1)
+    assert np.mean(correct_queries) > 0.95
 
 
 def check_probabilities(l_probas, d_probas):
