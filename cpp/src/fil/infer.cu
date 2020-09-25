@@ -116,7 +116,7 @@ using BlockReduceHost =
                             cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, 600>;
 
 template <int NITEMS,
-          leaf_algo_t leaf_algo>  // = FLOAT_SCALAR
+          leaf_algo_t leaf_algo>  // = FLOAT_UNARY_BINARY
 struct tree_aggregator_t {
   vec<NITEMS, float> acc;
   void* tmp_storage;
@@ -352,8 +352,9 @@ void infer_k_launcher(storage_type forest, predict_params params,
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
   switch (params.leaf_algo) {
-    case FLOAT_SCALAR:
-      infer_k_launcher<FLOAT_SCALAR, storage_type>(forest, params, stream);
+    case FLOAT_UNARY_BINARY:
+      infer_k_launcher<FLOAT_UNARY_BINARY, storage_type>(forest, params,
+                                                         stream);
       break;
     case CATEGORICAL_LEAF:
       infer_k_launcher<CATEGORICAL_LEAF, storage_type>(forest, params, stream);
