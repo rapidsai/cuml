@@ -3,6 +3,8 @@
 ## New Features
 - PR #2677: Ability to export RF trees as JSON
 - PR #2698: Distributed TF-IDF transformer
+- PR #2476: Porter Stemmer
+- PR #2789: Dask LabelEncoder
 - PR #2152: add FIL C++ benchmark
 - PR #2638: Improve cython build with custom `build_ext`
 
@@ -28,6 +30,7 @@
 - PR #2800: Align cuML's spdlog version with RMM's
 - PR #2824: Make data conversions warnings be debug level
 - PR #2849: make num_classes significant in FLOAT_SCALAR case
+- PR #2792: Project flash (new build process) script changes
 - PR #2850: Clean up unused params in paramsPCA
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
 
