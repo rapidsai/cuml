@@ -192,7 +192,7 @@
 - PR #2540: Update default value for n_epochs in UMAP to match documentation & sklearn API
 - PR #2535: Fix issue with incorrect docker image being used in local build script
 - PR #2542: Fix small memory leak in TSNE
-- PR #2552: Fixed the length argument of update_device calls in RF test
+- PR #2552: Fixed the length argument of updateDevice calls in RF test
 - PR #2565: Fix cell allocation code to avoid loops in quad-tree. Prevent NaNs causing infinite descent
 - PR #2563: Update scipy call for arima gradient test
 - PR #2569: Fix for cuDF update
@@ -997,7 +997,7 @@
 - PR #508: Fix for an error with default argument in LinAlg::meanSquaredError
 - PR #519: README.md Updates and adding BUILD.md back
 - PR #526: Fix the issue of wrong results when fit and transform of PCA are called separately
-- PR #531: Fixing missing arguments in update_device() for RF
+- PR #531: Fixing missing arguments in updateDevice() for RF
 - PR #543: Exposing dbscan batch size through cython API and fixing broken batching
 - PR #551: Made use of ZLIB_LIBRARIES consistent between ml_test and ml_mg_test
 - PR #557: Modified CI script to run cuML tests before building mlprims and removed lapack flag

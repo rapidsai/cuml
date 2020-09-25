@@ -49,8 +49,6 @@
 namespace ML {
 namespace GLM {
 
-using raft::alignTo;
-
 // TODO better way to deal with alignment? Smaller aligne possible?
 constexpr size_t qn_align = 256;
 
