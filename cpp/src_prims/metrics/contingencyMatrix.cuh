@@ -43,7 +43,7 @@ __global__ void devConstructContingencyMatrix(const T *groundTruth,
     T gt = groundTruth[elementId];
     T pd = predicted[elementId];
     auto outputIdx = (gt - outIdxOffset) * outMatWidth + pd - outIdxOffset;
-    myAtomicAdd(outMat + outputIdx, OutT(1));
+    raft::myAtomicAdd(outMat + outputIdx, OutT(1));
   }
 }
 
@@ -78,12 +78,12 @@ __global__ void devConstructContingencyMatrixSmem(const T *groundTruth,
     T gt = groundTruth[elementId];
     T pd = predicted[elementId];
     auto outputIdx = (gt - outIdxOffset) * outMatWidth + pd - outIdxOffset;
-    myAtomicAdd(sMemMatrix + outputIdx, OutT(1));
+    raft::myAtomicAdd(sMemMatrix + outputIdx, OutT(1));
   }
   __syncthreads();
   for (auto smemIdx = threadIdx.x; smemIdx < outMatWidth * outMatWidth;
        smemIdx += blockDim.x) {
-    myAtomicAdd(outMat + smemIdx, sMemMatrix[smemIdx]);
+    raft::myAtomicAdd(outMat + smemIdx, sMemMatrix[smemIdx]);
   }
 }
 

@@ -140,13 +140,13 @@ __launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 4) __global__
       thread_sums = cub::ShuffleIndex<32>(thread_sums, 0, 0xffffffff);
       if (threadIdx.x < nkeys) {
         if (threadIdx.x == 0)
-          myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.x);
+          raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.x);
         if (threadIdx.x == 1)
-          myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.y);
+          raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.y);
         if (threadIdx.x == 2)
-          myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.z);
+          raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.z);
         if (threadIdx.x == 3)
-          myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.w);
+          raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.w);
       }
     }
   }
@@ -202,7 +202,7 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_colmajor(
       int local_key = d_keys[irow] - key_offset;
 
       // We could load next val here
-      myAtomicAdd(&local_sums[local_key], val);
+      raft::myAtomicAdd(&local_sums[local_key], val);
     }
 
     __syncthreads();  // local_sums
@@ -213,7 +213,7 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_colmajor(
 
       if (local_sum != 0.0) {
         KeyType global_key = key_offset + local_key;
-        myAtomicAdd(&d_sums[global_key * ncols + idim], local_sum);
+        raft::myAtomicAdd(&d_sums[global_key * ncols + idim], local_sum);
         local_sums[local_key] = 0.0;
       }
     }
@@ -290,7 +290,7 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(
     sum += val;
   }
 
-  if (sum != 0.0) myAtomicAdd(&d_sums[global_key * ncols + this_col], sum);
+  if (sum != 0.0) raft::myAtomicAdd(&d_sums[global_key * ncols + this_col], sum);
 }
 
 template <typename DataIteratorT, typename KeysIteratorT, typename WeightT>

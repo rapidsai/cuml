@@ -45,10 +45,10 @@ __global__ void weightedMeanKernel(DataT *mu, const DataT *data,
       (colId < D) ? data[i * D + colId] * (DataT)counts[i] : DataT(0);
   }
   __syncthreads();
-  myAtomicAdd(smu + thisColId, thread_data);
+  raft::myAtomicAdd(smu + thisColId, thread_data);
   __syncthreads();
   if (threadIdx.x < ColsPerBlk && colId < D)
-    myAtomicAdd(mu + colId, smu[thisColId]);
+    raft::myAtomicAdd(mu + colId, smu[thisColId]);
 }
 
 template <typename DataT, typename IdxT, int TPB>
@@ -70,7 +70,7 @@ __global__ void dispersionKernel(DataT *result, const DataT *clusters,
   __syncthreads();
   auto acc = BlockReduce(temp_storage).Sum(sum);
   __syncthreads();
-  if (threadIdx.x == 0) myAtomicAdd(result, acc);
+  if (threadIdx.x == 0) raft::myAtomicAdd(result, acc);
 }
 
 /**

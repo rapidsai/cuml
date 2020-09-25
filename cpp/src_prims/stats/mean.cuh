@@ -40,9 +40,9 @@ __global__ void meanKernelRowMajor(Type *mu, const Type *data, IdxType D,
   __shared__ Type smu[ColsPerBlk];
   if (threadIdx.x < ColsPerBlk) smu[threadIdx.x] = Type(0);
   __syncthreads();
-  myAtomicAdd(smu + thisColId, thread_data);
+  raft::myAtomicAdd(smu + thisColId, thread_data);
   __syncthreads();
-  if (threadIdx.x < ColsPerBlk) myAtomicAdd(mu + colId, smu[thisColId]);
+  if (threadIdx.x < ColsPerBlk) raft::myAtomicAdd(mu + colId, smu[thisColId]);
 }
 
 template <typename Type, typename IdxType, int TPB>

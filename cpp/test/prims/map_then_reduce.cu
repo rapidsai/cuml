@@ -30,7 +30,7 @@ __global__ void naiveMapReduceKernel(Type *out, const Type *in, size_t len,
                                      MapOp map) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) {
-    myAtomicAdd(out, map(in[idx]));
+    raft::myAtomicAdd(out, map(in[idx]));
   }
 }
 

@@ -42,9 +42,9 @@ __global__ void stddevKernelRowMajor(Type *std, const Type *data, IdxType D,
   __shared__ Type sstd[ColsPerBlk];
   if (threadIdx.x < ColsPerBlk) sstd[threadIdx.x] = Type(0);
   __syncthreads();
-  myAtomicAdd(sstd + thisColId, thread_data);
+  raft::myAtomicAdd(sstd + thisColId, thread_data);
   __syncthreads();
-  if (threadIdx.x < ColsPerBlk) myAtomicAdd(std + colId, sstd[thisColId]);
+  if (threadIdx.x < ColsPerBlk) raft::myAtomicAdd(std + colId, sstd[thisColId]);
 }
 
 template <typename Type, typename IdxType, int TPB>

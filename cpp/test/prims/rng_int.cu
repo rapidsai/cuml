@@ -39,8 +39,8 @@ __global__ void meanKernel(float *out, const T *data, int len) {
   float xx = BlockReduce(temp_storage).Sum(val * val);
   __syncthreads();
   if (threadIdx.x == 0) {
-    myAtomicAdd(out, x);
-    myAtomicAdd(out + 1, xx);
+    raft::myAtomicAdd(out, x);
+    raft::myAtomicAdd(out + 1, xx);
   }
 }
 

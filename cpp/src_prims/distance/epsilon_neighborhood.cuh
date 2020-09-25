@@ -152,9 +152,10 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
 
   DI void atomicUpdate(IdxT addrId, IdxT val) {
     if (sizeof(IdxT) == 4) {
-      myAtomicAdd((unsigned*)(vd + addrId), val);
+      raft::myAtomicAdd<unsigned>((unsigned*)(vd + addrId), val);
     } else if (sizeof(IdxT) == 8) {
-      myAtomicAdd((unsigned long long*)(vd + addrId), val);
+      raft::myAtomicAdd<unsigned long long>((unsigned long long*)(vd + addrId),
+                                            val);
     }
   }
 };  // struct EpsUnexpL2SqNeighborhood

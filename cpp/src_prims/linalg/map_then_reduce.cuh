@@ -30,7 +30,7 @@ __device__ void reduce(Type *out, const Type acc) {
   __shared__ typename BlockReduce::TempStorage temp_storage;
   Type tmp = BlockReduce(temp_storage).Sum(acc);
   if (threadIdx.x == 0) {
-    myAtomicAdd(out, tmp);
+    raft::myAtomicAdd(out, tmp);
   }
 }
 

@@ -37,7 +37,7 @@ __global__ void En_KF_accumulate(const int nPoints, const int dim, const T *X,
   int idx = threadIdx.x + blockDim.x * blockIdx.x;
   int col = idx % dim;
   int row = idx / dim;
-  if (col < dim && row < nPoints) myAtomicAdd(x + col, X[idx]);
+  if (col < dim && row < nPoints) raft::myAtomicAdd(x + col, X[idx]);
 }
 
 template <typename T>

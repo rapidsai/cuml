@@ -55,7 +55,7 @@ __global__ void stridedSummationKernel(Type *dots, const Type *data, int D,
 
   // Grid reduction
   if ((colStart < D) && (threadIdx.y == 0))
-    myAtomicAdd(dots + colStart, temp[myidx]);
+    raft::myAtomicAdd(dots + colStart, temp[myidx]);
 }
 
 // Kernel to perform reductions along the strided dimension
