@@ -121,11 +121,19 @@ class NearestNeighbors(Base):
     handle : handle_t
         The handle_t resources to use
     algorithm : string (default='brute')
-        The query algorithm to use. Valid options are 'brute' for brute-force,
-        'ivfflat' for inverted file, 'ivfpq' for inverted file and
-        product quantizization, and 'ivfsq' for inverted file and
-        scalar quantizization (for more information please refer
-        to FAISS documentation)
+        The query algorithm to use. Valid options are :
+        - 'brute' for brute-force, slow but produces exact results
+        - 'ivfflat' for inverted file, divide the dataset in partitions
+            and perform search on relevant partitions only
+        - 'ivfpq' for inverted file and product quantization,
+            same as inverted list, in addition the vectors are broken
+            in n_features/M sub-vectors that will be encoded thanks
+            to intermediary k-means clusterings. This encoding provide
+            partial information allowing faster distances calculations
+        - 'ivfsq' for inverted file and scalar quantization,
+            same as inverted list, in addition vectors components
+            are quantized into reduced binary representation allowing
+            faster distances calculations
     metric : string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
