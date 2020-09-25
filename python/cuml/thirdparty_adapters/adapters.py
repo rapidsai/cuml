@@ -350,12 +350,3 @@ def to_output_type(array, output_type, order='F'):
 
     cuml_array = input_to_cuml_array(array, order=order)[0]
     return cuml_array.to_output(output_type)
-
-
-def check_cupy8(func):
-    def inner(*args, **kwargs):
-        if cp.__version__[0] == '8':
-            func(*args, **kwargs)
-        else:
-            raise ImportError('Could not import required module CuPy 8.0+')
-    return inner
