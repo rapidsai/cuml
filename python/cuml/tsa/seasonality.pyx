@@ -21,7 +21,7 @@ from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
 import cuml
-from cuml.common.array import CumlArray as cumlArray
+from cuml.common.array import CumlArray
 from cuml.common.base import _input_to_type
 from cuml.raft.common.handle cimport handle_t
 from cuml.common.input_utils import input_to_host_array, input_to_cuml_array
@@ -47,7 +47,8 @@ def python_seas_test(y, batch_size, n_obs, s, threshold=0.64):
     return results
 
 
-def seas_test(y, s, output_type="input", handle=None):
+@cuml.internals.api_return_array("y", skip_set_output_type=False)
+def seas_test(y, s, handle=None) -> CumlArray:
     """
     Perform Wang, Smith & Hyndman's test to decide whether seasonal
     differencing is needed
@@ -73,8 +74,8 @@ def seas_test(y, s, output_type="input", handle=None):
             "ERROR: Invalid period for the seasonal differencing test: {}"
             .format(s))
 
-    if output_type == "input":
-        output_type = _input_to_type(y)
+    # if output_type == "input":
+    #     output_type = _input_to_type(y)
 
     # At the moment we use a host array
     h_y, _, n_obs, batch_size, dtype = \
@@ -83,4 +84,4 @@ def seas_test(y, s, output_type="input", handle=None):
     # Temporary: Python implementation
     python_res = python_seas_test(h_y, batch_size, n_obs, s)
     d_res, *_ = input_to_cuml_array(np.array(python_res), check_dtype=np.bool)
-    return d_res.to_output(output_type)
+    return d_res

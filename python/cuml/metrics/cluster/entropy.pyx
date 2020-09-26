@@ -43,10 +43,10 @@ def _prepare_cluster_input(cluster):
         check_dtype=np.int32,
         check_cols=1
     )
-    cp_ground_truth_m = cluster_m.to_output(output_type='cupy')
+    # cp_ground_truth_m = cluster_m.to_output(output_type='cupy')
 
-    lower_class_range = cp.min(cp_ground_truth_m)
-    upper_class_range = cp.max(cp_ground_truth_m)
+    lower_class_range = cp.min(cluster_m)
+    upper_class_range = cp.max(cluster_m)
 
     return cluster_m, n_rows, lower_class_range, upper_class_range
 

@@ -22,6 +22,7 @@ import numpy as np
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -268,13 +269,12 @@ class QN(Base):
         }[loss]
 
     @generate_docstring()
-    @with_cupy_rmm
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=False) -> "QN":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(output_type=X)
+        # self._set_base_attributes(output_type=X)
 
         X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
             X, order='F', check_dtype=[np.float32, np.float64]
@@ -375,7 +375,8 @@ class QN(Base):
 
         return self
 
-    def _decision_function(self, X, convert_dtype=False):
+    @cuml.internals.api_base_return_array_skipall
+    def _decision_function(self, X, convert_dtype=False) -> CumlArray:
         """
         Gives confidence score for X
 
@@ -448,13 +449,14 @@ class QN(Base):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    @cuml.internals.api_base_return_array(skip_get_output_dtype=False)
+    def predict(self, X, convert_dtype=False) -> CumlArray:
         """
         Predicts the y for X.
 
         """
-        out_type = self._get_output_type(X)
-        out_dtype = self._get_target_dtype()
+        # out_type = self._get_output_type(X)
+        # out_dtype = self._get_target_dtype()
 
         X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
             X, check_dtype=self.dtype,
@@ -499,7 +501,7 @@ class QN(Base):
 
         del X_m
 
-        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
+        return preds
 
     def score(self, X, y):
         return accuracy_score(y, self.predict(X))

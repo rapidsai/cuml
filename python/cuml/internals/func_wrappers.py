@@ -25,6 +25,7 @@ from collections import deque
 
 import cuml
 import cuml.common
+import cuml.common.base
 from cuml.internals.base_helpers import BaseFunctionMetadata
 import rmm
 
@@ -55,11 +56,15 @@ global_output_type_data.root_cm = None
 def set_api_output_type(output_type: str):
     assert (global_output_type_data.root_cm is not None)
 
+    # TODO: Also accept array objects
+
     global_output_type_data.root_cm.output_type = output_type
 
 
 def set_api_output_dtype(output_dtype):
     assert (global_output_type_data.root_cm is not None)
+
+    # TODO: Also accept array objects
 
     global_output_type_data.root_cm.output_dtype = output_dtype
 
@@ -685,7 +690,9 @@ class BaseDecoratorMixin(object):
             if (self.arg_to_use_name in kwargs):
                 return self_val, kwargs[self.arg_to_use_name]
 
-            raise IndexError("Specified argument idx: {}, and argument name: {}, were not found in args or kwargs".format(self.arg_to_use, self.arg_to_use_name))
+            raise IndexError(
+                "Specified argument idx: {}, and argument name: {}, were not found in args or kwargs"
+                .format(self.arg_to_use, self.arg_to_use_name))
 
         # Otherwise return the index
         return self_val, args[self.arg_to_use]
@@ -717,8 +724,8 @@ class BaseReturnAnyDecorator(ReturnAnyDecorator, BaseDecoratorMixin):
         self.skip_set_output_dtype = skip_set_output_dtype
         self.skip_set_n_features_in = skip_set_n_features_in
         self.do_autowrap = not (self.skip_set_output_type
-                            and self.skip_set_output_dtype
-                            and self.skip_set_n_features_in)
+                                and self.skip_set_output_dtype
+                                and self.skip_set_n_features_in)
 
     def __call__(self, func):
 
@@ -750,22 +757,56 @@ class BaseReturnAnyDecorator(ReturnAnyDecorator, BaseDecoratorMixin):
 
         # Return the function depending on whether or not we do any automatic wrapping
         return inner if self.do_autowrap else inner_skip_autowrap
-    
+
     def _recreate_cm(self, func, args):
         return BaseReturnAnyCM(func, args)
 
 
 class ReturnArrayDecorator(object, metaclass=DecoratorMetaClass):
+    def __init__(self,
+                 input_arg: str = None,
+                 skip_get_output_type=True,
+                 skip_get_output_dtype=True) -> None:
+
+        super().__init__(input_arg)
+
+        self.skip_get_output_type = skip_get_output_type
+        self.skip_get_output_dtype = skip_get_output_dtype
+
+        self.do_autowrap = not (self.skip_get_output_type
+                                and self.skip_get_output_dtype)
+
     def __call__(self, func):
         @wraps(func)
         def inner(*args, **kwargs):
+            with self._recreate_cm(func, args) as cm:
+
+                # TODO: Make this more robust to actually determine the right
+                # arg
+                arg_val = args[0]
+
+                # Now execute the getters
+                if (not self.skip_get_output_type):
+                    set_api_output_type(
+                        cuml.common.base._input_to_type(arg_val))
+
+                if (not self.skip_get_output_dtype):
+                    set_api_output_dtype(
+                        cuml.common.base._input_target_to_dtype(arg_val))
+
+                ret_val = func(*args, **kwargs)
+
+            return cm.process_return(ret_val)
+
+        @wraps(func)
+        def inner_skip_autowrap(*args, **kwargs):
             with self._recreate_cm(func, args) as cm:
 
                 ret_val = func(*args, **kwargs)
 
             return cm.process_return(ret_val)
 
-        return inner
+        return inner if self.do_autowrap else inner_skip_autowrap
 
     def _recreate_cm(self, func, args):
 
@@ -789,13 +830,13 @@ class BaseReturnArrayDecorator(ReturnArrayDecorator, BaseDecoratorMixin):
         self.skip_set_output_dtype = skip_set_output_dtype
         self.skip_set_n_features_in = skip_set_n_features_in
         self.do_autowrap = not (self.skip_get_output_type
-                            and self.skip_get_output_dtype
-                            and self.skip_set_output_type
-                            and self.skip_set_output_dtype
-                            and self.skip_set_n_features_in)
+                                and self.skip_get_output_dtype
+                                and self.skip_set_output_type
+                                and self.skip_set_output_dtype
+                                and self.skip_set_n_features_in)
         self.has_setters = not (self.skip_set_output_type
-                            and self.skip_set_output_dtype and
-                            self.skip_set_n_features_in)
+                                and self.skip_set_output_dtype
+                                and self.skip_set_n_features_in)
 
     def __call__(self, func):
 
@@ -878,13 +919,37 @@ class BaseReturnGenericDecorator(BaseReturnArrayDecorator):
         return BaseReturnGenericCM(func, args)
 
 
+class BaseReturnArrayFitTransformDecorator(BaseReturnArrayDecorator):
+    """
+    Identical to `BaseReturnArrayDecorator`, however the defaults have been
+    changed to better suit `fit_transform` methods
+    """
+    def __init__(self,
+                 input_arg: str = None,
+                 skip_get_output_type=False,
+                 skip_get_output_dtype=True,
+                 skip_set_output_type=False,
+                 skip_set_output_dtype=True,
+                 skip_set_n_features_in=False) -> None:
+
+        super().__init__(input_arg=input_arg,
+                         skip_get_output_type=skip_get_output_type,
+                         skip_get_output_dtype=skip_get_output_dtype,
+                         skip_set_output_type=skip_set_output_type,
+                         skip_set_output_dtype=skip_set_output_dtype,
+                         skip_set_n_features_in=skip_set_n_features_in)
+
+
 api_return_any = ReturnAnyDecorator
 api_base_return_any = BaseReturnAnyDecorator
 api_return_array = ReturnArrayDecorator
 api_base_return_array = BaseReturnArrayDecorator
 api_base_return_generic = BaseReturnGenericDecorator
+api_base_fit_transform = BaseReturnArrayFitTransformDecorator
 
 api_base_return_any_skipall = BaseReturnAnyDecorator(
     skip_set_output_type=True, skip_set_n_features_in=True)
 api_base_return_array_skipall = BaseReturnArrayDecorator(
+    skip_get_output_type=True)
+api_base_return_generic_skipall = BaseReturnGenericDecorator(
     skip_get_output_type=True)

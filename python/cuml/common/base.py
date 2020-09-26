@@ -22,18 +22,14 @@ from dataclasses import dataclass
 from functools import wraps
 
 import cuml
+import cuml.common
 import cuml.common.cuda
 import cuml.raft.common.handle
 import cuml.common.logger as logger
 import cuml.internals
-import rmm
 from cudf.core import DataFrame as cuDataFrame
 from cudf.core import Series as cuSeries
-from cuml.common import input_to_cuml_array, using_output_type
-from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import (cuml_internal_func,
-                            cuml_internal_func_check_type)
 from cupy import ndarray as cupyArray
 from numba import cuda
 from numba.cuda import devicearray as numbaArray
@@ -274,7 +270,7 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         # using __dict__ due to a bug with scikit-learn hyperparam
         # when doing hasattr. github issue #1736
         if real_name in self.__dict__.keys():
-            if isinstance(self.__dict__[real_name], CumlArray):
+            if isinstance(self.__dict__[real_name], cuml.common.CumlArray):
                 return self.__dict__[real_name].to_output(self.output_type)
             else:
                 return self.__dict__[real_name]

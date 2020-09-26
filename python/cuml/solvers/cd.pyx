@@ -196,7 +196,7 @@ class CD(Base):
         self.tol = tol
         self.shuffle = shuffle
         self.intercept_value = 0.0
-        # self.coef_ = None   # accessed via estimator.coef_
+        self.coef_ = None
         self.intercept_ = None
 
     def _check_alpha(self, alpha):
@@ -211,13 +211,13 @@ class CD(Base):
         }[loss]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=False) -> "CD":
         """
         Fit the model with X and y.
 
         """
 
-        self._set_base_attributes(output_type=X)
+        # self._set_base_attributes(output_type=X)
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -285,12 +285,12 @@ class CD(Base):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=False) -> CumlArray:
         """
         Predicts the y for X.
 
         """
-        out_type = self._get_output_type(X)
+        # out_type = self._get_output_type(X)
 
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -329,4 +329,4 @@ class CD(Base):
 
         del(X_m)
 
-        return preds.to_output(out_type)
+        return preds

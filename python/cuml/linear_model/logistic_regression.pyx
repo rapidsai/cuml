@@ -19,6 +19,7 @@
 import cupy as cp
 import pprint
 
+import cuml
 from cuml.solvers import QN
 from cuml.common.base import Base, ClassifierMixin
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -285,14 +286,15 @@ class LogisticRegression(Base, ClassifierMixin):
             )
 
         if logger.should_log_for(logger.level_trace):
-            logger.trace(self.verb_prefix + "Coefficients: " +
-                         str(self._coef_.to_output("cupy")))
-            if self.fit_intercept:
-                logger.trace(
-                    self.verb_prefix
-                    + "Intercept: "
-                    + str(self._intercept_.to_output("cupy"))
-                )
+            with cuml.using_output_type("cupy"):
+                logger.trace(self.verb_prefix + "Coefficients: " +
+                            str(self.solver_model.coef_))
+                if self.fit_intercept:
+                    logger.trace(
+                        self.verb_prefix
+                        + "Intercept: "
+                        + str(self.solver_model.intercept_)
+                    )
 
         return self
 
@@ -300,7 +302,7 @@ class LogisticRegression(Base, ClassifierMixin):
                                        'type': 'dense',
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
-    def decision_function(self, X, convert_dtype=False):
+    def decision_function(self, X, convert_dtype=False) -> CumlArray:
         """
         Gives confidence score for X
 
@@ -308,7 +310,7 @@ class LogisticRegression(Base, ClassifierMixin):
         return self.solver_model._decision_function(
             X,
             convert_dtype=convert_dtype
-        ).to_output(output_type=self._get_output_type(X))
+        )
 
     @generate_docstring(return_values={'name': 'preds',
                                        'type': 'dense',

@@ -15,6 +15,8 @@
 
 # distutils: language = c++
 
+import typing
+
 import ctypes
 import cudf
 import numpy as np
@@ -26,8 +28,10 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+import cuml.internals
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, with_cupy_rmm
@@ -207,6 +211,9 @@ class SGD(Base):
 
     """
 
+    coef_ = CumlArrayDescriptor()
+    classes_ = CumlArrayDescriptor()
+
     def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
@@ -268,7 +275,7 @@ class SGD(Base):
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
         self.intercept_value = 0.0
-        self._coef_ = None  # accessed via coef_
+        self.coef_ = None
         self.intercept_ = None
 
     def _check_alpha(self, alpha):
@@ -293,13 +300,13 @@ class SGD(Base):
         }[penalty]
 
     @generate_docstring()
-    @with_cupy_rmm
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=False) -> "SGD":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(output_type=X, target_dtype=y)
+        # self._set_base_attributes(output_type=X, target_dtype=y)
+        cuml.internals.set_api_output_dtype(y)
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -312,16 +319,16 @@ class SGD(Base):
 
         _estimator_type = getattr(self, '_estimator_type', None)
         if _estimator_type == "classifier":
-            self._classes_ = CumlArray(cp.unique(y_m))
+            self.classes_ = CumlArray(cp.unique(y_m))
 
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t y_ptr = y_m.ptr
 
         self.n_alpha = 1
 
-        self._coef_ = CumlArray.zeros(self.n_cols,
+        self.coef_ = CumlArray.zeros(self.n_cols,
                                       dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float c_intercept1
         cdef double c_intercept2
@@ -385,12 +392,12 @@ class SGD(Base):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=False) -> CumlArray:
         """
         Predicts the y for X.
 
         """
-        output_type = self._get_output_type(X)
+        # output_type = self._get_output_type(X)
 
         X_m, n_rows, n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -400,7 +407,7 @@ class SGD(Base):
 
         cdef uintptr_t X_ptr = X_m.ptr
 
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        cdef uintptr_t coef_ptr = self.coef_.ptr
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
@@ -429,13 +436,14 @@ class SGD(Base):
 
         del(X_m)
 
-        return preds.to_output(output_type)
+        return preds
 
     @generate_docstring(return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predictClass(self, X, convert_dtype=False):
+    @cuml.internals.api_base_return_array(skip_get_output_dtype=False)
+    def predictClass(self, X, convert_dtype=False) -> CumlArray:
         """
         Predicts the y for X.
 
@@ -450,7 +458,7 @@ class SGD(Base):
                                 check_cols=self.n_cols)
 
         cdef uintptr_t X_ptr = X_m.ptr
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        cdef uintptr_t coef_ptr = self.coef_.ptr
         preds = CumlArray.zeros(n_rows, dtype=dtype)
         cdef uintptr_t preds_ptr = preds.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -478,4 +486,4 @@ class SGD(Base):
 
         del(X_m)
 
-        return preds.to_output(output_type=output_type, output_dtype=out_dtype)
+        return preds

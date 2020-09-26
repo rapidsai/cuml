@@ -25,6 +25,7 @@ from numba import cuda
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
@@ -459,7 +460,7 @@ class SVMBase(Base):
             else:
                 self._unique_labels = None
 
-    def predict(self, X, predict_class, convert_dtype=True):
+    def predict(self, X, predict_class, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X, where y is either the decision function value
         (if predict_class == False), or the label associated with X.
@@ -480,11 +481,13 @@ class SVMBase(Base):
         y : cuDF Series
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
-        out_type = self._get_output_type(X)
+        # out_type = self._get_output_type(X)
         if predict_class:
             out_dtype = self._get_target_dtype()
         else:
             out_dtype = self.dtype
+
+        cuml.internals.set_api_output_dtype(out_dtype)
 
         self._check_is_fitted('_model')
 
@@ -519,7 +522,7 @@ class SVMBase(Base):
 
         del(X_m)
 
-        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
+        return preds
 
     def get_param_names(self):
         return ["C", "kernel", "degree", "gamma", "coef0", "cache_size",
