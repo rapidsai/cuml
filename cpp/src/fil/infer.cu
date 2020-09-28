@@ -116,7 +116,7 @@ using BlockReduceHost =
                             cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, 600>;
 
 template <int NITEMS,
-          leaf_value_t leaf_payload_type>  // = FLOAT_SCALAR
+          leaf_algo_t leaf_algo>  // = FLOAT_UNARY_BINARY
 struct tree_aggregator_t {
   vec<NITEMS, float> acc;
   void* tmp_storage;
@@ -161,7 +161,7 @@ struct tree_aggregator_t {
 };
 
 template <int NITEMS>
-struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
+struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   // could switch to unsigned short to save shared memory
   // provided atomicAdd(short*) simulated with appropriate shifts
   int* votes;
@@ -233,7 +233,7 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
   }
 };
 
-template <int NITEMS, leaf_value_t leaf_payload_type, class storage_type>
+template <int NITEMS, leaf_algo_t leaf_algo, class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params) {
   // cache the row for all threads to reuse
   extern __shared__ char smem[];
@@ -247,33 +247,33 @@ __global__ void infer_k(storage_type forest, predict_params params) {
     }
   }
 
-  tree_aggregator_t<NITEMS, leaf_payload_type> acc(
+  tree_aggregator_t<NITEMS, leaf_algo> acc(
     params.num_classes, sdata, params.num_cols * NITEMS * sizeof(float));
 
   __syncthreads();  // for both row cache init and acc init
 
   // one block works on NITEMS rows and the whole forest
   for (int j = threadIdx.x; j < forest.num_trees(); j += blockDim.x) {
-    acc.accumulate(infer_one_tree<NITEMS, leaf_output_t<leaf_payload_type>::T>(
+    acc.accumulate(infer_one_tree<NITEMS, leaf_output_t<leaf_algo>::T>(
       forest[j], sdata, params.num_cols));
   }
   acc.finalize(params.preds, params.num_rows, params.num_outputs);
 }
 
-template <int NITEMS, leaf_value_t leaf_payload_type>
+template <int NITEMS, leaf_algo_t leaf_algo>
 size_t get_smem_footprint(predict_params params) {
   size_t finalize_footprint =
-    tree_aggregator_t<NITEMS, leaf_payload_type>::smem_finalize_footprint(
+    tree_aggregator_t<NITEMS, leaf_algo>::smem_finalize_footprint(
       params.num_classes);
   size_t accumulate_footprint =
     sizeof(float) * params.num_cols * NITEMS +
-    tree_aggregator_t<NITEMS, leaf_payload_type>::smem_accumulate_footprint(
+    tree_aggregator_t<NITEMS, leaf_algo>::smem_accumulate_footprint(
       params.num_classes);
 
   return std::max(accumulate_footprint, finalize_footprint);
 }
 
-template <leaf_value_t leaf_payload_type, typename storage_type>
+template <leaf_algo_t leaf_algo, typename storage_type>
 void infer_k_launcher(storage_type forest, predict_params params,
                       cudaStream_t stream) {
   const int MAX_BATCH_ITEMS = 4;
@@ -289,16 +289,16 @@ void infer_k_launcher(storage_type forest, predict_params params,
     size_t peak_footprint;
     switch (nitems) {
       case 1:
-        peak_footprint = get_smem_footprint<1, leaf_payload_type>(params);
+        peak_footprint = get_smem_footprint<1, leaf_algo>(params);
         break;
       case 2:
-        peak_footprint = get_smem_footprint<2, leaf_payload_type>(params);
+        peak_footprint = get_smem_footprint<2, leaf_algo>(params);
         break;
       case 3:
-        peak_footprint = get_smem_footprint<3, leaf_payload_type>(params);
+        peak_footprint = get_smem_footprint<3, leaf_algo>(params);
         break;
       case 4:
-        peak_footprint = get_smem_footprint<4, leaf_payload_type>(params);
+        peak_footprint = get_smem_footprint<4, leaf_algo>(params);
         break;
       default:
         ASSERT(false, "internal error: nitems > 4");
@@ -316,31 +316,31 @@ void infer_k_launcher(storage_type forest, predict_params params,
     params.num_cols = params.max_shm / sizeof(float);
     // since we're crashing, this will not take too long
     while (params.num_cols > 0 &&
-           get_smem_footprint<1, leaf_payload_type>(params) > params.max_shm) {
+           get_smem_footprint<1, leaf_algo>(params) > params.max_shm) {
       --params.num_cols;
     }
     ASSERT(false, "p.num_cols == %d: too many features, only %d allowed%s",
            given_num_cols, params.num_cols,
-           leaf_payload_type == INT_CLASS_LABEL
+           leaf_algo == CATEGORICAL_LEAF
              ? " (accounting for shared class vote histogram)"
              : "");
   }
   int num_blocks = raft::ceildiv(int(params.num_rows), num_items);
   switch (num_items) {
     case 1:
-      infer_k<1, leaf_payload_type>
+      infer_k<1, leaf_algo>
         <<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
       break;
     case 2:
-      infer_k<2, leaf_payload_type>
+      infer_k<2, leaf_algo>
         <<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
       break;
     case 3:
-      infer_k<3, leaf_payload_type>
+      infer_k<3, leaf_algo>
         <<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
       break;
     case 4:
-      infer_k<4, leaf_payload_type>
+      infer_k<4, leaf_algo>
         <<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
       break;
     default:
@@ -351,15 +351,16 @@ void infer_k_launcher(storage_type forest, predict_params params,
 
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
-  switch (params.leaf_payload_type) {
-    case FLOAT_SCALAR:
-      infer_k_launcher<FLOAT_SCALAR, storage_type>(forest, params, stream);
+  switch (params.leaf_algo) {
+    case FLOAT_UNARY_BINARY:
+      infer_k_launcher<FLOAT_UNARY_BINARY, storage_type>(forest, params,
+                                                         stream);
       break;
-    case INT_CLASS_LABEL:
-      infer_k_launcher<INT_CLASS_LABEL, storage_type>(forest, params, stream);
+    case CATEGORICAL_LEAF:
+      infer_k_launcher<CATEGORICAL_LEAF, storage_type>(forest, params, stream);
       break;
     default:
-      ASSERT(false, "internal error: invalid leaf_payload_type");
+      ASSERT(false, "internal error: invalid leaf_algo");
   }
 }
 
