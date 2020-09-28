@@ -153,11 +153,9 @@ using BlockReduceHostMultiClass =
   typename cub::BlockReduce<best_margin_label<NITEMS>, FIL_TPB,
                             cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, 600>;
 
-template <int NITEMS, leaf_algo_t leaf_algo>
-struct tree_aggregator_t;
-
-template <int NITEMS>
-struct tree_aggregator_t<NITEMS, FLOAT_UNARY_BINARY> {
+template <int NITEMS,
+          leaf_algo_t leaf_algo>  // = FLOAT_UNARY_BINARY
+struct tree_aggregator_t {
   vec<NITEMS, float> acc;
   void* tmp_storage;
 
@@ -187,14 +185,14 @@ struct tree_aggregator_t<NITEMS, FLOAT_UNARY_BINARY> {
   }
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
-                                           int num_outputs) {
+                                           int output_stride) {
     __syncthreads();
     typedef typename BlockReduce<NITEMS>::TempStorage TempStorage;
     acc = BlockReduce<NITEMS>(*(TempStorage*)tmp_storage).Sum(acc);
     if (threadIdx.x == 0) {
       for (int i = 0; i < NITEMS; ++i) {
         int row = blockIdx.x * NITEMS + i;
-        if (row < num_rows) out[row * num_outputs] = acc[i];
+        if (row < num_rows) out[row * output_stride] = acc[i];
       }
     }
   }
@@ -526,7 +524,8 @@ template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
   switch (params.leaf_algo) {
     case FLOAT_UNARY_BINARY:
-      infer_k_launcher<FLOAT_UNARY_BINARY>(forest, params, stream);
+      infer_k_launcher<FLOAT_UNARY_BINARY, storage_type>(forest, params,
+                                                         stream);
       break;
     case TREE_PER_CLASS:
       if (params.num_classes > FIL_TPB) {
@@ -538,7 +537,7 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream) {
       }
       break;
     case CATEGORICAL_LEAF:
-      infer_k_launcher<CATEGORICAL_LEAF>(forest, params, stream);
+      infer_k_launcher<CATEGORICAL_LEAF, storage_type>(forest, params, stream);
       break;
     default:
       ASSERT(false, "internal error: invalid leaf_algo");

@@ -432,7 +432,8 @@ void check_params(const forest_params_t* params, bool dense) {
                " classification using FLOAT_UNARY_BINARY");
       } else {
         ASSERT(params->num_classes == 1,
-               "num_classes must be 1 for regression");
+               "num_classes must be 1 for "
+               "regression");
       }
       break;
     case leaf_algo_t::TREE_PER_CLASS:
@@ -443,7 +444,8 @@ void check_params(const forest_params_t* params, bool dense) {
       break;
     case leaf_algo_t::CATEGORICAL_LEAF:
       ASSERT(params->num_classes >= 2,
-             "num_classes >= 2 is required for leaf_algo == CATEGORICAL_LEAF");
+             "num_classes >= 2 is required for "
+             "leaf_algo == CATEGORICAL_LEAF");
       break;
     default:
       ASSERT(false, "leaf_algo should be FLOAT_UNARY_BINARY or CATEGORICAL_LEAF");
