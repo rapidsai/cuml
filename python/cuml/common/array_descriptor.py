@@ -142,3 +142,8 @@ class CumlArrayDescriptor():
 
         # Set the existing value
         existing.values[existing.input_type] = value
+
+    def __delete__(self, instance):
+
+        if (instance is not None):
+            del instance.__dict__[self.name]

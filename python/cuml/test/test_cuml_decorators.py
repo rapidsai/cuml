@@ -89,3 +89,26 @@ def test_class():
     my_class = Combined()
 
     my_class.process()
+
+def test_other():
+
+    import numpy as np
+
+    import cuml
+    import cuml.common
+    svc = cuml.SVC(kernel="linear")
+
+    test = cuml.common.CumlArray.full(1, -2.17, np.float32)
+
+    svc.coef_ = cuml.common.CumlArray.zeros((10,))
+
+    val = svc.coef_
+
+    from sklearn.datasets import make_classification
+
+    X, y = make_classification(100, 5, random_state=42)
+    X = X.astype(np.float64)
+    y = y.astype(np.float64)
+
+    svc.fit(X, y)
+

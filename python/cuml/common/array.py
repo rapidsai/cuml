@@ -16,7 +16,7 @@
 
 import operator
 
-import cuml.internals
+from cuml.common import ArrayOutputable
 import cupy as cp
 import numpy as np
 from cudf.core import Buffer, DataFrame, Series
@@ -26,7 +26,7 @@ from numba import cuda
 from rmm import DeviceBuffer
 
 
-class CumlArray(Buffer, cuml.internals.ToOutputMixin):
+class CumlArray(Buffer, ArrayOutputable):
 
     """
     Array represents an abstracted array allocation. It can be instantiated by
@@ -187,6 +187,10 @@ class CumlArray(Buffer, cuml.internals.ToOutputMixin):
             "version": 2,
         }
         return output
+
+    @with_cupy_rmm
+    def item(self):
+        return cp.asarray(self).item()
 
     @with_cupy_rmm
     def to_output(self, output_type='cupy', output_dtype=None):

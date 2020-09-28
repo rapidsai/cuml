@@ -209,7 +209,7 @@ class DBSCAN(Base):
             self.max_mbytes_per_batch = 0
 
     @generate_docstring(skip_parameters_heading=True)
-    def fit(self, X, out_dtype="int32"):
+    def fit(self, X, out_dtype="int32") -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
 
@@ -220,7 +220,7 @@ class DBSCAN(Base):
             "int64", np.int64}.
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
+        # self._set_base_attributes(output_type=X, n_features=X)
 
         # del self.labels_
 

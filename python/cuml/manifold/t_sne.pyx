@@ -27,6 +27,7 @@ import inspect
 import pandas as pd
 import warnings
 
+import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
@@ -411,7 +412,8 @@ class TSNE(Base):
                                                        training data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    def fit_transform(self, X, convert_dtype=True):
+    @cuml.internals.api_base_return_array_skipall
+    def fit_transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed output.
         """

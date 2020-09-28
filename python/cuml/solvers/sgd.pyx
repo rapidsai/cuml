@@ -448,8 +448,8 @@ class SGD(Base):
         Predicts the y for X.
 
         """
-        output_type = self._get_output_type(X)
-        out_dtype = self._get_target_dtype()
+        # output_type = self._get_output_type(X)
+        # out_dtype = self._get_target_dtype()
 
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,

@@ -25,6 +25,7 @@ from numba import cuda
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
+import cuml
 import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -120,7 +121,8 @@ class SVMBase(Base):
     support_vectors_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
     n_support_ = CumlArrayDescriptor()
-    coef_ = CumlArrayDescriptor()
+    _internal_coef_ = CumlArrayDescriptor()
+    _unique_labels_ = CumlArrayDescriptor()
 
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
@@ -220,7 +222,7 @@ class SVMBase(Base):
 
         self._c_kernel = self._get_c_kernel(kernel)
         self._gamma_val = None  # the actual numerical value used for training
-        self._coef_ = None  # value of the coef_ attribute, only for lin kernel
+        self.coef_ = None  # value of the coef_ attribute, only for lin kernel
         self.dtype = None
         self._model = None  # structure of the model parameters
         self._freeSvmBuffers = False  # whether to call the C++ lib for cleanup
@@ -289,9 +291,10 @@ class SVMBase(Base):
         else:
             return self.gamma
 
-    def _calc_coef(self):
-        return cupy.dot(cupy.asarray(self.dual_coef_),
-                        cupy.asarray(self.support_vectors_))
+    @cuml.internals.api_base_return_array_skipall
+    def _calc_coef(self) -> CumlArray:
+        with cuml.using_output_type("cupy"):
+            return cupy.dot(self.dual_coef_, self.support_vectors_)
 
     def _check_is_fitted(self, attr):
         if not hasattr(self, attr) or (getattr(self, attr) is None):
@@ -300,15 +303,20 @@ class SVMBase(Base):
             raise NotFittedError(msg)
 
     @property
+    @cuml.internals.api_base_return_array_skipall
     def coef_(self):
         if self._c_kernel != LINEAR:
-            raise AttributeError("coef_ is only available for linear kernels")
+            raise RuntimeError("coef_ is only available for linear kernels")
         if self._model is None:
             raise RuntimeError("Call fit before prediction")
-        if self.coef_ is None:
-            self.coef_ = CumlArray(self._calc_coef())
+        if self._internal_coef_ is None:
+            self._internal_coef_ = self._calc_coef()
         # Call the base class to perform the to_output conversion
-        return super().__getattr__("coef_")
+        return self._internal_coef_
+
+    @coef_.setter
+    def coef_(self, value):
+        self._internal_coef_ = value
 
     def _get_kernel_params(self, X=None):
         """ Wrap the kernel parameters in a KernelParams obtect """
@@ -348,7 +356,7 @@ class SVMBase(Base):
             model_f = new svmModel[float]()
             model_f.n_support = self.n_support_
             model_f.n_cols = self.n_cols
-            model_f.b = self.intercept_
+            model_f.b = self.intercept_.item()
             model_f.dual_coefs = \
                 <float*><size_t>self.dual_coef_.ptr
             model_f.x_support = \
@@ -358,7 +366,7 @@ class SVMBase(Base):
             model_f.n_classes = self._n_classes
             if self._n_classes > 0:
                 model_f.unique_labels = \
-                    <float*><uintptr_t>self._unique_labels.ptr
+                    <float*><uintptr_t>self._unique_labels_.ptr
             else:
                 model_f.unique_labels = NULL
             return <uintptr_t>model_f
@@ -366,7 +374,7 @@ class SVMBase(Base):
             model_d = new svmModel[double]()
             model_d.n_support = self.n_support_
             model_d.n_cols = self.n_cols
-            model_d.b = self.intercept_
+            model_d.b = self.intercept_.item()
             model_d.dual_coefs = \
                 <double*><size_t>self.dual_coef_.ptr
             model_d.x_support = \
@@ -376,7 +384,7 @@ class SVMBase(Base):
             model_d.n_classes = self._n_classes
             if self._n_classes > 0:
                 model_d.unique_labels = \
-                    <double*><uintptr_t>self._unique_labels.ptr
+                    <double*><uintptr_t>self._unique_labels_.ptr
             else:
                 model_d.unique_labels = NULL
             return <uintptr_t>model_d
@@ -396,7 +404,8 @@ class SVMBase(Base):
             if model_f.n_support == 0:
                 self._fit_status_ = 1  # incorrect fit
                 return
-            self.intercept_ = model_f.b
+            self.intercept_ = CumlArray.full(1, model_f.b, np.float32)
+            # self.intercept_ = model_f.b
             self.n_support_ = model_f.n_support
 
             self.dual_coef_ = CumlArray(
@@ -418,19 +427,20 @@ class SVMBase(Base):
                 order='F')
             self._n_classes = model_f.n_classes
             if self._n_classes > 0:
-                self._unique_labels = CumlArray(
+                self._unique_labels_ = CumlArray(
                     data=<uintptr_t>model_f.unique_labels,
                     shape=(self._n_classes,),
                     dtype=self.dtype,
                     order='F')
             else:
-                self._unique_labels = None
+                self._unique_labels_ = None
         else:
             model_d = <svmModel[double]*><uintptr_t> self._model
             if model_d.n_support == 0:
                 self._fit_status_ = 1  # incorrect fit
                 return
-            self.intercept_ = model_d.b
+            self.intercept_ = CumlArray.full(1, model_d.b, np.float64)
+            # self.intercept_ = model_d.b
             self.n_support_ = model_d.n_support
 
             self.dual_coef_ = CumlArray(
@@ -452,13 +462,13 @@ class SVMBase(Base):
                 order='F')
             self._n_classes = model_d.n_classes
             if self._n_classes > 0:
-                self._unique_labels = CumlArray(
+                self._unique_labels_ = CumlArray(
                     data=<uintptr_t>model_d.unique_labels,
                     shape=(self._n_classes,),
                     dtype=self.dtype,
                     order='F')
             else:
-                self._unique_labels = None
+                self._unique_labels_ = None
 
     def predict(self, X, predict_class, convert_dtype=True) -> CumlArray:
         """

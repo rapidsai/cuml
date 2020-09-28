@@ -185,6 +185,7 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
 
         self.output_type = cuml.global_output_type if output_type is None \
             else _check_output_type_str(output_type)
+        self.target_dtype = None
 
         self._mirror_input = True if self.output_type == 'input' else False
 
@@ -412,6 +413,7 @@ class ClassifierMixin:
                                                       self.predict(X) wrt. y \
                                                       (fraction where y == \
                                                       pred_y)'})
+    @cuml.internals.api_base_return_any()
     def score(self, X, y, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.

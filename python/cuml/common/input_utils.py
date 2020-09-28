@@ -35,6 +35,16 @@ cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
 # in all algos. Github issue #1716
 inp_array = namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
 
+_input_type_to_str = {
+    CumlArray: "cuml",
+    np.ndarray: "numpy",
+    cp.ndarray: "cupy",
+    cudf.Series: "cudf",
+    cudf.DataFrame: "cudf",
+    pd.Series: "numpy",
+    pd.DataFrame: "numpy"
+}
+
 
 def get_dev_array_ptr(ary):
     """
@@ -108,6 +118,14 @@ def get_supported_input_type(X):
     # Return None if this type isnt supported
     return None
 
+def input_to_type_str(X):
+    if (X is None):
+        return None
+
+    # Get the generic type
+    gen_type = get_supported_input_type(X)
+
+    return _input_type_to_str[gen_type]
 
 @with_cupy_rmm
 def input_to_cuml_array(X, order='F', deepcopy=False,

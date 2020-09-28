@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from __future__ import annotations
-
 import math
 import warnings
 
@@ -219,12 +217,12 @@ class MultinomialNB(Base):
 
     @generate_docstring(X='dense_sparse')
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
-    def fit(self, X, y, sample_weight=None) -> MultinomialNB:
+    def fit(self, X, y, sample_weight=None) -> "MultinomialNB":
         """
         Fit Naive Bayes classifier according to X, y
 
         """
-        self._set_base_attributes(output_type=X)
+        # self._set_base_attributes(output_type=X)
         return self.partial_fit(X, y, sample_weight)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
@@ -232,7 +230,7 @@ class MultinomialNB(Base):
                      X,
                      y,
                      sample_weight=None,
-                     _classes=None) -> MultinomialNB:
+                     _classes=None) -> "MultinomialNB":
         # self._set_output_type(X)
 
         if has_scipy():
@@ -293,7 +291,7 @@ class MultinomialNB(Base):
                     X,
                     y,
                     classes=None,
-                    sample_weight=None) -> MultinomialNB:
+                    sample_weight=None) -> "MultinomialNB":
         """
         Incremental fit on a batch of samples.
 

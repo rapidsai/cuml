@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+from abc import ABC, abstractmethod
 import contextlib
 import inspect
 from inspect import FullArgSpec
@@ -27,6 +28,7 @@ import cuml
 import cuml.common
 import cuml.common.base
 from cuml.internals.base_helpers import BaseFunctionMetadata
+from cuml.common.input_utils import input_to_type_str
 import rmm
 
 try:
@@ -476,7 +478,12 @@ class ProcessReturnArray(ProcessReturn):
             self._process_return_cbs.append(self.convert_to_outputtype)
 
     def convert_to_cumlarray(self, ret_val):
-        if (not isinstance(ret_val, cuml.common.CumlArray)):
+
+        # Get the output type
+        ret_val_type_str = input_to_type_str(ret_val)
+
+        # If we are a supported array and not already cuml, convert to cuml
+        if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
             ret_val, _, _, _ = cuml.common.input_to_cuml_array(ret_val, order="K")
 
         return ret_val
@@ -635,11 +642,12 @@ class DecoratorMetaClass(type):
         return type.__new__(meta, classname, bases, classDict)
 
 
-class BaseDecoratorMixin(object):
-    def __init__(self, input_arg: str = None):
+class InputArgDecoratorMixin(object):
+    def __init__(self, input_arg: str = None, should_have_self=True):
         super().__init__()
 
         self.input_arg = input_arg
+        self.should_have_self = should_have_self
 
     def prep_arg_to_use(self, func) -> bool:
 
@@ -648,7 +656,7 @@ class BaseDecoratorMixin(object):
 
         has_self = "self" in sig.parameters and sig_args.index("self") == 0
 
-        if (not has_self):
+        if (not has_self and self.should_have_self):
             raise Exception("No self found!")
 
         arg_to_use = self.input_arg
@@ -698,7 +706,20 @@ class BaseDecoratorMixin(object):
         return self_val, args[self.arg_to_use]
 
 
-class ReturnAnyDecorator(object, metaclass=DecoratorMetaClass):
+class ReturnDecorator(metaclass=DecoratorMetaClass):
+    def __init__(self):
+        super().__init__()
+
+        self.do_autowrap = False
+
+    def __call__(self, func) -> typing.Callable:
+        raise NotImplementedError()
+
+    def _recreate_cm(self, func, args) -> InternalAPIContextBase:
+        raise NotImplementedError()
+
+
+class ReturnAnyDecorator(ReturnDecorator):
     def __call__(self, func):
         @wraps(func)
         def inner(*args, **kwargs):
@@ -711,21 +732,23 @@ class ReturnAnyDecorator(object, metaclass=DecoratorMetaClass):
         return ReturnAnyCM(func, args)
 
 
-class BaseReturnAnyDecorator(ReturnAnyDecorator, BaseDecoratorMixin):
+class BaseReturnAnyDecorator(ReturnAnyDecorator, InputArgDecoratorMixin):
     def __init__(self,
                  input_arg: str = None,
                  skip_set_output_type=False,
                  skip_set_output_dtype=True,
                  skip_set_n_features_in=False) -> None:
 
-        super().__init__(input_arg)
+        ReturnAnyDecorator.__init__(self)
+        InputArgDecoratorMixin.__init__(self, input_arg=input_arg)
 
         self.skip_set_output_type = skip_set_output_type
         self.skip_set_output_dtype = skip_set_output_dtype
         self.skip_set_n_features_in = skip_set_n_features_in
-        self.do_autowrap = not (self.skip_set_output_type
+        self.has_setters = not (self.skip_set_output_type
                                 and self.skip_set_output_dtype
                                 and self.skip_set_n_features_in)
+        self.do_autowrap = self.has_setters
 
     def __call__(self, func):
 
@@ -762,28 +785,35 @@ class BaseReturnAnyDecorator(ReturnAnyDecorator, BaseDecoratorMixin):
         return BaseReturnAnyCM(func, args)
 
 
-class ReturnArrayDecorator(object, metaclass=DecoratorMetaClass):
+class ReturnArrayDecorator(ReturnDecorator, InputArgDecoratorMixin):
     def __init__(self,
                  input_arg: str = None,
                  skip_get_output_type=True,
                  skip_get_output_dtype=True) -> None:
 
-        super().__init__(input_arg)
+        ReturnDecorator.__init__(self)
+        InputArgDecoratorMixin.__init__(self,
+                                        input_arg=input_arg,
+                                        should_have_self=False)
 
         self.skip_get_output_type = skip_get_output_type
         self.skip_get_output_dtype = skip_get_output_dtype
 
-        self.do_autowrap = not (self.skip_get_output_type
+        self.has_getters = not (self.skip_get_output_type
                                 and self.skip_get_output_dtype)
 
+        self.do_autowrap = self.has_getters
+
     def __call__(self, func):
+
+        if (self.do_autowrap):
+            self.do_autowrap = self.prep_arg_to_use(func)
+
         @wraps(func)
         def inner(*args, **kwargs):
             with self._recreate_cm(func, args) as cm:
 
-                # TODO: Make this more robust to actually determine the right
-                # arg
-                arg_val = args[0]
+                _, arg_val = self.get_arg_value(*args, **kwargs)
 
                 # Now execute the getters
                 if (not self.skip_get_output_type):
@@ -813,7 +843,7 @@ class ReturnArrayDecorator(object, metaclass=DecoratorMetaClass):
         return ReturnArrayCM(func, args)
 
 
-class BaseReturnArrayDecorator(ReturnArrayDecorator, BaseDecoratorMixin):
+class BaseReturnArrayDecorator(ReturnArrayDecorator):
     def __init__(self,
                  input_arg: str = None,
                  skip_get_output_type=False,
@@ -822,21 +852,19 @@ class BaseReturnArrayDecorator(ReturnArrayDecorator, BaseDecoratorMixin):
                  skip_set_output_dtype=True,
                  skip_set_n_features_in=True) -> None:
 
-        super().__init__(input_arg)
+        super().__init__(input_arg=input_arg,
+                         skip_get_output_type=skip_get_output_type,
+                         skip_get_output_dtype=skip_get_output_dtype)
 
-        self.skip_get_output_type = skip_get_output_type
-        self.skip_get_output_dtype = skip_get_output_dtype
         self.skip_set_output_type = skip_set_output_type
         self.skip_set_output_dtype = skip_set_output_dtype
         self.skip_set_n_features_in = skip_set_n_features_in
-        self.do_autowrap = not (self.skip_get_output_type
-                                and self.skip_get_output_dtype
-                                and self.skip_set_output_type
-                                and self.skip_set_output_dtype
-                                and self.skip_set_n_features_in)
+
         self.has_setters = not (self.skip_set_output_type
                                 and self.skip_set_output_dtype
                                 and self.skip_set_n_features_in)
+
+        self.do_autowrap = self.has_setters or self.has_getters
 
     def __call__(self, func):
 

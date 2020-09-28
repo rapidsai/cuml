@@ -18,6 +18,7 @@
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -147,13 +148,13 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                              "supported currently.")
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    @with_cupy_rmm
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, convert_dtype=True) -> "KNeighborsClassifier":
         """
         Fit a GPU index for k-nearest neighbors classifier model.
 
         """
-        self._set_base_attributes(output_type=X, target_dtype=y)
+        # self._set_base_attributes(output_type=X, target_dtype=y)
+        cuml.internals.set_api_output_dtype(y)
 
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self.y, _, _, _ = \
@@ -161,7 +162,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                                 convert_to_dtype=(np.int32
                                                   if convert_dtype
                                                   else None))
-        self.classes_ = CumlArray(cp.unique(self.y))
+        self.classes_ = cp.unique(self.y)
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
@@ -169,15 +170,16 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                                        'type': 'dense',
                                        'description': 'Labels predicted',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True):
+    @cuml.internals.api_base_return_array(skip_get_output_dtype=False)
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors classifier to
         predict the labels for X
 
         """
 
-        out_type = self._get_output_type(X)
-        out_dtype = self._get_target_dtype()
+        # out_type = self._get_output_type(X)
+        # out_dtype = self._get_target_dtype()
 
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
@@ -221,14 +223,14 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
         self.handle.sync()
 
-        return classes.to_output(output_type=out_type, output_dtype=out_dtype)
+        return classes
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Labels probabilities',
                                        'shape': '(n_samples, 1)'})
-    @with_cupy_rmm
+    @cuml.internals.api_base_return_generic()
     def predict_proba(self, X, convert_dtype=True):
         """
         Use the trained k-nearest neighbors classifier to
@@ -236,7 +238,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
         """
 
-        out_type = self._get_output_type(X)
+        # out_type = self._get_output_type(X)
 
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
@@ -286,7 +288,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
         final_classes = []
         for out_class in out_classes:
-            final_classes.append(out_class.to_output(out_type))
+            final_classes.append(out_class)
 
         return final_classes[0] \
             if len(final_classes) == 1 else tuple(final_classes)

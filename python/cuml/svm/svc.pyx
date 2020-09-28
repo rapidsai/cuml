@@ -242,11 +242,12 @@ class SVC(SVMBase, ClassifierMixin):
         self.svmType = C_SVC
 
     @property
+    @cuml.internals.api_base_return_array_skipall
     def classes_(self):
         if self.probability:
             return self.prob_svc.classes_
         else:
-            return self.unique_labels
+            return self._unique_labels_
 
     @cuml.internals.api_base_return_array_skipall
     def _apply_class_weight(self, sample_weight, y_m) -> CumlArray:

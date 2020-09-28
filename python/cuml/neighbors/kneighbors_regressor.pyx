@@ -18,6 +18,7 @@
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -143,12 +144,13 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
                              "is supported currently.")
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, convert_dtype=True) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
 
         """
         self._set_target_dtype(y)
+
         super(KNeighborsRegressor, self).fit(X, convert_dtype=convert_dtype)
         self.y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.float32,
@@ -162,15 +164,18 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
-    def predict(self, X, convert_dtype=True):
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to
         predict the labels for X
 
         """
 
-        out_type = self._get_output_type(X)
-        out_dtype = self._get_target_dtype() if convert_dtype else None
+        # out_type = self._get_output_type(X)
+        # out_dtype = self._get_target_dtype() if convert_dtype else None
+
+        if (convert_dtype):
+            cuml.internals.set_api_output_dtype(self._get_target_dtype())
 
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
@@ -210,7 +215,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
 
         self.handle.sync()
 
-        return results.to_output(out_type, output_dtype=out_dtype)
+        return results
 
     def get_param_names(self):
         return super(KNeighborsRegressor, self).get_param_names() \

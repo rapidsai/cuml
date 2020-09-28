@@ -31,4 +31,3 @@ from cuml.internals.func_wrappers import (autowrap_ignore,
                                           api_base_return_array_skipall,
                                           api_base_return_generic_skipall)
 from cuml.internals.internals import GraphBasedDimRedCallback
-from cuml.internals.to_output_mixin import ToOutputMixin

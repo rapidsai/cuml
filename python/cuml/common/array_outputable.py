@@ -14,14 +14,13 @@
 # limitations under the License.
 #
 
-from abc import ABC, abstractmethod
+import typing
 
 
-class ToOutputMixin(ABC):
+class ArrayOutputable(typing.Protocol):
     """
-    Mixin class used to determine if a class can be converted to device
+    Protocol class used to determine if a class can be converted to device
     array-like objects
     """
-    @abstractmethod
     def to_output(self, output_type='cupy', output_dtype=None):
-        pass
+        ...

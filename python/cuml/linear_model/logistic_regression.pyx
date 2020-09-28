@@ -248,13 +248,14 @@ class LogisticRegression(Base, ClassifierMixin):
             self.verb_prefix = ""
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, convert_dtype=True) -> "LogisticRegression":
         """
         Fit the model with X and y.
 
         """
-        self.solver_model._set_base_attributes(target_dtype=y)
-        self._set_base_attributes(output_type=X, n_features=X)
+        # self.solver_model._set_base_attributes(target_dtype=y)
+        # self._set_base_attributes(output_type=X, n_features=X)
+        cuml.internals.set_api_output_dtype(y)
 
         # Converting y to device array here to use `unique` function
         # since calling input_to_dev_array again in QN has no cost
@@ -316,7 +317,7 @@ class LogisticRegression(Base, ClassifierMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True):
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 
@@ -355,8 +356,8 @@ class LogisticRegression(Base, ClassifierMixin):
             log_proba=True
         )
 
-    def _predict_proba_impl(self, X, convert_dtype=False, log_proba=False):
-        out_type = self._get_output_type(X)
+    def _predict_proba_impl(self, X, convert_dtype=False, log_proba=False) -> CumlArray:
+        # out_type = self._get_output_type(X)
 
         # TODO:
         # We currently need to grab the dtype and ncols attributes via the
@@ -387,7 +388,7 @@ class LogisticRegression(Base, ClassifierMixin):
         if log_proba:
             proba = cp.log(proba)
 
-        proba = CumlArray(proba)
+        # proba = CumlArray(proba)
         return proba
 
     def get_param_names(self):
