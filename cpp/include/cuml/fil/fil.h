@@ -133,7 +133,7 @@ enum leaf_algo_t {
   /** storing a class probability or regression summand. We add all margins
       together and determine regression result or use threshold to determine
       one of the two classes. **/
-  FLOAT_SAME_CLASS = 0,
+  FLOAT_UNARY_BINARY = 0,
   /** storing a class label. Trees vote on the resulting class.
       Probabilities are just normalized votes. */
   CATEGORICAL_LEAF = 1,
@@ -160,7 +160,7 @@ enum leaf_algo_t {
 template <leaf_algo_t leaf_algo>
 struct leaf_output_t {};
 template <>
-struct leaf_output_t<leaf_algo_t::FLOAT_SAME_CLASS> {
+struct leaf_output_t<leaf_algo_t::FLOAT_UNARY_BINARY> {
   typedef float T;
 };
 template <>
@@ -214,7 +214,7 @@ struct forest_params_t {
   algo_t algo;
   // output is the desired output type
   output_t output;
-  // threshold is used to for classification if leaf_algo == FLOAT_SAME_CLASS && (output & OUTPUT_CLASS) != 0 && !predict_proba,
+  // threshold is used to for classification if leaf_algo == FLOAT_UNARY_BINARY && (output & OUTPUT_CLASS) != 0 && !predict_proba,
   // and is ignored otherwise
   float threshold;
   // global_bias is added to the sum of tree predictions

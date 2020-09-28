@@ -16,12 +16,14 @@
 
 import cudf
 import cupy as cp
+from cuml import Base
+
 
 from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.exceptions import NotFittedError
 
 
-class LabelEncoder(object):
+class LabelEncoder(Base):
     """
     An nvcategory based implementation of ordinal label encoding
 
@@ -126,7 +128,7 @@ class LabelEncoder(object):
             raise ValueError(msg)
 
     @with_cupy_rmm
-    def fit(self, y):
+    def fit(self, y, _classes=None):
         """
         Fit a LabelEncoder (nvcategory) instance to a set of categories
 
@@ -136,6 +138,9 @@ class LabelEncoder(object):
             Series containing the categories to be encoded. It's elements
             may or may not be unique
 
+        _classes: int or None.
+            Passed by the dask client when dask LabelEncoder is used.
+
         Returns
         -------
         self : LabelEncoder
@@ -143,9 +148,12 @@ class LabelEncoder(object):
 
         """
         self._validate_keywords()
-        self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
 
-        self.classes_ = y.unique()  # dedupe and sort
+        self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
+        if _classes is not None:
+            self.classes_ = _classes
+        else:
+            self.classes_ = y.unique()  # dedupe and sort
 
         self._fitted = True
         return self
@@ -180,7 +188,7 @@ class LabelEncoder(object):
 
         encoded = y.cat.set_categories(self.classes_)._column.codes
 
-        encoded = cudf.Series(encoded)
+        encoded = cudf.Series(encoded, index=y.index)
 
         if encoded.has_nulls and self.handle_unknown == 'error':
             raise KeyError("Attempted to encode unseen key")
@@ -200,7 +208,7 @@ class LabelEncoder(object):
         self.classes_ = y._column.categories
 
         self._fitted = True
-        return cudf.Series(y._column.codes)
+        return cudf.Series(y._column.codes, index=y.index)
 
     @with_cupy_rmm
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:

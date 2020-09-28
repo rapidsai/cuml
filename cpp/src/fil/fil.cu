@@ -162,7 +162,7 @@ struct forest {
     params.leaf_algo = leaf_algo_;
 
     /**
-    The binary classification / regression (FLOAT_SAME_CLASS) predict_proba() works as follows
+    The binary classification / regression (FLOAT_UNARY_BINARY) predict_proba() works as follows
       (always 2 outputs):
     RAW: output the sum of tree predictions
     AVG is set: divide by the number of trees (averaging)
@@ -170,7 +170,7 @@ struct forest {
     CLASS is set: ignored
     write the output of the previous stages and its complement
 
-    The binary classification / regression (FLOAT_SAME_CLASS) predict() works as follows
+    The binary classification / regression (FLOAT_UNARY_BINARY) predict() works as follows
       (always 1 output):
     RAW (no values set): output the sum of tree predictions
     AVG is set: divide by the number of trees (averaging)
@@ -205,7 +205,7 @@ struct forest {
     bool complement_proba = false, do_transform = global_bias_ != 0.0f;
 
     switch (leaf_algo_) {
-      case leaf_algo_t::FLOAT_SAME_CLASS:
+      case leaf_algo_t::FLOAT_UNARY_BINARY:
         ASSERT(num_classes_ <= 2,
                "use leaf_algo_t::TREE_PER_CLASS for "
                "num_classes > 2");
@@ -248,7 +248,7 @@ struct forest {
         break;
       default:
         ASSERT(false,
-               "forest_params_t::leaf_algo must be FLOAT_SAME_CLASS, "
+               "forest_params_t::leaf_algo must be FLOAT_UNARY_BINARY, "
                "TREE_PER_CLASS or CATEGORICAL_LEAF");
     }
 
@@ -278,17 +278,32 @@ struct forest {
   output_t output_ = output_t::RAW;
   float threshold_ = 0.5;
   float global_bias_ = 0;
-  leaf_algo_t leaf_algo_ = leaf_algo_t::FLOAT_SAME_CLASS;
+  leaf_algo_t leaf_algo_ = leaf_algo_t::FLOAT_UNARY_BINARY;
   int num_classes_ = 1;
 };
 
 struct dense_forest : forest {
   void transform_trees(const dense_node_t* nodes) {
-    // populate node information
-    for (int i = 0, gid = 0; i < num_trees_; ++i) {
-      for (int j = 0, nid = 0; j <= depth_; ++j) {
-        for (int k = 0; k < 1 << j; ++k, ++nid, ++gid) {
-          h_nodes_[nid * num_trees_ + i] = dense_node(nodes[gid]);
+    /* Populate node information:
+       For each tree, the nodes are still stored in the breadth-first,
+       left-to-right order. However, instead of storing the nodes of the same
+       tree adjacently, it uses a different layout. In this layout, the roots
+       of all trees (node 0) are stored first, followed by left children of
+       the roots of all trees (node 1), followed by the right children of the
+       roots of all trees (node 2), and so on.
+    */
+    int global_node = 0;
+    for (int tree = 0; tree < num_trees_; ++tree) {
+      int tree_node = 0;
+      // the counters `level` and `branch` are not used for computing node
+      // indices, they are only here to highlight the node ordering within
+      // each tree
+      for (int level = 0; level <= depth_; ++level) {
+        for (int branch = 0; branch < 1 << level; ++branch) {
+          h_nodes_[tree_node * num_trees_ + tree] =
+            dense_node(nodes[global_node]);
+          ++tree_node;
+          ++global_node;
         }
       }
     }
@@ -410,11 +425,11 @@ void check_params(const forest_params_t* params, bool dense) {
              "algo should be ALGO_AUTO, NAIVE, TREE_REORG or BATCH_TREE_REORG");
   }
   switch (params->leaf_algo) {
-    case leaf_algo_t::FLOAT_SAME_CLASS:
+    case leaf_algo_t::FLOAT_UNARY_BINARY:
       if ((params->output & output_t::CLASS) != 0) {
         ASSERT(params->num_classes == 2,
                "only supporting binary"
-               " classification using FLOAT_SAME_CLASS");
+               " classification using FLOAT_UNARY_BINARY");
       } else {
         ASSERT(params->num_classes == 1,
                "num_classes must be 1 for regression");
@@ -431,7 +446,7 @@ void check_params(const forest_params_t* params, bool dense) {
              "num_classes >= 2 is required for leaf_algo == CATEGORICAL_LEAF");
       break;
     default:
-      ASSERT(false, "leaf_algo should be FLOAT_SAME_CLASS or CATEGORICAL_LEAF");
+      ASSERT(false, "leaf_algo should be FLOAT_UNARY_BINARY or CATEGORICAL_LEAF");
   }
   // output_t::RAW == 0, and doesn't have a separate flag
   output_t all_set =
@@ -547,7 +562,7 @@ void tl2fil_leaf_payload(fil_node_t* fil_node, const tl::Tree& tl_tree,
              "inconsistent number of classes in treelite leaves");
       fil_node->val.idx = find_class_label_from_one_hot(&vec[0], vec.size());
       break;
-    case leaf_algo_t::FLOAT_SAME_CLASS:
+    case leaf_algo_t::FLOAT_UNARY_BINARY:
       fil_node->val.f = tl_tree.LeafValue(tl_node_id);
       ASSERT(!tl_tree.HasLeafVector(tl_node_id),
              "some but not all treelite leaves have leaf_vector()");
@@ -697,7 +712,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
       ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
              "only sigmoid and identity values of pred_transform "
              "are supported for binary classification and regression models.");
-      params->leaf_algo = leaf_algo_t::FLOAT_SAME_CLASS;
+      params->leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY;
     }
   }
 

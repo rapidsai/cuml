@@ -157,7 +157,7 @@ template <int NITEMS, leaf_algo_t leaf_algo>
 struct tree_aggregator_t;
 
 template <int NITEMS>
-struct tree_aggregator_t<NITEMS, FLOAT_SAME_CLASS> {
+struct tree_aggregator_t<NITEMS, FLOAT_UNARY_BINARY> {
   vec<NITEMS, float> acc;
   void* tmp_storage;
 
@@ -525,8 +525,8 @@ void infer_k_launcher(storage_type forest, predict_params params,
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
   switch (params.leaf_algo) {
-    case FLOAT_SAME_CLASS:
-      infer_k_launcher<FLOAT_SAME_CLASS>(forest, params, stream);
+    case FLOAT_UNARY_BINARY:
+      infer_k_launcher<FLOAT_UNARY_BINARY>(forest, params, stream);
       break;
     case TREE_PER_CLASS:
       if (params.num_classes > FIL_TPB) {

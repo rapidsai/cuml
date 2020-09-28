@@ -47,7 +47,7 @@ HELP="$0 [<target> ...] [<flag> ...]
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 "
-LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
+LIBCUML_BUILD_DIR=${LIBCUML_BUILD_DIR:=${REPODIR}/cpp/build}
 CUML_BUILD_DIR=${REPODIR}/python/build
 PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
 BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
@@ -224,7 +224,7 @@ fi
 if completeBuild || hasArg cuml || hasArg pydocs; then
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${SINGLEGPU_PYTHON_FLAG} install --single-version-externally-managed --record=record.txt
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${SINGLEGPU_PYTHON_FLAG} --library-dir=${LIBCUML_BUILD_DIR} install --single-version-externally-managed --record=record.txt
     else
         python setup.py build_ext -j${PARALLEL_LEVEL:-1} --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU_PYTHON_FLAG}
     fi

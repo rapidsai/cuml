@@ -97,8 +97,8 @@ if(BUILD_CUML_MG_TESTS)
 
     target_include_directories(ml_mg PUBLIC ${CUML_TEST_INCLUDE_DIRS})
 
-    set(CUML_TEST_LINK_LIBRARIES 
-    	${CUML_TEST_LINK_LIBRARIES} 
+    set(CUML_TEST_LINK_LIBRARIES
+    	${CUML_TEST_LINK_LIBRARIES}
     	NCCL::NCCL
     	${MPI_CXX_LIBRARIES}
     	cumlprims_mg::cumlprims_mg)
@@ -185,6 +185,7 @@ if(BUILD_PRIMS_TESTS)
     prims/multiply.cu
     prims/mutualInfoScore.cu
     prims/norm.cu
+    prims/nvtx_test.cu
     prims/penalty.cu
     prims/permute.cu
     prims/power.cu
