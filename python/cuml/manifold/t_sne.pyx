@@ -217,6 +217,9 @@ class TSNE(Base):
             raise ValueError("Currently TSNE supports n_components = 2; "
                              "but got n_components = {}".format(
                               n_components))
+        if n_components < 2:
+            warnings.warn("Currently TSNE supports n_components = 2.")
+            n_components = 2
         if perplexity < 0:
             raise ValueError("perplexity = {} should be more than 0.".format(
                              perplexity))
