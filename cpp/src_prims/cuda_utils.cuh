@@ -120,7 +120,7 @@ HDI void swapVals(T &a, T &b) {
 
 /** Device function to have atomic add support for older archs */
 template <typename Type>
-DI void myAtomicAdd(Type* address, Type val) {
+DI void myAtomicAdd(Type *address, Type val) {
   atomicAdd(address, val);
 }
 

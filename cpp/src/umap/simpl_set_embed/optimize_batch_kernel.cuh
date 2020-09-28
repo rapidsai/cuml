@@ -132,12 +132,12 @@ __global__ void optimize_batch_kernel_reg(
   if (move_other) {
     if (multicore_implem) {
       for (int d = 0; d < n_components; d++) {
-        atomicAdd(other + d, -grads[d]);
+        raft::myAtomicAdd(other + d, -grads[d]);
       }
     } else {
       T2 *tmp2 = (T2 *)embedding_updates + (k * n_components);
       for (int d = 0; d < n_components; d++) {
-        atomicAdd(tmp2 + d, -grads[d]);
+        raft::myAtomicAdd<T>((T *)tmp2 + d, -grads[d]);
       }
     }
   }
@@ -184,12 +184,12 @@ __global__ void optimize_batch_kernel_reg(
   // storing gradients for positive samples back to global memory
   if (multicore_implem) {
     for (int d = 0; d < n_components; d++) {
-      atomicAdd(current + d, grads[d]);
+      raft::myAtomicAdd(current + d, grads[d]);
     }
   } else {
     T2 *tmp1 = (T2 *)embedding_updates + (j * n_components);
     for (int d = 0; d < n_components; d++) {
-      atomicAdd(tmp1 + d, grads[d]);
+      raft::myAtomicAdd<T>((T *)tmp1 + d, grads[d]);
     }
   }
   epoch_of_next_negative_sample[row] =
@@ -249,14 +249,14 @@ __global__ void optimize_batch_kernel(
       current_buffer[d * TPB_X] = grad_d;
     } else {
       if (multicore_implem) {
-        atomicAdd(current + d, grad_d);
+        raft::myAtomicAdd<T>((T *)current + d, grad_d);
         if (move_other) {  // happens only during unsupervised training
-          atomicAdd(other + d, -grad_d);
+          raft::myAtomicAdd<T>((T *)other + d, -grad_d);
         }
       } else {
-        atomicAdd(current_buffer + d, grad_d);
+        raft::myAtomicAdd(current_buffer + d, grad_d);
         if (move_other) {  // happens only during unsupervised training
-          atomicAdd(other_buffer + d, -grad_d);
+          raft::myAtomicAdd(other_buffer + d, -grad_d);
         }
       }
     }
@@ -267,13 +267,13 @@ __global__ void optimize_batch_kernel(
     if (multicore_implem) {
       for (int d = 0; d < params.n_components; d++) {
         auto grad = current_buffer[d * TPB_X];
-        atomicAdd(other + d, -grad);
+        raft::myAtomicAdd<T>((T *)other + d, -grad);
       }
     } else {
       T2 *tmp2 = (T2 *)embedding_updates + (k * params.n_components);
       for (int d = 0; d < params.n_components; d++) {
         auto grad = current_buffer[d * TPB_X];
-        atomicAdd(tmp2 + d, -grad);
+        raft::myAtomicAdd(tmp2 + d, -grad);
       }
     }
   }
@@ -316,9 +316,9 @@ __global__ void optimize_batch_kernel(
         current_buffer[d * TPB_X] += grad_d;
       } else {
         if (multicore_implem) {
-          atomicAdd(current + d, grad_d);
+          raft::myAtomicAdd<T>((T *)current + d, grad_d);
         } else {
-          atomicAdd(current_buffer + d, grad_d);
+          raft::myAtomicAdd(current_buffer + d, grad_d);
         }
       }
     }
@@ -328,12 +328,12 @@ __global__ void optimize_batch_kernel(
     __syncthreads();
     if (multicore_implem) {
       for (int d = 0; d < params.n_components; d++) {
-        atomicAdd(current + d, current_buffer[d * TPB_X]);
+        raft::myAtomicAdd<T>((T *)current + d, current_buffer[d * TPB_X]);
       }
     } else {
       T2 *tmp1 = (T2 *)embedding_updates + (j * params.n_components);
       for (int d = 0; d < params.n_components; d++) {
-        atomicAdd(tmp1 + d, current_buffer[d * TPB_X]);
+        raft::myAtomicAdd(tmp1 + d, current_buffer[d * TPB_X]);
       }
     }
   }

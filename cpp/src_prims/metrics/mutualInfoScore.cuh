@@ -79,7 +79,7 @@ __global__ void mutualInfoKernel(const int *dContingencyMatrix, const int *a,
 
   //executed once per block
   if (threadIdx.x == 0 && threadIdx.y == 0) {
-    atomicAdd(d_MI, localMI);
+    raft::myAtomicAdd(d_MI, localMI);
   }
 }
 

@@ -35,10 +35,10 @@ __global__ void meanKernel(T* out, int* lens, const T* data, const int* labels,
     T val = data[tid];
     int label = labels[rowid];
     int idx = row_major ? label * ncols + colid : colid * nclusters + label;
-    atomicAdd(out + idx * 2, val);
-    atomicAdd(out + idx * 2 + 1, val * val);
+    raft::myAtomicAdd(out + idx * 2, val);
+    raft::myAtomicAdd(out + idx * 2 + 1, val * val);
     if (colid == 0) {
-      atomicAdd(lens + label, 1);
+      raft::myAtomicAdd(lens + label, 1);
     }
   }
 }

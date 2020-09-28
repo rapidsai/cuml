@@ -314,16 +314,10 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   }
 
   void compare() {
-<<<<<<< HEAD
     ASSERT_TRUE(raft::devArrMatch(want_proba_d, proba_d, ps.num_proba_outputs(),
                                   raft::CompareApprox<float>(ps.tolerance),
                                   stream));
-    float tolerance = ps.leaf_payload_type == fil::leaf_value_t::FLOAT_SCALAR
-=======
-    ASSERT_TRUE(devArrMatch(want_proba_d, proba_d, ps.num_proba_outputs(),
-                            CompareApprox<float>(ps.tolerance), stream));
     float tolerance = ps.leaf_algo == fil::leaf_algo_t::FLOAT_UNARY_BINARY
->>>>>>> 088763cda9fd5e363af092b1d05c155f256cf0d7
                         ? ps.tolerance
                         : std::numeric_limits<float>::epsilon();
     // in multi-class prediction, floats represent the most likely class

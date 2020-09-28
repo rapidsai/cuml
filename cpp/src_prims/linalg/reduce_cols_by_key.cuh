@@ -40,7 +40,7 @@ __global__ void reduce_cols_by_key_kernel(const T* data,
   IdxType colId = idx % ncols;
   IdxType rowId = idx / ncols;
   KeyType key = keys[colId];
-  atomicAdd(out + rowId * nkeys + key, data[idx]);
+  raft::myAtomicAdd(out + rowId * nkeys + key, data[idx]);
 }
 
 /**

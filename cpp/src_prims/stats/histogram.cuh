@@ -114,13 +114,13 @@ __global__ void gmemHistKernel(int* bins, const DataT* data, IdxT nrows,
     if (row >= nrows) return;
     auto binOffset = col * nbins;
 #if __CUDA_ARCH__ < 700
-    atomicAdd(bins + binOffset + binId, 1);
+    raft::myAtomicAdd(bins + binOffset + binId, 1);
 #else
     auto amask = __activemask();
     auto mask = __match_any_sync(amask, binId);
     auto leader = __ffs(mask) - 1;
     if (raft::laneId() == leader) {
-      atomicAdd(bins + binOffset + binId, __popc(mask));
+      raft::myAtomicAdd(bins + binOffset + binId, __popc(mask));
     }
 #endif  // __CUDA_ARCH__
   };
@@ -149,17 +149,17 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
   auto op = [=] __device__(int binId, IdxT row, IdxT col) {
     if (row >= nrows) return;
 #if __CUDA_ARCH__ < 700
-    atomicAdd(sbins + binId, 1);
+    raft::myAtomicAdd<unsigned int>(sbins + binId, 1);
 #else
     if (UseMatchAny) {
       auto amask = __activemask();
       auto mask = __match_any_sync(amask, binId);
       auto leader = __ffs(mask) - 1;
       if (raft::laneId() == leader) {
-        atomicAdd(sbins + binId, __popc(mask));
+        raft::myAtomicAdd<unsigned int>(sbins + binId, __popc(mask));
       }
     } else {
-      atomicAdd(sbins + binId, 1);
+      raft::myAtomicAdd<unsigned int>(sbins + binId, 1);
     }
 #endif  // __CUDA_ARCH__
   };
@@ -171,7 +171,7 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
   for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
     auto val = sbins[i];
     if (val > 0) {
-      atomicAdd(bins + binOffset + i, val);
+      raft::myAtomicAdd<unsigned int>((unsigned int*)bins + binOffset + i, val);
     }
   }
 }
@@ -207,16 +207,18 @@ DI void incrementBin(unsigned* sbins, int* bins, int nbins, int binId) {
   auto new_word = old_word + unsigned(1 << sh);
   if ((new_word >> sh & Bits::BIN_MASK) != 0) return;
   // overflow
-  atomicAdd(bins + binId, Bits::BIN_MASK + 1);
+  raft::myAtomicAdd<unsigned int>((unsigned int*)bins + binId,
+                                  Bits::BIN_MASK + 1);
   for (int dbin = 1; ibin + dbin < Bits::WORD_BINS && binId + dbin < nbins;
        ++dbin) {
     auto sh1 = (ibin + dbin) * Bits::BIN_BITS;
     if ((new_word >> sh1 & Bits::BIN_MASK) == 0) {
       // overflow
-      atomicAdd(bins + binId + dbin, Bits::BIN_MASK);
+      raft::myAtomicAdd<unsigned int>((unsigned int*)bins + binId + dbin,
+                                      Bits::BIN_MASK);
     } else {
       // correction
-      atomicAdd(bins + binId + dbin, -1);
+      raft::myAtomicAdd(bins + binId + dbin, -1);
       break;
     }
   }
@@ -228,7 +230,7 @@ DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId) {
   auto iword = binId / Bits::WORD_BITS;
   auto sh = binId % Bits::WORD_BITS;
   auto old_word = atomicXor(sbins + iword, unsigned(1 << sh));
-  if ((old_word >> sh & 1) != 0) atomicAdd(bins + binId, 2);
+  if ((old_word >> sh & 1) != 0) raft::myAtomicAdd(bins + binId, 2);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS,
@@ -254,7 +256,7 @@ __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT nrows,
   for (auto j = threadIdx.x; j < (int)nbins; j += blockDim.x) {
     auto shift = j % Bits::WORD_BINS * Bits::BIN_BITS;
     int count = sbins[j / Bits::WORD_BINS] >> shift & Bits::BIN_MASK;
-    if (count > 0) atomicAdd(bins + binOffset + j, count);
+    if (count > 0) raft::myAtomicAdd(bins + binOffset + j, count);
   }
 }
 
@@ -305,7 +307,7 @@ DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins, int col) {
   int binOffset = col * nbins;
   for (auto i = threadIdx.x; i < hashSize; i += blockDim.x) {
     if (ht[i].x != INVALID_KEY && ht[i].y > 0) {
-      atomicAdd(bins + binOffset + ht[i].x, ht[i].y);
+      raft::myAtomicAdd(bins + binOffset + ht[i].x, ht[i].y);
     }
     ht[i] = {INVALID_KEY, 0};
   }
@@ -329,7 +331,7 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
     if (row < nrows) {
       int hidx = findEntry(ht, hashSize, binId, threshold);
       if (hidx >= 0) {
-        atomicAdd(&(ht[hidx].y), 1);
+        raft::myAtomicAdd(&(ht[hidx].y), 1);
       } else {
         needFlush[0] = 1;
         iNeedFlush = true;
@@ -349,7 +351,7 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
       // all threads are bound to get one valid entry as all threads in this
       // block will make forward progress due to the __syncthreads call in the
       // subsequent iteration
-      atomicAdd(&(ht[hidx].y), 1);
+      raft::myAtomicAdd(&(ht[hidx].y), 1);
     }
   };
   IdxT col = blockIdx.y;

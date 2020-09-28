@@ -43,7 +43,7 @@ __global__ void gridSyncTestKernel(void* workspace, int* out, SyncType type) {
   int val = out[updatePosition];
   // make sure everybody has read the updated value!
   gs.sync();
-  atomicAdd(out + updatePosition, val);
+  raft::myAtomicAdd(out + updatePosition, val);
 }
 
 struct GridSyncInputs {
@@ -133,7 +133,7 @@ const std::vector<GridSyncInputs> inputs = {
   {{32, 256, 1}, {1, 1, 1}, true, ACROSS_X}};
 TEST_P(GridSyncTest, Result) {
   size_t len = computeOutLen();
-  // number of blocks atomicAdd'ing the same location
+  // number of blocks raft::myAtomicAdd'ing the same location
   int nblks = params.type == ACROSS_X
                 ? params.gridDim.x
                 : params.gridDim.x * params.gridDim.y * params.gridDim.z;

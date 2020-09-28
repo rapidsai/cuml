@@ -152,7 +152,7 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
    */
   T blockSum = BlockRed(shm.blockStore).Sum(lossVal);
   if (threadIdx.x == 0 && threadIdx.y == 0) {
-    atomicAdd(out, blockSum);
+    raft::myAtomicAdd(out, blockSum);
   }
 }
 

@@ -62,11 +62,13 @@ __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
   adj[row * N + col] = res;
 
   if (sizeof(Index_) == 4) {
-    atomicAdd((int *)(vd + row), (int)res);
-    atomicAdd((int *)(vd + batchSize), (int)res);
+    raft::myAtomicAdd((int *)(vd + row), (int)res);
+    raft::myAtomicAdd((int *)(vd + batchSize), (int)res);
   } else if (sizeof(Index_) == 8) {
-    atomicAdd((unsigned long long *)(vd + row), res);
-    atomicAdd((unsigned long long *)(vd + batchSize), res);
+    raft::myAtomicAdd<unsigned long long>((unsigned long long *)(vd + row),
+                                          res);
+    raft::myAtomicAdd<unsigned long long>(
+      (unsigned long long *)(vd + batchSize), res);
   }
 }
 

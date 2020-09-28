@@ -50,7 +50,7 @@ __global__ void sum_bools(bool* in_bools, int n, int* out_val) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < n) {
     bool v = in_bools[row];
-    if (v) atomicAdd(out_val, (int)in_bools[row]);
+    if (v) raft::myAtomicAdd(out_val, (int)in_bools[row]);
   }
 }
 

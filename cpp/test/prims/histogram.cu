@@ -37,7 +37,7 @@ __global__ void naiveHistKernel(int* bins, int nbins, int* in, int nrows) {
     else if (id >= nbins)
       id = nbins - 1;
     in[offset + tid] = id;
-    atomicAdd(bins + binOffset + id, 1);
+    raft::myAtomicAdd(bins + binOffset + id, 1);
   }
 }
 

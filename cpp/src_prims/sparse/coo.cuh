@@ -373,7 +373,7 @@ template <int TPB_X>
 __global__ void coo_row_count_kernel(const int *rows, int nnz, int *results) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz) {
-    atomicAdd(results + rows[row], 1);
+    raft::myAtomicAdd(results + rows[row], 1);
   }
 }
 
@@ -419,7 +419,7 @@ __global__ void coo_row_count_nz_kernel(const int *rows, const T *vals, int nnz,
                                         int *results) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz && vals[row] != 0.0) {
-    atomicAdd(results + rows[row], 1);
+    raft::myAtomicAdd(results + rows[row], 1);
   }
 }
 
@@ -428,7 +428,7 @@ __global__ void coo_row_count_scalar_kernel(const int *rows, const T *vals,
                                             int nnz, T scalar, int *results) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz && vals[row] != scalar) {
-    atomicAdd(results + rows[row], 1);
+    raft::myAtomicAdd(results + rows[row], 1);
   }
 }
 
@@ -843,9 +843,9 @@ __global__ static void symmetric_find_size(const math_t *restrict data,
 
   const int col = indices[row * k + j];
   if (j % 2)
-    atomicAdd(&row_sizes[col], 1);
+    raft::myAtomicAdd(&row_sizes[col], 1);
   else
-    atomicAdd(&row_sizes2[col], 1);
+    raft::myAtomicAdd(&row_sizes2[col], 1);
 }
 
 /**

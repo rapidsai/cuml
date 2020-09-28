@@ -81,7 +81,7 @@ __global__ void sigmas_kernel(const float *restrict distances,
         beta = (beta + beta_min) * 0.5f;
     }
   }
-  atomicAdd(P_sum, sum_P_row);
+  raft::myAtomicAdd(P_sum, sum_P_row);
 }
 
 /****************************************/
@@ -134,7 +134,7 @@ __global__ void sigmas_kernel_2d(const float *restrict distances,
         beta = (beta + beta_min) * 0.5f;
     }
   }
-  atomicAdd(P_sum, sum_P_row);
+  raft::myAtomicAdd(P_sum, sum_P_row);
 }
 
 /****************************************/
@@ -193,7 +193,7 @@ __global__ void attractive_kernel(
 
   // Apply forces
   for (int k = 0; k < dim; k++)
-    atomicAdd(&attract[k * n + i], PQ * (Y[k * n + i] - Y[k * n + j]));
+    raft::myAtomicAdd(&attract[k * n + i], PQ * (Y[k * n + i] - Y[k * n + j]));
 }
 
 /****************************************/
@@ -219,8 +219,8 @@ __global__ void attractive_kernel_2d(
   const float PQ = __fdividef(VAL[index], (1.0f + euclidean_d));  // P*Q
 
   // Apply forces
-  atomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));
-  atomicAdd(&attract2[i], PQ * (Y2[i] - Y2[j]));
+  raft::myAtomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));
+  raft::myAtomicAdd(&attract2[i], PQ * (Y2[i] - Y2[j]));
 }
 
 /****************************************/
@@ -277,15 +277,15 @@ __global__ void repulsive_kernel(const float *restrict Y, float *restrict repel,
   // Apply forces
   for (int k = 0; k < dim; k++) {
     const float force = Q2 * (Y[k * n + j] - Y[k * n + i]);
-    atomicAdd(&repel[k * n + i], force);
-    atomicAdd(&repel[k * n + j], force);
+    raft::myAtomicAdd(&repel[k * n + i], force);
+    raft::myAtomicAdd(&repel[k * n + j], force);
   }
 
   // Sum up Z sum
   if (i % 2 == 0)
-    atomicAdd(&Z_sum1[i], Q);
+    raft::myAtomicAdd(&Z_sum1[i], Q);
   else
-    atomicAdd(&Z_sum2[i], Q);
+    raft::myAtomicAdd(&Z_sum2[i], Q);
 }
 
 /****************************************/
@@ -312,17 +312,17 @@ __global__ void repulsive_kernel_2d(
   const float force2 = Q2 * (Y2[j] - Y2[i]);
 
   // Add forces
-  atomicAdd(&repel1[i], force1);
-  atomicAdd(&repel1[j], -force1);
+  raft::myAtomicAdd(&repel1[i], force1);
+  raft::myAtomicAdd(&repel1[j], -force1);
 
-  atomicAdd(&repel2[i], force2);
-  atomicAdd(&repel2[j], -force2);
+  raft::myAtomicAdd(&repel2[i], force2);
+  raft::myAtomicAdd(&repel2[j], -force2);
 
   // Sum up Z sum
   if (i % 2 == 0)
-    atomicAdd(&Z_sum1[i], Q);
+    raft::myAtomicAdd(&Z_sum1[i], Q);
   else
-    atomicAdd(&Z_sum2[i], Q);
+    raft::myAtomicAdd(&Z_sum2[i], Q);
 }
 
 /****************************************/
@@ -392,7 +392,7 @@ __global__ void apply_kernel(
   Y[index] += velocity[index];
 
   // Add to mean
-  //atomicAdd(&means[index / n], Y[index]);
+  //raft::myAtomicAdd(&means[index / n], Y[index]);
 }
 
 /****************************************/

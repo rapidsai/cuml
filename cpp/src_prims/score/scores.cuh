@@ -64,7 +64,7 @@ __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
   for (int r = 1; r < n; r++) {
     if (sample_i[r] == idx) {
       int tmp = r - n_neighbors;
-      if (tmp > 0) atomicAdd(rank, tmp);
+      if (tmp > 0) raft::myAtomicAdd<double>(rank, tmp);
       break;
     }
   }
@@ -297,8 +297,8 @@ __global__ void reg_metrics_kernel(const T *predictions,
   for (int i = tid; i < n; i += blockDim.x * gridDim.x) {
     double diff = predictions[i] - ref_predictions[i];
     double abs_diff = abs(diff);
-    atomicAdd(&shmem[0], abs_diff);
-    atomicAdd(&shmem[1], diff * diff);
+    raft::myAtomicAdd(&shmem[0], abs_diff);
+    raft::myAtomicAdd(&shmem[1], diff * diff);
 
     // update absolute difference in global memory for subsequent abs. median computation
     abs_diffs[i] = abs_diff;
@@ -307,7 +307,7 @@ __global__ void reg_metrics_kernel(const T *predictions,
 
   // Update tmp_sum w/ total abs_difference_sum and squared difference sum.
   for (int i = threadIdx.x; i < 2; i += blockDim.x) {
-    atomicAdd(&tmp_sums[i], shmem[i]);
+    raft::myAtomicAdd(&tmp_sums[i], shmem[i]);
   }
 }
 

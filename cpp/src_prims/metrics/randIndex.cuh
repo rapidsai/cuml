@@ -101,8 +101,8 @@ __global__ void computeTheNumerator(const T* firstClusterArray,
 
   //executed once per block
   if (threadIdx.x == 0 && threadIdx.y == 0) {
-    atomicAdd((unsigned long long int*)a, myA);
-    atomicAdd((unsigned long long int*)b, myB);
+    raft::myAtomicAdd<unsigned long long int>((unsigned long long int*)a, myA);
+    raft::myAtomicAdd<unsigned long long int>((unsigned long long int*)b, myB);
   }
 }
 

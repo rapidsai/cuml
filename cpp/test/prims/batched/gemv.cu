@@ -45,7 +45,7 @@ __global__ void naiveBatchGemvKernel(Type *y, const Type *A, const Type *x,
   int col = threadIdx.x;
   if (row < m && col < n) {
     auto prod = A[batch * m * n + row * n + col] * x[batch * n + col];
-    atomicAdd(y + batch * m + row, prod);
+    raft::myAtomicAdd(y + batch * m + row, prod);
   }
 }
 
