@@ -42,7 +42,6 @@ class nvtxNextColorTest : public ::testing::Test {
 TEST_F(nvtxNextColorTest, nvtxGenerateNextColorTest) {
   EXPECT_TRUE(diff_string_diff_color);
   EXPECT_TRUE(same_string_same_color);
- }
-
+}
 
 }  // end namespace ML
