@@ -338,22 +338,3 @@ struct TxN_t<math_, 0> {
 };
 
 }  // namespace raft
-
-namespace MLCommon {
-
-// template <int Size> struct Cases {};
-
-// template <> struct Cases<1> {
-//     static const int arr[5] = {1, 2, 4, 8, 16};
-// };
-// template <> struct Cases<2> {
-//     static const int arr[4] = {1, 2, 4, 8};
-// };
-// template <> struct Cases<4> {
-//     static const int arr[3] = {1, 2, 4};
-// };
-// template <> struct Cases<8> {
-//     static const int arr[2] = {1, 2};
-// };
-
-};  // namespace MLCommon

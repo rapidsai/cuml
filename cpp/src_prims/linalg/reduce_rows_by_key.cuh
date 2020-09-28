@@ -290,7 +290,8 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(
     sum += val;
   }
 
-  if (sum != 0.0) raft::myAtomicAdd(&d_sums[global_key * ncols + this_col], sum);
+  if (sum != 0.0)
+    raft::myAtomicAdd(&d_sums[global_key * ncols + this_col], sum);
 }
 
 template <typename DataIteratorT, typename KeysIteratorT, typename WeightT>

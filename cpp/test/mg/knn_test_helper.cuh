@@ -177,13 +177,11 @@ class KNNTestHelper {
 
     std::cout << "Finished!" << std::endl;
 
-    std::cout << MLCommon::arr2Str(out_parts[0]->ptr, 10, "final_out", stream)
+    std::cout << raft::arr2Str(out_parts[0]->ptr, 10, "final_out", stream)
               << std::endl;
-    std::cout << MLCommon::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I",
-                                   stream)
+    std::cout << raft::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I", stream)
               << std::endl;
-    std::cout << MLCommon::arr2Str(out_d_parts[0]->ptr, 10, "final_out_D",
-                                   stream)
+    std::cout << raft::arr2Str(out_d_parts[0]->ptr, 10, "final_out_D", stream)
               << std::endl;
   }
 
