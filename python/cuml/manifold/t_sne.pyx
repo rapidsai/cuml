@@ -213,9 +213,10 @@ class TSNE(Base):
             warnings.warn("Barnes Hut only works when n_components == 2. "
                           "Switching to exact.")
             method = 'exact'
-        if n_components != 2:
-            warnings.warn("Currently TSNE supports n_components = 2.")
-            n_components = 2
+        if n_components > 2:
+            raise ValueError("Currently TSNE supports n_components = 2; "
+                             "but got n_components = {}".format(
+                              n_components))
         if perplexity < 0:
             raise ValueError("perplexity = {} should be more than 0.".format(
                              perplexity))
