@@ -72,8 +72,8 @@ struct DecisionTreeParams {
   float min_impurity_decrease = 0.0f;
 
   /**
-   * max amount of ndoes that can be processed in a given batch. This is used
-   * only for batched-level algo
+   * Maximum number of nodes that can be processed in a given batch. This is 
+   * used only for batched-level algo
    */
   int max_batch_size;
   /**

@@ -210,6 +210,12 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     quantile_per_tree : boolean (default = False)
         Whether quantile is computed for individal trees in RF.
         Only relevant for GLOBAL_QUANTILE split_algo.
+    use_experimental_backend : boolean (default = False)
+        If set to true, experimental decision tree training implementation would
+        be used.
+    max_batch_size: int (default = 128)
+        Maximum number of nodes that can be processed in a given batch. This is
+        used only when 'use_experimental_backend' is true.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
@@ -412,7 +418,9 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                                      <int> seed_val,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
-                                     <int> self.n_streams)
+                                     <int> self.n_streams,
+                                     <bool> self.use_experimental_backend,
+                                     <int> self.max_batch_size)
 
         if self.dtype == np.float32:
             fit(handle_[0],

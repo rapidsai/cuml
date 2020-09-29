@@ -41,7 +41,7 @@ class BaseRandomForestModel(Base):
                  'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
                  'verbose', 'rows_sample',
-                 'max_leaves', 'quantile_per_tree']
+                 'max_leaves', 'quantile_per_tree', 'use_experimental_backend']
     criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
                       '3': MAE, '4': CRITERION_END}
 
@@ -58,7 +58,8 @@ class BaseRandomForestModel(Base):
                  max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None,
                  random_state=None, warm_start=None, class_weight=None,
-                 quantile_per_tree=False, criterion=None):
+                 quantile_per_tree=False, criterion=None,
+                 use_experimental_backend=False, max_batch_size=128):
 
         if accuracy_metric:
             BaseRandomForestModel.variables.append('accuracy_metric')
@@ -138,6 +139,8 @@ class BaseRandomForestModel(Base):
         self.dtype = dtype
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
+        self.use_experimental_backend = use_experimental_backend
+        self.max_batch_size = max_batch_size
         self.n_streams = handle.getNumInternalStreams()
         self.random_state = random_state
         self.rf_forest = 0
