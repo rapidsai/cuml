@@ -137,7 +137,7 @@ __global__ void optimize_batch_kernel_reg(
     } else {
       T2 *tmp2 = (T2 *)embedding_updates + (k * n_components);
       for (int d = 0; d < n_components; d++) {
-        raft::myAtomicAdd<T>((T *)tmp2 + d, -grads[d]);
+        raft::myAtomicAdd<T2>((T2 *)tmp2 + d, -grads[d]);
       }
     }
   }
@@ -189,7 +189,7 @@ __global__ void optimize_batch_kernel_reg(
   } else {
     T2 *tmp1 = (T2 *)embedding_updates + (j * n_components);
     for (int d = 0; d < n_components; d++) {
-      raft::myAtomicAdd<T>((T *)tmp1 + d, grads[d]);
+      raft::myAtomicAdd<T2>((T2 *)tmp1 + d, grads[d]);
     }
   }
   epoch_of_next_negative_sample[row] =
@@ -254,9 +254,9 @@ __global__ void optimize_batch_kernel(
           raft::myAtomicAdd<T>((T *)other + d, -grad_d);
         }
       } else {
-        raft::myAtomicAdd(current_buffer + d, grad_d);
+        raft::myAtomicAdd<T2>((T2 *)current_buffer + d, grad_d);
         if (move_other) {  // happens only during unsupervised training
-          raft::myAtomicAdd(other_buffer + d, -grad_d);
+          raft::myAtomicAdd<T2>((T2 *)other_buffer + d, -grad_d);
         }
       }
     }
@@ -273,7 +273,7 @@ __global__ void optimize_batch_kernel(
       T2 *tmp2 = (T2 *)embedding_updates + (k * params.n_components);
       for (int d = 0; d < params.n_components; d++) {
         auto grad = current_buffer[d * TPB_X];
-        raft::myAtomicAdd(tmp2 + d, -grad);
+        raft::myAtomicAdd<T2>((T2 *)tmp2 + d, -grad);
       }
     }
   }
@@ -318,7 +318,7 @@ __global__ void optimize_batch_kernel(
         if (multicore_implem) {
           raft::myAtomicAdd<T>((T *)current + d, grad_d);
         } else {
-          raft::myAtomicAdd(current_buffer + d, grad_d);
+          raft::myAtomicAdd<T2>((T2 *)current_buffer + d, grad_d);
         }
       }
     }
@@ -333,7 +333,7 @@ __global__ void optimize_batch_kernel(
     } else {
       T2 *tmp1 = (T2 *)embedding_updates + (j * params.n_components);
       for (int d = 0; d < params.n_components; d++) {
-        raft::myAtomicAdd(tmp1 + d, current_buffer[d * TPB_X]);
+        raft::myAtomicAdd<T2>((T2 *)tmp1 + d, current_buffer[d * TPB_X]);
       }
     }
   }
