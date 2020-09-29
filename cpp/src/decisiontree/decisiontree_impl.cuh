@@ -288,7 +288,9 @@ void DecisionTreeBase<T, L>::plant(
       tree_params.max_features == 1.0 &&
       tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE &&
       tree_params.quantile_per_tree == false) {
-    CUML_LOG_WARN("Using experimental backed for growing trees\n");
+    if(treeid == 0) {
+      CUML_LOG_WARN("Using experimental backend for growing trees\n");
+    }
     T *quantiles = tempmem->d_quantile->data();
     int *colids = (int *)tempmem->device_allocator->allocate(
       sizeof(int) * ncols, tempmem->stream);
