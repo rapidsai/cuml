@@ -122,7 +122,12 @@ struct RegDeviceTraits {
     sum = BlockReduceT(temp).Sum(sum);
     __syncthreads();
     if (tid == 0) {
-      nodes[0].makeLeaf(n_leaves, sum / range_len);
+      if(!isnan(sum/range_len)) {
+        nodes[0].makeLeaf(n_leaves, sum / range_len);
+      } else {
+        nodes[0].makeLeaf(n_leaves, 0.0);
+      }
+
     }
   }
 };  // struct RegDeviceTraits
