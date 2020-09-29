@@ -110,9 +110,5 @@ def test_tsne_large(nrows, ncols):
 
 
 def test_components_exception():
-    X, y = make_blobs()
-
-    X = X.astype(np.float32)
-
     with pytest.raises(ValueError):
         TSNE(n_components=3)

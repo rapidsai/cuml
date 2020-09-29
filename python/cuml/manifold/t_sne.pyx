@@ -215,8 +215,7 @@ class TSNE(Base):
             method = 'exact'
         if n_components > 2:
             raise ValueError("Currently TSNE supports n_components = 2; "
-                             "but got n_components = {}".format(
-                             n_components))
+                             "but got n_components = {}".format(n_components))
         if n_components < 2:
             warnings.warn("Currently TSNE supports n_components = 2.")
             n_components = 2
