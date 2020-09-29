@@ -565,6 +565,7 @@ void tl2fil_leaf_payload(fil_node_t* fil_node, const tl::Tree& tl_tree,
       fil_node->val.idx = find_class_label_from_one_hot(&vec[0], vec.size());
       break;
     case leaf_algo_t::FLOAT_UNARY_BINARY:
+    case leaf_algo_t::TREE_PER_CLASS:
       fil_node->val.f = tl_tree.LeafValue(tl_node_id);
       ASSERT(!tl_tree.HasLeafVector(tl_node_id),
              "some but not all treelite leaves have leaf_vector()");

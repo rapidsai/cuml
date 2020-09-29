@@ -496,6 +496,7 @@ class TreeliteFilTest : public BaseFilTest {
     if (is_leaf) {
       switch (ps.leaf_algo) {
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
+        case fil::leaf_algo_t::TREE_PER_CLASS:
           // default is fil::FLOAT_UNARY_BINARY
           builder->SetLeafNode(key, output.f);
           break;
