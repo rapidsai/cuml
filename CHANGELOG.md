@@ -59,6 +59,7 @@
 - PR #2848: Fix typo in Python docstring for UMAP
 - PR #2856: Fix LabelEncoder for filtered input
 - PR #2855: Updates for RMM being header only
+- PR #2879: Update unit test for LabelEncoder on filtered input
 
 # cuML 0.15.0 (Date TBD)
 
