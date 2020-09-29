@@ -95,7 +95,10 @@ struct Builder {
   IdxT h_total_nodes;
   /** range of the currently worked upon nodes */
   IdxT node_start, node_end;
-
+  /** number of blocks used to parallelize column-wise computations. */
+  int n_blks_for_cols = 10;
+  /** Number of blocks used to parallelize row-wise computations. */
+  int n_blks_for_rows = 4;
   /** Memory alignment value */
   const size_t alignValue = 512;
 
@@ -138,7 +141,7 @@ struct Builder {
     ASSERT(quantiles != nullptr,
            "Currently quantiles need to be computed before this call!");
     params = p;
-    params.n_blks_for_cols = std::min(sampledCols, p.n_blks_for_cols);
+    n_blks_for_cols = std::min(sampledCols, n_blks_for_cols);
     input.data = data;
     input.labels = labels;
     input.M = totalRows;
@@ -150,14 +153,14 @@ struct Builder {
     input.nclasses = nclasses;
     input.quantiles = quantiles;
     auto max_batch = params.max_batch_size;
-    auto n_col_blks = params.n_blks_for_cols;
+    auto n_col_blks = n_blks_for_cols;
     nHistBins = 2 * max_batch * params.n_bins * n_col_blks * nclasses;
     // x2 for mean and mean-of-square
     nPredCounts = max_batch * params.n_bins * n_col_blks;
     maxNodes = pow(2, (params.max_depth + 1)) - 1;
 
     if (isRegression() && params.split_criterion == CRITERION::MAE) {
-      dim3 grid(params.n_blks_for_rows, n_col_blks, max_batch);
+      dim3 grid(n_blks_for_rows, n_col_blks, max_batch);
       block_sync_size = MLCommon::GridSync::computeWorkspaceSize(
         grid, MLCommon::SyncType::ACROSS_X, false);
     } else {
@@ -200,7 +203,7 @@ struct Builder {
    */
   void assignWorkspace(char* d_wspace, char* h_wspace) {
     auto max_batch = params.max_batch_size;
-    auto n_col_blks = params.n_blks_for_cols;
+    auto n_col_blks = n_blks_for_cols;
     // device
     n_nodes = reinterpret_cast<IdxT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(IdxT));
@@ -267,7 +270,7 @@ struct Builder {
   void init(NodeT* h_nodes, cudaStream_t s) {
     *h_n_nodes = 0;
     auto max_batch = params.max_batch_size;
-    auto n_col_blks = params.n_blks_for_cols;
+    auto n_col_blks = n_blks_for_cols;
     CUDA_CHECK(
       cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, s));
     CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, s));
@@ -315,7 +318,7 @@ struct Builder {
     MLCommon::updateDevice(curr_nodes, h_nodes + node_start, batchSize, s);
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
-    auto n_col_blks = params.n_blks_for_cols;
+    auto n_col_blks = n_blks_for_cols;
     for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
       Traits::computeSplit(*this, c, batchSize, params.split_criterion, s);
       CUDA_CHECK(cudaGetLastError());
@@ -376,8 +379,8 @@ struct ClsTraits {
     auto nclasses = b.input.nclasses;
     auto binSize = nbins * 2 * nclasses;
     auto colBlks =
-      std::min(b.params.n_blks_for_cols, b.input.nSampledCols - col);
-    dim3 grid(b.params.n_blks_for_rows, colBlks, batchSize);
+      std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
+    dim3 grid(b.n_blks_for_rows, colBlks, batchSize);
     size_t smemSize = sizeof(int) * binSize + sizeof(DataT) * nbins;
     smemSize += sizeof(int);
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
@@ -436,8 +439,8 @@ struct RegTraits {
   static void computeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT col,
                            IdxT batchSize, CRITERION splitType,
                            cudaStream_t s) {
-    auto n_col_blks = b.params.n_blks_for_cols;
-    dim3 grid(b.params.n_blks_for_rows, n_col_blks, batchSize);
+    auto n_col_blks = b.n_blks_for_cols;
+    dim3 grid(b.n_blks_for_rows, n_col_blks, batchSize);
     auto nbins = b.params.n_bins;
     size_t smemSize = 7 * nbins * sizeof(DataT) + nbins * sizeof(int);
     smemSize += sizeof(int);

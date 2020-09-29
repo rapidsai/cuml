@@ -77,16 +77,6 @@ struct DecisionTreeParams {
    */
   int max_batch_size;
   /**
-   * number of blocks used to parallelize column-wise computations. This is used
-   * only for batched-level algo
-   */
-  int n_blks_for_cols;
-  /**
-   * number of blocks used to parallelize row-wise computations. This is used
-   * only for batched-level algo
-   */
-  int n_blks_for_rows;
-  /**
   * If set to true, experimental decision tree training implementation would be
   * used.
   */
@@ -120,8 +110,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      bool cfg_quantile_per_tree = false,
                      bool cfg_shuffle_features = false,
                      bool cfg_use_experimental_backend = false,
-                     int cfg_max_batch_size = 128, int cfg_n_blks_for_cols = 10,
-                     int cfg_n_blks_for_rows = 4);
+                     int cfg_max_batch_size = 128);
 
 /**
  * @brief Check validity of all decision tree hyper-parameters.
