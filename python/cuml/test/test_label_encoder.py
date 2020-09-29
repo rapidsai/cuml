@@ -166,4 +166,4 @@ def test_masked_encode():
                               "cat_col": filtered_cat_values})
     df_test["cat_col"] = LabelEncoder().fit_transform(df_test["cat_col"])
 
-    assert(df_filter["cat_col"] == df_test["cat_col"]).all()
+    assert(df_filter["cat_col"].values == df_test["cat_col"].values).all()
