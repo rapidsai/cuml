@@ -17,11 +17,10 @@
 #include <cuda_utils.cuh>
 #include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <random/make_blobs.cuh>
 #include <random/make_regression.cuh>
 #include <test_utils.h>
-#include <common/cumlHandle.hpp>
 #include <common/iota.cuh>
 #include <cuml/cuml.hpp>
 #include <decisiontree/batched-levelalgo/builder.cuh>
@@ -46,22 +45,22 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
  protected:
   void SetUp() {
     inparams = ::testing::TestWithParam<DtTestParams>::GetParam();
-    handle.reset(new cumlHandle);
+    handle.reset(new raft::handle_t);
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle->setStream(stream);
+    handle->set_stream(stream);
     set_tree_params(params, inparams.max_depth, 1 << inparams.max_depth, 1.f,
                     inparams.nbins, SPLIT_ALGO::GLOBAL_QUANTILE, inparams.nbins,
                     inparams.min_gain, false, inparams.splitType, false, false,
-                    128, 10, 4, 0);
-    auto allocator = handle->getImpl().getDeviceAllocator();
+                    true, 128);
+    auto allocator = handle->get_device_allocator();
     data = (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);
     labels = (L*)allocator->allocate(sizeof(L) * inparams.M, stream);
     auto* tmp =
       (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);
     prepareDataset(tmp);
     auto alpha = T(1.0), beta = T(0.0);
-    auto cublas = handle->getImpl().getCublasHandle();
-    CUBLAS_CHECK(MLCommon::LinAlg::cublasgeam(
+    auto cublas = handle->get_cublas_handle();
+    CUBLAS_CHECK(raft::linalg::cublasgeam(
       cublas, CUBLAS_OP_T, CUBLAS_OP_N, inparams.M, inparams.N, &alpha, tmp,
       inparams.N, &beta, tmp, inparams.M, data, inparams.M, stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -75,7 +74,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
 
     std::shared_ptr<TemporaryMemory<T, int>> tempmem;
     tempmem = std::make_shared<TemporaryMemory<T, int>>(
-      handle->getImpl(), handle->getStream(), inparams.M, inparams.N, 1,
+      *handle, handle->get_stream(), inparams.M, inparams.N, 1,
       params);
 
     preprocess_quantile((const T*)data, (const unsigned*)rowids, inparams.M,
@@ -84,7 +83,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
 
   void TearDown() {
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    auto allocator = handle->getImpl().getDeviceAllocator();
+    auto allocator = handle->get_device_allocator();
     allocator->deallocate(data, sizeof(T) * inparams.M * inparams.N, stream);
     allocator->deallocate(labels, sizeof(L) * inparams.M, stream);
     allocator->deallocate(rowids, sizeof(int) * inparams.M, stream);
@@ -97,7 +96,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
   }
 
   cudaStream_t stream;
-  std::shared_ptr<cumlHandle> handle;
+  std::shared_ptr<raft::handle_t> handle;
   T *data, *quantiles;
   L* labels;
   I *rowids, *colids;
@@ -118,7 +117,7 @@ template <typename T>
 class DtClassifierTest : public DtBaseTest<T, int> {
  protected:
   void prepareDataset(T* tmp) override {
-    auto allocator = this->handle->getImpl().getDeviceAllocator();
+    auto allocator = this->handle->get_device_allocator();
     auto inparams = this->inparams;
     MLCommon::Random::make_blobs<T>(tmp, this->labels, inparams.M, inparams.N,
                                     inparams.nclasses, allocator, this->stream,
@@ -129,9 +128,8 @@ class DtClassifierTest : public DtBaseTest<T, int> {
 typedef DtClassifierTest<float> DtClsTestF;
 ///@todo: add checks
 TEST_P(DtClsTestF, Test) {
-  auto& impl = handle->getImpl();
   int num_leaves, depth;
-  grow_tree<float, int, int>(impl.getDeviceAllocator(), impl.getHostAllocator(),
+  grow_tree<float, int, int>(handle->get_device_allocator(), handle->get_host_allocator(),
                              data, inparams.N, inparams.M, labels, quantiles,
                              rowids, colids, inparams.M, inparams.nclasses,
                              params, stream, sparsetree, num_leaves, depth);
@@ -151,9 +149,9 @@ template <typename T>
 class DtRegressorTest : public DtBaseTest<T, T> {
  protected:
   void prepareDataset(T* tmp) override {
-    auto allocator = this->handle->getImpl().getDeviceAllocator();
-    auto cublas = this->handle->getImpl().getCublasHandle();
-    auto cusolver = this->handle->getImpl().getcusolverDnHandle();
+    auto allocator = this->handle->get_device_allocator();
+    auto cublas = this->handle->get_cublas_handle();
+    auto cusolver = this->handle->get_cusolver_dn_handle();
     auto inparams = this->inparams;
     MLCommon::Random::make_regression<T>(
       tmp, this->labels, inparams.M, inparams.N, inparams.N, cublas, cusolver,
@@ -164,9 +162,8 @@ class DtRegressorTest : public DtBaseTest<T, T> {
 typedef DtRegressorTest<float> DtRegTestF;
 ///@todo: add checks
 TEST_P(DtRegTestF, Test) {
-  auto& impl = handle->getImpl();
   int num_leaves, depth;
-  grow_tree<float, int>(impl.getDeviceAllocator(), impl.getHostAllocator(),
+  grow_tree<float, int>(handle->get_device_allocator(), handle->get_host_allocator(),
                         data, inparams.N, inparams.M, labels, quantiles, rowids,
                         colids, inparams.M, 0, params, stream, sparsetree,
                         num_leaves, depth);
