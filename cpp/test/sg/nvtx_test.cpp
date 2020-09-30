@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "common/nvtx.cu"
+#include <common/nvtx.cu>
 #include <gtest/gtest.h>
 /**
  * tests for the functionality of generating next color based on string
