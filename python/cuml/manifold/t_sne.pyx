@@ -88,8 +88,8 @@ class TSNE(Base):
     Parameters
     -----------
     n_components : int (default 2)
-        The output dimensionality size. Currently only size=2 is tested, but
-        the 'exact' algorithm will support greater dimensionality in future.
+        The output dimensionality size. Currently only size=2 is tested and supported,
+        but the 'exact' algorithm will support greater dimensionality in future.
     perplexity : float (default 30.0)
         Larger datasets require a larger value. Consider choosing different
         perplexity values from 5 to 50 and see the output differences.
