@@ -67,8 +67,8 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
     int my_rank = comm.get_rank();
     int size = comm.get_size();
 
-    int index_parts_per_rank = MLCommon::ceildiv(params.n_index_parts, size);
-    int query_parts_per_rank = MLCommon::ceildiv(params.n_query_parts, size);
+    int index_parts_per_rank = raft::ceildiv(params.n_index_parts, size);
+    int query_parts_per_rank = raft::ceildiv(params.n_query_parts, size);
     std::vector<Matrix::RankSizePair *> idxPartsToRanks;
     std::vector<Matrix::RankSizePair *> queryPartsToRanks;
     for (int cur_rank = 0; cur_rank < size; cur_rank++) {
@@ -172,11 +172,9 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    std::cout << MLCommon::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I",
-                                   stream)
+    std::cout << raft::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I", stream)
               << std::endl;
-    std::cout << MLCommon::arr2Str(out_d_parts[0]->ptr, 10, "final_out_D",
-                                   stream)
+    std::cout << raft::arr2Str(out_d_parts[0]->ptr, 10, "final_out_D", stream)
               << std::endl;
 
     /**
@@ -217,7 +215,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
 
     int actual = 1;
     int expected = 1;
-    return CompareApprox<int>(1)(actual, expected);
+    return raft::CompareApprox<int>(1)(actual, expected);
   }
 
  private:

@@ -32,6 +32,7 @@
 - PR #2799: Reenable lightgbm test with lower (1%) proba accuracy
 - PR #2800: Align cuML's spdlog version with RMM's
 - PR #2824: Make data conversions warnings be debug level
+- PR #2835: Rng prims, utils, and dependencies in RAFT
 - PR #2541: Improve Documentation Examples and Source Linking
 - PR #2837: Make the FIL node reorder loop more obvious
 - PR #2849: make num_classes significant in FLOAT_SCALAR case
@@ -40,6 +41,7 @@
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
 
 ## Bug Fixes
+- PR #2882: Allow import on machines without GPUs
 - PR #2875: Bug fix to enable colorful NVTX markers
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
 - PR #2769: Remove outdated doxygen options for 1.8.20
@@ -92,6 +94,7 @@
 - PR #2661: CUDA-11 support for single-gpu code
 - PR #2322: Sparse FIL forests with 8-byte nodes
 - PR #2675: Update conda recipes to support CUDA 11
+- PR #2645: Add experimental, sklearn-based preprocessing
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage

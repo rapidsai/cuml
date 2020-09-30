@@ -44,8 +44,8 @@ static __global__ void _singular_profile_kernel(DataT* out, IdxT n,
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) {
     DataT sval = static_cast<DataT>(tid) / rank;
-    DataT low_rank = ((DataT)1.0 - tail_strength) * myExp(-sval * sval);
-    DataT tail = tail_strength * myExp((DataT)-0.1 * sval);
+    DataT low_rank = ((DataT)1.0 - tail_strength) * raft::myExp(-sval * sval);
+    DataT tail = tail_strength * raft::myExp((DataT)-0.1 * sval);
     out[tid] = low_rank + tail;
   }
 }
@@ -54,7 +54,8 @@ static __global__ void _singular_profile_kernel(DataT* out, IdxT n,
 template <typename DataT, typename IdxT>
 static void _make_low_rank_matrix(DataT* out, IdxT n_rows, IdxT n_cols,
                                   IdxT effective_rank, DataT tail_strength,
-                                  Rng& r, cublasHandle_t cublas_handle,
+                                  raft::random::Rng& r,
+                                  cublasHandle_t cublas_handle,
                                   cusolverDnHandle_t cusolver_handle,
                                   std::shared_ptr<deviceAllocator> allocator,
                                   cudaStream_t stream) {
@@ -80,7 +81,7 @@ static void _make_low_rank_matrix(DataT* out, IdxT n_rows, IdxT n_cols,
   device_buffer<DataT> singular_vec(allocator, stream);
   device_buffer<DataT> singular_mat(allocator, stream);
   singular_vec.resize(n, stream);
-  _singular_profile_kernel<<<ceildiv<IdxT>(n, 256), 256, 0, stream>>>(
+  _singular_profile_kernel<<<raft::ceildiv<IdxT>(n, 256), 256, 0, stream>>>(
     singular_vec.data(), n, tail_strength, effective_rank);
   CUDA_CHECK(cudaPeekAtLastError());
   singular_mat.resize(n * n, stream);
@@ -164,19 +165,17 @@ static __global__ void _gather2d_kernel(DataT* out, const DataT* in,
  * @param[in]   type            Random generator type
  */
 template <typename DataT, typename IdxT>
-void make_regression(DataT* out, DataT* values, IdxT n_rows, IdxT n_cols,
-                     IdxT n_informative, cublasHandle_t cublas_handle,
-                     cusolverDnHandle_t cusolver_handle,
-                     std::shared_ptr<deviceAllocator> allocator,
-                     cudaStream_t stream, DataT* coef = nullptr,
-                     IdxT n_targets = (IdxT)1, DataT bias = (DataT)0.0,
-                     IdxT effective_rank = (IdxT)-1,
-                     DataT tail_strength = (DataT)0.5, DataT noise = (DataT)0.0,
-                     bool shuffle = true, uint64_t seed = 0ULL,
-                     GeneratorType type = GenPhilox) {
+void make_regression(
+  DataT* out, DataT* values, IdxT n_rows, IdxT n_cols, IdxT n_informative,
+  cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle,
+  std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
+  DataT* coef = nullptr, IdxT n_targets = (IdxT)1, DataT bias = (DataT)0.0,
+  IdxT effective_rank = (IdxT)-1, DataT tail_strength = (DataT)0.5,
+  DataT noise = (DataT)0.0, bool shuffle = true, uint64_t seed = 0ULL,
+  raft::random::GeneratorType type = raft::random::GenPhilox) {
   n_informative = std::min(n_informative, n_cols);
   cublasSetPointerMode(cublas_handle, CUBLAS_POINTER_MODE_HOST);
-  Rng r(seed, type);
+  raft::random::Rng r(seed, type);
 
   if (effective_rank < 0) {
     // Randomly generate a well conditioned input set
@@ -264,7 +263,7 @@ void make_regression(DataT* out, DataT* values, IdxT n_rows, IdxT n_cols,
     // Shuffle the samples from out to tmp_out
     permute<DataT, IdxT, IdxT>(perms_samples.data(), tmp_out.data(), out,
                                n_cols, n_rows, true, stream);
-    IdxT nblks_rows = ceildiv<IdxT>(n_rows, Nthreads);
+    IdxT nblks_rows = raft::ceildiv<IdxT>(n_rows, Nthreads);
     _gather2d_kernel<<<nblks_rows, Nthreads, 0, stream>>>(
       values, _values, perms_samples.data(), n_rows, n_targets);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -275,7 +274,7 @@ void make_regression(DataT* out, DataT* values, IdxT n_rows, IdxT n_cols,
 
     // Shuffle the coefficients accordingly
     if (coef != nullptr) {
-      IdxT nblks_cols = ceildiv<IdxT>(n_cols, Nthreads);
+      IdxT nblks_cols = raft::ceildiv<IdxT>(n_cols, Nthreads);
       _gather2d_kernel<<<nblks_cols, Nthreads, 0, stream>>>(
         coef, _coef, perms_features.data(), n_cols, n_targets);
       CUDA_CHECK(cudaPeekAtLastError());

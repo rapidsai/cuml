@@ -76,10 +76,10 @@ void calCompExpVarsSvd(const raft::handle_t &handle, math_t *in,
 
   LinAlg::transpose(components_temp.data(), components, prms.n_cols,
                     prms.n_components, cublas_handle, stream);
-  Matrix::power(singular_vals, explained_vars, math_t(1), prms.n_components,
-                stream);
-  Matrix::ratio(explained_vars, explained_var_ratio, prms.n_components, stream,
-                allocator);
+  raft::matrix::power(singular_vals, explained_vars, math_t(1),
+                      prms.n_components, stream);
+  raft::matrix::ratio(handle, explained_vars, explained_var_ratio,
+                      prms.n_components, stream);
 }
 
 template <typename math_t, typename enum_solver = solver>
@@ -201,8 +201,8 @@ void tsvdFit(const raft::handle_t &handle, math_t *input, math_t *components,
                           n_components, prms.n_cols, stream);
 
   math_t scalar = math_t(1);
-  Matrix::seqRoot(explained_var_all.data(), singular_vals, scalar, n_components,
-                  stream);
+  raft::matrix::seqRoot(explained_var_all.data(), singular_vals, scalar,
+                        n_components, stream);
 }
 
 /**
@@ -232,28 +232,29 @@ void tsvdFitTransform(const raft::handle_t &handle, math_t *input,
            allocator, stream);
 
   device_buffer<math_t> mu_trans(allocator, stream, prms.n_components);
-  Stats::mean(mu_trans.data(), trans_input, prms.n_components, prms.n_rows,
-              true, false, stream);
-  Stats::vars(explained_var, trans_input, mu_trans.data(), prms.n_components,
-              prms.n_rows, true, false, stream);
+  raft::stats::mean(mu_trans.data(), trans_input, prms.n_components,
+                    prms.n_rows, true, false, stream);
+  raft::stats::vars(explained_var, trans_input, mu_trans.data(),
+                    prms.n_components, prms.n_rows, true, false, stream);
 
   device_buffer<math_t> mu(allocator, stream, prms.n_cols);
   device_buffer<math_t> vars(allocator, stream, prms.n_cols);
 
-  Stats::mean(mu.data(), input, prms.n_cols, prms.n_rows, true, false, stream);
-  Stats::vars(vars.data(), input, mu.data(), prms.n_cols, prms.n_rows, true,
-              false, stream);
+  raft::stats::mean(mu.data(), input, prms.n_cols, prms.n_rows, true, false,
+                    stream);
+  raft::stats::vars(vars.data(), input, mu.data(), prms.n_cols, prms.n_rows,
+                    true, false, stream);
 
   device_buffer<math_t> total_vars(allocator, stream, 1);
   Stats::sum(total_vars.data(), vars.data(), 1, prms.n_cols, false, stream);
 
   math_t total_vars_h;
-  updateHost(&total_vars_h, total_vars.data(), 1, stream);
+  raft::update_host(&total_vars_h, total_vars.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   math_t scalar = math_t(1) / total_vars_h;
 
-  LinAlg::scalarMultiply(explained_var_ratio, explained_var, scalar,
-                         prms.n_components, stream);
+  raft::linalg::scalarMultiply(explained_var_ratio, explained_var, scalar,
+                               prms.n_components, stream);
 }
 
 /**

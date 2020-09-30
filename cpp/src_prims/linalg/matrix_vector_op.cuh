@@ -19,8 +19,8 @@
 #include <cuda_utils.cuh>
 #include <vectorized.cuh>
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename Type, int veclen_, typename Lambda, typename IdxType>
 __global__ void matrixVectorOpKernel(Type *out, const Type *matrix,
@@ -63,7 +63,8 @@ void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec,
                         IdxType D, IdxType N, bool rowMajor,
                         bool bcastAlongRows, Lambda op, cudaStream_t stream) {
   IdxType len = N * D;
-  IdxType nblks = ceildiv(veclen_ ? len / veclen_ : veclen_, (IdxType)TPB);
+  IdxType nblks =
+    raft::ceildiv(veclen_ ? len / veclen_ : veclen_, (IdxType)TPB);
   matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, matrix, vec, D, N, rowMajor,
                                 bcastAlongRows, op);
@@ -158,7 +159,7 @@ template <typename Type, int veclen_, typename Lambda, typename IdxType,
 void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec1,
                         const Type *vec2, IdxType D, IdxType N, bool rowMajor,
                         bool bcastAlongRows, Lambda op, cudaStream_t stream) {
-  IdxType nblks = ceildiv(N * D, (IdxType)TPB);
+  IdxType nblks = raft::ceildiv(N * D, (IdxType)TPB);
   matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, matrix, vec1, vec2, D, N, rowMajor,
                                 bcastAlongRows, op);
@@ -210,5 +211,5 @@ void matrixVectorOp(Type *out, const Type *matrix, const Type *vec1,
   }
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

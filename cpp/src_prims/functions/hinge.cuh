@@ -18,7 +18,9 @@
 
 #include <linalg/transpose.h>
 #include <raft/linalg/cublas_wrappers.h>
+#include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
+#include <cuml/common/cuml_allocator.hpp>
 #include <linalg/add.cuh>
 #include <linalg/eltwise.cuh>
 #include <linalg/gemm.cuh>
@@ -37,7 +39,7 @@ namespace Functions {
 template <typename math_t, typename idx_type = int>
 void hingeLossGradMult(math_t *data, const math_t *vec1, const math_t *vec2,
                        idx_type n_row, idx_type n_col, cudaStream_t stream) {
-  LinAlg::matrixVectorOp(
+  raft::linalg::matrixVectorOp(
     data, data, vec1, vec2, n_col, n_row, false, false,
     [] __device__(math_t a, math_t b, math_t c) {
       if (c < math_t(1))
@@ -51,7 +53,7 @@ void hingeLossGradMult(math_t *data, const math_t *vec1, const math_t *vec2,
 template <typename math_t, typename idx_type = int>
 void hingeLossSubtract(math_t *out, const math_t *in, math_t scalar,
                        idx_type len, cudaStream_t stream) {
-  LinAlg::unaryOp(
+  raft::linalg::unaryOp(
     out, in, len,
     [scalar] __device__(math_t in) {
       if (in < scalar)
@@ -86,10 +88,10 @@ void hingeLossGrads(math_t *input, int n_rows, int n_cols, const math_t *labels,
   LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred.data(), n_rows, 1,
                CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle, stream);
 
-  LinAlg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels,
-                          n_rows, stream);
+  raft::linalg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels,
+                                n_rows, stream);
   hingeLossGradMult(input, labels, labels_pred.data(), n_rows, n_cols, stream);
-  Stats::mean(grads, input, n_cols, n_rows, false, false, stream);
+  raft::stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 
   device_buffer<math_t> pen_grads(allocator, stream, 0);
 
@@ -119,8 +121,8 @@ void hingeLoss(math_t *input, int n_rows, int n_cols, const math_t *labels,
   LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred.data(), n_rows, 1,
                CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle, stream);
 
-  LinAlg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels,
-                          n_rows, stream);
+  raft::linalg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels,
+                                n_rows, stream);
 
   hingeLossSubtract(labels_pred.data(), labels_pred.data(), math_t(1), n_rows,
                     stream);

@@ -61,7 +61,7 @@ struct GramMatrix : public Fixture {
     alloc(A, params.m * params.k);
     alloc(B, params.k * params.n);
     alloc(C, params.m * params.n);
-    MLCommon::Random::Rng r(123456ULL);
+    raft::random::Rng r(123456ULL);
     r.uniform(A, params.m * params.k, T(-1.0), T(1.0), stream);
     r.uniform(B, params.k * params.n, T(-1.0), T(1.0), stream);
   }

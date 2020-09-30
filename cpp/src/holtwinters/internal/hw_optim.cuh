@@ -434,7 +434,7 @@ void holtwinters_optim_gpu(
   bool single_param =
     (optim_alpha + optim_beta + optim_gamma > 1) ? false : true;
 
-  if (sm_needed > MLCommon::getSharedMemPerBlock()) {  // Global memory //
+  if (sm_needed > raft::getSharedMemPerBlock()) {  // Global memory //
     MLCommon::device_buffer<Dtype> pseason(dev_allocator, stream,
                                            batch_size * frequency);
     holtwinters_optim_gpu_global_kernel<Dtype>
