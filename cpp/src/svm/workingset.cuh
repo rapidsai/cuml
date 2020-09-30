@@ -158,20 +158,19 @@ class WorkingSet {
 
     if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
-      MLCommon::myPrintDevVector("idx_sorted", f_idx_sorted.data(), n_train,
-                                 ss);
+      raft::print_device_vector("idx_sorted", f_idx_sorted.data(), n_train, ss);
       CUML_LOG_DEBUG(ss.str().c_str());
     }
     // Select n_ws/2 elements from the upper set with the smallest f value
     bool *available = this->available.data();
-    set_upper<<<MLCommon::ceildiv(n_train, TPB), TPB, 0, stream>>>(
+    set_upper<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(
       available, n_train, alpha, y, C);
     CUDA_CHECK(cudaPeekAtLastError());
     n_already_selected +=
       GatherAvailable(n_already_selected, n_needed / 2, true);
 
     // Select n_ws/2 elements from the lower set with the highest f values
-    set_lower<<<MLCommon::ceildiv(n_train, TPB), TPB, 0, stream>>>(
+    set_lower<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(
       available, n_train, alpha, y, C);
     CUDA_CHECK(cudaPeekAtLastError());
     n_already_selected +=
@@ -230,7 +229,7 @@ class WorkingSet {
       // keep 1/2 of the old working set
       if (FIFO_strategy) {
         // FIFO selection following ThunderSVM
-        MLCommon::copy(idx.data(), ws_idx_save.data() + 2 * nc, 2 * nc, stream);
+        raft::copy(idx.data(), ws_idx_save.data() + 2 * nc, 2 * nc, stream);
         n_selected = nc * 2;
       } else {
         // priority based selection preferring to keep newer elements in ws
@@ -238,7 +237,7 @@ class WorkingSet {
       }
     }
     SimpleSelect(f, alpha, y, C, n_selected);
-    MLCommon::copy(ws_idx_save.data(), idx.data(), n_ws, stream);
+    raft::copy(ws_idx_save.data(), idx.data(), n_ws, stream);
   }
 
   /**
@@ -280,7 +279,7 @@ class WorkingSet {
     });
     // we have now idx[0:n_selected] indices from the old working set
     // we need to update their priority.
-    update_priority<<<MLCommon::ceildiv(n_selected, TPB), TPB, 0, stream>>>(
+    update_priority<<<raft::ceildiv(n_selected, TPB), TPB, 0, stream>>>(
       ws_priority.data(), n_selected, idx.data(), n_ws, ws_idx_sorted.data(),
       ws_priority_sorted.data());
     return n_selected;
@@ -373,13 +372,13 @@ class WorkingSet {
     // First we update the mask to ignores already selected elements
     bool *available = this->available.data();
     if (n_already_selected > 0) {
-      set_unavailable<<<MLCommon::ceildiv(n_train, TPB), TPB, 0, stream>>>(
+      set_unavailable<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(
         available, n_train, idx.data(), n_already_selected);
       CUDA_CHECK(cudaPeekAtLastError());
     }
     if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
-      MLCommon::myPrintDevVector("avail", available, n_train, ss);
+      raft::print_device_vector("avail", available, n_train, ss);
       CUML_LOG_DEBUG(ss.str().c_str());
     }
 
@@ -393,8 +392,8 @@ class WorkingSet {
                  av_sorted_ptr);
     if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
-      MLCommon::myPrintDevVector("avail_sorted", available_sorted.data(),
-                                 n_train, ss);
+      raft::print_device_vector("avail_sorted", available_sorted.data(),
+                                n_train, ss);
       CUML_LOG_DEBUG(ss.str().c_str());
     }
 
@@ -403,22 +402,22 @@ class WorkingSet {
                                f_idx_sorted.data(), available_sorted.data(),
                                idx_tmp.data(), d_num_selected, n_train);
     int n_selected;
-    MLCommon::updateHost(&n_selected, d_num_selected, 1, stream);
+    raft::update_host(&n_selected, d_num_selected, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // Copy to output
     int n_copy = n_selected > n_needed ? n_needed : n_selected;
     if (copy_front) {
-      MLCommon::copy(idx.data() + n_already_selected, idx_tmp.data(), n_copy,
-                     stream);
+      raft::copy(idx.data() + n_already_selected, idx_tmp.data(), n_copy,
+                 stream);
     } else {
-      MLCommon::copy(idx.data() + n_already_selected,
-                     idx_tmp.data() + n_selected - n_copy, n_copy, stream);
+      raft::copy(idx.data() + n_already_selected,
+                 idx_tmp.data() + n_selected - n_copy, n_copy, stream);
     }
     if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
-      MLCommon::myPrintDevVector("selected", idx.data(),
-                                 n_already_selected + n_copy, ss);
+      raft::print_device_vector("selected", idx.data(),
+                                n_already_selected + n_copy, ss);
       CUML_LOG_DEBUG(ss.str().c_str());
     }
     return n_copy;
@@ -448,11 +447,11 @@ class WorkingSet {
     cub::DeviceSelect::If(cub_storage.data(), cub_bytes, ws_idx_sorted.data(),
                           ws_idx_selected.data(), d_num_selected, n_ws, op);
     int n_selected;
-    MLCommon::updateHost(&n_selected, d_num_selected, 1, stream);
+    raft::update_host(&n_selected, d_num_selected, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     int n_copy = n_selected < n_needed ? n_selected : n_needed;
-    MLCommon::copy(idx.data() + n_already_selected, ws_idx_selected.data(),
-                   n_copy, stream);
+    raft::copy(idx.data() + n_already_selected, ws_idx_selected.data(), n_copy,
+               stream);
     return n_copy;
   }
 };

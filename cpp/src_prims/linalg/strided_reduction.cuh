@@ -55,7 +55,7 @@ __global__ void stridedSummationKernel(Type *dots, const Type *data, int D,
 
   // Grid reduction
   if ((colStart < D) && (threadIdx.y == 0))
-    myAtomicAdd(dots + colStart, temp[myidx]);
+    raft::myAtomicAdd(dots + colStart, temp[myidx]);
 }
 
 // Kernel to perform reductions along the strided dimension
@@ -92,7 +92,7 @@ __global__ void stridedReductionKernel(OutType *dots, const InType *data, int D,
 
   // Grid reduction
   if ((colStart < D) && (threadIdx.y == 0))
-    myAtomicReduce(dots + colStart, temp[myidx], reduce_op);
+    raft::myAtomicReduce(dots + colStart, temp[myidx], reduce_op);
 }
 
 /**
@@ -123,31 +123,31 @@ __global__ void stridedReductionKernel(OutType *dots, const InType *data, int D,
  * @param stream cuda stream where to launch work
  */
 template <typename InType, typename OutType = InType, typename IdxType = int,
-          typename MainLambda = Nop<InType, IdxType>,
-          typename ReduceLambda = Sum<OutType>,
-          typename FinalLambda = Nop<OutType>>
+          typename MainLambda = raft::Nop<InType, IdxType>,
+          typename ReduceLambda = raft::Sum<OutType>,
+          typename FinalLambda = raft::Nop<OutType>>
 void stridedReduction(OutType *dots, const InType *data, IdxType D, IdxType N,
                       OutType init, cudaStream_t stream, bool inplace = false,
-                      MainLambda main_op = Nop<InType, IdxType>(),
-                      ReduceLambda reduce_op = Sum<OutType>(),
-                      FinalLambda final_op = Nop<OutType>()) {
+                      MainLambda main_op = raft::Nop<InType, IdxType>(),
+                      ReduceLambda reduce_op = raft::Sum<OutType>(),
+                      FinalLambda final_op = raft::Nop<OutType>()) {
   ///@todo: this extra should go away once we have eliminated the need
   /// for atomics in stridedKernel (redesign for this is already underway)
   if (!inplace)
-    unaryOp(
+    raft::linalg::unaryOp(
       dots, dots, D, [init] __device__(OutType a) { return init; }, stream);
 
   // Arbitrary numbers for now, probably need to tune
   const dim3 thrds(32, 16);
-  IdxType elemsPerThread = ceildiv(N, (IdxType)thrds.y);
+  IdxType elemsPerThread = raft::ceildiv(N, (IdxType)thrds.y);
   elemsPerThread = (elemsPerThread > 8) ? 8 : elemsPerThread;
-  const dim3 nblks(ceildiv(D, (IdxType)thrds.x),
-                   ceildiv(N, (IdxType)thrds.y * elemsPerThread));
+  const dim3 nblks(raft::ceildiv(D, (IdxType)thrds.x),
+                   raft::ceildiv(N, (IdxType)thrds.y * elemsPerThread));
   const size_t shmemSize = sizeof(OutType) * thrds.x * thrds.y;
 
   ///@todo: this complication should go away once we have eliminated the need
   /// for atomics in stridedKernel (redesign for this is already underway)
-  if (std::is_same<ReduceLambda, Sum<OutType>>::value &&
+  if (std::is_same<ReduceLambda, raft::Sum<OutType>>::value &&
       std::is_same<InType, OutType>::value)
     stridedSummationKernel<InType>
       <<<nblks, thrds, shmemSize, stream>>>(dots, data, D, N, init, main_op);
@@ -159,8 +159,8 @@ void stridedReduction(OutType *dots, const InType *data, IdxType D, IdxType N,
   ///@todo: this complication should go away once we have eliminated the need
   /// for atomics in stridedKernel (redesign for this is already underway)
   // Perform final op on output data
-  if (!std::is_same<FinalLambda, Nop<OutType>>::value)
-    unaryOp(dots, dots, D, final_op, stream);
+  if (!std::is_same<FinalLambda, raft::Nop<OutType>>::value)
+    raft::linalg::unaryOp(dots, dots, D, final_op, stream);
 }
 
 };  // end namespace LinAlg

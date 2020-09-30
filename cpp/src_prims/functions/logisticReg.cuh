@@ -18,6 +18,7 @@
 
 #include <linalg/transpose.h>
 #include <raft/linalg/cublas_wrappers.h>
+#include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <linalg/add.cuh>
 #include <linalg/binary_op.cuh>
@@ -60,10 +61,10 @@ void logisticRegLossGrads(math_t *input, int n_rows, int n_cols,
                cublas_handle, stream);
   LinAlg::subtract(labels_pred.data(), labels_pred.data(), labels, n_rows,
                    stream);
-  Matrix::matrixVectorBinaryMult(input, labels_pred.data(), n_rows, n_cols,
-                                 false, false, stream);
+  raft::matrix::matrixVectorBinaryMult(input, labels_pred.data(), n_rows,
+                                       n_cols, false, false, stream);
 
-  Stats::mean(grads, input, n_cols, n_rows, false, false, stream);
+  raft::stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 
   device_buffer<math_t> pen_grads(allocator, stream, 0);
 
@@ -88,7 +89,7 @@ void logLoss(T *out, T *label, T *label_pred, int len, cudaStream_t stream);
 template <>
 inline void logLoss(float *out, float *label, float *label_pred, int len,
                     cudaStream_t stream) {
-  LinAlg::binaryOp(
+  raft::linalg::binaryOp(
     out, label, label_pred, len,
     [] __device__(float y, float y_pred) {
       return -y * logf(y_pred) - (1 - y) * logf(1 - y_pred);
@@ -99,7 +100,7 @@ inline void logLoss(float *out, float *label, float *label_pred, int len,
 template <>
 inline void logLoss(double *out, double *label, double *label_pred, int len,
                     cudaStream_t stream) {
-  LinAlg::binaryOp(
+  raft::linalg::binaryOp(
     out, label, label_pred, len,
     [] __device__(double y, double y_pred) {
       return -y * log(y_pred) - (1 - y) * logf(1 - y_pred);
@@ -120,7 +121,7 @@ void logisticRegLoss(math_t *input, int n_rows, int n_cols, math_t *labels,
                cublas_handle, stream);
   logLoss(labels_pred.data(), labels, labels_pred.data(), n_rows, stream);
 
-  Stats::mean(loss, labels_pred.data(), 1, n_rows, false, false, stream);
+  raft::stats::mean(loss, labels_pred.data(), 1, n_rows, false, false, stream);
 
   device_buffer<math_t> pen_val(allocator, stream, 0);
 

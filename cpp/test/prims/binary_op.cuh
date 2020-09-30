@@ -18,9 +18,10 @@
 
 #include <cuda_utils.cuh>
 #include <linalg/binary_op.cuh>
+#include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename InType, typename OutType, typename IdxType>
 __global__ void naiveAddKernel(OutType *out, const InType *in1,
@@ -34,7 +35,7 @@ __global__ void naiveAddKernel(OutType *out, const InType *in1,
 template <typename InType, typename IdxType = int, typename OutType = InType>
 void naiveAdd(OutType *out, const InType *in1, const InType *in2, IdxType len) {
   static const IdxType TPB = 64;
-  IdxType nblks = ceildiv(len, TPB);
+  IdxType nblks = raft::ceildiv(len, TPB);
   naiveAddKernel<InType, OutType, IdxType><<<nblks, TPB>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -52,5 +53,5 @@ template <typename InType, typename IdxType = int, typename OutType = InType>
   return os;
 }
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

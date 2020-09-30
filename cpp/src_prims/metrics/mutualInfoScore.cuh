@@ -79,7 +79,7 @@ __global__ void mutualInfoKernel(const int *dContingencyMatrix, const int *a,
 
   //executed once per block
   if (threadIdx.x == 0 && threadIdx.y == 0) {
-    myAtomicAdd(d_MI, localMI);
+    raft::myAtomicAdd(d_MI, localMI);
   }
 }
 
@@ -148,8 +148,8 @@ double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
   //kernel configuration
   static const int BLOCK_DIM_Y = 16, BLOCK_DIM_X = 16;
   dim3 numThreadsPerBlock(BLOCK_DIM_X, BLOCK_DIM_Y);
-  dim3 numBlocks(ceildiv<int>(numUniqueClasses, numThreadsPerBlock.x),
-                 ceildiv<int>(numUniqueClasses, numThreadsPerBlock.y));
+  dim3 numBlocks(raft::ceildiv<int>(numUniqueClasses, numThreadsPerBlock.x),
+                 raft::ceildiv<int>(numUniqueClasses, numThreadsPerBlock.y));
 
   //calling the kernel
   mutualInfoKernel<T, BLOCK_DIM_X, BLOCK_DIM_Y>
@@ -158,7 +158,7 @@ double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
       d_MI.data());
 
   //updating in the host memory
-  MLCommon::updateHost(&h_MI, d_MI.data(), 1, stream);
+  raft::update_host(&h_MI, d_MI.data(), 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

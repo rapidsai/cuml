@@ -20,6 +20,7 @@
 #include <float.h>
 #include <math.h>
 #include <linalg/eltwise.cuh>
+
 #define restrict __restrict__
 
 namespace ML {
@@ -80,7 +81,7 @@ __global__ void sigmas_kernel(const float *restrict distances,
         beta = (beta + beta_min) * 0.5f;
     }
   }
-  atomicAdd(P_sum, sum_P_row);
+  raft::myAtomicAdd(P_sum, sum_P_row);
 }
 
 /****************************************/
@@ -133,7 +134,7 @@ __global__ void sigmas_kernel_2d(const float *restrict distances,
         beta = (beta + beta_min) * 0.5f;
     }
   }
-  atomicAdd(P_sum, sum_P_row);
+  raft::myAtomicAdd(P_sum, sum_P_row);
 }
 
 /****************************************/
@@ -149,16 +150,16 @@ float perplexity_search(const float *restrict distances, float *restrict P,
   CUDA_CHECK(cudaMemsetAsync(P_sum, 0, sizeof(float), stream));
 
   if (dim == 2)
-    sigmas_kernel_2d<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
+    sigmas_kernel_2d<<<raft::ceildiv(n, 1024), 1024, 0, stream>>>(
       distances, P, perplexity, desired_entropy, P_sum, epochs, tol, n);
   else
-    sigmas_kernel<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
+    sigmas_kernel<<<raft::ceildiv(n, 1024), 1024, 0, stream>>>(
       distances, P, perplexity, desired_entropy, P_sum, epochs, tol, n, dim);
   CUDA_CHECK(cudaPeekAtLastError());
 
   cudaStreamSynchronize(stream);
   float sum;
-  MLCommon::updateHost(&sum, P_sum, 1, stream);
+  raft::update_host(&sum, P_sum, 1, stream);
   d_alloc->deallocate(P_sum, sizeof(float), stream);
 
   return sum;
@@ -192,7 +193,7 @@ __global__ void attractive_kernel(
 
   // Apply forces
   for (int k = 0; k < dim; k++)
-    atomicAdd(&attract[k * n + i], PQ * (Y[k * n + i] - Y[k * n + j]));
+    raft::myAtomicAdd(&attract[k * n + i], PQ * (Y[k * n + i] - Y[k * n + j]));
 }
 
 /****************************************/
@@ -218,8 +219,8 @@ __global__ void attractive_kernel_2d(
   const float PQ = __fdividef(VAL[index], (1.0f + euclidean_d));  // P*Q
 
   // Apply forces
-  atomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));
-  atomicAdd(&attract2[i], PQ * (Y2[i] - Y2[j]));
+  raft::myAtomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));
+  raft::myAtomicAdd(&attract2[i], PQ * (Y2[i] - Y2[j]));
 }
 
 /****************************************/
@@ -236,12 +237,12 @@ void attractive_forces(const float *restrict VAL, const int *restrict COL,
   // #863
   // For general embedding dimensions
   if (dim != 2) {
-    attractive_kernel<<<MLCommon::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
+    attractive_kernel<<<raft::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
       VAL, COL, ROW, Y, norm, attract, NNZ, n, dim, df_power, recp_df);
   }
   // For special case dim == 2
   else {
-    attractive_kernel_2d<<<MLCommon::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
+    attractive_kernel_2d<<<raft::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
       VAL, COL, ROW, Y, Y + n, norm, attract, attract + n, NNZ);
   }
   CUDA_CHECK(cudaPeekAtLastError());
@@ -276,15 +277,15 @@ __global__ void repulsive_kernel(const float *restrict Y, float *restrict repel,
   // Apply forces
   for (int k = 0; k < dim; k++) {
     const float force = Q2 * (Y[k * n + j] - Y[k * n + i]);
-    atomicAdd(&repel[k * n + i], force);
-    atomicAdd(&repel[k * n + j], force);
+    raft::myAtomicAdd(&repel[k * n + i], force);
+    raft::myAtomicAdd(&repel[k * n + j], force);
   }
 
   // Sum up Z sum
   if (i % 2 == 0)
-    atomicAdd(&Z_sum1[i], Q);
+    raft::myAtomicAdd(&Z_sum1[i], Q);
   else
-    atomicAdd(&Z_sum2[i], Q);
+    raft::myAtomicAdd(&Z_sum2[i], Q);
 }
 
 /****************************************/
@@ -311,17 +312,17 @@ __global__ void repulsive_kernel_2d(
   const float force2 = Q2 * (Y2[j] - Y2[i]);
 
   // Add forces
-  atomicAdd(&repel1[i], force1);
-  atomicAdd(&repel1[j], -force1);
+  raft::myAtomicAdd(&repel1[i], force1);
+  raft::myAtomicAdd(&repel1[j], -force1);
 
-  atomicAdd(&repel2[i], force2);
-  atomicAdd(&repel2[j], -force2);
+  raft::myAtomicAdd(&repel2[i], force2);
+  raft::myAtomicAdd(&repel2[j], -force2);
 
   // Sum up Z sum
   if (i % 2 == 0)
-    atomicAdd(&Z_sum1[i], Q);
+    raft::myAtomicAdd(&Z_sum1[i], Q);
   else
-    atomicAdd(&Z_sum2[i], Q);
+    raft::myAtomicAdd(&Z_sum2[i], Q);
 }
 
 /****************************************/
@@ -335,8 +336,7 @@ float repulsive_forces(const float *restrict Y, float *restrict repel,
   CUDA_CHECK(cudaMemsetAsync(repel, 0, sizeof(float) * n * dim, stream));
 
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
-  const dim3 numBlocks(MLCommon::ceildiv(n, TPB_X),
-                       MLCommon::ceildiv(n, TPB_Y));
+  const dim3 numBlocks(raft::ceildiv(n, TPB_X), raft::ceildiv(n, TPB_Y));
 
   // For general embedding dimensions
   if (dim != 2) {
@@ -392,7 +392,7 @@ __global__ void apply_kernel(
   Y[index] += velocity[index];
 
   // Add to mean
-  //atomicAdd(&means[index / n], Y[index]);
+  //raft::myAtomicAdd(&means[index / n], Y[index]);
 }
 
 /****************************************/
@@ -410,7 +410,7 @@ float apply_forces(float *restrict Y, float *restrict velocity,
   if (check_convergence)
     CUDA_CHECK(cudaMemsetAsync(gradient, 0, sizeof(float) * n * dim, stream));
 
-  apply_kernel<<<MLCommon::ceildiv(n * dim, 1024), 1024, 0, stream>>>(
+  apply_kernel<<<raft::ceildiv(n * dim, 1024), 1024, 0, stream>>>(
     Y, velocity, attract, repel, means, gains, Z, learning_rate, C, momentum,
     n * dim, n, min_gain, gradient, check_convergence);
   CUDA_CHECK(cudaPeekAtLastError());
