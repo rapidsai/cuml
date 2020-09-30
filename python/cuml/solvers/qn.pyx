@@ -264,7 +264,7 @@ class QN(Base):
 
     @generate_docstring()
     @with_cupy_rmm
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
@@ -368,7 +368,7 @@ class QN(Base):
 
         return self
 
-    def _decision_function(self, X, convert_dtype=False):
+    def _decision_function(self, X, convert_dtype=True):
         """
         Gives confidence score for X
 
@@ -438,7 +438,7 @@ class QN(Base):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the y for X.
 
