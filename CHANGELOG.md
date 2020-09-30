@@ -6,6 +6,7 @@
 - PR #2789: Dask LabelEncoder
 - PR #2152: add FIL C++ benchmark
 - PR #2638: Improve cython build with custom `build_ext`
+- PR #2881 Introduces experimental batched backend for random forest
 
 ## Improvements
 - PR #2796: Remove tokens of length 1 by default for text vectorizers
