@@ -108,7 +108,7 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
   result += global_bias;
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
-  // will not be done on INT_CLASS_LABEL because the whole kernel will not run
+  // will not be done on CATEGORICAL_LEAF because the whole kernel will not run
   if ((output & output_t::CLASS) != 0) {
     result = result > threshold ? 1.0f : 0.0f;
   }
@@ -141,7 +141,7 @@ struct forest {
     output_ = params->output;
     threshold_ = params->threshold;
     global_bias_ = params->global_bias;
-    leaf_payload_type_ = params->leaf_payload_type;
+    leaf_algo_ = params->leaf_algo;
     num_classes_ = params->num_classes;
     init_max_shm();
   }
@@ -159,10 +159,10 @@ struct forest {
     params.num_rows = num_rows;
     params.max_shm = max_shm_;
     params.num_classes = num_classes_;
-    params.leaf_payload_type = leaf_payload_type_;
+    params.leaf_algo = leaf_algo_;
 
     /**
-    The binary classification / regression (FLOAT_SCALAR) predict_proba() works as follows
+    The binary classification / regression (FLOAT_UNARY_BINARY) predict_proba() works as follows
       (always 2 outputs):
     RAW: output the sum of tree predictions
     AVG is set: divide by the number of trees (averaging)
@@ -170,21 +170,21 @@ struct forest {
     CLASS is set: ignored
     write the output of the previous stages and its complement
 
-    The binary classification / regression (FLOAT_SCALAR) predict() works as follows
+    The binary classification / regression (FLOAT_UNARY_BINARY) predict() works as follows
       (always 1 output):
     RAW (no values set): output the sum of tree predictions
     AVG is set: divide by the number of trees (averaging)
     SIGMOID is set: apply sigmoid
     CLASS is set: apply threshold (equivalent to choosing best class)
     
-    The multi-class classification / regression (INT_CLASS_LABEL) predict_proba() works as follows
+    The multi-class classification / regression (CATEGORICAL_LEAF) predict_proba() works as follows
       (always num_classes outputs):
     RAW (no values set): output class votes
     AVG is set: divide by the number of trees (averaging, output class probability)
     SIGMOID is set: apply sigmoid
     CLASS is set: ignored
     
-    The multi-class classification / regression (INT_CLASS_LABEL) predict() works as follows
+    The multi-class classification / regression (CATEGORICAL_LEAF) predict() works as follows
       (always 1 output):
     RAW (no values set): output the label of the class with highest probability, else output label 0.
     AVG is set: ignored
@@ -194,7 +194,7 @@ struct forest {
     output_t ot = output_;
     bool complement_proba = false, do_transform = global_bias_ != 0.0f;
 
-    if (leaf_payload_type_ == leaf_value_t::FLOAT_SCALAR) {
+    if (leaf_algo_ == leaf_algo_t::FLOAT_UNARY_BINARY) {
       if (predict_proba) {
         params.num_outputs = 2;
         ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
@@ -204,7 +204,7 @@ struct forest {
         params.num_outputs = 1;
         if (ot != output_t::RAW) do_transform = true;
       }
-    } else if (leaf_payload_type_ == leaf_value_t::INT_CLASS_LABEL) {
+    } else if (leaf_algo_ == leaf_algo_t::CATEGORICAL_LEAF) {
       if (predict_proba) {
         params.num_outputs = num_classes_;
         ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
@@ -243,17 +243,32 @@ struct forest {
   output_t output_ = output_t::RAW;
   float threshold_ = 0.5;
   float global_bias_ = 0;
-  leaf_value_t leaf_payload_type_ = leaf_value_t::FLOAT_SCALAR;
-  int num_classes_ = 0;
+  leaf_algo_t leaf_algo_ = leaf_algo_t::FLOAT_UNARY_BINARY;
+  int num_classes_ = 1;
 };
 
 struct dense_forest : forest {
   void transform_trees(const dense_node_t* nodes) {
-    // populate node information
-    for (int i = 0, gid = 0; i < num_trees_; ++i) {
-      for (int j = 0, nid = 0; j <= depth_; ++j) {
-        for (int k = 0; k < 1 << j; ++k, ++nid, ++gid) {
-          h_nodes_[nid * num_trees_ + i] = dense_node(nodes[gid]);
+    /* Populate node information:
+       For each tree, the nodes are still stored in the breadth-first,
+       left-to-right order. However, instead of storing the nodes of the same
+       tree adjacently, it uses a different layout. In this layout, the roots
+       of all trees (node 0) are stored first, followed by left children of
+       the roots of all trees (node 1), followed by the right children of the
+       roots of all trees (node 2), and so on.
+    */
+    int global_node = 0;
+    for (int tree = 0; tree < num_trees_; ++tree) {
+      int tree_node = 0;
+      // the counters `level` and `branch` are not used for computing node
+      // indices, they are only here to highlight the node ordering within
+      // each tree
+      for (int level = 0; level <= depth_; ++level) {
+        for (int branch = 0; branch < 1 << level; ++branch) {
+          h_nodes_[tree_node * num_trees_ + tree] =
+            dense_node(nodes[global_node]);
+          ++tree_node;
+          ++global_node;
         }
       }
     }
@@ -374,20 +389,26 @@ void check_params(const forest_params_t* params, bool dense) {
       ASSERT(false,
              "algo should be ALGO_AUTO, NAIVE, TREE_REORG or BATCH_TREE_REORG");
   }
-  switch (params->leaf_payload_type) {
-    case leaf_value_t::FLOAT_SCALAR:
-      /* params->num_classes is ignored in this case, since the user might call
-         predict_proba() on regression. Hence, no point checking the range of
-         an ignored variable */
+  switch (params->leaf_algo) {
+    case leaf_algo_t::FLOAT_UNARY_BINARY:
+      if ((params->output & output_t::CLASS) != 0) {
+        ASSERT(params->num_classes == 2,
+               "only supporting binary"
+               " classification using FLOAT_UNARY_BINARY");
+      } else {
+        ASSERT(params->num_classes == 1,
+               "num_classes must be 1 for "
+               "regression");
+      }
       break;
-    case leaf_value_t::INT_CLASS_LABEL:
+    case leaf_algo_t::CATEGORICAL_LEAF:
       ASSERT(params->num_classes >= 2,
              "num_classes >= 2 is required for "
-             "leaf_payload_type == INT_CLASS_LABEL");
+             "leaf_algo == CATEGORICAL_LEAF");
       break;
     default:
       ASSERT(false,
-             "leaf_payload_type should be FLOAT_SCALAR or INT_CLASS_LABEL");
+             "leaf_algo should be FLOAT_UNARY_BINARY or CATEGORICAL_LEAF");
   }
   // output_t::RAW == 0, and doesn't have a separate flag
   output_t all_set =
@@ -497,19 +518,19 @@ template <typename fil_node_t>
 void tl2fil_leaf_payload(fil_node_t* fil_node, const tl::Tree& tl_tree,
                          int tl_node_id, const forest_params_t& forest_params) {
   auto vec = tl_tree.LeafVector(tl_node_id);
-  switch (forest_params.leaf_payload_type) {
-    case leaf_value_t::INT_CLASS_LABEL:
+  switch (forest_params.leaf_algo) {
+    case leaf_algo_t::CATEGORICAL_LEAF:
       ASSERT(vec.size() == forest_params.num_classes,
              "inconsistent number of classes in treelite leaves");
       fil_node->val.idx = find_class_label_from_one_hot(&vec[0], vec.size());
       break;
-    case leaf_value_t::FLOAT_SCALAR:
+    case leaf_algo_t::FLOAT_UNARY_BINARY:
       fil_node->val.f = tl_tree.LeafValue(tl_node_id);
       ASSERT(!tl_tree.HasLeafVector(tl_node_id),
              "some but not all treelite leaves have leaf_vector()");
       break;
     default:
-      ASSERT(false, "internal error: invalid leaf_payload_type");
+      ASSERT(false, "internal error: invalid leaf_algo");
   };
 }
 
@@ -625,7 +646,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     ASSERT(leaf_vec_size == model.num_output_group,
            "treelite model inconsistent");
     params->num_classes = leaf_vec_size;
-    params->leaf_payload_type = leaf_value_t::INT_CLASS_LABEL;
+    params->leaf_algo = leaf_algo_t::CATEGORICAL_LEAF;
 
     ASSERT(tl_params->output_class,
            "output_class==true is required for multi-class models");
@@ -636,11 +657,11 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
       "are supported for multi-class models");
 
   } else {
+    params->num_classes = tl_params->output_class ? 2 : 1;
     ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
            "only sigmoid and identity values of pred_transform "
            "are supported for binary classification and regression models");
-    params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
-    params->num_classes = 0;  // ignored
+    params->leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY;
   }
 
   params->num_cols = model.num_feature;

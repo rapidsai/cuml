@@ -74,8 +74,6 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 
-option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" OFF)
-
 option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 
 option(LINE_INFO "Enable lineinfo in nvcc" OFF)
@@ -268,9 +266,7 @@ endif(KERNEL_INFO)
 if(NVTX)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DNVTX_ENABLED")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNVTX_ENABLED")
-  if(EMPTY_MARKER_KERNEL)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_EMPTY_MARKER_KERNEL")
-  endif(EMPTY_MARKER_KERNEL)
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}")
 endif(NVTX)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)

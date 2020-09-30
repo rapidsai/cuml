@@ -3,10 +3,14 @@
 ## New Features
 - PR #2677: Ability to export RF trees as JSON
 - PR #2698: Distributed TF-IDF transformer
+- PR #2476: Porter Stemmer
+- PR #2789: Dask LabelEncoder
 - PR #2152: add FIL C++ benchmark
 - PR #2638: Improve cython build with custom `build_ext`
+- PR #2874: Issue warning for degraded accuracy with float64 models in Treelite
 
 ## Improvements
+- PR #2873: Remove empty marker kernel code for NVTX markers
 - PR #2796: Remove tokens of length 1 by default for text vectorizers
 - PR #2741: Use rapids build packages in conda environments
 - PR #2735: Update seed to random_state in random forest and associated tests
@@ -27,23 +31,36 @@
 - PR #2799: Reenable lightgbm test with lower (1%) proba accuracy
 - PR #2800: Align cuML's spdlog version with RMM's
 - PR #2824: Make data conversions warnings be debug level
+- PR #2541: Improve Documentation Examples and Source Linking
+- PR #2837: Make the FIL node reorder loop more obvious
+- PR #2849: make num_classes significant in FLOAT_SCALAR case
+- PR #2792: Project flash (new build process) script changes
+- PR #2850: Clean up unused params in paramsPCA
+- PR #2863: in FIL, rename leaf_value_t enums to more descriptive
 
 ## Bug Fixes
+- PR #2882: Allow import on machines without GPUs
+- PR #2875: Bug fix to enable colorful NVTX markers
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
 - PR #2769: Remove outdated doxygen options for 1.8.20
 - PR #2787: Skip lightgbm test for version 3 and above temporarily
+- PR #2805: Retain index in stratified splitting for dataframes
 - PR #2781: Use Python print to correctly redirect spdlogs when sys.stdout is changed
 - PR #2787: Skip lightgbm test for version 3 and above temporarily
 - PR #2813: Fix memory access in generation of non-row-major random blobs
 - PR #2810: Update Rf MNMG threshold to prevent sporadic test failure
 - PR #2808: Relax Doxygen version required in CMake to coincide with integration repo
 - PR #2818: Fix parsing of singlegpu option in build command
+- PR #2827: Force use of whole dataset when sample bootstrapping is disabled
 - PR #2829: Fixing description for labels in docs and removing row number constraint from PCA xform/inverse_xform
 - PR #2832: Updating stress tests that fail with OOM
 - PR #2831: Removing repeated capture and parameter in lambda function
+- PR #2847: Workaround for TSNE lockup, change caching preference.
 - PR #2842: KNN index preprocessors were using incorrect n_samples
 - PR #2848: Fix typo in Python docstring for UMAP
 - PR #2855: Updates for RMM being header only
+- PR #2856: Fix LabelEncoder for filtered input
+
 
 # cuML 0.15.0 (Date TBD)
 
@@ -76,6 +93,7 @@
 - PR #2661: CUDA-11 support for single-gpu code
 - PR #2322: Sparse FIL forests with 8-byte nodes
 - PR #2675: Update conda recipes to support CUDA 11
+- PR #2645: Add experimental, sklearn-based preprocessing
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage

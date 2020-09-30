@@ -24,6 +24,7 @@ build:
     - PARALLEL_LEVEL
     - VERSION_SUFFIX
     - SINGLE_GPU #[aarch64]
+    - PROJECT_FLASH
 
 requirements:
   build:
