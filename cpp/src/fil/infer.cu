@@ -234,6 +234,7 @@ struct tree_aggregator_t<NITEMS, TREE_PER_CLASS_FEW_CLASSES> {
     __syncthreads();
     // reduce per-thread margin summand into per-class complete margin
     // (for each of the NITEMS rows)
+    // TODO(levsnv): use CUB/tree reduction when num_classes is small
     if (threadIdx.x < num_classes) {
       for (int c = threadIdx.x + num_classes; c < blockDim.x; c += num_classes)
         acc += per_thread[c];
@@ -283,14 +284,14 @@ struct tree_aggregator_t<NITEMS, TREE_PER_CLASS_MANY_CLASSES> {
       num_classes(num_classes_) {
     for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
       per_class_margin[c].fill(0.0f);
-    //__syncthreads(); // done in the main loop
+    //__syncthreads() is done in infer_k
   }
 
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, float> single_tree_prediction, int tree) {
     // since threads are assigned to consecutive classes, no need for atomics
     per_class_margin[tree % num_classes] += single_tree_prediction;
-    //__syncthreads(); // done in the main loop
+    //__syncthreads() is done in infer_k
   }
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
@@ -344,7 +345,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
     for (int c = threadIdx.x; c < num_classes; c += FIL_TPB * NITEMS)
 #pragma unroll
       for (int item = 0; item < NITEMS; ++item) votes[c * NITEMS + item] = 0;
-    //__syncthreads(); // happening outside already
+    //__syncthreads() is done in infer_k
   }
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, int> single_tree_prediction, int tree) {
@@ -446,7 +447,7 @@ size_t get_smem_footprint(predict_params params) {
 
 template <leaf_algo_t leaf_algo, typename storage_type>
 void infer_k_launcher(storage_type forest, predict_params params,
-                      cudaStream_t stream) {
+                      cudaStream_t stream, int blockdim_x) {
   const int MAX_BATCH_ITEMS = 4;
   params.max_items =
     params.algo == algo_t::BATCH_TREE_REORG ? MAX_BATCH_ITEMS : 1;
@@ -494,9 +495,6 @@ void infer_k_launcher(storage_type forest, predict_params params,
            given_num_cols, params.num_cols);
   }
   int num_blocks = ceildiv(int(params.num_rows), num_items);
-  int blockdim_x = FIL_TPB;
-  if (leaf_algo == TREE_PER_CLASS_FEW_CLASSES)
-    blockdim_x -= blockdim_x % params.num_classes;
   switch (num_items) {
     case 1:
       infer_k<1, leaf_algo>
@@ -524,20 +522,21 @@ template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
   switch (params.leaf_algo) {
     case FLOAT_UNARY_BINARY:
-      infer_k_launcher<FLOAT_UNARY_BINARY, storage_type>(forest, params,
-                                                         stream);
+      infer_k_launcher<FLOAT_UNARY_BINARY>(forest, params, stream, FIL_TPB);
       break;
     case TREE_PER_CLASS:
       if (params.num_classes > FIL_TPB) {
         params.leaf_algo = TREE_PER_CLASS_MANY_CLASSES;
-        infer_k_launcher<TREE_PER_CLASS_MANY_CLASSES>(forest, params, stream);
+        infer_k_launcher<TREE_PER_CLASS_MANY_CLASSES>(forest, params, stream,
+                                                      FIL_TPB);
       } else {
         params.leaf_algo = TREE_PER_CLASS_FEW_CLASSES;
-        infer_k_launcher<TREE_PER_CLASS_FEW_CLASSES>(forest, params, stream);
+        infer_k_launcher<TREE_PER_CLASS_FEW_CLASSES>(
+          forest, params, stream, FIL_TPB - FIL_TPB % params.num_classes);
       }
       break;
     case CATEGORICAL_LEAF:
-      infer_k_launcher<CATEGORICAL_LEAF, storage_type>(forest, params, stream);
+      infer_k_launcher<CATEGORICAL_LEAF>(forest, params, stream, FIL_TPB);
       break;
     default:
       ASSERT(false, "internal error: invalid leaf_algo");

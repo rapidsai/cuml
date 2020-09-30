@@ -61,7 +61,8 @@ struct FilTestParams {
   // num_classes = 1 means it's regression
   // num_classes = 2 means it's binary classification
   // (complement probabilities, then use threshold)
-  // num_classes > 2 means it's multiclass classification,
+  // when TREE_PER_CLASS == leaf_algo:
+  // it's multiclass classification (num_classes must be > 2),
   // done by splitting the forest in num_classes groups,
   // each of which computes one-vs-all probability for its class.
   // when CATEGORICAL_LEAF == leaf_algo:
@@ -551,8 +552,9 @@ class TreeliteFilTest : public BaseFilTest {
     } else if (ps.leaf_algo != fil::leaf_algo_t::FLOAT_UNARY_BINARY) {
       model_builder->SetModelParam("pred_transform", "max_index");
       ps.output = fil::output_t(ps.output | fil::output_t::CLASS);
-    } else
+    } else {
       model_builder->SetModelParam("pred_transform", "identity");
+    }
 
     // global bias
     char* global_bias_str = nullptr;
@@ -714,10 +716,6 @@ std::vector<FilTestParams> predict_dense_inputs = {
    fil::output_t(fil::output_t::AVG | fil::output_t::CLASS), 0, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator(0),
    fil::leaf_algo_t::TREE_PER_CLASS, 5},
-  {20000, 50, 0.05, 8, 50, 0.05,
-   fil::output_t(fil::output_t::AVG | fil::output_t::CLASS), 0, 0,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator(0),
-   fil::leaf_algo_t::FLOAT_UNARY_BINARY, 2},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0,
    fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator(0),
    fil::leaf_algo_t::TREE_PER_CLASS, 5},

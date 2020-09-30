@@ -187,22 +187,18 @@ struct forest {
     The multi-class classification / regression (CATEGORICAL_LEAF) predict() works as follows
       (always 1 output):
     RAW (no values set): output the label of the class with highest probability, else output label 0.
-    AVG is set: ignored
-    SIGMOID is set: ignored
-    CLASS is set: ignored
+    All other flags (AVG, SIGMOID, CLASS) are ignored
     
-    The multi-class classification / regression (TREE_PER_CLASS) predict_proba() is disabled
+    The multi-class classification / regression (TREE_PER_CLASS) predict_proba() is not implemented
     
     The multi-class classification / regression (TREE_PER_CLASS) predict() works as follows
       (always 1 output):
     RAW (no values set): output the label of the class with highest margin,
       equal margins resolved in favor of smaller label integer
-    AVG is set: ignored
-    SIGMOID is set: ignored
-    CLASS is set: ignored
+    All other flags (AVG, SIGMOID, CLASS) are ignored
     */
     output_t ot = output_;
-    bool complement_proba = false, do_transform = global_bias_ != 0.0f;
+    bool complement_proba = false, do_transform;
 
     if (predict_proba) {
       // no threshold on probabilities
@@ -210,45 +206,32 @@ struct forest {
 
       switch (leaf_algo_) {
         case leaf_algo_t::FLOAT_UNARY_BINARY:
-          ASSERT(num_classes_ <= 2,
-                 "use leaf_algo_t::TREE_PER_CLASS for "
-                 "num_classes > 2");
           params.num_outputs = 2;
           complement_proba = true;
           do_transform = true;
           break;
         case leaf_algo_t::TREE_PER_CLASS:
+          // TODO(levsnv): add softmax to implement predict_proba
           ASSERT(
             false,
-            "predict_proba not supported for multi-class Gradient Boosted "
-            "Decision Trees (encountered in xgboost, scikit-learn, lightgbm)");
+            "predict_proba not supported for multi-class gradient boosted "
+            "decision trees (encountered in xgboost, scikit-learn, lightgbm)");
         case leaf_algo_t::CATEGORICAL_LEAF:
           params.num_outputs = num_classes_;
-          if (ot != output_t::RAW) do_transform = true;
+          do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
           break;
         default:
-          ASSERT(false,
-                 "forest_params_t::leaf_algo must be FLOAT_UNARY_BINARY, "
-                 "TREE_PER_CLASS or CATEGORICAL_LEAF");
+          ASSERT(false, "internal error: invalid forest_params_t::leaf_algo");
       }
     } else {
-      params.num_outputs = 1;
-
-      switch (leaf_algo_) {
-        case leaf_algo_t::FLOAT_UNARY_BINARY:
-          if (ot != output_t::RAW) do_transform = true;
-          break;
-        case leaf_algo_t::TREE_PER_CLASS:
-        case leaf_algo_t::CATEGORICAL_LEAF:
-          // moot since choosing best class and all transforms are monotonic
-          // also, would break current code
-          do_transform = false;
-          break;
-        default:
-          ASSERT(false,
-                 "forest_params_t::leaf_algo must be FLOAT_UNARY_BINARY, "
-                 "TREE_PER_CLASS or CATEGORICAL_LEAF");
+      if (leaf_algo_ == leaf_algo_t::FLOAT_UNARY_BINARY) {
+        do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
+      } else {
+        // TREE_PER_CLASS, CATEGORICAL_LEAF: moot since choosing best class and
+        // all transforms are monotonic. also, would break current code
+        do_transform = false;
       }
+      params.num_outputs = 1;
     }
 
     // Predict using the forest.
@@ -448,7 +431,8 @@ void check_params(const forest_params_t* params, bool dense) {
       break;
     default:
       ASSERT(false,
-             "leaf_algo should be FLOAT_UNARY_BINARY or CATEGORICAL_LEAF");
+             "leaf_algo must be FLOAT_UNARY_BINARY, CATEGORICAL_LEAF"
+             " or TREE_PER_CLASS");
   }
   // output_t::RAW == 0, and doesn't have a separate flag
   output_t all_set =
