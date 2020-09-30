@@ -39,6 +39,7 @@
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
 
 ## Bug Fixes
+- PR #2882: Allow import on machines without GPUs
 - PR #2875: Bug fix to enable colorful NVTX markers
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
 - PR #2769: Remove outdated doxygen options for 1.8.20
