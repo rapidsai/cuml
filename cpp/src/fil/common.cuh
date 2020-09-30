@@ -198,8 +198,9 @@ struct predict_params {
   // for class probabilities, this is the number of classes considered
   // ignored otherwise
   int num_classes;
-  // leaf_payload_type determines what the leaves store (predict)
-  leaf_value_t leaf_payload_type;
+  // leaf_algo determines what the leaves store (predict) and how FIL
+  // aggregates them into class margins/predicted class/regression answer
+  leaf_algo_t leaf_algo;
 
   // Data parameters.
   float* preds;
