@@ -73,7 +73,7 @@ def replace_suffix(word_str_ser, suffix, replacement, can_replace_mask):
         return stem_ser + replacement_ser
 
 
-@cuda.jit("void(int32[:], boolean[:], int32)")
+@cuda.jit()
 def subtract_valid(input_array, valid_bool_array, sub_val):
     pos = cuda.grid(1)
     if pos < input_array.size:
