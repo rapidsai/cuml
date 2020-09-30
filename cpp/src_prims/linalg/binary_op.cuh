@@ -19,8 +19,8 @@
 #include <cuda_utils.cuh>
 #include <vectorized.cuh>
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename InType, int VecLen, typename Lambda, typename IdxType,
           typename OutType>
@@ -46,7 +46,8 @@ template <typename InType, int VecLen, typename Lambda, typename IdxType,
           typename OutType, int TPB>
 void binaryOpImpl(OutType *out, const InType *in1, const InType *in2,
                   IdxType len, Lambda op, cudaStream_t stream) {
-  const IdxType nblks = ceildiv(VecLen ? len / VecLen : len, (IdxType)TPB);
+  const IdxType nblks =
+    raft::ceildiv(VecLen ? len / VecLen : len, (IdxType)TPB);
   binaryOpKernel<InType, VecLen, Lambda, IdxType, OutType>
     <<<nblks, TPB, 0, stream>>>(out, in1, in2, len, op);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -96,5 +97,5 @@ void binaryOp(OutType *out, const InType *in1, const InType *in2, IdxType len,
   }
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

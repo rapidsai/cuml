@@ -46,7 +46,7 @@ void gaussian_random_matrix(const raft::handle_t& h,
   auto d_alloc = h.get_device_allocator();
   int len = params.n_components * params.n_features;
   random_matrix->dense_data.resize(len, stream);
-  auto rng = Random::Rng(params.random_state);
+  auto rng = raft::random::Rng(params.random_state);
   math_t scale = 1.0 / sqrt(double(params.n_components));
   rng.normal(random_matrix->dense_data.data(), len, math_t(0), scale, stream);
 }
@@ -67,7 +67,7 @@ void sparse_random_matrix(const raft::handle_t& h,
   if (params.density == 1.0f) {
     int len = params.n_components * params.n_features;
     random_matrix->dense_data.resize(len, stream);
-    auto rng = Random::Rng(params.random_state);
+    auto rng = raft::random::Rng(params.random_state);
     math_t scale = 1.0 / sqrt(math_t(params.n_components));
     rng.scaled_bernoulli(random_matrix->dense_data.data(), len, math_t(0.5),
                          scale, stream);
@@ -100,17 +100,17 @@ void sparse_random_matrix(const raft::handle_t& h,
 
     size_t len = offset;
     random_matrix->indices.resize(len, stream);
-    updateDevice(random_matrix->indices.data(), indices, len, stream);
+    raft::update_device(random_matrix->indices.data(), indices, len, stream);
     alloc->deallocate(indices, indices_alloc, stream);
 
     len = indptr_idx + 1;
     random_matrix->indptr.resize(len, stream);
-    updateDevice(random_matrix->indptr.data(), indptr, len, stream);
+    raft::update_device(random_matrix->indptr.data(), indptr, len, stream);
     alloc->deallocate(indptr, indptr_alloc, stream);
 
     len = offset;
     random_matrix->sparse_data.resize(len, stream);
-    auto rng = Random::Rng(params.random_state);
+    auto rng = raft::random::Rng(params.random_state);
     math_t scale = sqrt(1.0 / params.density) / sqrt(params.n_components);
     rng.scaled_bernoulli(random_matrix->sparse_data.data(), len, math_t(0.5),
                          scale, stream);

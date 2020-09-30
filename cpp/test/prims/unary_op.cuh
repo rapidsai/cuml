@@ -18,9 +18,10 @@
 
 #include <cuda_utils.cuh>
 #include <linalg/unary_op.cuh>
+#include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename InType, typename OutType, typename IdxType>
 __global__ void naiveScaleKernel(OutType *out, const InType *in, InType scalar,
@@ -40,7 +41,7 @@ template <typename InType, typename IdxType = int, typename OutType = InType>
 void naiveScale(OutType *out, const InType *in, InType scalar, int len,
                 cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   naiveScaleKernel<InType, OutType, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -60,5 +61,5 @@ template <typename InType, typename IdxType = int, typename OutType = InType>
   return os;
 }
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

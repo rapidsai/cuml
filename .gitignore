@@ -18,6 +18,7 @@ __pycache__
 htmlcov
 build/
 build_prims/
+cmake-build*
 cuml.egg-info/
 dist/
 python/cuml/**/*.cpp

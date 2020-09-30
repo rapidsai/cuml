@@ -54,13 +54,13 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<T>> {
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<ReduceInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     outlen = params.alongRows ? rows : cols;
-    allocate(data, len);
-    allocate(dots_exp, outlen);
-    allocate(dots_act, outlen);
+    raft::allocate(data, len);
+    raft::allocate(dots_exp, outlen);
+    raft::allocate(dots_act, outlen);
     r.uniform(data, len, T(-1.0), T(1.0), stream);
     naiveReduction(dots_exp, data, cols, rows, params.rowMajor,
                    params.alongRows, stream);
@@ -129,13 +129,13 @@ const std::vector<ReduceInputs<double>> inputsd = {
 typedef ReduceTest<float> ReduceTestF;
 TEST_P(ReduceTestF, Result) {
   ASSERT_TRUE(devArrMatch(dots_exp, dots_act, outlen,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef ReduceTest<double> ReduceTestD;
 TEST_P(ReduceTestD, Result) {
   ASSERT_TRUE(devArrMatch(dots_exp, dots_act, outlen,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(ReduceTests, ReduceTestF, ::testing::ValuesIn(inputsf));

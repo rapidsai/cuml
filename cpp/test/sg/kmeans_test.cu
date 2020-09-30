@@ -69,19 +69,19 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
                params.n_clusters, true, nullptr, nullptr, 1.0, false, -10.0f,
                10.0f, 1234ULL);
 
-    allocate(d_labels, n_samples);
-    allocate(d_labels_ref, n_samples);
-    allocate(d_centroids, params.n_clusters * n_features);
+    raft::allocate(d_labels, n_samples);
+    raft::allocate(d_labels_ref, n_samples);
+    raft::allocate(d_centroids, params.n_clusters * n_features);
 
     if (testparams.weighted) {
-      allocate(d_sample_weight, n_samples);
+      raft::allocate(d_sample_weight, n_samples);
       thrust::fill(thrust::cuda::par.on(handle.get_stream()), d_sample_weight,
                    d_sample_weight + n_samples, 1);
     } else {
       d_sample_weight = nullptr;
     }
 
-    MLCommon::copy(d_labels_ref, labels.data(), n_samples, handle.get_stream());
+    raft::copy(d_labels_ref, labels.data(), n_samples, handle.get_stream());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -99,11 +99,12 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     if (score < 1.0) {
       std::stringstream ss;
       ss << "Expected: "
-         << arr2Str(d_labels_ref, 25, "d_labels_ref", handle.get_stream());
+         << raft::arr2Str(d_labels_ref, 25, "d_labels_ref",
+                          handle.get_stream());
       CUML_LOG_DEBUG(ss.str().c_str());
       ss.str(std::string());
       ss << "Actual: "
-         << arr2Str(d_labels, 25, "d_labels", handle.get_stream());
+         << raft::arr2Str(d_labels, 25, "d_labels", handle.get_stream());
       CUML_LOG_DEBUG(ss.str().c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }

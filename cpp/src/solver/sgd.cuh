@@ -158,7 +158,7 @@ void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
 
       if (cbs == 0) break;
 
-      updateDevice(indices.data(), &rand_indices[j], cbs, stream);
+      raft::update_device(indices.data(), &rand_indices[j], cbs, stream);
       Matrix::copyRows(input, n_rows, n_cols, input_batch.data(),
                        indices.data(), cbs, stream);
       Matrix::copyRows(labels, n_rows, 1, labels_batch.data(), indices.data(),
@@ -187,8 +187,8 @@ void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
       if (lr_type != ML::lr_type::ADAPTIVE)
         learning_rate = calLearningRate(lr_type, eta0, power_t, alpha, t);
 
-      LinAlg::scalarMultiply(grads.data(), grads.data(), learning_rate, n_cols,
-                             stream);
+      raft::linalg::scalarMultiply(grads.data(), grads.data(), learning_rate,
+                                   n_cols, stream);
       LinAlg::subtract(coef, coef, grads.data(), n_cols, stream);
 
       j = j + cbs;
@@ -210,7 +210,7 @@ void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
                              cublas_handle, allocator, stream);
       }
 
-      updateHost(&curr_loss_value, loss_value.data(), 1, stream);
+      raft::update_host(&curr_loss_value, loss_value.data(), 1, stream);
       CUDA_CHECK(cudaStreamSynchronize(stream));
 
       if (i > 0) {
@@ -318,7 +318,7 @@ void sgdPredictBinaryClass(const raft::handle_t &handle, const math_t *input,
 
   math_t scalar = math_t(1);
   if (loss == ML::loss_funct::SQRD_LOSS || loss == ML::loss_funct::LOG) {
-    LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       preds, preds, n_rows,
       [scalar] __device__(math_t in) {
         if (in >= math_t(0.5))
@@ -328,7 +328,7 @@ void sgdPredictBinaryClass(const raft::handle_t &handle, const math_t *input,
       },
       stream);
   } else if (loss == ML::loss_funct::HINGE) {
-    LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       preds, preds, n_rows,
       [scalar] __device__(math_t in) {
         if (in >= math_t(0.0))

@@ -39,9 +39,9 @@ __global__ void sumKernelRowMajor(Type *mu, const Type *data, IdxType D,
   __shared__ Type smu[ColsPerBlk];
   if (threadIdx.x < ColsPerBlk) smu[threadIdx.x] = Type(0);
   __syncthreads();
-  myAtomicAdd(smu + thisColId, thread_data);
+  raft::myAtomicAdd(smu + thisColId, thread_data);
   __syncthreads();
-  if (threadIdx.x < ColsPerBlk) myAtomicAdd(mu + colId, smu[thisColId]);
+  if (threadIdx.x < ColsPerBlk) raft::myAtomicAdd(mu + colId, smu[thisColId]);
 }
 
 template <typename Type, typename IdxType, int TPB>
@@ -83,7 +83,8 @@ void sum(Type *output, const Type *input, IdxType D, IdxType N, bool rowMajor,
     static const int RowsPerThread = 4;
     static const int ColsPerBlk = 32;
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(ceildiv(N, (IdxType)RowsPerBlk), ceildiv(D, (IdxType)ColsPerBlk));
+    dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk),
+              raft::ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemset(output, 0, sizeof(Type) * D));
     sumKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
       <<<grid, TPB, 0, stream>>>(output, input, D, N);
