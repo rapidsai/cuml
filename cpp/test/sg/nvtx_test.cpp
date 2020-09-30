@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <common/nvtx.cu>
 #include <gtest/gtest.h>
+#include <common/nvtx.cu>
 /**
  * tests for the functionality of generating next color based on string
  * entered in the NVTX Range marker wrappers
