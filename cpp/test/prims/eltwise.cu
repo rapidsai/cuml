@@ -20,8 +20,6 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-using namespace MLCommon;
-
 namespace raft {
 namespace linalg {
 

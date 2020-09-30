@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cub/cub.cuh>
-#include "device_buffer.hpp"
+#include <raft/mr/device/buffer.hpp>
 
 namespace raft {
 
@@ -34,7 +34,7 @@ namespace raft {
      * @param stream cuda stream
      */
 template <typename KeyT, typename ValueT>
-void sortPairs(MLCommon::device_buffer<char> &workspace, const KeyT *inKeys,
+void sortPairs(raft::mr::device::buffer<char> &workspace, const KeyT *inKeys,
                KeyT *outKeys, const ValueT *inVals, ValueT *outVals, int len,
                cudaStream_t stream) {
   size_t worksize;

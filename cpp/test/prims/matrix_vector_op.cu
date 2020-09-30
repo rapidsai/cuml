@@ -20,8 +20,6 @@
 #include "matrix_vector_op.cuh"
 #include "test_utils.h"
 
-using namespace MLCommon;
-
 namespace raft {
 namespace linalg {
 

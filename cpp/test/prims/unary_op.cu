@@ -21,8 +21,6 @@
 #include "test_utils.h"
 #include "unary_op.cuh"
 
-using namespace MLCommon;
-
 namespace raft {
 namespace linalg {
 
