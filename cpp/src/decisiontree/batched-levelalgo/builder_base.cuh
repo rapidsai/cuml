@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <common/grid_sync.cuh>
-#include <cuda_utils.cuh>
 #include <cuml/tree/flatnode.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
+#include <common/grid_sync.cuh>
 #include <common/host_buffer.hpp>
+#include <cuda_utils.cuh>
 #include <cuml/tree/decisiontree.hpp>
 #include "input.cuh"
 #include "kernels.cuh"
@@ -325,11 +325,12 @@ struct Builder {
     }
     // create child nodes (or make the current ones leaf)
     auto smemSize = Traits::nodeSplitSmemSize(*this);
-    nodeSplitKernel<DataT, LabelT, IdxT, typename Traits::DevTraits, Traits::TPB_SPLIT>
+    nodeSplitKernel<DataT, LabelT, IdxT, typename Traits::DevTraits,
+                    Traits::TPB_SPLIT>
       <<<batchSize, Traits::TPB_SPLIT, smemSize, s>>>(
         params.max_depth, params.min_rows_per_node, params.max_leaves,
-        params.min_impurity_decrease, input, curr_nodes, next_nodes,
-        n_nodes, splits, n_leaves, h_total_nodes, n_depth);
+        params.min_impurity_decrease, input, curr_nodes, next_nodes, n_nodes,
+        splits, n_leaves, h_total_nodes, n_depth);
     CUDA_CHECK(cudaGetLastError());
     // copy the updated (due to leaf creation) and newly created child nodes
     MLCommon::updateHost(h_nodes + node_start, curr_nodes, batchSize, s);
@@ -378,8 +379,7 @@ struct ClsTraits {
     auto nbins = b.params.n_bins;
     auto nclasses = b.input.nclasses;
     auto binSize = nbins * 2 * nclasses;
-    auto colBlks =
-      std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
+    auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
     dim3 grid(b.n_blks_for_rows, colBlks, batchSize);
     size_t smemSize = sizeof(int) * binSize + sizeof(DataT) * nbins;
     smemSize += sizeof(int);
@@ -399,7 +399,8 @@ struct ClsTraits {
    * @return the smem size (in B)
    */
   static size_t nodeSplitSmemSize(Builder<ClsTraits<DataT, LabelT, IdxT>>& b) {
-    return std::max(2 * sizeof(IdxT) * TPB_SPLIT, sizeof(int) * b.input.nclasses);
+    return std::max(2 * sizeof(IdxT) * TPB_SPLIT,
+                    sizeof(int) * b.input.nclasses);
   }
 };  // end ClsTraits
 

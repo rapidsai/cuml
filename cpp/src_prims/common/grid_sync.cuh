@@ -221,7 +221,6 @@ struct GridSync {
   }
 };  // struct GridSync
 
-
 /**
  * @brief Helper method to have a group of threadblocks signal completion to
  *        others and also determine who's the last to arrive at this sync point

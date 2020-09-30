@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.cuh>
 #include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <random/make_blobs.cuh>
-#include <random/make_regression.cuh>
 #include <test_utils.h>
 #include <common/iota.cuh>
+#include <cuda_utils.cuh>
 #include <cuml/cuml.hpp>
 #include <decisiontree/batched-levelalgo/builder.cuh>
 #include <memory>
+#include <random/make_blobs.cuh>
+#include <random/make_regression.cuh>
 
 namespace ML {
 namespace DecisionTree {
@@ -74,8 +74,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
 
     std::shared_ptr<TemporaryMemory<T, int>> tempmem;
     tempmem = std::make_shared<TemporaryMemory<T, int>>(
-      *handle, handle->get_stream(), inparams.M, inparams.N, 1,
-      params);
+      *handle, handle->get_stream(), inparams.M, inparams.N, 1, params);
 
     preprocess_quantile((const T*)data, (const unsigned*)rowids, inparams.M,
                         inparams.N, inparams.M, inparams.nbins, tempmem);
@@ -121,18 +120,18 @@ class DtClassifierTest : public DtBaseTest<T, int> {
     auto inparams = this->inparams;
     MLCommon::Random::make_blobs<T>(tmp, this->labels, inparams.M, inparams.N,
                                     inparams.nclasses, allocator, this->stream,
-                                    true, nullptr, nullptr, T(1.0), false, T(10.0),
-                                    T(-10.0), inparams.seed);
+                                    true, nullptr, nullptr, T(1.0), false,
+                                    T(10.0), T(-10.0), inparams.seed);
   }
 };  // class DtClassifierTest
 typedef DtClassifierTest<float> DtClsTestF;
 ///@todo: add checks
 TEST_P(DtClsTestF, Test) {
   int num_leaves, depth;
-  grow_tree<float, int, int>(handle->get_device_allocator(), handle->get_host_allocator(),
-                             data, inparams.N, inparams.M, labels, quantiles,
-                             rowids, colids, inparams.M, inparams.nclasses,
-                             params, stream, sparsetree, num_leaves, depth);
+  grow_tree<float, int, int>(
+    handle->get_device_allocator(), handle->get_host_allocator(), data,
+    inparams.N, inparams.M, labels, quantiles, rowids, colids, inparams.M,
+    inparams.nclasses, params, stream, sparsetree, num_leaves, depth);
   // this is a "well behaved" dataset!
   ASSERT_EQ(depth, 1);
 }
@@ -163,10 +162,10 @@ typedef DtRegressorTest<float> DtRegTestF;
 ///@todo: add checks
 TEST_P(DtRegTestF, Test) {
   int num_leaves, depth;
-  grow_tree<float, int>(handle->get_device_allocator(), handle->get_host_allocator(),
-                        data, inparams.N, inparams.M, labels, quantiles, rowids,
-                        colids, inparams.M, 0, params, stream, sparsetree,
-                        num_leaves, depth);
+  grow_tree<float, int>(
+    handle->get_device_allocator(), handle->get_host_allocator(), data,
+    inparams.N, inparams.M, labels, quantiles, rowids, colids, inparams.M, 0,
+    params, stream, sparsetree, num_leaves, depth);
   // goes all the way to max-depth
   ASSERT_EQ(depth, inparams.max_depth);
 }

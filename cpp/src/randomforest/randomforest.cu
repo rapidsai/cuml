@@ -617,8 +617,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            bool bootstrap, int n_trees, float rows_sample,
                            int seed, CRITERION split_criterion,
                            bool quantile_per_tree, int cfg_n_streams,
-                           bool use_experimental_backend,
-                           int max_batch_size) {
+                           bool use_experimental_backend, int max_batch_size) {
   DecisionTree::DecisionTreeParams tree_params;
   DecisionTree::set_tree_params(
     tree_params, max_depth, max_leaves, max_features, n_bins, split_algo,

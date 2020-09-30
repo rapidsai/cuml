@@ -59,9 +59,10 @@ struct ClsDeviceTraits {
    * @note to be called by only one block from all participating blocks
    *       'smem' must be atleast of size `sizeof(int) * input.nclasses`
    */
-  static DI void computePrediction(
-    IdxT range_start, IdxT range_len, const Input<DataT, LabelT, IdxT>& input,
-    volatile Node<DataT, LabelT, IdxT>* nodes, IdxT* n_leaves, void* smem) {
+  static DI void computePrediction(IdxT range_start, IdxT range_len,
+                                   const Input<DataT, LabelT, IdxT>& input,
+                                   volatile Node<DataT, LabelT, IdxT>* nodes,
+                                   IdxT* n_leaves, void* smem) {
     typedef cub::BlockReduce<int2, TPB> BlockReduceT;
     __shared__ typename BlockReduceT::TempStorage temp;
     auto* shist = reinterpret_cast<int*>(smem);
@@ -107,9 +108,10 @@ struct RegDeviceTraits {
    *       'smem' is not used, but kept for the sake of interface parity with
    *       the corresponding method for classification
    */
-  static DI void computePrediction(
-    IdxT range_start, IdxT range_len, const Input<DataT, LabelT, IdxT>& input,
-    volatile Node<DataT, LabelT, IdxT>* nodes, IdxT* n_leaves, void* smem) {
+  static DI void computePrediction(IdxT range_start, IdxT range_len,
+                                   const Input<DataT, LabelT, IdxT>& input,
+                                   volatile Node<DataT, LabelT, IdxT>* nodes,
+                                   IdxT* n_leaves, void* smem) {
     typedef cub::BlockReduce<LabelT, TPB> BlockReduceT;
     __shared__ typename BlockReduceT::TempStorage temp;
     LabelT sum = LabelT(0.0);
@@ -122,12 +124,11 @@ struct RegDeviceTraits {
     sum = BlockReduceT(temp).Sum(sum);
     __syncthreads();
     if (tid == 0) {
-      if(!isnan(sum/range_len)) {
+      if (range_len != 0) {
         nodes[0].makeLeaf(n_leaves, sum / range_len);
       } else {
         nodes[0].makeLeaf(n_leaves, 0.0);
       }
-
     }
   }
 };  // struct RegDeviceTraits
@@ -151,7 +152,7 @@ DI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_rows_per_node,
                           IdxT nSamples) {
   if (myDepth >= max_depth) return true;
   if (nSamples < min_rows_per_node) return true;
-  if(max_leaves != -1) {
+  if (max_leaves != -1) {
     if (*n_leaves >= max_leaves) return true;
   }
   return false;
@@ -225,13 +226,14 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
 
 template <typename DataT, typename LabelT, typename IdxT, typename DevTraits,
           int TPB>
-__global__ void nodeSplitKernel(
-  IdxT max_depth, IdxT min_rows_per_node, IdxT max_leaves,
-  DataT min_impurity_decrease, Input<DataT, LabelT, IdxT> input,
-  volatile Node<DataT, LabelT, IdxT>* curr_nodes,
-  volatile Node<DataT, LabelT, IdxT>* next_nodes, IdxT* n_nodes,
-  const Split<DataT, IdxT>* splits, IdxT* n_leaves, IdxT total_nodes,
-  IdxT* n_depth) {
+__global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
+                                IdxT max_leaves, DataT min_impurity_decrease,
+                                Input<DataT, LabelT, IdxT> input,
+                                volatile Node<DataT, LabelT, IdxT>* curr_nodes,
+                                volatile Node<DataT, LabelT, IdxT>* next_nodes,
+                                IdxT* n_nodes, const Split<DataT, IdxT>* splits,
+                                IdxT* n_leaves, IdxT total_nodes,
+                                IdxT* n_depth) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.x;
   volatile auto* node = curr_nodes + nid;
@@ -239,8 +241,8 @@ __global__ void nodeSplitKernel(
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
     node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
   if (isLeaf || splits[nid].best_metric_val <= min_impurity_decrease) {
-    DevTraits::computePrediction(
-      range_start, range_len, input, node, n_leaves, smem);
+    DevTraits::computePrediction(range_start, range_len, input, node, n_leaves,
+                                 smem);
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(input, splits, curr_nodes,

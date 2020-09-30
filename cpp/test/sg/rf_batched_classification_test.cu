@@ -15,13 +15,12 @@
  */
 
 #include <common/cudart_utils.h>
-
 #include <gtest/gtest.h>
+#include <linalg/transpose.h>
 #include <test_utils.h>
 #include <cuda_utils.cuh>
-#include <cuml/ensemble/randomforest.hpp>
 #include <cuml/datasets/make_blobs.hpp>
-#include <linalg/transpose.h>
+#include <cuml/ensemble/randomforest.hpp>
 
 namespace ML {
 
@@ -67,20 +66,20 @@ class RFBatchedTest : public ::testing::TestWithParam<RfInputs> {
     auto allocator = handle->get_device_allocator();
 
     int data_len = params.n_rows * params.n_cols;
-    data = (T*)allocator->allocate(data_len*sizeof(T), stream);
-    labels = (int*)allocator->allocate(params.n_rows*sizeof(int), stream);
-    predicted_labels = (int*)allocator->allocate(params.n_rows*sizeof(int), stream);
+    data = (T*)allocator->allocate(data_len * sizeof(T), stream);
+    labels = (int*)allocator->allocate(params.n_rows * sizeof(int), stream);
+    predicted_labels =
+      (int*)allocator->allocate(params.n_rows * sizeof(int), stream);
 
-    Datasets::make_blobs(*handle, data, labels, params.n_rows,
-               params.n_cols, 5, false, nullptr, nullptr,
-               T(0.1), false, T(-1.0), T(1.0),
-               3536699ULL);
+    Datasets::make_blobs(*handle, data, labels, params.n_rows, params.n_cols, 5,
+                         false, nullptr, nullptr, T(0.1), false, T(-1.0),
+                         T(1.0), 3536699ULL);
 
     labels_h.resize(params.n_rows);
     updateHost(labels_h.data(), labels, params.n_rows, stream);
     preprocess_labels(params.n_rows, labels_h, labels_map);
     updateDevice(labels, labels_h.data(), params.n_rows, stream);
-    
+
     T* data_h;
     data_h = (T*)malloc(data_len * sizeof(T));
     updateHost(data_h, data, data_len, stream);
@@ -91,25 +90,25 @@ class RFBatchedTest : public ::testing::TestWithParam<RfInputs> {
     fit(*handle, forest, data, params.n_rows, params.n_cols, labels,
         labels_map.size(), rf_params);
 
-    // predict function expects row major lay out of data, so we need to 
+    // predict function expects row major lay out of data, so we need to
     // transpose the data first
     T* data_row_major;
-    data_row_major = (T*)allocator->allocate(data_len*sizeof(T), stream);
+    data_row_major = (T*)allocator->allocate(data_len * sizeof(T), stream);
     cublasHandle_t cublas_h = handle->get_cublas_handle();
-    MLCommon::LinAlg::transpose(data, data_row_major, params.n_rows, params.n_cols, 
-                                cublas_h, stream);
-    
+    MLCommon::LinAlg::transpose(data, data_row_major, params.n_rows,
+                                params.n_cols, cublas_h, stream);
+
     predict(*handle, forest, data_row_major, params.n_rows, params.n_cols,
             predicted_labels);
     updateHost(labels_h.data(), predicted_labels, params.n_rows, stream);
-    
+
     RF_metrics tmp =
       score(*handle, forest, labels, params.n_rows, predicted_labels);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
     accuracy = tmp.accuracy;
-    allocator->deallocate(data_row_major, data_len*sizeof(T), stream);
+    allocator->deallocate(data_row_major, data_len * sizeof(T), stream);
   }
 
   void SetUp() override { basicTest(); }
@@ -121,9 +120,11 @@ class RFBatchedTest : public ::testing::TestWithParam<RfInputs> {
     labels_h.clear();
     labels_map.clear();
 
-    allocator->deallocate(labels, params.n_rows*sizeof(int), stream);
-    allocator->deallocate(predicted_labels, params.n_rows*sizeof(int), stream);
-    allocator->deallocate(data, params.n_rows * params.n_cols*sizeof(T), stream);
+    allocator->deallocate(labels, params.n_rows * sizeof(int), stream);
+    allocator->deallocate(predicted_labels, params.n_rows * sizeof(int),
+                          stream);
+    allocator->deallocate(data, params.n_rows * params.n_cols * sizeof(T),
+                          stream);
     delete forest;
     handle.reset();
   }
@@ -132,7 +133,7 @@ class RFBatchedTest : public ::testing::TestWithParam<RfInputs> {
   std::shared_ptr<raft::handle_t> handle;
   cudaStream_t stream;
   RfInputs params;
-  T *data;
+  T* data;
   int* labels;
   std::vector<int> labels_h;
   std::map<int, int>
@@ -146,11 +147,10 @@ class RFBatchedTest : public ::testing::TestWithParam<RfInputs> {
 
 //-------------------------------------------------------------------------------------------------------------------------------------
 const std::vector<RfInputs> inputsf2_clf = {
-    {20000, 10, 25, 1.0f, 0.4f, 12, -1, true, false, 10, 
-     SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2, CRITERION::GINI},
-    {20000, 10,  5, 1.0f, 0.4f, 14, -1, true, false, 10, 
-     SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2, CRITERION::ENTROPY}
-  };
+  {20000, 10, 25, 1.0f, 0.4f, 12, -1, true, false, 10,
+   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2, CRITERION::GINI},
+  {20000, 10, 5, 1.0f, 0.4f, 14, -1, true, false, 10,
+   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2, CRITERION::ENTROPY}};
 
 typedef RFBatchedTest<float> RFBatchedTestF;
 TEST_P(RFBatchedTestF, Fit) {

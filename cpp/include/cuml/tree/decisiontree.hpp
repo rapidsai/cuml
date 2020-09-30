@@ -99,18 +99,21 @@ struct DecisionTreeParams {
  *            i.e., GINI for classification or MSE for regression
  * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
  * @param[in] cfg_shuffle_features: whether to shuffle features or not
+ * @param[in] cfg_use_experimental_backend: If set to true, experimental batched
+ *            backend is used (provided other conditions are met). Default is 
+              false.
+ * @param[in] cfg_max_batch_size: Maximum number of nodes that can be processed
+              in a batch. This is used only for batched-level algo. Default 
+              value 128.
  */
-void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
-                     int cfg_max_leaves = -1, float cfg_max_features = 1.0f,
-                     int cfg_n_bins = 8, int cfg_split_algo = SPLIT_ALGO::HIST,
-                     int cfg_min_rows_per_node = 2,
-                     float cfg_min_impurity_decrease = 0.0f,
-                     bool cfg_bootstrap_features = false,
-                     CRITERION cfg_split_criterion = CRITERION_END,
-                     bool cfg_quantile_per_tree = false,
-                     bool cfg_shuffle_features = false,
-                     bool cfg_use_experimental_backend = false,
-                     int cfg_max_batch_size = 128);
+void set_tree_params(
+  DecisionTreeParams &params, int cfg_max_depth = -1, int cfg_max_leaves = -1,
+  float cfg_max_features = 1.0f, int cfg_n_bins = 8,
+  int cfg_split_algo = SPLIT_ALGO::HIST, int cfg_min_rows_per_node = 2,
+  float cfg_min_impurity_decrease = 0.0f, bool cfg_bootstrap_features = false,
+  CRITERION cfg_split_criterion = CRITERION_END,
+  bool cfg_quantile_per_tree = false, bool cfg_shuffle_features = false,
+  bool cfg_use_experimental_backend = false, int cfg_max_batch_size = 128);
 
 /**
  * @brief Check validity of all decision tree hyper-parameters.

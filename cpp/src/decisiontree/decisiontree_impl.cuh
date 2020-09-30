@@ -288,7 +288,7 @@ void DecisionTreeBase<T, L>::plant(
       tree_params.max_features == 1.0 &&
       tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE &&
       tree_params.quantile_per_tree == false) {
-    if(treeid == 0) {
+    if (treeid == 0) {
       CUML_LOG_WARN("Using experimental backend for growing trees\n");
     }
     T *quantiles = tempmem->d_quantile->data();
