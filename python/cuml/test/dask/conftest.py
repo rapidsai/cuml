@@ -10,9 +10,11 @@ enable_infiniband = False
 
 
 @pytest.fixture(scope="module")
-def cluster():
-
-    cluster = LocalCUDACluster(protocol="tcp", scheduler_port=0)
+def cluster(pytestconfig):
+    args = {'protocol': 'tcp', 'scheduler_port': 0}
+    if pytestconfig.getoption('--use-rmm-pool'):
+        args["rmm_pool_size"] = "2GB"
+    cluster = LocalCUDACluster(**args)
     yield cluster
     cluster.close()
 
