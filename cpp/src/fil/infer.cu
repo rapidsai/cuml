@@ -28,7 +28,7 @@ struct vec {
   T data[N];
   inline __host__ __device__ vec() {
 #pragma unroll
-    for (int i = 0; i < N; ++i) data[i] = 0;
+    for (int i = 0; i < N; ++i) data[i] = T();
   }
   __host__ __device__ T& operator[](int i) { return data[i]; }
   __host__ __device__ T operator[](int i) const { return data[i]; }
@@ -41,10 +41,6 @@ struct vec {
     vec<N, T> r = a;
     r += b;
     return r;
-  }
-  inline __host__ __device__ void fill(T val) {
-#pragma unroll
-    for (int i = 0; i < N; ++i) data[i] = val;
   }
 };
 
@@ -95,29 +91,15 @@ __device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
   return out;
 }
 
-template <int NITEMS>
-struct best_margin_label {
-  vec<NITEMS, float> margin;
-  vec<NITEMS, int> label;
-};
+typedef cub::KeyValuePair<int, float> best_margin_label;
 
-template <int NITEMS>
 struct ArgMax {
-  __device__ best_margin_label<NITEMS> operator()(
-    const best_margin_label<NITEMS>& a,
-    const best_margin_label<NITEMS>& b) const {
-    vec<NITEMS, bool> a_is_bigger;
-#pragma unroll
-    for (int i = 0; i < NITEMS; i++) {
-      a_is_bigger[i] = (a.margin[i] > b.margin[i]) ||
-                       (a.margin[i] == b.margin[i] && a.label[i] < b.label[i]);
-    }
-    best_margin_label<NITEMS> c;
-#pragma unroll
-    for (int i = 0; i < NITEMS; i++) {
-      c.margin[i] = a_is_bigger[i] ? a.margin[i] : b.margin[i];
-      c.label[i] = a_is_bigger[i] ? a.label[i] : b.label[i];
-    }
+  template <int NITEMS>
+  __host__ __device__ __forceinline__ vec<NITEMS, best_margin_label> operator()(
+    vec<NITEMS, best_margin_label>& a,
+    vec<NITEMS, best_margin_label>& b) const {
+    vec<NITEMS, best_margin_label> c;
+    for (int i = 0; i < NITEMS; i++) c[i] = cub::ArgMax()(a[i], b[i]);
     return c;
   }
 };
@@ -128,7 +110,7 @@ template <int NITEMS>
 using BlockReduce = typename cub::BlockReduce<vec<NITEMS, float>, FIL_TPB>;
 template <int NITEMS>
 using BlockReduceMultiClass =
-  typename cub::BlockReduce<best_margin_label<NITEMS>, FIL_TPB>;
+  typename cub::BlockReduce<vec<NITEMS, best_margin_label>, FIL_TPB>;
 /**
 The shared memory requirements for finalization stage may differ based
 on the set of PTX architectures the kernels were compiled for, as well as 
@@ -150,7 +132,7 @@ using BlockReduceHost =
                             cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, 600>;
 template <int NITEMS>
 using BlockReduceHostMultiClass =
-  typename cub::BlockReduce<best_margin_label<NITEMS>, FIL_TPB,
+  typename cub::BlockReduce<vec<NITEMS, best_margin_label>, FIL_TPB,
                             cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, 600>;
 
 template <int NITEMS,
@@ -227,7 +209,7 @@ struct tree_aggregator_t<NITEMS, TREE_PER_CLASS_FEW_CLASSES> {
                                            int num_outputs) {
     __syncthreads();  // free up input row
     // load margin into shared memory
-    best_margin_label<NITEMS> best;
+    vec<NITEMS, best_margin_label> best;
     vec<NITEMS, float>* per_thread = (vec<NITEMS, float>*)tmp_storage;
     if (threadIdx.x >= num_classes) per_thread[threadIdx.x] = acc;
 
@@ -238,19 +220,19 @@ struct tree_aggregator_t<NITEMS, TREE_PER_CLASS_FEW_CLASSES> {
     if (threadIdx.x < num_classes) {
       for (int c = threadIdx.x + num_classes; c < blockDim.x; c += num_classes)
         acc += per_thread[c];
-      best.margin = acc;
-      best.label.fill(threadIdx.x);
+      for (int i = 0; i < NITEMS; ++i)
+        best[i] = best_margin_label(threadIdx.x, acc[i]);
     }
     __syncthreads();
     // determine best class per block (for each of the NITEMS rows)
     typedef BlockReduceMultiClass<NITEMS> BlockReduceT;
     best = BlockReduceT(*(typename BlockReduceT::TempStorage*)tmp_storage)
-             .Reduce(best, ArgMax<NITEMS>(), num_classes);
+             .Reduce(best, ArgMax(), num_classes);
     // write it out to global memory
     if (threadIdx.x == 0) {
       for (int i = 0; i < NITEMS; ++i) {
         int row = blockIdx.x * NITEMS + i;
-        if (row < num_rows) out[row] = best.label[i];
+        if (row < num_rows) out[row] = best[i].key;
       }
     }
   }
@@ -283,7 +265,7 @@ struct tree_aggregator_t<NITEMS, TREE_PER_CLASS_MANY_CLASSES> {
         (vec<NITEMS, float>*)((char*)shared_workspace + data_row_size)),
       num_classes(num_classes_) {
     for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
-      per_class_margin[c].fill(0.0f);
+      per_class_margin[c] = vec<NITEMS, float>();
     //__syncthreads() is done in infer_k
   }
 
@@ -298,26 +280,28 @@ struct tree_aggregator_t<NITEMS, TREE_PER_CLASS_MANY_CLASSES> {
                                            int num_outputs) {
     // reduce per-class candidate margins to one best class candidate
     // per thread (for each of the NITEMS rows)
-    best_margin_label<NITEMS> best;
-    best.margin = per_class_margin[threadIdx.x];
-    best.label.fill(threadIdx.x);
+    vec<NITEMS, best_margin_label> best;
+    for (int i = 0; i < NITEMS; ++i) {
+      best[i] =
+        best_margin_label(threadIdx.x, per_class_margin[threadIdx.x][i]);
+    }
     for (int c = threadIdx.x + blockDim.x; c < num_classes; c += blockDim.x) {
-      best_margin_label<NITEMS> candidate;
-      candidate.margin = per_class_margin[c];
-      candidate.label.fill(c);
-      best = ArgMax<NITEMS>()(best, candidate);
+      for (int i = 0; i < NITEMS; ++i) {
+        best[i] =
+          cub::ArgMax()(best[i], best_margin_label(c, per_class_margin[c][i]));
+      }
     }
     __syncthreads();
 
     // find best class per block (for each of the NITEMS rows)
     typedef BlockReduceMultiClass<NITEMS> BlockReduceT;
     best = BlockReduceT(*(typename BlockReduceT::TempStorage*)tmp_storage)
-             .Reduce(best, ArgMax<NITEMS>(), blockDim.x);
+             .Reduce(best, ArgMax(), blockDim.x);
     // write it out to global memory
     if (threadIdx.x == 0) {
       for (int i = 0; i < NITEMS; ++i) {
         int row = blockIdx.x * NITEMS + i;
-        if (row < num_rows) out[row] = best.label[i];
+        if (row < num_rows) out[row] = best[i].key;
       }
     }
   }
