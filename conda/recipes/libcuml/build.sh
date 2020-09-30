@@ -9,8 +9,10 @@ fi
 printenv
 # Cleanup local git
 git clean -xdf
+
 if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
-    ./build.sh clean libcuml -v --allgpuarch
+    ./build.sh clean libcuml -v --allgpuarch $SINGLE_GPU
 else
-    ./build.sh clean libcuml prims -v --allgpuarch
+    ./build.sh clean libcuml prims -v --allgpuarch $SINGLE_GPU
 fi
+

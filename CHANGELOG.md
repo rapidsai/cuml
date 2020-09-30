@@ -37,6 +37,7 @@
 - PR #2792: Project flash (new build process) script changes
 - PR #2850: Clean up unused params in paramsPCA
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
+- PR #2888: added aarch64 support to CMakeLists.txt and conda recipes
 
 ## Bug Fixes
 - PR #2882: Allow import on machines without GPUs
@@ -58,8 +59,9 @@
 - PR #2847: Workaround for TSNE lockup, change caching preference.
 - PR #2842: KNN index preprocessors were using incorrect n_samples
 - PR #2848: Fix typo in Python docstring for UMAP
-- PR #2856: Fix LabelEncoder for filtered input
 - PR #2855: Updates for RMM being header only
+- PR #2856: Fix LabelEncoder for filtered input
+
 
 # cuML 0.15.0 (Date TBD)
 
