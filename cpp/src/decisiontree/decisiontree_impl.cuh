@@ -28,6 +28,8 @@
 #include "memory.cuh"
 #include "quantile/quantile.cuh"
 
+#include <common/nvtx.hpp>
+
 namespace ML {
 
 bool is_dev_ptr(const void *p) {
@@ -253,6 +255,8 @@ void DecisionTreeBase<T, L>::plant(
   std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data, const int ncols,
   const int nrows, const L *labels, unsigned int *rowids,
   const int n_sampled_rows, int unique_labels, const int treeid) {
+
+  ML::PUSH_RANGE("DecisionTreeBase::plant @decisiontree_impl.cuh");
   dinfo.NLocalrows = nrows;
   dinfo.NGlobalrows = nrows;
   dinfo.Ncols = ncols;
@@ -265,7 +269,7 @@ void DecisionTreeBase<T, L>::plant(
   }
   CUDA_CHECK(cudaStreamSynchronize(
     tempmem->stream));  // added to ensure accurate measurement
-
+  ML::PUSH_RANGE("DecisionTreeBase::plant::bootstrapping features");
   //Bootstrap features
   unsigned int *h_colids = tempmem->h_colids->data();
   if (tree_params.bootstrap_features) {
@@ -276,6 +280,7 @@ void DecisionTreeBase<T, L>::plant(
   } else {
     std::iota(h_colids, h_colids + dinfo.Ncols, 0);
   }
+  ML::POP_RANGE();
   prepare_time = prepare_fit_timer.getElapsedSeconds();
 
   total_temp_mem = tempmem->totalmem;
@@ -284,6 +289,7 @@ void DecisionTreeBase<T, L>::plant(
                  tree_params.max_features, dinfo.NLocalrows, sparsetree, treeid,
                  tempmem);
   train_time = timer.getElapsedSeconds();
+  ML::POP_RANGE();
 }
 
 template <typename T, typename L>
@@ -464,6 +470,7 @@ void DecisionTreeClassifier<T>::grow_deep_tree(
   const int n_sampled_rows, const int ncols, const float colper,
   const int nrows, std::vector<SparseTreeNode<T, int>> &sparsetree,
   const int treeid, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  ML::PUSH_RANGE("DecisionTreeClassifier::grow_deep_tree @decisiontree_impl.cuh");
   int leaf_cnt = 0;
   int depth_cnt = 0;
   grow_deep_tree_classification(data, labels, rowids, ncols, colper,
@@ -472,6 +479,7 @@ void DecisionTreeClassifier<T>::grow_deep_tree(
                                 sparsetree, treeid, tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
+  ML::POP_RANGE();
 }
 
 template <typename T>

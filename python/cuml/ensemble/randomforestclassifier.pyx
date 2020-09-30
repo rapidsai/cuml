@@ -51,6 +51,8 @@ cimport cuml.common.cuda
 
 cimport cython
 
+from cuml.common.cuda import nvtx_range_wrap, nvtx_range_push, nvtx_range_pop
+
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
@@ -398,6 +400,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
+        nvtx_range_push("Fit RF-Classifier @randomforestclassifier.pyx")
         self._set_base_attributes(target_dtype=y)
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
@@ -470,6 +473,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         self.handle.sync()
         del X_m
         del y_m
+        nvtx_range_pop()
         return self
 
     def _predict_model_on_cpu(self, X, convert_dtype):
@@ -582,6 +586,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         ----------
         y : {}
         """
+        nvtx_range_push("predict RF-Classifier @randomforestclassifier.pyx")
         if num_classes:
             warnings.warn("num_classes is deprecated and will be removed"
                           " in an upcoming version")
@@ -609,6 +614,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
 
+        nvtx_range_pop()
         return preds
 
     def _predict_get_all(self, X, convert_dtype=True):
@@ -808,6 +814,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         accuracy : float
            Accuracy of the model [0.0 - 1.0]
         """
+
+        nvtx_range_push("score RF-Classifier @randomforestclassifier.pyx")
         cdef uintptr_t X_ptr, y_ptr
         _, n_rows, _, _ = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -862,6 +870,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         self.handle.sync()
         del(y_m)
         del(preds_m)
+        nvtx_range_pop()
         return self.stats['accuracy']
 
     def get_params(self, deep=True):

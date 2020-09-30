@@ -25,6 +25,8 @@
 #include "levelhelper_classifier.cuh"
 #include "metric.cuh"
 
+#include<common/nvtx.hpp>
+
 namespace ML {
 namespace DecisionTree {
 
@@ -45,6 +47,7 @@ void grow_deep_tree_classification(
   const ML::DecisionTree::DecisionTreeParams& tree_params, int& depth_cnt,
   int& leaf_cnt, std::vector<SparseTreeNode<T, int>>& sparsetree,
   const int treeid, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  ML::PUSH_RANGE("DecisionTree::grow_deep_tree_classification @levelfunc_classifier.cuh");
   const int ncols_sampled = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
@@ -252,6 +255,7 @@ void grow_deep_tree_classification(
     sparsetree.insert(sparsetree.end(), h_sparsenodes,
                       h_sparsenodes + lastsize);
   }
+  ML::POP_RANGE();
 }
 
 }  // namespace DecisionTree

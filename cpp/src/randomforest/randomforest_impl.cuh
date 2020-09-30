@@ -26,6 +26,8 @@
 #include <score/scores.cuh>
 #include "randomforest_impl.h"
 
+#include <common/nvtx.hpp>
+
 namespace ML {
 /**
  * @brief Construct rf (random forest) object.
@@ -67,6 +69,8 @@ void rf<T, L>::prepare_fit_per_tree(
   int tree_id, int n_rows, int n_sampled_rows, unsigned int* selected_rows,
   const int num_sms, const cudaStream_t stream,
   const std::shared_ptr<deviceAllocator> device_allocator) {
+  ML::PUSH_RANGE("bootstrapping row IDs @randomforest_impl.cuh");
+#pragma region
   int rs = tree_id;
   if (rf_params.seed > -1) rs = rf_params.seed + tree_id;
 
@@ -81,6 +85,8 @@ void rf<T, L>::prepare_fit_per_tree(
     thrust::sequence(thrust::cuda::par.on(stream), selected_rows,
                      selected_rows + n_sampled_rows);
   }
+#pragma endregion
+  ML::POP_RANGE();
 }
 
 template <typename T, typename L>
@@ -152,6 +158,8 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
                           int n_rows, int n_cols, int* labels,
                           int n_unique_labels,
                           RandomForestMetaData<T, int>*& forest) {
+  ML::PUSH_RANGE("rfClassifer::fit @randomforest_impl.cuh");
+ #pragma region
   this->error_checking(input, labels, n_rows, n_cols, false);
 
   const raft::handle_t& handle = user_handle;
@@ -206,7 +214,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     }
   }
 
-#pragma omp parallel for num_threads(n_streams)
+ #pragma omp parallel for num_threads(n_streams)
   for (int i = 0; i < this->rf_params.n_trees; i++) {
     int stream_id = omp_get_thread_num();
     unsigned int* rowids;
@@ -241,6 +249,9 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
   }
 
   CUDA_CHECK(cudaStreamSynchronize(user_handle.get_stream()));
+
+ #pragma endregion
+  ML::POP_RANGE();
 }
 
 /**

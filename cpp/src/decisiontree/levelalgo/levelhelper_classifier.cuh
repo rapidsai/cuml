@@ -17,6 +17,8 @@
 #include <common/cudart_utils.h>
 #include "levelkernel_classifier.cuh"
 
+#include<common/nvtx.hpp>
+
 namespace ML {
 namespace DecisionTree {
 
@@ -25,6 +27,7 @@ void initial_metric_classification(
   const int *labels, unsigned int *sample_cnt, const int nrows,
   const int n_unique_labels, std::vector<unsigned int> &histvec,
   T &initial_metric, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  ML::PUSH_RANGE("DecisionTree::initial_metric_classification @levelhelper_classifier.cuh");
   CUDA_CHECK(cudaMemsetAsync(tempmem->d_parent_hist->data(), 0,
                              n_unique_labels * sizeof(unsigned int),
                              tempmem->stream));
@@ -41,6 +44,7 @@ void initial_metric_classification(
   histvec.assign(tempmem->h_parent_hist->data(),
                  tempmem->h_parent_hist->data() + n_unique_labels);
   initial_metric = F::exec(histvec, nrows);
+  ML::POP_RANGE();
 }
 
 template <typename T>
@@ -50,6 +54,8 @@ void get_histogram_classification(
   const int ncols_sampled, const int n_unique_labels, const int nbins,
   const int n_nodes, const int split_algo,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem, unsigned int *histout) {
+  ML::PUSH_RANGE("DecisionTree::get_histogram_classification @levelhelper_classifier.cuh");
+
   size_t histcount = ncols_sampled * nbins * n_unique_labels * n_nodes;
   CUDA_CHECK(cudaMemsetAsync(histout, 0, histcount * sizeof(unsigned int),
                              tempmem->stream));
@@ -94,6 +100,7 @@ void get_histogram_classification(
     }
   }
   CUDA_CHECK(cudaGetLastError());
+  ML::POP_RANGE();
 }
 template <typename T, typename F, typename DF>
 void get_best_split_classification(
@@ -107,6 +114,7 @@ void get_best_split_classification(
   std::vector<int> &sparse_nodelist, int *split_colidx, int *split_binidx,
   int *d_split_colidx, int *d_split_binidx,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  ML::PUSH_RANGE("get_best_split_classification @levelhelper_classifier.cuh");
   T *quantile = nullptr;
   T *minmax = nullptr;
   if (tempmem->h_quantile != nullptr) quantile = tempmem->h_quantile->data();
@@ -288,6 +296,7 @@ void get_best_split_classification(
     MLCommon::updateDevice(d_split_colidx, split_colidx, n_nodes,
                            tempmem->stream);
   }
+  ML::POP_RANGE();
 }
 
 template <typename T>

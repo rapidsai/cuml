@@ -19,6 +19,8 @@
 #include <cub/cub.cuh>
 #include "quantile.h"
 
+#include<common/nvtx.hpp>
+
 namespace ML {
 namespace DecisionTree {
 
@@ -83,7 +85,10 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
 	int max_ncols = free_mem / (2 * n_sampled_rows * sizeof(T));
 	int batch_cols = (max_ncols > ncols) ? ncols : max_ncols;
 	ASSERT(max_ncols != 0, "Cannot preprocess quantiles due to insufficient device memory.");
-	*/
+  */
+
+  ML::PUSH_RANGE("preprocessing quantile @quantile.cuh");
+ #pragma region
   int batch_cols =
     1;  // Processing one column at a time, for now, until an appropriate getMemInfo function is provided for the deviceAllocator interface.
 
@@ -126,15 +131,16 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
 
   d_keys_out = new MLCommon::device_buffer<T>(tempmem->device_allocator,
                                               tempmem->stream, batch_items);
-
+  ML::PUSH_RANGE("DecisionTree::cub::DeviceRadixSort::SortKeys over batch_items @quantile.cuh");
   CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
     d_temp_storage, temp_storage_bytes, d_keys_in, d_keys_out->data(),
     batch_items, 0, 8 * sizeof(T), tempmem->stream));
-
+  ML::POP_RANGE();
   // Allocate temporary storage
   d_temp_storage = new MLCommon::device_buffer<char>(
     tempmem->device_allocator, tempmem->stream, temp_storage_bytes);
 
+  ML::PUSH_RANGE("iterative quantile computation for each batch");
   // Compute quantiles for cur_batch_cols columns per loop iteration.
   for (int batch = 0; batch < batch_cnt; batch++) {
     int cur_batch_cols = (batch == batch_cnt - 1)
@@ -143,20 +149,24 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
 
     int batch_offset = batch * n_sampled_rows * batch_cols;
     int quantile_offset = batch * nbins * batch_cols;
-
+    ML::PUSH_RANGE("DeviceRadixSort::SortKeys");
     CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
       (void *)d_temp_storage->data(), temp_storage_bytes,
       &d_keys_in[batch_offset], d_keys_out->data(), n_sampled_rows, 0,
       8 * sizeof(T), tempmem->stream));
+    ML::POP_RANGE();
 
     blocks = MLCommon::ceildiv(cur_batch_cols * nbins, threads);
+    ML::PUSH_RANGE("kernel get_all_quantiles");
     get_all_quantiles<<<blocks, threads, 0, tempmem->stream>>>(
       d_keys_out->data(), &tempmem->d_quantile->data()[quantile_offset],
       n_sampled_rows, cur_batch_cols, nbins);
+    ML::POP_RANGE();
 
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   }
+  ML::POP_RANGE();
   MLCommon::updateHost(tempmem->h_quantile->data(), tempmem->d_quantile->data(),
                        nbins * ncols, tempmem->stream);
   d_keys_out->release(tempmem->stream);
@@ -165,6 +175,8 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
   delete d_keys_out;
   delete d_offsets;
   delete d_temp_storage;
+ #pragma endregion
+  ML::POP_RANGE();
 
   return;
 }
