@@ -14,4 +14,4 @@
 # limitations under the License.
 #
 
-from cuml.experimental.explainer import PermutationSHAP
+from cuml.experimental.explainer.permutation_shap import PermutationSHAP
