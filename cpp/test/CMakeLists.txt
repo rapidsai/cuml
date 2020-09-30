@@ -186,6 +186,7 @@ if(BUILD_PRIMS_TESTS)
     prims/multiply.cu
     prims/mutualInfoScore.cu
     prims/norm.cu
+    prims/nvtx_test.cu
     prims/penalty.cu
     prims/permute.cu
     prims/power.cu
