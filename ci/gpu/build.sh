@@ -59,6 +59,11 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
 # conda remove -f rapids-build-env rapids-notebook-env
 # conda install "your-pkg=1.0.0"
 
+# Temporary test for cuPy 8.0 from rapidsai-nightly (may only exist for CUDA 11)
+conda remove --force-remove rapids-build-env rapids-notebook-env
+conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+      "cupy=8.0.0rc1"
+
 
 # Install contextvars on Python 3.6
 py_ver=$(python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
