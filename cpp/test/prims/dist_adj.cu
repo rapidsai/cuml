@@ -46,7 +46,7 @@ template <typename DataType>
 void naiveDistanceAdj(bool *dist, const DataType *x, const DataType *y, int m,
                       int n, int k, DataType eps, bool isRowMajor) {
   static const dim3 TPB(16, 32, 1);
-  dim3 nblks(ceildiv(m, (int)TPB.x), ceildiv(n, (int)TPB.y), 1);
+  dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
   naiveDistanceAdjKernel<DataType>
     <<<nblks, TPB>>>(dist, x, y, m, n, k, eps, isRowMajor);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -72,17 +72,17 @@ class DistanceAdjTest
  public:
   void SetUp() override {
     params = ::testing::TestWithParam<DistanceAdjInputs<DataType>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int m = params.m;
     int n = params.n;
     int k = params.k;
     bool isRowMajor = params.isRowMajor;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(x, m * k);
-    allocate(y, n * k);
-    allocate(dist_ref, m * n);
-    allocate(dist, m * n);
+    raft::allocate(x, m * k);
+    raft::allocate(y, n * k);
+    raft::allocate(dist_ref, m * n);
+    raft::allocate(dist, m * n);
     r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
     r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
 
@@ -94,7 +94,7 @@ class DistanceAdjTest
       getWorkspaceSize<ML::Distance::DistanceType::EucExpandedL2, DataType,
                        DataType, bool>(x, y, m, n, k);
     if (worksize != 0) {
-      allocate(workspace, worksize);
+      raft::allocate(workspace, worksize);
     }
 
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
@@ -135,7 +135,7 @@ typedef DistanceAdjTest<float> DistanceAdjTestF;
 TEST_P(DistanceAdjTestF, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n, Compare<bool>()));
+  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n, raft::Compare<bool>()));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestF,
                         ::testing::ValuesIn(inputsf));
@@ -154,7 +154,7 @@ typedef DistanceAdjTest<double> DistanceAdjTestD;
 TEST_P(DistanceAdjTestD, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n, Compare<bool>()));
+  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n, raft::Compare<bool>()));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestD,
                         ::testing::ValuesIn(inputsd));

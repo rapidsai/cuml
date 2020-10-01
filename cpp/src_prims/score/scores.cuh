@@ -64,7 +64,7 @@ __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
   for (int r = 1; r < n; r++) {
     if (sample_i[r] == idx) {
       int tmp = r - n_neighbors;
-      if (tmp > 0) atomicAdd(rank, tmp);
+      if (tmp > 0) raft::myAtomicAdd<double>(rank, tmp);
       break;
     }
   }
@@ -168,16 +168,16 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
     CUDA_CHECK(cudaPeekAtLastError());
 
     t_tmp = 0.0;
-    updateDevice(d_t, &t_tmp, 1, stream);
+    raft::update_device(d_t, &t_tmp, 1, stream);
 
     int work = curBatchSize * n_neighbors;
-    int n_blocks = ceildiv(work, N_THREADS);
+    int n_blocks = raft::ceildiv(work, N_THREADS);
     compute_rank<<<n_blocks, N_THREADS, 0, stream>>>(
       d_ind_X_tmp, &ind_X_embedded[(n - toDo) * (n_neighbors + 1)], n,
       n_neighbors, curBatchSize * n_neighbors, d_t);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    updateHost(&t_tmp, d_t, 1, stream);
+    raft::update_host(&t_tmp, d_t, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     if (bAllocWorkspace) {
@@ -220,20 +220,20 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
 template <typename math_t>
 math_t r2_score(math_t *y, math_t *y_hat, int n, cudaStream_t stream) {
   math_t *y_bar;
-  MLCommon::allocate(y_bar, 1);
+  raft::allocate(y_bar, 1);
 
-  MLCommon::Stats::mean(y_bar, y, 1, n, false, false, stream);
+  raft::stats::mean(y_bar, y, 1, n, false, false, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   math_t *sse_arr;
-  MLCommon::allocate(sse_arr, n);
+  raft::allocate(sse_arr, n);
 
-  MLCommon::LinAlg::eltwiseSub(sse_arr, y, y_hat, n, stream);
+  raft::linalg::eltwiseSub(sse_arr, y, y_hat, n, stream);
   MLCommon::LinAlg::powerScalar(sse_arr, sse_arr, math_t(2.0), n, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   math_t *ssto_arr;
-  MLCommon::allocate(ssto_arr, n);
+  raft::allocate(ssto_arr, n);
 
   MLCommon::LinAlg::subtractDevScalar(ssto_arr, y, y_bar, n, stream);
   MLCommon::LinAlg::powerScalar(ssto_arr, ssto_arr, math_t(2.0), n, stream);
@@ -271,8 +271,8 @@ float accuracy_score(const math_t *predictions, const math_t *ref_predictions,
   math_t *diffs_array = (math_t *)d_alloc->allocate(n * sizeof(math_t), stream);
 
   //TODO could write a kernel instead
-  MLCommon::LinAlg::eltwiseSub(diffs_array, predictions, ref_predictions, n,
-                               stream);
+  raft::linalg::eltwiseSub(diffs_array, predictions, ref_predictions, n,
+                           stream);
   CUDA_CHECK(cudaGetLastError());
   correctly_predicted = thrust::count(thrust::cuda::par.on(stream), diffs_array,
                                       diffs_array + n, 0);
@@ -297,8 +297,8 @@ __global__ void reg_metrics_kernel(const T *predictions,
   for (int i = tid; i < n; i += blockDim.x * gridDim.x) {
     double diff = predictions[i] - ref_predictions[i];
     double abs_diff = abs(diff);
-    atomicAdd(&shmem[0], abs_diff);
-    atomicAdd(&shmem[1], diff * diff);
+    raft::myAtomicAdd(&shmem[0], abs_diff);
+    raft::myAtomicAdd(&shmem[1], diff * diff);
 
     // update absolute difference in global memory for subsequent abs. median computation
     abs_diffs[i] = abs_diff;
@@ -307,7 +307,7 @@ __global__ void reg_metrics_kernel(const T *predictions,
 
   // Update tmp_sum w/ total abs_difference_sum and squared difference sum.
   for (int i = threadIdx.x; i < 2; i += blockDim.x) {
-    atomicAdd(&tmp_sums[i], shmem[i]);
+    raft::myAtomicAdd(&tmp_sums[i], shmem[i]);
   }
 }
 
@@ -331,7 +331,7 @@ void regression_metrics(const T *predictions, const T *ref_predictions, int n,
   std::vector<double> mean_errors(2);
   std::vector<double> h_sorted_abs_diffs(n);
   int thread_cnt = 256;
-  int block_cnt = ceildiv(n, thread_cnt);
+  int block_cnt = raft::ceildiv(n, thread_cnt);
 
   int array_size = n * sizeof(double);
   double *abs_diffs_array = (double *)d_alloc->allocate(array_size, stream);
@@ -342,7 +342,7 @@ void regression_metrics(const T *predictions, const T *ref_predictions, int n,
   reg_metrics_kernel<T><<<block_cnt, thread_cnt, 0, stream>>>(
     predictions, ref_predictions, n, abs_diffs_array, tmp_sums);
   CUDA_CHECK(cudaGetLastError());
-  MLCommon::updateHost(&mean_errors[0], tmp_sums, 2, stream);
+  raft::update_host(&mean_errors[0], tmp_sums, 2, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   mean_abs_error = mean_errors[0] / n;
@@ -359,7 +359,7 @@ void regression_metrics(const T *predictions, const T *ref_predictions, int n,
     (void *)temp_storage, temp_storage_bytes, abs_diffs_array, sorted_abs_diffs,
     n, 0, 8 * sizeof(double), stream));
 
-  MLCommon::updateHost(h_sorted_abs_diffs.data(), sorted_abs_diffs, n, stream);
+  raft::update_host(h_sorted_abs_diffs.data(), sorted_abs_diffs, n, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   int middle = n / 2;

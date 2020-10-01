@@ -59,7 +59,7 @@ class Seive {
  private:
   void generateSeive() {
     auto sqN = fastIntSqrt(N);
-    auto size = ceildiv<unsigned>(N, sizeof(unsigned) * 8);
+    auto size = raft::ceildiv<unsigned>(N, sizeof(unsigned) * 8);
     seive.resize(size);
     // assume all to be primes initially
     for (auto& itr : seive) {

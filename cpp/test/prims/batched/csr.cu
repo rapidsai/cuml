@@ -22,6 +22,7 @@
 
 #include <common/cudart_utils.h>
 #include <linalg_naive.h>
+#include <test_utils.h>
 #include <linalg/batched/matrix.cuh>
 #include <sparse/batched/csr.cuh>
 #include "../test_utils.h"
@@ -117,9 +118,9 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
                                             allocator, stream);
 
     // Copy the data to the device
-    updateDevice(AbM.raw_data(), A.data(), A.size(), stream);
-    updateDevice(BxbM.raw_data(), Bx.data(), Bx.size(), stream);
-    updateDevice(res_bM->raw_data(), res_h.data(), res_h.size(), stream);
+    raft::update_device(AbM.raw_data(), A.data(), A.size(), stream);
+    raft::update_device(BxbM.raw_data(), Bx.data(), Bx.size(), stream);
+    raft::update_device(res_bM->raw_data(), res_h.data(), res_h.size(), stream);
 
     // Create sparse matrix A from the dense A and the mask
     CSR<T> AbS = CSR<T>::from_dense(AbM, mask, cusolverSpHandle);
@@ -197,11 +198,13 @@ using BatchedCSRTestD = CSRTest<double>;
 using BatchedCSRTestF = CSRTest<float>;
 TEST_P(BatchedCSRTestD, Result) {
   ASSERT_TRUE(devArrMatchHost(res_h.data(), res_bM->raw_data(), res_h.size(),
-                              CompareApprox<double>(params.tolerance), stream));
+                              raft::CompareApprox<double>(params.tolerance),
+                              stream));
 }
 TEST_P(BatchedCSRTestF, Result) {
   ASSERT_TRUE(devArrMatchHost(res_h.data(), res_bM->raw_data(), res_h.size(),
-                              CompareApprox<float>(params.tolerance), stream));
+                              raft::CompareApprox<float>(params.tolerance),
+                              stream));
 }
 
 INSTANTIATE_TEST_CASE_P(BatchedCSRTests, BatchedCSRTestD,
