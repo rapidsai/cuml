@@ -87,8 +87,8 @@ static void _make_low_rank_matrix(DataT* out, IdxT n_rows, IdxT n_cols,
   singular_mat.resize(n * n, stream);
   CUDA_CHECK(
     cudaMemsetAsync(singular_mat.data(), 0, n * n * sizeof(DataT), stream));
-  raft::matrix::initializeDiagonalMatrix(singular_vec.data(), singular_mat.data(), n,
-                                   n, stream);
+  raft::matrix::initializeDiagonalMatrix(singular_vec.data(),
+                                         singular_mat.data(), n, n, stream);
 
   // Generate the column-major matrix
   device_buffer<DataT> temp_q0s(allocator, stream);

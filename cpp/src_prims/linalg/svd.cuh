@@ -24,11 +24,11 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
+#include <raft/handle.hpp>
+#include <raft/mr/device/buffer.hpp>
 #include "eig.cuh"
 #include "gemm.cuh"
 #include "transpose.h"
-#include <raft/handle.hpp>
-#include <raft/mr/device/buffer.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -234,12 +234,12 @@ void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
  * @param allocator device allocator for temporary buffers during computation
  */
 template <typename math_t>
-bool evaluateSVDByL2Norm(raft::handle_t &handle, math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
-                         int n_rows, int n_cols, int k, math_t tol,
-                         cudaStream_t stream) {
-
+bool evaluateSVDByL2Norm(raft::handle_t &handle, math_t *A_d, math_t *U,
+                         math_t *S_vec, math_t *V, int n_rows, int n_cols,
+                         int k, math_t tol, cudaStream_t stream) {
   cublasHandle_t cublasH = handle.get_cublas_handle();
-  std::shared_ptr<raft::mr::device::allocator> allocator = handle.get_device_allocator();
+  std::shared_ptr<raft::mr::device::allocator> allocator =
+    handle.get_device_allocator();
 
   int m = n_rows, n = n_cols;
 

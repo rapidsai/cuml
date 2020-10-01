@@ -198,7 +198,7 @@ class KernelCache {
 
         // collect training vectors for kernel elements that needs to be calculated
         raft::matrix::copyRows(x, n_rows, n_cols, x_ws.data(), ws_idx_new,
-                                   non_cached, stream, false);
+                               non_cached, stream, false);
         math_t *tile_new = tile.data() + n_cached * n_rows;
         (*kernel)(x, n_rows, n_cols, x_ws.data(), non_cached, tile_new, stream);
         // We need AssignCacheIdx to be finished before calling StoreCols
@@ -209,7 +209,7 @@ class KernelCache {
       if (n_unique > 0) {
         // collect all the feature vectors in the working set
         raft::matrix::copyRows(x, n_rows, n_cols, x_ws.data(),
-                                   unique_idx.data(), n_unique, stream, false);
+                               unique_idx.data(), n_unique, stream, false);
         (*kernel)(x, n_rows, n_cols, x_ws.data(), n_unique, tile.data(),
                   stream);
       }

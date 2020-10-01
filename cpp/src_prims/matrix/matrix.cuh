@@ -19,13 +19,13 @@
 #include <common/cudart_utils.h>
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
-#include <raft/handle.hpp>
 #include <raft/linalg/cublas_wrappers.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <algorithm>
 #include <cstddef>
 #include <cuda_utils.cuh>
+#include <raft/handle.hpp>
 
 namespace raft {
 namespace matrix {

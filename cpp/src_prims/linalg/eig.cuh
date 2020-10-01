@@ -133,10 +133,10 @@ void eigSelDC(math_t *in, int n_rows, int n_cols, int n_eig_vals,
 
   if (memUsage == OVERWRITE_INPUT) {
     raft::matrix::truncZeroOrigin(in, n_rows, eig_vectors, n_rows, n_eig_vals,
-                            stream);
+                                  stream);
   } else if (memUsage == COPY_INPUT) {
-    raft::matrix::truncZeroOrigin(d_eig_vectors.data(), n_rows, eig_vectors, n_rows,
-                            n_eig_vals, stream);
+    raft::matrix::truncZeroOrigin(d_eig_vectors.data(), n_rows, eig_vectors,
+                                  n_rows, n_eig_vals, stream);
   }
 }
 

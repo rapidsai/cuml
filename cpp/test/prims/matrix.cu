@@ -94,5 +94,5 @@ INSTANTIATE_TEST_CASE_P(MatrixTests, MatrixTestF,
 INSTANTIATE_TEST_CASE_P(MatrixTests, MatrixTestD,
                         ::testing::ValuesIn(inputsd2));
 
-}  // end namespace raft
-}  // end namespace matrix
+}  // namespace matrix
+}  // namespace raft

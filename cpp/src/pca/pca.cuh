@@ -51,13 +51,14 @@ void truncCompExpVars(const raft::handle_t &handle, math_t *in,
   calEig<math_t, enum_solver>(handle, in, components_all.data(),
                               explained_var_all.data(), prms, stream);
   raft::matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
-                          prms.n_components, prms.n_cols, stream);
+                                prms.n_components, prms.n_cols, stream);
   raft::matrix::ratio(handle, explained_var_all.data(),
                       explained_var_ratio_all.data(), prms.n_cols, stream);
-  raft::matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols, explained_var,
-                          prms.n_components, 1, stream);
+  raft::matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols,
+                                explained_var, prms.n_components, 1, stream);
   raft::matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
-                          explained_var_ratio, prms.n_components, 1, stream);
+                                explained_var_ratio, prms.n_components, 1,
+                                stream);
 }
 
 /**

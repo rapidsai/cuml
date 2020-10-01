@@ -198,7 +198,7 @@ void tsvdFit(const raft::handle_t &handle, math_t *input, math_t *components,
          explained_var_all.data(), prms, stream);
 
   raft::matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
-                          n_components, prms.n_cols, stream);
+                                n_components, prms.n_cols, stream);
 
   math_t scalar = math_t(1);
   raft::matrix::seqRoot(explained_var_all.data(), singular_vals, scalar,

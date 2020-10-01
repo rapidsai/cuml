@@ -18,9 +18,9 @@
 #include <gtest/gtest.h>
 #include <cuda_utils.cuh>
 #include <linalg/rsvd.cuh>
+#include <raft/handle.hpp>
 #include <random/rng.cuh>
 #include "test_utils.h"
-#include <raft/handle.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -232,20 +232,18 @@ typedef RsvdTest<float> RsvdTestSquareMatrixNormF;
 TEST_P(RsvdTestSquareMatrixNormF, Result) {
   raft::handle_t handle;
 
-  ASSERT_TRUE(evaluateSVDByL2Norm(handle, A, U, S, V, params.n_row, params.n_col,
-                                  params.k, 4 * params.tolerance,
+  ASSERT_TRUE(evaluateSVDByL2Norm(handle, A, U, S, V, params.n_row,
+                                  params.n_col, params.k, 4 * params.tolerance,
                                   stream));
-
 }
 
 typedef RsvdTest<double> RsvdTestSquareMatrixNormD;
 TEST_P(RsvdTestSquareMatrixNormD, Result) {
   raft::handle_t handle;
 
-  ASSERT_TRUE(evaluateSVDByL2Norm(handle, A, U, S, V, params.n_row, params.n_col,
-                                  params.k, 4 * params.tolerance,
+  ASSERT_TRUE(evaluateSVDByL2Norm(handle, A, U, S, V, params.n_row,
+                                  params.n_col, params.k, 4 * params.tolerance,
                                   stream));
-
 }
 
 INSTANTIATE_TEST_CASE_P(RsvdTests, RsvdSanityCheckValF,
