@@ -241,7 +241,7 @@ class KernelCache {
   */
   int *GetColIdxMap() {
     if (svmType == EPSILON_SVR) {
-      mapColumnIndices<<<MLCommon::ceildiv(n_ws, TPB), TPB, 0, stream>>>(
+      mapColumnIndices<<<raft::ceildiv(n_ws, TPB), TPB, 0, stream>>>(
         ws_idx, n_ws, n_rows, unique_idx.data(), n_unique, k_col_idx.data());
       CUDA_CHECK(cudaPeekAtLastError());
     }
@@ -281,7 +281,7 @@ class KernelCache {
    */
   void GetVecIndices(const int *ws_idx, int n_ws, int *vec_idx) {
     int n = n_rows;
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       vec_idx, ws_idx, n_ws,
       [n] __device__(math_t y) { return y < n ? y : y - n; }, stream);
   }
@@ -336,7 +336,7 @@ class KernelCache {
                         int *n_unique) {
     if (svmType == C_SVC) {
       *n_unique = n_ws;
-      MLCommon::copy(unique_idx, ws_idx, n_ws, stream);
+      raft::copy(unique_idx, ws_idx, n_ws, stream);
       return;
     }
     // for EPSILON_SVR
@@ -347,7 +347,7 @@ class KernelCache {
     cub::DeviceSelect::Unique(d_temp_storage.data(), d_temp_storage_size,
                               ws_cache_idx.data(), unique_idx,
                               d_num_selected_out.data(), n_ws, stream);
-    MLCommon::updateHost(n_unique, d_num_selected_out.data(), 1, stream);
+    raft::update_host(n_unique, d_num_selected_out.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 };

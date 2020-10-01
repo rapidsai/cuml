@@ -52,7 +52,7 @@ void cosineAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
                  bool isRowMajor) {
   typedef ExpandedDistanceFragmentMultiplyAdd<CosFusedDistance>
     FragmentMultiplyAdd_;
-  auto norm_op = [] __device__(AccType in) { return mySqrt(in); };
+  auto norm_op = [] __device__(AccType in) { return raft::mySqrt(in); };
 
   // Wrap fin_op to allow computing 1 - pA before calling fin_op
   auto wrapped_fin_op = [fin_op] __device__(AccType d_val, Index_ g_d_idx) {

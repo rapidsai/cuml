@@ -31,12 +31,14 @@
 - PR #2799: Reenable lightgbm test with lower (1%) proba accuracy
 - PR #2800: Align cuML's spdlog version with RMM's
 - PR #2824: Make data conversions warnings be debug level
+- PR #2835: Rng prims, utils, and dependencies in RAFT
 - PR #2541: Improve Documentation Examples and Source Linking
 - PR #2837: Make the FIL node reorder loop more obvious
 - PR #2849: make num_classes significant in FLOAT_SCALAR case
 - PR #2792: Project flash (new build process) script changes
 - PR #2850: Clean up unused params in paramsPCA
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
+- PR #2892 Update ci/local/README.md
 
 ## Bug Fixes
 - PR #2885: Changing test target for NVTX wrapper test

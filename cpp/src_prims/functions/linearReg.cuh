@@ -18,6 +18,7 @@
 
 #include <linalg/transpose.h>
 #include <raft/linalg/cublas_wrappers.h>
+#include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <linalg/add.cuh>
 #include <linalg/eltwise.cuh>
@@ -56,11 +57,11 @@ void linearRegLossGrads(math_t *input, int n_rows, int n_cols,
              cublas_handle, stream);
   LinAlg::subtract(labels_pred.data(), labels_pred.data(), labels, n_rows,
                    stream);
-  Matrix::matrixVectorBinaryMult(input, labels_pred.data(), n_rows, n_cols,
-                                 false, false, stream);
+  raft::matrix::matrixVectorBinaryMult(input, labels_pred.data(), n_rows,
+                                       n_cols, false, false, stream);
 
-  Stats::mean(grads, input, n_cols, n_rows, false, false, stream);
-  LinAlg::scalarMultiply(grads, grads, math_t(2), n_cols, stream);
+  raft::stats::mean(grads, input, n_cols, n_rows, false, false, stream);
+  raft::linalg::scalarMultiply(grads, grads, math_t(2), n_cols, stream);
 
   device_buffer<math_t> pen_grads(allocator, stream, 0);
 
@@ -92,8 +93,8 @@ void linearRegLoss(math_t *input, int n_rows, int n_cols, const math_t *labels,
 
   LinAlg::subtract(labels_pred.data(), labels, labels_pred.data(), n_rows,
                    stream);
-  Matrix::power(labels_pred.data(), n_rows, stream);
-  Stats::mean(loss, labels_pred.data(), 1, n_rows, false, false, stream);
+  raft::matrix::power(labels_pred.data(), n_rows, stream);
+  raft::stats::mean(loss, labels_pred.data(), 1, n_rows, false, false, stream);
 
   device_buffer<math_t> pen_val(allocator, stream, 0);
 

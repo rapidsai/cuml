@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
@@ -53,19 +54,19 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
   T beta = T(0);
   T thres = T(1e-10);
 
-  Matrix::setSmallValuesZero(S, UDesc.N, streams[0], thres);
+  raft::matrix::setSmallValuesZero(S, UDesc.N, streams[0], thres);
 
   // TO-DO: Update to use `device_buffer` here
   // Tracking issue: https://github.com/rapidsai/cuml/issues/2524
-  allocate(S_nnz, UDesc.N, true);
-  copy(S_nnz, S, UDesc.N, streams[0]);
-  Matrix::power(S_nnz, UDesc.N, streams[0]);
+  raft::allocate(S_nnz, UDesc.N, true);
+  raft::copy(S_nnz, S, UDesc.N, streams[0]);
+  raft::matrix::power(S_nnz, UDesc.N, streams[0]);
   LinAlg::addScalar(S_nnz, S_nnz, alpha[0], UDesc.N, streams[0]);
-  Matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, size_t(1), UDesc.N, false,
-                                        true, streams[0], true);
+  raft::matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, size_t(1), UDesc.N,
+                                              false, true, streams[0], true);
 
-  Matrix::matrixVectorBinaryMult(V, S, UDesc.N, UDesc.N, false, true,
-                                 streams[0]);
+  raft::matrix::matrixVectorBinaryMult(V, S, UDesc.N, UDesc.N, false, true,
+                                       streams[0]);
 
   Matrix::Data<T> S_nnz_data;
   S_nnz_data.totalSize = UDesc.N;

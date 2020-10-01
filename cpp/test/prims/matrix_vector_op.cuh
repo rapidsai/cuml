@@ -16,9 +16,10 @@
 
 #include <cuda_utils.cuh>
 #include <linalg/matrix_vector_op.cuh>
+#include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename Type, typename IdxType = int>
 __global__ void naiveMatVecKernel(Type *out, const Type *mat, const Type *vec,
@@ -46,7 +47,7 @@ void naiveMatVec(Type *out, const Type *mat, const Type *vec, IdxType D,
                  IdxType N, bool rowMajor, bool bcastAlongRows, Type scalar) {
   static const IdxType TPB = 64;
   IdxType len = N * D;
-  IdxType nblks = ceildiv(len, TPB);
+  IdxType nblks = raft::ceildiv(len, TPB);
   naiveMatVecKernel<Type>
     <<<nblks, TPB>>>(out, mat, vec, D, N, rowMajor, bcastAlongRows, scalar);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -80,11 +81,11 @@ void naiveMatVec(Type *out, const Type *mat, const Type *vec1, const Type *vec2,
                  Type scalar) {
   static const IdxType TPB = 64;
   IdxType len = N * D;
-  IdxType nblks = ceildiv(len, TPB);
+  IdxType nblks = raft::ceildiv(len, TPB);
   naiveMatVecKernel<Type><<<nblks, TPB>>>(out, mat, vec1, vec2, D, N, rowMajor,
                                           bcastAlongRows, scalar);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

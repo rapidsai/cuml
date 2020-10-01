@@ -45,18 +45,18 @@ enum NormType { L1Norm = 0, L2Norm };
  * @param fin_op the final lambda op
  */
 template <typename Type, typename IdxType = int,
-          typename Lambda = Nop<Type, IdxType>>
+          typename Lambda = raft::Nop<Type, IdxType>>
 void rowNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
              bool rowMajor, cudaStream_t stream,
-             Lambda fin_op = Nop<Type, IdxType>()) {
+             Lambda fin_op = raft::Nop<Type, IdxType>()) {
   switch (type) {
     case L1Norm:
       LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
-                     L1Op<Type, IdxType>(), Sum<Type>(), fin_op);
+                     raft::L1Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
       break;
     case L2Norm:
       LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
-                     L2Op<Type>(), Sum<Type>(), fin_op);
+                     raft::L2Op<Type>(), raft::Sum<Type>(), fin_op);
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);
@@ -78,18 +78,18 @@ void rowNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
  * @param fin_op the final lambda op
  */
 template <typename Type, typename IdxType = int,
-          typename Lambda = Nop<Type, IdxType>>
+          typename Lambda = raft::Nop<Type, IdxType>>
 void colNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
              bool rowMajor, cudaStream_t stream,
-             Lambda fin_op = Nop<Type, IdxType>()) {
+             Lambda fin_op = raft::Nop<Type, IdxType>()) {
   switch (type) {
     case L1Norm:
       LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
-                     L1Op<Type, IdxType>(), Sum<Type>(), fin_op);
+                     raft::L1Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
       break;
     case L2Norm:
       LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
-                     L2Op<Type, IdxType>(), Sum<Type>(), fin_op);
+                     raft::L2Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);
