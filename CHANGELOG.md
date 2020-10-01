@@ -39,6 +39,7 @@
 - PR #2850: Clean up unused params in paramsPCA
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
 - PR #2892 Update ci/local/README.md
+- PR #2902: `matrix/matrix.cuh` in RAFT namespacing
 
 ## Bug Fixes
 - PR #2882: Allow import on machines without GPUs
