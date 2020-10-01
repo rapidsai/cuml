@@ -205,10 +205,11 @@ struct tree_aggregator_t<NITEMS, TREE_PER_CLASS_FEW_CLASSES> {
     acc += single_tree_prediction;
   }
 
+  // block-reduce the best candidate class and write it out to global memory
   static __device__ __forceinline__ void block_reduce_write_out(
     vec<NITEMS, best_margin_label> best, int valid_threads, void* tmp_storage_,
     float* out, int num_rows) {
-    __syncthreads();
+    __syncthreads(); // free up per-class or per-thread margin
 
     // find best class per block (for each of the NITEMS rows)
     typedef BlockReduceMultiClass<NITEMS> BlockReduceT;
