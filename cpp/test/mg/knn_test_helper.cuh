@@ -70,8 +70,8 @@ class KNNTestHelper {
     int my_rank = comm.get_rank();
     int size = comm.get_size();
 
-    this->index_parts_per_rank = MLCommon::ceildiv(params.n_index_parts, size);
-    this->query_parts_per_rank = MLCommon::ceildiv(params.n_query_parts, size);
+    this->index_parts_per_rank = raft::ceildiv(params.n_index_parts, size);
+    this->query_parts_per_rank = raft::ceildiv(params.n_query_parts, size);
 
     for (int cur_rank = 0; cur_rank < size; cur_rank++) {
       int ippr = this->index_parts_per_rank;
@@ -177,13 +177,11 @@ class KNNTestHelper {
 
     std::cout << "Finished!" << std::endl;
 
-    std::cout << MLCommon::arr2Str(out_parts[0]->ptr, 10, "final_out", stream)
+    std::cout << raft::arr2Str(out_parts[0]->ptr, 10, "final_out", stream)
               << std::endl;
-    std::cout << MLCommon::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I",
-                                   stream)
+    std::cout << raft::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I", stream)
               << std::endl;
-    std::cout << MLCommon::arr2Str(out_d_parts[0]->ptr, 10, "final_out_D",
-                                   stream)
+    std::cout << raft::arr2Str(out_d_parts[0]->ptr, 10, "final_out_D", stream)
               << std::endl;
   }
 

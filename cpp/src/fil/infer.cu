@@ -163,7 +163,7 @@ struct tree_aggregator_t {
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   // could switch to unsigned short to save shared memory
-  // provided atomicAdd(short*) simulated with appropriate shifts
+  // provided raft::myAtomicAdd(short*) simulated with appropriate shifts
   int* votes;
   int num_classes;
 
@@ -188,7 +188,8 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
     vec<NITEMS, int> single_tree_prediction) {
 #pragma unroll
     for (int item = 0; item < NITEMS; ++item)
-      atomicAdd(votes + single_tree_prediction[item] * NITEMS + item, 1);
+      raft::myAtomicAdd(votes + single_tree_prediction[item] * NITEMS + item,
+                        1);
   }
   // class probabilities or regression. for regression, num_classes
   // is just the number of outputs for each data instance
@@ -325,7 +326,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
              ? " (accounting for shared class vote histogram)"
              : "");
   }
-  int num_blocks = ceildiv(int(params.num_rows), num_items);
+  int num_blocks = raft::ceildiv(int(params.num_rows), num_items);
   switch (num_items) {
     case 1:
       infer_k<1, leaf_algo>
