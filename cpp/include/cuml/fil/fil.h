@@ -141,17 +141,17 @@ enum leaf_algo_t {
       consecutive categories and predict a floating-point margin. Used in
       Gradient Boosted Decision Trees. We sum margins for each group separately
       **/
-  TREE_PER_CLASS = 2,
+  GROVE_PER_CLASS = 2,
   /** 1-vs-rest, or tree-per-class, where trees are assigned round-robin to
       consecutive categories and predict a floating-point margin. Used in
       Gradient Boosted Decision Trees. We sum margins for each group separately
-      This is a more specific version of TREE_PER_CLASS.
+      This is a more specific version of GROVE_PER_CLASS.
       _FEW_CLASSES means fewer (or as many) classes than threads. **/
   TREE_PER_CLASS_FEW_CLASSES = 3,
   /** 1-vs-rest, or tree-per-class, where trees are assigned round-robin to
       consecutive categories and predict a floating-point margin. Used in
       Gradient Boosted Decision Trees. We sum margins for each group separately
-      This is a more specific version of TREE_PER_CLASS.
+      This is a more specific version of GROVE_PER_CLASS.
       _MANY_CLASSES means more classes than threads. **/
   TREE_PER_CLASS_MANY_CLASSES = 4,
   // to be extended

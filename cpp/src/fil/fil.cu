@@ -190,9 +190,9 @@ struct forest {
     RAW (no values set): output the label of the class with highest probability, else output label 0.
     All other flags (AVG, SIGMOID, CLASS) are ignored
     
-    The multi-class classification / regression (TREE_PER_CLASS) predict_proba() is not implemented
+    The multi-class classification / regression (GROVE_PER_CLASS) predict_proba() is not implemented
     
-    The multi-class classification / regression (TREE_PER_CLASS) predict() works as follows
+    The multi-class classification / regression (GROVE_PER_CLASS) predict() works as follows
       (always 1 output):
     RAW (no values set): output the label of the class with highest margin,
       equal margins resolved in favor of smaller label integer
@@ -211,7 +211,7 @@ struct forest {
           complement_proba = true;
           do_transform = true;
           break;
-        case leaf_algo_t::TREE_PER_CLASS:
+        case leaf_algo_t::GROVE_PER_CLASS:
           // TODO(levsnv): add softmax to implement predict_proba
           ASSERT(
             false,
@@ -228,7 +228,7 @@ struct forest {
       if (leaf_algo_ == leaf_algo_t::FLOAT_UNARY_BINARY) {
         do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
       } else {
-        // TREE_PER_CLASS, CATEGORICAL_LEAF: moot since choosing best class and
+        // GROVE_PER_CLASS, CATEGORICAL_LEAF: moot since choosing best class and
         // all transforms are monotonic. also, would break current code
         do_transform = false;
       }
@@ -420,11 +420,11 @@ void check_params(const forest_params_t* params, bool dense) {
                "regression");
       }
       break;
-    case leaf_algo_t::TREE_PER_CLASS:
+    case leaf_algo_t::GROVE_PER_CLASS:
       ASSERT(params->num_classes > 2,
-             "num_classes >= 2 is required for leaf_algo == TREE_PER_CLASS");
+             "num_classes >= 2 is required for leaf_algo == GROVE_PER_CLASS");
       ASSERT(params->num_trees % params->num_classes == 0,
-             "num_classes must divide num_trees evenly for TREE_PER_CLASS");
+             "num_classes must divide num_trees evenly for GROVE_PER_CLASS");
       break;
     case leaf_algo_t::CATEGORICAL_LEAF:
       ASSERT(params->num_classes >= 2,
@@ -434,7 +434,7 @@ void check_params(const forest_params_t* params, bool dense) {
     default:
       ASSERT(false,
              "leaf_algo must be FLOAT_UNARY_BINARY, CATEGORICAL_LEAF"
-             " or TREE_PER_CLASS");
+             " or GROVE_PER_CLASS");
   }
   // output_t::RAW == 0, and doesn't have a separate flag
   output_t all_set =
@@ -551,7 +551,7 @@ void tl2fil_leaf_payload(fil_node_t* fil_node, const tl::Tree& tl_tree,
       fil_node->val.idx = find_class_label_from_one_hot(&vec[0], vec.size());
       break;
     case leaf_algo_t::FLOAT_UNARY_BINARY:
-    case leaf_algo_t::TREE_PER_CLASS:
+    case leaf_algo_t::GROVE_PER_CLASS:
       fil_node->val.f = tl_tree.LeafValue(tl_node_id);
       ASSERT(!tl_tree.HasLeafVector(tl_node_id),
              "some but not all treelite leaves have leaf_vector()");
@@ -695,7 +695,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
              "pred_transform are supported for xgboost-style multi-class "
              "classification models.");
       // this function should not know how many threads per block will be used
-      params->leaf_algo = leaf_algo_t::TREE_PER_CLASS;
+      params->leaf_algo = leaf_algo_t::GROVE_PER_CLASS;
     } else {
       params->num_classes = tl_params->output_class ? 2 : 1;
       ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",

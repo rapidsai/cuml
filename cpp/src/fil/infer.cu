@@ -209,7 +209,7 @@ struct tree_aggregator_t<NITEMS, TREE_PER_CLASS_FEW_CLASSES> {
   static __device__ __forceinline__ void block_reduce_write_out(
     vec<NITEMS, best_margin_label> best, int valid_threads, void* tmp_storage_,
     float* out, int num_rows) {
-    __syncthreads(); // free up per-class or per-thread margin
+    __syncthreads();  // free up per-class or per-thread margin
 
     // find best class per block (for each of the NITEMS rows)
     typedef BlockReduceMultiClass<NITEMS> BlockReduceT;
@@ -507,7 +507,7 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream) {
     case FLOAT_UNARY_BINARY:
       infer_k_launcher<FLOAT_UNARY_BINARY>(forest, params, stream, FIL_TPB);
       break;
-    case TREE_PER_CLASS:
+    case GROVE_PER_CLASS:
       if (params.num_classes > FIL_TPB) {
         params.leaf_algo = TREE_PER_CLASS_MANY_CLASSES;
         infer_k_launcher<TREE_PER_CLASS_MANY_CLASSES>(forest, params, stream,
