@@ -151,7 +151,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     raft::allocate(is_leafs_d, num_nodes);
 
     // generate on-GPU random data
-    Random::Rng r(ps.seed);
+    raft::random::Rng r(ps.seed);
     if (ps.leaf_algo != fil::leaf_algo_t::CATEGORICAL_LEAF) {
       r.uniform((float*)weights_d, num_nodes, -1.0f, 1.0f, stream);
     } else {
