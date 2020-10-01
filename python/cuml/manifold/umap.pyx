@@ -38,7 +38,7 @@ from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.memory_utils import with_cupy_rmm, using_output_type
+from cuml.common.memory_utils import using_output_type
 from cuml.common.import_utils import has_scipy
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor

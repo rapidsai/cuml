@@ -102,7 +102,7 @@ def test_other():
 
     svc.coef_ = cuml.common.CumlArray.zeros((10,))
 
-    val = svc.coef_
+    dbscan = cuml.DBSCAN()
 
     from sklearn.datasets import make_classification
 

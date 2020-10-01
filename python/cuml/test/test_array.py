@@ -15,6 +15,7 @@
 #
 
 import sys
+import gc
 
 import pytest
 
@@ -109,15 +110,7 @@ def test_array_init(input_type, dtype, shape, order):
 
     assert ary.dtype == np.dtype(dtype)
 
-    if input_type in ['cupy', 'numba', 'series']:
-        assert ary._owner is inp
-        inp_copy = deepcopy(cp.asarray(inp))
-
-        # testing owner reference keeps data of ary alive
-        del inp
-        assert cp.all(cp.asarray(ary._owner) == cp.asarray(inp_copy))
-
-    else:
+    if (input_type == "numpy"):
         assert isinstance(ary._owner, cp.ndarray)
 
         truth = cp.asnumpy(inp)
@@ -127,7 +120,40 @@ def test_array_init(input_type, dtype, shape, order):
         data = ary.to_output('numpy')
 
         assert np.array_equal(truth, data)
+    else:
+        found_owner = False
 
+        def get_owner(curr):
+            if (isinstance(curr, CumlArray)):
+                return curr._owner
+            elif (isinstance(curr, cp.ndarray)):
+                return curr.data.mem._owner
+            else:
+                return None
+
+        # Make sure the input array is in the ownership chain
+        curr_owner = ary
+
+        while (curr_owner is not None):
+            if (curr_owner is inp):
+                found_owner = True
+                break
+
+            curr_owner = get_owner(curr_owner)
+
+        assert found_owner, "GPU input arrays must be in the owner chain"
+
+        inp_copy = deepcopy(cp.asarray(inp))
+
+        # testing owner reference keeps data of ary alive
+        del inp
+
+        # Force GC just in case it lingers
+        gc.collect()
+
+        assert cp.all(cp.asarray(ary._owner) == cp.asarray(inp_copy))
+
+        
     return True
 
 
@@ -205,7 +231,7 @@ def test_create_empty(shape, dtype, order):
     else:
         assert ary.shape == shape
     assert ary.dtype == np.dtype(dtype)
-    assert isinstance(ary._owner, DeviceBuffer)
+    assert isinstance(ary._owner.data.mem._owner, DeviceBuffer)
 
 
 @pytest.mark.parametrize('shape', test_shapes)

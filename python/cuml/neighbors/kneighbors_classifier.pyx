@@ -16,6 +16,8 @@
 
 # distutils: language = c++
 
+import typing
+
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 import cuml.internals
@@ -34,8 +36,6 @@ from cython.operator cimport dereference as deref
 
 from cuml.raft.common.handle cimport handle_t
 from libcpp.vector cimport vector
-
-from cuml.common import with_cupy_rmm
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -231,7 +231,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                                        'description': 'Labels probabilities',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_generic()
-    def predict_proba(self, X, convert_dtype=True):
+    def predict_proba(self, X, convert_dtype=True) -> typing.Union[CumlArray, typing.Tuple]:
         """
         Use the trained k-nearest neighbors classifier to
         predict the label probabilities for X

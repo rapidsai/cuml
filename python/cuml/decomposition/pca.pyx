@@ -528,16 +528,20 @@ class PCA(Base):
         # NOTE: All intermediate calculations are done using cupy.ndarray and
         # then converted to CumlArray at the end to minimize conversions
         # between types
-        with using_output_type("cupy"):
-            self.components_ = self.components_
-            self.mean_ = self.mean_
+        # with using_output_type("cupy"):
+        #     self.components_ = self.components_
+        #     self.mean_ = self.mean_
 
         if self.whiten:
-            self.components_ *= (1 / cp.sqrt(self.n_rows - 1))
-            self.components_ *= self.singular_values_
+            # self.components_ *= (1 / cp.sqrt(self.n_rows - 1))
+            cp.multiply(self.components_, (1 / cp.sqrt(self.n_rows - 1)), out=self.components_)
+            # self.components_ *= self.singular_values_
+            cp.multiply(self.components_, self.singular_values_, out=self.components_)
 
-        X_inv = X.dot(self.components_)
-        X_inv += self.mean_
+        # X_inv = X.dot(self.components_)
+        X_inv = cp.dot(X, self.components_)
+        # X_inv += self.mean_
+        cp.add(X_inv, self.mean_, out=X_inv)
 
         if self.whiten:
             self.components_ /= self.singular_values_
@@ -652,10 +656,12 @@ class PCA(Base):
 
             if self.whiten:
                 self.components_ *= cp.sqrt(self.n_rows - 1)
+                # cp.multiply(self.components_, cp.sqrt(self.n_rows - 1), out=self.components_)
                 self.components_ /= self.singular_values_
 
             X = X - self.mean_
             X_transformed = X.dot(self.components_.T)
+            # X_transformed = X.dot(cp.transpose(self.components_))
 
             if self.whiten:
                 self.components_ *= self.singular_values_

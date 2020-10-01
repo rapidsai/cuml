@@ -30,7 +30,7 @@ import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.raft.common.handle import Handle
-from cuml.common import input_to_cuml_array, rmm_cupy_ary
+from cuml.common import input_to_cuml_array
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.ensemble.randomforest_common import _obtain_fil_model

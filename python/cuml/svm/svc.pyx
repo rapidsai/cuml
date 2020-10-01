@@ -322,7 +322,9 @@ class SVC(SVMBase, ClassifierMixin):
             with using_output_type('numpy'):
                 self.prob_svc = CalibratedClassifierCV(SVC(**params), cv=5,
                                                        method='sigmoid')
-                self.prob_svc.fit(X, y)
+                
+                with cuml.internals.exit_internal_api():
+                    self.prob_svc.fit(X, y)
                 self._fit_status_ = 0
             return self
 
@@ -394,9 +396,11 @@ class SVC(SVMBase, ClassifierMixin):
             self._check_is_fitted('prob_svc')
             # out_type = self._get_output_type(X)
             X, _, _, _, _ = input_to_host_array(X)
-            preds = self.prob_svc.predict(X)
-            # prob_svc has numpy output type, change it if it is necessary:
-            return preds
+
+            with cuml.internals.exit_internal_api():
+                preds = self.prob_svc.predict(X)
+                # prob_svc has numpy output type, change it if it is necessary:
+                return preds
         else:
             return super(SVC, self).predict(X, True, convert_dtype)
 
@@ -425,11 +429,12 @@ class SVC(SVMBase, ClassifierMixin):
             X, _, _, _, _ = input_to_host_array(X)
 
             with cuml.using_output_type("numpy"):
-                preds = self.prob_svc.predict_proba(X)
-                if (log):
-                    preds = np.log(preds)
-                # prob_svc has numpy output type, change it if it is necessary:
-                return preds
+                with cuml.internals.exit_internal_api():
+                    preds = self.prob_svc.predict_proba(X)
+                    if (log):
+                        preds = np.log(preds)
+                    # prob_svc has numpy output type, change it if it is necessary:
+                    return preds
         else:
             raise AttributeError("This classifier is not fitted to predict "
                                  "probabilities. Fit a new classifier with"
@@ -471,6 +476,7 @@ class SVC(SVMBase, ClassifierMixin):
             # be useful for visualization, but predictions should be made
             # using the probabilities.
             df = np.zeros((X.shape[0],))
+
             with using_output_type('numpy'):
                 for clf in self.prob_svc.calibrated_classifiers_:
                     df = df + clf.base_estimator.decision_function(X)

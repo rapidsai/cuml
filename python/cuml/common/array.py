@@ -21,11 +21,29 @@ import cupy as cp
 import numpy as np
 from cudf.core import Buffer, DataFrame, Series
 from cuml.common.memory_utils import (_get_size_from_shape, _order_to_strides,
-                                      _strides_to_order, with_cupy_rmm)
+                                      _strides_to_order, with_cupy_rmm, class_with_cupy_rmm)
 from numba import cuda
 from rmm import DeviceBuffer
+import multiprocessing
 
+_array_manager = multiprocessing.Manager()
 
+_to_output_counts = _array_manager.dict()
+_from_array_counts = _array_manager.dict()
+_malloc_nbytes = _array_manager.Value(int, 0)
+_malloc_count = _array_manager.Value(int, 0)
+
+def _increment_to_output(output_type: str):
+    _to_output_counts[output_type] = _to_output_counts.setdefault(output_type, 0) + 1
+
+def _increment_from_array(output_type: str):
+    _from_array_counts[output_type] = _from_array_counts.setdefault(output_type, 0) + 1
+
+def _increment_malloc(nbytes: int):
+    _malloc_nbytes.set(_malloc_nbytes.get() + nbytes)
+    _malloc_count.set(_malloc_count.get() + 1)
+
+@class_with_cupy_rmm(ignore_pattern=["serialize"])
 class CumlArray(Buffer, ArrayOutputable):
 
     """
@@ -119,8 +137,22 @@ class CumlArray(Buffer, ArrayOutputable):
         # Base class (Buffer) constructor call
         size, shape = _get_size_from_shape(shape, dtype)
 
+        keep_owner = False
+
         if not memview_construction and not detailed_construction:
-            flattened_data = cp.asarray(data).ravel(order='A').view('u1')
+            cupy_data = cp.asarray(data)
+            flattened_data = cupy_data.data.ptr
+
+            assert size is None
+            assert owner is None
+
+            size = cupy_data.nbytes
+            owner = cupy_data if cupy_data.flags.owndata else data
+            
+            # if (cupy_data.data.ptr != flattened_data.data.ptr):
+            #     assert owner is None
+            #     keep_owner = True
+            
         else:
             flattened_data = data
 
@@ -128,9 +160,11 @@ class CumlArray(Buffer, ArrayOutputable):
                                         owner=owner,
                                         size=size)
 
-        if owner is None and not isinstance(data, np.ndarray):
-            # need to reference original owner instead of flattened_data
-            self._owner = data
+        if owner is None and not isinstance(data, np.ndarray) and not keep_owner:
+            # # Reference the original owner only if flattened_data is a view. Otherwise leave alone
+            # if (not(isinstance(flattened_data, cp.ndarray) and flattened_data.flags.owndata)):
+                # need to reference original owner instead of flattened_data
+            self._owner = data # TODO: Should remove this. Its not helping
 
         # Post processing of meta data
         if detailed_construction:
@@ -159,6 +193,7 @@ class CumlArray(Buffer, ArrayOutputable):
                 self.strides = ary_interface['strides']
                 self.order = _strides_to_order(self.strides, self.dtype)
 
+    @with_cupy_rmm
     def __getitem__(self, slice):
         return CumlArray(data=cp.asarray(self).__getitem__(slice))
 
@@ -188,11 +223,9 @@ class CumlArray(Buffer, ArrayOutputable):
         }
         return output
 
-    @with_cupy_rmm
     def item(self):
         return cp.asarray(self).item()
 
-    @with_cupy_rmm
     def to_output(self, output_type='cupy', output_dtype=None):
         """
         Convert array to output format
@@ -226,6 +259,10 @@ class CumlArray(Buffer, ArrayOutputable):
                 output_type = 'series'
             else:
                 output_type = 'dataframe'
+
+        assert output_type != "mirror"
+
+        _increment_to_output(output_type)
 
         if output_type == 'cupy':
             return cp.asarray(self, dtype=output_dtype)
@@ -292,9 +329,10 @@ class CumlArray(Buffer, ArrayOutputable):
             Whether to create a F-major or C-major array.
         """
 
-        size, _ = _get_size_from_shape(shape, dtype)
-        dbuf = DeviceBuffer(size=size)
-        return CumlArray(data=dbuf, shape=shape, dtype=dtype, order=order)
+        # size, _ = _get_size_from_shape(shape, dtype)
+        # dbuf = DeviceBuffer(size=size)
+        # return CumlArray(data=dbuf, shape=shape, dtype=dtype, order=order)
+        return CumlArray(cp.empty(shape, dtype, order))
 
     @classmethod
     def full(cls, shape, value, dtype, order='F'):
@@ -310,11 +348,12 @@ class CumlArray(Buffer, ArrayOutputable):
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        size, _ = _get_size_from_shape(shape, dtype)
-        dbuf = DeviceBuffer(size=size)
-        cp.asarray(dbuf).view(dtype=dtype).fill(value)
-        return CumlArray(data=dbuf, shape=shape, dtype=dtype,
-                         order=order)
+        # size, _ = _get_size_from_shape(shape, dtype)
+        # dbuf = DeviceBuffer(size=size)
+        # cp.asarray(dbuf).view(dtype=dtype).fill(value)
+        # return CumlArray(data=dbuf, shape=shape, dtype=dtype,
+        #                  order=order)
+        return CumlArray(cp.full(shape, value, dtype, order))
 
     @classmethod
     def zeros(cls, shape, dtype='float32', order='F'):

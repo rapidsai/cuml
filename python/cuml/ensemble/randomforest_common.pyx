@@ -33,7 +33,7 @@ from cython.operator cimport dereference as deref
 from cuml.ensemble.randomforest_shared import treelite_serialize, \
     treelite_deserialize
 from cuml.ensemble.randomforest_shared cimport *
-from cuml.common import input_to_cuml_array, with_cupy_rmm
+from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 
 class BaseRandomForestModel(Base):

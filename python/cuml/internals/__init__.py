@@ -15,19 +15,18 @@
 #
 
 from cuml.internals.base_helpers import BaseFunctionMetadata, BaseMetaClass
-from cuml.internals.func_wrappers import (autowrap_ignore,
-                                          autowrap_return_self,
+from cuml.internals.func_wrappers import (api_ignore,
                                           api_return_any,
                                           api_base_return_any,
                                           api_base_return_generic,
-                                          cuml_internal_func,
-                                          cuml_internal_func_check_type,
                                           set_api_output_type,
                                           set_api_output_dtype,
                                           api_base_return_array,
                                           api_return_array,
                                           api_base_fit_transform,
+                                          api_return_array_skipall,
                                           api_base_return_any_skipall,
                                           api_base_return_array_skipall,
-                                          api_base_return_generic_skipall)
+                                          api_base_return_generic_skipall,
+                                          exit_internal_api)
 from cuml.internals.internals import GraphBasedDimRedCallback

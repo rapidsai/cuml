@@ -26,7 +26,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 import cuml.common.logger as logger
-from cuml.common import input_to_cuml_array, with_cupy_rmm
+from cuml.common import input_to_cuml_array
 
 
 supported_penalties = ["l1", "l2", "none", "elasticnet"]

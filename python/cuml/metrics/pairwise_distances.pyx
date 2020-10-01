@@ -22,6 +22,7 @@ from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
 import cupy as cp
 import numpy as np
+import cuml.internals
 from cuml.common.base import _determine_stateless_output_type
 from cuml.common import (get_cudf_column_ptr, get_dev_array_ptr,
                          input_to_cuml_array, CumlArray, logger, with_cupy_rmm)

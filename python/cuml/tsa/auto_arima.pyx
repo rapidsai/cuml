@@ -416,7 +416,7 @@ class AutoARIMA(Base):
             model.fit(h=h, maxiter=maxiter, method=method, truncate=truncate)
 
     @cuml.internals.api_base_return_generic_skipall
-    def predict(self, start=0, end=None, level=None) -> typing.Tuple[CumlArray, CumlArray, CumlArray]:
+    def predict(self, start=0, end=None, level=None) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray, CumlArray]]:
         """Compute in-sample and/or out-of-sample prediction for each series
 
         Parameters:
@@ -470,7 +470,7 @@ class AutoARIMA(Base):
             return y_p, lower, upper
 
     @cuml.internals.api_base_return_generic_skipall
-    def forecast(self, nsteps: int, level=None):
+    def forecast(self, nsteps: int, level=None) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray, CumlArray]]:
         """Forecast `nsteps` into the future.
 
         Parameters:

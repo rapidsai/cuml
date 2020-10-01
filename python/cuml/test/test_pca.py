@@ -27,6 +27,9 @@ from sklearn.datasets import make_multilabel_classification
 from sklearn.decomposition import PCA as skPCA
 from sklearn.datasets.samples_generator import make_blobs
 
+import cuml
+
+# cuml.set_global_output_type("numpy")
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['ndarray'])

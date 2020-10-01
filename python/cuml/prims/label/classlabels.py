@@ -17,7 +17,9 @@
 import cupy as cp
 import math
 
-from cuml.common.memory_utils import rmm_cupy_ary
+import cuml.internals
+from cuml.common.array import CumlArray
+
 from cuml.common.kernel_utils import cuda_kernel_factory
 
 
@@ -134,7 +136,7 @@ def make_monotonic(labels, classes=None, copy=False):
     classes : array-like of size (n_classes,)
     """
 
-    labels = rmm_cupy_ary(cp.asarray, labels, dtype=labels.dtype)
+    labels = cp.asarray(labels, dtype=labels.dtype)
 
     if copy:
         labels = labels.copy()
@@ -143,7 +145,7 @@ def make_monotonic(labels, classes=None, copy=False):
         raise ValueError("Labels array must be 1D")
 
     if classes is None:
-        classes = rmm_cupy_ary(cp.unique, labels)
+        classes = cp.unique(labels)
 
     smem = labels.dtype.itemsize * int(classes.shape[0])
 
@@ -157,8 +159,7 @@ def make_monotonic(labels, classes=None, copy=False):
 
     return labels, classes
 
-
-def check_labels(labels, classes):
+def check_labels(labels, classes) -> bool:
     """
     Validates that a set of labels is drawn from the unique
     set of given classes.
@@ -180,8 +181,8 @@ def check_labels(labels, classes):
         raise ValueError("Labels and classes must have same dtype (%s != %s" %
                          (labels.dtype, classes.dtype))
 
-    labels = rmm_cupy_ary(cp.asarray, labels, dtype=labels.dtype)
-    classes = rmm_cupy_ary(cp.asarray, classes, dtype=classes.dtype)
+    labels = cp.asarray(labels, dtype=labels.dtype)
+    classes = cp.asarray(classes, dtype=classes.dtype)
 
     if labels.ndim != 1:
         raise ValueError("Labels array must be 1D")
@@ -197,8 +198,8 @@ def check_labels(labels, classes):
 
     return valid[0] == 1
 
-
-def invert_labels(labels, classes, copy=False):
+@cuml.internals.api_return_array_skipall
+def invert_labels(labels, classes, copy=False) -> CumlArray:
     """
     Takes a set of labels that have been mapped to be drawn
     from a monotonically increasing set and inverts them to
@@ -225,8 +226,8 @@ def invert_labels(labels, classes, copy=False):
     if labels.dtype != classes.dtype:
         raise ValueError("Labels and classes must have same dtype (%s != %s" %
                          (labels.dtype, classes.dtype))
-    labels = rmm_cupy_ary(cp.asarray, labels, dtype=labels.dtype)
-    classes = rmm_cupy_ary(cp.asarray, classes, dtype=classes.dtype)
+    labels = cp.asarray(labels, dtype=labels.dtype)
+    classes = cp.asarray(classes, dtype=classes.dtype)
 
     if copy:
         labels = labels.copy()

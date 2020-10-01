@@ -31,7 +31,6 @@ from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
-from cuml.internals import autowrap_ignore
 from cuml.common.array_descriptor import CumlArrayDescriptor
 
 from collections import defaultdict

@@ -16,6 +16,8 @@
 
 # distutils: language = c++
 
+import typing
+
 import numpy as np
 import cupy as cp
 import cupyx
@@ -276,7 +278,7 @@ class NearestNeighbors(Base):
                                            '(n_samples, n_features)')])
     @cuml.internals.api_base_return_generic_skipall
     def kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                   convert_dtype=True):
+                   convert_dtype=True) -> typing.Union[CumlArray, typing.Tuple]:
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -307,9 +309,8 @@ class NearestNeighbors(Base):
 
         return self._kneighbors(X, n_neighbors, return_distance, convert_dtype)
 
-    @cuml.internals.api_base_return_generic()
     def _kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                    convert_dtype=True, _output_cumlarray=False):
+                    convert_dtype=True) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -415,8 +416,8 @@ class NearestNeighbors(Base):
 
         self.handle.sync()
 
-        if _output_cumlarray:
-            return (D_ndarr, I_ndarr) if return_distance else I_ndarr
+        # if _output_cumlarray:
+        #     return (D_ndarr, I_ndarr) if return_distance else I_ndarr
 
         # out_type = self._get_output_type(X)
         # I_output = I_ndarr.to_output(out_type)
@@ -479,31 +480,28 @@ class NearestNeighbors(Base):
 
         if mode == 'connectivity':
             ind_mlarr = self._kneighbors(X, n_neighbors,
-                                         return_distance=False,
-                                         _output_cumlarray=True)
+                                         return_distance=False)
             n_samples = ind_mlarr.shape[0]
             distances = cp.ones(n_samples * n_neighbors, dtype=np.float32)
 
         elif mode == 'distance':
-            dist_mlarr, ind_mlarr = self._kneighbors(X, n_neighbors,
-                                                     _output_cumlarray=True)
-            distances = dist_mlarr[:, 1:] if X is None \
-                else dist_mlarr
+            dist_mlarr, ind_mlarr = self._kneighbors(X, n_neighbors)
+            distances = dist_mlarr[:, 1:] if X is None else dist_mlarr
             distances = cp.ravel(distances)
 
         else:
             raise ValueError('Unsupported mode, must be one of "connectivity"'
                              ' or "distance" but got "%s" instead' % mode)
 
-        indices = ind_mlarr[:, 1:] if X is None \
-            else ind_mlarr
+        indices = ind_mlarr[:, 1:] if X is None else ind_mlarr
         n_samples = indices.shape[0]
         n_samples_fit = self.X_m.shape[0]
         n_nonzero = n_samples * n_neighbors
         rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
 
         sparse_csr = cupyx.scipy.sparse.csr_matrix((distances,
-                                                   cp.ravel(indices),
+                                                   cp.ravel(
+                                                       cp.asarray(indices)),
                                                    rowptr), shape=(n_samples,
                                                    n_samples_fit))
 

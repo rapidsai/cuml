@@ -20,7 +20,7 @@ import cupy as cp
 import cupy.prof
 import cupyx
 import cuml.internals
-from cuml.common import CumlArray, with_cupy_rmm
+from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
@@ -177,7 +177,6 @@ class MultinomialNB(Base):
     class_log_prior_ = CumlArrayDescriptor()
     feature_log_prob_ = CumlArrayDescriptor()
 
-    @with_cupy_rmm
     def __init__(self,
                  alpha=1.0,
                  fit_prior=True,

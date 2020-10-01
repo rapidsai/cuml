@@ -186,7 +186,7 @@ class IncrementalPCA(PCA):
                                              output_type=output_type)
         self.batch_size = batch_size
         self._hyperparams = ["n_components", "whiten", "copy", "batch_size"]
-        self._cupy_attributes = True
+        # self._cupy_attributes = True
         self._sparse_model = True
 
     def fit(self, X, y=None) -> "IncrementalPCA":

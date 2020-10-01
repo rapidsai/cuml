@@ -152,6 +152,7 @@ class cython_build_ext(_build_ext, object):
             if (self.profile is not None):
                 self.profile = bool(self.profile)
                 compiler_directives.update({"profile": self.profile})
+                compiler_directives.update({"linetrace": True})
 
             if (self.embedsignature is not None):
                 self.embedsignature = bool(self.embedsignature)

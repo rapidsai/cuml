@@ -22,8 +22,9 @@ import cupy as cp
 
 from libc.stdint cimport uintptr_t
 
+import cuml.internals
 from cuml.raft.common.handle cimport handle_t
-from cuml.common import with_cupy_rmm, input_to_cuml_array
+from cuml.common import input_to_cuml_array
 from cuml.raft.common.handle import Handle
 cimport cuml.common.cuda
 
@@ -35,7 +36,6 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                    const int upper_class_range) except +
 
 
-@with_cupy_rmm
 def _prepare_cluster_input(cluster):
     """Helper function to avoid code duplication for clustering metrics."""
     cluster_m, n_rows, _, _ = input_to_cuml_array(
@@ -43,14 +43,14 @@ def _prepare_cluster_input(cluster):
         check_dtype=np.int32,
         check_cols=1
     )
-    # cp_ground_truth_m = cluster_m.to_output(output_type='cupy')
+    cluster_m = cp.asarray(cluster_m)
 
     lower_class_range = cp.min(cluster_m)
     upper_class_range = cp.max(cluster_m)
 
     return cluster_m, n_rows, lower_class_range, upper_class_range
 
-
+@cuml.internals.api_return_any()
 def cython_entropy(clustering, base=None, handle=None):
     """
     Computes the entropy of a distribution for given probability values.

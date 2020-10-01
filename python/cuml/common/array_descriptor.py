@@ -9,29 +9,7 @@ from numpy import ndarray as numpyArray
 from pandas import DataFrame as pdDataFrame
 from pandas import Series as pdSeries
 import cuml
-
-_input_type_to_str = {
-    numpyArray: 'numpy',
-    cupyArray: 'cupy',
-    cuSeries: 'cudf',
-    cuDataFrame: 'cudf',
-    pdSeries: 'numpy',
-    pdDataFrame: 'numpy',
-    CumlArray: "cuml",
-}
-
-
-def _input_to_type(input_array):
-    # function to access _input_to_str, while still using the correct
-    # numba check for a numba device_array
-    if type(input_array) in _input_type_to_str.keys():
-        return _input_type_to_str[type(input_array)]
-    elif numbaArray.is_cuda_ndarray(input_array):
-        return 'numba'
-    elif input_array is None:
-        return "none"
-    else:
-        return 'cupy'
+import cuml.common.input_utils
 
 
 @dataclass
@@ -49,9 +27,9 @@ class CumlArrayDescriptorMeta:
     values: dict = field(default_factory=dict)
 
     def get_input_value(self):
-        if (self.input_type is None):
-            # TODO: Need to determine if this raises an error or not
-            return None
+        # if (self.input_type is None):
+        #     # TODO: Need to determine if this raises an error or not
+        #     return  None
 
         assert self.input_type in self.values, \
             "Missing value for input_type {}".format(self.input_type)
@@ -83,8 +61,9 @@ class CumlArrayDescriptor():
 
         # Handle setting npone
 
-        if (existing.input_type == "none"):
-            return None
+        if (existing.input_type is None):
+            # Dont save in the cache. Just return the value
+            return existing.values[existing.input_type]
 
         # Return a cached value if it exists
         if (to_output_type in existing.values):
@@ -135,7 +114,7 @@ class CumlArrayDescriptor():
         existing = self._get_value(instance)
 
         # Determine the type
-        existing.input_type = _input_to_type(value)
+        existing.input_type = cuml.common.input_utils.determine_array_type(value)
 
         # Clear any existing values
         existing.values.clear()

@@ -21,7 +21,6 @@ from cuml.common.base import Base, RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.memory_utils import with_cupy_rmm
 
 class ElasticNet(Base, RegressorMixin):
 

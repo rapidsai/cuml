@@ -120,7 +120,6 @@ class SVMBase(Base):
     support_ = CumlArrayDescriptor()
     support_vectors_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
-    n_support_ = CumlArrayDescriptor()
     _internal_coef_ = CumlArrayDescriptor()
     _unique_labels_ = CumlArrayDescriptor()
 

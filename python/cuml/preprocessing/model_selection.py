@@ -20,7 +20,6 @@ import numpy as np
 import warnings
 
 from cuml.common.memory_utils import _strides_to_order
-from cuml.common.memory_utils import rmm_cupy_ary
 from numba import cuda
 from typing import Union
 
@@ -362,11 +361,11 @@ def train_test_split(X,
     if shuffle:
         # Shuffle the data
         if random_state is None or isinstance(random_state, int):
-            idxs = rmm_cupy_ary(cp.arange, X.shape[0])
+            idxs = cp.arange(X.shape[0])
             random_state = cp.random.RandomState(seed=random_state)
 
         elif isinstance(random_state, cp.random.RandomState):
-            idxs = rmm_cupy_ary(cp.arange, X.shape[0])
+            idxs = cp.arange(X.shape[0])
 
         elif isinstance(random_state, np.random.RandomState):
             idxs = np.arange(X.shape[0])

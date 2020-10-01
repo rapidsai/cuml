@@ -19,7 +19,6 @@
 import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.solvers import CD
-from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.base import Base, RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 

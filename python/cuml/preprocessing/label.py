@@ -17,7 +17,7 @@ import cupy as cp
 import cupyx
 
 from cuml import Base
-from cuml.common import CumlArray, has_scipy, rmm_cupy_ary, with_cupy_rmm
+from cuml.common import CumlArray, has_scipy
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
@@ -37,17 +37,17 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
     sparse_output : bool whether to return sparse array
     """
 
-    classes = rmm_cupy_ary(cp.asarray, classes, dtype=classes.dtype)
-    labels = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
+    classes = cp.asarray(classes, dtype=classes.dtype)
+    labels = cp.asarray(y, dtype=y.dtype)
 
     if not check_labels(labels, classes):
         raise ValueError("Unseen classes encountered in input")
 
-    row_ind = rmm_cupy_ary(cp.arange, 0, labels.shape[0], 1,
+    row_ind = cp.arange(0, labels.shape[0], 1,
                            dtype=y.dtype)
     col_ind, _ = make_monotonic(labels, classes, copy=True)
 
-    val = rmm_cupy_ary(cp.full, row_ind.shape[0], pos_label, dtype=y.dtype)
+    val = cp.full(row_ind.shape[0], pos_label, dtype=y.dtype)
 
     sp = cupyx.scipy.sparse.coo_matrix((val, (row_ind, col_ind)),
                                        shape=(col_ind.shape[0],
@@ -150,8 +150,7 @@ class LabelBinarizer(Base):
         self.sparse_output = sparse_output
         self.classes_ = None
 
-    @with_cupy_rmm
-    def fit(self, y):
+    def fit(self, y) -> "LabelBinarizer":
         """
         Fit label binarizer
 
@@ -165,8 +164,6 @@ class LabelBinarizer(Base):
         -------
         self : returns an instance of self.
         """
-
-        self._set_output_type(y)
 
         if y.ndim > 2:
             raise ValueError("labels cannot be greater than 2 dimensions")
@@ -185,7 +182,6 @@ class LabelBinarizer(Base):
 
         return self
 
-    @with_cupy_rmm
     def fit_transform(self, y):
         """
         Fit label binarizer and transform multi-class labels to their
@@ -202,7 +198,7 @@ class LabelBinarizer(Base):
         """
         return self.fit(y).transform(y)
 
-    def transform(self, y):
+    def transform(self, y) -> CumlArray:
         """
         Transform multi-class labels to their dummy-encoded representation
         labels.
@@ -247,12 +243,9 @@ class LabelBinarizer(Base):
             y_mapped = y.tocsr().indices.astype(self.classes_.dtype)
         elif scipy_sparse_isspmatrix(y):
             y = y.tocsr()
-            y_mapped = rmm_cupy_ary(cp.array, y.indices,
-                                    dtype=y.indices.dtype)
+            y_mapped = cp.array(y.indices, dtype=y.indices.dtype)
         else:
-            y_mapped = rmm_cupy_ary(cp.argmax,
-                                    rmm_cupy_ary(cp.asarray, y,
-                                                 dtype=y.dtype),
-                                    axis=1).astype(y.dtype)
+            y_mapped = cp.argmax(cp.asarray(y, dtype=y.dtype),
+                                 axis=1).astype(y.dtype)
 
         return invert_labels(y_mapped, self.classes_)

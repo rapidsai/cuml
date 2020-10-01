@@ -26,9 +26,11 @@ from collections import deque
 
 import cuml
 import cuml.common
+import cuml.common.array
 import cuml.common.base
+import cuml.common.input_utils
 from cuml.internals.base_helpers import BaseFunctionMetadata
-from cuml.common.input_utils import input_to_type_str
+from cuml.common.input_utils import determine_array_type, is_array_like
 import rmm
 
 try:
@@ -58,89 +60,101 @@ global_output_type_data.root_cm = None
 def set_api_output_type(output_type: str):
     assert (global_output_type_data.root_cm is not None)
 
-    # TODO: Also accept array objects
+    # Quick exit
+    if (isinstance(output_type, str)):
+        global_output_type_data.root_cm.output_type = output_type
+        return
 
-    global_output_type_data.root_cm.output_type = output_type
+    # Try to convert any array objects to their type
+    array_type = cuml.common.input_utils.determine_array_type(output_type)
+
+    # Ensure that this is an array-like object
+    assert output_type is None or array_type is not None
+
+    global_output_type_data.root_cm.output_type = array_type
 
 
 def set_api_output_dtype(output_dtype):
     assert (global_output_type_data.root_cm is not None)
 
-    # TODO: Also accept array objects
+    # Try to convert any array objects to their type
+    if (output_dtype is not None and cuml.common.input_utils.is_array_like(output_dtype)):
+        output_dtype = cuml.common.input_utils.determine_array_dtype(output_dtype)
+
+        assert(output_dtype is not None)
 
     global_output_type_data.root_cm.output_dtype = output_dtype
 
 
-def cuml_internal_func(func):
-    @wraps(func)
-    def wrapped(*args, **kwargs):
-        try:
-            # Increment the internal_func_counter
-            global_output_type_data.internal_func_count += 1
+# def cuml_internal_func(func):
+#     @wraps(func)
+#     def wrapped(*args, **kwargs):
+#         try:
+#             # Increment the internal_func_counter
+#             global_output_type_data.internal_func_count += 1
 
-            old_target_type = global_output_type_data.target_type
-            old_target_dtype = global_output_type_data.target_dtype
+#             old_target_type = global_output_type_data.target_type
+#             old_target_dtype = global_output_type_data.target_dtype
 
-            with cupy_using_allocator(rmm.rmm_cupy_allocator):
-                with cuml.using_output_type("mirror") as prev_type:
-                    ret_val = func(*args, **kwargs)
+#             with cupy_using_allocator(rmm.rmm_cupy_allocator):
+#                 with cuml.using_output_type("mirror") as prev_type:
+#                     ret_val = func(*args, **kwargs)
 
-                    # Determine what the target type and dtype should be. Use
-                    # the non-None value from the lowest value in the stack
-                    global_output_type_data.target_type = (
-                        old_target_type if old_target_type is not None else
-                        global_output_type_data.target_type)
-                    global_output_type_data.target_dtype = (
-                        old_target_dtype if old_target_dtype is not None else
-                        global_output_type_data.target_dtype)
+#                     # Determine what the target type and dtype should be. Use
+#                     # the non-None value from the lowest value in the stack
+#                     global_output_type_data.target_type = (
+#                         old_target_type if old_target_type is not None else
+#                         global_output_type_data.target_type)
+#                     global_output_type_data.target_dtype = (
+#                         old_target_dtype if old_target_dtype is not None else
+#                         global_output_type_data.target_dtype)
 
-                    if isinstance(
-                            ret_val, cuml.common.CumlArray
-                    ) and global_output_type_data.internal_func_count == 1:
+#                     if isinstance(
+#                             ret_val, cuml.common.CumlArray
+#                     ) and global_output_type_data.internal_func_count == 1:
 
-                        target_type = (global_output_type_data.target_type
-                                       if global_output_type_data.target_type
-                                       is not None else prev_type)
+#                         target_type = (global_output_type_data.target_type
+#                                        if global_output_type_data.target_type
+#                                        is not None else prev_type)
 
-                        if (target_type == "input"):
+#                         if (target_type == "input"):
 
-                            # If we are on the Base object, get output_type
-                            if (len(args) > 0
-                                    and isinstance(args[0], cuml.Base)):
-                                target_type = args[0].output_type
+#                             # If we are on the Base object, get output_type
+#                             if (len(args) > 0
+#                                     and isinstance(args[0], cuml.Base)):
+#                                 target_type = args[0].output_type
 
-                        return ret_val.to_output(
-                            output_type=target_type,
-                            output_dtype=global_output_type_data.target_dtype)
-                    else:
-                        return ret_val
-        finally:
-            global_output_type_data.internal_func_count -= 1
+#                         return ret_val.to_output(
+#                             output_type=target_type,
+#                             output_dtype=global_output_type_data.target_dtype)
+#                     else:
+#                         return ret_val
+#         finally:
+#             global_output_type_data.internal_func_count -= 1
 
-            # On exiting the API, reset the target types
-            if (global_output_type_data.internal_func_count == 0):
-                global_output_type_data.target_type = None
-                global_output_type_data.target_dtype = None
+#             # On exiting the API, reset the target types
+#             if (global_output_type_data.internal_func_count == 0):
+#                 global_output_type_data.target_type = None
+#                 global_output_type_data.target_dtype = None
 
-    return wrapped
+#     return wrapped
 
 
-@contextlib.contextmanager
-def func_with_cumlarray_return():
-    try:
-        old_target_type = global_output_type_data.target_type
-        old_target_dtype = global_output_type_data.target_dtype
+# @contextlib.contextmanager
+# def func_with_cumlarray_return():
+#     try:
+#         old_target_type = global_output_type_data.target_type
+#         old_target_dtype = global_output_type_data.target_dtype
 
-        yield
+#         yield
 
-    finally:
-        global_output_type_data.target_type = (
-            old_target_type if old_target_type is not None else
-            global_output_type_data.target_type)
-        global_output_type_data.target_dtype = (
-            old_target_dtype if old_target_dtype is not None else
-            global_output_type_data.target_dtype)
-
+#     finally:
+#         global_output_type_data.target_type = (
+#             old_target_type if old_target_type is not None else
+#             global_output_type_data.target_type)
+#         global_output_type_data.target_dtype = (
+#             old_target_dtype if old_target_dtype is not None else
+#             global_output_type_data.target_dtype)
 
 class InternalAPIContext(contextlib.ExitStack):
     def __init__(self):
@@ -160,6 +174,8 @@ class InternalAPIContext(contextlib.ExitStack):
 
         self._count = 0
 
+        self.call_stack = {}
+
         global_output_type_data.root_cm = self
 
     def pop_all(self):
@@ -177,9 +193,22 @@ class InternalAPIContext(contextlib.ExitStack):
 
     def __exit__(self, *exc_details):
 
+        del self.call_stack[self._count]
+
         self._count -= 1
 
         return
+
+    def push_func(self, func):
+
+        self.call_stack[self._count] = func
+
+    def get_current_func(self):
+
+        if (self._count in self.call_stack):
+            return self.call_stack[self._count]
+
+        return None
 
     @contextlib.contextmanager
     def push_output_types(self):
@@ -375,6 +404,8 @@ class InternalAPIContextBase(contextlib.ExitStack,
         # Enter the root context to know if we are the root cm
         self.is_root = self.enter_context(self.root_cm) == 1
 
+        self.root_cm.push_func(self._func)
+
         # If we are the first, push any callbacks from the root into this CM
         # If we are not the first, this will have no effect
         self.push(self.root_cm.pop_all())
@@ -480,7 +511,7 @@ class ProcessReturnArray(ProcessReturn):
     def convert_to_cumlarray(self, ret_val):
 
         # Get the output type
-        ret_val_type_str = input_to_type_str(ret_val)
+        ret_val_type_str = determine_array_type(ret_val)
 
         # If we are a supported array and not already cuml, convert to cuml
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
@@ -510,7 +541,25 @@ class ProcessReturnGeneric(ProcessReturnArray):
         assert (isinstance(gen_type, typing._GenericAlias))
 
         # Add the right processing function based on the generic type
-        if (gen_type.__origin__ is tuple):
+        if (gen_type.__origin__ is typing.Union):
+
+            found_gen_type = None
+
+            # If we are a Union, the supported types must only be either CumlArray, Tuple, Dict, or List
+            for gen_arg in gen_type.__args__:
+
+                if (isinstance(gen_arg, typing._GenericAlias)):
+                    assert found_gen_type is None or found_gen_type == gen_arg
+
+                    found_gen_type = gen_arg
+                else:
+                    assert issubclass(gen_arg, cuml.common.CumlArray)
+
+            assert found_gen_type is not None
+
+            self._process_return_cbs.append(self.process_generic)
+
+        elif (gen_type.__origin__ is tuple):
             self._process_return_cbs.append(self.process_tuple)
         elif (gen_type.__origin__ is dict):
             self._process_return_cbs.append(self.process_dict)
@@ -533,9 +582,7 @@ class ProcessReturnGeneric(ProcessReturnArray):
 
         for idx, item in enumerate(out_val):
 
-            # TODO: this really needs to check for all types of arrays
-            if (isinstance(item, cuml.common.CumlArray)):
-                out_val[idx] = self.process_single(item)
+            out_val[idx] = self.process_generic(item)
 
         return tuple(out_val)
 
@@ -544,6 +591,26 @@ class ProcessReturnGeneric(ProcessReturnArray):
         return ret_val
 
     def process_list(self, ret_val):
+
+        for idx, item in enumerate(ret_val):
+
+            ret_val[idx] = self.process_generic(item)
+
+        return ret_val
+
+    def process_generic(self, ret_val):
+
+        if (is_array_like(ret_val)):
+            return self.process_single(ret_val)
+
+        if (isinstance(ret_val, tuple)):
+            return self.process_tuple(ret_val)
+
+        if (isinstance(ret_val, dict)):
+            return self.process_dict(ret_val)
+
+        if (isinstance(ret_val, list)):
+            return self.process_list(ret_val)
 
         return ret_val
 
@@ -580,46 +647,42 @@ def get_internal_context() -> InternalAPIContext:
     return global_output_type_data.root_cm
 
 
-def cuml_internal_func_check_type(func):
-    @wraps(func)
-    def wrapped(*args, **kwargs):
-        with cupy_using_allocator(rmm.rmm_cupy_allocator):
-            with cuml.using_output_type("mirror") as prev_type:
-                ret_val = func(*args, **kwargs)
+# def cuml_internal_func_check_type(func):
+#     @wraps(func)
+#     def wrapped(*args, **kwargs):
+#         with cupy_using_allocator(rmm.rmm_cupy_allocator):
+#             with cuml.using_output_type("mirror") as prev_type:
+#                 ret_val = func(*args, **kwargs)
 
-                if isinstance(ret_val, cuml.common.CumlArray):
-                    if (prev_type == "input"):
+#                 if isinstance(ret_val, cuml.common.CumlArray):
+#                     if (prev_type == "input"):
 
-                        if (len(args) > 0 and isinstance(args[0], cuml.Base)):
-                            prev_type = args[0].output_type
+#                         if (len(args) > 0 and isinstance(args[0], cuml.Base)):
+#                             prev_type = args[0].output_type
 
-                    return ret_val.to_output(prev_type)
-                else:
-                    return ret_val
+#                     return ret_val.to_output(prev_type)
+#                 else:
+#                     return ret_val
 
-    return wrapped
+#     return wrapped
 
 
-def autowrap_ignore(func: typing.Callable):
+def api_ignore(func: typing.Callable):
 
-    func_dict: BaseFunctionMetadata = typing.cast(
-        dict, func.__dict__).setdefault(BaseFunctionMetadata.func_dict_str,
-                                        BaseFunctionMetadata())
-
-    func_dict.ignore = True
+    func.__dict__["__cuml_is_wrapped"] = True
 
     return func
 
 
-def autowrap_return_self(func):
+# def autowrap_return_self(func):
 
-    func_dict: BaseFunctionMetadata = typing.cast(
-        dict, func.__dict__).setdefault(BaseFunctionMetadata.func_dict_str,
-                                        BaseFunctionMetadata())
+#     func_dict: BaseFunctionMetadata = typing.cast(
+#         dict, func.__dict__).setdefault(BaseFunctionMetadata.func_dict_str,
+#                                         BaseFunctionMetadata())
 
-    func_dict.returns_self = True
+#     func_dict.returns_self = True
 
-    return func
+#     return func
 
 
 class DecoratorMetaClass(type):
@@ -654,15 +717,15 @@ class InputArgDecoratorMixin(object):
         sig = inspect.signature(func, follow_wrapped=True)
         sig_args = list(sig.parameters.keys())
 
-        has_self = "self" in sig.parameters and sig_args.index("self") == 0
+        self.has_self = "self" in sig.parameters and sig_args.index("self") == 0
 
-        if (not has_self and self.should_have_self):
+        if (not self.has_self and self.should_have_self):
             raise Exception("No self found!")
 
         arg_to_use = self.input_arg
         arg_to_use_name = None
 
-        self_offset = (1 if has_self else 0)
+        self_offset = (1 if self.has_self else 0)
 
         # if input_arg is None, then set to first non self argument
         if (arg_to_use is None):
@@ -686,7 +749,10 @@ class InputArgDecoratorMixin(object):
 
     def get_arg_value(self, *args, **kwargs):
 
-        self_val = args[0]
+        self_val = None
+
+        if (self.has_self):
+            self_val = args[0]
 
         # Check if its set to a string
         if (isinstance(self.arg_to_use, str)):
@@ -940,7 +1006,7 @@ class BaseReturnArrayDecorator(ReturnArrayDecorator):
         # TODO: Should we return just ReturnArrayCM if `do_autowrap` == False?
         return BaseReturnArrayCM(func, args)
 
-
+# TODO: Static check the typings for valid values
 class BaseReturnGenericDecorator(BaseReturnArrayDecorator):
     def _recreate_cm(self, func, args):
 
@@ -975,9 +1041,29 @@ api_base_return_array = BaseReturnArrayDecorator
 api_base_return_generic = BaseReturnGenericDecorator
 api_base_fit_transform = BaseReturnArrayFitTransformDecorator
 
+api_return_array_skipall = ReturnArrayDecorator(skip_get_output_dtype=True, skip_get_output_type=True)
+
 api_base_return_any_skipall = BaseReturnAnyDecorator(
     skip_set_output_type=True, skip_set_n_features_in=True)
 api_base_return_array_skipall = BaseReturnArrayDecorator(
     skip_get_output_type=True)
 api_base_return_generic_skipall = BaseReturnGenericDecorator(
     skip_get_output_type=True)
+
+@contextlib.contextmanager
+def exit_internal_api(*args, **kwds):
+
+    assert (global_output_type_data.root_cm is not None)
+
+    try:
+        old_root_cm = global_output_type_data.root_cm
+
+        # TODO: DO we set the global output type here?
+        global_output_type_data.root_cm = None
+
+        yield
+
+    finally:
+        global_output_type_data.root_cm = old_root_cm
+        
+

@@ -16,6 +16,7 @@
 
 import contextlib
 import functools
+import inspect
 import operator
 import threading
 import typing
@@ -51,12 +52,69 @@ def with_cupy_rmm(func):
             a = cp.arange(10) # uses RMM for allocation
 
     """
+
+    if (func.__dict__.get("__cuml_rmm_wrapped", False)):
+        return func
+
     @wraps(func)
     def cupy_rmm_wrapper(*args, **kwargs):
         with cupy_using_allocator(rmm.rmm_cupy_allocator):
             return func(*args, **kwargs)
 
+    # Mark the function as already wrapped
+    cupy_rmm_wrapper.__dict__["__cuml_rmm_wrapped"] = True
+
     return cupy_rmm_wrapper
+
+import re
+
+def class_with_cupy_rmm(skip_init=False, skip_private=True, skip_dunder=True, ignore_pattern: list=[]):
+
+    regex_list = ignore_pattern
+
+    if (skip_private):
+        # Match private but not dunder
+        regex_list.append(r"^_(?!(_))\w+$")
+
+    if (skip_dunder):
+        if (not skip_init):
+            # Make sure to not match __init__
+            regex_list.append(r"^__(?!(init))\w+__$")
+        else:
+            # Match all dunder
+            regex_list.append(r"^__\w+__$")
+    elif (skip_init):
+        regex_list.append(r"^__init__$")
+
+    final_regex = '(?:%s)' % '|'.join(regex_list)
+
+    def inner(klass):
+
+        for attributeName, attribute in klass.__dict__.items():
+
+            # Skip patters that dont match
+            if (re.match(final_regex, attributeName)):
+                continue
+
+            if callable(attribute):
+
+                # Passed the ignore patters. Wrap the function (will do nothing if already wrapped)
+                setattr(klass, attributeName, with_cupy_rmm(attribute))
+
+            # Class/Static methods work differently since they are descriptors (and not callable). Instead unwrap the function, and rewrap it
+            elif (isinstance(attribute, classmethod)):
+                unwrapped = attribute.__func__
+                
+                setattr(klass, attributeName, classmethod(with_cupy_rmm(unwrapped)))
+            
+            elif (isinstance(attribute, staticmethod)):
+                unwrapped = attribute.__func__
+                
+                setattr(klass, attributeName, staticmethod(with_cupy_rmm(unwrapped)))
+
+        return klass
+
+    return inner
 
 
 def rmm_cupy_ary(cupy_fn, *args, **kwargs):

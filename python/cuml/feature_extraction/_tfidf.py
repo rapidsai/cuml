@@ -18,7 +18,6 @@ import cuml.internals
 from cuml.common.exceptions import NotFittedError
 import cupy as cp
 import cupyx
-from cuml.common import with_cupy_rmm
 from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
 from cuml.common.sparsefuncs import csr_diag_mul
 from cuml.common.array import CumlArray

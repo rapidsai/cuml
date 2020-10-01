@@ -49,7 +49,7 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
         double pval_threshold)
 
 # TODO: Update api_return_array to take input_arg if desired
-@cuml.internals.api_return_array()
+@cuml.internals.api_return_array(input_arg="y", skip_get_output_type=False)
 def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
               handle=None) -> CumlArray:
     """

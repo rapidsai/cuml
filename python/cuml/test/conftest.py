@@ -3,17 +3,62 @@ import os
 import cupy as cp
 import cupyx
 import pytest
+import _pytest.config
+import _pytest.terminal
 from pytest import Item
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
 import numbers
+
+import rmm
+
+rmm.reinitialize(logging=True, log_file_name="test_log.txt")
 
 # Stores incorrect uses of CumlArray on cuml.common.base.Base to print at the
 # end
 bad_cuml_array_loc = set()
 
 
+# Set a bad cupy allocator that will fail if rmm.rmm_cupy_allocator is not used
+def bad_allocator(nbytes):
+
+    assert False, "Using default cupy allocator instead of rmm.rmm_cupy_allocator"
+
+    return None
+
+
+
+saved_allocator = rmm.rmm_cupy_allocator
+
+def counting_rmm_allocator(nbytes):
+
+    import cuml.common.array
+
+    cuml.common.array._increment_malloc(nbytes)
+
+    # if (global_output_type_data.root_cm is not None):
+
+    #     current_func = global_output_type_data.root_cm.get_current_func()
+
+    #     if (current_func):
+    #         print("{} Allocating {} bytes from {}:{}".format(repr(current_func), nbytes, current_func.func_code.co_filename, current_func.func_code.co_firstlineno))
+
+    return saved_allocator(nbytes)
+
+rmm.rmm_cupy_allocator = counting_rmm_allocator
+
 def pytest_configure(config):
+    cp.cuda.set_allocator(counting_rmm_allocator)
+
+@pytest.fixture(scope="function")
+def cupy_allocator_fixture():
+
+    # Disable creating cupy arrays
+    cp.cuda.set_allocator(bad_allocator)
+
+    yield
+
+    # Reset creating cupy arrays
     cp.cuda.set_allocator(None)
 
 
@@ -57,8 +102,24 @@ def pytest_runtest_makereport(item: Item, call):
                     break
 
 
+def pytest_terminal_summary(terminalreporter: _pytest.terminal.TerminalReporter, exitstatus: pytest.ExitCode, config: _pytest.config.Config):
+
+    terminalreporter.write_sep("=", "CumlArray Summary")
+
+    import cuml.common.array
+
+    terminalreporter.write_line("To Output Counts:", yellow=True)
+    terminalreporter.write_line(str(cuml.common.array._to_output_counts))
+
+    terminalreporter.write_line("From Array Counts:", yellow=True)
+    terminalreporter.write_line(str(cuml.common.array._from_array_counts))
+
+    terminalreporter.write_line("RMM Malloc: Count={}, Size={}".format(cuml.common.array._malloc_count.get(), cuml.common.array._malloc_nbytes.get()))
+
+
 # Closing hook to display the file/line numbers at the end of the test
 def pytest_unconfigure(config):
+
     def split_exists(filename: str) -> bool:
         strip_colon = filename[:filename.rfind(":")]
         return os.path.exists(strip_colon)
