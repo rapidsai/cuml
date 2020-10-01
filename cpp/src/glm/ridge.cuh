@@ -49,15 +49,16 @@ void ridgeSolve(const raft::handle_t &handle, math_t *S, math_t *V, math_t *U,
   math_t beta = math_t(0);
   math_t thres = math_t(1e-10);
 
-  Matrix::setSmallValuesZero(S, n_cols, stream, thres);
-  allocate(S_nnz, n_cols, true);
-  copy(S_nnz, S, n_cols, stream);
-  Matrix::power(S_nnz, n_cols, stream);
+  raft::matrix::setSmallValuesZero(S, n_cols, stream, thres);
+  raft::allocate(S_nnz, n_cols, true);
+  raft::copy(S_nnz, S, n_cols, stream);
+  raft::matrix::power(S_nnz, n_cols, stream);
   LinAlg::addScalar(S_nnz, S_nnz, alpha[0], n_cols, stream);
-  Matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true,
-                                        stream, true);
+  raft::matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true,
+                                              stream, true);
 
-  Matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false, true, stream);
+  raft::matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false, true,
+                                       stream);
   LinAlg::gemm(U, n_rows, n_cols, b, S_nnz, n_cols, 1, CUBLAS_OP_T, CUBLAS_OP_N,
                alp, beta, cublasH, stream);
 
@@ -83,9 +84,9 @@ void ridgeSVD(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   int U_len = n_rows * n_cols;
   int V_len = n_cols * n_cols;
 
-  allocate(U, U_len);
-  allocate(V, V_len);
-  allocate(S, n_cols);
+  raft::allocate(U, U_len);
+  raft::allocate(V, V_len);
+  raft::allocate(S, n_cols);
 
   LinAlg::svdQR(A, n_rows, n_cols, S, U, V, true, true, true, cusolverH,
                 cublasH, allocator, stream);
@@ -112,9 +113,9 @@ void ridgeEig(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   int U_len = n_rows * n_cols;
   int V_len = n_cols * n_cols;
 
-  allocate(U, U_len);
-  allocate(V, V_len);
-  allocate(S, n_cols);
+  raft::allocate(U, U_len);
+  raft::allocate(V, V_len);
+  raft::allocate(S, n_cols);
 
   LinAlg::svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, stream,
                  allocator);
@@ -156,10 +157,10 @@ void ridgeFit(const raft::handle_t &handle, math_t *input, int n_rows,
   math_t *mu_input, *norm2_input, *mu_labels;
 
   if (fit_intercept) {
-    allocate(mu_input, n_cols);
-    allocate(mu_labels, 1);
+    raft::allocate(mu_input, n_cols);
+    raft::allocate(mu_labels, 1);
     if (normalize) {
-      allocate(norm2_input, n_cols);
+      raft::allocate(norm2_input, n_cols);
     }
     preProcessData(handle, input, n_rows, n_cols, labels, intercept, mu_input,
                    mu_labels, norm2_input, fit_intercept, normalize, stream);

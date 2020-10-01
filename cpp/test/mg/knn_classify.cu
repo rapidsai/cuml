@@ -50,7 +50,8 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNParams> {
       }
       uniq_labels[i] = (int *)knn_th.allocator.get()->allocate(nu * sizeof(int),
                                                                knn_th.stream);
-      updateDevice(uniq_labels[i], ul_h.data(), ul_h.size(), knn_th.stream);
+      raft::update_device(uniq_labels[i], ul_h.data(), ul_h.size(),
+                          knn_th.stream);
     }
 
     /**
@@ -67,7 +68,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNParams> {
 
     int actual = 1;
     int expected = 1;
-    return CompareApprox<int>(1)(actual, expected);
+    return raft::CompareApprox<int>(1)(actual, expected);
   }
 };
 

@@ -19,8 +19,8 @@
 #include <cuda_utils.cuh>
 #include <vectorized.cuh>
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename InType, int VecLen, typename Lambda, typename OutType,
           typename IdxType>
@@ -45,7 +45,8 @@ template <typename InType, int VecLen, typename Lambda, typename OutType,
           typename IdxType, int TPB>
 void unaryOpImpl(OutType *out, const InType *in, IdxType len, Lambda op,
                  cudaStream_t stream) {
-  const IdxType nblks = ceildiv(VecLen ? len / VecLen : len, (IdxType)TPB);
+  const IdxType nblks =
+    raft::ceildiv(VecLen ? len / VecLen : len, (IdxType)TPB);
   unaryOpKernel<InType, VecLen, Lambda, OutType, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, in, len, op);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -131,11 +132,11 @@ template <typename OutType, typename Lambda, typename IdxType = int,
 void writeOnlyUnaryOp(OutType *out, IdxType len, Lambda op,
                       cudaStream_t stream) {
   if (len <= 0) return;  // silently skip in case of 0 length input
-  auto nblks = ceildiv<IdxType>(len, TPB);
+  auto nblks = raft::ceildiv<IdxType>(len, TPB);
   writeOnlyUnaryOpKernel<OutType, Lambda, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, len, op);
   CUDA_CHECK(cudaGetLastError());
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

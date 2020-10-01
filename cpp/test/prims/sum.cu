@@ -45,16 +45,16 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
     int len = rows * cols;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, len);
+    raft::allocate(data, len);
 
     T data_h[len];
     for (int i = 0; i < len; i++) {
       data_h[i] = T(1);
     }
 
-    updateDevice(data, data_h, len, stream);
+    raft::update_device(data, data_h, len, stream);
 
-    allocate(sum_act, cols);
+    raft::allocate(sum_act, cols);
     sum(sum_act, data, cols, rows, false, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
@@ -77,14 +77,14 @@ const std::vector<SumInputs<double>> inputsd = {{0.05, 1024, 32, 1234ULL},
 
 typedef SumTest<float> SumTestF;
 TEST_P(SumTestF, Result) {
-  ASSERT_TRUE(devArrMatch(float(params.rows), sum_act, params.cols,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(float(params.rows), sum_act, params.cols,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef SumTest<double> SumTestD;
 TEST_P(SumTestD, Result) {
-  ASSERT_TRUE(devArrMatch(double(params.rows), sum_act, params.cols,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(double(params.rows), sum_act, params.cols,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(SumTests, SumTestF, ::testing::ValuesIn(inputsf));

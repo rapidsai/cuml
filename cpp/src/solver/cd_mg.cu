@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
@@ -103,8 +104,8 @@ void fit_impl(raft::handle_t &handle,
 
   if (normalize) {
     T scalar = T(1.0) + l2_alpha;
-    Matrix::setValue(squared.data(), squared.data(), scalar, input_desc.N,
-                     streams[0]);
+    raft::matrix::setValue(squared.data(), squared.data(), scalar, input_desc.N,
+                           streams[0]);
   } else {
     Matrix::Data<T> squared_data{squared.data(), size_t(input_desc.N)};
     LinAlg::opg::colNorm2NoSeq(squared_data, input_data, input_desc, comm,
@@ -121,7 +122,7 @@ void fit_impl(raft::handle_t &handle,
 
   T *rs = residual.data();
   for (int i = 0; i < partsToRanks.size(); i++) {
-    copy(rs, labels[i]->ptr, partsToRanks[i]->size, streams[0]);
+    raft::copy(rs, labels[i]->ptr, partsToRanks[i]->size, streams[0]);
 
     Matrix::Data<T> *rs_data = new Matrix::Data<T>();
     rs_data->ptr = rs;
@@ -189,11 +190,11 @@ void fit_impl(raft::handle_t &handle,
       if (l1_ratio > T(0.0))
         Functions::softThres(coef_loc, coef_loc, alpha, 1, streams[0]);
 
-      LinAlg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
-                                     streams[0]);
+      raft::linalg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
+                                           streams[0]);
 
       coef_prev = h_coef[ci];
-      updateHost(&(h_coef[ci]), coef_loc, 1, streams[0]);
+      raft::update_host(&(h_coef[ci]), coef_loc, 1, streams[0]);
       CUDA_CHECK(cudaStreamSynchronize(streams[0]));
 
       T diff = abs(coef_prev - h_coef[ci]);

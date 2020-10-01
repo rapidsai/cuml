@@ -192,7 +192,7 @@ struct GridSync {
     __syncthreads();
     if (masterThread()) {
       __threadfence();
-      atomicAdd(arrivalTracker, updateValue);
+      raft::myAtomicAdd(arrivalTracker, updateValue);
       __threadfence();
     }
   }

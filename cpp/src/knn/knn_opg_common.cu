@@ -59,6 +59,7 @@
 
 #include <set>
 
+#include <common/cudart_utils.h>
 #include <cuda_utils.cuh>
 
 namespace ML {
@@ -104,7 +105,7 @@ void copy_label_outputs_from_index_parts(T *out, int64_t *knn_indices,
                                          cudaStream_t stream) {
   const int TPB_X = 256;
   int n_labels = cur_batch_size * k;
-  dim3 grid(MLCommon::ceildiv(n_labels, TPB_X));
+  dim3 grid(raft::ceildiv(n_labels, TPB_X));
   dim3 blk(TPB_X);
 
   std::vector<Matrix::RankSizePair *> &idxPartsToRanks =
@@ -119,7 +120,7 @@ void copy_label_outputs_from_index_parts(T *out, int64_t *knn_indices,
   }
   size_t n_parts = offsets_h.size();
   device_buffer<int64_t> offsets_d(alloc, stream, n_parts);
-  updateDevice(offsets_d.data(), offsets_h.data(), n_parts, stream);
+  raft::update_device(offsets_d.data(), offsets_h.data(), n_parts, stream);
 
   std::vector<T *> parts_h(n_parts);
   device_buffer<T *> parts_d(alloc, stream, n_parts);
@@ -127,7 +128,7 @@ void copy_label_outputs_from_index_parts(T *out, int64_t *knn_indices,
     for (int p = 0; p < n_parts; p++) {
       parts_h[p] = y[p][o];
     }
-    updateDevice(parts_d.data(), parts_h.data(), n_parts, stream);
+    raft::update_device(parts_d.data(), parts_h.data(), n_parts, stream);
 
     copy_label_outputs_from_index_parts_kernel<T, TPB_X>
       <<<grid, blk, 0, stream>>>(out + (o * n_labels), knn_indices,
@@ -190,7 +191,7 @@ void merge_labels(T *output, int64_t *knn_indices, T *unmerged_outputs,
                   std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream) {
   const int TPB_X = 256;
   int n_labels = cur_batch_size * nearest_neighbors;
-  dim3 grid(MLCommon::ceildiv(n_labels, TPB_X));
+  dim3 grid(raft::ceildiv(n_labels, TPB_X));
   dim3 blk(TPB_X);
 
   std::set<int> idxRanks = index_desc.uniqueRanks();
@@ -204,7 +205,8 @@ void merge_labels(T *output, int64_t *knn_indices, T *unmerged_outputs,
     offset += rsp->size;
   }
   device_buffer<int64_t> offsets_d(alloc, stream, offsets_h.size());
-  updateDevice(offsets_d.data(), offsets_h.data(), offsets_h.size(), stream);
+  raft::update_device(offsets_d.data(), offsets_h.data(), offsets_h.size(),
+                      stream);
 
   std::vector<int> parts_to_ranks_h;
   for (auto &rsp : idxPartsToRanks) {
@@ -217,8 +219,8 @@ void merge_labels(T *output, int64_t *knn_indices, T *unmerged_outputs,
     }
   }
   device_buffer<int> parts_to_ranks_d(alloc, stream, parts_to_ranks_h.size());
-  updateDevice(parts_to_ranks_d.data(), parts_to_ranks_h.data(),
-               parts_to_ranks_h.size(), stream);
+  raft::update_device(parts_to_ranks_d.data(), parts_to_ranks_h.data(),
+                      parts_to_ranks_h.size(), stream);
 
   merge_labels_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
     output, knn_indices, unmerged_outputs, unmerged_knn_indices,
@@ -482,18 +484,17 @@ void exchange_results(device_buffer<T> &res, device_buffer<int64_t> &res_I,
           size_t batch_offset = batch_elms * i;
 
           // Indices and distances are stored in rank order
-          MLCommon::copyAsync(res_I.data() + batch_offset, res_I.data(),
-                              batch_elms, stream);
-          MLCommon::copyAsync(res_D.data() + batch_offset, res_D.data(),
-                              batch_elms, stream);
+          raft::copy_async(res_I.data() + batch_offset, res_I.data(),
+                           batch_elms, stream);
+          raft::copy_async(res_D.data() + batch_offset, res_D.data(),
+                           batch_elms, stream);
 
           device_buffer<T> tmp_res(alloc, stream, n_outputs * batch_elms);
-          MLCommon::copyAsync(tmp_res.data(), res.data(), tmp_res.size(),
-                              stream);
+          raft::copy_async(tmp_res.data(), res.data(), tmp_res.size(), stream);
 
           for (int o = 0; o < n_outputs; ++o) {
             // Outputs are stored in target order and then in rank order
-            MLCommon::copyAsync(
+            raft::copy_async(
               res.data() + (o * idxRanks.size() * batch_elms) + batch_offset,
               tmp_res.data() + (o * batch_elms), batch_elms, stream);
           }
@@ -584,7 +585,7 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
     int part_rank = partition->rank;
     size_t part_n_rows = partition->size;
 
-    size_t total_batches = ceildiv(part_n_rows, batch_size);
+    size_t total_batches = raft::ceildiv(part_n_rows, batch_size);
     size_t total_n_processed = 0;
 
     // Loop through batches for each query part
@@ -619,9 +620,10 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
         if (!rowMajorQuery && total_batches > 1) {
           tmp_batch_buf.resize(batch_input_elms, stream);
           for (int col_data = 0; col_data < query_desc.N; col_data++) {
-            copy(tmp_batch_buf.data() + (col_data * cur_batch_size),
-                 data->ptr + ((col_data * part_n_rows) + total_n_processed),
-                 cur_batch_size, stream);
+            raft::copy(
+              tmp_batch_buf.data() + (col_data * cur_batch_size),
+              data->ptr + ((col_data * part_n_rows) + total_n_processed),
+              cur_batch_size, stream);
           }
           cur_query_ptr = tmp_batch_buf.data();
 

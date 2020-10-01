@@ -59,7 +59,7 @@ __global__ void map_kernel(T *output, T *X, int n_rows, T *coef, Lambda grad) {
  */
 template <typename T, int TPB_X>
 void f(T *input, int n_rows, T *coef, T *preds) {
-  dim3 grid(MLCommon::ceildiv(n_rows, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(n_rows, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   // Function: 1/1+ax^(2b)
@@ -76,7 +76,7 @@ template <typename T, int TPB_X>
 void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
                  UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
                  cudaStream_t stream) {
-  dim3 grid(MLCommon::ceildiv(n_rows, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(n_rows, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   /**
@@ -85,30 +85,30 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
   MLCommon::device_buffer<T> residuals(d_alloc, stream, n_rows);
 
   f<T, TPB_X>(input, n_rows, coef, residuals.data());
-  MLCommon::LinAlg::eltwiseSub(residuals.data(), residuals.data(), labels,
-                               n_rows, stream);
+  raft::linalg::eltwiseSub(residuals.data(), residuals.data(), labels, n_rows,
+                           stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
    * Gradient w/ respect to a
    */
   MLCommon::device_buffer<T> a_deriv(d_alloc, stream, n_rows);
-  MLCommon::copy(a_deriv.data(), input, n_rows, stream);
+  raft::copy(a_deriv.data(), input, n_rows, stream);
   map_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
     a_deriv.data(), a_deriv.data(), n_rows, coef,
     [] __device__ __host__(T x, T a, T b) {
       return -(pow(x, 2.0 * b)) / pow((1.0 + a * pow(x, 2.0 * b)), 2.0);
     });
 
-  MLCommon::LinAlg::eltwiseMultiply(a_deriv.data(), a_deriv.data(),
-                                    residuals.data(), n_rows, stream);
+  raft::linalg::eltwiseMultiply(a_deriv.data(), a_deriv.data(),
+                                residuals.data(), n_rows, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
    * Gradient w/ respect to b
    */
   MLCommon::device_buffer<T> b_deriv(d_alloc, stream, n_rows);
-  MLCommon::copy(b_deriv.data(), input, n_rows, stream);
+  raft::copy(b_deriv.data(), input, n_rows, stream);
   map_kernel<T, TPB_X>
     <<<grid, blk, 0, stream>>>(b_deriv.data(), b_deriv.data(), n_rows, coef,
                                [] __device__ __host__(T x, T a, T b) {
@@ -119,16 +119,15 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
   /**
    * Multiply partial derivs by residuals
    */
-  MLCommon::LinAlg::eltwiseMultiply(b_deriv.data(), b_deriv.data(),
-                                    residuals.data(), n_rows, stream);
+  raft::linalg::eltwiseMultiply(b_deriv.data(), b_deriv.data(),
+                                residuals.data(), n_rows, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
    * Finally, take the mean
    */
-  MLCommon::Stats::mean(grads, a_deriv.data(), 1, n_rows, false, false, stream);
-  MLCommon::Stats::mean(grads + 1, b_deriv.data(), 1, n_rows, false, false,
-                        stream);
+  raft::stats::mean(grads, a_deriv.data(), 1, n_rows, false, false, stream);
+  raft::stats::mean(grads + 1, b_deriv.data(), 1, n_rows, false, false, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -158,10 +157,10 @@ void optimize_params(T *input, int n_rows, const T *labels, T *coef,
 
     MLCommon::LinAlg::multiplyScalar(grads.data(), grads.data(), learning_rate,
                                      2, stream);
-    MLCommon::LinAlg::eltwiseSub(coef, coef, grads.data(), 2, stream);
+    raft::linalg::eltwiseSub(coef, coef, grads.data(), 2, stream);
 
     T *grads_h = (T *)malloc(2 * sizeof(T));
-    MLCommon::updateHost(grads_h, grads.data(), 2, stream);
+    raft::update_host(grads_h, grads.data(), 2, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -197,10 +196,10 @@ void find_params_ab(UMAPParams *params,
   }
 
   MLCommon::device_buffer<float> X_d(d_alloc, stream, 300);
-  MLCommon::updateDevice(X_d.data(), X, 300, stream);
+  raft::update_device(X_d.data(), X, 300, stream);
 
   MLCommon::device_buffer<float> y_d(d_alloc, stream, 300);
-  MLCommon::updateDevice(y_d.data(), y, 300, stream);
+  raft::update_device(y_d.data(), y, 300, stream);
   float *coeffs_h = (float *)malloc(2 * sizeof(float));
   coeffs_h[0] = 1.0;
   coeffs_h[1] = 1.0;
@@ -208,13 +207,13 @@ void find_params_ab(UMAPParams *params,
   MLCommon::device_buffer<float> coeffs(d_alloc, stream, 2);
   CUDA_CHECK(cudaMemsetAsync(coeffs.data(), 0, 2 * sizeof(float), stream));
 
-  MLCommon::updateDevice(coeffs.data(), coeffs_h, 2, stream);
+  raft::update_device(coeffs.data(), coeffs_h, 2, stream);
 
   optimize_params<float, 256>(X_d.data(), 300, y_d.data(), coeffs.data(),
                               params, d_alloc, stream);
 
-  MLCommon::updateHost(&(params->a), coeffs.data(), 1, stream);
-  MLCommon::updateHost(&(params->b), coeffs.data() + 1, 1, stream);
+  raft::update_host(&(params->a), coeffs.data(), 1, stream);
+  raft::update_host(&(params->b), coeffs.data() + 1, 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
