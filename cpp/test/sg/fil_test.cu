@@ -195,9 +195,13 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           w.idx = weights_h[i];
           break;
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
+        case fil::leaf_algo_t::GROVE_PER_CLASS:
           // not relying on fil::val_t internals
           // merely that we copied floats into weights_h earlier
           std::memcpy(&w.f, &weights_h[i], sizeof w.f);
+          break;
+        default:
+          ASSERT(false, "internal error: invalid ps.leaf_algo");
       }
       fil::node_init(&nodes[i], w, thresholds_h[i], fids_h[i], def_lefts_h[i],
                      is_leafs_h[i]);
