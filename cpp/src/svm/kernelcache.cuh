@@ -197,7 +197,7 @@ class KernelCache {
                              stream);  // cache stream
 
         // collect training vectors for kernel elements that needs to be calculated
-        MLCommon::Matrix::copyRows(x, n_rows, n_cols, x_ws.data(), ws_idx_new,
+        raft::matrix::copyRows(x, n_rows, n_cols, x_ws.data(), ws_idx_new,
                                    non_cached, stream, false);
         math_t *tile_new = tile.data() + n_cached * n_rows;
         (*kernel)(x, n_rows, n_cols, x_ws.data(), non_cached, tile_new, stream);
@@ -208,7 +208,7 @@ class KernelCache {
     } else {
       if (n_unique > 0) {
         // collect all the feature vectors in the working set
-        MLCommon::Matrix::copyRows(x, n_rows, n_cols, x_ws.data(),
+        raft::matrix::copyRows(x, n_rows, n_cols, x_ws.data(),
                                    unique_idx.data(), n_unique, stream, false);
         (*kernel)(x, n_rows, n_cols, x_ws.data(), n_unique, tile.data(),
                   stream);
