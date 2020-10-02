@@ -40,6 +40,7 @@
 - PR #2871: Add timing function to utils
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
 - PR #2892 Update ci/local/README.md
+- PR #2910: Adding Support for CuPy 8.x
 
 ## Bug Fixes
 - PR #2882: Allow import on machines without GPUs
@@ -66,7 +67,6 @@
 - PR #2880: Fix bugs in Auto-ARIMA when s==None
 - PR #2877: TSNE exception for n_components > 2
 - PR #2879: Update unit test for LabelEncoder on filtered input
-- PR #2910: Increasing tolerance of test_kbinsdiscretizer
 
 # cuML 0.15.0 (Date TBD)
 
