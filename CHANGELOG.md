@@ -9,6 +9,7 @@
 # cuML 0.16.0 (Date TBD)
 
 ## New Features
+- PR #2909: Update allgatherv for compatibility with latest RAFT
 - PR #2677: Ability to export RF trees as JSON
 - PR #2698: Distributed TF-IDF transformer
 - PR #2476: Porter Stemmer
