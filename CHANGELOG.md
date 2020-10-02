@@ -1,8 +1,3 @@
-# cuML 0.17.0 (Date TBD)
-
-## Improvements
-- PR #2798: Add python tests for FIL multiclass classification of lightgbm models
-
 # cuML 0.16.0 (Date TBD)
 
 ## New Features
@@ -45,6 +40,7 @@
 - PR #2871: Add timing function to utils
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
 - PR #2867: improve stability of FIL benchmark measurements
+- PR #2798: Add python tests for FIL multiclass classification of lightgbm models
 - PR #2892 Update ci/local/README.md
 
 ## Bug Fixes
