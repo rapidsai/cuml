@@ -7,7 +7,7 @@
 - PR #2789: Dask LabelEncoder
 - PR #2152: add FIL C++ benchmark
 - PR #2638: Improve cython build with custom `build_ext`
-- PR #2866: support XGBoost-style models (gradient boosted decision trees) in FIL C++
+- PR #2866: Support XGBoost-style models (gradient boosted decision trees) in FIL C++
 - PR #2874: Issue warning for degraded accuracy with float64 models in Treelite
 
 ## Improvements

@@ -222,7 +222,7 @@ struct forest {
           do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
           break;
         default:
-          ASSERT(false, "internal error: invalid forest_params_t::leaf_algo");
+          ASSERT(false, "internal error: invalid leaf_algo_");
       }
     } else {
       if (leaf_algo_ == leaf_algo_t::FLOAT_UNARY_BINARY) {
