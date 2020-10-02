@@ -40,6 +40,7 @@
 - PR #2871: Add timing function to utils
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
 - PR #2867: improve stability of FIL benchmark measurements
+- PR #2914: Add tests for XGBoost multi-class models in FIL
 - PR #2892 Update ci/local/README.md
 
 ## Bug Fixes
