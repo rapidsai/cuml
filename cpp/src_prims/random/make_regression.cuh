@@ -247,7 +247,7 @@ void make_regression(
     white_noise.resize(n_rows * n_targets, stream);
     r.normal(white_noise.data(), n_rows * n_targets, (DataT)0.0, noise, stream);
     raft::linalg::add(_values, _values, white_noise.data(), n_rows * n_targets,
-                stream);
+                      stream);
   }
 
   if (shuffle) {

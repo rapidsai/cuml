@@ -80,7 +80,7 @@ void launcher(const raft::handle_t &handle, const T *X, int n, int d,
     [=] __device__(T input) { return (10.0f / max) * input; }, stream);
 
   raft::linalg::add(embedding, embedding, tmp_storage.data(),
-                        n * params->n_components, stream);
+                    n * params->n_components, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }

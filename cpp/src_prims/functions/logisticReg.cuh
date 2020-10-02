@@ -60,7 +60,7 @@ void logisticRegLossGrads(math_t *input, int n_rows, int n_cols,
   logisticRegH(input, n_rows, n_cols, coef, labels_pred.data(), math_t(0),
                cublas_handle, stream);
   raft::linalg::subtract(labels_pred.data(), labels_pred.data(), labels, n_rows,
-                   stream);
+                         stream);
   raft::matrix::matrixVectorBinaryMult(input, labels_pred.data(), n_rows,
                                        n_cols, false, false, stream);
 

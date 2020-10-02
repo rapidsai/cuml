@@ -118,7 +118,7 @@ double entropy(const T *clusterArray, const int size, const T lowerLabelRange,
 
   //scalar dividing by size
   raft::linalg::divideScalar<double>(prob.data(), prob.data(), (double)size,
-                                         numUniqueClasses, stream);
+                                     numUniqueClasses, stream);
 
   //calculating the aggregate entropy
   raft::linalg::mapThenSumReduce<double, entropyOp>(

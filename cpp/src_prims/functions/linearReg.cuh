@@ -56,7 +56,7 @@ void linearRegLossGrads(math_t *input, int n_rows, int n_cols,
   linearRegH(input, n_rows, n_cols, coef, labels_pred.data(), math_t(0),
              cublas_handle, stream);
   raft::linalg::subtract(labels_pred.data(), labels_pred.data(), labels, n_rows,
-                   stream);
+                         stream);
   raft::matrix::matrixVectorBinaryMult(input, labels_pred.data(), n_rows,
                                        n_cols, false, false, stream);
 
@@ -92,7 +92,7 @@ void linearRegLoss(math_t *input, int n_rows, int n_cols, const math_t *labels,
              cublas_handle, stream);
 
   raft::linalg::subtract(labels_pred.data(), labels, labels_pred.data(), n_rows,
-                   stream);
+                         stream);
   raft::matrix::power(labels_pred.data(), n_rows, stream);
   raft::stats::mean(loss, labels_pred.data(), 1, n_rows, false, false, stream);
 

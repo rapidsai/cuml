@@ -25,12 +25,10 @@ namespace raft {
 namespace linalg {
 
 template <typename T>
-class MultiplyTest
-  : public ::testing::TestWithParam<UnaryOpInputs<T>> {
+class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
  protected:
   void SetUp() override {
-    params =
-      ::testing::TestWithParam<UnaryOpInputs<T>>::GetParam();
+    params = ::testing::TestWithParam<UnaryOpInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
     cudaStream_t stream;

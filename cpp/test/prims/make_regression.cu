@@ -80,7 +80,7 @@ class MakeRegressionTest
 
     // Add the bias
     raft::linalg::addScalar(values_prod, values_prod, params.bias,
-                      params.n_samples * params.n_targets, stream);
+                            params.n_samples * params.n_targets, stream);
 
     // Count the number of zeroes in the coefficients
     thrust::device_ptr<T> __coef = thrust::device_pointer_cast(coef);

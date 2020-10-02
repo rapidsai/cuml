@@ -110,8 +110,8 @@ void fit_impl(raft::handle_t &handle,
     Matrix::Data<T> squared_data{squared.data(), size_t(input_desc.N)};
     LinAlg::opg::colNorm2NoSeq(squared_data, input_data, input_desc, comm,
                                allocator, streams, n_streams, cublas_handle);
-    raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha, input_desc.N,
-                      streams[0]);
+    raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha,
+                            input_desc.N, streams[0]);
   }
 
   std::vector<Matrix::Data<T> *> input_data_temp;
@@ -168,10 +168,11 @@ void fit_impl(raft::handle_t &handle,
         input_data_temp[k]->totalSize = partsToRanks[k]->size;
 
         raft::linalg::multiplyScalar(pred_loc, input_col_loc, h_coef[ci],
-                               partsToRanks[k]->size, streams[k % n_streams]);
+                                     partsToRanks[k]->size,
+                                     streams[k % n_streams]);
 
-        raft::linalg::add(residual_loc, residual_loc, pred_loc, partsToRanks[k]->size,
-                    streams[k % n_streams]);
+        raft::linalg::add(residual_loc, residual_loc, pred_loc,
+                          partsToRanks[k]->size, streams[k % n_streams]);
 
         pred_loc = pred_loc + partsToRanks[k]->size;
         residual_loc = residual_loc + partsToRanks[k]->size;
@@ -210,10 +211,11 @@ void fit_impl(raft::handle_t &handle,
         input_col_loc = input_data[k]->ptr + (ci * partsToRanks[k]->size);
 
         raft::linalg::multiplyScalar(pred_loc, input_col_loc, h_coef[ci],
-                               partsToRanks[k]->size, streams[k % n_streams]);
+                                     partsToRanks[k]->size,
+                                     streams[k % n_streams]);
 
         raft::linalg::subtract(residual_loc, residual_loc, pred_loc,
-                         partsToRanks[k]->size, streams[k % n_streams]);
+                               partsToRanks[k]->size, streams[k % n_streams]);
 
         pred_loc = pred_loc + partsToRanks[k]->size;
         residual_loc = residual_loc + partsToRanks[k]->size;
@@ -319,7 +321,7 @@ void predict_impl(raft::handle_t &handle,
                  streams[si]);
 
     raft::linalg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
-                      local_blocks[i]->size, streams[si]);
+                            local_blocks[i]->size, streams[si]);
   }
 }
 
