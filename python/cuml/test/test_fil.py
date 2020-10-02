@@ -398,7 +398,9 @@ def test_output_args(small_classifier_and_preds):
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
 def test_lightgbm(tmp_path, num_classes):
     import lightgbm as lgb
-    X, y = simulate_data(500, 50, num_classes,
+    X, y = simulate_data(500,
+                         10 if num_classes == 2 else 50,
+                         num_classes,
                          random_state=43210,
                          classification=True)
     train_data = lgb.Dataset(X, label=y)
@@ -437,4 +439,4 @@ def test_lightgbm(tmp_path, num_classes):
                                   output_class=True,
                                   model_type="lightgbm")
         fil_proba = fm.predict_proba(X)
-        assert np.allclose(gbm_proba, fil_proba, 1e-3)
+        assert np.allclose(gbm_proba, fil_proba, 1e-2)
