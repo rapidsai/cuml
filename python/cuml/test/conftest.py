@@ -239,7 +239,7 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(skip_stress)
 
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture(autouse=True, scope="session")
 def setup_rmm(request, pytestconfig):
     """Enable RMM pool if --use-rmm-pool flag is set."""
     # Strongly inspired by https://github.com/dmlc/xgboost/pull/5873/files
