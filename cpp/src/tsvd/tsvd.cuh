@@ -73,8 +73,8 @@ void calCompExpVarsSvd(const raft::handle_t &handle, math_t *in,
                         p, true, false, true, false, (math_t)prms.tol,
                         prms.n_iterations, stream);
 
-  LinAlg::transpose(components_temp.data(), components, prms.n_cols,
-                    prms.n_components, cublas_handle, stream);
+  raft::linalg::transpose(handle, components_temp.data(), components,
+                          prms.n_cols, prms.n_components, stream);
   raft::matrix::power(singular_vals, explained_vars, math_t(1),
                       prms.n_components, stream);
   raft::matrix::ratio(handle, explained_vars, explained_var_ratio,
@@ -98,7 +98,7 @@ void calEig(const raft::handle_t &handle, math_t *in, math_t *components,
   }
 
   Matrix::colReverse(components, prms.n_cols, prms.n_cols, stream);
-  LinAlg::transpose(components, prms.n_cols, stream);
+  raft::linalg::transpose(components, prms.n_cols, stream);
 
   Matrix::rowReverse(explained_var, prms.n_cols, 1, stream);
 }

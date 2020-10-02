@@ -18,9 +18,10 @@
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <thrust/device_vector.h>
+#include <raft/handle.hpp>
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 /**
  * @brief transpose on the column major input matrix using Jacobi method
@@ -32,8 +33,10 @@ namespace LinAlg {
  * @param stream: cuda stream
  */
 template <typename math_t>
-void transpose(math_t *in, math_t *out, int n_rows, int n_cols,
-               cublasHandle_t cublas_h, cudaStream_t stream) {
+void transpose(const raft::handle_t &handle, math_t *in, math_t *out,
+               int n_rows, int n_cols, cudaStream_t stream) {
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
+
   int out_n_rows = n_cols;
   int out_n_cols = n_rows;
 
@@ -71,5 +74,5 @@ void transpose(math_t *inout, int n, cudaStream_t stream) {
                    });
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

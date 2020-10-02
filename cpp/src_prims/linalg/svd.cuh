@@ -96,7 +96,7 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
     right_sing_vecs, n, d_work.data(), lwork, d_rwork, devInfo.data(), stream));
 
   // Transpose the right singular vector back
-  if (trans_right) transpose(right_sing_vecs, n_cols, stream);
+  if (trans_right) raft::linalg::transpose(right_sing_vecs, n_cols, stream);
 
   CUDA_CHECK(cudaGetLastError());
 

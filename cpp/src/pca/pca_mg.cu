@@ -164,7 +164,7 @@ void fit_impl(raft::handle_t &handle,
     Matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
                             explained_var_ratio, prms.n_components, 1, stream);
 
-    MLCommon::LinAlg::transpose(vMatrix.data(), prms.n_cols, stream);
+    raft::linalg::transpose(vMatrix.data(), prms.n_cols, stream);
     Matrix::truncZeroOrigin(vMatrix.data(), prms.n_cols, components,
                             prms.n_components, prms.n_cols, stream);
 
