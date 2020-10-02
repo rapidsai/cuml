@@ -25,11 +25,11 @@ namespace linalg {
 
 /**
  * @brief transpose on the column major input matrix using Jacobi method
+ * @param handle: raft handle
  * @param in: input matrix
  * @param out: output. Transposed input matrix
  * @param n_rows: number rows of input matrix
  * @param n_cols: number columns of input matrix
- * @param cublas_h: cublas handle
  * @param stream: cuda stream
  */
 template <typename math_t>

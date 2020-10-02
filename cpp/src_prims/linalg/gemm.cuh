@@ -141,6 +141,7 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
  * @brief the wrapper of cublas gemm function
  *  It computes the following equation: D = alpha . opA(A) * opB(B) + beta . C
  * @tparam math_t the type of input/output matrices
+ * @param handle raft handle
  * @param a input matrix
  * @param n_rows_a number of rows of A
  * @param n_cols_a number of columns of A
@@ -152,7 +153,6 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
  * @param trans_b cublas transpose op for B
  * @param alpha scalar
  * @param beta scalar
- * @param cublas_h cublas handle
  * @param stream cuda stream
  */
 template <typename math_t>
@@ -188,7 +188,7 @@ void gemm(const raft::handle_t &handle, const math_t *a, int n_rows_a,
  * combinations of operand layouts.
  * It computes the following equation: Z = alpha . X * Y + beta . Z
  * @tparam T Data type of input/output matrices (float/double)
- * @param handle cublas handle
+ * @param handle raft handle
  * @param z output matrix of size M rows x N columns
  * @param x input matrix of size M rows x K columns
  * @param y input matrix of size K rows x N columns

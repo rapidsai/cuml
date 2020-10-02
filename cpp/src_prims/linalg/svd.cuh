@@ -197,6 +197,7 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
 /**
  * @brief reconstruct a matrix use left and right singular vectors and
  * singular values
+ * @param handle: raft handle
  * @param U: left singular vectors of size n_rows x k
  * @param S: square matrix with singular values on its diagonal, k x k
  * @param V: right singular vectors of size n_cols x k
@@ -204,9 +205,7 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
  * @param n_rows: number rows of output matrix
  * @param n_cols: number columns of output matrix
  * @param k: number of singular values
- * @param cublasH cublas handle
  * @param stream cuda stream
- * @param allocator device allocator for temporary buffers during computation
  */
 template <typename math_t>
 void svdReconstruction(const raft::handle_t &handle, math_t *U, math_t *S,
@@ -227,6 +226,7 @@ void svdReconstruction(const raft::handle_t &handle, math_t *U, math_t *S,
 /**
  * @brief reconstruct a matrix use left and right singular vectors and
  * singular values
+ * @param handle: raft handle
  * @param A_d: input matrix
  * @param U: left singular vectors of size n_rows x k
  * @param S_vec: singular values as a vector
@@ -235,9 +235,7 @@ void svdReconstruction(const raft::handle_t &handle, math_t *U, math_t *S,
  * @param n_cols: number columns of output matrix
  * @param k: number of singular values to be computed, 1.0 for normal SVD
  * @param tol: tolerance for the evaluation
- * @param cublasH cublas handle
  * @param stream cuda stream
- * @param allocator device allocator for temporary buffers during computation
  */
 template <typename math_t>
 bool evaluateSVDByL2Norm(const raft::handle_t &handle, math_t *A_d, math_t *U,

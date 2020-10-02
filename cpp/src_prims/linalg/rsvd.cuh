@@ -36,6 +36,7 @@ namespace LinAlg {
  * @brief randomized singular value decomposition (RSVD) on the column major
  * float type input matrix (Jacobi-based), by specifying no. of PCs and
  * upsamples directly
+ * @param handle: raft handle
  * @param M: input matrix
  * @param n_rows: number rows of input matrix
  * @param n_cols: number columns of input matrix
@@ -50,10 +51,7 @@ namespace LinAlg {
  * @param use_jacobi: whether to jacobi solver for decomposition
  * @param tol: tolerance for Jacobi-based solvers
  * @param max_sweeps: maximum number of sweeps for Jacobi-based solvers
- * @param cusolverH cusolver handle
- * @param cublasH cublas handle
  * @param stream cuda stream
- * @param allocator device allocator for temporary buffers during computation
  */
 template <typename math_t>
 void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
@@ -234,6 +232,7 @@ void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
  * @brief randomized singular value decomposition (RSVD) on the column major
  * float type input matrix (Jacobi-based), by specifying the PC and upsampling
  * ratio
+ * @param handle: raft handle
  * @param M: input matrix
  * @param n_rows: number rows of input matrix
  * @param n_cols: number columns of input matrix
@@ -248,10 +247,7 @@ void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
  * @param use_jacobi: whether to jacobi solver for decomposition
  * @param tol: tolerance for Jacobi-based solvers
  * @param max_sweeps: maximum number of sweeps for Jacobi-based solvers
- * @param cusolverH cusolver handle
- * @param cublasH cublas handle
  * @param stream cuda stream
- * @param allocator device allocator for temporary buffers during computation
  */
 template <typename math_t>
 void rsvdPerc(const raft::handle_t &handle, math_t *M, int n_rows, int n_cols,
