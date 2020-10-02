@@ -256,7 +256,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
     // Knowing that q > 0 (since f_l > f_u and \eta_ul > 0), and 0 <= a_u <= C,
     // the constraints are simplified as
     // y == 1:  q <= C-a_u, and  y == -1: q <= a_u
-    // Similarily we can say for a'_l:
+    // Similarly we can say for a'_l:
     // y == 1:  q <= a_l, and y ==- 1: q <= C - a_l
     // We clip q accordingly before we do the update of a.
     if (threadIdx.x == u) tmp_u = y > 0 ? C - a : a;

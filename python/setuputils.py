@@ -175,7 +175,7 @@ def get_submodule_dependency(repo,
     repo_info = get_repo_cmake_info(repos, git_info_file)
 
     if os.path.exists(cpp_build_path):
-        print("-- Third party modules found succesfully in the libcuml++ "
+        print("-- Third party modules found successfully in the libcuml++ "
               "build folder:")
         print("  " + str(cpp_build_path))
 

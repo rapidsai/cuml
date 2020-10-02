@@ -60,7 +60,7 @@ class UMAP(BaseEstimator,
         distributed_model = MNMG_UMAP(local_model)
         embedding = distributed_model.transform(X)
 
-    .. note:: Everytime this code is run, the output will be different because
+    .. note:: Every time this code is run, the output will be different because
         "make_blobs" function generates random matrices.
 
     Notes

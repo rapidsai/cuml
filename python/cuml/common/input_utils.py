@@ -105,7 +105,7 @@ def get_supported_input_type(X):
     if hasattr(X, "__array_interface__"):
         return np.ndarray
 
-    # Return None if this type isnt supported
+    # Return None if this type is not supported
     return None
 
 

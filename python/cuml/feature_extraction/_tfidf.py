@@ -238,7 +238,7 @@ class TfidfTransformer(Base):
     def _check_is_idf_fitted(self):
         if not hasattr(self, 'idf_'):
             msg = ("This TfidfTransformer instance is not fitted or the "
-                   "value of use_idf is not consistant between "
+                   "value of use_idf is not consistent between "
                    ".fit() and .transform().")
             raise NotFittedError(msg)
 

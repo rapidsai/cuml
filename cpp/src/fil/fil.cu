@@ -704,7 +704,7 @@ struct tl2fil_sparse_check_t {
   static void check(const tl::Model& model) {
     ASSERT(false,
            "internal error: "
-           "only a specialization of this tempalte should be used");
+           "only a specialization of this template should be used");
   }
 };
 

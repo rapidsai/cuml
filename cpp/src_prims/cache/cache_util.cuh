@@ -153,7 +153,7 @@ int DI arg_first_ge(const int *array, int n, int val) {
  * @param [in] n number of elements in the array
  * @param [in] val the value we are searching for
  * @param [in] k
- * @return the idx of the k-th occurance of val in array, or -1 if
+ * @return the idx of the k-th occurrence of val in array, or -1 if
  * the value is not found.
  */
 int DI find_nth_occurrence(const int *array, int n, int val, int k) {

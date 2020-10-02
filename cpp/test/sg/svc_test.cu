@@ -899,7 +899,7 @@ TYPED_TEST(SmoSolverTest, SvcTest) {
                            {1, 1, 2, 2, 1, 2, 2, 3},
                            {0, 2, 3, 5},
                            {-1.0, -1.4, 0.2, -0.2, 1.4, 1.0}}},
-    {// C == 0 marks a special tast case with sample weights
+    {// C == 0 marks a special test case with sample weights
      svcInput<TypeParam>{0, 0.001, KernelParams{LINEAR, 3, 1, 0}, this->n_rows,
                          this->n_cols, this->x_dev, this->y_dev, true},
      smoOutput2<TypeParam>{4,

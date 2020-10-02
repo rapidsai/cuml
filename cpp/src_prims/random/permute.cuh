@@ -121,7 +121,7 @@ struct permute_impl_t<Type, IntType, IdxType, TPB, rowMajor, 1> {
  * shuffling the input datasets in ML algos. See note at the end for some of its
  * limitations!
  * @tparam Type Data type of the array to be shuffled
- * @tparam IntType Integer type used for ther perms array
+ * @tparam IntType Integer type used for the perms array
  * @tparam IdxType Integer type used for addressing indices
  * @tparam TPB threads per block
  * @param perms the output permutation indices. Typically useful only when

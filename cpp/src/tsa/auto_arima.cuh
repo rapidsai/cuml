@@ -194,7 +194,7 @@ inline void divide_by_min_build_index(
   auto counting = thrust::make_counting_iterator(0);
 
   // In the first pass, compute d_batch and initialize the matrix that will
-  // be used to compute d_size and d_index (1 for the first occurence of the
+  // be used to compute d_size and d_index (1 for the first occurrence of the
   // minimum of each row, else 0)
   MLCommon::device_buffer<int> cumul(allocator, stream, batch_size * n_sub);
   int* d_cumul = cumul.data();

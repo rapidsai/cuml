@@ -92,7 +92,7 @@ class PCA(BaseDecomposition,
                     1  0.011454
                     2 -0.008182
 
-    .. note:: Everytime this code is run, the output will be different because
+    .. note:: Every time this code is run, the output will be different because
         "make_blobs" function generates random matrices.
 
     Parameters

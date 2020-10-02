@@ -281,7 +281,7 @@ class Cache {
 
     raft::update_host(n_cached, d_num_selected_out.data(), 1, stream);
 
-    // Similarily re-group the input indices
+    // Similarly re-group the input indices
     raft::copy(ws_tmp.data(), keys, n, stream);
     cub::DevicePartition::Flagged(d_temp_storage.data(), d_temp_storage_size,
                                   ws_tmp.data(), is_cached.data(), keys,
