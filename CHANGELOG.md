@@ -40,6 +40,7 @@
 - PR #2871: Add timing function to utils
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
 - PR #2892 Update ci/local/README.md
+- PR #2904: Moving `linalg` basic math ops to RAFT namespaces
 
 ## Bug Fixes
 - PR #2882: Allow import on machines without GPUs
