@@ -22,8 +22,8 @@
 #include <stats/stddev.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace Stats {
+namespace raft {
+namespace stats {
 
 template <typename T>
 struct StdDevInputs {
@@ -43,9 +43,10 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<StdDevInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
+
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(data, len);
@@ -68,7 +69,7 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
     vars(vars_act, data, mean_act, cols, rows, params.sample, params.rowMajor,
          stream);
 
-    Matrix::seqRoot(vars_act, T(1), cols, stream);
+    raft::matrix::seqRoot(vars_act, T(1), cols, stream);
   }
 
   void TearDown() override {
@@ -141,5 +142,5 @@ INSTANTIATE_TEST_CASE_P(StdDevTests, StdDevTestF, ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(StdDevTests, StdDevTestD, ::testing::ValuesIn(inputsd));
 
-}  // end namespace Stats
-}  // end namespace MLCommon
+}  // end namespace stats
+}  // end namespace raft

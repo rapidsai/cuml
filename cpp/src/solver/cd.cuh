@@ -19,6 +19,7 @@
 #include <common/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/solvers/params.hpp>
 #include <functions/linearReg.cuh>
@@ -122,14 +123,15 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
 
   if (normalize) {
     math_t scalar = math_t(1.0) + l2_alpha;
-    Matrix::setValue(squared.data(), squared.data(), scalar, n_cols, stream);
+    raft::matrix::setValue(squared.data(), squared.data(), scalar, n_cols,
+                           stream);
   } else {
     LinAlg::colNorm(squared.data(), input, n_cols, n_rows, LinAlg::L2Norm,
                     false, stream);
     LinAlg::addScalar(squared.data(), squared.data(), l2_alpha, n_cols, stream);
   }
 
-  copy(residual.data(), labels, n_rows, stream);
+  raft::copy(residual.data(), labels, n_rows, stream);
 
   for (int i = 0; i < epochs; i++) {
     if (i > 0 && shuffle) {
@@ -156,11 +158,11 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
       if (l1_ratio > math_t(0.0))
         Functions::softThres(coef_loc, coef_loc, alpha, 1, stream);
 
-      LinAlg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
-                                     stream);
+      raft::linalg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
+                                           stream);
 
       coef_prev = h_coef[ci];
-      updateHost(&(h_coef[ci]), coef_loc, 1, stream);
+      raft::update_host(&(h_coef[ci]), coef_loc, 1, stream);
       CUDA_CHECK(cudaStreamSynchronize(stream));
 
       math_t diff = abs(coef_prev - h_coef[ci]);

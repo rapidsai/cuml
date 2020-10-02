@@ -18,10 +18,11 @@
 
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <vectorized.cuh>
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename Type, int TPB>
 __device__ void reduce(Type *out, const Type acc) {
@@ -29,7 +30,7 @@ __device__ void reduce(Type *out, const Type acc) {
   __shared__ typename BlockReduce::TempStorage temp_storage;
   Type tmp = BlockReduce(temp_storage).Sum(acc);
   if (threadIdx.x == 0) {
-    myAtomicAdd(out, tmp);
+    raft::myAtomicAdd(out, tmp);
   }
 }
 
@@ -52,7 +53,7 @@ template <typename Type, typename MapOp, int TPB, typename... Args>
 void mapThenSumReduceImpl(Type *out, size_t len, MapOp map, cudaStream_t stream,
                           const Type *in, Args... args) {
   CUDA_CHECK(cudaMemsetAsync(out, 0, sizeof(Type), stream));
-  const int nblks = ceildiv(len, (size_t)TPB);
+  const int nblks = raft::ceildiv(len, (size_t)TPB);
   mapThenSumReduceKernel<Type, MapOp, TPB, Args...>
     <<<nblks, TPB, 0, stream>>>(out, len, map, in, args...);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -79,5 +80,5 @@ void mapThenSumReduce(Type *out, size_t len, MapOp map, cudaStream_t stream,
                                                   args...);
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

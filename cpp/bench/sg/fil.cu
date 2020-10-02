@@ -59,7 +59,7 @@ class FIL : public RegressionFixture<float> {
 
   static void regression_to_classification(float* y, int nrows, int nclasses,
                                            cudaStream_t stream) {
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       y, y, nrows,
       [=] __device__(float a) {
         return float(lroundf(fabsf(a) * 1000. * nclasses) % nclasses);

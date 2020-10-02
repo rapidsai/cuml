@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
@@ -68,8 +69,8 @@ void fit_impl(raft::handle_t &handle,
                           prms.n_components, prms.n_cols, streams[0]);
 
   T scalar = T(1);
-  Matrix::seqRoot(explained_var_all.data(), singular_vals, scalar,
-                  prms.n_components, streams[0]);
+  raft::matrix::seqRoot(explained_var_all.data(), singular_vals, scalar,
+                        prms.n_components, streams[0]);
 }
 
 /**
@@ -340,12 +341,12 @@ void fit_transform_impl(raft::handle_t &handle,
              streams[0]);
 
   T total_vars_h;
-  updateHost(&total_vars_h, total_vars.data(), 1, streams[0]);
+  raft::update_host(&total_vars_h, total_vars.data(), 1, streams[0]);
   CUDA_CHECK(cudaStreamSynchronize(streams[0]));
   T scalar = T(1) / total_vars_h;
 
-  LinAlg::scalarMultiply(explained_var_ratio, explained_var, scalar,
-                         prms.n_components, streams[0]);
+  raft::linalg::scalarMultiply(explained_var_ratio, explained_var, scalar,
+                               prms.n_components, streams[0]);
 
   for (int i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamSynchronize(streams[i]));

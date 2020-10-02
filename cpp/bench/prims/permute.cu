@@ -44,7 +44,7 @@ struct Permute : public Fixture {
     } else {
       perms = nullptr;
     }
-    MLCommon::Random::Rng r(123456ULL);
+    raft::random::Rng r(123456ULL);
     if (params.needShuffle) {
       alloc(out, matLen);
       alloc(in, matLen);
@@ -67,7 +67,7 @@ struct Permute : public Fixture {
   }
 
   void runBenchmark(::benchmark::State& state) override {
-    MLCommon::Random::Rng r(123456ULL);
+    raft::random::Rng r(123456ULL);
     loopOnState(state, [this, &r]() {
       MLCommon::Random::permute(perms, out, in, params.cols, params.rows,
                                 params.rowMajor, stream);

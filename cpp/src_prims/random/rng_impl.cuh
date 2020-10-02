@@ -20,8 +20,8 @@
 #include <stdint.h>
 #include <cuda_utils.cuh>
 
-namespace MLCommon {
-namespace Random {
+namespace raft {
+namespace random {
 namespace detail {
 
 /** Philox-based random number generator */
@@ -244,5 +244,5 @@ struct Generator {
 };
 
 };  // end namespace detail
-};  // end namespace Random
-};  // end namespace MLCommon
+};  // end namespace random
+};  // end namespace raft

@@ -54,7 +54,7 @@ uint32_t hsv2rgb(float h, float s, float v) {
   }
   // convert hue from [0, 1] range to [0, 360]
   float h_deg = h * 360.f;
-  if (0.f < h_deg || h_deg >= 360.f) h_deg = 0.f;
+  if (0.f > h_deg || h_deg >= 360.f) h_deg = 0.f;
   h_deg /= 60.f;
   int h_range = (int)h_deg;
   float h_mod = h_deg - h_range;
@@ -147,16 +147,7 @@ void PUSH_RANGE(const char *name) {
   nvtxRangePushEx(&eventAttrib);
 }
 
-#ifdef ENABLE_EMPTY_MARKER_KERNEL
-__global__ void emptyMarkerKernel() {}
-#endif  // ENABLE_EMPTY_MARKER_KERNEL
-
-void POP_RANGE() {
-  nvtxRangePop();
-#ifdef ENABLE_EMPTY_MARKER_KERNEL
-  emptyMarkerKernel<<<1, 1>>>();
-#endif
-}
+void POP_RANGE() { nvtxRangePop(); }
 
 #else  // NVTX_ENABLED
 

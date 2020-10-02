@@ -43,8 +43,8 @@ struct Tikhonov {
     col_slice(W, Wweights, 0, G.n - has_bias);
     Gweights.ax(l2_penalty, Wweights, stream);
 
-    MLCommon::LinAlg::mapThenSumReduce(reg_val, Wweights.len, *this, stream,
-                                       Wweights.data);
+    raft::linalg::mapThenSumReduce(reg_val, Wweights.len, *this, stream,
+                                   Wweights.data);
   }
 };
 
@@ -66,10 +66,10 @@ struct RegularizedGLM : GLMDims {
     G.fill(0, stream);
 
     reg->reg_grad(lossVal.data, G, W, loss->fit_intercept, stream);
-    MLCommon::updateHost(&reg_host, lossVal.data, 1, stream);
+    raft::update_host(&reg_host, lossVal.data, 1, stream);
 
     loss->loss_grad(lossVal.data, G, W, Xb, yb, Zb, stream, false);
-    MLCommon::updateHost(&loss_host, lossVal.data, 1, stream);
+    raft::update_host(&loss_host, lossVal.data, 1, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 

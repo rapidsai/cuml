@@ -147,7 +147,7 @@ void qnPredict(const raft::handle_t &handle, T *Xptr, int N, int D, int C,
     } break;
     case 2: {
       ASSERT(C > 2, "qn.h: softmax invalid C");
-      MLCommon::Matrix::argmax(Z.data, C, N, preds, stream);
+      raft::matrix::argmax(Z.data, C, N, preds, stream);
     } break;
     default: {
       ASSERT(false, "qn.h: unknown loss function.");
