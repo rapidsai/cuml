@@ -89,12 +89,12 @@ void calEig(const raft::handle_t &handle, math_t *in, math_t *components,
   auto allocator = handle.get_device_allocator();
 
   if (prms.algorithm == enum_solver::COV_EIG_JACOBI) {
-    LinAlg::eigJacobi(in, prms.n_cols, prms.n_cols, components, explained_var,
-                      cusolver_handle, stream, allocator, (math_t)prms.tol,
-                      prms.n_iterations);
+    raft::linalg::eigJacobi(handle, in, prms.n_cols, prms.n_cols, components,
+                            explained_var, stream, (math_t)prms.tol,
+                            prms.n_iterations);
   } else {
-    raft::linalg::eigDC(handle, in, prms.n_cols, prms.n_cols, components, explained_var,
-                  stream);
+    raft::linalg::eigDC(handle, in, prms.n_cols, prms.n_cols, components,
+                        explained_var, stream);
   }
 
   Matrix::colReverse(components, prms.n_cols, prms.n_cols, stream);

@@ -148,11 +148,12 @@ void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
     raft::mr::device::buffer<math_t> Vhat(allocator, stream, l * l);
     CUDA_CHECK(cudaMemsetAsync(Vhat.data(), 0, sizeof(math_t) * l * l, stream));
     if (use_jacobi)
-      svdJacobi(Rhat.data(), l, l, S_vec_tmp.data(), Uhat.data(), Vhat.data(),
-                true, true, tol, max_sweeps, cusolverH, stream, allocator);
+      raft::linalg::svdJacobi(handle, Rhat.data(), l, l, S_vec_tmp.data(),
+                              Uhat.data(), Vhat.data(), true, true, tol,
+                              max_sweeps, stream);
     else
-      svdQR(Rhat.data(), l, l, S_vec_tmp.data(), Uhat.data(), Vhat.data(), true,
-            true, true, cusolverH, cublasH, allocator, stream);
+      raft::linalg::svdQR(handle, Rhat.data(), l, l, S_vec_tmp.data(),
+                          Uhat.data(), Vhat.data(), true, true, true, stream);
     Matrix::sliceMatrix(S_vec_tmp.data(), 1, l, S_vec, 0, 0, 1, k,
                         stream);  // First k elements of S_vec
 
@@ -188,11 +189,11 @@ void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
       cudaMemsetAsync(Uhat_dup.data(), 0, sizeof(math_t) * l * l, stream));
     Matrix::copyUpperTriangular(BBt.data(), Uhat_dup.data(), l, l, stream);
     if (use_jacobi)
-      eigJacobi(Uhat_dup.data(), l, l, Uhat.data(), S_vec_tmp.data(), cusolverH,
-                stream, allocator, tol, max_sweeps);
+      raft::linalg::eigJacobi(handle, Uhat_dup.data(), l, l, Uhat.data(),
+                              S_vec_tmp.data(), stream, tol, max_sweeps);
     else
-      eigDC(Uhat_dup.data(), l, l, Uhat.data(), S_vec_tmp.data(), cusolverH,
-            stream, allocator);
+      raft::linalg::eigDC(handle, Uhat_dup.data(), l, l, Uhat.data(),
+                          S_vec_tmp.data(), stream);
     raft::matrix::seqRoot(S_vec_tmp.data(), l, stream);
     Matrix::sliceMatrix(S_vec_tmp.data(), 1, l, S_vec, 0, p, 1, l,
                         stream);  // Last k elements of S_vec

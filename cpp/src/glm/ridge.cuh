@@ -88,8 +88,8 @@ void ridgeSVD(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   raft::allocate(V, V_len);
   raft::allocate(S, n_cols);
 
-  LinAlg::svdQR(A, n_rows, n_cols, S, U, V, true, true, true, cusolverH,
-                cublasH, allocator, stream);
+  raft::linalg::svdQR(handle, A, n_rows, n_cols, S, U, V, true, true, true,
+                      stream);
   ridgeSolve(handle, S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, stream);
 
   CUDA_CHECK(cudaFree(U));
@@ -117,7 +117,7 @@ void ridgeEig(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   raft::allocate(V, V_len);
   raft::allocate(S, n_cols);
 
-  LinAlg::svdEig(handle, A, n_rows, n_cols, S, U, V, true, stream);
+  raft::linalg::svdEig(handle, A, n_rows, n_cols, S, U, V, true, stream);
 
   ridgeSolve(handle, S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, stream);
 
