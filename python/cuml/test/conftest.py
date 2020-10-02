@@ -185,9 +185,11 @@ def pytest_addoption(parser):
                      action="store_true",
                      default=False,
                      help="run unit tests")
+
     parser.addoption('--use-rmm-pool',
                      action='store_true',
                      default=False, help='Use RMM pool')
+
 
 def pytest_collection_modifyitems(config, items):
     if config.getoption("--run_quality"):
