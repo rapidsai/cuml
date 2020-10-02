@@ -289,14 +289,14 @@ struct tree_aggregator_t<NITEMS, TREE_PER_CLASS_MANY_CLASSES> : finalize_block {
         (vec<NITEMS, float>*)((char*)shared_workspace + data_row_size)) {
     for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
       per_class_margin[c] = vec<NITEMS, float>();  // initialize to 0.0f
-    //__syncthreads() is done in infer_k
+    // __syncthreads() is called in infer_k
   }
 
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, float> single_tree_prediction, int tree) {
     // since threads are assigned to consecutive classes, no need for atomics
     per_class_margin[tree % num_classes] += single_tree_prediction;
-    //__syncthreads() is done in infer_k
+    // __syncthreads() is called in infer_k
   }
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
@@ -335,7 +335,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
     for (int c = threadIdx.x; c < num_classes; c += FIL_TPB * NITEMS)
 #pragma unroll
       for (int item = 0; item < NITEMS; ++item) votes[c * NITEMS + item] = 0;
-    //__syncthreads() is done in infer_k
+    // __syncthreads() is called in infer_k
   }
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, int> single_tree_prediction, int tree) {
