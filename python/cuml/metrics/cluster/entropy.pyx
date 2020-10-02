@@ -16,6 +16,7 @@
 
 # distutils: language = c++
 import math
+import typing
 
 import numpy as np
 import cupy as cp
@@ -24,7 +25,8 @@ from libc.stdint cimport uintptr_t
 
 import cuml.internals
 from cuml.raft.common.handle cimport handle_t
-from cuml.common import input_to_cuml_array
+from cuml.common import CumlArray
+from cuml.common.input_utils import input_to_cupy_array
 from cuml.raft.common.handle import Handle
 cimport cuml.common.cuda
 
@@ -35,18 +37,17 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                    const int lower_class_range,
                    const int upper_class_range) except +
 
-
-def _prepare_cluster_input(cluster):
+@cuml.internals.api_return_generic()
+def _prepare_cluster_input(cluster) -> typing.Tuple[CumlArray, int, int, int]:
     """Helper function to avoid code duplication for clustering metrics."""
-    cluster_m, n_rows, _, _ = input_to_cuml_array(
+    cluster_m, n_rows, _, _ = input_to_cupy_array(
         cluster,
         check_dtype=np.int32,
         check_cols=1
     )
-    cluster_m = cp.asarray(cluster_m)
 
-    lower_class_range = cp.min(cluster_m)
-    upper_class_range = cp.max(cluster_m)
+    lower_class_range = cp.min(cluster_m).item()
+    upper_class_range = cp.max(cluster_m).item()
 
     return cluster_m, n_rows, lower_class_range, upper_class_range
 

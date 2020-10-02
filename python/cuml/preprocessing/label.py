@@ -16,6 +16,7 @@
 import cupy as cp
 import cupyx
 
+import cuml.internals
 from cuml import Base
 from cuml.common import CumlArray, has_scipy
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -150,6 +151,7 @@ class LabelBinarizer(Base):
         self.sparse_output = sparse_output
         self.classes_ = None
 
+    # @cuml.internals.api_base_return_any(input_arg="y", skip_set_n_features_in=True)
     def fit(self, y) -> "LabelBinarizer":
         """
         Fit label binarizer
@@ -198,6 +200,7 @@ class LabelBinarizer(Base):
         """
         return self.fit(y).transform(y)
 
+
     def transform(self, y) -> CumlArray:
         """
         Transform multi-class labels to their dummy-encoded representation
@@ -216,7 +219,7 @@ class LabelBinarizer(Base):
                               neg_label=self.neg_label,
                               sparse_output=self.sparse_output)
 
-    def inverse_transform(self, y, threshold=None):
+    def inverse_transform(self, y, threshold=None) -> CumlArray:
         """
         Transform binary labels back to original multi-class labels
 

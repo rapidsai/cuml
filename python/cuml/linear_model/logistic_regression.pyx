@@ -20,6 +20,7 @@ import cupy as cp
 import pprint
 
 import cuml
+import cuml.internals
 from cuml.solvers import QN
 from cuml.common.base import Base, ClassifierMixin
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -248,6 +249,7 @@ class LogisticRegression(Base, ClassifierMixin):
             self.verb_prefix = ""
 
     @generate_docstring()
+    @cuml.internals.api_base_return_any(skip_set_output_dtype=False)
     def fit(self, X, y, convert_dtype=True) -> "LogisticRegression":
         """
         Fit the model with X and y.
@@ -255,7 +257,6 @@ class LogisticRegression(Base, ClassifierMixin):
         """
         # self.solver_model._set_base_attributes(target_dtype=y)
         # self._set_base_attributes(output_type=X, n_features=X)
-        cuml.internals.set_api_output_dtype(y)
 
         # Converting y to device array here to use `unique` function
         # since calling input_to_dev_array again in QN has no cost
@@ -317,6 +318,7 @@ class LogisticRegression(Base, ClassifierMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
+    @cuml.internals.api_base_return_array(skip_get_output_dtype=False)
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.

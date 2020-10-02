@@ -16,10 +16,9 @@
 
 import contextlib
 import functools
-import inspect
 import operator
-import threading
-import typing
+import re
+from dataclasses import dataclass
 from functools import wraps
 
 import cuml
@@ -36,6 +35,30 @@ except ImportError:
         from cupy.cuda.memory import using_allocator as cupy_using_allocator
     except ImportError:
         pass
+
+@dataclass(frozen=True)
+class ArrayInfo:
+    shape: tuple
+    order: str
+    dtype: np.dtype
+    strides: tuple
+
+    @staticmethod
+    def from_interface(interface: dict) -> "ArrayInfo":
+        out_shape = interface['shape']
+        out_type = np.dtype(interface['typestr'])
+        out_order = "C"
+        out_strides = None
+
+        if interface.get('strides', None) is None:
+            out_order = 'C'
+            out_strides = _order_to_strides(out_order, out_shape, out_type)
+        else:
+            out_strides = interface['strides']
+            out_order = _strides_to_order(out_strides, out_type)
+
+        return ArrayInfo(shape=out_shape, order=out_order, dtype=out_type, strides=out_strides)
+
 
 def with_cupy_rmm(func):
     """
@@ -66,7 +89,7 @@ def with_cupy_rmm(func):
 
     return cupy_rmm_wrapper
 
-import re
+
 
 def class_with_cupy_rmm(skip_init=False, skip_private=True, skip_dunder=True, ignore_pattern: list=[]):
 

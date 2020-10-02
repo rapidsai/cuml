@@ -305,12 +305,12 @@ class SVC(SVMBase, ClassifierMixin):
         return sample_weight
 
     @generate_docstring(y='dense_anydtype')
+    @cuml.internals.api_base_return_any(skip_set_output_dtype=False)
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.
 
         """
-        cuml.internals.set_api_output_dtype(y)
 
         if self.probability:
             params = self.get_params()

@@ -236,7 +236,8 @@ cdef class ForestInference_impl():
         return storage_type_dict[storage_type_str]
 
     @cuml.internals.api_return_array()
-    def predict(self, X, predict_proba=False, preds=None) -> CumlArray:
+    def predict(self, X, output_type='numpy',
+                output_dtype=None, predict_proba=False, preds=None) -> CumlArray:
         """
         Returns the results of forest inference on the examples in X
 
@@ -259,6 +260,8 @@ cdef class ForestInference_impl():
         Predicted results of type as defined by the output_type variable
 
         """
+        cuml.internals.set_api_output_dtype(output_dtype)
+
         if (not self.output_class) and predict_proba:
             raise NotImplementedError("Predict_proba function is not available"
                                       " for Regression models. If you are "

@@ -300,13 +300,13 @@ class SGD(Base):
         }[penalty]
 
     @generate_docstring()
+    
     def fit(self, X, y, convert_dtype=False) -> "SGD":
         """
         Fit the model with X and y.
 
         """
         # self._set_base_attributes(output_type=X, target_dtype=y)
-        cuml.internals.set_api_output_dtype(y)
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])

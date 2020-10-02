@@ -15,23 +15,20 @@
 #
 
 import copy
+from collections import namedtuple
 from functools import wraps
+
 import cudf
+import cuml.common.array
 import cupy as cp
 import cupyx
 import numpy as np
 import pandas as pd
-
-from collections import namedtuple
-
-from pandas.core.algorithms import isin
-from functools import wraps
 from cuml.common import CumlArray
 from cuml.common.logger import debug
-import cuml.common.array
-from cuml.common.memory_utils import with_cupy_rmm
-from cuml.common.memory_utils import _check_array_contiguity
+from cuml.common.memory_utils import _check_array_contiguity, with_cupy_rmm, ArrayInfo
 from numba import cuda
+from pandas.core.algorithms import isin
 
 cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
 
@@ -233,6 +230,19 @@ def input_to_cuml_array_improved(X,
 
     """
 
+    def check_order(arr_order):
+        if order != 'K' and arr_order != order:
+            if fail_on_order:
+                raise ValueError("Expected " + order_to_str(order) +
+                                " major order, but got the opposite.")
+            else:
+                debug("Expected " + order_to_str(order) + " major order, "
+                    "but got the opposite. Converting data, this will "
+                    "result in additional memory utilization.")
+                return True
+        return False
+
+
     # dtype conversion
 
     # force_contiguous set to True always for now
@@ -267,6 +277,13 @@ def input_to_cuml_array_improved(X,
 
     elif hasattr(X, "__array_interface__") or \
             hasattr(X, "__cuda_array_interface__"):
+
+        # Since we create the array with the correct order here, do the order check now if necessary
+        interface = getattr(X, "__array_interface__", None) or getattr(X, "__cuda_array_interface__", None)
+
+        arr_info = ArrayInfo.from_interface(interface)
+
+        check_order(arr_info.order)
 
         make_copy = False
 
@@ -322,16 +339,17 @@ def input_to_cuml_array_improved(X,
             raise ValueError("Expected " + str(check_rows) + " rows but got " +
                              str(n_rows) + " rows.")
 
-    if order != 'K' and X_m.order != order:
-        if fail_on_order:
-            raise ValueError("Expected " + order_to_str(order) +
-                             " major order, but got the opposite.")
-        else:
-            debug("Expected " + order_to_str(order) + " major order, "
-                  "but got the opposite. Converting data, this will "
-                  "result in additional memory utilization.")
-            X_m = cp.array(X_m, copy=False, order=order)
-            X_m = CumlArray(data=X_m)
+    # if order != 'K' and X_m.order != order:
+    #     if fail_on_order:
+    #         raise ValueError("Expected " + order_to_str(order) +
+    #                          " major order, but got the opposite.")
+    #     else:
+    #         debug("Expected " + order_to_str(order) + " major order, "
+    #               "but got the opposite. Converting data, this will "
+    #               "result in additional memory utilization.")
+    if (check_order(X_m.order)):
+        X_m = cp.array(X_m, copy=False, order=order)
+        X_m = CumlArray(data=X_m)
 
     cuml.common.array._increment_from_array(determine_array_type(X))
 

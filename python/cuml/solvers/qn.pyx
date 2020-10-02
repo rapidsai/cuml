@@ -514,8 +514,8 @@ class QN(Base):
         """
 
         if (self.fit_intercept):
-            self.coef_ = self.coef_[0:-1]
             self.intercept_ = self.coef_[-1]
+            self.coef_ = self.coef_[0:-1]
         else:
             self.intercept_ = CumlArray.zeros(shape=1)
 

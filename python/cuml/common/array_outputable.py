@@ -17,6 +17,7 @@
 import typing
 
 
+@typing.runtime_checkable
 class ArrayOutputable(typing.Protocol):
     """
     Protocol class used to determine if a class can be converted to device

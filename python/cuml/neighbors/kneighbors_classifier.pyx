@@ -148,13 +148,13 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                              "supported currently.")
 
     @generate_docstring(convert_dtype_cast='np.float32')
+    @cuml.internals.api_base_return_any(skip_set_output_dtype=False)
     def fit(self, X, y, convert_dtype=True) -> "KNeighborsClassifier":
         """
         Fit a GPU index for k-nearest neighbors classifier model.
 
         """
         # self._set_base_attributes(output_type=X, target_dtype=y)
-        cuml.internals.set_api_output_dtype(y)
 
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self.y, _, _, _ = \
