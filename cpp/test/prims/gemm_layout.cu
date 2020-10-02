@@ -20,8 +20,8 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename T>
 struct GemmLayoutInputs {
@@ -61,10 +61,10 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<GemmLayoutInputs<T>>::GetParam();
-    cudaStream_t stream;
-    cublasHandle_t handle;
-    CUBLAS_CHECK(cublasCreate(&handle));
-    CUDA_CHECK(cudaStreamCreate(&stream));
+
+    raft::handle_t handle;
+    cudaStream_t stream = handle.get_stream();
+
     raft::random::Rng r(params.seed);
 
     // We compute Z = X * Y and compare against reference result
@@ -97,11 +97,6 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
 
     gemm(handle, Z, X, Y, params.M, params.N, params.K, params.zLayout,
          params.xLayout, params.yLayout, stream);
-
-    CUDA_CHECK(cudaFree(X));
-    CUDA_CHECK(cudaFree(Y));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUBLAS_CHECK(cublasDestroy(handle));
   }
 
   void TearDown() override {
@@ -153,5 +148,5 @@ INSTANTIATE_TEST_CASE_P(GemmLayoutTests, GemmLayoutTestF,
 INSTANTIATE_TEST_CASE_P(GemmLayoutTests, GemmLayoutTestD,
                         ::testing::ValuesIn(inputsd));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

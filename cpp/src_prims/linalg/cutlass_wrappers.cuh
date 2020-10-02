@@ -30,8 +30,8 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <cuda_utils.cuh>
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 /**
  * this type has been mostly customized for float/double data-types
@@ -722,5 +722,5 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
 }
 /** @} */
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

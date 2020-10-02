@@ -54,11 +54,12 @@ void l1Impl(int m, int n, int k, const InType *pA, const InType *pB,
     reinterpret_cast<EffOutType *>(pD);  // Pretend to be EffOutType;
 
   typedef cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
-  typedef LinAlg::ThreadL1NormAdd<
+  typedef raft::linalg::ThreadL1NormAdd<
     AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, InType, InType, AccType>
     MainLoopFunctor_;
-  typedef LinAlg::CustomGemmConfig<InType, AccType, EffOutType, OutputTile_,
-                                   AccumulatorsPerThread_, MainLoopFunctor_>
+  typedef raft::linalg::CustomGemmConfig<InType, AccType, EffOutType,
+                                         OutputTile_, AccumulatorsPerThread_,
+                                         MainLoopFunctor_>
     GemmConfig_;
 
   typedef UnexpandedDistanceFragmentMultiplyAdd FragmentMultiplyAdd_;
@@ -103,9 +104,10 @@ void l1Impl(int m, int n, int k, const InType *pA, const InType *pB,
     gemm_m = m;
     gemm_n = n;
   }
-  LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
-               MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
-               GemmEpilogueTraits_, GemmEpilogue_>(
+  raft::linalg::gemm<InType, AccType, EffOutType, OutputTile_,
+                     AccumulatorsPerThread_, MainLoopFunctor_, Index_,
+                     GemmConfig_, EpilogueFunctor_, GemmEpilogueTraits_,
+                     GemmEpilogue_>(
     transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
     (EffOutType)0, nullptr, ldd, pDCast,
     [] HD(EpiParams & p) {

@@ -164,7 +164,7 @@ void fit_impl(raft::handle_t &handle,
     Matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
                             explained_var_ratio, prms.n_components, 1, stream);
 
-    MLCommon::LinAlg::transpose(vMatrix.data(), prms.n_cols, stream);
+    raft::linalg::transpose(vMatrix.data(), prms.n_cols, stream);
     Matrix::truncZeroOrigin(vMatrix.data(), prms.n_cols, components,
                             prms.n_components, prms.n_cols, stream);
 
@@ -213,10 +213,10 @@ void transform_impl(raft::handle_t &handle,
 
     T alpha = T(1);
     T beta = T(0);
-    LinAlg::gemm(input[i]->ptr, local_blocks[i]->size, size_t(prms.n_cols),
-                 components, trans_input[i]->ptr, local_blocks[i]->size,
-                 int(prms.n_components), CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta,
-                 cublas_h, streams[si]);
+    raft::linalg::gemm(handle, input[i]->ptr, local_blocks[i]->size,
+                       size_t(prms.n_cols), components, trans_input[i]->ptr,
+                       local_blocks[i]->size, int(prms.n_components),
+                       CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta, streams[si]);
 
     MLCommon::Stats::meanAdd(input[i]->ptr, input[i]->ptr, mu,
                              size_t(prms.n_cols), local_blocks[i]->size, false,
@@ -311,10 +311,10 @@ void inverse_transform_impl(
     T alpha = T(1);
     T beta = T(0);
 
-    LinAlg::gemm(trans_input[i]->ptr, local_blocks[i]->size,
-                 size_t(prms.n_components), components, input[i]->ptr,
-                 local_blocks[i]->size, prms.n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
-                 alpha, beta, cublas_h, streams[si]);
+    raft::linalg::gemm(handle, trans_input[i]->ptr, local_blocks[i]->size,
+                       size_t(prms.n_components), components, input[i]->ptr,
+                       local_blocks[i]->size, prms.n_cols, CUBLAS_OP_N,
+                       CUBLAS_OP_N, alpha, beta, streams[si]);
 
     MLCommon::Stats::meanAdd(input[i]->ptr, input[i]->ptr, mu,
                              size_t(prms.n_cols), local_blocks[i]->size, false,

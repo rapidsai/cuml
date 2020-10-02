@@ -19,8 +19,8 @@
 #include <cutlass/cutlass.h>
 #include <cutlass/fragment.h>
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 /// Template performing matrix diff-squared-add operation within a thread
 template <typename AccumulatorsPerThread_, typename ThreadsPerWarp_,
@@ -112,5 +112,5 @@ struct ThreadL1NormAdd {
   }
 };
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft
