@@ -44,11 +44,11 @@ void preProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
 
   if (fit_intercept) {
     raft::stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
-    MLCommon::Stats::meanCenter(input, input, mu_input, n_cols, n_rows, false,
+    raft::stats::meanCenter(input, input, mu_input, n_cols, n_rows, false,
                                 true, stream);
 
     raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
-    MLCommon::Stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false,
+    raft::stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false,
                                 true, stream);
 
     if (normalize) {
@@ -92,9 +92,9 @@ void postProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  MLCommon::Stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true,
+  raft::stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true,
                            stream);
-  MLCommon::Stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true,
+  raft::stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true,
                            stream);
 }
 

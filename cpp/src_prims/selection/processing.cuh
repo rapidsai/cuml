@@ -123,7 +123,7 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
       [=] __device__(math_t in) { return in * normalizer_const; },
       cosine::stream_);
 
-    MLCommon::Stats::meanCenter(data, data, means_.data(), cosine::n_cols_,
+    raft::stats::meanCenter(data, data, means_.data(), cosine::n_cols_,
                                 cosine::n_rows_, cosine::row_major_, false,
                                 cosine::stream_);
 
@@ -133,7 +133,7 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
   void revert(math_t *data) {
     CosineMetricProcessor<math_t>::revert(data);
 
-    MLCommon::Stats::meanAdd(data, data, means_.data(), cosine::n_cols_,
+    raft::stats::meanAdd(data, data, means_.data(), cosine::n_cols_,
                              cosine::n_rows_, cosine::row_major_, false,
                              cosine::stream_);
   }

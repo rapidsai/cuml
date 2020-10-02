@@ -51,7 +51,7 @@ void cov(Type *covar, Type *data, const Type *mu, int D, int N, bool sample,
   if (stable) {
     // since mean operation is assumed to be along a given column, broadcast
     // must be along rows!
-    meanCenter(data, data, mu, D, N, rowMajor, true, stream);
+    raft::stats::meanCenter(data, data, mu, D, N, rowMajor, true, stream);
     Type alpha = Type(1) / (sample ? Type(N - 1) : Type(N));
     Type beta = Type(0);
     if (rowMajor) {
