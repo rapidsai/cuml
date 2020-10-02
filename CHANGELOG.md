@@ -10,6 +10,7 @@
 - PR #2874: Issue warning for degraded accuracy with float64 models in Treelite
 
 ## Improvements
+- PR #2907 Fix some misspelled words
 - PR #2873: Remove empty marker kernel code for NVTX markers
 - PR #2796: Remove tokens of length 1 by default for text vectorizers
 - PR #2741: Use rapids build packages in conda environments
