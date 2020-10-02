@@ -44,12 +44,12 @@ void preProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
 
   if (fit_intercept) {
     raft::stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
-    raft::stats::meanCenter(input, input, mu_input, n_cols, n_rows, false,
-                                true, stream);
+    raft::stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true,
+                            stream);
 
     raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
-    raft::stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false,
-                                true, stream);
+    raft::stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true,
+                            stream);
 
     if (normalize) {
       LinAlg::colNorm(norm2_input, input, n_cols, n_rows, LinAlg::L2Norm, false,
@@ -93,9 +93,9 @@ void postProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   raft::stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true,
-                           stream);
+                       stream);
   raft::stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true,
-                           stream);
+                       stream);
 }
 
 };  // namespace GLM

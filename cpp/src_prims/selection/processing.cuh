@@ -124,8 +124,8 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
       cosine::stream_);
 
     raft::stats::meanCenter(data, data, means_.data(), cosine::n_cols_,
-                                cosine::n_rows_, cosine::row_major_, false,
-                                cosine::stream_);
+                            cosine::n_rows_, cosine::row_major_, false,
+                            cosine::stream_);
 
     CosineMetricProcessor<math_t>::preprocess(data);
   }
@@ -134,8 +134,8 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
     CosineMetricProcessor<math_t>::revert(data);
 
     raft::stats::meanAdd(data, data, means_.data(), cosine::n_cols_,
-                             cosine::n_rows_, cosine::row_major_, false,
-                             cosine::stream_);
+                         cosine::n_rows_, cosine::row_major_, false,
+                         cosine::stream_);
   }
 
   void postprocess(math_t *data) {

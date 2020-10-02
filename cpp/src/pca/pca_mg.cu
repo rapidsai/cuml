@@ -208,8 +208,8 @@ void transform_impl(raft::handle_t &handle,
     int si = i % n_streams;
 
     raft::stats::meanCenter(input[i]->ptr, input[i]->ptr, mu,
-                                size_t(prms.n_cols), local_blocks[i]->size,
-                                false, true, streams[si]);
+                            size_t(prms.n_cols), local_blocks[i]->size, false,
+                            true, streams[si]);
 
     T alpha = T(1);
     T beta = T(0);
@@ -218,9 +218,8 @@ void transform_impl(raft::handle_t &handle,
                  int(prms.n_components), CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta,
                  cublas_h, streams[si]);
 
-    raft::stats::meanAdd(input[i]->ptr, input[i]->ptr, mu,
-                             size_t(prms.n_cols), local_blocks[i]->size, false,
-                             true, streams[si]);
+    raft::stats::meanAdd(input[i]->ptr, input[i]->ptr, mu, size_t(prms.n_cols),
+                         local_blocks[i]->size, false, true, streams[si]);
   }
 
   if (prms.whiten) {
@@ -316,9 +315,8 @@ void inverse_transform_impl(
                  local_blocks[i]->size, prms.n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
                  alpha, beta, cublas_h, streams[si]);
 
-    raft::stats::meanAdd(input[i]->ptr, input[i]->ptr, mu,
-                             size_t(prms.n_cols), local_blocks[i]->size, false,
-                             true, streams[si]);
+    raft::stats::meanAdd(input[i]->ptr, input[i]->ptr, mu, size_t(prms.n_cols),
+                         local_blocks[i]->size, false, true, streams[si]);
   }
 
   if (prms.whiten) {
