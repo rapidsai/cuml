@@ -73,10 +73,6 @@ def _build_and_save_xgboost(model_path,
         if num_classes == 1:
             params['objective'] = 'binary:logistic'
         else:
-            # cannot use this interface as it's not supported by treelite
-            # will cause "softmax" as the output transform
-            # params['objective'] = 'multi:softprob'
-            # output transform == 'max_index'
             params['objective'] = 'multi:softmax'
     else:
         params['eval_metric'] = 'error'
