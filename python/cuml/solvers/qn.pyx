@@ -234,7 +234,7 @@ class QN(Base):
          <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>
     """
 
-    coef_ = CumlArrayDescriptor()
+    _coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 
     def __init__(self, loss='sigmoid', fit_intercept=True,
@@ -253,7 +253,7 @@ class QN(Base):
         self.linesearch_max_iter = linesearch_max_iter
         self.lbfgs_memory = lbfgs_memory
         self.num_iter = 0
-        self.coef_ = None
+        self._coef_ = None
         self.intercept_ = None
 
         if loss not in ['sigmoid', 'softmax', 'normal']:
@@ -267,6 +267,14 @@ class QN(Base):
             'softmax': 2,
             'normal': 1
         }[loss]
+
+    @property
+    @cuml.internals.api_base_return_array_skipall
+    def coef_(self):
+        if self.fit_intercept:
+            return self._coef_[0:-1]
+        else:
+            return self._coef_
 
     @generate_docstring()
     def fit(self, X, y, convert_dtype=False) -> "QN":
@@ -309,8 +317,8 @@ class QN(Base):
         else:
             coef_size = (self.n_cols, self._num_classes_dim)
 
-        self.coef_ = CumlArray.ones(coef_size, dtype=self.dtype, order='C')
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        self._coef_ = CumlArray.ones(coef_size, dtype=self.dtype, order='C')
+        cdef uintptr_t coef_ptr = self._coef_.ptr
 
         cdef float objective32
         cdef double objective64
@@ -366,7 +374,7 @@ class QN(Base):
 
         self.num_iters = num_iters
 
-        self._split_coef()
+        self._calc_intercept()
 
         self.handle.sync()
 
@@ -407,7 +415,7 @@ class QN(Base):
         scores = CumlArray.zeros(shape=(self._num_classes_dim, n_rows),
                                  dtype=self.dtype, order='F')
 
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t coef_ptr = self._coef_.ptr
         cdef uintptr_t scores_ptr = scores.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -436,7 +444,7 @@ class QN(Base):
                                <int> self.loss_type,
                                <double*> scores_ptr)
 
-        self._split_coef()
+        self._calc_intercept()
 
         self.handle.sync()
 
@@ -466,7 +474,7 @@ class QN(Base):
         cdef uintptr_t X_ptr = X_m.ptr
 
         preds = CumlArray.zeros(shape=n_rows, dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t coef_ptr = self._coef_.ptr
         cdef uintptr_t pred_ptr = preds.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -495,7 +503,7 @@ class QN(Base):
                       <int> self.loss_type,
                       <double*> pred_ptr)
 
-        self._split_coef()
+        self._calc_intercept()
 
         self.handle.sync()
 
@@ -506,7 +514,7 @@ class QN(Base):
     def score(self, X, y):
         return accuracy_score(y, self.predict(X))
 
-    def _split_coef(self):
+    def _calc_intercept(self):
         """
         If `fit_intercept == True`, then the last row of `coef_` contains
         `intercept_`. This should be called after every function that sets
@@ -514,8 +522,7 @@ class QN(Base):
         """
 
         if (self.fit_intercept):
-            self.intercept_ = self.coef_[-1]
-            self.coef_ = self.coef_[0:-1]
+            self.intercept_ = self._coef_[-1]
         else:
             self.intercept_ = CumlArray.zeros(shape=1)
 

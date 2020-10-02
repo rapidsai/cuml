@@ -47,7 +47,7 @@ def python_seas_test(y, batch_size, n_obs, s, threshold=0.64):
     return results
 
 
-@cuml.internals.api_return_array("y", skip_get_output_type=False)
+@cuml.internals.api_return_array(input_arg="y", skip_get_output_type=False)
 def seas_test(y, s, handle=None) -> CumlArray:
     """
     Perform Wang, Smith & Hyndman's test to decide whether seasonal

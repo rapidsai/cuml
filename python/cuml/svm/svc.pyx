@@ -315,17 +315,21 @@ class SVC(SVMBase, ClassifierMixin):
         if self.probability:
             params = self.get_params()
             params["probability"] = False
+
+            # Ensure it always outputs numpy
+            params["output_type"] = "numpy"
+
             # Currently CalibratedClassifierCV expects data on the host, see
             # https://github.com/rapidsai/cuml/issues/2608
             X, _, _, _, _ = input_to_host_array(X)
             y, _, _, _, _ = input_to_host_array(y)
-            with using_output_type('numpy'):
-                self.prob_svc = CalibratedClassifierCV(SVC(**params), cv=5,
-                                                       method='sigmoid')
+
+            self.prob_svc = CalibratedClassifierCV(SVC(**params), cv=5,
+                                                    method='sigmoid')
                 
-                with cuml.internals.exit_internal_api():
-                    self.prob_svc.fit(X, y)
-                self._fit_status_ = 0
+            with cuml.internals.exit_internal_api():
+                self.prob_svc.fit(X, y)
+            self._fit_status_ = 0
             return self
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
@@ -428,13 +432,14 @@ class SVC(SVMBase, ClassifierMixin):
             # out_type = self._get_output_type(X)
             X, _, _, _, _ = input_to_host_array(X)
 
-            with cuml.using_output_type("numpy"):
-                with cuml.internals.exit_internal_api():
-                    preds = self.prob_svc.predict_proba(X)
-                    if (log):
-                        preds = np.log(preds)
-                    # prob_svc has numpy output type, change it if it is necessary:
-                    return preds
+            # Exit the internal API when calling sklearn code (forces numpy
+            # conversion)
+            with cuml.internals.exit_internal_api():
+                preds = self.prob_svc.predict_proba(X)
+                if (log):
+                    preds = np.log(preds)
+                # prob_svc has numpy output type, change it if it is necessary:
+                return preds
         else:
             raise AttributeError("This classifier is not fitted to predict "
                                  "probabilities. Fit a new classifier with"
@@ -477,14 +482,14 @@ class SVC(SVMBase, ClassifierMixin):
             # using the probabilities.
             df = np.zeros((X.shape[0],))
 
-            with using_output_type('numpy'):
+            with cuml.internals.exit_internal_api():
                 for clf in self.prob_svc.calibrated_classifiers_:
                     df = df + clf.base_estimator.decision_function(X)
             df = df / len(self.prob_svc.calibrated_classifiers_)
             return df
         else:
-            return super(SVC, self).predict(X, False)
+            return super().predict(X, False)
 
     def get_param_names(self):
-        return super(SVC, self).get_param_names() + \
+        return super().get_param_names() + \
             ["probability", "random_state", "class_weight"]

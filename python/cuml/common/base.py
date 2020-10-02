@@ -220,7 +220,7 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         extra set of parameters that it in-turn owns. This is to simplify the
         implementation of `get_params` and `set_params` methods.
         """
-        return []
+        return ["handle", "verbose", "output_type"]
 
     def get_params(self, deep=True):
         """
@@ -459,7 +459,8 @@ def _input_to_type(input):
 def _check_output_type_str(output_str):
     if isinstance(output_str, str):
         output_type = output_str.lower()
-        if output_type in ['numpy', 'cupy', 'cudf', 'numba']:
+        # Check for valid output types + "input"
+        if output_type in ['numpy', 'cupy', 'cudf', 'numba', 'input']:
             return output_str
         else:
             raise ValueError("output_type must be one of " +

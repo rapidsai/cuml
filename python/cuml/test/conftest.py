@@ -10,7 +10,7 @@ from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
 import numbers
 
-# import rmm
+import rmm
 
 # rmm.reinitialize(logging=True, log_file_name="test_log.txt")
 

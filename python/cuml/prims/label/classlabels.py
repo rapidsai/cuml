@@ -14,8 +14,10 @@
 # limitations under the License.
 #
 
+import typing
 import cupy as cp
 import math
+from cuml.common.input_utils import input_to_cupy_array
 
 import cuml.internals
 from cuml.common.array import CumlArray
@@ -110,8 +112,8 @@ def _validate_kernel(dtype):
                                (dtype,),
                                "validate_labels_kernel")
 
-
-def make_monotonic(labels, classes=None, copy=False):
+@cuml.internals.api_return_generic(input_arg="labels", skip_get_output_type=False)
+def make_monotonic(labels, classes=None, copy=False) -> typing.Tuple[CumlArray, CumlArray]:
 
     """
     Takes a set of labels that might not be drawn from the
@@ -136,16 +138,19 @@ def make_monotonic(labels, classes=None, copy=False):
     classes : array-like of size (n_classes,)
     """
 
-    labels = cp.asarray(labels, dtype=labels.dtype)
+    # labels = cp.asarray(labels, dtype=labels.dtype)
+    labels = input_to_cupy_array(labels, deepcopy=copy).array
 
-    if copy:
-        labels = labels.copy()
+    # if copy:
+    #     labels = labels.copy()
 
     if labels.ndim != 1:
         raise ValueError("Labels array must be 1D")
 
     if classes is None:
         classes = cp.unique(labels)
+    else:
+        classes = input_to_cupy_array(classes).array
 
     smem = labels.dtype.itemsize * int(classes.shape[0])
 
@@ -159,6 +164,7 @@ def make_monotonic(labels, classes=None, copy=False):
 
     return labels, classes
 
+@cuml.internals.api_return_any()
 def check_labels(labels, classes) -> bool:
     """
     Validates that a set of labels is drawn from the unique
@@ -177,12 +183,16 @@ def check_labels(labels, classes) -> bool:
     result : boolean
     """
 
+
+
+    # labels = cp.asarray(labels, dtype=labels.dtype)
+    # classes = cp.asarray(classes, dtype=classes.dtype)
+    labels = input_to_cupy_array(labels).array
+    classes = input_to_cupy_array(classes).array
+
     if labels.dtype != classes.dtype:
         raise ValueError("Labels and classes must have same dtype (%s != %s" %
                          (labels.dtype, classes.dtype))
-
-    labels = cp.asarray(labels, dtype=labels.dtype)
-    classes = cp.asarray(classes, dtype=classes.dtype)
 
     if labels.ndim != 1:
         raise ValueError("Labels array must be 1D")
@@ -198,7 +208,7 @@ def check_labels(labels, classes) -> bool:
 
     return valid[0] == 1
 
-@cuml.internals.api_return_array_skipall
+@cuml.internals.api_return_array(input_arg="labels", skip_get_output_type=False)
 def invert_labels(labels, classes, copy=False) -> CumlArray:
     """
     Takes a set of labels that have been mapped to be drawn
@@ -223,14 +233,17 @@ def invert_labels(labels, classes, copy=False) -> CumlArray:
 
     """
 
+    # labels = cp.asarray(labels, dtype=labels.dtype)
+    # classes = cp.asarray(classes, dtype=classes.dtype)
+    labels = input_to_cupy_array(labels, deepcopy=copy).array
+    classes = input_to_cupy_array(classes).array
+
     if labels.dtype != classes.dtype:
         raise ValueError("Labels and classes must have same dtype (%s != %s" %
                          (labels.dtype, classes.dtype))
-    labels = cp.asarray(labels, dtype=labels.dtype)
-    classes = cp.asarray(classes, dtype=classes.dtype)
 
-    if copy:
-        labels = labels.copy()
+    # if copy:
+    #     labels = labels.copy()
 
     smem = labels.dtype.itemsize * len(classes)
     inverse_map = _inverse_map_kernel(labels.dtype)

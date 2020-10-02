@@ -195,6 +195,9 @@ class SVMBase(Base):
         """
         super(SVMBase, self).__init__(handle=handle, verbose=verbose,
                                       output_type=output_type)
+
+        assert self.handle is not None, "None Handle"
+
         # Input parameters for training
         self.tol = tol
         self.C = C
@@ -341,6 +344,7 @@ class SVMBase(Base):
         param.svmType = self.svmType
         return param
 
+    @cuml.internals.api_base_return_any_skipall
     def _get_svm_model(self):
         """ Wrap the fitted model parameters into an svmModel structure.
         This is used if the model is loaded by pickle, the self._model struct
@@ -534,7 +538,8 @@ class SVMBase(Base):
         return preds
 
     def get_param_names(self):
-        return ["C", "kernel", "degree", "gamma", "coef0", "cache_size",
+        return super().get_param_names() + \
+            ["C", "kernel", "degree", "gamma", "coef0", "cache_size",
                 "max_iter", "nochange_steps", "tol"]
 
     def __getstate__(self):

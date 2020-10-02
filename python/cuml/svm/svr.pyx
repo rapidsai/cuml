@@ -216,10 +216,10 @@ class SVR(SVMBase, RegressorMixin):
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, epsilon=0.1,
                  cache_size=200.0, max_iter=-1, nochange_steps=1000,
-                 verbose=False):
+                 verbose=False, output_type=None):
         super(SVR, self).__init__(handle, C, kernel, degree, gamma, coef0, tol,
                                   cache_size, max_iter, nochange_steps,
-                                  verbose, epsilon)
+                                  verbose, epsilon, output_type=output_type)
         self.svmType = EPSILON_SVR
 
     @generate_docstring()

@@ -447,8 +447,9 @@ class ForestInference(Base):
     """
 
     def __init__(self,
-                 handle=None, output_type=None):
-        super(ForestInference, self).__init__(handle,
+                 handle=None, verbose=False, output_type=None):
+        super(ForestInference, self).__init__(handle=handle,
+                                              verbose=verbose,
                                               output_type=output_type)
         self._impl = ForestInference_impl(self.handle)
 

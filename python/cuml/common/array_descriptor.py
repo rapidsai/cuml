@@ -18,9 +18,9 @@ class CumlArrayDescriptorMeta:
     # The type for the input value. One of: _input_type_to_str
     input_type: str
 
-    # Specifies the `output_dtype` argument when calling to_output. Use `None`
-    # to use the same dtype as the input
-    output_dtype: str = None
+    # # Specifies the `output_dtype` argument when calling to_output. Use `None`
+    # # to use the same dtype as the input
+    # output_dtype: str = None
 
     # Dict containing values in different formats. One entry per type. Both the
     # input type and any cached converted types will be stored. Erased on set
@@ -36,6 +36,18 @@ class CumlArrayDescriptorMeta:
 
         return self.values[self.input_type]
 
+    def __getstate__(self):
+        # Need to only return the input_value from 
+        return {
+            "input_type": self.input_type,
+            "input_value": self.get_input_value()
+        }
+
+    def __setstate__(self, d):
+        self.input_type = d["input_type"]
+        self.values = {
+            self.input_type: d["input_value"]
+        }
 
 class CumlArrayDescriptor():
     '''Descriptor for a meter.'''

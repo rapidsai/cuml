@@ -229,19 +229,17 @@ def input_to_cuml_array_improved(X,
         A new CumlArray and associated data.
 
     """
-
     def check_order(arr_order):
         if order != 'K' and arr_order != order:
             if fail_on_order:
                 raise ValueError("Expected " + order_to_str(order) +
-                                " major order, but got the opposite.")
+                                 " major order, but got the opposite.")
             else:
                 debug("Expected " + order_to_str(order) + " major order, "
-                    "but got the opposite. Converting data, this will "
-                    "result in additional memory utilization.")
+                      "but got the opposite. Converting data, this will "
+                      "result in additional memory utilization.")
                 return True
         return False
-
 
     # dtype conversion
 
@@ -279,7 +277,8 @@ def input_to_cuml_array_improved(X,
             hasattr(X, "__cuda_array_interface__"):
 
         # Since we create the array with the correct order here, do the order check now if necessary
-        interface = getattr(X, "__array_interface__", None) or getattr(X, "__cuda_array_interface__", None)
+        interface = getattr(X, "__array_interface__", None) or getattr(
+            X, "__cuda_array_interface__", None)
 
         arr_info = ArrayInfo.from_interface(interface)
 
@@ -532,12 +531,28 @@ def input_to_cuml_array(X,
 
 input_to_cuml_array = input_to_cuml_array_improved
 
-@wraps(input_to_cuml_array, assigned=('__doc__', '__annotations__'))
-def input_to_cupy_array(*args, **kwargs):
+
+def input_to_cupy_array(X,
+                        order='F',
+                        deepcopy=False,
+                        check_dtype=False,
+                        convert_to_dtype=False,
+                        check_cols=False,
+                        check_rows=False,
+                        fail_on_order=False,
+                        force_contiguous=True) -> cuml_array:
     """
     Identical to input_to_cuml_array but it returns a cupy array instead of CumlArray
     """
-    out_data = input_to_cuml_array(*args, **kwargs)
+    out_data = input_to_cuml_array(X,
+                                   order=order,
+                                   deepcopy=deepcopy,
+                                   check_dtype=check_dtype,
+                                   convert_to_dtype=convert_to_dtype,
+                                   check_cols=check_cols,
+                                   check_rows=check_rows,
+                                   fail_on_order=fail_on_order,
+                                   force_contiguous=force_contiguous)
 
     return out_data._replace(array=out_data.array.to_output("cupy"))
 
