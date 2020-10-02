@@ -94,8 +94,8 @@ void calEig(const raft::handle_t &handle, math_t *in, math_t *components,
                       cusolver_handle, stream, allocator, (math_t)prms.tol,
                       prms.n_iterations);
   } else {
-    LinAlg::eigDC(in, prms.n_cols, prms.n_cols, components, explained_var,
-                  cusolver_handle, stream, allocator);
+    raft::linalg::eigDC(handle, in, prms.n_cols, prms.n_cols, components, explained_var,
+                  stream);
   }
 
   Matrix::colReverse(components, prms.n_cols, prms.n_cols, stream);
