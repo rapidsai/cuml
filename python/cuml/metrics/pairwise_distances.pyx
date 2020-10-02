@@ -27,7 +27,7 @@ from cuml.common import (get_cudf_column_ptr, get_dev_array_ptr,
                          input_to_cuml_array, CumlArray, logger, with_cupy_rmm)
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 
-cdef extern from "cuml/distance/distance_type.h" namespace "ML::Distance":
+cdef extern from "raft/linalg/distance_type.h" namespace "raft::linalg":
 
     cdef enum DistanceType:
         EucExpandedL2 "ML::Distance::DistanceType::EucExpandedL2"

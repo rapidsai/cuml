@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/distance/distance_type.h>
+#include <raft/linalg/distance_type.h>
 #include <cuml/cuml.hpp>
 
 namespace ML {
