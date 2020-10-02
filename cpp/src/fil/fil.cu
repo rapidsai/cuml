@@ -422,7 +422,7 @@ void check_params(const forest_params_t* params, bool dense) {
       break;
     case leaf_algo_t::GROVE_PER_CLASS:
       ASSERT(params->num_classes > 2,
-             "num_classes >= 2 is required for leaf_algo == GROVE_PER_CLASS");
+             "num_classes > 2 is required for leaf_algo == GROVE_PER_CLASS");
       ASSERT(params->num_trees % params->num_classes == 0,
              "num_classes must divide num_trees evenly for GROVE_PER_CLASS");
       break;
