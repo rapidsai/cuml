@@ -147,13 +147,13 @@ enum leaf_algo_t {
       Gradient Boosted Decision Trees. We sum margins for each group separately
       This is a more specific version of GROVE_PER_CLASS.
       _FEW_CLASSES means fewer (or as many) classes than threads. **/
-  TREE_PER_CLASS_FEW_CLASSES = 3,
+  GROVE_PER_CLASS_FEW_CLASSES = 3,
   /** 1-vs-rest, or tree-per-class, where trees are assigned round-robin to
       consecutive categories and predict a floating-point margin. Used in
       Gradient Boosted Decision Trees. We sum margins for each group separately
       This is a more specific version of GROVE_PER_CLASS.
       _MANY_CLASSES means more classes than threads. **/
-  TREE_PER_CLASS_MANY_CLASSES = 4,
+  GROVE_PER_CLASS_MANY_CLASSES = 4,
   // to be extended
 };
 
@@ -168,11 +168,11 @@ struct leaf_output_t<leaf_algo_t::CATEGORICAL_LEAF> {
   typedef int T;
 };
 template <>
-struct leaf_output_t<leaf_algo_t::TREE_PER_CLASS_FEW_CLASSES> {
+struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES> {
   typedef float T;
 };
 template <>
-struct leaf_output_t<leaf_algo_t::TREE_PER_CLASS_MANY_CLASSES> {
+struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES> {
   typedef float T;
 };
 

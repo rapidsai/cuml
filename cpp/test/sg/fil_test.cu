@@ -783,10 +783,10 @@ std::vector<FilTestParams> predict_sparse_inputs = {
    42, 2e-3f, tl::Operator(0), fil::leaf_algo_t::CATEGORICAL_LEAF, 3},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
    42, 2e-3f, tl::Operator(0), fil::leaf_algo_t::CATEGORICAL_LEAF, 3},
-  {20000, 50, 0.05, 2, 300, 0.05,  // works up to 5000 classes in all situations
+  {20000, 50, 0.05, 2, 5000, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::CLASS), 1.0, 0.5,
    fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator(0),
-   fil::leaf_algo_t::GROVE_PER_CLASS, 300},
+   fil::leaf_algo_t::GROVE_PER_CLASS, 5000},
   {20000, 50, 0.05, 8, 60, 0.05, fil::output_t::RAW, 0, 0.5, fil::algo_t::NAIVE,
    42, 2e-3f, tl::Operator(0), fil::leaf_algo_t::GROVE_PER_CLASS, 6},
   {20000, 50, 0.05, 8, 51, 0.05, fil::output_t::CLASS, 0, 0, fil::algo_t::NAIVE,

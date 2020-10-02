@@ -26,8 +26,7 @@ using namespace MLCommon;
 template <int N, typename T>
 struct vec {
   T data[N];
-  inline __host__ __device__ vec() : data() {}
-  inline __host__ __device__ vec(T t) {
+  explicit __host__ __device__ vec(T t = T()) {
 #pragma unroll
     for (int i = 0; i < N; ++i) data[i] = t;
   }
@@ -222,7 +221,7 @@ struct finalize_block {
 };
 
 template <int NITEMS>
-struct tree_aggregator_t<NITEMS, TREE_PER_CLASS_FEW_CLASSES> : finalize_block {
+struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> : finalize_block {
   vec<NITEMS, float> acc;
 
   static size_t smem_finalize_footprint(int num_classes) {
@@ -267,7 +266,8 @@ struct tree_aggregator_t<NITEMS, TREE_PER_CLASS_FEW_CLASSES> : finalize_block {
 };
 
 template <int NITEMS>
-struct tree_aggregator_t<NITEMS, TREE_PER_CLASS_MANY_CLASSES> : finalize_block {
+struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>
+  : finalize_block {
   vec<NITEMS, float> acc;
   vec<NITEMS, float>* per_class_margin;
 
@@ -418,7 +418,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
                        forest[j], sdata, params.num_cols),
                      j);
     }
-    if (leaf_algo == TREE_PER_CLASS_MANY_CLASSES) __syncthreads();
+    if (leaf_algo == GROVE_PER_CLASS_MANY_CLASSES) __syncthreads();
   }
   acc.finalize(params.preds, params.num_rows, params.num_outputs);
 }
@@ -517,12 +517,12 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream) {
       break;
     case GROVE_PER_CLASS:
       if (params.num_classes > FIL_TPB) {
-        params.leaf_algo = TREE_PER_CLASS_MANY_CLASSES;
-        infer_k_launcher<TREE_PER_CLASS_MANY_CLASSES>(forest, params, stream,
-                                                      FIL_TPB);
+        params.leaf_algo = GROVE_PER_CLASS_MANY_CLASSES;
+        infer_k_launcher<GROVE_PER_CLASS_MANY_CLASSES>(forest, params, stream,
+                                                       FIL_TPB);
       } else {
-        params.leaf_algo = TREE_PER_CLASS_FEW_CLASSES;
-        infer_k_launcher<TREE_PER_CLASS_FEW_CLASSES>(
+        params.leaf_algo = GROVE_PER_CLASS_FEW_CLASSES;
+        infer_k_launcher<GROVE_PER_CLASS_FEW_CLASSES>(
           forest, params, stream, FIL_TPB - FIL_TPB % params.num_classes);
       }
       break;
