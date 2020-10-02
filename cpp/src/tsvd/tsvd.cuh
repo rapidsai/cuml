@@ -68,11 +68,10 @@ void calCompExpVarsSvd(const raft::handle_t &handle, math_t *in,
   device_buffer<math_t> components_temp(allocator, stream,
                                         prms.n_cols * prms.n_components);
   math_t *left_eigvec = nullptr;
-  LinAlg::rsvdFixedRank(in, prms.n_rows, prms.n_cols, singular_vals,
+  LinAlg::rsvdFixedRank(handle, in, prms.n_rows, prms.n_cols, singular_vals,
                         left_eigvec, components_temp.data(), prms.n_components,
                         p, true, false, true, false, (math_t)prms.tol,
-                        prms.n_iterations, cusolver_handle, cublas_handle,
-                        stream);
+                        prms.n_iterations, stream);
 
   LinAlg::transpose(components_temp.data(), components, prms.n_cols,
                     prms.n_components, cublas_handle, stream);
@@ -187,9 +186,9 @@ void tsvdFit(const raft::handle_t &handle, math_t *input, math_t *components,
 
   math_t alpha = math_t(1);
   math_t beta = math_t(0);
-  LinAlg::gemm(input, prms.n_rows, prms.n_cols, input, input_cross_mult.data(),
-               prms.n_cols, prms.n_cols, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
-               cublas_handle, stream);
+  raft::linalg::gemm(handle, input, prms.n_rows, prms.n_cols, input,
+                     input_cross_mult.data(), prms.n_cols, prms.n_cols,
+                     CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, stream);
 
   device_buffer<math_t> components_all(allocator, stream, len);
   device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
@@ -270,8 +269,6 @@ template <typename math_t>
 void tsvdTransform(const raft::handle_t &handle, math_t *input,
                    math_t *components, math_t *trans_input,
                    const paramsTSVD &prms, cudaStream_t stream) {
-  auto cublas_handle = handle.get_cublas_handle();
-
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
   ASSERT(prms.n_rows > 0,
@@ -282,9 +279,9 @@ void tsvdTransform(const raft::handle_t &handle, math_t *input,
 
   math_t alpha = math_t(1);
   math_t beta = math_t(0);
-  LinAlg::gemm(input, prms.n_rows, prms.n_cols, components, trans_input,
-               prms.n_rows, prms.n_components, CUBLAS_OP_N, CUBLAS_OP_T, alpha,
-               beta, cublas_handle, stream);
+  raft::linalg::gemm(handle, input, prms.n_rows, prms.n_cols, components,
+                     trans_input, prms.n_rows, prms.n_components, CUBLAS_OP_N,
+                     CUBLAS_OP_T, alpha, beta, stream);
 }
 
 /**
@@ -300,8 +297,6 @@ template <typename math_t>
 void tsvdInverseTransform(const raft::handle_t &handle, math_t *trans_input,
                           math_t *components, math_t *input,
                           const paramsTSVD &prms, cudaStream_t stream) {
-  auto cublas_handle = handle.get_cublas_handle();
-
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(prms.n_rows > 0,
@@ -313,9 +308,9 @@ void tsvdInverseTransform(const raft::handle_t &handle, math_t *trans_input,
   math_t alpha = math_t(1);
   math_t beta = math_t(0);
 
-  LinAlg::gemm(trans_input, prms.n_rows, prms.n_components, components, input,
-               prms.n_rows, prms.n_cols, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta,
-               cublas_handle, stream);
+  raft::linalg::gemm(handle, trans_input, prms.n_rows, prms.n_components,
+                     components, input, prms.n_rows, prms.n_cols, CUBLAS_OP_N,
+                     CUBLAS_OP_N, alpha, beta, stream);
 }
 
 };  // end namespace ML

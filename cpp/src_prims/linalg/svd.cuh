@@ -24,6 +24,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
+#include <raft/mr/device/buffer.hpp>
 #include "eig.cuh"
 #include "gemm.cuh"
 #include "transpose.h"
@@ -108,16 +109,21 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
 }
 
 template <typename T>
-void svdEig(T *in, int n_rows, int n_cols, T *S, T *U, T *V, bool gen_left_vec,
-            cublasHandle_t cublasH, cusolverDnHandle_t cusolverH,
-            cudaStream_t stream, std::shared_ptr<deviceAllocator> allocator) {
+void svdEig(const raft::handle_t &handle, T *in, int n_rows, int n_cols, T *S,
+            T *U, T *V, bool gen_left_vec, cudaStream_t stream) {
+  std::shared_ptr<raft::mr::device::allocator> allocator =
+    handle.get_device_allocator();
+  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cublasHandle_t cublasH = handle.get_cublas_handle();
+
   int len = n_cols * n_cols;
-  device_buffer<T> in_cross_mult(allocator, stream, len);
+  raft::mr::device::buffer<T> in_cross_mult(allocator, stream, len);
 
   T alpha = T(1);
   T beta = T(0);
-  gemm(in, n_rows, n_cols, in, in_cross_mult.data(), n_cols, n_cols,
-       CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH, stream);
+  raft::linalg::gemm(handle, in, n_rows, n_cols, in, in_cross_mult.data(),
+                     n_cols, n_cols, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
+                     stream);
 
   eigDC(in_cross_mult.data(), n_cols, n_cols, V, S, cusolverH, stream,
         allocator);
@@ -128,8 +134,8 @@ void svdEig(T *in, int n_rows, int n_cols, T *S, T *U, T *V, bool gen_left_vec,
   raft::matrix::seqRoot(S, S, alpha, n_cols, stream, true);
 
   if (gen_left_vec) {
-    gemm(in, n_rows, n_cols, V, U, n_rows, n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
-         alpha, beta, cublasH, stream);
+    raft::linalg::gemm(handle, in, n_rows, n_cols, V, U, n_rows, n_cols,
+                       CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
     raft::matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false,
                                                 true, stream);
   }
@@ -203,17 +209,19 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
  * @param allocator device allocator for temporary buffers during computation
  */
 template <typename math_t>
-void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
-                       int n_cols, int k, cublasHandle_t cublasH,
-                       cudaStream_t stream,
-                       std::shared_ptr<deviceAllocator> allocator) {
-  const math_t alpha = 1.0, beta = 0.0;
-  device_buffer<math_t> SVT(allocator, stream, k * n_cols);
+void svdReconstruction(const raft::handle_t &handle, math_t *U, math_t *S,
+                       math_t *V, math_t *out, int n_rows, int n_cols, int k,
+                       cudaStream_t stream) {
+  std::shared_ptr<raft::mr::device::allocator> allocator =
+    handle.get_device_allocator();
 
-  gemm(S, k, k, V, SVT.data(), k, n_cols, CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta,
-       cublasH, stream);
-  gemm(U, n_rows, k, SVT.data(), out, n_rows, n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
-       alpha, beta, cublasH, stream);
+  const math_t alpha = 1.0, beta = 0.0;
+  raft::mr::device::buffer<math_t> SVT(allocator, stream, k * n_cols);
+
+  raft::linalg::gemm(handle, S, k, k, V, SVT.data(), k, n_cols, CUBLAS_OP_N,
+                     CUBLAS_OP_T, alpha, beta, stream);
+  raft::linalg::gemm(handle, U, n_rows, k, SVT.data(), out, n_rows, n_cols,
+                     CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
 }
 
 /**
@@ -232,10 +240,13 @@ void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
  * @param allocator device allocator for temporary buffers during computation
  */
 template <typename math_t>
-bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
-                         int n_rows, int n_cols, int k, math_t tol,
-                         cublasHandle_t cublasH, cudaStream_t stream,
-                         std::shared_ptr<deviceAllocator> allocator) {
+bool evaluateSVDByL2Norm(const raft::handle_t &handle, math_t *A_d, math_t *U,
+                         math_t *S_vec, math_t *V, int n_rows, int n_cols,
+                         int k, math_t tol, cudaStream_t stream) {
+  std::shared_ptr<raft::mr::device::allocator> allocator =
+    handle.get_device_allocator();
+  cublasHandle_t cublasH = handle.get_cublas_handle();
+
   int m = n_rows, n = n_cols;
 
   // form product matrix
@@ -245,8 +256,7 @@ bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
   CUDA_CHECK(cudaMemsetAsync(S_mat.data(), 0, sizeof(math_t) * k * k, stream));
 
   Matrix::initializeDiagonalMatrix(S_vec, S_mat.data(), k, k, stream);
-  svdReconstruction(U, S_mat.data(), V, P_d.data(), m, n, k, cublasH, stream,
-                    allocator);
+  svdReconstruction(handle, U, S_mat.data(), V, P_d.data(), m, n, k, stream);
 
   // get norms of each
   math_t normA = Matrix::getL2Norm(A_d, m * n, cublasH, stream);
