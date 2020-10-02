@@ -189,7 +189,7 @@ void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
 
       raft::linalg::scalarMultiply(grads.data(), grads.data(), learning_rate,
                                    n_cols, stream);
-      LinAlg::subtract(coef, coef, grads.data(), n_cols, stream);
+      raft::linalg::subtract(coef, coef, grads.data(), n_cols, stream);
 
       j = j + cbs;
       t = t + 1;

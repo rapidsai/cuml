@@ -125,7 +125,7 @@ void olsPredict(const raft::handle_t &handle, const math_t *input, int n_rows,
   LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1, CUBLAS_OP_N,
                CUBLAS_OP_N, alpha, beta, cublas_handle, stream);
 
-  LinAlg::addScalar(preds, preds, intercept, n_rows, stream);
+  raft::linalg::addScalar(preds, preds, intercept, n_rows, stream);
 }
 
 };  // namespace GLM

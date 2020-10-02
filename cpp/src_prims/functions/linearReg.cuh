@@ -41,7 +41,7 @@ void linearRegH(const math_t *input, int n_rows, int n_cols, const math_t *coef,
                CUBLAS_OP_N, cublas_handle, stream);
 
   if (intercept != math_t(0))
-    LinAlg::addScalar(pred, pred, intercept, n_rows, stream);
+    raft::linalg::addScalar(pred, pred, intercept, n_rows, stream);
 }
 
 template <typename math_t>
@@ -55,7 +55,7 @@ void linearRegLossGrads(math_t *input, int n_rows, int n_cols,
 
   linearRegH(input, n_rows, n_cols, coef, labels_pred.data(), math_t(0),
              cublas_handle, stream);
-  LinAlg::subtract(labels_pred.data(), labels_pred.data(), labels, n_rows,
+  raft::linalg::subtract(labels_pred.data(), labels_pred.data(), labels, n_rows,
                    stream);
   raft::matrix::matrixVectorBinaryMult(input, labels_pred.data(), n_rows,
                                        n_cols, false, false, stream);
@@ -76,7 +76,7 @@ void linearRegLossGrads(math_t *input, int n_rows, int n_cols,
   }
 
   if (pen != penalty::NONE) {
-    LinAlg::add(grads, grads, pen_grads.data(), n_cols, stream);
+    raft::linalg::add(grads, grads, pen_grads.data(), n_cols, stream);
   }
 }
 
@@ -91,7 +91,7 @@ void linearRegLoss(math_t *input, int n_rows, int n_cols, const math_t *labels,
   linearRegH(input, n_rows, n_cols, coef, labels_pred.data(), math_t(0),
              cublas_handle, stream);
 
-  LinAlg::subtract(labels_pred.data(), labels, labels_pred.data(), n_rows,
+  raft::linalg::subtract(labels_pred.data(), labels, labels_pred.data(), n_rows,
                    stream);
   raft::matrix::power(labels_pred.data(), n_rows, stream);
   raft::stats::mean(loss, labels_pred.data(), 1, n_rows, false, false, stream);
@@ -109,7 +109,7 @@ void linearRegLoss(math_t *input, int n_rows, int n_cols, const math_t *labels,
   }
 
   if (pen != penalty::NONE) {
-    LinAlg::add(loss, loss, pen_val.data(), 1, stream);
+    raft::linalg::add(loss, loss, pen_val.data(), 1, stream);
   }
 }
 

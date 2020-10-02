@@ -61,7 +61,7 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
   raft::allocate(S_nnz, UDesc.N, true);
   raft::copy(S_nnz, S, UDesc.N, streams[0]);
   raft::matrix::power(S_nnz, UDesc.N, streams[0]);
-  LinAlg::addScalar(S_nnz, S_nnz, alpha[0], UDesc.N, streams[0]);
+  raft::linalg::addScalar(S_nnz, S_nnz, alpha[0], UDesc.N, streams[0]);
   raft::matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, size_t(1), UDesc.N,
                                               false, true, streams[0], true);
 
@@ -238,7 +238,7 @@ void predict_impl(raft::handle_t &handle,
                  CUBLAS_OP_N, alpha, beta, handle.get_cublas_handle(),
                  streams[si]);
 
-    LinAlg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
+    raft::linalg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
                       local_blocks[i]->size, streams[si]);
   }
 }

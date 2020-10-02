@@ -43,7 +43,7 @@ void logisticRegH(const math_t *input, int n_rows, int n_cols,
                CUBLAS_OP_N, cublas_handle, stream);
 
   if (intercept != math_t(0))
-    LinAlg::addScalar(pred, pred, intercept, n_rows, stream);
+    raft::linalg::addScalar(pred, pred, intercept, n_rows, stream);
 
   sigmoid(pred, pred, n_rows, stream);
 }
@@ -59,7 +59,7 @@ void logisticRegLossGrads(math_t *input, int n_rows, int n_cols,
 
   logisticRegH(input, n_rows, n_cols, coef, labels_pred.data(), math_t(0),
                cublas_handle, stream);
-  LinAlg::subtract(labels_pred.data(), labels_pred.data(), labels, n_rows,
+  raft::linalg::subtract(labels_pred.data(), labels_pred.data(), labels, n_rows,
                    stream);
   raft::matrix::matrixVectorBinaryMult(input, labels_pred.data(), n_rows,
                                        n_cols, false, false, stream);
@@ -79,7 +79,7 @@ void logisticRegLossGrads(math_t *input, int n_rows, int n_cols,
   }
 
   if (pen != penalty::NONE) {
-    LinAlg::add(grads, grads, pen_grads.data(), n_cols, stream);
+    raft::linalg::add(grads, grads, pen_grads.data(), n_cols, stream);
   }
 }
 
@@ -136,7 +136,7 @@ void logisticRegLoss(math_t *input, int n_rows, int n_cols, math_t *labels,
   }
 
   if (pen != penalty::NONE) {
-    LinAlg::add(loss, loss, pen_val.data(), 1, stream);
+    raft::linalg::add(loss, loss, pen_val.data(), 1, stream);
   }
 }
 

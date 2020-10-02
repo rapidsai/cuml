@@ -79,7 +79,7 @@ class MakeRegressionTest
                       params.n_targets, cublas_handle, stream);
 
     // Add the bias
-    LinAlg::addScalar(values_prod, values_prod, params.bias,
+    raft::linalg::addScalar(values_prod, values_prod, params.bias,
                       params.n_samples * params.n_targets, stream);
 
     // Count the number of zeroes in the coefficients
