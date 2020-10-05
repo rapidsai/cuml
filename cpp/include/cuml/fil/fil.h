@@ -126,12 +126,34 @@ struct sparse_node8_t : dense_node_t {
   sparse_node8_t(dense_node_t dn) : dense_node_t(dn) {}
 };
 
-/** leaf_algo_t describes what the leaves in a FIL forest store (predict) */
+/** leaf_algo_t describes what the leaves in a FIL forest store (predict)
+    and how FIL aggregates them into class margins/regression result/best class
+**/
 enum leaf_algo_t {
-  /** storing a class probability or regression summand */
+  /** storing a class probability or regression summand. We add all margins
+      together and determine regression result or use threshold to determine
+      one of the two classes. **/
   FLOAT_UNARY_BINARY = 0,
-  /** storing a class label */
-  CATEGORICAL_LEAF = 1
+  /** storing a class label. Trees vote on the resulting class.
+      Probabilities are just normalized votes. */
+  CATEGORICAL_LEAF = 1,
+  /** 1-vs-rest, or tree-per-class, where trees are assigned round-robin to
+      consecutive categories and predict a floating-point margin. Used in
+      Gradient Boosted Decision Trees. We sum margins for each group separately
+      **/
+  GROVE_PER_CLASS = 2,
+  /** 1-vs-rest, or tree-per-class, where trees are assigned round-robin to
+      consecutive categories and predict a floating-point margin. Used in
+      Gradient Boosted Decision Trees. We sum margins for each group separately
+      This is a more specific version of GROVE_PER_CLASS.
+      _FEW_CLASSES means fewer (or as many) classes than threads. **/
+  GROVE_PER_CLASS_FEW_CLASSES = 3,
+  /** 1-vs-rest, or tree-per-class, where trees are assigned round-robin to
+      consecutive categories and predict a floating-point margin. Used in
+      Gradient Boosted Decision Trees. We sum margins for each group separately
+      This is a more specific version of GROVE_PER_CLASS.
+      _MANY_CLASSES means more classes than threads. **/
+  GROVE_PER_CLASS_MANY_CLASSES = 4,
   // to be extended
 };
 
@@ -144,6 +166,14 @@ struct leaf_output_t<leaf_algo_t::FLOAT_UNARY_BINARY> {
 template <>
 struct leaf_output_t<leaf_algo_t::CATEGORICAL_LEAF> {
   typedef int T;
+};
+template <>
+struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES> {
+  typedef float T;
+};
+template <>
+struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES> {
+  typedef float T;
 };
 
 /** node_init initializes node from paramters */
