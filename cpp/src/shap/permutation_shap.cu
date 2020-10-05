@@ -25,6 +25,10 @@ __global__ void _fused_tile_scatter_pr(DataT *vec, int n, int m,
                                        int *idx,
                                        int len_bg,
                                        bool rowMajor){
+    // kernel does the scattering of the obs column with one thread
+    // per entry of the obs value. It is not currently used but here
+    // for debugging purposes and in case the one thread per vec entry kernel
+    // below would have problems with very large matrix sizes
     int tid = threadIdx.x + blockDim.x * blockIdx.x;
 
     if(tid < m*n){
@@ -65,6 +69,8 @@ __global__ void _fused_tile_scatter_pe(DataT *vec,
                                        IdxT len_bg,
                                        IdxT sc_size,
                                        bool rowMajor){
+    // kernel that actually does the scattering as described in the
+    // descriptions of `permutation_dataset` and `main_effect_dataset`
     IdxT tid = threadIdx.x + blockDim.x * blockIdx.x;
 
     if(tid < m*n){
@@ -102,7 +108,7 @@ __global__ void _fused_tile_scatter_pe(DataT *vec,
 
 
 template <typename DataT, typename IdxT>
-void make_permutation_impl(const raft::handle_t& handle, DataT* out,
+void permutation_dataset_impl(const raft::handle_t& handle, DataT* out,
                            DataT* background, IdxT n_rows, IdxT n_cols,
                            DataT* row, IdxT* idx, bool rowMajor) {
     const auto& handle_impl = handle;
@@ -123,15 +129,15 @@ void make_permutation_impl(const raft::handle_t& handle, DataT* out,
 }
 
 
-void make_permutation(const raft::handle_t& handle, float* out,
+void permutation_dataset(const raft::handle_t& handle, float* out,
                       float* background, int n_rows, int n_cols,
                       float* row, int* idx, bool rowMajor){
-    make_permutation_impl(handle, out, background, n_rows, n_cols,
+    permutation_dataset_impl(handle, out, background, n_rows, n_cols,
                           row, idx, rowMajor);
 }
 
 
-void make_permutation(const raft::handle_t& handle, double* out,
+void permutation_dataset(const raft::handle_t& handle, double* out,
                       double* background, int n_rows, int n_cols,
                       double* row, int* idx, bool rowMajor){
     make_permutation_impl(handle, out, background, n_rows, n_cols,
@@ -141,7 +147,7 @@ void make_permutation(const raft::handle_t& handle, double* out,
 
 
 template <typename DataT, typename IdxT>
-void single_entry_scatter_impl(const raft::handle_t& handle, DataT* out,
+void main_effect_dataset_impl(const raft::handle_t& handle, DataT* out,
                                DataT* background, IdxT n_rows, IdxT n_cols,
                                DataT* row, IdxT* idx, bool rowMajor) {
     const auto& handle_impl = handle;
@@ -163,17 +169,17 @@ void single_entry_scatter_impl(const raft::handle_t& handle, DataT* out,
 
 
 
-void single_entry_scatter(const raft::handle_t& handle, float* out,
+void main_effect_dataset(const raft::handle_t& handle, float* out,
                           float* background, int n_rows, int n_cols,
                           float* row, int* idx, bool rowMajor){
-    single_entry_scatter_impl(handle, out, background, n_rows, n_cols,
+    main_effect_dataset_impl(handle, out, background, n_rows, n_cols,
                               row, idx, rowMajor);
 }
 
-void single_entry_scatter(const raft::handle_t& handle, double* out,
+void main_effect_dataset(const raft::handle_t& handle, double* out,
                           double* background, int n_rows, int n_cols,
                           double* row, int* idx, bool rowMajor){
-    single_entry_scatter_impl(handle, out, background, n_rows, n_cols,
+    main_effect_dataset_impl(handle, out, background, n_rows, n_cols,
                               row, idx, rowMajor);
 }
 

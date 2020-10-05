@@ -392,7 +392,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/common/nvtx.cu
     src/datasets/make_arima.cu
     src/datasets/make_blobs.cu
-    src/datasets/make_permutation.cu
     src/datasets/make_regression.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
@@ -409,6 +408,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/random_projection/rproj.cu
     src/solver/solver.cu
     src/spectral/spectral.cu
+    src/shap/permutation_shap.cu
     src/svm/svc.cu
     src/svm/svr.cu
     src/svm/ws_util.cu

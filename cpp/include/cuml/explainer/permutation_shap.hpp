@@ -19,7 +19,7 @@
 #include <cuml/cuml.hpp>
 
 namespace ML {
-namespace Datasets {
+namespace Explainer{
 
 /**
  * Generates a dataset by tiling the `background` matrix into `out`, while
@@ -27,7 +27,7 @@ namespace Datasets {
  * on the positions defined by `idx`. Example:
  *
  * background = [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
- * idx = [2, 0, 3]
+ * idx = [2, 0, 1]
  * row = [100, 101, 102]
  * output:
  * [[  0,   1,   2]
@@ -63,11 +63,11 @@ namespace Datasets {
  * @param[in]
  * @{
  */
-void make_permutation(const raft::handle_t& handle, float* out,
+void permutation_dataset(const raft::handle_t& handle, float* out,
                       float* background, int n_rows, int n_cols,
                       float* row, int* idx, bool rowMajor);
 
-void make_permutation(const raft::handle_t& handle, double* out,
+void permutation_dataset(const raft::handle_t& handle, double* out,
                       double* background, int n_rows, int n_cols,
                       double* row, int* idx, bool rowMajor);
 
@@ -77,7 +77,7 @@ void make_permutation(const raft::handle_t& handle, double* out,
  * on the positions defined by `idx`. Example:
  *
  * background = [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
- * idx = [2, 0, 3]
+ * idx = [2, 0, 1]
  * row = [100, 101, 102]
  * output:
  * [[  0,   1,   2]
@@ -105,13 +105,13 @@ void make_permutation(const raft::handle_t& handle, double* out,
  * @{
  */
 
-void single_entry_scatter(const raft::handle_t& handle, float* out,
-                          float* background, int n_rows, int n_cols,
-                          float* row, int* idx, bool rowMajor);
+void main_effect_dataset(const raft::handle_t& handle, float* out,
+                         float* background, int n_rows, int n_cols,
+                         float* row, int* idx, bool rowMajor);
 
-void single_entry_scatter(const raft::handle_t& handle, double* out,
-                          double* background, int n_rows, int n_cols,
-                          double* row, int* idx, bool rowMajor);
+void main_effect_dataset(const raft::handle_t& handle, double* out,
+                         double* background, int n_rows, int n_cols,
+                         double* row, int* idx, bool rowMajor);
 
 }  // namespace Datasets
 }  // namespace ML
