@@ -17,9 +17,8 @@
 #pragma once
 
 #include <cuda_runtime_api.h>
-#include <cuml/distance/distance_type.h>
-#include <raft/linalg/distance_type.h>
 #include <cutlass/shape.h>
+#include <raft/linalg/distance_type.h>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include "cosine.cuh"
