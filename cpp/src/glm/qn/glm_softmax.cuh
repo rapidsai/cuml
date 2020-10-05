@@ -23,10 +23,10 @@
 
 namespace ML {
 namespace GLM {
-using MLCommon::ceildiv;
-using MLCommon::myExp;
-using MLCommon::myLog;
-using MLCommon::myMax;
+using raft::ceildiv;
+using raft::myExp;
+using raft::myLog;
+using raft::myMax;
 
 // Input: matrix Z (dims: CxN)
 // Computes softmax cross entropy loss across columns, i.e. normalization
@@ -152,7 +152,7 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
    */
   T blockSum = BlockRed(shm.blockStore).Sum(lossVal);
   if (threadIdx.x == 0 && threadIdx.y == 0) {
-    atomicAdd(out, blockSum);
+    raft::myAtomicAdd(out, blockSum);
   }
 }
 

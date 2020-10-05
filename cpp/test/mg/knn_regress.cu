@@ -50,7 +50,7 @@ class KNNRegressTest : public ::testing::TestWithParam<KNNParams> {
 
     int actual = 1;
     int expected = 1;
-    return CompareApprox<int>(1)(actual, expected);
+    return raft::CompareApprox<int>(1)(actual, expected);
   }
 };
 

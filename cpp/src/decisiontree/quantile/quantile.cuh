@@ -100,7 +100,7 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
   if (tempmem->temp_data != nullptr) {
     T *d_keys_out = tempmem->temp_data->data();
     unsigned int *colids = nullptr;
-    blocks = MLCommon::ceildiv(ncols * n_sampled_rows, threads);
+    blocks = raft::ceildiv(ncols * n_sampled_rows, threads);
     allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(
       data, rowids, colids, n_sampled_rows, ncols, rowoffset,
       d_keys_out);  // d_keys_in already allocated for all ncols
@@ -113,7 +113,7 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
   d_offsets = new MLCommon::device_buffer<int>(tempmem->device_allocator,
                                                tempmem->stream, batch_cols + 1);
 
-  blocks = MLCommon::ceildiv(batch_cols + 1, threads);
+  blocks = raft::ceildiv(batch_cols + 1, threads);
   set_sorting_offset<<<blocks, threads, 0, tempmem->stream>>>(
     n_sampled_rows, batch_cols, d_offsets->data());
   CUDA_CHECK(cudaGetLastError());
@@ -123,7 +123,7 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
   size_t temp_storage_bytes = 0;
 
   int batch_cnt =
-    MLCommon::ceildiv(ncols, batch_cols);  // number of loop iterations
+    raft::ceildiv(ncols, batch_cols);  // number of loop iterations
   int last_batch_size =
     ncols - batch_cols * (batch_cnt - 1);  // number of columns in last batch
   int batch_items =
@@ -156,8 +156,7 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
       8 * sizeof(T), tempmem->stream));
     ML::POP_RANGE();
 
-    blocks = MLCommon::ceildiv(cur_batch_cols * nbins, threads);
-    ML::PUSH_RANGE("kernel get_all_quantiles");
+    blocks = raft::ceildiv(cur_batch_cols * nbins, threads);
     get_all_quantiles<<<blocks, threads, 0, tempmem->stream>>>(
       d_keys_out->data(), &tempmem->d_quantile->data()[quantile_offset],
       n_sampled_rows, cur_batch_cols, nbins);
@@ -166,9 +165,8 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   }
-  ML::POP_RANGE();
-  MLCommon::updateHost(tempmem->h_quantile->data(), tempmem->d_quantile->data(),
-                       nbins * ncols, tempmem->stream);
+  raft::update_host(tempmem->h_quantile->data(), tempmem->d_quantile->data(),
+                    nbins * ncols, tempmem->stream);
   d_keys_out->release(tempmem->stream);
   d_offsets->release(tempmem->stream);
   d_temp_storage->release(tempmem->stream);
