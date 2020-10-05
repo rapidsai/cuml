@@ -18,6 +18,7 @@ __pycache__
 htmlcov
 build/
 build_prims/
+cmake-build*
 cuml.egg-info/
 dist/
 python/cuml/**/*.cpp
@@ -28,6 +29,9 @@ log
 .DS_Store
 dask-worker-space/
 tmp/
+
+## files pickled in notebook when ran during python docstring generation
+docs/source/*.model
 
 ## eclipse
 .project

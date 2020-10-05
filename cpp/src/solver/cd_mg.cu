@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <common/cumlHandle.hpp>
-#include <common/cuml_comms_int.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -31,6 +31,7 @@
 #include <matrix/matrix.cuh>
 #include <opg/linalg/mv_aTb.hpp>
 #include <opg/linalg/norm.hpp>
+#include <raft/comms/comms.hpp>
 #include "shuffle.h"
 
 using namespace MLCommon;
@@ -40,19 +41,19 @@ namespace CD {
 namespace opg {
 
 template <typename T>
-void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
+void fit_impl(raft::handle_t &handle,
+              std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc,
               std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
               bool fit_intercept, bool normalize, int epochs, T alpha,
               T l1_ratio, bool shuffle, T tol, cudaStream_t *streams,
               int n_streams, bool verbose) {
-  const MLCommon::cumlCommunicator &comm = handle.getImpl().getCommunicator();
-  cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
-  const std::shared_ptr<deviceAllocator> allocator =
-    handle.getImpl().getDeviceAllocator();
+  const auto &comm = handle.get_comms();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
+  const auto allocator = handle.get_device_allocator();
 
   std::vector<Matrix::RankSizePair *> partsToRanks =
-    input_desc.blocksOwnedBy(comm.getRank());
+    input_desc.blocksOwnedBy(comm.get_rank());
 
   size_t total_M = 0.0;
   for (int i = 0; i < partsToRanks.size(); i++) {
@@ -88,24 +89,23 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
   int *ri_h = (int *)malloc(memsize);
   CUDA_CHECK(cudaHostRegister(ri_h, memsize, cudaHostRegisterDefault));
 
-  if (comm.getRank() == 0) {
+  if (comm.get_rank() == 0) {
     ML::Solver::initShuffle(ri, g);
     for (int i = 0; i < input_desc.N; i++) {
       ri_h[i] = ri[i];
     }
   }
 
-  comm.bcast(ri_h, input_desc.N, MLCommon::cumlCommunicator::INT, 0,
-             streams[0]);
-  comm.syncStream(streams[0]);
+  comm.bcast(ri_h, input_desc.N, 0, streams[0]);
+  comm.sync_stream(streams[0]);
 
   T l2_alpha = (1 - l1_ratio) * alpha * input_desc.M;
   alpha = l1_ratio * alpha * input_desc.M;
 
   if (normalize) {
     T scalar = T(1.0) + l2_alpha;
-    Matrix::setValue(squared.data(), squared.data(), scalar, input_desc.N,
-                     streams[0]);
+    raft::matrix::setValue(squared.data(), squared.data(), scalar, input_desc.N,
+                           streams[0]);
   } else {
     Matrix::Data<T> squared_data{squared.data(), size_t(input_desc.N)};
     LinAlg::opg::colNorm2NoSeq(squared_data, input_data, input_desc, comm,
@@ -122,7 +122,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
 
   T *rs = residual.data();
   for (int i = 0; i < partsToRanks.size(); i++) {
-    copy(rs, labels[i]->ptr, partsToRanks[i]->size, streams[0]);
+    raft::copy(rs, labels[i]->ptr, partsToRanks[i]->size, streams[0]);
 
     Matrix::Data<T> *rs_data = new Matrix::Data<T>();
     rs_data->ptr = rs;
@@ -138,16 +138,15 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
 
   for (int i = 0; i < epochs; i++) {
     if (i > 0 && shuffle) {
-      if (comm.getRank() == 0) {
+      if (comm.get_rank() == 0) {
         Solver::shuffle(ri, g);
         for (int k = 0; k < input_desc.N; k++) {
           ri_h[k] = ri[k];
         }
       }
 
-      comm.bcast(ri_h, input_desc.N, MLCommon::cumlCommunicator::INT, 0,
-                 streams[0]);
-      comm.syncStream(streams[0]);
+      comm.bcast(ri_h, input_desc.N, 0, streams[0]);
+      comm.sync_stream(streams[0]);
     }
 
     T coef_max = 0.0;
@@ -191,11 +190,11 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
       if (l1_ratio > T(0.0))
         Functions::softThres(coef_loc, coef_loc, alpha, 1, streams[0]);
 
-      LinAlg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
-                                     streams[0]);
+      raft::linalg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
+                                           streams[0]);
 
       coef_prev = h_coef[ci];
-      updateHost(&(h_coef[ci]), coef_loc, 1, streams[0]);
+      raft::update_host(&(h_coef[ci]), coef_loc, 1, streams[0]);
       CUDA_CHECK(cudaStreamSynchronize(streams[0]));
 
       T diff = abs(coef_prev - h_coef[ci]);
@@ -271,14 +270,15 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
  * @input param verbose
  */
 template <typename T>
-void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
+void fit_impl(raft::handle_t &handle,
+              std::vector<Matrix::Data<T> *> &input_data,
               Matrix::PartDescriptor &input_desc,
               std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
               bool fit_intercept, bool normalize, int epochs, T alpha,
               T l1_ratio, bool shuffle, T tol, bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.get_comms().get_rank();
 
-  // TODO: These streams should come from cumlHandle
+  // TODO: These streams should come from raft::handle_t
   // Tracking issue: https://github.com/rapidsai/cuml/issues/2470
 
   int n_streams = input_desc.blocksOwnedBy(rank).size();
@@ -302,7 +302,7 @@ void fit_impl(cumlHandle &handle, std::vector<Matrix::Data<T> *> &input_data,
 }
 
 template <typename T>
-void predict_impl(cumlHandle &handle,
+void predict_impl(raft::handle_t &handle,
                   std::vector<Matrix::Data<T> *> &input_data,
                   Matrix::PartDescriptor &input_desc, T *coef, T intercept,
                   std::vector<Matrix::Data<T> *> &preds, cudaStream_t *streams,
@@ -315,7 +315,7 @@ void predict_impl(cumlHandle &handle,
     int si = i % n_streams;
     LinAlg::gemm(input_data[i]->ptr, local_blocks[i]->size, input_desc.N, coef,
                  preds[i]->ptr, local_blocks[i]->size, size_t(1), CUBLAS_OP_N,
-                 CUBLAS_OP_N, alpha, beta, handle.getImpl().getCublasHandle(),
+                 CUBLAS_OP_N, alpha, beta, handle.get_cublas_handle(),
                  streams[si]);
 
     LinAlg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
@@ -324,11 +324,11 @@ void predict_impl(cumlHandle &handle,
 }
 
 template <typename T>
-void predict_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
+void predict_impl(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
                   size_t n_parts, Matrix::Data<T> **input, size_t n_rows,
                   size_t n_cols, T *coef, T intercept, Matrix::Data<T> **preds,
                   bool verbose) {
-  int rank = handle.getImpl().getCommunicator().getRank();
+  int rank = handle.get_comms().get_rank();
 
   std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
                                                     rank_sizes + n_parts);
@@ -336,7 +336,7 @@ void predict_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
   Matrix::PartDescriptor input_desc(n_rows, n_cols, ranksAndSizes, rank);
   std::vector<Matrix::Data<T> *> preds_data(preds, preds + n_parts);
 
-  // TODO: These streams should come from cumlHandle
+  // TODO: These streams should come from raft::handle_t
   // Tracking issue: https://github.com/rapidsai/cuml/issues/2470
   int n_streams = n_parts;
   cudaStream_t streams[n_streams];
@@ -356,7 +356,7 @@ void predict_impl(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
   }
 }
 
-void fit(cumlHandle &handle, std::vector<Matrix::Data<float> *> &input_data,
+void fit(raft::handle_t &handle, std::vector<Matrix::Data<float> *> &input_data,
          Matrix::PartDescriptor &input_desc,
          std::vector<Matrix::Data<float> *> &labels, float *coef,
          float *intercept, bool fit_intercept, bool normalize, int epochs,
@@ -366,7 +366,8 @@ void fit(cumlHandle &handle, std::vector<Matrix::Data<float> *> &input_data,
            verbose);
 }
 
-void fit(cumlHandle &handle, std::vector<Matrix::Data<double> *> &input_data,
+void fit(raft::handle_t &handle,
+         std::vector<Matrix::Data<double> *> &input_data,
          Matrix::PartDescriptor &input_desc,
          std::vector<Matrix::Data<double> *> &labels, double *coef,
          double *intercept, bool fit_intercept, bool normalize, int epochs,
@@ -377,7 +378,7 @@ void fit(cumlHandle &handle, std::vector<Matrix::Data<double> *> &input_data,
            verbose);
 }
 
-void predict(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
+void predict(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
              size_t n_parts, Matrix::Data<float> **input, size_t n_rows,
              size_t n_cols, float *coef, float intercept,
              Matrix::Data<float> **preds, bool verbose) {
@@ -385,7 +386,7 @@ void predict(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
                intercept, preds, verbose);
 }
 
-void predict(cumlHandle &handle, Matrix::RankSizePair **rank_sizes,
+void predict(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
              size_t n_parts, Matrix::Data<double> **input, size_t n_rows,
              size_t n_cols, double *coef, double intercept,
              Matrix::Data<double> **preds, bool verbose) {

@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -30,7 +27,8 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.common.doc_utils import generate_docstring
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import get_cudf_column_ptr
 from cuml.common import get_dev_array_ptr
 from cuml.common import input_to_dev_array
@@ -40,7 +38,7 @@ from cuml.common.input_utils import input_to_cuml_array
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
-    cdef void cdFit(cumlHandle& handle,
+    cdef void cdFit(handle_t& handle,
                     float *input,
                     int n_rows,
                     int n_cols,
@@ -56,7 +54,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                     bool shuffle,
                     float tol) except +
 
-    cdef void cdFit(cumlHandle& handle,
+    cdef void cdFit(handle_t& handle,
                     double *input,
                     int n_rows,
                     int n_cols,
@@ -72,7 +70,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                     bool shuffle,
                     double tol) except +
 
-    cdef void cdPredict(cumlHandle& handle,
+    cdef void cdPredict(handle_t& handle,
                         const float *input,
                         int n_rows,
                         int n_cols,
@@ -81,7 +79,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                         float *preds,
                         int loss) except +
 
-    cdef void cdPredict(cumlHandle& handle,
+    cdef void cdPredict(handle_t& handle,
                         const double *input,
                         int n_rows,
                         int n_cols,
@@ -211,29 +209,14 @@ class CD(Base):
             'squared_loss': 0,
         }[loss]
 
+    @generate_docstring()
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
 
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X)
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -254,7 +237,7 @@ class CD(Base):
 
         cdef float c_intercept1
         cdef double c_intercept2
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             cdFit(handle_[0],
@@ -297,26 +280,14 @@ class CD(Base):
 
         return self
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         out_type = self._get_output_type(X)
 
@@ -332,7 +303,7 @@ class CD(Base):
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             cdPredict(handle_[0],

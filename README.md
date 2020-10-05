@@ -77,7 +77,7 @@ neighbors = nn.kneighbors(df)
 For additional examples, browse our complete [API
 documentation](https://docs.rapids.ai/api/cuml/stable/), or check out our
 example [walkthrough
-notebooks](https://github.com/rapidsai/cuml/tree/branch-0.14/notebooks). Finally, you
+notebooks](https://github.com/rapidsai/cuml/tree/branch-0.15/notebooks). Finally, you
 can find complete end-to-end examples in the [notebooks-contrib
 repo](https://github.com/rapidsai/notebooks-contrib).
 

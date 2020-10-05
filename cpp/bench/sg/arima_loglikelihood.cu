@@ -24,6 +24,7 @@
 #include <cuml/tsa/batched_arima.hpp>
 #include <random/rng.cuh>
 
+#include <common/cudart_utils.h>
 #include "benchmark.cuh"
 
 namespace ML {
@@ -46,13 +47,12 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
     using MLCommon::Bench::CudaEventTimer;
 
     auto& handle = *this->handle;
-    auto stream = handle.getStream();
+    auto stream = handle.get_stream();
     auto counting = thrust::make_counting_iterator(0);
 
     // Generate random parameters
     int N = order.complexity();
-    MLCommon::Random::Rng gpu_gen(this->params.seed,
-                                  MLCommon::Random::GenPhilox);
+    raft::random::Rng gpu_gen(this->params.seed, raft::random::GenPhilox);
     gpu_gen.uniform(param, N * this->params.batch_size, -1.0, 1.0, stream);
     // Set sigma2 parameters to 1.0
     DataT* x = param;  // copy the object attribute for thrust
@@ -75,8 +75,8 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
     Fixture::allocateBuffers(state);
 
     auto& handle = *this->handle;
-    auto stream = handle.getStream();
-    auto allocator = handle.getDeviceAllocator();
+    auto stream = handle.get_stream();
+    auto allocator = handle.get_device_allocator();
 
     // Buffer for the model parameters
     param = (DataT*)allocator->allocate(
@@ -93,8 +93,8 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
     Fixture::deallocateBuffers(state);
 
     auto& handle = *this->handle;
-    auto stream = handle.getStream();
-    auto allocator = handle.getDeviceAllocator();
+    auto stream = handle.get_stream();
+    auto allocator = handle.get_device_allocator();
 
     allocator->deallocate(
       param, order.complexity() * this->params.batch_size * sizeof(DataT),

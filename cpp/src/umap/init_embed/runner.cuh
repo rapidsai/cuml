@@ -30,7 +30,7 @@ namespace InitEmbed {
 using namespace ML;
 
 template <typename T>
-void run(const cumlHandle &handle, const T *X, int n, int d,
+void run(const raft::handle_t &handle, const T *X, int n, int d,
          const int64_t *knn_indices, const T *knn_dists,
          MLCommon::Sparse::COO<float> *coo, UMAPParams *params, T *embedding,
          cudaStream_t stream, int algo = 0) {
@@ -40,7 +40,7 @@ void run(const cumlHandle &handle, const T *X, int n, int d,
              */
     case 0:
       RandomInit::launcher(X, n, d, knn_indices, knn_dists, params, embedding,
-                           handle.getStream());
+                           handle.get_stream());
       break;
 
     case 1:

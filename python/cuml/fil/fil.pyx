@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import copy
 import cudf
@@ -35,13 +32,12 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger
 
 import treelite
 import treelite.sklearn as tl_skl
 
-cimport cuml.common.handle
 cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":
@@ -137,6 +133,9 @@ cdef class TreeliteModel():
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "lightgbm":
+            logger.warn("Treelite currently does not support float64 model"
+                        " parameters. Accuracy may degrade relative to"
+                        " native LightGBM invocation.")
             res = TreeliteLoadLightGBMModel(filename_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
@@ -179,17 +178,17 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         float threshold
         storage_type_t storage_type
 
-    cdef void free(cumlHandle& handle,
+    cdef void free(handle_t& handle,
                    forest_t)
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       forest_t,
                       float*,
                       float*,
                       size_t,
                       bool)
 
-    cdef forest_t from_treelite(cumlHandle& handle,
+    cdef forest_t from_treelite(handle_t& handle,
                                 forest_t*,
                                 ModelHandle,
                                 treelite_params_t*)
@@ -275,8 +274,8 @@ cdef class ForestInference_impl():
                                 check_dtype=np.float32)
         X_ptr = X_m.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><size_t>self.handle.getHandle()
 
         if preds is None:
             shape = (n_rows, )
@@ -326,8 +325,8 @@ cdef class ForestInference_impl():
         treelite_params.storage_type = self.get_storage_type(storage_type)
 
         self.forest_data = NULL
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>model_handle
 
         from_treelite(handle_[0],
@@ -364,8 +363,8 @@ cdef class ForestInference_impl():
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
         treelite_params.storage_type = self.get_storage_type(storage_type)
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>model_handle
 
         from_treelite(handle_[0],
@@ -377,8 +376,8 @@ cdef class ForestInference_impl():
         return self
 
     def __dealloc__(self):
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><size_t>self.handle.getHandle()
         if self.forest_data !=NULL:
             free(handle_[0],
                  self.forest_data)
@@ -444,7 +443,7 @@ class ForestInference(Base):
     Notes
     ------
     For additional usage examples, see the sample notebook at
-    https://github.com/rapidsai/cuml/blob/branch-0.14/notebooks/forest_inference_demo.ipynb
+    https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/forest_inference_demo.ipynb
 
     """
 

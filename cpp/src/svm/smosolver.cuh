@@ -27,8 +27,8 @@
 #include <type_traits>
 
 #include <cuml/matrix/kernelparams.h>
-#include <linalg/cublas_wrappers.h>
 #include <linalg/gemv.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
 #include <linalg/unary_op.cuh>
@@ -74,7 +74,7 @@ namespace SVM {
 template <typename math_t>
 class SmoSolver {
  public:
-  SmoSolver(const cumlHandle_impl &handle, svmParameter param,
+  SmoSolver(const raft::handle_t &handle, svmParameter param,
             MLCommon::Matrix::GramMatrixBase<math_t> *kernel)
     : handle(handle),
       n_rows(n_rows),
@@ -85,13 +85,13 @@ class SmoSolver {
       nochange_steps(param.nochange_steps),
       epsilon(param.epsilon),
       svmType(param.svmType),
-      stream(handle.getStream()),
-      return_buff(handle.getDeviceAllocator(), stream, 2),
-      alpha(handle.getDeviceAllocator(), stream),
-      C_vec(handle.getDeviceAllocator(), stream),
-      delta_alpha(handle.getDeviceAllocator(), stream),
-      f(handle.getDeviceAllocator(), stream),
-      y_label(handle.getDeviceAllocator(), stream) {
+      stream(handle.get_stream()),
+      return_buff(handle.get_device_allocator(), stream, 2),
+      alpha(handle.get_device_allocator(), stream),
+      C_vec(handle.get_device_allocator(), stream),
+      delta_alpha(handle.get_device_allocator(), stream),
+      f(handle.get_device_allocator(), stream),
+      y_label(handle.get_device_allocator(), stream) {
     ML::Logger::get().setLevel(param.verbosity);
   }
 
@@ -147,7 +147,7 @@ class SmoSolver {
 
       CUDA_CHECK(cudaPeekAtLastError());
 
-      MLCommon::updateHost(host_return_buff, return_buff.data(), 2, stream);
+      raft::update_host(host_return_buff, return_buff.data(), 2, stream);
 
       UpdateF(f.data(), n_rows, delta_alpha.data(), cache.GetUniqueSize(),
               cacheTile);
@@ -191,14 +191,14 @@ class SmoSolver {
                const math_t *cacheTile) {
     // multipliers used in the equation : f = 1*cachtile * delta_alpha + 1*f
     math_t one = 1;
-    CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
-      handle.getCublasHandle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
+    CUBLAS_CHECK(raft::linalg::cublasgemv(
+      handle.get_cublas_handle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
       n_rows, delta_alpha, 1, &one, f, 1, stream));
     if (svmType == EPSILON_SVR) {
       // SVR has doubled the number of trainig vectors and we need to update
       // alpha for both batches individually
-      CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
-        handle.getCublasHandle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
+      CUBLAS_CHECK(raft::linalg::cublasgemv(
+        handle.get_cublas_handle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
         n_rows, delta_alpha, 1, &one, f + n_rows, 1, stream));
     }
   }
@@ -256,12 +256,12 @@ class SmoSolver {
       thrust::fill(thrust::cuda::par.on(stream), c_ptr, c_ptr + n_train, C);
     } else {
       math_t C = this->C;
-      MLCommon::LinAlg::unaryOp(
+      raft::linalg::unaryOp(
         C_vec, sample_weight, n_rows,
         [C] __device__(math_t w) { return C * w; }, stream);
       if (n_train > n_rows) {
         // Set the same penalty parameter for the duplicate set of vectors
-        MLCommon::LinAlg::unaryOp(
+        raft::linalg::unaryOp(
           C_vec + n_rows, sample_weight, n_rows,
           [C] __device__(math_t w) { return C * w; }, stream);
       }
@@ -280,7 +280,7 @@ class SmoSolver {
    * @param [in] y device pointer of class labels size [n_rows]
    */
   void SvcInit(const math_t *y) {
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       f.data(), y, n_rows, [] __device__(math_t y) { return -y; }, stream);
   }
 
@@ -328,18 +328,18 @@ class SmoSolver {
 
     // f_i = epsilon - y_i, for i \in [0..n_rows-1]
     math_t epsilon = this->epsilon;
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       f, yr, n_rows, [epsilon] __device__(math_t y) { return epsilon - y; },
       stream);
 
     // f_i = epsilon - y_i, for i \in [n_rows..2*n_rows-1]
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       f + n_rows, yr, n_rows,
       [epsilon] __device__(math_t y) { return -epsilon - y; }, stream);
   }
 
  private:
-  const cumlHandle_impl &handle;
+  const raft::handle_t &handle;
   cudaStream_t stream;
 
   int n_rows = 0;  //!< training data number of rows

@@ -20,8 +20,8 @@
 #include "matrix_vector_op.cuh"
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename T, typename IdxType = int>
 struct MatVecOpInputs {
@@ -62,9 +62,10 @@ class MatVecOpTest
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     IdxType N = params.rows, D = params.cols;
     IdxType len = N * D;
+
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in, len);
@@ -175,5 +176,5 @@ TEST_P(MatVecOpTestD_i64, Result) {
 INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD_i64,
                         ::testing::ValuesIn(inputsd_i64));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

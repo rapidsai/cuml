@@ -14,11 +14,10 @@
 # limitations under the License.
 #
 
-# cython: profile = False
 # distutils: language = c++
 # distutils: extra_compile_args = -Ofast
-# cython: embedsignature = True, language_level = 3
-# cython: boundscheck = False, wraparound = False
+# cython: boundscheck = False
+# cython: wraparound = False
 
 import cudf
 import cuml
@@ -29,10 +28,11 @@ import pandas as pd
 import warnings
 
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 import cuml.common.logger as logger
 
 from cuml.common.array import CumlArray
+from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
 import rmm
 
@@ -40,12 +40,11 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libcpp.memory cimport shared_ptr
 
-cimport cuml.common.handle
 cimport cuml.common.cuda
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit(
-        const cumlHandle &handle,
+        const handle_t &handle,
         const float *X,
         float *Y,
         const int n,
@@ -89,8 +88,9 @@ class TSNE(Base):
     Parameters
     -----------
     n_components : int (default 2)
-        The output dimensionality size. Currently only size=2 is tested, but
-        the 'exact' algorithm will support greater dimensionality in future.
+        The output dimensionality size. Currently only size=2 is tested and
+        supported, but the 'exact' algorithm will support greater
+        dimensionality in future.
     perplexity : float (default 30.0)
         Larger datasets require a larger value. Consider choosing different
         perplexity values from 5 to 50 and see the output differences.
@@ -214,7 +214,10 @@ class TSNE(Base):
             warnings.warn("Barnes Hut only works when n_components == 2. "
                           "Switching to exact.")
             method = 'exact'
-        if n_components != 2:
+        if n_components > 2:
+            raise ValueError("Currently TSNE supports n_components = 2; "
+                             "but got n_components = {}".format(n_components))
+        if n_components < 2:
             warnings.warn("Currently TSNE supports n_components = 2.")
             n_components = 2
         if perplexity < 0:
@@ -304,22 +307,15 @@ class TSNE(Base):
             "n_neighbors", "perplexity_max_iter", "exaggeration_iter", "pre_momentum", 
             "post_momentum"]
 
+    @generate_docstring(convert_dtype_cast='np.float32')
     def fit(self, X, convert_dtype=True):
-        """Fit X into an embedded space.
-
-        Parameters
-        -----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            X contains a sample per row.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
         """
-        self._set_n_features_in(X)
+        Fit X into an embedded space.
+
+        """
+        self._set_base_attributes(n_features=X)
         cdef int n, p
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if handle_ == NULL:
             raise ValueError("cuML Handle is Null! Terminating TSNE.")
 
@@ -413,23 +409,18 @@ class TSNE(Base):
             del self._embedding_
             self._embedding_ = None
 
+    @generate_docstring(convert_dtype_cast='np.float32',
+                        return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Embedding of the \
+                                                       training data in \
+                                                       low-dimensional space.',
+                                       'shape': '(n_samples, n_components)'})
     def fit_transform(self, X, convert_dtype=True):
-        """Fit X into an embedded space and return that transformed output.
+        """
+        Fit X into an embedded space and return that transformed output.
 
-        Parameters
-        -----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            X contains a sample per row.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit_transform method will automatically
-            convert the inputs to np.float32.
 
-        Returns
-        --------
-        X_new : array, shape (n_samples, n_components)
-                Embedding of the training data in low-dimensional space.
         """
         self.fit(X, convert_dtype=convert_dtype)
         out_type = self._get_output_type(X)

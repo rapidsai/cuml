@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -31,13 +28,14 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.common.doc_utils import generate_docstring
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.cluster.kmeans_utils cimport *
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
 
-    cdef void fit_predict(cumlHandle& handle,
+    cdef void fit_predict(handle_t& handle,
                           KMeansParams& params,
                           const float *X,
                           int n_samples,
@@ -48,7 +46,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                           float &inertia,
                           int &n_iter) except +
 
-    cdef void fit_predict(cumlHandle& handle,
+    cdef void fit_predict(handle_t& handle,
                           KMeansParams& params,
                           const double *X,
                           int n_samples,
@@ -59,7 +57,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                           double &inertia,
                           int &n_iter) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       KMeansParams& params,
                       const float *centroids,
                       const float *X,
@@ -69,7 +67,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       int *labels,
                       float &inertia) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       KMeansParams& params,
                       double *centroids,
                       const double *X,
@@ -79,7 +77,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       int *labels,
                       double &inertia) except +
 
-    cdef void transform(cumlHandle& handle,
+    cdef void transform(handle_t& handle,
                         KMeansParams& params,
                         const float *centroids,
                         const float *X,
@@ -88,7 +86,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                         int metric,
                         float *X_new) except +
 
-    cdef void transform(cumlHandle& handle,
+    cdef void transform(handle_t& handle,
                         KMeansParams& params,
                         const double *centroids,
                         const double *X,
@@ -140,7 +138,7 @@ class KMeans(Base):
         print(b)
 
         print("Calling fit")
-        kmeans_float = KMeans(n_clusters=2, n_gpu=-1)
+        kmeans_float = KMeans(n_clusters=2)
         kmeans_float.fit(b)
 
         print("labels:")
@@ -312,24 +310,13 @@ class KMeans(Base):
                 'init', 'max_iter', 'n_clusters', 'random_state', 'tol']
 
 
+    @generate_docstring()
     def fit(self, X, sample_weight=None):
         """
         Compute k-means clustering with X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        sample_weight : array-like (device or host) shape = (n_samples,), default=None # noqa
-            The weights for each observation in X. If None, all observations
-            are assigned equal weight.
-
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         if self.init == 'preset':
             check_cols = self.n_cols
@@ -345,7 +332,7 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr = X_m.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if sample_weight is None:
             sample_weight_m = CumlArray.ones(shape=n_rows, dtype=self.dtype)
@@ -413,20 +400,13 @@ class KMeans(Base):
         del(sample_weight_m)
         return self
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Cluster indexes',
+                                       'shape': '(n_samples, 1)'})
     def fit_predict(self, X, sample_weight=None):
         """
         Compute cluster centers and predict cluster index for each sample.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        sample_weight : array-like (device or host) shape = (n_samples,), default=None # noqa
-            The weights for each observation in X. If None, all observations
-            are assigned equal weight.
 
         """
         return self.fit(X, sample_weight=sample_weight).labels_
@@ -481,7 +461,7 @@ class KMeans(Base):
 
         cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
@@ -528,21 +508,14 @@ class KMeans(Base):
         del(sample_weight_m)
         return self._labels_.to_output(out_type), inertia
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Cluster indexes',
+                                       'shape': '(n_samples, 1)'})
     def predict(self, X, convert_dtype=False, sample_weight=None):
         """
         Predict the closest cluster each sample in X belongs to.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        labels : array
-        Which cluster each datapoint belongs to.
         """
 
         labels, _ = self._predict_labels_inertia(X,
@@ -550,21 +523,14 @@ class KMeans(Base):
                                                  sample_weight=sample_weight)
         return labels
 
+    @generate_docstring(return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Transformed data',
+                                       'shape': '(n_samples, n_clusters)'})
     def transform(self, X, convert_dtype=False):
         """
         Transform X to a cluster-distance space.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the transform method will, when necessary,
-            convert the input to the data type which was used to train the
-            model. This will increase memory used for the method.
         """
 
         out_type = self._get_output_type(X)
@@ -577,7 +543,7 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr = X_m.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
@@ -620,53 +586,28 @@ class KMeans(Base):
         del(X_m)
         return preds.to_output(out_type)
 
+    @generate_docstring(return_values={'name': 'score',
+                                       'type': 'float',
+                                       'description': 'Opposite of the value \
+                                                        of X on the K-means \
+                                                        objective.'})
     def score(self, X, y=None, sample_weight=None, convert_dtype=True):
         """
         Opposite of the value of X on the K-means objective.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        y : Ignored
-            Not used, present here for API consistency by convention.
-        sample_weight : array-like (device or host) of shape (n_samples,),
-            default=None. Acceptable formats: cuDF DataFrame, NumPy ndarray,
-            Numba device ndarray, cuda array interface compliant array like
-            CuPy.
-        convert_dtype : bool, optional (default = False)
-            When set to True, the transform method will, when necessary,
-            convert the input to the data type which was used to train the
-            model. This will increase memory used for the method.
-
-
-        Returns
-        -------
-        score: float
-                 Opposite of the value of X on the K-means objective.
         """
 
         return -1 * self._predict_labels_inertia(
             X, convert_dtype=convert_dtype,
             sample_weight=sample_weight)[1]
 
+    @generate_docstring(return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Transformed data',
+                                       'shape': '(n_samples, n_clusters)'})
     def fit_transform(self, X, convert_dtype=False):
         """
         Compute clustering and transform X to cluster-distance space.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the fit_transform method will automatically
-            convert the input to the data type which was used to train the
-            model. This will increase memory used for the method.
 
         """
         return self.fit(X).transform(X, convert_dtype=convert_dtype)

@@ -20,6 +20,7 @@
 #include <cuda_utils.cuh>
 #include <cuml/cuml.hpp>
 
+#include <common/cudart_utils.h>
 #include <random/rng.cuh>
 
 namespace ML {
@@ -42,25 +43,25 @@ struct TimeSeriesDataset {
   DataT* X;
 
   /** allocate space needed for the dataset */
-  void allocate(const cumlHandle& handle, const TimeSeriesParams& p) {
-    auto allocator = handle.getDeviceAllocator();
-    auto stream = handle.getStream();
+  void allocate(const raft::handle_t& handle, const TimeSeriesParams& p) {
+    auto allocator = handle.get_device_allocator();
+    auto stream = handle.get_stream();
     X = (DataT*)allocator->allocate(p.batch_size * p.n_obs * sizeof(DataT),
                                     stream);
   }
 
   /** free-up the buffers */
-  void deallocate(const cumlHandle& handle, const TimeSeriesParams& p) {
-    auto allocator = handle.getDeviceAllocator();
-    auto stream = handle.getStream();
+  void deallocate(const raft::handle_t& handle, const TimeSeriesParams& p) {
+    auto allocator = handle.get_device_allocator();
+    auto stream = handle.get_stream();
     allocator->deallocate(X, p.batch_size * p.n_obs * sizeof(DataT), stream);
   }
 
   /** generate random time series (normal distribution) */
-  void random(const cumlHandle& handle, const TimeSeriesParams& p, DataT mu = 0,
-              DataT sigma = 1) {
-    MLCommon::Random::Rng gpu_gen(p.seed, MLCommon::Random::GenPhilox);
-    gpu_gen.normal(X, p.batch_size * p.n_obs, mu, sigma, handle.getStream());
+  void random(const raft::handle_t& handle, const TimeSeriesParams& p,
+              DataT mu = 0, DataT sigma = 1) {
+    raft::random::Rng gpu_gen(p.seed, raft::random::GenPhilox);
+    gpu_gen.normal(X, p.batch_size * p.n_obs, mu, sigma, handle.get_stream());
   }
 };
 

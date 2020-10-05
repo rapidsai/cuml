@@ -22,7 +22,7 @@ import warnings
 import numpy as np
 from cuml import ForestInference
 from cuml.fil.fil import TreeliteModel
-from cuml.common.handle import Handle
+from cuml.raft.common.handle import Handle
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
 
@@ -70,7 +70,6 @@ class BaseRandomForestModel(Base):
                           "max_leaf_nodes": max_leaf_nodes,
                           "min_impurity_split": min_impurity_split,
                           "oob_score": oob_score, "n_jobs": n_jobs,
-                          "random_state": random_state,
                           "warm_start": warm_start,
                           "class_weight": class_weight}
 
@@ -83,13 +82,27 @@ class BaseRandomForestModel(Base):
                     "(https://docs.rapids.ai/api/cuml/nightly/"
                     "api.html#random-forest) for more information")
 
-        if ((seed is not None) and (n_streams != 1)):
+        if seed is not None:
+            if random_state is None:
+                warnings.warn("Parameter 'seed' is deprecated and will be"
+                              " removed in 0.17. Please use 'random_state'"
+                              " instead. Setting 'random_state' as the"
+                              " curent 'seed' value",
+                              DeprecationWarning)
+                random_state = seed
+            else:
+                warnings.warn("Both 'seed' and 'random_state' parameters were"
+                              " set. Using 'random_state' since 'seed' is"
+                              " deprecated and will be removed in 0.17.",
+                              DeprecationWarning)
+
+        if ((random_state is not None) and (n_streams != 1)):
             warnings.warn("For reproducible results in Random Forest"
                           " Classifier or for almost reproducible results"
                           " in Random Forest Regressor, n_streams==1 is "
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
-                          "random_seed is set")
+                          "random_state is set")
         if handle is None:
             handle = Handle(n_streams)
 
@@ -127,7 +140,7 @@ class BaseRandomForestModel(Base):
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = handle.getNumInternalStreams()
-        self.seed = seed
+        self.random_state = random_state
         self.rf_forest = 0
         self.rf_forest64 = 0
         self.model_pbuf_bytes = bytearray()

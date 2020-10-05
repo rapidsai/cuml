@@ -24,7 +24,7 @@ into three categories:
 
 ### Your first issue
 
-1. Read the project's [README.md](https://github.com/rapidsai/cuml/blob/master/README.md)
+1. Read the project's [README.md](https://github.com/rapidsai/cuml/blob/main/README.md)
     to learn how to setup the development environment.
 2. Find an issue to work on. The best way is to look for the [good first issue](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
     or [help wanted](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) labels
@@ -62,12 +62,12 @@ implementation of the issue, ask them in the issue instead of the PR.
 
 The cuML repository has two main branches: 
 
-1. `master` branch: it contains the last released version. Only hotfixes are targeted and merged into it.  
+1. `main` branch: it contains the last released version. Only hotfixes are targeted and merged into it.  
 2. `branch-x.y`: it is the development branch which contains the upcoming release. All the new features should be based on this branch and Merge/Pull request should target this branch (with the exception of hotfixes).
     
 ### Additional details
 
-For every new version `x.y` of cuML there is a corresponding branch called `branch-x.y`, from where new feature development starts and PRs will be targeted and merged before its release. The exceptions to this are the 'hotfixes' that target the `master` branch, which target critical issues raised by Github users and are directly merged to `master` branch, and create a new subversion of the project. While trying to patch an issue which requires a 'hotfix', please state the intent in the PR. 
+For every new version `x.y` of cuML there is a corresponding branch called `branch-x.y`, from where new feature development starts and PRs will be targeted and merged before its release. The exceptions to this are the 'hotfixes' that target the `main` branch, which target critical issues raised by Github users and are directly merged to `main` branch, and create a new subversion of the project. While trying to patch an issue which requires a 'hotfix', please state the intent in the PR. 
 
 For all development, your changes should be pushed into a branch (created using the naming instructions below) in your own fork of cuML and then create a pull request when the code is ready. 
 

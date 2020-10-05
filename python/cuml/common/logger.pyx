@@ -14,11 +14,10 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
+
+import sys
 
 from libcpp.string cimport string
 from libcpp cimport bool
@@ -30,9 +29,12 @@ cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
         Logger& get()
         void setLevel(int level)
         void setPattern(const string& pattern)
+        void setCallback(void(*callback)(int, char*))
+        void setFlush(void(*flush)())
         bool shouldLogFor(int level) const
         int getLevel() const
         string getPattern() const
+        void flush()
 
 
 cdef extern from "cuml/common/logger.hpp" nogil:
@@ -72,6 +74,26 @@ level_critical = CUML_LEVEL_CRITICAL
 
 """Disables all log messages"""
 level_off = CUML_LEVEL_OFF
+
+cdef void _log_callback(int lvl, const char * msg) with gil:
+    """
+    Default spdlogs callback function to redirect logs correctly to sys.stdout
+
+    Parameters
+    ----------
+    lvl : int
+        Level of the logging message as defined by spdlogs
+    msg : char *
+        Message to be logged
+    """
+    print(msg.decode('utf-8'), end='')
+
+cdef void _log_flush() with gil:
+    """
+    Default spdlogs callback function to flush logs
+    """
+    if sys.stdout is not None:
+        sys.stdout.flush()
 
 
 class LogLevelSetter:
@@ -313,3 +335,15 @@ def critical(msg):
     """
     cdef string s = msg.encode("UTF-8")
     CUML_LOG_CRITICAL(s.c_str())
+
+
+def flush():
+    """
+    Flush the logs.
+    """
+    Logger.get().flush()
+
+
+# Set callback functions to handle redirected sys.stdout in Python
+Logger.get().setCallback(_log_callback)
+Logger.get().setFlush(_log_flush)

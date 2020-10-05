@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import cudf
 import cuml
@@ -32,13 +29,15 @@ import cupy
 
 import numba.cuda as cuda
 
-from cupy.sparse import csr_matrix as cp_csr_matrix,\
+from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
     coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
 
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
-from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_cuml_array, zeros, with_cupy_rmm, has_scipy
+from cuml.raft.common.handle cimport handle_t
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.memory_utils import with_cupy_rmm
+from cuml.common.import_utils import has_scipy
 from cuml.common.array import CumlArray
 
 import rmm
@@ -51,7 +50,6 @@ from libc.stdlib cimport calloc, malloc, free
 
 from libcpp.memory cimport shared_ptr
 
-cimport cuml.common.handle
 cimport cuml.common.cuda
 
 
@@ -94,7 +92,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
 
 
 cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
-    void fit(cumlHandle & handle,
+    void fit(handle_t & handle,
              float * X,
              int n,
              int d,
@@ -103,7 +101,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              UMAPParams * params,
              float * embeddings) except +
 
-    void fit(cumlHandle & handle,
+    void fit(handle_t & handle,
              float * X,
              float * y,
              int n,
@@ -113,7 +111,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              UMAPParams * params,
              float * embeddings) except +
 
-    void transform(cumlHandle & handle,
+    void transform(handle_t & handle,
                    float * X,
                    int n,
                    int d,
@@ -456,7 +454,7 @@ class UMAP(Base):
             csc_matrix = DummyClass
 
         if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
-            knn_graph = cupy.sparse.csr_matrix(knn_graph)
+            knn_graph = cp_csr_matrix(knn_graph)
             n_samples = knn_graph.shape[0]
             reordering = knn_graph.data.reshape((n_samples, -1))
             reordering = reordering.argsort()
@@ -495,6 +493,8 @@ class UMAP(Base):
                    (knn_dists_m, knn_dists_m.ptr)
         return (None, None), (None, None)
 
+    @generate_docstring(convert_dtype_cast='np.float32',
+                        skip_parameters_heading=True)
     @with_cupy_rmm
     def fit(self, X, y=None, convert_dtype=True,
             knn_graph=None):
@@ -503,14 +503,6 @@ class UMAP(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            X contains a sample per row.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        y : array-like (device or host) shape = (n_samples, 1)
-            y contains a label per row.
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
         knn_graph : sparse array-like (device or host)
             shape=(n_samples, n_samples)
             A sparse array containing the k-nearest neighbors of X,
@@ -530,8 +522,6 @@ class UMAP(Base):
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
         """
-        self._set_n_features_in(X)
-
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
@@ -550,7 +540,7 @@ class UMAP(Base):
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
 
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
             self._extract_knn_graph(knn_graph, convert_dtype)
@@ -567,8 +557,8 @@ class UMAP(Base):
         if self.hash_input:
             self.input_hash = joblib.hash(self._X_m.to_output('numpy'))
 
-        cdef cumlHandle * handle_ = \
-            <cumlHandle*> <size_t> self.handle.getHandle()
+        cdef handle_t * handle_ = \
+            <handle_t*> <size_t> self.handle.getHandle()
 
         cdef uintptr_t x_raw = self._X_m.ptr
         cdef uintptr_t embed_raw = self._embedding_.ptr
@@ -610,6 +600,14 @@ class UMAP(Base):
 
         return self
 
+    @generate_docstring(convert_dtype_cast='np.float32',
+                        skip_parameters_heading=True,
+                        return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Embedding of the \
+                                                       data in \
+                                                       low-dimensional space.',
+                                       'shape': '(n_samples, n_components)'})
     def fit_transform(self, X, y=None, convert_dtype=True,
                       knn_graph=None):
         """
@@ -620,15 +618,10 @@ class UMAP(Base):
         and calling fit().transform(). Calling fit_transform(X) will
         train the embeddings on X and return the embeddings. Calling
         fit(X).transform(X) will train the embeddings on X and then
-        run a second optimization
-        return the embedding after it is trained while calling
+        run a second optimization.
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            X contains a sample per row.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
         knn_graph : sparse array-like (device or host)
             shape=(n_samples, n_samples)
             A sparse array containing the k-nearest neighbors of X,
@@ -648,16 +641,20 @@ class UMAP(Base):
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
 
-        Returns
-        -------
-        X_new : array, shape (n_samples, n_components)
-            Embedding of the training data in low-dimensional space.
         """
         self.fit(X, y, convert_dtype=convert_dtype,
                  knn_graph=knn_graph)
         out_type = self._get_output_type(X)
         return self._embedding_.to_output(out_type)
 
+    @generate_docstring(convert_dtype_cast='np.float32',
+                        skip_parameters_heading=True,
+                        return_values={'name': 'X_new',
+                                       'type': 'dense',
+                                       'description': 'Embedding of the \
+                                                       data in \
+                                                       low-dimensional space.',
+                                       'shape': '(n_samples, n_components)'})
     @with_cupy_rmm
     def transform(self, X, convert_dtype=True,
                   knn_graph=None):
@@ -674,10 +671,6 @@ class UMAP(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            New data to be transformed.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
         knn_graph : sparse array-like (device or host)
             shape=(n_samples, n_samples)
             A sparse array containing the k-nearest neighbors of X,
@@ -697,10 +690,6 @@ class UMAP(Base):
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
 
-        Returns
-        -------
-        X_new : array, shape (n_samples, n_components)
-            Embedding of the new data in low-dimensional space.
         """
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
@@ -739,8 +728,8 @@ class UMAP(Base):
         cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
         cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
 
-        cdef cumlHandle * handle_ = \
-            <cumlHandle*> <size_t> self.handle.getHandle()
+        cdef handle_t * handle_ = \
+            <handle_t*> <size_t> self.handle.getHandle()
 
         cdef uintptr_t orig_x_raw = self._X_m.ptr
         cdef uintptr_t embed_ptr = self._embedding_.ptr

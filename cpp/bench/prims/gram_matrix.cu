@@ -40,8 +40,8 @@ struct GramTestParams {
 template <typename T>
 struct GramMatrix : public Fixture {
   GramMatrix(const std::string& name, const GramTestParams& p)
-    : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    : Fixture(name, std::shared_ptr<deviceAllocator>(
+                      new raft::mr::device::default_allocator)),
       params(p) {
     std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
     std::ostringstream oss;
@@ -61,7 +61,7 @@ struct GramMatrix : public Fixture {
     alloc(A, params.m * params.k);
     alloc(B, params.k * params.n);
     alloc(C, params.m * params.n);
-    MLCommon::Random::Rng r(123456ULL);
+    raft::random::Rng r(123456ULL);
     r.uniform(A, params.m * params.k, T(-1.0), T(1.0), stream);
     r.uniform(B, params.k * params.n, T(-1.0), T(1.0), stream);
   }

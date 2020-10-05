@@ -19,8 +19,8 @@
 #include <thrust/device_vector.h>
 
 #include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
 #include <linalg/transpose.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <cuda_utils.cuh>
 #include <linalg/subtract.cuh>
 #include <random/make_regression.cuh>
@@ -35,7 +35,7 @@ struct MakeRegressionInputs {
   int n_samples, n_features, n_informative, n_targets, effective_rank;
   T bias;
   bool shuffle;
-  GeneratorType gtype;
+  raft::random::GeneratorType gtype;
   uint64_t seed;
 };
 
@@ -49,16 +49,16 @@ class MakeRegressionTest
     // Noise must be zero to compare the actual and expected values
     T noise = (T)0.0, tail_strength = (T)0.5;
 
-    allocator.reset(new defaultDeviceAllocator);
+    allocator.reset(new raft::mr::device::default_allocator);
     CUBLAS_CHECK(cublasCreate(&cublas_handle));
     CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    allocate(data, params.n_samples * params.n_features);
-    allocate(values_ret, params.n_samples * params.n_targets);
-    allocate(values_prod, params.n_samples * params.n_targets);
-    allocate(values_cm, params.n_samples * params.n_targets);
-    allocate(coef, params.n_features * params.n_targets);
+    raft::allocate(data, params.n_samples * params.n_features);
+    raft::allocate(values_ret, params.n_samples * params.n_targets);
+    raft::allocate(values_prod, params.n_samples * params.n_targets);
+    raft::allocate(values_cm, params.n_samples * params.n_targets);
+    raft::allocate(coef, params.n_features * params.n_targets);
 
     // Create the regression problem
     make_regression(data, values_ret, params.n_samples, params.n_features,
@@ -69,7 +69,7 @@ class MakeRegressionTest
 
     // Calculate the values from the data and coefficients (column-major)
     T alpha = (T)1.0, beta = (T)0.0;
-    CUBLAS_CHECK(LinAlg::cublasgemm(
+    CUBLAS_CHECK(raft::linalg::cublasgemm(
       cublas_handle, CUBLAS_OP_T, CUBLAS_OP_T, params.n_samples,
       params.n_targets, params.n_features, &alpha, data, params.n_features,
       coef, params.n_targets, &beta, values_cm, params.n_samples, stream));
@@ -110,34 +110,36 @@ class MakeRegressionTest
 
 typedef MakeRegressionTest<float> MakeRegressionTestF;
 const std::vector<MakeRegressionInputs<float>> inputsf_t = {
-  {0.01f, 256, 32, 16, 1, -1, 0.f, true, GenPhilox, 1234ULL},
-  {0.01f, 1000, 100, 47, 4, 65, 4.2f, true, GenPhilox, 1234ULL},
-  {0.01f, 20000, 500, 450, 13, -1, -3.f, false, GenPhilox, 1234ULL}};
+  {0.01f, 256, 32, 16, 1, -1, 0.f, true, raft::random::GenPhilox, 1234ULL},
+  {0.01f, 1000, 100, 47, 4, 65, 4.2f, true, raft::random::GenPhilox, 1234ULL},
+  {0.01f, 20000, 500, 450, 13, -1, -3.f, false, raft::random::GenPhilox,
+   1234ULL}};
 
 TEST_P(MakeRegressionTestF, Result) {
   ASSERT_TRUE(
     match(params.n_targets * (params.n_features - params.n_informative),
-          zero_count, Compare<int>()));
-  ASSERT_TRUE(devArrMatch(values_ret, values_prod, params.n_samples,
-                          params.n_targets,
-                          CompareApprox<float>(params.tolerance), stream));
+          zero_count, raft::Compare<int>()));
+  ASSERT_TRUE(
+    devArrMatch(values_ret, values_prod, params.n_samples, params.n_targets,
+                raft::CompareApprox<float>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_CASE_P(MakeRegressionTests, MakeRegressionTestF,
                         ::testing::ValuesIn(inputsf_t));
 
 typedef MakeRegressionTest<double> MakeRegressionTestD;
 const std::vector<MakeRegressionInputs<double>> inputsd_t = {
-  {0.01, 256, 32, 16, 1, -1, 0.0, true, GenPhilox, 1234ULL},
-  {0.01, 1000, 100, 47, 4, 65, 4.2, true, GenPhilox, 1234ULL},
-  {0.01, 20000, 500, 450, 13, -1, -3.0, false, GenPhilox, 1234ULL}};
+  {0.01, 256, 32, 16, 1, -1, 0.0, true, raft::random::GenPhilox, 1234ULL},
+  {0.01, 1000, 100, 47, 4, 65, 4.2, true, raft::random::GenPhilox, 1234ULL},
+  {0.01, 20000, 500, 450, 13, -1, -3.0, false, raft::random::GenPhilox,
+   1234ULL}};
 
 TEST_P(MakeRegressionTestD, Result) {
   ASSERT_TRUE(
     match(params.n_targets * (params.n_features - params.n_informative),
-          zero_count, Compare<int>()));
-  ASSERT_TRUE(devArrMatch(values_ret, values_prod, params.n_samples,
-                          params.n_targets,
-                          CompareApprox<double>(params.tolerance), stream));
+          zero_count, raft::Compare<int>()));
+  ASSERT_TRUE(
+    devArrMatch(values_ret, values_prod, params.n_samples, params.n_targets,
+                raft::CompareApprox<double>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_CASE_P(MakeRegressionTests, MakeRegressionTestD,
                         ::testing::ValuesIn(inputsd_t));

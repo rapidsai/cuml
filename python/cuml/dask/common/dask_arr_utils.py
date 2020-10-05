@@ -43,7 +43,7 @@ def _conv_df_to_sparse(x):
                             x.as_gpu_matrix(),
                             dtype=x.dtypes[0])
 
-    return cp.sparse.csr_matrix(cupy_ary)
+    return cupyx.scipy.sparse.csr_matrix(cupy_ary)
 
 
 def _conv_array_to_sparse(arr):
@@ -83,7 +83,7 @@ def to_sparse_dask_array(cudf_or_array, client=None):
     """
     Converts an array or cuDF to a sparse Dask array backed by sparse CuPy.
     CSR matrices. Unfortunately, due to current limitations in Dask, there is
-    no direct path to convert a cupy.sparse.spmatrix into a CuPy backed
+    no direct path to convert a cupyx.scipy.sparse.spmatrix into a CuPy backed
     dask.Array without copying to host.
 
 
@@ -108,7 +108,7 @@ def to_sparse_dask_array(cudf_or_array, client=None):
 
     Returns
     -------
-    dask_array : dask.Array backed by cupy.sparse.csr_matrix
+    dask_array : dask.Array backed by cupyx.scipy.sparse.csr_matrix
     """
     client = default_client() if client is None else client
 

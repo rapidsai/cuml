@@ -23,8 +23,8 @@
 #include <stats/stddev.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace Random {
+namespace raft {
+namespace random {
 
 enum RandomType {
   RNG_Normal,
@@ -48,8 +48,8 @@ __global__ void meanKernel(T* out, const T* data, int len) {
   T xx = BlockReduce(temp_storage).Sum(val * val);
   __syncthreads();
   if (threadIdx.x == 0) {
-    myAtomicAdd(out, x);
-    myAtomicAdd(out + 1, xx);
+    raft::myAtomicAdd(out, x);
+    raft::myAtomicAdd(out + 1, xx);
   }
 }
 
@@ -118,9 +118,9 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     };
     static const int threads = 128;
     meanKernel<T, threads>
-      <<<ceildiv(params.len, threads), threads, 0, stream>>>(stats, data,
-                                                             params.len);
-    updateHost<T>(h_stats, stats, 2, stream);
+      <<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(stats, data,
+                                                                   params.len);
+    update_host<T>(h_stats, stats, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
@@ -141,8 +141,9 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
       case RNG_LogNormal: {
         auto var = params.end * params.end;
         auto mu = params.start;
-        meanvar[0] = myExp(mu + var * T(0.5));
-        meanvar[1] = (myExp(var) - T(1.0)) * myExp(T(2.0) * mu + var);
+        meanvar[0] = raft::myExp(mu + var * T(0.5));
+        meanvar[1] =
+          (raft::myExp(var) - T(1.0)) * raft::myExp(T(2.0) * mu + var);
         break;
       }
       case RNG_Uniform:
@@ -165,7 +166,7 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
         meanvar[1] = meanvar[0] * meanvar[0];
         break;
       case RNG_Rayleigh:
-        meanvar[0] = params.start * mySqrt(T(3.1415 / 2.0));
+        meanvar[0] = params.start * raft::mySqrt(T(3.1415 / 2.0));
         meanvar[1] =
           ((T(4.0) - T(3.1415)) / T(2.0)) * params.start * params.start;
         break;
@@ -386,19 +387,18 @@ TEST(Rng, MeanError) {
   allocate(mean_result, num_experiments);
   allocate(std_result, num_experiments);
 
-  for (auto rtype :
-       {Random::GenPhilox, Random::GenKiss99 /*, Random::GenTaps */}) {
-    Random::Rng r(seed, rtype);
+  for (auto rtype : {GenPhilox, GenKiss99 /*, raft::random::GenTaps */}) {
+    Rng r(seed, rtype);
     r.normal(data, len, 3.3f, 0.23f, stream);
     // r.uniform(data, len, -1.0, 2.0);
-    Stats::mean(mean_result, data, num_samples, num_experiments, false, false,
-                stream);
-    Stats::stddev(std_result, data, mean_result, num_samples, num_experiments,
-                  false, false, stream);
+    raft::stats::mean(mean_result, data, num_samples, num_experiments, false,
+                      false, stream);
+    raft::stats::stddev(std_result, data, mean_result, num_samples,
+                        num_experiments, false, false, stream);
     std::vector<float> h_mean_result(num_experiments);
     std::vector<float> h_std_result(num_experiments);
-    updateHost(h_mean_result.data(), mean_result, num_experiments, stream);
-    updateHost(h_std_result.data(), std_result, num_experiments, stream);
+    update_host(h_mean_result.data(), mean_result, num_experiments, stream);
+    update_host(h_std_result.data(), std_result, num_experiments, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     auto d_mean = quick_mean(h_mean_result);
 
@@ -440,7 +440,7 @@ class ScaledBernoulliTest : public ::testing::Test {
 
   void rangeCheck() {
     T* h_data = new T[len];
-    updateHost(h_data, data, len, stream);
+    update_host(h_data, data, len, stream);
     ASSERT_TRUE(std::none_of(h_data, h_data + len, [](const T& a) {
       return a < -scale || a > scale;
     }));
@@ -472,7 +472,7 @@ class BernoulliTest : public ::testing::Test {
   void trueFalseCheck() {
     // both true and false values must be present
     bool* h_data = new bool[len];
-    updateHost(h_data, data, len, stream);
+    update_host(h_data, data, len, stream);
     ASSERT_TRUE(std::any_of(h_data, h_data + len, [](bool a) { return a; }));
     ASSERT_TRUE(std::any_of(h_data, h_data + len, [](bool a) { return !a; }));
     delete[] h_data;
@@ -514,6 +514,7 @@ class RngNormalTableTest
     num_sigma = 10;
     params = ::testing::TestWithParam<RngNormalTableInputs<T>>::GetParam();
     int len = params.rows * params.cols;
+
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     Rng r(params.seed, params.gtype);
@@ -526,8 +527,8 @@ class RngNormalTableTest
                   params.sigma, stream);
     static const int threads = 128;
     meanKernel<T, threads>
-      <<<ceildiv(len, threads), threads, 0, stream>>>(stats, data, len);
-    updateHost<T>(h_stats, stats, 2, stream);
+      <<<raft::ceildiv(len, threads), threads, 0, stream>>>(stats, data, len);
+    update_host<T>(h_stats, stats, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= len;
     h_stats[1] = (h_stats[1] / len) - (h_stats[0] * h_stats[0]);
@@ -623,5 +624,5 @@ TEST_P(RngAffineTest, Result) { check(); }
 INSTANTIATE_TEST_CASE_P(RngAffineTests, RngAffineTest,
                         ::testing::ValuesIn(inputs_affine));
 
-}  // end namespace Random
-}  // end namespace MLCommon
+}  // namespace random
+}  // namespace raft

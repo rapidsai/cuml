@@ -76,8 +76,8 @@ void normalize_distances(const int n, float *distances, const int n_neighbors,
 
   // Divide distances inplace by max
   const float div = 1.0f / maxNorm;  // Mult faster than div
-  MLCommon::LinAlg::scalarMultiply(distances, distances, div, n * n_neighbors,
-                                   stream);
+  raft::linalg::scalarMultiply(distances, distances, div, n * n_neighbors,
+                               stream);
 }
 
 /**
@@ -96,14 +96,14 @@ template <int TPB_X = 32>
 void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
                            const float P_sum, const float exaggeration,
                            MLCommon::Sparse::COO<float> *COO_Matrix,
-                           cudaStream_t stream, const cumlHandle &handle) {
+                           cudaStream_t stream, const raft::handle_t &handle) {
   // Perform (P + P.T) / P_sum * early_exaggeration
   const float div = exaggeration / (2.0f * P_sum);
-  MLCommon::LinAlg::scalarMultiply(P, P, div, n * k, stream);
+  raft::linalg::scalarMultiply(P, P, div, n * k, stream);
 
   // Symmetrize to form P + P.T
   MLCommon::Sparse::from_knn_symmetrize_matrix(
-    indices, P, n, k, COO_Matrix, stream, handle.getDeviceAllocator());
+    indices, P, n, k, COO_Matrix, stream, handle.get_device_allocator());
 }
 
 }  // namespace TSNE

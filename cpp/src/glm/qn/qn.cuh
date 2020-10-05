@@ -27,7 +27,7 @@
 namespace ML {
 namespace GLM {
 template <typename T, typename LossFunction>
-int qn_fit(const cumlHandle_impl &handle, LossFunction &loss, T *Xptr, T *yptr,
+int qn_fit(const raft::handle_t &handle, LossFunction &loss, T *Xptr, T *yptr,
            T *zptr, int N, T l1, T l2, int max_iter, T grad_tol,
            int linesearch_max_iter, int lbfgs_memory, int verbosity,
            T *w0,  // initial value and result
@@ -60,7 +60,7 @@ int qn_fit(const cumlHandle_impl &handle, LossFunction &loss, T *Xptr, T *yptr,
 }
 
 template <typename T>
-void qnFit(const cumlHandle_impl &handle, T *X, T *y, int N, int D, int C,
+void qnFit(const raft::handle_t &handle, T *X, T *y, int N, int D, int C,
            bool fit_intercept, T l1, T l2, int max_iter, T grad_tol,
            int linesearch_max_iter, int lbfgs_memory, int verbosity, T *w0,
            T *f, int *num_iters, bool X_col_major, int loss_type,
@@ -68,7 +68,7 @@ void qnFit(const cumlHandle_impl &handle, T *X, T *y, int N, int D, int C,
   STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
   int C_len = (loss_type == 0) ? (C - 1) : C;
 
-  MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream,
+  MLCommon::device_buffer<T> tmp(handle.get_device_allocator(), stream,
                                  C_len * N);
   SimpleMat<T> z(tmp.data(), C_len, N);
 
@@ -101,7 +101,7 @@ void qnFit(const cumlHandle_impl &handle, T *X, T *y, int N, int D, int C,
 }
 
 template <typename T>
-void qnDecisionFunction(const cumlHandle_impl &handle, T *Xptr, int N, int D,
+void qnDecisionFunction(const raft::handle_t &handle, T *Xptr, int N, int D,
                         int C, bool fit_intercept, T *params, bool X_col_major,
                         int loss_type, T *scores, cudaStream_t stream) {
   // NOTE: While gtests pass X as row-major, and python API passes X as
@@ -121,11 +121,11 @@ void qnDecisionFunction(const cumlHandle_impl &handle, T *Xptr, int N, int D,
 }
 
 template <typename T>
-void qnPredict(const cumlHandle_impl &handle, T *Xptr, int N, int D, int C,
+void qnPredict(const raft::handle_t &handle, T *Xptr, int N, int D, int C,
                bool fit_intercept, T *params, bool X_col_major, int loss_type,
                T *preds, cudaStream_t stream) {
   int C_len = (loss_type == 0) ? (C - 1) : C;
-  MLCommon::device_buffer<T> scores(handle.getDeviceAllocator(), stream,
+  MLCommon::device_buffer<T> scores(handle.get_device_allocator(), stream,
                                     C_len * N);
   qnDecisionFunction<T>(handle, Xptr, N, D, C, fit_intercept, params,
                         X_col_major, loss_type, scores.data(), stream);
@@ -147,7 +147,7 @@ void qnPredict(const cumlHandle_impl &handle, T *Xptr, int N, int D, int C,
     } break;
     case 2: {
       ASSERT(C > 2, "qn.h: softmax invalid C");
-      MLCommon::Matrix::argmax(Z.data, C, N, preds, stream);
+      raft::matrix::argmax(Z.data, C, N, preds, stream);
     } break;
     default: {
       ASSERT(false, "qn.h: unknown loss function.");

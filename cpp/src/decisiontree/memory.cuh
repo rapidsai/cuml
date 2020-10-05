@@ -29,8 +29,8 @@ TemporaryMemory<T, L>::TemporaryMemory(
   const cudaStream_t stream_in, int N, int Ncols, int n_unique,
   const ML::DecisionTree::DecisionTreeParams& tree_params) {
   stream = stream_in;
-  max_shared_mem = MLCommon::getSharedMemPerBlock();
-  num_sms = MLCommon::getMultiProcessorCount();
+  max_shared_mem = raft::getSharedMemPerBlock();
+  num_sms = raft::getMultiProcessorCount();
   device_allocator = device_allocator_in;
   host_allocator = host_allocator_in;
   LevelMemAllocator(N, Ncols, n_unique, tree_params);
@@ -38,13 +38,13 @@ TemporaryMemory<T, L>::TemporaryMemory(
 
 template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(
-  const ML::cumlHandle_impl& handle, cudaStream_t stream_in, int N, int Ncols,
+  const raft::handle_t& handle, cudaStream_t stream_in, int N, int Ncols,
   int n_unique, const ML::DecisionTree::DecisionTreeParams& tree_params) {
   stream = stream_in;
-  max_shared_mem = MLCommon::getSharedMemPerBlock();
-  num_sms = MLCommon::getMultiProcessorCount();
-  device_allocator = handle.getDeviceAllocator();
-  host_allocator = handle.getHostAllocator();
+  max_shared_mem = raft::getSharedMemPerBlock();
+  num_sms = raft::getMultiProcessorCount();
+  device_allocator = handle.get_device_allocator();
+  host_allocator = handle.get_host_allocator();
   LevelMemAllocator(N, Ncols, n_unique, tree_params);
 }
 
@@ -83,6 +83,7 @@ void TemporaryMemory<T, L>::LevelMemAllocator(
   }
   size_t maxnodes = max_nodes_per_level;
   size_t ncols_sampled = (size_t)(ncols * tree_params.max_features);
+  ncols_sampled = ncols_sampled > 0 ? ncols_sampled : 1;
   if (depth < 64) {
     gather_max_nodes = std::min((size_t)(nrows + 1),
                                 (size_t)(pow((size_t)2, (size_t)depth) + 1));

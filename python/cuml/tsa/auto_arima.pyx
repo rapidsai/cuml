@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import itertools
@@ -32,7 +29,8 @@ import cuml
 from cuml.common import logger
 from cuml.common.array import CumlArray as cumlArray
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
+from cuml.raft.common.handle import Handle
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
@@ -45,54 +43,54 @@ from cuml.tsa.stationarity import kpss_test
 
 
 cdef extern from "cuml/tsa/auto_arima.h" namespace "ML":
-    int divide_by_mask_build_index(const cumlHandle& handle, const bool* mask,
+    int divide_by_mask_build_index(const handle_t& handle, const bool* mask,
                                    int* index, int batch_size)
 
-    void divide_by_mask_execute(const cumlHandle& handle, const float* d_in,
+    void divide_by_mask_execute(const handle_t& handle, const float* d_in,
                                 const bool* mask, const int* index,
                                 float* d_out0, float* d_out1, int batch_size,
                                 int n_obs)
-    void divide_by_mask_execute(const cumlHandle& handle, const double* d_in,
+    void divide_by_mask_execute(const handle_t& handle, const double* d_in,
                                 const bool* mask, const int* index,
                                 double* d_out0, double* d_out1,
                                 int batch_size, int n_obs)
-    void divide_by_mask_execute(const cumlHandle& handle, const int* d_in,
+    void divide_by_mask_execute(const handle_t& handle, const int* d_in,
                                 const bool* mask, const int* index,
                                 int* d_out0, int* d_out1, int batch_size,
                                 int n_obs)
 
-    void divide_by_min_build_index(const cumlHandle& handle,
+    void divide_by_min_build_index(const handle_t& handle,
                                    const float* d_matrix, int* d_batch,
                                    int* d_index, int* h_size,
                                    int batch_size, int n_sub)
-    void divide_by_min_build_index(const cumlHandle& handle,
+    void divide_by_min_build_index(const handle_t& handle,
                                    const double* d_matrix, int* d_batch,
                                    int* d_index, int* h_size,
                                    int batch_size, int n_sub)
 
-    void divide_by_min_execute(const cumlHandle& handle, const float* d_in,
+    void divide_by_min_execute(const handle_t& handle, const float* d_in,
                                const int* d_batch, const int* d_index,
                                float** hd_out, int batch_size, int n_sub,
                                int n_obs)
-    void divide_by_min_execute(const cumlHandle& handle, const double* d_in,
+    void divide_by_min_execute(const handle_t& handle, const double* d_in,
                                const int* d_batch, const int* d_index,
                                double** hd_out, int batch_size, int n_sub,
                                int n_obs)
-    void divide_by_min_execute(const cumlHandle& handle, const int* d_in,
+    void divide_by_min_execute(const handle_t& handle, const int* d_in,
                                const int* d_batch, const int* d_index,
                                int** hd_out, int batch_size, int n_sub,
                                int n_obs)
 
     void cpp_build_division_map "ML::build_division_map" (
-        const cumlHandle& handle, const int* const* hd_id, const int* h_size,
+        const handle_t& handle, const int* const* hd_id, const int* h_size,
         int* d_id_to_pos, int* d_id_to_model, int batch_size, int n_sub)
 
     void cpp_merge_series "ML::merge_series" (
-        const cumlHandle& handle, const float* const* hd_in,
+        const handle_t& handle, const float* const* hd_in,
         const int* d_id_to_pos, const int* d_id_to_sub, float* d_out,
         int batch_size, int n_sub, int n_obs)
     void cpp_merge_series "ML::merge_series" (
-        const cumlHandle& handle, const double* const* hd_in,
+        const handle_t& handle, const double* const* hd_in,
         const int* d_id_to_pos, const int* d_id_to_sub, double* d_out,
         int batch_size, int n_sub, int n_obs)
 
@@ -162,7 +160,7 @@ class AutoARIMA(Base):
                  output_type=None):
         # Initialize base class
         super().__init__(handle, output_type=output_type, verbose=verbose)
-        self._set_output_type(endog)
+        self._set_base_attributes(output_type=endog)
 
         # Get device array. Float64 only for now.
         self._d_y, self.n_obs, self.batch_size, self.dtype \
@@ -244,8 +242,8 @@ class AutoARIMA(Base):
         ic = ic.lower()
         test = test.lower()
         seasonal_test = seasonal_test.lower()
-        if s == 1:  # R users might use s=1 for a non-seasonal dataset
-            s = None
+        if s is None or s == 1:  # R users might use s=1 for non-seasonal data
+            s = 0
         if method == "auto":
             method = "css" if self.n_obs >= 100 and s >= 4 else "ml"
 
@@ -409,8 +407,8 @@ class AutoARIMA(Base):
     def predict(self, start=0, end=None, level=None):
         """Compute in-sample and/or out-of-sample prediction for each series
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         start: int
             Index where to start the predictions (0 <= start <= num_samples)
         end:
@@ -420,7 +418,7 @@ class AutoARIMA(Base):
             the point forecasts. 0 < level < 1
 
         Returns
-        --------
+        -------
         y_p : array-like (device)
             Predictions. Shape = (end - start, batch_size)
         lower: array-like (device) (optional)
@@ -462,7 +460,7 @@ class AutoARIMA(Base):
     def forecast(self, nsteps: int, level=None):
         """Forecast `nsteps` into the future.
 
-        Parameters:
+        Parameters
         ----------
         nsteps : int
             The number of steps to forecast beyond end of the given series
@@ -471,7 +469,7 @@ class AutoARIMA(Base):
             the point forecasts. 0 < level < 1
 
         Returns
-        --------
+        -------
         y_fc : array-like
                Forecasts. Shape = (nsteps, batch_size)
         lower: array-like (device) (optional)
@@ -514,7 +512,7 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
     .. note:: in case the mask contains only False or only True, one sub-batch
         will be the original batch (not a copy!) and the other None
 
-    Parameters:
+    Parameters
     ----------
     original : cumlArray (float32 or float64)
         Original batch
@@ -526,7 +524,7 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
         If it is None, a new one is created just for this call
 
     Returns
-    --------
+    -------
     out0 : cumlArray (float32 or float64)
         Sub-batch 0, or None if empty
     batch0_id : cumlArray (int)
@@ -545,8 +543,8 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
     batch_size = original.shape[1] if len(original.shape) > 1 else 1
 
     if handle is None:
-        handle = cuml.common.handle.Handle()
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+        handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     index = cumlArray.empty(batch_size, np.int32)
     cdef uintptr_t d_index = index.ptr
@@ -633,7 +631,7 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
     """Divide a given batch into multiple sub-batches according to the values
     of the given metrics, by selecting the minimum value for each member
 
-    Parameters:
+    Parameters
     ----------
     original : cumlArray (float32 or float64)
         Original batch
@@ -645,7 +643,7 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
         If it is None, a new one is created just for this call
 
     Returns
-    --------
+    -------
     sub_batches : List[cumlArray] (float32 or float64)
         List of arrays containing each sub-batch, or None if empty
     sub_id : List[cumlArray] (int)
@@ -660,8 +658,8 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
     batch_size = original.shape[1] if len(original.shape) > 1 else 1
 
     if handle is None:
-        handle = cuml.common.handle.Handle()
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+        handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     batch_buffer = cumlArray.empty(batch_size, np.int32)
     index_buffer = cumlArray.empty(batch_size, np.int32)
@@ -752,7 +750,7 @@ def _build_division_map(id_tracker, batch_size, handle=None):
     """Build a map to associate each batch member with a model and index in
     the associated sub-batch
 
-    Parameters:
+    Parameters
     ----------
     id_tracker : List[cumlArray] (int)
         List of the index arrays of each sub-batch
@@ -760,15 +758,15 @@ def _build_division_map(id_tracker, batch_size, handle=None):
         Size of the initial batch
 
     Returns
-    --------
+    -------
     id_to_model : cumlArray (int)
         Associates each batch member with a model
     id_to_pos : cumlArray (int)
         Position of each member in the respective sub-batch
     """
     if handle is None:
-        handle = cuml.common.handle.Handle()
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+        handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     n_sub = len(id_tracker)
 
@@ -804,7 +802,7 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
     associate each id in the unique batch to a sub-batch and a position in
     this sub-batch.
 
-    Parameters:
+    Parameters
     ----------
     data_in : List[cumlArray] (float32 or float64)
         List of sub-batches to merge
@@ -816,7 +814,7 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
         Size of the initial batch
 
     Returns
-    --------
+    -------
     data_out : cumlArray (float32 or float64)
         Merged batch
     """
@@ -825,8 +823,8 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
     n_sub = len(data_in)
 
     if handle is None:
-        handle = cuml.common.handle.Handle()
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+        handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     cdef vector[uintptr_t] in_ptr
     in_ptr.resize(n_sub)

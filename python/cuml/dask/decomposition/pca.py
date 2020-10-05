@@ -146,9 +146,6 @@ class PCA(BaseDecomposition,
         datasets of everyday objects and images, and used to distinguish
         between cancerous cells from healthy cells.
 
-
-    For an additional example see `the PCA notebook
-    <https://github.com/rapidsai/notebooks/blob/master/cuml/pca_demo.ipynb>`_.
     For additional docs, see `scikitlearn's PCA
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """

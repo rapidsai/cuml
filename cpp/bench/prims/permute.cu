@@ -31,8 +31,8 @@ struct Params {
 template <typename T>
 struct Permute : public Fixture {
   Permute(const std::string& name, const Params& p)
-    : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    : Fixture(name, std::shared_ptr<deviceAllocator>(
+                      new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:
@@ -44,7 +44,7 @@ struct Permute : public Fixture {
     } else {
       perms = nullptr;
     }
-    MLCommon::Random::Rng r(123456ULL);
+    raft::random::Rng r(123456ULL);
     if (params.needShuffle) {
       alloc(out, matLen);
       alloc(in, matLen);
@@ -67,7 +67,7 @@ struct Permute : public Fixture {
   }
 
   void runBenchmark(::benchmark::State& state) override {
-    MLCommon::Random::Rng r(123456ULL);
+    raft::random::Rng r(123456ULL);
     loopOnState(state, [this, &r]() {
       MLCommon::Random::permute(perms, out, in, params.cols, params.rows,
                                 params.rowMajor, stream);

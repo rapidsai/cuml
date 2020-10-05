@@ -33,8 +33,8 @@ struct Identity {
 template <typename T>
 struct MapThenReduce : public Fixture {
   MapThenReduce(const std::string& name, const Params& p)
-    : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    : Fixture(name, std::shared_ptr<deviceAllocator>(
+                      new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:
@@ -50,8 +50,8 @@ struct MapThenReduce : public Fixture {
 
   void runBenchmark(::benchmark::State& state) override {
     loopOnState(state, [this]() {
-      MLCommon::LinAlg::mapThenSumReduce(out, params.len, Identity<T>(), stream,
-                                         in);
+      raft::linalg::mapThenSumReduce(out, params.len, Identity<T>(), stream,
+                                     in);
     });
   }
 

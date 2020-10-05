@@ -70,6 +70,15 @@ Feature and Label Encoding (Single-GPU)
  .. autoclass:: cuml.preprocessing.OneHotEncoder
     :members:
 
+ .. autoclass:: cuml.preprocessing.TargetEncoder.TargetEncoder
+    :members:
+
+
+Text Preprocessing (Single-GPU)
+---------------------------------------
+ .. autoclass:: cuml.preprocessing.text.stem.PorterStemmer
+    :members:
+
 Feature and Label Encoding (Dask-based Multi-GPU)
 -------------------------------------------------
 
@@ -120,8 +129,8 @@ Array Wrappers (Internal API)
 .. autoclass:: cuml.common.CumlArray
     :members:
 
-Metrics
----------
+Metrics (regression, classification, and distance)
+---------------------------------------------------
 
   .. automodule:: cuml.metrics.regression
     :members:
@@ -129,6 +138,17 @@ Metrics
   .. automodule:: cuml.metrics.accuracy
     :members:
 
+  .. automethod:: cuml.metrics.confusion_matrix
+
+  .. automethod:: cuml.metrics.roc_auc_score
+
+  .. automethod:: cuml.metrics.precision_recall_curve
+
+  .. automodule:: cuml.metrics.pairwise_distances
+    :members:
+
+Metrics (clustering and trustworthiness)
+----------------------------------------
   .. automodule:: cuml.metrics.trustworthiness
     :members:
 
@@ -138,9 +158,13 @@ Metrics
   .. automodule:: cuml.metrics.cluster.entropy
     :members:
 
-  .. automethod:: cuml.metrics.roc_auc_score
+  .. automodule:: cuml.metrics.cluster.homogeneity_score
+    :members:
 
-  .. automodule:: cuml.metrics.pairwise_distances
+  .. automodule:: cuml.metrics.cluster.completeness_score
+    :members:
+
+  .. automodule:: cuml.metrics.cluster.mutual_info_score
     :members:
 
 Benchmarking
@@ -199,6 +223,12 @@ Mini Batch SGD Regressor
 ------------------------
 
 .. autoclass:: cuml.MBSGDRegressor
+    :members:
+
+Mutinomial Naive Bayes
+----------------------
+
+.. autoclass:: cuml.MultinomialNB
     :members:
 
 Stochastic Gradient Descent
@@ -347,6 +377,9 @@ ARIMA
 .. autoclass:: cuml.tsa.ARIMA
     :members:
 
+.. autoclass:: cuml.tsa.auto_arima.AutoARIMA
+    :members:
+
 Multi-Node, Multi-GPU Algorithms
 ================================
 
@@ -361,6 +394,13 @@ Nearest Neighbors
 
 .. autoclass:: cuml.dask.neighbors.NearestNeighbors
     :members:
+
+.. autoclass:: cuml.dask.neighbors.KNeighborsRegressor
+    :members:
+
+.. autoclass:: cuml.dask.neighbors.KNeighborsClassifier
+    :members:
+
 
 Principal Component Analysis
 -----------------------------

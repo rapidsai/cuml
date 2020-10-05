@@ -255,7 +255,7 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     input.size());
   for (int i = 0; i < input.size(); i++) {
     metric_processors[i] = create_processor<float>(
-      metric, n, D, k, rowMajorQuery, userStream, allocator);
+      metric, sizes[i], D, k, rowMajorQuery, userStream, allocator);
     metric_processors[i]->preprocess(input[i]);
   }
 
@@ -263,7 +263,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   CUDA_CHECK(cudaGetDevice(&device));
 
   device_buffer<int64_t> trans(allocator, userStream, id_ranges->size());
-  updateDevice(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
+  raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(),
+                      userStream);
 
   device_buffer<float> all_D(allocator, userStream, 0);
   device_buffer<int64_t> all_I(allocator, userStream, 0);
@@ -286,7 +287,7 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     faiss::gpu::StandardGpuResources gpu_res;
 
     cudaStream_t stream =
-      select_stream(userStream, internalStreams, n_int_streams, i);
+      raft::select_stream(userStream, internalStreams, n_int_streams, i);
 
     gpu_res.noTempMemory();
     gpu_res.setCudaMallocWarning(false);
@@ -339,7 +340,7 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
 	*/
     float p = 0.5;  // standard l2
     if (m == faiss::MetricType::METRIC_Lp) p = 1.0 / metricArg;
-    MLCommon::LinAlg::unaryOp<float>(
+    raft::linalg::unaryOp<float>(
       res_D, res_D, n * k,
       [p] __device__(float input) { return powf(input, p); }, userStream);
   }
@@ -375,16 +376,18 @@ template <typename OutType = int>
 __global__ void class_vote_kernel(OutType *out, const float *class_proba,
                                   int *unique_labels, int n_uniq_labels,
                                   size_t n_samples, int n_outputs,
-                                  int output_offset) {
+                                  int output_offset, bool use_shared_mem) {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i = row * n_uniq_labels;
 
   extern __shared__ int label_cache[];
-  for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
-    label_cache[j] = unique_labels[j];
-  }
+  if (use_shared_mem) {
+    for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
+      label_cache[j] = unique_labels[j];
+    }
 
-  __syncthreads();
+    __syncthreads();
+  }
 
   if (row >= n_samples) return;
   float cur_max = -1.0;
@@ -396,7 +399,10 @@ __global__ void class_vote_kernel(OutType *out, const float *class_proba,
       cur_label = j;
     }
   }
-  out[row * n_outputs + output_offset] = label_cache[cur_label];
+
+  int val = use_shared_mem ? label_cache[cur_label] : unique_labels[cur_label];
+
+  out[row * n_outputs + output_offset] = val;
 }
 
 template <typename LabelType, bool precomp_lbls = false>
@@ -409,7 +415,6 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
 
   if (row >= n_samples) return;
 
-  // should work for moderately small number of classes
   LabelType pred = 0;
   for (int j = 0; j < n_neighbors; j++) {
     pred += get_lbls<precomp_lbls>(labels, knn_indices, i + j);
@@ -452,14 +457,14 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
                  int n_int_streams = 0) {
   for (int i = 0; i < y.size(); i++) {
     cudaStream_t stream =
-      select_stream(user_stream, int_streams, n_int_streams, i);
+      raft::select_stream(user_stream, int_streams, n_int_streams, i);
 
     int n_unique_labels = n_unique[i];
     int cur_size = n_query_rows * n_unique_labels;
 
     CUDA_CHECK(cudaMemsetAsync(out[i], 0, cur_size * sizeof(float), stream));
 
-    dim3 grid(MLCommon::ceildiv(n_query_rows, (size_t)TPB_X), 1, 1);
+    dim3 grid(raft::ceildiv(n_query_rows, (size_t)TPB_X), 1, 1);
     dim3 blk(TPB_X, 1, 1);
 
     /**
@@ -468,8 +473,8 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
      */
     device_buffer<int> y_normalized(allocator, stream, n_index_rows);
     MLCommon::Label::make_monotonic(y_normalized.data(), y[i], n_index_rows,
-                                    stream);
-    MLCommon::LinAlg::unaryOp<int>(
+                                    stream, allocator);
+    raft::linalg::unaryOp<int>(
       y_normalized.data(), y_normalized.data(), n_index_rows,
       [] __device__(int input) { return input - 1; }, stream);
     class_probs_kernel<float, precomp_lbls>
@@ -519,7 +524,7 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
     int size = n_unique[i];
 
     cudaStream_t stream =
-      select_stream(user_stream, int_streams, n_int_streams, i);
+      raft::select_stream(user_stream, int_streams, n_int_streams, i);
 
     device_buffer<float> *probs_buff =
       new device_buffer<float>(allocator, stream, n_query_rows * size);
@@ -538,23 +543,25 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
     probs, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique,
     allocator, user_stream, int_streams, n_int_streams);
 
-  dim3 grid(MLCommon::ceildiv(n_query_rows, (size_t)TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(n_query_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   for (int i = 0; i < y.size(); i++) {
     cudaStream_t stream =
-      select_stream(user_stream, int_streams, n_int_streams, i);
+      raft::select_stream(user_stream, int_streams, n_int_streams, i);
 
     int n_unique_labels = n_unique[i];
 
     /**
      * Choose max probability
      */
-
+    // Use shared memory for label lookups if the number of classes is small enough
     int smem = sizeof(int) * n_unique_labels;
-    class_vote_kernel<<<grid, blk, smem, stream>>>(
-      out, probs[i], uniq_labels[i], n_unique_labels, n_query_rows, y.size(),
-      i);
+    bool use_shared_mem = smem < raft::getSharedMemPerBlock();
+
+    class_vote_kernel<<<grid, blk, use_shared_mem ? smem : 0, stream>>>(
+      out, probs[i], uniq_labels[i], n_unique_labels, n_query_rows, y.size(), i,
+      use_shared_mem);
     CUDA_CHECK(cudaPeekAtLastError());
 
     delete tmp_probs[i];
@@ -593,10 +600,10 @@ void knn_regress(ValType *out, const int64_t *knn_indices,
    */
   for (int i = 0; i < y.size(); i++) {
     cudaStream_t stream =
-      select_stream(user_stream, int_streams, n_int_streams, i);
+      raft::select_stream(user_stream, int_streams, n_int_streams, i);
 
     regress_avg_kernel<ValType, precomp_lbls>
-      <<<ceildiv(n_query_rows, (size_t)TPB_X), TPB_X, 0, stream>>>(
+      <<<raft::ceildiv(n_query_rows, (size_t)TPB_X), TPB_X, 0, stream>>>(
         out, knn_indices, y[i], n_query_rows, k, y.size(), i);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));

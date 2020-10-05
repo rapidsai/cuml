@@ -39,20 +39,20 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
  protected:
   void basicTest() {
     std::shared_ptr<MLCommon::deviceAllocator> alloc(
-      new defaultDeviceAllocator);
+      new raft::mr::device::default_allocator);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     params = ::testing::TestWithParam<KNNClassifyInputs>::GetParam();
 
-    allocate(train_samples, params.rows * params.cols);
-    allocate(train_labels, params.rows);
+    raft::allocate(train_samples, params.rows * params.cols);
+    raft::allocate(train_labels, params.rows);
 
-    allocate(pred_labels, params.rows);
-    allocate(unique_labels, params.n_labels, true);
+    raft::allocate(pred_labels, params.rows);
+    raft::allocate(unique_labels, params.n_labels, true);
 
-    allocate(knn_indices, params.rows * params.k);
-    allocate(knn_dists, params.rows * params.k);
+    raft::allocate(knn_indices, params.rows * params.k);
+    raft::allocate(knn_dists, params.rows * params.k);
 
     MLCommon::Random::make_blobs<float, int>(
       train_samples, train_labels, params.rows, params.cols, params.n_labels,
@@ -117,7 +117,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
 typedef KNNClassifyTest KNNClassifyTestF;
 TEST_P(KNNClassifyTestF, Fit) {
   ASSERT_TRUE(
-    devArrMatch(train_labels, pred_labels, params.rows, Compare<int>()));
+    devArrMatch(train_labels, pred_labels, params.rows, raft::Compare<int>()));
 }
 
 const std::vector<KNNClassifyInputs> inputsf = {

@@ -21,6 +21,7 @@
 #include <cuml/neighbors/knn.hpp>
 #include "optimize.cuh"
 
+#include <common/cudart_utils.h>
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
 #include "knn_graph/runner.cuh"
@@ -36,7 +37,6 @@
 #include <sparse/coo.cuh>
 #include <sparse/csr.cuh>
 
-#include <common/cudart_utils.h>
 #include <cuda_utils.cuh>
 
 #include <cuda_runtime.h>
@@ -102,7 +102,7 @@ void categorical_simplicial_set_intersection(COO<T> *graph_coo, T *target,
                                              cudaStream_t stream,
                                              float far_dist = 5.0,
                                              float unknown_dist = 1.0) {
-  dim3 grid(MLCommon::ceildiv(graph_coo->nnz, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(graph_coo->nnz, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   fast_intersection_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(
     graph_coo->rows(), graph_coo->cols(), graph_coo->vals(), graph_coo->nnz,
@@ -199,7 +199,7 @@ void general_simplicial_set_intersection(
   T left_min = max(min1 / 2.0, 1e-8);
   T right_min = max(min2 / 2.0, 1e-8);
 
-  dim3 grid(MLCommon::ceildiv(in1->nnz, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(in1->nnz, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   sset_intersection_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
@@ -208,7 +208,7 @@ void general_simplicial_set_intersection(
     result->nnz, left_min, right_min, in1->n_rows, weight);
   CUDA_CHECK(cudaGetLastError());
 
-  dim3 grid_n(MLCommon::ceildiv(result->nnz, TPB_X), 1, 1);
+  dim3 grid_n(raft::ceildiv(result->nnz, TPB_X), 1, 1);
 }
 
 template <int TPB_X, typename T>
@@ -232,10 +232,10 @@ void perform_categorical_intersection(T *y, COO<T> *rgraph_coo,
 }
 
 template <int TPB_X, typename T>
-void perform_general_intersection(const cumlHandle &handle, T *y,
+void perform_general_intersection(const raft::handle_t &handle, T *y,
                                   COO<T> *rgraph_coo, COO<T> *final_coo,
                                   UMAPParams *params, cudaStream_t stream) {
-  auto d_alloc = handle.getDeviceAllocator();
+  auto d_alloc = handle.get_device_allocator();
 
   /**
    * Calculate kNN for Y
@@ -252,13 +252,13 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
     CUML_LOG_DEBUG("Target kNN Graph");
     std::stringstream ss1, ss2;
-    ss1 << MLCommon::arr2Str(y_knn_indices.data(),
-                             rgraph_coo->n_rows * params->target_n_neighbors,
-                             "knn_indices", stream);
+    ss1 << raft::arr2Str(y_knn_indices.data(),
+                         rgraph_coo->n_rows * params->target_n_neighbors,
+                         "knn_indices", stream);
     CUML_LOG_DEBUG("%s", ss1.str().c_str());
-    ss2 << MLCommon::arr2Str(y_knn_dists.data(),
-                             rgraph_coo->n_rows * params->target_n_neighbors,
-                             "knn_dists", stream);
+    ss2 << raft::arr2Str(y_knn_dists.data(),
+                         rgraph_coo->n_rows * params->target_n_neighbors,
+                         "knn_dists", stream);
     CUML_LOG_DEBUG("%s", ss2.str().c_str());
   }
 
