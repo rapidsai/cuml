@@ -30,12 +30,12 @@ from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 cdef extern from "raft/linalg/distance_type.h" namespace "raft::linalg":
 
     cdef enum DistanceType:
-        EucExpandedL2 "ML::Distance::DistanceType::EucExpandedL2"
-        EucExpandedL2Sqrt "ML::Distance::DistanceType::EucExpandedL2Sqrt"
-        EucExpandedCosine "ML::Distance::DistanceType::EucExpandedCosine"
-        EucUnexpandedL1 "ML::Distance::DistanceType::EucUnexpandedL1"
-        EucUnexpandedL2 "ML::Distance::DistanceType::EucUnexpandedL2"
-        EucUnexpandedL2Sqrt "ML::Distance::DistanceType::EucUnexpandedL2Sqrt"
+        EucExpandedL2 "raft::linalg::DistanceType::EucExpandedL2"
+        EucExpandedL2Sqrt "raft::linalg::DistanceType::EucExpandedL2Sqrt"
+        EucExpandedCosine "raft::linalg::DistanceType::EucExpandedCosine"
+        EucUnexpandedL1 "raft::linalg::DistanceType::EucUnexpandedL1"
+        EucUnexpandedL2 "raft::linalg::DistanceType::EucUnexpandedL2"
+        EucUnexpandedL2Sqrt "raft::linalg::DistanceType::EucUnexpandedL2Sqrt"
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     void pairwiseDistance(const handle_t &handle, const double *x,
