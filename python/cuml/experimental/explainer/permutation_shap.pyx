@@ -38,9 +38,9 @@ except ImportError:
     shap_not_found = True
 
 
-cdef extern from "cuml/datasets/make_permutation.hpp" namespace "ML":
+cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
 
-    void make_permutation "ML::Datasets::make_permutation"(
+    void permutation_dataset "ML::Explainer::permutation_dataset"(
         handle_t& handle,
         float* out,
         float* background,
@@ -50,7 +50,7 @@ cdef extern from "cuml/datasets/make_permutation.hpp" namespace "ML":
         int* idx,
         bool rowMajor) except +
 
-    void make_permutation "ML::Datasets::make_permutation"(
+    void permutation_dataset "ML::Explainer::permutation_dataset"(
         handle_t& handle,
         double* out,
         double* background,
@@ -60,7 +60,7 @@ cdef extern from "cuml/datasets/make_permutation.hpp" namespace "ML":
         int* idx,
         bool rowMajor) except +
 
-    void single_entry_scatter "ML::Datasets::single_entry_scatter"(
+    void main_effect_dataset "ML::Explainer::main_effect_dataset"(
         handle_t& handle,
         float* out,
         float* background,
@@ -70,7 +70,7 @@ cdef extern from "cuml/datasets/make_permutation.hpp" namespace "ML":
         int* idx,
         bool rowMajor) except +
 
-    void single_entry_scatter "ML::Datasets::single_entry_scatter"(
+    void main_effect_dataset "ML::Explainer::main_effect_dataset"(
         handle_t& handle,
         double* out,
         double* background,
@@ -289,7 +289,7 @@ class PermutationSHAP():
             row_major = order == "C"
 
             if dtype == cp.float32:
-                make_permutation(handle_[0],
+                permutation_dataset(handle_[0],
                                  <float*> masked_ptr,
                                  <float*> bg_ptr,
                                  <int> self.n_rows,
@@ -298,7 +298,7 @@ class PermutationSHAP():
                                  <int*> idx_ptr,
                                  <bool> row_major)
             else:
-                make_permutation(handle_[0],
+                permutation_dataset(handle_[0],
                                  <double*> masked_ptr,
                                  <double*> bg_ptr,
                                  <int> self.n_rows,
@@ -310,6 +310,8 @@ class PermutationSHAP():
             self.handle.sync()
 
             results = self.model(masked_inputs)
+
+            self.obs_output = results[len(results) / 2]
 
             results = results.reshape(2 * n_cols + 1, len(self.masker))
 
@@ -329,11 +331,26 @@ class PermutationSHAP():
                                                          idx,
                                                          len(idx)))
 
+            print("row_values")
+            print(row_values)
+
             cp.cuda.Stream.null.synchronize()
 
         row_values /= (2 * npermutations)
         self.expected_value = averaged_outs[0]
-        self.obs_output = results[n_cols]
+
+        diff = cp.sum(row_values) - (self.obs_output - self.expected_value)
+        print("cp.sum(row_values)")
+        print(cp.sum(row_values))
+        print("self.expected_value")
+        print(self.expected_value)
+        print("self.obs_output")
+        print(self.obs_output)
+        print("diff:::::")
+        print(diff)
+
+        print("npermutations")
+        print(npermutations)
 
         if main_effects:
             del masked_inputs
@@ -364,7 +381,7 @@ class PermutationSHAP():
         row_major = self.masker.order == "C"
 
         if self.masker.order.dtype == cp.float32:
-            single_entry_scatter(handle_[0],
+            main_effect_dataset(handle_[0],
                                  <float*> masked_ptr,
                                  <float*> bg_ptr,
                                  <int> self.n_rows,
@@ -373,7 +390,7 @@ class PermutationSHAP():
                                  <int*> idx_ptr,
                                  <bool> row_major)
         else:
-            single_entry_scatter(handle_[0],
+            main_effect_dataset(handle_[0],
                                  <double*> masked_ptr,
                                  <double*> bg_ptr,
                                  <int> self.n_rows,
