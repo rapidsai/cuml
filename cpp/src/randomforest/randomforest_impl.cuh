@@ -70,8 +70,8 @@ void rf<T, L>::prepare_fit_per_tree(
   int rs = tree_id;
   if (rf_params.seed > -1) rs = rf_params.seed + tree_id;
 
-  MLCommon::Random::Rng rng(rs * 1000 | 0xFF00AA,
-                            MLCommon::Random::GeneratorType::GenKiss99);
+  raft::random::Rng rng(rs * 1000 | 0xFF00AA,
+                        raft::random::GeneratorType::GenKiss99);
   if (rf_params.bootstrap) {
     // Use bootstrapped sample set
     rng.uniformInt<unsigned>(selected_rows, n_sampled_rows, 0, n_rows, stream);
@@ -264,7 +264,7 @@ void rfClassifier<T>::predict(const raft::handle_t& user_handle, const T* input,
   cudaStream_t stream = user_handle.get_stream();
 
   std::vector<T> h_input(n_rows * n_cols);
-  MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
+  raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   int row_size = n_cols;
@@ -302,7 +302,7 @@ void rfClassifier<T>::predict(const raft::handle_t& user_handle, const T* input,
     h_predictions[row_id] = majority_prediction;
   }
 
-  MLCommon::updateDevice(predictions, h_predictions.data(), n_rows, stream);
+  raft::update_device(predictions, h_predictions.data(), n_rows, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
@@ -328,7 +328,7 @@ void rfClassifier<T>::predictGetAll(const raft::handle_t& user_handle,
 
   std::vector<T> h_input(n_rows * n_cols);
   cudaStream_t stream = user_handle.get_stream();
-  MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
+  raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   int row_size = n_cols;
@@ -353,8 +353,8 @@ void rfClassifier<T>::predictGetAll(const raft::handle_t& user_handle,
     }
   }
 
-  MLCommon::updateDevice(predictions, h_predictions.data(), n_rows * num_trees,
-                         stream);
+  raft::update_device(predictions, h_predictions.data(), n_rows * num_trees,
+                      stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
@@ -541,7 +541,7 @@ void rfRegressor<T>::predict(const raft::handle_t& user_handle, const T* input,
   cudaStream_t stream = user_handle.get_stream();
 
   std::vector<T> h_input(n_rows * n_cols);
-  MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
+  raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   int row_size = n_cols;
@@ -568,7 +568,7 @@ void rfRegressor<T>::predict(const raft::handle_t& user_handle, const T* input,
     h_predictions[row_id] = sum_predictions / this->rf_params.n_trees;
   }
 
-  MLCommon::updateDevice(predictions, h_predictions.data(), n_rows, stream);
+  raft::update_device(predictions, h_predictions.data(), n_rows, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 

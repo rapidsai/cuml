@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
@@ -117,7 +118,7 @@ void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
                             no_op_cluster_solver_t{}, labels.data(),
                             eigVals.data(), eigVecs.data());
 
-  MLCommon::copy<T>(out, eigVecs.data() + n, n * n_components, stream);
+  raft::copy<T>(out, eigVecs.data() + n, n * n_components, stream);
 
   CUDA_CHECK(cudaGetLastError());
 }

@@ -88,8 +88,9 @@ class TSNE(Base):
     Parameters
     -----------
     n_components : int (default 2)
-        The output dimensionality size. Currently only size=2 is tested, but
-        the 'exact' algorithm will support greater dimensionality in future.
+        The output dimensionality size. Currently only size=2 is tested and
+        supported, but the 'exact' algorithm will support greater
+        dimensionality in future.
     perplexity : float (default 30.0)
         Larger datasets require a larger value. Consider choosing different
         perplexity values from 5 to 50 and see the output differences.
@@ -213,7 +214,10 @@ class TSNE(Base):
             warnings.warn("Barnes Hut only works when n_components == 2. "
                           "Switching to exact.")
             method = 'exact'
-        if n_components != 2:
+        if n_components > 2:
+            raise ValueError("Currently TSNE supports n_components = 2; "
+                             "but got n_components = {}".format(n_components))
+        if n_components < 2:
             warnings.warn("Currently TSNE supports n_components = 2.")
             n_components = 2
         if perplexity < 0:

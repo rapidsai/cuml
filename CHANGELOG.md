@@ -1,6 +1,7 @@
 # cuML 0.16.0 (Date TBD)
 
 ## New Features
+- PR #2909: Update allgatherv for compatibility with latest RAFT
 - PR #2677: Ability to export RF trees as JSON
 - PR #2698: Distributed TF-IDF transformer
 - PR #2476: Porter Stemmer
@@ -31,14 +32,20 @@
 - PR #2799: Reenable lightgbm test with lower (1%) proba accuracy
 - PR #2800: Align cuML's spdlog version with RMM's
 - PR #2824: Make data conversions warnings be debug level
+- PR #2835: Rng prims, utils, and dependencies in RAFT
 - PR #2541: Improve Documentation Examples and Source Linking
 - PR #2837: Make the FIL node reorder loop more obvious
 - PR #2849: make num_classes significant in FLOAT_SCALAR case
 - PR #2792: Project flash (new build process) script changes
 - PR #2850: Clean up unused params in paramsPCA
+- PR #2871: Add timing function to utils
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
+- PR #2867: improve stability of FIL benchmark measurements
+- PR #2892 Update ci/local/README.md
 
 ## Bug Fixes
+- PR #2882: Allow import on machines without GPUs
+- PR #2875: Bug fix to enable colorful NVTX markers
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
 - PR #2769: Remove outdated doxygen options for 1.8.20
 - PR #2787: Skip lightgbm test for version 3 and above temporarily
@@ -56,8 +63,11 @@
 - PR #2847: Workaround for TSNE lockup, change caching preference.
 - PR #2842: KNN index preprocessors were using incorrect n_samples
 - PR #2848: Fix typo in Python docstring for UMAP
-- PR #2856: Fix LabelEncoder for filtered input 
+- PR #2856: Fix LabelEncoder for filtered input
 - PR #2855: Updates for RMM being header only
+- PR #2880: Fix bugs in Auto-ARIMA when s==None
+- PR #2877:  TSNE exception for n_components > 2
+- PR #2879: Update unit test for LabelEncoder on filtered input
 
 # cuML 0.15.0 (Date TBD)
 
@@ -90,6 +100,7 @@
 - PR #2661: CUDA-11 support for single-gpu code
 - PR #2322: Sparse FIL forests with 8-byte nodes
 - PR #2675: Update conda recipes to support CUDA 11
+- PR #2645: Add experimental, sklearn-based preprocessing
 
 ## Improvements
 - PR #2336: Eliminate `rmm.device_array` usage

@@ -335,7 +335,7 @@ void _transform(const raft::handle_t &handle, T *X, int n, int d,
   CUDA_CHECK(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(T), stream));
   CUDA_CHECK(cudaMemsetAsync(rhos.data(), 0, n * sizeof(T), stream));
 
-  dim3 grid_n(MLCommon::ceildiv(n, TPB_X), 1, 1);
+  dim3 grid_n(raft::ceildiv(n, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   FuzzySimplSetImpl::smooth_knn_dist<TPB_X, T>(
@@ -349,7 +349,7 @@ void _transform(const raft::handle_t &handle, T *X, int n, int d,
 
   int nnz = n * params->n_neighbors;
 
-  dim3 grid_nnz(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+  dim3 grid_nnz(raft::ceildiv(nnz, TPB_X), 1, 1);
 
   CUML_LOG_DEBUG("Executing fuzzy simplicial set");
 
@@ -415,7 +415,7 @@ void _transform(const raft::handle_t &handle, T *X, int n, int d,
 
   CUML_LOG_DEBUG("n_epochs=%d", n_epochs);
 
-  MLCommon::LinAlg::unaryOp<T>(
+  raft::linalg::unaryOp<T>(
     graph_coo.vals(), graph_coo.vals(), graph_coo.nnz,
     [=] __device__(T input) {
       if (input < (max / float(n_epochs)))
