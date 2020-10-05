@@ -103,6 +103,7 @@
 - PR #2645: Add experimental, sklearn-based preprocessing
 
 ## Improvements
+- PR #2529: Adding get_param_names() to all classes inheriting from cuml.common.base.Base for consistency 
 - PR #2336: Eliminate `rmm.device_array` usage
 - PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
 - PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
