@@ -574,7 +574,7 @@ def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
     sk_r_X = transformer.inverse_transform(sk_t_X)
 
     if strategy == 'kmeans':
-        assert_allclose(t_X, sk_t_X, ratio_tol=0.1)
+        assert_allclose(t_X, sk_t_X, ratio_tol=0.2)
     else:
         assert_allclose(t_X, sk_t_X)
         assert_allclose(r_X, sk_r_X)
