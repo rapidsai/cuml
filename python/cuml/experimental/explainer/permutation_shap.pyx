@@ -340,17 +340,6 @@ class PermutationSHAP():
         self.expected_value = averaged_outs[0]
 
         diff = cp.sum(row_values) - (self.obs_output - self.expected_value)
-        print("cp.sum(row_values)")
-        print(cp.sum(row_values))
-        print("self.expected_value")
-        print(self.expected_value)
-        print("self.obs_output")
-        print(self.obs_output)
-        print("diff:::::")
-        print(diff)
-
-        print("npermutations")
-        print(npermutations)
 
         if main_effects:
             del masked_inputs

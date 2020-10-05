@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cuml/datasets/make_permutation.hpp>
+#include <cuml/explainer/permutation_shap.hpp>
 
 namespace ML {
 namespace Datasets {
@@ -140,7 +140,7 @@ void permutation_dataset(const raft::handle_t& handle, float* out,
 void permutation_dataset(const raft::handle_t& handle, double* out,
                       double* background, int n_rows, int n_cols,
                       double* row, int* idx, bool rowMajor){
-    make_permutation_impl(handle, out, background, n_rows, n_cols,
+    permutation_dataset_impl(handle, out, background, n_rows, n_cols,
                           row, idx, rowMajor);
 }
 
