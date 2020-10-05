@@ -168,6 +168,11 @@ class SVMBase(Base):
             for nochange_steps consecutive steps, then we stop training.
         verbose : int or boolean (default = False)
             verbosity level
+        output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
+            Variable to control output type of the results and attributes of
+            the estimators. If None, it'll inherit the output type set at the
+            module level, cuml.output_type. If set, the estimator will override
+            the global option for its behavior.
 
         Attributes
         ----------

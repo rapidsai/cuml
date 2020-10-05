@@ -112,6 +112,11 @@ class NearestNeighbors(Base):
         Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
         by using the expanded form and not computing the n-th roots.
     metric_params : dict, optional (default = None) This is currently ignored.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
 
     Examples
     --------
@@ -237,7 +242,8 @@ class NearestNeighbors(Base):
         return self
 
     def get_param_names(self):
-        return ["n_neighbors", "algorithm", "metric",
+        return super().get_param_names() + \
+            ["n_neighbors", "algorithm", "metric",
                 "p", "metric_params"]
 
     @staticmethod

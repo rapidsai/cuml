@@ -240,6 +240,11 @@ class PCA(Base):
         Whitening allows each component to have unit variance and removes
         multi-collinearity. It might be beneficial for downstream
         tasks like LinearRegression where correlated features cause problems.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
 
 
     Attributes
@@ -756,7 +761,8 @@ class PCA(Base):
         return t_input_data
 
     def get_param_names(self):
-        return ["copy", "iterated_power", "n_components", "svd_solver", "tol",
+        return super().get_param_names() + \
+            ["copy", "iterated_power", "n_components", "svd_solver", "tol",
                 "whiten"]
 
     def __getstate__(self):

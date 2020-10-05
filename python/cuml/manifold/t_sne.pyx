@@ -148,6 +148,11 @@ class TSNE(Base):
     handle : (cuML Handle, default None)
         You can pass in a past handle that was initialized, or we will create
         one for you anew!
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
 
     References
     -----------
@@ -207,9 +212,12 @@ class TSNE(Base):
                  int exaggeration_iter=250,
                  float pre_momentum=0.5,
                  float post_momentum=0.8,
-                 handle=None):
+                 handle=None,
+                 str output_type=None):
 
-        super(TSNE, self).__init__(handle=handle, verbose=verbose)
+        super(TSNE, self).__init__(handle=handle,
+                                   verbose=verbose,
+                                   output_type=output_type)
 
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
@@ -446,3 +454,26 @@ class TSNE(Base):
                                    verbose=state['verbose'])
         self.__dict__.update(state)
         return state
+
+    def get_param_names(self):
+        return super().get_param_names() + \
+            [
+                "n_components",
+                "perplexity",
+                "early_exaggeration",
+                "learning_rate",
+                "n_iter",
+                "n_iter_without_progress",
+                "min_grad_norm",
+                "metric",
+                "init",
+                "random_state",
+                "method",
+                "angle",
+                "learning_rate_method",
+                "n_neighbors",
+                "perplexity_max_iter",
+                "exaggeration_iter",
+                "pre_momentum",
+                "post_momentum",
+            ]

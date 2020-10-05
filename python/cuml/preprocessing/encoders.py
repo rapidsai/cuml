@@ -81,6 +81,20 @@ class OneHotEncoder(Base):
         transform, the resulting one-hot encoded columns for this feature
         will be all zeros. In the inverse transform, an unknown category
         will be denoted as None.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created just for this class.
+    verbose : int or boolean (default = False)
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
 
     Attributes
     ----------
@@ -90,8 +104,18 @@ class OneHotEncoder(Base):
         be retained.
 
     """
-    def __init__(self, categories='auto', drop=None, sparse=True,
-                 dtype=np.float, handle_unknown='error'):
+    def __init__(self,
+                 categories='auto',
+                 drop=None,
+                 sparse=True,
+                 dtype=np.float,
+                 handle_unknown='error',
+                 handle=None,
+                 verbose=False,
+                 output_type=None):
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.categories = categories
         self.sparse = sparse
         self.dtype = dtype
@@ -303,7 +327,7 @@ class OneHotEncoder(Base):
                 if (max_value > np.iinfo(col_idx.dtype).max):
                     col_idx = col_idx.astype(np.min_scalar_type(max_value))
                     logger.debug("Upconverting column: '{}', to dtype: '{}', \
-                            to support up to {} classes".format(
+                            to support up to {} classes"                                                                                                                .format(
                         feature, np.min_scalar_type(max_value), max_value))
 
                 # increase indices to take previous features into account
@@ -426,3 +450,14 @@ class OneHotEncoder(Base):
                               "values. Returning output as a DataFrame "
                               "instead.")
         return result
+
+    def get_param_names(self):
+        return super().get_param_names() + \
+            [
+                "categories",
+                "drop",
+                "sparse",
+                "dtype",
+                "handle_unknown",
+            ]
+

@@ -482,25 +482,25 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         self.datatype = data.datatype
         return self._predict_proba(X, delayed, **kwargs)
 
-    def get_params(self, deep=True):
-        """
-        Returns the value of all parameters
-        required to configure this estimator as a dictionary.
+    # def get_params(self, deep=True):
+    #     """
+    #     Returns the value of all parameters
+    #     required to configure this estimator as a dictionary.
 
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        return self._get_params(deep)
+    #     Parameters
+    #     -----------
+    #     deep : boolean (default = True)
+    #     """
+    #     return self._get_params(deep)
 
-    def set_params(self, **params):
-        """
-        Sets the value of parameters required to
-        configure this estimator, it functions similar to
-        the sklearn set_params.
+    # def set_params(self, **params):
+    #     """
+    #     Sets the value of parameters required to
+    #     configure this estimator, it functions similar to
+    #     the sklearn set_params.
 
-        Parameters
-        -----------
-        params : dict of new params.
-        """
-        return self._set_params(**params)
+    #     Parameters
+    #     -----------
+    #     params : dict of new params.
+    #     """
+    #     return self._set_params(**params)

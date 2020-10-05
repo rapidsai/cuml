@@ -137,6 +137,18 @@ class LogisticRegression(Base, ClassifierMixin):
         depending on the conditions of the l1 regularization described
         above. Options 'lbfgs' and 'owl' are just convenience values that
         end up using the same solver following the same rules.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created just for this class.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
 
     Attributes
     -----------
@@ -394,16 +406,17 @@ class LogisticRegression(Base, ClassifierMixin):
         return proba
 
     def get_param_names(self):
-        return [
-            "C",
-            "penalty",
-            "tol",
-            "fit_intercept",
-            "max_iter",
-            "linesearch_max_iter",
-            "l1_ratio",
-            "solver",
-        ]
+        return super().get_param_names() + \
+            [
+                "C",
+                "penalty",
+                "tol",
+                "fit_intercept",
+                "max_iter",
+                "linesearch_max_iter",
+                "l1_ratio",
+                "solver",
+            ]
 
     def __getstate__(self):
         state = self.__dict__.copy()

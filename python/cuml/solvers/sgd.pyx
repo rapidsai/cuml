@@ -208,6 +208,8 @@ class SGD(Base):
         the estimators. If None, it'll inherit the output type set at the
         module level, cuml.output_type. If set, the estimator will override
         the global option for its behavior.
+    verbose : int or boolean (default = False)
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
 
     """
 
@@ -218,21 +220,21 @@ class SGD(Base):
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
-                 output_type=None):
+                 output_type=None, verbose=False):
 
         if loss in ['hinge', 'log', 'squared_loss']:
-            self.loss = self._get_loss_int(loss)
+            self.loss = loss
         else:
             msg = "loss {!r} is not supported"
             raise TypeError(msg.format(loss))
 
         if penalty in ['none', 'l1', 'l2', 'elasticnet']:
-            self.penalty = self._get_penalty_int(penalty)
+            self.penalty = penalty
         else:
             msg = "penalty {!r} is not supported"
             raise TypeError(msg.format(penalty))
 
-        super(SGD, self).__init__(handle=handle, verbose=False,
+        super(SGD, self).__init__(handle=handle, verbose=verbose,
                                   output_type=output_type)
         self.alpha = alpha
         self.l1_ratio = l1_ratio
@@ -284,23 +286,23 @@ class SGD(Base):
                 msg = "alpha values have to be positive"
                 raise TypeError(msg.format(alpha))
 
-    def _get_loss_int(self, loss):
+    def _get_loss_int(self):
         return {
             'squared_loss': 0,
             'log': 1,
             'hinge': 2,
-        }[loss]
+        }[self.loss]
 
-    def _get_penalty_int(self, penalty):
+    def _get_penalty_int(self):
         return {
             'none': 0,
             'l1': 1,
             'l2': 2,
             'elasticnet': 3
-        }[penalty]
+        }[self.penalty]
 
     @generate_docstring()
-    
+    @cuml.internals.api_base_return_any(skip_set_output_dtype=False)
     def fit(self, X, y, convert_dtype=False) -> "SGD":
         """
         Fit the model with X and y.
@@ -319,7 +321,7 @@ class SGD(Base):
 
         _estimator_type = getattr(self, '_estimator_type', None)
         if _estimator_type == "classifier":
-            self.classes_ = CumlArray(cp.unique(y_m))
+            self.classes_ = cp.unique(y_m)
 
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t y_ptr = y_m.ptr
@@ -348,8 +350,8 @@ class SGD(Base):
                    <int>self.lr_type,
                    <float>self.eta0,
                    <float>self.power_t,
-                   <int>self.loss,
-                   <int>self.penalty,
+                   <int>self._get_loss_int(),
+                   <int>self._get_penalty_int(),
                    <float>self.alpha,
                    <float>self.l1_ratio,
                    <bool>self.shuffle,
@@ -371,8 +373,8 @@ class SGD(Base):
                    <int>self.lr_type,
                    <double>self.eta0,
                    <double>self.power_t,
-                   <int>self.loss,
-                   <int>self.penalty,
+                   <int>self._get_loss_int(),
+                   <int>self._get_penalty_int(),
                    <double>self.alpha,
                    <double>self.l1_ratio,
                    <bool>self.shuffle,
@@ -421,7 +423,7 @@ class SGD(Base):
                        <float*>coef_ptr,
                        <float>self.intercept_,
                        <float*>preds_ptr,
-                       <int>self.loss)
+                       <int>self._get_loss_int())
         else:
             sgdPredict(handle_[0],
                        <double*>X_ptr,
@@ -430,7 +432,7 @@ class SGD(Base):
                        <double*>coef_ptr,
                        <double>self.intercept_,
                        <double*>preds_ptr,
-                       <int>self.loss)
+                       <int>self._get_loss_int())
 
         self.handle.sync()
 
@@ -471,7 +473,7 @@ class SGD(Base):
                                   <float*>coef_ptr,
                                   <float>self.intercept_,
                                   <float*>preds_ptr,
-                                  <int>self.loss)
+                                  <int>self._get_loss_int())
         else:
             sgdPredictBinaryClass(handle_[0],
                                   <double*>X_ptr,
@@ -480,10 +482,28 @@ class SGD(Base):
                                   <double*>coef_ptr,
                                   <double>self.intercept_,
                                   <double*>preds_ptr,
-                                  <int>self.loss)
+                                  <int>self._get_loss_int())
 
         self.handle.sync()
 
         del(X_m)
 
         return preds
+
+    def get_param_names(self):
+        return super().get_param_names() + \
+            [
+                "loss",
+                "penalty",
+                "alpha",
+                "l1_ratio",
+                "fit_intercept",
+                "epochs",
+                "tol",
+                "shuffle",
+                "learning_rate",
+                "eta0",
+                "power_t",
+                "batch_size",
+                "n_iter_no_change",
+            ]

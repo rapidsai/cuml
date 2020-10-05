@@ -88,6 +88,11 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
     weights : string (default='uniform')
         Sample weights to use. Currently, only the uniform strategy is
         supported.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
 
     Examples
     --------
@@ -218,5 +223,4 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
         return results
 
     def get_param_names(self):
-        return super(KNeighborsRegressor, self).get_param_names() \
-            + ["weights"]
+        return super().get_param_names() + ["weights"]

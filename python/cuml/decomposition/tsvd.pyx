@@ -198,6 +198,11 @@ class TruncatedSVD(Base):
         but but will slow down the algorithm's convergence.
     verbose : int or boolean (default = False)
         Logging level
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
 
     Attributes
     -----------
@@ -469,4 +474,5 @@ class TruncatedSVD(Base):
         return t_input_data
 
     def get_param_names(self):
-        return ["algorithm", "n_components", "n_iter", "random_state", "tol"]
+        return super().get_param_names() + \
+            ["algorithm", "n_components", "n_iter", "random_state", "tol"]

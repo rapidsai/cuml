@@ -341,4 +341,4 @@ class DBSCAN(Base):
         return self.labels_
 
     def get_param_names(self):
-        return ["eps", "min_samples"]
+        return super().get_param_names() + ["eps", "min_samples"]

@@ -266,3 +266,7 @@ class TfidfTransformer(Base):
             shape=(n_features, n_features),
             dtype=cp.float32
         )
+
+    def get_param_names(self):
+        return super().get_param_names() + \
+            ["norm", "use_idf", "smooth_idf", "sublinear_tf"]

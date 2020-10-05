@@ -182,7 +182,8 @@ class MultinomialNB(Base):
                  fit_prior=True,
                  class_prior=None,
                  output_type=None,
-                 handle=None):
+                 handle=None,
+                 verbose=False):
         """
         Create new multinomial Naive Bayes instance
 
@@ -196,9 +197,25 @@ class MultinomialNB(Base):
         class_prior : array-like, size (n_classes) Prior probabilities of the
                       classes. If specified, the priors are not adjusted
                       according to the data.
+        output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
+            Variable to control output type of the results and attributes of
+            the estimators. If None, it'll inherit the output type set at the
+            module level, cuml.output_type. If set, the estimator will override
+            the global option for its behavior.
+        handle : cuml.Handle 
+            Specifies the cuml.handle that holds internal CUDA state for
+            computations in this model. Most importantly, this specifies
+            the CUDA stream that will be used for the model's computations,
+            so users can run different models concurrently in different
+            streams by creating handles in several streams. If it is None,
+            a new one is created just for this class.
+        verbose : int or boolean (default = False)
+            Sets logging level. It must be one of `cuml.common.logger.level_*`.
+
         """
         super(MultinomialNB, self).__init__(handle=handle,
-                                            output_type=output_type)
+                                            output_type=output_type,
+                                            verbose=verbose)
         self.alpha = alpha
         self.fit_prior = fit_prior
 
@@ -597,3 +614,11 @@ class MultinomialNB(Base):
         ret = X.dot(self.feature_log_prob_.T)
         ret += self.class_log_prior_
         return ret
+
+    def get_param_names(self):
+        return super().get_param_names() + \
+            [
+                "alpha",
+                "fit_prior",
+                "class_prior",
+            ]

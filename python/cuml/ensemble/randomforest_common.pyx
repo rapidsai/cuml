@@ -43,13 +43,13 @@ class BaseRandomForestModel(Base):
                  'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
                  'verbose', 'rows_sample',
-                 'max_leaves', 'quantile_per_tree']
+                 'max_leaves', 'quantile_per_tree', 'accuracy_metric']
     criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
                       '3': MAE, '4': CRITERION_END}
 
     classes_ = CumlArrayDescriptor()
 
-    def __init__(self, split_criterion, seed=None,
+    def __init__(self, *, split_criterion, seed=None,
                  n_streams=8, n_estimators=100,
                  max_depth=16, handle=None, max_features='auto',
                  n_bins=8, split_algo=1, bootstrap=True,
@@ -64,8 +64,8 @@ class BaseRandomForestModel(Base):
                  random_state=None, warm_start=None, class_weight=None,
                  quantile_per_tree=False, criterion=None):
 
-        if accuracy_metric:
-            BaseRandomForestModel.variables.append('accuracy_metric')
+        # if accuracy_metric:
+        #     BaseRandomForestModel.variables.append('accuracy_metric')
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
@@ -344,26 +344,27 @@ class BaseRandomForestModel(Base):
         preds = tl_to_fil_model.predict(X, predict_proba=predict_proba)
         return preds
 
-    def _get_params(self, deep):
-        params = dict()
-        for key in BaseRandomForestModel.variables:
-            if key in ['handle']:
-                continue
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
+    def get_param_names(self):
+        combined = super().get_param_names() + BaseRandomForestModel.variables
 
-    def _set_params(self, **params):
+        if ("handle" in combined):
+            combined.remove("handle")
+
+        return combined
+
+    # def _get_params(self, deep):
+    #     params = dict()
+    #     for key in BaseRandomForestModel.variables:
+    #         if key in ['handle']:
+    #             continue
+    #         var_value = getattr(self, key, None)
+    #         params[key] = var_value
+    #     return params
+
+    def set_params(self, **params):
         self.treelite_serialized_model = None
 
-        if not params:
-            return self
-        for key, value in params.items():
-            if key not in BaseRandomForestModel.variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-        return self
+        super().set_params(**params)
 
 
 def _check_fil_parameter_validity(depth, algo, fil_sparse_format):

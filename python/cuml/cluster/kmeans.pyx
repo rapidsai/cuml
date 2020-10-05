@@ -220,6 +220,11 @@ class KMeans(Base):
         pairwise distance computation is max_samples_per_batch * n_clusters.
         It might become necessary to lower this number when n_clusters
         becomes prohibitively large.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
 
     Attributes
     ----------
@@ -613,6 +618,7 @@ class KMeans(Base):
         return self.fit(X).transform(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
-        return ['n_init', 'oversampling_factor', 'max_samples_per_batch',
+        return super().get_param_names() + \
+            ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
                 'tol']

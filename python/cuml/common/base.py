@@ -113,7 +113,7 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         If it is None, a new one is created just for this class.
     verbose : int or boolean (default = False)
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
-    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
         Variable to control output type of the results and attributes of
         the estimators. If None, it'll inherit the output type set at the
         module level, cuml.output_type. If set, the estimator will override

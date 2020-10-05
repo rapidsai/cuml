@@ -172,6 +172,11 @@ class SVC(SVMBase, ClassifierMixin):
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
     probability: bool (default = False)
         Enable or disable probability estimates.
     random_state: int (default = None)

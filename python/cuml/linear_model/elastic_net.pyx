@@ -122,6 +122,8 @@ class ElasticNet(Base, RegressorMixin):
         default the estimator will mirror the type of the data used for each
         fit or predict call.
         If set, the estimator will override the global option for its behavior.
+    verbose : int or boolean (default = False)
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
 
     Attributes
     -----------
@@ -140,7 +142,7 @@ class ElasticNet(Base, RegressorMixin):
 
     def __init__(self, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3, selection='cyclic',
-                 handle=None, output_type=None):
+                 handle=None, output_type=None, verbose=False):
         """
         Initializes the elastic-net regression class.
 
@@ -160,7 +162,7 @@ class ElasticNet(Base, RegressorMixin):
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
         super(ElasticNet, self).__init__(handle=handle,
-                                         verbose=False,
+                                         verbose=verbose,
                                          output_type=output_type)
 
         self._check_alpha(alpha)
@@ -224,38 +226,51 @@ class ElasticNet(Base, RegressorMixin):
 
         return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
-    def get_params(self, deep=True):
-        """
-        Scikit-learn style function that returns the estimator parameters.
+    # def get_params(self, deep=True):
+    #     """
+    #     Scikit-learn style function that returns the estimator parameters.
 
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-                     'selection']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
+    #     Parameters
+    #     -----------
+    #     deep : boolean (default = True)
+    #     """
+    #     params = dict()
+    #     variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
+    #                  'selection']
+    #     for key in variables:
+    #         var_value = getattr(self, key, None)
+    #         params[key] = var_value
+    #     return params
 
-    def set_params(self, **params):
-        """
-        Sklearn style set parameter state to dictionary of params.
+    # def set_params(self, **params):
+    #     """
+    #     Sklearn style set parameter state to dictionary of params.
 
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-                     'selection']
-        for key, value in params.items():
-            if key not in variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
+    #     Parameters
+    #     -----------
+    #     params : dict of new params
+    #     """
+    #     if not params:
+    #         return self
+    #     variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
+    #                  'selection']
+    #     for key, value in params.items():
+    #         if key not in variables:
+    #             raise ValueError('Invalid parameter for estimator')
+    #         else:
+    #             setattr(self, key, value)
 
-        return self
+    #     return self
+
+    def get_param_names(self):
+        return super().get_param_names() + \
+            [
+                "alpha",
+                "l1_ratio",
+                "fit_intercept",
+                "normalize",
+                "max_iter",
+                "tol",
+                "selection",
+            ]
+

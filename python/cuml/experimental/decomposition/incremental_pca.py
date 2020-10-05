@@ -114,6 +114,12 @@ class IncrementalPCA(PCA):
         balance between approximation accuracy and memory consumption.
     verbose : int or boolean (default = False)
         Logging level
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
+
     Attributes
     ----------
     components_ : array, shape (n_components, n_features)
@@ -394,7 +400,7 @@ class IncrementalPCA(PCA):
             return super().transform(X)
 
     def get_param_names(self):
-        return self._hyperparams
+        return super().get_param_names() + self._hyperparams
 
     # def _cupy_to_cumlarray_attrs(self):
     #     self.components_ = CumlArray(self.components_.copy())
