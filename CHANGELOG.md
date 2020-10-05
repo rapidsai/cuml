@@ -50,6 +50,7 @@
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
 - PR #2867: improve stability of FIL benchmark measurements
 - PR #2892 Update ci/local/README.md
+- PR #2910: Adding Support for CuPy 8.x
 
 ## Bug Fixes
 - PR #2882: Allow import on machines without GPUs
@@ -74,7 +75,7 @@
 - PR #2856: Fix LabelEncoder for filtered input
 - PR #2855: Updates for RMM being header only
 - PR #2880: Fix bugs in Auto-ARIMA when s==None
-- PR #2877:  TSNE exception for n_components > 2
+- PR #2877: TSNE exception for n_components > 2
 - PR #2879: Update unit test for LabelEncoder on filtered input
 
 # cuML 0.15.0 (Date TBD)
