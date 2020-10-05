@@ -58,7 +58,7 @@ def _build_and_save_xgboost(model_path,
                             y_train,
                             classification=True,
                             num_rounds=5,
-                            num_classes=1,
+                            n_classes=1,
                             xgboost_params={}):
     """Trains a small xgboost classifier and saves it to model_path"""
     dtrain = xgb.DMatrix(X_train, label=y_train)
@@ -69,8 +69,8 @@ def _build_and_save_xgboost(model_path,
     # learning task params
     if classification:
         params['eval_metric'] = 'error'
-        params['num_class'] = num_classes
-        if num_classes == 1:
+        params['num_class'] = n_classes
+        if n_classes == 1:
             params['objective'] = 'binary:logistic'
         else:
             params['objective'] = 'multi:softmax'
@@ -96,15 +96,15 @@ def _build_and_save_xgboost(model_path,
                                         unit_param(5),
                                         quality_param(50),
                                         stress_param(90)])
-@pytest.mark.parametrize('num_classes', [2, 5])
+@pytest.mark.parametrize('n_classes', [2, 5])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 def test_fil_classification(n_rows, n_columns, num_rounds,
-                            num_classes, tmp_path):
+                            n_classes, tmp_path):
     # settings
     classification = True  # change this to false to use regression
     random_state = np.random.RandomState(43210)
 
-    X, y = simulate_data(n_rows, n_columns, num_classes,
+    X, y = simulate_data(n_rows, n_columns, n_classes,
                          random_state=random_state,
                          classification=classification)
     # identify shape and indices
@@ -116,14 +116,14 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
 
     model_path = os.path.join(tmp_path, 'xgb_class.model')
 
-    if num_classes == 2:
-        xgb_num_classes = 1
+    if n_classes == 2:
+        xgb_n_classes = 1
     else:
-        xgb_num_classes = num_classes
+        xgb_n_classes = n_classes
     bst = _build_and_save_xgboost(model_path, X_train, y_train,
                                   num_rounds=num_rounds,
                                   classification=classification,
-                                  num_classes=xgb_num_classes)
+                                  n_classes=xgb_n_classes)
 
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
     xgb_preds = bst.predict(dvalidation)
@@ -138,7 +138,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
     fil_acc = accuracy_score(y_validation, fil_preds)
 
     assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
-    if num_classes == 2:
+    if n_classes == 2:
         assert array_equal(fil_preds, xgb_preds_int)
         xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
         fil_proba = np.asarray(fm.predict_proba(X_validation))
