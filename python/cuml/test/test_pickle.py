@@ -13,6 +13,9 @@
 # limitations under the License.
 #
 
+import numbers
+import copy
+
 import cuml
 import numpy as np
 import pickle
@@ -65,9 +68,22 @@ k_neighbors_config = ClassEnumerator(module=cuml.neighbors, exclude_classes=[
     cuml.neighbors.NearestNeighbors])
 k_neighbors_models = k_neighbors_config.get_models()
 
-unfit_pickle_xfail = ['ARIMA', 'KalmanFilter', 'ForestInference']
-unfit_clone_xfail = ['ARIMA', 'ExponentialSmoothing', 'KalmanFilter',
-                     'MBSGDClassifier', 'MBSGDRegressor']
+unfit_pickle_xfail = [
+    'ARIMA',
+    'AutoARIMA',
+    'KalmanFilter',
+    'BaseRandomForestModel',
+    'ForestInference'
+]
+unfit_clone_xfail = [
+    'ARIMA',
+    'AutoARIMA',
+    "BaseRandomForestModel",
+    'ExponentialSmoothing',
+    'KalmanFilter',
+    'MBSGDClassifier',
+    'MBSGDRegressor'
+]
 
 all_models = get_classes_from_package(cuml)
 all_models.update({
@@ -350,6 +366,53 @@ def test_unfit_pickle(model_name):
     assert mod_unpickled is not None
 
 
+def modified_clone(estimator, *, safe=True):
+    """
+    Identical to sklearn.clone except it uses equality comparison for numeric
+    types instead of "is"
+    """
+    estimator_type = type(estimator)
+    # XXX: not handling dictionaries
+    if estimator_type in (list, tuple, set, frozenset):
+        return estimator_type([clone(e, safe=safe) for e in estimator])
+    elif not hasattr(estimator, 'get_params') or isinstance(estimator, type):
+        if not safe:
+            return copy.deepcopy(estimator)
+        else:
+            if isinstance(estimator, type):
+                raise TypeError("Cannot clone object. " +
+                                "You should provide an instance of " +
+                                "scikit-learn estimator instead of a class.")
+            else:
+                raise TypeError("Cannot clone object '%s' (type %s): "
+                                "it does not seem to be a scikit-learn "
+                                "estimator as it does not implement a "
+                                "'get_params' method."
+                                % (repr(estimator), type(estimator)))
+
+    klass = estimator.__class__
+    new_object_params = estimator.get_params(deep=False)
+    for name, param in new_object_params.items():
+        new_object_params[name] = clone(param, safe=False)
+    new_object = klass(**new_object_params)
+    params_set = new_object.get_params(deep=False)
+
+    # quick sanity check of the parameters of the clone
+    for name in new_object_params:
+        param1 = new_object_params[name]
+        param2 = params_set[name]
+
+        if (isinstance(param1, numbers.Number) or isinstance(param1, str)):
+            if (param1 != param2):
+                raise RuntimeError('Cannot clone object %s, as the constructor '
+                               'either does not set or modifies parameter %s' %
+                               (estimator, name))
+        elif param1 is not param2:
+            raise RuntimeError('Cannot clone object %s, as the constructor '
+                               'either does not set or modifies parameter %s' %
+                               (estimator, name))
+    return new_object
+
 @pytest.mark.parametrize('model_name',
                          all_models.keys())
 def test_unfit_clone(model_name):
@@ -358,7 +421,8 @@ def test_unfit_clone(model_name):
 
     # Cloning runs into many of the same problems as pickling
     mod = all_models[model_name]()
-    clone(mod)
+
+    modified_clone(mod)
     # TODO: check parameters exactly?
 
 

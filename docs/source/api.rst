@@ -5,11 +5,15 @@ cuML API Reference
 Module Configuration
 ====================
 
+.. _output-data-type-configuration:
+
 Output Data Type Configuration
 ------------------------------
 
  .. automethod:: cuml.common.memory_utils.set_global_output_type
  .. automethod:: cuml.common.memory_utils.using_output_type
+
+.. _verbosity-levels:
 
 Verbosity Levels
 ----------------
@@ -61,6 +65,7 @@ Feature and Label Encoding (Single-GPU)
 
  .. autoclass:: cuml.preprocessing.LabelEncoder.LabelEncoder
     :members:
+    :inherited-members:
 
  .. autoclass:: cuml.preprocessing.LabelBinarizer
     :members:
@@ -470,4 +475,7 @@ Dask Base Classes and Mixins
    :members:
 
 .. autoclass:: cuml.dask.common.base.DelayedInverseTransformMixin
+   :members:
+
+.. autoclass:: cuml.experimental.decomposition.IncrementalPCA
    :members:

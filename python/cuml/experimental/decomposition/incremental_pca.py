@@ -48,53 +48,16 @@ class IncrementalPCA(PCA):
     SVD computations to get the principal components, versus 1 large SVD
     of complexity ``O(n_samples * n_features ** 2)`` for PCA.
 
-
-    Examples
-    ---------
-
-    .. code-block:: python
-        from cuml.decomposition import IncrementalPCA
-        import cupy as cp
-        import cupyx
-
-        X = cupyx.scipy.sparse.random(1000, 5, format='csr', density=0.07)
-        ipca = IncrementalPCA(n_components=2, batch_size=200)
-        ipca.fit(X)
-
-        print("Components: \n", ipca.components_)
-
-        print("Singular Values: ", ipca.singular_values_)
-
-        print("Explained Variance: ", ipca.explained_variance_)
-
-        print("Explained Variance Ratio: ",
-            ipca.explained_variance_ratio_)
-
-        print("Mean: ", ipca.mean_)
-
-        print("Noise Variance: ", ipca.noise_variance_)
-
-    Output:
-
-    .. code-block:: python
-        Components:
-        [[ 0.40465797  0.70924681 -0.46980153 -0.32028596 -0.09962083]
-        [ 0.3072285  -0.31337166 -0.21010504 -0.25727659  0.83490926]]
-
-        Singular Values: [4.67710479 4.0249979 ]
-
-        Explained Variance: [0.02189721 0.01621682]
-
-        Explained Variance Ratio: [0.2084041  0.15434174]
-
-        Mean: [0.03341744 0.03796517 0.03316038 0.03825872 0.0253353 ]
-
-        Noise Variance: 0.0049539530909571425
-
     Parameters
     ----------
+
     handle : cuml.Handle
-        If it is None, a new one is created just for this class
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     n_components : int or None, (default=None)
         Number of components to keep. If ``n_components `` is ``None``,
         then ``n_components`` is set to ``min(n_samples, n_features)``.
@@ -112,10 +75,18 @@ class IncrementalPCA(PCA):
         ``fit``. If ``batch_size`` is ``None``, then ``batch_size``
         is inferred from the data and set to ``5 * n_features``, to provide a
         balance between approximation accuracy and memory consumption.
-    verbose : int or boolean (default = False)
-        Logging level
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+
     Attributes
     ----------
+
     components_ : array, shape (n_components, n_features)
         Components with maximum variance.
     explained_variance_ : array, shape (n_components,)
@@ -146,8 +117,10 @@ class IncrementalPCA(PCA):
         new calls to fit, but increments across ``partial_fit`` calls.
     batch_size_ : int
         Inferred batch size from ``batch_size``.
+
     Notes
     -----
+
     Implements the incremental PCA model from:
     *D. Ross, J. Lim, R. Lin, M. Yang, Incremental Learning for Robust Visual
     Tracking, International Journal of Computer Vision, Volume 77, Issue 1-3,
@@ -167,16 +140,64 @@ class IncrementalPCA(PCA):
     >= 5/3 * ``n_features`` (columns), and hurts the readability of the
     implemented algorithm. This would be a good opportunity for future
     optimization, if it is deemed necessary.
+
+    Examples
+    ---------
+
+    .. code-block:: python
+
+        from cuml.decomposition import IncrementalPCA
+        import cupy as cp
+        import cupyx
+
+        X = cupyx.scipy.sparse.random(1000, 5, format='csr', density=0.07)
+        ipca = IncrementalPCA(n_components=2, batch_size=200)
+        ipca.fit(X)
+
+        print("Components: \n", ipca.components_)
+
+        print("Singular Values: ", ipca.singular_values_)
+
+        print("Explained Variance: ", ipca.explained_variance_)
+
+        print("Explained Variance Ratio: ",
+            ipca.explained_variance_ratio_)
+
+        print("Mean: ", ipca.mean_)
+
+        print("Noise Variance: ", ipca.noise_variance_)
+
+    Output:
+
+    .. code-block:: python
+
+        Components:
+        [[ 0.40465797  0.70924681 -0.46980153 -0.32028596 -0.09962083]
+        [ 0.3072285  -0.31337166 -0.21010504 -0.25727659  0.83490926]]
+
+        Singular Values: [4.67710479 4.0249979 ]
+
+        Explained Variance: [0.02189721 0.01621682]
+
+        Explained Variance Ratio: [0.2084041  0.15434174]
+
+        Mean: [0.03341744 0.03796517 0.03316038 0.03825872 0.0253353 ]
+
+        Noise Variance: 0.0049539530909571425
+
     References
     ----------
+
     D. Ross, J. Lim, R. Lin, M. Yang. Incremental Learning for Robust Visual
-    Tracking, International Journal of Computer Vision, Volume 77,
-    Issue 1-3, pp. 125-141, May 2008.
+        Tracking, International Journal of Computer Vision, Volume 77,
+        Issue 1-3, pp. 125-141, May 2008.
+
     G. Golub and C. Van Loan. Matrix Computations, Third Edition, Chapter 5,
-    Section 5.4.4, pp. 252-253.
+        Section 5.4.4, pp. 252-253.
+
     """
     def __init__(self, handle=None, n_components=None, *, whiten=False,
-                 copy=True, batch_size=None, verbose=None,
+                 copy=True, batch_size=None, verbose=False,
                  output_type=None):
 
         super(IncrementalPCA, self).__init__(handle=handle,
@@ -191,17 +212,22 @@ class IncrementalPCA(PCA):
 
     @with_cupy_rmm
     def fit(self, X, y=None):
-        """Fit the model with X, using minibatches of size batch_size.
+        """
+        Fit the model with X, using minibatches of size batch_size.
+
         Parameters
         ----------
         X : array-like or sparse matrix, shape (n_samples, n_features)
             Training data, where n_samples is the number of samples and
             n_features is the number of features.
         y : Ignored
+
         Returns
         -------
+
         self : object
             Returns the instance itself.
+
         """
 
         self._set_base_attributes(output_type=X)
@@ -243,19 +269,25 @@ class IncrementalPCA(PCA):
 
     @with_cupy_rmm
     def partial_fit(self, X, y=None, check_input=True):
-        """Incremental fit with X. All of X is processed as a single batch.
+        """
+        Incremental fit with X. All of X is processed as a single batch.
+
         Parameters
         ----------
+
         X : array-like or sparse matrix, shape (n_samples, n_features)
             Training data, where n_samples is the number of samples and
             n_features is the number of features.
         check_input : bool
             Run check_array on X.
         y : Ignored
+
         Returns
         -------
+
         self : object
             Returns the instance itself.
+
         """
         if check_input:
             if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
@@ -358,12 +390,16 @@ class IncrementalPCA(PCA):
 
     @with_cupy_rmm
     def transform(self, X, convert_dtype=False):
-        """Apply dimensionality reduction to X.
+        """
+        Apply dimensionality reduction to X.
+
         X is projected on the first principal components previously extracted
         from a training set, using minibatches of size batch_size if X is
         sparse.
+
         Parameters
         ----------
+
         X : array-like or sparse matrix, shape (n_samples, n_features)
             New data, where n_samples is the number of samples
             and n_features is the number of features.
@@ -375,7 +411,9 @@ class IncrementalPCA(PCA):
 
         Returns
         -------
+
         X_new : array-like, shape (n_samples, n_components)
+            New X
         """
 
         if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
@@ -396,7 +434,7 @@ class IncrementalPCA(PCA):
             return super().transform(X)
 
     def get_param_names(self):
-        return self._hyperparams
+        return super().get_param_names() + self._hyperparams
 
     def _cupy_to_cumlarray_attrs(self):
         self._components_ = CumlArray(self._components_.copy())

@@ -48,7 +48,7 @@ def array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
 
     if not with_sign:
         a, b = np.abs(a), np.abs(b)
-    res = (np.sum(np.abs(a-b) > unit_tol)) / len(a) < total_tol
+    res = (np.sum(np.abs(a - b) > unit_tol)) / len(a) < total_tol
     return res
 
 
@@ -58,8 +58,12 @@ def get_pattern(name, n_samples):
 
     if name == 'noisy_circles':
         data = datasets.make_circles(n_samples=n_samples, factor=.5, noise=.05)
-        params = {'damping': .77, 'preference': -240,
-                  'quantile': .2, 'n_clusters': 2}
+        params = {
+            'damping': .77,
+            'preference': -240,
+            'quantile': .2,
+            'n_clusters': 2
+        }
 
     elif name == 'noisy_moons':
         data = datasets.make_moons(n_samples=n_samples, noise=.05)
@@ -183,13 +187,36 @@ class ClassEnumerator:
         Custom constructors to use instead of the default one.
         ex: {'LogisticRegression': lambda: cuml.LogisticRegression(handle=1)}
     """
-    def __init__(self, module, exclude_classes=None, custom_constructors=None):
+    def __init__(self, module, exclude_classes=None, custom_constructors=None, recursive=False):
         self.module = module
         self.exclude_classes = exclude_classes or []
         self.custom_constructors = custom_constructors or []
+        self.recursive = recursive
 
     def _get_classes(self):
-        return inspect.getmembers(self.module, inspect.isclass)
+        def recurse_module(module):
+            classes = {}
+
+            modules = []
+
+            if (self.recursive):
+                modules = inspect.getmembers(module, inspect.ismodule)
+
+            for _, m in modules:
+                if (module.__name__ + "." in m.__name__):
+                    classes.update(recurse_module(m))
+
+            classes.update({
+                (".".join((klass.__module__, klass.__qualname__))): klass
+                for name,
+                klass in inspect.getmembers(module, inspect.isclass)
+                if module.__name__ + "." in ".".join((klass.__module__,
+                                                      klass.__qualname__))
+            })
+
+            return classes
+
+        return [(val.__name__, val) for key, val in recurse_module(self.module).items()]
 
     def get_models(self):
         """Picks up every models classes from self.module.
@@ -203,17 +230,41 @@ class ClassEnumerator:
             specified custom_constructor.
         """
         classes = self._get_classes()
-        models = {name: cls for name, cls in classes
-                  if cls not in self.exclude_classes and
-                  issubclass(cls, cuml.Base)}
+        models = {
+            name: cls
+            for name,
+            cls in classes
+            if cls not in self.exclude_classes and issubclass(cls, cuml.Base)
+        }
         models.update(self.custom_constructors)
         return models
 
 
-def get_classes_from_package(package):
-    modules = [m for name, m in inspect.getmembers(package, inspect.ismodule)]
-    classes = [ClassEnumerator(module).get_models() for module in modules]
-    return {k: v for dictionary in classes for k, v in dictionary.items()}
+def get_classes_from_package(package, import_sub_packages=False):
+
+    if (import_sub_packages):
+        import os
+        import importlib
+
+        # First, find all __init__.py files in subdirectories of this package
+        root_dir = os.path.dirname(package.__file__)
+
+        root_relative = os.path.dirname(root_dir)
+
+        # Now loop
+        for root, _, files in os.walk(root_dir):
+
+            if "__init__.py" in files:
+
+                module_name = os.path.relpath(root, root_relative).replace(
+                    os.sep, ".")
+
+                importlib.import_module(module_name)
+
+    # modules = [m for name, m in inspect.getmembers(package, inspect.ismodule)]
+    # classes = [ClassEnumerator(module).get_models() for module in modules]
+    # return {k: v for dictionary in classes for k, v in dictionary.items()}
+    return ClassEnumerator(module=package, recursive=True).get_models()
 
 
 def generate_random_labels(random_generation_lambda, seed=1234, as_cupy=False):
@@ -254,7 +305,10 @@ def generate_random_labels(random_generation_lambda, seed=1234, as_cupy=False):
         return cuda.to_device(a), cuda.to_device(b), a, b
 
 
-def score_labeling_with_handle(func, ground_truth, predictions, use_handle,
+def score_labeling_with_handle(func,
+                               ground_truth,
+                               predictions,
+                               use_handle,
                                dtype=np.int32):
     """Test helper to standardize inputs between sklearn and our prims metrics.
 

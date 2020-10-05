@@ -129,17 +129,24 @@ class AutoARIMA(Base):
         Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
         Numba device ndarray, cuda array interface compliant array like CuPy.
     handle : cuml.Handle
-        If it is None, a new one is created just for this instance
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     simple_differencing: bool or int (default = True)
         If True, the data is differenced before being passed to the Kalman
         filter. If False, differencing is part of the state-space model.
         See additional notes in the ARIMA docs
-    verbose : int
-        Logging level. It must be one of `cuml.common.logger.level_*`
-    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
-        Variable to control output type of the results and attributes.
-        If None, it'll inherit the output type set at the module level,
-        cuml.output_type. If set, it will override the global option.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     References
     ----------
@@ -156,10 +163,13 @@ class AutoARIMA(Base):
                  endog,
                  handle=None,
                  simple_differencing=True,
-                 verbose=logger.level_info,
+                 verbose=False,
                  output_type=None):
         # Initialize base class
-        super().__init__(handle, output_type=output_type, verbose=verbose)
+        super().__init__(
+            handle=handle,
+            output_type=output_type,
+            verbose=verbose)
         self._set_base_attributes(output_type=endog)
 
         # Get device array. Float64 only for now.
@@ -521,7 +531,12 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
     batch_id : cumlArray (int)
         Integer array to track the id of each member in the initial batch
     handle : cuml.Handle
-        If it is None, a new one is created just for this call
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     Returns
     -------
@@ -640,7 +655,12 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
     batch_id : cumlArray (int)
         Integer array to track the id of each member in the initial batch
     handle : cuml.Handle
-        If it is None, a new one is created just for this call
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     Returns
     -------

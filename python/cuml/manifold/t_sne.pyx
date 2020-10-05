@@ -111,9 +111,9 @@ class TSNE(Base):
         a future release.
     init : str 'random' (default 'random')
         Currently supports random intialization.
-    verbose : int or boolean (default = False) (default logger.level_info)
-        Level of verbosity.
-        Most messages will be printed inside the Python Console.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     random_state : int (default None)
         Setting this can allow future runs of TSNE to look mostly the same.
         It is known that TSNE tends to have vastly different outputs on
@@ -144,9 +144,18 @@ class TSNE(Base):
         During the exaggeration iteration, more forcefully apply gradients.
     post_momentum : float (default 0.8)
         During the late phases, less forcefully apply gradients.
-    handle : (cuML Handle, default None)
-        You can pass in a past handle that was initialized, or we will create
-        one for you anew!
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     References
     -----------
@@ -203,9 +212,12 @@ class TSNE(Base):
                  int exaggeration_iter=250,
                  float pre_momentum=0.5,
                  float post_momentum=0.8,
-                 handle=None):
+                 handle=None,
+                 str output_type=None):
 
-        super(TSNE, self).__init__(handle=handle, verbose=verbose)
+        super(TSNE, self).__init__(handle=handle,
+                                   verbose=verbose,
+                                   output_type=output_type)
 
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
@@ -435,3 +447,26 @@ class TSNE(Base):
                                    verbose=state['verbose'])
         self.__dict__.update(state)
         return state
+
+    def get_param_names(self):
+        return super().get_param_names() + \
+            [
+                "n_components",
+                "perplexity",
+                "early_exaggeration",
+                "learning_rate",
+                "n_iter",
+                "n_iter_without_progress",
+                "min_grad_norm",
+                "metric",
+                "init",
+                "random_state",
+                "method",
+                "angle",
+                "learning_rate_method",
+                "n_neighbors",
+                "perplexity_max_iter",
+                "exaggeration_iter",
+                "pre_momentum",
+                "post_momentum",
+            ]

@@ -13,9 +13,15 @@
 # limitations under the License.
 #
 
-import pytest
+import inspect
+
 import cuml
-from cuml.test.utils import small_classification_dataset
+import pytest
+import numpydoc.docscrape
+from cuml.test.utils import (get_classes_from_package,
+                             small_classification_dataset)
+
+all_base_children = get_classes_from_package(cuml, import_sub_packages=True)
 
 
 def test_base_class_usage():
@@ -56,3 +62,82 @@ def test_base_n_features_in(datatype, use_integer_n_features):
     else:
         clf._set_n_features_in(X_train)
         assert clf.n_features_in_ == X_train.shape[1]
+
+
+@pytest.mark.parametrize('child_class', list(all_base_children.keys()))
+def test_base_children_init(child_class: str):
+
+    # Regex for find and replace:
+    # output_type: `^[ ]{4}output_type :.*\n(^(?![ ]{0,4}(?![ ]{4,})).*(\n))+`
+
+    def get_param_doc(param_doc_obj, name: str):
+        found_doc = next((x for x in param_doc_obj if x.name == name), None)
+
+        assert found_doc is not None, \
+            "Could not find {} in docstring".format(name)
+
+        return found_doc
+
+    base_sig = inspect.signature(cuml.Base, follow_wrapped=True)
+
+    base_doc = numpydoc.docscrape.NumpyDocString(cuml.Base.__doc__)
+
+    base_doc_params = base_doc["Parameters"]
+
+    klass = all_base_children[child_class]
+
+    klass_sig = inspect.signature(klass, follow_wrapped=True)
+
+    klass_doc = numpydoc.docscrape.NumpyDocString(klass.__doc__ or "")
+
+    klass_doc_params = klass_doc["Parameters"]
+
+    for name, param in base_sig.parameters.items():
+        assert param.name in klass_sig.parameters
+
+        klass_param = klass_sig.parameters[param.name]
+
+        assert param.default == klass_param.default
+
+        assert (klass_param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
+                or klass_param.kind == inspect.Parameter.KEYWORD_ONLY)
+
+        if (klass.__doc__ is not None):
+
+            found_doc = get_param_doc(klass_doc_params, name)
+
+            base_item_doc = get_param_doc(base_doc_params, name)
+
+            assert found_doc.type == base_item_doc.type, \
+                "Docstring mismatch for {}".format(name)
+
+            assert " ".join(found_doc.desc) == " ".join(base_item_doc.desc)
+
+
+@pytest.mark.parametrize('child_class', list(all_base_children.keys()))
+def test_base_children_get_param_names(child_class: str):
+
+    klass = all_base_children[child_class]
+
+    sig = inspect.signature(klass, follow_wrapped=True)
+
+    try:
+        bound = sig.bind()
+        bound.apply_defaults()
+    except TypeError:
+        pytest.skip(
+            "{}.__init__ requires non-default arguments to create. Skipping.".
+            format(klass.__name__))
+    else:
+        # Create an insteance
+        obj = klass(*bound.args, **bound.kwargs)
+
+        param_names = obj.get_param_names()
+
+        for name, param in sig.parameters.items():
+
+            if (param.kind == inspect.Parameter.VAR_KEYWORD
+                    or param.kind == inspect.Parameter.VAR_POSITIONAL):
+                continue
+
+            assert name in param_names
