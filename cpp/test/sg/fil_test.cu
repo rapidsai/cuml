@@ -57,9 +57,17 @@ struct FilTestParams {
   // treelite parameters, only used for treelite tests
   tl::Operator op;
   fil::leaf_algo_t leaf_algo;
-  // num_classes must be 1 or 2 when FLOAT_UNARY_BINARY == leaf_algo
-  // (1 if it's regression)
-  // num_classes must be >1 when CATEGORICAL_LEAF == leaf_algo
+  // when FLOAT_UNARY_BINARY == leaf_algo:
+  // num_classes = 1 means it's regression
+  // num_classes = 2 means it's binary classification
+  // (complement probabilities, then use threshold)
+  // when GROVE_PER_CLASS == leaf_algo:
+  // it's multiclass classification (num_classes must be > 2),
+  // done by splitting the forest in num_classes groups,
+  // each of which computes one-vs-all probability for its class.
+  // when CATEGORICAL_LEAF == leaf_algo:
+  // num_classes must be > 1 and it's multiclass classification.
+  // done by storing the class label in each leaf and voting.
   // it's used in treelite ModelBuilder initialization
   int num_classes;
 
@@ -144,7 +152,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // generate on-GPU random data
     raft::random::Rng r(ps.seed);
-    if (ps.leaf_algo == fil::leaf_algo_t::FLOAT_UNARY_BINARY) {
+    if (ps.leaf_algo != fil::leaf_algo_t::CATEGORICAL_LEAF) {
       r.uniform((float*)weights_d, num_nodes, -1.0f, 1.0f, stream);
     } else {
       // [0..num_classes)
@@ -187,9 +195,13 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           w.idx = weights_h[i];
           break;
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
+        case fil::leaf_algo_t::GROVE_PER_CLASS:
           // not relying on fil::val_t internals
           // merely that we copied floats into weights_h earlier
           std::memcpy(&w.f, &weights_h[i], sizeof w.f);
+          break;
+        default:
+          ASSERT(false, "internal error: invalid ps.leaf_algo");
       }
       fil::node_init(&nodes[i], w, thresholds_h[i], fids_h[i], def_lefts_h[i],
                      is_leafs_h[i]);
@@ -252,6 +264,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     std::vector<float> want_preds_h(ps.num_preds_outputs());
     std::vector<float> want_proba_h(ps.num_proba_outputs());
     int num_nodes = tree_num_nodes();
+    std::vector<float> class_scores(ps.num_classes);
     switch (ps.leaf_algo) {
       case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
         for (int i = 0; i < ps.num_rows; ++i) {
@@ -262,6 +275,21 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           }
           transform(pred, want_proba_h[i * 2 + 1], want_preds_h[i]);
           complement(&(want_proba_h[i * 2]));
+        }
+        break;
+      case fil::leaf_algo_t::GROVE_PER_CLASS:
+        for (int row = 0; row < ps.num_rows; ++row) {
+          std::fill(class_scores.begin(), class_scores.end(), 0.0f);
+          for (int tree = 0; tree < ps.num_trees; ++tree) {
+            class_scores[tree % ps.num_classes] +=
+              infer_one_tree(&nodes[tree * num_nodes],
+                             &data_h[row * ps.num_cols])
+                .f;
+          }
+          // not supporting predict_proba() with GROVE_PER_CLASS (xgboost-style models)
+          want_preds_h[row] =
+            std::max_element(class_scores.begin(), class_scores.end()) -
+            class_scores.begin();
         }
         break;
       case fil::leaf_algo_t::CATEGORICAL_LEAF:
@@ -306,7 +334,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     raft::allocate(preds_d, ps.num_preds_outputs());
     raft::allocate(proba_d, ps.num_proba_outputs());
     fil::predict(handle, forest, preds_d, data_d, ps.num_rows);
-    fil::predict(handle, forest, proba_d, data_d, ps.num_rows, true);
+    // not supporting predict_proba() with GROVE_PER_CLASS (xgboost-style models)
+    if (ps.leaf_algo != fil::leaf_algo_t::GROVE_PER_CLASS)
+      fil::predict(handle, forest, proba_d, data_d, ps.num_rows, true);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // cleanup
@@ -314,9 +344,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   }
 
   void compare() {
-    ASSERT_TRUE(raft::devArrMatch(want_proba_d, proba_d, ps.num_proba_outputs(),
-                                  raft::CompareApprox<float>(ps.tolerance),
-                                  stream));
+    // not supporting predict_proba() with GROVE_PER_CLASS (xgboost-style models)
+    if (ps.leaf_algo != fil::leaf_algo_t::GROVE_PER_CLASS) {
+      ASSERT_TRUE(
+        raft::devArrMatch(want_proba_d, proba_d, ps.num_proba_outputs(),
+                          raft::CompareApprox<float>(ps.tolerance), stream));
+    }
     float tolerance = ps.leaf_algo == fil::leaf_algo_t::FLOAT_UNARY_BINARY
                         ? ps.tolerance
                         : std::numeric_limits<float>::epsilon();
@@ -470,6 +503,7 @@ class TreeliteFilTest : public BaseFilTest {
     if (is_leaf) {
       switch (ps.leaf_algo) {
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
+        case fil::leaf_algo_t::GROVE_PER_CLASS:
           // default is fil::FLOAT_UNARY_BINARY
           builder->SetLeafNode(key, output.f);
           break;
@@ -521,10 +555,11 @@ class TreeliteFilTest : public BaseFilTest {
     // prediction transform
     if ((ps.output & fil::output_t::SIGMOID) != 0) {
       model_builder->SetModelParam("pred_transform", "sigmoid");
-    } else if (ps.leaf_algo == fil::leaf_algo_t::CATEGORICAL_LEAF &&
-               ps.num_classes >= 2) {
+    } else if (ps.leaf_algo != fil::leaf_algo_t::FLOAT_UNARY_BINARY) {
       model_builder->SetModelParam("pred_transform", "max_index");
-      ps.output = fil::output_t::CLASS;
+      ps.output = fil::output_t(ps.output | fil::output_t::CLASS);
+    } else {
+      model_builder->SetModelParam("pred_transform", "identity");
     }
 
     // global bias
@@ -683,6 +718,21 @@ std::vector<FilTestParams> predict_dense_inputs = {
    fil::leaf_algo_t::CATEGORICAL_LEAF, 4},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0.5, fil::algo_t::NAIVE,
    42, 2e-3f, tl::Operator(0), fil::leaf_algo_t::CATEGORICAL_LEAF, 4},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::AVG | fil::output_t::CLASS), 0, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator(0),
+   fil::leaf_algo_t::GROVE_PER_CLASS, 5},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0,
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator(0),
+   fil::leaf_algo_t::GROVE_PER_CLASS, 5},
+  {20000, 50, 0.05, 8, 49, 0.05, fil::output_t::SIGMOID, 0, 0,
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator(0),
+   fil::leaf_algo_t::GROVE_PER_CLASS, 7},
+  {20000, 50, 0.05, 8, 52, 0.05, fil::output_t::RAW, 0, 0.5,
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator(0),
+   fil::leaf_algo_t::GROVE_PER_CLASS, 4},
+  {20000, 50, 0.05, 8, 52, 0.05, fil::output_t::AVG, 0, 0.5, fil::algo_t::NAIVE,
+   42, 2e-3f, tl::Operator(0), fil::leaf_algo_t::GROVE_PER_CLASS, 4},
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }
@@ -733,6 +783,16 @@ std::vector<FilTestParams> predict_sparse_inputs = {
    42, 2e-3f, tl::Operator(0), fil::leaf_algo_t::CATEGORICAL_LEAF, 3},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
    42, 2e-3f, tl::Operator(0), fil::leaf_algo_t::CATEGORICAL_LEAF, 3},
+  {20000, 50, 0.05, 2, 5000, 0.05,
+   fil::output_t(fil::output_t::AVG | fil::output_t::CLASS), 1.0, 0.5,
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator(0),
+   fil::leaf_algo_t::GROVE_PER_CLASS, 5000},
+  {20000, 50, 0.05, 8, 60, 0.05, fil::output_t::RAW, 0, 0.5, fil::algo_t::NAIVE,
+   42, 2e-3f, tl::Operator(0), fil::leaf_algo_t::GROVE_PER_CLASS, 6},
+  {20000, 50, 0.05, 8, 51, 0.05, fil::output_t::CLASS, 0, 0, fil::algo_t::NAIVE,
+   42, 2e-3f, tl::Operator(0), fil::leaf_algo_t::GROVE_PER_CLASS, 3},
+  {20000, 50, 0.05, 8, 51, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
+   42, 2e-3f, tl::Operator(0), fil::leaf_algo_t::GROVE_PER_CLASS, 3},
 };
 
 TEST_P(PredictSparse16FilTest, Predict) { compare(); }
@@ -865,6 +925,26 @@ std::vector<FilTestParams> import_dense_inputs = {
    fil::leaf_algo_t::CATEGORICAL_LEAF, 7},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0, fil::algo_t::NAIVE,
    42, 2e-3f, tl::Operator::kLT, fil::leaf_algo_t::CATEGORICAL_LEAF, 6},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGE,
+   fil::leaf_algo_t::GROVE_PER_CLASS, 5},
+  {20000, 50, 0.05, 8, 48, 0.05, fil::output_t::CLASS, 0, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGT,
+   fil::leaf_algo_t::GROVE_PER_CLASS, 6},
+  {20000, 50, 0.05, 8, 51, 0.05, fil::output_t::CLASS, 0, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE,
+   fil::leaf_algo_t::GROVE_PER_CLASS, 3},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE,
+   fil::leaf_algo_t::GROVE_PER_CLASS, 5},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0, 0,
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kLE,
+   fil::leaf_algo_t::GROVE_PER_CLASS, 5},
+  {20000, 50, 0.05, 8, 49, 0.05, fil::output_t::CLASS, 0, 0,
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kLE,
+   fil::leaf_algo_t::GROVE_PER_CLASS, 7},
+  {20000, 50, 0.05, 8, 48, 0.05, fil::output_t::CLASS, 0, 0, fil::algo_t::NAIVE,
+   42, 2e-3f, tl::Operator::kLT, fil::leaf_algo_t::GROVE_PER_CLASS, 6},
 };
 
 TEST_P(TreeliteDenseFilTest, Import) { compare(); }
@@ -915,6 +995,17 @@ std::vector<FilTestParams> import_sparse_inputs = {
    42, 2e-3f, tl::Operator::kLE, fil::leaf_algo_t::CATEGORICAL_LEAF, 5},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0.5, fil::algo_t::NAIVE,
    42, 2e-3f, tl::Operator::kLT, fil::leaf_algo_t::CATEGORICAL_LEAF, 3},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 1.0, 0.5,
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kGE,
+   fil::leaf_algo_t::GROVE_PER_CLASS, 10},
+  {20000, 50, 0.05, 8, 52, 0.05, fil::output_t::CLASS, 0, 0,
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_algo_t::GROVE_PER_CLASS, 4},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0, 0, fil::algo_t::NAIVE,
+   42, 2e-3f, tl::Operator::kLE, fil::leaf_algo_t::GROVE_PER_CLASS, 5},
+  {20000, 50, 0.05, 8, 51, 0.05, fil::output_t::CLASS, 0, 0.5,
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_algo_t::GROVE_PER_CLASS, 3},
 };
 
 TEST_P(TreeliteSparse16FilTest, Import) { compare(); }
@@ -945,6 +1036,9 @@ std::vector<FilTestParams> import_auto_inputs = {
   {20000, 50, 0.05, 10, 50, 0.05, fil::output_t::AVG, 0, 0,
    fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT,
    fil::leaf_algo_t::CATEGORICAL_LEAF, 3},
+  {20000, 50, 0.05, 10, 51, 0.05, fil::output_t::CLASS, 0, 0,
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_algo_t::GROVE_PER_CLASS, 3},
 #if 0  
   {20000, 50, 0.05, 19, 50, 0.05, fil::output_t::AVG, 0, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT,
