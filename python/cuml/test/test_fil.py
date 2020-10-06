@@ -58,7 +58,7 @@ def _build_and_save_xgboost(model_path,
                             y_train,
                             classification=True,
                             num_rounds=5,
-                            n_classes=1,
+                            n_classes=2,
                             xgboost_params={}):
     """Trains a small xgboost classifier and saves it to model_path"""
     dtrain = xgb.DMatrix(X_train, label=y_train)
@@ -69,10 +69,10 @@ def _build_and_save_xgboost(model_path,
     # learning task params
     if classification:
         params['eval_metric'] = 'error'
-        params['num_class'] = n_classes
-        if n_classes == 1:
+        if n_classes == 2:
             params['objective'] = 'binary:logistic'
         else:
+            params['num_class'] = n_classes
             params['objective'] = 'multi:softmax'
     else:
         params['eval_metric'] = 'error'
@@ -89,14 +89,14 @@ def _build_and_save_xgboost(model_path,
 @pytest.mark.parametrize('n_rows', [unit_param(1000),
                                     quality_param(10000),
                                     stress_param(500000)])
-@pytest.mark.parametrize('n_columns', [unit_param(20),
+@pytest.mark.parametrize('n_columns', [unit_param(30),
                                        quality_param(100),
                          stress_param(1000)])
 @pytest.mark.parametrize('num_rounds', [unit_param(1),
                                         unit_param(5),
                                         quality_param(50),
                                         stress_param(90)])
-@pytest.mark.parametrize('n_classes', [2, 5])
+@pytest.mark.parametrize('n_classes', [2, 5, 25])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 def test_fil_classification(n_rows, n_columns, num_rounds,
                             n_classes, tmp_path):
@@ -116,14 +116,10 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
 
     model_path = os.path.join(tmp_path, 'xgb_class.model')
 
-    if n_classes == 2:
-        xgb_n_classes = 1
-    else:
-        xgb_n_classes = n_classes
     bst = _build_and_save_xgboost(model_path, X_train, y_train,
                                   num_rounds=num_rounds,
                                   classification=classification,
-                                  n_classes=xgb_n_classes)
+                                  n_classes=n_classes)
 
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
     xgb_preds = bst.predict(dvalidation)
