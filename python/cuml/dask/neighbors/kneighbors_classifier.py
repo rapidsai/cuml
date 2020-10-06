@@ -252,9 +252,9 @@ class KNeighborsClassifier(NearestNeighbors):
         -------
         score
         """
-        labels, _, _ = self.predict(X, convert_dtype=convert_dtype)
-        diff = (labels == y)
         if self.data_handler.datatype == 'cupy':
+            preds, _, _ = self.predict(X, convert_dtype=convert_dtype)
+            diff = (preds == y)
             mean = da.mean(diff)
             return mean.compute()
         else:
