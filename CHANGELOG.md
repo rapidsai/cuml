@@ -50,6 +50,7 @@
 - PR #2871: Add timing function to utils
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
 - PR #2867: improve stability of FIL benchmark measurements
+- PR #2798: Add python tests for FIL multiclass classification of lightgbm models
 - PR #2892 Update ci/local/README.md
 - PR #2910: Adding Support for CuPy 8.x
 
@@ -75,6 +76,7 @@
 - PR #2848: Fix typo in Python docstring for UMAP
 - PR #2856: Fix LabelEncoder for filtered input
 - PR #2855: Updates for RMM being header only
+- PR #2844: Fix for OPG KNN Classifier & Regressor
 - PR #2880: Fix bugs in Auto-ARIMA when s==None
 - PR #2877: TSNE exception for n_components > 2
 - PR #2879: Update unit test for LabelEncoder on filtered input
