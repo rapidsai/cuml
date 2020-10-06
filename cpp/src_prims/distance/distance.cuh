@@ -42,8 +42,8 @@ struct DistanceImpl {
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
-struct DistanceImpl<raft::distance::DistanceType::EucExpandedL2, InType, AccType,
-                    OutType, OutputTile_, FinalLambda, Index_> {
+struct DistanceImpl<raft::distance::DistanceType::EucExpandedL2, InType,
+                    AccType, OutType, OutputTile_, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
