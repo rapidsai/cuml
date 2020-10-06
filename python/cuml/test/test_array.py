@@ -28,8 +28,9 @@ from copy import deepcopy
 from numba import cuda
 from cudf.core.buffer import Buffer
 from cuml.common.array import CumlArray
-from cuml.common.memory_utils import _get_size_from_shape, _strides_to_order
-import rmm
+from cuml.common.memory_utils import _get_size_from_shape
+from cuml.common.memory_utils import _strides_to_order
+from rmm import DeviceBuffer
 
 if sys.version_info < (3, 8):
     try:
@@ -260,7 +261,7 @@ def test_create_empty(shape, dtype, order):
     else:
         assert ary.shape == shape
     assert ary.dtype == np.dtype(dtype)
-    assert isinstance(ary._owner, rmm.DeviceBuffer)
+    assert isinstance(ary._owner, DeviceBuffer)
 
 
 @pytest.mark.parametrize('shape', test_shapes)
@@ -535,7 +536,8 @@ def test_cumlary_binops(operation):
     assert(cp.all(ary_c.to_output('cupy') == c))
 
 
-def test_sliced_array_owner():
+@pytest.mark.parametrize('order', ['F', 'C'])
+def test_sliced_array_owner(order):
     """
     When slicing a CumlArray, a new object can be created created which
     previously had an incorrect owner. This was due to the requirement by
@@ -547,7 +549,9 @@ def test_sliced_array_owner():
     """
 
     # Create 2 copies of a random array
-    random_cp = cp.array(cp.random.random((500, 4)), dtype=np.float32)
+    random_cp = cp.array(cp.random.random((500, 4)),
+                         dtype=np.float32,
+                         order=order)
     cupy_array = cp.array(random_cp, copy=True)
     cuml_array = CumlArray(random_cp)
 
@@ -556,8 +560,8 @@ def test_sliced_array_owner():
 
     # Since these are C arrays, slice off the first column to ensure they are
     # non-contiguous
-    cuml_slice = cuml_array[:, 1:]
-    cupy_slice = cupy_array[:, 1:]
+    cuml_slice = cuml_array[1:, 1:]
+    cupy_slice = cupy_array[1:, 1:]
 
     # Delete the input object just to be sure
     del random_cp
