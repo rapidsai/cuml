@@ -117,7 +117,7 @@ class CumlArray(Buffer):
             # incorrectly
             assert dtype is None and shape is None and order is None, \
                 ("Creating array from array-like object. The arguments "
-                 "`dtype`, `shape` and `order` should be None.")
+                 "`dtype`, `shape` and `order` should be `None`.")
 
             detailed_construction = False
 

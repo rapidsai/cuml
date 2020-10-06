@@ -198,7 +198,7 @@ def test_array_init_bad(input_type, dtype, shape, order):
     else:
         inp = create_input(input_type, dtype, shape, order)
 
-    # Ensure the array is creatible
+    # Ensure the array is creatable
     cuml_ary = CumlArray(inp)
 
     with pytest.raises(AssertionError):
