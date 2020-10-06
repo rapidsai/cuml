@@ -58,6 +58,7 @@ def _build_and_save_xgboost(model_path,
                             y_train,
                             classification=True,
                             num_rounds=5,
+                            n_classes=2,
                             xgboost_params={}):
     """Trains a small xgboost classifier and saves it to model_path"""
     dtrain = xgb.DMatrix(X_train, label=y_train)
@@ -68,7 +69,11 @@ def _build_and_save_xgboost(model_path,
     # learning task params
     if classification:
         params['eval_metric'] = 'error'
-        params['objective'] = 'binary:logistic'
+        if n_classes == 2:
+            params['objective'] = 'binary:logistic'
+        else:
+            params['num_class'] = n_classes
+            params['objective'] = 'multi:softmax'
     else:
         params['eval_metric'] = 'error'
         params['objective'] = 'reg:squarederror'
@@ -84,23 +89,22 @@ def _build_and_save_xgboost(model_path,
 @pytest.mark.parametrize('n_rows', [unit_param(1000),
                                     quality_param(10000),
                                     stress_param(500000)])
-@pytest.mark.parametrize('n_columns', [unit_param(20),
+@pytest.mark.parametrize('n_columns', [unit_param(30),
                                        quality_param(100),
                          stress_param(1000)])
 @pytest.mark.parametrize('num_rounds', [unit_param(1),
                                         unit_param(5),
                                         quality_param(50),
                                         stress_param(90)])
+@pytest.mark.parametrize('n_classes', [2, 5, 25])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
+def test_fil_classification(n_rows, n_columns, num_rounds,
+                            n_classes, tmp_path):
     # settings
     classification = True  # change this to false to use regression
-    n_rows = n_rows  # we'll use 1 millions rows
-    n_columns = n_columns
-    n_categories = 2
     random_state = np.random.RandomState(43210)
 
-    X, y = simulate_data(n_rows, n_columns, n_categories,
+    X, y = simulate_data(n_rows, n_columns, n_classes,
                          random_state=random_state,
                          classification=classification)
     # identify shape and indices
@@ -114,28 +118,27 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
 
     bst = _build_and_save_xgboost(model_path, X_train, y_train,
                                   num_rounds=num_rounds,
-                                  classification=classification)
+                                  classification=classification,
+                                  n_classes=n_classes)
 
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
     xgb_preds = bst.predict(dvalidation)
     xgb_preds_int = np.around(xgb_preds)
-    xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
+    xgb_acc = accuracy_score(y_validation, xgb_preds_int)
 
-    xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
     fm = ForestInference.load(model_path,
                               algo='auto',
                               output_class=True,
                               threshold=0.50)
     fil_preds = np.asarray(fm.predict(X_validation))
-    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
-    fil_proba = np.asarray(fm.predict_proba(X_validation))
-
-    fil_proba = np.reshape(fil_proba, np.shape(xgb_proba))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
     assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
-    assert array_equal(fil_preds, xgb_preds_int)
-    assert np.allclose(fil_proba, xgb_proba, 1e-3)
+    if n_classes == 2:
+        assert array_equal(fil_preds, xgb_preds_int)
+        xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
+        fil_proba = np.asarray(fm.predict_proba(X_validation))
+        assert np.allclose(fil_proba, xgb_proba, 1e-3)
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
