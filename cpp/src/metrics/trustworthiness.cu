@@ -33,7 +33,7 @@ namespace Metrics {
         * @input tparam distance_type: Distance type to consider
         * @return Trustworthiness score
         */
-template <typename math_t, raft::linalg::DistanceType distance_type>
+template <typename math_t, raft::distance::DistanceType distance_type>
 double trustworthiness_score(const raft::handle_t& h, math_t* X,
                              math_t* X_embedded, int n, int m, int d,
                              int n_neighbors, int batchSize) {
@@ -45,7 +45,7 @@ double trustworthiness_score(const raft::handle_t& h, math_t* X,
 }
 
 template double
-trustworthiness_score<float, raft::linalg::DistanceType::EucUnexpandedL2Sqrt>(
+trustworthiness_score<float, raft::distance::DistanceType::EucUnexpandedL2Sqrt>(
   const raft::handle_t& h, float* X, float* X_embedded, int n, int m, int d,
   int n_neighbors, int batchSize);
 

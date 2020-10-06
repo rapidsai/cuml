@@ -429,7 +429,7 @@ class TrustworthinessScoreTest : public ::testing::Test {
     // euclidean test
     score =
       trustworthiness_score<float,
-                            raft::linalg::DistanceType::EucUnexpandedL2Sqrt>(
+                            raft::distance::DistanceType::EucUnexpandedL2Sqrt>(
         d_X, d_X_embedded, 50, 30, 8, 5, allocator, stream);
 
     allocator->deallocate(d_X, X.size() * sizeof(float), stream);

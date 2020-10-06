@@ -127,7 +127,7 @@ float accuracy_score_py(const raft::handle_t &handle, const int *predictions,
 
 void pairwiseDistance(const raft::handle_t &handle, const double *x,
                       const double *y, double *dist, int m, int n, int k,
-                      raft::linalg::DistanceType metric, bool isRowMajor) {
+                      raft::distance::DistanceType metric, bool isRowMajor) {
   MLCommon::Metrics::pairwiseDistance(x, y, dist, m, n, k, metric,
                                       handle.get_device_allocator(),
                                       handle.get_stream(), isRowMajor);
@@ -135,7 +135,7 @@ void pairwiseDistance(const raft::handle_t &handle, const double *x,
 
 void pairwiseDistance(const raft::handle_t &handle, const float *x,
                       const float *y, float *dist, int m, int n, int k,
-                      raft::linalg::DistanceType metric, bool isRowMajor) {
+                      raft::distance::DistanceType metric, bool isRowMajor) {
   MLCommon::Metrics::pairwiseDistance(x, y, dist, m, n, k, metric,
                                       handle.get_device_allocator(),
                                       handle.get_stream(), isRowMajor);

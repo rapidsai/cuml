@@ -21,7 +21,7 @@ namespace Bench {
 namespace Distance {
 
 DIST_BENCH_REGISTER(DistanceCosine,
-                    raft::linalg::DistanceType::EucExpandedCosine);
+                    raft::distance::DistanceType::EucExpandedCosine);
 
 }  // namespace Distance
 }  // namespace Bench

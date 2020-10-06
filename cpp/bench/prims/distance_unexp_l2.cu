@@ -21,9 +21,9 @@ namespace Bench {
 namespace Distance {
 
 DIST_BENCH_REGISTER(DistanceUnexpL2Sq,
-                    raft::linalg::DistanceType::EucUnexpandedL2);
+                    raft::distance::DistanceType::EucUnexpandedL2);
 DIST_BENCH_REGISTER(DistanceUnexpL2Sqrt,
-                    raft::linalg::DistanceType::EucUnexpandedL2Sqrt);
+                    raft::distance::DistanceType::EucUnexpandedL2Sqrt);
 
 }  // namespace Distance
 }  // namespace Bench
