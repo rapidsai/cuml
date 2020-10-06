@@ -394,18 +394,30 @@ def test_output_args(small_classifier_and_preds):
     assert array_equal(fil_preds, xgb_preds, 1e-3)
 
 
+@pytest.mark.parametrize('num_classes', [2, 5])
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
-def test_lightgbm(tmp_path):
+def test_lightgbm(tmp_path, num_classes):
     import lightgbm as lgb
-    X, y = simulate_data(500, 10,
+    X, y = simulate_data(500,
+                         10 if num_classes == 2 else 50,
+                         num_classes,
                          random_state=43210,
                          classification=True)
     train_data = lgb.Dataset(X, label=y)
-    param = {'objective': 'binary',
-             'metric': 'binary_logloss'}
+
+    if num_classes == 2:
+        param = {'objective': 'binary',
+                 'metric': 'binary_logloss',
+                 'num_class': 1}
+    else:
+        param = {'objective': 'ova',  # 'multiclass', would use softmax
+                 'metric': 'multi_logloss',
+                 'num_class': num_classes}
     num_round = 5
     bst = lgb.train(param, train_data, num_round)
     gbm_preds = bst.predict(X)
+    if num_classes > 2:
+        gbm_preds = gbm_preds.argmax(axis=1)
     model_path = str(os.path.join(tmp_path,
                                   'lgb.model'))
     bst.save_model(model_path)
@@ -413,24 +425,18 @@ def test_lightgbm(tmp_path):
                               algo='TREE_REORG',
                               output_class=True,
                               model_type="lightgbm")
-
-    fil_preds = np.asarray(fm.predict(X))
-    fil_preds = np.reshape(fil_preds, np.shape(gbm_preds))
-
+    fil_preds = fm.predict(X)
     assert array_equal(np.round(gbm_preds), fil_preds)
 
-    lcls = lgb.LGBMClassifier().set_params(objective='binary',
-                                           metric='binary_logloss')
-    lcls.fit(X, y)
-    gbm_proba = lcls.predict_proba(X)
+    if num_classes == 2:
+        lcls = lgb.LGBMClassifier().set_params(**param)
+        lcls.fit(X, y)
+        gbm_proba = lcls.predict_proba(X)
 
-    lcls.booster_.save_model(model_path)
-    fm = ForestInference.load(model_path,
-                              algo='TREE_REORG',
-                              output_class=True,
-                              model_type="lightgbm")
-
-    fil_proba = np.asarray(fm.predict_proba(X))
-    fil_proba = np.reshape(fil_proba, np.shape(gbm_proba))
-
-    assert np.allclose(gbm_proba, fil_proba, 1e-2)
+        lcls.booster_.save_model(model_path)
+        fm = ForestInference.load(model_path,
+                                  algo='TREE_REORG',
+                                  output_class=True,
+                                  model_type="lightgbm")
+        fil_proba = fm.predict_proba(X)
+        assert np.allclose(gbm_proba, fil_proba, 1e-2)
