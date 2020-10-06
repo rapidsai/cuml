@@ -221,10 +221,12 @@ class KNeighborsRegressor(NearestNeighbors):
         -------
         score
         """
-        labels, _, _ = self.predict(X, convert_dtype=True)
-        diff = (labels == y)
         if self.data_handler.datatype == 'cupy':
-            mean = da.mean(diff)
-            return mean.compute()
+            preds, _, _ = self.predict(X, convert_dtype=True)
+            y_mean = y.mean(axis=0)
+            residual_sss = ((y - preds) ** 2).sum(axis=0)
+            total_sss = ((y - y_mean) ** 2).sum(axis=0)
+            r2_score = da.mean(1 - (residual_sss / total_sss))
+            return r2_score.compute()
         else:
             raise ValueError("Only Dask arrays are supported")
