@@ -310,7 +310,7 @@ void DecisionTreeBase<T, L>::plant(
       use_experimental_backend = false;
     }
 
-    if (tree_params.quantile_per_tree == false) {
+    if (tree_params.quantile_per_tree != false) {
       CUML_LOG_WARN(
         "Experimental backend does not yet support per tree quantile "
         "computation");
