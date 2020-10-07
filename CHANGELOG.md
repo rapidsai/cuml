@@ -74,6 +74,8 @@
 - PR #2877: TSNE exception for n_components > 2
 - PR #2879: Update unit test for LabelEncoder on filtered input
 - PR #2925: Fixing Owner Bug When Slicing CumlArray Objects
+- PR #2931: Fix notebook error handling in gpuCI
+
 
 # cuML 0.15.0 (Date TBD)
 
