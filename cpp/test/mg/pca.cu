@@ -53,6 +53,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
     raft::comms::initialize_mpi_comms(&handle, MPI_COMM_WORLD);
 
     // Prepare resource
+
     const raft::comms::comms_t& comm = handle.get_comms();
     stream = handle.get_stream();
     const auto allocator = handle.get_device_allocator();
@@ -60,7 +61,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
 
     myRank = comm.get_rank();
     totalRanks = comm.get_size();
-    Random::Rng r(params.seed + myRank);
+    raft::random::Rng r(params.seed + myRank);
 
     CUBLAS_CHECK(cublasSetStream(cublasHandle, stream));
 
@@ -111,22 +112,22 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
                       singular_vals.data(), mu.data(), noise_vars.data(),
                       prmsPCA, false);
 
-    CUML_LOG_DEBUG(MLCommon::arr2Str(singular_vals.data(), params.N_components,
-                                     "Singular Vals", stream)
+    CUML_LOG_DEBUG(raft::arr2Str(singular_vals.data(), params.N_components,
+                                 "Singular Vals", stream)
                      .c_str());
 
-    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var.data(), params.N_components,
-                                     "Explained Variance", stream)
+    CUML_LOG_DEBUG(raft::arr2Str(explained_var.data(), params.N_components,
+                                 "Explained Variance", stream)
                      .c_str());
 
-    CUML_LOG_DEBUG(MLCommon::arr2Str(explained_var_ratio.data(),
-                                     params.N_components,
-                                     "Explained Variance Ratio", stream)
+    CUML_LOG_DEBUG(raft::arr2Str(explained_var_ratio.data(),
+                                 params.N_components,
+                                 "Explained Variance Ratio", stream)
                      .c_str());
 
-    CUML_LOG_DEBUG(MLCommon::arr2Str(components.data(),
-                                     params.N_components * params.N,
-                                     "Components", stream)
+    CUML_LOG_DEBUG(raft::arr2Str(components.data(),
+                                 params.N_components * params.N, "Components",
+                                 stream)
                      .c_str());
 
     Matrix::opg::deallocate(handle, inParts, desc, myRank, stream);

@@ -21,8 +21,8 @@
 #include "binary_op.cuh"
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 // Or else, we get the following compilation error
 // for an extended __device__ lambda cannot have private or protected access
@@ -42,7 +42,8 @@ class BinaryOpTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       BinaryOpInputs<InType, IdxType, OutType>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
+
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     IdxType len = params.len;
@@ -120,5 +121,5 @@ TEST_P(BinaryOpTestD_i64, Result) {
 INSTANTIATE_TEST_CASE_P(BinaryOpTests, BinaryOpTestD_i64,
                         ::testing::ValuesIn(inputsd_i64));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // namespace linalg
+}  // namespace raft

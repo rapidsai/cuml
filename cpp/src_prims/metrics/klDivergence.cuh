@@ -68,13 +68,13 @@ DataT klDivergence(const DataT* modelPDF, const DataT* candidatePDF, int size,
   MLCommon::device_buffer<DataT> d_KLDVal(allocator, stream, 1);
   CUDA_CHECK(cudaMemsetAsync(d_KLDVal.data(), 0, sizeof(DataT), stream));
 
-  MLCommon::LinAlg::mapThenSumReduce<DataT, KLDOp<DataT>, 256, const DataT*>(
+  raft::linalg::mapThenSumReduce<DataT, KLDOp<DataT>, 256, const DataT*>(
     d_KLDVal.data(), (size_t)size, KLDOp<DataT>(), stream, modelPDF,
     candidatePDF);
 
   DataT h_KLDVal;
 
-  MLCommon::updateHost(&h_KLDVal, d_KLDVal.data(), 1, stream);
+  raft::update_host(&h_KLDVal, d_KLDVal.data(), 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

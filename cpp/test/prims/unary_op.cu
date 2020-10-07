@@ -21,8 +21,8 @@
 #include "test_utils.h"
 #include "unary_op.cuh"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 // Or else, we get the following compilation error
 // for an extended __device__ lambda cannot have private or protected access
@@ -50,7 +50,7 @@ class UnaryOpTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       UnaryOpInputs<InType, IdxType, OutType>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
     auto len = params.len;
     allocate(in, len);
@@ -134,5 +134,5 @@ UNARY_OP_TEST(UnaryOpTestD_i64, inputsd_i64);
 typedef WriteOnlyUnaryOpTest<double, size_t> WriteOnlyUnaryOpTestD_i64;
 UNARY_OP_TEST(WriteOnlyUnaryOpTestD_i64, inputsd_i64);
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft
