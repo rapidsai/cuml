@@ -220,8 +220,12 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         Whether quantile is computed for individal trees in RF.
         Only relevant for GLOBAL_QUANTILE split_algo.
     use_experimental_backend : boolean (default = False)
-        If set to true, experimental decision tree training implementation
-        would be used.
+        If set to true and  following conditions are also met, experimental
+         decision tree training implementation would be used:
+            split_algo = 1 (GLOBAL_QUANTILE)
+            0 < max_depth < 14
+            max_features = 1.0 (Feature sub-sampling disabled)
+            quantile_per_tree = false (No per tree quantile computation)
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
         used only when 'use_experimental_backend' is true.

@@ -35,11 +35,9 @@ namespace DecisionTree {
  *            i.e., GINI for classification or MSE for regression
  * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
  * @param[in] cfg_shuffle_features: whether to shuffle column ids or not
- * @param[in] cfg_max_batch_size: batch size for batched-level-algo
- * @param[in] cfg_n_blks_for_cols: number of threadblks assigned across columns
- *            for the batched-level-algo
- * @param[in] cfg_n_blks_for_rows: number of threadblks assigned for a row in
- *            the batched-level-algo
+ * @param[in] cfg_use_experimental_backend: Switch to using experimental
+              backend; default false
+ * @param[in] cfg_max_batch_size: batch size for experimental backend
  */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
