@@ -41,7 +41,7 @@ namespace TimeSeries {
 */
 template <typename Type>
 struct PAC {
-  HDI Type operator()(Type in) { return myTanh(in * 0.5); }
+  HDI Type operator()(Type in) { return raft::myTanh(in * 0.5); }
 };
 
 /**
@@ -129,7 +129,7 @@ inline __device__ void invtransform(DataT* tmp, DataT* myNewParams, bool isAr) {
   }
 
   for (int i = 0; i < VALUE; ++i) {
-    myNewParams[i] = 2 * myATanh(myNewParams[i]);
+    myNewParams[i] = 2 * raft::myATanh(myNewParams[i]);
   }
 }
 
@@ -200,12 +200,12 @@ void jones_transform(const DataT* params, IdxT batchSize, IdxT parameter,
   IdxT nElements = batchSize * parameter;
 
   //copying contents
-  copy(newParams, params, (size_t)nElements, stream);
+  raft::copy(newParams, params, (size_t)nElements, stream);
 
   //setting the kernel configuration
   static const int BLOCK_DIM_Y = 1, BLOCK_DIM_X = 256;
   dim3 numThreadsPerBlock(BLOCK_DIM_X, BLOCK_DIM_Y);
-  dim3 numBlocks(ceildiv<int>(batchSize, numThreadsPerBlock.x), 1);
+  dim3 numBlocks(raft::ceildiv<int>(batchSize, numThreadsPerBlock.x), 1);
 
   //calling the kernel
 

@@ -629,7 +629,7 @@ __global__ __launch_bounds__(
     // update velocity
     velxd[i] += vx;
     velyd[i] += vy;
-    atomicAdd(Z_norm, normsum);
+    raft::myAtomicAdd(Z_norm, normsum);
   }
 }
 
@@ -657,8 +657,8 @@ __global__ void attractive_kernel_bh(
   // TODO: Convert attractive forces to CSR format
 
   // Apply forces
-  atomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));
-  atomicAdd(&attract2[i], PQ * (Y2[i] - Y2[j]));
+  raft::myAtomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));
+  raft::myAtomicAdd(&attract2[i], PQ * (Y2[i] - Y2[j]));
 }
 
 /**

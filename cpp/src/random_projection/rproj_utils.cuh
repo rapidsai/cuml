@@ -50,7 +50,7 @@ __global__ void sum_bools(bool* in_bools, int n, int* out_val) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < n) {
     bool v = in_bools[row];
-    if (v) atomicAdd(out_val, (int)in_bools[row]);
+    if (v) raft::myAtomicAdd(out_val, (int)in_bools[row]);
   }
 }
 
@@ -62,7 +62,7 @@ inline size_t binomial(const raft::handle_t& h, size_t n, double p,
   gettimeofday(&tp, NULL);
   long long seed = tp.tv_sec * 1000 + tp.tv_usec;
 
-  auto rng = MLCommon::Random::Rng(random_state + seed);
+  auto rng = raft::random::Rng(random_state + seed);
 
   bool* rand_array = (bool*)alloc->allocate(n * sizeof(bool), h.get_stream());
   int* successes = (int*)alloc->allocate(sizeof(int), h.get_stream());
@@ -71,14 +71,14 @@ inline size_t binomial(const raft::handle_t& h, size_t n, double p,
 
   cudaMemsetAsync(successes, 0, sizeof(int), h.get_stream());
 
-  dim3 grid_n(MLCommon::ceildiv(n, (size_t)TPB_X), 1, 1);
+  dim3 grid_n(raft::ceildiv(n, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   sum_bools<<<grid_n, blk, 0, h.get_stream()>>>(rand_array, n, successes);
   CUDA_CHECK(cudaPeekAtLastError());
 
   int ret = 0;
-  MLCommon::updateHost(&ret, successes, 1, h.get_stream());
+  raft::update_host(&ret, successes, 1, h.get_stream());
   cudaStreamSynchronize(h.get_stream());
   CUDA_CHECK(cudaPeekAtLastError());
 

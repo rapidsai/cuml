@@ -61,7 +61,7 @@ void launcher(const raft::handle_t &handle, const T *X, int n, int d,
                               params->n_components, handle.get_cublas_handle(),
                               stream);
 
-  MLCommon::LinAlg::unaryOp<T>(
+  raft::linalg::unaryOp<T>(
     tmp_storage.data(), tmp_storage.data(), n * params->n_components,
     [=] __device__(T input) { return fabsf(input); }, stream);
 
@@ -72,10 +72,10 @@ void launcher(const raft::handle_t &handle, const T *X, int n, int d,
   uint64_t seed = params->random_state;
 
   // Reuse tmp_storage to add random noise
-  MLCommon::Random::Rng r(seed);
+  raft::random::Rng r(seed);
   r.normal(tmp_storage.data(), n * params->n_components, 0.0f, 0.0001f, stream);
 
-  MLCommon::LinAlg::unaryOp<T>(
+  raft::linalg::unaryOp<T>(
     embedding, embedding, n * params->n_components,
     [=] __device__(T input) { return (10.0f / max) * input; }, stream);
 

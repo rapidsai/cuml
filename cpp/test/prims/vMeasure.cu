@@ -68,11 +68,11 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
     //allocating and initializing memory to the GPU
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    MLCommon::allocate(truthClusterArray, nElements, true);
-    MLCommon::allocate(predClusterArray, nElements, true);
+    raft::allocate(truthClusterArray, nElements, true);
+    raft::allocate(predClusterArray, nElements, true);
 
-    MLCommon::updateDevice(truthClusterArray, &arr1[0], (int)nElements, stream);
-    MLCommon::updateDevice(predClusterArray, &arr2[0], (int)nElements, stream);
+    raft::update_device(truthClusterArray, &arr1[0], (int)nElements, stream);
+    raft::update_device(predClusterArray, &arr2[0], (int)nElements, stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
       new raft::mr::device::default_allocator);
 

@@ -54,14 +54,14 @@ class coalescedReductionTest
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<coalescedReductionInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, len);
-    allocate(dots_exp, rows);
-    allocate(dots_act, rows);
+    raft::allocate(data, len);
+    raft::allocate(dots_exp, rows);
+    raft::allocate(dots_act, rows);
     r.uniform(data, len, T(-1.0), T(1.0), stream);
     naiveCoalescedReduction(dots_exp, data, cols, rows, stream);
 
@@ -98,14 +98,14 @@ const std::vector<coalescedReductionInputs<double>> inputsd = {
 
 typedef coalescedReductionTest<float> coalescedReductionTestF;
 TEST_P(coalescedReductionTestF, Result) {
-  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.rows,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef coalescedReductionTest<double> coalescedReductionTestD;
 TEST_P(coalescedReductionTestD, Result) {
-  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.rows,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(coalescedReductionTests, coalescedReductionTestF,

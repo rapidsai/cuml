@@ -159,7 +159,7 @@ void svcPredict(const raft::handle_t &handle, math_t *input, int n_rows,
   if (predict_class) {
     // Look up the label based on the value of the decision function:
     // f(x) = sign(y(x) + b)
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       preds, y.data(), n_rows,
       [labels, b] __device__(math_t y) {
         return y + b < 0 ? labels[0] : labels[1];
@@ -167,7 +167,7 @@ void svcPredict(const raft::handle_t &handle, math_t *input, int n_rows,
       stream);
   } else {
     // Calculate the value of the decision function: f(x) = y(x) + b
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       preds, y.data(), n_rows, [b] __device__(math_t y) { return y + b; },
       stream);
   }

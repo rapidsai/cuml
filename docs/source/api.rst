@@ -70,7 +70,13 @@ Feature and Label Encoding (Single-GPU)
  .. autoclass:: cuml.preprocessing.OneHotEncoder
     :members:
 
- .. autoclass:: cuml.preprocessing.TargetEncoder
+ .. autoclass:: cuml.preprocessing.TargetEncoder.TargetEncoder
+    :members:
+
+
+Text Preprocessing (Single-GPU)
+---------------------------------------
+ .. autoclass:: cuml.preprocessing.text.stem.PorterStemmer
     :members:
 
 Feature and Label Encoding (Dask-based Multi-GPU)

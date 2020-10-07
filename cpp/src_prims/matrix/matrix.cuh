@@ -78,7 +78,7 @@ void copyRows(const m_t *in, int n_rows, int n_cols, m_t *out,
 template <typename m_t>
 void copy(const m_t *in, m_t *out, int n_rows, int n_cols,
           cudaStream_t stream) {
-  copyAsync(out, in, n_rows * n_cols, stream);
+  raft::copy_async(out, in, n_rows * n_cols, stream);
 }
 
 /**

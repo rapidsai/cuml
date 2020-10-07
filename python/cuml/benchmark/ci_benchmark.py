@@ -80,6 +80,38 @@ def report_asv(results_df, output_dir,
         db.addResult(b_info, result)
 
 
+preprocessing_algo_defs = [
+    ("StandardScaler", "classification",
+        [1000000], [256, 1024], [{'copy': False}]),
+    ("MinMaxScaler", "classification",
+        [1000000], [256, 1024], [{'copy': False}]),
+    ("MaxAbsScaler", "classification",
+        [1000000], [256, 1024], [{'copy': False}]),
+    ("Normalizer", "classification",
+        [1000000], [256, 1024], [{'copy': False}]),
+    ("RobustScaler", "classification",
+        [1000000], [128, 256], [{'copy': False}]),
+    ("SimpleImputer", "classification",
+        [1000000], [256, 1024], [{'copy': False}]),
+    ("PolynomialFeatures", "classification",
+        [1000000], [128, 256], [{}]),
+    ("SparseCSRStandardScaler", "classification",
+        [1000000], [512], [{'copy': False, 'with_mean': False}]),
+    ("SparseCSRMaxAbsScaler", "classification",
+        [300000], [512], [{'copy': False}]),
+    ("SparseCSRNormalizer", "classification",
+        [1000000], [512], [{'copy': False}]),
+    ("SparseCSCRobustScaler", "classification",
+        [1000000], [512], [{'copy': False, 'with_centering': False}]),
+    ("SparseCSCSimpleImputer", "classification",
+        [1000000], [512], [{'copy': False}]),
+    ("SparseCSRPolynomialFeatures", "classification",
+        [30000], [128], [{}])
+]
+
+preprocessing_algo_names = set([a[0] for a in preprocessing_algo_defs])
+
+
 def make_bench_configs(long_config):
     """Defines the configurations we want to benchmark
     If `long_config` is True, this may take over an hour.
@@ -115,8 +147,10 @@ def make_bench_configs(long_config):
         ("tSVD", "blobs", large_rows, [32, 256],
          expand_params("n_components", [2, 25]),),
         ("GaussianRandomProjection", "blobs", large_rows, [32, 256],
-         expand_params("n_components", [2, 25]),),
+         expand_params("n_components", [2, 25]),)
     ]
+
+    algo_defs += preprocessing_algo_defs
 
     for algo_name, dataset_name, rows, dims, params in algo_defs:
         configs.append(
@@ -188,23 +222,37 @@ if __name__ == '__main__':
     parser.add_argument('--n_reps', type=int, default=3)
 
     args = parser.parse_args()
-    invalidAlgoNames = (set(args.algo) - allAlgoNames)
+
+    algos = set(args.algo)
+    if 'preprocessing' in algos:
+        algos = algos.union(preprocessing_algo_names)
+        algos.remove('preprocessing')
+    invalidAlgoNames = (algos - allAlgoNames)
     if invalidAlgoNames:
         raise ValueError("Invalid algo name(s): %s" % invalidAlgoNames)
 
     bench_to_run = bench_config[args.benchmark]
 
-    default_args = dict(run_cpu=False, n_reps=args.n_reps)
+    default_args = dict(run_cpu=True, n_reps=args.n_reps)
     all_results = []
     for cfg_in in bench_to_run:
-        if (args.algo is None) or ("ALL" in args.algo) or \
-           (cfg_in["algo_name"] in args.algo):
+        if (algos is None) or ("ALL" in algos) or \
+           (cfg_in["algo_name"] in algos):
             # Pass an actual algo object instead of an algo_name string
             cfg = cfg_in.copy()
             algo = algorithms.algorithm_by_name(cfg_in["algo_name"])
             cfg["algos"] = [algo]
+            alg_name = cfg["algo_name"]
+            if alg_name.startswith('Sparse'):
+                if alg_name.startswith('SparseCSR'):
+                    input_type = 'scipy-sparse-csr'
+                elif alg_name.startswith('SparseCSC'):
+                    input_type = 'scipy-sparse-csc'
+            else:
+                input_type = 'numpy'
             del cfg["algo_name"]
-            res = run_variations(**{**default_args, **cfg})
+            res = run_variations(**{**default_args, **cfg},
+                                 input_type=input_type)
             all_results.append(res)
 
     results_df = pd.concat(all_results)
