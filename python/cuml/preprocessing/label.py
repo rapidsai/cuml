@@ -149,6 +149,7 @@ class LabelBinarizer(Base):
                  neg_label=0,
                  pos_label=1,
                  sparse_output=False,
+                 *,
                  handle=None,
                  verbose=False,
                  output_type=None):
@@ -280,9 +281,8 @@ class LabelBinarizer(Base):
         return invert_labels(y_mapped, self._classes_)
 
     def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "neg_label",
-                "pos_label",
-                "sparse_output",
-            ]
+        return super().get_param_names() + [
+            "neg_label",
+            "pos_label",
+            "sparse_output",
+        ]

@@ -25,10 +25,15 @@ all_base_children = get_classes_from_package(cuml, import_sub_packages=True)
 
 
 def test_base_class_usage():
+    # Ensure base class returns the 3 main properties needed by all classes
     base = cuml.Base()
     base.handle.sync()
     base_params = base.get_param_names()
-    assert base_params == []
+
+    assert "handle" in base_params
+    assert "verbose" in base_params
+    assert "output_type" in base_params
+
     del base
 
 
@@ -69,6 +74,8 @@ def test_base_children_init(child_class: str):
 
     # Regex for find and replace:
     # output_type: `^[ ]{4}output_type :.*\n(^(?![ ]{0,4}(?![ ]{4,})).*(\n))+`
+    # verbose: `^[ ]{4}verbose :.*\n(^(?![ ]{0,4}(?![ ]{4,})).*(\n))+`
+    # handle: `^[ ]{4}handle :.*\n(^(?![ ]{0,4}(?![ ]{4,})).*(\n))+`
 
     def get_param_doc(param_doc_obj, name: str):
         found_doc = next((x for x in param_doc_obj if x.name == name), None)

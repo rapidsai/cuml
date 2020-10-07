@@ -501,5 +501,11 @@ class SVC(SVMBase, ClassifierMixin):
             return super(SVC, self).predict(X, False)
 
     def get_param_names(self):
-        return super().get_param_names() + \
+        params = super().get_param_names() + \
             ["probability", "random_state", "class_weight"]
+        
+        # Ignore "epsilon" since its not used in the constructor
+        if ("epsilon" in params):
+            params.remove("epsilon")
+
+        return params

@@ -111,6 +111,7 @@ class OneHotEncoder(Base):
                  sparse=True,
                  dtype=np.float,
                  handle_unknown='error',
+                 *,
                  handle=None,
                  verbose=False,
                  output_type=None):

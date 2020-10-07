@@ -178,7 +178,8 @@ class ExponentialSmoothing(Base):
                  ts_num=1, eps=2.24e-3, handle=None,
                  verbose=False, output_type=None):
 
-        super(ExponentialSmoothing, self).__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super(ExponentialSmoothing, self).__init__(
+            handle=handle, verbose=verbose, output_type=output_type)
 
         # Total number of Time Series for forecasting
         if type(ts_num) != int:

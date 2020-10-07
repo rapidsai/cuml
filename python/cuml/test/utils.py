@@ -186,6 +186,9 @@ class ClassEnumerator:
     custom_constructors: dictionary of {class_name: lambda}
         Custom constructors to use instead of the default one.
         ex: {'LogisticRegression': lambda: cuml.LogisticRegression(handle=1)}
+    recursive: bool, default=False
+        Instructs the class to recursively search submodules when True,
+        otherwise only classes in the specified model will be enumerated
     """
     def __init__(self,
                  module,
@@ -206,10 +209,13 @@ class ClassEnumerator:
             if (self.recursive):
                 modules = inspect.getmembers(module, inspect.ismodule)
 
+            # Enumerate child modules only if they are a submodule of the
+            # current one. i.e. `{parent_module}.{submodule}`
             for _, m in modules:
                 if (module.__name__ + "." in m.__name__):
                     classes.update(recurse_module(m))
 
+            # Ensure we only get classes that are part of this module
             classes.update({
                 (".".join((klass.__module__, klass.__qualname__))): klass
                 for name,
@@ -246,6 +252,21 @@ class ClassEnumerator:
 
 
 def get_classes_from_package(package, import_sub_packages=False):
+    """
+    Gets all modules imported in the specified package and returns a dictionary
+    of any classes that derive from `cuml.Base`
+
+    Parameters
+    ----------
+    package : python module The python module to search import_sub_packages :
+        bool, default=False When set to True, will try to import sub packages
+        by searching the directory tree for __init__.py files and importing
+        them accordingly. By default this is set to False
+
+    Returns
+    -------
+    ClassEnumerator Class enumerator for the specified package
+    """
 
     if (import_sub_packages):
         import os

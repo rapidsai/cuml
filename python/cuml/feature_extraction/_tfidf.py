@@ -43,7 +43,8 @@ def _get_dtype(X):
 
 
 class TfidfTransformer(Base):
-    """Transform a count matrix to a normalized tf or tf-idf representation
+    """
+    Transform a count matrix to a normalized tf or tf-idf representation
     Tf means term-frequency while tf-idf means term-frequency times inverse
     document-frequency. This is a common term weighting scheme in information
     retrieval, that has also found good use in document classification.
@@ -79,12 +80,13 @@ class TfidfTransformer(Base):
 
     Parameters
     ----------
+
     norm : {'l1', 'l2'}, default='l2'
         Each output row will have unit norm, either:
-        * 'l2': Sum of squares of vector elements is 1. The cosine
-        similarity between two vectors is their dot product when l2 norm has
-        been applied.
-        * 'l1': Sum of absolute values of vector elements is 1.
+         * 'l2': Sum of squares of vector elements is 1. The cosine similarity
+           between two vectors is their dot product when l2 norm has been
+           applied.
+         * 'l1': Sum of absolute values of vector elements is 1.
     use_idf : bool, default=True
         Enable inverse-document-frequency reweighting.
     smooth_idf : bool, default=True
@@ -113,7 +115,8 @@ class TfidfTransformer(Base):
     ----------
     idf_ : array of shape (n_features)
         The inverse document frequency (IDF) vector; only defined
-        if  ``use_idf`` is True.
+        if ``use_idf`` is True.
+
     """
 
     def __init__(self, *, norm='l2', use_idf=True, smooth_idf=True,

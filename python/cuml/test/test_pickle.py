@@ -402,6 +402,9 @@ def modified_clone(estimator, *, safe=True):
         param1 = new_object_params[name]
         param2 = params_set[name]
 
+        # For simple values, use equality comparison. This is due to weird
+        # inconsistencies for `id()` with basic types such as float, int, str,
+        # etc.
         if (isinstance(param1, numbers.Number) or isinstance(param1, str)):
             if (param1 != param2):
                 raise RuntimeError(

@@ -156,8 +156,9 @@ cdef class BaseRandomProjection():
         del self.rand_matS
         del self.rand_matD
 
-    def __init__(self, *, bool gaussian_method, double density, n_components='auto', eps=0.1,
-                 dense_output=True, random_state=None, ):
+    def __init__(self, *, bool gaussian_method, double density,
+                 n_components='auto', eps=0.1, dense_output=True,
+                 random_state=None):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef _DevAlloc alloc = <_DevAlloc>handle_.get_device_allocator()
@@ -428,9 +429,6 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
                       verbose=verbose,
                       output_type=output_type)
 
-        # self.gaussian_method = True
-        # self.density = -1.0  # not used
-
         BaseRandomProjection.__init__(
             self,
             gaussian_method=True,
@@ -537,9 +535,11 @@ class SparseRandomProjection(Base, BaseRandomProjection):
 
     random_state : int (default = None)
         Seed used to initilize random generator
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
+
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
@@ -567,9 +567,6 @@ class SparseRandomProjection(Base, BaseRandomProjection):
                       handle=handle,
                       verbose=verbose,
                       output_type=output_type)
-
-        # self.gaussian_method = False
-        # self.density = density if density != 'auto' else -1.0
 
         BaseRandomProjection.__init__(
             self,

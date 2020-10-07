@@ -275,7 +275,6 @@ class LabelEncoder(Base):
         return cudf.Series(reverted)
 
     def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "handle_unknown",
-            ]
+        return super().get_param_names() + [
+            "handle_unknown",
+        ]
