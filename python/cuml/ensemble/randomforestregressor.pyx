@@ -686,27 +686,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         del(preds_m)
         return stats
 
-    # def get_params(self, deep=True):
-    #     """
-    #     Returns the value of all parameters
-    #     required to configure this estimator as a dictionary.
-    #     Parameters
-    #     -----------
-    #     deep : boolean (default = True)
-    #     """
-    #     return self._get_params(deep=deep)
-
-    # def set_params(self, **params):
-    #     """
-    #     Sets the value of parameters required to
-    #     configure this estimator, it functions similar to
-    #     the sklearn set_params.
-    #     Parameters
-    #     -----------
-    #     params : dict of new params
-    #     """
-    #     return self._set_params(**params)
-
     def print_summary(self):
         """
         Prints the summary of the forest used to train and test the model

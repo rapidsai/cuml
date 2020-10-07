@@ -373,26 +373,3 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             pred.append(pred_per_worker / len(rslts))
 
         return pred
-
-    # def get_params(self, deep=True):
-    #     """
-    #     Returns the value of all parameters
-    #     required to configure this estimator as a dictionary.
-
-    #     Parameters
-    #     -----------
-    #     deep : boolean (default = True)
-    #     """
-    #     return self._get_params(deep)
-
-    # def set_params(self, **params):
-    #     """
-    #     Sets the value of parameters required to
-    #     configure this estimator, it functions similar to
-    #     the sklearn set_params.
-
-    #     Parameters
-    #     -----------
-    #     params : dict of new params
-    #     """
-    #     return self._set_params(**params)

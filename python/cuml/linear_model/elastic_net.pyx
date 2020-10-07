@@ -228,42 +228,6 @@ class ElasticNet(Base, RegressorMixin):
 
         return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
-    # def get_params(self, deep=True):
-    #     """
-    #     Scikit-learn style function that returns the estimator parameters.
-
-    #     Parameters
-    #     -----------
-    #     deep : boolean (default = True)
-    #     """
-    #     params = dict()
-    #     variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-    #                  'selection']
-    #     for key in variables:
-    #         var_value = getattr(self, key, None)
-    #         params[key] = var_value
-    #     return params
-
-    # def set_params(self, **params):
-    #     """
-    #     Sklearn style set parameter state to dictionary of params.
-
-    #     Parameters
-    #     -----------
-    #     params : dict of new params
-    #     """
-    #     if not params:
-    #         return self
-    #     variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-    #                  'selection']
-    #     for key, value in params.items():
-    #         if key not in variables:
-    #             raise ValueError('Invalid parameter for estimator')
-    #         else:
-    #             setattr(self, key, value)
-
-    #     return self
-
     def get_param_names(self):
         return super().get_param_names() + \
             [

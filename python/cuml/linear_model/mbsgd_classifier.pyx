@@ -200,46 +200,6 @@ class MBSGDClassifier(Base, ClassifierMixin):
 
         return preds
 
-    # def get_params(self, deep=True):
-    #     """
-    #     Scikit-learn style function that returns the estimator parameters.
-
-    #     Parameters
-    #     -----------
-    #     deep : boolean (default = True)
-    #     """
-
-    #     params = dict()
-    #     variables = ['loss', 'penalty', 'alpha', 'l1_ratio', 'fit_intercept',
-    #                  'epochs', 'tol', 'shuffle', 'learning_rate', 'eta0',
-    #                  'power_t', 'batch_size', 'n_iter_no_change', 'handle']
-    #     for key in variables:
-    #         var_value = getattr(self, key, None)
-    #         params[key] = var_value
-    #     return params
-
-    # def set_params(self, **params):
-    #     """
-    #     Sklearn style set parameter state to dictionary of params.
-
-    #     Parameters
-    #     -----------
-    #     params : dict of new params
-    #     """
-
-    #     if not params:
-    #         return self
-    #     variables = ['loss', 'penalty', 'alpha', 'l1_ratio', 'fit_intercept',
-    #                  'epochs', 'tol', 'shuffle', 'learning_rate', 'eta0',
-    #                  'power_t', 'batch_size', 'n_iter_no_change', 'handle']
-    #     for key, value in params.items():
-    #         if key not in variables:
-    #             raise ValueError('Invalid parameter for estimator')
-    #         else:
-    #             setattr(self, key, value)
-
-    #     return self
-
     def get_param_names(self):
         return super().get_param_names() + \
             [
