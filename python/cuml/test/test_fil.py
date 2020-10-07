@@ -191,10 +191,10 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 
 
 @pytest.mark.parametrize('n_rows', [1000])
-@pytest.mark.parametrize('n_columns', [20])
+@pytest.mark.parametrize('n_columns', [30])
 @pytest.mark.parametrize('n_estimators', [1, 10])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
-@pytest.mark.parametrize('n_classes', [2, 5])
+@pytest.mark.parametrize('n_classes', [2, 5, 25])
 @pytest.mark.parametrize('storage_type', [False, True])
 @pytest.mark.parametrize('model_class',
                          [GradientBoostingClassifier, RandomForestClassifier])
