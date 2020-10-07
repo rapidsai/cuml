@@ -194,21 +194,25 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 @pytest.mark.parametrize('n_columns', [20])
 @pytest.mark.parametrize('n_estimators', [1, 10])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
+@pytest.mark.parametrize('n_classes', [2, 5])
 @pytest.mark.parametrize('storage_type', [False, True])
 @pytest.mark.parametrize('model_class',
                          [GradientBoostingClassifier, RandomForestClassifier])
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
-                                storage_type, model_class):
+                                n_classes, storage_type, model_class):
     # skip depth 20 for dense tests
     if max_depth == 20 and not storage_type:
         return
 
+    # FIL not supporting multi-class sklearn RandomForestClassifiers
+    if n_classes > 2 and model_class == RandomForestClassifier:
+        return
+
     # settings
     classification = True  # change this to false to use regression
-    n_categories = 2
     random_state = np.random.RandomState(43210)
 
-    X, y = simulate_data(n_rows, n_columns, n_categories,
+    X, y = simulate_data(n_rows, n_columns, n_classes,
                          random_state=random_state,
                          classification=classification)
     # identify shape and indices
@@ -228,14 +232,14 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
         # model_class == GradientBoostingClassifier
         init_kwargs['init'] = 'zero'
 
-    skl_model = model_class(**init_kwargs)
+    skl_model = model_class(**init_kwargs, random_state=random_state)
     skl_model.fit(X_train, y_train)
 
     skl_preds = skl_model.predict(X_validation)
     skl_preds_int = np.around(skl_preds)
     skl_proba = skl_model.predict_proba(X_validation)
 
-    skl_acc = accuracy_score(y_validation, skl_preds > 0.5)
+    skl_acc = accuracy_score(y_validation, skl_preds_int)
 
     algo = 'NAIVE' if storage_type else 'BATCH_TREE_REORG'
 
@@ -246,15 +250,19 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                            storage_type=storage_type)
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_preds = np.reshape(fil_preds, np.shape(skl_preds_int))
-
-    fil_proba = np.asarray(fm.predict_proba(X_validation))
-    fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
-
     fil_acc = accuracy_score(y_validation, fil_preds)
+    # fil_acc is within p99 error bars of skl_acc (diff == 0.017 +- 0.012)
+    # however, some tests have a delta as big as 0.04.
+    # sklearn uses float64 thresholds, while FIL uses float32
+    # TODO(levsnv): once FIL supports float64 accuracy, revisit thresholds
+    threshold = 1e-5 if n_classes == 2 else 0.1
+    assert fil_acc == pytest.approx(skl_acc, abs=threshold)
 
-    assert fil_acc == pytest.approx(skl_acc, abs=1e-5)
-    assert array_equal(fil_preds, skl_preds_int)
-    assert np.allclose(fil_proba, skl_proba, 1e-3)
+    if n_classes == 2:
+        assert array_equal(fil_preds, skl_preds_int)
+        fil_proba = np.asarray(fm.predict_proba(X_validation))
+        fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
+        assert np.allclose(fil_proba, skl_proba, 1e-3)
 
 
 @pytest.mark.parametrize('n_rows', [1000])
