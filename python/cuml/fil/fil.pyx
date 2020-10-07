@@ -134,6 +134,9 @@ cdef class TreeliteModel():
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "lightgbm":
+            logger.warn("Treelite currently does not support float64 model"
+                        " parameters. Accuracy may degrade relative to"
+                        " native LightGBM invocation.")
             res = TreeliteLoadLightGBMModel(filename_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()

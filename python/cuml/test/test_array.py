@@ -29,6 +29,7 @@ from numba import cuda
 from cudf.core.buffer import Buffer
 from cuml.common.array import CumlArray
 from cuml.common.memory_utils import _get_size_from_shape
+from cuml.common.memory_utils import _strides_to_order
 from rmm import DeviceBuffer
 
 if sys.version_info < (3, 8):
@@ -100,7 +101,7 @@ def test_array_init(input_type, dtype, shape, order):
 
     if shape == 10:
         assert ary.shape == (10,)
-        len(ary) == 10
+        assert len(ary) == 10
     elif input_type == 'series':
         # cudf Series make their shape (10,) from (10, 1)
         if shape == (10, 1):
@@ -183,6 +184,36 @@ def test_array_init_from_bytes(data_type, dtype, shape, order):
     cp_ary = cp.zeros(shape, dtype=dtype)
 
     assert cp.all(cp.asarray(cp_ary) == cp_ary)
+
+
+@pytest.mark.parametrize('input_type', test_input_types)
+@pytest.mark.parametrize('dtype', test_dtypes_all)
+@pytest.mark.parametrize('shape', test_shapes)
+@pytest.mark.parametrize('order', ['F', 'C'])
+def test_array_init_bad(input_type, dtype, shape, order):
+    """
+    This test ensures that we assert on incorrect combinations of arguments
+    when creating CumlArray
+    """
+    if input_type == 'series':
+        inp = create_input(input_type, dtype, shape, 'C')
+    else:
+        inp = create_input(input_type, dtype, shape, order)
+
+    # Ensure the array is creatable
+    cuml_ary = CumlArray(inp)
+
+    with pytest.raises(AssertionError):
+        CumlArray(inp, dtype=cuml_ary.dtype)
+
+    with pytest.raises(AssertionError):
+        CumlArray(inp, shape=cuml_ary.shape)
+
+    with pytest.raises(AssertionError):
+        CumlArray(inp,
+                  order=_strides_to_order(cuml_ary.strides, cuml_ary.dtype))
+
+    assert cp.all(cp.asarray(inp) == cp.asarray(cuml_ary))
 
 
 @pytest.mark.parametrize('slice', test_slices)
@@ -504,6 +535,46 @@ def test_cumlary_binops(operation):
     ary_c = operation(ary_a, ary_b)
 
     assert(cp.all(ary_c.to_output('cupy') == c))
+
+
+@pytest.mark.parametrize('order', ['F', 'C'])
+def test_sliced_array_owner(order):
+    """
+    When slicing a CumlArray, a new object can be created created which
+    previously had an incorrect owner. This was due to the requirement by
+    `cudf.core.Buffer` that all data be in "u1" form. CumlArray would satisfy
+    this requirement by calling
+    `cp.asarray(data).ravel(order='A').view('u1')`. If the slice is not
+    contiguous, this would create an intermediate object with no references
+    that would be cleaned up by GC causing an error when using the memory
+    """
+
+    # Create 2 copies of a random array
+    random_cp = cp.array(cp.random.random((500, 4)),
+                         dtype=np.float32,
+                         order=order)
+    cupy_array = cp.array(random_cp, copy=True)
+    cuml_array = CumlArray(random_cp)
+
+    # Make sure we have 2 pieces of data
+    assert cupy_array.data.ptr != cuml_array.ptr
+
+    # Since these are C arrays, slice off the first column to ensure they are
+    # non-contiguous
+    cuml_slice = cuml_array[1:, 1:]
+    cupy_slice = cupy_array[1:, 1:]
+
+    # Delete the input object just to be sure
+    del random_cp
+
+    # Make sure to cleanup any objects. Forces deletion of intermediate owner
+    # object
+    gc.collect()
+
+    # Calling `to_output` forces use of the pointer. This can fail with a cuda
+    # error on `cupy.cuda.runtime.pointerGetAttributes(cuml_slice.ptr)` in CUDA
+    # < 11.0 or cudaErrorInvalidDevice in CUDA > 11.0 (unclear why it changed)
+    assert (cp.all(cuml_slice.to_output('cupy') == cupy_slice))
 
 
 def create_input(input_type, dtype, shape, order):

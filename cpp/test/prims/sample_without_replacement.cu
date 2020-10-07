@@ -22,8 +22,8 @@
 #include <vector>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace Random {
+namespace raft {
+namespace random {
 
 // Terminology:
 // SWoR - Sample Without Replacement
@@ -48,7 +48,7 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
   void SetUp() override {
     params = ::testing::TestWithParam<SWoRInputs<T>>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocator.reset(new raft::mr::device::default_allocator);
+
     Rng r(params.seed, params.gtype);
     allocate(in, params.len);
     allocate(wts, params.len);
@@ -58,12 +58,12 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
     r.uniform(in, params.len, T(-1.0), T(1.0), stream);
     r.uniform(wts, params.len, T(1.0), T(2.0), stream);
     if (params.largeWeightIndex >= 0) {
-      updateDevice(wts + params.largeWeightIndex, &params.largeWeight, 1,
-                   stream);
+      update_device(wts + params.largeWeightIndex, &params.largeWeight, 1,
+                    stream);
     }
-    r.sampleWithoutReplacement(out, outIdx, in, wts, params.sampledLen,
-                               params.len, allocator, stream);
-    updateHost(&(h_outIdx[0]), outIdx, params.sampledLen, stream);
+    r.sampleWithoutReplacement(handle, out, outIdx, in, wts, params.sampledLen,
+                               params.len, stream);
+    update_host(&(h_outIdx[0]), outIdx, params.sampledLen, stream);
   }
 
   void TearDown() override {
@@ -81,7 +81,7 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
   int* outIdx;
   std::vector<int> h_outIdx;
   cudaStream_t stream;
-  std::shared_ptr<deviceAllocator> allocator;
+  raft::handle_t handle;
 };
 
 typedef SWoRTest<float> SWoRTestF;
@@ -252,5 +252,5 @@ TEST_P(SWoRTestD, Result) {
 }
 INSTANTIATE_TEST_CASE_P(SWoRTests, SWoRTestD, ::testing::ValuesIn(inputsd));
 
-}  // end namespace Random
-}  // end namespace MLCommon
+}  // namespace random
+}  // namespace raft

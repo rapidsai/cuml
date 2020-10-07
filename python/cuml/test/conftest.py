@@ -1,16 +1,17 @@
+import numbers
 import os
 
+import _pytest.config
+import _pytest.terminal
 import cupy as cp
 import cupyx
 import pytest
-import _pytest.config
-import _pytest.terminal
+import rmm
+from cuml.dask.preprocessing.LabelEncoder import LabelEncoder as dask_label
+from cuml.preprocessing.LabelEncoder import LabelEncoder
 from pytest import Item
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
-import numbers
-
-import rmm
 
 # rmm.reinitialize(logging=True, log_file_name="test_log.txt")
 
@@ -196,37 +197,45 @@ def fail_on_bad_cuml_array_name(monkeypatch, request):
 
     def patched__setattr__(self, name, value):
 
-        supported_type = get_supported_input_type(value)
+        if name == 'classes_' and isinstance(self,
+                                             (LabelEncoder,
+                                              dask_label)):
+            # For label encoder, classes_ stores the set of unique classes
+            # which is strings, and can't be saved as cuml array
+            # even called `get_supported_input_type` causes a failure.
+            pass
+        else:
+            supported_type = get_supported_input_type(value)
 
-        if name == 'idf_':
-            # We skip this test because idf_' for tfidf setter returns
-            # a sparse diagonal matrix and getter gets a cupy array
-            # see discussion at:
-            # https://github.com/rapidsai/cuml/pull/2698/files#r471865982
-            pass
-        elif (supported_type == CumlArray):
-            assert name.startswith("_"), "Invalid CumlArray Use! CumlArray \
-                attributes need a leading underscore. Attribute: '{}' In: {}" \
-                    .format(name, self.__repr__())
-        elif (supported_type == cp.ndarray
-              and cupyx.scipy.sparse.issparse(value)):
-            # Leave sparse matrices alone for now.
-            pass
-        elif (supported_type is not None):
-            if not isinstance(value, numbers.Number):
-                # Is this an estimated property?
-                # If so, should always be CumlArray
-                assert not name.endswith("_"), "Invalid Estimated Array-Like \
-                    Attribute! Estimated attributes should always be \
-                    CumlArray. \
-                    Attribute: '{}' In: {}".format(name, self.__repr__())
-                assert not name.startswith("_"), "Invalid Public Array-Like \
-                    Attribute! Public array-like attributes should always be \
-                    CumlArray. Attribute: '{}' In: {}".format(name,
-                                                              self.__repr__())
-            else:
-                # Estimated properties can be numbers
+            if name == 'idf_':
+                # We skip this test because idf_' for tfidf setter returns
+                # a sparse diagonal matrix and getter gets a cupy array
+                # see discussion at:
+                # https://github.com/rapidsai/cuml/pull/2698/files#r471865982
                 pass
+            elif (supported_type == CumlArray):
+                assert name.startswith("_"), "Invalid CumlArray Use! CumlArray \
+                    attributes need a leading underscore. Attribute: '{}' In: {}" \
+                        .format(name, self.__repr__())
+            elif (supported_type == cp.ndarray and
+                  cupyx.scipy.sparse.issparse(value)):
+                # Leave sparse matrices alone for now.
+                pass
+            elif (supported_type is not None):
+                if not isinstance(value, numbers.Number):
+                    # Is this an estimated property?
+                    # If so, should always be CumlArray
+                    assert not name.endswith("_"), "Invalid Estimated Array-Like \
+                        Attribute! Estimated attributes should always be \
+                        CumlArray. \
+                        Attribute: '{}' In: {}".format(name, self.__repr__())
+                    assert not name.startswith("_"), "Invalid Public Array-Like \
+                        Attribute! Public array-like attributes should always \
+                        be CumlArray. Attribute: '{}' In: {}".format(
+                        name, self.__repr__())
+                else:
+                    # Estimated properties can be numbers
+                    pass
 
         return super(Base, self).__setattr__(name, value)
 

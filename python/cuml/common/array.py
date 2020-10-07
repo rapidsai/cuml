@@ -130,6 +130,12 @@ class CumlArray(Buffer, ArrayOutputable):
         elif dtype is not None and shape is not None and order is not None:
             detailed_construction = True
         else:
+            # Catch a likely developer error if CumlArray is created
+            # incorrectly
+            assert dtype is None and shape is None and order is None, \
+                ("Creating array from array-like object. The arguments "
+                 "`dtype`, `shape` and `order` should be `None`.")
+
             detailed_construction = False
 
         ary_interface = False
@@ -137,34 +143,22 @@ class CumlArray(Buffer, ArrayOutputable):
         # Base class (Buffer) constructor call
         size, shape = _get_size_from_shape(shape, dtype)
 
-        keep_owner = False
-
         if not memview_construction and not detailed_construction:
+            # Convert to cupy array and manually specify the ptr, size and
+            # owner. This is to avoid the restriction on Buffer that requires
+            # all data be u8
             cupy_data = cp.asarray(data)
             flattened_data = cupy_data.data.ptr
 
-            assert size is None
-            assert owner is None
-
+            # Size for Buffer is not the same as for cupy. Use nbytes
             size = cupy_data.nbytes
             owner = cupy_data if cupy_data.flags.owndata else data
-            
-            # if (cupy_data.data.ptr != flattened_data.data.ptr):
-            #     assert owner is None
-            #     keep_owner = True
-            
         else:
             flattened_data = data
 
         super(CumlArray, self).__init__(data=flattened_data,
                                         owner=owner,
                                         size=size)
-
-        if owner is None and not isinstance(data, np.ndarray) and not keep_owner:
-            # # Reference the original owner only if flattened_data is a view. Otherwise leave alone
-            # if (not(isinstance(flattened_data, cp.ndarray) and flattened_data.flags.owndata)):
-                # need to reference original owner instead of flattened_data
-            self._owner = data # TODO: Should remove this. Its not helping
 
         # Post processing of meta data
         if detailed_construction:

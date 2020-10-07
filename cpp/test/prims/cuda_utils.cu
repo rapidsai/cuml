@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <cuda_utils.cuh>
 
-namespace MLCommon {
+namespace raft {
 
 TEST(Utils, Assert) {
   ASSERT_NO_THROW(ASSERT(1 == 1, "Should not assert!"));
@@ -36,4 +36,4 @@ TEST(Utils, log2) {
   ASSERT_EQ(9, log2Of1023);
 }
 
-}  // end namespace MLCommon
+}  // end namespace raft

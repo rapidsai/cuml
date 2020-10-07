@@ -20,15 +20,15 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename Type, typename MapOp>
 __global__ void naiveMapReduceKernel(Type *out, const Type *in, size_t len,
                                      MapOp map) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) {
-    myAtomicAdd(out, map(in[idx]));
+    raft::myAtomicAdd(out, map(in[idx]));
   }
 }
 
@@ -36,7 +36,7 @@ template <typename Type, typename MapOp>
 void naiveMapReduce(Type *out, const Type *in, size_t len, MapOp map,
                     cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, (size_t)TPB);
+  int nblks = raft::ceildiv(len, (size_t)TPB);
   naiveMapReduceKernel<Type, MapOp>
     <<<nblks, TPB, 0, stream>>>(out, in, len, map);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -70,8 +70,9 @@ class MapReduceTest : public ::testing::TestWithParam<MapReduceInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MapReduceInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     auto len = params.len;
+
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in, len);
@@ -113,5 +114,5 @@ TEST_P(MapReduceTestD, Result) {
 INSTANTIATE_TEST_CASE_P(MapReduceTests, MapReduceTestD,
                         ::testing::ValuesIn(inputsd));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft
