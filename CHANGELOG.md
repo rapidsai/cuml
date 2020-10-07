@@ -45,6 +45,7 @@
 - PR #2798: Add python tests for FIL multiclass classification of lightgbm models
 - PR #2892 Update ci/local/README.md
 - PR #2910: Adding Support for CuPy 8.x
+- PR #2928: Updating Estimators Derived from Base for Consistency
 
 ## Bug Fixes
 - PR #2882: Allow import on machines without GPUs
