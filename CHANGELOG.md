@@ -45,6 +45,7 @@
 - PR #2798: Add python tests for FIL multiclass classification of lightgbm models
 - PR #2892 Update ci/local/README.md
 - PR #2910: Adding Support for CuPy 8.x
+- PR #2914: Add tests for XGBoost multi-class models in FIL
 
 ## Bug Fixes
 - PR #2882: Allow import on machines without GPUs
@@ -73,6 +74,7 @@
 - PR #2877: TSNE exception for n_components > 2
 - PR #2879: Update unit test for LabelEncoder on filtered input
 - PR #2932: Marking KBinsDiscretizer pytests as xfail
+- PR #2925: Fixing Owner Bug When Slicing CumlArray Objects
 
 # cuML 0.15.0 (Date TBD)
 
