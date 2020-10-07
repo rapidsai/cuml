@@ -108,7 +108,7 @@ struct Builder {
   }
 
   size_t calculateAlignedBytes(const size_t actualSize) {
-    return MLCommon::alignTo(actualSize, alignValue);
+    return raft::alignTo(actualSize, alignValue);
   }
 
   /**
@@ -256,8 +256,8 @@ struct Builder {
       if (new_nodes == 0 && isOver()) break;
       updateNodeRange();
     }
-    MLCommon::updateHost(&num_leaves, n_leaves, 1, s);
-    MLCommon::updateHost(&depth, n_depth, 1, s);
+    raft::update_host(&num_leaves, n_leaves, 1, s);
+    raft::update_host(&depth, n_depth, 1, s);
   }
 
  private:
@@ -315,7 +315,7 @@ struct Builder {
     CUDA_CHECK(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), s));
     initSplit<DataT, IdxT, Traits::TPB_DEFAULT>(splits, batchSize, s);
     // get the current set of nodes to be worked upon
-    MLCommon::updateDevice(curr_nodes, h_nodes + node_start, batchSize, s);
+    raft::update_device(curr_nodes, h_nodes + node_start, batchSize, s);
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
     auto n_col_blks = n_blks_for_cols;
@@ -333,10 +333,10 @@ struct Builder {
         splits, n_leaves, h_total_nodes, n_depth);
     CUDA_CHECK(cudaGetLastError());
     // copy the updated (due to leaf creation) and newly created child nodes
-    MLCommon::updateHost(h_nodes + node_start, curr_nodes, batchSize, s);
-    MLCommon::updateHost(h_n_nodes, n_nodes, 1, s);
+    raft::update_host(h_nodes + node_start, curr_nodes, batchSize, s);
+    raft::update_host(h_n_nodes, n_nodes, 1, s);
     CUDA_CHECK(cudaStreamSynchronize(s));
-    MLCommon::updateHost(h_nodes + h_total_nodes, next_nodes, *h_n_nodes, s);
+    raft::update_host(h_nodes + h_total_nodes, next_nodes, *h_n_nodes, s);
     return *h_n_nodes;
   }
 };  // end Builder

@@ -419,8 +419,8 @@ __global__ void computeSplitRegressionKernel(
         auto isRight = d > sbins[b];  // no divergence
         auto offset = isRight * nbins + b;
         auto diff = label - (isRight ? spred[nbins + b] : spred[b]);
-        atomicAdd(spred2 + offset, MLCommon::myAbs(diff));
-        atomicAdd(spred2P + b, MLCommon::myAbs(label - spredP[b]));
+        atomicAdd(spred2 + offset, raft::myAbs(diff));
+        atomicAdd(spred2P + b, raft::myAbs(label - spredP[b]));
       }
     }
     __syncthreads();

@@ -41,7 +41,7 @@ __global__ void iotaKernel(DataT* out, DataT start, DataT step, IdxT len) {
 template <typename DataT, typename IdxT>
 void iota(DataT* out, DataT start, DataT step, IdxT len, cudaStream_t stream) {
   static const int TPB = 512;
-  IdxT nblks = ceildiv<IdxT>(len, TPB);
+  IdxT nblks = raft::ceildiv<IdxT>(len, TPB);
   iotaKernel<DataT, IdxT><<<nblks, TPB, 0, stream>>>(out, start, step, len);
   CUDA_CHECK(cudaGetLastError());
 }

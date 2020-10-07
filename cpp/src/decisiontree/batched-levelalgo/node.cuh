@@ -127,7 +127,7 @@ void printNodes(Node<DataT, LabelT, IdxT>* nodes, IdxT len, cudaStream_t s) {
       ptr->info.best_metric_val, ptr->info.left_child_id, ptr->start,
       ptr->count, ptr->depth);
   };
-  MLCommon::LinAlg::writeOnlyUnaryOp<Node<DataT, LabelT, IdxT>, decltype(op),
+  raft::linalg::writeOnlyUnaryOp<Node<DataT, LabelT, IdxT>, decltype(op),
                                      IdxT, TPB>(nodes, len, op, s);
   CUDA_CHECK(cudaDeviceSynchronize());
 }

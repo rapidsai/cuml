@@ -76,13 +76,13 @@ class RFBatchedTest : public ::testing::TestWithParam<RfInputs> {
                          T(1.0), 3536699ULL);
 
     labels_h.resize(params.n_rows);
-    updateHost(labels_h.data(), labels, params.n_rows, stream);
+    raft::update_host(labels_h.data(), labels, params.n_rows, stream);
     preprocess_labels(params.n_rows, labels_h, labels_map);
-    updateDevice(labels, labels_h.data(), params.n_rows, stream);
+    raft::update_device(labels, labels_h.data(), params.n_rows, stream);
 
     T* data_h;
     data_h = (T*)malloc(data_len * sizeof(T));
-    updateHost(data_h, data, data_len, stream);
+    raft::update_host(data_h, data, data_len, stream);
 
     // Training part
     forest = new typename ML::RandomForestMetaData<T, int>;
@@ -100,7 +100,7 @@ class RFBatchedTest : public ::testing::TestWithParam<RfInputs> {
 
     predict(*handle, forest, data_row_major, params.n_rows, params.n_cols,
             predicted_labels);
-    updateHost(labels_h.data(), predicted_labels, params.n_rows, stream);
+    raft::update_host(labels_h.data(), predicted_labels, params.n_rows, stream);
 
     RF_metrics tmp =
       score(*handle, forest, labels, params.n_rows, predicted_labels);

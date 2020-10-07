@@ -77,7 +77,7 @@ struct DecisionTreeParams {
    */
   int max_batch_size;
   /**
-  * If set to true and  following conditions are also met, experimental decision
+  * If set to true and following conditions are also met, experimental decision
   *  tree training implementation would be used:
   *     split_algo = 1 (GLOBAL_QUANTILE)
   *     0 < max_depth < 14

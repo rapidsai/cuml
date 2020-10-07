@@ -105,7 +105,7 @@ DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
         auto lval_i = shist[i * 2 * nclasses + j];
         if (lval_i != 0) {
           auto lval = DataT(lval_i);
-          gain += MLCommon::myLog(lval * invLeft) * lval * invlen;
+          gain += raft::myLog(lval * invLeft) * lval * invlen;
         }
         val_i += lval_i;
       }
@@ -113,13 +113,13 @@ DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
         auto rval_i = shist[i * 2 * nclasses + nclasses + j];
         if (rval_i != 0) {
           auto rval = DataT(rval_i);
-          gain += MLCommon::myLog(rval * invRight) * rval * invlen;
+          gain += raft::myLog(rval * invRight) * rval * invlen;
         }
         val_i += rval_i;
       }
       if (val_i != 0) {
         auto val = DataT(val_i) * invlen;
-        gain -= val * MLCommon::myLog(val);
+        gain -= val * raft::myLog(val);
       }
     }
     sp.update({sbins[i], col, gain, nLeft});

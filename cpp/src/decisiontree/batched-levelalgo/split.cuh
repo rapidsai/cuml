@@ -81,14 +81,14 @@ struct Split {
    * @brief reduce the split info in the warp. Best split will be with 0th lane
    */
   DI void warpReduce() {
-    auto lane = MLCommon::laneId();
+    auto lane = raft::laneId();
 #pragma unroll
-    for (int i = MLCommon::WarpSize / 2; i >= 1; i /= 2) {
+    for (int i = raft::WarpSize / 2; i >= 1; i /= 2) {
       auto id = lane + i;
-      auto qu = MLCommon::shfl(quesval, id);
-      auto co = MLCommon::shfl(colid, id);
-      auto be = MLCommon::shfl(best_metric_val, id);
-      auto nl = MLCommon::shfl(nLeft, id);
+      auto qu = raft::shfl(quesval, id);
+      auto co = raft::shfl(colid, id);
+      auto be = raft::shfl(best_metric_val, id);
+      auto nl = raft::shfl(nLeft, id);
       update({qu, co, be, nl});
     }
   }
@@ -106,9 +106,9 @@ struct Split {
   DI void evalBestSplit(void* smem, SplitT* split, int* mutex) {
     auto* sbest = reinterpret_cast<SplitT*>(smem);
     warpReduce();
-    auto warp = threadIdx.x / MLCommon::WarpSize;
-    auto nWarps = blockDim.x / MLCommon::WarpSize;
-    auto lane = MLCommon::laneId();
+    auto warp = threadIdx.x / raft::WarpSize;
+    auto nWarps = blockDim.x / raft::WarpSize;
+    auto lane = raft::laneId();
     if (lane == 0) sbest[warp] = *this;
     __syncthreads();
     if (warp == 0) {
@@ -141,7 +141,7 @@ struct Split {
 template <typename DataT, typename IdxT, int TPB = 256>
 void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
   auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) { ptr->init(); };
-  MLCommon::LinAlg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT,
+  raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT,
                                      TPB>(splits, len, op, s);
 }
 
@@ -151,7 +151,7 @@ void printSplits(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
     printf("quesval = %f, colid = %d, best_metric_val = %f, nLeft = %d\n",
            ptr->quesval, ptr->colid, ptr->best_metric_val, ptr->nLeft);
   };
-  MLCommon::LinAlg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT,
+  raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT,
                                      TPB>(splits, len, op, s);
   CUDA_CHECK(cudaDeviceSynchronize());
 }
