@@ -48,6 +48,7 @@ void grow_deep_tree_classification(
   int& leaf_cnt, std::vector<SparseTreeNode<T, int>>& sparsetree,
   const int treeid, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   ML::PUSH_RANGE("DecisionTree::grow_deep_tree_classification @levelfunc_classifier.cuh");
+ #pragma region
   const int ncols_sampled = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
@@ -114,6 +115,8 @@ void grow_deep_tree_classification(
 
   int scatter_algo_depth =
     std::min(tempmem->swap_depth, tree_params.max_depth + 1);
+  ML::PUSH_RANGE("scatter phase @levelfunc_classifier");
+ #pragma region
   for (int depth = 0; (depth < scatter_algo_depth) && (n_nodes_nextitr != 0);
        depth++) {
     depth_cnt = depth;
@@ -169,12 +172,20 @@ void grow_deep_tree_classification(
              2 * n_nodes * n_unique_labels * sizeof(unsigned int));
     }
   }
+ #pragma endregion
+  ML::POP_RANGE();//scatter phase @levelfunc_classifier.cuh
+
+  ML::PUSH_RANGE("gather phase @levelfunc_classifier.cuh");
+ #pragma region
   // Start of gather algorithm
   //Convertor
   CUML_LOG_DEBUG("begin gather ");
   int lastsize = sparsetree.size() - sparsesize_nextitr;
   n_nodes = n_nodes_nextitr;
-  if (n_nodes == 0) return;
+  if (n_nodes == 0) {
+    ML::POP_RANGE(); //gather phase ended
+    ML::POP_RANGE(); //grow_deep_tree_classification end
+    return; }
   unsigned int *d_nodecount, *d_samplelist, *d_nodestart;
   SparseTreeNode<T, int>* d_sparsenodes;
   SparseTreeNode<T, int>* h_sparsenodes;
@@ -253,7 +264,11 @@ void grow_deep_tree_classification(
     sparsetree.insert(sparsetree.end(), h_sparsenodes,
                       h_sparsenodes + lastsize);
   }
-  ML::POP_RANGE();
+
+ #pragma endregion
+  ML::POP_RANGE();//gather phase @levelfunc_classifier.cuh
+ #pragma endregion
+  ML::POP_RANGE();//grow_deep_tree_classification @levelfunc_classifier.cuh
 }
 
 }  // namespace DecisionTree

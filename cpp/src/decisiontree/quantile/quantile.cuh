@@ -114,8 +114,10 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
                                                tempmem->stream, batch_cols + 1);
 
   blocks = raft::ceildiv(batch_cols + 1, threads);
+  ML::PUSH_RANGE("set_sorting_offset kernel @quantile.cuh");
   set_sorting_offset<<<blocks, threads, 0, tempmem->stream>>>(
     n_sampled_rows, batch_cols, d_offsets->data());
+  ML::POP_RANGE();
   CUDA_CHECK(cudaGetLastError());
 
   // Determine temporary device storage requirements
@@ -157,6 +159,7 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
     ML::POP_RANGE();
 
     blocks = raft::ceildiv(cur_batch_cols * nbins, threads);
+    ML::PUSH_RANGE("get_all_quantiles kernel @quantile.cuh");
     get_all_quantiles<<<blocks, threads, 0, tempmem->stream>>>(
       d_keys_out->data(), &tempmem->d_quantile->data()[quantile_offset],
       n_sampled_rows, cur_batch_cols, nbins);
@@ -165,6 +168,7 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   }
+  ML::POP_RANGE();
   raft::update_host(tempmem->h_quantile->data(), tempmem->d_quantile->data(),
                     nbins * ncols, tempmem->stream);
   d_keys_out->release(tempmem->stream);
