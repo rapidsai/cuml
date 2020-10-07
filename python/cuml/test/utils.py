@@ -187,7 +187,11 @@ class ClassEnumerator:
         Custom constructors to use instead of the default one.
         ex: {'LogisticRegression': lambda: cuml.LogisticRegression(handle=1)}
     """
-    def __init__(self, module, exclude_classes=None, custom_constructors=None, recursive=False):
+    def __init__(self,
+                 module,
+                 exclude_classes=None,
+                 custom_constructors=None,
+                 recursive=False):
         self.module = module
         self.exclude_classes = exclude_classes or []
         self.custom_constructors = custom_constructors or []
@@ -216,7 +220,8 @@ class ClassEnumerator:
 
             return classes
 
-        return [(val.__name__, val) for key, val in recurse_module(self.module).items()]
+        return [(val.__name__, val) for key,
+                val in recurse_module(self.module).items()]
 
     def get_models(self):
         """Picks up every models classes from self.module.
@@ -261,9 +266,6 @@ def get_classes_from_package(package, import_sub_packages=False):
 
                 importlib.import_module(module_name)
 
-    # modules = [m for name, m in inspect.getmembers(package, inspect.ismodule)]
-    # classes = [ClassEnumerator(module).get_models() for module in modules]
-    # return {k: v for dictionary in classes for k, v in dictionary.items()}
     return ClassEnumerator(module=package, recursive=True).get_models()
 
 

@@ -404,14 +404,16 @@ def modified_clone(estimator, *, safe=True):
 
         if (isinstance(param1, numbers.Number) or isinstance(param1, str)):
             if (param1 != param2):
-                raise RuntimeError('Cannot clone object %s, as the constructor '
-                               'either does not set or modifies parameter %s' %
-                               (estimator, name))
+                raise RuntimeError(
+                    'Cannot clone object %s, as the constructor'
+                    ' either does not set or modifies parameter %s'
+                    % (estimator, name))
         elif param1 is not param2:
             raise RuntimeError('Cannot clone object %s, as the constructor '
                                'either does not set or modifies parameter %s' %
                                (estimator, name))
     return new_object
+
 
 @pytest.mark.parametrize('model_name',
                          all_models.keys())

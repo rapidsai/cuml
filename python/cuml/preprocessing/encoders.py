@@ -328,7 +328,7 @@ class OneHotEncoder(Base):
                 if (max_value > np.iinfo(col_idx.dtype).max):
                     col_idx = col_idx.astype(np.min_scalar_type(max_value))
                     logger.debug("Upconverting column: '{}', to dtype: '{}', \
-                            to support up to {} classes"                                                                                                                .format(
+                            to support up to {} classes".format(
                         feature, np.min_scalar_type(max_value), max_value))
 
                 # increase indices to take previous features into account
@@ -461,4 +461,3 @@ class OneHotEncoder(Base):
                 "dtype",
                 "handle_unknown",
             ]
-

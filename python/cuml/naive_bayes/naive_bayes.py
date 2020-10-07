@@ -140,7 +140,7 @@ class MultinomialNB(Base):
     fit_prior : boolean
         Whether to learn class prior probabilities or no. If false, a uniform
         prior will be used.
-    class_prior : array-like, size (n_classes) 
+    class_prior : array-like, size (n_classes)
         Prior probabilities of the classes. If specified, the priors are not
         adjusted according to the data.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
