@@ -689,11 +689,11 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
       ASSERT(tl_params->output_class,
              "output_class==true is required for multi-class models");
       ASSERT(pred_transform == "sigmoid" || pred_transform == "identity" ||
-               pred_transform == "max_index" ||
+               pred_transform == "max_index" || pred_transform == "softmax" ||
                pred_transform == "multiclass_ova",
-             "only sigmoid, identity, max_index and multiclass_ova values of "
-             "pred_transform are supported for xgboost-style multi-class "
-             "classification models.");
+             "only sigmoid, identity, max_index, multiclass_ova and softmax "
+             "values of pred_transform are supported for xgboost-style "
+             "multi-class classification models.");
       // this function should not know how many threads per block will be used
       params->leaf_algo = leaf_algo_t::GROVE_PER_CLASS;
     } else {
