@@ -70,12 +70,28 @@ def test_base_n_features_in(datatype, use_integer_n_features):
 
 
 @pytest.mark.parametrize('child_class', list(all_base_children.keys()))
-def test_base_children_init(child_class: str):
+def test_base_subclass_init_matches_docs(child_class: str):
+    """
+    This test is comparing the docstrings for arguments in __init__ for any
+    class that derives from `Base`, We ensure that 1) the base arguments exist
+    in the derived class, 2) The types and default values are the same and 3)
+    That the docstring matches the base class
 
-    # Regex for find and replace:
-    # output_type: `^[ ]{4}output_type :.*\n(^(?![ ]{0,4}(?![ ]{4,})).*(\n))+`
-    # verbose: `^[ ]{4}verbose :.*\n(^(?![ ]{0,4}(?![ ]{4,})).*(\n))+`
-    # handle: `^[ ]{4}handle :.*\n(^(?![ ]{0,4}(?![ ]{4,})).*(\n))+`
+    This is to prevent multiple different docstrings for identical arguments
+    throughout the documentation
+
+    Parameters
+    ----------
+    child_class : str
+        Classname to test in the dict all_base_children
+
+    """
+
+    # To quickly find and replace all instances in the documentation, the below
+    # regex's may be useful
+    # output_type: r"^[ ]{4}output_type :.*\n(^(?![ ]{0,4}(?![ ]{4,})).*(\n))+"
+    # verbose: r"^[ ]{4}verbose :.*\n(^(?![ ]{0,4}(?![ ]{4,})).*(\n))+"
+    # handle: r"^[ ]{4}handle :.*\n(^(?![ ]{0,4}(?![ ]{4,})).*(\n))+"
 
     def get_param_doc(param_doc_obj, name: str):
         found_doc = next((x for x in param_doc_obj if x.name == name), None)
@@ -85,27 +101,28 @@ def test_base_children_init(child_class: str):
 
         return found_doc
 
+    # Load the base class signature, parse the docstring and pull out params
     base_sig = inspect.signature(cuml.Base, follow_wrapped=True)
-
     base_doc = numpydoc.docscrape.NumpyDocString(cuml.Base.__doc__)
-
     base_doc_params = base_doc["Parameters"]
 
     klass = all_base_children[child_class]
 
+    # Load the current class signature, parse the docstring and pull out params
     klass_sig = inspect.signature(klass, follow_wrapped=True)
-
     klass_doc = numpydoc.docscrape.NumpyDocString(klass.__doc__ or "")
-
     klass_doc_params = klass_doc["Parameters"]
 
     for name, param in base_sig.parameters.items():
+        # Ensure the base param exists in the derived
         assert param.name in klass_sig.parameters
 
         klass_param = klass_sig.parameters[param.name]
 
+        # Ensure the default values are the same
         assert param.default == klass_param.default
 
+        # Make sure we arent accidentally a *args or **kwargs
         assert (klass_param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
                 or klass_param.kind == inspect.Parameter.KEYWORD_ONLY)
 
@@ -115,6 +132,7 @@ def test_base_children_init(child_class: str):
 
             base_item_doc = get_param_doc(base_doc_params, name)
 
+            # Ensure the docstring is identical
             assert found_doc.type == base_item_doc.type, \
                 "Docstring mismatch for {}".format(name)
 
@@ -123,6 +141,11 @@ def test_base_children_init(child_class: str):
 
 @pytest.mark.parametrize('child_class', list(all_base_children.keys()))
 def test_base_children_get_param_names(child_class: str):
+
+    """
+    This test ensures that the arguments in `Base.__init__` are available in
+    all derived classes `get_param_names`
+    """
 
     klass = all_base_children[child_class]
 
@@ -136,11 +159,12 @@ def test_base_children_get_param_names(child_class: str):
             "{}.__init__ requires non-default arguments to create. Skipping.".
             format(klass.__name__))
     else:
-        # Create an insteance
+        # Create an instance
         obj = klass(*bound.args, **bound.kwargs)
 
         param_names = obj.get_param_names()
 
+        # Now ensure the base parameters are included in get_param_names
         for name, param in sig.parameters.items():
 
             if (param.kind == inspect.Parameter.VAR_KEYWORD

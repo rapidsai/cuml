@@ -21,12 +21,10 @@ import numpy as np
 import pickle
 import pytest
 
-from cuml.test import test_arima
 from cuml.tsa.arima import ARIMA
 from cuml.test.utils import array_equal, unit_param, stress_param, \
     ClassEnumerator, get_classes_from_package
 from cuml.test.test_svm import compare_svm, compare_probabilistic_svm
-from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification, make_regression
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn.model_selection import train_test_split
@@ -76,16 +74,12 @@ unfit_pickle_xfail = [
     'ForestInference'
 ]
 unfit_clone_xfail = [
-    'ARIMA',
     'AutoARIMA',
+    "ARIMA",
     "BaseRandomForestModel",
-    'ExponentialSmoothing',
-    'KalmanFilter',
-    'MBSGDClassifier',
-    'MBSGDRegressor'
 ]
 
-all_models = get_classes_from_package(cuml)
+all_models = get_classes_from_package(cuml, import_sub_packages=True)
 all_models.update({
     **regression_models,
     **solver_models,
@@ -97,14 +91,9 @@ all_models.update({
     **umap_model,
     **rf_models,
     **k_neighbors_models,
-    'ARIMA': lambda: ARIMA((1, 1, 1),
-                           np.array([-217.72, -206.77]),
-                           [np.array([0.03]), np.array([-0.03])],
-                           [np.array([-0.99]), np.array([-0.99])],
-                           test_arima.get_data()[1]),
+    'ARIMA': lambda: ARIMA(np.random.normal(0.0, 1.0, (10,))),
     'ExponentialSmoothing':
         lambda: cuml.ExponentialSmoothing(np.array([-217.72, -206.77])),
-    'KalmanFilter': lambda: cuml.KalmanFilter(1, 1),
 })
 
 
@@ -366,68 +355,40 @@ def test_unfit_pickle(model_name):
     assert mod_unpickled is not None
 
 
-def modified_clone(estimator, *, safe=True):
-    """
-    Identical to sklearn.clone except it uses equality comparison for numeric
-    types instead of "is"
-    """
-    estimator_type = type(estimator)
-    # XXX: not handling dictionaries
-    if estimator_type in (list, tuple, set, frozenset):
-        return estimator_type([clone(e, safe=safe) for e in estimator])
-    elif not hasattr(estimator, 'get_params') or isinstance(estimator, type):
-        if not safe:
-            return copy.deepcopy(estimator)
-        else:
-            if isinstance(estimator, type):
-                raise TypeError("Cannot clone object. " +
-                                "You should provide an instance of " +
-                                "scikit-learn estimator instead of a class.")
-            else:
-                raise TypeError("Cannot clone object '%s' (type %s): "
-                                "it does not seem to be a scikit-learn "
-                                "estimator as it does not implement a "
-                                "'get_params' method."
-                                % (repr(estimator), type(estimator)))
-
-    klass = estimator.__class__
-    new_object_params = estimator.get_params(deep=False)
-    for name, param in new_object_params.items():
-        new_object_params[name] = clone(param, safe=False)
-    new_object = klass(**new_object_params)
-    params_set = new_object.get_params(deep=False)
-
-    # quick sanity check of the parameters of the clone
-    for name in new_object_params:
-        param1 = new_object_params[name]
-        param2 = params_set[name]
-
-        # For simple values, use equality comparison. This is due to weird
-        # inconsistencies for `id()` with basic types such as float, int, str,
-        # etc.
-        if (isinstance(param1, numbers.Number) or isinstance(param1, str)):
-            if (param1 != param2):
-                raise RuntimeError(
-                    'Cannot clone object %s, as the constructor'
-                    ' either does not set or modifies parameter %s'
-                    % (estimator, name))
-        elif param1 is not param2:
-            raise RuntimeError('Cannot clone object %s, as the constructor '
-                               'either does not set or modifies parameter %s' %
-                               (estimator, name))
-    return new_object
-
-
-@pytest.mark.parametrize('model_name',
-                         all_models.keys())
+@pytest.mark.parametrize('model_name', all_models.keys())
 def test_unfit_clone(model_name):
+    # Cloning runs into many of the same problems as pickling
     if model_name in unfit_clone_xfail:
         pytest.xfail()
 
-    # Cloning runs into many of the same problems as pickling
-    mod = all_models[model_name]()
+    # Create an instance of the model
+    old_model: cuml.Base = all_models[model_name]()
 
-    modified_clone(mod)
+    old_model_params = old_model.get_params()
+
+    # Duplicate the parameters to avoid any ownership issues
+    for name, param in old_model_params.items():
+        old_model_params[name] = copy.deepcopy(param)
+
+    # Create a new model from the old_model params
+    new_model = old_model.__class__(**old_model_params)
+
+    new_model_params = new_model.get_params()
+
+    # Compare the old and new models params one at a time
+    for name, param in new_model_params.items():
+        old_param = old_model_params[name]
+        new_param = param
+
+        # For basic data types (int, float, str, etc) do an equality
+        # comparison. Using `is` fails for basic data types if they pass the
+        # cython/python layer
+        if (isinstance(old_param, numbers.Number)
+                or isinstance(old_param, str)):
+            assert old_param == new_param
+        else:
+            assert old_param is new_param
+
     # TODO: check parameters exactly?
 
 

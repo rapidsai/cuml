@@ -65,7 +65,6 @@ Feature and Label Encoding (Single-GPU)
 
  .. autoclass:: cuml.preprocessing.LabelEncoder.LabelEncoder
     :members:
-    :inherited-members:
 
  .. autoclass:: cuml.preprocessing.LabelBinarizer
     :members:

@@ -35,13 +35,13 @@ from cuml.common import input_to_cuml_array, with_cupy_rmm
 
 
 class BaseRandomForestModel(Base):
-    variables = ['n_estimators', 'max_depth', 'handle',
-                 'max_features', 'n_bins',
-                 'split_algo', 'split_criterion', 'min_rows_per_node',
-                 'min_impurity_decrease',
-                 'bootstrap', 'bootstrap_features',
-                 'verbose', 'rows_sample',
-                 'max_leaves', 'quantile_per_tree', 'accuracy_metric']
+    _param_names = ['n_estimators', 'max_depth', 'handle',
+                    'max_features', 'n_bins',
+                    'split_algo', 'split_criterion', 'min_rows_per_node',
+                    'min_impurity_decrease',
+                    'bootstrap', 'bootstrap_features',
+                    'verbose', 'rows_sample',
+                    'max_leaves', 'quantile_per_tree', 'accuracy_metric']
     criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
                       '3': MAE, '4': CRITERION_END}
 
@@ -341,12 +341,7 @@ class BaseRandomForestModel(Base):
         return preds
 
     def get_param_names(self):
-        combined = super().get_param_names() + BaseRandomForestModel.variables
-
-        if ("handle" in combined):
-            combined.remove("handle")
-
-        return combined
+        return super().get_param_names() + BaseRandomForestModel._param_names
 
     def set_params(self, **params):
         self.treelite_serialized_model = None

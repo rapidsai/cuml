@@ -14,15 +14,15 @@
 # limitations under the License.
 #
 
+import numbers
+
 import cupy as cp
 import cupyx
 import scipy
-import numbers
-
-from cuml.common import with_cupy_rmm
+from cuml import Base
 from cuml.common import input_to_cuml_array
+from cuml.common import with_cupy_rmm
 from cuml.common.array import CumlArray
-
 from cuml.decomposition import PCA
 
 
@@ -426,7 +426,8 @@ class IncrementalPCA(PCA):
             return super().transform(X)
 
     def get_param_names(self):
-        return super().get_param_names() + self._hyperparams
+        # Skip super() since we dont pass any extra parameters in __init__
+        return Base.get_param_names(self) + self._hyperparams
 
     def _cupy_to_cumlarray_attrs(self):
         self._components_ = CumlArray(self._components_.copy())

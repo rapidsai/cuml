@@ -354,14 +354,23 @@ class UMAP(Base):
         self.target_weights = target_weights
 
         self.multicore_implem = random_state is None
-        if isinstance(random_state, np.random.RandomState):
-            rs = random_state
+
+        # Check to see if we are already a random_state (type==np.uint64).
+        # Reuse this if already passed (can happen from get_params() of another
+        # instance)
+        if isinstance(random_state, np.uint64):
+            self.random_state = random_state
         else:
-            rs = np.random.RandomState(random_state)
-        self.random_state = <uint64_t> rs.randint(low=0,
-                                                  high=np.iinfo(
-                                                      np.uint64).max,
-                                                  dtype=np.uint64)
+            # Otherwise create a RandomState instance to generate a new
+            # np.uint64
+            if isinstance(random_state, np.random.RandomState):
+                rs = random_state
+            else:
+                rs = np.random.RandomState(random_state)
+
+            self.random_state = rs.randint(low=0,
+                                           high=np.iinfo(np.uint64).max,
+                                           dtype=np.uint64)
 
         if target_metric == "euclidean" or target_metric == "categorical":
             self.target_metric = target_metric
