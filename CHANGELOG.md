@@ -74,6 +74,7 @@
 - PR #2880: Fix bugs in Auto-ARIMA when s==None
 - PR #2877: TSNE exception for n_components > 2
 - PR #2879: Update unit test for LabelEncoder on filtered input
+- PR #2932: Marking KBinsDiscretizer pytests as xfail
 - PR #2925: Fixing Owner Bug When Slicing CumlArray Objects
 - PR #2931: Fix notebook error handling in gpuCI
 
