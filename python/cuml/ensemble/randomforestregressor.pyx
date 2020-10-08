@@ -210,6 +210,9 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     quantile_per_tree : boolean (default = False)
         Whether quantile is computed for individal trees in RF.
         Only relevant for GLOBAL_QUANTILE split_algo.
+    shuffle_features : boolean (default = False)
+        Whether to fully reshuffle the features for subsampling at each tree
+        node (instead of only shuffling once globally)
     use_experimental_backend : boolean (default = False)
         If set to true and  following conditions are also met, experimental
          decision tree training implementation would be used:
@@ -423,6 +426,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams,
+                                     <bool> self.shuffle_features,
                                      <bool> self.use_experimental_backend,
                                      <int> self.max_batch_size)
 

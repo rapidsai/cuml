@@ -59,6 +59,7 @@ class BaseRandomForestModel(Base):
                  min_impurity_split=None, oob_score=None,
                  random_state=None, warm_start=None, class_weight=None,
                  quantile_per_tree=False, criterion=None,
+                 shuffle_features=False,
                  use_experimental_backend=False, max_batch_size=128):
 
         if accuracy_metric:
@@ -139,6 +140,7 @@ class BaseRandomForestModel(Base):
         self.dtype = dtype
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
+        self.shuffle_features = shuffle_features
         self.use_experimental_backend = use_experimental_backend
         self.max_batch_size = max_batch_size
         self.n_streams = handle.getNumInternalStreams()
