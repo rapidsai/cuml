@@ -54,6 +54,7 @@ if(BUILD_CUML_TESTS)
     sg/kmeans_test.cu
     sg/knn_test.cu
     sg/logger.cpp
+    sg/nvtx_test.cpp
     sg/ols.cu
     sg/pca_test.cu
     sg/quasi_newton.cu
@@ -185,7 +186,6 @@ if(BUILD_PRIMS_TESTS)
     prims/multiply.cu
     prims/mutualInfoScore.cu
     prims/norm.cu
-    prims/nvtx_test.cu
     prims/penalty.cu
     prims/permute.cu
     prims/power.cu

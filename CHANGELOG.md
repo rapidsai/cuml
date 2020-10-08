@@ -49,6 +49,7 @@
 - PR #2914: Add tests for XGBoost multi-class models in FIL
 
 ## Bug Fixes
+- PR #2885: Changing test target for NVTX wrapper test
 - PR #2882: Allow import on machines without GPUs
 - PR #2875: Bug fix to enable colorful NVTX markers
 - PR #2744: Supporting larger number of classes in KNeighborsClassifier
