@@ -41,7 +41,7 @@ logger "Check GPU usage..."
 nvidia-smi
 
 logger "Activate conda env..."
-source activate gdf
+source activate rapids
 conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
@@ -107,7 +107,10 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     ################################################################################
     # TEST - Run GoogleTest and py.tests for libcuml and cuML
     ################################################################################
-
+    set +e -Eo pipefail
+    EXITCODE=0
+    trap "EXITCODE=1" ERR
+    
     if hasArg --skip-tests; then
         logger "Skipping Tests..."
         exit 0
@@ -194,6 +197,9 @@ else
     ################################################################################
     # TEST - Run notebook tests
     ################################################################################
+    set +e -Eo pipefail
+    EXITCODE=0
+    trap "EXITCODE=1" ERR
 
     ${WORKSPACE}/ci/gpu/test-notebooks.sh 2>&1 | tee nbtest.log
     python ${WORKSPACE}/ci/utils/nbtestlog2junitxml.py nbtest.log
@@ -224,3 +230,5 @@ else
     $WORKSPACE/build.sh cppdocs -v
 
 fi
+
+return ${EXITCODE}

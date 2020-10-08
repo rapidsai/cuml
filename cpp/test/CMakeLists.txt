@@ -48,16 +48,20 @@ if(BUILD_CUML_TESTS)
   add_executable(ml
     sg/cd_test.cu
     sg/dbscan_test.cu
+    sg/decisiontree_batchedlevel_algo.cu
     sg/fil_test.cu
     sg/handle_test.cu
     sg/holtwinters_test.cu
     sg/kmeans_test.cu
     sg/knn_test.cu
     sg/logger.cpp
+    sg/nvtx_test.cpp
     sg/ols.cu
     sg/pca_test.cu
     sg/quasi_newton.cu
     sg/rf_accuracy_test.cu
+    sg/rf_batched_classification_test.cu
+    sg/rf_batched_regression_test.cu
     sg/rf_depth_test.cu
     sg/rf_test.cu
     sg/rf_treelite_test.cu
@@ -70,9 +74,12 @@ if(BUILD_CUML_TESTS)
     sg/tsvd_test.cu
     sg/umap_parametrizable_test.cu)
 
+  add_dependencies(ml cutlass)
+
   target_include_directories(ml PRIVATE ${CUML_TEST_INCLUDE_DIRS})
 
   target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES})
+
 endif(BUILD_CUML_TESTS)
 
 ##############################################################################
@@ -185,7 +192,6 @@ if(BUILD_PRIMS_TESTS)
     prims/multiply.cu
     prims/mutualInfoScore.cu
     prims/norm.cu
-    prims/nvtx_test.cu
     prims/penalty.cu
     prims/permute.cu
     prims/power.cu

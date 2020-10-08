@@ -210,6 +210,19 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     quantile_per_tree : boolean (default = False)
         Whether quantile is computed for individal trees in RF.
         Only relevant for GLOBAL_QUANTILE split_algo.
+    shuffle_features : boolean (default = False)
+        Whether to fully reshuffle the features for subsampling at each tree
+        node (instead of only shuffling once globally)
+    use_experimental_backend : boolean (default = False)
+        If set to true and  following conditions are also met, experimental
+         decision tree training implementation would be used:
+            split_algo = 1 (GLOBAL_QUANTILE)
+            0 < max_depth < 14
+            max_features = 1.0 (Feature sub-sampling disabled)
+            quantile_per_tree = false (No per tree quantile computation)
+    max_batch_size: int (default = 128)
+        Maximum number of nodes that can be processed in a given batch. This is
+        used only when 'use_experimental_backend' is true.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
@@ -412,7 +425,10 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                                      <int> seed_val,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
-                                     <int> self.n_streams)
+                                     <int> self.n_streams,
+                                     <bool> self.shuffle_features,
+                                     <bool> self.use_experimental_backend,
+                                     <int> self.max_batch_size)
 
         if self.dtype == np.float32:
             fit(handle_[0],

@@ -107,3 +107,8 @@ def test_tsne_large(nrows, ncols):
     Y = tsne.fit_transform(X)
     nans = np.sum(np.isnan(Y))
     assert nans == 0
+
+
+def test_components_exception():
+    with pytest.raises(ValueError):
+        TSNE(n_components=3)
