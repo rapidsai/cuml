@@ -198,12 +198,11 @@ class Lasso(Base, RegressorMixin):
         return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "alpha",
-                "fit_intercept",
-                "normalize",
-                "max_iter",
-                "tol",
-                "selection",
-            ]
+        return super().get_param_names() + [
+            "alpha",
+            "fit_intercept",
+            "normalize",
+            "max_iter",
+            "tol",
+            "selection",
+        ]

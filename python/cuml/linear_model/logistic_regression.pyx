@@ -401,18 +401,17 @@ class LogisticRegression(Base, ClassifierMixin):
         return proba.to_output(out_type)
 
     def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "penalty",
-                "tol",
-                "C",
-                "fit_intercept",
-                "class_weight",
-                "max_iter",
-                "linesearch_max_iter",
-                "l1_ratio",
-                "solver",
-            ]
+        return super().get_param_names() + [
+            "penalty",
+            "tol",
+            "C",
+            "fit_intercept",
+            "class_weight",
+            "max_iter",
+            "linesearch_max_iter",
+            "l1_ratio",
+            "solver",
+        ]
 
     def __getstate__(self):
         state = self.__dict__.copy()

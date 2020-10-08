@@ -461,7 +461,7 @@ class ForestInference(Base):
     """
 
     def __init__(self,
-                 handle=None, 
+                 handle=None,
                  output_type=None,
                  verbose=False):
         super(ForestInference, self).__init__(handle=handle,

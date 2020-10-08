@@ -87,7 +87,7 @@ cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML":
 
 
 class ARIMA(Base):
-    """
+    r"""
     Implements a batched ARIMA model for in- and out-of-sample
     time-series prediction, with support for seasonality (SARIMA)
 

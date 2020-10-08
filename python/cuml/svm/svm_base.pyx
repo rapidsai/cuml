@@ -531,19 +531,18 @@ class SVMBase(Base):
         return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
     def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "C",
-                "kernel",
-                "degree",
-                "gamma",
-                "coef0",
-                "tol",
-                "cache_size",
-                "max_iter",
-                "nochange_steps",
-                "epsilon",
-            ]
+        return super().get_param_names() + [
+            "C",
+            "kernel",
+            "degree",
+            "gamma",
+            "coef0",
+            "tol",
+            "cache_size",
+            "max_iter",
+            "nochange_steps",
+            "epsilon",
+        ]
 
     def __getstate__(self):
         state = self.__dict__.copy()

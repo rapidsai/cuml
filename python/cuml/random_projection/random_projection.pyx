@@ -437,14 +437,13 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
             eps=eps,
             dense_output=True,
             random_state=random_state)
-    
+
     def get_param_names(self):
-        return Base.get_param_names(self) + \
-            [
-                "n_components",
-                "eps",
-                "random_state"
-            ]
+        return Base.get_param_names(self) + [
+            "n_components",
+            "eps",
+            "random_state"
+        ]
 
 
 class SparseRandomProjection(Base, BaseRandomProjection):
@@ -578,11 +577,10 @@ class SparseRandomProjection(Base, BaseRandomProjection):
             random_state=random_state)
 
     def get_param_names(self):
-        return Base.get_param_names(self) + \
-            [
-                "n_components",
-                "density",
-                "eps",
-                "dense_output",
-                "random_state"
-            ]
+        return Base.get_param_names(self) + [
+            "n_components",
+            "density",
+            "eps",
+            "dense_output",
+            "random_state"
+        ]

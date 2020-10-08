@@ -341,10 +341,8 @@ class DBSCAN(Base):
 
     def get_param_names(self):
         return super().get_param_names() + [
-                "eps",
-                "min_samples",
-                "max_mbytes_per_batch",
-                "calc_core_sample_indices",
-            ]
-
-
+            "eps",
+            "min_samples",
+            "max_mbytes_per_batch",
+            "calc_core_sample_indices",
+        ]

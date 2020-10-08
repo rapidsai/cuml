@@ -449,24 +449,23 @@ class TSNE(Base):
         return state
 
     def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "n_components",
-                "perplexity",
-                "early_exaggeration",
-                "learning_rate",
-                "n_iter",
-                "n_iter_without_progress",
-                "min_grad_norm",
-                "metric",
-                "init",
-                "random_state",
-                "method",
-                "angle",
-                "learning_rate_method",
-                "n_neighbors",
-                "perplexity_max_iter",
-                "exaggeration_iter",
-                "pre_momentum",
-                "post_momentum",
-            ]
+        return super().get_param_names() + [
+            "n_components",
+            "perplexity",
+            "early_exaggeration",
+            "learning_rate",
+            "n_iter",
+            "n_iter_without_progress",
+            "min_grad_norm",
+            "metric",
+            "init",
+            "random_state",
+            "method",
+            "angle",
+            "learning_rate_method",
+            "n_neighbors",
+            "perplexity_max_iter",
+            "exaggeration_iter",
+            "pre_momentum",
+            "post_momentum",
+        ]

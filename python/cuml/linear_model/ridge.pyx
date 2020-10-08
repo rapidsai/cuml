@@ -208,7 +208,8 @@ class Ridge(Base, RegressorMixin):
     """
 
     def __init__(self, alpha=1.0, solver='eig', fit_intercept=True,
-                 normalize=False, handle=None, output_type=None, verbose=False):
+                 normalize=False, handle=None, output_type=None,
+                 verbose=False):
 
         """
         Initializes the linear ridge regression class.

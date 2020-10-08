@@ -60,7 +60,6 @@ class BaseRandomForestModel(Base):
                  random_state=None, warm_start=None, class_weight=None,
                  quantile_per_tree=False, criterion=None):
 
-
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
@@ -348,8 +347,6 @@ class BaseRandomForestModel(Base):
             combined.remove("handle")
 
         return combined
-
-
 
     def set_params(self, **params):
         self.treelite_serialized_model = None

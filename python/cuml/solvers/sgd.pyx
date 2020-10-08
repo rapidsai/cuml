@@ -491,19 +491,18 @@ class SGD(Base):
         return preds.to_output(output_type=output_type, output_dtype=out_dtype)
 
     def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "loss",
-                "penalty",
-                "alpha",
-                "l1_ratio",
-                "fit_intercept",
-                "epochs",
-                "tol",
-                "shuffle",
-                "learning_rate",
-                "eta0",
-                "power_t",
-                "batch_size",
-                "n_iter_no_change",
-            ]
+        return super().get_param_names() + [
+            "loss",
+            "penalty",
+            "alpha",
+            "l1_ratio",
+            "fit_intercept",
+            "epochs",
+            "tol",
+            "shuffle",
+            "learning_rate",
+            "eta0",
+            "power_t",
+            "batch_size",
+            "n_iter_no_change",
+        ]

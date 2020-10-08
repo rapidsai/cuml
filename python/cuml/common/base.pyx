@@ -180,7 +180,8 @@ class Base:
         else:
             self.verbose = verbose
 
-        self.output_type = _check_output_type_str(cuml.global_output_type if output_type is None else output_type)
+        self.output_type = _check_output_type_str(
+            cuml.global_output_type if output_type is None else output_type)
 
         self._mirror_input = True if self.output_type == 'input' else False
 
@@ -444,13 +445,13 @@ def _check_output_type_str(output_str):
             return output_str
         else:
             raise ValueError(("output_type must be one of "
-                             "'numpy', 'cupy', 'cudf', 'numba', or 'input'."
-                             " Got: '{}'")
-                             .format(output_str))
+                              "'numpy', 'cupy', 'cudf', 'numba', or 'input'."
+                              " Got: '{}'"
+                              ).format(output_str))
     else:
         raise ValueError(("output_type must be a string"
-                          " Got: '{}'")
-                         .format(type(output_str)))
+                          " Got: '{}'"
+                          ).format(type(output_str)))
 
 
 def _input_target_to_dtype(target):

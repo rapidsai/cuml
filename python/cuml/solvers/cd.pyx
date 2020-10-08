@@ -197,7 +197,7 @@ class CD(Base):
 
         super(CD, self).__init__(handle=handle, verbose=verbose,
                                  output_type=output_type)
-        
+
         self.loss = loss
         self.alpha = alpha
         self.l1_ratio = l1_ratio
@@ -343,14 +343,13 @@ class CD(Base):
         return preds.to_output(out_type)
 
     def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "loss",
-                "alpha",
-                "l1_ratio",
-                "fit_intercept",
-                "normalize",
-                "max_iter",
-                "tol",
-                "shuffle",
-            ]
+        return super().get_param_names() + [
+            "loss",
+            "alpha",
+            "l1_ratio",
+            "fit_intercept",
+            "normalize",
+            "max_iter",
+            "tol",
+            "shuffle",
+        ]

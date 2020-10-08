@@ -763,28 +763,26 @@ class UMAP(Base):
         return ret
 
     def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "n_neighbors",
-                "n_components",
-                "n_epochs",
-                "learning_rate",
-                "min_dist",
-                "spread",
-                "set_op_mix_ratio",
-                "local_connectivity",
-                "repulsion_strength",
-                "negative_sample_rate",
-                "transform_queue_size",
-                "init",
-                "a",
-                "b",
-                "target_n_neighbors",
-                "target_weights",
-                "target_metric",
-                "hash_input",
-                "random_state",
-                "optim_batch_size",
-                "callback",
-            ]
-
+        return super().get_param_names() + [
+            "n_neighbors",
+            "n_components",
+            "n_epochs",
+            "learning_rate",
+            "min_dist",
+            "spread",
+            "set_op_mix_ratio",
+            "local_connectivity",
+            "repulsion_strength",
+            "negative_sample_rate",
+            "transform_queue_size",
+            "init",
+            "a",
+            "b",
+            "target_n_neighbors",
+            "target_weights",
+            "target_metric",
+            "hash_input",
+            "random_state",
+            "optim_batch_size",
+            "callback",
+        ]
