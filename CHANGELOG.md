@@ -11,6 +11,7 @@
 - PR #2866: Support XGBoost-style multiclass models (gradient boosted decision trees) in FIL C++
 - PR #2874: Issue warning for degraded accuracy with float64 models in Treelite
 - PR #2881: Introduces experimental batched backend for random forest
+- PR #2916: Add SKLearn multi-class GBDT model support in FIL
 
 ## Improvements
 - PR #2873: Remove empty marker kernel code for NVTX markers
@@ -74,7 +75,10 @@
 - PR #2880: Fix bugs in Auto-ARIMA when s==None
 - PR #2877: TSNE exception for n_components > 2
 - PR #2879: Update unit test for LabelEncoder on filtered input
+- PR #2932: Marking KBinsDiscretizer pytests as xfail
 - PR #2925: Fixing Owner Bug When Slicing CumlArray Objects
+- PR #2931: Fix notebook error handling in gpuCI
+
 
 # cuML 0.15.0 (Date TBD)
 
