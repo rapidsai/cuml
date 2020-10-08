@@ -80,7 +80,7 @@
 - PR #2932: Marking KBinsDiscretizer pytests as xfail
 - PR #2925: Fixing Owner Bug When Slicing CumlArray Objects
 - PR #2931: Fix notebook error handling in gpuCI
-
+- PR #2941: Fixing dask tsvd stress test failure
 
 # cuML 0.15.0 (Date TBD)
 
