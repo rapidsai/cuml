@@ -471,3 +471,32 @@ Dask Base Classes and Mixins
 
 .. autoclass:: cuml.dask.common.base.DelayedInverseTransformMixin
    :members:
+
+Experimental
+============
+
+.. warning:: The `cuml.experimental` module contains features that are still
+    under development. It is not recommended to depend on features in this
+    module as they may change in future releases.
+
+.. note:: Due to the nature of this module, it is not imported by default by
+    the root `cuml` package. Each `experimental` submodule must be imported
+    separately.
+
+Decomposition
+-------------
+.. autoclass:: cuml.experimental.decomposition.IncrementalPCA
+   :members:
+
+HyperOpt Utilities
+------------------
+.. automodule:: cuml.experimental.hyperopt_utils.plotting_utils
+   :members:
+
+Preprocessing
+-------------
+.. automodule:: cuml.experimental.preprocessing
+   :members: Binarizer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler,
+      Normalizer, RobustScaler, SimpleImputer, StandardScaler,
+      add_dummy_feature, binarize, minmax_scale, normalize,
+      PolynomialFeatures, robust_scale, scale

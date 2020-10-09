@@ -1072,41 +1072,43 @@ def maxabs_scale(X, *, axis=0, copy=True):
 
 
 class RobustScaler(TransformerMixin, BaseEstimator):
-    """Scale features using statistics that are robust to outliers.
+    """
+    Scale features using statistics that are robust to outliers.
 
-    This Scaler removes the median and scales the data according to
-    the quantile range (defaults to IQR: Interquartile Range).
-    The IQR is the range between the 1st quartile (25th quantile)
-    and the 3rd quartile (75th quantile).
+    This Scaler removes the median and scales the data according to the
+    quantile range (defaults to IQR: Interquartile Range). The IQR is the range
+    between the 1st quartile (25th quantile) and the 3rd quartile (75th
+    quantile).
 
-    Centering and scaling happen independently on each feature by
-    computing the relevant statistics on the samples in the training
-    set. Median and interquartile range are then stored to be used on
-    later data using the ``transform`` method.
+    Centering and scaling happen independently on each feature by computing the
+    relevant statistics on the samples in the training set. Median and
+    interquartile range are then stored to be used on later data using the
+    ``transform`` method.
 
-    Standardization of a dataset is a common requirement for many
-    machine learning estimators. Typically this is done by removing the mean
-    and scaling to unit variance. However, outliers can often influence the
-    sample mean / variance in a negative way. In such cases, the median and
-    the interquartile range often give better results.
+    Standardization of a dataset is a common requirement for many machine
+    learning estimators. Typically this is done by removing the mean and
+    scaling to unit variance. However, outliers can often influence the sample
+    mean / variance in a negative way. In such cases, the median and the
+    interquartile range often give better results.
 
     Parameters
     ----------
-    with_centering : boolean, True by default
+
+    with_centering : boolean, default=True
         If True, center the data before scaling.
         This will cause ``transform`` to raise an exception when attempted on
         sparse matrices, because centering them entails building a dense
         matrix which in common use cases is likely to be too large to fit in
         memory.
 
-    with_scaling : boolean, True by default
+    with_scaling : boolean, default=True
         If True, scale the data to interquartile range.
 
     quantile_range : tuple (q_min, q_max), 0.0 < q_min < q_max < 100.0
         Default: (25.0, 75.0) = (1st quantile, 3rd quantile) = IQR
         Quantile range used to calculate ``scale_``.
 
-    copy : boolean, optional, default is True
+    copy : boolean, optional, default=True
         If False, try to avoid a copy and do inplace scaling instead.
         This is not guaranteed to always work inplace; e.g. if the data is
         not a NumPy array or scipy.sparse CSR matrix, a copy may still be
@@ -1139,14 +1141,12 @@ class RobustScaler(TransformerMixin, BaseEstimator):
 
     See also
     --------
+
     robust_scale: Equivalent function without the estimator API.
 
-    :class:`cuml.decomposition.PCA`
-        Further removes the linear correlation across features with
-        'whiten=True'.
+    cuml.decomposition.PCA: Further removes the linear correlation across
+        features with ``whiten=True``.
 
-    https://en.wikipedia.org/wiki/Median
-    https://en.wikipedia.org/wiki/Interquartile_range
     """
     @_deprecate_positional_args
     def __init__(self, *, with_centering=True, with_scaling=True,
@@ -1274,12 +1274,11 @@ class RobustScaler(TransformerMixin, BaseEstimator):
 @_deprecate_positional_args
 def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
-    """Standardize a dataset along any axis
+    """
+    Standardize a dataset along any axis
 
     Center to the median and component wise scale
     according to the interquartile range.
-
-    Read more in the :ref:`User Guide <preprocessing_scaler>`.
 
     Parameters
     ----------
@@ -1325,6 +1324,7 @@ def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
     See also
     --------
     RobustScaler: Performs centering and scaling using the ``Transformer`` API
+
     """
     output_type = get_input_type(X)
     X = check_array(X, accept_sparse=('csr', 'csc'), copy=False,
@@ -2748,6 +2748,7 @@ class PowerTransformer(TransformerMixin, BaseEstimator):
 
     .. [2] G.E.P. Box and D.R. Cox, "An Analysis of Transformations", Journal
            of the Royal Statistical Society B, 26, 211-252 (1964).
+
     """
     @_deprecate_positional_args
     def __init__(self, method='yeo-johnson', *, standardize=True, copy=True):

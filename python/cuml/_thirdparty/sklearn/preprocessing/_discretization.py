@@ -42,10 +42,6 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
     """
     Bin continuous data into intervals.
 
-    Read more in the :ref:`User Guide <preprocessing_discretization>`.
-
-    .. versionadded:: 0.20
-
     Parameters
     ----------
     n_bins : int or array-like, shape (n_features,) (default=5)
