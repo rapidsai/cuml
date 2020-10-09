@@ -416,8 +416,11 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
 
     Notes
     ------
-        Inspired by Scikit-learn's implementation :
-        https://scikit-learn.org/stable/modules/random_projection.html
+    This class is unable to be used with ``sklearn.base.clone()`` and will
+    raise an exception when called.
+
+    Inspired by Scikit-learn's implementation :
+    https://scikit-learn.org/stable/modules/random_projection.html
 
     """
 
@@ -553,6 +556,9 @@ class SparseRandomProjection(Base, BaseRandomProjection):
 
     Notes
     -----
+    This class is unable to be used with ``sklearn.base.clone()`` and will
+    raise an exception when called.
+
     Inspired by Scikit-learn's `implementation
     <https://scikit-learn.org/stable/modules/random_projection.html>`_.
 

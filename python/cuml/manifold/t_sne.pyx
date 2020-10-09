@@ -193,27 +193,27 @@ class TSNE(Base):
 
     """
     def __init__(self,
-                 int n_components=2,
-                 float perplexity=30.0,
-                 float early_exaggeration=12.0,
-                 float learning_rate=200.0,
-                 int n_iter=1000,
-                 int n_iter_without_progress=300,
-                 float min_grad_norm=1e-07,
-                 str metric='euclidean',
-                 str init='random',
-                 int verbose=False,
+                 n_components=2,
+                 perplexity=30.0,
+                 early_exaggeration=12.0,
+                 learning_rate=200.0,
+                 n_iter=1000,
+                 n_iter_without_progress=300,
+                 min_grad_norm=1e-07,
+                 metric='euclidean',
+                 init='random',
+                 verbose=False,
                  random_state=None,
-                 str method='barnes_hut',
-                 float angle=0.5,
+                 method='barnes_hut',
+                 angle=0.5,
                  learning_rate_method='adaptive',
-                 int n_neighbors=90,
-                 int perplexity_max_iter=100,
-                 int exaggeration_iter=250,
-                 float pre_momentum=0.5,
-                 float post_momentum=0.8,
+                 n_neighbors=90,
+                 perplexity_max_iter=100,
+                 exaggeration_iter=250,
+                 pre_momentum=0.5,
+                 post_momentum=0.8,
                  handle=None,
-                 str output_type=None):
+                 output_type=None):
 
         super(TSNE, self).__init__(handle=handle,
                                    verbose=verbose,
@@ -306,7 +306,15 @@ class TSNE(Base):
         if learning_rate_method is None:
             self.learning_rate_method = 'none'
         else:
-            self.learning_rate_method = learning_rate_method.lower()
+            # To support `sklearn.base.clone()`, we must minimize altering
+            # argument references unless absolutely necessary. Check to see if
+            # lowering the string results in the same value, and if so, keep
+            # the same reference that was passed in. This may seem redundant,
+            # but it allows `clone()` to function without raising an error
+            if (learning_rate_method.lower() != learning_rate_method):
+                learning_rate_method = learning_rate_method.lower()
+
+            self.learning_rate_method = learning_rate_method
         self.epssq = 0.0025
         self.perplexity_tol = 1e-5
         self.min_gain = 0.01
