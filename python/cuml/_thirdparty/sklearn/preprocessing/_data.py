@@ -1078,8 +1078,7 @@ def maxabs_scale(X, *, axis=0, copy=True):
 
 
 class RobustScaler(TransformerMixin, BaseEstimator):
-    """
-    Scale features using statistics that are robust to outliers.
+    """Scale features using statistics that are robust to outliers.
 
     This Scaler removes the median and scales the data according to the
     quantile range (defaults to IQR: Interquartile Range). The IQR is the range

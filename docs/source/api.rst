@@ -488,11 +488,6 @@ Decomposition
 .. autoclass:: cuml.experimental.decomposition.IncrementalPCA
    :members:
 
-HyperOpt Utilities
-------------------
-.. automodule:: cuml.experimental.hyperopt_utils.plotting_utils
-   :members:
-
 Preprocessing
 -------------
 .. automodule:: cuml.experimental.preprocessing

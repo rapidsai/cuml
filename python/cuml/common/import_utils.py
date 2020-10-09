@@ -149,7 +149,7 @@ def check_cupy8(conf=None):
 
         # If this is a class, we dont want to wrap the class which will turn it
         # into a function. Instead, wrap __new__ to have the same effect
-        if (inspect.isclass(func)):
+        if inspect.isclass(func):
 
             func.__new__ = get_inner(func.__new__)
 
