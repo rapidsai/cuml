@@ -47,10 +47,8 @@ template <typename T>
 class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
  protected:
   void SetUp() override {
-    CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
-    CUBLAS_CHECK(cublasCreate(&cublasH));
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    allocator.reset(new raft::mr::device::default_allocator);
+    raft::handle_t handle;
+    stream = handle.get_stream();
 
     params = ::testing::TestWithParam<RsvdInputs<T>>::GetParam();
     // rSVD seems to be very sensitive to the random number sequence as well!
@@ -96,16 +94,16 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
       raft::allocate(U, m * params.k, true);
       raft::allocate(S, params.k, true);
       raft::allocate(V, n * params.k, true);
-      rsvdPerc(A, m, n, S, U, V, params.PC_perc, params.UpS_perc,
+      rsvdPerc(handle, A, m, n, S, U, V, params.PC_perc, params.UpS_perc,
                params.use_bbt, true, true, false, eig_svd_tol, max_sweeps,
-               cusolverH, cublasH, stream, allocator);
+               stream);
     } else {  // Test with directly given fixed rank
       raft::allocate(U, m * params.k, true);
       raft::allocate(S, params.k, true);
       raft::allocate(V, n * params.k, true);
-      rsvdFixedRank(A, m, n, S, U, V, params.k, params.p, params.use_bbt, true,
-                    true, true, eig_svd_tol, max_sweeps, cusolverH, cublasH,
-                    stream, allocator);
+      rsvdFixedRank(handle, A, m, n, S, U, V, params.k, params.p,
+                    params.use_bbt, true, true, true, eig_svd_tol, max_sweeps,
+                    stream);
     }
     raft::update_device(A, A_backup_cpu, m * n, stream);
 
@@ -120,9 +118,6 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
     if (left_eig_vectors_ref) CUDA_CHECK(cudaFree(left_eig_vectors_ref));
     if (right_eig_vectors_ref) CUDA_CHECK(cudaFree(right_eig_vectors_ref));
     if (sing_vals_ref) CUDA_CHECK(cudaFree(sing_vals_ref));
-    CUSOLVER_CHECK(cusolverDnDestroy(cusolverH));
-    CUBLAS_CHECK(cublasDestroy(cublasH));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
@@ -130,10 +125,8 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
   T *A, *A_backup_cpu,
     *U = nullptr, *S = nullptr, *V = nullptr, *left_eig_vectors_ref = nullptr,
     *right_eig_vectors_ref = nullptr, *sing_vals_ref = nullptr;
-  cusolverDnHandle_t cusolverH = nullptr;
-  cublasHandle_t cublasH = nullptr;
+
   cudaStream_t stream;
-  std::shared_ptr<deviceAllocator> allocator;
 };
 
 const std::vector<RsvdInputs<float>> inputs_fx = {
@@ -234,7 +227,7 @@ TEST_P(RsvdTestSquareMatrixNormF, Result) {
 
   ASSERT_TRUE(evaluateSVDByL2Norm(handle, A, U, S, V, params.n_row,
                                   params.n_col, params.k, 4 * params.tolerance,
-                                  stream));
+                                  handle.get_stream()));
 }
 
 typedef RsvdTest<double> RsvdTestSquareMatrixNormD;
@@ -243,7 +236,7 @@ TEST_P(RsvdTestSquareMatrixNormD, Result) {
 
   ASSERT_TRUE(evaluateSVDByL2Norm(handle, A, U, S, V, params.n_row,
                                   params.n_col, params.k, 4 * params.tolerance,
-                                  stream));
+                                  handle.get_stream()));
 }
 
 INSTANTIATE_TEST_CASE_P(RsvdTests, RsvdSanityCheckValF,

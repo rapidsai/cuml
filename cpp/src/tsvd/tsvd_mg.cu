@@ -136,10 +136,10 @@ void transform_impl(raft::handle_t &handle,
 
     T alpha = T(1);
     T beta = T(0);
-    LinAlg::gemm(input[i]->ptr, local_blocks[i]->size, size_t(prms.n_cols),
-                 components, trans_input[i]->ptr, local_blocks[i]->size,
-                 int(prms.n_components), CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta,
-                 cublas_h, streams[si]);
+    raft::linalg::gemm(handle, input[i]->ptr, local_blocks[i]->size,
+                       size_t(prms.n_cols), components, trans_input[i]->ptr,
+                       local_blocks[i]->size, int(prms.n_components),
+                       CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta, streams[si]);
   }
 
   for (int i = 0; i < n_streams; i++) {
@@ -209,10 +209,10 @@ void inverse_transform_impl(raft::handle_t &handle,
     T alpha = T(1);
     T beta = T(0);
 
-    LinAlg::gemm(trans_input[i]->ptr, local_blocks[i]->size,
-                 size_t(prms.n_components), components, input[i]->ptr,
-                 local_blocks[i]->size, prms.n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
-                 alpha, beta, cublas_h, streams[si]);
+    raft::linalg::gemm(handle, trans_input[i]->ptr, local_blocks[i]->size,
+                       size_t(prms.n_components), components, input[i]->ptr,
+                       local_blocks[i]->size, prms.n_cols, CUBLAS_OP_N,
+                       CUBLAS_OP_N, alpha, beta, streams[si]);
   }
 
   for (int i = 0; i < n_streams; i++) {

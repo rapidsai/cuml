@@ -95,8 +95,8 @@ class RFBatchedTest : public ::testing::TestWithParam<RfInputs> {
     T* data_row_major;
     data_row_major = (T*)allocator->allocate(data_len * sizeof(T), stream);
     cublasHandle_t cublas_h = handle->get_cublas_handle();
-    MLCommon::LinAlg::transpose(data, data_row_major, params.n_rows,
-                                params.n_cols, cublas_h, stream);
+    raft::linalg::transpose(*handle, data, data_row_major, params.n_rows,
+                            params.n_cols, stream);
 
     predict(*handle, forest, data_row_major, params.n_rows, params.n_cols,
             predicted_labels);

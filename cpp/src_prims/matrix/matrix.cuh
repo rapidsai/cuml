@@ -363,7 +363,8 @@ void getDiagonalInverseMatrix(m_t *in, int len, cudaStream_t stream) {
  * @param stream: cuda stream
  */
 template <typename m_t>
-m_t getL2Norm(raft::handle_t &handle, m_t *in, int size, cudaStream_t stream) {
+m_t getL2Norm(const raft::handle_t &handle, m_t *in, int size,
+              cudaStream_t stream) {
   cublasHandle_t cublasH = handle.get_cublas_handle();
   m_t normval = 0;
   CUBLAS_CHECK(

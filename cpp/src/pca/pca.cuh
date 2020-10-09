@@ -97,8 +97,8 @@ void pcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
   int len = prms.n_cols * prms.n_cols;
   device_buffer<math_t> cov(handle.get_device_allocator(), stream, len);
 
-  Stats::cov(cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true,
-             cublas_handle, stream);
+  Stats::cov(handle, cov.data(), input, mu, prms.n_cols, prms.n_rows, true,
+             false, true, stream);
   truncCompExpVars(handle, cov.data(), components, explained_var,
                    explained_var_ratio, prms, stream);
 

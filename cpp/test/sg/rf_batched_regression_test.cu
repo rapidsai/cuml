@@ -80,8 +80,8 @@ class RFBatchedRegTest : public ::testing::TestWithParam<RfInputs> {
                               -1, 0.0, 0.0f, false, 3536699ULL);
 
     cublasHandle_t cublas_h = handle->get_cublas_handle();
-    MLCommon::LinAlg::transpose(data_row_major, data, params.n_cols,
-                                params.n_rows, cublas_h, stream);
+    raft::linalg::transpose(*handle, data_row_major, data, params.n_cols,
+                            params.n_rows, stream);
 
     // Training part
     forest = new typename ML::RandomForestMetaData<T, T>;

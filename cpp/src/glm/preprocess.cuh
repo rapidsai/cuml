@@ -83,8 +83,8 @@ void postProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
                                                 false, true, stream, true);
   }
 
-  LinAlg::gemm(mu_input, 1, n_cols, coef, d_intercept.data(), 1, 1, CUBLAS_OP_N,
-               CUBLAS_OP_N, cublas_handle, stream);
+  raft::linalg::gemm(handle, mu_input, 1, n_cols, coef, d_intercept.data(), 1,
+                     1, CUBLAS_OP_N, CUBLAS_OP_N, stream);
 
   LinAlg::subtract(d_intercept.data(), mu_labels, d_intercept.data(), 1,
                    stream);
