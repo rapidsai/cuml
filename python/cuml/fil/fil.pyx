@@ -410,6 +410,11 @@ class ForestInference(Base):
      * Inference uses a dense matrix format, which is efficient for many
        problems but can be suboptimal for sparse datasets.
      * Only binary classification and regression are supported.
+     * Many other random forest implementations including LightGBM, and SKLearn
+       GBDTs make use of 64-bit floating point parameters, but the underlying
+       library for ForestInference uses only 32-bit parameters. Because of the
+       truncation that will occur when loading such models into
+       ForestInference, you may observe a slight degradation in accuracy.
 
     Parameters
     ----------
@@ -612,6 +617,9 @@ class ForestInference(Base):
 
         """
         cuml_fm = ForestInference(handle=handle)
+        logger.warn("Treelite currently does not support float64 model"
+                    " parameters. Accuracy may degrade relative to"
+                    " native sklearn invocation.")
         tl_model = tl_skl.import_model(skl_model)
         cuml_fm.load_from_treelite_model(
             tl_model, algo=algo, output_class=output_class,
