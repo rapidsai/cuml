@@ -159,10 +159,10 @@ void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
       if (cbs == 0) break;
 
       raft::update_device(indices.data(), &rand_indices[j], cbs, stream);
-      Matrix::copyRows(input, n_rows, n_cols, input_batch.data(),
-                       indices.data(), cbs, stream);
-      Matrix::copyRows(labels, n_rows, 1, labels_batch.data(), indices.data(),
-                       cbs, stream);
+      raft::matrix::copyRows(input, n_rows, n_cols, input_batch.data(),
+                             indices.data(), cbs, stream);
+      raft::matrix::copyRows(labels, n_rows, 1, labels_batch.data(),
+                             indices.data(), cbs, stream);
 
       if (loss == ML::loss_funct::SQRD_LOSS) {
         Functions::linearRegLossGrads(handle, input_batch.data(), cbs, n_cols,

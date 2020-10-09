@@ -65,8 +65,8 @@ void fit_impl(raft::handle_t &handle,
   ML::calEig(handle, cov.ptr, components_all.data(), explained_var_all.data(),
              prms, streams[0]);
 
-  Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
-                          prms.n_components, prms.n_cols, streams[0]);
+  raft::matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
+                                prms.n_components, prms.n_cols, streams[0]);
 
   T scalar = T(1);
   raft::matrix::seqRoot(explained_var_all.data(), singular_vals, scalar,

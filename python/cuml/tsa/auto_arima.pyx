@@ -242,8 +242,8 @@ class AutoARIMA(Base):
         ic = ic.lower()
         test = test.lower()
         seasonal_test = seasonal_test.lower()
-        if s == 1:  # R users might use s=1 for a non-seasonal dataset
-            s = None
+        if s is None or s == 1:  # R users might use s=1 for non-seasonal data
+            s = 0
         if method == "auto":
             method = "css" if self.n_obs >= 100 and s >= 4 else "ml"
 

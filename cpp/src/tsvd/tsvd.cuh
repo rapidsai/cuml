@@ -97,10 +97,10 @@ void calEig(const raft::handle_t &handle, math_t *in, math_t *components,
                   cusolver_handle, stream, allocator);
   }
 
-  Matrix::colReverse(components, prms.n_cols, prms.n_cols, stream);
+  raft::matrix::colReverse(components, prms.n_cols, prms.n_cols, stream);
   raft::linalg::transpose(components, prms.n_cols, stream);
 
-  Matrix::rowReverse(explained_var, prms.n_cols, 1, stream);
+  raft::matrix::rowReverse(explained_var, prms.n_cols, 1, stream);
 }
 
 /**
@@ -196,8 +196,8 @@ void tsvdFit(const raft::handle_t &handle, math_t *input, math_t *components,
   calEig(handle, input_cross_mult.data(), components_all.data(),
          explained_var_all.data(), prms, stream);
 
-  Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
-                          n_components, prms.n_cols, stream);
+  raft::matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
+                                n_components, prms.n_cols, stream);
 
   math_t scalar = math_t(1);
   raft::matrix::seqRoot(explained_var_all.data(), singular_vals, scalar,

@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <cuda_utils.cuh>
 #include <linalg/rsvd.cuh>
+#include <raft/handle.hpp>
 #include <random/rng.cuh>
 #include "test_utils.h"
 

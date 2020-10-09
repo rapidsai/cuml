@@ -156,17 +156,18 @@ void fit_impl(raft::handle_t &handle,
     raft::matrix::ratio(handle, explained_var_all.data(),
                         explained_var_ratio_all.data(), prms.n_cols, stream);
 
-    Matrix::truncZeroOrigin(sVector.data(), prms.n_cols, singular_vals,
-                            prms.n_components, 1, stream);
+    raft::matrix::truncZeroOrigin(sVector.data(), prms.n_cols, singular_vals,
+                                  prms.n_components, 1, stream);
 
-    Matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols,
-                            explained_var, prms.n_components, 1, stream);
-    Matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
-                            explained_var_ratio, prms.n_components, 1, stream);
+    raft::matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols,
+                                  explained_var, prms.n_components, 1, stream);
+    raft::matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
+                                  explained_var_ratio, prms.n_components, 1,
+                                  stream);
 
     raft::linalg::transpose(vMatrix.data(), prms.n_cols, stream);
-    Matrix::truncZeroOrigin(vMatrix.data(), prms.n_cols, components,
-                            prms.n_components, prms.n_cols, stream);
+    raft::matrix::truncZeroOrigin(vMatrix.data(), prms.n_cols, components,
+                                  prms.n_components, prms.n_cols, stream);
 
     Matrix::opg::deallocate(h, uMatrixParts, input_desc, rank, stream);
 
