@@ -44,7 +44,6 @@ def digitize(x, bins):
     return out
 
 
-@check_cupy8()
 class KBinsDiscretizer(TransformerMixin, BaseEstimator):
     """
     Bin continuous data into intervals.
@@ -141,6 +140,7 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
 
     """
 
+    @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, n_bins=5, *, encode='onehot', strategy='quantile'):
         self.n_bins = n_bins

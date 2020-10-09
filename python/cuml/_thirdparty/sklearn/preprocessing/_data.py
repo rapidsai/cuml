@@ -843,7 +843,6 @@ class StandardScaler(TransformerMixin, BaseEstimator):
         return {'allow_nan': True}
 
 
-@check_cupy8()
 class MaxAbsScaler(TransformerMixin, BaseEstimator):
     """Scale each feature by its maximum absolute value.
 
@@ -896,6 +895,7 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
     transform.
     """
 
+    @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, *, copy=True):
         self.copy = copy
@@ -1345,7 +1345,6 @@ def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
     return to_output_type(X, output_type)
 
 
-@check_cupy8()
 class PolynomialFeatures(TransformerMixin, BaseEstimator):
     """Generate polynomial and interaction features.
 
@@ -1412,6 +1411,7 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
     polynomially in the number of features of the input array, and
     exponentially in the degree. High degrees can cause overfitting.
     """
+    @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, degree=2, *, interaction_only=False, include_bias=True,
                  order='C'):
@@ -1421,6 +1421,7 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
         self.order = order
 
     @staticmethod
+    @check_cupy8()
     def _combinations(n_features, degree, interaction_only, include_bias):
         comb = (combinations if interaction_only else combinations_w_r)
         start = int(not include_bias)
@@ -1715,7 +1716,6 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
         return X
 
 
-@check_cupy8()
 class Normalizer(TransformerMixin, BaseEstimator):
     """Normalize samples individually to unit norm.
 
@@ -1768,6 +1768,7 @@ class Normalizer(TransformerMixin, BaseEstimator):
     normalize: Equivalent function without the estimator API.
     """
 
+    @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, norm='l2', *, copy=True):
         self.norm = norm

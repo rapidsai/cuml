@@ -144,7 +144,6 @@ class _BaseImputer(TransformerMixin, BaseEstimator):
         return {'allow_nan': is_scalar_nan(self.missing_values)}
 
 
-@check_cupy8()
 class SimpleImputer(_BaseImputer):
     """Imputation transformer for completing missing values.
 
@@ -227,6 +226,7 @@ class SimpleImputer(_BaseImputer):
     upon :meth:`transform` if strategy is not "constant".
 
     """
+    @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, *, missing_values=np.nan, strategy="mean",
                  fill_value=None, verbose=0, copy=True, add_indicator=False):

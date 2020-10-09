@@ -127,14 +127,17 @@ def check_cupy8(conf=None):
     Will otherwise raise an error in case CuPy 8.0+ is unavailable.
 
     """
+    def check_cupy8_dec(func):
 
-    def get_inner(f):
+        assert not inspect.isclass(func), \
+            ("Do not use this decorator on classes. Instead decorate "
+             "__init__  and any static or class methods.")
 
-        @wraps(f)
+        @wraps(func)
         def inner(*args, **kwargs):
             import cupy as cp
             if LooseVersion(str(cp.__version__)) >= LooseVersion('8.0'):
-                return f(*args, **kwargs)
+                return func(*args, **kwargs)
             else:
                 err_msg = 'Could not import required module CuPy 8.0+'
                 if conf == 'pytest':
@@ -142,18 +145,5 @@ def check_cupy8(conf=None):
                     pytest.skip(err_msg)
                 else:
                     raise ImportError(err_msg)
-
         return inner
-
-    def check_cupy8_dec(func):
-
-        # If this is a class, we dont want to wrap the class which will turn it
-        # into a function. Instead, wrap __new__ to have the same effect
-        if inspect.isclass(func):
-
-            func.__new__ = get_inner(func.__new__)
-
-            return func
-
-        return get_inner(func)
     return check_cupy8_dec
