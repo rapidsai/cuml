@@ -151,7 +151,6 @@ void TemporaryMemory<T, L>::LevelMemAllocator(
   h_colstart =
     new MLCommon::host_buffer<unsigned int>(host_allocator, stream, parentsz);
   totalmem += ncols * sizeof(int) + parentsz * sizeof(int);
-  // }
   //CUB memory for gather algorithms
   size_t temp_storage_bytes = 0;
   void* cub_buffer = NULL;
