@@ -4,6 +4,7 @@
 
 ## Improvements
 - PR #2902: `matrix/matrix.cuh` in RAFT namespacing
+- PR #2903: Moving linalg's gemm, gemv, transpose to RAFT namespaces
 
 ## Bug Fixes
 
@@ -52,10 +53,7 @@
 - PR #2850: Clean up unused params in paramsPCA
 - PR #2871: Add timing function to utils
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
-<<<<<<< HEAD
 - PR #2892: Update ci/local/README.md
-- PR #2903: Moving linalg's gemm, gemv, transpose to RAFT namespaces
-=======
 - PR #2892 Update ci/local/README.md
 - PR #2867: improve stability of FIL benchmark measurements
 - PR #2798: Add python tests for FIL multiclass classification of lightgbm models
@@ -63,7 +61,6 @@
 - PR #2910: Adding Support for CuPy 8.x
 - PR #2914: Add tests for XGBoost multi-class models in FIL
 - PR #2930: Pin libfaiss to <=1.6.3
->>>>>>> fc0bcb1062f6c16dd233fd9f19e565cf13937383
 
 ## Bug Fixes
 - PR #2885: Changing test target for NVTX wrapper test
