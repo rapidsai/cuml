@@ -200,7 +200,7 @@ def test_make_classification(n_samples, n_features, hypercube, n_classes,
     assert y.shape == (n_samples, )
 
     assert X.dtype == dtype
-    assert y.dtype == np.int
+    assert y.dtype == np.int64
 
     assert len(X.chunks[0]) == n_parts
     assert len(y.chunks[0]) == n_parts
