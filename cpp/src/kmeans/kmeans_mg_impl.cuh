@@ -76,7 +76,7 @@ void initRandom(const raft::handle_t &handle, const KMeansParams &params,
                                    nCentroidsSampledInRank, params.seed,
                                    stream);
 
-  std::vector<int> displs(n_ranks);
+  std::vector<size_t> displs(n_ranks);
   thrust::exclusive_scan(
     thrust::host, nCentroidsElementsToReceiveFromRank.begin(),
     nCentroidsElementsToReceiveFromRank.end(), displs.begin());
@@ -292,7 +292,7 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
                       nPtsSampledByRank.end(), sizes.begin(),
                       [&](int val) { return val * n_features; });
 
-    std::vector<int> displs(n_rank);
+    std::vector<size_t> displs(n_rank);
     thrust::exclusive_scan(thrust::host, sizes.begin(), sizes.end(),
                            displs.begin());
 
