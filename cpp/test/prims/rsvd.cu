@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <cuda_utils.cuh>
 #include <linalg/rsvd.cuh>
+#include <raft/handle.hpp>
 #include <random/rng.cuh>
 #include "test_utils.h"
 
@@ -229,32 +230,20 @@ TEST_P(RsvdSanityCheckRightVecD, Result) {
 
 typedef RsvdTest<float> RsvdTestSquareMatrixNormF;
 TEST_P(RsvdTestSquareMatrixNormF, Result) {
-  cublasHandle_t cublasH;
-  CUBLAS_CHECK(cublasCreate(&cublasH));
-  cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
-  std::shared_ptr<deviceAllocator> allocator(
-    new raft::mr::device::default_allocator);
-  ASSERT_TRUE(evaluateSVDByL2Norm(A, U, S, V, params.n_row, params.n_col,
-                                  params.k, 4 * params.tolerance, cublasH,
-                                  stream, allocator));
-  CUBLAS_CHECK(cublasDestroy(cublasH));
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  raft::handle_t handle;
+
+  ASSERT_TRUE(evaluateSVDByL2Norm(handle, A, U, S, V, params.n_row,
+                                  params.n_col, params.k, 4 * params.tolerance,
+                                  stream));
 }
 
 typedef RsvdTest<double> RsvdTestSquareMatrixNormD;
 TEST_P(RsvdTestSquareMatrixNormD, Result) {
-  cublasHandle_t cublasH;
-  CUBLAS_CHECK(cublasCreate(&cublasH));
-  cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
-  std::shared_ptr<deviceAllocator> allocator(
-    new raft::mr::device::default_allocator);
-  ASSERT_TRUE(evaluateSVDByL2Norm(A, U, S, V, params.n_row, params.n_col,
-                                  params.k, 4 * params.tolerance, cublasH,
-                                  stream, allocator));
-  CUBLAS_CHECK(cublasDestroy(cublasH));
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  raft::handle_t handle;
+
+  ASSERT_TRUE(evaluateSVDByL2Norm(handle, A, U, S, V, params.n_row,
+                                  params.n_col, params.k, 4 * params.tolerance,
+                                  stream));
 }
 
 INSTANTIATE_TEST_CASE_P(RsvdTests, RsvdSanityCheckValF,
