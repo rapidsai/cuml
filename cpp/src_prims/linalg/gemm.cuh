@@ -22,8 +22,8 @@
 #include <raft/handle.hpp>
 #include "cutlass_wrappers.cuh"
 
-namespace raft {
-namespace linalg {
+namespace MLCommon {
+namespace LinAlg {
 
 /**
  * @brief the gemm function for the cases with detailed epilogue customization
@@ -136,6 +136,12 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
     0,  // missing final lambda here
     stream);
 }
+
+}  // namespace LinAlg
+}  // namespace MLCommon
+
+namespace raft {
+namespace linalg {
 
 /**
  * @brief the wrapper of cublas gemm function

@@ -96,12 +96,11 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     reinterpret_cast<EffOutType *>(pD);  // Pretend to be EffOutType;
 
   typedef cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
-  typedef raft::linalg::ThreadDiffSquaredAdd<
+  typedef LinAlg::ThreadDiffSquaredAdd<
     AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, InType, InType, AccType>
     MainLoopFunctor_;
-  typedef raft::linalg::CustomGemmConfig<InType, AccType, EffOutType,
-                                         OutputTile_, AccumulatorsPerThread_,
-                                         MainLoopFunctor_>
+  typedef LinAlg::CustomGemmConfig<InType, AccType, EffOutType, OutputTile_,
+                                   AccumulatorsPerThread_, MainLoopFunctor_>
     GemmConfig_;
 
   typedef UnexpandedDistanceFragmentMultiplyAdd FragmentMultiplyAdd_;
@@ -146,10 +145,9 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     gemm_m = m;
     gemm_n = n;
   }
-  raft::linalg::gemm<InType, AccType, EffOutType, OutputTile_,
-                     AccumulatorsPerThread_, MainLoopFunctor_, Index_,
-                     GemmConfig_, EpilogueFunctor_, GemmEpilogueTraits_,
-                     GemmEpilogue_>(
+  LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
+               MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
+               GemmEpilogueTraits_, GemmEpilogue_>(
     transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
     (EffOutType)0, nullptr, ldd, pDCast,
     [enable_sqrt] HD(EpiParams & p) {

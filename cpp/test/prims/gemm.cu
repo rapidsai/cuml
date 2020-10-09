@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 #include <linalg/gemm.cuh>
 
-namespace raft {
-namespace linalg {
+namespace MLCommon {
+namespace LinAlg {
 
 template <typename T>
 __global__ void fillKernel(T *arr, T val, int N) {
@@ -64,5 +64,5 @@ TEST(Gemm, Gemm_128x128x8) {
   CUDA_CHECK(cudaFree(D));
 }
 
-}  // namespace linalg
-}  // namespace raft
+}  // namespace LinAlg
+}  // namespace MLCommon

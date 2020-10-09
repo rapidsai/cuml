@@ -95,9 +95,8 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
   typedef cutlass::gemm::ThreadMultiplyAdd<
     AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, InType, InType, AccType>
     MainLoopFunctor_;
-  typedef raft::linalg::CustomGemmConfig<InType, AccType, EffOutType,
-                                         OutputTile_, AccumulatorsPerThread_,
-                                         MainLoopFunctor_>
+  typedef LinAlg::CustomGemmConfig<InType, AccType, EffOutType, OutputTile_,
+                                   AccumulatorsPerThread_, MainLoopFunctor_>
     GemmConfig_;
 
   typedef ExpandedDistanceEpilogueFunctor<InType, AccType, GemmConfig_,
@@ -145,10 +144,9 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
     cvec = row_vec;
     rvec = col_vec;
   }
-  raft::linalg::gemm<InType, AccType, EffOutType, OutputTile_,
-                     AccumulatorsPerThread_, MainLoopFunctor_, Index_,
-                     GemmConfig_, EpilogueFunctor_, GemmEpilogueTraits_,
-                     GemmEpilogue_>(
+  LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
+               MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
+               GemmEpilogueTraits_, GemmEpilogue_>(
     transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
     (EffOutType)0, nullptr, ldd, pDCast,
     [cvec, rvec, enable_sqrt] HD(EpiParams & p) {
