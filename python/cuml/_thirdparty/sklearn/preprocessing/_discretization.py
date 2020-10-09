@@ -1,9 +1,16 @@
 # -*- coding: utf-8 -*-
 
-# Author: Henry Lin <hlin117@gmail.com>
+# Original authors from Sckit-Learn:
+#         Henry Lin <hlin117@gmail.com>
 #         Tom Dupré la Tour
 
 # License: BSD
+
+
+# This code originates from the Scikit-Learn library,
+# it was since modified to allow GPU acceleration.
+# This code is under BSD 3 clause license.
+# Authors mentioned above do not endorse or promote this production.
 
 
 import numbers
@@ -84,7 +91,7 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
 
     See Also
     --------
-     sklearn.preprocessing.Binarizer : Class used to bin values as ``0`` or
+     cuml.preprocessing.Binarizer : Class used to bin values as ``0`` or
         ``1`` based on a parameter ``threshold``.
 
     Notes
