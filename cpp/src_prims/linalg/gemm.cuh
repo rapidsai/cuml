@@ -22,6 +22,8 @@
 #include <raft/handle.hpp>
 #include "cutlass_wrappers.cuh"
 
+// cutlass based gemm is being kept in this namespace so that RAFT does not
+// have to take cutlass-dependency when cublas based gemm is moved to RAFT
 namespace MLCommon {
 namespace LinAlg {
 
