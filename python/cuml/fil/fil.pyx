@@ -134,8 +134,8 @@ cdef class TreeliteModel():
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "lightgbm":
             logger.warn("Treelite currently does not support float64 model"
-                        " parameters. Accuracy may degrade relative to"
-                        " native LightGBM invocation.")
+                        " parameters. Accuracy may degrade slightly relative"
+                        " to native LightGBM invocation.")
             res = TreeliteLoadLightGBMModel(filename_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
@@ -618,7 +618,7 @@ class ForestInference(Base):
         """
         cuml_fm = ForestInference(handle=handle)
         logger.warn("Treelite currently does not support float64 model"
-                    " parameters. Accuracy may degrade relative to"
+                    " parameters. Accuracy may degrade slightly relative to"
                     " native sklearn invocation.")
         tl_model = tl_skl.import_model(skl_model)
         cuml_fm.load_from_treelite_model(
