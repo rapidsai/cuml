@@ -55,7 +55,7 @@ class RFBatchedTest : public ::testing::TestWithParam<RfInputs> {
                     params.max_features, params.n_bins, params.split_algo,
                     params.min_rows_per_node, params.min_impurity_decrease,
                     params.bootstrap_features, params.split_criterion, false,
-                    false, true);
+                    true);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
                       params.rows_sample, -1, params.n_streams, tree_params);
