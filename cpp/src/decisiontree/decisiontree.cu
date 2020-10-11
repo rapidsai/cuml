@@ -34,7 +34,6 @@ namespace DecisionTree {
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
  * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
- * @param[in] cfg_shuffle_features: whether to shuffle column ids or not
  * @param[in] cfg_use_experimental_backend: Switch to using experimental
               backend; default false
  * @param[in] cfg_max_batch_size: batch size for experimental backend
@@ -44,7 +43,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_split_algo, int cfg_min_rows_per_node,
                      float cfg_min_impurity_decrease,
                      bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
-                     bool cfg_quantile_per_tree, bool cfg_shuffle_features,
+                     bool cfg_quantile_per_tree,
                      bool cfg_use_experimental_backend,
                      int cfg_max_batch_size) {
   params.max_depth = cfg_max_depth;
@@ -56,7 +55,6 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
   params.bootstrap_features = cfg_bootstrap_features;
   params.split_criterion = cfg_split_criterion;
   params.quantile_per_tree = cfg_quantile_per_tree;
-  params.shuffle_features = cfg_shuffle_features;
   params.use_experimental_backend = cfg_use_experimental_backend;
   params.min_impurity_decrease = cfg_min_impurity_decrease;
   params.max_batch_size = cfg_max_batch_size;
@@ -89,7 +87,6 @@ void print(const DecisionTreeParams params) {
   CUML_LOG_DEBUG("bootstrap_features: %d", params.bootstrap_features);
   CUML_LOG_DEBUG("split_criterion: %d", params.split_criterion);
   CUML_LOG_DEBUG("quantile_per_tree: %d", params.quantile_per_tree);
-  CUML_LOG_DEBUG("shuffle_features: %d", params.shuffle_features);
   CUML_LOG_DEBUG("min_impurity_decrease: %f", params.min_impurity_decrease);
   CUML_LOG_DEBUG("use_experimental_backend: %s",
                  params.use_experimental_backend ? "True" : "False");
